@@ -1,0 +1,92 @@
+{
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "Αρχείο",
+    "newProject": "Νέο Έργο",
+    "openProject": "Άνοιγμα Έργου",
+    "saveProject": "Αποθήκευση Έργου",
+    "closeProject": "Κλείσιμο Έργου",
+    "openProjectFolder": "Άνοιγμα Φακέλου Έργου",
+    "view": "Προβολή",
+    "toggleDarkMode": "Εναλλαγή Σκοτεινής Λειτουργίας",
+    "changeAccentColor": "Αλλαγή Χρώματος Τονισμού",
+    "language": "Γλώσσα"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "Αναπαραγωγή ηχητικών σημάτων για ζωντανές εκδηλώσεις",
+    "newProject": "Νέο Έργο",
+    "openProject": "Άνοιγμα Έργου"
+  },
+  "project": {
+    "enterName": "Εισάγετε Όνομα Έργου",
+    "placeholder": "Το Έργο μου",
+    "cancel": "Ακύρωση",
+    "ok": "Εντάξει"
+  },
+  "playlist": {
+    "title": "Λίστα Αναπαραγωγής",
+    "import": "Εισαγωγή Ήχου",
+    "addGroup": "Προσθήκη Ομάδας",
+    "noItems": "Δεν υπάρχουν στοιχεία στη λίστα"
+  },
+  "cart": {
+    "title": "Αναπαραγωγή Καρτών",
+    "emptySlot": "Κάντε κλικ για εισαγωγή ή σύρετε στοιχείο εδώ"
+  },
+  "properties": {
+    "title": "Ιδιότητες",
+    "noSelection": "Επιλέξτε ένα στοιχείο για προβολή ιδιοτήτων",
+    "displayName": "Όνομα Εμφάνισης",
+    "color": "Χρώμα",
+    "inPoint": "Σημείο Εισόδου",
+    "outPoint": "Σημείο Εξόδου",
+    "volume": "Ένταση",
+    "endBehavior": "Συμπεριφορά Τέλους",
+    "startBehavior": "Συμπεριφορά Έναρξης",
+    "duckingBehavior": "Συμπεριφορά Μείωσης",
+    "fadeOutDuration": "Διάρκεια Σταδιακής Μείωσης",
+    "duckFadeIn": "Σταδιακή Αύξηση Μείωσης",
+    "duckFadeOut": "Σταδιακή Μείωση Μείωσης",
+    "children": "Παιδιά",
+    "seconds": "δευτερόλεπτα"
+  },
+  "playback": {
+    "panic": "ΠΑΝΙΚΟΣ",
+    "noActiveCues": "Δεν υπάρχουν ενεργά σήματα",
+    "play": "Αναπαραγωγή",
+    "stop": "Διακοπή",
+    "delete": "Διαγραφή",
+    "edit": "Επεξεργασία"
+  },
+  "endBehavior": {
+    "nothing": "Τίποτα",
+    "next": "Αναπαραγωγή Επόμενου",
+    "gotoItem": "Μετάβαση σε Στοιχείο",
+    "gotoIndex": "Μετάβαση σε Ευρετήριο",
+    "loop": "Επανάληψη"
+  },
+  "startBehavior": {
+    "nothing": "Τίποτα",
+    "playNext": "Αναπαραγωγή Επόμενου",
+    "playItem": "Αναπαραγωγή Στοιχείου",
+    "playIndex": "Αναπαραγωγή Ευρετηρίου",
+    "playFirst": "Αναπαραγωγή Πρώτου",
+    "playAll": "Αναπαραγωγή Όλων"
+  },
+  "duckingBehavior": {
+    "stopAll": "Διακοπή Όλων των Άλλων Σημάτων",
+    "noDucking": "Χωρίς Μείωση",
+    "duckOthers": "Μείωση Άλλων",
+    "duckLevel": "Επίπεδο Μείωσης"
+  },
+  "actions": {
+    "delete": "Διαγραφή",
+    "confirm": "Είστε σίγουροι;"
+  },
+  "colors": {
+    "chooseAccent": "Επιλέξτε Χρώμα Τονισμού"
+  }
+}

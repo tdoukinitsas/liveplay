@@ -166,6 +166,27 @@ function createMenu() {
           }
         },
         { type: 'separator' },
+        {
+          label: 'Language',
+          submenu: [
+            {
+              label: 'English',
+              type: 'radio',
+              checked: true,
+              click: () => {
+                mainWindow.webContents.send('menu-change-language', 'en');
+              }
+            },
+            {
+              label: 'Ελληνικά',
+              type: 'radio',
+              click: () => {
+                mainWindow.webContents.send('menu-change-language', 'el');
+              }
+            }
+          ]
+        },
+        { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
         { role: 'toggleDevTools' }

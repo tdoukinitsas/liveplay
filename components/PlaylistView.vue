@@ -1,21 +1,21 @@
 <template>
   <div class="playlist-view">
     <div class="playlist-header">
-      <h2>Playlist</h2>
+      <h2>{{ t('playlist.title') }}</h2>
       <div class="playlist-actions">
         <button class="action-btn" @click="handleImport">
-          <span>Import Audio</span>
+          <span>{{ t('playlist.importAudio') }}</span>
         </button>
         <button class="action-btn" @click="handleAddGroup">
-          <span>Add Group</span>
+          <span>{{ t('playlist.addGroup') }}</span>
         </button>
       </div>
     </div>
     
     <div class="playlist-content" @drop="handleDrop" @dragover.prevent>
       <div v-if="currentProject?.items.length === 0" class="empty-state">
-        <p>No items in playlist</p>
-        <p class="hint">Import audio files or drag them here</p>
+        <p>{{ t('playlist.noItems') }}</p>
+        <p class="hint">{{ t('playlist.importHint') }}</p>
       </div>
       
       <div v-else class="item-list">
@@ -37,6 +37,7 @@ import type { AudioItem, GroupItem } from '~/types/project';
 import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM } from '~/types/project';
 
 const { currentProject, addItem, updateIndices, saveProject, triggerWaveformUpdate } = useProject();
+const { t } = useLocalization();
 
 const handleImport = async () => {
   if (!import.meta.client || !window.electronAPI || !currentProject.value) return;

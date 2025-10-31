@@ -10,7 +10,7 @@
   >
     <div class="cue-header">
       <span class="cue-name">{{ cue.displayName }}</span>
-      <button class="stop-btn" @click="handleStop">×</button>
+      <button class="stop-btn" @click="handleStop" :title="t('actions.stop')">×</button>
     </div>
     
     <div class="cue-progress">
@@ -52,6 +52,7 @@ const props = defineProps<{
 }>();
 
 const { stopCue } = useAudioEngine();
+const { t } = useLocalization();
 
 // Use the cue's currentTime directly (updated by the audio engine)
 const progress = computed(() => {

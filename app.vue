@@ -24,6 +24,7 @@
 
 <script setup lang="ts">
 const { currentProject, saveProject } = useProject();
+const { setLocale } = useLocalization();
 const theme = useState('theme', () => 'dark');
 
 // Color picker for accent color
@@ -50,6 +51,10 @@ onMounted(() => {
 
     window.electronAPI.onMenuChangeAccentColor(() => {
       showColorPicker.value = true;
+    });
+
+    window.electronAPI.onMenuChangeLanguage((event: any, locale: string) => {
+      setLocale(locale);
     });
   }
 });

@@ -3,13 +3,13 @@
     <div class="controls-left">
       <button class="control-btn panic-btn" @click="handlePanic" :disabled="activeCues.size === 0">
         <span class="icon">⚠</span>
-        <span>PANIC</span>
+        <span>{{ t('playback.panic') }}</span>
       </button>
     </div>
     
     <div class="active-cues">
       <div v-if="activeCues.size === 0" class="no-cues">
-        No active cues
+        {{ t('playback.noActiveCues') }}
       </div>
       
       <div v-else class="cue-list">
@@ -25,6 +25,7 @@
 
 <script setup lang="ts">
 const { activeCues, panicStop } = useAudioEngine();
+const { t } = useLocalization();
 
 const handlePanic = () => {
   panicStop();

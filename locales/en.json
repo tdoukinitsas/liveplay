@@ -1,0 +1,92 @@
+{
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "File",
+    "newProject": "New Project",
+    "openProject": "Open Project",
+    "saveProject": "Save Project",
+    "closeProject": "Close Project",
+    "openProjectFolder": "Open Project Folder",
+    "view": "View",
+    "toggleDarkMode": "Toggle Dark Mode",
+    "changeAccentColor": "Change Accent Color",
+    "language": "Language"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "Audio cue playback for live events",
+    "newProject": "New Project",
+    "openProject": "Open Project"
+  },
+  "project": {
+    "enterName": "Enter Project Name",
+    "placeholder": "My Project",
+    "cancel": "Cancel",
+    "ok": "OK"
+  },
+  "playlist": {
+    "title": "Playlist",
+    "import": "Import Audio",
+    "addGroup": "Add Group",
+    "noItems": "No items in playlist"
+  },
+  "cart": {
+    "title": "Cart Player",
+    "emptySlot": "Click to import or drag item here"
+  },
+  "properties": {
+    "title": "Properties",
+    "noSelection": "Select an item to view properties",
+    "displayName": "Display Name",
+    "color": "Color",
+    "inPoint": "In Point",
+    "outPoint": "Out Point",
+    "volume": "Volume",
+    "endBehavior": "End Behavior",
+    "startBehavior": "Start Behavior",
+    "duckingBehavior": "Ducking Behavior",
+    "fadeOutDuration": "Fade Out Duration",
+    "duckFadeIn": "Duck Fade In",
+    "duckFadeOut": "Duck Fade Out",
+    "children": "Children",
+    "seconds": "seconds"
+  },
+  "playback": {
+    "panic": "PANIC",
+    "noActiveCues": "No active cues",
+    "play": "Play",
+    "stop": "Stop",
+    "delete": "Delete",
+    "edit": "Edit"
+  },
+  "endBehavior": {
+    "nothing": "Nothing",
+    "next": "Play Next",
+    "gotoItem": "Go to Item",
+    "gotoIndex": "Go to Index",
+    "loop": "Loop"
+  },
+  "startBehavior": {
+    "nothing": "Nothing",
+    "playNext": "Play Next",
+    "playItem": "Play Item",
+    "playIndex": "Play Index",
+    "playFirst": "Play First",
+    "playAll": "Play All"
+  },
+  "duckingBehavior": {
+    "stopAll": "Stop All Other Cues",
+    "noDucking": "No Ducking",
+    "duckOthers": "Duck Others",
+    "duckLevel": "Duck Level"
+  },
+  "actions": {
+    "delete": "Delete",
+    "confirm": "Are you sure?"
+  },
+  "colors": {
+    "chooseAccent": "Choose Accent Color"
+  }
+}

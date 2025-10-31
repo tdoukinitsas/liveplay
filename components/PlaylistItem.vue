@@ -49,9 +49,9 @@
       </div>
       
       <div class="item-actions">
-        <button class="item-btn play" @click.stop="handlePlay" title="Play">▶</button>
-        <button class="item-btn stop" @click.stop="handleStop" title="Stop" v-if="isPlaying">⏹</button>
-        <button class="item-btn delete" @click.stop="handleDelete" title="Delete">🗑</button>
+        <button class="item-btn play" @click.stop="handlePlay" :title="t('actions.play')">▶</button>
+        <button class="item-btn stop" @click.stop="handleStop" :title="t('actions.stop')" v-if="isPlaying">⏹</button>
+        <button class="item-btn delete" @click.stop="handleDelete" :title="t('actions.delete')">🗑</button>
       </div>
     </div>
     
@@ -76,6 +76,7 @@ const props = defineProps<{
 
 const { selectedItem, removeItem, findItemByUuid, currentProject, waveformUpdateKey } = useProject();
 const { playCue, stopCue, activeCues, triggerGroup } = useAudioEngine();
+const { t } = useLocalization();
 
 const isExpanded = ref(props.item.type === 'group' ? props.item.isExpanded : false);
 const waveformCanvas = ref<HTMLCanvasElement | null>(null);
@@ -117,7 +118,7 @@ const drawWaveform = () => {
   const rgb = textColor.match(/\d+/g);
   if (!rgb) return;
   
-  ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.3)`;
+  ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.1)`;
   
   const peaks = audioItem.waveform.peaks;
   const barWidth = rect.width / peaks.length;
@@ -516,14 +517,15 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .item-index {
-  font-family: 'Courier New', monospace;
   font-size: 12px;
+  font-size: 1.5em;
   color: var(--color-text-secondary);
   min-width: 40px;
 }
 
 .item-name {
-  font-weight: 500;
+  font-weight: 700;
+  font-size: 1.5em;
   flex: 1;
   min-width: 0;
   overflow: hidden;

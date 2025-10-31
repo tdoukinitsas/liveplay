@@ -1,17 +1,17 @@
 <template>
   <div class="properties-panel">
     <div class="properties-header">
-      <h3>Properties</h3>
+      <h3>{{ t('properties.title') }}</h3>
       <button class="close-btn" @click="handleClose">×</button>
     </div>
     
     <div class="properties-content">
       <!-- Base properties (all items) -->
       <div class="property-section">
-        <h4>Basic Info</h4>
+        <h4>{{ t('properties.basicInfo') }}</h4>
         
         <div class="property-field">
-          <label>Display Name</label>
+          <label>{{ t('properties.displayName') }}</label>
           <input 
             v-model="selectedItem.displayName" 
             type="text" 
@@ -20,7 +20,7 @@
         </div>
         
         <div class="property-field">
-          <label>Color</label>
+          <label>{{ t('properties.color') }}</label>
           <div class="color-picker">
             <button
               v-for="color in PRESET_COLORS"
@@ -34,7 +34,7 @@
         </div>
         
         <div class="property-field">
-          <label>UUID</label>
+          <label>{{ t('properties.uuid') }}</label>
           <div class="uuid-field">
             <input :value="selectedItem.uuid" readonly />
             <button class="copy-btn" @click="copyToClipboard(selectedItem.uuid)">📋</button>
@@ -42,12 +42,12 @@
         </div>
         
         <div class="property-field">
-          <label>Index</label>
+          <label>{{ t('properties.index') }}</label>
           <input :value="selectedItem.index.join(',')" readonly />
         </div>
         
         <div class="property-field" v-if="selectedItem.type === 'audio'">
-          <label>API Trigger URL</label>
+          <label>{{ t('properties.apiTriggerUrl') }}</label>
           <div class="uuid-field">
             <input :value="`http://localhost:8080/api/trigger/uuid/${selectedItem.uuid}`" readonly />
             <button class="copy-btn" @click="copyToClipboard(`http://localhost:8080/api/trigger/uuid/${selectedItem.uuid}`)">📋</button>
@@ -58,27 +58,27 @@
       <!-- Audio-specific properties -->
       <template v-if="selectedItem.type === 'audio'">
         <div class="property-section">
-          <h4>Media</h4>
+          <h4>{{ t('properties.media') }}</h4>
           
           <div class="property-field">
-            <label>File</label>
+            <label>{{ t('properties.file') }}</label>
             <div class="file-field">
               <input :value="audioItem.mediaFileName" readonly />
-              <button class="action-btn-small" @click="handleReplaceMedia">Replace</button>
+              <button class="action-btn-small" @click="handleReplaceMedia">{{ t('properties.replace') }}</button>
             </div>
           </div>
           
           <div class="property-field">
-            <label>Duration</label>
+            <label>{{ t('properties.duration') }}</label>
             <input :value="formatTime(audioItem.duration)" readonly />
           </div>
         </div>
         
         <div class="property-section">
-          <h4>Playback</h4>
+          <h4>{{ t('properties.playbackSection') }}</h4>
           
           <div class="property-field">
-            <label>Volume (0-2)</label>
+            <label>{{ t('properties.volume') }}</label>
             <input 
               v-model.number="audioItem.volume" 
               type="number" 
@@ -90,7 +90,7 @@
           </div>
           
           <div class="property-field">
-            <label>In Point (seconds)</label>
+            <label>{{ t('properties.inPoint') }}</label>
             <input 
               v-model.number="audioItem.inPoint" 
               type="number" 
@@ -102,7 +102,7 @@
           </div>
           
           <div class="property-field">
-            <label>Out Point (seconds)</label>
+            <label>{{ t('properties.outPoint') }}</label>
             <input 
               v-model.number="audioItem.outPoint" 
               type="number" 
@@ -115,19 +115,19 @@
         </div>
         
         <div class="property-section">
-          <h4>Ducking Behavior</h4>
+          <h4>{{ t('properties.duckingBehavior') }}</h4>
           
           <div class="property-field">
-            <label>Mode</label>
+            <label>{{ t('properties.mode') }}</label>
             <select v-model="audioItem.duckingBehavior.mode" @change="handleSave">
-              <option value="stop-all">Stop All Other Cues</option>
-              <option value="no-ducking">No Ducking</option>
-              <option value="duck-others">Duck Other Cues</option>
+              <option value="stop-all">{{ t('duckingBehavior.stopAll') }}</option>
+              <option value="no-ducking">{{ t('duckingBehavior.noDucking') }}</option>
+              <option value="duck-others">{{ t('duckingBehavior.duckOthers') }}</option>
             </select>
           </div>
           
           <div class="property-field" v-if="audioItem.duckingBehavior.mode === 'duck-others'">
-            <label>Duck Level (0-1)</label>
+            <label>{{ t('properties.duckLevel') }}</label>
             <input 
               v-model.number="audioItem.duckingBehavior.duckLevel" 
               type="number" 
@@ -140,21 +140,21 @@
         </div>
         
         <div class="property-section">
-          <h4>End Behavior</h4>
+          <h4>{{ t('properties.endBehavior') }}</h4>
           
           <div class="property-field">
-            <label>Action</label>
+            <label>{{ t('properties.action') }}</label>
             <select v-model="audioItem.endBehavior.action" @change="handleSave">
-              <option value="nothing">Do Nothing</option>
-              <option value="next">Go to Next Item</option>
-              <option value="goto-item">Go to Specific Item (UUID)</option>
-              <option value="goto-index">Go to Specific Index</option>
-              <option value="loop">Loop</option>
+              <option value="nothing">{{ t('endBehavior.nothing') }}</option>
+              <option value="next">{{ t('endBehavior.next') }}</option>
+              <option value="goto-item">{{ t('endBehavior.gotoItem') }}</option>
+              <option value="goto-index">{{ t('endBehavior.gotoIndex') }}</option>
+              <option value="loop">{{ t('endBehavior.loop') }}</option>
             </select>
           </div>
           
           <div class="property-field" v-if="audioItem.endBehavior.action === 'goto-item'">
-            <label>Target UUID</label>
+            <label>{{ t('properties.targetUuid') }}</label>
             <input 
               v-model="audioItem.endBehavior.targetUuid" 
               type="text"
@@ -163,7 +163,7 @@
           </div>
           
           <div class="property-field" v-if="audioItem.endBehavior.action === 'goto-index'">
-            <label>Target Index (comma-separated)</label>
+            <label>{{ t('properties.targetIndex') }}</label>
             <input 
               :value="audioItem.endBehavior.targetIndex?.join(',') || ''"
               @change="(e) => { audioItem.endBehavior.targetIndex = (e.target as HTMLInputElement).value.split(',').map(i => parseInt(i)); handleSave(); }"
@@ -173,20 +173,20 @@
         </div>
         
         <div class="property-section">
-          <h4>Start Behavior</h4>
+          <h4>{{ t('properties.startBehavior') }}</h4>
           
           <div class="property-field">
-            <label>Action</label>
+            <label>{{ t('properties.action') }}</label>
             <select v-model="audioItem.startBehavior.action" @change="handleSave">
-              <option value="nothing">Do Nothing</option>
-              <option value="play-next">Play Next Item</option>
-              <option value="play-item">Play Specific Item (UUID)</option>
-              <option value="play-index">Play Specific Index</option>
+              <option value="nothing">{{ t('startBehavior.nothing') }}</option>
+              <option value="play-next">{{ t('startBehavior.playNext') }}</option>
+              <option value="play-item">{{ t('startBehavior.playItem') }}</option>
+              <option value="play-index">{{ t('startBehavior.playIndex') }}</option>
             </select>
           </div>
           
           <div class="property-field" v-if="audioItem.startBehavior.action === 'play-item'">
-            <label>Target UUID</label>
+            <label>{{ t('properties.targetUuid') }}</label>
             <input 
               v-model="audioItem.startBehavior.targetUuid" 
               type="text"
@@ -195,7 +195,7 @@
           </div>
           
           <div class="property-field" v-if="audioItem.startBehavior.action === 'play-index'">
-            <label>Target Index (comma-separated)</label>
+            <label>{{ t('properties.targetIndex') }}</label>
             <input 
               :value="audioItem.startBehavior.targetIndex?.join(',') || ''"
               @change="(e) => { audioItem.startBehavior.targetIndex = (e.target as HTMLInputElement).value.split(',').map(i => parseInt(i)); handleSave(); }"
@@ -208,27 +208,27 @@
       <!-- Group-specific properties -->
       <template v-if="selectedItem.type === 'group'">
         <div class="property-section">
-          <h4>Group Behavior</h4>
+          <h4>{{ t('properties.groupBehavior') }}</h4>
           
           <div class="property-field">
-            <label>Start Action</label>
+            <label>{{ t('properties.startAction') }}</label>
             <select v-model="groupItem.startBehavior.action" @change="handleSave">
-              <option value="play-first">Play First Item</option>
-              <option value="play-all">Play All Items</option>
+              <option value="play-first">{{ t('startBehavior.playFirst') }}</option>
+              <option value="play-all">{{ t('startBehavior.playAll') }}</option>
             </select>
           </div>
         </div>
         
         <div class="property-section">
-          <h4>End Behavior</h4>
+          <h4>{{ t('properties.endBehavior') }}</h4>
           
           <div class="property-field">
-            <label>Action</label>
+            <label>{{ t('properties.action') }}</label>
             <select v-model="groupItem.endBehavior.action" @change="handleSave">
-              <option value="nothing">Do Nothing</option>
-              <option value="next">Go to Next Item</option>
-              <option value="goto-item">Go to Specific Item (UUID)</option>
-              <option value="goto-index">Go to Specific Index</option>
+              <option value="nothing">{{ t('endBehavior.nothing') }}</option>
+              <option value="next">{{ t('endBehavior.next') }}</option>
+              <option value="goto-item">{{ t('endBehavior.gotoItem') }}</option>
+              <option value="goto-index">{{ t('endBehavior.gotoIndex') }}</option>
             </select>
           </div>
         </div>
@@ -242,6 +242,7 @@ import type { AudioItem, GroupItem } from '~/types/project';
 import { PRESET_COLORS } from '~/types/project';
 
 const { selectedItem, saveProject } = useProject();
+const { t } = useLocalization();
 
 const audioItem = computed(() => selectedItem.value as AudioItem);
 const groupItem = computed(() => selectedItem.value as GroupItem);

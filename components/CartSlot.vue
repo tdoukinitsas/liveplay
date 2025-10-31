@@ -12,7 +12,7 @@
   >
     <div v-if="!hasItem" class="empty-slot" @click="handleImport">
       <span class="slot-number">{{ slot + 1 }}</span>
-      <span class="slot-hint">Click to import or drag item here</span>
+      <span class="slot-hint">{{ t('cart.clickToImport') }}</span>
     </div>
     
     <div v-else class="slot-content">
@@ -43,10 +43,10 @@
       
       <!-- Action buttons -->
       <div class="slot-actions">
-        <button class="slot-btn play" @click.stop="handlePlay" title="Play">▶</button>
-        <button class="slot-btn stop" @click.stop="handleStop" title="Stop" v-if="isPlaying">⏹</button>
-        <button class="slot-btn edit" @click.stop="handleEdit" title="Edit">⚙</button>
-        <button class="slot-btn delete" @click.stop="handleDelete" title="Remove">×</button>
+        <button class="slot-btn play" @click.stop="handlePlay" :title="t('actions.play')">▶</button>
+        <button class="slot-btn stop" @click.stop="handleStop" :title="t('actions.stop')" v-if="isPlaying">⏹</button>
+        <button class="slot-btn edit" @click.stop="handleEdit" :title="t('actions.edit')">⚙</button>
+        <button class="slot-btn delete" @click.stop="handleDelete" :title="t('actions.remove')">×</button>
       </div>
     </div>
   </div>
@@ -63,6 +63,7 @@ const props = defineProps<{
 
 const { currentProject, findItemByUuid, addItem, triggerWaveformUpdate } = useProject();
 const { playCue, stopCue, activeCues } = useAudioEngine();
+const { t } = useLocalization();
 
 const waveformCanvas = ref<HTMLCanvasElement | null>(null);
 const currentTime = ref(0);

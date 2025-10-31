@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuOpenProjectFolder: (callback) => ipcRenderer.on('menu-open-project-folder', callback),
   onMenuToggleDarkMode: (callback) => ipcRenderer.on('menu-toggle-dark-mode', callback),
   onMenuChangeAccentColor: (callback) => ipcRenderer.on('menu-change-accent-color', callback),
+  onMenuChangeLanguage: (callback) => ipcRenderer.on('menu-change-language', callback),
 
   // API triggers
   onTriggerItem: (callback) => ipcRenderer.on('trigger-item', callback),

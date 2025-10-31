@@ -21,6 +21,7 @@ declare global {
       onMenuOpenProjectFolder: (callback: () => void) => void;
       onMenuToggleDarkMode: (callback: () => void) => void;
       onMenuChangeAccentColor: (callback: () => void) => void;
+      onMenuChangeLanguage: (callback: (event: any, locale: string) => void) => void;
       onTriggerItem: (callback: (event: any, data: any) => void) => void;
       onStopItem: (callback: (event: any, data: any) => void) => void;
     };

@@ -1,18 +1,18 @@
 <template>
   <div class="welcome-screen">
     <div class="welcome-container">
-      <h1 class="welcome-title">LivePlay</h1>
-      <p class="welcome-subtitle">Audio Cue Playback System</p>
+      <h1 class="welcome-title">{{ t('welcome.title') }}</h1>
+      <p class="welcome-subtitle">{{ t('welcome.subtitle') }}</p>
       
       <div class="welcome-actions">
         <button class="welcome-button primary" @click="handleNewProject">
           <span class="button-icon">+</span>
-          <span>Create New Project</span>
+          <span>{{ t('welcome.newProject') }}</span>
         </button>
         
         <button class="welcome-button" @click="handleOpenProject">
           <span class="button-icon">📁</span>
-          <span>Open Existing Project</span>
+          <span>{{ t('welcome.openProject') }}</span>
         </button>
       </div>
     </div>
@@ -21,6 +21,7 @@
 
 <script setup lang="ts">
 const { createNewProject, openProject } = useProject();
+const { t } = useLocalization();
 
 const handleNewProject = async () => {
   if (!import.meta.client || !window.electronAPI) return;
@@ -60,24 +61,24 @@ const getProjectName = (): Promise<string | null> => {
     dialog.className = 'modal-dialog';
 
     const h3 = document.createElement('h3');
-    h3.textContent = 'Enter Project Name';
+    h3.textContent = t('project.enterName');
     h3.className = 'modal-title';
 
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'modal-input';
-    input.placeholder = 'My Project';
+    input.placeholder = t('project.placeholder');
 
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'modal-buttons';
 
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'modal-btn modal-btn-cancel';
-    cancelBtn.textContent = 'Cancel';
+    cancelBtn.textContent = t('project.cancel');
 
     const okBtn = document.createElement('button');
     okBtn.className = 'modal-btn modal-btn-primary';
-    okBtn.textContent = 'OK';
+    okBtn.textContent = t('project.ok');
 
     buttonContainer.appendChild(cancelBtn);
     buttonContainer.appendChild(okBtn);
