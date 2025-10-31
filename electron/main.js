@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const express = require('express');
 
 let mainWindow = null;
@@ -280,6 +281,119 @@ ipcMain.handle('open-folder', async (event, folderPath) => {
 ipcMain.handle('set-current-project', async (event, projectPath) => {
   currentProject = projectPath;
   return { success: true };
+});
+
+// Generate waveform data using ffmpeg
+ipcMain.handle('generate-waveform', async (event, audioPath, outputPath) => {
+  return new Promise((resolve) => {
+    try {
+      // Ensure output directory exists
+      const outputDir = path.dirname(outputPath);
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+
+      // Use ffmpeg to extract audio samples
+      // We'll create 1000 samples for the waveform
+      const sampleCount = 1000;
+      
+      // Get audio duration first
+      const durationProcess = spawn('ffprobe', [
+        '-v', 'error',
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        audioPath
+      ]);
+
+      let duration = 0;
+      let durationError = '';
+
+      durationProcess.stdout.on('data', (data) => {
+        duration = parseFloat(data.toString().trim());
+      });
+
+      durationProcess.stderr.on('data', (data) => {
+        durationError += data.toString();
+      });
+
+      durationProcess.on('close', (code) => {
+        if (code !== 0) {
+          resolve({ success: false, error: `Failed to get duration: ${durationError}` });
+          return;
+        }
+
+        // Now extract waveform samples
+        const ffmpegProcess = spawn('ffmpeg', [
+          '-i', audioPath,
+          '-ac', '1',                    // Convert to mono
+          '-filter:a', 'aresample=8000', // Resample to 8kHz for faster processing
+          '-map', '0:a',
+          '-c:a', 'pcm_s16le',           // 16-bit PCM
+          '-f', 'data',                  // Raw data output
+          '-'
+        ]);
+
+        let samples = [];
+        let ffmpegError = '';
+
+        ffmpegProcess.stdout.on('data', (data) => {
+          // Convert buffer to 16-bit integers
+          for (let i = 0; i < data.length; i += 2) {
+            if (i + 1 < data.length) {
+              const sample = data.readInt16LE(i);
+              samples.push(Math.abs(sample));
+            }
+          }
+        });
+
+        ffmpegProcess.stderr.on('data', (data) => {
+          ffmpegError += data.toString();
+        });
+
+        ffmpegProcess.on('close', (code) => {
+          if (code !== 0) {
+            resolve({ success: false, error: `FFmpeg error: ${ffmpegError}` });
+            return;
+          }
+
+          // Downsample to target sample count
+          const peaks = [];
+          const blockSize = Math.floor(samples.length / sampleCount);
+          
+          for (let i = 0; i < sampleCount; i++) {
+            const start = i * blockSize;
+            const end = start + blockSize;
+            const block = samples.slice(start, end);
+            
+            // Find max value in block
+            const peak = block.length > 0 ? Math.max(...block) : 0;
+            peaks.push(peak);
+          }
+
+          // Normalize peaks to 0-1 range
+          const maxPeak = Math.max(...peaks, 1);
+          const normalizedPeaks = peaks.map(p => p / maxPeak);
+
+          // Create waveform data object
+          const waveformData = {
+            length: sampleCount,
+            duration: duration,
+            peaks: normalizedPeaks
+          };
+
+          // Write to file
+          try {
+            fs.writeFileSync(outputPath, JSON.stringify(waveformData, null, 2));
+            resolve({ success: true });
+          } catch (writeError) {
+            resolve({ success: false, error: `Failed to write waveform file: ${writeError.message}` });
+          }
+        });
+      });
+    } catch (error) {
+      resolve({ success: false, error: error.message });
+    }
+  });
 });
 
 app.whenReady().then(createWindow);

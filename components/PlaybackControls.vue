@@ -1,17 +1,9 @@
 <template>
   <div class="playback-controls">
     <div class="controls-left">
-      <button class="control-btn play-btn" @click="handlePlay" :disabled="!selectedItem">
-        <span class="icon">▶</span>
-        <span>PLAY</span>
-      </button>
-      
-      <button class="control-btn" @click="handlePause" :disabled="activeCues.size === 0">
-        <span class="icon">⏸</span>
-      </button>
-      
-      <button class="control-btn" @click="handleStop" :disabled="activeCues.size === 0">
-        <span class="icon">⏹</span>
+      <button class="control-btn panic-btn" @click="handlePanic" :disabled="activeCues.size === 0">
+        <span class="icon">⚠</span>
+        <span>PANIC</span>
       </button>
     </div>
     
@@ -32,22 +24,10 @@
 </template>
 
 <script setup lang="ts">
-const { selectedItem } = useProject();
-const { activeCues, playCue, stopAllCues } = useAudioEngine();
+const { activeCues, panicStop } = useAudioEngine();
 
-const handlePlay = () => {
-  if (selectedItem.value && selectedItem.value.type === 'audio') {
-    playCue(selectedItem.value as any);
-  }
-};
-
-const handlePause = () => {
-  // Pause functionality could be enhanced
-  stopAllCues();
-};
-
-const handleStop = () => {
-  stopAllCues();
+const handlePanic = () => {
+  panicStop();
 };
 </script>
 
@@ -87,16 +67,15 @@ const handleStop = () => {
   }
 }
 
-.play-btn {
-  background-color: var(--color-accent);
-  border-color: var(--color-accent);
+.panic-btn {
+  background-color: var(--color-danger);
+  border-color: var(--color-danger);
   color: white;
   font-size: 18px;
   font-weight: 600;
   
   &:hover:not(:disabled) {
-    background-color: var(--color-accent-hover);
-    border-color: var(--color-accent-hover);
+    opacity: 0.8;
   }
 }
 
@@ -110,7 +89,8 @@ const handleStop = () => {
 .active-cues {
   flex: 1;
   min-width: 0;
-  overflow-y: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: var(--spacing-sm) 0;
 }
 
@@ -122,7 +102,7 @@ const handleStop = () => {
 
 .cue-list {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: var(--spacing-sm);
 }
 </style>

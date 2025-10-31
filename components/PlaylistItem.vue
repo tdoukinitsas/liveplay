@@ -8,12 +8,12 @@
       'is-playing': isPlaying,
       'drag-over-top': dragPosition === 'top',
       'drag-over-bottom': dragPosition === 'bottom',
-      'drag-over-group': dragPosition === 'group'
+      'drag-over-group': dragPosition === 'group',
+      'warning-yellow': warningState === 'yellow',
+      'warning-orange': warningState === 'orange',
+      'warning-red': warningState === 'red'
     }"
     :style="itemStyle"
-    @click="handleSelect"
-    draggable="true"
-    @dragstart="handleDragStart"
     @dragover="handleDragOver"
     @dragleave="handleDragLeave"
     @drop="handleDrop"
@@ -28,7 +28,12 @@
     <!-- Progress bar for playing items -->
     <div v-if="isPlaying && item.type === 'audio'" class="item-progress" :style="progressStyle"></div>
     
-    <div class="item-content">
+    <div 
+      class="item-content"
+      @click="handleSelect"
+      :draggable="true"
+      @dragstart="handleDragStart"
+    >
       <div class="item-left">
         <button 
           v-if="item.type === 'group'" 
@@ -69,7 +74,7 @@ const props = defineProps<{
   depth: number;
 }>();
 
-const { selectedItem, removeItem, findItemByUuid, currentProject } = useProject();
+const { selectedItem, removeItem, findItemByUuid, currentProject, waveformUpdateKey } = useProject();
 const { playCue, stopCue, activeCues, triggerGroup } = useAudioEngine();
 
 const isExpanded = ref(props.item.type === 'group' ? props.item.isExpanded : false);
@@ -88,7 +93,7 @@ const drawWaveform = () => {
   if (!waveformCanvas.value || props.item.type !== 'audio') return;
   
   const audioItem = props.item as AudioItem;
-  if (!audioItem.waveform || audioItem.waveform.length === 0) return;
+  if (!audioItem.waveform || !audioItem.waveform.peaks || audioItem.waveform.peaks.length === 0) return;
   
   const canvas = waveformCanvas.value;
   const ctx = canvas.getContext('2d');
@@ -114,13 +119,13 @@ const drawWaveform = () => {
   
   ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.3)`;
   
-  const waveform = audioItem.waveform;
-  const barWidth = rect.width / waveform.length;
+  const peaks = audioItem.waveform.peaks;
+  const barWidth = rect.width / peaks.length;
   const centerY = rect.height / 2;
   
-  waveform.forEach((value, i) => {
-    const normalizedValue = value / 255; // Normalize 0-255 to 0-1
-    const barHeight = normalizedValue * rect.height * 0.8; // Use 80% of height for better visibility
+  peaks.forEach((value, i) => {
+    // Values are already normalized 0-1
+    const barHeight = value * rect.height * 0.8; // Use 80% of height for better visibility
     const x = i * barWidth;
     const y = centerY - barHeight / 2;
     
@@ -156,9 +161,30 @@ watch(() => props.item, () => {
   }
 }, { deep: true });
 
+// Watch for waveform updates
+watch(() => waveformUpdateKey.value, () => {
+  if (props.item.type === 'audio') {
+    nextTick(drawWaveform);
+  }
+});
+
 // Calculate playback progress
 const playbackProgress = ref(0);
 let progressInterval: any = null;
+
+// Warning state based on time remaining
+const warningState = computed(() => {
+  if (!isPlaying.value || props.item.type !== 'audio') return null;
+  
+  const cue = activeCues.value.get(props.item.uuid);
+  if (!cue) return null;
+  
+  const timeRemaining = cue.duration - cue.currentTime;
+  if (timeRemaining <= 5) return 'red';
+  if (timeRemaining <= 10) return 'orange';
+  if (timeRemaining <= 30) return 'yellow';
+  return null;
+});
 
 watch(isPlaying, (playing) => {
   if (playing && props.item.type === 'audio') {
@@ -362,12 +388,23 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   border-radius: var(--border-radius-sm);
   margin-bottom: var(--spacing-xs);
   transition: all var(--transition-fast);
-  cursor: pointer;
   position: relative;
   overflow: hidden;
   
   &.is-selected {
     box-shadow: 0 0 0 2px var(--color-accent);
+  }
+  
+  &.warning-yellow {
+    animation: flash-yellow 2s ease-in-out infinite;
+  }
+  
+  &.warning-orange {
+    animation: flash-orange 1s ease-in-out infinite;
+  }
+  
+  &.warning-red {
+    animation: flash-red 0.5s ease-in-out infinite;
   }
   
   &.drag-over-top::before {
@@ -394,6 +431,33 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   
   &.drag-over-group {
     box-shadow: inset 0 0 0 3px var(--color-accent);
+  }
+}
+
+@keyframes flash-yellow {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4);
+  }
+  50% { 
+    box-shadow: 0 0 8px 4px rgba(255, 193, 7, 0.6);
+  }
+}
+
+@keyframes flash-orange {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.4);
+  }
+  50% { 
+    box-shadow: 0 0 12px 6px rgba(255, 152, 0, 0.7);
+  }
+}
+
+@keyframes flash-red {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.5);
+  }
+  50% { 
+    box-shadow: 0 0 16px 8px rgba(244, 67, 54, 0.8);
   }
 }
 
@@ -425,7 +489,8 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   padding: var(--spacing-sm) var(--spacing-md);
   min-height: 44px;
   position: relative;
-  z-index: 3;
+  z-index: 5;
+  cursor: pointer;
 }
 
 .item-left {

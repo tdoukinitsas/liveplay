@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { triggerRef } from 'vue';
 import type { 
   Project, 
   AudioItem, 
@@ -13,6 +14,12 @@ export const useProject = () => {
   const currentProject = useState<Project | null>('currentProject', () => null);
   const selectedItem = useState<BaseItem | null>('selectedItem', () => null);
   const activeCues = useState<Map<string, any>>('activeCues', () => new Map());
+  const waveformUpdateKey = useState<number>('waveformUpdateKey', () => 0);
+
+  // Force UI update for waveforms
+  const triggerWaveformUpdate = () => {
+    waveformUpdateKey.value++;
+  };
 
   // Create a new project
   const createNewProject = async (name: string, folderPath: string): Promise<boolean> => {
@@ -62,8 +69,16 @@ export const useProject = () => {
         const result = await window.electronAPI.readFile(projectFilePath);
         if (result.success) {
           const project: Project = JSON.parse(result.data);
+          
+          // Migrate project to ensure new properties exist
+          migrateProject(project);
+          
           currentProject.value = project;
           await window.electronAPI.setCurrentProject(projectFilePath);
+          
+          // Load waveforms from disk asynchronously for all audio items
+          loadWaveformsAsync(project);
+          
           return true;
         }
       }
@@ -71,6 +86,120 @@ export const useProject = () => {
     } catch (error) {
       console.error('Error opening project:', error);
       return false;
+    }
+  };
+
+  // Migrate project to add new properties for backwards compatibility
+  const migrateProject = (project: Project) => {
+    const migrateItem = (item: BaseItem) => {
+      if (item.type === 'audio') {
+        const audioItem = item as AudioItem;
+        
+        // Add fadeOutDuration if missing
+        if (audioItem.fadeOutDuration === undefined) {
+          audioItem.fadeOutDuration = 1.0;
+        }
+        
+        // Add ducking fade times if missing
+        if (audioItem.duckingBehavior) {
+          if (audioItem.duckingBehavior.duckFadeIn === undefined) {
+            audioItem.duckingBehavior.duckFadeIn = 0.25;
+          }
+          if (audioItem.duckingBehavior.duckFadeOut === undefined) {
+            audioItem.duckingBehavior.duckFadeOut = 1.0;
+          }
+        }
+      } else if (item.type === 'group') {
+        const groupItem = item as GroupItem;
+        for (const child of groupItem.children) {
+          migrateItem(child);
+        }
+      }
+    };
+    
+    // Migrate all items
+    for (const item of project.items) {
+      migrateItem(item);
+    }
+  };
+
+  // Load waveforms from disk asynchronously
+  const loadWaveformsAsync = async (project: Project) => {
+    const loadWaveformForItem = async (item: BaseItem) => {
+      if (item.type === 'audio') {
+        const audioItem = item as AudioItem;
+        
+        // Skip if waveform already loaded and valid
+        if (audioItem.waveform && audioItem.waveform.peaks && audioItem.waveform.peaks.length > 0) {
+          return;
+        }
+        
+        try {
+          const result = await window.electronAPI.readFile(audioItem.waveformPath);
+          if (result.success && result.data) {
+            const waveformData = JSON.parse(result.data);
+            
+            // Validate waveform format
+            if (waveformData.peaks && waveformData.length && waveformData.duration) {
+              audioItem.waveform = waveformData;
+            } else {
+              console.warn(`Invalid waveform format for ${audioItem.displayName}, regenerating...`);
+              regenerateWaveform(audioItem, project);
+            }
+          } else {
+            // No waveform file exists, generate it
+            regenerateWaveform(audioItem, project);
+          }
+        } catch (error) {
+          console.warn(`Failed to load waveform for ${audioItem.displayName}`, error);
+          regenerateWaveform(audioItem, project);
+        }
+      } else if (item.type === 'group') {
+        // Recursively load waveforms for group children
+        const groupItem = item as GroupItem;
+        for (const child of groupItem.children) {
+          await loadWaveformForItem(child);
+        }
+      }
+    };
+    
+    // Load all waveforms
+    for (const item of project.items) {
+      loadWaveformForItem(item);
+    }
+  };
+
+  // Regenerate waveform using ffmpeg
+  const regenerateWaveform = async (audioItem: AudioItem, project: Project) => {
+    try {
+      // Check if generateWaveform is available
+      if (!window.electronAPI.generateWaveform) {
+        console.warn('generateWaveform not implemented yet - waveform will not be regenerated');
+        return;
+      }
+
+      const mediaPath = `${project.folderPath}/media/${audioItem.mediaFileName}`;
+      
+      // Generate waveform using ffmpeg (non-blocking)
+      const result = await window.electronAPI.generateWaveform(mediaPath, audioItem.waveformPath);
+      
+      if (result.success) {
+        // Load the generated waveform
+        const waveformFile = await window.electronAPI.readFile(audioItem.waveformPath);
+        if (waveformFile.success && waveformFile.data) {
+          audioItem.waveform = JSON.parse(waveformFile.data);
+          console.log(`Regenerated waveform for ${audioItem.displayName}`);
+          
+          // Manually trigger reactivity on the project ref
+          if (currentProject.value === project) {
+            triggerRef(currentProject);
+          }
+        }
+      } else {
+        console.error(`Failed to generate waveform for ${audioItem.displayName}:`, result.error);
+      }
+    } catch (error) {
+      console.error(`Failed to regenerate waveform for ${audioItem.displayName}:`, error);
     }
   };
 
@@ -224,6 +353,8 @@ export const useProject = () => {
     currentProject,
     selectedItem,
     activeCues,
+    waveformUpdateKey,
+    triggerWaveformUpdate,
     createNewProject,
     openProject,
     saveProject,

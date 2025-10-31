@@ -54,50 +54,47 @@ const handleOpenProject = async () => {
 const getProjectName = (): Promise<string | null> => {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-    `;
+    overlay.className = 'modal-overlay';
 
     const dialog = document.createElement('div');
-    dialog.style.cssText = `
-      background: var(--color-surface);
-      padding: var(--spacing-xl);
-      border-radius: var(--border-radius-lg);
-      min-width: 400px;
-    `;
+    dialog.className = 'modal-dialog';
 
-    dialog.innerHTML = `
-      <h3 style="margin-bottom: var(--spacing-md); color: var(--color-text-primary);">Enter Project Name</h3>
-      <input type="text" id="project-name-input" placeholder="My Project" 
-        style="width: 100%; margin-bottom: var(--spacing-md);" />
-      <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
-        <button id="cancel-btn" style="padding: var(--spacing-sm) var(--spacing-md); 
-          background: var(--color-surface-hover); border-radius: var(--border-radius-sm);">Cancel</button>
-        <button id="ok-btn" style="padding: var(--spacing-sm) var(--spacing-md); 
-          background: var(--color-accent); color: white; border-radius: var(--border-radius-sm);">OK</button>
-      </div>
-    `;
+    const h3 = document.createElement('h3');
+    h3.textContent = 'Enter Project Name';
+    h3.className = 'modal-title';
 
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'modal-input';
+    input.placeholder = 'My Project';
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'modal-buttons';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'modal-btn modal-btn-cancel';
+    cancelBtn.textContent = 'Cancel';
+
+    const okBtn = document.createElement('button');
+    okBtn.className = 'modal-btn modal-btn-primary';
+    okBtn.textContent = 'OK';
+
+    buttonContainer.appendChild(cancelBtn);
+    buttonContainer.appendChild(okBtn);
+    
+    dialog.appendChild(h3);
+    dialog.appendChild(input);
+    dialog.appendChild(buttonContainer);
     overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-
-    const input = dialog.querySelector('#project-name-input') as HTMLInputElement;
-    const okBtn = dialog.querySelector('#ok-btn') as HTMLButtonElement;
-    const cancelBtn = dialog.querySelector('#cancel-btn') as HTMLButtonElement;
+    
+    // Append to #app instead of body to inherit theme variables
+    const appElement = document.getElementById('app') || document.body;
+    appElement.appendChild(overlay);
 
     input.focus();
 
     const cleanup = () => {
-      document.body.removeChild(overlay);
+      appElement.removeChild(overlay);
     };
 
     okBtn.onclick = () => {
@@ -203,5 +200,93 @@ if (import.meta.client && window.electronAPI) {
 
 .button-icon {
   font-size: 24px;
+}
+
+/* Modal styles - not scoped since appended to body */
+:global(.modal-overlay) {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+:global(.modal-dialog) {
+  background: var(--color-surface);
+  padding: var(--spacing-xl);
+  border-radius: var(--border-radius-lg);
+  min-width: 400px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+:global(.modal-title) {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--color-text-primary);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+:global(.modal-input) {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  box-sizing: border-box;
+  outline: none;
+
+  &:focus {
+    border-color: var(--color-accent);
+  }
+}
+
+:global(.modal-buttons) {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
+}
+
+:global(.modal-btn) {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all var(--transition-fast);
+  outline: none;
+
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+:global(.modal-btn-cancel) {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+
+  &:hover {
+    background: var(--color-surface-hover);
+  }
+}
+
+:global(.modal-btn-primary) {
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  color: white;
+  font-weight: 500;
+
+  &:hover {
+    background: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
+  }
 }
 </style>

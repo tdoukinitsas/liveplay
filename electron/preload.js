@@ -17,6 +17,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Project management
   setCurrentProject: (projectPath) => ipcRenderer.invoke('set-current-project', projectPath),
 
+  // Waveform generation
+  generateWaveform: (audioPath, outputPath) => ipcRenderer.invoke('generate-waveform', audioPath, outputPath),
+
   // Menu events
   onMenuNewProject: (callback) => ipcRenderer.on('menu-new-project', callback),
   onMenuOpenProject: (callback) => ipcRenderer.on('menu-open-project', callback),

@@ -32,10 +32,11 @@
 
 <script setup lang="ts">
 import { v4 as uuidv4 } from 'uuid';
+import { triggerRef } from 'vue';
 import type { AudioItem, GroupItem } from '~/types/project';
 import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM } from '~/types/project';
 
-const { currentProject, addItem, updateIndices } = useProject();
+const { currentProject, addItem, updateIndices, saveProject, triggerWaveformUpdate } = useProject();
 
 const handleImport = async () => {
   if (!import.meta.client || !window.electronAPI || !currentProject.value) return;
@@ -63,11 +64,10 @@ const importAudioFile = async (sourcePath: string) => {
       return;
     }
 
-    // Get audio duration and waveform data
+    // Get audio duration
     const duration = await getAudioDuration(destPath);
-    const waveform = await generateSimpleWaveform(sourcePath);
 
-    // Create audio item
+    // Create audio item WITHOUT waveform (will be generated async via ffmpeg)
     const audioItem: AudioItem = {
       ...DEFAULT_AUDIO_ITEM,
       uuid,
@@ -77,50 +77,91 @@ const importAudioFile = async (sourcePath: string) => {
       mediaFileName: fileName,
       mediaPath: destPath,
       waveformPath: `${currentProject.value.folderPath}/waveforms/${uuid}.json`,
-      waveform, // Add waveform data directly
+      waveform: undefined, // Will be generated asynchronously
       outPoint: duration,
       duration
     } as AudioItem;
 
+    // Add item immediately (no blocking)
     addItem(audioItem);
+    
+    // Generate waveform asynchronously using ffmpeg
+    generateWaveformAsync(audioItem);
   } catch (error) {
     console.error('Error importing audio:', error);
   }
 };
 
-const generateSimpleWaveform = async (filePath: string): Promise<number[]> => {
+const generateWaveformAsync = async (item: AudioItem) => {
   try {
-    // Read audio file data
-    const audioData = await window.electronAPI.readAudioFile(filePath);
-    if (!audioData.success || !audioData.data) {
-      // Return simple placeholder waveform
-      return Array(100).fill(0).map(() => Math.floor(Math.random() * 255));
-    }
+    if (!currentProject.value) return;
     
-    // Downsample audio data to ~100 points for waveform
-    const samples = audioData.data;
-    const targetPoints = 100;
-    const blockSize = Math.floor(samples.length / targetPoints);
-    const waveform: number[] = [];
+    // Ensure waveforms directory exists
+    const waveformsDir = `${currentProject.value.folderPath}/waveforms`;
+    await window.electronAPI.ensureDirectory(waveformsDir);
     
-    for (let i = 0; i < targetPoints; i++) {
-      const start = i * blockSize;
-      const end = Math.min(start + blockSize, samples.length);
-      
-      // Find max absolute value in this block
-      let max = 0;
-      for (let j = start; j < end; j++) {
-        max = Math.max(max, Math.abs(samples[j]));
+    // Check if waveform file already exists and is valid
+    const existingWaveform = await window.electronAPI.readFile(item.waveformPath);
+    if (existingWaveform.success && existingWaveform.data) {
+      try {
+        const waveformData = JSON.parse(existingWaveform.data);
+        
+        // Validate waveform format
+        if (waveformData.peaks && waveformData.length && waveformData.duration) {
+          item.waveform = waveformData;
+          return;
+        }
+        console.warn('Invalid waveform format, regenerating...');
+      } catch (e) {
+        console.warn('Failed to parse existing waveform, regenerating...');
       }
-      
-      waveform.push(Math.floor(max * 255));
     }
     
-    return waveform;
+    // Check if generateWaveform is available
+    if (!window.electronAPI.generateWaveform) {
+      console.warn('generateWaveform not implemented yet - waveform will not be generated');
+      console.info('Please implement the generateWaveform IPC handler in your Electron main process');
+      return;
+    }
+    
+    // Generate waveform using ffmpeg (non-blocking)
+    const mediaPath = `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
+    const result = await window.electronAPI.generateWaveform(mediaPath, item.waveformPath);
+    
+    if (result.success) {
+      // Start polling for waveform file (check every 3 seconds)
+      const pollInterval = setInterval(async () => {
+        try {
+          const waveformFile = await window.electronAPI.readFile(item.waveformPath);
+          if (waveformFile.success && waveformFile.data) {
+            const waveformData = JSON.parse(waveformFile.data);
+            
+            // Validate waveform format
+            if (waveformData.peaks && waveformData.length && waveformData.duration) {
+              item.waveform = waveformData;
+              
+              // Force Vue reactivity update
+              triggerWaveformUpdate();
+              
+              // Stop polling once loaded
+              clearInterval(pollInterval);
+              console.log(`Waveform loaded for ${item.displayName}`);
+            }
+          }
+        } catch (error) {
+          console.error('Error polling for waveform:', error);
+        }
+      }, 3000);
+      
+      // Stop polling after 30 seconds to prevent infinite polling
+      setTimeout(() => {
+        clearInterval(pollInterval);
+      }, 30000);
+    } else {
+      console.error('Failed to generate waveform:', result.error);
+    }
   } catch (error) {
     console.error('Error generating waveform:', error);
-    // Return simple placeholder waveform
-    return Array(100).fill(0).map(() => Math.floor(Math.random() * 255));
   }
 };
 

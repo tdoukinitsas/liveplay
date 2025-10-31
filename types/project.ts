@@ -13,7 +13,7 @@ export interface AudioItem extends BaseItem {
   mediaFileName: string;
   mediaPath: string;
   waveformPath: string;
-  waveform?: number[]; // Optional: waveform data for visualization
+  waveform?: WaveformData; // Optional: waveform data for visualization
   inPoint: number; // in seconds
   outPoint: number; // in seconds
   volume: number; // 0-2 (1 is normal, >1 is louder, <1 is quieter)
@@ -22,6 +22,14 @@ export interface AudioItem extends BaseItem {
   customActions: CustomAction[];
   duckingBehavior: DuckingBehavior;
   duration: number; // total duration in seconds
+  fadeOutDuration: number; // fade out duration in seconds when stopping (default: 1)
+}
+
+// Waveform data format (from ffmpeg/audiowaveform)
+export interface WaveformData {
+  length: number;
+  duration: number;
+  peaks: number[]; // Normalized values between 0 and 1
 }
 
 // Group item properties
@@ -75,6 +83,8 @@ export interface HttpRequest {
 export interface DuckingBehavior {
   mode: 'stop-all' | 'no-ducking' | 'duck-others';
   duckLevel?: number; // 0-1, volume multiplier for other cues
+  duckFadeIn?: number; // fade in duration in seconds when ducking (default: 0.25)
+  duckFadeOut?: number; // fade out duration in seconds when restoring (default: 1)
 }
 
 // Cart player item
@@ -149,7 +159,12 @@ export const DEFAULT_AUDIO_ITEM: Partial<AudioItem> = {
   endBehavior: { action: 'nothing' },
   startBehavior: { action: 'nothing' },
   customActions: [],
-  duckingBehavior: { mode: 'stop-all' }
+  duckingBehavior: { 
+    mode: 'stop-all',
+    duckFadeIn: 0.25,
+    duckFadeOut: 1.0
+  },
+  fadeOutDuration: 1.0
 };
 
 export const DEFAULT_GROUP_ITEM: Partial<GroupItem> = {

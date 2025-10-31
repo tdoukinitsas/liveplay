@@ -10,8 +10,10 @@ interface ActiveCueState {
   volume: number;
   isDucked: boolean;
   originalVolume: number;
+  duckedBy: Set<string>; // Track which cues are ducking this one
   howl: Howl;
   progressInterval?: any;
+  color?: string;
 }
 
 export const useAudioEngine = () => {
@@ -23,22 +25,30 @@ export const useAudioEngine = () => {
     const cues = Array.from(activeCues.value.values());
 
     if (behavior.mode === 'stop-all') {
-      // Stop all other cues
+      // Stop all other cues with fade out
       for (const cue of cues) {
         if (cue.uuid !== newCueUuid) {
           stopCue(cue.uuid);
         }
       }
     } else if (behavior.mode === 'duck-others' && behavior.duckLevel !== undefined) {
-      // Lower volume of other cues
+      // Lower volume of other cues with fade
+      const fadeInDuration = (behavior.duckFadeIn ?? 0.25) * 1000; // Convert to ms
+      
       for (const cue of cues) {
         if (cue.uuid !== newCueUuid) {
           if (!cue.isDucked) {
             cue.originalVolume = cue.volume;
             cue.isDucked = true;
           }
+          
+          // Track that this cue is being ducked by the new cue
+          cue.duckedBy.add(newCueUuid);
+          
           const duckedVolume = cue.originalVolume * behavior.duckLevel;
-          cue.howl.volume(duckedVolume);
+          
+          // Fade to ducked volume
+          cue.howl.fade(cue.volume, duckedVolume, fadeInDuration);
           cue.volume = duckedVolume;
         }
       }
@@ -49,15 +59,28 @@ export const useAudioEngine = () => {
   // Restore volumes after ducking
   const restoreDuckedVolumes = (endingCueUuid: string) => {
     const cues = Array.from(activeCues.value.values());
-    const hasDuckingCues = cues.some(cue => cue.uuid !== endingCueUuid);
-
-    if (!hasDuckingCues) {
-      // No more ducking cues, restore all volumes
+    
+    // Check if the ending cue was a ducking cue
+    const endingItem = findItemByUuid(endingCueUuid);
+    if (!endingItem || endingItem.type !== 'audio') return;
+    
+    const audioItem = endingItem as AudioItem;
+    
+    // Only restore if the ending cue had duck-others behavior
+    if (audioItem.duckingBehavior.mode === 'duck-others') {
+      const fadeOutDuration = (audioItem.duckingBehavior.duckFadeOut ?? 1.0) * 1000; // Convert to ms
+      
+      // Remove this cue from all duckedBy sets and restore volumes if no other ducking cues remain
       for (const cue of cues) {
-        if (cue.isDucked) {
-          cue.howl.volume(cue.originalVolume);
-          cue.volume = cue.originalVolume;
-          cue.isDucked = false;
+        if (cue.duckedBy.has(endingCueUuid)) {
+          cue.duckedBy.delete(endingCueUuid);
+          
+          // If no other cues are ducking this one, restore its volume
+          if (cue.duckedBy.size === 0 && cue.isDucked) {
+            cue.howl.fade(cue.volume, cue.originalVolume, fadeOutDuration);
+            cue.volume = cue.originalVolume;
+            cue.isDucked = false;
+          }
         }
       }
     }
@@ -111,12 +134,18 @@ export const useAudioEngine = () => {
         },
         onend: () => {
           const cue = activeCues.value.get(item.uuid);
-          if (cue && cue.progressInterval) {
-            clearInterval(cue.progressInterval);
+          
+          // Don't handle end behavior for looping items - Howler handles loop internally
+          // Only clean up and handle end behavior for non-looping items
+          if (item.endBehavior.action !== 'loop') {
+            if (cue && cue.progressInterval) {
+              clearInterval(cue.progressInterval);
+            }
+            activeCues.value.delete(item.uuid);
+            restoreDuckedVolumes(item.uuid);
+            handleEndBehavior(item);
           }
-          activeCues.value.delete(item.uuid);
-          restoreDuckedVolumes(item.uuid);
-          handleEndBehavior(item);
+          // For looping items, keep the progress interval running
         },
         onloaderror: (id, error) => {
           console.error('Error loading audio:', error);
@@ -137,7 +166,9 @@ export const useAudioEngine = () => {
         volume: item.volume,
         isDucked: false,
         originalVolume: item.volume,
-        howl
+        duckedBy: new Set<string>(),
+        howl,
+        color: item.color // Pass item color to active cue
       };
 
       activeCues.value.set(item.uuid, activeCue);
@@ -173,13 +204,28 @@ export const useAudioEngine = () => {
     const cue = activeCues.value.get(uuid);
     if (cue) {
       try {
-        if (cue.progressInterval) {
-          clearInterval(cue.progressInterval);
-        }
-        cue.howl.stop();
-        cue.howl.unload();
-        activeCues.value.delete(uuid);
+        // Get the audio item to retrieve fade out duration
+        const item = findItemByUuid(uuid);
+        const fadeOutDuration = (item && item.type === 'audio') 
+          ? ((item as AudioItem).fadeOutDuration ?? 1.0) * 1000 
+          : 1000; // Default 1 second in ms
+
+        // Restore ducked volumes BEFORE removing from active cues
         restoreDuckedVolumes(uuid);
+
+        // Fade out before stopping
+        cue.howl.fade(cue.volume, 0, fadeOutDuration);
+        
+        // Wait for fade to complete, then stop and unload
+        setTimeout(() => {
+          if (cue.progressInterval) {
+            clearInterval(cue.progressInterval);
+          }
+          cue.howl.stop();
+          cue.howl.unload();
+          activeCues.value.delete(uuid);
+        }, fadeOutDuration);
+        
       } catch (error) {
         console.error('Error stopping cue:', error);
       }
@@ -201,6 +247,34 @@ export const useAudioEngine = () => {
       activeCues.value.clear();
     } catch (error) {
       console.error('Error stopping all cues:', error);
+    }
+  };
+
+  // Panic stop - fade out all cues over 0.5 seconds then stop
+  const panicStop = async () => {
+    if (!import.meta.client) return;
+
+    try {
+      const fadeOutDuration = 500; // 0.5 seconds in ms
+      
+      for (const [uuid, cue] of activeCues.value.entries()) {
+        // Fade out to 0
+        cue.howl.fade(cue.volume, 0, fadeOutDuration);
+      }
+      
+      // Wait for fade to complete, then stop all
+      setTimeout(() => {
+        for (const [uuid, cue] of activeCues.value.entries()) {
+          if (cue.progressInterval) {
+            clearInterval(cue.progressInterval);
+          }
+          cue.howl.stop();
+          cue.howl.unload();
+        }
+        activeCues.value.clear();
+      }, fadeOutDuration);
+    } catch (error) {
+      console.error('Error panic stopping cues:', error);
     }
   };
 
@@ -237,7 +311,7 @@ export const useAudioEngine = () => {
         }
         break;
       case 'loop':
-        playCue(item);
+        // Loop is handled by Howler's loop setting, no need to manually re-trigger
         break;
       case 'nothing':
       default:
@@ -390,6 +464,7 @@ export const useAudioEngine = () => {
     playCue,
     stopCue,
     stopAllCues,
+    panicStop,
     pauseCue,
     triggerByUuid,
     triggerByIndex,

@@ -11,6 +11,7 @@ declare global {
       writeFile: (filePath: string, data: string) => Promise<{ success: boolean; error?: string }>;
       copyFile: (source: string, destination: string) => Promise<{ success: boolean; error?: string }>;
       ensureDirectory: (dirPath: string) => Promise<{ success: boolean; error?: string }>;
+      generateWaveform: (audioPath: string, outputPath: string) => Promise<{ success: boolean; error?: string }>;
       openFolder: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
       setCurrentProject: (projectPath: string) => Promise<{ success: boolean }>;
       onMenuNewProject: (callback: () => void) => void;
