@@ -24,17 +24,21 @@
     "enterName": "Enter Project Name",
     "placeholder": "My Project",
     "cancel": "Cancel",
-    "ok": "OK"
+    "ok": "OK",
+    "importAudio": "Import Audio",
+    "noProject": "No Project"
   },
   "playlist": {
     "title": "Playlist",
     "import": "Import Audio",
     "addGroup": "Add Group",
-    "noItems": "No items in playlist"
+    "noItems": "No items in playlist",
+    "importAudio": "Import Audio"
   },
   "cart": {
     "title": "Cart Player",
-    "emptySlot": "Click to import or drag item here"
+    "emptySlot": "Click to import or drag item here",
+    "clickToImport": "Click to import or drag item here"
   },
   "properties": {
     "title": "Properties",
@@ -51,7 +55,17 @@
     "duckFadeIn": "Duck Fade In",
     "duckFadeOut": "Duck Fade Out",
     "children": "Children",
-    "seconds": "seconds"
+    "seconds": "seconds",
+    "uuid": "UUID",
+    "index": "Index",
+    "apiTriggerUrl": "API Trigger URL",
+    "file": "File",
+    "duration": "Duration",
+    "mode": "Mode",
+    "action": "Action",
+    "playbackSection": "Playback Section",
+    "media": "Media",
+    "replace": "Replace File"
   },
   "playback": {
     "panic": "PANIC",

@@ -50,22 +50,26 @@
     },
     "files": [
       ".output/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "assets/**/*"
     ],
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "assets/icons/4092w/liveplay-icon-lightmode@4092px.png"
     },
     "mac": {
       "target": [
         "dmg"
-      ]
+      ],
+      "icon": "assets/icons/4092w/liveplay-icon-lightmode@4092px.png"
     },
     "linux": {
       "target": [
         "AppImage"
-      ]
+      ],
+      "icon": "assets/icons/4092w/liveplay-icon-lightmode@4092px.png"
     }
   }
 }

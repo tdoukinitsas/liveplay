@@ -10,83 +10,97 @@
     "closeProject": "Κλείσιμο Έργου",
     "openProjectFolder": "Άνοιγμα Φακέλου Έργου",
     "view": "Προβολή",
-    "toggleDarkMode": "Εναλλαγή Σκοτεινής Λειτουργίας",
-    "changeAccentColor": "Αλλαγή Χρώματος Τονισμού",
+    "toggleDarkMode": "Εναλλαγή Σκοτεινής Θέσης",
+    "changeAccentColor": "Αλλαγή Χρώματος Έμφασης",
     "language": "Γλώσσα"
   },
   "welcome": {
     "title": "LivePlay",
-    "subtitle": "Αναπαραγωγή ηχητικών σημάτων για ζωντανές εκδηλώσεις",
+    "subtitle": "Αναπαραγωγή αρχείων ήχου για ζωντανές εκδηλώσεις",
     "newProject": "Νέο Έργο",
-    "openProject": "Άνοιγμα Έργου"
+    "openProject": "Άνοιγμα Εκδήλωσης"
   },
   "project": {
-    "enterName": "Εισάγετε Όνομα Έργου",
-    "placeholder": "Το Έργο μου",
+    "enterName": "Εισάγετε το Όνομα της Εκδήλωσης",
+    "placeholder": "Η Εκδήλωσή Μου",
     "cancel": "Ακύρωση",
-    "ok": "Εντάξει"
+    "ok": "OK",
+    "importAudio": "Εισαγωγή Ήχου",
+    "noProject": "Κανένα Έργο"
   },
   "playlist": {
     "title": "Λίστα Αναπαραγωγής",
     "import": "Εισαγωγή Ήχου",
     "addGroup": "Προσθήκη Ομάδας",
-    "noItems": "Δεν υπάρχουν στοιχεία στη λίστα"
+    "noItems": "Δεν υπάρχουν στοιχεία στη λίστα αναπαραγωγής",
+    "importAudio": "Εισαγωγή Ήχου"
   },
   "cart": {
-    "title": "Αναπαραγωγή Καρτών",
-    "emptySlot": "Κάντε κλικ για εισαγωγή ή σύρετε στοιχείο εδώ"
+    "title": "Λίστα σύντομων ήχων",
+    "emptySlot": "Κάντε κλικ για εισαγωγή ή σύρετε αντικείμενο εδώ",
+    "clickToImport": "Κάντε κλικ για εισαγωγή ή σύρετε αντικείμενο εδώ"
   },
   "properties": {
     "title": "Ιδιότητες",
-    "noSelection": "Επιλέξτε ένα στοιχείο για προβολή ιδιοτήτων",
+    "noSelection": "Επιλέξτε ένα στοιχείο για να δείτε τις ιδιότητες",
     "displayName": "Όνομα Εμφάνισης",
     "color": "Χρώμα",
-    "inPoint": "Σημείο Εισόδου",
-    "outPoint": "Σημείο Εξόδου",
+    "inPoint": "Σημείο Έναρξης",
+    "outPoint": "Σημείο Λήξης",
     "volume": "Ένταση",
-    "endBehavior": "Συμπεριφορά Τέλους",
+    "endBehavior": "Συμπεριφορά Λήξης",
     "startBehavior": "Συμπεριφορά Έναρξης",
-    "duckingBehavior": "Συμπεριφορά Μείωσης",
-    "fadeOutDuration": "Διάρκεια Σταδιακής Μείωσης",
-    "duckFadeIn": "Σταδιακή Αύξηση Μείωσης",
-    "duckFadeOut": "Σταδιακή Μείωση Μείωσης",
+    "duckingBehavior": "Συμπεριφορά για τους άλλους ήχους",
+    "fadeOutDuration": "Διάρκεια Fade Out",
+    "duckFadeIn": "Duck Fade In",
+    "duckFadeOut": "Duck Fade Out",
     "children": "Παιδιά",
-    "seconds": "δευτερόλεπτα"
+    "seconds": "δευτερόλεπτα",
+    "uuid": "UUID",
+    "index": "Αύξων Αριθμός",
+    "apiTriggerUrl": "Σύνδεσμος Ενεργοποίησης API",
+    "file": "Αρχείο",
+    "duration": "Διάρκεια",
+    "mode": "Λειτουργία",
+    "action": "Ενέργεια",
+    "playbackSection": "Ιδιότητες Αναπαραγωγής",
+    "media": "Αρχείο Ήχου",
+    "replace": "Αντικατάσταση Αρχείου"
   },
   "playback": {
-    "panic": "ΠΑΝΙΚΟΣ",
-    "noActiveCues": "Δεν υπάρχουν ενεργά σήματα",
+    "panic": "PANIC",
+    "noActiveCues": "Δεν υπάρχουν ενεργές ενδείξεις",
     "play": "Αναπαραγωγή",
-    "stop": "Διακοπή",
+    "stop": "Σταμάτημα",
     "delete": "Διαγραφή",
     "edit": "Επεξεργασία"
   },
   "endBehavior": {
-    "nothing": "Τίποτα",
-    "next": "Αναπαραγωγή Επόμενου",
-    "gotoItem": "Μετάβαση σε Στοιχείο",
-    "gotoIndex": "Μετάβαση σε Ευρετήριο",
-    "loop": "Επανάληψη"
+    "nothing": "Nothing",
+    "next": "Play Next",
+    "gotoItem": "Go to Item",
+    "gotoIndex": "Go to Index",
+    "loop": "Loop"
   },
   "startBehavior": {
-    "nothing": "Τίποτα",
-    "playNext": "Αναπαραγωγή Επόμενου",
-    "playItem": "Αναπαραγωγή Στοιχείου",
-    "playIndex": "Αναπαραγωγή Ευρετηρίου",
-    "playFirst": "Αναπαραγωγή Πρώτου",
-    "playAll": "Αναπαραγωγή Όλων"
+    "nothing": "Nothing",
+    "playNext": "Play Next",
+    "playItem": "Play Item",
+    "playIndex": "Play Index",
+    "playFirst": "Play First",
+    "playAll": "Play All"
   },
   "duckingBehavior": {
-    "stopAll": "Διακοπή Όλων των Άλλων Σημάτων",
-    "noDucking": "Χωρίς Μείωση",
-    "duckOthers": "Μείωση Άλλων",
-    "duckLevel": "Επίπεδο Μείωσης"
+    "stopAll": "Stop All Other Cues",
+    "noDucking": "No Ducking",
+    "duckOthers": "Duck Others",
+    "duckLevel": "Duck Level"
   },
   "actions": {
-    "delete": "Διαγραφή",
-    "confirm": "Είστε σίγουροι;"
+    "delete": "Delete",
+    "confirm": "Are you sure?"
   },
   "colors": {
-    "chooseAccent": "Επιλέξτε Χρώμα Τονισμού"
+    "chooseAccent": "Choose Accent Color"
   }
 }

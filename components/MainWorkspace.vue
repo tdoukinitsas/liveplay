@@ -1,5 +1,6 @@
 <template>
   <div class="main-workspace">
+    <ProjectHeader />
     <PlaybackControls />
     
     <div class="workspace-content">

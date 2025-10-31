@@ -1,8 +1,17 @@
 <template>
   <div class="welcome-screen">
     <div class="welcome-container">
-      <h1 class="welcome-title">{{ t('welcome.title') }}</h1>
-      <p class="welcome-subtitle">{{ t('welcome.subtitle') }}</p>
+      <div class="welcome-header">
+        <img 
+          :src="isDark ? '/assets/icons/SVG/liveplay-icon-darkmode@web.svg' : '/assets/icons/SVG/liveplay-icon-lightmode@web.svg'"
+          alt="LivePlay"
+          class="welcome-logo"
+        />
+        <div class="welcome-text">
+          <h1 class="welcome-title">{{ t('welcome.title') }}</h1>
+          <p class="welcome-subtitle">{{ t('welcome.subtitle') }}</p>
+        </div>
+      </div>
       
       <div class="welcome-actions">
         <button class="welcome-button primary" @click="handleNewProject">
@@ -22,6 +31,10 @@
 <script setup lang="ts">
 const { createNewProject, openProject } = useProject();
 const { t } = useLocalization();
+
+// Get theme from app state (works even when no project is open)
+const theme = useState('theme', () => 'dark');
+const isDark = computed(() => theme.value === 'dark');
 
 const handleNewProject = async () => {
   if (!import.meta.client || !window.electronAPI) return;
@@ -147,18 +160,37 @@ if (import.meta.client && window.electronAPI) {
   padding: var(--spacing-xxl);
 }
 
+.welcome-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xxl);
+}
+
+.welcome-logo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.welcome-text {
+  text-align: left;
+}
+
 .welcome-title {
   font-size: 64px;
   font-weight: 600;
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-xs);
   color: var(--color-text-primary);
   letter-spacing: -2px;
+  line-height: 1;
 }
 
 .welcome-subtitle {
   font-size: 20px;
   color: var(--color-text-secondary);
-  margin-bottom: var(--spacing-xxl);
+  margin: 0;
 }
 
 .welcome-actions {

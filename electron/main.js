@@ -67,6 +67,7 @@ function createWindow() {
     height: 900,
     minWidth: 1200,
     minHeight: 700,
+    icon: path.join(__dirname, '../assets/icons/2x/liveplay-icon-lightmode@2x.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

@@ -19,19 +19,7 @@
 import type { AudioItem } from '~/types/project';
 
 const { currentProject } = useProject();
-
-const getCartItem = (slot: number): AudioItem | null => {
-  if (!currentProject.value) return null;
-  
-  const cartItem = currentProject.value.cartItems.find(ci => ci.slot === slot);
-  if (!cartItem) return null;
-  
-  const { findItemByUuid } = useProject();
-  const item = findItemByUuid(cartItem.itemUuid);
-  
-  // Only return audio items for cart slots
-  return item && item.type === 'audio' ? item as AudioItem : null;
-};
+const { getCartItem } = useCartItems();
 </script>
 
 <style scoped>

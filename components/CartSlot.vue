@@ -4,7 +4,9 @@
     :class="{ 
       'has-item': hasItem, 
       'is-playing': isPlaying,
-      'is-warning': warningState
+      'warning-yellow': warningState === 'yellow',
+      'warning-orange': warningState === 'orange',
+      'warning-red': warningState === 'red'
     }"
     :style="slotStyle"
     @dragover.prevent
@@ -61,9 +63,10 @@ const props = defineProps<{
   item: AudioItem | null;
 }>();
 
-const { currentProject, findItemByUuid, addItem, triggerWaveformUpdate } = useProject();
+const { currentProject, findItemByUuid, triggerWaveformUpdate } = useProject();
 const { playCue, stopCue, activeCues } = useAudioEngine();
 const { t } = useLocalization();
+const { addCartOnlyItem, updateCartOnlyItem, removeCartOnlyItem } = useCartItems();
 
 const waveformCanvas = ref<HTMLCanvasElement | null>(null);
 const currentTime = ref(0);
@@ -166,72 +169,85 @@ const handleImport = async () => {
 const importAudioFileToSlot = async (filePath: string) => {
   if (!currentProject.value) return;
   
-  // Extract filename from path (browser-compatible)
-  const fileName = filePath.split(/[/\\]/).pop() || 'audio.wav';
-  const mediaPath = `${currentProject.value.folderPath}/media/${fileName}`;
-  
-  // Copy file to project media folder
-  const copyResult = await window.electronAPI.copyFile(filePath, mediaPath);
-  if (!copyResult.success) {
-    console.error('Failed to copy file:', copyResult.error);
-    return;
+  try {
+    // Extract filename from path
+    const fileName = filePath.split(/[/\\]/).pop() || 'audio.wav';
+    const mediaPath = `${currentProject.value.folderPath}/media/${fileName}`;
+    
+    // Copy file to project media folder
+    const copyResult = await window.electronAPI.copyFile(filePath, mediaPath);
+    if (!copyResult.success) {
+      console.error('Failed to copy file:', copyResult.error);
+      return;
+    }
+    
+    // Get audio duration - use 60 seconds as temporary default
+    // The actual duration will be detected when waveform is generated
+    const duration = 60;
+    
+    // Create new audio item
+    const { v4: uuidv4 } = await import('uuid');
+    const { DEFAULT_AUDIO_ITEM } = await import('~/types/project');
+    
+    const uuid = uuidv4();
+    const waveformPath = `${currentProject.value.folderPath}/waveforms/${uuid}.json`;
+    
+    const newItem: AudioItem = {
+      ...DEFAULT_AUDIO_ITEM,
+      uuid,
+      type: 'audio' as const,
+      displayName: fileName.replace(/\.[^/.]+$/, ''),
+      mediaFileName: fileName,
+      mediaPath: mediaPath,
+      waveformPath,
+      duration,
+      outPoint: duration,
+      waveform: undefined, // Will be generated asynchronously
+      index: [-1] // Cart items don't have a real index
+    };
+    
+    // Store in cart-only items (NOT in project.items)
+    addCartOnlyItem(newItem);
+    
+    // Assign to cart slot
+    const existingIndex = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === props.slot);
+    
+    if (existingIndex !== -1) {
+      currentProject.value.cartItems[existingIndex].itemUuid = uuid;
+    } else {
+      currentProject.value.cartItems.push({
+        slot: props.slot,
+        itemUuid: uuid
+      });
+    }
+    
+    // Save project
+    const { saveProject } = useProject();
+    await saveProject();
+    
+    // Generate waveform asynchronously using ffmpeg (non-blocking)
+    // This will also get the correct duration
+    generateWaveformForItem(newItem);
+  } catch (error) {
+    console.error('Error importing audio to cart:', error);
   }
-  
-  // Read audio file to get duration
-  const audioData = await window.electronAPI.readAudioFile(filePath);
-  if (!audioData.success || !audioData.data) {
-    console.error('Failed to read audio file');
-    return;
-  }
-  
-  // Calculate duration (assuming 44100 Hz sample rate, stereo)
-  const duration = audioData.data.length / 44100 / 2;
-  
-  // Create new audio item
-  const { v4: uuidv4 } = await import('uuid');
-  const { DEFAULT_AUDIO_ITEM } = await import('~/types/project');
-  
-  const uuid = uuidv4();
-  const waveformPath = `${currentProject.value.folderPath}/waveforms/${uuid}.json`;
-  
-  const newItem: any = {
-    ...DEFAULT_AUDIO_ITEM,
-    uuid,
-    type: 'audio',
-    displayName: fileName.replace(/\.[^/.]+$/, ''),
-    mediaFileName: fileName,
-    mediaPath: fileName,
-    waveformPath,
-    duration,
-    outPoint: duration,
-    waveform: undefined, // Will be generated asynchronously
-    index: [currentProject.value.items.length]
-  };
-  
-  // Add item to project
-  addItem(newItem);
-  
-  // Generate waveform asynchronously using ffmpeg
-  generateWaveformForItem(newItem);
-  
-  // Assign to cart slot
-  const existingIndex = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === props.slot);
-  
-  if (existingIndex !== -1) {
-    currentProject.value.cartItems[existingIndex].itemUuid = newItem.uuid;
-  } else {
-    currentProject.value.cartItems.push({
-      slot: props.slot,
-      itemUuid: newItem.uuid
-    });
-  }
-  
-  // Save project
-  const { saveProject } = useProject();
-  saveProject();
 };
 
-const generateWaveformForItem = async (item: any) => {
+// Helper to get audio duration using ffprobe
+const getAudioDuration = async (filePath: string): Promise<number> => {
+  try {
+    const result = await window.electronAPI.getAudioInfo(filePath);
+    if (result.success && result.duration) {
+      return result.duration;
+    }
+    return 0;
+  } catch (error) {
+    console.error('Error getting audio duration:', error);
+    return 0;
+  }
+};
+
+const generateWaveformForItem = async (item: AudioItem) => {
   try {
     if (!currentProject.value) return;
     
@@ -257,6 +273,15 @@ const generateWaveformForItem = async (item: any) => {
             // Validate waveform format
             if (waveformData.peaks && waveformData.length && waveformData.duration) {
               item.waveform = waveformData;
+              
+              // Update duration from waveform data
+              if (waveformData.duration) {
+                item.duration = waveformData.duration;
+                item.outPoint = waveformData.duration;
+              }
+              
+              // Update the cart-only item with waveform data
+              updateCartOnlyItem(item.uuid, item);
               
               // Force Vue reactivity update
               triggerWaveformUpdate();
@@ -296,6 +321,9 @@ const handleStop = () => {
 
 const handleDelete = () => {
   if (!currentProject.value || !props.item) return;
+  
+  // Remove from cart-only items
+  removeCartOnlyItem(props.item.uuid);
   
   // Remove from cart
   const index = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === props.slot);
@@ -428,10 +456,6 @@ const handleDrop = (e: DragEvent) => {
     border-width: 4px;
   }
   
-  &.is-playing {
-    animation: pulse 1s ease-in-out infinite;
-  }
-  
   &.warning-yellow {
     animation: flash-yellow 2s ease-in-out infinite;
   }
@@ -445,28 +469,19 @@ const handleDrop = (e: DragEvent) => {
   }
 }
 
-@keyframes pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 var(--color-accent);
-  }
-  50% {
-    box-shadow: 0 0 0 4px var(--color-accent);
-  }
-}
-
 @keyframes flash-yellow {
-  0%, 100% { background-color: var(--color-surface); }
-  50% { background-color: rgba(255, 193, 7, 0.2); }
+  0%, 100% { border-color: var(--color-border); }
+  50% { border-color: #FFC107; }
 }
 
 @keyframes flash-orange {
-  0%, 100% { background-color: var(--color-surface); }
-  50% { background-color: rgba(255, 152, 0, 0.3); }
+  0%, 100% { border-color: var(--color-border); }
+  50% { border-color: #FF9800; }
 }
 
 @keyframes flash-red {
-  0%, 100% { background-color: var(--color-surface); }
-  50% { background-color: rgba(244, 67, 54, 0.4); }
+  0%, 100% { border-color: var(--color-border); }
+  50% { border-color: #F44336; }
 }
 
 .empty-slot {
@@ -477,7 +492,18 @@ const handleDrop = (e: DragEvent) => {
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
-  color: var(--color-text-secondary);
+  
+  .slot-number {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+  
+  .slot-hint {
+    font-size: 12px;
+    font-style: italic;
+    color: var(--color-text-secondary);
+  }
 }
 
 .slot-content {
@@ -487,6 +513,31 @@ const handleDrop = (e: DragEvent) => {
   flex-direction: column;
   position: relative;
   padding: var(--spacing-sm);
+}
+
+.slot-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+  cursor: pointer;
+  
+  .slot-number {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    min-width: 24px;
+  }
+  
+  .slot-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
 }
 
 .content-header {
@@ -519,19 +570,16 @@ const handleDrop = (e: DragEvent) => {
 .slot-actions {
   display: flex;
   gap: 4px;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
+  justify-content: flex-end;
+  z-index: 2;
+  position: relative;
   
-  .cart-slot:hover & {
-    opacity: 1;
-  }
-  
-  button {
-    width: 24px;
-    height: 24px;
-    border: none;
+  button.slot-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--color-border);
     border-radius: var(--border-radius-sm);
-    background-color: var(--color-background);
+    background-color: var(--color-surface);
     color: var(--color-text-primary);
     cursor: pointer;
     display: flex;
@@ -543,24 +591,60 @@ const handleDrop = (e: DragEvent) => {
     &:hover {
       background-color: var(--color-accent);
       color: white;
+      border-color: var(--color-accent);
+    }
+    
+    &.play {
+      &:hover {
+        background-color: var(--color-success);
+        border-color: var(--color-success);
+      }
+    }
+    
+    &.stop {
+      &:hover {
+        background-color: var(--color-warning);
+        border-color: var(--color-warning);
+      }
+    }
+    
+    &.delete {
+      &:hover {
+        background-color: var(--color-danger);
+        border-color: var(--color-danger);
+      }
     }
   }
 }
 
-.waveform-container {
+.slot-waveform-area {
   flex: 1;
-  position: relative;
-  min-height: 40px;
-  margin-bottom: var(--spacing-xs);
-  
-  canvas {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 30px;
 }
 
-.progress-overlay {
+.slot-time-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.cart-waveform-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cart-progress {
   position: absolute;
   top: 0;
   left: 0;
@@ -575,24 +659,6 @@ const handleDrop = (e: DragEvent) => {
   align-items: center;
   font-size: 11px;
   color: var(--color-text-secondary);
-}
-
-.slot-number {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.slot-hint {
-  font-size: 12px;
-  font-style: italic;
-}
-
-.slot-indicator {
-  position: absolute;
-  bottom: var(--spacing-sm);
-  left: 50%;
-  transform: translateX(-50%);
 }
 
 .playing-dot {
