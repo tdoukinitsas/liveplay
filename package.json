@@ -1,0 +1,71 @@
+{
+  "name": "liveplay",
+  "version": "1.0.0",
+  "description": "Audio cue playback application for live events",
+  "main": "electron/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:nuxt\" \"npm run dev:electron\"",
+    "dev:nuxt": "nuxt dev",
+    "dev:electron": "wait-on http://localhost:3000 && electron .",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "build:electron": "electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "keywords": [
+    "electron",
+    "audio",
+    "cue",
+    "playback",
+    "live"
+  ],
+  "author": "Thomas Doukinitsas",
+  "license": "AGPL-3.0-only",
+  "devDependencies": {
+    "@nuxt/types": "^2.17.3",
+    "@types/node": "^20.10.5",
+    "concurrently": "^8.2.2",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "nuxt": "^3.9.0",
+    "sass": "^1.69.5",
+    "typescript": "^5.3.3",
+    "vue": "^3.4.3",
+    "vue-router": "^4.2.5",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "howler": "^2.2.4",
+    "uuid": "^9.0.1",
+    "wavesurfer.js": "^7.5.0"
+  },
+  "build": {
+    "appId": "com.liveplay.app",
+    "productName": "LivePlay",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      ".output/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
+  }
+}

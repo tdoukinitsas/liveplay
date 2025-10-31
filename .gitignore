@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-electron/
+.nuxt/
+.output/
+.env
+.DS_Store
+*.log
+*.local
+.vscode/*
+!.vscode/extensions.json
+.idea
