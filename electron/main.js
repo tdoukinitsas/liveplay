@@ -72,16 +72,21 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      webSecurity: false // Allow loading local files in development
+      webSecurity: false // Allow loading local files
     },
     show: false
   });
 
   // Load the Nuxt dev server in development, or the built files in production
   const isDev = process.env.NODE_ENV !== 'production';
-  const url = isDev ? 'http://localhost:3000' : `file://${path.join(__dirname, '../.output/public/index.html')}`;
-
-  mainWindow.loadURL(url);
+  
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:3000');
+  } else {
+    // In production, load the generated static files
+    const indexPath = path.join(__dirname, '../.output/public/index.html');
+    mainWindow.loadFile(indexPath);
+  }
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();

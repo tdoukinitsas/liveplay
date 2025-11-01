@@ -100,6 +100,7 @@ export interface Project {
   folderPath: string;
   items: (AudioItem | GroupItem)[];
   cartItems: CartItem[];
+  cartOnlyItems: AudioItem[]; // Items that exist only in cart (not in playlist)
   theme: Theme;
   createdAt: string;
   lastModified: string;
@@ -156,11 +157,28 @@ export const DEFAULT_AUDIO_ITEM: Partial<AudioItem> = {
   color: PRESET_COLORS[0],
   inPoint: 0,
   volume: 1.0,
+  endBehavior: { action: 'next' }, // Default: play next item
+  startBehavior: { action: 'nothing' },
+  customActions: [],
+  duckingBehavior: { 
+    mode: 'stop-all', // Default for playlist items: stop all other cues
+    duckFadeIn: 0.25,
+    duckFadeOut: 1.0
+  },
+  fadeOutDuration: 1.0
+};
+
+// Default for cart items (different from playlist)
+export const DEFAULT_CART_AUDIO_ITEM: Partial<AudioItem> = {
+  color: PRESET_COLORS[0],
+  inPoint: 0,
+  volume: 1.0,
   endBehavior: { action: 'nothing' },
   startBehavior: { action: 'nothing' },
   customActions: [],
   duckingBehavior: { 
-    mode: 'stop-all',
+    mode: 'duck-others', // Default for cart items: duck to 0.2
+    duckLevel: 0.2,
     duckFadeIn: 0.25,
     duckFadeOut: 1.0
   },

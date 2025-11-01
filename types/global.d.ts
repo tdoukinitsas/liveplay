@@ -14,6 +14,7 @@ declare global {
       generateWaveform: (audioPath: string, outputPath: string) => Promise<{ success: boolean; error?: string }>;
       openFolder: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
       setCurrentProject: (projectPath: string) => Promise<{ success: boolean }>;
+      getFilePath: (file: File) => string | null;
       onMenuNewProject: (callback: () => void) => void;
       onMenuOpenProject: (callback: () => void) => void;
       onMenuSaveProject: (callback: () => void) => void;

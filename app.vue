@@ -23,6 +23,8 @@
 </template>
 
 <script setup lang="ts">
+import 'material-symbols';
+
 const { currentProject, saveProject } = useProject();
 const { setLocale } = useLocalization();
 const theme = useState('theme', () => 'dark');

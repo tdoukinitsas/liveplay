@@ -6,10 +6,12 @@
       'is-playing': isPlaying,
       'warning-yellow': warningState === 'yellow',
       'warning-orange': warningState === 'orange',
-      'warning-red': warningState === 'red'
+      'warning-red': warningState === 'red',
+      'drag-over': isDragOver
     }"
     :style="slotStyle"
-    @dragover.prevent
+    @dragover.prevent="handleDragOver"
+    @dragleave="handleDragLeave"
     @drop="handleDrop"
   >
     <div v-if="!hasItem" class="empty-slot" @click="handleImport">
@@ -17,7 +19,13 @@
       <span class="slot-hint">{{ t('cart.clickToImport') }}</span>
     </div>
     
-    <div v-else class="slot-content">
+    <div 
+      v-else 
+      class="slot-content"
+      draggable="true"
+      @dragstart="handleDragStart"
+      @dragend="handleDragEnd"
+    >
       <!-- Waveform canvas -->
       <canvas 
         v-if="item.type === 'audio' && item.waveform"
@@ -45,10 +53,18 @@
       
       <!-- Action buttons -->
       <div class="slot-actions">
-        <button class="slot-btn play" @click.stop="handlePlay" :title="t('actions.play')">▶</button>
-        <button class="slot-btn stop" @click.stop="handleStop" :title="t('actions.stop')" v-if="isPlaying">⏹</button>
-        <button class="slot-btn edit" @click.stop="handleEdit" :title="t('actions.edit')">⚙</button>
-        <button class="slot-btn delete" @click.stop="handleDelete" :title="t('actions.remove')">×</button>
+        <button class="slot-btn play" @click.stop="handlePlay" :title="t('actions.play')">
+          <span class="material-symbols-rounded">play_arrow</span>
+        </button>
+        <button class="slot-btn stop" @click.stop="handleStop" :title="t('actions.stop')" v-if="isPlaying">
+          <span class="material-symbols-rounded">stop</span>
+        </button>
+        <button class="slot-btn edit" @click.stop="handleEdit" :title="t('actions.edit')">
+          <span class="material-symbols-rounded">settings</span>
+        </button>
+        <button class="slot-btn delete" @click.stop="handleDelete" :title="t('actions.remove')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
       </div>
     </div>
   </div>
@@ -73,6 +89,7 @@ const currentTime = ref(0);
 const duration = ref(0);
 const playbackProgress = ref(0);
 const warningState = ref<'yellow' | 'orange' | 'red' | null>(null);
+const isDragOver = ref(false);
 
 const hasItem = computed(() => props.item !== null);
 const isPlaying = computed(() => props.item ? activeCues.value.has(props.item.uuid) : false);
@@ -187,13 +204,13 @@ const importAudioFileToSlot = async (filePath: string) => {
     
     // Create new audio item
     const { v4: uuidv4 } = await import('uuid');
-    const { DEFAULT_AUDIO_ITEM } = await import('~/types/project');
+    const { DEFAULT_CART_AUDIO_ITEM } = await import('~/types/project');
     
     const uuid = uuidv4();
     const waveformPath = `${currentProject.value.folderPath}/waveforms/${uuid}.json`;
     
     const newItem: AudioItem = {
-      ...DEFAULT_AUDIO_ITEM,
+      ...DEFAULT_CART_AUDIO_ITEM,
       uuid,
       type: 'audio' as const,
       displayName: fileName.replace(/\.[^/.]+$/, ''),
@@ -204,7 +221,7 @@ const importAudioFileToSlot = async (filePath: string) => {
       outPoint: duration,
       waveform: undefined, // Will be generated asynchronously
       index: [-1] // Cart items don't have a real index
-    };
+    } as AudioItem;
     
     // Store in cart-only items (NOT in project.items)
     addCartOnlyItem(newItem);
@@ -230,20 +247,6 @@ const importAudioFileToSlot = async (filePath: string) => {
     generateWaveformForItem(newItem);
   } catch (error) {
     console.error('Error importing audio to cart:', error);
-  }
-};
-
-// Helper to get audio duration using ffprobe
-const getAudioDuration = async (filePath: string): Promise<number> => {
-  try {
-    const result = await window.electronAPI.getAudioInfo(filePath);
-    if (result.success && result.duration) {
-      return result.duration;
-    }
-    return 0;
-  } catch (error) {
-    console.error('Error getting audio duration:', error);
-    return 0;
   }
 };
 
@@ -407,11 +410,106 @@ watch(() => props.item, () => {
   }
 }, { deep: true });
 
-const handleDrop = (e: DragEvent) => {
+const handleDragStart = (e: DragEvent) => {
+  if (!e.dataTransfer || !props.item) return;
+  
+  // Set the drag data to include slot number and item UUID
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('cart-slot', props.slot.toString());
+  e.dataTransfer.setData('item-uuid', props.item.uuid);
+};
+
+const handleDragEnd = () => {
+  isDragOver.value = false;
+};
+
+const handleDragOver = (e: DragEvent) => {
   e.preventDefault();
+  if (!e.dataTransfer) return;
+  
+  // Check if it's a cart item being dragged
+  const isCartDrag = e.dataTransfer.types.includes('cart-slot');
+  const isFileDrag = e.dataTransfer.types.includes('Files');
+  const isPlaylistDrag = e.dataTransfer.types.includes('item-uuid') && !isCartDrag;
+  
+  if (isCartDrag || isFileDrag || isPlaylistDrag) {
+    isDragOver.value = true;
+    e.dataTransfer.dropEffect = isCartDrag ? 'move' : 'copy';
+  }
+};
+
+const handleDragLeave = () => {
+  isDragOver.value = false;
+};
+
+const handleDrop = async (e: DragEvent) => {
+  e.preventDefault();
+  isDragOver.value = false;
   
   if (!e.dataTransfer || !currentProject.value) return;
   
+  // Check if it's a cart item being reordered
+  const sourceSlotStr = e.dataTransfer.getData('cart-slot');
+  if (sourceSlotStr) {
+    const sourceSlot = parseInt(sourceSlotStr);
+    const targetSlot = props.slot;
+    
+    if (sourceSlot === targetSlot) return; // Same slot, do nothing
+    
+    // Get the source cart item
+    const sourceIndex = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === sourceSlot);
+    if (sourceIndex === -1) return;
+    
+    const sourceCartItem = currentProject.value.cartItems[sourceIndex];
+    
+    // Check if target slot is occupied
+    const targetIndex = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === targetSlot);
+    
+    if (targetIndex === -1) {
+      // Target slot is empty - simple move
+      currentProject.value.cartItems[sourceIndex].slot = targetSlot;
+    } else {
+      // Target slot is occupied - push/insert behavior
+      // Remove source item first
+      currentProject.value.cartItems.splice(sourceIndex, 1);
+      
+      // Shift all items at target slot and beyond forward by 1
+      for (const cartItem of currentProject.value.cartItems) {
+        if (cartItem.slot >= targetSlot) {
+          cartItem.slot += 1;
+        }
+      }
+      
+      // Insert source item at target slot
+      currentProject.value.cartItems.push({
+        slot: targetSlot,
+        itemUuid: sourceCartItem.itemUuid
+      });
+    }
+    
+    // Save the project
+    const { saveProject } = useProject();
+    await saveProject();
+    return;
+  }
+  
+  // Check if it's a file drop
+  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    const file = e.dataTransfer.files[0];
+    // Check if it's an audio file
+    if (file.type.startsWith('audio/') || /\.(mp3|wav|flac|ogg|m4a|aac)$/i.test(file.name)) {
+      // In Electron, we can get the file path from the File object using webUtils
+      if (window.electronAPI && window.electronAPI.getFilePath) {
+        const filePath = window.electronAPI.getFilePath(file);
+        if (filePath) {
+          await importAudioFileToSlot(filePath);
+          return;
+        }
+      }
+    }
+  }
+  
+  // Otherwise, check if it's an item UUID from the playlist
   const itemUuid = e.dataTransfer.getData('item-uuid');
   if (!itemUuid) return;
   
@@ -435,7 +533,6 @@ const handleDrop = (e: DragEvent) => {
 
 <style scoped lang="scss">
 .cart-slot {
-  min-height: 120px;
   border: 3px solid var(--color-border);
   border-radius: var(--border-radius-md);
   background-color: var(--color-surface);
@@ -454,6 +551,13 @@ const handleDrop = (e: DragEvent) => {
   
   &.has-item {
     border-width: 4px;
+  }
+  
+  &.drag-over {
+    background-color: var(--color-accent);
+    opacity: 0.5;
+    transform: scale(1.05);
+    border-color: var(--color-accent);
   }
   
   &.warning-yellow {
@@ -503,6 +607,8 @@ const handleDrop = (e: DragEvent) => {
     font-size: 12px;
     font-style: italic;
     color: var(--color-text-secondary);
+    padding-left: 4px;
+    text-align: center;
   }
 }
 
@@ -513,6 +619,11 @@ const handleDrop = (e: DragEvent) => {
   flex-direction: column;
   position: relative;
   padding: var(--spacing-sm);
+  cursor: move;
+  
+  &:active {
+    cursor: grabbing;
+  }
 }
 
 .slot-header {

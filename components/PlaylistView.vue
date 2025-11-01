@@ -208,7 +208,13 @@ const handleDrop = async (e: DragEvent) => {
   );
 
   for (const file of audioFiles) {
-    await importAudioFile(file.path);
+    // Get the file path using webUtils in Electron
+    if (window.electronAPI && window.electronAPI.getFilePath) {
+      const filePath = window.electronAPI.getFilePath(file);
+      if (filePath) {
+        await importAudioFile(filePath);
+      }
+    }
   }
 };
 </script>

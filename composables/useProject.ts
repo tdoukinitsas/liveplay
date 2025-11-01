@@ -13,12 +13,76 @@ import { DEFAULT_THEME } from '~/types/project';
 export const useProject = () => {
   const currentProject = useState<Project | null>('currentProject', () => null);
   const selectedItem = useState<BaseItem | null>('selectedItem', () => null);
+  const selectedItems = useState<Set<string>>('selectedItems', () => new Set()); // Track multiple selections by UUID
   const activeCues = useState<Map<string, any>>('activeCues', () => new Map());
   const waveformUpdateKey = useState<number>('waveformUpdateKey', () => 0);
 
   // Force UI update for waveforms
   const triggerWaveformUpdate = () => {
     waveformUpdateKey.value++;
+  };
+
+  // Multi-select helpers
+  const toggleItemSelection = (uuid: string, isCtrlKey: boolean, isShiftKey: boolean) => {
+    if (!currentProject.value) return;
+
+    if (isShiftKey && selectedItems.value.size > 0) {
+      // Shift-click: select range
+      const allItems = getAllItemsFlat(currentProject.value.items);
+      const lastSelectedUuid = Array.from(selectedItems.value).pop();
+      const lastIndex = allItems.findIndex(item => item.uuid === lastSelectedUuid);
+      const currentIndex = allItems.findIndex(item => item.uuid === uuid);
+      
+      if (lastIndex !== -1 && currentIndex !== -1) {
+        const start = Math.min(lastIndex, currentIndex);
+        const end = Math.max(lastIndex, currentIndex);
+        
+        for (let i = start; i <= end; i++) {
+          selectedItems.value.add(allItems[i].uuid);
+        }
+      }
+    } else if (isCtrlKey) {
+      // Ctrl-click: toggle individual item
+      if (selectedItems.value.has(uuid)) {
+        selectedItems.value.delete(uuid);
+      } else {
+        selectedItems.value.add(uuid);
+      }
+    } else {
+      // Normal click: select only this item
+      selectedItems.value.clear();
+      selectedItems.value.add(uuid);
+    }
+
+    // Update single selectedItem for backward compatibility
+    if (selectedItems.value.size === 1) {
+      const uuid = Array.from(selectedItems.value)[0];
+      selectedItem.value = findItemByUuid(uuid);
+    } else if (selectedItems.value.size > 1) {
+      // Multiple selection - keep selectedItem for properties panel
+      selectedItem.value = findItemByUuid(uuid); // Use the last clicked item
+    } else {
+      selectedItem.value = null;
+    }
+  };
+
+  // Get all items as a flat array (for shift-select)
+  const getAllItemsFlat = (items: (AudioItem | GroupItem)[]): BaseItem[] => {
+    const result: BaseItem[] = [];
+    for (const item of items) {
+      result.push(item);
+      if (item.type === 'group') {
+        result.push(...getAllItemsFlat(item.children));
+      }
+    }
+    return result;
+  };
+
+  // Get all selected items
+  const getSelectedItems = (): BaseItem[] => {
+    return Array.from(selectedItems.value)
+      .map(uuid => findItemByUuid(uuid))
+      .filter(item => item !== null) as BaseItem[];
   };
 
   // Create a new project
@@ -39,6 +103,7 @@ export const useProject = () => {
         folderPath,
         items: [],
         cartItems: [],
+        cartOnlyItems: [],
         theme: { ...DEFAULT_THEME },
         createdAt: new Date().toISOString(),
         lastModified: new Date().toISOString()
@@ -76,6 +141,15 @@ export const useProject = () => {
           currentProject.value = project;
           await window.electronAPI.setCurrentProject(projectFilePath);
           
+          // Restore cart-only items to memory
+          const { clearCartOnlyItems, addCartOnlyItem } = useCartItems();
+          clearCartOnlyItems();
+          if (project.cartOnlyItems && project.cartOnlyItems.length > 0) {
+            for (const item of project.cartOnlyItems) {
+              addCartOnlyItem(item);
+            }
+          }
+          
           // Load waveforms from disk asynchronously for all audio items
           loadWaveformsAsync(project);
           
@@ -91,6 +165,11 @@ export const useProject = () => {
 
   // Migrate project to add new properties for backwards compatibility
   const migrateProject = (project: Project) => {
+    // Add cartOnlyItems if missing
+    if (!project.cartOnlyItems) {
+      project.cartOnlyItems = [];
+    }
+    
     const migrateItem = (item: BaseItem) => {
       if (item.type === 'audio') {
         const audioItem = item as AudioItem;
@@ -208,6 +287,10 @@ export const useProject = () => {
     try {
       if (!currentProject.value) return false;
 
+      // Save cart-only items from memory to project
+      const { cartOnlyItems } = useCartItems();
+      currentProject.value.cartOnlyItems = Array.from(cartOnlyItems.value.values());
+
       currentProject.value.lastModified = new Date().toISOString();
       const projectFilePath = `${currentProject.value.folderPath}/${currentProject.value.name}.liveplay`;
 
@@ -230,6 +313,10 @@ export const useProject = () => {
     currentProject.value = null;
     selectedItem.value = null;
     activeCues.value.clear();
+    
+    // Clear cart-only items from memory
+    const { clearCartOnlyItems } = useCartItems();
+    clearCartOnlyItems();
   };
 
   // Update item indices recursively
@@ -304,7 +391,13 @@ export const useProject = () => {
       return null;
     };
 
-    return search(currentProject.value.items);
+    // First search in project items
+    const found = search(currentProject.value.items);
+    if (found) return found;
+
+    // Also check cart-only items
+    const { getCartOnlyItem } = useCartItems();
+    return getCartOnlyItem(uuid);
   };
 
   // Find item by index
@@ -352,9 +445,12 @@ export const useProject = () => {
   return {
     currentProject,
     selectedItem,
+    selectedItems,
     activeCues,
     waveformUpdateKey,
     triggerWaveformUpdate,
+    toggleItemSelection,
+    getSelectedItems,
     createNewProject,
     openProject,
     saveProject,

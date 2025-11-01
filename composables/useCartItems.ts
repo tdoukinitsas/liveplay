@@ -37,6 +37,11 @@ export const useCartItems = () => {
     }
   };
 
+  // Get a cart-only item by UUID
+  const getCartOnlyItem = (uuid: string): AudioItem | null => {
+    return cartOnlyItems.value.get(uuid) || null;
+  };
+
   // Remove a cart-only item
   const removeCartOnlyItem = (uuid: string) => {
     cartOnlyItems.value.delete(uuid);
@@ -52,6 +57,7 @@ export const useCartItems = () => {
     addCartOnlyItem,
     getCartItem,
     updateCartOnlyItem,
+    getCartOnlyItem,
     removeCartOnlyItem,
     clearCartOnlyItems
   };

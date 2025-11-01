@@ -10,7 +10,10 @@ export default defineNuxtConfig({
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' }
       ]
-    }
+    },
+    // Use relative paths for Electron
+    baseURL: './',
+    buildAssetsDir: '_nuxt/'
   },
 
   css: [

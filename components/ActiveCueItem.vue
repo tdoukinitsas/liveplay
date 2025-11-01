@@ -10,7 +10,9 @@
   >
     <div class="cue-header">
       <span class="cue-name">{{ cue.displayName }}</span>
-      <button class="stop-btn" @click="handleStop" :title="t('actions.stop')">×</button>
+      <button class="stop-btn" @click="handleStop" :title="t('actions.stop')">
+        <span class="material-symbols-rounded">stop</span>
+      </button>
     </div>
     
     <div class="cue-progress">

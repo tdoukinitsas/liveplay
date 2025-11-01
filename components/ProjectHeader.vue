@@ -77,8 +77,7 @@ onMounted(() => {
 
 .digital-clock {
   font-size: 24px;
-  font-weight: 600;
-  font-family: 'Courier New', monospace;
+  font-weight: 700;
   color: var(--color-accent);
   letter-spacing: 0.05em;
   padding: var(--spacing-xs) var(--spacing-md);
@@ -87,9 +86,5 @@ onMounted(() => {
   background-color: var(--color-surface);
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   transition: all var(--transition-base);
-  
-  &:hover {
-    box-shadow: 0 0 20px var(--color-accent-transparent, rgba(124, 58, 237, 0.3));
-  }
 }
 </style>

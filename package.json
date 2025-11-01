@@ -8,10 +8,10 @@
     "dev": "concurrently \"npm run dev:nuxt\" \"npm run dev:electron\"",
     "dev:nuxt": "nuxt dev",
     "dev:electron": "wait-on http://localhost:3000 && electron .",
-    "build": "nuxt build",
+    "build": "nuxt generate",
+    "build:electron": "nuxt generate && electron-builder",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "build:electron": "electron-builder",
     "postinstall": "electron-builder install-app-deps"
   },
   "keywords": [
@@ -39,6 +39,7 @@
   "dependencies": {
     "express": "^4.18.2",
     "howler": "^2.2.4",
+    "material-symbols": "^0.39.1",
     "uuid": "^9.0.1",
     "wavesurfer.js": "^7.5.0"
   },

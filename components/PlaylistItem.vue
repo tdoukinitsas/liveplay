@@ -25,22 +25,22 @@
       class="waveform-canvas"
     ></canvas>
     
-    <!-- Progress bar for playing items -->
-    <div v-if="isPlaying && item.type === 'audio'" class="item-progress" :style="progressStyle"></div>
-    
     <div 
       class="item-content"
       @click="handleSelect"
       :draggable="true"
       @dragstart="handleDragStart"
     >
+      <!-- Progress bar for playing items (audio and groups) - only in header -->
+      <div v-if="(isPlaying && item.type === 'audio') || (isGroupPlaying && item.type === 'group')" class="item-progress" :style="progressStyle"></div>
+      
       <div class="item-left">
         <button 
           v-if="item.type === 'group'" 
           class="expand-btn"
           @click.stop="toggleExpand"
         >
-          {{ isExpanded ? '▼' : '▶' }}
+          <span class="material-symbols-rounded">{{ isExpanded ? 'expand_more' : 'chevron_right' }}</span>
         </button>
         
         <span class="item-index">{{ indexDisplay }}</span>
@@ -49,9 +49,15 @@
       </div>
       
       <div class="item-actions">
-        <button class="item-btn play" @click.stop="handlePlay" :title="t('actions.play')">▶</button>
-        <button class="item-btn stop" @click.stop="handleStop" :title="t('actions.stop')" v-if="isPlaying">⏹</button>
-        <button class="item-btn delete" @click.stop="handleDelete" :title="t('actions.delete')">🗑</button>
+        <button class="item-btn play" @click.stop="handlePlay" :title="t('actions.play')">
+          <span class="material-symbols-rounded">play_arrow</span>
+        </button>
+        <button class="item-btn stop" @click.stop="handleStop" :title="t('actions.stop')" v-if="isPlaying">
+          <span class="material-symbols-rounded">stop</span>
+        </button>
+        <button class="item-btn delete" @click.stop="handleDelete" :title="t('actions.delete')">
+          <span class="material-symbols-rounded">delete</span>
+        </button>
       </div>
     </div>
     
@@ -74,16 +80,17 @@ const props = defineProps<{
   depth: number;
 }>();
 
-const { selectedItem, removeItem, findItemByUuid, currentProject, waveformUpdateKey } = useProject();
-const { playCue, stopCue, activeCues, triggerGroup } = useAudioEngine();
+const { selectedItem, selectedItems, toggleItemSelection, removeItem, findItemByUuid, currentProject, waveformUpdateKey } = useProject();
+const { playCue, stopCue, activeCues, activeGroups, triggerGroup } = useAudioEngine();
 const { t } = useLocalization();
 
 const isExpanded = ref(props.item.type === 'group' ? props.item.isExpanded : false);
 const waveformCanvas = ref<HTMLCanvasElement | null>(null);
 const dragPosition = ref<'top' | 'bottom' | 'group' | null>(null);
 
-const isSelected = computed(() => selectedItem.value?.uuid === props.item.uuid);
+const isSelected = computed(() => selectedItems.value.has(props.item.uuid));
 const isPlaying = computed(() => activeCues.value.has(props.item.uuid));
+const isGroupPlaying = computed(() => props.item.type === 'group' && activeGroups.value.has(props.item.uuid));
 
 const indexDisplay = computed(() => {
   return props.item.index.join(',');
@@ -207,6 +214,29 @@ watch(isPlaying, (playing) => {
   }
 });
 
+// Watch for group playing state
+watch(isGroupPlaying, (playing) => {
+  if (playing && props.item.type === 'group') {
+    const groupState = activeGroups.value.get(props.item.uuid);
+    if (groupState) {
+      progressInterval = setInterval(() => {
+        const state = activeGroups.value.get(props.item.uuid);
+        if (state) {
+          const current = state.currentTime;
+          const duration = state.totalDuration;
+          playbackProgress.value = duration > 0 ? Math.min((current / duration) * 100, 100) : 0;
+        }
+      }, 100);
+    }
+  } else if (!playing && props.item.type === 'group') {
+    if (progressInterval) {
+      clearInterval(progressInterval);
+      progressInterval = null;
+    }
+    playbackProgress.value = 0;
+  }
+});
+
 onUnmounted(() => {
   if (progressInterval) {
     clearInterval(progressInterval);
@@ -226,7 +256,7 @@ const itemStyle = computed(() => {
     marginLeft: `${props.depth * 24}px`,
   };
   
-  if (isPlaying.value) {
+  if (isPlaying.value || isGroupPlaying.value) {
     // Playing: 50% opacity background
     styles.backgroundColor = hexToRgba(props.item.color, 0.5);
   } else {
@@ -244,8 +274,8 @@ const progressStyle = computed(() => {
   };
 });
 
-const handleSelect = () => {
-  selectedItem.value = props.item;
+const handleSelect = (event: MouseEvent) => {
+  toggleItemSelection(props.item.uuid, event.ctrlKey || event.metaKey, event.shiftKey);
 };
 
 const handlePlay = () => {
@@ -278,6 +308,12 @@ const handleDragStart = (e: DragEvent) => {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('item-uuid', props.item.uuid);
     e.dataTransfer.setData('item-depth', props.depth.toString());
+    
+    // If this item is part of a multi-selection, store all selected UUIDs
+    if (selectedItems.value.has(props.item.uuid) && selectedItems.value.size > 1) {
+      const selectedUuids = Array.from(selectedItems.value);
+      e.dataTransfer.setData('selected-items', JSON.stringify(selectedUuids));
+    }
   }
 };
 
@@ -319,11 +355,30 @@ const handleDrop = (e: DragEvent) => {
   const draggedUuid = e.dataTransfer.getData('item-uuid');
   if (!draggedUuid || draggedUuid === props.item.uuid) return;
   
-  const draggedItem = findItemByUuid(draggedUuid);
-  if (!draggedItem) return;
+  // Check if we're dragging multiple items
+  const selectedItemsData = e.dataTransfer.getData('selected-items');
+  const itemsToMove: string[] = selectedItemsData 
+    ? JSON.parse(selectedItemsData) 
+    : [draggedUuid];
   
-  // Remove from current location
-  removeItem(draggedUuid);
+  // Don't drop onto one of the items being moved
+  if (itemsToMove.includes(props.item.uuid)) return;
+  
+  // Collect all items to move (in their current order)
+  const allProjectItems = getAllItemsFlattened(currentProject.value.items);
+  const itemObjects = itemsToMove
+    .map(uuid => findItemByUuid(uuid))
+    .filter(item => item !== null);
+  
+  if (itemObjects.length === 0) return;
+  
+  // Remove all items from their current locations (in reverse order to maintain indices)
+  for (let i = itemObjects.length - 1; i >= 0; i--) {
+    const item = itemObjects[i];
+    if (item) {
+      removeItem(item.uuid);
+    }
+  }
   
   // Determine insertion point
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -332,9 +387,14 @@ const handleDrop = (e: DragEvent) => {
   
   if (props.item.type === 'group' && y > height * 0.3 && y < height * 0.7) {
     // Drop inside group
-    props.item.children.push(draggedItem);
+    const groupItem = props.item as GroupItem;
+    itemObjects.forEach(item => {
+      if (item) {
+        groupItem.children.push(item);
+      }
+    });
     const { updateIndices } = useProject();
-    updateIndices(props.item.children, props.item.index);
+    updateIndices(groupItem.children, groupItem.index);
   } else {
     // Find parent array and insert before/after
     const insertAfter = y >= height / 2;
@@ -349,17 +409,22 @@ const handleDrop = (e: DragEvent) => {
       const parentGroupIndex = targetIndex.slice(0, -1);
       const parentGroup = findItemByIndex(parentGroupIndex);
       if (parentGroup && parentGroup.type === 'group') {
-        parentArray = parentGroup.children;
-        parentIndex = parentGroup.index;
+        const groupParent = parentGroup as GroupItem;
+        parentArray = groupParent.children;
+        parentIndex = groupParent.index;
       }
     }
     
     // Find position in parent array
     const itemPosInArray = parentArray.findIndex(i => i.uuid === props.item.uuid);
-    const insertPos = insertAfter ? itemPosInArray + 1 : itemPosInArray;
+    let insertPos = insertAfter ? itemPosInArray + 1 : itemPosInArray;
     
-    // Insert item
-    parentArray.splice(insertPos, 0, draggedItem);
+    // Insert all items at the position
+    itemObjects.forEach((item, idx) => {
+      if (item) {
+        parentArray.splice(insertPos + idx, 0, item);
+      }
+    });
     
     // Update all indices
     const { updateIndices } = useProject();
@@ -369,6 +434,19 @@ const handleDrop = (e: DragEvent) => {
   // Save project
   const { saveProject } = useProject();
   saveProject();
+};
+
+// Helper to get all items flattened
+const getAllItemsFlattened = (items: (AudioItem | GroupItem)[]): (AudioItem | GroupItem)[] => {
+  const result: (AudioItem | GroupItem)[] = [];
+  for (const item of items) {
+    result.push(item);
+    if (item.type === 'group') {
+      const groupItem = item as GroupItem;
+      result.push(...getAllItemsFlattened(groupItem.children));
+    }
+  }
+  return result;
 };
 
 // Helper to find item by index

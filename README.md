@@ -1,5 +1,7 @@
 # LivePlay
 
+![Main liveplay user interface, with playlist editor, cue cart and properties panel](/public/liveplay_screenshot.jpg)
+
 A professional open source audio cue playback application built with Electron, Node.js, and Nuxt 3/Vue for live events and productions.
 Currently under active development.
 
