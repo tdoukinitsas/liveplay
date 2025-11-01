@@ -191,7 +191,8 @@ const handleAddGroup = () => {
     uuid: uuidv4(),
     index: [currentProject.value.items.length],
     displayName: 'New Group',
-    type: 'group'
+    type: 'group',
+    children: [] // Create a new array for each group to avoid shared references
   } as GroupItem;
 
   addItem(groupItem);

@@ -73,7 +73,7 @@
     "duckLevel": "Duck Level"
   },
   "playback": {
-    "panic": "PANIC",
+    "panic": "Stop All Cues",
     "noActiveCues": "No active cues",
     "play": "Play",
     "stop": "Stop",

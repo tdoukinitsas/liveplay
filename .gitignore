@@ -10,3 +10,4 @@ dist-electron/
 .vscode/*
 !.vscode/extensions.json
 .idea
+package-lock.json

@@ -4,11 +4,11 @@
   },
   "menu": {
     "file": "Αρχείο",
-    "newProject": "Νέο Έργο",
-    "openProject": "Άνοιγμα Έργου",
-    "saveProject": "Αποθήκευση Έργου",
-    "closeProject": "Κλείσιμο Έργου",
-    "openProjectFolder": "Άνοιγμα Φακέλου Έργου",
+    "newProject": "Νέα Εκδήλωση",
+    "openProject": "Άνοιγμα Εκδήλωσης",
+    "saveProject": "Αποθήκευση Εκδήλωσης",
+    "closeProject": "Κλείσιμο Εκδήλωσης",
+    "openProjectFolder": "Άνοιγμα Φακέλου Εκδήλωσης",
     "view": "Προβολή",
     "toggleDarkMode": "Εναλλαγή Σκοτεινής Θέσης",
     "changeAccentColor": "Αλλαγή Χρώματος Έμφασης",
@@ -17,7 +17,7 @@
   "welcome": {
     "title": "LivePlay",
     "subtitle": "Αναπαραγωγή αρχείων ήχου για ζωντανές εκδηλώσεις",
-    "newProject": "Νέο Έργο",
+    "newProject": "Νέα Εκδήλωση",
     "openProject": "Άνοιγμα Εκδήλωσης"
   },
   "project": {
@@ -73,7 +73,7 @@
     "duckLevel": "Επίπεδο Μείωσης Έντασης"
   },
   "playback": {
-    "panic": "PANIC",
+    "panic": "Σταματημα Όλων",
     "noActiveCues": "Δεν υπάρχουν ενεργές ενδείξεις",
     "play": "Αναπαραγωγή",
     "stop": "Σταμάτημα",
@@ -81,11 +81,11 @@
     "edit": "Επεξεργασία"
   },
   "endBehavior": {
-    "nothing": "Nothing",
-    "next": "Play Next",
-    "gotoItem": "Go to Item",
-    "gotoIndex": "Go to Index",
-    "loop": "Loop"
+    "nothing": "Τίποτα",
+    "next": "Αναπαραγωγή Επόμενου",
+    "gotoItem": "Μετάβαση σε Στοιχείο",
+    "gotoIndex": "Μετάβαση σε Αύξοντα Αριθμό",
+    "loop": "Επανάληψη"
   },
   "startBehavior": {
     "nothing": "Τίποτα",

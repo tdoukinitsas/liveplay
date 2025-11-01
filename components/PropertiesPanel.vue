@@ -222,17 +222,17 @@ interface Tab {
   audioOnly?: boolean;
 }
 
-const allTabs: Tab[] = [
+const allTabs = computed<Tab[]>(() => [
   { id: 'basic', label: t('properties.basicInfo'), icon: 'info' },
   { id: 'media', label: t('properties.media'), icon: 'audio_file', audioOnly: true },
   { id: 'playback', label: t('properties.playback'), icon: 'play_circle', audioOnly: true },
   { id: 'ducking', label: t('properties.ducking'), icon: 'volume_down', audioOnly: true },
   { id: 'endBehavior', label: t('properties.endBehavior'), icon: 'stop_circle' },
   { id: 'startBehavior', label: t('properties.startBehavior'), icon: 'play_arrow' }
-];
+]);
 
 const availableTabs = computed(() => {
-  return allTabs.filter(tab => !tab.audioOnly || selectedItem.value?.type === 'audio');
+  return allTabs.value.filter(tab => !tab.audioOnly || selectedItem.value?.type === 'audio');
 });
 
 // Computed properties for behavior fields
