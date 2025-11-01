@@ -17,6 +17,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // File operations
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   readAudioFile: (filePath) => ipcRenderer.invoke('read-audio-file', filePath),
+  loadAudioBuffer: async (filePath) => {
+    const result = await ipcRenderer.invoke('read-audio-file', filePath);
+    if (result.success) {
+      return new Uint8Array(result.data).buffer;
+    }
+    throw new Error(result.error || 'Failed to load audio');
+  },
   writeFile: (filePath, data) => ipcRenderer.invoke('write-file', filePath, data),
   copyFile: (source, destination) => ipcRenderer.invoke('copy-file', source, destination),
   ensureDirectory: (dirPath) => ipcRenderer.invoke('ensure-directory', dirPath),

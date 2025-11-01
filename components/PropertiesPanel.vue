@@ -92,40 +92,17 @@
       
       <!-- Playback Tab -->
       <div v-if="activeTab === 'playback' && selectedItem.type === 'audio'" class="tab-panel">
-        <div class="property-field">
-          <label>{{ t('properties.volume') }}</label>
-          <input 
-            v-model.number="audioItem.volume" 
-            type="number" 
-            min="0" 
-            max="2" 
-            step="0.1"
-            @change="handleSave"
-          />
-        </div>
-        
-        <div class="property-field">
-          <label>{{ t('properties.inPoint') }}</label>
-          <input 
-            v-model.number="audioItem.inPoint" 
-            type="number" 
-            min="0" 
-            :max="audioItem.duration"
-            step="0.1"
-            @change="handleSave"
-          />
-        </div>
-        
-        <div class="property-field">
-          <label>{{ t('properties.outPoint') }}</label>
-          <input 
-            v-model.number="audioItem.outPoint" 
-            type="number" 
-            :min="audioItem.inPoint" 
-            :max="audioItem.duration"
-            step="0.1"
-            @change="handleSave"
-          />
+        <WaveformTrimmer
+          v-if="audioItem && audioItem.mediaPath && audioItem.duration > 0"
+          :audio-item="audioItem"
+          @update:volume="(v) => { audioItem.volume = v; }"
+          @update:in-point="(v) => { audioItem.inPoint = v; }"
+          @update:out-point="(v) => { audioItem.outPoint = v; }"
+          @change="handleSave"
+        />
+        <div v-else class="loading-message">
+          <span class="material-symbols-rounded">pending</span>
+          <p>{{ t('properties.loadingAudioData')}}</p>
         </div>
       </div>
       
@@ -141,15 +118,19 @@
         </div>
         
         <div class="property-field" v-if="audioItem.duckingBehavior.mode === 'duck-others'">
-          <label>{{ t('properties.duckLevel') }}</label>
+          <label>{{ t('properties.duckLevel') }} ({{ duckLevelDB.toFixed(1) }} dB)</label>
           <input 
-            v-model.number="audioItem.duckingBehavior.duckLevel" 
-            type="number" 
-            min="0" 
-            max="1" 
-            step="0.1"
+            v-model.number="duckLevelDB" 
+            type="range" 
+            min="-60" 
+            max="0" 
+            step="0.5"
             @change="handleSave"
           />
+          <div class="db-range-labels">
+            <span>-60 dB</span>
+            <span>0 dB</span>
+          </div>
         </div>
       </div>
       
@@ -242,12 +223,12 @@ interface Tab {
 }
 
 const allTabs: Tab[] = [
-  { id: 'basic', label: 'Basic Info', icon: 'info' },
-  { id: 'media', label: 'Media', icon: 'audio_file', audioOnly: true },
-  { id: 'playback', label: 'Playback', icon: 'play_circle', audioOnly: true },
-  { id: 'ducking', label: 'Ducking', icon: 'volume_down', audioOnly: true },
-  { id: 'endBehavior', label: 'End Behavior', icon: 'stop_circle' },
-  { id: 'startBehavior', label: 'Start Behavior', icon: 'play_arrow' }
+  { id: 'basic', label: t('properties.basicInfo'), icon: 'info' },
+  { id: 'media', label: t('properties.media'), icon: 'audio_file', audioOnly: true },
+  { id: 'playback', label: t('properties.playback'), icon: 'play_circle', audioOnly: true },
+  { id: 'ducking', label: t('properties.ducking'), icon: 'volume_down', audioOnly: true },
+  { id: 'endBehavior', label: t('properties.endBehavior'), icon: 'stop_circle' },
+  { id: 'startBehavior', label: t('properties.startBehavior'), icon: 'play_arrow' }
 ];
 
 const availableTabs = computed(() => {
@@ -359,18 +340,41 @@ const handleStartBehaviorIndexChange = (e: Event) => {
   handleSave();
 };
 
+// Duck level in dB
+const duckLevelDB = computed({
+  get: () => {
+    const linear = audioItem.value.duckingBehavior.duckLevel;
+    if (linear <= 0) return -60;
+    return 20 * Math.log10(linear);
+  },
+  set: (db: number) => {
+    const linear = db <= -60 ? 0 : Math.pow(10, db / 20);
+    audioItem.value.duckingBehavior.duckLevel = linear;
+  }
+});
+
 // Store a snapshot of the original values when properties panel opens
 const originalSnapshot = ref<any>(null);
+const isInitializing = ref(false);
 
 // When selectedItem changes, take a snapshot and reset to basic tab
-watch(selectedItem, (newItem) => {
+watch(selectedItem, (newItem, oldItem) => {
   if (newItem) {
-    originalSnapshot.value = JSON.parse(JSON.stringify(newItem));
-    activeTab.value = 'basic'; // Reset to basic tab
+    // Only reset tab if it's a different item (not just property updates)
+    const isDifferentItem = !oldItem || newItem.uuid !== oldItem.uuid;
+    
+    if (isDifferentItem) {
+      isInitializing.value = true;
+      originalSnapshot.value = JSON.parse(JSON.stringify(newItem));
+      activeTab.value = 'basic'; // Reset to basic tab only on new item
+      setTimeout(() => {
+        isInitializing.value = false;
+      }, 0);
+    }
   } else {
     originalSnapshot.value = null;
   }
-}, { immediate: true, deep: true });
+}, { immediate: true });
 
 const handleClose = () => {
   selectedItem.value = null;
@@ -557,8 +561,9 @@ const formatTime = (seconds: number): string => {
 .properties-content {
   flex: 1;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   padding: var(--spacing-lg);
+  min-height: 0;
 }
 
 .tab-panel {
@@ -567,6 +572,11 @@ const formatTime = (seconds: number): string => {
   gap: var(--spacing-md);
   align-content: flex-start;
   min-height: min-content;
+}
+
+/* Special handling for playback tab with waveform trimmer */
+.tab-panel:has(.waveform-trimmer) {
+  display: block;
 }
 
 .property-field {
@@ -681,6 +691,42 @@ const formatTime = (seconds: number): string => {
   &:hover {
     background-color: var(--color-surface-hover);
     border-color: var(--color-accent);
+  }
+}
+
+.db-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.loading-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xl);
+  color: var(--color-text-secondary);
+}
+
+.loading-message .material-symbols-rounded {
+  font-size: 48px;
+  animation: spin 2s linear infinite;
+}
+
+.loading-message p {
+  font-size: 14px;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 </style>

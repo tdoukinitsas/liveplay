@@ -65,7 +65,11 @@
     "action": "Action",
     "playbackSection": "Playback Section",
     "media": "Media",
-    "replace": "Replace File"
+    "replace": "Replace File",
+    "basicInfo": "Basic Info",
+    "loadingAudioData": "Loading audio data...",
+    "playback": "Playback",
+    "ducking": "Ducking"
   },
   "playback": {
     "panic": "PANIC",

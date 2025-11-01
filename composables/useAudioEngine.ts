@@ -118,7 +118,7 @@ export const useAudioEngine = () => {
       const howl = new Howl({
         src: [fileUrl],
         html5: true, // Use HTML5 Audio for better file system access
-        volume: item.volume,
+        volume: Math.min(1, item.volume), // Clamp to 0-1 for HTML5 Audio
         loop: item.endBehavior.action === 'loop',
         sprite: item.inPoint || item.outPoint ? {
           main: [
@@ -209,9 +209,9 @@ export const useAudioEngine = () => {
         displayName: item.displayName,
         currentTime: 0,
         duration: item.duration,
-        volume: item.volume,
+        volume: Math.min(1, item.volume), // Clamp to 0-1 for HTML5 Audio
         isDucked: false,
-        originalVolume: item.volume,
+        originalVolume: Math.min(1, item.volume), // Clamp to 0-1 for HTML5 Audio
         duckedBy: new Set<string>(),
         howl,
         color: item.color // Pass item color to active cue

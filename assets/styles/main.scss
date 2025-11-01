@@ -1,3 +1,16 @@
+// Fonts
+
+@font-face {
+  font-family: IBM Plex Sans; /* set name */
+  src: url(/assets/fonts/IBM_Plex_Sans/IBMPlexSans-VariableFont_wdth\,wght.ttf); /* url of the font */
+}
+
+@font-face {
+  font-family: Inter; /* set name */
+  src: url(/assets/fonts/Inter/Inter-VariableFont_slnt,wght.ttf); /* url of the font */
+}
+
+
 // CSS Variables for theming
 :root {
   // Spacing

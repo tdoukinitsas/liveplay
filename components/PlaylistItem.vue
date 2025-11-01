@@ -577,6 +577,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   align-items: center;
   gap: var(--spacing-sm);
   flex: 1;
+  z-index: 5;
   min-width: 0;
 }
 
@@ -617,6 +618,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   gap: var(--spacing-xs);
   opacity: 0;
   transition: opacity var(--transition-fast);
+  z-index: 5;
   
   .playlist-item:hover & {
     opacity: 1;
