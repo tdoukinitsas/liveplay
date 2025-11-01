@@ -77,25 +77,33 @@ function createWindow() {
     show: false
   });
 
-  // Load the Nuxt dev server in development, or the built files in production
-  const isDev = process.env.NODE_ENV !== 'production';
+  // Detect if we're in development or production
+  // In production (packaged), app.isPackaged will be true
+  const isDev = !app.isPackaged;
   
   if (isDev) {
     mainWindow.loadURL('http://localhost:3000');
+    // Open DevTools in development
+    mainWindow.webContents.openDevTools();
   } else {
     // In production, load the generated static files
     const indexPath = path.join(__dirname, '../.output/public/index.html');
-    mainWindow.loadFile(indexPath);
+    console.log('Loading production index from:', indexPath);
+    console.log('File exists:', fs.existsSync(indexPath));
+    
+    mainWindow.loadFile(indexPath).catch(err => {
+      console.error('Failed to load index.html:', err);
+    });
   }
+
+  // Log any loading errors
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+  });
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
-
-  // Open DevTools in development
-  if (isDev) {
-    mainWindow.webContents.openDevTools();
-  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;

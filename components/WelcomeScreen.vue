@@ -3,7 +3,7 @@
     <div class="welcome-container">
       <div class="welcome-header">
         <img 
-          :src="isDark ? '/assets/icons/SVG/liveplay-icon-darkmode@web.svg' : '/assets/icons/SVG/liveplay-icon-lightmode@web.svg'"
+          :src="isDark ? './assets/icons/SVG/liveplay-icon-darkmode@web.svg' : './assets/icons/SVG/liveplay-icon-lightmode@web.svg'"
           alt="LivePlay"
           class="welcome-logo"
         />

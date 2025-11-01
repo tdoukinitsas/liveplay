@@ -2,7 +2,7 @@
   <div class="project-header">
     <div class="header-left">
       <img 
-        :src="isDark ? '/assets/icons/SVG/liveplay-icon-darkmode@web.svg' : '/assets/icons/SVG/liveplay-icon-lightmode@web.svg'"
+        :src="isDark ? './assets/icons/SVG/liveplay-icon-darkmode@web.svg' : './assets/icons/SVG/liveplay-icon-lightmode@web.svg'"
         alt="LivePlay"
         class="header-logo"
       />

@@ -12,8 +12,9 @@ export default defineNuxtConfig({
       ]
     },
     // Use relative paths for Electron
-    baseURL: './',
-    buildAssetsDir: '_nuxt/'
+    baseURL: process.env.NODE_ENV === 'production' ? './' : '/',
+    buildAssetsDir: '_nuxt/',
+    cdnURL: process.env.NODE_ENV === 'production' ? './' : ''
   },
 
   css: [
