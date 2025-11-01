@@ -69,7 +69,8 @@
     "basicInfo": "Basic Info",
     "loadingAudioData": "Loading audio data...",
     "playback": "Playback",
-    "ducking": "Ducking"
+    "ducking": "Ducking",
+    "duckLevel": "Duck Level"
   },
   "playback": {
     "panic": "PANIC",

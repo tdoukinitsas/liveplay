@@ -50,10 +50,10 @@
     "volume": "Ένταση",
     "endBehavior": "Συμπεριφορά Λήξης",
     "startBehavior": "Συμπεριφορά Έναρξης",
-    "duckingBehavior": "Συμπεριφορά για τους άλλους ήχους",
+    "duckingBehavior": "Συμπεριφορά Μείωσης Έντασης",
     "fadeOutDuration": "Διάρκεια Fade Out",
-    "duckFadeIn": "Duck Fade In",
-    "duckFadeOut": "Duck Fade Out",
+    "duckFadeIn": "Fade In Μείωσης Έντασης",
+    "duckFadeOut": "Fade Out Μείωσης Έντασης",
     "children": "Παιδιά",
     "seconds": "δευτερόλεπτα",
     "uuid": "UUID",
@@ -69,7 +69,8 @@
     "basicInfo": "Βασικές Πληροφορίες",
     "loadingAudioData": "Φόρτωση δεδομένων ήχου...",
     "playback": "Αναπαραγωγή",
-    "ducking": "Συμπεριφορά για τους άλλους ήχους κατα την έναρξη"
+    "ducking": "Συμπεριφορά Μείωσης Έντασης",
+    "duckLevel": "Επίπεδο Μείωσης Έντασης"
   },
   "playback": {
     "panic": "PANIC",
@@ -87,24 +88,24 @@
     "loop": "Loop"
   },
   "startBehavior": {
-    "nothing": "Nothing",
-    "playNext": "Play Next",
-    "playItem": "Play Item",
-    "playIndex": "Play Index",
-    "playFirst": "Play First",
-    "playAll": "Play All"
+    "nothing": "Τίποτα",
+    "playNext": "Αναπαραγωγή Επόμενου",
+    "playItem": "Αναπαραγωγή Στοιχείου",
+    "playIndex": "Αναπαραγωγή με βάση τον Αύξοντα Αριθμό",
+    "playFirst": "Αναπαραγωγή Πρώτου",
+    "playAll": "Αναπαραγωγή Όλων"
   },
   "duckingBehavior": {
-    "stopAll": "Stop All Other Cues",
-    "noDucking": "No Ducking",
-    "duckOthers": "Duck Others",
-    "duckLevel": "Duck Level"
+    "stopAll": "Διακοπή Όλων των Άλλων Αντικειμένων",
+    "noDucking": "Χωρίς Μείωση Έντασης",
+    "duckOthers": "Μείωση Έντασης Άλλων",
+    "duckLevel": "Επίπεδο Μείωσης Έντασης"
   },
   "actions": {
-    "delete": "Delete",
-    "confirm": "Are you sure?"
+    "delete": "Διαγραφή",
+    "confirm": "Είστε σίγουροι;"
   },
   "colors": {
-    "chooseAccent": "Choose Accent Color"
+    "chooseAccent": "Επιλέξτε Χρώμα Έμφασης"
   }
 }
