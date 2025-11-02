@@ -1,13 +1,18 @@
 // Fonts
 
 @font-face {
-  font-family: IBM Plex Sans; /* set name */
-  src: url(/assets/fonts/IBM_Plex_Sans/IBMPlexSans-VariableFont_wdth\,wght.ttf); /* url of the font */
+  font-family: 'IBM Plex Sans';
+  src: url(/fonts/IBM_Plex_Sans/IBMPlexSans-Variable.ttf) format('truetype');
+  font-weight: 100 900;
+  font-stretch: 75% 125%;
+  font-display: swap;
 }
 
 @font-face {
-  font-family: Inter; /* set name */
-  src: url(/assets/fonts/Inter/Inter-VariableFont_slnt,wght.ttf); /* url of the font */
+  font-family: 'Inter';
+  src: url(/fonts/Inter/Inter-Variable.ttf) format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
 }
 
 

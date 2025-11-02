@@ -1,6 +1,6 @@
 {
   "name": "liveplay",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Audio cue playback application for live events",
   "main": "electron/main.js",
   "type": "commonjs",
@@ -72,21 +72,21 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/icons/4092w/app-icon-darkmode@4092px.png",
+      "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
       "publisherName": "Thomas Doukinitsas"
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "icon": "assets/icons/4092w/app-icon-darkmode@4092px.png",
+      "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
       "category": "public.app-category.music"
     },
     "linux": {
       "target": [
         "AppImage"
       ],
-      "icon": "assets/icons/4092w/app-icon-darkmode@4092px.png",
+      "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
       "category": "AudioVideo"
     }
   }
