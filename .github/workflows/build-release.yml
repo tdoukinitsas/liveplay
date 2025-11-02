@@ -131,19 +131,24 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: windows-build
-          path: ./dist
+          path: ./artifacts
 
       - name: Download Linux artifacts
         uses: actions/download-artifact@v4
         with:
           name: linux-build
-          path: ./dist
+          path: ./artifacts
 
       - name: Download macOS artifacts
         uses: actions/download-artifact@v4
         with:
           name: macos-build
-          path: ./dist
+          path: ./artifacts
+
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          ls -lR ./artifacts
 
       - name: Generate changelog
         id: changelog
@@ -188,15 +193,14 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            dist-electron/*.exe
-            dist-electron/*.exe.blockmap
-            dist-electron/*.AppImage
-            dist-electron/*.deb
-            dist-electron/*.rpm
-            dist-electron/*.dmg
-            dist-electron/*.dmg.blockmap
-            dist-electron/*.zip
-            dist-electron/latest*.yml
+            artifacts/*.exe
+            artifacts/*.blockmap
+            artifacts/*.AppImage
+            artifacts/*.deb
+            artifacts/*.rpm
+            artifacts/*.dmg
+            artifacts/*.zip
+            artifacts/*.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
