@@ -72,7 +72,7 @@ onMounted(() => {
     window.electronAPI.onMenuToggleDarkMode(() => {
       theme.value = theme.value === 'dark' ? 'light' : 'dark';
       if (currentProject.value) {
-        currentProject.value.theme.mode = theme.value;
+        currentProject.value.theme.mode = theme.value as 'dark' | 'light';
         saveProject();
       }
     });

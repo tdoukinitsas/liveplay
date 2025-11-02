@@ -38,6 +38,7 @@ jobs:
   build:
     needs: check-version
     if: needs.check-version.outputs.version-changed == 'true'
+    timeout-minutes: 45
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
@@ -55,27 +56,32 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        env:
+          CI: true
 
       - name: Build application
         run: npm run build
 
       - name: Build Electron app (Windows)
         if: matrix.os == 'windows-latest'
-        run: npm run electron:build -- --win --x64
+        run: npm run electron:build -- --win --x64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: true
 
       - name: Build Electron app (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: npm run electron:build -- --linux --x64
+        run: npm run electron:build -- --linux --x64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: true
 
       - name: Build Electron app (macOS)
         if: matrix.os == 'macos-latest'
-        run: npm run electron:build -- --mac --x64 --arm64
+        run: npm run electron:build -- --mac --x64 --arm64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: true
 
       - name: Upload artifacts (Windows)
         if: matrix.os == 'windows-latest'
