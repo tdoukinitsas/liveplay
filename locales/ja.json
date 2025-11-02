@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "ja",
+    "name": "Japanese",
+    "nativeName": "日本語",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "ファイル",
+    "newProject": "新規プロジェクト",
+    "openProject": "プロジェクトを開く",
+    "saveProject": "プロジェクトを保存",
+    "closeProject": "プロジェクトを閉じる",
+    "openProjectFolder": "プロジェクトフォルダを開く",
+    "exit": "終了",
+    "view": "表示",
+    "toggleDarkMode": "ダークモードの切り替え",
+    "changeAccentColor": "アクセントカラーの変更",
+    "fullscreen": "フルスクリーン",
+    "language": "言語",
+    "help": "ヘルプ",
+    "about": "LivePlayについて"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "ライブイベント用オーディオ再生",
+    "newProject": "新規プロジェクト",
+    "openProject": "プロジェクトを開く"
+  },
+  "project": {
+    "enterName": "プロジェクト名を入力",
+    "placeholder": "マイプロジェクト",
+    "cancel": "キャンセル",
+    "ok": "OK",
+    "importAudio": "オーディオをインポート",
+    "noProject": "プロジェクトなし"
+  },
+  "playlist": {
+    "title": "プレイリスト",
+    "import": "オーディオをインポート",
+    "addGroup": "グループを追加",
+    "noItems": "プレイリストにアイテムがありません",
+    "importAudio": "オーディオをインポート",
+    "importHint": "インポートボタンを使用するか、ファイルをここにドラッグしてください"
+  },
+  "cart": {
+    "title": "カートプレーヤー",
+    "emptySlot": "クリックしてインポートするか、アイテムをここにドラッグしてください",
+    "clickToImport": "クリックしてインポートするか、アイテムをここにドラッグしてください"
+  },
+  "properties": {
+    "title": "プロパティ",
+    "noSelection": "プロパティを表示するアイテムを選択してください",
+    "displayName": "表示名",
+    "color": "色",
+    "inPoint": "イン点",
+    "outPoint": "アウト点",
+    "volume": "音量",
+    "endBehavior": "終了時の動作",
+    "startBehavior": "開始時の動作",
+    "duckingBehavior": "ダッキング動作",
+    "fadeOutDuration": "フェードアウト時間",
+    "duckFadeIn": "ダッキングフェードイン",
+    "duckFadeOut": "ダッキングフェードアウト",
+    "children": "子要素",
+    "seconds": "秒",
+    "uuid": "UUID",
+    "index": "インデックス",
+    "apiTriggerUrl": "APIトリガーURL",
+    "file": "ファイル",
+    "duration": "再生時間",
+    "mode": "モード",
+    "action": "アクション",
+    "playbackSection": "再生セクション",
+    "media": "メディア",
+    "replace": "ファイルを置き換え",
+    "basicInfo": "基本情報",
+    "loadingAudioData": "オーディオデータを読み込み中...",
+    "playback": "再生",
+    "ducking": "ダッキング",
+    "duckLevel": "ダッキングレベル",
+    "trimSilence": "無音部分をトリミング"
+  },
+  "playback": {
+    "panic": "すべての信号を停止",
+    "noActiveCues": "アクティブな信号なし",
+    "play": "再生",
+    "stop": "停止",
+    "delete": "削除",
+    "edit": "編集"
+  },
+  "endBehavior": {
+    "nothing": "何もしない",
+    "next": "次を再生",
+    "gotoItem": "アイテムに移動",
+    "gotoIndex": "インデックスに移動",
+    "loop": "ループ"
+  },
+  "startBehavior": {
+    "nothing": "何もしない",
+    "playNext": "次を再生",
+    "playItem": "アイテムを再生",
+    "playIndex": "インデックスを再生",
+    "playFirst": "最初を再生",
+    "playAll": "すべて再生"
+  },
+  "duckingBehavior": {
+    "stopAll": "他のすべての信号を停止",
+    "noDucking": "ダッキングなし",
+    "duckOthers": "他をダッキング",
+    "duckLevel": "ダッキングレベル"
+  },
+  "actions": {
+    "delete": "削除",
+    "confirm": "よろしいですか？",
+    "close": "閉じる"
+  },
+  "about": {
+    "developedBy": "開発者",
+    "githubRepo": "GitHubリポジトリ",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "アクセントカラーを選択"
+  },
+  "youtube": {
+    "importFromYouTube": "YouTubeからインポート",
+    "searchPlaceholder": "音楽またはオーディオを検索...",
+    "searching": "検索中...",
+    "noResults": "結果が見つかりません",
+    "searchError": "検索に失敗しました。もう一度お試しください。",
+    "preview": "YouTubeで視聴",
+    "download": "ダウンロード",
+    "downloading": "ダウンロード中...",
+    "previewHint": "プレビューボタンをクリックして、ダウンロード前にビデオを視聴してください",
+    "downloadQueue": "ダウンロードキュー",
+    "statusDownloading": "ダウンロード中...",
+    "statusConverting": "MP3に変換中...",
+    "statusCompleted": "完了",
+    "statusError": "エラー",
+    "downloadError": "ダウンロードに失敗しました。もう一度お試しください。"
+  },
+  "update": {
+    "updateAvailable": "アップデート可能",
+    "currentVersion": "現在のバージョン",
+    "newVersion": "新しいバージョン",
+    "whatsNew": "更新内容",
+    "updatePrompt": "LivePlayの新しいバージョンが利用可能です。今すぐダウンロードしてインストールしますか？",
+    "downloading": "アップデートをダウンロード中",
+    "downloadComplete": "ダウンロード完了",
+    "installInfo": "アップデートのインストール準備ができました。今すぐインストールするか、アプリを閉じたときにインストールされます。",
+    "later": "後で",
+    "downloadAndInstall": "ダウンロードしてインストール",
+    "installNow": "今すぐインストール",
+    "installOnExit": "終了時にインストール",
+    "downloadFailed": "アップデートのダウンロードに失敗しました"
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "hi",
+    "name": "Hindi",
+    "nativeName": "हिन्दी",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "फ़ाइल",
+    "newProject": "नया प्रोजेक्ट",
+    "openProject": "प्रोजेक्ट खोलें",
+    "saveProject": "प्रोजेक्ट सहेजें",
+    "closeProject": "प्रोजेक्ट बंद करें",
+    "openProjectFolder": "प्रोजेक्ट फ़ोल्डर खोलें",
+    "exit": "बाहर निकलें",
+    "view": "देखें",
+    "toggleDarkMode": "डार्क मोड टॉगल करें",
+    "changeAccentColor": "एक्सेंट रंग बदलें",
+    "fullscreen": "पूर्ण स्क्रीन",
+    "language": "भाषा",
+    "help": "सहायता",
+    "about": "LivePlay के बारे में"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "लाइव इवेंट्स के लिए ऑडियो प्लेबैक",
+    "newProject": "नया प्रोजेक्ट",
+    "openProject": "प्रोजेक्ट खोलें"
+  },
+  "project": {
+    "enterName": "प्रोजेक्ट का नाम दर्ज करें",
+    "placeholder": "मेरा प्रोजेक्ट",
+    "cancel": "रद्द करें",
+    "ok": "ठीक है",
+    "importAudio": "ऑडियो आयात करें",
+    "noProject": "कोई प्रोजेक्ट नहीं"
+  },
+  "playlist": {
+    "title": "प्लेलिस्ट",
+    "import": "ऑडियो आयात करें",
+    "addGroup": "समूह जोड़ें",
+    "noItems": "प्लेलिस्ट में कोई आइटम नहीं",
+    "importAudio": "ऑडियो आयात करें",
+    "importHint": "आयात बटन का उपयोग करें या फ़ाइलें यहाँ खींचें"
+  },
+  "cart": {
+    "title": "कार्ट प्लेयर",
+    "emptySlot": "आयात करने के लिए क्लिक करें या यहाँ एक आइटम खींचें",
+    "clickToImport": "आयात करने के लिए क्लिक करें या यहाँ एक आइटम खींचें"
+  },
+  "properties": {
+    "title": "गुण",
+    "noSelection": "गुण देखने के लिए एक आइटम चुनें",
+    "displayName": "प्रदर्शन नाम",
+    "color": "रंग",
+    "inPoint": "प्रवेश बिंदु",
+    "outPoint": "निकास बिंदु",
+    "volume": "वॉल्यूम",
+    "endBehavior": "समाप्ति व्यवहार",
+    "startBehavior": "प्रारंभ व्यवहार",
+    "duckingBehavior": "डकिंग व्यवहार",
+    "fadeOutDuration": "फेड आउट अवधि",
+    "duckFadeIn": "डकिंग फेड इन",
+    "duckFadeOut": "डकिंग फेड आउट",
+    "children": "बच्चे",
+    "seconds": "सेकंड",
+    "uuid": "UUID",
+    "index": "सूचकांक",
+    "apiTriggerUrl": "API ट्रिगर URL",
+    "file": "फ़ाइल",
+    "duration": "अवधि",
+    "mode": "मोड",
+    "action": "कार्रवाई",
+    "playbackSection": "प्लेबैक अनुभाग",
+    "media": "मीडिया",
+    "replace": "फ़ाइल बदलें",
+    "basicInfo": "बुनियादी जानकारी",
+    "loadingAudioData": "ऑडियो डेटा लोड हो रहा है...",
+    "playback": "प्लेबैक",
+    "ducking": "डकिंग",
+    "duckLevel": "डकिंग स्तर",
+    "trimSilence": "मौन ट्रिम करें"
+  },
+  "playback": {
+    "panic": "सभी सिग्नल रोकें",
+    "noActiveCues": "कोई सक्रिय सिग्नल नहीं",
+    "play": "चलाएँ",
+    "stop": "रोकें",
+    "delete": "हटाएँ",
+    "edit": "संपादित करें"
+  },
+  "endBehavior": {
+    "nothing": "कुछ नहीं",
+    "next": "अगला चलाएँ",
+    "gotoItem": "आइटम पर जाएँ",
+    "gotoIndex": "सूचकांक पर जाएँ",
+    "loop": "लूप"
+  },
+  "startBehavior": {
+    "nothing": "कुछ नहीं",
+    "playNext": "अगला चलाएँ",
+    "playItem": "आइटम चलाएँ",
+    "playIndex": "सूचकांक चलाएँ",
+    "playFirst": "पहला चलाएँ",
+    "playAll": "सभी चलाएँ"
+  },
+  "duckingBehavior": {
+    "stopAll": "अन्य सभी सिग्नल रोकें",
+    "noDucking": "कोई डकिंग नहीं",
+    "duckOthers": "अन्य को डक करें",
+    "duckLevel": "डकिंग स्तर"
+  },
+  "actions": {
+    "delete": "हटाएँ",
+    "confirm": "क्या आप सुनिश्चित हैं?",
+    "close": "बंद करें"
+  },
+  "about": {
+    "developedBy": "द्वारा विकसित",
+    "githubRepo": "GitHub रिपॉजिटरी",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "एक्सेंट रंग चुनें"
+  },
+  "youtube": {
+    "importFromYouTube": "YouTube से आयात करें",
+    "searchPlaceholder": "संगीत या ऑडियो खोजें...",
+    "searching": "खोज रहे हैं...",
+    "noResults": "कोई परिणाम नहीं मिला",
+    "searchError": "खोज विफल रही। कृपया पुनः प्रयास करें।",
+    "preview": "YouTube पर देखें",
+    "download": "डाउनलोड करें",
+    "downloading": "डाउनलोड हो रहा है...",
+    "previewHint": "डाउनलोड करने से पहले वीडियो देखने के लिए पूर्वावलोकन बटन पर क्लिक करें",
+    "downloadQueue": "डाउनलोड कतार",
+    "statusDownloading": "डाउनलोड हो रहा है...",
+    "statusConverting": "MP3 में बदल रहे हैं...",
+    "statusCompleted": "पूर्ण",
+    "statusError": "त्रुटि",
+    "downloadError": "डाउनलोड विफल रहा। कृपया पुनः प्रयास करें।"
+  },
+  "update": {
+    "updateAvailable": "अपडेट उपलब्ध",
+    "currentVersion": "वर्तमान संस्करण",
+    "newVersion": "नया संस्करण",
+    "whatsNew": "नया क्या है",
+    "updatePrompt": "LivePlay का एक नया संस्करण उपलब्ध है। क्या आप इसे अभी डाउनलोड और इंस्टॉल करना चाहते हैं?",
+    "downloading": "अपडेट डाउनलोड हो रहा है",
+    "downloadComplete": "डाउनलोड पूर्ण",
+    "installInfo": "अपडेट इंस्टॉल करने के लिए तैयार है। आप इसे अभी इंस्टॉल कर सकते हैं या ऐप बंद करने पर इसे इंस्टॉल किया जाएगा।",
+    "later": "बाद में",
+    "downloadAndInstall": "डाउनलोड और इंस्टॉल करें",
+    "installNow": "अभी इंस्टॉल करें",
+    "installOnExit": "बाहर निकलने पर इंस्टॉल करें",
+    "downloadFailed": "अपडेट डाउनलोड विफल रहा"
+  }
+}

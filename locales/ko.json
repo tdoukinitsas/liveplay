@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "ko",
+    "name": "Korean",
+    "nativeName": "한국어",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "파일",
+    "newProject": "새 프로젝트",
+    "openProject": "프로젝트 열기",
+    "saveProject": "프로젝트 저장",
+    "closeProject": "프로젝트 닫기",
+    "openProjectFolder": "프로젝트 폴더 열기",
+    "exit": "종료",
+    "view": "보기",
+    "toggleDarkMode": "다크 모드 전환",
+    "changeAccentColor": "강조 색상 변경",
+    "fullscreen": "전체 화면",
+    "language": "언어",
+    "help": "도움말",
+    "about": "LivePlay 정보"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "라이브 이벤트를 위한 오디오 재생",
+    "newProject": "새 프로젝트",
+    "openProject": "프로젝트 열기"
+  },
+  "project": {
+    "enterName": "프로젝트 이름 입력",
+    "placeholder": "내 프로젝트",
+    "cancel": "취소",
+    "ok": "확인",
+    "importAudio": "오디오 가져오기",
+    "noProject": "프로젝트 없음"
+  },
+  "playlist": {
+    "title": "재생 목록",
+    "import": "오디오 가져오기",
+    "addGroup": "그룹 추가",
+    "noItems": "재생 목록에 항목 없음",
+    "importAudio": "오디오 가져오기",
+    "importHint": "가져오기 버튼을 사용하거나 파일을 여기로 드래그하세요"
+  },
+  "cart": {
+    "title": "카트 플레이어",
+    "emptySlot": "가져오려면 클릭하거나 항목을 여기로 드래그하세요",
+    "clickToImport": "가져오려면 클릭하거나 항목을 여기로 드래그하세요"
+  },
+  "properties": {
+    "title": "속성",
+    "noSelection": "속성을 보려면 항목을 선택하세요",
+    "displayName": "표시 이름",
+    "color": "색상",
+    "inPoint": "시작점",
+    "outPoint": "끝점",
+    "volume": "볼륨",
+    "endBehavior": "종료 동작",
+    "startBehavior": "시작 동작",
+    "duckingBehavior": "더킹 동작",
+    "fadeOutDuration": "페이드 아웃 지속 시간",
+    "duckFadeIn": "더킹 페이드 인",
+    "duckFadeOut": "더킹 페이드 아웃",
+    "children": "하위 항목",
+    "seconds": "초",
+    "uuid": "UUID",
+    "index": "인덱스",
+    "apiTriggerUrl": "API 트리거 URL",
+    "file": "파일",
+    "duration": "지속 시간",
+    "mode": "모드",
+    "action": "작업",
+    "playbackSection": "재생 섹션",
+    "media": "미디어",
+    "replace": "파일 교체",
+    "basicInfo": "기본 정보",
+    "loadingAudioData": "오디오 데이터 로드 중...",
+    "playback": "재생",
+    "ducking": "더킹",
+    "duckLevel": "더킹 레벨",
+    "trimSilence": "무음 자르기"
+  },
+  "playback": {
+    "panic": "모든 신호 중지",
+    "noActiveCues": "활성 신호 없음",
+    "play": "재생",
+    "stop": "중지",
+    "delete": "삭제",
+    "edit": "편집"
+  },
+  "endBehavior": {
+    "nothing": "없음",
+    "next": "다음 재생",
+    "gotoItem": "항목으로 이동",
+    "gotoIndex": "인덱스로 이동",
+    "loop": "반복"
+  },
+  "startBehavior": {
+    "nothing": "없음",
+    "playNext": "다음 재생",
+    "playItem": "항목 재생",
+    "playIndex": "인덱스 재생",
+    "playFirst": "첫 번째 재생",
+    "playAll": "모두 재생"
+  },
+  "duckingBehavior": {
+    "stopAll": "다른 모든 신호 중지",
+    "noDucking": "더킹 없음",
+    "duckOthers": "다른 항목 더킹",
+    "duckLevel": "더킹 레벨"
+  },
+  "actions": {
+    "delete": "삭제",
+    "confirm": "확실합니까?",
+    "close": "닫기"
+  },
+  "about": {
+    "developedBy": "개발자",
+    "githubRepo": "GitHub 저장소",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "강조 색상 선택"
+  },
+  "youtube": {
+    "importFromYouTube": "YouTube에서 가져오기",
+    "searchPlaceholder": "음악 또는 오디오 검색...",
+    "searching": "검색 중...",
+    "noResults": "결과를 찾을 수 없습니다",
+    "searchError": "검색에 실패했습니다. 다시 시도하세요.",
+    "preview": "YouTube에서 보기",
+    "download": "다운로드",
+    "downloading": "다운로드 중...",
+    "previewHint": "다운로드하기 전에 비디오를 보려면 미리보기 버튼을 클릭하세요",
+    "downloadQueue": "다운로드 대기열",
+    "statusDownloading": "다운로드 중...",
+    "statusConverting": "MP3로 변환 중...",
+    "statusCompleted": "완료",
+    "statusError": "오류",
+    "downloadError": "다운로드에 실패했습니다. 다시 시도하세요."
+  },
+  "update": {
+    "updateAvailable": "업데이트 사용 가능",
+    "currentVersion": "현재 버전",
+    "newVersion": "새 버전",
+    "whatsNew": "새로운 기능",
+    "updatePrompt": "LivePlay의 새 버전을 사용할 수 있습니다. 지금 다운로드하고 설치하시겠습니까?",
+    "downloading": "업데이트 다운로드 중",
+    "downloadComplete": "다운로드 완료",
+    "installInfo": "업데이트를 설치할 준비가 되었습니다. 지금 설치하거나 앱을 닫을 때 설치됩니다.",
+    "later": "나중에",
+    "downloadAndInstall": "다운로드 및 설치",
+    "installNow": "지금 설치",
+    "installOnExit": "종료 시 설치",
+    "downloadFailed": "업데이트 다운로드 실패"
+  }
+}

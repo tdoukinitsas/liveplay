@@ -1,4 +1,10 @@
 {
+  "_metadata": {
+    "code": "en",
+    "name": "English",
+    "nativeName": "English",
+    "direction": "ltr"
+  },
   "app": {
     "name": "LivePlay"
   },
@@ -9,10 +15,14 @@
     "saveProject": "Save Project",
     "closeProject": "Close Project",
     "openProjectFolder": "Open Project Folder",
+    "exit": "Exit",
     "view": "View",
     "toggleDarkMode": "Toggle Dark Mode",
     "changeAccentColor": "Change Accent Color",
-    "language": "Language"
+    "fullscreen": "Fullscreen",
+    "language": "Language",
+    "help": "Help",
+    "about": "About LivePlay"
   },
   "welcome": {
     "title": "LivePlay",
@@ -122,7 +132,7 @@
     "searching": "Searching...",
     "noResults": "No results found",
     "searchError": "Search failed. Please try again.",
-    "preview": "Preview",
+    "preview": "Watch on YouTube",
     "download": "Download",
     "downloading": "Downloading...",
     "previewHint": "Click the preview button on a search result to view the video before downloading",

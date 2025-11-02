@@ -39,7 +39,7 @@
 import 'material-symbols';
 
 const { currentProject, saveProject } = useProject();
-const { currentLocale, setLocale } = useLocalization();
+const { currentLocale, setLocale, getDirection } = useLocalization();
 const theme = useState('theme', () => 'dark');
 
 // Color picker for accent color
@@ -118,6 +118,14 @@ watch(currentProject, (project) => {
     if (import.meta.client && project.theme.accentColor) {
       document.documentElement.style.setProperty('--color-accent-custom', project.theme.accentColor);
     }
+  }
+}, { immediate: true });
+
+// Apply RTL direction when locale changes
+watch(currentLocale, () => {
+  if (import.meta.client) {
+    const direction = getDirection();
+    document.documentElement.setAttribute('dir', direction);
   }
 }, { immediate: true });
 </script>

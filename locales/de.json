@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "de",
+    "name": "German",
+    "nativeName": "Deutsch",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "Datei",
+    "newProject": "Neues Projekt",
+    "openProject": "Projekt öffnen",
+    "saveProject": "Projekt speichern",
+    "closeProject": "Projekt schließen",
+    "openProjectFolder": "Projektordner öffnen",
+    "exit": "Beenden",
+    "view": "Ansicht",
+    "toggleDarkMode": "Dunkelmodus umschalten",
+    "changeAccentColor": "Akzentfarbe ändern",
+    "fullscreen": "Vollbild",
+    "language": "Sprache",
+    "help": "Hilfe",
+    "about": "Über LivePlay"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "Audiowiedergabe für Live-Veranstaltungen",
+    "newProject": "Neues Projekt",
+    "openProject": "Projekt öffnen"
+  },
+  "project": {
+    "enterName": "Projektnamen eingeben",
+    "placeholder": "Mein Projekt",
+    "cancel": "Abbrechen",
+    "ok": "OK",
+    "importAudio": "Audio importieren",
+    "noProject": "Kein Projekt"
+  },
+  "playlist": {
+    "title": "Wiedergabeliste",
+    "import": "Audio importieren",
+    "addGroup": "Gruppe hinzufügen",
+    "noItems": "Keine Elemente in der Wiedergabeliste",
+    "importAudio": "Audio importieren",
+    "importHint": "Verwenden Sie die Importschaltflächen oder ziehen Sie Dateien hierher"
+  },
+  "cart": {
+    "title": "Kartenspieler",
+    "emptySlot": "Klicken Sie zum Importieren oder ziehen Sie ein Element hierher",
+    "clickToImport": "Klicken Sie zum Importieren oder ziehen Sie ein Element hierher"
+  },
+  "properties": {
+    "title": "Eigenschaften",
+    "noSelection": "Wählen Sie ein Element aus, um die Eigenschaften anzuzeigen",
+    "displayName": "Anzeigename",
+    "color": "Farbe",
+    "inPoint": "Einstiegspunkt",
+    "outPoint": "Ausstiegspunkt",
+    "volume": "Lautstärke",
+    "endBehavior": "Endverhalten",
+    "startBehavior": "Startverhalten",
+    "duckingBehavior": "Dämpfungsverhalten",
+    "fadeOutDuration": "Ausblenden-Dauer",
+    "duckFadeIn": "Dämpfung Einblenden",
+    "duckFadeOut": "Dämpfung Ausblenden",
+    "children": "Kinder",
+    "seconds": "Sekunden",
+    "uuid": "UUID",
+    "index": "Index",
+    "apiTriggerUrl": "API-Trigger-URL",
+    "file": "Datei",
+    "duration": "Dauer",
+    "mode": "Modus",
+    "action": "Aktion",
+    "playbackSection": "Wiedergabebereich",
+    "media": "Medien",
+    "replace": "Datei ersetzen",
+    "basicInfo": "Grundlegende Informationen",
+    "loadingAudioData": "Audiodaten werden geladen...",
+    "playback": "Wiedergabe",
+    "ducking": "Dämpfung",
+    "duckLevel": "Dämpfungsstufe",
+    "trimSilence": "Stille trimmen"
+  },
+  "playback": {
+    "panic": "Alle Signale stoppen",
+    "noActiveCues": "Keine aktiven Signale",
+    "play": "Abspielen",
+    "stop": "Stoppen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten"
+  },
+  "endBehavior": {
+    "nothing": "Nichts",
+    "next": "Nächstes abspielen",
+    "gotoItem": "Zu Element gehen",
+    "gotoIndex": "Zu Index gehen",
+    "loop": "Wiederholen"
+  },
+  "startBehavior": {
+    "nothing": "Nichts",
+    "playNext": "Nächstes abspielen",
+    "playItem": "Element abspielen",
+    "playIndex": "Index abspielen",
+    "playFirst": "Erstes abspielen",
+    "playAll": "Alle abspielen"
+  },
+  "duckingBehavior": {
+    "stopAll": "Alle anderen Signale stoppen",
+    "noDucking": "Keine Dämpfung",
+    "duckOthers": "Andere dämpfen",
+    "duckLevel": "Dämpfungsstufe"
+  },
+  "actions": {
+    "delete": "Löschen",
+    "confirm": "Sind Sie sicher?",
+    "close": "Schließen"
+  },
+  "about": {
+    "developedBy": "Entwickelt von",
+    "githubRepo": "GitHub-Repository",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "Akzentfarbe wählen"
+  },
+  "youtube": {
+    "importFromYouTube": "Von YouTube importieren",
+    "searchPlaceholder": "Musik oder Audio suchen...",
+    "searching": "Suche läuft...",
+    "noResults": "Keine Ergebnisse gefunden",
+    "searchError": "Suche fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "preview": "Auf YouTube ansehen",
+    "download": "Herunterladen",
+    "downloading": "Wird heruntergeladen...",
+    "previewHint": "Klicken Sie auf die Vorschau-Schaltfläche, um das Video vor dem Herunterladen anzusehen",
+    "downloadQueue": "Download-Warteschlange",
+    "statusDownloading": "Wird heruntergeladen...",
+    "statusConverting": "Konvertierung zu MP3...",
+    "statusCompleted": "Abgeschlossen",
+    "statusError": "Fehler",
+    "downloadError": "Download fehlgeschlagen. Bitte versuchen Sie es erneut."
+  },
+  "update": {
+    "updateAvailable": "Update verfügbar",
+    "currentVersion": "Aktuelle Version",
+    "newVersion": "Neue Version",
+    "whatsNew": "Was ist neu",
+    "updatePrompt": "Eine neue Version von LivePlay ist verfügbar. Möchten Sie sie jetzt herunterladen und installieren?",
+    "downloading": "Update wird heruntergeladen",
+    "downloadComplete": "Download abgeschlossen",
+    "installInfo": "Das Update ist zur Installation bereit. Sie können es jetzt installieren oder es wird beim Schließen der App installiert.",
+    "later": "Später",
+    "downloadAndInstall": "Herunterladen und installieren",
+    "installNow": "Jetzt installieren",
+    "installOnExit": "Beim Beenden installieren",
+    "downloadFailed": "Update-Download fehlgeschlagen"
+  }
+}

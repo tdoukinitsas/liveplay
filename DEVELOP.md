@@ -229,21 +229,42 @@ const applyDucking = (newCue: ActiveCue) => {
 
 ### 3. Localization (`composables/useLocalization.ts`)
 
-i18n system with localStorage persistence:
+Full internationalization system with **18 languages** and **RTL support**:
 
 ```typescript
 const {
-  currentLocale,       // Ref<'en' | 'el'>
+  currentLocale,       // Ref<'en' | 'el' | 'fr' | 'es' | 'it' | 'pt' | 'ar' | 'fa' | 'de' | 'sv' | 'no' | 'ru' | 'ja' | 'zh' | 'hi' | 'bn' | 'tr' | 'ko'>
   t,                   // (key) => string
   setLocale,           // (locale) => void
-  availableLocales     // { code, name }[]
+  getDirection,        // () => 'ltr' | 'rtl'
+  availableLocales     // { code, name, direction }[]
 } = useLocalization();
 ```
+
+**Supported Languages**:
+- Western European: English (`en`), Greek (`el`), French (`fr`), Spanish (`es`), Italian (`it`), Portuguese (`pt`), German (`de`), Swedish (`sv`), Norwegian (`no`)
+- Slavic: Russian (`ru`)
+- East Asian: Japanese (`ja`), Chinese (`zh`), Korean (`ko`)
+- South Asian: Hindi (`hi`), Bengali (`bn`)
+- Middle Eastern: Arabic (`ar`), Farsi (`fa`), Turkish (`tr`)
+- RTL layout support for Arabic and Farsi
 
 **Translation Keys**:
 - Nested object structure: `t('playlist.title')`
 - Fallback to English if key missing
 - Auto-saves to `localStorage('liveplay-locale')`
+
+**Locale Files** (`locales/*.json`):
+- Include `_metadata` with `code`, `name`, `nativeName`, `direction`
+- All translations in structured JSON
+- Dynamically loaded in both renderer and main process
+
+**Dynamic Menu Generation**:
+- Electron menu automatically generated from locale files
+- Language submenu populated from `_metadata.nativeName`
+- No hardcoded strings in menu definitions
+
+See `INTERNATIONALIZATION.md` for detailed i18n documentation.
 
 ### 4. IPC Communication
 

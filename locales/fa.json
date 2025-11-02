@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "fa",
+    "name": "Farsi",
+    "nativeName": "فارسی",
+    "direction": "rtl"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "فایل",
+    "newProject": "پروژه جدید",
+    "openProject": "باز کردن پروژه",
+    "saveProject": "ذخیره پروژه",
+    "closeProject": "بستن پروژه",
+    "openProjectFolder": "باز کردن پوشه پروژه",
+    "view": "نمایش",
+    "toggleDarkMode": "تغییر حالت تاریک",
+    "changeAccentColor": "تغییر رنگ برجسته",
+    "fullscreen": "تمام صفحه",
+    "language": "زبان",
+    "exit": "خروج",
+    "help": "راهنما",
+    "about": "درباره LivePlay"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "پخش سیگنال‌های صوتی برای رویدادهای زنده",
+    "newProject": "پروژه جدید",
+    "openProject": "باز کردن پروژه"
+  },
+  "project": {
+    "enterName": "نام پروژه را وارد کنید",
+    "placeholder": "پروژه من",
+    "cancel": "لغو",
+    "ok": "تأیید",
+    "importAudio": "وارد کردن صدا",
+    "noProject": "بدون پروژه"
+  },
+  "playlist": {
+    "title": "لیست پخش",
+    "import": "وارد کردن صدا",
+    "addGroup": "افزودن گروه",
+    "noItems": "هیچ موردی در لیست پخش نیست",
+    "importAudio": "وارد کردن صدا",
+    "importHint": "از دکمه‌های وارد کردن استفاده کنید یا فایل‌ها را اینجا بکشید"
+  },
+  "cart": {
+    "title": "پخش‌کننده کارتریج",
+    "emptySlot": "برای وارد کردن کلیک کنید یا یک مورد را اینجا بکشید",
+    "clickToImport": "برای وارد کردن کلیک کنید یا یک مورد را اینجا بکشید"
+  },
+  "properties": {
+    "title": "خصوصیات",
+    "noSelection": "برای مشاهده خصوصیات یک مورد را انتخاب کنید",
+    "displayName": "نام نمایشی",
+    "color": "رنگ",
+    "inPoint": "نقطه شروع",
+    "outPoint": "نقطه پایان",
+    "volume": "حجم صدا",
+    "endBehavior": "رفتار پایان",
+    "startBehavior": "رفتار شروع",
+    "duckingBehavior": "رفتار کاهش صدا",
+    "fadeOutDuration": "مدت محو شدن",
+    "duckFadeIn": "محو شدن ورودی کاهش",
+    "duckFadeOut": "محو شدن خروجی کاهش",
+    "children": "فرزندان",
+    "seconds": "ثانیه",
+    "uuid": "UUID",
+    "index": "فهرست",
+    "apiTriggerUrl": "آدرس فعال‌سازی API",
+    "file": "فایل",
+    "duration": "مدت",
+    "mode": "حالت",
+    "action": "عمل",
+    "playbackSection": "بخش پخش",
+    "media": "رسانه",
+    "replace": "جایگزینی فایل",
+    "basicInfo": "اطلاعات پایه",
+    "loadingAudioData": "در حال بارگذاری داده‌های صوتی...",
+    "playback": "پخش",
+    "ducking": "کاهش صدا",
+    "duckLevel": "سطح کاهش",
+    "trimSilence": "حذف سکوت"
+  },
+  "playback": {
+    "panic": "توقف همه سیگنال‌ها",
+    "noActiveCues": "بدون سیگنال فعال",
+    "play": "پخش",
+    "stop": "توقف",
+    "delete": "حذف",
+    "edit": "ویرایش"
+  },
+  "endBehavior": {
+    "nothing": "هیچ",
+    "next": "پخش بعدی",
+    "gotoItem": "رفتن به مورد",
+    "gotoIndex": "رفتن به فهرست",
+    "loop": "تکرار"
+  },
+  "startBehavior": {
+    "nothing": "هیچ",
+    "playNext": "پخش بعدی",
+    "playItem": "پخش مورد",
+    "playIndex": "پخش فهرست",
+    "playFirst": "پخش اول",
+    "playAll": "پخش همه"
+  },
+  "duckingBehavior": {
+    "stopAll": "توقف همه سیگنال‌های دیگر",
+    "noDucking": "بدون کاهش",
+    "duckOthers": "کاهش دیگران",
+    "duckLevel": "سطح کاهش"
+  },
+  "actions": {
+    "delete": "حذف",
+    "confirm": "آیا مطمئن هستید؟",
+    "close": "بستن"
+  },
+  "about": {
+    "developedBy": "توسعه یافته توسط",
+    "githubRepo": "مخزن GitHub",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "انتخاب رنگ برجسته"
+  },
+  "youtube": {
+    "importFromYouTube": "وارد کردن از YouTube",
+    "searchPlaceholder": "جستجوی موسیقی یا صدا...",
+    "searching": "در حال جستجو...",
+    "noResults": "نتیجه‌ای یافت نشد",
+    "searchError": "جستجو ناموفق بود. لطفاً دوباره تلاش کنید.",
+    "preview": "تماشا در YouTube",
+    "download": "دانلود",
+    "downloading": "در حال دانلود...",
+    "previewHint": "روی دکمه پیش‌نمایش کلیک کنید تا ویدیو را قبل از دانلود تماشا کنید",
+    "downloadQueue": "صف دانلود",
+    "statusDownloading": "در حال دانلود...",
+    "statusConverting": "در حال تبدیل به MP3...",
+    "statusCompleted": "تکمیل شد",
+    "statusError": "خطا",
+    "downloadError": "دانلود ناموفق بود. لطفاً دوباره تلاش کنید."
+  },
+  "update": {
+    "updateAvailable": "به‌روزرسانی موجود",
+    "currentVersion": "نسخه فعلی",
+    "newVersion": "نسخه جدید",
+    "whatsNew": "موارد جدید",
+    "updatePrompt": "نسخه جدیدی از LivePlay موجود است. آیا می‌خواهید آن را دانلود و نصب کنید؟",
+    "downloading": "در حال دانلود به‌روزرسانی",
+    "downloadComplete": "دانلود تکمیل شد",
+    "installInfo": "به‌روزرسانی آماده نصب است. می‌توانید الان نصب کنید یا هنگام بستن برنامه نصب می‌شود.",
+    "later": "بعداً",
+    "downloadAndInstall": "دانلود و نصب",
+    "installNow": "نصب الان",
+    "installOnExit": "نصب هنگام خروج",
+    "downloadFailed": "دانلود به‌روزرسانی ناموفق بود"
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "ru",
+    "name": "Russian",
+    "nativeName": "Русский",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "Файл",
+    "newProject": "Новый проект",
+    "openProject": "Открыть проект",
+    "saveProject": "Сохранить проект",
+    "closeProject": "Закрыть проект",
+    "openProjectFolder": "Открыть папку проекта",
+    "exit": "Выход",
+    "view": "Вид",
+    "toggleDarkMode": "Переключить тёмный режим",
+    "changeAccentColor": "Изменить цвет акцента",
+    "fullscreen": "Полноэкранный режим",
+    "language": "Язык",
+    "help": "Справка",
+    "about": "О LivePlay"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "Воспроизведение аудио для живых мероприятий",
+    "newProject": "Новый проект",
+    "openProject": "Открыть проект"
+  },
+  "project": {
+    "enterName": "Введите название проекта",
+    "placeholder": "Мой проект",
+    "cancel": "Отмена",
+    "ok": "ОК",
+    "importAudio": "Импортировать аудио",
+    "noProject": "Нет проекта"
+  },
+  "playlist": {
+    "title": "Плейлист",
+    "import": "Импортировать аудио",
+    "addGroup": "Добавить группу",
+    "noItems": "Нет элементов в плейлисте",
+    "importAudio": "Импортировать аудио",
+    "importHint": "Используйте кнопки импорта или перетащите файлы сюда"
+  },
+  "cart": {
+    "title": "Картридж-плеер",
+    "emptySlot": "Нажмите для импорта или перетащите элемент сюда",
+    "clickToImport": "Нажмите для импорта или перетащите элемент сюда"
+  },
+  "properties": {
+    "title": "Свойства",
+    "noSelection": "Выберите элемент для просмотра свойств",
+    "displayName": "Отображаемое имя",
+    "color": "Цвет",
+    "inPoint": "Точка входа",
+    "outPoint": "Точка выхода",
+    "volume": "Громкость",
+    "endBehavior": "Поведение при завершении",
+    "startBehavior": "Поведение при запуске",
+    "duckingBehavior": "Поведение приглушения",
+    "fadeOutDuration": "Длительность затухания",
+    "duckFadeIn": "Приглушение нарастание",
+    "duckFadeOut": "Приглушение затухание",
+    "children": "Дочерние элементы",
+    "seconds": "секунды",
+    "uuid": "UUID",
+    "index": "Индекс",
+    "apiTriggerUrl": "URL триггера API",
+    "file": "Файл",
+    "duration": "Длительность",
+    "mode": "Режим",
+    "action": "Действие",
+    "playbackSection": "Раздел воспроизведения",
+    "media": "Медиа",
+    "replace": "Заменить файл",
+    "basicInfo": "Основная информация",
+    "loadingAudioData": "Загрузка аудиоданных...",
+    "playback": "Воспроизведение",
+    "ducking": "Приглушение",
+    "duckLevel": "Уровень приглушения",
+    "trimSilence": "Обрезать тишину"
+  },
+  "playback": {
+    "panic": "Остановить все сигналы",
+    "noActiveCues": "Нет активных сигналов",
+    "play": "Воспроизвести",
+    "stop": "Остановить",
+    "delete": "Удалить",
+    "edit": "Редактировать"
+  },
+  "endBehavior": {
+    "nothing": "Ничего",
+    "next": "Воспроизвести следующий",
+    "gotoItem": "Перейти к элементу",
+    "gotoIndex": "Перейти к индексу",
+    "loop": "Повторить"
+  },
+  "startBehavior": {
+    "nothing": "Ничего",
+    "playNext": "Воспроизвести следующий",
+    "playItem": "Воспроизвести элемент",
+    "playIndex": "Воспроизвести индекс",
+    "playFirst": "Воспроизвести первый",
+    "playAll": "Воспроизвести все"
+  },
+  "duckingBehavior": {
+    "stopAll": "Остановить все остальные сигналы",
+    "noDucking": "Без приглушения",
+    "duckOthers": "Приглушить остальные",
+    "duckLevel": "Уровень приглушения"
+  },
+  "actions": {
+    "delete": "Удалить",
+    "confirm": "Вы уверены?",
+    "close": "Закрыть"
+  },
+  "about": {
+    "developedBy": "Разработано",
+    "githubRepo": "Репозиторий GitHub",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "Выбрать цвет акцента"
+  },
+  "youtube": {
+    "importFromYouTube": "Импортировать из YouTube",
+    "searchPlaceholder": "Поиск музыки или аудио...",
+    "searching": "Поиск...",
+    "noResults": "Результаты не найдены",
+    "searchError": "Поиск не удался. Попробуйте снова.",
+    "preview": "Смотреть на YouTube",
+    "download": "Скачать",
+    "downloading": "Загрузка...",
+    "previewHint": "Нажмите кнопку предпросмотра, чтобы посмотреть видео перед загрузкой",
+    "downloadQueue": "Очередь загрузки",
+    "statusDownloading": "Загрузка...",
+    "statusConverting": "Конвертация в MP3...",
+    "statusCompleted": "Завершено",
+    "statusError": "Ошибка",
+    "downloadError": "Загрузка не удалась. Попробуйте снова."
+  },
+  "update": {
+    "updateAvailable": "Доступно обновление",
+    "currentVersion": "Текущая версия",
+    "newVersion": "Новая версия",
+    "whatsNew": "Что нового",
+    "updatePrompt": "Доступна новая версия LivePlay. Хотите загрузить и установить её сейчас?",
+    "downloading": "Загрузка обновления",
+    "downloadComplete": "Загрузка завершена",
+    "installInfo": "Обновление готово к установке. Вы можете установить его сейчас или оно будет установлено при закрытии приложения.",
+    "later": "Позже",
+    "downloadAndInstall": "Загрузить и установить",
+    "installNow": "Установить сейчас",
+    "installOnExit": "Установить при выходе",
+    "downloadFailed": "Не удалось загрузить обновление"
+  }
+}

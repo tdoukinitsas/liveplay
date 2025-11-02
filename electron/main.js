@@ -301,40 +301,48 @@ function createWindow() {
 }
 
 // Translation strings for menu (default: English)
-const menuTranslations = {
-  en: {
-    file: 'File',
-    newProject: 'New Project',
-    openProject: 'Open Project',
-    saveProject: 'Save Project',
-    closeProject: 'Close Project',
-    openProjectFolder: 'Open Project Folder',
-    exit: 'Exit',
-    view: 'View',
-    toggleDarkMode: 'Toggle Dark Mode',
-    changeAccentColor: 'Change Accent Color',
-    fullscreen: 'Fullscreen',
-    language: 'Language',
-    help: 'Help',
-    about: 'About LivePlay'
-  },
-  el: {
-    file: 'Αρχείο',
-    newProject: 'Νέο Έργο',
-    openProject: 'Άνοιγμα Έργου',
-    saveProject: 'Αποθήκευση Έργου',
-    closeProject: 'Κλείσιμο Έργου',
-    openProjectFolder: 'Άνοιγμα Φακέλου Έργου',
-    exit: 'Έξοδος',
-    view: 'Προβολή',
-    toggleDarkMode: 'Εναλλαγή Σκοτεινής Λειτουργίας',
-    changeAccentColor: 'Αλλαγή Χρώματος Έμφασης',
-    fullscreen: 'Πλήρης Οθόνη',
-    language: 'Γλώσσα',
-    help: 'Βοήθεια',
-    about: 'Σχετικά με το LivePlay'
-  }
+// Load all locale files dynamically
+const localeFiles = {
+  en: require('../locales/en.json'),
+  el: require('../locales/el.json'),
+  fr: require('../locales/fr.json'),
+  es: require('../locales/es.json'),
+  it: require('../locales/it.json'),
+  pt: require('../locales/pt.json'),
+  ar: require('../locales/ar.json'),
+  fa: require('../locales/fa.json'),
+  de: require('../locales/de.json'),
+  sv: require('../locales/sv.json'),
+  no: require('../locales/no.json'),
+  ru: require('../locales/ru.json'),
+  ja: require('../locales/ja.json'),
+  zh: require('../locales/zh.json'),
+  hi: require('../locales/hi.json'),
+  bn: require('../locales/bn.json'),
+  tr: require('../locales/tr.json'),
+  ko: require('../locales/ko.json')
 };
+
+// Build menu translations from locale files
+const menuTranslations = Object.entries(localeFiles).reduce((acc, [code, data]) => {
+  acc[code] = {
+    file: data.menu.file,
+    newProject: data.menu.newProject,
+    openProject: data.menu.openProject,
+    saveProject: data.menu.saveProject,
+    closeProject: data.menu.closeProject,
+    openProjectFolder: data.menu.openProjectFolder,
+    exit: data.menu.exit,
+    view: data.menu.view,
+    toggleDarkMode: data.menu.toggleDarkMode,
+    changeAccentColor: data.menu.changeAccentColor,
+    fullscreen: data.menu.fullscreen,
+    language: data.menu.language,
+    help: data.menu.help,
+    about: data.menu.about
+  };
+  return acc;
+}, {});
 
 let currentLocale = 'en';
 
@@ -419,26 +427,15 @@ function createMenu(locale = 'en', isDev = false) {
         { type: 'separator' },
         {
           label: t.language,
-          submenu: [
-            {
-              label: 'English',
-              type: 'radio',
-              checked: locale === 'en',
-              click: () => {
-                mainWindow.webContents.send('menu-change-language', 'en');
-                createMenu('en', isDev);
-              }
-            },
-            {
-              label: 'Ελληνικά',
-              type: 'radio',
-              checked: locale === 'el',
-              click: () => {
-                mainWindow.webContents.send('menu-change-language', 'el');
-                createMenu('el', isDev);
-              }
+          submenu: Object.values(localeFiles).map((localeData) => ({
+            label: localeData._metadata.nativeName,
+            type: 'radio',
+            checked: locale === localeData._metadata.code,
+            click: () => {
+              mainWindow.webContents.send('menu-change-language', localeData._metadata.code);
+              createMenu(localeData._metadata.code, isDev);
             }
-          ]
+          }))
         },
         ...(isDev ? [
           { type: 'separator' },

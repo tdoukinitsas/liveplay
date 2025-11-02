@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "ar",
+    "name": "Arabic",
+    "nativeName": "العربية",
+    "direction": "rtl"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "ملف",
+    "newProject": "مشروع جديد",
+    "openProject": "فتح مشروع",
+    "saveProject": "حفظ المشروع",
+    "closeProject": "إغلاق المشروع",
+    "openProjectFolder": "فتح مجلد المشروع",
+    "view": "عرض",
+    "toggleDarkMode": "تبديل الوضع الداكن",
+    "changeAccentColor": "تغيير لون التمييز",
+    "fullscreen": "ملء الشاشة",
+    "language": "اللغة",
+    "exit": "خروج",
+    "help": "مساعدة",
+    "about": "حول LivePlay"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "تشغيل إشارات الصوت للأحداث المباشرة",
+    "newProject": "مشروع جديد",
+    "openProject": "فتح مشروع"
+  },
+  "project": {
+    "enterName": "أدخل اسم المشروع",
+    "placeholder": "مشروعي",
+    "cancel": "إلغاء",
+    "ok": "موافق",
+    "importAudio": "استيراد صوت",
+    "noProject": "لا يوجد مشروع"
+  },
+  "playlist": {
+    "title": "قائمة التشغيل",
+    "import": "استيراد صوت",
+    "addGroup": "إضافة مجموعة",
+    "noItems": "لا توجد عناصر في قائمة التشغيل",
+    "importAudio": "استيراد صوت",
+    "importHint": "استخدم أزرار الاستيراد أو اسحب الملفات هنا"
+  },
+  "cart": {
+    "title": "مشغل الخراطيش",
+    "emptySlot": "انقر للاستيراد أو اسحب عنصرًا هنا",
+    "clickToImport": "انقر للاستيراد أو اسحب عنصرًا هنا"
+  },
+  "properties": {
+    "title": "الخصائص",
+    "noSelection": "حدد عنصرًا لعرض الخصائص",
+    "displayName": "اسم العرض",
+    "color": "اللون",
+    "inPoint": "نقطة الدخول",
+    "outPoint": "نقطة الخروج",
+    "volume": "مستوى الصوت",
+    "endBehavior": "السلوك عند الانتهاء",
+    "startBehavior": "السلوك عند البداية",
+    "duckingBehavior": "سلوك الخفض",
+    "fadeOutDuration": "مدة التلاشي للخارج",
+    "duckFadeIn": "التلاشي للداخل عند الخفض",
+    "duckFadeOut": "التلاشي للخارج عند الخفض",
+    "children": "العناصر الفرعية",
+    "seconds": "ثواني",
+    "uuid": "UUID",
+    "index": "الفهرس",
+    "apiTriggerUrl": "رابط تفعيل API",
+    "file": "الملف",
+    "duration": "المدة",
+    "mode": "الوضع",
+    "action": "الإجراء",
+    "playbackSection": "قسم التشغيل",
+    "media": "الوسائط",
+    "replace": "استبدال الملف",
+    "basicInfo": "معلومات أساسية",
+    "loadingAudioData": "جاري تحميل بيانات الصوت...",
+    "playback": "التشغيل",
+    "ducking": "الخفض",
+    "duckLevel": "مستوى الخفض",
+    "trimSilence": "قص الصمت"
+  },
+  "playback": {
+    "panic": "إيقاف جميع الإشارات",
+    "noActiveCues": "لا توجد إشارات نشطة",
+    "play": "تشغيل",
+    "stop": "إيقاف",
+    "delete": "حذف",
+    "edit": "تحرير"
+  },
+  "endBehavior": {
+    "nothing": "لا شيء",
+    "next": "تشغيل التالي",
+    "gotoItem": "الانتقال إلى العنصر",
+    "gotoIndex": "الانتقال إلى الفهرس",
+    "loop": "تكرار"
+  },
+  "startBehavior": {
+    "nothing": "لا شيء",
+    "playNext": "تشغيل التالي",
+    "playItem": "تشغيل العنصر",
+    "playIndex": "تشغيل الفهرس",
+    "playFirst": "تشغيل الأول",
+    "playAll": "تشغيل الكل"
+  },
+  "duckingBehavior": {
+    "stopAll": "إيقاف جميع الإشارات الأخرى",
+    "noDucking": "بدون خفض",
+    "duckOthers": "خفض الآخرين",
+    "duckLevel": "مستوى الخفض"
+  },
+  "actions": {
+    "delete": "حذف",
+    "confirm": "هل أنت متأكد؟",
+    "close": "إغلاق"
+  },
+  "about": {
+    "developedBy": "تم التطوير بواسطة",
+    "githubRepo": "مستودع GitHub",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "اختيار لون التمييز"
+  },
+  "youtube": {
+    "importFromYouTube": "استيراد من YouTube",
+    "searchPlaceholder": "البحث عن موسيقى أو صوت...",
+    "searching": "جاري البحث...",
+    "noResults": "لم يتم العثور على نتائج",
+    "searchError": "فشل البحث. يرجى المحاولة مرة أخرى.",
+    "preview": "مشاهدة على YouTube",
+    "download": "تحميل",
+    "downloading": "جاري التحميل...",
+    "previewHint": "انقر على زر المعاينة لمشاهدة الفيديو قبل تحميله",
+    "downloadQueue": "قائمة انتظار التحميل",
+    "statusDownloading": "جاري التحميل...",
+    "statusConverting": "جاري التحويل إلى MP3...",
+    "statusCompleted": "اكتمل",
+    "statusError": "خطأ",
+    "downloadError": "فشل التحميل. يرجى المحاولة مرة أخرى."
+  },
+  "update": {
+    "updateAvailable": "تحديث متاح",
+    "currentVersion": "الإصدار الحالي",
+    "newVersion": "الإصدار الجديد",
+    "whatsNew": "ما الجديد",
+    "updatePrompt": "يتوفر إصدار جديد من LivePlay. هل تريد تنزيله وتثبيته الآن؟",
+    "downloading": "جاري تنزيل التحديث",
+    "downloadComplete": "اكتمل التنزيل",
+    "installInfo": "التحديث جاهز للتثبيت. يمكنك تثبيته الآن أو سيتم تثبيته عند إغلاق التطبيق.",
+    "later": "لاحقًا",
+    "downloadAndInstall": "تنزيل وتثبيت",
+    "installNow": "تثبيت الآن",
+    "installOnExit": "تثبيت عند الخروج",
+    "downloadFailed": "فشل تنزيل التحديث"
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "tr",
+    "name": "Turkish",
+    "nativeName": "Türkçe",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "Dosya",
+    "newProject": "Yeni Proje",
+    "openProject": "Proje Aç",
+    "saveProject": "Projeyi Kaydet",
+    "closeProject": "Projeyi Kapat",
+    "openProjectFolder": "Proje Klasörünü Aç",
+    "exit": "Çıkış",
+    "view": "Görünüm",
+    "toggleDarkMode": "Karanlık Modu Değiştir",
+    "changeAccentColor": "Vurgu Rengini Değiştir",
+    "fullscreen": "Tam Ekran",
+    "language": "Dil",
+    "help": "Yardım",
+    "about": "LivePlay Hakkında"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "Canlı etkinlikler için ses oynatma",
+    "newProject": "Yeni Proje",
+    "openProject": "Proje Aç"
+  },
+  "project": {
+    "enterName": "Proje Adını Girin",
+    "placeholder": "Benim Projem",
+    "cancel": "İptal",
+    "ok": "Tamam",
+    "importAudio": "Ses İçe Aktar",
+    "noProject": "Proje Yok"
+  },
+  "playlist": {
+    "title": "Çalma Listesi",
+    "import": "Ses İçe Aktar",
+    "addGroup": "Grup Ekle",
+    "noItems": "Çalma listesinde öğe yok",
+    "importAudio": "Ses İçe Aktar",
+    "importHint": "İçe aktarma düğmelerini kullanın veya dosyaları buraya sürükleyin"
+  },
+  "cart": {
+    "title": "Kartuş Oynatıcı",
+    "emptySlot": "İçe aktarmak için tıklayın veya buraya bir öğe sürükleyin",
+    "clickToImport": "İçe aktarmak için tıklayın veya buraya bir öğe sürükleyin"
+  },
+  "properties": {
+    "title": "Özellikler",
+    "noSelection": "Özellikleri görüntülemek için bir öğe seçin",
+    "displayName": "Görünen Ad",
+    "color": "Renk",
+    "inPoint": "Giriş Noktası",
+    "outPoint": "Çıkış Noktası",
+    "volume": "Ses Düzeyi",
+    "endBehavior": "Bitiş Davranışı",
+    "startBehavior": "Başlangıç Davranışı",
+    "duckingBehavior": "Kısma Davranışı",
+    "fadeOutDuration": "Soldurma Süresi",
+    "duckFadeIn": "Kısma Belirme",
+    "duckFadeOut": "Kısma Soldurma",
+    "children": "Alt Öğeler",
+    "seconds": "saniye",
+    "uuid": "UUID",
+    "index": "İndeks",
+    "apiTriggerUrl": "API Tetikleyici URL",
+    "file": "Dosya",
+    "duration": "Süre",
+    "mode": "Mod",
+    "action": "Eylem",
+    "playbackSection": "Oynatma Bölümü",
+    "media": "Medya",
+    "replace": "Dosyayı Değiştir",
+    "basicInfo": "Temel Bilgiler",
+    "loadingAudioData": "Ses verileri yükleniyor...",
+    "playback": "Oynatma",
+    "ducking": "Kısma",
+    "duckLevel": "Kısma Seviyesi",
+    "trimSilence": "Sessizliği Kes"
+  },
+  "playback": {
+    "panic": "Tüm Sinyalleri Durdur",
+    "noActiveCues": "Aktif sinyal yok",
+    "play": "Oynat",
+    "stop": "Durdur",
+    "delete": "Sil",
+    "edit": "Düzenle"
+  },
+  "endBehavior": {
+    "nothing": "Hiçbir şey",
+    "next": "Sonrakini Oynat",
+    "gotoItem": "Öğeye Git",
+    "gotoIndex": "İndekse Git",
+    "loop": "Döngü"
+  },
+  "startBehavior": {
+    "nothing": "Hiçbir şey",
+    "playNext": "Sonrakini Oynat",
+    "playItem": "Öğeyi Oynat",
+    "playIndex": "İndeksi Oynat",
+    "playFirst": "İlki Oynat",
+    "playAll": "Tümünü Oynat"
+  },
+  "duckingBehavior": {
+    "stopAll": "Diğer Tüm Sinyalleri Durdur",
+    "noDucking": "Kısma Yok",
+    "duckOthers": "Diğerlerini Kıs",
+    "duckLevel": "Kısma Seviyesi"
+  },
+  "actions": {
+    "delete": "Sil",
+    "confirm": "Emin misiniz?",
+    "close": "Kapat"
+  },
+  "about": {
+    "developedBy": "Geliştiren",
+    "githubRepo": "GitHub Deposu",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "Vurgu Rengini Seç"
+  },
+  "youtube": {
+    "importFromYouTube": "YouTube'dan İçe Aktar",
+    "searchPlaceholder": "Müzik veya ses ara...",
+    "searching": "Aranıyor...",
+    "noResults": "Sonuç bulunamadı",
+    "searchError": "Arama başarısız oldu. Lütfen tekrar deneyin.",
+    "preview": "YouTube'da İzle",
+    "download": "İndir",
+    "downloading": "İndiriliyor...",
+    "previewHint": "İndirmeden önce videoyu izlemek için önizleme düğmesine tıklayın",
+    "downloadQueue": "İndirme Kuyruğu",
+    "statusDownloading": "İndiriliyor...",
+    "statusConverting": "MP3'e dönüştürülüyor...",
+    "statusCompleted": "Tamamlandı",
+    "statusError": "Hata",
+    "downloadError": "İndirme başarısız oldu. Lütfen tekrar deneyin."
+  },
+  "update": {
+    "updateAvailable": "Güncelleme Mevcut",
+    "currentVersion": "Mevcut Sürüm",
+    "newVersion": "Yeni Sürüm",
+    "whatsNew": "Yenilikler",
+    "updatePrompt": "LivePlay'in yeni bir sürümü mevcut. Şimdi indirip yüklemek ister misiniz?",
+    "downloading": "Güncelleme İndiriliyor",
+    "downloadComplete": "İndirme Tamamlandı",
+    "installInfo": "Güncelleme yüklemeye hazır. Şimdi yükleyebilir veya uygulamayı kapattığınızda yüklenecek.",
+    "later": "Sonra",
+    "downloadAndInstall": "İndir ve Yükle",
+    "installNow": "Şimdi Yükle",
+    "installOnExit": "Çıkışta Yükle",
+    "downloadFailed": "Güncelleme indirme başarısız oldu"
+  }
+}

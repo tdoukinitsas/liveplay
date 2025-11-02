@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "no",
+    "name": "Norwegian",
+    "nativeName": "Norsk",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "Fil",
+    "newProject": "Nytt prosjekt",
+    "openProject": "Åpne prosjekt",
+    "saveProject": "Lagre prosjekt",
+    "closeProject": "Lukk prosjekt",
+    "openProjectFolder": "Åpne prosjektmappe",
+    "exit": "Avslutt",
+    "view": "Vis",
+    "toggleDarkMode": "Bytt mørk modus",
+    "changeAccentColor": "Endre aksentfarge",
+    "fullscreen": "Fullskjerm",
+    "language": "Språk",
+    "help": "Hjelp",
+    "about": "Om LivePlay"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "Lydavspilling for livearrangementer",
+    "newProject": "Nytt prosjekt",
+    "openProject": "Åpne prosjekt"
+  },
+  "project": {
+    "enterName": "Skriv inn prosjektnavn",
+    "placeholder": "Mitt prosjekt",
+    "cancel": "Avbryt",
+    "ok": "OK",
+    "importAudio": "Importer lyd",
+    "noProject": "Ingen prosjekt"
+  },
+  "playlist": {
+    "title": "Spilleliste",
+    "import": "Importer lyd",
+    "addGroup": "Legg til gruppe",
+    "noItems": "Ingen elementer i spillelisten",
+    "importAudio": "Importer lyd",
+    "importHint": "Bruk importknappene eller dra filer hit"
+  },
+  "cart": {
+    "title": "Kartspiller",
+    "emptySlot": "Klikk for å importere eller dra et element hit",
+    "clickToImport": "Klikk for å importere eller dra et element hit"
+  },
+  "properties": {
+    "title": "Egenskaper",
+    "noSelection": "Velg et element for å vise egenskaper",
+    "displayName": "Visningsnavn",
+    "color": "Farge",
+    "inPoint": "Inngangspunkt",
+    "outPoint": "Utgangspunkt",
+    "volume": "Volum",
+    "endBehavior": "Sluttadferd",
+    "startBehavior": "Startadferd",
+    "duckingBehavior": "Duckingadferd",
+    "fadeOutDuration": "Uttoning varighet",
+    "duckFadeIn": "Ducking intoning",
+    "duckFadeOut": "Ducking uttoning",
+    "children": "Barn",
+    "seconds": "sekunder",
+    "uuid": "UUID",
+    "index": "Indeks",
+    "apiTriggerUrl": "API-utløser-URL",
+    "file": "Fil",
+    "duration": "Varighet",
+    "mode": "Modus",
+    "action": "Handling",
+    "playbackSection": "Avspillingsseksjon",
+    "media": "Media",
+    "replace": "Erstatt fil",
+    "basicInfo": "Grunnleggende informasjon",
+    "loadingAudioData": "Laster lyddata...",
+    "playback": "Avspilling",
+    "ducking": "Ducking",
+    "duckLevel": "Duckingnivå",
+    "trimSilence": "Trim stillhet"
+  },
+  "playback": {
+    "panic": "Stopp alle signaler",
+    "noActiveCues": "Ingen aktive signaler",
+    "play": "Spill",
+    "stop": "Stopp",
+    "delete": "Slett",
+    "edit": "Rediger"
+  },
+  "endBehavior": {
+    "nothing": "Ingenting",
+    "next": "Spill neste",
+    "gotoItem": "Gå til element",
+    "gotoIndex": "Gå til indeks",
+    "loop": "Gjenta"
+  },
+  "startBehavior": {
+    "nothing": "Ingenting",
+    "playNext": "Spill neste",
+    "playItem": "Spill element",
+    "playIndex": "Spill indeks",
+    "playFirst": "Spill første",
+    "playAll": "Spill alle"
+  },
+  "duckingBehavior": {
+    "stopAll": "Stopp alle andre signaler",
+    "noDucking": "Ingen ducking",
+    "duckOthers": "Duck andre",
+    "duckLevel": "Duckingnivå"
+  },
+  "actions": {
+    "delete": "Slett",
+    "confirm": "Er du sikker?",
+    "close": "Lukk"
+  },
+  "about": {
+    "developedBy": "Utviklet av",
+    "githubRepo": "GitHub-repositorium",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "Velg aksentfarge"
+  },
+  "youtube": {
+    "importFromYouTube": "Importer fra YouTube",
+    "searchPlaceholder": "Søk etter musikk eller lyd...",
+    "searching": "Søker...",
+    "noResults": "Ingen resultater funnet",
+    "searchError": "Søket mislyktes. Prøv igjen.",
+    "preview": "Se på YouTube",
+    "download": "Last ned",
+    "downloading": "Laster ned...",
+    "previewHint": "Klikk på forhåndsvisningsknappen for å se videoen før nedlasting",
+    "downloadQueue": "Nedlastingskø",
+    "statusDownloading": "Laster ned...",
+    "statusConverting": "Konverterer til MP3...",
+    "statusCompleted": "Fullført",
+    "statusError": "Feil",
+    "downloadError": "Nedlastingen mislyktes. Prøv igjen."
+  },
+  "update": {
+    "updateAvailable": "Oppdatering tilgjengelig",
+    "currentVersion": "Nåværende versjon",
+    "newVersion": "Ny versjon",
+    "whatsNew": "Hva er nytt",
+    "updatePrompt": "En ny versjon av LivePlay er tilgjengelig. Vil du laste den ned og installere den nå?",
+    "downloading": "Laster ned oppdatering",
+    "downloadComplete": "Nedlasting fullført",
+    "installInfo": "Oppdateringen er klar til installasjon. Du kan installere den nå eller den vil bli installert når du lukker appen.",
+    "later": "Senere",
+    "downloadAndInstall": "Last ned og installer",
+    "installNow": "Installer nå",
+    "installOnExit": "Installer ved avslutning",
+    "downloadFailed": "Oppdateringsnedlastingen mislyktes"
+  }
+}

@@ -244,3 +244,58 @@ select {
 .gap-lg {
   gap: var(--spacing-lg);
 }
+
+// RTL Support
+[dir="rtl"] {
+  // Reverse text alignment
+  text-align: right;
+  
+  // Reverse flex direction for row layouts
+  .flex-row {
+    flex-direction: row-reverse;
+  }
+  
+  // Mirror margins and paddings
+  .ml-auto {
+    margin-left: 0;
+    margin-right: auto;
+  }
+  
+  .mr-auto {
+    margin-right: 0;
+    margin-left: auto;
+  }
+  
+  // Reverse floating
+  .float-left {
+    float: right;
+  }
+  
+  .float-right {
+    float: left;
+  }
+  
+  // Reverse border radius
+  .border-radius-left {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: var(--border-radius-md);
+    border-bottom-right-radius: var(--border-radius-md);
+  }
+  
+  .border-radius-right {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-top-left-radius: var(--border-radius-md);
+    border-bottom-left-radius: var(--border-radius-md);
+  }
+  
+  // Reverse transform for icons
+  .icon-arrow-right {
+    transform: scaleX(-1);
+  }
+  
+  .icon-arrow-left {
+    transform: scaleX(-1);
+  }
+}

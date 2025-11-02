@@ -1,4 +1,10 @@
 {
+  "_metadata": {
+    "code": "el",
+    "name": "Greek",
+    "nativeName": "Ελληνικά",
+    "direction": "ltr"
+  },
   "app": {
     "name": "LivePlay"
   },
@@ -12,7 +18,11 @@
     "view": "Προβολή",
     "toggleDarkMode": "Εναλλαγή Σκοτεινής Θέσης",
     "changeAccentColor": "Αλλαγή Χρώματος Έμφασης",
-    "language": "Γλώσσα"
+    "fullscreen": "Πλήρης Οθόνη",
+    "language": "Γλώσσα",
+    "exit": "Έξοδος",
+    "help": "Βοήθεια",
+    "about": "Σχετικά με το LivePlay"
   },
   "welcome": {
     "title": "LivePlay",
@@ -122,7 +132,7 @@
     "searching": "Αναζήτηση...",
     "noResults": "Δεν βρέθηκαν αποτελέσματα",
     "searchError": "Η αναζήτηση απέτυχε. Παρακαλώ δοκιμάστε ξανά.",
-    "preview": "Προεπισκόπηση",
+    "preview": "Παρακολούθηση στο YouTube",
     "download": "Λήψη",
     "downloading": "Λήψη...",
     "previewHint": "Κάντε κλικ στο κουμπί προεπισκόπησης για να δείτε το βίντεο πριν το κατεβάσετε",

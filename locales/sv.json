@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "sv",
+    "name": "Swedish",
+    "nativeName": "Svenska",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "Arkiv",
+    "newProject": "Nytt projekt",
+    "openProject": "Öppna projekt",
+    "saveProject": "Spara projekt",
+    "closeProject": "Stäng projekt",
+    "openProjectFolder": "Öppna projektmapp",
+    "exit": "Avsluta",
+    "view": "Visa",
+    "toggleDarkMode": "Växla mörkt läge",
+    "changeAccentColor": "Ändra accentfärg",
+    "fullscreen": "Helskärm",
+    "language": "Språk",
+    "help": "Hjälp",
+    "about": "Om LivePlay"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "Ljuduppspelning för liveevenemang",
+    "newProject": "Nytt projekt",
+    "openProject": "Öppna projekt"
+  },
+  "project": {
+    "enterName": "Ange projektnamn",
+    "placeholder": "Mitt projekt",
+    "cancel": "Avbryt",
+    "ok": "OK",
+    "importAudio": "Importera ljud",
+    "noProject": "Inget projekt"
+  },
+  "playlist": {
+    "title": "Spellista",
+    "import": "Importera ljud",
+    "addGroup": "Lägg till grupp",
+    "noItems": "Inga objekt i spellistan",
+    "importAudio": "Importera ljud",
+    "importHint": "Använd importknapparna eller dra filer hit"
+  },
+  "cart": {
+    "title": "Kartspelare",
+    "emptySlot": "Klicka för att importera eller dra ett objekt hit",
+    "clickToImport": "Klicka för att importera eller dra ett objekt hit"
+  },
+  "properties": {
+    "title": "Egenskaper",
+    "noSelection": "Välj ett objekt för att visa egenskaper",
+    "displayName": "Visningsnamn",
+    "color": "Färg",
+    "inPoint": "Ingångspunkt",
+    "outPoint": "Utgångspunkt",
+    "volume": "Volym",
+    "endBehavior": "Slutbeteende",
+    "startBehavior": "Startbeteende",
+    "duckingBehavior": "Duckningsbeteende",
+    "fadeOutDuration": "Uttoning varaktighet",
+    "duckFadeIn": "Duckning intoning",
+    "duckFadeOut": "Duckning uttoning",
+    "children": "Barn",
+    "seconds": "sekunder",
+    "uuid": "UUID",
+    "index": "Index",
+    "apiTriggerUrl": "API-trigger-URL",
+    "file": "Fil",
+    "duration": "Varaktighet",
+    "mode": "Läge",
+    "action": "Åtgärd",
+    "playbackSection": "Uppspelningssektion",
+    "media": "Media",
+    "replace": "Ersätt fil",
+    "basicInfo": "Grundläggande information",
+    "loadingAudioData": "Laddar ljuddata...",
+    "playback": "Uppspelning",
+    "ducking": "Duckning",
+    "duckLevel": "Duckningsnivå",
+    "trimSilence": "Trimma tystnad"
+  },
+  "playback": {
+    "panic": "Stoppa alla signaler",
+    "noActiveCues": "Inga aktiva signaler",
+    "play": "Spela",
+    "stop": "Stoppa",
+    "delete": "Ta bort",
+    "edit": "Redigera"
+  },
+  "endBehavior": {
+    "nothing": "Ingenting",
+    "next": "Spela nästa",
+    "gotoItem": "Gå till objekt",
+    "gotoIndex": "Gå till index",
+    "loop": "Upprepa"
+  },
+  "startBehavior": {
+    "nothing": "Ingenting",
+    "playNext": "Spela nästa",
+    "playItem": "Spela objekt",
+    "playIndex": "Spela index",
+    "playFirst": "Spela första",
+    "playAll": "Spela alla"
+  },
+  "duckingBehavior": {
+    "stopAll": "Stoppa alla andra signaler",
+    "noDucking": "Ingen duckning",
+    "duckOthers": "Ducka andra",
+    "duckLevel": "Duckningsnivå"
+  },
+  "actions": {
+    "delete": "Ta bort",
+    "confirm": "Är du säker?",
+    "close": "Stäng"
+  },
+  "about": {
+    "developedBy": "Utvecklad av",
+    "githubRepo": "GitHub-arkiv",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "Välj accentfärg"
+  },
+  "youtube": {
+    "importFromYouTube": "Importera från YouTube",
+    "searchPlaceholder": "Sök musik eller ljud...",
+    "searching": "Söker...",
+    "noResults": "Inga resultat hittades",
+    "searchError": "Sökningen misslyckades. Försök igen.",
+    "preview": "Titta på YouTube",
+    "download": "Ladda ner",
+    "downloading": "Laddar ner...",
+    "previewHint": "Klicka på förhandsgranskningsknappen för att se videon innan nedladdning",
+    "downloadQueue": "Nedladdningskö",
+    "statusDownloading": "Laddar ner...",
+    "statusConverting": "Konverterar till MP3...",
+    "statusCompleted": "Slutförd",
+    "statusError": "Fel",
+    "downloadError": "Nedladdningen misslyckades. Försök igen."
+  },
+  "update": {
+    "updateAvailable": "Uppdatering tillgänglig",
+    "currentVersion": "Nuvarande version",
+    "newVersion": "Ny version",
+    "whatsNew": "Vad är nytt",
+    "updatePrompt": "En ny version av LivePlay är tillgänglig. Vill du ladda ner och installera den nu?",
+    "downloading": "Laddar ner uppdatering",
+    "downloadComplete": "Nedladdning slutförd",
+    "installInfo": "Uppdateringen är redo att installeras. Du kan installera den nu eller så installeras den när du stänger appen.",
+    "later": "Senare",
+    "downloadAndInstall": "Ladda ner och installera",
+    "installNow": "Installera nu",
+    "installOnExit": "Installera vid avslut",
+    "downloadFailed": "Uppdateringsnedladdningen misslyckades"
+  }
+}

@@ -26,7 +26,7 @@
 
         <div class="content-container">
           <!-- Search Results -->
-          <div class="results-section">
+          <div class="results-section full-width">
             <div v-if="isSearching" class="loading-state">
               <span class="material-symbols-rounded spinning">progress_activity</span>
               <p>{{ t('youtube.searching') }}</p>
@@ -71,22 +71,6 @@
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- Preview Section -->
-          <div class="preview-section">
-            <div v-if="!previewVideoId" class="preview-placeholder">
-              <span class="material-symbols-rounded">play_circle</span>
-              <p>{{ t('youtube.previewHint') }}</p>
-            </div>
-            <iframe
-              v-else
-              :src="`https://www.youtube.com/embed/${previewVideoId}`"
-              frameborder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowfullscreen
-              class="preview-iframe"
-            ></iframe>
           </div>
         </div>
 
@@ -148,7 +132,6 @@ const isSearching = ref(false);
 const hasSearched = ref(false);
 const searchError = ref('');
 const selectedVideo = ref<YouTubeVideo | null>(null);
-const previewVideoId = ref('');
 const downloadQueue = ref<DownloadProgress[]>([]);
 
 const performSearch = async () => {
@@ -172,7 +155,10 @@ const performSearch = async () => {
 
 const previewVideo = (video: YouTubeVideo) => {
   selectedVideo.value = video;
-  previewVideoId.value = video.id;
+  // Open in system browser instead of iframe (works in production)
+  if (import.meta.client && window.electronAPI) {
+    window.electronAPI.openExternal(`https://www.youtube.com/watch?v=${video.id}`);
+  }
 };
 
 const downloadVideo = async (video: YouTubeVideo) => {
@@ -335,7 +321,6 @@ const closeModal = () => {
   searchQuery.value = '';
   searchResults.value = [];
   hasSearched.value = false;
-  previewVideoId.value = '';
   selectedVideo.value = null;
 };
 </script>
@@ -456,34 +441,8 @@ const closeModal = () => {
   padding: 10px;
 }
 
-.preview-section {
-  width: 400px;
-  flex-shrink: 0;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface);
-}
-
-.preview-placeholder {
-  text-align: center;
-  color: var(--color-text-secondary);
-  padding: 20px;
-}
-
-.preview-placeholder .material-symbols-rounded {
-  font-size: 64px;
-  opacity: 0.3;
-  display: block;
-  margin-bottom: 10px;
-}
-
-.preview-iframe {
+.results-section.full-width {
   width: 100%;
-  height: 100%;
-  border-radius: 4px;
 }
 
 .loading-state,

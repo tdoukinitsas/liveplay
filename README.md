@@ -106,6 +106,16 @@ Localised in English and Greek
 
 - **Professional design**: Clean, modern interface based on IBM's Carbon Design
 
+### 🌍 Internationalization
+
+- **18 Languages**: English, Greek (Ελληνικά), French (Français), Spanish (Español), Italian (Italiano), Portuguese (Português), Arabic (العربية), Farsi (فارسی), German (Deutsch), Swedish (Svenska), Norwegian (Norsk), Russian (Русский), Japanese (日本語), Chinese (中文), Hindi (हिन्दी), Bengali (বাংলা), Turkish (Türkçe), Korean (한국어)
+
+- **RTL Support**: Full right-to-left layout support for Arabic and Farsi
+
+- **Native Display**: Languages shown in their native scripts
+
+- **Easy Switching**: Change language from `View > Language` menu
+
 
 
 ### 💾 Project Management

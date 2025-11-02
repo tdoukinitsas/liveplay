@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "zh",
+    "name": "Chinese",
+    "nativeName": "中文",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "文件",
+    "newProject": "新建项目",
+    "openProject": "打开项目",
+    "saveProject": "保存项目",
+    "closeProject": "关闭项目",
+    "openProjectFolder": "打开项目文件夹",
+    "exit": "退出",
+    "view": "查看",
+    "toggleDarkMode": "切换深色模式",
+    "changeAccentColor": "更改强调色",
+    "fullscreen": "全屏",
+    "language": "语言",
+    "help": "帮助",
+    "about": "关于LivePlay"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "现场活动音频播放",
+    "newProject": "新建项目",
+    "openProject": "打开项目"
+  },
+  "project": {
+    "enterName": "输入项目名称",
+    "placeholder": "我的项目",
+    "cancel": "取消",
+    "ok": "确定",
+    "importAudio": "导入音频",
+    "noProject": "无项目"
+  },
+  "playlist": {
+    "title": "播放列表",
+    "import": "导入音频",
+    "addGroup": "添加组",
+    "noItems": "播放列表中无项目",
+    "importAudio": "导入音频",
+    "importHint": "使用导入按钮或将文件拖到此处"
+  },
+  "cart": {
+    "title": "盒式播放器",
+    "emptySlot": "单击导入或将项目拖到此处",
+    "clickToImport": "单击导入或将项目拖到此处"
+  },
+  "properties": {
+    "title": "属性",
+    "noSelection": "选择一个项目以查看属性",
+    "displayName": "显示名称",
+    "color": "颜色",
+    "inPoint": "入点",
+    "outPoint": "出点",
+    "volume": "音量",
+    "endBehavior": "结束行为",
+    "startBehavior": "开始行为",
+    "duckingBehavior": "闪避行为",
+    "fadeOutDuration": "淡出持续时间",
+    "duckFadeIn": "闪避淡入",
+    "duckFadeOut": "闪避淡出",
+    "children": "子项",
+    "seconds": "秒",
+    "uuid": "UUID",
+    "index": "索引",
+    "apiTriggerUrl": "API触发器URL",
+    "file": "文件",
+    "duration": "持续时间",
+    "mode": "模式",
+    "action": "操作",
+    "playbackSection": "播放部分",
+    "media": "媒体",
+    "replace": "替换文件",
+    "basicInfo": "基本信息",
+    "loadingAudioData": "正在加载音频数据...",
+    "playback": "播放",
+    "ducking": "闪避",
+    "duckLevel": "闪避级别",
+    "trimSilence": "修剪静音"
+  },
+  "playback": {
+    "panic": "停止所有信号",
+    "noActiveCues": "无活动信号",
+    "play": "播放",
+    "stop": "停止",
+    "delete": "删除",
+    "edit": "编辑"
+  },
+  "endBehavior": {
+    "nothing": "无",
+    "next": "播放下一个",
+    "gotoItem": "转到项目",
+    "gotoIndex": "转到索引",
+    "loop": "循环"
+  },
+  "startBehavior": {
+    "nothing": "无",
+    "playNext": "播放下一个",
+    "playItem": "播放项目",
+    "playIndex": "播放索引",
+    "playFirst": "播放第一个",
+    "playAll": "播放全部"
+  },
+  "duckingBehavior": {
+    "stopAll": "停止所有其他信号",
+    "noDucking": "无闪避",
+    "duckOthers": "闪避其他",
+    "duckLevel": "闪避级别"
+  },
+  "actions": {
+    "delete": "删除",
+    "confirm": "您确定吗？",
+    "close": "关闭"
+  },
+  "about": {
+    "developedBy": "开发者",
+    "githubRepo": "GitHub仓库",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "选择强调色"
+  },
+  "youtube": {
+    "importFromYouTube": "从YouTube导入",
+    "searchPlaceholder": "搜索音乐或音频...",
+    "searching": "搜索中...",
+    "noResults": "未找到结果",
+    "searchError": "搜索失败。请重试。",
+    "preview": "在YouTube上观看",
+    "download": "下载",
+    "downloading": "下载中...",
+    "previewHint": "单击预览按钮在下载前观看视频",
+    "downloadQueue": "下载队列",
+    "statusDownloading": "下载中...",
+    "statusConverting": "转换为MP3...",
+    "statusCompleted": "已完成",
+    "statusError": "错误",
+    "downloadError": "下载失败。请重试。"
+  },
+  "update": {
+    "updateAvailable": "有可用更新",
+    "currentVersion": "当前版本",
+    "newVersion": "新版本",
+    "whatsNew": "更新内容",
+    "updatePrompt": "有新版本的LivePlay可用。您想现在下载并安装吗？",
+    "downloading": "正在下载更新",
+    "downloadComplete": "下载完成",
+    "installInfo": "更新已准备好安装。您可以现在安装，或在关闭应用时安装。",
+    "later": "稍后",
+    "downloadAndInstall": "下载并安装",
+    "installNow": "立即安装",
+    "installOnExit": "退出时安装",
+    "downloadFailed": "更新下载失败"
+  }
+}

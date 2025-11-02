@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "it",
+    "name": "Italian",
+    "nativeName": "Italiano",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "File",
+    "newProject": "Nuovo Progetto",
+    "openProject": "Apri Progetto",
+    "saveProject": "Salva Progetto",
+    "closeProject": "Chiudi Progetto",
+    "openProjectFolder": "Apri Cartella Progetto",
+    "view": "Visualizza",
+    "toggleDarkMode": "Attiva/Disattiva Modalità Scura",
+    "changeAccentColor": "Cambia Colore Accento",
+    "fullscreen": "Schermo Intero",
+    "language": "Lingua",
+    "exit": "Esci",
+    "help": "Aiuto",
+    "about": "Informazioni su LivePlay"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "Riproduzione di segnali audio per eventi dal vivo",
+    "newProject": "Nuovo Progetto",
+    "openProject": "Apri Progetto"
+  },
+  "project": {
+    "enterName": "Inserisci il Nome del Progetto",
+    "placeholder": "Il Mio Progetto",
+    "cancel": "Annulla",
+    "ok": "OK",
+    "importAudio": "Importa Audio",
+    "noProject": "Nessun Progetto"
+  },
+  "playlist": {
+    "title": "Playlist",
+    "import": "Importa Audio",
+    "addGroup": "Aggiungi Gruppo",
+    "noItems": "Nessun elemento nella playlist",
+    "importAudio": "Importa Audio",
+    "importHint": "Usa i pulsanti di importazione o trascina i file qui"
+  },
+  "cart": {
+    "title": "Riproduttore di Cartucce",
+    "emptySlot": "Clicca per importare o trascina un elemento qui",
+    "clickToImport": "Clicca per importare o trascina un elemento qui"
+  },
+  "properties": {
+    "title": "Proprietà",
+    "noSelection": "Seleziona un elemento per visualizzare le proprietà",
+    "displayName": "Nome da Visualizzare",
+    "color": "Colore",
+    "inPoint": "Punto di Ingresso",
+    "outPoint": "Punto di Uscita",
+    "volume": "Volume",
+    "endBehavior": "Comportamento di Fine",
+    "startBehavior": "Comportamento di Inizio",
+    "duckingBehavior": "Comportamento di Attenuazione",
+    "fadeOutDuration": "Durata Dissolvenza in Uscita",
+    "duckFadeIn": "Dissolvenza in Entrata Attenuazione",
+    "duckFadeOut": "Dissolvenza in Uscita Attenuazione",
+    "children": "Figli",
+    "seconds": "secondi",
+    "uuid": "UUID",
+    "index": "Indice",
+    "apiTriggerUrl": "URL di Attivazione API",
+    "file": "File",
+    "duration": "Durata",
+    "mode": "Modalità",
+    "action": "Azione",
+    "playbackSection": "Sezione di Riproduzione",
+    "media": "Media",
+    "replace": "Sostituisci File",
+    "basicInfo": "Informazioni di Base",
+    "loadingAudioData": "Caricamento dati audio...",
+    "playback": "Riproduzione",
+    "ducking": "Attenuazione",
+    "duckLevel": "Livello di Attenuazione",
+    "trimSilence": "Taglia Silenzio"
+  },
+  "playback": {
+    "panic": "Ferma Tutti i Segnali",
+    "noActiveCues": "Nessun segnale attivo",
+    "play": "Riproduci",
+    "stop": "Ferma",
+    "delete": "Elimina",
+    "edit": "Modifica"
+  },
+  "endBehavior": {
+    "nothing": "Niente",
+    "next": "Riproduci Successivo",
+    "gotoItem": "Vai all'Elemento",
+    "gotoIndex": "Vai all'Indice",
+    "loop": "Ripeti"
+  },
+  "startBehavior": {
+    "nothing": "Niente",
+    "playNext": "Riproduci Successivo",
+    "playItem": "Riproduci Elemento",
+    "playIndex": "Riproduci Indice",
+    "playFirst": "Riproduci Primo",
+    "playAll": "Riproduci Tutto"
+  },
+  "duckingBehavior": {
+    "stopAll": "Ferma Tutti gli Altri Segnali",
+    "noDucking": "Nessuna Attenuazione",
+    "duckOthers": "Attenua Altri",
+    "duckLevel": "Livello di Attenuazione"
+  },
+  "actions": {
+    "delete": "Elimina",
+    "confirm": "Sei sicuro?",
+    "close": "Chiudi"
+  },
+  "about": {
+    "developedBy": "Sviluppato da",
+    "githubRepo": "Repository GitHub",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "Scegli Colore Accento"
+  },
+  "youtube": {
+    "importFromYouTube": "Importa da YouTube",
+    "searchPlaceholder": "Cerca musica o audio...",
+    "searching": "Ricerca in corso...",
+    "noResults": "Nessun risultato trovato",
+    "searchError": "Ricerca fallita. Riprova.",
+    "preview": "Guarda su YouTube",
+    "download": "Scarica",
+    "downloading": "Scaricamento...",
+    "previewHint": "Fai clic sul pulsante anteprima per guardare il video prima di scaricarlo",
+    "downloadQueue": "Coda di Download",
+    "statusDownloading": "Scaricamento...",
+    "statusConverting": "Conversione in MP3...",
+    "statusCompleted": "Completato",
+    "statusError": "Errore",
+    "downloadError": "Download fallito. Riprova."
+  },
+  "update": {
+    "updateAvailable": "Aggiornamento Disponibile",
+    "currentVersion": "Versione Corrente",
+    "newVersion": "Nuova Versione",
+    "whatsNew": "Novità",
+    "updatePrompt": "È disponibile una nuova versione di LivePlay. Vuoi scaricarla e installarla ora?",
+    "downloading": "Download Aggiornamento",
+    "downloadComplete": "Download Completato",
+    "installInfo": "L'aggiornamento è pronto per l'installazione. Puoi installarlo ora o verrà installato quando chiudi l'app.",
+    "later": "Più Tardi",
+    "downloadAndInstall": "Scarica e Installa",
+    "installNow": "Installa Ora",
+    "installOnExit": "Installa all'Uscita",
+    "downloadFailed": "Impossibile scaricare l'aggiornamento"
+  }
+}
