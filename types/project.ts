@@ -150,7 +150,7 @@ export const PRESET_COLORS = [
 // Default values
 export const DEFAULT_THEME: Theme = {
   mode: 'dark',
-  accentColor: '#0066FF'
+  accentColor: '#DA1E28'
 };
 
 export const DEFAULT_AUDIO_ITEM: Partial<AudioItem> = {

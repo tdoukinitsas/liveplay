@@ -16,6 +16,8 @@ import hi from '~/locales/hi.json';
 import bn from '~/locales/bn.json';
 import tr from '~/locales/tr.json';
 import ko from '~/locales/ko.json';
+import sq from '~/locales/sq.json';
+import ur from '~/locales/ur.json';
 
 const locales = {
   en,
@@ -35,7 +37,9 @@ const locales = {
   hi,
   bn,
   tr,
-  ko
+  ko,
+  sq,
+  ur
 };
 
 // Dynamically build available locales from metadata

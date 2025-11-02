@@ -11,3 +11,7 @@ dist-electron/
 !.vscode/extensions.json
 .idea
 package-lock.json
+dist/
+build/
+out/
+yt-dlp.exe

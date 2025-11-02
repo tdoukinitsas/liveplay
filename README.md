@@ -2,13 +2,23 @@
 
 ![Main liveplay user interface, with playlist editor, cue cart and properties panel](/public/liveplay_screenshot.jpg)
 
-Currently under active development.
-
 LivePlay is a free, open-source audio playback system designed for live sound operators who need reliable, flexible cue management. Built with modern web technologies (Electron, Vue 3, Nuxt 3), it runs on Windows, macOS, and Linux.
 
 Built with help from Github Copilot and Claude Sonnet 4.5
 
-Localised in English and Greek
+**Available in 20 languages** with full RTL support
+
+---
+
+## 📥 Download
+
+Get the latest release for your platform:
+
+[![Download Latest Release](https://img.shields.io/github/v/release/tdoukinitsas/liveplay?label=Download&style=for-the-badge)](https://github.com/tdoukinitsas/liveplay/releases/latest)
+
+- **Windows**: `.exe` installer (x64)
+- **Linux**: `.AppImage`, `.deb`, or `.rpm` (x64)
+- **macOS**: `.dmg` or `.zip` (Universal: Intel + Apple Silicon)
 
 ---
 
@@ -108,9 +118,9 @@ Localised in English and Greek
 
 ### 🌍 Internationalization
 
-- **18 Languages**: English, Greek (Ελληνικά), French (Français), Spanish (Español), Italian (Italiano), Portuguese (Português), Arabic (العربية), Farsi (فارسی), German (Deutsch), Swedish (Svenska), Norwegian (Norsk), Russian (Русский), Japanese (日本語), Chinese (中文), Hindi (हिन्दी), Bengali (বাংলা), Turkish (Türkçe), Korean (한국어)
+- **20 Languages**: English, Greek (Ελληνικά), French (Français), Spanish (Español), Italian (Italiano), Portuguese (Português), Arabic (العربية), Farsi (فارسی), German (Deutsch), Swedish (Svenska), Norwegian (Norsk), Russian (Русский), Japanese (日本語), Chinese (中文), Hindi (हिन्दी), Bengali (বাংলা), Turkish (Türkçe), Korean (한국어), Albanian (Shqip), Urdu (اردو)
 
-- **RTL Support**: Full right-to-left layout support for Arabic and Farsi
+- **RTL Support**: Full right-to-left layout support for Arabic, Farsi, and Urdu
 
 - **Native Display**: Languages shown in their native scripts
 
@@ -136,8 +146,9 @@ Localised in English and Greek
 
 - **Release notes**: See what's new before updating
 
-- **GitHub releases**: Updates delivered via GitHub releases## Development
+- **GitHub releases**: Updates delivered via GitHub releases
 
+---
 
 ## 🚀 Getting Started
 
@@ -370,7 +381,18 @@ LivePlay is open source! We welcome contributions:
 - **Bug reports**: [Open an issue](https://github.com/tdoukinitsas/liveplay/issues)
 - **Feature requests**: [Start a discussion](https://github.com/tdoukinitsas/liveplay/discussions)
 - **Code contributions**: See [DEVELOP.md](DEVELOP.md) for developer documentation
-- **Translations**: Help translate LivePlay to more languages
+- **Translations**: Help translate LivePlay to more languages - see [INTERNATIONALIZATION.md](INTERNATIONALIZATION.md)
+
+---
+
+## 🔄 Releases
+
+LivePlay uses an automated CI/CD pipeline:
+- ✅ Automatic builds for Windows, Linux, and macOS
+- ✅ Auto-generated changelogs from commit history
+- ✅ Published to [GitHub Releases](https://github.com/tdoukinitsas/liveplay/releases)
+
+**For Contributors:** See [RELEASES.md](RELEASES.md) for the full release process documentation or [RELEASE-QUICK.md](RELEASE-QUICK.md) for a quick reference guide.
 
 ---
 
@@ -395,6 +417,8 @@ See [LICENSE.txt](LICENSE.txt) for full details.
 - Project: [github.com/tdoukinitsas/liveplay](https://github.com/tdoukinitsas/liveplay)
 
 Built with assistance from GitHub Copilot and Claude Sonnet 4.5.
+
+For more info about what makes this project tick and how to contribute, check the "guides" folder
 
 ---
 

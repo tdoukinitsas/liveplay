@@ -1,0 +1,161 @@
+{
+  "_metadata": {
+    "code": "sq",
+    "name": "Albanian",
+    "nativeName": "Shqip",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "Skedar",
+    "newProject": "Projekt i Ri",
+    "openProject": "Hap Projektin",
+    "saveProject": "Ruaj Projektin",
+    "closeProject": "Mbyll Projektin",
+    "openProjectFolder": "Hap Dosjen e Projektit",
+    "exit": "Dil",
+    "view": "Pamje",
+    "toggleDarkMode": "Ndrysho Modalitetin e Errët",
+    "changeAccentColor": "Ndrysho Ngjyrën e Theksuar",
+    "fullscreen": "Ekran i Plotë",
+    "language": "Gjuha",
+    "help": "Ndihmë",
+    "about": "Rreth LivePlay"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "Luajtje audio për ngjarje të drejtpërdrejta",
+    "newProject": "Projekt i Ri",
+    "openProject": "Hap Projektin"
+  },
+  "project": {
+    "enterName": "Vendos Emrin e Projektit",
+    "placeholder": "Projekti Im",
+    "cancel": "Anulo",
+    "ok": "OK",
+    "importAudio": "Importo Audio",
+    "noProject": "Asnjë Projekt"
+  },
+  "playlist": {
+    "title": "Lista e Luajtjes",
+    "import": "Importo Audio",
+    "addGroup": "Shto Grup",
+    "noItems": "Asnjë artikull në listën e luajtjes",
+    "importAudio": "Importo Audio",
+    "importHint": "Përdor butonat e importimit ose zvarrit skedarët këtu"
+  },
+  "cart": {
+    "title": "Luajtësi i Kartelave",
+    "emptySlot": "Kliko për të importuar ose zvarrit një artikull këtu",
+    "clickToImport": "Kliko për të importuar ose zvarrit një artikull këtu"
+  },
+  "properties": {
+    "title": "Vetitë",
+    "noSelection": "Zgjidh një artikull për të parë vetitë",
+    "displayName": "Emri i Shfaqur",
+    "color": "Ngjyra",
+    "inPoint": "Pika e Hyrjes",
+    "outPoint": "Pika e Daljes",
+    "volume": "Volumi",
+    "endBehavior": "Sjellja e Fundit",
+    "startBehavior": "Sjellja e Fillimit",
+    "duckingBehavior": "Sjellja e Uljes",
+    "fadeOutDuration": "Kohëzgjatja e Zbehjës",
+    "duckFadeIn": "Ulja Zbehje Hyrëse",
+    "duckFadeOut": "Ulja Zbehje Dalëse",
+    "children": "Fëmijët",
+    "seconds": "sekonda",
+    "uuid": "UUID",
+    "index": "Indeksi",
+    "apiTriggerUrl": "URL e Shkaktuesit API",
+    "file": "Skedari",
+    "duration": "Kohëzgjatja",
+    "mode": "Mënyra",
+    "action": "Veprimi",
+    "playbackSection": "Seksioni i Luajtjes",
+    "media": "Media",
+    "replace": "Zëvendëso Skedarin",
+    "basicInfo": "Informacion Bazë",
+    "loadingAudioData": "Po ngarkohen të dhënat audio...",
+    "playback": "Luajtja",
+    "ducking": "Ulja",
+    "duckLevel": "Niveli i Uljes",
+    "trimSilence": "Prit Heshtjen"
+  },
+  "playback": {
+    "panic": "Ndalo të Gjitha Sinjalet",
+    "noActiveCues": "Asnjë sinjal aktiv",
+    "play": "Luaj",
+    "stop": "Ndalo",
+    "delete": "Fshi",
+    "edit": "Redakto"
+  },
+  "endBehavior": {
+    "nothing": "Asgjë",
+    "next": "Luaj të Ardhshmin",
+    "gotoItem": "Shko te Artikulli",
+    "gotoIndex": "Shko te Indeksi",
+    "loop": "Përsërit"
+  },
+  "startBehavior": {
+    "nothing": "Asgjë",
+    "playNext": "Luaj të Ardhshmin",
+    "playItem": "Luaj Artikullin",
+    "playIndex": "Luaj Indeksin",
+    "playFirst": "Luaj të Parin",
+    "playAll": "Luaj të Gjitha"
+  },
+  "duckingBehavior": {
+    "stopAll": "Ndalo të Gjitha Sinjalet e Tjera",
+    "noDucking": "Asnjë Ulje",
+    "duckOthers": "Ul të Tjerët",
+    "duckLevel": "Niveli i Uljes"
+  },
+  "actions": {
+    "delete": "Fshi",
+    "confirm": "A je i sigurt?",
+    "close": "Mbyll"
+  },
+  "about": {
+    "developedBy": "Zhvilluar nga",
+    "githubRepo": "Depot GitHub",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "Zgjidh Ngjyrën e Theksuar"
+  },
+  "youtube": {
+    "importFromYouTube": "Importo nga YouTube",
+    "searchPlaceholder": "Kërko muzikë ose audio...",
+    "searching": "Po kërkon...",
+    "noResults": "Nuk u gjetën rezultate",
+    "searchError": "Kërkimi dështoi. Ju lutemi provoni përsëri.",
+    "preview": "Shiko në YouTube",
+    "download": "Shkarko",
+    "downloading": "Po shkarkohet...",
+    "previewHint": "Kliko butonin e pamjes së parë për të parë videon përpara shkarkimit",
+    "downloadQueue": "Radhë Shkarkimi",
+    "statusDownloading": "Po shkarkohet...",
+    "statusConverting": "Po konvertohet në MP3...",
+    "statusCompleted": "Përfunduar",
+    "statusError": "Gabim",
+    "downloadError": "Shkarkimi dështoi. Ju lutemi provoni përsëri."
+  },
+  "update": {
+    "updateAvailable": "Përditësim i Disponueshëm",
+    "currentVersion": "Versioni Aktual",
+    "newVersion": "Versioni i Ri",
+    "whatsNew": "Çfarë ka të Re",
+    "updatePrompt": "Një version i ri i LivePlay është i disponueshëm. Dëshironi ta shkarkoni dhe instaloni tani?",
+    "downloading": "Po shkarkohet Përditësimi",
+    "downloadComplete": "Shkarkimi Përfundoi",
+    "installInfo": "Përditësimi është gati për instalim. Mund ta instaloni tani ose do të instalohet kur të mbyllni aplikacionin.",
+    "later": "Më vonë",
+    "downloadAndInstall": "Shkarko dhe Instalo",
+    "installNow": "Instalo Tani",
+    "installOnExit": "Instalo në Dalje",
+    "downloadFailed": "Shkarkimi i përditësimit dështoi"
+  }
+}

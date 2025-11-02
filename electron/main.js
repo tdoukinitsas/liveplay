@@ -320,7 +320,9 @@ const localeFiles = {
   hi: require('../locales/hi.json'),
   bn: require('../locales/bn.json'),
   tr: require('../locales/tr.json'),
-  ko: require('../locales/ko.json')
+  ko: require('../locales/ko.json'),
+  sq: require('../locales/sq.json'),
+  ur: require('../locales/ur.json')
 };
 
 // Build menu translations from locale files
