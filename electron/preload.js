@@ -49,6 +49,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Waveform generation
   generateWaveform: (audioPath, outputPath) => ipcRenderer.invoke('generate-waveform', audioPath, outputPath),
 
+  // FFmpeg check
+  checkFfmpeg: () => ipcRenderer.invoke('check-ffmpeg'),
+
+  // YouTube features
+  searchYouTube: (query) => ipcRenderer.invoke('search-youtube', query),
+  downloadYouTubeAudio: (videoId, title, projectFolderPath, progressCallback) => {
+    // Set up progress listener
+    const progressListener = (event, progress) => {
+      if (progress.videoId === videoId && progressCallback) {
+        progressCallback(progress);
+      }
+    };
+    ipcRenderer.on('youtube-download-progress', progressListener);
+    
+    // Start download and clean up listener when done
+    return ipcRenderer.invoke('download-youtube-audio', videoId, title, projectFolderPath)
+      .finally(() => {
+        ipcRenderer.removeListener('youtube-download-progress', progressListener);
+      });
+  },
+
   // Menu events
   onMenuNewProject: (callback) => ipcRenderer.on('menu-new-project', callback),
   onMenuOpenProject: (callback) => ipcRenderer.on('menu-open-project', callback),
@@ -58,6 +79,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuToggleDarkMode: (callback) => ipcRenderer.on('menu-toggle-dark-mode', callback),
   onMenuChangeAccentColor: (callback) => ipcRenderer.on('menu-change-accent-color', callback),
   onMenuChangeLanguage: (callback) => ipcRenderer.on('menu-change-language', callback),
+  onMenuShowAbout: (callback) => ipcRenderer.on('menu-show-about', callback),
+
+  // External links
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  
+  // Update menu language
+  updateMenuLanguage: (locale) => ipcRenderer.invoke('update-menu-language', locale),
+
+  // Auto-updater
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
+  onUpdateDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', callback),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
+  onUpdateError: (callback) => ipcRenderer.on('update-error', callback),
 
   // API triggers
   onTriggerItem: (callback) => ipcRenderer.on('trigger-item', callback),

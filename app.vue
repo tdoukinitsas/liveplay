@@ -19,6 +19,19 @@
         <button class="close-dialog" @click="showColorPicker = false">Cancel</button>
       </div>
     </div>
+    
+    <!-- About Modal -->
+    <AboutModal v-if="showAboutModal" @close="showAboutModal = false" />
+    
+    <!-- Update Modal -->
+    <UpdateModal
+      v-if="showUpdateModal"
+      :current-version="updateInfo.currentVersion"
+      :new-version="updateInfo.newVersion"
+      :release-notes="updateInfo.releaseNotes"
+      :release-date="updateInfo.releaseDate"
+      @close="showUpdateModal = false"
+    />
   </div>
 </template>
 
@@ -26,11 +39,24 @@
 import 'material-symbols';
 
 const { currentProject, saveProject } = useProject();
-const { setLocale } = useLocalization();
+const { currentLocale, setLocale } = useLocalization();
 const theme = useState('theme', () => 'dark');
 
 // Color picker for accent color
 const showColorPicker = ref(false);
+
+// About modal
+const showAboutModal = ref(false);
+
+// Update modal
+const showUpdateModal = ref(false);
+const updateInfo = ref({
+  currentVersion: '',
+  newVersion: '',
+  releaseNotes: '',
+  releaseDate: ''
+});
+
 const accentColors = [
   '#0f62fe', '#0353e9', '#002d9c', // Blues
   '#da1e28', '#a2191f', '#750e13', // Reds
@@ -58,6 +84,19 @@ onMounted(() => {
     window.electronAPI.onMenuChangeLanguage((event: any, locale: string) => {
       setLocale(locale);
     });
+    
+    window.electronAPI.onMenuShowAbout(() => {
+      showAboutModal.value = true;
+    });
+
+    // Listen for update events
+    window.electronAPI.onUpdateAvailable((event: any, info: any) => {
+      updateInfo.value = info;
+      showUpdateModal.value = true;
+    });
+
+    // Sync menu with current UI language on startup
+    window.electronAPI.updateMenuLanguage(currentLocale.value);
   }
 });
 

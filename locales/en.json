@@ -33,7 +33,8 @@
     "import": "Import Audio",
     "addGroup": "Add Group",
     "noItems": "No items in playlist",
-    "importAudio": "Import Audio"
+    "importAudio": "Import Audio",
+    "importHint": "Use the import buttons or drag files here"
   },
   "cart": {
     "title": "Cart Player",
@@ -70,7 +71,8 @@
     "loadingAudioData": "Loading audio data...",
     "playback": "Playback",
     "ducking": "Ducking",
-    "duckLevel": "Duck Level"
+    "duckLevel": "Duck Level",
+    "trimSilence": "Trim Silence"
   },
   "playback": {
     "panic": "Stop All Cues",
@@ -103,9 +105,47 @@
   },
   "actions": {
     "delete": "Delete",
-    "confirm": "Are you sure?"
+    "confirm": "Are you sure?",
+    "close": "Close"
+  },
+  "about": {
+    "developedBy": "Developed by",
+    "githubRepo": "GitHub Repository",
+    "developerName": "Thomas Doukinitsas"
   },
   "colors": {
     "chooseAccent": "Choose Accent Color"
+  },
+  "youtube": {
+    "importFromYouTube": "Import from YouTube",
+    "searchPlaceholder": "Search for music or audio...",
+    "searching": "Searching...",
+    "noResults": "No results found",
+    "searchError": "Search failed. Please try again.",
+    "preview": "Preview",
+    "download": "Download",
+    "downloading": "Downloading...",
+    "previewHint": "Click the preview button on a search result to view the video before downloading",
+    "downloadQueue": "Download Queue",
+    "statusDownloading": "Downloading...",
+    "statusConverting": "Converting to MP3...",
+    "statusCompleted": "Completed",
+    "statusError": "Error",
+    "downloadError": "Download failed. Please try again."
+  },
+  "update": {
+    "updateAvailable": "Update Available",
+    "currentVersion": "Current Version",
+    "newVersion": "New Version",
+    "whatsNew": "What's New",
+    "updatePrompt": "A new version of LivePlay is available. Would you like to download and install it now?",
+    "downloading": "Downloading Update",
+    "downloadComplete": "Download Complete",
+    "installInfo": "The update is ready to install. You can install it now or it will be installed when you close the application.",
+    "later": "Later",
+    "downloadAndInstall": "Download and Install",
+    "installNow": "Install Now",
+    "installOnExit": "Install on Exit",
+    "downloadFailed": "Failed to download update"
   }
 }

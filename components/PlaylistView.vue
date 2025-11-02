@@ -3,16 +3,22 @@
     <div class="playlist-header">
       <h2>{{ t('playlist.title') }}</h2>
       <div class="playlist-actions">
-        <button class="action-btn" @click="handleImport">
+        <button class="action-btn" @click="handleImport" :disabled="!currentProject">
+          <span class="material-symbols-rounded">audio_file</span>
           <span>{{ t('playlist.importAudio') }}</span>
         </button>
-        <button class="action-btn" @click="handleAddGroup">
+        <button class="action-btn youtube-btn" @click="showYouTubeModal = true" :disabled="!currentProject">
+          <span class="material-symbols-rounded">video_library</span>
+          <span>{{ t('youtube.importFromYouTube') }}</span>
+        </button>
+        <button class="action-btn" @click="handleAddGroup" :disabled="!currentProject">
+          <span class="material-symbols-rounded">folder</span>
           <span>{{ t('playlist.addGroup') }}</span>
         </button>
       </div>
     </div>
     
-    <div class="playlist-content" @drop="handleDrop" @dragover.prevent>
+    <div class="playlist-content" @drop="handleDrop" @dragover.prevent">
       <div v-if="currentProject?.items.length === 0" class="empty-state">
         <p>{{ t('playlist.noItems') }}</p>
         <p class="hint">{{ t('playlist.importHint') }}</p>
@@ -27,17 +33,24 @@
         />
       </div>
     </div>
+
+    <!-- YouTube Import Modal -->
+    <YouTubeImportModal :isOpen="showYouTubeModal" @close="showYouTubeModal = false" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { v4 as uuidv4 } from 'uuid';
+import { ref } from 'vue';
+import YouTubeImportModal from './YouTubeImportModal.vue';
 import { triggerRef } from 'vue';
 import type { AudioItem, GroupItem } from '~/types/project';
 import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM } from '~/types/project';
 
 const { currentProject, addItem, updateIndices, saveProject, triggerWaveformUpdate } = useProject();
 const { t } = useLocalization();
+
+const showYouTubeModal = ref(false);
 
 const handleImport = async () => {
   if (!import.meta.client || !window.electronAPI || !currentProject.value) return;
@@ -76,7 +89,7 @@ const importAudioFile = async (sourcePath: string) => {
       displayName: fileName.replace(/\.[^/.]+$/, ''), // Remove extension
       type: 'audio',
       mediaFileName: fileName,
-      mediaPath: destPath,
+      mediaPath: `media/${fileName}`, // Store relative path to project folder
       waveformPath: `${currentProject.value.folderPath}/waveforms/${uuid}.json`,
       waveform: undefined, // Will be generated asynchronously
       outPoint: duration,
@@ -254,10 +267,36 @@ const handleDrop = async (e: DragEvent) => {
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-sm);
   font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
   
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: var(--color-surface-hover);
     border-color: var(--color-accent);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.youtube-btn {
+  background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
+  color: white;
+  border-color: #FF0000;
+  
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #CC0000 0%, #990000 100%);
+    border-color: #CC0000;
+  }
+  
+  &:disabled {
+    background: linear-gradient(135deg, #666666 0%, #555555 100%);
+    border-color: #666666;
   }
 }
 

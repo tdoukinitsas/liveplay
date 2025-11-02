@@ -128,10 +128,22 @@ const drawWaveform = () => {
   ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.1)`;
   
   const peaks = audioItem.waveform.peaks;
-  const barWidth = rect.width / peaks.length;
+  
+  // Calculate trimmed region if in/out points are set
+  const totalDuration = audioItem.duration;
+  const inPoint = audioItem.inPoint || 0;
+  const outPoint = audioItem.outPoint || totalDuration;
+  const trimmedDuration = outPoint - inPoint;
+  
+  // Calculate which peaks to show (slice based on in/out ratios)
+  const startIndex = Math.floor((inPoint / totalDuration) * peaks.length);
+  const endIndex = Math.ceil((outPoint / totalDuration) * peaks.length);
+  const trimmedPeaks = peaks.slice(startIndex, endIndex);
+  
+  const barWidth = rect.width / trimmedPeaks.length;
   const centerY = rect.height / 2;
   
-  peaks.forEach((value, i) => {
+  trimmedPeaks.forEach((value, i) => {
     // Values are already normalized 0-1
     const barHeight = value * rect.height * 0.8; // Use 80% of height for better visibility
     const x = i * barWidth;

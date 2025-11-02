@@ -15,6 +15,20 @@ declare global {
       openFolder: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
       setCurrentProject: (projectPath: string) => Promise<{ success: boolean }>;
       getFilePath: (file: File) => string | null;
+      checkFfmpeg: () => Promise<{ available: boolean; path: string | null }>;
+      searchYouTube: (query: string) => Promise<Array<{
+        id: string;
+        title: string;
+        thumbnail: string;
+        channelTitle: string;
+        length?: string;
+      }>>;
+      downloadYouTubeAudio: (
+        videoId: string,
+        title: string,
+        projectFolderPath: string,
+        progressCallback?: (progress: { videoId: string; percentage: number; status: string }) => void
+      ) => Promise<{ success: boolean; file: string; fileName: string; title: string }>;
       onMenuNewProject: (callback: () => void) => void;
       onMenuOpenProject: (callback: () => void) => void;
       onMenuSaveProject: (callback: () => void) => void;
@@ -23,6 +37,17 @@ declare global {
       onMenuToggleDarkMode: (callback: () => void) => void;
       onMenuChangeAccentColor: (callback: () => void) => void;
       onMenuChangeLanguage: (callback: (event: any, locale: string) => void) => void;
+      onMenuShowAbout: (callback: () => void) => void;
+      openExternal: (url: string) => Promise<void>;
+      updateMenuLanguage: (locale: string) => Promise<{ success: boolean }>;
+      checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string }>;
+      downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
+      installUpdate: () => void;
+      getAppVersion: () => Promise<string>;
+      onUpdateAvailable: (callback: (event: any, info: { currentVersion: string; newVersion: string; releaseNotes?: string; releaseDate?: string }) => void) => void;
+      onUpdateDownloadProgress: (callback: (event: any, progress: { percent: number; transferred: number; total: number }) => void) => void;
+      onUpdateDownloaded: (callback: (event: any, info: { version: string }) => void) => void;
+      onUpdateError: (callback: (event: any, error: string) => void) => void;
       onTriggerItem: (callback: (event: any, data: any) => void) => void;
       onStopItem: (callback: (event: any, data: any) => void) => void;
     };

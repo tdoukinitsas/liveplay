@@ -12,14 +12,14 @@
           orient="vertical"
           class="volume-slider-vertical"
           :min="-60"
-          :max="12"
+          :max="10"
           step="0.1"
           :value="volumeDB"
           @input="handleVolumeChange"
           :style="{ '--volume-handle-color': volumeHandleColor }"
         />
         <div class="volume-markers">
-          <span>+12</span>
+          <span>+10</span>
           <span>0</span>
           <span>-12</span>
           <span>-24</span>
@@ -45,6 +45,12 @@
           <span class="material-symbols-rounded">zoom_in</span>
         </div>
         <span class="zoom-level-text">{{ Math.round(zoomLevel * 100) }}%</span>
+        
+        <!-- Trim Silence Button -->
+        <button class="trim-silence-btn" @click="trimSilence" :title="t('properties.trimSilence')">
+          <span class="material-symbols-rounded">content_cut</span>
+          <span>{{ t('properties.trimSilence') }}</span>
+        </button>
       </div>
 
       <!-- Waveform Canvas Container -->
@@ -342,8 +348,50 @@ const handleInPointTextChange = (event: Event) => {
 const handleOutPointTextChange = (event: Event) => {
   const value = (event.target as HTMLInputElement).value;
   const parsed = parseTimeDetailed(value);
-  emit('update:outPoint', Math.max(inPoint.value + 0.01, Math.min(parsed, duration.value)));
+  emit('update:outPoint', Math.min(props.audioItem.duration, Math.max(parsed, inPoint.value + 0.01)));
   emit('change');
+};
+
+// Trim silence from start and end based on waveform peaks
+const trimSilence = () => {
+  if (!waveformData.value || waveformData.value.length === 0) {
+    console.warn('No waveform data available for trimming');
+    return;
+  }
+
+  const peaks = waveformData.value;
+  const threshold = 0.10; // Silence threshold (10% of max amplitude)
+  const duration = props.audioItem.duration;
+  
+  // Find first non-silent sample from start
+  let startIndex = 0;
+  for (let i = 0; i < peaks.length; i++) {
+    if (peaks[i] > threshold) {
+      startIndex = i;
+      break;
+    }
+  }
+  
+  // Find first non-silent sample from end
+  let endIndex = peaks.length - 1;
+  for (let i = peaks.length - 1; i >= 0; i--) {
+    if (peaks[i] > threshold) {
+      endIndex = i;
+      break;
+    }
+  }
+  
+  // Convert indices to time
+  const newInPoint = (startIndex / peaks.length) * duration;
+  const newOutPoint = (endIndex / peaks.length) * duration;
+  
+  // Apply with some padding (0.1 seconds)
+  const padding = 0.1;
+  emit('update:inPoint', Math.max(0, newInPoint - padding));
+  emit('update:outPoint', Math.min(duration, newOutPoint + padding));
+  emit('change');
+  
+  console.log(`Trimmed silence: ${newInPoint.toFixed(2)}s - ${newOutPoint.toFixed(2)}s`);
 };
 
 // Draw waveform on canvas
@@ -359,7 +407,7 @@ const drawWaveform = () => {
   canvas.width = canvasWidth.value * dpr;
   canvas.height = canvasHeight * dpr;
   canvas.style.width = `${canvasWidth.value}px`;
-  canvas.style.height = `${canvasHeight}px`;
+  //canvas.style.height = `${canvasHeight}px`; - commented out to fix height issue
   ctx.scale(dpr, dpr);
 
   // Clear canvas with background color
@@ -681,6 +729,7 @@ onUnmounted(() => {
   padding: var(--spacing-xs) var(--spacing-sm);
   background: var(--color-surface);
   border-radius: var(--border-radius-sm);
+  gap: var(--spacing-md);
 }
 
 .zoom-control {
@@ -708,6 +757,29 @@ onUnmounted(() => {
   cursor: pointer;
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.trim-silence-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-accent);
+  }
+  
+  .material-symbols-rounded {
+    font-size: 18px;
+  }
 }
 
 .zoom-slider::-moz-range-thumb {

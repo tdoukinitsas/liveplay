@@ -8,7 +8,10 @@
           class="welcome-logo"
         />
         <div class="welcome-text">
-          <h1 class="welcome-title">{{ t('welcome.title') }}</h1>
+          <h1 class="welcome-title">
+            {{ t('welcome.title') }}
+            <span class="version-badge">v1.1.0</span>
+          </h1>
           <p class="welcome-subtitle">{{ t('welcome.subtitle') }}</p>
         </div>
       </div>
@@ -185,6 +188,17 @@ if (import.meta.client && window.electronAPI) {
   color: var(--color-text-primary);
   letter-spacing: -2px;
   line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+}
+
+.version-badge {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+  letter-spacing: 0;
 }
 
 .welcome-subtitle {

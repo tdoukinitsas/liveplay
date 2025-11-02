@@ -135,6 +135,16 @@ export const useProject = () => {
         if (result.success) {
           const project: Project = JSON.parse(result.data);
           
+          // Set folderPath from the project file location
+          // Extract the directory path from the .liveplay file path
+          // Handle both forward slashes (Unix) and backslashes (Windows)
+          const normalizedPath = projectFilePath.replace(/\\/g, '/');
+          const folderPath = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
+          project.folderPath = folderPath;
+          
+          console.log('Opening project from:', projectFilePath);
+          console.log('Project folder path set to:', folderPath);
+          
           // Migrate project to ensure new properties exist
           migrateProject(project);
           

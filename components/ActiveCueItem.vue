@@ -8,29 +8,40 @@
     }"
     :style="itemStyle"
   >
-    <div class="cue-header">
-      <span class="cue-name">{{ cue.displayName }}</span>
-      <button class="stop-btn" @click="handleStop" :title="t('actions.stop')">
-        <span class="material-symbols-rounded">stop</span>
-      </button>
-    </div>
-    
-    <div class="cue-progress">
-      <div class="time-info">
-        <span>{{ formatTime(cue.currentTime) }}</span>
-        <span>{{ formatTime(cue.duration - cue.currentTime) }}</span>
+    <div class="cue-content">
+      <div class="cue-header">
+        <span class="cue-name">{{ cue.displayName }}</span>
+        <button class="stop-btn" @click="handleStop" :title="t('actions.stop')">
+          <span class="material-symbols-rounded">stop</span>
+        </button>
       </div>
       
-      <div class="progress-bar" @click="handleSeek">
-        <div class="progress-fill" :style="progressStyle"></div>
-        <div 
-          class="progress-handle" 
-          :style="{ 
-            left: `${progress}%`,
-            borderColor: cue.color || 'var(--color-accent)'
-          }"
-        ></div>
+      <div class="cue-progress">
+        <div class="time-info">
+          <span>{{ formatTime(cue.currentTime) }}</span>
+          <span>{{ formatTime(cue.duration - cue.currentTime) }}</span>
+        </div>
+        
+        <div class="progress-bar" @click="handleSeek">
+          <div class="progress-fill" :style="progressStyle"></div>
+          <div 
+            class="progress-handle" 
+            :style="{ 
+              left: `${progress}%`,
+              borderColor: cue.color || 'var(--color-accent)'
+            }"
+          ></div>
+        </div>
       </div>
+    </div>
+    
+    <!-- VU Meter -->
+    <div class="cue-meter">
+      <VUMeter 
+        :level="cue.currentLevel ?? -60" 
+        :peakLevel="cue.peakLevel ?? -60"
+        :showPeakHold="true"
+      />
     </div>
   </div>
 </template>
@@ -47,6 +58,10 @@ interface ActiveCueState {
   howl?: any;
   progressInterval?: any;
   color?: string;
+  inPoint?: number;
+  outPoint?: number;
+  currentLevel?: number;
+  peakLevel?: number;
 }
 
 const props = defineProps<{
@@ -112,8 +127,14 @@ const handleSeek = (e: MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.clientX - rect.left;
     const percent = x / rect.width;
-    const seekTime = percent * props.cue.duration;
-    props.cue.howl.seek(seekTime);
+    
+    // Calculate seek time relative to trimmed duration
+    const relativeSeekTime = percent * props.cue.duration;
+    
+    // For trimmed items, add inPoint to get absolute position in file
+    const absoluteSeekTime = relativeSeekTime + (props.cue.inPoint || 0);
+    
+    props.cue.howl.seek(absoluteSeekTime);
   }
 };
 
@@ -131,8 +152,10 @@ const formatTime = (seconds: number): string => {
   border-radius: var(--border-radius-md);
   padding: var(--spacing-sm) var(--spacing-md);
   transition: all var(--transition-fast);
-  min-width: 250px;
-  max-width: 250px;
+  min-width: 400px;
+  max-width: 400px;
+  display: flex;
+  gap: var(--spacing-sm);
   
   &.warning-yellow {
     animation: flash-yellow 2s ease-in-out infinite;
@@ -172,6 +195,20 @@ const formatTime = (seconds: number): string => {
   50% { 
     box-shadow: 0 0 16px 8px rgba(244, 67, 54, 0.8);
   }
+}
+
+.cue-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cue-meter {
+  display: flex;
+  align-items: stretch;
+  padding-left: var(--spacing-sm);
+  border-left: 1px solid var(--color-border);
 }
 
 .cue-header {

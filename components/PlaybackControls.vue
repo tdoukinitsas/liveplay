@@ -20,11 +20,24 @@
         />
       </div>
     </div>
+    
+    <!-- Master Mix Meter -->
+    <div class="master-meter" v-if="activeCues.size > 0">
+      <div class="master-label">MIX</div>
+      <div class="master-meter-wrapper">
+        <VUMeter 
+          :level="masterOutputLevel" 
+          :peakLevel="masterPeakLevel"
+          :isMaster="true"
+          :showPeakHold="true"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-const { activeCues, panicStop } = useAudioEngine();
+const { activeCues, panicStop, masterOutputLevel, masterPeakLevel } = useAudioEngine();
 const { t } = useLocalization();
 
 const handlePanic = () => {
@@ -105,5 +118,30 @@ const handlePanic = () => {
   display: flex;
   flex-direction: row;
   gap: var(--spacing-sm);
+}
+
+.master-meter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding-left: var(--spacing-md);
+  border-left: 2px solid var(--color-border);
+  height: 100%;
+  justify-content: center;
+}
+
+.master-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.5px;
+  margin-bottom: var(--spacing-xs);
+}
+
+.master-meter-wrapper {
+  flex: 1;
+  display: flex;
+  max-height: calc(var(--playback-controls-height) - 40px);
 }
 </style>

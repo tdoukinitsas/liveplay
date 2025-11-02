@@ -11,7 +11,7 @@ export interface BaseItem {
 export interface AudioItem extends BaseItem {
   type: 'audio';
   mediaFileName: string;
-  mediaPath: string;
+  mediaPath: string; // Relative path from project folder (e.g., "media/audio.mp3")
   waveformPath: string;
   waveform?: WaveformData; // Optional: waveform data for visualization
   inPoint: number; // in seconds
