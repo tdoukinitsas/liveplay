@@ -14,7 +14,7 @@
         <div class="about-text">
           <h1 class="about-title">
             LivePlay
-            <span class="version-badge">v1.1.0</span>
+            <span class="version-badge">v{{ appVersion }}</span>
           </h1>
           <p class="about-subtitle">{{ t('welcome.subtitle') }}</p>
         </div>
@@ -57,6 +57,14 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useLocalization();
+
+// Get app version
+const appVersion = ref('1.1.3');
+onMounted(async () => {
+  if (import.meta.client && window.electronAPI?.getAppVersion) {
+    appVersion.value = await window.electronAPI.getAppVersion();
+  }
+});
 
 // Get theme from app state
 const theme = useState('theme', () => 'dark');

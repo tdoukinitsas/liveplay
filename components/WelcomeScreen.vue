@@ -10,7 +10,7 @@
         <div class="welcome-text">
           <h1 class="welcome-title">
             {{ t('welcome.title') }}
-            <span class="version-badge">v1.1.0</span>
+            <span class="version-badge">v{{ appVersion }}</span>
           </h1>
           <p class="welcome-subtitle">{{ t('welcome.subtitle') }}</p>
         </div>
@@ -34,6 +34,14 @@
 <script setup lang="ts">
 const { createNewProject, openProject } = useProject();
 const { t } = useLocalization();
+
+// Get app version
+const appVersion = ref('1.1.3');
+onMounted(async () => {
+  if (import.meta.client && window.electronAPI?.getAppVersion) {
+    appVersion.value = await window.electronAPI.getAppVersion();
+  }
+});
 
 // Get theme from app state (works even when no project is open)
 const theme = useState('theme', () => 'dark');
