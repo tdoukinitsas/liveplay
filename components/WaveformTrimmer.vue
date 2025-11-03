@@ -46,11 +46,20 @@
         </div>
         <span class="zoom-level-text">{{ Math.round(zoomLevel * 100) }}%</span>
         
-        <!-- Trim Silence Button -->
-        <button class="trim-silence-btn" @click="trimSilence" :title="t('properties.trimSilence')">
-          <span class="material-symbols-rounded">content_cut</span>
-          <span>{{ t('properties.trimSilence') }}</span>
-        </button>
+        <!-- Audio Tools -->
+        <div class="audio-tools">
+          <!-- Trim Silence Button -->
+          <button class="trim-silence-btn" @click="trimSilence" :title="t('properties.trimSilence')">
+            <span class="material-symbols-rounded">content_cut</span>
+            <span>{{ t('properties.trimSilence') }}</span>
+          </button>
+          
+          <!-- Normalize Button -->
+          <button class="normalize-btn" @click="normalizeAudio" :title="t('properties.normalize')">
+            <span class="material-symbols-rounded">tune</span>
+            <span>{{ t('properties.normalize') }}</span>
+          </button>
+        </div>
       </div>
 
       <!-- Waveform Canvas Container -->
@@ -149,6 +158,7 @@
 
 <script setup lang="ts">
 import type { AudioItem } from '~/types/project';
+import { calculatePerceivedLoudness, calculateNormalizationGain } from '~/utils/audio';
 
 const props = defineProps<{
   audioItem: AudioItem;
@@ -159,6 +169,7 @@ const emit = defineEmits<{
   'update:inPoint': [value: number];
   'update:outPoint': [value: number];
   'change': [];
+  'normalize': [];
 }>();
 
 const { t } = useLocalization();
@@ -394,6 +405,46 @@ const trimSilence = () => {
   console.log(`Trimmed silence: ${newInPoint.toFixed(2)}s - ${newOutPoint.toFixed(2)}s`);
 };
 
+// Normalize audio to target loudness
+const normalizeAudio = () => {
+  if (!waveformData.value || waveformData.value.length === 0) {
+    console.warn('No waveform data available for normalization');
+    return;
+  }
+
+  const peaks = waveformData.value;
+  const duration = props.audioItem.duration;
+  
+  // Get trimmed region
+  const startIndex = Math.floor((inPoint.value / duration) * peaks.length);
+  const endIndex = Math.ceil((outPoint.value / duration) * peaks.length);
+  const trimmedPeaks = peaks.slice(startIndex, endIndex);
+  
+  // Calculate INTRINSIC perceived loudness (independent of current volume)
+  // This measures the loudness of the actual audio file
+  const intrinsicLoudness = calculatePerceivedLoudness(trimmedPeaks);
+  
+  // Target: -10dB (our "0dB" with headroom)
+  const targetLoudness = -10;
+  
+  // Calculate the ABSOLUTE volume needed to reach target
+  // This is independent of the current volume setting
+  const gainDb = targetLoudness - intrinsicLoudness;
+  const newVolume = Math.pow(10, gainDb / 20);
+  
+  // Clamp to reasonable range
+  const clampedVolume = Math.min(Math.max(newVolume, 0.001), 4.0);
+  
+  // Emit normalize event to trigger batch normalization in parent
+  emit('normalize');
+  
+  // Also update current item's volume
+  emit('update:volume', clampedVolume);
+  emit('change');
+  
+  console.log(`Normalized: ${intrinsicLoudness.toFixed(1)}dB -> ${targetLoudness}dB (gain: ${gainDb.toFixed(1)}dB, volume: ${clampedVolume.toFixed(3)})`);
+};
+
 // Draw waveform on canvas
 const drawWaveform = () => {
   const canvas = waveformCanvas.value;
@@ -484,6 +535,38 @@ const drawWaveform = () => {
         ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
         ctx.fillRect(x, amplifiedY, Math.max(barWidth, 1), amplifiedBarHeight);
       });
+      
+      // Draw perceived loudness line (RMS level)
+      if (visiblePeaksArray.length > 0) {
+        const perceivedLoudness = calculatePerceivedLoudness(visiblePeaksArray);
+        const volumeMultiplier = props.audioItem?.volume ?? 1;
+        
+        // Convert perceived loudness (dB) back to linear for display height
+        const rmsLinear = perceivedLoudness <= -60 ? 0 : Math.pow(10, perceivedLoudness / 20);
+        const rmsAmplified = rmsLinear * volumeMultiplier;
+        const rmsHeight = rmsAmplified * canvasHeight * 0.8;
+        
+        // Draw horizontal line at RMS level (on both sides of center)
+        ctx.strokeStyle = 'rgba(255, 165, 0, 0.5)'; // Orange with transparency
+        ctx.lineWidth = 1;
+        
+        // Top line
+        const topY = middleY - rmsHeight / 2;
+        ctx.beginPath();
+        ctx.moveTo(0, topY);
+        ctx.lineTo(canvasWidth.value, topY);
+        ctx.stroke();
+        
+        // Bottom line
+        const bottomY = middleY + rmsHeight / 2;
+        ctx.beginPath();
+        ctx.moveTo(0, bottomY);
+        ctx.lineTo(canvasWidth.value, bottomY);
+        ctx.stroke();
+        
+        // Reset line dash
+        ctx.setLineDash([]);
+      }
     }
   } else {
     // Draw time grid as fallback
@@ -759,7 +842,14 @@ onUnmounted(() => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-.trim-silence-btn {
+.audio-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.trim-silence-btn,
+.normalize-btn {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -781,6 +871,8 @@ onUnmounted(() => {
     font-size: 18px;
   }
 }
+
+
 
 .zoom-slider::-moz-range-thumb {
   width: 14px;

@@ -86,6 +86,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Update menu language
   updateMenuLanguage: (locale) => ipcRenderer.invoke('update-menu-language', locale),
+  
+  // Get system locale
+  getSystemLocale: () => ipcRenderer.invoke('get-system-locale'),
 
   // Auto-updater
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),

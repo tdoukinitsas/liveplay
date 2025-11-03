@@ -82,7 +82,8 @@
     "playback": "التشغيل",
     "ducking": "الخفض",
     "duckLevel": "مستوى الخفض",
-    "trimSilence": "قص الصمت"
+    "trimSilence": "قص الصمت",
+    "normalize": "ضبط مستوى الصوت تلقائياً"
   },
   "playback": {
     "panic": "إيقاف جميع الإشارات",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "حذف",
     "confirm": "هل أنت متأكد؟",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "play": "تشغيل",
+    "edit": "تحرير",
+    "remove": "إزالة"
   },
   "about": {
     "developedBy": "تم التطوير بواسطة",

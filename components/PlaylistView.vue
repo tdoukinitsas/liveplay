@@ -8,7 +8,7 @@
           <span>{{ t('playlist.importAudio') }}</span>
         </button>
         <button class="action-btn youtube-btn" @click="showYouTubeModal = true" :disabled="!currentProject">
-          <span class="material-symbols-rounded">video_library</span>
+          <span class="material-symbols-rounded">youtube_activity</span>
           <span>{{ t('youtube.importFromYouTube') }}</span>
         </button>
         <button class="action-btn" @click="handleAddGroup" :disabled="!currentProject">

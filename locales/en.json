@@ -82,7 +82,8 @@
     "playback": "Playback",
     "ducking": "Ducking",
     "duckLevel": "Duck Level",
-    "trimSilence": "Trim Silence"
+    "trimSilence": "Trim Silence",
+    "normalize": "Auto-adjust volume"
   },
   "playback": {
     "panic": "Stop All Cues",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "Delete",
     "confirm": "Are you sure?",
-    "close": "Close"
+    "close": "Close",
+    "play": "Play",
+    "edit": "Edit",
+    "remove": "Remove"
   },
   "about": {
     "developedBy": "Developed by",

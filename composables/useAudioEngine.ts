@@ -1,5 +1,6 @@
 import type { AudioItem, DuckingBehavior, GroupItem } from '~/types/project';
 import { Howl } from 'howler';
+import { linearToDb, dbToLinear, applyVolumeOffset as applyVolumeOffsetUtil, estimateCurrentLevel } from '~/utils/audio';
 
 // Active cue tracking with Howler instances
 interface ActiveCueState {
@@ -42,15 +43,7 @@ export const useAudioEngine = () => {
   // This allows the UI to show 0dB as "normal" while actually playing at -10dB
   // Giving us +10dB headroom for louder playback
   const applyVolumeOffset = (uiVolume: number): number => {
-    // Convert UI volume (linear) to dB
-    const uiDB = uiVolume <= 0 ? -60 : 20 * Math.log10(uiVolume);
-    
-    // Apply -10dB offset
-    const actualDB = uiDB - 10;
-    
-    // Convert back to linear and clamp to Howler's 0-1 range
-    const actualVolume = actualDB <= -60 ? 0 : Math.pow(10, actualDB / 20);
-    return Math.max(0, Math.min(1, actualVolume));
+    return applyVolumeOffsetUtil(uiVolume);
   };
 
   // Estimate audio level based on volume and waveform data
@@ -59,7 +52,7 @@ export const useAudioEngine = () => {
     if (volume <= 0) return -60;
     
     // Convert volume to dB as base level
-    const baseDB = 20 * Math.log10(volume);
+    const baseDB = linearToDb(volume);
     
     // Try to get waveform data for more accurate level
     let waveformMultiplier = 0.7; // Default if no waveform (assume 70% average)
@@ -88,7 +81,7 @@ export const useAudioEngine = () => {
     
     // Convert waveform multiplier to dB reduction
     // 0.0 = -60dB, 0.5 = -6dB, 1.0 = 0dB
-    const waveformDB = waveformMultiplier <= 0 ? -60 : 20 * Math.log10(waveformMultiplier);
+    const waveformDB = linearToDb(waveformMultiplier);
     
     // Combine base volume and waveform level
     const totalDB = baseDB + waveformDB;
@@ -118,12 +111,12 @@ export const useAudioEngine = () => {
       }
       
       // Convert dB to linear amplitude for mixing
-      const linearAmplitude = currentLevel <= -60 ? 0 : Math.pow(10, currentLevel / 20);
+      const linearAmplitude = dbToLinear(currentLevel);
       sumLinear += linearAmplitude;
     }
     
     // Convert summed linear amplitude back to dB for master meter
-    const masterLevel = sumLinear <= 0 ? -60 : 20 * Math.log10(sumLinear);
+    const masterLevel = linearToDb(sumLinear);
     masterOutputLevel.value = Math.max(-60, Math.min(0, masterLevel));
     
     // Update master peak hold

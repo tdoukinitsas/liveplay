@@ -82,7 +82,8 @@
     "playback": "Reprodução",
     "ducking": "Atenuação",
     "duckLevel": "Nível de Atenuação",
-    "trimSilence": "Cortar Silêncio"
+    "trimSilence": "Cortar Silêncio",
+    "normalize": "Ajustar volume automaticamente"
   },
   "playback": {
     "panic": "Parar Todos os Sinais",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "Excluir",
     "confirm": "Tem certeza?",
-    "close": "Fechar"
+    "close": "Fechar",
+    "play": "Reproduzir",
+    "edit": "Editar",
+    "remove": "Remover"
   },
   "about": {
     "developedBy": "Desenvolvido por",

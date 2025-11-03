@@ -99,6 +99,7 @@
           @update:in-point="(v) => { audioItem.inPoint = v; }"
           @update:out-point="(v) => { audioItem.outPoint = v; }"
           @change="handleSave"
+          @normalize="handleNormalize"
         />
         <div v-else class="loading-message">
           <span class="material-symbols-rounded">pending</span>
@@ -205,6 +206,7 @@
 <script setup lang="ts">
 import type { AudioItem, GroupItem } from '~/types/project';
 import { PRESET_COLORS } from '~/types/project';
+import { calculatePerceivedLoudness } from '~/utils/audio';
 
 const { selectedItem, selectedItems, getSelectedItems, saveProject } = useProject();
 const { t } = useLocalization();
@@ -357,7 +359,7 @@ const duckLevelDB = computed({
 const originalSnapshot = ref<any>(null);
 const isInitializing = ref(false);
 
-// When selectedItem changes, take a snapshot and reset to basic tab
+// When selectedItem changes, take a snapshot
 watch(selectedItem, (newItem, oldItem) => {
   if (newItem) {
     // Only reset tab if it's a different item (not just property updates)
@@ -366,7 +368,13 @@ watch(selectedItem, (newItem, oldItem) => {
     if (isDifferentItem) {
       isInitializing.value = true;
       originalSnapshot.value = JSON.parse(JSON.stringify(newItem));
-      activeTab.value = 'basic'; // Reset to basic tab only on new item
+      
+      // Only reset to basic tab if properties panel was previously closed (no oldItem)
+      // If panel was already open, keep the current tab
+      if (!oldItem) {
+        activeTab.value = 'basic';
+      }
+      
       setTimeout(() => {
         isInitializing.value = false;
       }, 0);
@@ -441,6 +449,55 @@ const handleSave = async () => {
   }
   
   await saveProject();
+};
+
+// Handle normalize: normalize ALL selected audio items individually
+const handleNormalize = () => {
+  const items = getSelectedItems();
+  const targetLoudness = -10; // Our "0dB" with headroom
+  
+  let normalizedCount = 0;
+  
+  items.forEach(item => {
+    if (item.type !== 'audio') return;
+    
+    const audioItem = item as AudioItem;
+    
+    // Skip if no waveform data
+    if (!audioItem.waveform || !audioItem.waveform.peaks || audioItem.waveform.peaks.length === 0) {
+      console.warn(`Skipping ${audioItem.displayName}: no waveform data`);
+      return;
+    }
+    
+    const peaks = audioItem.waveform.peaks;
+    const duration = audioItem.duration;
+    
+    // Get trimmed region
+    const inPoint = audioItem.inPoint || 0;
+    const outPoint = audioItem.outPoint || duration;
+    const startIndex = Math.floor((inPoint / duration) * peaks.length);
+    const endIndex = Math.ceil((outPoint / duration) * peaks.length);
+    const trimmedPeaks = peaks.slice(startIndex, endIndex);
+    
+    // Calculate INTRINSIC perceived loudness
+    const intrinsicLoudness = calculatePerceivedLoudness(trimmedPeaks);
+    
+    // Calculate the ABSOLUTE volume needed
+    const gainDb = targetLoudness - intrinsicLoudness;
+    const newVolume = Math.pow(10, gainDb / 20);
+    
+    // Clamp and apply
+    const clampedVolume = Math.min(Math.max(newVolume, 0.001), 4.0);
+    audioItem.volume = clampedVolume;
+    
+    normalizedCount++;
+    console.log(`Normalized ${audioItem.displayName}: ${intrinsicLoudness.toFixed(1)}dB -> ${targetLoudness}dB (volume: ${clampedVolume.toFixed(3)})`);
+  });
+  
+  if (normalizedCount > 0) {
+    saveProject();
+    console.log(`Normalized ${normalizedCount} item(s)`);
+  }
 };
 
 const handleReplaceMedia = async () => {

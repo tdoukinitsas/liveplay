@@ -82,7 +82,8 @@
     "playback": "播放",
     "ducking": "闪避",
     "duckLevel": "闪避级别",
-    "trimSilence": "修剪静音"
+    "trimSilence": "修剪静音",
+    "normalize": "自动调整音量"
   },
   "playback": {
     "panic": "停止所有信号",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "删除",
     "confirm": "您确定吗？",
-    "close": "关闭"
+    "close": "关闭",
+    "play": "播放",
+    "edit": "编辑",
+    "remove": "移除"
   },
   "about": {
     "developedBy": "开发者",

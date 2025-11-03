@@ -82,7 +82,8 @@
     "playback": "Avspilling",
     "ducking": "Ducking",
     "duckLevel": "Duckingnivå",
-    "trimSilence": "Trim stillhet"
+    "trimSilence": "Trim stillhet",
+    "normalize": "Juster volum automatisk"
   },
   "playback": {
     "panic": "Stopp alle signaler",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "Slett",
     "confirm": "Er du sikker?",
-    "close": "Lukk"
+    "close": "Lukk",
+    "play": "Spill",
+    "edit": "Rediger",
+    "remove": "Fjern"
   },
   "about": {
     "developedBy": "Utviklet av",

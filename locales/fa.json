@@ -82,7 +82,8 @@
     "playback": "پخش",
     "ducking": "کاهش صدا",
     "duckLevel": "سطح کاهش",
-    "trimSilence": "حذف سکوت"
+    "trimSilence": "حذف سکوت",
+    "normalize": "تنظیم خودکار صدا"
   },
   "playback": {
     "panic": "توقف همه سیگنال‌ها",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "حذف",
     "confirm": "آیا مطمئن هستید؟",
-    "close": "بستن"
+    "close": "بستن",
+    "play": "پخش",
+    "edit": "ویرایش",
+    "remove": "حذف"
   },
   "about": {
     "developedBy": "توسعه یافته توسط",

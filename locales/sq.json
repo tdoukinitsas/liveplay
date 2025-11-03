@@ -82,7 +82,8 @@
     "playback": "Luajtja",
     "ducking": "Ulja",
     "duckLevel": "Niveli i Uljes",
-    "trimSilence": "Prit Heshtjen"
+    "trimSilence": "Prit Heshtjen",
+    "normalize": "Rregulloni volumin automatikisht"
   },
   "playback": {
     "panic": "Ndalo të Gjitha Sinjalet",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "Fshi",
     "confirm": "A je i sigurt?",
-    "close": "Mbyll"
+    "close": "Mbyll",
+    "play": "Luaj",
+    "edit": "Modifiko",
+    "remove": "Hiq"
   },
   "about": {
     "developedBy": "Zhvilluar nga",

@@ -82,7 +82,8 @@
     "playback": "Oynatma",
     "ducking": "Kısma",
     "duckLevel": "Kısma Seviyesi",
-    "trimSilence": "Sessizliği Kes"
+    "trimSilence": "Sessizliği Kes",
+    "normalize": "Ses seviyesini otomatik ayarla"
   },
   "playback": {
     "panic": "Tüm Sinyalleri Durdur",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "Sil",
     "confirm": "Emin misiniz?",
-    "close": "Kapat"
+    "close": "Kapat",
+    "play": "Oynat",
+    "edit": "Düzenle",
+    "remove": "Kaldır"
   },
   "about": {
     "developedBy": "Geliştiren",

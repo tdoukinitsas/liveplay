@@ -40,6 +40,7 @@ declare global {
       onMenuShowAbout: (callback: () => void) => void;
       openExternal: (url: string) => Promise<void>;
       updateMenuLanguage: (locale: string) => Promise<{ success: boolean }>;
+      getSystemLocale: () => Promise<string>;
       checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string }>;
       downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
       installUpdate: () => void;

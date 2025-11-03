@@ -18,12 +18,12 @@
       
       <div class="welcome-actions">
         <button class="welcome-button primary" @click="handleNewProject">
-          <span class="button-icon">+</span>
+          <span class="button-icon"><span class="material-symbols-rounded">add</span></span>
           <span>{{ t('welcome.newProject') }}</span>
         </button>
         
         <button class="welcome-button" @click="handleOpenProject">
-          <span class="button-icon">📁</span>
+          <span class="button-icon"><span class="material-symbols-rounded">folder</span></span>
           <span>{{ t('welcome.openProject') }}</span>
         </button>
       </div>

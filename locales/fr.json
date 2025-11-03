@@ -82,7 +82,8 @@
     "playback": "Lecture",
     "ducking": "Réduction",
     "duckLevel": "Niveau de Réduction",
-    "trimSilence": "Couper le Silence"
+    "trimSilence": "Couper le Silence",
+    "normalize": "Ajuster le volume automatiquement"
   },
   "playback": {
     "panic": "Arrêter Tous les Signaux",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "Supprimer",
     "confirm": "Êtes-vous sûr?",
-    "close": "Fermer"
+    "close": "Fermer",
+    "play": "Lecture",
+    "edit": "Modifier",
+    "remove": "Retirer"
   },
   "about": {
     "developedBy": "Développé par",

@@ -82,7 +82,8 @@
     "playback": "Wiedergabe",
     "ducking": "Dämpfung",
     "duckLevel": "Dämpfungsstufe",
-    "trimSilence": "Stille trimmen"
+    "trimSilence": "Stille trimmen",
+    "normalize": "Lautstärke automatisch anpassen"
   },
   "playback": {
     "panic": "Alle Signale stoppen",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "Löschen",
     "confirm": "Sind Sie sicher?",
-    "close": "Schließen"
+    "close": "Schließen",
+    "play": "Abspielen",
+    "edit": "Bearbeiten",
+    "remove": "Entfernen"
   },
   "about": {
     "developedBy": "Entwickelt von",

@@ -82,11 +82,30 @@ export const useLocalization = () => {
     return (locale as any)._metadata.direction || 'ltr';
   };
 
-  // Load saved locale on mount
+  // Load saved locale on mount, or detect system locale
   if (import.meta.client) {
     const savedLocale = localStorage.getItem('liveplay-locale');
     if (savedLocale && savedLocale in locales) {
       currentLocale.value = savedLocale;
+    } else if (window.electronAPI && window.electronAPI.getSystemLocale) {
+      // No saved preference, try to detect system locale
+      window.electronAPI.getSystemLocale().then((systemLocale: string) => {
+        // Check if we have a translation for this locale
+        if (systemLocale in locales) {
+          currentLocale.value = systemLocale;
+          // Save the detected locale
+          localStorage.setItem('liveplay-locale', systemLocale);
+          // Update the menu language
+          if (window.electronAPI.updateMenuLanguage) {
+            window.electronAPI.updateMenuLanguage(systemLocale);
+          }
+          console.log(`Auto-detected system locale: ${systemLocale}`);
+        } else {
+          console.log(`System locale ${systemLocale} not available, using default: en`);
+        }
+      }).catch((error: any) => {
+        console.warn('Failed to detect system locale:', error);
+      });
     }
   }
 

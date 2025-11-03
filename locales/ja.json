@@ -82,7 +82,8 @@
     "playback": "再生",
     "ducking": "ダッキング",
     "duckLevel": "ダッキングレベル",
-    "trimSilence": "無音部分をトリミング"
+    "trimSilence": "無音部分をトリミング",
+    "normalize": "音量を自動調整"
   },
   "playback": {
     "panic": "すべての信号を停止",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "削除",
     "confirm": "よろしいですか？",
-    "close": "閉じる"
+    "close": "閉じる",
+    "play": "再生",
+    "edit": "編集",
+    "remove": "削除"
   },
   "about": {
     "developedBy": "開発者",

@@ -143,9 +143,12 @@ const drawWaveform = () => {
   const barWidth = rect.width / trimmedPeaks.length;
   const centerY = rect.height / 2;
   
+  // Apply volume scaling to waveform display
+  const volumeMultiplier = audioItem.volume || 1.0;
+  
   trimmedPeaks.forEach((value, i) => {
-    // Values are already normalized 0-1
-    const barHeight = value * rect.height * 0.8; // Use 80% of height for better visibility
+    // Values are already normalized 0-1, scale by volume
+    const barHeight = value * rect.height * 0.8 * volumeMultiplier; // Use 80% of height, scaled by volume
     const x = i * barWidth;
     const y = centerY - barHeight / 2;
     

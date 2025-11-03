@@ -58,13 +58,13 @@ Get the latest release for your platform:
 
 - **Waveform Display**: Visual waveform representation of audio files
 
-### 🎛️ Cart Player
+### 🎛️ Cart Player- **REST API**: Trigger cues remotely via HTTP requests
 
 - **16 quick-access slots**: Instant playback buttons for your most-used cues
 
 - **Drag to assign**: Simply drag playlist items to cart slots
 
-- **Visual feedback**: See which cues are playing directly on the cart
+- **Visual feedback**: See which cues are playing directly on the cart## Project Structure
 
 - **One-click triggering**: No arming required—just click to play
 
@@ -380,8 +380,8 @@ LivePlay is open source! We welcome contributions:
 
 - **Bug reports**: [Open an issue](https://github.com/tdoukinitsas/liveplay/issues)
 - **Feature requests**: [Start a discussion](https://github.com/tdoukinitsas/liveplay/discussions)
-- **Code contributions**: See [DEVELOP.md](/guides/DEVELOP.md) for developer documentation
-- **Translations**: Help translate LivePlay to more languages - see [INTERNATIONALIZATION.md](/guides/INTERNATIONALIZATION.md)
+- **Code contributions**: See [DEVELOP.md](DEVELOP.md) for developer documentation
+- **Translations**: Help translate LivePlay to more languages - see [INTERNATIONALIZATION.md](INTERNATIONALIZATION.md)
 
 ---
 
@@ -392,7 +392,7 @@ LivePlay uses an automated CI/CD pipeline:
 - ✅ Auto-generated changelogs from commit history
 - ✅ Published to [GitHub Releases](https://github.com/tdoukinitsas/liveplay/releases)
 
-**For Contributors:** See [RELEASES.md](/guides/RELEASES.md) for the full release process documentation or [RELEASE-QUICK.md](/guides/RELEASE-QUICK.md) for a quick reference guide.
+**For Contributors:** See [RELEASES.md](RELEASES.md) for the full release process documentation or [RELEASE-QUICK.md](RELEASE-QUICK.md) for a quick reference guide.
 
 ---
 

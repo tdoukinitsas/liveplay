@@ -82,7 +82,8 @@
     "playback": "재생",
     "ducking": "더킹",
     "duckLevel": "더킹 레벨",
-    "trimSilence": "무음 자르기"
+    "trimSilence": "무음 자르기",
+    "normalize": "볼륨 자동 조정"
   },
   "playback": {
     "panic": "모든 신호 중지",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "삭제",
     "confirm": "확실합니까?",
-    "close": "닫기"
+    "close": "닫기",
+    "play": "재생",
+    "edit": "편집",
+    "remove": "제거"
   },
   "about": {
     "developedBy": "개발자",

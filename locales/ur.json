@@ -82,7 +82,8 @@
     "playback": "پلے بیک",
     "ducking": "ڈکنگ",
     "duckLevel": "ڈکنگ لیول",
-    "trimSilence": "خاموشی تراشیں"
+    "trimSilence": "خاموشی تراشیں",
+    "normalize": "خودکار طور پر والیوم ایڈجسٹ کریں"
   },
   "playback": {
     "panic": "تمام سگنلز روکیں",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "حذف کریں",
     "confirm": "کیا آپ کو یقین ہے؟",
-    "close": "بند کریں"
+    "close": "بند کریں",
+    "play": "چلائیں",
+    "edit": "ترمیم کریں",
+    "remove": "ہٹائیں"
   },
   "about": {
     "developedBy": "تیار کردہ",

@@ -611,6 +611,16 @@ ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
 
+ipcMain.handle('get-system-locale', () => {
+  // Get the system locale from Electron
+  const systemLocale = app.getLocale(); // Returns locale like 'en-US', 'es-ES', 'fr-FR', etc.
+  
+  // Extract just the language code (e.g., 'en' from 'en-US')
+  const languageCode = systemLocale.split('-')[0].toLowerCase();
+  
+  return languageCode;
+});
+
 ipcMain.handle('set-current-project', async (event, projectPath) => {
   currentProject = projectPath;
   return { success: true };
@@ -641,54 +651,72 @@ ipcMain.handle('generate-waveform', async (event, audioFilePath, outputPath) => 
       ffmpeg.setFfmpegPath(ffmpegPath);
     }
     
-    const samples = [];
-    const tempOutput = outputPath + '.temp.wav';
-    
-    // First, extract raw audio data
-    ffmpeg(audioFilePath)
-      .audioChannels(1)
-      .audioFrequency(8000) // Lower frequency for smaller data
-      .format('s16le')
-      .on('error', (err) => {
-        console.error('FFmpeg waveform error:', err);
+    // First, get the duration
+    ffmpeg.ffprobe(audioFilePath, (err, metadata) => {
+      if (err) {
+        console.error('FFprobe error:', err);
         reject(err);
-      })
-      .on('end', () => {
-        // Read the temp file and process samples
-        try {
-          if (fs.existsSync(tempOutput)) {
-            const buffer = fs.readFileSync(tempOutput);
-            
-            // Process every nth sample to get ~1000 points
-            const sampleInterval = Math.floor(buffer.length / 2000); // 2 bytes per sample
-            
-            for (let i = 0; i < buffer.length - 1; i += sampleInterval * 2) {
-              const sample = buffer.readInt16LE(i) / 32768.0; // Normalize to -1 to 1
-              samples.push(Math.abs(sample));
+        return;
+      }
+      
+      const duration = metadata.format.duration;
+      if (!duration) {
+        reject(new Error('Could not determine audio duration'));
+        return;
+      }
+      
+      // Calculate samples: 10 per second
+      const targetSamples = Math.ceil(duration * 10);
+      const samples = [];
+      const tempOutput = outputPath + '.temp.wav';
+      
+      // Extract raw audio data
+      ffmpeg(audioFilePath)
+        .audioChannels(1)
+        .audioFrequency(8000) // Lower frequency for smaller data
+        .format('s16le')
+        .on('error', (err) => {
+          console.error('FFmpeg waveform error:', err);
+          reject(err);
+        })
+        .on('end', () => {
+          // Read the temp file and process samples
+          try {
+            if (fs.existsSync(tempOutput)) {
+              const buffer = fs.readFileSync(tempOutput);
+              
+              // Process samples to get exactly 10 per second
+              const sampleInterval = Math.floor(buffer.length / (targetSamples * 2)); // 2 bytes per sample
+              
+              for (let i = 0; i < buffer.length - 1 && samples.length < targetSamples; i += sampleInterval * 2) {
+                const sample = buffer.readInt16LE(i) / 32768.0; // Normalize to -1 to 1
+                samples.push(Math.abs(sample));
+              }
+              
+              // Clean up temp file
+              fs.unlinkSync(tempOutput);
+              
+              // Save waveform data with duration
+              const waveformData = {
+                peaks: samples,
+                duration: duration,
+                sampleRate: 10 // 10 samples per second
+              };
+              
+              fs.writeFileSync(outputPath, JSON.stringify(waveformData));
+              console.log('Waveform generated successfully:', samples.length, 'samples @10/sec for', duration.toFixed(2), 'seconds');
+              
+              resolve({ success: true, duration: duration });
+            } else {
+              reject(new Error('Temporary audio file not created'));
             }
-            
-            // Clean up temp file
-            fs.unlinkSync(tempOutput);
-            
-            // Save waveform data
-            const waveformData = {
-              peaks: samples,
-              duration: samples.length / 2 // Approximate duration
-            };
-            
-            fs.writeFileSync(outputPath, JSON.stringify(waveformData));
-            console.log('Waveform generated successfully:', samples.length, 'samples');
-            
-            resolve({ success: true });
-          } else {
-            reject(new Error('Temporary audio file not created'));
+          } catch (error) {
+            console.error('Error processing waveform:', error);
+            reject(error);
           }
-        } catch (error) {
-          console.error('Error processing waveform:', error);
-          reject(error);
-        }
-      })
-      .save(tempOutput);
+        })
+        .save(tempOutput);
+    });
   });
 });
 

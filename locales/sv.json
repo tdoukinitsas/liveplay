@@ -82,7 +82,8 @@
     "playback": "Uppspelning",
     "ducking": "Duckning",
     "duckLevel": "Duckningsnivå",
-    "trimSilence": "Trimma tystnad"
+    "trimSilence": "Trimma tystnad",
+    "normalize": "Justera volym automatiskt"
   },
   "playback": {
     "panic": "Stoppa alla signaler",
@@ -116,7 +117,10 @@
   "actions": {
     "delete": "Ta bort",
     "confirm": "Är du säker?",
-    "close": "Stäng"
+    "close": "Stäng",
+    "play": "Spela",
+    "edit": "Redigera",
+    "remove": "Ta bort"
   },
   "about": {
     "developedBy": "Utvecklad av",
