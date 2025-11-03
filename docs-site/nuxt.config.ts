@@ -17,7 +17,8 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: '#DA1E28' }
       ],
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/liveplay/favicon.ico' }
+        { rel: 'icon', type: 'image/x-icon', href: '/liveplay/favicon.ico' },
+        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap' }
       ]
     }
   },

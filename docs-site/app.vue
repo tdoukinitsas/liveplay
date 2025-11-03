@@ -18,6 +18,19 @@
       </div>
     </header>
 
+    <section class="screenshot-section">
+      <div class="container">
+        <div class="screenshot-wrapper">
+          <img 
+            src="/assets/liveplay_screenshot.jpg" 
+            alt="LivePlay main interface showing playlist editor, cue cart, and properties panel" 
+            class="app-screenshot"
+            @error="handleImageError"
+          />
+        </div>
+      </div>
+    </section>
+
     <section class="download-section">
       <div class="container">
         <h2>Download LivePlay</h2>
@@ -133,7 +146,7 @@ const readmeHtml = ref('');
 const downloadLinks = computed(() => {
   const baseUrl = `https://github.com/tdoukinitsas/liveplay/releases/download/v${version.value}`;
   return {
-    windows: `${baseUrl}/LivePlay-Setup-${version.value}.exe`,
+    windows: `${baseUrl}/LivePlay.Setup.${version.value}.exe`,
     mac: `${baseUrl}/LivePlay-${version.value}.dmg`,
     linux: `${baseUrl}/LivePlay-${version.value}.AppImage`,
     deb: `${baseUrl}/liveplay_${version.value}_amd64.deb`,
@@ -240,6 +253,8 @@ useSeoMeta({
 </script>
 
 <style scoped lang="scss">
+
+
 .docs-site {
   min-height: 100vh;
   background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
@@ -293,6 +308,32 @@ useSeoMeta({
     font-size: 1.5rem;
     color: rgba(255, 255, 255, 0.8);
     margin: 1rem 0 0;
+  }
+}
+
+.screenshot-section {
+  padding: 4rem 0;
+  background: rgba(0, 0, 0, 0.2);
+
+  .screenshot-wrapper {
+    max-width: 1000px;
+    margin: 0 auto;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+    &:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 24px 80px rgba(218, 30, 40, 0.3);
+    }
+  }
+
+  .app-screenshot {
+    width: 100%;
+    height: auto;
+    display: block;
   }
 }
 

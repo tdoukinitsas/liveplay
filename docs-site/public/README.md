@@ -1,6 +1,6 @@
 # LivePlay
 
-![Main liveplay user interface, with playlist editor, cue cart and properties panel](/public/liveplay_screenshot.jpg)
+![Main liveplay user interface, with playlist editor, cue cart and properties panel](/liveplay/assets/liveplay_screenshot.jpg)
 
 LivePlay is a free, open-source audio playback system designed for live sound operators who need reliable, flexible cue management. Built with modern web technologies (Electron, Vue 3, Nuxt 3), it runs on Windows, macOS, and Linux.
 
@@ -26,7 +26,7 @@ Get the latest release for your platform:
 
 - **Project Management**: Create and manage audio cue projects with all data stored as JSON. All media files are automatically collected.
 
-![Youtube downloader interface, showing a search window, a preview and download buttons](/public/liveplay_youtube_screenshot.jpg)
+![Youtube downloader interface, showing a search window, a preview and download buttons](/liveplay/assets/liveplay_youtube_screenshot.jpg)
 
 - **Integrated YouTube downloader**: Download directly from YouTube as mp3 files and auto-import them in to your playlist.
 
@@ -58,13 +58,13 @@ Get the latest release for your platform:
 
 - **Waveform Display**: Visual waveform representation of audio files
 
-### 🎛️ Cart Player- **REST API**: Trigger cues remotely via HTTP requests
+### 🎛️ Cart Player
 
 - **16 quick-access slots**: Instant playback buttons for your most-used cues
 
 - **Drag to assign**: Simply drag playlist items to cart slots
 
-- **Visual feedback**: See which cues are playing directly on the cart## Project Structure
+- **Visual feedback**: See which cues are playing directly on the cart
 
 - **One-click triggering**: No arming required—just click to play
 
@@ -380,8 +380,8 @@ LivePlay is open source! We welcome contributions:
 
 - **Bug reports**: [Open an issue](https://github.com/tdoukinitsas/liveplay/issues)
 - **Feature requests**: [Start a discussion](https://github.com/tdoukinitsas/liveplay/discussions)
-- **Code contributions**: See [DEVELOP.md](DEVELOP.md) for developer documentation
-- **Translations**: Help translate LivePlay to more languages - see [INTERNATIONALIZATION.md](INTERNATIONALIZATION.md)
+- **Code contributions**: See [DEVELOP.md](/guides/DEVELOP.md) for developer documentation
+- **Translations**: Help translate LivePlay to more languages - see [INTERNATIONALIZATION.md](/guides/INTERNATIONALIZATION.md)
 
 ---
 
@@ -392,7 +392,7 @@ LivePlay uses an automated CI/CD pipeline:
 - ✅ Auto-generated changelogs from commit history
 - ✅ Published to [GitHub Releases](https://github.com/tdoukinitsas/liveplay/releases)
 
-**For Contributors:** See [RELEASES.md](RELEASES.md) for the full release process documentation or [RELEASE-QUICK.md](RELEASE-QUICK.md) for a quick reference guide.
+**For Contributors:** See [RELEASES.md](/guides/RELEASES.md) for the full release process documentation or [RELEASE-QUICK.md](/guides/RELEASE-QUICK.md) for a quick reference guide.
 
 ---
 
