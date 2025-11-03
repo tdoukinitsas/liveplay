@@ -127,7 +127,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 
-const version = ref('1.1.3');
+const version = ref('1.1.9');
 const readmeHtml = ref('');
 
 const downloadLinks = computed(() => {

@@ -1,6 +1,10 @@
 export default defineNuxtConfig({
   ssr: false,
   
+  // Ensure we don't inherit from parent project
+  rootDir: './',
+  srcDir: './',
+  
   app: {
     baseURL: '/liveplay/',
     buildAssetsDir: 'assets',
@@ -32,6 +36,11 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: 'static'
+  },
+
+  typescript: {
+    strict: false,
+    typeCheck: false
   },
 
   compatibilityDate: '2025-01-01'
