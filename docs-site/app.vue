@@ -140,7 +140,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 
-const version = ref('1.1.9');
+const version = ref('1.1.11');
 const readmeHtml = ref('');
 
 const downloadLinks = computed(() => {
@@ -163,7 +163,7 @@ const handleImageError = (event: Event) => {
 onMounted(async () => {
   // Fetch version from package.json
   try {
-    const packageRes = await fetch('/package.json');
+    const packageRes = await fetch('/liveplay/package.json');
     const packageData = await packageRes.json();
     version.value = packageData.version;
   } catch (error) {
@@ -172,7 +172,7 @@ onMounted(async () => {
 
   // Fetch and parse README
   try {
-    const readmeRes = await fetch('/README.md');
+    const readmeRes = await fetch('/liveplay/README.md');
     const readmeText = await readmeRes.text();
     readmeHtml.value = parseMarkdown(readmeText);
   } catch (error) {
