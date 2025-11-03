@@ -1,6 +1,6 @@
 {
   "name": "liveplay",
-  "version": "1.1.11",
+  "version": "1.1.12",
   "description": "Audio cue playback application for live events",
   "main": "electron/main.js",
   "type": "commonjs",
@@ -67,6 +67,15 @@
       "electron/**/*",
       "assets/**/*",
       "locales/**/*"
+    ],
+    "fileAssociations": [
+      {
+        "ext": "liveplay",
+        "name": "LivePlay Project",
+        "description": "LivePlay Project File",
+        "role": "Editor",
+        "icon": "assets/icons/4092w/liveplay-document@4092px.png"
+      }
     ],
     "publish": {
       "provider": "github",

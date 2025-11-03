@@ -36,7 +36,9 @@
     "cancel": "Anulo",
     "ok": "OK",
     "importAudio": "Importo Audio",
-    "noProject": "Asnjë Projekt"
+    "noProject": "Asnjë Projekt",
+    "silenceWarning": "PARALAJMËRIM: HESHTJE NË",
+    "seconds": "SEKONDA"
   },
   "playlist": {
     "title": "Lista e Luajtjes",
@@ -83,7 +85,9 @@
     "ducking": "Ulja",
     "duckLevel": "Niveli i Uljes",
     "trimSilence": "Prit Heshtjen",
-    "normalize": "Rregulloni volumin automatikisht"
+    "normalize": "Rregulloni volumin automatikisht",
+    "targetUuid": "UUID i Synuar",
+    "targetIndex": "Indeksi i Synuar"
   },
   "playback": {
     "panic": "Ndalo të Gjitha Sinjalet",

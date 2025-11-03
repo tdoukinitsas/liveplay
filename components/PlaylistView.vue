@@ -121,7 +121,7 @@ const generateWaveformAsync = async (item: AudioItem) => {
         const waveformData = JSON.parse(existingWaveform.data);
         
         // Validate waveform format
-        if (waveformData.peaks && waveformData.length && waveformData.duration) {
+        if (waveformData.peaks && waveformData.peaks.length && waveformData.duration) {
           item.waveform = waveformData;
           return;
         }
@@ -151,7 +151,7 @@ const generateWaveformAsync = async (item: AudioItem) => {
             const waveformData = JSON.parse(waveformFile.data);
             
             // Validate waveform format
-            if (waveformData.peaks && waveformData.length && waveformData.duration) {
+            if (waveformData.peaks && waveformData.peaks.length && waveformData.duration) {
               item.waveform = waveformData;
               
               // Force Vue reactivity update

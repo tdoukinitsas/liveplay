@@ -36,7 +36,9 @@
     "cancel": "キャンセル",
     "ok": "OK",
     "importAudio": "オーディオをインポート",
-    "noProject": "プロジェクトなし"
+    "noProject": "プロジェクトなし",
+    "silenceWarning": "警告：無音まで",
+    "seconds": "秒"
   },
   "playlist": {
     "title": "プレイリスト",
@@ -83,7 +85,9 @@
     "ducking": "ダッキング",
     "duckLevel": "ダッキングレベル",
     "trimSilence": "無音部分をトリミング",
-    "normalize": "音量を自動調整"
+    "normalize": "音量を自動調整",
+    "targetUuid": "ターゲットUUID",
+    "targetIndex": "ターゲットインデックス"
   },
   "playback": {
     "panic": "すべての信号を停止",

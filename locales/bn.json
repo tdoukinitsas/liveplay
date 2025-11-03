@@ -36,7 +36,9 @@
     "cancel": "বাতিল করুন",
     "ok": "ঠিক আছে",
     "importAudio": "অডিও আমদানি করুন",
-    "noProject": "কোনো প্রকল্প নেই"
+    "noProject": "কোনো প্রকল্প নেই",
+    "silenceWarning": "সতর্কতা: নীরবতা",
+    "seconds": "সেকেন্ড"
   },
   "playlist": {
     "title": "প্লেলিস্ট",
@@ -83,7 +85,9 @@
     "ducking": "ডাকিং",
     "duckLevel": "ডাকিং স্তর",
     "trimSilence": "নীরবতা ট্রিম করুন",
-    "normalize": "স্বয়ংক্রিয়ভাবে ভলিউম সামঞ্জস্য করুন"
+    "normalize": "স্বয়ংক্রিয়ভাবে ভলিউম সামঞ্জস্য করুন",
+    "targetUuid": "লক্ষ্য UUID",
+    "targetIndex": "লক্ষ্য সূচক"
   },
   "playback": {
     "panic": "সমস্ত সংকেত বন্ধ করুন",

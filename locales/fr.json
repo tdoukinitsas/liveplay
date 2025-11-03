@@ -36,7 +36,9 @@
     "cancel": "Annuler",
     "ok": "OK",
     "importAudio": "Importer de l'Audio",
-    "noProject": "Aucun Projet"
+    "noProject": "Aucun Projet",
+    "silenceWarning": "ATTENTION : SILENCE DANS",
+    "seconds": "SECONDES"
   },
   "playlist": {
     "title": "Liste de Lecture",
@@ -83,7 +85,9 @@
     "ducking": "Réduction",
     "duckLevel": "Niveau de Réduction",
     "trimSilence": "Couper le Silence",
-    "normalize": "Ajuster le volume automatiquement"
+    "normalize": "Ajuster le volume automatiquement",
+    "targetUuid": "UUID Cible",
+    "targetIndex": "Index Cible"
   },
   "playback": {
     "panic": "Arrêter Tous les Signaux",

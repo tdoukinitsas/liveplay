@@ -132,6 +132,7 @@ initializeYtDlp();
 let mainWindow = null;
 let apiServer = null;
 let currentProject = null;
+let fileToOpen = null; // Store file path if app is opened with a file
 
 // API Server Setup
 function startAPIServer(port = 8080) {
@@ -443,7 +444,15 @@ function createMenu(locale = 'en', isDev = false) {
           { type: 'separator' },
           { role: 'reload' },
           { role: 'forceReload' },
-          { role: 'toggleDevTools' }
+          { 
+          label: 'Toggle Developer Tools',
+          accelerator: process.platform === 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I',
+          click: () => {
+            if (mainWindow && mainWindow.webContents) {
+              mainWindow.webContents.toggleDevTools();
+            }
+          }
+        }
         ] : [])
       ]
     },
@@ -956,6 +965,14 @@ app.whenReady().then(async () => {
   
   createWindow();
   
+  // If a file was opened before the app was ready, open it now
+  if (fileToOpen && mainWindow) {
+    mainWindow.once('ready-to-show', () => {
+      openFile(fileToOpen);
+      fileToOpen = null;
+    });
+  }
+  
   // If ffmpeg is not available, prompt user after window is shown
   if (!ffmpegReady && mainWindow) {
     mainWindow.once('ready-to-show', async () => {
@@ -967,6 +984,56 @@ app.whenReady().then(async () => {
     });
   }
 });
+
+// Handle file opening on Windows/Linux (when file is double-clicked)
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  
+  if (mainWindow && mainWindow.webContents) {
+    // Window is ready, open the file immediately
+    openFile(filePath);
+  } else {
+    // Window not ready yet, store the file path
+    fileToOpen = filePath;
+  }
+});
+
+// Handle command line arguments (Windows/Linux)
+if (process.platform === 'win32' || process.platform === 'linux') {
+  // Check if a file was passed as argument
+  const fileArg = process.argv.find(arg => arg.endsWith('.liveplay'));
+  if (fileArg) {
+    fileToOpen = fileArg;
+  }
+}
+
+// Helper function to open a project file
+function openFile(filePath) {
+  if (!mainWindow) return;
+  
+  try {
+    // Read the file
+    const fileContent = fs.readFileSync(filePath, 'utf-8');
+    const projectData = JSON.parse(fileContent);
+    
+    // Send the project data to the renderer
+    mainWindow.webContents.send('open-project-file', {
+      filePath: filePath,
+      projectData: projectData
+    });
+    
+    console.log('Opened project file:', filePath);
+  } catch (error) {
+    console.error('Failed to open project file:', error);
+    
+    if (mainWindow) {
+      dialog.showErrorBox(
+        'Failed to Open Project',
+        `Could not open the project file:\n${error.message}`
+      );
+    }
+  }
+}
 
 app.on('window-all-closed', () => {
   if (apiServer) {

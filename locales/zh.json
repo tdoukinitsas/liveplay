@@ -36,7 +36,9 @@
     "cancel": "取消",
     "ok": "确定",
     "importAudio": "导入音频",
-    "noProject": "无项目"
+    "noProject": "无项目",
+    "silenceWarning": "警告：静音倒计时",
+    "seconds": "秒"
   },
   "playlist": {
     "title": "播放列表",
@@ -83,7 +85,9 @@
     "ducking": "闪避",
     "duckLevel": "闪避级别",
     "trimSilence": "修剪静音",
-    "normalize": "自动调整音量"
+    "normalize": "自动调整音量",
+    "targetUuid": "目标UUID",
+    "targetIndex": "目标索引"
   },
   "playback": {
     "panic": "停止所有信号",

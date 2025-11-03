@@ -36,7 +36,9 @@
     "cancel": "Cancel",
     "ok": "OK",
     "importAudio": "Import Audio",
-    "noProject": "No Project"
+    "noProject": "No Project",
+    "silenceWarning": "WARNING: SILENCE IN",
+    "seconds": "SECONDS"
   },
   "playlist": {
     "title": "Playlist",
@@ -83,7 +85,9 @@
     "ducking": "Ducking",
     "duckLevel": "Duck Level",
     "trimSilence": "Trim Silence",
-    "normalize": "Auto-adjust volume"
+    "normalize": "Auto-adjust volume",
+    "targetUuid": "Target UUID",
+    "targetIndex": "Target Index"
   },
   "playback": {
     "panic": "Stop All Cues",

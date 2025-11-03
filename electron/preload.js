@@ -102,5 +102,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // API triggers
   onTriggerItem: (callback) => ipcRenderer.on('trigger-item', callback),
-  onStopItem: (callback) => ipcRenderer.on('stop-item', callback)
+  onStopItem: (callback) => ipcRenderer.on('stop-item', callback),
+  
+  // File association - opening project files
+  onOpenProjectFile: (callback) => ipcRenderer.on('open-project-file', callback)
 });

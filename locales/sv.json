@@ -36,7 +36,9 @@
     "cancel": "Avbryt",
     "ok": "OK",
     "importAudio": "Importera ljud",
-    "noProject": "Inget projekt"
+    "noProject": "Inget projekt",
+    "silenceWarning": "VARNING: TYSTNAD OM",
+    "seconds": "SEKUNDER"
   },
   "playlist": {
     "title": "Spellista",
@@ -83,7 +85,9 @@
     "ducking": "Duckning",
     "duckLevel": "Duckningsnivå",
     "trimSilence": "Trimma tystnad",
-    "normalize": "Justera volym automatiskt"
+    "normalize": "Justera volym automatiskt",
+    "targetUuid": "Mål-UUID",
+    "targetIndex": "Målindex"
   },
   "playback": {
     "panic": "Stoppa alla signaler",

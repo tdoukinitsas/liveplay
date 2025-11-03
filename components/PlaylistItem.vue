@@ -121,11 +121,11 @@ const drawWaveform = () => {
   const computedStyle = getComputedStyle(canvas);
   const textColor = computedStyle.getPropertyValue('color');
   
-  // Parse RGB values to apply 30% opacity
+  // Parse RGB values - use full opacity, canvas element itself has opacity set via CSS
   const rgb = textColor.match(/\d+/g);
   if (!rgb) return;
   
-  ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.1)`;
+  ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
   
   const peaks = audioItem.waveform.peaks;
   
@@ -158,6 +158,7 @@ const drawWaveform = () => {
 
 // Redraw waveform when component mounts or updates
 let resizeObserver: ResizeObserver | null = null;
+let waveformPollInterval: NodeJS.Timeout | null = null;
 
 onMounted(() => {
   if (props.item.type === 'audio' && waveformCanvas.value) {
@@ -168,6 +169,12 @@ onMounted(() => {
       drawWaveform();
     });
     resizeObserver.observe(waveformCanvas.value);
+    
+    // Start polling for waveform if not available yet
+    const audioItem = props.item as AudioItem;
+    if (!audioItem.waveform || !audioItem.waveform.peaks || audioItem.waveform.peaks.length === 0) {
+      startWaveformPolling();
+    }
   }
 });
 
@@ -176,7 +183,61 @@ onUnmounted(() => {
     resizeObserver.unobserve(waveformCanvas.value);
     resizeObserver.disconnect();
   }
+  
+  if (waveformPollInterval) {
+    clearInterval(waveformPollInterval);
+  }
 });
+
+// Poll for waveform data if not yet available
+const startWaveformPolling = () => {
+  if (waveformPollInterval) return; // Already polling
+  
+  waveformPollInterval = setInterval(async () => {
+    if (props.item.type !== 'audio') {
+      clearInterval(waveformPollInterval!);
+      waveformPollInterval = null;
+      return;
+    }
+    
+    const audioItem = props.item as AudioItem;
+    
+    // Check if waveform is now available
+    if (audioItem.waveform && audioItem.waveform.peaks && audioItem.waveform.peaks.length > 0) {
+      // Waveform loaded, stop polling and redraw
+      clearInterval(waveformPollInterval!);
+      waveformPollInterval = null;
+      nextTick(drawWaveform);
+      return;
+    }
+    
+    // Try to load waveform from file
+    if (window.electronAPI && audioItem.waveformPath) {
+      try {
+        const result = await window.electronAPI.readFile(audioItem.waveformPath);
+        if (result.success && result.data) {
+          const waveformData = JSON.parse(result.data);
+          if (waveformData.peaks && waveformData.peaks.length && waveformData.duration) {
+            audioItem.waveform = waveformData;
+            clearInterval(waveformPollInterval!);
+            waveformPollInterval = null;
+            nextTick(drawWaveform);
+          }
+        }
+      } catch (error) {
+        // Silently ignore, will retry on next poll
+      }
+    }
+  }, 3000); // Poll every 3 seconds
+  
+  // Stop polling after 30 seconds
+  setTimeout(() => {
+    if (waveformPollInterval) {
+      clearInterval(waveformPollInterval);
+      waveformPollInterval = null;
+    }
+  }, 30000);
+};
 
 watch(() => props.item, () => {
   if (props.item.type === 'audio') {
@@ -564,6 +625,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   pointer-events: none;
   z-index: 1;
   color: var(--color-text-primary);
+  opacity: 0.1; /* Control opacity at canvas level instead of individual bars */
 }
 
 .item-progress {

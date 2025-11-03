@@ -94,6 +94,16 @@ onMounted(() => {
       updateInfo.value = info;
       showUpdateModal.value = true;
     });
+    
+    // Listen for project file opening (from file association)
+    window.electronAPI.onOpenProjectFile((event: any, data: { filePath: string, projectData: any }) => {
+      try {
+        currentProject.value = data.projectData;
+        console.log('Opened project from file association:', data.filePath);
+      } catch (error) {
+        console.error('Failed to open project file:', error);
+      }
+    });
 
     // Sync menu with current UI language on startup
     window.electronAPI.updateMenuLanguage(currentLocale.value);
@@ -128,6 +138,27 @@ watch(currentLocale, () => {
     document.documentElement.setAttribute('dir', direction);
   }
 }, { immediate: true });
+
+// Prevent default drag and drop behavior globally
+// (except where specifically handled by components)
+onMounted(() => {
+  if (import.meta.client) {
+    // Prevent default drag/drop on document to avoid "stop" cursor
+    // But allow it if a component has already handled it
+    document.addEventListener('dragover', (e) => {
+      // Only prevent if the event hasn't been handled by a component
+      if (e.defaultPrevented) return;
+      e.preventDefault();
+      e.dataTransfer!.dropEffect = 'none';
+    }, true); // Use capture phase
+    
+    document.addEventListener('drop', (e) => {
+      // Only prevent if the event hasn't been handled by a component
+      if (e.defaultPrevented) return;
+      e.preventDefault();
+    }, true); // Use capture phase
+  }
+});
 </script>
 
 <style scoped>

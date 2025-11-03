@@ -36,7 +36,9 @@
     "cancel": "रद्द करें",
     "ok": "ठीक है",
     "importAudio": "ऑडियो आयात करें",
-    "noProject": "कोई प्रोजेक्ट नहीं"
+    "noProject": "कोई प्रोजेक्ट नहीं",
+    "silenceWarning": "चेतावनी: मौन में",
+    "seconds": "सेकंड"
   },
   "playlist": {
     "title": "प्लेलिस्ट",
@@ -83,7 +85,9 @@
     "ducking": "डकिंग",
     "duckLevel": "डकिंग स्तर",
     "trimSilence": "मौन ट्रिम करें",
-    "normalize": "वॉल्यूम स्वचालित रूप से समायोजित करें"
+    "normalize": "वॉल्यूम स्वचालित रूप से समायोजित करें",
+    "targetUuid": "लक्ष्य UUID",
+    "targetIndex": "लक्ष्य सूचकांक"
   },
   "playback": {
     "panic": "सभी सिग्नल रोकें",

@@ -36,7 +36,9 @@
     "cancel": "منسوخ کریں",
     "ok": "ٹھیک ہے",
     "importAudio": "آڈیو درآمد کریں",
-    "noProject": "کوئی پروجیکٹ نہیں"
+    "noProject": "کوئی پروجیکٹ نہیں",
+    "silenceWarning": "انتباہ: خاموشی میں",
+    "seconds": "سیکنڈ"
   },
   "playlist": {
     "title": "پلے لسٹ",
@@ -83,7 +85,9 @@
     "ducking": "ڈکنگ",
     "duckLevel": "ڈکنگ لیول",
     "trimSilence": "خاموشی تراشیں",
-    "normalize": "خودکار طور پر والیوم ایڈجسٹ کریں"
+    "normalize": "خودکار طور پر والیوم ایڈجسٹ کریں",
+    "targetUuid": "ہدف UUID",
+    "targetIndex": "ہدف انڈیکس"
   },
   "playback": {
     "panic": "تمام سگنلز روکیں",

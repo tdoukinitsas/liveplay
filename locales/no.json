@@ -36,7 +36,9 @@
     "cancel": "Avbryt",
     "ok": "OK",
     "importAudio": "Importer lyd",
-    "noProject": "Ingen prosjekt"
+    "noProject": "Ingen prosjekt",
+    "silenceWarning": "ADVARSEL: STILLHET OM",
+    "seconds": "SEKUNDER"
   },
   "playlist": {
     "title": "Spilleliste",
@@ -83,7 +85,9 @@
     "ducking": "Ducking",
     "duckLevel": "Duckingnivå",
     "trimSilence": "Trim stillhet",
-    "normalize": "Juster volum automatisk"
+    "normalize": "Juster volum automatisk",
+    "targetUuid": "Mål-UUID",
+    "targetIndex": "Målindeks"
   },
   "playback": {
     "panic": "Stopp alle signaler",

@@ -36,7 +36,9 @@
     "cancel": "لغو",
     "ok": "تأیید",
     "importAudio": "وارد کردن صدا",
-    "noProject": "بدون پروژه"
+    "noProject": "بدون پروژه",
+    "silenceWarning": "هشدار: سکوت در",
+    "seconds": "ثانیه"
   },
   "playlist": {
     "title": "لیست پخش",
@@ -83,7 +85,9 @@
     "ducking": "کاهش صدا",
     "duckLevel": "سطح کاهش",
     "trimSilence": "حذف سکوت",
-    "normalize": "تنظیم خودکار صدا"
+    "normalize": "تنظیم خودکار صدا",
+    "targetUuid": "UUID هدف",
+    "targetIndex": "شاخص هدف"
   },
   "playback": {
     "panic": "توقف همه سیگنال‌ها",

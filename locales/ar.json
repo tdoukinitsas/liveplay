@@ -36,7 +36,9 @@
     "cancel": "إلغاء",
     "ok": "موافق",
     "importAudio": "استيراد صوت",
-    "noProject": "لا يوجد مشروع"
+    "noProject": "لا يوجد مشروع",
+    "silenceWarning": "تحذير: صمت في",
+    "seconds": "ثواني"
   },
   "playlist": {
     "title": "قائمة التشغيل",
@@ -83,7 +85,9 @@
     "ducking": "الخفض",
     "duckLevel": "مستوى الخفض",
     "trimSilence": "قص الصمت",
-    "normalize": "ضبط مستوى الصوت تلقائياً"
+    "normalize": "ضبط مستوى الصوت تلقائياً",
+    "targetUuid": "UUID الهدف",
+    "targetIndex": "فهرس الهدف"
   },
   "playback": {
     "panic": "إيقاف جميع الإشارات",

@@ -78,6 +78,8 @@ const progress = computed(() => {
 });
 
 // Warning state based on time remaining
+// Note: This is per-cue visual feedback only
+// The ProjectHeader handles the actual silence detection across all cues
 const warningState = computed(() => {
   const timeRemaining = props.cue.duration - props.cue.currentTime;
   if (timeRemaining <= 5) return 'red';
@@ -272,6 +274,8 @@ const formatTime = (seconds: number): string => {
   border-radius: var(--border-radius-sm);
   position: relative;
   cursor: pointer;
+  /* Force LTR direction for progress bars in RTL languages */
+  direction: ltr;
   
   &:hover {
     .progress-handle {

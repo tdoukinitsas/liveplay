@@ -36,7 +36,9 @@
     "cancel": "İptal",
     "ok": "Tamam",
     "importAudio": "Ses İçe Aktar",
-    "noProject": "Proje Yok"
+    "noProject": "Proje Yok",
+    "silenceWarning": "UYARI: SESSİZLİK",
+    "seconds": "SANİYE"
   },
   "playlist": {
     "title": "Çalma Listesi",
@@ -83,7 +85,9 @@
     "ducking": "Kısma",
     "duckLevel": "Kısma Seviyesi",
     "trimSilence": "Sessizliği Kes",
-    "normalize": "Ses seviyesini otomatik ayarla"
+    "normalize": "Ses seviyesini otomatik ayarla",
+    "targetUuid": "Hedef UUID",
+    "targetIndex": "Hedef Dizin"
   },
   "playback": {
     "panic": "Tüm Sinyalleri Durdur",

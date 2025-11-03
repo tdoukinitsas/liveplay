@@ -229,7 +229,7 @@ export const useProject = () => {
             const waveformData = JSON.parse(result.data);
             
             // Validate waveform format
-            if (waveformData.peaks && waveformData.length && waveformData.duration) {
+            if (waveformData.peaks && waveformData.peaks.length && waveformData.duration) {
               audioItem.waveform = waveformData;
             } else {
               console.warn(`Invalid waveform format for ${audioItem.displayName}, regenerating...`);

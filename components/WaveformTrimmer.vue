@@ -174,6 +174,9 @@ const emit = defineEmits<{
 
 const { t } = useLocalization();
 
+// Get audio engine for playback position
+const { activeCues } = useAudioEngine();
+
 // Refs
 const waveformCanvas = ref<HTMLCanvasElement | null>(null);
 const waveformContainer = ref<HTMLDivElement | null>(null);
@@ -182,6 +185,16 @@ const isDrawing = ref(false);
 // Zoom and scroll
 const zoomLevel = ref(1);
 const scrollPosition = ref(0);
+
+// Get playback position for playhead
+const playbackPosition = computed(() => {
+  const cue = activeCues.value.get(props.audioItem.uuid);
+  if (!cue) return null;
+  
+  // currentTime is relative to inPoint, we need absolute position in file
+  const inPoint = props.audioItem.inPoint || 0;
+  return cue.currentTime + inPoint;
+});
 
 // Use existing waveform data from audioItem
 const waveformData = computed(() => props.audioItem?.waveform?.peaks ?? null);
@@ -468,6 +481,31 @@ const drawWaveform = () => {
 
   const middleY = canvasHeight / 2;
 
+  // Draw time grid (always shown, behind waveform if present)
+  ctx.strokeStyle = 'rgba(128, 128, 128, 0.3)';
+  ctx.lineWidth = 1;
+  ctx.font = '10px sans-serif';
+  ctx.fillStyle = 'rgba(128, 128, 128, 0.6)';
+
+  // Draw vertical lines for each second/minute
+  const timeStep = duration.value > 60 ? 10 : 1; // 10-second intervals for long files, 1 second for short
+  const pixelsPerSecond = canvasWidth.value / visibleDuration.value;
+
+  for (let time = Math.ceil(visibleStart.value / timeStep) * timeStep; time <= visibleEnd.value; time += timeStep) {
+    const x = (time - visibleStart.value) * pixelsPerSecond;
+    
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvasHeight);
+    ctx.stroke();
+
+    // Draw time label
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    const label = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    ctx.fillText(label, x + 4, 12);
+  }
+
   if (hasWaveform.value && waveformData.value && duration.value > 0) {
     // Draw waveform bars from existing data (like in PlaylistItem)
     const peaks = waveformData.value;
@@ -569,38 +607,11 @@ const drawWaveform = () => {
       }
     }
   } else {
-    // Draw time grid as fallback
-    ctx.strokeStyle = 'rgba(128, 128, 128, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.font = '10px sans-serif';
-    ctx.fillStyle = 'rgba(128, 128, 128, 0.6)';
-
-    // Draw vertical lines for each second/minute
-    const timeStep = duration.value > 60 ? 10 : 1; // 10-second intervals for long files, 1 second for short
-    const pixelsPerSecond = canvasWidth.value / visibleDuration.value;
-
-    for (let time = Math.ceil(visibleStart.value / timeStep) * timeStep; time <= visibleEnd.value; time += timeStep) {
-      const x = (time - visibleStart.value) * pixelsPerSecond;
-      
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvasHeight);
-      ctx.stroke();
-
-      // Draw time label
-      const minutes = Math.floor(time / 60);
-      const seconds = Math.floor(time % 60);
-      const label = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      ctx.fillText(label, x + 4, 12);
-    }
-
     // Draw "No Waveform Data" message
     ctx.font = '14px sans-serif';
     ctx.fillStyle = 'rgba(128, 128, 128, 0.5)';
     ctx.textAlign = 'center';
-    ctx.fillText('No waveform data available', canvasWidth.value / 2, middleY - 10);
-    ctx.font = '12px sans-serif';
-    ctx.fillText('Time grid displayed', canvasWidth.value / 2, middleY + 10);
+    ctx.fillText('No waveform data available', canvasWidth.value / 2, middleY);
     ctx.textAlign = 'left';
   }
 
@@ -611,6 +622,39 @@ const drawWaveform = () => {
   ctx.moveTo(0, middleY);
   ctx.lineTo(canvasWidth.value, middleY);
   ctx.stroke();
+
+  // Draw playhead if item is currently playing
+  if (playbackPosition.value !== null && duration.value > 0) {
+    const playheadX = (playbackPosition.value / duration.value) * canvasWidth.value;
+    
+    // Use item's color or default to accent color
+    const itemColor = props.audioItem.color || 'var(--color-accent)';
+    
+    // Draw vertical line
+    ctx.strokeStyle = itemColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(playheadX, 0);
+    ctx.lineTo(playheadX, canvasHeight);
+    ctx.stroke();
+    
+    // Draw triangle at top
+    ctx.fillStyle = itemColor;
+    ctx.beginPath();
+    ctx.moveTo(playheadX, 10);
+    ctx.lineTo(playheadX - 6, 0);
+    ctx.lineTo(playheadX + 6, 0);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw triangle at bottom
+    ctx.beginPath();
+    ctx.moveTo(playheadX, canvasHeight - 10);
+    ctx.lineTo(playheadX - 6, canvasHeight);
+    ctx.lineTo(playheadX + 6, canvasHeight);
+    ctx.closePath();
+    ctx.fill();
+  }
 };
 
 // Throttle drawWaveform to prevent excessive redraws
@@ -623,9 +667,15 @@ const throttledDraw = () => {
 };
 
 // Watch for changes and redraw
-watch([zoomLevel, scrollPosition, () => props.audioItem?.volume, () => props.audioItem?.inPoint, () => props.audioItem?.outPoint, waveformData], () => {
+watch([zoomLevel, scrollPosition, () => props.audioItem?.volume, () => props.audioItem?.inPoint, () => props.audioItem?.outPoint, waveformData, playbackPosition], () => {
   throttledDraw();
 });
+
+// Also watch for waveform changes directly (deep watch for reactivity)
+watch(() => props.audioItem?.waveform, () => {
+  console.log('Waveform changed, redrawing...');
+  throttledDraw();
+}, { deep: true });
 
 // Watch for canvas width changes
 const resizeObserver = ref<ResizeObserver | null>(null);

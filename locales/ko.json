@@ -36,7 +36,9 @@
     "cancel": "취소",
     "ok": "확인",
     "importAudio": "오디오 가져오기",
-    "noProject": "프로젝트 없음"
+    "noProject": "프로젝트 없음",
+    "silenceWarning": "경고: 무음까지",
+    "seconds": "초"
   },
   "playlist": {
     "title": "재생 목록",
@@ -83,7 +85,9 @@
     "ducking": "더킹",
     "duckLevel": "더킹 레벨",
     "trimSilence": "무음 자르기",
-    "normalize": "볼륨 자동 조정"
+    "normalize": "볼륨 자동 조정",
+    "targetUuid": "대상 UUID",
+    "targetIndex": "대상 인덱스"
   },
   "playback": {
     "panic": "모든 신호 중지",
