@@ -221,9 +221,22 @@ function parseMarkdown(markdown: string): string {
 useHead({
   title: 'LivePlay - Audio Cue Playback for Live Events',
   meta: [
-    { name: 'description', content: 'Free, open-source audio playback system for live sound operators. Available for Windows, macOS, and Linux.' }
+      {
+        name: 'description',
+        content: 'Free, open-source audio playback system for live sound operators. Available for Windows, macOS, and Linux.',
+    }
   ]
 });
+
+useSeoMeta({
+  title: 'LivePlay - Audio Cue Playback for Live Events',
+  description: 'Free, open-source audio playback system for live sound operators. Available for Windows, macOS, and Linux.',
+  ogTitle: 'LivePlay - Audio Cue Playback for Live Events',
+  ogDescription: 'Free, open-source audio playback system for live sound operators. Available for Windows, macOS, and Linux.',
+  ogType: 'website',
+  ogImage: '/assets/liveplay_screenshot.jpg',
+});
+
 </script>
 
 <style scoped lang="scss">
