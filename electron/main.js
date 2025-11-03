@@ -8,6 +8,7 @@ const youtubesearchapi = require('youtube-search-api');
 const YTDlpWrap = require('yt-dlp-wrap').default;
 const ffmpeg = require('fluent-ffmpeg');
 const { promisify } = require('util');
+const https = require('https');
 const execPromise = promisify(exec);
 
 let ffmpegPath = null;
@@ -133,6 +134,10 @@ let mainWindow = null;
 let apiServer = null;
 let currentProject = null;
 let fileToOpen = null; // Store file path if app is opened with a file
+let stateViewerWindow = null; // Debug state viewer window
+
+// Check if --dev flag is present in command line arguments
+const isDevMode = process.argv.includes('--dev') || !app.isPackaged;
 
 // API Server Setup
 function startAPIServer(port = 8080) {
@@ -191,6 +196,16 @@ function startAPIServer(port = 8080) {
 autoUpdater.autoDownload = false; // Don't auto-download, ask user first
 autoUpdater.autoInstallOnAppQuit = true;
 
+// Configure update feed URL to point to GitHub releases
+autoUpdater.setFeedURL({
+  provider: 'github',
+  owner: 'tdoukinitsas',
+  repo: 'liveplay',
+  private: false
+});
+
+console.log('Auto-updater configured for:', autoUpdater.getFeedURL());
+
 // Auto-updater event handlers
 autoUpdater.on('checking-for-update', () => {
   console.log('Checking for updates...');
@@ -214,9 +229,19 @@ autoUpdater.on('update-not-available', (info) => {
 
 autoUpdater.on('error', (err) => {
   console.error('Error in auto-updater:', err);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-error', err.message);
-  }
+  console.log('Falling back to manual update check...');
+  
+  // Fallback to manual update check
+  checkForManualUpdate().then(updateInfo => {
+    if (updateInfo && mainWindow) {
+      mainWindow.webContents.send('manual-update-available', updateInfo);
+    }
+  }).catch(fallbackErr => {
+    console.error('Fallback update check also failed:', fallbackErr);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-error', err.message);
+    }
+  });
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
@@ -239,6 +264,70 @@ autoUpdater.on('update-downloaded', (info) => {
   }
 });
 
+// Fallback manual update checker using GitHub Pages hosted package.json
+async function checkForManualUpdate() {
+  return new Promise((resolve, reject) => {
+    const currentVersion = app.getVersion();
+    const packageJsonUrl = 'https://tdoukinitsas.github.io/liveplay/package.json';
+    
+    console.log('Checking for updates manually at:', packageJsonUrl);
+    console.log('Current version:', currentVersion);
+    
+    https.get(packageJsonUrl, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          const packageData = JSON.parse(data);
+          const latestVersion = packageData.version;
+          
+          console.log('Latest version from package.json:', latestVersion);
+          
+          // Simple version comparison
+          if (compareVersions(latestVersion, currentVersion) > 0) {
+            console.log('New version available:', latestVersion);
+            resolve({
+              currentVersion,
+              newVersion: latestVersion,
+              downloadUrl: 'https://tdoukinitsas.github.io/liveplay/',
+              isManualUpdate: true
+            });
+          } else {
+            console.log('No update available');
+            resolve(null);
+          }
+        } catch (error) {
+          console.error('Error parsing package.json:', error);
+          reject(error);
+        }
+      });
+    }).on('error', (error) => {
+      console.error('Error fetching package.json:', error);
+      reject(error);
+    });
+  });
+}
+
+// Simple version comparison (e.g., "1.2.3" vs "1.2.4")
+function compareVersions(v1, v2) {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const num1 = parts1[i] || 0;
+    const num2 = parts2[i] || 0;
+    
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  
+  return 0;
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -255,11 +344,8 @@ function createWindow() {
     show: false
   });
 
-  // Detect if we're in development or production
-  // In production (packaged), app.isPackaged will be true
-  const isDev = !app.isPackaged;
-  
-  if (isDev) {
+  // Use the global isDevMode flag
+  if (isDevMode) {
     mainWindow.loadURL('http://localhost:3000');
     // Open DevTools in development
     mainWindow.webContents.openDevTools();
@@ -283,7 +369,7 @@ function createWindow() {
     mainWindow.show();
     
     // Check for updates only in production
-    if (!isDev) {
+    if (!isDevMode) {
       // Wait a bit for the window to fully load before checking updates
       setTimeout(() => {
         autoUpdater.checkForUpdates().catch(err => {
@@ -297,8 +383,295 @@ function createWindow() {
     mainWindow = null;
   });
 
-  createMenu('en', isDev);
+  createMenu('en', isDevMode);
   startAPIServer();
+}
+
+// Create state viewer window for debugging
+function createStateViewerWindow() {
+  if (stateViewerWindow) {
+    stateViewerWindow.focus();
+    return;
+  }
+
+  stateViewerWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    title: 'LivePlay - Current State Viewer',
+    icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload-state-viewer.js')
+    }
+  });
+
+  // Create a simple HTML page for the state viewer
+  const stateViewerHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>LivePlay State Viewer</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background: #1e1e1e;
+          color: #d4d4d4;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          height: 100vh;
+        }
+        
+        .header {
+          background: #252526;
+          padding: 12px 20px;
+          border-bottom: 1px solid #3e3e42;
+          flex-shrink: 0;
+        }
+        
+        h1 {
+          font-size: 16px;
+          font-weight: 600;
+          color: #cccccc;
+        }
+        
+        .container {
+          flex: 1;
+          overflow-y: auto;
+          padding: 20px;
+        }
+        
+        .state-section {
+          margin-bottom: 24px;
+          background: #252526;
+          border: 1px solid #3e3e42;
+          border-radius: 4px;
+          overflow: hidden;
+        }
+        
+        .section-header {
+          background: #2d2d30;
+          padding: 10px 16px;
+          font-weight: 600;
+          font-size: 13px;
+          color: #cccccc;
+          border-bottom: 1px solid #3e3e42;
+          cursor: pointer;
+          user-select: none;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        
+        .section-header:hover {
+          background: #3e3e42;
+        }
+        
+        .collapse-icon {
+          font-size: 12px;
+          transition: transform 0.2s;
+        }
+        
+        .collapse-icon.collapsed {
+          transform: rotate(-90deg);
+        }
+        
+        .section-content {
+          padding: 16px;
+          overflow: hidden;
+        }
+        
+        .section-content.collapsed {
+          display: none;
+        }
+        
+        pre {
+          font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+          font-size: 12px;
+          line-height: 1.5;
+          overflow-x: auto;
+          white-space: pre;
+        }
+        
+        /* JSON Syntax Highlighting */
+        .json-key {
+          color: #9cdcfe;
+        }
+        
+        .json-string {
+          color: #ce9178;
+        }
+        
+        .json-number {
+          color: #b5cea8;
+        }
+        
+        .json-boolean {
+          color: #569cd6;
+        }
+        
+        .json-null {
+          color: #569cd6;
+        }
+        
+        .update-time {
+          font-size: 11px;
+          color: #858585;
+          margin-top: 8px;
+        }
+        
+        ::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+          background: #1e1e1e;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+          background: #424242;
+          border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+          background: #4e4e4e;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>LivePlay - Current State Viewer (Development Mode)</h1>
+      </div>
+      <div class="container" id="container"></div>
+      
+      <script>
+        const collapsedSections = new Set();
+        const scrollPositions = new Map();
+        
+        function syntaxHighlight(json) {
+          json = JSON.stringify(json, null, 2);
+          json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return json.replace(/("(\\\\u[a-zA-Z0-9]{4}|\\\\[^u]|[^\\\\"])*"(\\s*:)?|\\b(true|false|null)\\b|-?\\d+(?:\\.\\d*)?(?:[eE][+\\-]?\\d+)?)/g, function (match) {
+            let cls = 'json-number';
+            if (/^"/.test(match)) {
+              if (/:$/.test(match)) {
+                cls = 'json-key';
+              } else {
+                cls = 'json-string';
+              }
+            } else if (/true|false/.test(match)) {
+              cls = 'json-boolean';
+            } else if (/null/.test(match)) {
+              cls = 'json-null';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
+          });
+        }
+        
+        function toggleSection(sectionId) {
+          const section = document.getElementById(sectionId);
+          const icon = document.getElementById(sectionId + '-icon');
+          const content = document.getElementById(sectionId + '-content');
+          
+          if (collapsedSections.has(sectionId)) {
+            collapsedSections.delete(sectionId);
+            content.classList.remove('collapsed');
+            icon.classList.remove('collapsed');
+          } else {
+            // Save scroll position before collapsing
+            scrollPositions.set(sectionId, content.scrollTop);
+            collapsedSections.add(sectionId);
+            content.classList.add('collapsed');
+            icon.classList.add('collapsed');
+          }
+        }
+        
+        function updateState(state) {
+          console.log('[State Viewer] updateState called with:', Object.keys(state));
+          const container = document.getElementById('container');
+          if (!container) {
+            console.error('[State Viewer] Container not found!');
+            return;
+          }
+          
+          const currentScroll = container.scrollTop;
+          
+          // Save scroll positions for each section
+          const sections = container.querySelectorAll('.section-content');
+          sections.forEach(section => {
+            if (section.id) {
+              scrollPositions.set(section.id, section.scrollTop);
+            }
+          });
+          
+          let html = '';
+          
+          for (const [key, value] of Object.entries(state)) {
+            const sectionId = 'section-' + key;
+            const isCollapsed = collapsedSections.has(sectionId);
+            
+            html += \`
+              <div class="state-section">
+                <div class="section-header" onclick="toggleSection('\${sectionId}')">
+                  <span>\${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</span>
+                  <span class="collapse-icon \${isCollapsed ? 'collapsed' : ''}" id="\${sectionId}-icon">▼</span>
+                </div>
+                <div class="section-content \${isCollapsed ? 'collapsed' : ''}" id="\${sectionId}-content">
+                  <pre>\${syntaxHighlight(value)}</pre>
+                  <div class="update-time">Last updated: \${new Date().toLocaleTimeString()}</div>
+                </div>
+              </div>
+            \`;
+          }
+          
+          container.innerHTML = html;
+          console.log('[State Viewer] Updated DOM with', Object.keys(state).length, 'sections');
+          
+          // Restore scroll positions
+          container.scrollTop = currentScroll;
+          scrollPositions.forEach((scrollTop, sectionId) => {
+            const section = document.getElementById(sectionId);
+            if (section) {
+              section.scrollTop = scrollTop;
+            }
+          });
+        }
+        
+        // Listen for state updates
+        window.electronAPI.onStateUpdate((event, state) => {
+          console.log('[State Viewer] Received state update:', Object.keys(state));
+          updateState(state);
+        });
+        
+        // Initial message
+        console.log('[State Viewer] Initialized, waiting for updates...');
+        updateState({
+          message: 'Waiting for state updates from main application...'
+        });
+      </script>
+    </body>
+    </html>
+  `;
+
+  stateViewerWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(stateViewerHTML));
+
+  // Make sure the window is ready before we start receiving updates
+  stateViewerWindow.webContents.once('did-finish-load', () => {
+    console.log('[Main] State viewer window loaded and ready');
+  });
+
+  stateViewerWindow.on('closed', () => {
+    stateViewerWindow = null;
+  });
 }
 
 // Translation strings for menu (default: English)
@@ -441,6 +814,14 @@ function createMenu(locale = 'en', isDev = false) {
           }))
         },
         ...(isDev ? [
+          { type: 'separator' },
+          {
+            label: 'Show Current State',
+            accelerator: 'CmdOrCtrl+Shift+D',
+            click: () => {
+              createStateViewerWindow();
+            }
+          },
           { type: 'separator' },
           { role: 'reload' },
           { role: 'forceReload' },
@@ -586,19 +967,36 @@ ipcMain.handle('open-external', async (event, url) => {
 
 // Update menu language from renderer
 ipcMain.handle('update-menu-language', async (event, locale) => {
-  const isDev = !app.isPackaged;
-  createMenu(locale, isDev);
+  createMenu(locale, isDevMode);
   return { success: true };
 });
 
 // Auto-updater IPC handlers
 ipcMain.handle('check-for-updates', async () => {
   try {
+    console.log('Manual update check requested');
     const result = await autoUpdater.checkForUpdates();
     return { success: true, updateInfo: result?.updateInfo };
   } catch (error) {
     console.error('Check for updates error:', error);
-    return { success: false, error: error.message };
+    console.log('Attempting fallback manual update check...');
+    
+    // Try fallback method
+    try {
+      const manualUpdateInfo = await checkForManualUpdate();
+      if (manualUpdateInfo) {
+        return { 
+          success: true, 
+          isManualUpdate: true,
+          updateInfo: manualUpdateInfo 
+        };
+      } else {
+        return { success: true, updateInfo: null };
+      }
+    } catch (fallbackError) {
+      console.error('Fallback update check error:', fallbackError);
+      return { success: false, error: error.message };
+    }
   }
 });
 
@@ -633,6 +1031,23 @@ ipcMain.handle('get-system-locale', () => {
 ipcMain.handle('set-current-project', async (event, projectPath) => {
   currentProject = projectPath;
   return { success: true };
+});
+
+// State viewer: Receive state updates from renderer and forward to state viewer window
+ipcMain.on('update-app-state', (event, state) => {
+  console.log('[Main] Received state update, viewer window exists:', !!stateViewerWindow);
+  if (stateViewerWindow && !stateViewerWindow.isDestroyed()) {
+    // Make sure webContents is ready
+    if (stateViewerWindow.webContents && !stateViewerWindow.webContents.isDestroyed()) {
+      console.log('[Main] Forwarding state to viewer window');
+      stateViewerWindow.webContents.send('state-update', state);
+    }
+  }
+});
+
+// Check if dev mode is enabled
+ipcMain.handle('is-dev-mode', () => {
+  return isDevMode;
 });
 
 // Check FFmpeg availability

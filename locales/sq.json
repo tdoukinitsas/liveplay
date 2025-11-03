@@ -120,10 +120,11 @@
   },
   "actions": {
     "delete": "Fshi",
-    "confirm": "A je i sigurt?",
+    "confirm": "Jeni i sigurt?",
     "close": "Mbyll",
     "play": "Luaj",
-    "edit": "Modifiko",
+    "stop": "Ndalo",
+    "edit": "Redakto",
     "remove": "Hiq"
   },
   "about": {
@@ -157,11 +158,13 @@
     "newVersion": "Versioni i Ri",
     "whatsNew": "Çfarë ka të Re",
     "updatePrompt": "Një version i ri i LivePlay është i disponueshëm. Dëshironi ta shkarkoni dhe instaloni tani?",
+    "manualUpdatePrompt": "Një version i ri i LivePlay është në dispozicion. Klikoni më poshtë për të vizituar faqen e shkarkimit.",
     "downloading": "Po shkarkohet Përditësimi",
     "downloadComplete": "Shkarkimi Përfundoi",
     "installInfo": "Përditësimi është gati për instalim. Mund ta instaloni tani ose do të instalohet kur të mbyllni aplikacionin.",
     "later": "Më vonë",
     "downloadAndInstall": "Shkarko dhe Instalo",
+    "goToDownloadPage": "Go to Download Page",
     "installNow": "Instalo Tani",
     "installOnExit": "Instalo në Dalje",
     "downloadFailed": "Shkarkimi i përditësimit dështoi"

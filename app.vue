@@ -30,6 +30,8 @@
       :new-version="updateInfo.newVersion"
       :release-notes="updateInfo.releaseNotes"
       :release-date="updateInfo.releaseDate"
+      :is-manual-update="updateInfo.isManualUpdate"
+      :download-url="updateInfo.downloadUrl"
       @close="showUpdateModal = false"
     />
   </div>
@@ -41,6 +43,9 @@ import 'material-symbols';
 const { currentProject, saveProject } = useProject();
 const { currentLocale, setLocale, getDirection } = useLocalization();
 const theme = useState('theme', () => 'dark');
+
+// Initialize state viewer for dev mode
+useStateViewer();
 
 // Color picker for accent color
 const showColorPicker = ref(false);
@@ -54,7 +59,9 @@ const updateInfo = ref({
   currentVersion: '',
   newVersion: '',
   releaseNotes: '',
-  releaseDate: ''
+  releaseDate: '',
+  isManualUpdate: false,
+  downloadUrl: ''
 });
 
 const accentColors = [
@@ -91,6 +98,12 @@ onMounted(() => {
 
     // Listen for update events
     window.electronAPI.onUpdateAvailable((event: any, info: any) => {
+      updateInfo.value = info;
+      showUpdateModal.value = true;
+    });
+    
+    // Listen for manual update events (fallback)
+    window.electronAPI.onManualUpdateAvailable((event: any, info: any) => {
       updateInfo.value = info;
       showUpdateModal.value = true;
     });

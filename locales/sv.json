@@ -123,6 +123,7 @@
     "confirm": "Är du säker?",
     "close": "Stäng",
     "play": "Spela",
+    "stop": "Stoppa",
     "edit": "Redigera",
     "remove": "Ta bort"
   },
@@ -157,11 +158,13 @@
     "newVersion": "Ny version",
     "whatsNew": "Vad är nytt",
     "updatePrompt": "En ny version av LivePlay är tillgänglig. Vill du ladda ner och installera den nu?",
+    "manualUpdatePrompt": "En ny version av LivePlay är tillgänglig. Klicka nedan för att besöka nedladdningssidan.",
     "downloading": "Laddar ner uppdatering",
     "downloadComplete": "Nedladdning slutförd",
     "installInfo": "Uppdateringen är redo att installeras. Du kan installera den nu eller så installeras den när du stänger appen.",
     "later": "Senare",
     "downloadAndInstall": "Ladda ner och installera",
+    "goToDownloadPage": "Go to Download Page",
     "installNow": "Installera nu",
     "installOnExit": "Installera vid avslut",
     "downloadFailed": "Uppdateringsnedladdningen misslyckades"

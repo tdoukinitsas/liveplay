@@ -123,6 +123,7 @@
     "confirm": "Tem certeza?",
     "close": "Fechar",
     "play": "Reproduzir",
+    "stop": "Parar",
     "edit": "Editar",
     "remove": "Remover"
   },
@@ -157,11 +158,13 @@
     "newVersion": "Nova Versão",
     "whatsNew": "Novidades",
     "updatePrompt": "Uma nova versão do LivePlay está disponível. Deseja baixar e instalar agora?",
+    "manualUpdatePrompt": "Uma nova versão do LivePlay está disponível. Clique abaixo para visitar a página de download.",
     "downloading": "Baixando Atualização",
     "downloadComplete": "Download Concluído",
     "installInfo": "A atualização está pronta para instalação. Você pode instalá-la agora ou ela será instalada quando fechar o aplicativo.",
     "later": "Mais Tarde",
     "downloadAndInstall": "Baixar e Instalar",
+    "goToDownloadPage": "Go to Download Page",
     "installNow": "Instalar Agora",
     "installOnExit": "Instalar ao Sair",
     "downloadFailed": "Falha ao baixar a atualização"

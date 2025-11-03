@@ -43,7 +43,10 @@ export const useAudioEngine = () => {
   // This allows the UI to show 0dB as "normal" while actually playing at -10dB
   // Giving us +10dB headroom for louder playback
   const applyVolumeOffset = (uiVolume: number): number => {
-    return applyVolumeOffsetUtil(uiVolume);
+    // Clamp input volume to max +10dB (3.162) to prevent issues
+    const maxVolume = Math.pow(10, 10 / 20); // +10dB = 3.162
+    const clampedVolume = Math.min(Math.max(uiVolume, 0), maxVolume);
+    return applyVolumeOffsetUtil(clampedVolume);
   };
 
   // Estimate audio level based on volume and waveform data

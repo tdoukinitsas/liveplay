@@ -486,8 +486,9 @@ const handleNormalize = () => {
     const gainDb = targetLoudness - intrinsicLoudness;
     const newVolume = Math.pow(10, gainDb / 20);
     
-    // Clamp and apply
-    const clampedVolume = Math.min(Math.max(newVolume, 0.001), 4.0);
+    // Clamp to reasonable range (0.001 to 3.162, where 3.162 = +10dB max)
+    const maxVolume = Math.pow(10, 10 / 20); // +10dB = 3.162
+    const clampedVolume = Math.min(Math.max(newVolume, 0.001), maxVolume);
     audioItem.volume = clampedVolume;
     
     normalizedCount++;

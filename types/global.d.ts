@@ -41,7 +41,7 @@ declare global {
       openExternal: (url: string) => Promise<void>;
       updateMenuLanguage: (locale: string) => Promise<{ success: boolean }>;
       getSystemLocale: () => Promise<string>;
-      checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string }>;
+      checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string; isManualUpdate?: boolean }>;
       downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
       installUpdate: () => void;
       getAppVersion: () => Promise<string>;
@@ -49,8 +49,10 @@ declare global {
       onUpdateDownloadProgress: (callback: (event: any, progress: { percent: number; transferred: number; total: number }) => void) => void;
       onUpdateDownloaded: (callback: (event: any, info: { version: string }) => void) => void;
       onUpdateError: (callback: (event: any, error: string) => void) => void;
+      onManualUpdateAvailable: (callback: (event: any, info: { currentVersion: string; newVersion: string; downloadUrl: string; isManualUpdate: boolean }) => void) => void;
       onTriggerItem: (callback: (event: any, data: any) => void) => void;
       onStopItem: (callback: (event: any, data: any) => void) => void;
+      onOpenProjectFile: (callback: (event: any, data: { filePath: string; projectData: any }) => void) => void;
     };
   }
 

@@ -123,6 +123,7 @@
     "confirm": "هل أنت متأكد؟",
     "close": "إغلاق",
     "play": "تشغيل",
+    "stop": "إيقاف",
     "edit": "تحرير",
     "remove": "إزالة"
   },
@@ -157,11 +158,13 @@
     "newVersion": "الإصدار الجديد",
     "whatsNew": "ما الجديد",
     "updatePrompt": "يتوفر إصدار جديد من LivePlay. هل تريد تنزيله وتثبيته الآن؟",
+    "manualUpdatePrompt": "يتوفر إصدار جديد من LivePlay. انقر أدناه لزيارة صفحة التنزيل.",
     "downloading": "جاري تنزيل التحديث",
     "downloadComplete": "اكتمل التنزيل",
     "installInfo": "التحديث جاهز للتثبيت. يمكنك تثبيته الآن أو سيتم تثبيته عند إغلاق التطبيق.",
     "later": "لاحقًا",
     "downloadAndInstall": "تنزيل وتثبيت",
+    "goToDownloadPage": "Go to Download Page",
     "installNow": "تثبيت الآن",
     "installOnExit": "تثبيت عند الخروج",
     "downloadFailed": "فشل تنزيل التحديث"

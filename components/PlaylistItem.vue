@@ -45,10 +45,13 @@
         
         <span class="item-index">{{ indexDisplay }}</span>
         
+        <span v-if="item.type === 'group'" class="item-icon">
+          <span class="material-symbols-rounded">folder</span>
+        </span>
+        
         <span class="item-name">{{ item.displayName }}</span>
-      </div>
-      
-      <div class="item-actions">
+
+        <div class="item-actions">
         <button class="item-btn play" @click.stop="handlePlay" :title="t('actions.play')">
           <span class="material-symbols-rounded">play_arrow</span>
         </button>
@@ -59,6 +62,11 @@
           <span class="material-symbols-rounded">delete</span>
         </button>
       </div>
+        
+        <span v-if="item.type === 'audio'" class="item-duration">{{ durationDisplay }}</span>
+      </div>
+      
+      
     </div>
     
     <div v-if="item.type === 'group' && isExpanded && item.children.length > 0" class="group-children">
@@ -94,6 +102,28 @@ const isGroupPlaying = computed(() => props.item.type === 'group' && activeGroup
 
 const indexDisplay = computed(() => {
   return props.item.index.join(',');
+});
+
+const durationDisplay = computed(() => {
+  if (props.item.type !== 'audio') return '';
+  
+  const audioItem = props.item as AudioItem;
+  // Calculate trimmed duration based on in/out points
+  const totalDuration = audioItem.duration;
+  const inPoint = audioItem.inPoint || 0;
+  const outPoint = audioItem.outPoint || totalDuration;
+  const trimmedDuration = outPoint - inPoint;
+  
+  const totalSeconds = Math.floor(trimmedDuration);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  } else {
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
 });
 
 // Draw waveform
@@ -679,6 +709,17 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   min-width: 40px;
 }
 
+.item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  
+  .material-symbols-rounded {
+    font-size: 20px;
+  }
+}
+
 .item-name {
   font-weight: 700;
   font-size: 1.5em;
@@ -688,6 +729,14 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--color-text-primary);
+}
+
+.item-duration {
+  font-size: 12px;
+  font-size: 1.5em;
+  color: var(--color-text-secondary);
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .item-actions {

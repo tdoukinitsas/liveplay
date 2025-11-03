@@ -63,7 +63,7 @@
           <span class="material-symbols-rounded">settings</span>
         </button>
         <button class="slot-btn delete" @click.stop="handleDelete" :title="t('actions.remove')">
-          <span class="material-symbols-rounded">close</span>
+          <span class="material-symbols-rounded">delete</span>
         </button>
       </div>
     </div>
@@ -810,8 +810,8 @@ const handleDrop = async (e: DragEvent) => {
     
     &.stop {
       &:hover {
-        background-color: var(--color-warning);
-        border-color: var(--color-warning);
+        background-color: var(--color-danger);
+        border-color: var(--color-danger);
       }
     }
     

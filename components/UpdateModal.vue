@@ -21,7 +21,7 @@
           </div>
 
           <p class="update-prompt">
-            {{ t('update.updatePrompt') }}
+            {{ isManualUpdate ? t('update.manualUpdatePrompt') : t('update.updatePrompt') }}
           </p>
         </div>
 
@@ -57,11 +57,18 @@
           {{ t('update.later') }}
         </button>
         <button 
-          v-if="!downloading && !downloaded" 
+          v-if="!downloading && !downloaded && !isManualUpdate" 
           class="button button-primary" 
           @click="handleDownload"
         >
           {{ t('update.downloadAndInstall') }}
+        </button>
+        <button 
+          v-if="!downloading && !downloaded && isManualUpdate" 
+          class="button button-primary" 
+          @click="handleOpenDownloadPage"
+        >
+          {{ t('update.goToDownloadPage') }}
         </button>
         <button 
           v-if="downloaded" 
@@ -88,6 +95,8 @@ const props = defineProps<{
   newVersion: string;
   releaseNotes?: string;
   releaseDate?: string;
+  isManualUpdate?: boolean;
+  downloadUrl?: string;
 }>();
 
 const emit = defineEmits<{
@@ -134,6 +143,14 @@ const handleDownload = async () => {
       error.value = result.error || t('update.downloadFailed');
       downloading.value = false;
     }
+  }
+};
+
+const handleOpenDownloadPage = async () => {
+  if (import.meta.client && window.electronAPI) {
+    const url = props.downloadUrl || 'https://tdoukinitsas.github.io/liveplay/';
+    await window.electronAPI.openExternal(url);
+    emit('close');
   }
 };
 

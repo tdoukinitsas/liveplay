@@ -123,6 +123,7 @@
     "confirm": "よろしいですか？",
     "close": "閉じる",
     "play": "再生",
+    "stop": "停止",
     "edit": "編集",
     "remove": "削除"
   },
@@ -157,11 +158,13 @@
     "newVersion": "新しいバージョン",
     "whatsNew": "更新内容",
     "updatePrompt": "LivePlayの新しいバージョンが利用可能です。今すぐダウンロードしてインストールしますか？",
+    "manualUpdatePrompt": "LivePlayの新しいバージョンが利用可能です。以下をクリックしてダウンロードページにアクセスしてください。",
     "downloading": "アップデートをダウンロード中",
     "downloadComplete": "ダウンロード完了",
     "installInfo": "アップデートのインストール準備ができました。今すぐインストールするか、アプリを閉じたときにインストールされます。",
     "later": "後で",
     "downloadAndInstall": "ダウンロードしてインストール",
+    "goToDownloadPage": "Go to Download Page",
     "installNow": "今すぐインストール",
     "installOnExit": "終了時にインストール",
     "downloadFailed": "アップデートのダウンロードに失敗しました"

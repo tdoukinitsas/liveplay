@@ -122,7 +122,8 @@
     "delete": "Supprimer",
     "confirm": "Êtes-vous sûr?",
     "close": "Fermer",
-    "play": "Lecture",
+    "play": "Lire",
+    "stop": "Arrêter",
     "edit": "Modifier",
     "remove": "Retirer"
   },
@@ -157,11 +158,13 @@
     "newVersion": "Nouvelle Version",
     "whatsNew": "Quoi de Neuf",
     "updatePrompt": "Une nouvelle version de LivePlay est disponible. Voulez-vous la télécharger et l'installer maintenant?",
+    "manualUpdatePrompt": "Une nouvelle version de LivePlay est disponible. Cliquez ci-dessous pour visiter la page de téléchargement.",
     "downloading": "Téléchargement de la Mise à Jour",
     "downloadComplete": "Téléchargement Terminé",
     "installInfo": "La mise à jour est prête à être installée. Vous pouvez l'installer maintenant ou elle sera installée lorsque vous fermerez l'application.",
     "later": "Plus Tard",
     "downloadAndInstall": "Télécharger et Installer",
+    "goToDownloadPage": "Aller à la Page de Téléchargement",
     "installNow": "Installer Maintenant",
     "installOnExit": "Installer à la Fermeture",
     "downloadFailed": "Échec du téléchargement de la mise à jour"

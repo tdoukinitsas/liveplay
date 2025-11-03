@@ -123,6 +123,7 @@
     "confirm": "Emin misiniz?",
     "close": "Kapat",
     "play": "Oynat",
+    "stop": "Durdur",
     "edit": "Düzenle",
     "remove": "Kaldır"
   },
@@ -156,12 +157,14 @@
     "currentVersion": "Mevcut Sürüm",
     "newVersion": "Yeni Sürüm",
     "whatsNew": "Yenilikler",
-    "updatePrompt": "LivePlay'in yeni bir sürümü mevcut. Şimdi indirip yüklemek ister misiniz?",
+    "updatePrompt": "LivePlay'in yeni bir sürümü mevcut. Şimdi indirmek ve yüklemek ister misiniz?",
+    "manualUpdatePrompt": "LivePlay'in yeni bir sürümü mevcut. İndirme sayfasını ziyaret etmek için aşağıya tıklayın.",
     "downloading": "Güncelleme İndiriliyor",
     "downloadComplete": "İndirme Tamamlandı",
     "installInfo": "Güncelleme yüklemeye hazır. Şimdi yükleyebilir veya uygulamayı kapattığınızda yüklenecek.",
     "later": "Sonra",
     "downloadAndInstall": "İndir ve Yükle",
+    "goToDownloadPage": "Go to Download Page",
     "installNow": "Şimdi Yükle",
     "installOnExit": "Çıkışta Yükle",
     "downloadFailed": "Güncelleme indirme başarısız oldu"

@@ -123,6 +123,7 @@
     "confirm": "آیا مطمئن هستید؟",
     "close": "بستن",
     "play": "پخش",
+    "stop": "توقف",
     "edit": "ویرایش",
     "remove": "حذف"
   },
@@ -156,12 +157,14 @@
     "currentVersion": "نسخه فعلی",
     "newVersion": "نسخه جدید",
     "whatsNew": "موارد جدید",
-    "updatePrompt": "نسخه جدیدی از LivePlay موجود است. آیا می‌خواهید آن را دانلود و نصب کنید؟",
+    "updatePrompt": "نسخه جدیدی از LivePlay موجود است. آیا می‌خواهید آن را الان دانلود و نصب کنید؟",
+    "manualUpdatePrompt": "نسخه جدیدی از LivePlay موجود است. برای بازدید از صفحه دانلود، در زیر کلیک کنید.",
     "downloading": "در حال دانلود به‌روزرسانی",
     "downloadComplete": "دانلود تکمیل شد",
     "installInfo": "به‌روزرسانی آماده نصب است. می‌توانید الان نصب کنید یا هنگام بستن برنامه نصب می‌شود.",
     "later": "بعداً",
     "downloadAndInstall": "دانلود و نصب",
+    "goToDownloadPage": "Go to Download Page",
     "installNow": "نصب الان",
     "installOnExit": "نصب هنگام خروج",
     "downloadFailed": "دانلود به‌روزرسانی ناموفق بود"

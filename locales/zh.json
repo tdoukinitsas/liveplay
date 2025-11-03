@@ -123,6 +123,7 @@
     "confirm": "您确定吗？",
     "close": "关闭",
     "play": "播放",
+    "stop": "停止",
     "edit": "编辑",
     "remove": "移除"
   },
@@ -157,11 +158,13 @@
     "newVersion": "新版本",
     "whatsNew": "更新内容",
     "updatePrompt": "有新版本的LivePlay可用。您想现在下载并安装吗？",
+    "manualUpdatePrompt": "LivePlay 有新版本可用。点击下方访问下载页面。",
     "downloading": "正在下载更新",
     "downloadComplete": "下载完成",
     "installInfo": "更新已准备好安装。您可以现在安装，或在关闭应用时安装。",
     "later": "稍后",
     "downloadAndInstall": "下载并安装",
+    "goToDownloadPage": "Go to Download Page",
     "installNow": "立即安装",
     "installOnExit": "退出时安装",
     "downloadFailed": "更新下载失败"

@@ -99,11 +99,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', callback),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
   onUpdateError: (callback) => ipcRenderer.on('update-error', callback),
+  onManualUpdateAvailable: (callback) => ipcRenderer.on('manual-update-available', callback),
 
   // API triggers
   onTriggerItem: (callback) => ipcRenderer.on('trigger-item', callback),
   onStopItem: (callback) => ipcRenderer.on('stop-item', callback),
   
   // File association - opening project files
-  onOpenProjectFile: (callback) => ipcRenderer.on('open-project-file', callback)
+  onOpenProjectFile: (callback) => ipcRenderer.on('open-project-file', callback),
+  
+  // State viewer - send state updates to main process
+  updateAppState: (state) => ipcRenderer.send('update-app-state', state),
+  
+  // Check if dev mode is enabled
+  isDevMode: () => ipcRenderer.invoke('is-dev-mode')
 });
