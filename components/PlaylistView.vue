@@ -123,6 +123,13 @@ const generateWaveformAsync = async (item: AudioItem) => {
         // Validate waveform format (duration field is optional now)
         if (waveformData.peaks && waveformData.peaks.length > 0) {
           item.waveform = waveformData;
+          
+          // Update duration from waveform data if available (more accurate than Audio API)
+          if (waveformData.duration && waveformData.duration > 0) {
+            item.duration = waveformData.duration;
+            item.outPoint = waveformData.duration;
+          }
+          
           triggerWaveformUpdate();
           console.log(`Existing waveform loaded for ${item.displayName}`);
           return;
@@ -158,12 +165,18 @@ const generateWaveformAsync = async (item: AudioItem) => {
             if (waveformData.peaks && waveformData.peaks.length > 0) {
               item.waveform = waveformData;
               
+              // Update duration from waveform data if available (more accurate than Audio API)
+              if (waveformData.duration && waveformData.duration > 0) {
+                item.duration = waveformData.duration;
+                item.outPoint = waveformData.duration;
+              }
+              
               // Force Vue reactivity update
               triggerWaveformUpdate();
               
               // Stop polling once loaded
               clearInterval(pollInterval);
-              console.log(`Waveform loaded for ${item.displayName} (${waveformData.peaks.length} peaks)`);
+              console.log(`Waveform loaded for ${item.displayName} (${waveformData.peaks.length} peaks, ${waveformData.duration?.toFixed(2)}s)`);
             }
           }
         } catch (error) {

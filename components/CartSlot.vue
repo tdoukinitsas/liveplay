@@ -281,6 +281,12 @@ const generateWaveformForItem = async (item: AudioItem) => {
             if (waveformData.peaks && waveformData.peaks.length > 0) {
               item.waveform = waveformData;
               
+              // Update duration from waveform data if available
+              if (waveformData.duration && waveformData.duration > 0) {
+                item.duration = waveformData.duration;
+                item.outPoint = waveformData.duration;
+              }
+              
               // Update the cart-only item with waveform data
               updateCartOnlyItem(item.uuid, item);
               
@@ -290,7 +296,7 @@ const generateWaveformForItem = async (item: AudioItem) => {
               
               // Stop polling once loaded
               clearInterval(pollInterval);
-              console.log(`Waveform loaded for cart slot ${props.slot + 1} (${waveformData.peaks.length} peaks)`);
+              console.log(`Waveform loaded for cart slot ${props.slot + 1} (${waveformData.peaks.length} peaks, ${waveformData.duration?.toFixed(2)}s)`);
             }
           }
         } catch (error) {
@@ -475,6 +481,12 @@ const startWaveformPolling = () => {
           const waveformData = JSON.parse(result.data);
           if (waveformData.peaks && waveformData.peaks.length > 0) {
             audioItem.waveform = waveformData;
+            
+            // Update duration from waveform data if available
+            if (waveformData.duration && waveformData.duration > 0) {
+              audioItem.duration = waveformData.duration;
+              audioItem.outPoint = waveformData.duration;
+            }
             
             // Update the cart-only item with waveform data
             updateCartOnlyItem(audioItem.uuid, audioItem);

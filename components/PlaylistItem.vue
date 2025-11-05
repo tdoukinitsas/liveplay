@@ -274,6 +274,13 @@ const startWaveformPolling = () => {
           const waveformData = JSON.parse(result.data);
           if (waveformData.peaks && waveformData.peaks.length > 0) {
             audioItem.waveform = waveformData;
+            
+            // Update duration from waveform data if available (more accurate than Audio API)
+            if (waveformData.duration && waveformData.duration > 0) {
+              audioItem.duration = waveformData.duration;
+              audioItem.outPoint = waveformData.duration;
+            }
+            
             clearInterval(waveformPollInterval!);
             waveformPollInterval = null;
             

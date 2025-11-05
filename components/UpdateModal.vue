@@ -370,7 +370,7 @@ const handleCancel = () => {
 
   &.button-secondary {
     background: transparent;
-    color: var(--color-text);
+    color: var(--color-text-secondary);
     border: 1px solid var(--color-border);
 
     &:hover {

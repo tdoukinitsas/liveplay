@@ -1165,10 +1165,11 @@ ipcMain.handle('generate-waveform', async (event, audioFilePath, outputPath) => 
               // Clean up temp file
               fs.unlinkSync(tempOutput);
               
-              // Save waveform data (without duration)
+              // Save waveform data (including duration for convenience)
               const waveformData = {
                 peaks: samples,
-                sampleRate: 10 // 10 samples per second
+                sampleRate: 10, // 10 samples per second
+                duration: duration // Include duration in seconds
               };
               
               fs.writeFileSync(outputPath, JSON.stringify(waveformData));
