@@ -11,9 +11,27 @@
     <div class="cue-content">
       <div class="cue-header">
         <span class="cue-name">{{ cue.displayName }}</span>
-        <button class="stop-btn" @click="handleStop" :title="t('actions.stop')">
-          <span class="material-symbols-rounded">stop</span>
-        </button>
+        <div class="cue-actions">
+          <button 
+            v-if="!cue.isPaused" 
+            class="action-btn pause-btn" 
+            @click="handlePause" 
+            :title="t('actions.pause')"
+          >
+            <span class="material-symbols-rounded">pause</span>
+          </button>
+          <button 
+            v-if="cue.isPaused" 
+            class="action-btn resume-btn" 
+            @click="handleResume" 
+            :title="t('actions.resume')"
+          >
+            <span class="material-symbols-rounded">play_arrow</span>
+          </button>
+          <button class="action-btn stop-btn" @click="handleStop" :title="t('actions.stop')">
+            <span class="material-symbols-rounded">stop</span>
+          </button>
+        </div>
       </div>
       
       <div class="cue-progress">
@@ -54,6 +72,7 @@ interface ActiveCueState {
   currentTime: number;
   volume: number;
   isDucked: boolean;
+  isPaused: boolean;
   originalVolume: number;
   howl?: any;
   progressInterval?: any;
@@ -68,7 +87,7 @@ const props = defineProps<{
   cue: ActiveCueState;
 }>();
 
-const { stopCue } = useAudioEngine();
+const { stopCue, pauseCue, resumeCue, seekCue } = useAudioEngine();
 const { t } = useLocalization();
 
 // Use the cue's currentTime directly (updated by the audio engine)
@@ -123,8 +142,16 @@ const handleStop = () => {
   stopCue(props.cue.uuid);
 };
 
+const handlePause = () => {
+  pauseCue(props.cue.uuid);
+};
+
+const handleResume = () => {
+  resumeCue(props.cue.uuid);
+};
+
 const handleSeek = (e: MouseEvent) => {
-  // Seeking with Howler
+  // Seeking with fade support
   if (props.cue.howl) {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -136,7 +163,8 @@ const handleSeek = (e: MouseEvent) => {
     // For trimmed items, add inPoint to get absolute position in file
     const absoluteSeekTime = relativeSeekTime + (props.cue.inPoint || 0);
     
-    props.cue.howl.seek(absoluteSeekTime);
+    // Use the audio engine's seekCue function which handles fade
+    seekCue(props.cue.uuid, absoluteSeekTime);
   }
 };
 
@@ -220,6 +248,11 @@ const formatTime = (seconds: number): string => {
   margin-bottom: var(--spacing-sm);
 }
 
+.cue-actions {
+  display: flex;
+  gap: 4px;
+}
+
 .cue-name {
   font-weight: 500;
   flex: 1;
@@ -238,17 +271,24 @@ const formatTime = (seconds: number): string => {
   -webkit-mask-image: linear-gradient(to right, black 80%, transparent 100%);
 }
 
-.stop-btn {
+.action-btn {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background-color: var(--color-danger);
   color: white;
   font-size: 20px;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  
+  &.pause-btn, &.resume-btn {
+    background-color: #ff9800; /* Orange color for pause/resume */
+  }
+  
+  &.stop-btn {
+    background-color: var(--color-danger);
+  }
   
   &:hover {
     opacity: 0.8;

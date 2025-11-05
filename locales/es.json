@@ -87,7 +87,12 @@
     "trimSilence": "Recortar Silencio",
     "normalize": "Ajustar volumen automáticamente",
     "targetUuid": "UUID de Destino",
-    "targetIndex": "Índice de Destino"
+    "targetIndex": "Índice de Destino",
+    "playFade": "Fundido de entrada al reproducir",
+    "stopFade": "Fundido de salida al detener",
+    "pauseFade": "Fundido pausar/reanudar",
+    "crossFade": "Fundido cruzado al siguiente",
+    "fadeSettings": "Configuración de fundidos"
   },
   "playback": {
     "panic": "Detener Todas las Señales",
@@ -124,6 +129,8 @@
     "close": "Cerrar",
     "play": "Reproducir",
     "stop": "Detener",
+    "pause": "Pausar",
+    "resume": "Reanudar",
     "edit": "Editar",
     "remove": "Quitar"
   },
@@ -168,5 +175,10 @@
     "installNow": "Instalar Ahora",
     "installOnExit": "Instalar al Salir",
     "downloadFailed": "Error al descargar la actualización"
+  },
+  "translationContributor": {
+    "title": "Contribuidor de Traducción",
+    "name": "AI Translated with Claude Sonnet 4.5",
+    "contributeLink": "https://www.anthropic.com/claude/sonnet"
   }
 }

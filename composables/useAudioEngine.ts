@@ -10,6 +10,7 @@ interface ActiveCueState {
   currentTime: number;
   volume: number;
   isDucked: boolean;
+  isPaused: boolean; // Track pause state
   originalVolume: number;
   duckedBy: Set<string>; // Track which cues are ducking this one
   howl: Howl;
@@ -19,6 +20,8 @@ interface ActiveCueState {
   outPoint?: number; // Store outPoint for reference
   currentLevel?: number; // Current audio level in dB (-60 to 0)
   peakLevel?: number; // Peak audio level in dB
+  stopFadeTriggered?: boolean; // Track if stop fade has been started
+  crossFadeTriggered?: boolean; // Track if crossfade has been started
 }
 
 // Active group tracking for progress indicators
@@ -258,6 +261,59 @@ export const useAudioEngine = () => {
               // Update audio levels for VU meters
               updateAudioLevels();
               
+              // Check if this is a cart item
+              const isCartItem = item.index && item.index.length > 0 && item.index[0] === -1;
+              
+              // Calculate time remaining
+              const timeRemaining = cue.duration - cue.currentTime;
+              
+              // Handle crossfade if configured (takes priority over stop fade)
+              if (!isCartItem && item.crossFade && item.crossFade > 0 && !cue.crossFadeTriggered) {
+                // Trigger crossfade when we reach the crossfade point
+                if (timeRemaining <= item.crossFade) {
+                  cue.crossFadeTriggered = true;
+                  
+                  // Start fade out of current track
+                  const currentVol = howl.volume();
+                  howl.fade(currentVol, 0, item.crossFade * 1000);
+                  
+                  // Determine next item based on end behavior
+                  let nextItem: AudioItem | null = null;
+                  const behavior = item.endBehavior;
+                  
+                  if (behavior.action === 'next') {
+                    // Play next item in the same list
+                    nextItem = getNextItem(item.index);
+                  } else if (behavior.action === 'goto-item' && behavior.targetUuid) {
+                    // Play specific item by UUID
+                    const targetItem = findItemByUuid(behavior.targetUuid);
+                    if (targetItem && targetItem.type === 'audio') {
+                      nextItem = targetItem as AudioItem;
+                    }
+                  } else if (behavior.action === 'goto-index' && behavior.targetIndex) {
+                    // Play specific item by index
+                    const targetItem = findItemByIndex(behavior.targetIndex);
+                    if (targetItem && targetItem.type === 'audio') {
+                      nextItem = targetItem as AudioItem;
+                    }
+                  }
+                  
+                  // If we have a next item, start it with fade in
+                  if (nextItem) {
+                    startCrossfadeTrack(nextItem, item.crossFade);
+                  }
+                }
+              }
+              // Handle stop fade if configured and not a cart item (only if no crossfade)
+              else if (!isCartItem && item.stopFade && item.stopFade > 0 && !cue.stopFadeTriggered) {
+                // Trigger stop fade when we reach the fade-out point
+                if (timeRemaining <= item.stopFade) {
+                  cue.stopFadeTriggered = true;
+                  const currentVol = howl.volume();
+                  howl.fade(currentVol, 0, item.stopFade * 1000);
+                }
+              }
+              
               // Safety check: if we've somehow passed the end point, stop playback
               // This shouldn't happen with sprites, but ensures clean behavior
               if (currentTime >= cue.duration) {
@@ -338,6 +394,7 @@ export const useAudioEngine = () => {
           : item.duration,
         volume: applyVolumeOffset(item.volume), // Apply -10dB offset
         isDucked: false,
+        isPaused: false, // Initialize as not paused
         originalVolume: applyVolumeOffset(item.volume), // Apply -10dB offset
         duckedBy: new Set<string>(),
         howl,
@@ -356,11 +413,30 @@ export const useAudioEngine = () => {
       // Update group progress tracking
       updateGroupProgress(item.uuid);
 
-      // Start playback (use sprite if in/out points defined)
-      if (item.inPoint || item.outPoint) {
-        howl.play('main');
+      // Check if this is a cart item (skip fades for cart items)
+      const isCartItem = item.index && item.index.length > 0 && item.index[0] === -1;
+
+      // Apply play fade if configured and not a cart item
+      if (!isCartItem && item.playFade && item.playFade > 0) {
+        // Start at zero volume
+        howl.volume(0);
+        
+        // Start playback
+        if (item.inPoint || item.outPoint) {
+          howl.play('main');
+        } else {
+          howl.play();
+        }
+        
+        // Fade in to target volume
+        howl.fade(0, applyVolumeOffset(item.volume), item.playFade * 1000);
       } else {
-        howl.play();
+        // Normal playback without fade
+        if (item.inPoint || item.outPoint) {
+          howl.play('main');
+        } else {
+          howl.play();
+        }
       }
 
       // Handle start behavior
@@ -484,11 +560,27 @@ export const useAudioEngine = () => {
     if (!import.meta.client) return;
 
     const cue = activeCues.value.get(uuid);
-    if (cue) {
+    if (cue && !cue.isPaused) {
       try {
         cue.howl.pause();
+        cue.isPaused = true;
       } catch (error) {
         console.error('Error pausing cue:', error);
+      }
+    }
+  };
+
+  // Resume a paused cue
+  const resumeCue = async (uuid: string) => {
+    if (!import.meta.client) return;
+
+    const cue = activeCues.value.get(uuid);
+    if (cue && cue.isPaused) {
+      try {
+        cue.howl.play();
+        cue.isPaused = false;
+      } catch (error) {
+        console.error('Error resuming cue:', error);
       }
     }
   };
@@ -611,6 +703,210 @@ export const useAudioEngine = () => {
       } else if (nextItem.type === 'group') {
         triggerGroup(nextItem);
       }
+    }
+  };
+
+  // Get next audio item without triggering it
+  const getNextItem = (currentIndex: number[]): AudioItem | null => {
+    const nextIndex = [...currentIndex];
+    nextIndex[nextIndex.length - 1]++;
+
+    const nextItem = findItemByIndex(nextIndex);
+    if (nextItem && nextItem.type === 'audio') {
+      return nextItem as AudioItem;
+    }
+    return null;
+  };
+
+  // Start a track with crossfade (fade in over specified duration)
+  const startCrossfadeTrack = async (item: AudioItem, crossfadeDuration: number) => {
+    try {
+      if (!import.meta.client || !currentProject.value) return;
+
+      // Check if already playing
+      if (activeCues.value.has(item.uuid)) {
+        console.warn('Cue already playing:', item.uuid);
+        return;
+      }
+
+      const audioPath = `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
+      const fileUrl = 'file:///' + audioPath.replace(/\\/g, '/');
+      
+      // Create Howler instance (simplified version of playCue)
+      const howl = new Howl({
+        src: [fileUrl],
+        html5: true,
+        volume: 0, // Start at zero for crossfade
+        loop: item.endBehavior.action === 'loop',
+        sprite: item.inPoint || item.outPoint ? {
+          main: [
+            (item.inPoint || 0) * 1000,
+            ((item.outPoint || item.duration) - (item.inPoint || 0)) * 1000
+          ]
+        } : undefined,
+        onload: () => {
+          const cue = activeCues.value.get(item.uuid);
+          if (cue) {
+            cue.duration = item.inPoint || item.outPoint 
+              ? (item.outPoint || item.duration) - (item.inPoint || 0)
+              : howl.duration();
+            
+            // Start progress tracking (same as playCue)
+            cue.progressInterval = setInterval(() => {
+              if (!activeCues.value.has(item.uuid)) {
+                clearInterval(cue.progressInterval);
+                return;
+              }
+              
+              const absoluteTime = howl.seek() as number;
+              const inPoint = item.inPoint || 0;
+              const currentTime = absoluteTime - inPoint;
+              cue.currentTime = Math.max(0, Math.min(currentTime, cue.duration));
+              
+              updateAudioLevels();
+              
+              const isCartItem = item.index && item.index.length > 0 && item.index[0] === -1;
+              const timeRemaining = cue.duration - cue.currentTime;
+              
+              // Handle crossfade for this track too
+              if (!isCartItem && item.crossFade && item.crossFade > 0 && !cue.crossFadeTriggered) {
+                if (timeRemaining <= item.crossFade) {
+                  cue.crossFadeTriggered = true;
+                  const currentVol = howl.volume();
+                  howl.fade(currentVol, 0, item.crossFade * 1000);
+                  
+                  let nextItem: AudioItem | null = null;
+                  const behavior = item.endBehavior;
+                  
+                  if (behavior.action === 'next') {
+                    nextItem = getNextItem(item.index);
+                  } else if (behavior.action === 'goto-item' && behavior.targetUuid) {
+                    const targetItem = findItemByUuid(behavior.targetUuid);
+                    if (targetItem && targetItem.type === 'audio') {
+                      nextItem = targetItem as AudioItem;
+                    }
+                  } else if (behavior.action === 'goto-index' && behavior.targetIndex) {
+                    const targetItem = findItemByIndex(behavior.targetIndex);
+                    if (targetItem && targetItem.type === 'audio') {
+                      nextItem = targetItem as AudioItem;
+                    }
+                  }
+                  
+                  if (nextItem) {
+                    startCrossfadeTrack(nextItem, item.crossFade);
+                  }
+                }
+              }
+              else if (!isCartItem && item.stopFade && item.stopFade > 0 && !cue.stopFadeTriggered) {
+                if (timeRemaining <= item.stopFade) {
+                  cue.stopFadeTriggered = true;
+                  const currentVol = howl.volume();
+                  howl.fade(currentVol, 0, item.stopFade * 1000);
+                }
+              }
+              
+              if (currentTime >= cue.duration) {
+                howl.stop();
+                clearInterval(cue.progressInterval);
+                return;
+              }
+              
+              const parentGroup = findParentGroup(item.uuid);
+              if (parentGroup) {
+                const groupState = activeGroups.value.get(parentGroup.uuid);
+                if (groupState) {
+                  let accumulatedTime = 0;
+                  for (let i = 0; i < groupState.currentItemIndex; i++) {
+                    const uuid = groupState.playbackChain[i];
+                    const prevItem = findItemByUuid(uuid);
+                    if (prevItem && prevItem.type === 'audio') {
+                      const audioItem = prevItem as AudioItem;
+                      accumulatedTime += audioItem.outPoint - audioItem.inPoint;
+                    }
+                  }
+                  groupState.currentTime = accumulatedTime + currentTime;
+                }
+              }
+            }, 100);
+          }
+        },
+        onend: () => {
+          const cue = activeCues.value.get(item.uuid);
+          
+          if (item.endBehavior.action !== 'loop') {
+            if (cue && cue.progressInterval) {
+              clearInterval(cue.progressInterval);
+            }
+            activeCues.value.delete(item.uuid);
+            restoreDuckedVolumes(item.uuid);
+            
+            const parentGroup = findParentGroup(item.uuid);
+            if (parentGroup) {
+              const groupState = activeGroups.value.get(parentGroup.uuid);
+              if (groupState) {
+                const itemIndex = groupState.playbackChain.indexOf(item.uuid);
+                if (itemIndex === groupState.playbackChain.length - 1) {
+                  stopGroupTracking(parentGroup.uuid);
+                }
+              }
+            }
+            
+            handleEndBehavior(item);
+          }
+        },
+        onloaderror: (id, error) => {
+          console.error('Error loading audio:', error);
+          activeCues.value.delete(item.uuid);
+        },
+        onplayerror: (id, error) => {
+          console.error('Error playing audio:', error);
+          activeCues.value.delete(item.uuid);
+        }
+      });
+
+      // Create active cue state
+      const activeCue: ActiveCueState = {
+        uuid: item.uuid,
+        displayName: item.displayName,
+        currentTime: 0,
+        duration: item.inPoint || item.outPoint 
+          ? (item.outPoint || item.duration) - (item.inPoint || 0)
+          : item.duration,
+        volume: applyVolumeOffset(item.volume),
+        isDucked: false,
+        isPaused: false,
+        originalVolume: applyVolumeOffset(item.volume),
+        duckedBy: new Set<string>(),
+        howl,
+        color: item.color,
+        inPoint: item.inPoint,
+        outPoint: item.outPoint,
+        currentLevel: -60,
+        peakLevel: -60
+      };
+
+      activeCues.value.set(item.uuid, activeCue);
+
+      // Apply ducking before playback
+      applyDucking(item.uuid, item.duckingBehavior);
+      updateGroupProgress(item.uuid);
+
+      // Start playback and fade in (ignoring item's playFade, use crossfade duration)
+      if (item.inPoint || item.outPoint) {
+        howl.play('main');
+      } else {
+        howl.play();
+      }
+      
+      // Fade in to target volume over crossfade duration
+      howl.fade(0, applyVolumeOffset(item.volume), crossfadeDuration * 1000);
+
+      // Handle start behavior
+      handleStartBehavior(item);
+      scheduleCustomActions(item);
+
+    } catch (error) {
+      console.error('Error starting crossfade track:', error);
     }
   };
 
@@ -930,6 +1226,20 @@ export const useAudioEngine = () => {
     }
   };
 
+  // Seek to a position (simple version without fade)
+  const seekCue = async (uuid: string, absoluteTime: number) => {
+    if (!import.meta.client) return;
+
+    const cue = activeCues.value.get(uuid);
+    if (cue) {
+      try {
+        cue.howl.seek(absoluteTime);
+      } catch (error) {
+        console.error('Error seeking cue:', error);
+      }
+    }
+  };
+
   return {
     activeCues,
     activeGroups,
@@ -940,6 +1250,8 @@ export const useAudioEngine = () => {
     stopAllCues,
     panicStop,
     pauseCue,
+    resumeCue,
+    seekCue,
     triggerByUuid,
     triggerByIndex,
     triggerGroup

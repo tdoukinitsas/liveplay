@@ -87,7 +87,12 @@
     "trimSilence": "無音部分をトリミング",
     "normalize": "音量を自動調整",
     "targetUuid": "ターゲットUUID",
-    "targetIndex": "ターゲットインデックス"
+    "targetIndex": "ターゲットインデックス",
+    "playFade": "再生フェードイン",
+    "stopFade": "停止フェードアウト",
+    "pauseFade": "一時停止/再開フェード",
+    "crossFade": "次へクロスフェード",
+    "fadeSettings": "フェード設定"
   },
   "playback": {
     "panic": "すべての信号を停止",
@@ -124,6 +129,8 @@
     "close": "閉じる",
     "play": "再生",
     "stop": "停止",
+    "pause": "一時停止",
+    "resume": "再開",
     "edit": "編集",
     "remove": "削除"
   },
@@ -168,5 +175,10 @@
     "installNow": "今すぐインストール",
     "installOnExit": "終了時にインストール",
     "downloadFailed": "アップデートのダウンロードに失敗しました"
+  },
+  "translationContributor": {
+    "title": "翻訳協力者",
+    "name": "AI Translated with Claude Sonnet 4.5",
+    "contributeLink": "https://www.anthropic.com/claude/sonnet"
   }
 }

@@ -87,7 +87,12 @@
     "trimSilence": "Sessizliği Kes",
     "normalize": "Ses seviyesini otomatik ayarla",
     "targetUuid": "Hedef UUID",
-    "targetIndex": "Hedef Dizin"
+    "targetIndex": "Hedef Dizin",
+    "playFade": "Oynatmada Kademeli Başlangıç",
+    "stopFade": "Durdurma Kademeli Bitiş",
+    "pauseFade": "Duraklat/Devam Et Solması",
+    "crossFade": "Sonrakine Çapraz Solma",
+    "fadeSettings": "Solma Ayarları"
   },
   "playback": {
     "panic": "Tüm Sinyalleri Durdur",
@@ -124,6 +129,8 @@
     "close": "Kapat",
     "play": "Oynat",
     "stop": "Durdur",
+    "pause": "Duraklat",
+    "resume": "Devam Et",
     "edit": "Düzenle",
     "remove": "Kaldır"
   },
@@ -168,5 +175,10 @@
     "installNow": "Şimdi Yükle",
     "installOnExit": "Çıkışta Yükle",
     "downloadFailed": "Güncelleme indirme başarısız oldu"
+  },
+  "translationContributor": {
+    "title": "Çeviri Katkıda Bulunan",
+    "name": "AI Translated with Claude Sonnet 4.5",
+    "contributeLink": "https://www.anthropic.com/claude/sonnet"
   }
 }

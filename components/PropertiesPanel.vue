@@ -1,7 +1,7 @@
 <template>
   <div class="properties-panel">
     <div class="properties-header">
-      <h3>{{ t('properties.title') }}</h3>
+      <h3>{{ t('properties.title') }}: {{ selectedItem?.displayName || '' }}</h3>
       <button class="close-btn" @click="handleClose">
         <span class="material-symbols-rounded">close</span>
       </button>
@@ -98,8 +98,12 @@
           @update:volume="(v) => { audioItem.volume = v; }"
           @update:in-point="(v) => { audioItem.inPoint = v; }"
           @update:out-point="(v) => { audioItem.outPoint = v; }"
+          @update:play-fade="handlePlayFadeUpdate"
+          @update:stop-fade="handleStopFadeUpdate"
+          @update:cross-fade="handleCrossFadeUpdate"
           @change="handleSave"
           @normalize="handleNormalize"
+          @trim-silence="handleTrimSilence"
         />
         <div v-else class="loading-message">
           <span class="material-symbols-rounded">pending</span>
@@ -213,6 +217,15 @@ const { t } = useLocalization();
 
 const audioItem = computed(() => selectedItem.value as AudioItem);
 const groupItem = computed(() => selectedItem.value as GroupItem);
+
+// Check if selected item is a cart item
+const isCartItem = computed(() => {
+  if (selectedItem.value && selectedItem.value.type === 'audio') {
+    const item = selectedItem.value as AudioItem;
+    return item.index && item.index.length > 0 && item.index[0] === -1;
+  }
+  return false;
+});
 
 // Tab management
 const activeTab = ref('basic');
@@ -453,7 +466,13 @@ const handleSave = async () => {
 
 // Handle normalize: normalize ALL selected audio items individually
 const handleNormalize = () => {
-  const items = getSelectedItems();
+  let items = getSelectedItems();
+  
+  // Fallback to selectedItem if no items in selectedItems set (shouldn't happen now, but safe)
+  if (items.length === 0 && selectedItem.value) {
+    items = [selectedItem.value];
+  }
+  
   const targetLoudness = -10; // Our "0dB" with headroom
   
   let normalizedCount = 0;
@@ -499,6 +518,103 @@ const handleNormalize = () => {
     saveProject();
     console.log(`Normalized ${normalizedCount} item(s)`);
   }
+};
+
+// Handle trim silence: trim ALL selected audio items individually
+const handleTrimSilence = () => {
+  let items = getSelectedItems();
+  
+  // Fallback to selectedItem if no items in selectedItems set (shouldn't happen now, but safe)
+  if (items.length === 0 && selectedItem.value) {
+    items = [selectedItem.value];
+  }
+  
+  const padding = 0.1; // Padding in seconds
+  
+  let trimmedCount = 0;
+  
+  items.forEach(item => {
+    if (item.type !== 'audio') return;
+    
+    const audioItem = item as AudioItem;
+    
+    // Skip if no waveform data
+    if (!audioItem.waveform || !audioItem.waveform.peaks || audioItem.waveform.peaks.length === 0) {
+      console.warn(`Skipping ${audioItem.displayName}: no waveform data`);
+      return;
+    }
+    
+    const peaks = audioItem.waveform.peaks;
+    const duration = audioItem.duration;
+    
+    // Find the maximum peak value to calculate relative threshold
+    const maxPeak = Math.max(...peaks);
+    
+    // Use 5% of max peak as threshold (more sensitive to actual silence)
+    const threshold = maxPeak * 0.05;
+    
+    // Find first non-silent sample from start
+    let startIndex = 0;
+    for (let i = 0; i < peaks.length; i++) {
+      if (peaks[i] > threshold) {
+        startIndex = i;
+        break;
+      }
+    }
+    
+    // Find first non-silent sample from end
+    let endIndex = peaks.length - 1;
+    for (let i = peaks.length - 1; i >= 0; i--) {
+      if (peaks[i] > threshold) {
+        endIndex = i;
+        break;
+      }
+    }
+    
+    // Convert indices to time
+    const newInPoint = (startIndex / peaks.length) * duration;
+    const newOutPoint = ((endIndex + 1) / peaks.length) * duration;
+    
+    // Apply with padding
+    audioItem.inPoint = Math.max(0, newInPoint - padding);
+    audioItem.outPoint = Math.min(duration, newOutPoint + padding);
+    
+    trimmedCount++;
+    console.log(`Trimmed ${audioItem.displayName}: maxPeak=${maxPeak.toFixed(3)}, threshold=${threshold.toFixed(3)}, ${newInPoint.toFixed(2)}s - ${newOutPoint.toFixed(2)}s`);
+  });
+  
+  if (trimmedCount > 0) {
+    saveProject();
+    console.log(`Trimmed ${trimmedCount} item(s)`);
+  }
+};
+
+// Handle fade updates: apply to ALL selected audio items
+const handlePlayFadeUpdate = (value: number) => {
+  const items = getSelectedItems();
+  items.forEach(item => {
+    if (item.type === 'audio') {
+      (item as AudioItem).playFade = value;
+    }
+  });
+};
+
+const handleStopFadeUpdate = (value: number) => {
+  const items = getSelectedItems();
+  items.forEach(item => {
+    if (item.type === 'audio') {
+      (item as AudioItem).stopFade = value;
+    }
+  });
+};
+
+const handleCrossFadeUpdate = (value: number) => {
+  const items = getSelectedItems();
+  items.forEach(item => {
+    if (item.type === 'audio') {
+      (item as AudioItem).crossFade = value;
+    }
+  });
 };
 
 const handleReplaceMedia = async () => {
@@ -605,7 +721,7 @@ const formatTime = (seconds: number): string => {
   }
   
   &:hover {
-    color: var(--color-text);
+    color: var(--color-text-primary);
     background-color: var(--color-surface-hover);
   }
   
@@ -788,3 +904,5 @@ const formatTime = (seconds: number): string => {
   }
 }
 </style>
+
+

@@ -87,7 +87,12 @@
     "trimSilence": "Обрезать тишину",
     "normalize": "Автоматическая настройка громкости",
     "targetUuid": "Целевой UUID",
-    "targetIndex": "Целевой индекс"
+    "targetIndex": "Целевой индекс",
+    "playFade": "Плавное появление при воспроизведении",
+    "stopFade": "Плавное затухание при остановке",
+    "pauseFade": "Затухание паузы/возобновления",
+    "crossFade": "Перекрёстное затухание к следующему",
+    "fadeSettings": "Настройки затухания"
   },
   "playback": {
     "panic": "Остановить все сигналы",
@@ -124,6 +129,8 @@
     "close": "Закрыть",
     "play": "Воспроизвести",
     "stop": "Остановить",
+    "pause": "Пауза",
+    "resume": "Возобновить",
     "edit": "Редактировать",
     "remove": "Убрать"
   },
@@ -168,5 +175,10 @@
     "installNow": "Установить сейчас",
     "installOnExit": "Установить при выходе",
     "downloadFailed": "Не удалось загрузить обновление"
+  },
+  "translationContributor": {
+    "title": "Автор перевода",
+    "name": "AI Translated with Claude Sonnet 4.5",
+    "contributeLink": "https://www.anthropic.com/claude/sonnet"
   }
 }

@@ -87,7 +87,12 @@
     "trimSilence": "Κόψιμο Σιωπής",
     "normalize": "Αυτόματη ρύθμιση έντασης",
     "targetUuid": "Στόχος UUID",
-    "targetIndex": "Ευρετήριο Στόχου"
+    "targetIndex": "Ευρετήριο Στόχου",
+    "playFade": "Fade In Αναπαραγωγής",
+    "stopFade": "Fade Out Διακοπής",
+    "pauseFade": "Fade Παύσης/Συνέχισης",
+    "crossFade": "Cross-fade στο Επόμενο",
+    "fadeSettings": "Ρυθμίσεις Fade"
   },
   "playback": {
     "panic": "Σταματημα Όλων",
@@ -124,6 +129,8 @@
     "close": "Κλείσιμο",
     "play": "Αναπαραγωγή",
     "stop": "Σταμάτημα",
+    "pause": "Παύση",
+    "resume": "Συνέχιση",
     "edit": "Επεξεργασία",
     "remove": "Αφαίρεση"
   },
@@ -168,5 +175,10 @@
     "installNow": "Εγκατάσταση Τώρα",
     "installOnExit": "Εγκατάσταση Κατά την Έξοδο",
     "downloadFailed": "Η λήψη της ενημέρωσης απέτυχε"
+  },
+  "translationContributor": {
+    "title": "Μετάφραση",
+    "name": "Θωμάς Δουκινίτσας",
+    "contributeLink": "www.doukinitsas.info"
   }
 }

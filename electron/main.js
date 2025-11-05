@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, protocol } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -140,7 +140,7 @@ let stateViewerWindow = null; // Debug state viewer window
 const isDevMode = process.argv.includes('--dev') || !app.isPackaged;
 
 // API Server Setup
-function startAPIServer(port = 8080) {
+function startAPIServer(port = 8080, maxAttempts = 10) {
   const apiApp = express();
   apiApp.use(express.json());
 
@@ -187,9 +187,26 @@ function startAPIServer(port = 8080) {
     }
   });
 
-  apiServer = apiApp.listen(port, () => {
-    console.log(`LivePlay API Server running on http://localhost:${port}`);
-  });
+  // Try to start server, incrementing port if already in use
+  const tryListen = (currentPort, attemptsLeft) => {
+    const server = apiApp.listen(currentPort)
+      .on('listening', () => {
+        apiServer = server;
+        console.log(`LivePlay API Server running on http://localhost:${currentPort}`);
+      })
+      .on('error', (err) => {
+        if (err.code === 'EADDRINUSE' && attemptsLeft > 0) {
+          console.log(`Port ${currentPort} is in use, trying ${currentPort + 1}...`);
+          tryListen(currentPort + 1, attemptsLeft - 1);
+        } else if (err.code === 'EADDRINUSE') {
+          console.error(`Failed to start API server after ${maxAttempts} attempts. Ports ${port}-${currentPort} are all in use.`);
+        } else {
+          console.error('Failed to start API server:', err);
+        }
+      });
+  };
+
+  tryListen(port, maxAttempts - 1);
 }
 
 // Configure auto-updater
@@ -675,29 +692,39 @@ function createStateViewerWindow() {
 }
 
 // Translation strings for menu (default: English)
-// Load all locale files dynamically
-const localeFiles = {
-  en: require('../locales/en.json'),
-  el: require('../locales/el.json'),
-  fr: require('../locales/fr.json'),
-  es: require('../locales/es.json'),
-  it: require('../locales/it.json'),
-  pt: require('../locales/pt.json'),
-  ar: require('../locales/ar.json'),
-  fa: require('../locales/fa.json'),
-  de: require('../locales/de.json'),
-  sv: require('../locales/sv.json'),
-  no: require('../locales/no.json'),
-  ru: require('../locales/ru.json'),
-  ja: require('../locales/ja.json'),
-  zh: require('../locales/zh.json'),
-  hi: require('../locales/hi.json'),
-  bn: require('../locales/bn.json'),
-  tr: require('../locales/tr.json'),
-  ko: require('../locales/ko.json'),
-  sq: require('../locales/sq.json'),
-  ur: require('../locales/ur.json')
-};
+// Dynamically load all locale files from the locales directory
+function loadLocaleFiles() {
+  const localesDir = path.join(__dirname, '../locales');
+  const localeFiles = {};
+  
+  try {
+    // Read all files in the locales directory
+    const files = fs.readdirSync(localesDir);
+    
+    // Filter for JSON files and load them
+    files.forEach(file => {
+      if (file.endsWith('.json')) {
+        const code = file.replace('.json', '');
+        try {
+          localeFiles[code] = require(path.join(localesDir, file));
+          console.log(`Loaded locale: ${code}`);
+        } catch (error) {
+          console.error(`Failed to load locale ${code}:`, error);
+        }
+      }
+    });
+    
+    console.log(`Loaded ${Object.keys(localeFiles).length} locale files`);
+  } catch (error) {
+    console.error('Failed to read locales directory:', error);
+    // Fallback to English if directory read fails
+    localeFiles.en = require('../locales/en.json');
+  }
+  
+  return localeFiles;
+}
+
+const localeFiles = loadLocaleFiles();
 
 // Build menu translations from locale files
 const menuTranslations = Object.entries(localeFiles).reduce((acc, [code, data]) => {
@@ -1028,6 +1055,24 @@ ipcMain.handle('get-system-locale', () => {
   return languageCode;
 });
 
+ipcMain.handle('get-available-locales', () => {
+  // Return list of available locale codes and metadata
+  return Object.keys(localeFiles).map(code => ({
+    code,
+    name: localeFiles[code]._metadata.nativeName,
+    direction: localeFiles[code]._metadata.direction
+  }));
+});
+
+ipcMain.handle('get-locale-data', (event, localeCode) => {
+  // Return the full locale data for a specific locale
+  if (localeCode in localeFiles) {
+    return localeFiles[localeCode];
+  }
+  // Fallback to English if locale not found
+  return localeFiles.en;
+});
+
 ipcMain.handle('set-current-project', async (event, projectPath) => {
   currentProject = projectPath;
   return { success: true };
@@ -1035,7 +1080,7 @@ ipcMain.handle('set-current-project', async (event, projectPath) => {
 
 // State viewer: Receive state updates from renderer and forward to state viewer window
 ipcMain.on('update-app-state', (event, state) => {
-  console.log('[Main] Received state update, viewer window exists:', !!stateViewerWindow);
+  //console.log('[Main] Received state update, viewer window exists:', !!stateViewerWindow);
   if (stateViewerWindow && !stateViewerWindow.isDestroyed()) {
     // Make sure webContents is ready
     if (stateViewerWindow.webContents && !stateViewerWindow.webContents.isDestroyed()) {
@@ -1120,17 +1165,16 @@ ipcMain.handle('generate-waveform', async (event, audioFilePath, outputPath) => 
               // Clean up temp file
               fs.unlinkSync(tempOutput);
               
-              // Save waveform data with duration
+              // Save waveform data (without duration)
               const waveformData = {
                 peaks: samples,
-                duration: duration,
                 sampleRate: 10 // 10 samples per second
               };
               
               fs.writeFileSync(outputPath, JSON.stringify(waveformData));
               console.log('Waveform generated successfully:', samples.length, 'samples @10/sec for', duration.toFixed(2), 'seconds');
               
-              resolve({ success: true, duration: duration });
+              resolve({ success: true });
             } else {
               reject(new Error('Temporary audio file not created'));
             }
@@ -1374,31 +1418,55 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
   });
 });
 
-app.whenReady().then(async () => {
-  // Check and setup ffmpeg before creating window
-  const ffmpegReady = await checkAndSetupFfmpeg();
-  
-  createWindow();
-  
-  // If a file was opened before the app was ready, open it now
-  if (fileToOpen && mainWindow) {
-    mainWindow.once('ready-to-show', () => {
-      openFile(fileToOpen);
-      fileToOpen = null;
-    });
+// Register custom protocol for app
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('liveplay', process.execPath, [path.resolve(process.argv[1])]);
   }
-  
-  // If ffmpeg is not available, prompt user after window is shown
-  if (!ffmpegReady && mainWindow) {
-    mainWindow.once('ready-to-show', async () => {
-      const shouldContinue = await promptFfmpegInstallation(mainWindow);
-      if (shouldContinue) {
-        // Try setup again with bundled version
-        await checkAndSetupFfmpeg();
-      }
-    });
-  }
-});
+} else {
+  app.setAsDefaultProtocolClient('liveplay');
+}
+
+// For Windows, we need to handle the protocol differently
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine) => {
+    // Someone tried to run a second instance, we should focus our window
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+
+  app.whenReady().then(async () => {
+    // Check and setup ffmpeg before creating window
+    const ffmpegReady = await checkAndSetupFfmpeg();
+    
+    createWindow();
+    
+    // If a file was opened before the app was ready, open it now
+    if (fileToOpen && mainWindow) {
+      mainWindow.once('ready-to-show', () => {
+        openFile(fileToOpen);
+        fileToOpen = null;
+      });
+    }
+    
+    // If ffmpeg is not available, prompt user after window is shown
+    if (!ffmpegReady && mainWindow) {
+      mainWindow.once('ready-to-show', async () => {
+        const shouldContinue = await promptFfmpegInstallation(mainWindow);
+        if (shouldContinue) {
+          // Try setup again with bundled version
+          await checkAndSetupFfmpeg();
+        }
+      });
+    }
+  });
+}
 
 // Handle file opening on Windows/Linux (when file is double-clicked)
 app.on('open-file', (event, filePath) => {

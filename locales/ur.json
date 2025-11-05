@@ -87,7 +87,12 @@
     "trimSilence": "خاموشی تراشیں",
     "normalize": "خودکار طور پر والیوم ایڈجسٹ کریں",
     "targetUuid": "ہدف UUID",
-    "targetIndex": "ہدف انڈیکس"
+    "targetIndex": "ہدف انڈیکس",
+    "playFade": "پلے فیڈ ان",
+    "stopFade": "اسٹاپ فیڈ آؤٹ",
+    "pauseFade": "پاز/ریزیوم فیڈ",
+    "crossFade": "اگلے میں کراس فیڈ",
+    "fadeSettings": "فیڈ سیٹنگز"
   },
   "playback": {
     "panic": "تمام سگنلز روکیں",
@@ -124,6 +129,8 @@
     "close": "بند کریں",
     "play": "چلائیں",
     "stop": "روکیں",
+    "pause": "روکیں",
+    "resume": "دوبارہ شروع کریں",
     "edit": "ترمیم کریں",
     "remove": "ہٹائیں"
   },
@@ -168,5 +175,10 @@
     "installNow": "ابھی انسٹال کریں",
     "installOnExit": "باہر نکلتے وقت انسٹال کریں",
     "downloadFailed": "اپ ڈیٹ ڈاؤن لوڈ ناکام ہو گیا"
+  },
+  "translationContributor": {
+    "title": "ترجمہ معاون",
+    "name": "AI Translated with Claude Sonnet 4.5",
+    "contributeLink": "https://www.anthropic.com/claude/sonnet"
   }
 }

@@ -52,7 +52,28 @@
         <span class="item-name">{{ item.displayName }}</span>
 
         <div class="item-actions">
-        <button class="item-btn play" @click.stop="handlePlay" :title="t('actions.play')">
+        <button 
+          v-if="!isPlaying"
+          class="item-btn play" 
+          @click.stop="handlePlay" 
+          :title="t('actions.play')"
+        >
+          <span class="material-symbols-rounded">play_arrow</span>
+        </button>
+        <button 
+          v-if="isPlaying && !isPaused" 
+          class="item-btn pause" 
+          @click.stop="handlePause" 
+          :title="t('actions.pause')"
+        >
+          <span class="material-symbols-rounded">pause</span>
+        </button>
+        <button 
+          v-if="isPlaying && isPaused" 
+          class="item-btn resume" 
+          @click.stop="handleResume" 
+          :title="t('actions.resume')"
+        >
           <span class="material-symbols-rounded">play_arrow</span>
         </button>
         <button class="item-btn stop" @click.stop="handleStop" :title="t('actions.stop')" v-if="isPlaying">
@@ -89,7 +110,7 @@ const props = defineProps<{
 }>();
 
 const { selectedItem, selectedItems, toggleItemSelection, removeItem, findItemByUuid, currentProject, waveformUpdateKey } = useProject();
-const { playCue, stopCue, activeCues, activeGroups, triggerGroup } = useAudioEngine();
+const { playCue, stopCue, pauseCue, resumeCue, activeCues, activeGroups, triggerGroup } = useAudioEngine();
 const { t } = useLocalization();
 
 const isExpanded = ref(props.item.type === 'group' ? props.item.isExpanded : false);
@@ -98,6 +119,10 @@ const dragPosition = ref<'top' | 'bottom' | 'group' | null>(null);
 
 const isSelected = computed(() => selectedItems.value.has(props.item.uuid));
 const isPlaying = computed(() => activeCues.value.has(props.item.uuid));
+const isPaused = computed(() => {
+  const cue = activeCues.value.get(props.item.uuid);
+  return cue?.isPaused || false;
+});
 const isGroupPlaying = computed(() => props.item.type === 'group' && activeGroups.value.has(props.item.uuid));
 
 const indexDisplay = computed(() => {
@@ -247,18 +272,22 @@ const startWaveformPolling = () => {
         const result = await window.electronAPI.readFile(audioItem.waveformPath);
         if (result.success && result.data) {
           const waveformData = JSON.parse(result.data);
-          if (waveformData.peaks && waveformData.peaks.length && waveformData.duration) {
+          if (waveformData.peaks && waveformData.peaks.length > 0) {
             audioItem.waveform = waveformData;
             clearInterval(waveformPollInterval!);
             waveformPollInterval = null;
+            
+            // Force reactivity update
+            triggerWaveformUpdate();
             nextTick(drawWaveform);
+            console.log(`Waveform polling found data for ${audioItem.displayName}`);
           }
         }
       } catch (error) {
         // Silently ignore, will retry on next poll
       }
     }
-  }, 3000); // Poll every 3 seconds
+  }, 2000); // Poll every 2 seconds
   
   // Stop polling after 30 seconds
   setTimeout(() => {
@@ -394,6 +423,14 @@ const handlePlay = () => {
 
 const handleStop = () => {
   stopCue(props.item.uuid);
+};
+
+const handlePause = () => {
+  pauseCue(props.item.uuid);
+};
+
+const handleResume = () => {
+  resumeCue(props.item.uuid);
 };
 
 const handleDelete = () => {
@@ -762,6 +799,15 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   
   &.play {
     background-color: var(--color-success);
+    color: white;
+    
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+  
+  &.pause, &.resume {
+    background-color: #ff9800; /* Orange color for pause/resume */
     color: white;
     
     &:hover {

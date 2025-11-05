@@ -120,9 +120,11 @@ const generateWaveformAsync = async (item: AudioItem) => {
       try {
         const waveformData = JSON.parse(existingWaveform.data);
         
-        // Validate waveform format
-        if (waveformData.peaks && waveformData.peaks.length && waveformData.duration) {
+        // Validate waveform format (duration field is optional now)
+        if (waveformData.peaks && waveformData.peaks.length > 0) {
           item.waveform = waveformData;
+          triggerWaveformUpdate();
+          console.log(`Existing waveform loaded for ${item.displayName}`);
           return;
         }
         console.warn('Invalid waveform format, regenerating...');
@@ -143,15 +145,17 @@ const generateWaveformAsync = async (item: AudioItem) => {
     const result = await window.electronAPI.generateWaveform(mediaPath, item.waveformPath);
     
     if (result.success) {
-      // Start polling for waveform file (check every 3 seconds)
+      console.log(`Started waveform generation for ${item.displayName}`);
+      
+      // Start polling for waveform file (check every 2 seconds)
       const pollInterval = setInterval(async () => {
         try {
           const waveformFile = await window.electronAPI.readFile(item.waveformPath);
           if (waveformFile.success && waveformFile.data) {
             const waveformData = JSON.parse(waveformFile.data);
             
-            // Validate waveform format
-            if (waveformData.peaks && waveformData.peaks.length && waveformData.duration) {
+            // Validate waveform format (duration field is optional)
+            if (waveformData.peaks && waveformData.peaks.length > 0) {
               item.waveform = waveformData;
               
               // Force Vue reactivity update
@@ -159,13 +163,13 @@ const generateWaveformAsync = async (item: AudioItem) => {
               
               // Stop polling once loaded
               clearInterval(pollInterval);
-              console.log(`Waveform loaded for ${item.displayName}`);
+              console.log(`Waveform loaded for ${item.displayName} (${waveformData.peaks.length} peaks)`);
             }
           }
         } catch (error) {
           console.error('Error polling for waveform:', error);
         }
-      }, 3000);
+      }, 2000);
       
       // Stop polling after 30 seconds to prevent infinite polling
       setTimeout(() => {

@@ -87,7 +87,12 @@
     "trimSilence": "मौन ट्रिम करें",
     "normalize": "वॉल्यूम स्वचालित रूप से समायोजित करें",
     "targetUuid": "लक्ष्य UUID",
-    "targetIndex": "लक्ष्य सूचकांक"
+    "targetIndex": "लक्ष्य सूचकांक",
+    "playFade": "प्ले फेड इन",
+    "stopFade": "स्टॉप फेड आउट",
+    "pauseFade": "पॉज़/रिज्यूम फेड",
+    "crossFade": "अगले में क्रॉस-फेड",
+    "fadeSettings": "फेड सेटिंग्स"
   },
   "playback": {
     "panic": "सभी सिग्नल रोकें",
@@ -124,6 +129,8 @@
     "close": "बंद करें",
     "play": "चलाएं",
     "stop": "रोकें",
+    "pause": "रोकें",
+    "resume": "फिर से शुरू करें",
     "edit": "संपादित करें",
     "remove": "हटाएं"
   },
@@ -168,5 +175,10 @@
     "installNow": "अभी इंस्टॉल करें",
     "installOnExit": "बाहर निकलने पर इंस्टॉल करें",
     "downloadFailed": "अपडेट डाउनलोड विफल रहा"
+  },
+  "translationContributor": {
+    "title": "अनुवाद योगदानकर्ता",
+    "name": "AI Translated with Claude Sonnet 4.5",
+    "contributeLink": "https://www.anthropic.com/claude/sonnet"
   }
 }

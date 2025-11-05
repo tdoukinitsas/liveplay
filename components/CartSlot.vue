@@ -220,7 +220,7 @@ const importAudioFileToSlot = async (filePath: string) => {
       duration,
       outPoint: duration,
       waveform: undefined, // Will be generated asynchronously
-      index: [-1] // Cart items don't have a real index
+      index: [-1, props.slot] // Cart items use [-1, slot] indexing
     } as AudioItem;
     
     // Store in cart-only items (NOT in project.items)
@@ -231,10 +231,12 @@ const importAudioFileToSlot = async (filePath: string) => {
     
     if (existingIndex !== -1) {
       currentProject.value.cartItems[existingIndex].itemUuid = uuid;
+      currentProject.value.cartItems[existingIndex].index = [-1, props.slot];
     } else {
       currentProject.value.cartItems.push({
         slot: props.slot,
-        itemUuid: uuid
+        itemUuid: uuid,
+        index: [-1, props.slot]
       });
     }
     
@@ -266,22 +268,18 @@ const generateWaveformForItem = async (item: AudioItem) => {
     const result = await window.electronAPI.generateWaveform(mediaPath, item.waveformPath);
     
     if (result.success) {
-      // Start polling for waveform file (check every 3 seconds)
+      console.log(`Started waveform generation for cart slot ${props.slot + 1}`);
+      
+      // Start polling for waveform file (check every 2 seconds)
       const pollInterval = setInterval(async () => {
         try {
           const waveformFile = await window.electronAPI.readFile(item.waveformPath);
           if (waveformFile.success && waveformFile.data) {
             const waveformData = JSON.parse(waveformFile.data);
             
-            // Validate waveform format
-            if (waveformData.peaks && waveformData.peaks.length && waveformData.duration) {
+            // Validate waveform format (duration field is optional, not provided by backend)
+            if (waveformData.peaks && waveformData.peaks.length > 0) {
               item.waveform = waveformData;
-              
-              // Update duration from waveform data
-              if (waveformData.duration) {
-                item.duration = waveformData.duration;
-                item.outPoint = waveformData.duration;
-              }
               
               // Update the cart-only item with waveform data
               updateCartOnlyItem(item.uuid, item);
@@ -292,13 +290,13 @@ const generateWaveformForItem = async (item: AudioItem) => {
               
               // Stop polling once loaded
               clearInterval(pollInterval);
-              console.log(`Waveform loaded for cart slot ${props.slot + 1}`);
+              console.log(`Waveform loaded for cart slot ${props.slot + 1} (${waveformData.peaks.length} peaks)`);
             }
           }
         } catch (error) {
           console.error('Error polling for waveform:', error);
         }
-      }, 3000);
+      }, 2000);
       
       // Stop polling after 30 seconds to prevent infinite polling
       setTimeout(() => {
@@ -338,8 +336,18 @@ const handleDelete = () => {
 };
 
 const handleEdit = () => {
+  if (!props.item) return;
+  
   // Open properties panel for this item
-  const { selectedItem } = useProject();
+  const { selectedItem, selectedItems } = useProject();
+  
+  // Clear multi-selection from playlist
+  selectedItems.value.clear();
+  
+  // Add this cart item to selection
+  selectedItems.value.add(props.item.uuid);
+  
+  // Select this cart item
   selectedItem.value = props.item;
 };
 
@@ -465,25 +473,26 @@ const startWaveformPolling = () => {
         const result = await window.electronAPI.readFile(audioItem.waveformPath);
         if (result.success && result.data) {
           const waveformData = JSON.parse(result.data);
-          if (waveformData.peaks && waveformData.peaks.length && waveformData.duration) {
+          if (waveformData.peaks && waveformData.peaks.length > 0) {
             audioItem.waveform = waveformData;
             
-            // Update duration from waveform
-            if (waveformData.duration) {
-              audioItem.duration = waveformData.duration;
-              audioItem.outPoint = waveformData.duration;
-            }
+            // Update the cart-only item with waveform data
+            updateCartOnlyItem(audioItem.uuid, audioItem);
             
             clearInterval(waveformPollInterval!);
             waveformPollInterval = null;
+            
+            // Force reactivity update
+            triggerWaveformUpdate();
             nextTick(drawWaveform);
+            console.log(`Waveform polling found data for cart slot ${props.slot + 1}`);
           }
         }
       } catch (error) {
         // Silently ignore, will retry on next poll
       }
     }
-  }, 3000); // Poll every 3 seconds
+  }, 2000); // Poll every 2 seconds
   
   // Stop polling after 30 seconds
   setTimeout(() => {
@@ -573,13 +582,15 @@ const handleDrop = async (e: DragEvent) => {
       for (const cartItem of currentProject.value.cartItems) {
         if (cartItem.slot >= targetSlot) {
           cartItem.slot += 1;
+          cartItem.index = [-1, cartItem.slot];
         }
       }
       
       // Insert source item at target slot
       currentProject.value.cartItems.push({
         slot: targetSlot,
-        itemUuid: sourceCartItem.itemUuid
+        itemUuid: sourceCartItem.itemUuid,
+        index: [-1, targetSlot]
       });
     }
     
@@ -614,10 +625,12 @@ const handleDrop = async (e: DragEvent) => {
   
   if (existingIndex !== -1) {
     currentProject.value.cartItems[existingIndex].itemUuid = itemUuid;
+    currentProject.value.cartItems[existingIndex].index = [-1, props.slot];
   } else {
     currentProject.value.cartItems.push({
       slot: props.slot,
-      itemUuid
+      itemUuid,
+      index: [-1, props.slot]
     });
   }
   

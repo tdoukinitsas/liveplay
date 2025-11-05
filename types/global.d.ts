@@ -41,6 +41,8 @@ declare global {
       openExternal: (url: string) => Promise<void>;
       updateMenuLanguage: (locale: string) => Promise<{ success: boolean }>;
       getSystemLocale: () => Promise<string>;
+      getAvailableLocales: () => Promise<Array<{ code: string; name: string; direction: string }>>;
+      getLocaleData: (localeCode: string) => Promise<any>;
       checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string; isManualUpdate?: boolean }>;
       downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
       installUpdate: () => void;

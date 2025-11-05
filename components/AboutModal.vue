@@ -25,6 +25,16 @@
           <p class="developer">
             <strong>{{ t('about.developedBy') }}:</strong> {{t('about.developerName') }}
           </p>
+          <p class="translator" v-if="t('translationContributor.name')">
+            <strong>{{ t('translationContributor.title') }}: </strong>
+            <a 
+              :href="formatContributorLink(t('translationContributor.contributeLink'))"
+              class="translator-link"
+              @click.prevent="handleContributorLinkClick(t('translationContributor.contributeLink'))"
+            >
+              {{ t('translationContributor.name') }}
+            </a>
+          </p>
         </div>
         
         <div class="info-section links">
@@ -77,6 +87,40 @@ const close = () => {
 const openExternal = (url: string) => {
   if (import.meta.client && window.electronAPI?.openExternal) {
     window.electronAPI.openExternal(url);
+  }
+};
+
+// Format contributor link to handle different types (website, email, phone)
+const formatContributorLink = (link: string): string => {
+  if (!link) return '#';
+  
+  // If it's an email
+  if (link.includes('@') && !link.startsWith('mailto:')) {
+    return `mailto:${link}`;
+  }
+  
+  // If it's a phone number (starts with + or contains only numbers and spaces/dashes)
+  if (link.match(/^[\+\d\s\-\(\)]+$/)) {
+    return `tel:${link.replace(/\s/g, '')}`;
+  }
+  
+  // If it's a URL without protocol, add https://
+  if (!link.startsWith('http://') && !link.startsWith('https://') && !link.startsWith('mailto:') && !link.startsWith('tel:')) {
+    return `https://${link}`;
+  }
+  
+  return link;
+};
+
+// Handle contributor link click
+const handleContributorLinkClick = (link: string) => {
+  const formattedLink = formatContributorLink(link);
+  
+  // For email or tel links, use default behavior, otherwise use openExternal
+  if (formattedLink.startsWith('mailto:') || formattedLink.startsWith('tel:')) {
+    window.location.href = formattedLink;
+  } else {
+    openExternal(formattedLink);
   }
 };
 
@@ -211,6 +255,27 @@ onMounted(() => {
   
   strong {
     font-weight: 600;
+  }
+}
+
+.translator {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  
+  strong {
+    font-weight: 600;
+  }
+}
+
+.translator-link {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: opacity var(--transition-fast);
+  
+  &:hover {
+    opacity: 0.7;
+    text-decoration: underline;
   }
 }
 

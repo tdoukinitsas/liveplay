@@ -28,6 +28,8 @@
       </div>
     </div>
 
+    
+
     <!-- Waveform Display -->
     <div class="waveform-section">
       <!-- Zoom Controls -->
@@ -106,6 +108,51 @@
           class="trim-overlay trim-overlay-right"
           :style="{ left: outPointPosition + 'px' }"
         ></div>
+        
+        <!-- Fade Handles (hidden for cart items) -->
+        <template v-if="!isCartItem">
+          <!-- Play Fade Handle (fade in end) -->
+          <div 
+            v-if="playFade > 0"
+            class="fade-handle fade-handle-play"
+            :style="{ left: playFadePosition + 'px' }"
+            @mousedown.prevent="startDragFade('play', $event)"
+            :title="`Play Fade: ${playFade.toFixed(1)}s`"
+          >
+            <div class="fade-line fade-line-red"></div>
+            <div class="fade-grip fade-grip-red">
+              <span class="material-symbols-rounded">trending_up</span>
+            </div>
+          </div>
+          
+          <!-- Stop Fade Handle (fade out start) -->
+          <div 
+            v-if="stopFade > 0"
+            class="fade-handle fade-handle-stop"
+            :style="{ left: stopFadePosition + 'px' }"
+            @mousedown.prevent="startDragFade('stop', $event)"
+            :title="`Stop Fade: ${stopFade.toFixed(1)}s`"
+          >
+            <div class="fade-line fade-line-red"></div>
+            <div class="fade-grip fade-grip-red">
+              <span class="material-symbols-rounded">trending_down</span>
+            </div>
+          </div>
+          
+          <!-- Cross Fade Handle (crossfade start) -->
+          <div 
+            v-if="crossFade > 0"
+            class="fade-handle fade-handle-cross"
+            :style="{ left: crossFadePosition + 'px' }"
+            @mousedown.prevent="startDragFade('cross', $event)"
+            :title="`Cross Fade: ${crossFade.toFixed(1)}s`"
+          >
+            <div class="fade-line fade-line-yellow"></div>
+            <div class="fade-grip fade-grip-yellow">
+              <span class="material-symbols-rounded">swap_horiz</span>
+            </div>
+          </div>
+        </template>
       </div>
 
       <!-- Horizontal Scrollbar -->
@@ -119,11 +166,16 @@
           v-model.number="scrollPosition"
         />
       </div>
+    </div>
 
-      <!-- Time Display -->
-      <div class="time-display">
-        <div class="time-field">
-          <label>{{ t('properties.inPoint') }}</label>
+    <!-- Time Display (moved to right side) -->
+    <div class="time-display-section">
+      <div class="time-field">
+        <label>{{ t('properties.inPoint') }}</label>
+        <div class="time-input-with-buttons">
+          <button class="time-decrement" @click="adjustInPoint(-0.5)" title="Decrease by 0.5s">
+            <span class="material-symbols-rounded">remove</span>
+          </button>
           <input 
             type="text"
             class="time-input"
@@ -131,9 +183,17 @@
             @change="handleInPointTextChange"
             @focus="($event.target as HTMLInputElement).select()"
           />
+          <button class="time-increment" @click="adjustInPoint(0.5)" title="Increase by 0.5s">
+            <span class="material-symbols-rounded">add</span>
+          </button>
         </div>
-        <div class="time-field">
-          <label>{{ t('properties.outPoint') }}</label>
+      </div>
+      <div class="time-field">
+        <label>{{ t('properties.outPoint') }}</label>
+        <div class="time-input-with-buttons">
+          <button class="time-decrement" @click="adjustOutPoint(-0.5)" title="Decrease by 0.5s">
+            <span class="material-symbols-rounded">remove</span>
+          </button>
           <input 
             type="text"
             class="time-input"
@@ -141,18 +201,80 @@
             @change="handleOutPointTextChange"
             @focus="($event.target as HTMLInputElement).select()"
           />
+          <button class="time-increment" @click="adjustOutPoint(0.5)" title="Increase by 0.5s">
+            <span class="material-symbols-rounded">add</span>
+          </button>
         </div>
-        <div class="time-field">
-          <label>{{ t('properties.duration') }}</label>
+      </div>
+      <div class="time-field">
+        <label>{{ t('properties.duration') }}</label>
+        <input 
+          type="text"
+          class="time-input"
+          :value="formatTimeDetailed(duration)"
+          readonly
+        />
+      </div>
+    </div>
+
+    <!-- Fade Controls (hidden for cart items) -->
+    <div v-if="!isCartItem" class="fade-controls-section">
+      <div class="fade-control-group">
+        <label>{{ t('properties.playFade') }}</label>
+        <div class="time-input-with-buttons">
+          <button class="time-decrement" @click="adjustPlayFade(-0.5)" title="Decrease by 0.5s">
+            <span class="material-symbols-rounded">remove</span>
+          </button>
           <input 
             type="text"
-            class="time-input"
-            :value="formatTimeDetailed(duration)"
-            readonly
+            class="time-input fade-input"
+            :value="formatTimeDetailed(playFade)"
+            @change="handlePlayFadeTextChange"
+            @focus="($event.target as HTMLInputElement).select()"
           />
+          <button class="time-increment" @click="adjustPlayFade(0.5)" title="Increase by 0.5s">
+            <span class="material-symbols-rounded">add</span>
+          </button>
+        </div>
+      </div>
+      <div class="fade-control-group">
+        <label>{{ t('properties.stopFade') }}</label>
+        <div class="time-input-with-buttons">
+          <button class="time-decrement" @click="adjustStopFade(-0.5)" title="Decrease by 0.5s">
+            <span class="material-symbols-rounded">remove</span>
+          </button>
+          <input 
+            type="text"
+            class="time-input fade-input"
+            :value="formatTimeDetailed(stopFade)"
+            @change="handleStopFadeTextChange"
+            @focus="($event.target as HTMLInputElement).select()"
+          />
+          <button class="time-increment" @click="adjustStopFade(0.5)" title="Increase by 0.5s">
+            <span class="material-symbols-rounded">add</span>
+          </button>
+        </div>
+      </div>
+      <div class="fade-control-group">
+        <label>{{ t('properties.crossFade') }}</label>
+        <div class="time-input-with-buttons">
+          <button class="time-decrement" @click="adjustCrossFade(-0.5)" title="Decrease by 0.5s">
+            <span class="material-symbols-rounded">remove</span>
+          </button>
+          <input 
+            type="text"
+            class="time-input fade-input"
+            :value="formatTimeDetailed(crossFade)"
+            @change="handleCrossFadeTextChange"
+            @focus="($event.target as HTMLInputElement).select()"
+          />
+          <button class="time-increment" @click="adjustCrossFade(0.5)" title="Increase by 0.5s">
+            <span class="material-symbols-rounded">add</span>
+          </button>
         </div>
       </div>
     </div>
+
   </div>
 </template>
 
@@ -168,14 +290,29 @@ const emit = defineEmits<{
   'update:volume': [value: number];
   'update:inPoint': [value: number];
   'update:outPoint': [value: number];
+  'update:playFade': [value: number];
+  'update:stopFade': [value: number];
+  'update:pauseFade': [value: number];
+  'update:crossFade': [value: number];
   'change': [];
   'normalize': [];
+  'trimSilence': [];
 }>();
 
 const { t } = useLocalization();
 
 // Get audio engine for playback position
 const { activeCues } = useAudioEngine();
+
+// Check if this is a cart item
+const isCartItem = computed(() => {
+  return props.audioItem.index && props.audioItem.index.length > 0 && props.audioItem.index[0] === -1;
+});
+
+// Fade values
+const playFade = computed(() => props.audioItem.playFade || 0);
+const stopFade = computed(() => props.audioItem.stopFade || 0);
+const crossFade = computed(() => props.audioItem.crossFade || 0);
 
 // Refs
 const waveformCanvas = ref<HTMLCanvasElement | null>(null);
@@ -262,8 +399,27 @@ const outPointPosition = computed(() => {
   return (relativeTime / visibleDuration.value) * canvasWidth.value;
 });
 
+// Fade handle positions (respecting trim points)
+const playFadePosition = computed(() => {
+  const fadeEndTime = inPoint.value + playFade.value;
+  const relativeTime = fadeEndTime - visibleStart.value;
+  return (relativeTime / visibleDuration.value) * canvasWidth.value;
+});
+
+const stopFadePosition = computed(() => {
+  const fadeStartTime = outPoint.value - stopFade.value;
+  const relativeTime = fadeStartTime - visibleStart.value;
+  return (relativeTime / visibleDuration.value) * canvasWidth.value;
+});
+
+const crossFadePosition = computed(() => {
+  const crossFadeStartTime = outPoint.value - crossFade.value;
+  const relativeTime = crossFadeStartTime - visibleStart.value;
+  return (relativeTime / visibleDuration.value) * canvasWidth.value;
+});
+
 // Handle dragging
-const dragState = ref<{ handle: 'in' | 'out' | null; startX: number; startValue: number }>({
+const dragState = ref<{ handle: 'in' | 'out' | 'play' | 'stop' | 'cross' | null; startX: number; startValue: number }>({
   handle: null,
   startX: 0,
   startValue: 0
@@ -287,6 +443,50 @@ const startDragHandle = (handle: 'in' | 'out', event: MouseEvent) => {
       emit('update:inPoint', Math.min(newValue, outPoint.value - 0.01));
     } else {
       emit('update:outPoint', Math.max(newValue, inPoint.value + 0.01));
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (dragState.value.handle) {
+      emit('change');
+    }
+    dragState.value.handle = null;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  };
+
+  document.addEventListener('mousemove', handleMouseMove);
+  document.addEventListener('mouseup', handleMouseUp);
+};
+
+// Handle fade dragging
+const startDragFade = (fadeType: 'play' | 'stop' | 'cross', event: MouseEvent) => {
+  const currentValue = fadeType === 'play' ? playFade.value : fadeType === 'stop' ? stopFade.value : crossFade.value;
+  
+  dragState.value = {
+    handle: fadeType,
+    startX: event.clientX,
+    startValue: currentValue
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!dragState.value.handle) return;
+
+    const deltaX = e.clientX - dragState.value.startX;
+    const deltaTime = (deltaX / canvasWidth.value) * visibleDuration.value;
+    
+    if (dragState.value.handle === 'play') {
+      // Play fade: drag right increases fade duration
+      const newValue = Math.max(0, Math.min(10, dragState.value.startValue + deltaTime));
+      emit('update:playFade', newValue);
+    } else if (dragState.value.handle === 'stop') {
+      // Stop fade: drag left increases fade duration (moving the start point earlier)
+      const newValue = Math.max(0, Math.min(10, dragState.value.startValue - deltaTime));
+      emit('update:stopFade', newValue);
+    } else if (dragState.value.handle === 'cross') {
+      // Cross fade: drag left increases fade duration (moving the start point earlier)
+      const newValue = Math.max(0, Math.min(10, dragState.value.startValue - deltaTime));
+      emit('update:crossFade', newValue);
     }
   };
 
@@ -337,6 +537,35 @@ const handleVolumeChange = (event: Event) => {
   volumeDB.value = parseFloat(target.value);
 };
 
+// Fade change handlers
+const handlePlayFadeChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const value = parseFloat(target.value);
+  emit('update:playFade', value);
+  emit('change');
+};
+
+const handleStopFadeChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const value = parseFloat(target.value);
+  emit('update:stopFade', value);
+  emit('change');
+};
+
+const handlePauseFadeChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const value = parseFloat(target.value);
+  emit('update:pauseFade', value);
+  emit('change');
+};
+
+const handleCrossFadeChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const value = parseFloat(target.value);
+  emit('update:crossFade', value);
+  emit('change');
+};
+
 // Format time as HH:MM:SS.mmm
 const formatTimeDetailed = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);
@@ -376,6 +605,59 @@ const handleOutPointTextChange = (event: Event) => {
   emit('change');
 };
 
+// Adjustment functions for increment/decrement buttons
+const adjustInPoint = (delta: number) => {
+  const newValue = Math.max(0, Math.min(inPoint.value + delta, outPoint.value - 0.01));
+  emit('update:inPoint', newValue);
+  emit('change');
+};
+
+const adjustOutPoint = (delta: number) => {
+  const newValue = Math.min(props.audioItem.duration, Math.max(outPoint.value + delta, inPoint.value + 0.01));
+  emit('update:outPoint', newValue);
+  emit('change');
+};
+
+const adjustPlayFade = (delta: number) => {
+  const newValue = Math.max(0, Math.min(playFade.value + delta, 10));
+  emit('update:playFade', newValue);
+  emit('change');
+};
+
+const adjustStopFade = (delta: number) => {
+  const newValue = Math.max(0, Math.min(stopFade.value + delta, 10));
+  emit('update:stopFade', newValue);
+  emit('change');
+};
+
+const adjustCrossFade = (delta: number) => {
+  const newValue = Math.max(0, Math.min(crossFade.value + delta, 10));
+  emit('update:crossFade', newValue);
+  emit('change');
+};
+
+// Text change handlers for fade inputs
+const handlePlayFadeTextChange = (event: Event) => {
+  const value = (event.target as HTMLInputElement).value;
+  const parsed = parseTimeDetailed(value);
+  emit('update:playFade', Math.max(0, Math.min(parsed, 10)));
+  emit('change');
+};
+
+const handleStopFadeTextChange = (event: Event) => {
+  const value = (event.target as HTMLInputElement).value;
+  const parsed = parseTimeDetailed(value);
+  emit('update:stopFade', Math.max(0, Math.min(parsed, 10)));
+  emit('change');
+};
+
+const handleCrossFadeTextChange = (event: Event) => {
+  const value = (event.target as HTMLInputElement).value;
+  const parsed = parseTimeDetailed(value);
+  emit('update:crossFade', Math.max(0, Math.min(parsed, 10)));
+  emit('change');
+};
+
 // Trim silence from start and end based on waveform peaks
 const trimSilence = () => {
   if (!waveformData.value || waveformData.value.length === 0) {
@@ -383,39 +665,10 @@ const trimSilence = () => {
     return;
   }
 
-  const peaks = waveformData.value;
-  const threshold = 0.10; // Silence threshold (10% of max amplitude)
-  const duration = props.audioItem.duration;
-  
-  // Find first non-silent sample from start
-  let startIndex = 0;
-  for (let i = 0; i < peaks.length; i++) {
-    if (peaks[i] > threshold) {
-      startIndex = i;
-      break;
-    }
-  }
-  
-  // Find first non-silent sample from end
-  let endIndex = peaks.length - 1;
-  for (let i = peaks.length - 1; i >= 0; i--) {
-    if (peaks[i] > threshold) {
-      endIndex = i;
-      break;
-    }
-  }
-  
-  // Convert indices to time
-  const newInPoint = (startIndex / peaks.length) * duration;
-  const newOutPoint = (endIndex / peaks.length) * duration;
-  
-  // Apply with some padding (0.1 seconds)
-  const padding = 0.1;
-  emit('update:inPoint', Math.max(0, newInPoint - padding));
-  emit('update:outPoint', Math.min(duration, newOutPoint + padding));
+  // Emit trimSilence event to trigger batch trimming in parent
+  // The parent will handle trimming all selected items individually
+  emit('trimSilence');
   emit('change');
-  
-  console.log(`Trimmed silence: ${newInPoint.toFixed(2)}s - ${newOutPoint.toFixed(2)}s`);
 };
 
 // Normalize audio to target loudness
@@ -425,38 +678,10 @@ const normalizeAudio = () => {
     return;
   }
 
-  const peaks = waveformData.value;
-  const duration = props.audioItem.duration;
-  
-  // Get trimmed region
-  const startIndex = Math.floor((inPoint.value / duration) * peaks.length);
-  const endIndex = Math.ceil((outPoint.value / duration) * peaks.length);
-  const trimmedPeaks = peaks.slice(startIndex, endIndex);
-  
-  // Calculate INTRINSIC perceived loudness (independent of current volume)
-  // This measures the loudness of the actual audio file
-  const intrinsicLoudness = calculatePerceivedLoudness(trimmedPeaks);
-  
-  // Target: -10dB (our "0dB" with headroom)
-  const targetLoudness = -10;
-  
-  // Calculate the ABSOLUTE volume needed to reach target
-  // This is independent of the current volume setting
-  const gainDb = targetLoudness - intrinsicLoudness;
-  const newVolume = Math.pow(10, gainDb / 20);
-  
-  // Clamp to reasonable range (0.001 to 3.162, where 3.162 = +10dB max)
-  const maxVolume = Math.pow(10, 10 / 20); // +10dB = 3.162
-  const clampedVolume = Math.min(Math.max(newVolume, 0.001), maxVolume);
-  
   // Emit normalize event to trigger batch normalization in parent
+  // The parent will handle normalizing all selected items individually
   emit('normalize');
-  
-  // Also update current item's volume
-  emit('update:volume', clampedVolume);
   emit('change');
-  
-  console.log(`Normalized: ${intrinsicLoudness.toFixed(1)}dB -> ${targetLoudness}dB (gain: ${gainDb.toFixed(1)}dB, volume: ${clampedVolume.toFixed(3)})`);
 };
 
 // Draw waveform on canvas
@@ -488,9 +713,19 @@ const drawWaveform = () => {
   ctx.font = '10px sans-serif';
   ctx.fillStyle = 'rgba(128, 128, 128, 0.6)';
 
-  // Draw vertical lines for each second/minute
-  const timeStep = duration.value > 60 ? 10 : 1; // 10-second intervals for long files, 1 second for short
+  // Calculate dynamic time step based on visible duration and zoom level
+  // Goal: Show grid lines every ~50-100 pixels
   const pixelsPerSecond = canvasWidth.value / visibleDuration.value;
+  const targetPixelsPerGrid = 75; // Ideal spacing between grid lines
+  
+  // Calculate initial time step
+  let timeStep = targetPixelsPerGrid / pixelsPerSecond;
+  
+  // Round to nice intervals: 0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600 seconds
+  const niceIntervals = [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600];
+  timeStep = niceIntervals.reduce((prev, curr) => 
+    Math.abs(curr - timeStep) < Math.abs(prev - timeStep) ? curr : prev
+  );
 
   for (let time = Math.ceil(visibleStart.value / timeStep) * timeStep; time <= visibleEnd.value; time += timeStep) {
     const x = (time - visibleStart.value) * pixelsPerSecond;
@@ -500,10 +735,22 @@ const drawWaveform = () => {
     ctx.lineTo(x, canvasHeight);
     ctx.stroke();
 
-    // Draw time label
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    const label = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    // Draw time label - format depends on scale
+    let label: string;
+    if (timeStep < 1) {
+      // Show with decimal for sub-second intervals
+      label = time.toFixed(1) + 's';
+    } else if (timeStep < 60) {
+      // Show seconds
+      const minutes = Math.floor(time / 60);
+      const seconds = Math.floor(time % 60);
+      label = minutes > 0 ? `${minutes}:${seconds.toString().padStart(2, '0')}` : `${seconds}s`;
+    } else {
+      // Show minutes:seconds
+      const minutes = Math.floor(time / 60);
+      const seconds = Math.floor(time % 60);
+      label = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
     ctx.fillText(label, x + 4, 12);
   }
 
@@ -656,6 +903,123 @@ const drawWaveform = () => {
     ctx.closePath();
     ctx.fill();
   }
+
+  // Draw fade visualizations if configured
+  if (duration.value > 0) {
+    const pixelsPerSecond = canvasWidth.value / visibleDuration.value;
+    
+    // Play Fade (fade in at start) - Red with diagonal line
+    if (props.audioItem.playFade && props.audioItem.playFade > 0) {
+      const fadeStartTime = inPoint.value;
+      const fadeEndTime = inPoint.value + props.audioItem.playFade;
+      
+      // Only draw if visible in current view
+      if (fadeEndTime >= visibleStart.value && fadeStartTime <= visibleEnd.value) {
+        const fadeStartX = Math.max(0, (fadeStartTime - visibleStart.value) * pixelsPerSecond);
+        const fadeEndX = Math.min(canvasWidth.value, (fadeEndTime - visibleStart.value) * pixelsPerSecond);
+        const fadeWidth = fadeEndX - fadeStartX;
+        
+        if (fadeWidth > 0) {
+          // Draw red rectangle with 20% opacity
+          ctx.fillStyle = 'rgba(220, 38, 38, 0.2)';
+          ctx.fillRect(fadeStartX, 0, fadeWidth, canvasHeight);
+          
+          // Draw diagonal line from bottom-left to top-right (fade in)
+          ctx.strokeStyle = 'rgba(220, 38, 38, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(fadeStartX, canvasHeight);
+          ctx.lineTo(fadeEndX, 0);
+          ctx.stroke();
+          
+          // Draw red vertical line at fade end boundary
+          ctx.beginPath();
+          ctx.moveTo(fadeEndX, 0);
+          ctx.lineTo(fadeEndX, canvasHeight);
+          ctx.stroke();
+        }
+      }
+    }
+    
+    // Stop Fade (fade out before end) - Red with diagonal line
+    if (props.audioItem.stopFade && props.audioItem.stopFade > 0) {
+      const fadeStartTime = outPoint.value - props.audioItem.stopFade;
+      const fadeEndTime = outPoint.value;
+      
+      // Only draw if visible in current view
+      if (fadeStartTime <= visibleEnd.value && fadeEndTime >= visibleStart.value) {
+        const fadeStartX = Math.max(0, (fadeStartTime - visibleStart.value) * pixelsPerSecond);
+        const fadeEndX = Math.min(canvasWidth.value, (fadeEndTime - visibleStart.value) * pixelsPerSecond);
+        const fadeWidth = fadeEndX - fadeStartX;
+        
+        if (fadeWidth > 0) {
+          // Draw red rectangle with 20% opacity
+          ctx.fillStyle = 'rgba(220, 38, 38, 0.2)';
+          ctx.fillRect(fadeStartX, 0, fadeWidth, canvasHeight);
+          
+          // Draw diagonal line from top-left to bottom-right (fade out)
+          ctx.strokeStyle = 'rgba(220, 38, 38, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(fadeStartX, 0);
+          ctx.lineTo(fadeEndX, canvasHeight);
+          ctx.stroke();
+          
+          // Draw red vertical line at fade start boundary
+          ctx.beginPath();
+          ctx.moveTo(fadeStartX, 0);
+          ctx.lineTo(fadeStartX, canvasHeight);
+          ctx.stroke();
+        }
+      }
+    }
+    
+    // Cross Fade visualization - Yellow X with semi-transparent rectangle
+    if (props.audioItem.crossFade && props.audioItem.crossFade > 0) {
+      const crossFadeStartTime = outPoint.value - props.audioItem.crossFade;
+      const crossFadeEndTime = outPoint.value;
+      
+      // Only draw if visible in current view
+      if (crossFadeStartTime <= visibleEnd.value && crossFadeEndTime >= visibleStart.value) {
+        const crossStartX = Math.max(0, (crossFadeStartTime - visibleStart.value) * pixelsPerSecond);
+        const crossEndX = Math.min(canvasWidth.value, (crossFadeEndTime - visibleStart.value) * pixelsPerSecond);
+        const crossWidth = crossEndX - crossStartX;
+        
+        if (crossWidth > 0) {
+          // Draw yellow rectangle with 20% opacity
+          ctx.fillStyle = 'rgba(234, 179, 8, 0.2)';
+          ctx.fillRect(crossStartX, 0, crossWidth, canvasHeight);
+          
+          // Draw yellow X pattern
+          ctx.strokeStyle = 'rgba(234, 179, 8, 0.8)';
+          ctx.lineWidth = 2;
+          
+          // Diagonal line from top-left to bottom-right
+          ctx.beginPath();
+          ctx.moveTo(crossStartX, 0);
+          ctx.lineTo(crossEndX, canvasHeight);
+          ctx.stroke();
+          
+          // Diagonal line from bottom-left to top-right
+          ctx.beginPath();
+          ctx.moveTo(crossStartX, canvasHeight);
+          ctx.lineTo(crossEndX, 0);
+          ctx.stroke();
+          
+          // Draw vertical lines at boundaries
+          ctx.beginPath();
+          ctx.moveTo(crossStartX, 0);
+          ctx.lineTo(crossStartX, canvasHeight);
+          ctx.stroke();
+          
+          ctx.beginPath();
+          ctx.moveTo(crossEndX, 0);
+          ctx.lineTo(crossEndX, canvasHeight);
+          ctx.stroke();
+        }
+      }
+    }
+  }
 };
 
 // Throttle drawWaveform to prevent excessive redraws
@@ -668,7 +1032,18 @@ const throttledDraw = () => {
 };
 
 // Watch for changes and redraw
-watch([zoomLevel, scrollPosition, () => props.audioItem?.volume, () => props.audioItem?.inPoint, () => props.audioItem?.outPoint, waveformData, playbackPosition], () => {
+watch([
+  zoomLevel, 
+  scrollPosition, 
+  () => props.audioItem?.volume, 
+  () => props.audioItem?.inPoint, 
+  () => props.audioItem?.outPoint,
+  () => props.audioItem?.playFade,
+  () => props.audioItem?.stopFade,
+  () => props.audioItem?.crossFade,
+  waveformData, 
+  playbackPosition
+], () => {
   throttledDraw();
 });
 
@@ -713,7 +1088,7 @@ onUnmounted(() => {
   gap: var(--spacing-sm);
   padding: 0;
   background: transparent;
-  max-height: 220px;
+  max-height: 149px;
   overflow: hidden;
 }
 
@@ -845,6 +1220,59 @@ onUnmounted(() => {
   height: 100%;
   font-size: 9px;
   color: var(--color-text-secondary);
+}
+
+/* Fade Controls Section */
+.fade-controls-section {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs);
+  background: var(--color-surface);
+  border-radius: var(--border-radius-sm);
+  width: 300px;
+}
+
+.fade-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fade-control-group label {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+  text-wrap: wrap;
+}
+
+.fade-input {
+  width: 100%;
+  padding: 4px var(--spacing-xs);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-primary);
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  text-align: center;
+}
+
+.fade-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.fade-unit {
+  display: inline-block;
+  font-size: 9px;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
 }
 
 /* Waveform Section */
@@ -1037,6 +1465,87 @@ onUnmounted(() => {
   font-size: 14px;
 }
 
+/* Fade Handles */
+.fade-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  cursor: ew-resize;
+  z-index: 11;
+  user-select: none;
+}
+
+.fade-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+.fade-line-red {
+  background: rgba(220, 38, 38, 0.8);
+}
+
+.fade-line-yellow {
+  background: rgba(234, 179, 8, 0.8);
+}
+
+.fade-grip {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  background: var(--color-surface);
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  user-select: none;
+  transition: transform 0.15s ease;
+}
+
+.fade-handle:hover .fade-grip {
+  transform: translateY(-50%) scale(1.15);
+}
+
+.fade-grip-red {
+  color: rgb(220, 38, 38);
+  border-color: rgb(220, 38, 38);
+}
+
+.fade-grip-yellow {
+  color: rgb(234, 179, 8);
+  border-color: rgb(234, 179, 8);
+}
+
+.fade-handle-play .fade-grip {
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.fade-handle-play:hover .fade-grip {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.fade-handle-stop .fade-grip,
+.fade-handle-cross .fade-grip {
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.fade-handle-stop:hover .fade-grip,
+.fade-handle-cross:hover .fade-grip {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.fade-grip .material-symbols-rounded {
+  font-size: 14px;
+}
+
 /* Trim Overlays */
 .trim-overlay {
   position: absolute;
@@ -1099,11 +1608,13 @@ onUnmounted(() => {
   border-radius: 2px;
 }
 
-/* Time Display */
-.time-display {
+/* Time Display Section (right side) */
+.time-display-section {
   display: flex;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xs) var(--spacing-sm);
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  width: 150px;
+  padding: var(--spacing-xs);
   background: var(--color-surface);
   border-radius: var(--border-radius-sm);
 }
@@ -1112,8 +1623,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  flex: 1;
-  min-width: 0;
 }
 
 .time-field label {
@@ -1121,6 +1630,46 @@ onUnmounted(() => {
   color: var(--color-text-secondary);
   text-transform: uppercase;
   font-weight: 500;
+}
+
+.time-input-with-buttons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.time-decrement,
+.time-increment {
+  padding: 2px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 22px;
+  transition: all 0.15s ease;
+}
+
+.time-decrement:hover,
+.time-increment:hover {
+  background: var(--color-background-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.time-decrement:active,
+.time-increment:active {
+  transform: scale(0.95);
+}
+
+.time-decrement .material-symbols-rounded,
+.time-increment .material-symbols-rounded {
+  font-size: 16px;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
 }
 
 .time-input {
@@ -1132,6 +1681,8 @@ onUnmounted(() => {
   font-family: 'Courier New', monospace;
   font-size: 11px;
   text-align: center;
+  flex: 1;
+  min-width: 0;
 }
 
 .time-input:focus {

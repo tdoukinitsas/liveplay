@@ -89,6 +89,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Get system locale
   getSystemLocale: () => ipcRenderer.invoke('get-system-locale'),
+  
+  // Get available locales and locale data
+  getAvailableLocales: () => ipcRenderer.invoke('get-available-locales'),
+  getLocaleData: (localeCode) => ipcRenderer.invoke('get-locale-data', localeCode),
 
   // Auto-updater
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),

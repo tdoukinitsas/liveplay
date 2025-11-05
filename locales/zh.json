@@ -87,7 +87,12 @@
     "trimSilence": "修剪静音",
     "normalize": "自动调整音量",
     "targetUuid": "目标UUID",
-    "targetIndex": "目标索引"
+    "targetIndex": "目标索引",
+    "playFade": "播放淡入",
+    "stopFade": "停止淡出",
+    "pauseFade": "暂停/恢复淡化",
+    "crossFade": "交叉淡化到下一个",
+    "fadeSettings": "淡化设置"
   },
   "playback": {
     "panic": "停止所有信号",
@@ -124,6 +129,8 @@
     "close": "关闭",
     "play": "播放",
     "stop": "停止",
+    "pause": "暂停",
+    "resume": "恢复",
     "edit": "编辑",
     "remove": "移除"
   },
@@ -168,5 +175,10 @@
     "installNow": "立即安装",
     "installOnExit": "退出时安装",
     "downloadFailed": "更新下载失败"
+  },
+  "translationContributor": {
+    "title": "翻译贡献者",
+    "name": "AI Translated with Claude Sonnet 4.5",
+    "contributeLink": "https://www.anthropic.com/claude/sonnet"
   }
 }

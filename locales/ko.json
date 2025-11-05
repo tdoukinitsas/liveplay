@@ -87,7 +87,12 @@
     "trimSilence": "무음 자르기",
     "normalize": "볼륨 자동 조정",
     "targetUuid": "대상 UUID",
-    "targetIndex": "대상 인덱스"
+    "targetIndex": "대상 인덱스",
+    "playFade": "재생 페이드 인",
+    "stopFade": "정지 페이드 아웃",
+    "pauseFade": "일시정지/재개 페이드",
+    "crossFade": "다음으로 크로스 페이드",
+    "fadeSettings": "페이드 설정"
   },
   "playback": {
     "panic": "모든 신호 중지",
@@ -124,6 +129,8 @@
     "close": "닫기",
     "play": "재생",
     "stop": "중지",
+    "pause": "일시정지",
+    "resume": "재개",
     "edit": "편집",
     "remove": "제거"
   },
@@ -168,5 +175,10 @@
     "installNow": "지금 설치",
     "installOnExit": "종료 시 설치",
     "downloadFailed": "업데이트 다운로드 실패"
+  },
+  "translationContributor": {
+    "title": "번역 기여자",
+    "name": "AI Translated with Claude Sonnet 4.5",
+    "contributeLink": "https://www.anthropic.com/claude/sonnet"
   }
 }

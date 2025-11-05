@@ -23,6 +23,9 @@ export interface AudioItem extends BaseItem {
   duckingBehavior: DuckingBehavior;
   duration: number; // total duration in seconds
   fadeOutDuration: number; // fade out duration in seconds when stopping (default: 1)
+  playFade: number; // fade in duration when playing (default: 0)
+  stopFade: number; // fade out duration before end (default: 0)
+  crossFade: number; // cross-fade duration to next track (default: 0)
 }
 
 // Waveform data format (from ffmpeg/audiowaveform)
@@ -91,6 +94,7 @@ export interface DuckingBehavior {
 export interface CartItem {
   slot: number; // 0-15
   itemUuid: string;
+  index: number[]; // [-1, slot] for API triggering
 }
 
 // Project structure
@@ -165,7 +169,10 @@ export const DEFAULT_AUDIO_ITEM: Partial<AudioItem> = {
     duckFadeIn: 0.25,
     duckFadeOut: 1.0
   },
-  fadeOutDuration: 1.0
+  fadeOutDuration: 1.0,
+  playFade: 0,
+  stopFade: 0,
+  crossFade: 0
 };
 
 // Default for cart items (different from playlist)
@@ -182,7 +189,10 @@ export const DEFAULT_CART_AUDIO_ITEM: Partial<AudioItem> = {
     duckFadeIn: 0.25,
     duckFadeOut: 1.0
   },
-  fadeOutDuration: 1.0
+  fadeOutDuration: 1.0,
+  playFade: 0,
+  stopFade: 0,
+  crossFade: 0
 };
 
 export const DEFAULT_GROUP_ITEM: Partial<GroupItem> = {

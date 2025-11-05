@@ -1,0 +1,184 @@
+{
+  "_metadata": {
+    "code": "ro",
+    "name": "Romanian",
+    "nativeName": "Romana",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "LivePlay"
+  },
+  "menu": {
+    "file": "Fisier",
+    "newProject": "Proiect Nou",
+    "openProject": "Deschide Proiect",
+    "saveProject": "Salveaza Proiect",
+    "closeProject": "Închide Proiect",
+    "openProjectFolder": "Deschide Directorul Proiectului",
+    "exit": "Iesire",
+    "view": "Vizualizare",
+    "toggleDarkMode": "Schimba Mod Închis",
+    "changeAccentColor": "Schimba accentul de culoare",
+    "fullscreen": "Ecran întreg",
+    "language": "Limba",
+    "help": "Ajutor",
+    "about": "Despre LivePlay"
+  },
+  "welcome": {
+    "title": "LivePlay",
+    "subtitle": "Audio cue playback for live events",
+    "newProject": "Proiect Nou",
+    "openProject": "Deschide Proiect"
+  },
+  "project": {
+    "enterName": "Introduceti Nume Proiect",
+    "placeholder": "Proiectul meu",
+    "cancel": "Anuleaza",
+    "ok": "OK",
+    "importAudio": "Importa Audio",
+    "noProject": "Niciun Proiect",
+    "silenceWarning": "ATENTIE: SILENCE IN",
+    "seconds": "SECUNDE"
+  },
+  "playlist": {
+    "title": "Lista de redare",
+    "import": "Importa Audio",
+    "addGroup": "Adauga Grup",
+    "noItems": "Nu exista elemente in lista de redare",
+    "importAudio": "Importa Audio",
+    "importHint": "Folosesre butoanele de import sau trage fișierele aici"
+  },
+  "cart": {
+    "title": "Cart Player",
+    "emptySlot": "Apasa pentru a importa sau trage fișiere aici",
+    "clickToImport": "Apasa pentru a importa sau trage fișiere aici"
+  },
+  "properties": {
+    "title": "Proprietati",
+    "noSelection": "Selecteaza un fisier pentru a vedea proprietățile",
+    "displayName": "Nume afisat",
+    "color": "Culoare",
+    "inPoint": "Punct de intrare",
+    "outPoint": "Punct de ieșire",
+    "volume": "Volum",
+    "endBehavior": "Comportament la final",
+    "startBehavior": "Comportament la început",
+    "duckingBehavior": "Comportament Ducking",
+    "fadeOutDuration": "Durata Fade Out",
+    "duckFadeIn": "Duck Fade In",
+    "duckFadeOut": "Duck Fade Out",
+    "children": "Copii",
+    "seconds": "Secunde",
+    "uuid": "UUID",
+    "index": "Index",
+    "apiTriggerUrl": "API Trigger URL",
+    "file": "Fisier",
+    "duration": "Durata",
+    "mode": "Mod",
+    "action": "Actiune",
+    "playbackSection": "Sectiune Playback",
+    "media": "Media",
+    "replace": "Înlocuiește Fisier",
+    "basicInfo": "Informații de baza",
+    "loadingAudioData": "Se încarcă datele audio ...",
+    "playback": "Playback",
+    "ducking": "Ducking",
+    "duckLevel": "Nivel Duck",
+    "trimSilence": "Taie Silentiul",
+    "normalize": "Auto-ajusteaza volumul",
+    "targetUuid": "UUID Tinta",
+    "targetIndex": "Index Tinta",
+    "playFade": "Fade In la Play",
+    "stopFade": "Fade Out la Stop",
+    "pauseFade": "Fade la Pauză/Reluare",
+    "crossFade": "Cross-fade la Următor",
+    "fadeSettings": "Setări Fade"
+  },
+  "playback": {
+    "panic": "Oprește Toate Cues",
+    "noActiveCues": "Niciun cue activ",
+    "play": "Play",
+    "stop": "Stop",
+    "delete": "Sterge",
+    "edit": "Editeaza"
+  },
+  "endBehavior": {
+    "nothing": "Nimic",
+    "next": "Play Next",
+    "gotoItem": "Go to Item",
+    "gotoIndex": "Go to Index",
+    "loop": "Loop"
+  },
+  "startBehavior": {
+    "nothing": "Nimic",
+    "playNext": "Redă Următorul",
+    "playItem": "Redă Elementul",
+    "playIndex": "Redă Index-ul",
+    "playFirst": "Redă Primul",
+    "playAll": "Redă Toate"
+  },
+  "duckingBehavior": {
+    "stopAll": "Oprește Toate Celelalte Cues",
+    "noDucking": "Fără Ducking",
+    "duckOthers": "Duck Altele",
+    "duckLevel": "Nivel Duck"
+  },
+  "actions": {
+    "delete": "Sterge",
+    "confirm": "Sunteti sigur?",
+    "close": "Inchide",
+    "play": "Play",
+    "stop": "Stop",
+    "pause": "Pauză",
+    "resume": "Reia",
+    "edit": "Editeaza",
+    "remove": "Îndepărtează"
+  },
+  "about": {
+    "developedBy": "Dezvoltat de",
+    "githubRepo": "GitHub Repository",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "Alege accentul de culoare"
+  },
+  "youtube": {
+    "importFromYouTube": "Importa din YouTube",
+    "searchPlaceholder": "Caută muzica sau audio",
+    "searching": "Cauta...",
+    "noResults": "Nu au fost găsite rezultate",
+    "searchError": "Cautarea a esuat. Te rog sa incerci din nou.",
+    "preview": "Vezi pe YouTube",
+    "download": "Descarca",
+    "downloading": "Se descarca...",
+    "previewHint": "Apasa pe butonul de preview al unui rezultat pentru a vedea video inainte sa il descarci",
+    "downloadQueue": "Lista de asteptare a descărcărilor",
+    "statusDownloading": "Se descarca...",
+    "statusConverting": "Converteste la MP3...",
+    "statusCompleted": "Complet",
+    "statusError": "Eroare",
+    "downloadError": "Descarcarea a esuat. Te rog sa încerci din nou."
+  },
+  "update": {
+    "updateAvailable": "Actualizare Disponibila",
+    "currentVersion": "Versiunea Actuala",
+    "newVersion": "Versiune Noua",
+    "whatsNew": "Ce este nou",
+    "updatePrompt": "O noua versiune a LivePlay este disponibila. Vrei sa o descarci și sa o instalezi acum?",
+    "manualUpdatePrompt": "O noua versiunea LivePlay este disponibila. Apasa aici pentru a vizita pagina de unde o poti descarcă",
+    "downloading": "Se descarca actualizarea",
+    "downloadComplete": "Descarcare completa",
+    "installInfo": " Actualizarea este gata sa fie instalata. O poti instala acum sau o sa fie instalata când închizi aplicatia.",
+    "later": "Mai târziu",
+    "downloadAndInstall": "Descarca si Instaleaza",
+    "goToDownloadPage": "Mergi la pagina de descarcare",
+    "installNow": "Instalează Acum",
+    "installOnExit": "Instalează când închizi aplicația",
+    "downloadFailed": "Am esuat sa descarc actualizarea"
+  },
+  "translationContributor": {
+    "title": "Traducere realizată de",
+    "name": "Dragan Dan Adrian",
+    "contributeLink": "contact@forumthassos.ro"
+  }
+}

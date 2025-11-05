@@ -87,7 +87,12 @@
     "trimSilence": "Trim stillhet",
     "normalize": "Juster volum automatisk",
     "targetUuid": "Mål-UUID",
-    "targetIndex": "Målindeks"
+    "targetIndex": "Målindeks",
+    "playFade": "Innfading ved avspilling",
+    "stopFade": "Utfading ved stopp",
+    "pauseFade": "Pause/gjenoppta fading",
+    "crossFade": "Kryssfading til neste",
+    "fadeSettings": "Fadingsinnstillinger"
   },
   "playback": {
     "panic": "Stopp alle signaler",
@@ -124,6 +129,8 @@
     "close": "Lukk",
     "play": "Spill",
     "stop": "Stopp",
+    "pause": "Pause",
+    "resume": "Fortsett",
     "edit": "Rediger",
     "remove": "Fjern"
   },
@@ -168,5 +175,10 @@
     "installNow": "Installer nå",
     "installOnExit": "Installer ved avslutning",
     "downloadFailed": "Oppdateringsnedlastingen mislyktes"
+  },
+  "translationContributor": {
+    "title": "Oversettelsesmedarbeider",
+    "name": "AI Translated with Claude Sonnet 4.5",
+    "contributeLink": "https://www.anthropic.com/claude/sonnet"
   }
 }

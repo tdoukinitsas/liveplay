@@ -87,7 +87,12 @@
     "trimSilence": "Prit Heshtjen",
     "normalize": "Rregulloni volumin automatikisht",
     "targetUuid": "UUID i Synuar",
-    "targetIndex": "Indeksi i Synuar"
+    "targetIndex": "Indeksi i Synuar",
+    "playFade": "Zbehje në fillim të luajtjes",
+    "stopFade": "Zbehje në ndalim",
+    "pauseFade": "Zbehje pushim/vazhdim",
+    "crossFade": "Zbehje e kryqëzuar te tjetra",
+    "fadeSettings": "Cilësimet e zbehjes"
   },
   "playback": {
     "panic": "Ndalo të Gjitha Sinjalet",
@@ -124,6 +129,8 @@
     "close": "Mbyll",
     "play": "Luaj",
     "stop": "Ndalo",
+    "pause": "Pushim",
+    "resume": "Vazhdo",
     "edit": "Redakto",
     "remove": "Hiq"
   },
@@ -168,5 +175,10 @@
     "installNow": "Instalo Tani",
     "installOnExit": "Instalo në Dalje",
     "downloadFailed": "Shkarkimi i përditësimit dështoi"
+  },
+  "translationContributor": {
+    "title": "Kontribuues i Përkthimit",
+    "name": "AI Translated with Claude Sonnet 4.5",
+    "contributeLink": "https://www.anthropic.com/claude/sonnet"
   }
 }

@@ -87,7 +87,12 @@
     "trimSilence": "Trim Silence",
     "normalize": "Auto-adjust volume",
     "targetUuid": "Target UUID",
-    "targetIndex": "Target Index"
+    "targetIndex": "Target Index",
+    "playFade": "Play Fade In",
+    "stopFade": "Stop Fade Out",
+    "pauseFade": "Pause/Resume Fade",
+    "crossFade": "Cross-fade to Next",
+    "fadeSettings": "Fade Settings"
   },
   "playback": {
     "panic": "Stop All Cues",
@@ -124,6 +129,8 @@
     "close": "Close",
     "play": "Play",
     "stop": "Stop",
+    "pause": "Pause",
+    "resume": "Resume",
     "edit": "Edit",
     "remove": "Remove"
   },
@@ -168,5 +175,10 @@
     "installNow": "Install Now",
     "installOnExit": "Install on Exit",
     "downloadFailed": "Failed to download update"
+  },
+  "translationContributor":{
+    "title": "Translation Contributor",
+    "name": "Thomas Doukinitsas",
+    "contributeLink": "www.doukinitsas.info"
   }
 }
