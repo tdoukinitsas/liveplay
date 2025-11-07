@@ -236,11 +236,22 @@ export const useAudioEngine = () => {
         onload: () => {
           const cue = activeCues.value.get(item.uuid);
           if (cue) {
+            // Get the actual file duration from Howler
+            const actualFileDuration = howl.duration();
+            
             // For trimmed items (with sprites), duration should be the trimmed duration
-            // Howler's duration() returns the sprite duration when using sprites
-            cue.duration = item.inPoint || item.outPoint 
-              ? (item.outPoint || item.duration) - (item.inPoint || 0)
-              : howl.duration();
+            // But make sure outPoint doesn't exceed actual file duration
+            const inPoint = item.inPoint || 0;
+            const requestedOutPoint = item.outPoint || item.duration;
+            const actualOutPoint = Math.min(requestedOutPoint, actualFileDuration);
+            
+            // Calculate trimmed duration, ensuring it doesn't exceed file bounds
+            const trimmedDuration = actualOutPoint - inPoint;
+            
+            cue.duration = trimmedDuration;
+            
+            // Update the outPoint in cue state to reflect actual file bounds
+            cue.outPoint = actualOutPoint;
             
             // Start progress tracking
             cue.progressInterval = setInterval(() => {
@@ -254,6 +265,34 @@ export const useAudioEngine = () => {
               const absoluteTime = howl.seek() as number;
               const inPoint = item.inPoint || 0;
               const currentTime = absoluteTime - inPoint;
+              
+              // Check if playback has reached or exceeded the actual file duration
+              const actualFileDuration = howl.duration();
+              if (absoluteTime >= actualFileDuration || absoluteTime >= (cue.outPoint || item.duration)) {
+                // Media file has ended or we've reached the defined outPoint
+                howl.stop();
+                clearInterval(cue.progressInterval);
+                
+                // Manually trigger end behavior since we're stopping early
+                activeCues.value.delete(item.uuid);
+                restoreDuckedVolumes(item.uuid);
+                
+                const parentGroup = findParentGroup(item.uuid);
+                if (parentGroup) {
+                  const groupState = activeGroups.value.get(parentGroup.uuid);
+                  if (groupState) {
+                    const itemIndex = groupState.playbackChain.indexOf(item.uuid);
+                    if (itemIndex === groupState.playbackChain.length - 1) {
+                      stopGroupTracking(parentGroup.uuid);
+                    }
+                  }
+                }
+                
+                if (item.endBehavior.action !== 'loop') {
+                  handleEndBehavior(item);
+                }
+                return;
+              }
               
               // Clamp to valid range (0 to trimmed duration)
               cue.currentTime = Math.max(0, Math.min(currentTime, cue.duration));
@@ -312,14 +351,6 @@ export const useAudioEngine = () => {
                   const currentVol = howl.volume();
                   howl.fade(currentVol, 0, item.stopFade * 1000);
                 }
-              }
-              
-              // Safety check: if we've somehow passed the end point, stop playback
-              // This shouldn't happen with sprites, but ensures clean behavior
-              if (currentTime >= cue.duration) {
-                howl.stop();
-                clearInterval(cue.progressInterval);
-                return;
               }
               
               // Update group progress
@@ -747,9 +778,22 @@ export const useAudioEngine = () => {
         onload: () => {
           const cue = activeCues.value.get(item.uuid);
           if (cue) {
-            cue.duration = item.inPoint || item.outPoint 
-              ? (item.outPoint || item.duration) - (item.inPoint || 0)
-              : howl.duration();
+            // Get the actual file duration from Howler
+            const actualFileDuration = howl.duration();
+            
+            // For trimmed items (with sprites), duration should be the trimmed duration
+            // But make sure outPoint doesn't exceed actual file duration
+            const inPoint = item.inPoint || 0;
+            const requestedOutPoint = item.outPoint || item.duration;
+            const actualOutPoint = Math.min(requestedOutPoint, actualFileDuration);
+            
+            // Calculate trimmed duration, ensuring it doesn't exceed file bounds
+            const trimmedDuration = actualOutPoint - inPoint;
+            
+            cue.duration = trimmedDuration;
+            
+            // Update the outPoint in cue state to reflect actual file bounds
+            cue.outPoint = actualOutPoint;
             
             // Start progress tracking (same as playCue)
             cue.progressInterval = setInterval(() => {
@@ -761,6 +805,35 @@ export const useAudioEngine = () => {
               const absoluteTime = howl.seek() as number;
               const inPoint = item.inPoint || 0;
               const currentTime = absoluteTime - inPoint;
+              
+              // Check if playback has reached or exceeded the actual file duration
+              const actualFileDuration = howl.duration();
+              if (absoluteTime >= actualFileDuration || absoluteTime >= (cue.outPoint || item.duration)) {
+                // Media file has ended or we've reached the defined outPoint
+                howl.stop();
+                clearInterval(cue.progressInterval);
+                
+                // Manually trigger end behavior since we're stopping early
+                activeCues.value.delete(item.uuid);
+                restoreDuckedVolumes(item.uuid);
+                
+                const parentGroup = findParentGroup(item.uuid);
+                if (parentGroup) {
+                  const groupState = activeGroups.value.get(parentGroup.uuid);
+                  if (groupState) {
+                    const itemIndex = groupState.playbackChain.indexOf(item.uuid);
+                    if (itemIndex === groupState.playbackChain.length - 1) {
+                      stopGroupTracking(parentGroup.uuid);
+                    }
+                  }
+                }
+                
+                if (item.endBehavior.action !== 'loop') {
+                  handleEndBehavior(item);
+                }
+                return;
+              }
+              
               cue.currentTime = Math.max(0, Math.min(currentTime, cue.duration));
               
               updateAudioLevels();
@@ -803,12 +876,6 @@ export const useAudioEngine = () => {
                   const currentVol = howl.volume();
                   howl.fade(currentVol, 0, item.stopFade * 1000);
                 }
-              }
-              
-              if (currentTime >= cue.duration) {
-                howl.stop();
-                clearInterval(cue.progressInterval);
-                return;
               }
               
               const parentGroup = findParentGroup(item.uuid);

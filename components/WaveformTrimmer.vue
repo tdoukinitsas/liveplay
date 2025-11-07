@@ -416,6 +416,23 @@ const crossFadePosition = computed(() => {
   return (relativeTime / visibleDuration.value) * canvasWidth.value;
 });
 
+// Seek to position (when clicking waveform)
+const seekToPosition = (absoluteTime: number) => {
+  const cue = activeCues.value.get(props.audioItem.uuid);
+  if (!cue || !cue.howl) return;
+  
+  // Convert absolute time to time relative to inPoint for Howler
+  // Howler expects time relative to sprite start when using sprites
+  const inPoint = props.audioItem.inPoint || 0;
+  const seekTime = absoluteTime;
+  
+  // Clamp to valid range
+  const clampedTime = Math.max(inPoint, Math.min(seekTime, props.audioItem.outPoint || props.audioItem.duration));
+  
+  // Seek the Howler instance
+  cue.howl.seek(clampedTime);
+};
+
 // Handle dragging
 const dragState = ref<{ handle: 'in' | 'out' | 'play' | 'stop' | 'cross' | null; startX: number; startValue: number }>({
   handle: null,
@@ -439,7 +456,7 @@ const startDragHandle = (handle: 'in' | 'out', event: MouseEvent) => {
 
     if (dragState.value.handle === 'in') {
       emit('update:inPoint', Math.min(newValue, outPoint.value - 0.01));
-    } else {
+    } else if (dragState.value.handle === 'out') {
       emit('update:outPoint', Math.max(newValue, inPoint.value + 0.01));
     }
   };
@@ -511,16 +528,8 @@ const handleCanvasMouseDown = (event: MouseEvent) => {
   const x = event.clientX - rect.left;
   const clickedTime = visibleStart.value + (x / canvasWidth.value) * visibleDuration.value;
 
-  // If closer to in point, move in point, otherwise move out point
-  const distToIn = Math.abs(clickedTime - inPoint.value);
-  const distToOut = Math.abs(clickedTime - outPoint.value);
-
-  if (distToIn < distToOut) {
-    emit('update:inPoint', Math.max(0, Math.min(clickedTime, outPoint.value - 0.01)));
-  } else {
-    emit('update:outPoint', Math.max(inPoint.value + 0.01, Math.min(clickedTime, duration.value)));
-  }
-  emit('change');
+  // Seek to clicked position
+  seekToPosition(clickedTime);
 };
 
 // Handle wheel zoom
@@ -871,23 +880,27 @@ const drawWaveform = () => {
 
   // Draw playhead if item is currently playing
   if (playbackPosition.value !== null && duration.value > 0) {
-    const playheadX = (playbackPosition.value / duration.value) * canvasWidth.value;
+    // Calculate position respecting zoom and scroll
+    const relativeTime = playbackPosition.value - visibleStart.value;
+    const playheadX = (relativeTime / visibleDuration.value) * canvasWidth.value;
     
-    // Use item's color or default to accent color
-    const itemColor = props.audioItem.color || 'var(--color-accent)';
-    
-    // Draw vertical line
-    ctx.strokeStyle = itemColor;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(playheadX, 0);
-    ctx.lineTo(playheadX, canvasHeight);
-    ctx.stroke();
-    
-    // Draw triangle at top
-    ctx.fillStyle = itemColor;
-    ctx.beginPath();
-    ctx.moveTo(playheadX, 10);
+    // Only draw if within visible range
+    if (playheadX >= 0 && playheadX <= canvasWidth.value) {
+      // Use item's color or default to accent color
+      const itemColor = props.audioItem.color || 'var(--color-accent)';
+      
+      // Draw vertical line
+      ctx.strokeStyle = itemColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(playheadX, 0);
+      ctx.lineTo(playheadX, canvasHeight);
+      ctx.stroke();
+      
+      // Draw triangle at top
+      ctx.fillStyle = itemColor;
+      ctx.beginPath();
+      ctx.moveTo(playheadX, 10);
     ctx.lineTo(playheadX - 6, 0);
     ctx.lineTo(playheadX + 6, 0);
     ctx.closePath();
@@ -1019,6 +1032,7 @@ const drawWaveform = () => {
     }
   }
 };
+}
 
 // Throttle drawWaveform to prevent excessive redraws
 let drawTimeout: NodeJS.Timeout | null = null;
@@ -1087,6 +1101,7 @@ onUnmounted(() => {
     resizeObserver.value.disconnect();
   }
 });
+
 </script>
 
 <style scoped>
