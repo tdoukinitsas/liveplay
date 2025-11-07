@@ -84,6 +84,45 @@
         </button>
       </div>
         
+        <!-- Behavior indicators (for audio items) -->
+        <div v-if="item.type === 'audio'" class="behavior-indicators">
+          <!-- Start behavior -->
+          <span 
+            v-if="item.startBehavior?.action === 'play-next'" 
+            class="material-symbols-rounded behavior-icon"
+            :title="`Start: Play Next`"
+          >skip_next</span>
+          <span 
+            v-else-if="item.startBehavior?.action === 'play-item' || item.startBehavior?.action === 'play-index'" 
+            class="material-symbols-rounded behavior-icon"
+            :title="`Start: Play ${item.startBehavior?.action === 'play-item' ? 'Item' : 'Index'}`"
+          >arrow_forward</span>
+          
+          <!-- Ducking behavior -->
+          <span 
+            v-if="item.duckingBehavior?.mode === 'duck-others'" 
+            class="material-symbols-rounded behavior-icon"
+            :title="`Ducking: Duck Others`"
+          >volume_down</span>
+          
+          <!-- End behavior -->
+          <span 
+            v-if="item.endBehavior?.action === 'next'" 
+            class="material-symbols-rounded behavior-icon"
+            :title="`End: Play Next`"
+          >skip_next</span>
+          <span 
+            v-else-if="item.endBehavior?.action === 'goto-item' || item.endBehavior?.action === 'goto-index'" 
+            class="material-symbols-rounded behavior-icon"
+            :title="`End: Go To ${item.endBehavior?.action === 'goto-item' ? 'Item' : 'Index'}`"
+          >arrow_forward</span>
+          <span 
+            v-else-if="item.endBehavior?.action === 'loop'" 
+            class="material-symbols-rounded behavior-icon"
+            :title="`End: Loop`"
+          >replay</span>
+        </div>
+        
         <span v-if="item.type === 'audio'" class="item-duration">{{ durationDisplay }}</span>
       </div>
       
@@ -109,7 +148,7 @@ const props = defineProps<{
   depth: number;
 }>();
 
-const { selectedItem, selectedItems, toggleItemSelection, removeItem, findItemByUuid, currentProject, waveformUpdateKey } = useProject();
+const { selectedItem, selectedItems, toggleItemSelection, removeItem, findItemByUuid, currentProject, waveformUpdateKey, triggerWaveformUpdate } = useProject();
 const { playCue, stopCue, pauseCue, resumeCue, activeCues, activeGroups, triggerGroup } = useAudioEngine();
 const { t } = useLocalization();
 
@@ -133,7 +172,23 @@ const durationDisplay = computed(() => {
   if (props.item.type !== 'audio') return '';
   
   const audioItem = props.item as AudioItem;
-  // Calculate trimmed duration based on in/out points
+  
+  // If playing, show countdown
+  if (isPlaying.value) {
+    const timeRemaining = playbackDuration.value - currentPlaybackTime.value;
+    const totalSeconds = Math.floor(timeRemaining);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    if (hours > 0) {
+      return `-${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    } else {
+      return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+  }
+  
+  // Otherwise show trimmed duration
   const totalDuration = audioItem.duration;
   const inPoint = audioItem.inPoint || 0;
   const outPoint = audioItem.outPoint || totalDuration;
@@ -215,6 +270,22 @@ const drawWaveform = () => {
 let resizeObserver: ResizeObserver | null = null;
 let waveformPollInterval: NodeJS.Timeout | null = null;
 
+// Watch for canvas availability and set up observer
+watch(waveformCanvas, (canvas) => {
+  if (canvas && props.item.type === 'audio') {
+    // Canvas is now available, draw waveform
+    nextTick(drawWaveform);
+    
+    // Set up resize observer if not already set up
+    if (!resizeObserver) {
+      resizeObserver = new ResizeObserver(() => {
+        drawWaveform();
+      });
+      resizeObserver.observe(canvas);
+    }
+  }
+});
+
 onMounted(() => {
   if (props.item.type === 'audio' && waveformCanvas.value) {
     nextTick(drawWaveform);
@@ -224,8 +295,10 @@ onMounted(() => {
       drawWaveform();
     });
     resizeObserver.observe(waveformCanvas.value);
-    
-    // Start polling for waveform if not available yet
+  }
+  
+  // Start polling for waveform if not available yet
+  if (props.item.type === 'audio') {
     const audioItem = props.item as AudioItem;
     if (!audioItem.waveform || !audioItem.waveform.peaks || audioItem.waveform.peaks.length === 0) {
       startWaveformPolling();
@@ -273,12 +346,20 @@ const startWaveformPolling = () => {
         if (result.success && result.data) {
           const waveformData = JSON.parse(result.data);
           if (waveformData.peaks && waveformData.peaks.length > 0) {
-            audioItem.waveform = waveformData;
-            
-            // Update duration from waveform data if available (more accurate than Audio API)
-            if (waveformData.duration && waveformData.duration > 0) {
-              audioItem.duration = waveformData.duration;
-              audioItem.outPoint = waveformData.duration;
+            // Find the actual item in the project to ensure reactivity
+            const projectItem = findItemByUuid(audioItem.uuid);
+            if (projectItem && projectItem.type === 'audio') {
+              projectItem.waveform = waveformData;
+              
+              // Update duration from waveform data if available (more accurate than Audio API)
+              if (waveformData.duration && waveformData.duration > 0) {
+                projectItem.duration = waveformData.duration;
+                projectItem.outPoint = waveformData.duration;
+              }
+              
+              // Save the project to persist changes
+              const { saveProject } = useProject();
+              await saveProject();
             }
             
             clearInterval(waveformPollInterval!);
@@ -320,6 +401,8 @@ watch(() => waveformUpdateKey.value, () => {
 
 // Calculate playback progress
 const playbackProgress = ref(0);
+const currentPlaybackTime = ref(0);
+const playbackDuration = ref(0);
 let progressInterval: any = null;
 
 // Warning state based on time remaining
@@ -344,6 +427,8 @@ watch(isPlaying, (playing) => {
         // Now we get currentTime directly from the cue state updated by IPC events
         const current = cue.currentTime;
         const duration = cue.duration;
+        currentPlaybackTime.value = current;
+        playbackDuration.value = duration;
         playbackProgress.value = duration > 0 ? Math.min((current / duration) * 100, 100) : 0;
       }, 100);
     }
@@ -353,6 +438,8 @@ watch(isPlaying, (playing) => {
       progressInterval = null;
     }
     playbackProgress.value = 0;
+    currentPlaybackTime.value = 0;
+    playbackDuration.value = 0;
   }
 });
 
@@ -779,8 +866,21 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   font-size: 12px;
   font-size: 1.5em;
   color: var(--color-text-secondary);
-  margin-left: auto;
+  margin-left: var(--spacing-xs);
   white-space: nowrap;
+}
+
+.behavior-indicators {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  margin-left: auto;
+  
+  .behavior-icon {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    opacity: 0.7;
+  }
 }
 
 .item-actions {

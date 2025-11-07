@@ -1,10 +1,10 @@
 <template>
-  <div class="cart-player">
+  <div class="cart-player" ref="cartPlayerRef">
     <div class="cart-header">
       <h2>Cart Player</h2>
     </div>
     
-    <div class="cart-grid">
+    <div class="cart-grid" :class="gridClass">
       <CartSlot
         v-for="slot in 16"
         :key="slot"
@@ -20,6 +20,47 @@ import type { AudioItem } from '~/types/project';
 
 const { currentProject } = useProject();
 const { getCartItem } = useCartItems();
+
+const cartPlayerRef = ref<HTMLElement | null>(null);
+const gridClass = ref('grid-cols-2');
+
+// Watch for resize and adjust grid columns
+const updateGridColumns = () => {
+  if (!cartPlayerRef.value) return;
+  
+  const width = cartPlayerRef.value.offsetWidth;
+  
+  // Adjust grid columns based on width
+  if (width < 500) {
+    gridClass.value = 'grid-cols-2';
+  } else if (width < 800) {
+    gridClass.value = 'grid-cols-2';
+  } else if (width < 1100) {
+    gridClass.value = 'grid-cols-3';
+  } else {
+    gridClass.value = 'grid-cols-4';
+  }
+};
+
+onMounted(() => {
+  if (import.meta.client) {
+    // Initial setup
+    updateGridColumns();
+    
+    // Watch for resize
+    const resizeObserver = new ResizeObserver(() => {
+      updateGridColumns();
+    });
+    
+    if (cartPlayerRef.value) {
+      resizeObserver.observe(cartPlayerRef.value);
+    }
+    
+    onUnmounted(() => {
+      resizeObserver.disconnect();
+    });
+  }
+});
 </script>
 
 <style scoped>
@@ -45,11 +86,22 @@ const { getCartItem } = useCartItems();
 .cart-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
   grid-auto-rows: minmax(100px, 1fr);
   gap: var(--spacing-sm);
   padding: var(--spacing-md);
   overflow-y: auto;
   align-content: start;
+  
+  &.grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  &.grid-cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  &.grid-cols-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 </style>

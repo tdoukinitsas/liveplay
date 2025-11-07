@@ -242,8 +242,8 @@ const allTabs = computed<Tab[]>(() => [
   { id: 'media', label: t('properties.media'), icon: 'audio_file', audioOnly: true },
   { id: 'playback', label: t('properties.playback'), icon: 'play_circle', audioOnly: true },
   { id: 'ducking', label: t('properties.ducking'), icon: 'volume_down', audioOnly: true },
-  { id: 'endBehavior', label: t('properties.endBehavior'), icon: 'stop_circle' },
-  { id: 'startBehavior', label: t('properties.startBehavior'), icon: 'play_arrow' }
+  { id: 'startBehavior', label: t('properties.startBehavior'), icon: 'play_arrow' },
+  { id: 'endBehavior', label: t('properties.endBehavior'), icon: 'stop_circle' }
 ]);
 
 const availableTabs = computed(() => {

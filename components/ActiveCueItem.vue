@@ -37,7 +37,7 @@
       <div class="cue-progress">
         <div class="time-info">
           <span>{{ formatTime(cue.currentTime) }}</span>
-          <span>{{ formatTime(cue.duration - cue.currentTime) }}</span>
+          <span>-{{ formatTime(cue.duration - cue.currentTime) }}</span>
         </div>
         
         <div class="progress-bar" @click="handleSeek">

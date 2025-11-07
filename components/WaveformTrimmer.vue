@@ -369,11 +369,9 @@ const inPoint = computed(() => props.audioItem?.inPoint ?? 0);
 const outPoint = computed(() => props.audioItem?.outPoint ?? props.audioItem?.duration ?? 0);
 const duration = computed(() => props.audioItem?.duration ?? 0);
 
-// Canvas dimensions
-const canvasWidth = computed(() => {
-  if (!waveformContainer.value) return 800;
-  return waveformContainer.value.clientWidth;
-});
+// Canvas dimensions - use reactive ref to ensure handle positions update on resize
+const containerWidth = ref(800);
+const canvasWidth = computed(() => containerWidth.value);
 
 const canvasHeight = 120; // Fixed height for waveform (reduced from 200)
 
@@ -1057,6 +1055,11 @@ watch(() => props.audioItem?.waveform, () => {
 const resizeObserver = ref<ResizeObserver | null>(null);
 
 onMounted(() => {
+  // Set initial container width
+  if (waveformContainer.value) {
+    containerWidth.value = waveformContainer.value.clientWidth;
+  }
+  
   // Initial draw
   setTimeout(() => {
     drawWaveform();
@@ -1064,6 +1067,10 @@ onMounted(() => {
 
   if (waveformContainer.value) {
     resizeObserver.value = new ResizeObserver(() => {
+      // Update the reactive container width
+      if (waveformContainer.value) {
+        containerWidth.value = waveformContainer.value.clientWidth;
+      }
       throttledDraw();
     });
     resizeObserver.value.observe(waveformContainer.value);

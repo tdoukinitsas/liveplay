@@ -4,16 +4,17 @@
     <PlaybackControls />
     
     <div class="workspace-content">
-      <div class="playlist-section" :style="{ width: `calc(100% - ${cartWidth}px)` }">
+      <div v-if="!cartFullscreen" class="playlist-section" :style="{ width: cartClosed ? '100%' : `calc(100% - ${cartWidth}px)` }">
         <PlaylistView />
       </div>
       
       <div 
         class="resize-handle"
+        :class="{ 'collapsed-left': cartFullscreen, 'collapsed-right': cartClosed }"
         @mousedown="startResize"
       ></div>
       
-      <div class="cart-section" :style="{ width: `${cartWidth}px` }">
+      <div v-if="!cartClosed" class="cart-section" :style="{ width: cartFullscreen ? '100%' : `${cartWidth}px` }">
         <CartPlayer />
       </div>
     </div>
@@ -29,6 +30,8 @@ const { triggerByUuid, triggerByIndex, stopCue } = useAudioEngine();
 // Resizable cart width
 const cartWidth = ref(500);
 const isResizing = ref(false);
+const cartClosed = ref(false);
+const cartFullscreen = ref(false);
 
 const startResize = (e: MouseEvent) => {
   isResizing.value = true;
@@ -43,10 +46,28 @@ const startResize = (e: MouseEvent) => {
     const rect = container.getBoundingClientRect();
     const newWidth = rect.right - e.clientX;
     
-    // Min width 300px, max 70% of container
+    // Snap zones
+    const snapThreshold = 100; // pixels from edge to trigger snap
     const minWidth = 300;
-    const maxWidth = rect.width * 0.7;
+    const maxWidth = rect.width * 0.95; // Allow up to 95% to trigger fullscreen
     
+    // Check for close snap (dragging very close to right edge)
+    if (newWidth < snapThreshold) {
+      cartClosed.value = true;
+      cartFullscreen.value = false;
+      return;
+    }
+    
+    // Check for fullscreen snap (dragging very close to left edge)
+    if (newWidth > rect.width - snapThreshold) {
+      cartFullscreen.value = true;
+      cartClosed.value = false;
+      return;
+    }
+    
+    // Normal resize
+    cartClosed.value = false;
+    cartFullscreen.value = false;
     cartWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth));
   };
   
@@ -151,6 +172,60 @@ onUnmounted(() => {
   
   &:active {
     background-color: var(--color-accent);
+  }
+  
+  &.collapsed-left {
+    /* When cart is fullscreen, show handle at left edge */
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    background-color: transparent;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background-color: var(--color-border);
+      opacity: 0.5;
+    }
+    
+    &:hover::after {
+      width: 4px;
+      background-color: var(--color-accent);
+      opacity: 1;
+    }
+  }
+  
+  &.collapsed-right {
+    /* When cart is closed, show handle at right edge */
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    background-color: transparent;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background-color: var(--color-border);
+      opacity: 0.5;
+    }
+    
+    &:hover::after {
+      width: 4px;
+      background-color: var(--color-accent);
+      opacity: 1;
+    }
   }
 }
 

@@ -44,27 +44,77 @@
       
       <!-- Waveform/Progress section at bottom -->
       <div class="slot-waveform-area">
-        <!-- Progress info -->
+        <!-- Progress info 
         <div v-if="isPlaying" class="slot-time-info">
           <span>{{ formatTime(currentTime) }}</span>
           <span>-{{ formatTime(duration - currentTime) }}</span>
+          
         </div>
+        -->
       </div>
       
-      <!-- Action buttons -->
-      <div class="slot-actions">
-        <button class="slot-btn play" @click.stop="handlePlay" :title="t('actions.play')">
-          <span class="material-symbols-rounded">play_arrow</span>
-        </button>
-        <button class="slot-btn stop" @click.stop="handleStop" :title="t('actions.stop')" v-if="isPlaying">
-          <span class="material-symbols-rounded">stop</span>
-        </button>
-        <button class="slot-btn edit" @click.stop="handleEdit" :title="t('actions.edit')">
-          <span class="material-symbols-rounded">settings</span>
-        </button>
-        <button class="slot-btn delete" @click.stop="handleDelete" :title="t('actions.remove')">
-          <span class="material-symbols-rounded">delete</span>
-        </button>
+      <!-- Bottom info bar with action buttons, behavior icons, and duration -->
+      <div class="slot-footer">
+        <!-- Action buttons (show on hover) -->
+        <div class="slot-actions">
+          <button class="slot-btn play" @click.stop="handlePlay" :title="t('actions.play')">
+            <span class="material-symbols-rounded">play_arrow</span>
+          </button>
+          <button class="slot-btn stop" @click.stop="handleStop" :title="t('actions.stop')" v-if="isPlaying">
+            <span class="material-symbols-rounded">stop</span>
+          </button>
+          <button class="slot-btn edit" @click.stop="handleEdit" :title="t('actions.edit')">
+            <span class="material-symbols-rounded">settings</span>
+          </button>
+          <button class="slot-btn delete" @click.stop="handleDelete" :title="t('actions.remove')">
+            <span class="material-symbols-rounded">delete</span>
+          </button>
+        </div>
+        
+        <!-- Behavior indicators and duration -->
+        <div class="slot-info">
+          <!-- Behavior indicators -->
+          <div class="behavior-indicators">
+            <!-- Start behavior -->
+            <span 
+              v-if="item.startBehavior?.action === 'play-next'" 
+              class="material-symbols-rounded behavior-icon"
+              :title="`Start: Play Next`"
+            >skip_next</span>
+            <span 
+              v-else-if="item.startBehavior?.action === 'play-item' || item.startBehavior?.action === 'play-index'" 
+              class="material-symbols-rounded behavior-icon"
+              :title="`Start: Play ${item.startBehavior?.action === 'play-item' ? 'Item' : 'Index'}`"
+            >arrow_forward</span>
+            
+            <!-- Ducking behavior -->
+            <span 
+              v-if="item.duckingBehavior?.mode === 'duck-others'" 
+              class="material-symbols-rounded behavior-icon"
+              :title="`Ducking: Duck Others`"
+            >volume_down</span>
+            
+            <!-- End behavior -->
+            <span 
+              v-if="item.endBehavior?.action === 'next'" 
+              class="material-symbols-rounded behavior-icon"
+              :title="`End: Play Next`"
+            >skip_next</span>
+            <span 
+              v-else-if="item.endBehavior?.action === 'goto-item' || item.endBehavior?.action === 'goto-index'" 
+              class="material-symbols-rounded behavior-icon"
+              :title="`End: Go To ${item.endBehavior?.action === 'goto-item' ? 'Item' : 'Index'}`"
+            >arrow_forward</span>
+            <span 
+              v-else-if="item.endBehavior?.action === 'loop'" 
+              class="material-symbols-rounded behavior-icon"
+              :title="`End: Loop`"
+            >replay</span>
+          </div>
+          
+          <!-- Duration -->
+          <span class="slot-duration">{{ isPlaying ? "-" + formatTime(duration - currentTime) : formatDuration(item) }}</span>
+        </div>
       </div>
     </div>
   </div>
@@ -361,6 +411,27 @@ const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+const formatDuration = (item: AudioItem | null): string => {
+  if (!item) return '';
+  
+  // Calculate trimmed duration based on in/out points
+  const totalDuration = item.duration;
+  const inPoint = item.inPoint || 0;
+  const outPoint = item.outPoint || totalDuration;
+  const trimmedDuration = outPoint - inPoint;
+  
+  const totalSeconds = Math.floor(trimmedDuration);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+  
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  } else {
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  }
 };
 
 // Draw waveform
@@ -740,8 +811,9 @@ const handleDrop = async (e: DragEvent) => {
   flex-direction: column;
   position: relative;
   padding: var(--spacing-sm);
+  padding-bottom: 40px; /* Space for absolute positioned footer */
   cursor: move;
-  
+  min-height: 0;
   &:active {
     cursor: grabbing;
   }
@@ -749,16 +821,18 @@ const handleDrop = async (e: DragEvent) => {
 
 .slot-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--spacing-xs);
   margin-bottom: var(--spacing-xs);
   cursor: pointer;
+  z-index: 2;
   
   .slot-number {
     font-size: 16px;
     font-weight: 700;
-    color: var(--color-text-primary);
+    color: var(--color-text-secondary);
     min-width: 24px;
+    flex-shrink: 0;
   }
   
   .slot-name {
@@ -766,8 +840,11 @@ const handleDrop = async (e: DragEvent) => {
     font-weight: 600;
     color: var(--color-text-primary);
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
     flex: 1;
   }
 }
@@ -802,9 +879,8 @@ const handleDrop = async (e: DragEvent) => {
 .slot-actions {
   display: flex;
   gap: 4px;
-  justify-content: flex-end;
-  z-index: 2;
-  position: relative;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
   
   button.slot-btn {
     width: 28px;
@@ -849,12 +925,55 @@ const handleDrop = async (e: DragEvent) => {
   }
 }
 
+.cart-slot:hover .slot-actions {
+  opacity: 1;
+}
+
+.slot-footer {
+  position: absolute;
+  bottom: var(--spacing-sm);
+  left: var(--spacing-sm);
+  right: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.slot-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-left: auto;
+}
+
+.behavior-indicators {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  
+  .behavior-icon {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    opacity: 0.7;
+  }
+}
+
+.slot-duration {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
 .slot-waveform-area {
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   min-height: 30px;
+  overflow: hidden; /* Prevent overflow */
 }
 
 .slot-time-info {
