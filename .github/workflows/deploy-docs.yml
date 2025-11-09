@@ -37,28 +37,10 @@ jobs:
         working-directory: ./docs-site
         run: npm install
 
-      - name: Copy assets to public
+      - name: Copy additional files
         run: |
-          mkdir -p docs-site/public/assets
-          # Copy logo (adjust path as needed)
-          if [ -f "assets/icons/SVG/liveplay-icon-darkmode@web.svg" ]; then
-            cp assets/icons/SVG/liveplay-icon-darkmode@web.svg docs-site/public/assets/logo.svg
-          fi
-          # Copy favicon
-          if [ -f "public/assets/icons/1x/liveplay-icon-darkmode@1x.png" ]; then
-            cp public/assets/icons/1x/liveplay-icon-darkmode@1x.png docs-site/public/favicon.ico
-          fi
-          # Copy screenshots
-          if [ -f "public/liveplay_screenshot.jpg" ]; then
-            cp public/liveplay_screenshot.jpg docs-site/public/assets/liveplay_screenshot.jpg
-          fi
-          if [ -f "public/liveplay_youtube_screenshot.jpg" ]; then
-            cp public/liveplay_youtube_screenshot.jpg docs-site/public/assets/liveplay_youtube_screenshot.jpg
-          fi
-          # Copy README
+          # Copy README for reference
           cp README.md docs-site/public/README.md
-          # Fix image paths in README
-          sed -i 's|/public/|/liveplay/assets/|g' docs-site/public/README.md
           # Copy package.json for version info
           cp package.json docs-site/public/package.json
 
