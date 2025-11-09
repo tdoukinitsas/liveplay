@@ -1,0 +1,71 @@
+{
+  "_metadata": {
+    "code": "ko",
+    "name": "Korean",
+    "nativeName": "한국어",
+    "direction": "ltr"
+  },
+  "header": {
+    "tagline": "라이브 이벤트용 오디오 큐 재생"
+  },
+  "download": {
+    "title": "LivePlay 다운로드",
+    "subtitle": "무료 오픈 소스. Windows, macOS 및 Linux에서 사용 가능.",
+    "windows": {
+      "title": "Windows",
+      "description": "Windows 10/11 (64-bit)",
+      "buttonText": ".exe 다운로드",
+      "size": "~150 MB"
+    },
+    "mac": {
+      "title": "macOS",
+      "description": "macOS 10.15+ (Universal)",
+      "buttonText": ".dmg 다운로드",
+      "size": "~140 MB"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (Universal)",
+      "buttonText": ".AppImage 다운로드",
+      "size": "~155 MB"
+    },
+    "otherFormats": "사용 가능한 다른 형식:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macZip": ".zip (macOS)",
+    "viewReleases": "GitHub에서 모든 릴리스 보기 →"
+  },
+  "features": {
+    "title": "주요 기능",
+    "interface": {
+      "title": "직관적인 인터페이스",
+      "description": "LivePlay는 라이브 사운드 오퍼레이터를 위해 특별히 설계된 깔끔하고 간단하며 현대적인 인터페이스를 갖추고 있습니다. 주요 사운드 파일을 재생 목록으로 구성하고 빠른 액세스 또는 공지를 위해 카트 플레이어에 사운드를 추가하세요. 카트에 추가된 오디오 파일은 자동으로 공지로 동작하며 재생 시 배경 오디오를 덕킹합니다."
+    },
+    "waveform": {
+      "title": "파형 트리머",
+      "description": "내장된 파형 편집기를 사용하여 정밀하게 오디오를 트리밍하세요. 인점과 아웃점을 설정하고 볼륨을 조정하며 페이드 시간을 시각적으로 구성할 수 있습니다. 무음을 기반으로 자동으로 트리밍하거나 모든 오디오 레벨이 일관되도록 볼륨을 자동으로 조정할 수도 있습니다."
+    },
+    "youtube": {
+      "title": "YouTube 통합",
+      "description": "내장 다운로더로 YouTube에서 직접 오디오를 다운로드하세요! 쇼에 음악, 음향 효과 또는 반주 트랙을 빠르게 추가하는 데 완벽합니다(콘텐츠를 사용할 권리가 있는지 확인하거나 퍼블릭 도메인 콘텐츠를 사용하세요)."
+    },
+    "properties": {
+      "title": "사용하기 쉬운 속성 패널",
+      "description": "오디오 파일의 이름, 색상 및 재생 속성을 쉽게 변경할 수 있습니다. 파일을 루프로 설정하고 볼륨을 조정하며 시작 및 종료 동작을 설정하고 자동 무음 트리밍을 구성하는 등 모든 작업을 편리한 한 곳에서 수행할 수 있습니다. 쇼의 흐름을 제어하세요!"
+    },
+    "ducking": {
+      "title": "자동 덕킹",
+      "description": "공지 또는 대화가 재생될 때 배경 음악의 볼륨을 낮추도록 자동 덕킹을 구성하세요. 라이브 프로덕션에서 부드러운 전환에 완벽합니다."
+    },
+    "firstLaunch": {
+      "title": "빠른 설정",
+      "description": "LivePlay의 간소화된 설정 프로세스로 몇 초 만에 시작하세요. 폴더를 선택하고 프로젝트를 만들고 파일 가져오기를 시작하세요! 모든 미디어가 자동으로 한 곳에 수집되므로 컴퓨터 간에 프로젝트를 쉽게 이동할 수 있습니다."
+    }
+  },
+  "footer": {
+    "license": "라이선스",
+    "developedBy": "개발자",
+    "developerName": "토마스 두키니차스",
+    "viewOnGitHub": "GitHub에서 보기"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "_metadata": {
+    "code": "sv",
+    "name": "Swedish",
+    "nativeName": "Svenska",
+    "direction": "ltr"
+  },
+  "header": {
+    "tagline": "Ljuduppspelning för Live-evenemang"
+  },
+  "download": {
+    "title": "Ladda ner LivePlay",
+    "subtitle": "Gratis och öppen källkod. Tillgänglig för Windows, macOS och Linux.",
+    "windows": {
+      "title": "Windows",
+      "description": "Windows 10/11 (64-bit)",
+      "buttonText": "Ladda ner .exe",
+      "size": "~150 MB"
+    },
+    "mac": {
+      "title": "macOS",
+      "description": "macOS 10.15+ (Universal)",
+      "buttonText": "Ladda ner .dmg",
+      "size": "~140 MB"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (Universal)",
+      "buttonText": "Ladda ner .AppImage",
+      "size": "~155 MB"
+    },
+    "otherFormats": "Andra tillgängliga format:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macZip": ".zip (macOS)",
+    "viewReleases": "Se alla versioner på GitHub →"
+  },
+  "features": {
+    "title": "Huvudfunktioner",
+    "interface": {
+      "title": "Intuitivt gränssnitt",
+      "description": "LivePlay har ett rent, enkelt och modernt gränssnitt designat specifikt för live-ljudoperatörer. Organisera dina huvudljudfiler i spellistor och lägg till ljud i en vagnspelare för snabb åtkomst eller meddelanden. Ljudfiler som läggs till i vagnen kommer automatiskt att bete sig som meddelanden och sänka bakgrundsljud under uppspelning."
+    },
+    "waveform": {
+      "title": "Vågformsredigerare",
+      "description": "Trimma ditt ljud med precision med den inbyggda vågformsredigeraren. Ställ in in- och utpunkter, justera volymen och konfigurera fade-tider visuellt. Du kan också automatiskt trimma baserat på tystnad eller automatiskt justera volymen så att alla ljudnivåer är konsekventa."
+    },
+    "youtube": {
+      "title": "YouTube-integration",
+      "description": "Ladda ner ljud direkt från YouTube med vår inbyggda nedladdare! Perfekt för att snabbt lägga till musik, ljudeffekter eller backing-spår till din show (se till att du har rättigheter att använda innehållet eller använder public domain-innehåll)."
+    },
+    "properties": {
+      "title": "Lättanvänd egenskapspanel",
+      "description": "Ändra namn, färg och uppspelningsegenskaper för dina ljudfiler med lätthet. Ställ in filer att loopa, justera deras volym, start- och slutbeteende och konfigurera automatisk tystnadsklippning - allt från en bekväm plats. Du kontrollerar showens flöde!"
+    },
+    "ducking": {
+      "title": "Automatisk ducking",
+      "description": "Konfigurera automatisk ducking för att sänka volymen på bakgrundsmusik när meddelanden eller dialog spelas. Perfekt för smidiga övergångar i live-produktioner."
+    },
+    "firstLaunch": {
+      "title": "Snabb installation",
+      "description": "Kom igång på sekunder med LivePlays strömlinjeformade installationsprocess. Välj en mapp, skapa ett projekt och börja importera filer! All din media samlas automatiskt på ett ställe så att du enkelt kan flytta ditt projekt mellan datorer."
+    }
+  },
+  "footer": {
+    "license": "är licensierad under",
+    "developedBy": "Utvecklad av",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "Visa på GitHub"
+  }
+}

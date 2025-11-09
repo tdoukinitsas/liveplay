@@ -1,0 +1,71 @@
+{
+  "_metadata": {
+    "code": "en",
+    "name": "English",
+    "nativeName": "English",
+    "direction": "ltr"
+  },
+  "header": {
+    "tagline": "Audio Cue Playback for Live Events"
+  },
+  "download": {
+    "title": "Download LivePlay",
+    "subtitle": "Free and open-source. Available for Windows, macOS, and Linux.",
+    "windows": {
+      "title": "Windows",
+      "description": "Windows 10/11 (64-bit)",
+      "buttonText": "Download .exe",
+      "size": "~150 MB"
+    },
+    "mac": {
+      "title": "macOS",
+      "description": "macOS 10.15+ (Universal)",
+      "buttonText": "Download .dmg",
+      "size": "~140 MB"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (Universal)",
+      "buttonText": "Download .AppImage",
+      "size": "~155 MB"
+    },
+    "otherFormats": "Other formats available:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macZip": ".zip (macOS)",
+    "viewReleases": "View all releases on GitHub →"
+  },
+  "features": {
+    "title": "Key Features",
+    "interface": {
+      "title": "Intuitive Interface",
+      "description": "LivePlay features a clean, simple and modern interface designed specifically for live sound operators. Organize your main sound files in playlists, and add sounds to a cart player for quick access or announcements. Audio files added to the cart will automatically behave as announcements, ducking any background audio when played."
+    },
+    "waveform": {
+      "title": "Waveform Trimmer",
+      "description": "Trim your audio with precision using the built-in waveform editor. Set in and out points, adjust volume, and configure fade times visually. You can also automatically trim based on silence, or automatically adjust the volume so that all audio levels are consistent."
+    },
+    "youtube": {
+      "title": "YouTube Integration",
+      "description": "Download audio directly from YouTube with our built-in downloader! Perfect for quickly adding music, sound effects, or backing tracks to your show (please make sure you have the rights to use the content or are using public domain content)."
+    },
+    "properties": {
+      "title": "Easy to use Properties Panel",
+      "description": "Change the name, color, and playback properties of your audio files with ease. Set files to loop, adjust their volume, start and end behaviours, and configure automatic silence trimming all from one convenient location. You are in control of your show's flow!"
+    },
+    "ducking": {
+      "title": "Automatic Ducking",
+      "description": "Configure automatic ducking to lower the volume of background music when announcements or dialogue play. Perfect for smooth transitions in live productions."
+    },
+    "firstLaunch": {
+      "title": "Quick Setup",
+      "description": "Get started in seconds with LivePlay's streamlined setup process. Select a folder, create a project and start importing files! All your media gets automatically collected into one place so you can move your project between computers with ease."
+    }
+  },
+  "footer": {
+    "license": "is licensed under the",
+    "developedBy": "Developed by",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "View on GitHub"
+  }
+}

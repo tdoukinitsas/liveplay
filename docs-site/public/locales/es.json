@@ -1,0 +1,71 @@
+{
+  "_metadata": {
+    "code": "es",
+    "name": "Spanish",
+    "nativeName": "Español",
+    "direction": "ltr"
+  },
+  "header": {
+    "tagline": "Reproducción de Audio para Eventos en Vivo"
+  },
+  "download": {
+    "title": "Descargar LivePlay",
+    "subtitle": "Gratuito y de código abierto. Disponible para Windows, macOS y Linux.",
+    "windows": {
+      "title": "Windows",
+      "description": "Windows 10/11 (64-bit)",
+      "buttonText": "Descargar .exe",
+      "size": "~150 MB"
+    },
+    "mac": {
+      "title": "macOS",
+      "description": "macOS 10.15+ (Universal)",
+      "buttonText": "Descargar .dmg",
+      "size": "~140 MB"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (Universal)",
+      "buttonText": "Descargar .AppImage",
+      "size": "~155 MB"
+    },
+    "otherFormats": "Otros formatos disponibles:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macZip": ".zip (macOS)",
+    "viewReleases": "Ver todas las versiones en GitHub →"
+  },
+  "features": {
+    "title": "Características Principales",
+    "interface": {
+      "title": "Interfaz Intuitiva",
+      "description": "LivePlay presenta una interfaz limpia, simple y moderna diseñada específicamente para operadores de sonido en vivo. Organiza tus archivos de sonido principales en listas de reproducción y agrega sonidos a un reproductor de carrito para acceso rápido o anuncios. Los archivos de audio agregados al carrito automáticamente se comportarán como anuncios, reduciendo el audio de fondo cuando se reproducen."
+    },
+    "waveform": {
+      "title": "Editor de Forma de Onda",
+      "description": "Recorta tu audio con precisión usando el editor de forma de onda integrado. Establece puntos de entrada y salida, ajusta el volumen y configura tiempos de fundido visualmente. También puedes recortar automáticamente basándote en silencio, o ajustar automáticamente el volumen para que todos los niveles de audio sean consistentes."
+    },
+    "youtube": {
+      "title": "Integración con YouTube",
+      "description": "¡Descarga audio directamente desde YouTube con nuestro descargador integrado! Perfecto para agregar rápidamente música, efectos de sonido o pistas de acompañamiento a tu espectáculo (asegúrate de tener los derechos para usar el contenido o de usar contenido de dominio público)."
+    },
+    "properties": {
+      "title": "Panel de Propiedades Fácil de Usar",
+      "description": "Cambia el nombre, color y propiedades de reproducción de tus archivos de audio con facilidad. Configura archivos para que se repitan, ajusta su volumen, comportamientos de inicio y fin, y configura el recorte automático de silencio, todo desde una ubicación conveniente. ¡Tú controlas el flujo de tu espectáculo!"
+    },
+    "ducking": {
+      "title": "Reducción Automática",
+      "description": "Configura la reducción automática para bajar el volumen de la música de fondo cuando se reproducen anuncios o diálogos. Perfecto para transiciones suaves en producciones en vivo."
+    },
+    "firstLaunch": {
+      "title": "Configuración Rápida",
+      "description": "Comienza en segundos con el proceso de configuración simplificado de LivePlay. ¡Selecciona una carpeta, crea un proyecto y comienza a importar archivos! Todos tus medios se recopilan automáticamente en un solo lugar para que puedas mover tu proyecto entre computadoras con facilidad."
+    }
+  },
+  "footer": {
+    "license": "está licenciado bajo",
+    "developedBy": "Desarrollado por",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "Ver en GitHub"
+  }
+}

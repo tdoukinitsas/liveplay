@@ -1,0 +1,71 @@
+{
+  "_metadata": {
+    "code": "no",
+    "name": "Norwegian",
+    "nativeName": "Norsk",
+    "direction": "ltr"
+  },
+  "header": {
+    "tagline": "Lydavspilling for Live-arrangementer"
+  },
+  "download": {
+    "title": "Last ned LivePlay",
+    "subtitle": "Gratis og åpen kildekode. Tilgjengelig for Windows, macOS og Linux.",
+    "windows": {
+      "title": "Windows",
+      "description": "Windows 10/11 (64-bit)",
+      "buttonText": "Last ned .exe",
+      "size": "~150 MB"
+    },
+    "mac": {
+      "title": "macOS",
+      "description": "macOS 10.15+ (Universal)",
+      "buttonText": "Last ned .dmg",
+      "size": "~140 MB"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (Universal)",
+      "buttonText": "Last ned .AppImage",
+      "size": "~155 MB"
+    },
+    "otherFormats": "Andre tilgjengelige formater:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macZip": ".zip (macOS)",
+    "viewReleases": "Se alle utgivelser på GitHub →"
+  },
+  "features": {
+    "title": "Hovedfunksjoner",
+    "interface": {
+      "title": "Intuitiv grensesnitt",
+      "description": "LivePlay har et rent, enkelt og moderne grensesnitt designet spesifikt for live-lydoperatører. Organiser hovedlydfiler i spillelister og legg til lyder i en vogn-spiller for rask tilgang eller kunngjøringer. Lydfiler lagt til vognen vil automatisk oppføre seg som kunngjøringer og senke bakgrunnslyden under avspilling."
+    },
+    "waveform": {
+      "title": "Bølgeform-trimmer",
+      "description": "Trim lyden din med presisjon ved hjelp av den innebygde bølgeform-editoren. Sett inn- og ut-punkter, juster volumet og konfigurer fade-tider visuelt. Du kan også automatisk trimme basert på stillhet, eller automatisk justere volumet slik at alle lydnivåer er konsistente."
+    },
+    "youtube": {
+      "title": "YouTube-integrasjon",
+      "description": "Last ned lyd direkte fra YouTube med vår innebygde nedlaster! Perfekt for raskt å legge til musikk, lydeffekter eller backing-spor til showet ditt (vennligst sørg for at du har rettighetene til å bruke innholdet eller bruker offentlig domene-innhold)."
+    },
+    "properties": {
+      "title": "Brukervennlig egenskapspanel",
+      "description": "Endre navn, farge og avspillingsegenskaper for lydfilene dine med letthet. Sett filer til å løkke, juster volumet deres, start- og sluttatferd, og konfigurer automatisk stillhetstrimming - alt fra ett praktisk sted. Du kontrollerer showets flyt!"
+    },
+    "ducking": {
+      "title": "Automatisk ducking",
+      "description": "Konfigurer automatisk ducking for å senke volumet på bakgrunnsmusikk når kunngjøringer eller dialog spilles. Perfekt for jevne overganger i live-produksjoner."
+    },
+    "firstLaunch": {
+      "title": "Rask oppsett",
+      "description": "Kom i gang på sekunder med LivePlays strømlinjeformede oppsettsprosess. Velg en mappe, opprett et prosjekt og begynn å importere filer! All mediene dine blir automatisk samlet på ett sted slik at du enkelt kan flytte prosjektet mellom datamaskiner."
+    }
+  },
+  "footer": {
+    "license": "er lisensiert under",
+    "developedBy": "Utviklet av",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "Se på GitHub"
+  }
+}

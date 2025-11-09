@@ -1,0 +1,71 @@
+{
+  "_metadata": {
+    "code": "fr",
+    "name": "French",
+    "nativeName": "Français",
+    "direction": "ltr"
+  },
+  "header": {
+    "tagline": "Lecture Audio pour Événements en Direct"
+  },
+  "download": {
+    "title": "Télécharger LivePlay",
+    "subtitle": "Gratuit et open-source. Disponible pour Windows, macOS et Linux.",
+    "windows": {
+      "title": "Windows",
+      "description": "Windows 10/11 (64-bit)",
+      "buttonText": "Télécharger .exe",
+      "size": "~150 MB"
+    },
+    "mac": {
+      "title": "macOS",
+      "description": "macOS 10.15+ (Universal)",
+      "buttonText": "Télécharger .dmg",
+      "size": "~140 MB"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (Universal)",
+      "buttonText": "Télécharger .AppImage",
+      "size": "~155 MB"
+    },
+    "otherFormats": "Autres formats disponibles :",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macZip": ".zip (macOS)",
+    "viewReleases": "Voir toutes les versions sur GitHub →"
+  },
+  "features": {
+    "title": "Fonctionnalités Principales",
+    "interface": {
+      "title": "Interface Intuitive",
+      "description": "LivePlay dispose d'une interface propre, simple et moderne conçue spécifiquement pour les opérateurs son en direct. Organisez vos fichiers son principaux dans des listes de lecture et ajoutez des sons à un lecteur de chariot pour un accès rapide ou des annonces. Les fichiers audio ajoutés au chariot se comporteront automatiquement comme des annonces, réduisant tout audio d'arrière-plan lors de la lecture."
+    },
+    "waveform": {
+      "title": "Éditeur de Forme d'Onde",
+      "description": "Découpez votre audio avec précision en utilisant l'éditeur de forme d'onde intégré. Définissez des points d'entrée et de sortie, ajustez le volume et configurez les temps de fondu visuellement. Vous pouvez également découper automatiquement en fonction du silence, ou ajuster automatiquement le volume pour que tous les niveaux audio soient cohérents."
+    },
+    "youtube": {
+      "title": "Intégration YouTube",
+      "description": "Téléchargez l'audio directement depuis YouTube avec notre téléchargeur intégré ! Parfait pour ajouter rapidement de la musique, des effets sonores ou des pistes d'accompagnement à votre spectacle (assurez-vous d'avoir les droits d'utiliser le contenu ou d'utiliser du contenu du domaine public)."
+    },
+    "properties": {
+      "title": "Panneau de Propriétés Facile à Utiliser",
+      "description": "Changez le nom, la couleur et les propriétés de lecture de vos fichiers audio en toute simplicité. Configurez les fichiers en boucle, ajustez leur volume, les comportements de début et de fin, et configurez le découpage automatique du silence, le tout depuis un emplacement pratique. Vous contrôlez le flux de votre spectacle !"
+    },
+    "ducking": {
+      "title": "Ducking Automatique",
+      "description": "Configurez le ducking automatique pour réduire le volume de la musique de fond lorsque des annonces ou des dialogues sont lus. Parfait pour des transitions fluides dans les productions en direct."
+    },
+    "firstLaunch": {
+      "title": "Configuration Rapide",
+      "description": "Démarrez en quelques secondes avec le processus de configuration simplifié de LivePlay. Sélectionnez un dossier, créez un projet et commencez à importer des fichiers ! Tous vos médias sont automatiquement collectés en un seul endroit pour que vous puissiez déplacer votre projet entre ordinateurs facilement."
+    }
+  },
+  "footer": {
+    "license": "est sous licence",
+    "developedBy": "Développé par",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "Voir sur GitHub"
+  }
+}

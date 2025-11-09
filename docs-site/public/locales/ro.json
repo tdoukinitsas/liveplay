@@ -1,0 +1,71 @@
+{
+  "_metadata": {
+    "code": "ro",
+    "name": "Romanian",
+    "nativeName": "Română",
+    "direction": "ltr"
+  },
+  "header": {
+    "tagline": "Redare Audio pentru Evenimente Live"
+  },
+  "download": {
+    "title": "Descarcă LivePlay",
+    "subtitle": "Gratuit și open-source. Disponibil pentru Windows, macOS și Linux.",
+    "windows": {
+      "title": "Windows",
+      "description": "Windows 10/11 (64-bit)",
+      "buttonText": "Descarcă .exe",
+      "size": "~150 MB"
+    },
+    "mac": {
+      "title": "macOS",
+      "description": "macOS 10.15+ (Universal)",
+      "buttonText": "Descarcă .dmg",
+      "size": "~140 MB"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (Universal)",
+      "buttonText": "Descarcă .AppImage",
+      "size": "~155 MB"
+    },
+    "otherFormats": "Alte formate disponibile:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macZip": ".zip (macOS)",
+    "viewReleases": "Vezi toate versiunile pe GitHub →"
+  },
+  "features": {
+    "title": "Caracteristici principale",
+    "interface": {
+      "title": "Interfață intuitivă",
+      "description": "LivePlay are o interfață curată, simplă și modernă, concepută special pentru operatorii de sunet live. Organizați fișierele audio principale în liste de redare și adăugați sunete la playerul de cărucior pentru acces rapid sau anunțuri. Fișierele audio adăugate la cărucior se vor comporta automat ca anunțuri, reducând orice audio de fundal în timpul redării."
+    },
+    "waveform": {
+      "title": "Editor de formă de undă",
+      "description": "Tăiați audio-ul cu precizie folosind editorul de formă de undă integrat. Setați punctele de intrare și ieșire, ajustați volumul și configurați timpii de estompare vizual. De asemenea, puteți tăia automat pe baza tăcerii sau ajusta automat volumul astfel încât toate nivelurile audio să fie consecvente."
+    },
+    "youtube": {
+      "title": "Integrare YouTube",
+      "description": "Descărcați audio direct de pe YouTube cu descărcătorul nostru integrat! Perfect pentru a adăuga rapid muzică, efecte sonore sau piese de acompaniament la spectacolul dvs. (vă rugăm să vă asigurați că aveți drepturile de utilizare a conținutului sau utilizați conținut de domeniu public)."
+    },
+    "properties": {
+      "title": "Panou de proprietăți ușor de utilizat",
+      "description": "Schimbați numele, culoarea și proprietățile de redare ale fișierelor audio cu ușurință. Setați fișiere pentru buclă, ajustați volumul, comportamentele de început și sfârșit și configurați tăierea automată a tăcerii - totul dintr-o singură locație convenabilă. Tu controlezi fluxul spectacolului tău!"
+    },
+    "ducking": {
+      "title": "Reducere automată",
+      "description": "Configurați reducerea automată pentru a reduce volumul muzicii de fundal când sunt redate anunțuri sau dialoguri. Perfect pentru tranziții line în producțiile live."
+    },
+    "firstLaunch": {
+      "title": "Configurare rapidă",
+      "description": "Începeți în câteva secunde cu procesul de configurare simplificat al LivePlay. Selectați un folder, creați un proiect și începeți să importați fișiere! Toate materialele media sunt colectate automat într-un singur loc, astfel încât să puteți muta proiectul între calculatoare cu ușurință."
+    }
+  },
+  "footer": {
+    "license": "este licențiat sub",
+    "developedBy": "Dezvoltat de",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "Vezi pe GitHub"
+  }
+}

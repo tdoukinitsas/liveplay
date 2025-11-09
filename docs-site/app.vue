@@ -1,20 +1,23 @@
 <template>
-  <div class="docs-site">
+  <div class="docs-site" :dir="direction">
     <header class="site-header">
       <div class="container">
-        <div class="logo-section">
-          <img 
-            src="/assets/logo.svg" 
-            alt="LivePlay Logo" 
-            class="logo"
-            @error="handleImageError"
-          />
-          <div class="title-section">
-            <h1>LivePlay</h1>
-            <p class="version">Version {{ version }}</p>
+        <div class="header-content">
+          <div class="logo-section">
+            <img 
+              src="/assets/logo.svg" 
+              alt="LivePlay Logo" 
+              class="logo"
+              @error="handleImageError"
+            />
+            <div class="title-section">
+              <h1>LivePlay</h1>
+              <p class="version">Version {{ version }}</p>
+            </div>
           </div>
+          <LanguageSwitcher />
         </div>
-        <p class="tagline">Audio Cue Playback for Live Events</p>
+        <p class="tagline">{{ t('header.tagline') }}</p>
       </div>
     </header>
 
@@ -22,7 +25,7 @@
       <div class="container">
         <div class="screenshot-wrapper">
           <img 
-            src="/assets/liveplay_screenshot.jpg" 
+            src="/public/screenshots/liveplay_screenshot.jpg" 
             alt="LivePlay main interface showing playlist editor, cue cart, and properties panel" 
             class="app-screenshot"
             @error="handleImageError"
@@ -33,8 +36,8 @@
 
     <section class="download-section">
       <div class="container">
-        <h2>Download LivePlay</h2>
-        <p class="download-subtitle">Free and open-source. Available for Windows, macOS, and Linux.</p>
+        <h2>{{ t('download.title') }}</h2>
+        <p class="download-subtitle">{{ t('download.subtitle') }}</p>
         
         <div class="download-grid">
           <a 
@@ -43,11 +46,11 @@
             target="_blank"
             rel="noopener noreferrer"
           >
-            <h3>Windows</h3>
-            <p>Windows 10/11 (64-bit)</p>
+            <h3>{{ t('download.windows.title') }}</h3>
+            <p>{{ t('download.windows.description') }}</p>
             <div class="download-button">
-              <span>Download .exe</span>
-              <span class="file-size">~150 MB</span>
+              <span>{{ t('download.windows.buttonText') }}</span>
+              <span class="file-size">{{ t('download.windows.size') }}</span>
             </div>
           </a>
 
@@ -57,11 +60,11 @@
             target="_blank"
             rel="noopener noreferrer"
           >
-            <h3>macOS</h3>
-            <p>macOS 10.15+ (Universal)</p>
+            <h3>{{ t('download.mac.title') }}</h3>
+            <p>{{ t('download.mac.description') }}</p>
             <div class="download-button">
-              <span>Download .dmg</span>
-              <span class="file-size">~140 MB</span>
+              <span>{{ t('download.mac.buttonText') }}</span>
+              <span class="file-size">{{ t('download.mac.size') }}</span>
             </div>
           </a>
 
@@ -71,26 +74,26 @@
             target="_blank"
             rel="noopener noreferrer"
           >
-            <h3>Linux</h3>
-            <p>AppImage (Universal)</p>
+            <h3>{{ t('download.linux.title') }}</h3>
+            <p>{{ t('download.linux.description') }}</p>
             <div class="download-button">
-              <span>Download .AppImage</span>
-              <span class="file-size">~155 MB</span>
+              <span>{{ t('download.linux.buttonText') }}</span>
+              <span class="file-size">{{ t('download.linux.size') }}</span>
             </div>
           </a>
         </div>
 
         <div class="other-formats">
-          <p>Other formats available:</p>
+          <p>{{ t('download.otherFormats') }}</p>
           <div class="format-links">
             <a :href="downloadLinks.deb" target="_blank" rel="noopener noreferrer">
-              .deb (Debian/Ubuntu)
+              {{ t('download.debianUbuntu') }}
             </a>
             <a :href="downloadLinks.rpm" target="_blank" rel="noopener noreferrer">
-              .rpm (Fedora/RHEL)
+              {{ t('download.fedoraRHEL') }}
             </a>
             <a :href="downloadLinks.macZip" target="_blank" rel="noopener noreferrer">
-              .zip (macOS)
+              {{ t('download.macZip') }}
             </a>
           </div>
         </div>
@@ -101,35 +104,77 @@
             target="_blank"
             rel="noopener noreferrer"
           >
-            View all releases on GitHub →
+            {{ t('download.viewReleases') }}
           </a>
         </div>
       </div>
     </section>
 
-    <section class="readme-section">
+    <section class="features-section">
       <div class="container">
-        <div class="readme-content" v-html="readmeHtml"></div>
+        <h2>{{ t('features.title') }}</h2>
+        
+        <FeatureHighlight
+          :title="t('features.interface.title')"
+          image-src="/screenshots/liveplay_screenshot.jpg"
+        >
+          <p>{{ t('features.interface.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.waveform.title')"
+          image-src="/screenshots/liveplay_screenshot_waveformtrimmer.jpg"
+        >
+          <p>{{ t('features.waveform.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.youtube.title')"
+          image-src="/screenshots/liveplay_screenshot_youtube.jpg"
+        >
+          <p>{{ t('features.youtube.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.properties.title')"
+          image-src="/screenshots/liveplay_screenshot_properties.jpg"
+        >
+          <p>{{ t('features.properties.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.ducking.title')"
+          image-src="/screenshots/liveplay_screenshot_ducking.jpg"
+        >
+          <p>{{ t('features.ducking.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.firstLaunch.title')"
+          image-src="/screenshots/liveplay_screenshot_welcomescreen.jpg"
+        >
+          <p>{{ t('features.firstLaunch.description') }}</p>
+        </FeatureHighlight>
       </div>
     </section>
 
     <footer class="site-footer">
       <div class="container">
         <p>
-          <strong>LivePlay</strong> is licensed under the 
+          <strong>LivePlay</strong> {{ t('footer.license') }}
           <a href="https://www.gnu.org/licenses/agpl-3.0.en.html" target="_blank" rel="noopener noreferrer">
             AGPL-3.0
           </a>
         </p>
         <p>
-          Developed by 
+          {{ t('footer.developedBy') }}
           <a href="https://github.com/tdoukinitsas" target="_blank" rel="noopener noreferrer">
-            Thomas Doukinitsas
+            {{ t('footer.developerName') }}
           </a>
         </p>
         <p>
           <a href="https://github.com/tdoukinitsas/liveplay" target="_blank" rel="noopener noreferrer">
-            View on GitHub
+            {{ t('footer.viewOnGitHub') }}
           </a>
         </p>
       </div>
@@ -139,9 +184,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useI18n } from './composables/useI18n';
 
-const version = ref('1.2.3');
-const readmeHtml = ref('');
+const { t, direction, initLocale } = useI18n();
+
+const version = ref('1.2.4');
 
 const downloadLinks = computed(() => {
   const baseUrl = `https://github.com/tdoukinitsas/liveplay/releases/download/v${version.value}`;
@@ -161,6 +208,9 @@ const handleImageError = (event: Event) => {
 };
 
 onMounted(async () => {
+  // Initialize locale
+  await initLocale();
+
   // Fetch version from package.json
   try {
     const packageRes = await fetch('/liveplay/package.json');
@@ -169,67 +219,7 @@ onMounted(async () => {
   } catch (error) {
     console.error('Failed to fetch version:', error);
   }
-
-  // Fetch and parse README
-  try {
-    const readmeRes = await fetch('/liveplay/README.md');
-    const readmeText = await readmeRes.text();
-    readmeHtml.value = parseMarkdown(readmeText);
-  } catch (error) {
-    console.error('Failed to fetch README:', error);
-    readmeHtml.value = '<p>Failed to load README content.</p>';
-  }
 });
-
-// Simple markdown parser
-function parseMarkdown(markdown: string): string {
-  let html = markdown;
-
-  // Remove lines with image references
-  html = html.replace(/!\[.*?\]\(.*?\)/g, '');
-
-  // Headers
-  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-  html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
-
-  // Bold
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-  // Italic
-  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-
-  // Code blocks
-  html = html.replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>');
-
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-  // Lists
-  html = html.replace(/^\- (.*$)/gim, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-
-  // Paragraphs
-  html = html.replace(/\n\n/g, '</p><p>');
-  html = '<p>' + html + '</p>';
-
-  // Clean up
-  html = html.replace(/<p><h/g, '<h');
-  html = html.replace(/<\/h([1-6])><\/p>/g, '</h$1>');
-  html = html.replace(/<p><ul>/g, '<ul>');
-  html = html.replace(/<\/ul><\/p>/g, '</ul>');
-  html = html.replace(/<p><pre>/g, '<pre>');
-  html = html.replace(/<\/pre><\/p>/g, '</pre>');
-  html = html.replace(/<p>\s*<\/p>/g, '');
-
-  // Horizontal rules
-  html = html.replace(/^---$/gim, '<hr>');
-
-  return html;
-}
 
 useHead({
   title: 'LivePlay - Audio Cue Playback for Live Events',
@@ -272,12 +262,18 @@ useSeoMeta({
   text-align: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 
+  .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+  }
+
   .logo-section {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 2rem;
-    margin-bottom: 1rem;
   }
 
   .logo {
@@ -459,6 +455,18 @@ useSeoMeta({
   }
 }
 
+.features-section {
+  padding: 4rem 0;
+  background: rgba(255, 255, 255, 0.02);
+
+  h2 {
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 3rem;
+    color: #DA1E28;
+  }
+}
+
 .readme-section {
   padding: 4rem 0;
 
@@ -568,6 +576,12 @@ useSeoMeta({
 
 @media (max-width: 768px) {
   .site-header {
+    .header-content {
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
     .logo-section {
       flex-direction: column;
       gap: 1rem;
@@ -595,6 +609,10 @@ useSeoMeta({
       flex-direction: column;
       gap: 1rem;
     }
+  }
+
+  .features-section h2 {
+    font-size: 2rem;
   }
 
   .readme-section .readme-content {

@@ -6,9 +6,63 @@ This is the static documentation and download site for LivePlay, built with Nuxt
 
 - **Dynamic Version Detection**: Automatically fetches version from parent `package.json`
 - **Download Links**: Direct links to all platform installers (Windows, macOS, Linux)
-- **README Integration**: Displays main project README with markdown parsing
-- **Responsive Design**: Mobile-friendly layout
+- **Feature Highlights**: Showcases key features with screenshots and descriptions
+- **Internationalization**: Supports multiple languages with auto-detection
+- **Language Switcher**: Easy language selection with dropdown menu
+- **Responsive Design**: Mobile-friendly layout that works on all devices
 - **Auto-deployment**: GitHub Actions automatically builds and deploys to GitHub Pages
+
+## Components
+
+### FeatureHighlight.vue
+A reusable component for displaying application features:
+- Title and image props
+- Description via slot
+- Automatic alternating layout
+- Mobile-responsive
+
+**Usage:**
+```vue
+<FeatureHighlight
+  title="Feature Title"
+  image-src="/screenshots/feature.jpg"
+>
+  <p>Feature description goes here.</p>
+</FeatureHighlight>
+```
+
+### LanguageSwitcher.vue
+Language selection dropdown:
+- Auto-detects browser language
+- Persists selection to localStorage
+- Mobile-optimized display
+
+## Localization
+
+### Supported Languages
+- English (en)
+- Spanish (es)
+- French (fr)
+- German (de)
+
+### Adding a New Language
+
+1. Create a new JSON file in `public/locales/` (e.g., `it.json`)
+2. Follow the structure of existing locale files
+3. Add the language to `availableLocales` in `composables/useI18n.ts`
+
+### Using Translations
+
+```vue
+<script setup>
+import { useI18n } from './composables/useI18n';
+const { t } = useI18n();
+</script>
+
+<template>
+  <p>{{ t('header.tagline') }}</p>
+</template>
+```
 
 ## Development
 

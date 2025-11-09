@@ -1,0 +1,71 @@
+{
+  "_metadata": {
+    "code": "ja",
+    "name": "Japanese",
+    "nativeName": "日本語",
+    "direction": "ltr"
+  },
+  "header": {
+    "tagline": "ライブイベント用オーディオキュー再生"
+  },
+  "download": {
+    "title": "LivePlayをダウンロード",
+    "subtitle": "無料でオープンソース。Windows、macOS、Linuxで利用可能。",
+    "windows": {
+      "title": "Windows",
+      "description": "Windows 10/11 (64-bit)",
+      "buttonText": ".exeをダウンロード",
+      "size": "~150 MB"
+    },
+    "mac": {
+      "title": "macOS",
+      "description": "macOS 10.15+ (Universal)",
+      "buttonText": ".dmgをダウンロード",
+      "size": "~140 MB"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (Universal)",
+      "buttonText": ".AppImageをダウンロード",
+      "size": "~155 MB"
+    },
+    "otherFormats": "その他の形式も利用可能：",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macZip": ".zip (macOS)",
+    "viewReleases": "GitHubですべてのリリースを表示 →"
+  },
+  "features": {
+    "title": "主な機能",
+    "interface": {
+      "title": "直感的なインターフェース",
+      "description": "LivePlayは、ライブサウンドオペレーター向けに特別に設計されたクリーンでシンプルかつモダンなインターフェースを備えています。メインのサウンドファイルをプレイリストで整理し、クイックアクセスやアナウンスのためにカートプレーヤーにサウンドを追加できます。カートに追加されたオーディオファイルは自動的にアナウンスとして動作し、再生時に背景オーディオをダッキングします。"
+    },
+    "waveform": {
+      "title": "波形トリマー",
+      "description": "組み込みの波形エディタを使用して、正確にオーディオをトリミングできます。視覚的にイン点とアウト点を設定し、ボリュームを調整し、フェード時間を設定できます。また、無音に基づいて自動的にトリミングしたり、すべてのオーディオレベルが一貫するように自動的にボリュームを調整することもできます。"
+    },
+    "youtube": {
+      "title": "YouTube統合",
+      "description": "組み込みのダウンローダーでYouTubeから直接オーディオをダウンロード！ショーに音楽、効果音、バッキングトラックを素早く追加するのに最適です（コンテンツを使用する権利があることを確認するか、パブリックドメインのコンテンツを使用してください）。"
+    },
+    "properties": {
+      "title": "使いやすいプロパティパネル",
+      "description": "オーディオファイルの名前、色、再生プロパティを簡単に変更できます。ファイルをループに設定し、ボリュームを調整し、開始と終了の動作を設定し、自動無音トリミングを設定できます。すべて1つの便利な場所から。ショーのフローをコントロールできます！"
+    },
+    "ducking": {
+      "title": "自動ダッキング",
+      "description": "アナウンスや対話が再生されるときに背景音楽のボリュームを下げるように自動ダッキングを設定します。ライブ制作でのスムーズな遷移に最適です。"
+    },
+    "firstLaunch": {
+      "title": "クイックセットアップ",
+      "description": "LivePlayの合理化されたセットアッププロセスで数秒で開始できます。フォルダを選択し、プロジェクトを作成してファイルのインポートを開始！すべてのメディアが自動的に1か所に収集されるため、コンピューター間でプロジェクトを簡単に移動できます。"
+    }
+  },
+  "footer": {
+    "license": "はライセンスされています",
+    "developedBy": "開発者",
+    "developerName": "トーマス・ドゥキニツァス",
+    "viewOnGitHub": "GitHubで表示"
+  }
+}

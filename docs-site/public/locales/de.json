@@ -1,0 +1,71 @@
+{
+  "_metadata": {
+    "code": "de",
+    "name": "German",
+    "nativeName": "Deutsch",
+    "direction": "ltr"
+  },
+  "header": {
+    "tagline": "Audio-Cue-Wiedergabe für Live-Events"
+  },
+  "download": {
+    "title": "LivePlay Herunterladen",
+    "subtitle": "Kostenlos und Open-Source. Verfügbar für Windows, macOS und Linux.",
+    "windows": {
+      "title": "Windows",
+      "description": "Windows 10/11 (64-bit)",
+      "buttonText": ".exe Herunterladen",
+      "size": "~150 MB"
+    },
+    "mac": {
+      "title": "macOS",
+      "description": "macOS 10.15+ (Universal)",
+      "buttonText": ".dmg Herunterladen",
+      "size": "~140 MB"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (Universal)",
+      "buttonText": ".AppImage Herunterladen",
+      "size": "~155 MB"
+    },
+    "otherFormats": "Weitere Formate verfügbar:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macZip": ".zip (macOS)",
+    "viewReleases": "Alle Versionen auf GitHub anzeigen →"
+  },
+  "features": {
+    "title": "Hauptmerkmale",
+    "interface": {
+      "title": "Intuitive Benutzeroberfläche",
+      "description": "LivePlay verfügt über eine saubere, einfache und moderne Benutzeroberfläche, die speziell für Live-Tontechniker entwickelt wurde. Organisieren Sie Ihre Haupt-Sounddateien in Playlists und fügen Sie Sounds zu einem Cart-Player für schnellen Zugriff oder Ansagen hinzu. Audio-Dateien, die zum Cart hinzugefügt werden, verhalten sich automatisch wie Ansagen und reduzieren jedes Hintergrundaudio bei der Wiedergabe."
+    },
+    "waveform": {
+      "title": "Wellenform-Editor",
+      "description": "Schneiden Sie Ihr Audio präzise mit dem integrierten Wellenform-Editor. Setzen Sie Ein- und Ausstiegspunkte, passen Sie die Lautstärke an und konfigurieren Sie Fade-Zeiten visuell. Sie können auch automatisch basierend auf Stille schneiden oder die Lautstärke automatisch anpassen, damit alle Audiopegel konsistent sind."
+    },
+    "youtube": {
+      "title": "YouTube-Integration",
+      "description": "Laden Sie Audio direkt von YouTube mit unserem integrierten Downloader herunter! Perfekt zum schnellen Hinzufügen von Musik, Soundeffekten oder Backing-Tracks zu Ihrer Show (stellen Sie sicher, dass Sie die Rechte zur Nutzung des Inhalts haben oder gemeinfreien Inhalt verwenden)."
+    },
+    "properties": {
+      "title": "Benutzerfreundliches Eigenschaften-Panel",
+      "description": "Ändern Sie Namen, Farbe und Wiedergabe-Eigenschaften Ihrer Audiodateien mit Leichtigkeit. Stellen Sie Dateien auf Schleife, passen Sie ihre Lautstärke an, Start- und End-Verhalten und konfigurieren Sie automatisches Stille-Trimmen, alles von einem praktischen Ort aus. Sie haben die Kontrolle über den Ablauf Ihrer Show!"
+    },
+    "ducking": {
+      "title": "Automatisches Ducking",
+      "description": "Konfigurieren Sie automatisches Ducking, um die Lautstärke von Hintergrundmusik zu reduzieren, wenn Ansagen oder Dialoge abgespielt werden. Perfekt für reibungslose Übergänge in Live-Produktionen."
+    },
+    "firstLaunch": {
+      "title": "Schnelle Einrichtung",
+      "description": "Starten Sie in Sekunden mit dem optimierten Setup-Prozess von LivePlay. Wählen Sie einen Ordner, erstellen Sie ein Projekt und beginnen Sie mit dem Importieren von Dateien! Alle Ihre Medien werden automatisch an einem Ort gesammelt, sodass Sie Ihr Projekt problemlos zwischen Computern verschieben können."
+    }
+  },
+  "footer": {
+    "license": "ist lizenziert unter",
+    "developedBy": "Entwickelt von",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "Auf GitHub anzeigen"
+  }
+}

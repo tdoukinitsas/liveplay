@@ -1,0 +1,71 @@
+{
+  "_metadata": {
+    "code": "zh",
+    "name": "Chinese",
+    "nativeName": "中文",
+    "direction": "ltr"
+  },
+  "header": {
+    "tagline": "现场活动音频提示播放"
+  },
+  "download": {
+    "title": "下载 LivePlay",
+    "subtitle": "免费开源。适用于 Windows、macOS 和 Linux。",
+    "windows": {
+      "title": "Windows",
+      "description": "Windows 10/11 (64-bit)",
+      "buttonText": "下载 .exe",
+      "size": "~150 MB"
+    },
+    "mac": {
+      "title": "macOS",
+      "description": "macOS 10.15+ (Universal)",
+      "buttonText": "下载 .dmg",
+      "size": "~140 MB"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (Universal)",
+      "buttonText": "下载 .AppImage",
+      "size": "~155 MB"
+    },
+    "otherFormats": "其他可用格式：",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macZip": ".zip (macOS)",
+    "viewReleases": "在 GitHub 上查看所有版本 →"
+  },
+  "features": {
+    "title": "主要功能",
+    "interface": {
+      "title": "直观的界面",
+      "description": "LivePlay 具有专为现场音响操作员设计的简洁、简单和现代的界面。在播放列表中组织您的主要声音文件，并将声音添加到购物车播放器以快速访问或播报。添加到购物车的音频文件将自动表现为播报，在播放时降低任何背景音频。"
+    },
+    "waveform": {
+      "title": "波形修剪器",
+      "description": "使用内置波形编辑器精确修剪音频。设置入点和出点，调整音量，并可视化配置淡入淡出时间。您还可以根据静音自动修剪，或自动调整音量使所有音频电平保持一致。"
+    },
+    "youtube": {
+      "title": "YouTube 集成",
+      "description": "使用我们内置的下载器直接从 YouTube 下载音频！非常适合快速将音乐、音效或伴奏音轨添加到您的节目中（请确保您有权使用该内容或使用公共域内容）。"
+    },
+    "properties": {
+      "title": "易于使用的属性面板",
+      "description": "轻松更改音频文件的名称、颜色和播放属性。设置文件循环，调整音量，开始和结束行为，并配置自动静音修剪，所有这些都在一个方便的位置。您可以控制节目的流程！"
+    },
+    "ducking": {
+      "title": "自动闪避",
+      "description": "配置自动闪避以在播放播报或对话时降低背景音乐的音量。非常适合现场制作中的平滑过渡。"
+    },
+    "firstLaunch": {
+      "title": "快速设置",
+      "description": "使用 LivePlay 简化的设置过程在几秒钟内开始。选择一个文件夹，创建一个项目并开始导入文件！您的所有媒体都会自动收集到一个地方，以便您可以轻松地在计算机之间移动项目。"
+    }
+  },
+  "footer": {
+    "license": "采用许可证",
+    "developedBy": "开发者",
+    "developerName": "托马斯·杜基尼察斯",
+    "viewOnGitHub": "在 GitHub 上查看"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "_metadata": {
+    "code": "sq",
+    "name": "Albanian",
+    "nativeName": "Shqip",
+    "direction": "ltr"
+  },
+  "header": {
+    "tagline": "Luajtja e Sinjaleve Audio për Ngjarje të Drejtpërdrejta"
+  },
+  "download": {
+    "title": "Shkarko LivePlay",
+    "subtitle": "Falas dhe me burim të hapur. I disponueshëm për Windows, macOS dhe Linux.",
+    "windows": {
+      "title": "Windows",
+      "description": "Windows 10/11 (64-bit)",
+      "buttonText": "Shkarko .exe",
+      "size": "~150 MB"
+    },
+    "mac": {
+      "title": "macOS",
+      "description": "macOS 10/15+ (Universal)",
+      "buttonText": "Shkarko .dmg",
+      "size": "~140 MB"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (Universal)",
+      "buttonText": "Shkarko .AppImage",
+      "size": "~155 MB"
+    },
+    "otherFormats": "Formate të tjera të disponueshme:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macZip": ".zip (macOS)",
+    "viewReleases": "Shiko të gjitha versionet në GitHub →"
+  },
+  "features": {
+    "title": "Karakteristikat Kryesore",
+    "interface": {
+      "title": "Ndërfaqe Intuitive",
+      "description": "LivePlay ka një ndërfaqe të pastër, të thjeshtë dhe moderne të dizajnuar posaçërisht për operatorët e zërit të drejtpërdrejtë. Organizoni skedarët kryesorë të zërit në lista luajtjeje dhe shtoni tinguj në një luajtës karroci për qasje të shpejtë ose njoftime. Skedarët audio të shtuar në karroc do të sillen automatikisht si njoftime, duke ulur çdo audio në sfond gjatë luajtjes."
+    },
+    "waveform": {
+      "title": "Redaktuesi i Formës së Valës",
+      "description": "Pritni audion tuaj me precizion duke përdorur redaktuesin e integruar të formës së valës. Vendosni pikat e hyrjes dhe daljes, rregulloni volumin dhe konfiguroni kohët e zbehjeve vizualisht. Gjithashtu mund të pritni automatikisht bazuar në heshtjen ose të rregulloni automatikisht volumin në mënyrë që të gjitha nivelet e audios të jenë të qëndrueshme."
+    },
+    "youtube": {
+      "title": "Integrimi me YouTube",
+      "description": "Shkarkoni audio drejtpërdrejt nga YouTube me shkarkuesin tonë të integruar! Perfekt për të shtuar shpejt muzikë, efekte zanore ose këngë shoqëruese në shfaqjen tuaj (ju lutemi sigurohuni që keni të drejtat për të përdorur përmbajtjen ose përdorni përmbajtje të domenitpublik)."
+    },
+    "properties": {
+      "title": "Paneli i Pronave i Lehtë për t'u Përdorur",
+      "description": "Ndryshoni emrin, ngjyrën dhe vetitë e luajtjes të skedarëve tuaj audio me lehtësi. Vendosni skedarë për të përsëritur, rregulloni volumin e tyre, sjelljet e fillimit dhe fundit dhe konfiguroni pritjen automatike të heshtjes - të gjitha nga një vend i përshtatshëm. Ju kontrolloni rrjedhën e shfaqjes suaj!"
+    },
+    "ducking": {
+      "title": "Ulja Automatike",
+      "description": "Konfiguroni uljen automatike për të ulur volumin e muzikës në sfond kur luhen njoftime ose dialogë. Perfekt për tranzicione të qetë në prodhime të drejtpërdrejta."
+    },
+    "firstLaunch": {
+      "title": "Konfigurimi i Shpejtë",
+      "description": "Filloni në sekonda me procesin e thjeshtuar të konfigurimit të LivePlay. Zgjidhni një dosje, krijoni një projekt dhe filloni të importoni skedarë! Të gjitha mediat tuaja grumbullohen automatikisht në një vend në mënyrë që të mund ta lëvizni projektin tuaj midis kompjuterëve me lehtësi."
+    }
+  },
+  "footer": {
+    "license": "është i licensuar nën",
+    "developedBy": "Zhvilluar nga",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "Shiko në GitHub"
+  }
+}

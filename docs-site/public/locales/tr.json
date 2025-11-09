@@ -1,0 +1,71 @@
+{
+  "_metadata": {
+    "code": "tr",
+    "name": "Turkish",
+    "nativeName": "Türkçe",
+    "direction": "ltr"
+  },
+  "header": {
+    "tagline": "Canlı Etkinlikler için Ses İpucu Oynatma"
+  },
+  "download": {
+    "title": "LivePlay'i İndirin",
+    "subtitle": "Ücretsiz ve açık kaynak. Windows, macOS ve Linux için kullanılabilir.",
+    "windows": {
+      "title": "Windows",
+      "description": "Windows 10/11 (64-bit)",
+      "buttonText": ".exe İndir",
+      "size": "~150 MB"
+    },
+    "mac": {
+      "title": "macOS",
+      "description": "macOS 10.15+ (Universal)",
+      "buttonText": ".dmg İndir",
+      "size": "~140 MB"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (Universal)",
+      "buttonText": ".AppImage İndir",
+      "size": "~155 MB"
+    },
+    "otherFormats": "Diğer mevcut formatlar:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macZip": ".zip (macOS)",
+    "viewReleases": "GitHub'da tüm sürümleri görüntüle →"
+  },
+  "features": {
+    "title": "Temel Özellikler",
+    "interface": {
+      "title": "Sezgisel Arayüz",
+      "description": "LivePlay, canlı ses operatörleri için özel olarak tasarlanmış temiz, basit ve modern bir arayüze sahiptir. Ana ses dosyalarınızı oynatma listelerinde düzenleyin ve hızlı erişim veya duyurular için arabaya ses ekleyin. Arabaya eklenen ses dosyaları otomatik olarak duyuru gibi davranır ve oynatma sırasında arka plan sesini azaltır."
+    },
+    "waveform": {
+      "title": "Dalga Formu Düzenleyici",
+      "description": "Yerleşik dalga formu düzenleyiciyi kullanarak sesinizi hassas bir şekilde kırpın. Giriş ve çıkış noktalarını ayarlayın, ses seviyesini ayarlayın ve solma sürelerini görsel olarak yapılandırın. Ayrıca sessizliğe göre otomatik olarak kırpabilir veya tüm ses seviyelerinin tutarlı olması için ses seviyesini otomatik olarak ayarlayabilirsiniz."
+    },
+    "youtube": {
+      "title": "YouTube Entegrasyonu",
+      "description": "Yerleşik indiricimizle YouTube'dan doğrudan ses indirin! Gösterinize hızlıca müzik, ses efektleri veya eşlik parçaları eklemek için mükemmeldir (lütfen içeriği kullanma haklarına sahip olduğunuzdan emin olun veya kamu malı içeriği kullanın)."
+    },
+    "properties": {
+      "title": "Kullanımı Kolay Özellikler Paneli",
+      "description": "Ses dosyalarınızın adını, rengini ve oynatma özelliklerini kolaylıkla değiştirin. Dosyaları döngüye ayarlayın, ses seviyelerini ayarlayın, başlangıç ve bitiş davranışlarını ve otomatik sessizlik kırpmayı yapılandırın - hepsi tek bir uygun konumdan. Gösterinizin akışını kontrol ediyorsunuz!"
+    },
+    "ducking": {
+      "title": "Otomatik Azaltma",
+      "description": "Duyurular veya diyaloglar çaldığında arka plan müziğinin ses seviyesini düşürmek için otomatik azaltmayı yapılandırın. Canlı prodüksiyonlarda yumuşak geçişler için mükemmel."
+    },
+    "firstLaunch": {
+      "title": "Hızlı Kurulum",
+      "description": "LivePlay'in basitleştirilmiş kurulum süreciyle saniyeler içinde başlayın. Bir klasör seçin, bir proje oluşturun ve dosya içe aktarmaya başlayın! Tüm medyanız otomatik olarak tek bir yerde toplanır, böylece projenizi bilgisayarlar arasında kolayca taşıyabilirsiniz."
+    }
+  },
+  "footer": {
+    "license": "lisansı altında lisanslanmıştır",
+    "developedBy": "Geliştiren",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "GitHub'da Görüntüle"
+  }
+}
