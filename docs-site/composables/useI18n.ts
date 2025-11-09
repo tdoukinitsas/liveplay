@@ -54,7 +54,7 @@ export const useI18n = () => {
   // Load locale data
   const loadLocale = async (locale: string) => {
     try {
-      const response = await fetch(`/locales/${locale}.json`);
+      const response = await fetch(`/liveplay/locales/${locale}.json`);
       const data = await response.json();
       localeData.value = data;
       currentLocale.value = locale;

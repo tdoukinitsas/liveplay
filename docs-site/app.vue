@@ -25,7 +25,7 @@
       <div class="container">
         <div class="screenshot-wrapper">
           <img 
-            src="/public/screenshots/liveplay_screenshot.jpg" 
+            src="/liveplay/screenshots/liveplay_screenshot.jpg" 
             alt="LivePlay main interface showing playlist editor, cue cart, and properties panel" 
             class="app-screenshot"
             @error="handleImageError"
@@ -116,42 +116,42 @@
         
         <FeatureHighlight
           :title="t('features.interface.title')"
-          image-src="/screenshots/liveplay_screenshot.jpg"
+          image-src="/liveplay/screenshots/liveplay_screenshot.jpg"
         >
           <p>{{ t('features.interface.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.waveform.title')"
-          image-src="/screenshots/liveplay_screenshot_waveformtrimmer.jpg"
+          image-src="/liveplay/screenshots/liveplay_screenshot_waveformtrimmer.jpg"
         >
           <p>{{ t('features.waveform.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.youtube.title')"
-          image-src="/screenshots/liveplay_screenshot_youtube.jpg"
+          image-src="/liveplay/screenshots/liveplay_screenshot_youtube.jpg"
         >
           <p>{{ t('features.youtube.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.properties.title')"
-          image-src="/screenshots/liveplay_screenshot_properties.jpg"
+          image-src="/liveplay/screenshots/liveplay_screenshot_properties.jpg"
         >
           <p>{{ t('features.properties.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.ducking.title')"
-          image-src="/screenshots/liveplay_screenshot_ducking.jpg"
+          image-src="/liveplay/screenshots/liveplay_screenshot_ducking.jpg"
         >
           <p>{{ t('features.ducking.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.firstLaunch.title')"
-          image-src="/screenshots/liveplay_screenshot_welcomescreen.jpg"
+          image-src="/liveplay/screenshots/liveplay_screenshot_welcomescreen.jpg"
         >
           <p>{{ t('features.firstLaunch.description') }}</p>
         </FeatureHighlight>
