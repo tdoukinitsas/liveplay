@@ -25,7 +25,7 @@
       <div class="container">
         <div class="screenshot-wrapper">
           <img 
-            src="/liveplay/screenshots/liveplay_screenshot.jpg" 
+            src="/screenshots/liveplay_screenshot.jpg" 
             alt="LivePlay main interface showing playlist editor, cue cart, and properties panel" 
             class="app-screenshot"
             @error="handleImageError"
