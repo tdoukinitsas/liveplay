@@ -183,10 +183,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useI18n } from './composables/useI18n';
 
-const { t, direction, initLocale } = useI18n();
+const { t, direction, initLocale, isLocaleLoaded } = useI18n();
 
 const version = ref('1.2.4');
 
@@ -207,9 +207,45 @@ const handleImageError = (event: Event) => {
   (event.target as HTMLImageElement).style.display = 'none';
 };
 
+// Update SEO meta when locale changes
+const updateSeoMeta = () => {
+  if (!isLocaleLoaded.value) return;
+
+  const title = `LivePlay - ${t('header.tagline')}`;
+  const description = `${t('header.tagline')}. ${t('download.subtitle')}`;
+  const ogImage = 'https://tdoukinitsas.github.io/liveplay/screenshots/liveplay_screenshot.jpg';
+
+  useHead({
+    title,
+    meta: [
+      { name: 'description', content: description }
+    ]
+  });
+
+  useSeoMeta({
+    title,
+    description,
+    ogTitle: title,
+    ogDescription: description,
+    ogType: 'website',
+    ogUrl: 'https://tdoukinitsas.github.io/liveplay/',
+    ogImage,
+    ogImageWidth: '1920',
+    ogImageHeight: '1080',
+    ogImageType: 'image/jpeg',
+    twitterCard: 'summary_large_image',
+    twitterTitle: title,
+    twitterDescription: description,
+    twitterImage: ogImage
+  });
+};
+
 onMounted(async () => {
   // Initialize locale
   await initLocale();
+  
+  // Update SEO after locale is loaded
+  updateSeoMeta();
 
   // Fetch version from package.json
   try {
@@ -221,13 +257,18 @@ onMounted(async () => {
   }
 });
 
+// Watch for locale changes and update SEO
+watch(isLocaleLoaded, () => {
+  if (isLocaleLoaded.value) {
+    updateSeoMeta();
+  }
+});
+
+// Initial SEO with fallback values
 useHead({
   title: 'LivePlay - Audio Cue Playback for Live Events',
   meta: [
-      {
-        name: 'description',
-        content: 'Free, open-source audio playback system for live sound operators. Available for Windows, macOS, and Linux.',
-    }
+    { name: 'description', content: 'Free, open-source audio playback system for live sound operators. Available for Windows, macOS, and Linux.' }
   ]
 });
 
@@ -237,7 +278,15 @@ useSeoMeta({
   ogTitle: 'LivePlay - Audio Cue Playback for Live Events',
   ogDescription: 'Free, open-source audio playback system for live sound operators. Available for Windows, macOS, and Linux.',
   ogType: 'website',
-  ogImage: '/assets/liveplay_screenshot.jpg',
+  ogUrl: 'https://tdoukinitsas.github.io/liveplay/',
+  ogImage: 'https://tdoukinitsas.github.io/liveplay/screenshots/liveplay_screenshot.jpg',
+  ogImageWidth: '1920',
+  ogImageHeight: '1080',
+  ogImageType: 'image/jpeg',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'LivePlay - Audio Cue Playback for Live Events',
+  twitterDescription: 'Free, open-source audio playback system for live sound operators. Available for Windows, macOS, and Linux.',
+  twitterImage: 'https://tdoukinitsas.github.io/liveplay/screenshots/liveplay_screenshot.jpg'
 });
 
 </script>

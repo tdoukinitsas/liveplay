@@ -40,6 +40,13 @@ const currentLocale = ref<string>('en');
 const localeData = ref<LocaleData | null>(null);
 
 export const useI18n = () => {
+  // Get URL parameter
+  const getUrlParam = (param: string): string | null => {
+    if (typeof window === 'undefined') return null;
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+  };
+
   // Detect browser language
   const detectBrowserLanguage = (): string => {
     if (typeof window === 'undefined') return 'en';
@@ -94,14 +101,20 @@ export const useI18n = () => {
   const initLocale = async () => {
     let locale = 'en';
 
-    // Check localStorage first
     if (typeof window !== 'undefined') {
-      const savedLocale = localStorage.getItem('docs-locale');
-      if (savedLocale && availableLocales[savedLocale]) {
-        locale = savedLocale;
+      // Check URL parameter first (highest priority)
+      const urlLang = getUrlParam('lang');
+      if (urlLang && availableLocales[urlLang]) {
+        locale = urlLang;
       } else {
-        // Detect browser language
-        locale = detectBrowserLanguage();
+        // Check localStorage
+        const savedLocale = localStorage.getItem('docs-locale');
+        if (savedLocale && availableLocales[savedLocale]) {
+          locale = savedLocale;
+        } else {
+          // Detect browser language
+          locale = detectBrowserLanguage();
+        }
       }
     }
 
@@ -118,12 +131,14 @@ export const useI18n = () => {
   const locale = computed(() => currentLocale.value);
   const locales = computed(() => availableLocales);
   const direction = computed(() => localeData.value?._metadata?.direction || 'ltr');
+  const isLocaleLoaded = computed(() => localeData.value !== null);
 
   return {
     t,
     locale,
     locales,
     direction,
+    isLocaleLoaded,
     initLocale,
     setLocale
   };
