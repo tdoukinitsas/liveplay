@@ -14,6 +14,20 @@ declare global {
       generateWaveform: (audioPath: string, outputPath: string) => Promise<{ success: boolean; error?: string }>;
       openFolder: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
       setCurrentProject: (projectPath: string) => Promise<{ success: boolean }>;
+      exportProject: (projectFolderPath: string) => Promise<{ success: boolean; path?: string; size?: number; canceled?: boolean; error?: string }>;
+      importProject: () => Promise<{ 
+        success: boolean; 
+        projectPath?: string; 
+        extractPath?: string; 
+        multipleProjects?: boolean;
+        projectFiles?: string[];
+        canceled?: boolean; 
+        error?: string 
+      }>;
+      onExportProgress: (callback: (event: any, data: { percentage: number; fileName: string }) => void) => void;
+      onImportProgress: (callback: (event: any, data: { percentage: number; fileName: string }) => void) => void;
+      removeExportProgressListener: (callback: (event: any, data: { percentage: number; fileName: string }) => void) => void;
+      removeImportProgressListener: (callback: (event: any, data: { percentage: number; fileName: string }) => void) => void;
       getFilePath: (file: File) => string | null;
       checkFfmpeg: () => Promise<{ available: boolean; path: string | null }>;
       searchYouTube: (query: string) => Promise<Array<{
@@ -32,6 +46,8 @@ declare global {
       onMenuNewProject: (callback: () => void) => void;
       onMenuOpenProject: (callback: () => void) => void;
       onMenuSaveProject: (callback: () => void) => void;
+      onMenuExportProject: (callback: () => void) => void;
+      onMenuImportProject: (callback: () => void) => void;
       onMenuCloseProject: (callback: () => void) => void;
       onMenuOpenProjectFolder: (callback: () => void) => void;
       onMenuToggleDarkMode: (callback: () => void) => void;

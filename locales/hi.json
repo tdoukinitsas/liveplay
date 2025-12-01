@@ -13,6 +13,8 @@
     "newProject": "नया प्रोजेक्ट",
     "openProject": "प्रोजेक्ट खोलें",
     "saveProject": "प्रोजेक्ट सहेजें",
+    "exportProject": "प्रोजेक्ट निर्यात करें",
+    "importProject": "प्रोजेक्ट आयात करें",
     "closeProject": "प्रोजेक्ट बंद करें",
     "openProjectFolder": "प्रोजेक्ट फ़ोल्डर खोलें",
     "exit": "बाहर निकलें",
@@ -180,5 +182,19 @@
     "title": "अनुवाद योगदानकर्ता",
     "name": "AI Translated with Claude Sonnet 4.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
+  },
+  "exportProgress": {
+    "title": "प्रोजेक्ट निर्यात किया जा रहा है",
+    "message": "संपीड़ित किया जा रहा है"
+  },
+  "importProgress": {
+    "title": "प्रोजेक्ट आयात किया जा रहा है",
+    "message": "निष्कर्षण किया जा रहा है"
+  },
+  "selectProject": {
+    "title": "प्रोजेक्ट चुनें",
+    "message": "संग्रह में कई प्रोजेक्ट मिले। कृपया चुनें कि कौन सा खोलना है:",
+    "cancel": "रद्द करें",
+    "open": "खोलें"
   }
 }

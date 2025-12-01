@@ -45,6 +45,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Project management
   setCurrentProject: (projectPath) => ipcRenderer.invoke('set-current-project', projectPath),
+  exportProject: (projectFolderPath) => ipcRenderer.invoke('export-project', projectFolderPath),
+  importProject: () => ipcRenderer.invoke('import-project'),
+  onExportProgress: (callback) => ipcRenderer.on('export-progress', callback),
+  onImportProgress: (callback) => ipcRenderer.on('import-progress', callback),
+  removeExportProgressListener: (callback) => ipcRenderer.removeListener('export-progress', callback),
+  removeImportProgressListener: (callback) => ipcRenderer.removeListener('import-progress', callback),
 
   // Waveform generation
   generateWaveform: (audioPath, outputPath) => ipcRenderer.invoke('generate-waveform', audioPath, outputPath),
@@ -74,6 +80,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuNewProject: (callback) => ipcRenderer.on('menu-new-project', callback),
   onMenuOpenProject: (callback) => ipcRenderer.on('menu-open-project', callback),
   onMenuSaveProject: (callback) => ipcRenderer.on('menu-save-project', callback),
+  onMenuExportProject: (callback) => ipcRenderer.on('menu-export-project', callback),
+  onMenuImportProject: (callback) => ipcRenderer.on('menu-import-project', callback),
   onMenuCloseProject: (callback) => ipcRenderer.on('menu-close-project', callback),
   onMenuOpenProjectFolder: (callback) => ipcRenderer.on('menu-open-project-folder', callback),
   onMenuToggleDarkMode: (callback) => ipcRenderer.on('menu-toggle-dark-mode', callback),

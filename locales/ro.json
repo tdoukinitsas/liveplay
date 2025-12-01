@@ -9,13 +9,15 @@
     "name": "LivePlay"
   },
   "menu": {
-    "file": "Fisier",
+    "file": "Fișier",
     "newProject": "Proiect Nou",
     "openProject": "Deschide Proiect",
-    "saveProject": "Salveaza Proiect",
+    "saveProject": "Salvează Proiect",
+    "exportProject": "Exportă Proiect",
+    "importProject": "Importă Proiect",
     "closeProject": "Închide Proiect",
-    "openProjectFolder": "Deschide Directorul Proiectului",
-    "exit": "Iesire",
+    "openProjectFolder": "Deschide Dosarul Proiectului",
+    "exit": "Ieșire",
     "view": "Vizualizare",
     "toggleDarkMode": "Schimba Mod Închis",
     "changeAccentColor": "Schimba accentul de culoare",
@@ -180,5 +182,19 @@
     "title": "Traducere realizată de",
     "name": "Dragan Dan Adrian",
     "contributeLink": "contact@forumthassos.ro"
+  },
+  "exportProgress": {
+    "title": "Exportare Proiect",
+    "message": "Comprimare"
+  },
+  "importProgress": {
+    "title": "Importare Proiect",
+    "message": "Extragere"
+  },
+  "selectProject": {
+    "title": "Selectați Proiectul",
+    "message": "Au fost găsite mai multe proiecte în arhivă. Vă rugăm să selectați pe care să-l deschideți:",
+    "cancel": "Anulare",
+    "open": "Deschide"
   }
 }

@@ -34,18 +34,47 @@
       :download-url="updateInfo.downloadUrl"
       @close="showUpdateModal = false"
     />
+    
+    <!-- Progress Modal for Import/Export -->
+    <ProgressModal
+      :visible="progressModal.visible"
+      :title="progressModal.title"
+      :message="progressModal.message"
+      :percentage="progressModal.percentage"
+    />
+    
+    <!-- Project Selection Modal -->
+    <ProjectSelectionModal
+      :visible="showProjectSelection"
+      :projects="availableProjects"
+      @select="handleProjectSelection"
+      @cancel="handleProjectSelectionCancel"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import 'material-symbols';
 
-const { currentProject, saveProject } = useProject();
-const { currentLocale, setLocale, getDirection } = useLocalization();
+const { currentProject, saveProject, openProject } = useProject();
+const { currentLocale, setLocale, getDirection, t } = useLocalization();
 const theme = useState('theme', () => 'dark');
 
 // Initialize state viewer for dev mode
 useStateViewer();
+
+// Progress modal state
+const progressModal = ref({
+  visible: false,
+  title: '',
+  message: '',
+  percentage: 0
+});
+
+// Project selection modal state
+const showProjectSelection = ref(false);
+const availableProjects = ref<string[]>([]);
+const pendingImportPath = ref<string>('');
 
 // Color picker for accent color
 const showColorPicker = ref(false);
@@ -95,6 +124,46 @@ onMounted(() => {
     window.electronAPI.onMenuShowAbout(() => {
       showAboutModal.value = true;
     });
+    
+    // Handle import project (works even on welcome screen)
+    window.electronAPI.onMenuImportProject(async () => {
+      try {
+        // Set up progress listener
+        const progressListener = (_event: any, data: { percentage: number; fileName: string }) => {
+          progressModal.value = {
+            visible: true,
+            title: t('importProgress.title'),
+            message: `${t('importProgress.message')} ${data.fileName}...`,
+            percentage: data.percentage
+          };
+        };
+        
+        window.electronAPI.onImportProgress(progressListener);
+        
+        const result = await window.electronAPI.importProject();
+        
+        // Clean up listener
+        window.electronAPI.removeImportProgressListener(progressListener);
+        
+        // Hide modal
+        progressModal.value.visible = false;
+        
+        if (result.success) {
+          // Handle multiple projects
+          if (result.multipleProjects && result.projectFiles) {
+            availableProjects.value = result.projectFiles;
+            pendingImportPath.value = result.extractPath;
+            showProjectSelection.value = true;
+          } else if (result.projectPath) {
+            // Single project - open directly
+            await openProject(result.projectPath);
+          }
+        }
+      } catch (error) {
+        console.error('Import failed:', error);
+        progressModal.value.visible = false;
+      }
+    });
 
     // Listen for update events
     window.electronAPI.onUpdateAvailable((event: any, info: any) => {
@@ -130,6 +199,21 @@ const changeAccentColor = (color: string) => {
     saveProject();
     showColorPicker.value = false;
   }
+};
+
+// Handle project selection from multiple projects
+const handleProjectSelection = async (projectName: string) => {
+  showProjectSelection.value = false;
+  const projectPath = `${pendingImportPath.value}/${projectName}`;
+  await openProject(projectPath);
+  pendingImportPath.value = '';
+  availableProjects.value = [];
+};
+
+const handleProjectSelectionCancel = () => {
+  showProjectSelection.value = false;
+  pendingImportPath.value = '';
+  availableProjects.value = [];
 };
 
 // Set initial theme from project

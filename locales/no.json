@@ -10,11 +10,13 @@
   },
   "menu": {
     "file": "Fil",
-    "newProject": "Nytt prosjekt",
-    "openProject": "Åpne prosjekt",
-    "saveProject": "Lagre prosjekt",
-    "closeProject": "Lukk prosjekt",
-    "openProjectFolder": "Åpne prosjektmappe",
+    "newProject": "Nytt Prosjekt",
+    "openProject": "Åpne Prosjekt",
+    "saveProject": "Lagre Prosjekt",
+    "exportProject": "Eksporter Prosjekt",
+    "importProject": "Importer Prosjekt",
+    "closeProject": "Lukk Prosjekt",
+    "openProjectFolder": "Åpne Prosjektmappe",
     "exit": "Avslutt",
     "view": "Vis",
     "toggleDarkMode": "Bytt mørk modus",
@@ -180,5 +182,19 @@
     "title": "Oversettelsesmedarbeider",
     "name": "AI Translated with Claude Sonnet 4.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
+  },
+  "exportProgress": {
+    "title": "Eksporterer Prosjekt",
+    "message": "Komprimerer"
+  },
+  "importProgress": {
+    "title": "Importerer Prosjekt",
+    "message": "Pakker Ut"
+  },
+  "selectProject": {
+    "title": "Velg Prosjekt",
+    "message": "Flere prosjekter funnet i arkivet. Vennligst velg hvilket du vil åpne:",
+    "cancel": "Avbryt",
+    "open": "Åpne"
   }
 }

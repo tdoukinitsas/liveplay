@@ -13,6 +13,8 @@
     "newProject": "New Project",
     "openProject": "Open Project",
     "saveProject": "Save Project",
+    "exportProject": "Export Project",
+    "importProject": "Import Project",
     "closeProject": "Close Project",
     "openProjectFolder": "Open Project Folder",
     "exit": "Exit",
@@ -180,5 +182,19 @@
     "title": "Translation Contributor",
     "name": "Thomas Doukinitsas",
     "contributeLink": "www.doukinitsas.info"
+  },
+  "exportProgress": {
+    "title": "Exporting Project",
+    "message": "Compressing"
+  },
+  "importProgress": {
+    "title": "Importing Project",
+    "message": "Extracting"
+  },
+  "selectProject": {
+    "title": "Select Project",
+    "message": "Multiple projects found in the archive. Please select which one to open:",
+    "cancel": "Cancel",
+    "open": "Open"
   }
 }

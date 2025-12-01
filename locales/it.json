@@ -13,6 +13,8 @@
     "newProject": "Nuovo Progetto",
     "openProject": "Apri Progetto",
     "saveProject": "Salva Progetto",
+    "exportProject": "Esporta Progetto",
+    "importProject": "Importa Progetto",
     "closeProject": "Chiudi Progetto",
     "openProjectFolder": "Apri Cartella Progetto",
     "view": "Visualizza",
@@ -180,5 +182,19 @@
     "title": "Contributore alla Traduzione",
     "name": "AI Translated with Claude Sonnet 4.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
+  },
+  "exportProgress": {
+    "title": "Esportazione Progetto",
+    "message": "Compressione"
+  },
+  "importProgress": {
+    "title": "Importazione Progetto",
+    "message": "Estrazione"
+  },
+  "selectProject": {
+    "title": "Seleziona Progetto",
+    "message": "Trovati più progetti nell'archivio. Seleziona quale aprire:",
+    "cancel": "Annulla",
+    "open": "Apri"
   }
 }

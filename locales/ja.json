@@ -13,8 +13,10 @@
     "newProject": "新規プロジェクト",
     "openProject": "プロジェクトを開く",
     "saveProject": "プロジェクトを保存",
+    "exportProject": "プロジェクトをエクスポート",
+    "importProject": "プロジェクトをインポート",
     "closeProject": "プロジェクトを閉じる",
-    "openProjectFolder": "プロジェクトフォルダを開く",
+    "openProjectFolder": "プロジェクトフォルダーを開く",
     "exit": "終了",
     "view": "表示",
     "toggleDarkMode": "ダークモードの切り替え",
@@ -180,5 +182,19 @@
     "title": "翻訳協力者",
     "name": "AI Translated with Claude Sonnet 4.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
+  },
+  "exportProgress": {
+    "title": "プロジェクトをエクスポート中",
+    "message": "圧縮中"
+  },
+  "importProgress": {
+    "title": "プロジェクトをインポート中",
+    "message": "展開中"
+  },
+  "selectProject": {
+    "title": "プロジェクトを選択",
+    "message": "アーカイブに複数のプロジェクトが見つかりました。開くプロジェクトを選択してください：",
+    "cancel": "キャンセル",
+    "open": "開く"
   }
 }

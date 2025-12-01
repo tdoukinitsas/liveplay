@@ -13,6 +13,8 @@
     "newProject": "Νέα Εκδήλωση",
     "openProject": "Άνοιγμα Εκδήλωσης",
     "saveProject": "Αποθήκευση Εκδήλωσης",
+    "exportProject": "Εξαγωγή Εκδήλωσης",
+    "importProject": "Εισαγωγή Εκδήλωσης",
     "closeProject": "Κλείσιμο Εκδήλωσης",
     "openProjectFolder": "Άνοιγμα Φακέλου Εκδήλωσης",
     "view": "Προβολή",
@@ -180,5 +182,19 @@
     "title": "Μετάφραση",
     "name": "Θωμάς Δουκινίτσας",
     "contributeLink": "www.doukinitsas.info"
+  },
+  "exportProgress": {
+    "title": "Εξαγωγή Εκδήλωσης",
+    "message": "Συμπίεση"
+  },
+  "importProgress": {
+    "title": "Εισαγωγή Εκδήλωσης",
+    "message": "Εξαγωγή"
+  },
+  "selectProject": {
+    "title": "Επιλογή Εκδήλωσης",
+    "message": "Βρέθηκαν πολλαπλές εκδηλώσεις στο αρχείο. Παρακαλώ επιλέξτε ποιο θέλετε να ανοίξετε:",
+    "cancel": "Ακύρωση",
+    "open": "Άνοιγμα"
   }
 }

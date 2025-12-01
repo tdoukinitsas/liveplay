@@ -13,14 +13,16 @@
     "newProject": "مشروع جديد",
     "openProject": "فتح مشروع",
     "saveProject": "حفظ المشروع",
+    "exportProject": "تصدير المشروع",
+    "importProject": "استيراد مشروع",
     "closeProject": "إغلاق المشروع",
     "openProjectFolder": "فتح مجلد المشروع",
+    "exit": "خروج",
     "view": "عرض",
     "toggleDarkMode": "تبديل الوضع الداكن",
     "changeAccentColor": "تغيير لون التمييز",
     "fullscreen": "ملء الشاشة",
     "language": "اللغة",
-    "exit": "خروج",
     "help": "مساعدة",
     "about": "حول LivePlay"
   },
@@ -180,5 +182,19 @@
     "title": "المساهم في الترجمة",
     "name": "AI Translated with Claude Sonnet 4.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
+  },
+  "exportProgress": {
+    "title": "تصدير المشروع",
+    "message": "الضغط"
+  },
+  "importProgress": {
+    "title": "استيراد المشروع",
+    "message": "الاستخراج"
+  },
+  "selectProject": {
+    "title": "اختر المشروع",
+    "message": "تم العثور على مشاريع متعددة في الأرشيف. يرجى اختيار أي واحد لفتحه:",
+    "cancel": "إلغاء",
+    "open": "فتح"
   }
 }

@@ -10,11 +10,13 @@
   },
   "menu": {
     "file": "Файл",
-    "newProject": "Новый проект",
-    "openProject": "Открыть проект",
-    "saveProject": "Сохранить проект",
-    "closeProject": "Закрыть проект",
-    "openProjectFolder": "Открыть папку проекта",
+    "newProject": "Новый Проект",
+    "openProject": "Открыть Проект",
+    "saveProject": "Сохранить Проект",
+    "exportProject": "Экспортировать Проект",
+    "importProject": "Импортировать Проект",
+    "closeProject": "Закрыть Проект",
+    "openProjectFolder": "Открыть Папку Проекта",
     "exit": "Выход",
     "view": "Вид",
     "toggleDarkMode": "Переключить тёмный режим",
@@ -180,5 +182,19 @@
     "title": "Автор перевода",
     "name": "AI Translated with Claude Sonnet 4.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
+  },
+  "exportProgress": {
+    "title": "Экспорт проекта",
+    "message": "Сжатие"
+  },
+  "importProgress": {
+    "title": "Импорт проекта",
+    "message": "Извлечение"
+  },
+  "selectProject": {
+    "title": "Выбрать проект",
+    "message": "В архиве найдено несколько проектов. Пожалуйста, выберите, какой открыть:",
+    "cancel": "Отмена",
+    "open": "Открыть"
   }
 }

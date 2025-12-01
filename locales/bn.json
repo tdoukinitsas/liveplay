@@ -13,9 +13,11 @@
     "newProject": "নতুন প্রকল্প",
     "openProject": "প্রকল্প খুলুন",
     "saveProject": "প্রকল্প সংরক্ষণ করুন",
+    "exportProject": "প্রকল্প রপ্তানি করুন",
+    "importProject": "প্রকল্প আমদানি করুন",
     "closeProject": "প্রকল্প বন্ধ করুন",
     "openProjectFolder": "প্রকল্প ফোল্ডার খুলুন",
-    "exit": "প্রস্থান",
+    "exit": "প্রস্থান করুন",
     "view": "দেখুন",
     "toggleDarkMode": "ডার্ক মোড টগল করুন",
     "changeAccentColor": "অ্যাক্সেন্ট রঙ পরিবর্তন করুন",
@@ -180,5 +182,19 @@
     "title": "অনুবাদ অবদানকারী",
     "name": "AI Translated with Claude Sonnet 4.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
+  },
+  "exportProgress": {
+    "title": "প্রকল্প রপ্তানি করা হচ্ছে",
+    "message": "সংকুচিত করা হচ্ছে"
+  },
+  "importProgress": {
+    "title": "প্রকল্প আমদানি করা হচ্ছে",
+    "message": "নিষ্কাশন করা হচ্ছে"
+  },
+  "selectProject": {
+    "title": "প্রকল্প নির্বাচন করুন",
+    "message": "আর্কাইভে একাধিক প্রকল্প পাওয়া গেছে। অনুগ্রহ করে কোনটি খুলতে চান তা নির্বাচন করুন:",
+    "cancel": "বাতিল",
+    "open": "খুলুন"
   }
 }

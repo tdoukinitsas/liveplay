@@ -13,9 +13,11 @@
     "newProject": "Novo Projeto",
     "openProject": "Abrir Projeto",
     "saveProject": "Salvar Projeto",
+    "exportProject": "Exportar Projeto",
+    "importProject": "Importar Projeto",
     "closeProject": "Fechar Projeto",
     "openProjectFolder": "Abrir Pasta do Projeto",
-    "view": "Visualizar",
+    "view": "Ver",
     "toggleDarkMode": "Alternar Modo Escuro",
     "changeAccentColor": "Alterar Cor de Destaque",
     "fullscreen": "Tela Cheia",
@@ -180,5 +182,19 @@
     "title": "Colaborador de Tradução",
     "name": "AI Translated with Claude Sonnet 4.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
+  },
+  "exportProgress": {
+    "title": "Exportando Projeto",
+    "message": "Comprimindo"
+  },
+  "importProgress": {
+    "title": "Importando Projeto",
+    "message": "Extraindo"
+  },
+  "selectProject": {
+    "title": "Selecionar Projeto",
+    "message": "Vários projetos encontrados no arquivo. Por favor, selecione qual abrir:",
+    "cancel": "Cancelar",
+    "open": "Abrir"
   }
 }

@@ -20,12 +20,28 @@
     </div>
     
     <PropertiesPanel v-if="selectedItem" />
+    
+    <ProgressModal
+      :visible="progressModal.visible"
+      :title="progressModal.title"
+      :message="progressModal.message"
+      :percentage="progressModal.percentage"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 const { selectedItem, saveProject, closeProject, currentProject } = useProject();
 const { triggerByUuid, triggerByIndex, stopCue } = useAudioEngine();
+const { t } = useLocalization();
+
+// Progress modal state
+const progressModal = ref({
+  visible: false,
+  title: '',
+  message: '',
+  percentage: 0
+});
 
 // Resizable cart width
 const cartWidth = ref(500);
@@ -85,6 +101,39 @@ const startResize = (e: MouseEvent) => {
 if (import.meta.client && window.electronAPI) {
   window.electronAPI.onMenuSaveProject(() => {
     saveProject();
+  });
+
+  window.electronAPI.onMenuExportProject(async () => {
+    if (!currentProject.value) return;
+    
+    try {
+      // Set up progress listener
+      const progressListener = (_event: any, data: { percentage: number; fileName: string }) => {
+        progressModal.value = {
+          visible: true,
+          title: t('exportProgress.title'),
+          message: `${t('exportProgress.message')} ${data.fileName}...`,
+          percentage: data.percentage
+        };
+      };
+      
+      window.electronAPI.onExportProgress(progressListener);
+      
+      const result = await window.electronAPI.exportProject(currentProject.value.folderPath);
+      
+      // Clean up listener
+      window.electronAPI.removeExportProgressListener(progressListener);
+      
+      // Hide modal
+      progressModal.value.visible = false;
+      
+      if (result.success) {
+        console.log('Project exported successfully:', result.path);
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      progressModal.value.visible = false;
+    }
   });
 
   window.electronAPI.onMenuCloseProject(() => {

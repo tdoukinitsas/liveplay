@@ -13,6 +13,8 @@
     "newProject": "Yeni Proje",
     "openProject": "Proje Aç",
     "saveProject": "Projeyi Kaydet",
+    "exportProject": "Projeyi Dışa Aktar",
+    "importProject": "Proje İçe Aktar",
     "closeProject": "Projeyi Kapat",
     "openProjectFolder": "Proje Klasörünü Aç",
     "exit": "Çıkış",
@@ -180,5 +182,19 @@
     "title": "Çeviri Katkıda Bulunan",
     "name": "AI Translated with Claude Sonnet 4.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
+  },
+  "exportProgress": {
+    "title": "Proje Dışa Aktarılıyor",
+    "message": "Sıkıştırılıyor"
+  },
+  "importProgress": {
+    "title": "Proje İçe Aktarılıyor",
+    "message": "Çıkartılıyor"
+  },
+  "selectProject": {
+    "title": "Proje Seç",
+    "message": "Arşivde birden fazla proje bulundu. Lütfen hangisini açmak istediğinizi seçin:",
+    "cancel": "İptal",
+    "open": "Aç"
   }
 }

@@ -9,10 +9,12 @@
     "name": "LivePlay"
   },
   "menu": {
-    "file": "Skedar",
+    "file": "Dosje",
     "newProject": "Projekt i Ri",
     "openProject": "Hap Projektin",
     "saveProject": "Ruaj Projektin",
+    "exportProject": "Eksporto Projektin",
+    "importProject": "Importo Projektin",
     "closeProject": "Mbyll Projektin",
     "openProjectFolder": "Hap Dosjen e Projektit",
     "exit": "Dil",
@@ -180,5 +182,19 @@
     "title": "Kontribuues i Përkthimit",
     "name": "AI Translated with Claude Sonnet 4.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
+  },
+  "exportProgress": {
+    "title": "Duke Eksportuar Projektin",
+    "message": "Duke Kompresuar"
+  },
+  "importProgress": {
+    "title": "Duke Importuar Projektin",
+    "message": "Duke Nxjerrë"
+  },
+  "selectProject": {
+    "title": "Zgjidh Projektin",
+    "message": "U gjetën projekte të shumta në arkiv. Ju lutemi zgjidhni cilin të hapni:",
+    "cancel": "Anulo",
+    "open": "Hap"
   }
 }

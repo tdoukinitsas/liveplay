@@ -13,6 +13,8 @@
     "newProject": "نیا پروجیکٹ",
     "openProject": "پروجیکٹ کھولیں",
     "saveProject": "پروجیکٹ محفوظ کریں",
+    "exportProject": "پروجیکٹ برآمد کریں",
+    "importProject": "پروجیکٹ درآمد کریں",
     "closeProject": "پروجیکٹ بند کریں",
     "openProjectFolder": "پروجیکٹ فولڈر کھولیں",
     "exit": "باہر نکلیں",
@@ -180,5 +182,19 @@
     "title": "ترجمہ معاون",
     "name": "AI Translated with Claude Sonnet 4.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
+  },
+  "exportProgress": {
+    "title": "پروجیکٹ برآمد کیا جا رہا ہے",
+    "message": "کمپریس کیا جا رہا ہے"
+  },
+  "importProgress": {
+    "title": "پروجیکٹ درآمد کیا جا رہا ہے",
+    "message": "نکالا جا رہا ہے"
+  },
+  "selectProject": {
+    "title": "پروجیکٹ منتخب کریں",
+    "message": "آرکائیو میں متعدد پروجیکٹس ملے۔ براہ کرم منتخب کریں کہ کون سا کھولنا ہے:",
+    "cancel": "منسوخ کریں",
+    "open": "کھولیں"
   }
 }
