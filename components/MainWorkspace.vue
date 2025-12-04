@@ -119,10 +119,13 @@ if (import.meta.client && window.electronAPI) {
       
       window.electronAPI.onExportProgress(progressListener);
       
-      const result = await window.electronAPI.exportProject(currentProject.value.folderPath);
+      const result = await window.electronAPI.exportProject(currentProject.value.folderPath, currentProject.value.name);
       
       // Clean up listener
       window.electronAPI.removeExportProgressListener(progressListener);
+      
+      // Add small delay to ensure final progress (100%) is shown
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Hide modal
       progressModal.value.visible = false;

@@ -45,8 +45,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Project management
   setCurrentProject: (projectPath) => ipcRenderer.invoke('set-current-project', projectPath),
-  exportProject: (projectFolderPath) => ipcRenderer.invoke('export-project', projectFolderPath),
+  exportProject: (projectFolderPath, projectName) => ipcRenderer.invoke('export-project', projectFolderPath, projectName),
   importProject: () => ipcRenderer.invoke('import-project'),
+  importLpaFile: (lpaPath) => ipcRenderer.invoke('import-lpa-file', lpaPath),
   onExportProgress: (callback) => ipcRenderer.on('export-progress', callback),
   onImportProgress: (callback) => ipcRenderer.on('import-progress', callback),
   removeExportProgressListener: (callback) => ipcRenderer.removeListener('export-progress', callback),
@@ -119,6 +120,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // File association - opening project files
   onOpenProjectFile: (callback) => ipcRenderer.on('open-project-file', callback),
+  onOpenLpaFile: (callback) => ipcRenderer.on('open-lpa-file', callback),
   
   // State viewer - send state updates to main process
   updateAppState: (state) => ipcRenderer.send('update-app-state', state),

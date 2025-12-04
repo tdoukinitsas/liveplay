@@ -14,8 +14,17 @@ declare global {
       generateWaveform: (audioPath: string, outputPath: string) => Promise<{ success: boolean; error?: string }>;
       openFolder: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
       setCurrentProject: (projectPath: string) => Promise<{ success: boolean }>;
-      exportProject: (projectFolderPath: string) => Promise<{ success: boolean; path?: string; size?: number; canceled?: boolean; error?: string }>;
+      exportProject: (projectFolderPath: string, projectName?: string) => Promise<{ success: boolean; path?: string; size?: number; canceled?: boolean; error?: string }>;
       importProject: () => Promise<{ 
+        success: boolean; 
+        projectPath?: string; 
+        extractPath?: string; 
+        multipleProjects?: boolean;
+        projectFiles?: string[];
+        canceled?: boolean; 
+        error?: string 
+      }>;
+      importLpaFile: (lpaPath: string) => Promise<{ 
         success: boolean; 
         projectPath?: string; 
         extractPath?: string; 
@@ -71,6 +80,7 @@ declare global {
       onTriggerItem: (callback: (event: any, data: any) => void) => void;
       onStopItem: (callback: (event: any, data: any) => void) => void;
       onOpenProjectFile: (callback: (event: any, data: { filePath: string; projectData: any }) => void) => void;
+      onOpenLpaFile: (callback: (event: any, data: { lpaPath: string }) => void) => void;
     };
   }
 

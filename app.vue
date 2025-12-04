@@ -186,6 +186,48 @@ onMounted(() => {
         console.error('Failed to open project file:', error);
       }
     });
+    
+    // Listen for .lpa file opening (from double-click file association)
+    window.electronAPI.onOpenLpaFile(async (event: any, data: { lpaPath: string }) => {
+      try {
+        console.log('Opening .lpa file:', data.lpaPath);
+        
+        // Set up progress listener
+        const progressListener = (_event: any, progressData: { percentage: number; fileName: string }) => {
+          progressModal.value = {
+            visible: true,
+            title: t('importProgress.title'),
+            message: `${t('importProgress.message')} ${progressData.fileName}...`,
+            percentage: progressData.percentage
+          };
+        };
+        
+        window.electronAPI.onImportProgress(progressListener);
+        
+        const result = await window.electronAPI.importLpaFile(data.lpaPath);
+        
+        // Clean up listener
+        window.electronAPI.removeImportProgressListener(progressListener);
+        
+        // Hide modal
+        progressModal.value.visible = false;
+        
+        if (result.success) {
+          // Handle multiple projects
+          if (result.multipleProjects && result.projectFiles) {
+            availableProjects.value = result.projectFiles;
+            pendingImportPath.value = result.extractPath;
+            showProjectSelection.value = true;
+          } else if (result.projectPath) {
+            // Single project - open directly
+            await openProject(result.projectPath);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to open .lpa file:', error);
+        progressModal.value.visible = false;
+      }
+    });
 
     // Sync menu with current UI language on startup
     window.electronAPI.updateMenuLanguage(currentLocale.value);

@@ -1097,15 +1097,16 @@ ipcMain.handle('set-current-project', async (event, projectPath) => {
 });
 
 // Export project to .lpa archive
-ipcMain.handle('export-project', async (event, projectFolderPath) => {
+ipcMain.handle('export-project', async (event, projectFolderPath, projectName = null) => {
   try {
     const archiver = require('archiver');
-    const projectName = path.basename(projectFolderPath);
+    // Use provided project name or fall back to folder name
+    const defaultName = projectName || path.basename(projectFolderPath);
     
     // Show save dialog for .lpa file
     const result = await dialog.showSaveDialog(mainWindow, {
       title: 'Export Project',
-      defaultPath: `${projectName}.lpa`,
+      defaultPath: `${defaultName}.lpa`,
       filters: [
         { name: 'LivePlay Archive', extensions: ['lpa'] }
       ]
@@ -1254,6 +1255,71 @@ ipcMain.handle('import-project', async (event) => {
     };
   } catch (error) {
     console.error('Import error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Import project from specific .lpa file (for double-click file association)
+ipcMain.handle('import-lpa-file', async (event, archivePath) => {
+  try {
+    const extractZip = require('extract-zip');
+    const fileName = path.basename(archivePath);
+
+    // Show folder dialog for extraction location
+    const folderResult = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Extraction Location',
+      properties: ['openDirectory', 'createDirectory']
+    });
+
+    if (folderResult.canceled || folderResult.filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+
+    const extractPath = folderResult.filePaths[0];
+
+    // Send initial progress
+    event.sender.send('import-progress', { percentage: 0, fileName });
+
+    // Extract the archive with progress updates
+    await extractZip(archivePath, { 
+      dir: extractPath,
+      onEntry: (entry, zipfile) => {
+        const percentage = Math.round((zipfile.entriesRead / zipfile.entryCount) * 100);
+        event.sender.send('import-progress', { percentage, fileName });
+      }
+    });
+
+    // Send completion
+    event.sender.send('import-progress', { percentage: 100, fileName });
+
+    // Find all .liveplay files in the extracted folder
+    const files = fs.readdirSync(extractPath);
+    const projectFiles = files.filter(file => file.endsWith('.liveplay'));
+
+    if (projectFiles.length === 0) {
+      return { success: false, error: 'No .liveplay file found in archive' };
+    }
+
+    // If multiple project files found, return them for user selection
+    if (projectFiles.length > 1) {
+      return {
+        success: true,
+        multipleProjects: true,
+        projectFiles,
+        extractPath
+      };
+    }
+
+    // Single project file - return its path directly
+    const projectPath = path.join(extractPath, projectFiles[0]);
+
+    return {
+      success: true,
+      projectPath,
+      extractPath
+    };
+  } catch (error) {
+    console.error('Import LPA file error:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1665,7 +1731,7 @@ app.on('open-file', (event, filePath) => {
 // Handle command line arguments (Windows/Linux)
 if (process.platform === 'win32' || process.platform === 'linux') {
   // Check if a file was passed as argument
-  const fileArg = process.argv.find(arg => arg.endsWith('.liveplay'));
+  const fileArg = process.argv.find(arg => arg.endsWith('.liveplay') || arg.endsWith('.lpa'));
   if (fileArg) {
     fileToOpen = fileArg;
   }
@@ -1676,6 +1742,15 @@ function openFile(filePath) {
   if (!mainWindow) return;
   
   try {
+    // Check if it's an .lpa archive file
+    if (filePath.endsWith('.lpa')) {
+      // Trigger import process for .lpa files
+      mainWindow.webContents.send('open-lpa-file', { lpaPath: filePath });
+      console.log('Triggering import for .lpa file:', filePath);
+      return;
+    }
+    
+    // Handle .liveplay project files
     // Read the file
     const fileContent = fs.readFileSync(filePath, 'utf-8');
     const projectData = JSON.parse(fileContent);

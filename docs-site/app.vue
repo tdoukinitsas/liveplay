@@ -188,7 +188,7 @@ import { useI18n } from './composables/useI18n';
 
 const { t, direction, initLocale, isLocaleLoaded } = useI18n();
 
-const version = ref('1.2.5');
+const version = ref('1.2.6');
 
 const downloadLinks = computed(() => {
   const baseUrl = `https://github.com/tdoukinitsas/liveplay/releases/download/v${version.value}`;
