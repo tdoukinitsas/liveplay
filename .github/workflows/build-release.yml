@@ -55,6 +55,7 @@ jobs:
           cache: 'npm'
 
       - name: Clean install dependencies
+        shell: bash
         run: |
           rm -rf node_modules package-lock.json
           npm install --include=optional
