@@ -105,11 +105,11 @@ const accentColors = [
 // Listen to menu events
 onMounted(() => {
   if (import.meta.client && window.electronAPI) {
-    window.electronAPI.onMenuToggleDarkMode(() => {
+    window.electronAPI.onMenuToggleDarkMode(async () => {
       theme.value = theme.value === 'dark' ? 'light' : 'dark';
       if (currentProject.value) {
         currentProject.value.theme.mode = theme.value as 'dark' | 'light';
-        saveProject();
+        await saveProject();
       }
     });
 
@@ -234,11 +234,11 @@ onMounted(() => {
   }
 });
 
-const changeAccentColor = (color: string) => {
+const changeAccentColor = async (color: string) => {
   if (currentProject.value) {
     currentProject.value.theme.accentColor = color;
     document.documentElement.style.setProperty('--color-accent-custom', color);
-    saveProject();
+    await saveProject();
     showColorPicker.value = false;
   }
 };

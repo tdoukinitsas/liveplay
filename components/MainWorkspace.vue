@@ -31,8 +31,8 @@
 </template>
 
 <script setup lang="ts">
-const { selectedItem, saveProject, closeProject, currentProject } = useProject();
-const { triggerByUuid, triggerByIndex, stopCue } = useAudioEngine();
+const { selectedItem, saveProject, closeProject, currentProject, findItemByIndex, findItemByUuid } = useProject();
+const { activeCues, triggerByUuid, triggerByIndex, stopCue, panicStop, pauseCue, resumeCue, seekCue } = useAudioEngine();
 const { t } = useLocalization();
 
 // Progress modal state
@@ -99,8 +99,8 @@ const startResize = (e: MouseEvent) => {
 
 // Listen for menu events
 if (import.meta.client && window.electronAPI) {
-  window.electronAPI.onMenuSaveProject(() => {
-    saveProject();
+  window.electronAPI.onMenuSaveProject(async () => {
+    await saveProject();
   });
 
   window.electronAPI.onMenuExportProject(async () => {
@@ -139,8 +139,8 @@ if (import.meta.client && window.electronAPI) {
     }
   });
 
-  window.electronAPI.onMenuCloseProject(() => {
-    closeProject();
+  window.electronAPI.onMenuCloseProject(async () => {
+    await closeProject();
   });
 
   window.electronAPI.onMenuOpenProjectFolder(() => {
@@ -161,6 +161,94 @@ if (import.meta.client && window.electronAPI) {
   window.electronAPI.onStopItem((_event, data) => {
     if (data.type === 'uuid') {
       stopCue(data.value);
+    } else if (data.type === 'index') {
+      // Convert index to UUID first
+      const item = findItemByIndex(data.value);
+      if (item) {
+        stopCue(item.uuid);
+      }
+    }
+  });
+
+  window.electronAPI.onStopAllItems((_event) => {
+    panicStop();
+  });
+
+  window.electronAPI.onPauseCue((_event, data) => {
+    if (data.type === 'uuid') {
+      pauseCue(data.value);
+    } else if (data.type === 'index') {
+      const item = findItemByIndex(data.value);
+      if (item) {
+        pauseCue(item.uuid);
+      }
+    }
+  });
+
+  window.electronAPI.onResumeCue((_event, data) => {
+    if (data.type === 'uuid') {
+      resumeCue(data.value);
+    } else if (data.type === 'index') {
+      const item = findItemByIndex(data.value);
+      if (item) {
+        resumeCue(item.uuid);
+      }
+    }
+  });
+
+  window.electronAPI.onSeekCue((_event, data) => {
+    const { time } = data;
+    if (data.type === 'uuid') {
+      seekCue(data.value, time);
+    } else if (data.type === 'index') {
+      const item = findItemByIndex(data.value);
+      if (item) {
+        seekCue(item.uuid, time);
+      }
+    }
+  });
+
+  window.electronAPI.onGetActiveCues((_event, data) => {
+    // Convert Map to array of objects for JSON serialization
+    const activeCuesArray = Array.from(activeCues.value.entries()).map(([uuid, cue]) => ({
+      uuid: cue.uuid,
+      displayName: cue.displayName,
+      duration: cue.duration,
+      currentTime: cue.currentTime,
+      volume: cue.volume,
+      isDucked: cue.isDucked,
+      isPaused: cue.isPaused,
+      color: cue.color,
+      inPoint: cue.inPoint,
+      outPoint: cue.outPoint,
+      currentLevel: cue.currentLevel,
+      peakLevel: cue.peakLevel
+    }));
+
+    // Send back to main process
+    window.electronAPI.sendActiveCuesResponse(activeCuesArray);
+  });
+
+  window.electronAPI.onUpdateCue(async (_event, data) => {
+    const { updates } = data;
+    let item = null;
+
+    if (data.type === 'uuid') {
+      item = findItemByUuid(data.value);
+    } else if (data.type === 'index') {
+      item = findItemByIndex(data.value);
+    }
+
+    if (item && item.type === 'audio') {
+      // Update properties
+      Object.keys(updates).forEach(key => {
+        if (key in item) {
+          item[key] = updates[key];
+        }
+      });
+
+      // Save project after updates to sync with main process
+      await saveProject();
     }
   });
 }

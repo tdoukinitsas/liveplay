@@ -116,7 +116,7 @@ export const useProject = () => {
           projectFilePath,
           JSON.stringify(newProject, null, 2)
         );
-        await window.electronAPI.setCurrentProject(projectFilePath);
+        await window.electronAPI.setCurrentProject(newProject);
       }
 
       currentProject.value = newProject;
@@ -147,9 +147,9 @@ export const useProject = () => {
           
           // Migrate project to ensure new properties exist
           migrateProject(project);
-          
+
           currentProject.value = project;
-          await window.electronAPI.setCurrentProject(projectFilePath);
+          await window.electronAPI.setCurrentProject(project);
           
           // Restore cart-only items to memory
           const { clearCartOnlyItems, addCartOnlyItem } = useCartItems();
@@ -309,6 +309,8 @@ export const useProject = () => {
           projectFilePath,
           JSON.stringify(currentProject.value, null, 2)
         );
+        // Update the main process with the latest project data
+        await window.electronAPI.setCurrentProject(currentProject.value);
         return result.success;
       }
       return false;
@@ -319,14 +321,19 @@ export const useProject = () => {
   };
 
   // Close the current project
-  const closeProject = () => {
+  const closeProject = async () => {
     currentProject.value = null;
     selectedItem.value = null;
     activeCues.value.clear();
-    
+
     // Clear cart-only items from memory
     const { clearCartOnlyItems } = useCartItems();
     clearCartOnlyItems();
+
+    // Sync null project to main process for API
+    if (import.meta.client && window.electronAPI) {
+      await window.electronAPI.setCurrentProject(null);
+    }
   };
 
   // Update item indices recursively

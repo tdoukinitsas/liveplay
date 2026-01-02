@@ -98,7 +98,10 @@ const importAudioFile = async (sourcePath: string) => {
 
     // Add item immediately (no blocking)
     addItem(audioItem);
-    
+
+    // Save project to sync with main process (for API visibility)
+    await saveProject();
+
     // Generate waveform asynchronously using ffmpeg
     generateWaveformAsync(audioItem);
   } catch (error) {
@@ -213,7 +216,7 @@ const getAudioDuration = async (filePath: string): Promise<number> => {
   });
 };
 
-const handleAddGroup = () => {
+const handleAddGroup = async () => {
   if (!currentProject.value) return;
 
   const groupItem: GroupItem = {
@@ -226,6 +229,9 @@ const handleAddGroup = () => {
   } as GroupItem;
 
   addItem(groupItem);
+
+  // Save project to sync with main process (for API visibility)
+  await saveProject();
 };
 
 const handleDrop = async (e: DragEvent) => {

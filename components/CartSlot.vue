@@ -376,18 +376,18 @@ const handleStop = () => {
   stopCue(props.item.uuid);
 };
 
-const handleDelete = () => {
+const handleDelete = async () => {
   if (!currentProject.value || !props.item) return;
-  
+
   // Remove from cart-only items
   removeCartOnlyItem(props.item.uuid);
-  
+
   // Remove from cart
   const index = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === props.slot);
   if (index !== -1) {
     currentProject.value.cartItems.splice(index, 1);
     const { saveProject } = useProject();
-    saveProject();
+    await saveProject();
   }
 };
 
@@ -719,7 +719,7 @@ const handleDrop = async (e: DragEvent) => {
   
   // Save the project
   const { saveProject } = useProject();
-  saveProject();
+  await saveProject();
 };
 </script>
 

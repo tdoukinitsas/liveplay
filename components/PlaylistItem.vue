@@ -581,7 +581,7 @@ const handleDragLeave = () => {
   dragPosition.value = null;
 };
 
-const handleDrop = (e: DragEvent) => {
+const handleDrop = async (e: DragEvent) => {
   e.preventDefault();
   e.stopPropagation();
   
@@ -668,9 +668,9 @@ const handleDrop = (e: DragEvent) => {
     updateIndices(parentArray, parentIndex);
   }
   
-  // Save project
+  // Save project to sync with main process
   const { saveProject } = useProject();
-  saveProject();
+  await saveProject();
 };
 
 // Helper to get all items flattened

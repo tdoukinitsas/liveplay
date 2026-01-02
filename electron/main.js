@@ -144,42 +144,668 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
   const apiApp = express();
   apiApp.use(express.json());
 
-  // Trigger item by UUID
-  apiApp.get('/api/trigger/uuid/:uuid', (req, res) => {
-    const { uuid } = req.params;
-    if (mainWindow) {
-      mainWindow.webContents.send('trigger-item', { type: 'uuid', value: uuid });
-      res.json({ success: true, message: `Triggered item ${uuid}` });
+  // ============================================================================
+  // VALIDATION HELPERS
+  // ============================================================================
+
+  // Helper function to detect if ID is UUID or index
+  const isUUID = (id) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(id);
+  };
+
+  // Validate and sanitize float with bounds
+  const validateFloat = (value, min, max, fieldName, precision = 2) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      return { valid: false, error: `${fieldName} must be a valid number` };
+    }
+    if (num < min || num > max) {
+      return { valid: false, error: `${fieldName} must be between ${min} and ${max}` };
+    }
+    return { valid: true, value: parseFloat(num.toFixed(precision)) };
+  };
+
+  // Validate hex color
+  const validateColor = (value) => {
+    const hexRegex = /^#[0-9a-f]{6}$/i;
+    if (!hexRegex.test(value)) {
+      return { valid: false, error: 'color must be a valid hex color (#rrggbb)' };
+    }
+    return { valid: true, value: value.toLowerCase() };
+  };
+
+  // Map API enum to internal values
+  const enumMappings = {
+    duckingMode: {
+      'stopall': 'stop-all',
+      'duck': 'duck-others',
+      'none': 'no-ducking'
+    },
+    startAction: {
+      'none': 'nothing',
+      'playnext': 'play-next',
+      'playitem': 'play-item',
+      'playindex': 'play-index'
+    },
+    endAction: {
+      'none': 'nothing',
+      'playnext': 'next',
+      'playitem': 'goto-item',
+      'playindex': 'goto-index',
+      'loop': 'loop'
+    }
+  };
+
+  // Validate ducking behavior
+  const validateDuckingBehavior = (ducking, currentDucking) => {
+    if (typeof ducking !== 'object') {
+      return { valid: false, error: 'duckingBehavior must be an object' };
+    }
+
+    const result = { ...currentDucking };
+
+    // Validate mode
+    if (ducking.mode !== undefined) {
+      if (!enumMappings.duckingMode[ducking.mode]) {
+        return { valid: false, error: 'duckingBehavior.mode must be one of: stopall, duck, none' };
+      }
+      result.mode = enumMappings.duckingMode[ducking.mode];
+    }
+
+    // Validate duck-specific fields (only when mode is 'duck')
+    if (result.mode === 'duck-others') {
+      if (ducking.duckLevel !== undefined) {
+        const levelResult = validateFloat(ducking.duckLevel, -60, 0, 'duckingBehavior.duckLevel');
+        if (!levelResult.valid) return levelResult;
+        result.duckLevel = levelResult.value / 100; // Convert dB to 0-1 scale
+      }
+
+      if (ducking.duckFadeIn !== undefined) {
+        const fadeInResult = validateFloat(ducking.duckFadeIn, 0, 10, 'duckingBehavior.duckFadeIn', 16);
+        if (!fadeInResult.valid) return fadeInResult;
+        result.duckFadeIn = fadeInResult.value;
+      }
+
+      if (ducking.duckFadeOut !== undefined) {
+        const fadeOutResult = validateFloat(ducking.duckFadeOut, 0, 10, 'duckingBehavior.duckFadeOut', 16);
+        if (!fadeOutResult.valid) return fadeOutResult;
+        result.duckFadeOut = fadeOutResult.value;
+      }
+    }
+
+    return { valid: true, value: result };
+  };
+
+  // Validate start behavior
+  const validateStartBehavior = (behavior, currentBehavior) => {
+    if (typeof behavior !== 'object') {
+      return { valid: false, error: 'startBehavior must be an object' };
+    }
+
+    const result = { ...currentBehavior };
+
+    if (behavior.action !== undefined) {
+      if (!enumMappings.startAction[behavior.action]) {
+        return { valid: false, error: 'startBehavior.action must be one of: none, playnext, playitem, playindex' };
+      }
+      result.action = enumMappings.startAction[behavior.action];
+    }
+
+    // Validate action-specific fields
+    if (result.action === 'play-item') {
+      if (behavior.item !== undefined) {
+        if (!isUUID(behavior.item)) {
+          return { valid: false, error: 'startBehavior.item must be a valid UUID' };
+        }
+        result.targetUuid = behavior.item;
+      }
+    } else if (result.action === 'play-index') {
+      if (behavior.index !== undefined) {
+        if (!Array.isArray(behavior.index)) {
+          return { valid: false, error: 'startBehavior.index must be an array of numbers' };
+        }
+        result.targetIndex = behavior.index.map(i => parseInt(i));
+      }
+    }
+
+    return { valid: true, value: result };
+  };
+
+  // Validate end behavior
+  const validateEndBehavior = (behavior, currentBehavior) => {
+    if (typeof behavior !== 'object') {
+      return { valid: false, error: 'endBehavior must be an object' };
+    }
+
+    const result = { ...currentBehavior };
+
+    if (behavior.action !== undefined) {
+      if (!enumMappings.endAction[behavior.action]) {
+        return { valid: false, error: 'endBehavior.action must be one of: none, playnext, playitem, playindex, loop' };
+      }
+      result.action = enumMappings.endAction[behavior.action];
+    }
+
+    // Validate action-specific fields
+    if (result.action === 'goto-item') {
+      if (behavior.item !== undefined) {
+        if (!isUUID(behavior.item)) {
+          return { valid: false, error: 'endBehavior.item must be a valid UUID' };
+        }
+        result.targetUuid = behavior.item;
+      }
+    } else if (result.action === 'goto-index') {
+      if (behavior.index !== undefined) {
+        if (!Array.isArray(behavior.index)) {
+          return { valid: false, error: 'endBehavior.index must be an array of numbers' };
+        }
+        result.targetIndex = behavior.index.map(i => parseInt(i));
+      }
+    }
+
+    return { valid: true, value: result };
+  };
+
+  // Main validation function for cue updates
+  const validateCueUpdates = (updates, currentCue) => {
+    const validated = {};
+    const errors = [];
+
+    // displayName
+    if (updates.displayName !== undefined) {
+      if (typeof updates.displayName !== 'string' || updates.displayName.trim() === '') {
+        errors.push('displayName must be a non-empty string');
+      } else {
+        validated.displayName = updates.displayName.trim();
+      }
+    }
+
+    // volume (stored as 0-2, API uses -60 to +10 dB)
+    if (updates.volume !== undefined) {
+      const volResult = validateFloat(updates.volume, -60, 10, 'volume');
+      if (!volResult.valid) {
+        errors.push(volResult.error);
+      } else {
+        // Convert dB to linear (simplified: -60dB = 0, 0dB = 1, +10dB = ~3.16)
+        const db = volResult.value;
+        validated.volume = parseFloat((Math.pow(10, db / 20)).toFixed(2));
+      }
+    }
+
+    // inPoint and outPoint - need to validate against each other
+    const inPoint = updates.inPoint !== undefined ? updates.inPoint : currentCue.inPoint;
+    const outPoint = updates.outPoint !== undefined ? updates.outPoint : currentCue.outPoint;
+    const duration = currentCue.duration;
+
+    if (updates.inPoint !== undefined) {
+      const inResult = validateFloat(updates.inPoint, 0, outPoint, 'inPoint', 16);
+      if (!inResult.valid) {
+        errors.push(inResult.error);
+      } else {
+        validated.inPoint = inResult.value;
+      }
+    }
+
+    if (updates.outPoint !== undefined) {
+      const outResult = validateFloat(updates.outPoint, inPoint, duration, 'outPoint', 16);
+      if (!outResult.valid) {
+        errors.push(outResult.error);
+      } else {
+        validated.outPoint = outResult.value;
+      }
+    }
+
+    // Fades - validate against calculated durations
+    const effectiveDuration = outPoint - inPoint;
+
+    if (updates.playFade !== undefined) {
+      const maxPlayFade = effectiveDuration;
+      const playFadeResult = validateFloat(updates.playFade, 0, maxPlayFade, 'playFade', 16);
+      if (!playFadeResult.valid) {
+        errors.push(playFadeResult.error);
+      } else {
+        validated.playFade = playFadeResult.value;
+      }
+    }
+
+    if (updates.stopFade !== undefined) {
+      const maxStopFade = effectiveDuration;
+      const stopFadeResult = validateFloat(updates.stopFade, 0, maxStopFade, 'stopFade', 16);
+      if (!stopFadeResult.valid) {
+        errors.push(stopFadeResult.error);
+      } else {
+        validated.stopFade = stopFadeResult.value;
+      }
+    }
+
+    if (updates.crossFade !== undefined) {
+      const stopFadeVal = updates.stopFade !== undefined ? updates.stopFade : currentCue.stopFade || 0;
+      const maxCrossFade = outPoint - stopFadeVal;
+      const crossFadeResult = validateFloat(updates.crossFade, 0, maxCrossFade, 'crossFade', 16);
+      if (!crossFadeResult.valid) {
+        errors.push(crossFadeResult.error);
+      } else {
+        validated.crossFade = crossFadeResult.value;
+      }
+    }
+
+    // fadeOutDuration (emergency stop fade)
+    if (updates.fadeOutDuration !== undefined) {
+      const fadeOutResult = validateFloat(updates.fadeOutDuration, 0, 10, 'fadeOutDuration', 16);
+      if (!fadeOutResult.valid) {
+        errors.push(fadeOutResult.error);
+      } else {
+        validated.fadeOutDuration = fadeOutResult.value;
+      }
+    }
+
+    // color
+    if (updates.color !== undefined) {
+      const colorResult = validateColor(updates.color);
+      if (!colorResult.valid) {
+        errors.push(colorResult.error);
+      } else {
+        validated.color = colorResult.value;
+      }
+    }
+
+    // duckingBehavior
+    if (updates.duckingBehavior !== undefined) {
+      const duckResult = validateDuckingBehavior(updates.duckingBehavior, currentCue.duckingBehavior);
+      if (!duckResult.valid) {
+        errors.push(duckResult.error);
+      } else {
+        validated.duckingBehavior = duckResult.value;
+      }
+    }
+
+    // startBehavior
+    if (updates.startBehavior !== undefined) {
+      const startResult = validateStartBehavior(updates.startBehavior, currentCue.startBehavior);
+      if (!startResult.valid) {
+        errors.push(startResult.error);
+      } else {
+        validated.startBehavior = startResult.value;
+      }
+    }
+
+    // endBehavior
+    if (updates.endBehavior !== undefined) {
+      const endResult = validateEndBehavior(updates.endBehavior, currentCue.endBehavior);
+      if (!endResult.valid) {
+        errors.push(endResult.error);
+      } else {
+        validated.endBehavior = endResult.value;
+      }
+    }
+
+    // Check for non-editable fields
+    const nonEditableFields = ['uuid', 'type', 'mediaFileName', 'mediaPath', 'duration', 'index', 'waveformPath', 'waveform'];
+    const attemptedNonEditable = Object.keys(updates).filter(key => nonEditableFields.includes(key));
+    if (attemptedNonEditable.length > 0) {
+      errors.push(`Cannot modify non-editable fields: ${attemptedNonEditable.join(', ')}`);
+    }
+
+    if (errors.length > 0) {
+      return { valid: false, errors };
+    }
+
+    return { valid: true, validated };
+  };
+
+  // Helper function to find item in project
+  const findItemByUuid = (uuid, items) => {
+    for (const item of items) {
+      if (item.uuid === uuid) {
+        return item;
+      }
+      if (item.type === 'group' && item.children) {
+        const found = findItemByUuid(uuid, item.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const findItemByIndex = (indexArray, items) => {
+    let current = items;
+    for (let i = 0; i < indexArray.length; i++) {
+      const idx = indexArray[i];
+      if (!current || !current[idx]) return null;
+      if (i === indexArray.length - 1) {
+        return current[idx];
+      }
+      if (current[idx].type === 'group') {
+        current = current[idx].children;
+      } else {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  // POST /api/cues/stopall - Emergency stop all active cues
+  apiApp.post('/api/cues/stopall', (req, res) => {
+    if (!mainWindow) {
+      return res.status(500).json({ success: false, message: 'Window not available' });
+    }
+
+    mainWindow.webContents.send('stop-all-items');
+    res.json({
+      success: true,
+      message: 'Emergency stop - all active cues stopped'
+    });
+  });
+
+  // POST /api/cues/:id/play - Play/trigger a cue
+  apiApp.post('/api/cues/:id/play', (req, res) => {
+    const { id } = req.params;
+    if (!mainWindow) {
+      return res.status(500).json({ success: false, message: 'Window not available' });
+    }
+
+    let item = null;
+    let type = null;
+    let value = null;
+
+    if (isUUID(id)) {
+      type = 'uuid';
+      value = id;
+      if (currentProject && currentProject.items) {
+        item = findItemByUuid(id, currentProject.items);
+        if (!item && currentProject.cartOnlyItems) {
+          item = findItemByUuid(id, currentProject.cartOnlyItems);
+        }
+      }
     } else {
-      res.status(500).json({ success: false, message: 'Window not available' });
+      const indexArray = id.split(',').map(i => parseInt(i.trim()));
+      type = 'index';
+      value = indexArray;
+      if (currentProject && currentProject.items) {
+        item = findItemByIndex(indexArray, currentProject.items);
+        if (!item && currentProject.cartOnlyItems) {
+          item = findItemByIndex(indexArray, currentProject.cartOnlyItems);
+        }
+      }
+    }
+
+    mainWindow.webContents.send('trigger-item', { type, value });
+
+    if (item) {
+      res.json({
+        success: true,
+        message: `Playing cue ${type === 'uuid' ? id : `at index ${id}`}`,
+        cue: item
+      });
+    } else {
+      res.json({
+        success: true,
+        message: `Triggered cue ${type === 'uuid' ? id : `at index ${id}`} (cue details not available)`
+      });
     }
   });
 
-  // Trigger item by index
-  apiApp.get('/api/trigger/index/:index', (req, res) => {
-    const { index } = req.params;
-    if (mainWindow) {
-      const indexArray = index.split(',').map(i => parseInt(i.trim()));
-      mainWindow.webContents.send('trigger-item', { type: 'index', value: indexArray });
-      res.json({ success: true, message: `Triggered item at index ${index}` });
+  // POST /api/cues/:id/stop - Stop a cue
+  apiApp.post('/api/cues/:id/stop', (req, res) => {
+    const { id } = req.params;
+    if (!mainWindow) {
+      return res.status(500).json({ success: false, message: 'Window not available' });
+    }
+
+    let type = null;
+    let value = null;
+
+    if (isUUID(id)) {
+      type = 'uuid';
+      value = id;
     } else {
-      res.status(500).json({ success: false, message: 'Window not available' });
+      const indexArray = id.split(',').map(i => parseInt(i.trim()));
+      type = 'index';
+      value = indexArray;
+    }
+
+    mainWindow.webContents.send('stop-item', { type, value });
+    res.json({
+      success: true,
+      message: `Stopped cue ${type === 'uuid' ? id : `at index ${id}`}`
+    });
+  });
+
+  // POST /api/cues/:id/pause - Pause a cue
+  apiApp.post('/api/cues/:id/pause', (req, res) => {
+    const { id } = req.params;
+    if (!mainWindow) {
+      return res.status(500).json({ success: false, message: 'Window not available' });
+    }
+
+    let type = null;
+    let value = null;
+
+    if (isUUID(id)) {
+      type = 'uuid';
+      value = id;
+    } else {
+      const indexArray = id.split(',').map(i => parseInt(i.trim()));
+      type = 'index';
+      value = indexArray;
+    }
+
+    mainWindow.webContents.send('pause-cue', { type, value });
+    res.json({
+      success: true,
+      message: `Paused cue ${type === 'uuid' ? id : `at index ${id}`}`
+    });
+  });
+
+  // POST /api/cues/:id/resume - Resume a paused cue
+  apiApp.post('/api/cues/:id/resume', (req, res) => {
+    const { id } = req.params;
+    if (!mainWindow) {
+      return res.status(500).json({ success: false, message: 'Window not available' });
+    }
+
+    let type = null;
+    let value = null;
+
+    if (isUUID(id)) {
+      type = 'uuid';
+      value = id;
+    } else {
+      const indexArray = id.split(',').map(i => parseInt(i.trim()));
+      type = 'index';
+      value = indexArray;
+    }
+
+    mainWindow.webContents.send('resume-cue', { type, value });
+    res.json({
+      success: true,
+      message: `Resumed cue ${type === 'uuid' ? id : `at index ${id}`}`
+    });
+  });
+
+  // POST /api/cues/:id/seek - Seek within a cue
+  apiApp.post('/api/cues/:id/seek', (req, res) => {
+    const { id } = req.params;
+    const { time } = req.body;
+
+    if (!mainWindow) {
+      return res.status(500).json({ success: false, message: 'Window not available' });
+    }
+
+    if (time === undefined || time === null) {
+      return res.status(400).json({ success: false, message: 'Missing "time" parameter in request body' });
+    }
+
+    // Find the cue to validate seek bounds
+    let item = null;
+    let type = null;
+    let value = null;
+
+    if (isUUID(id)) {
+      type = 'uuid';
+      value = id;
+      if (currentProject && currentProject.items) {
+        item = findItemByUuid(id, currentProject.items);
+        if (!item && currentProject.cartOnlyItems) {
+          item = findItemByUuid(id, currentProject.cartOnlyItems);
+        }
+      }
+    } else {
+      const indexArray = id.split(',').map(i => parseInt(i.trim()));
+      type = 'index';
+      value = indexArray;
+      if (currentProject && currentProject.items) {
+        item = findItemByIndex(indexArray, currentProject.items);
+        if (!item && currentProject.cartOnlyItems) {
+          item = findItemByIndex(indexArray, currentProject.cartOnlyItems);
+        }
+      }
+    }
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: `Cue not found: ${id}` });
+    }
+
+    if (item.type !== 'audio') {
+      return res.status(400).json({ success: false, message: 'Can only seek within audio cues' });
+    }
+
+    // Validate time is within bounds
+    const minTime = item.inPoint || 0;
+    const maxTime = item.outPoint || item.duration;
+    const timeResult = validateFloat(time, minTime, maxTime, 'time', 16);
+
+    if (!timeResult.valid) {
+      return res.status(400).json({
+        success: false,
+        message: timeResult.error,
+        validRange: { min: minTime, max: maxTime }
+      });
+    }
+
+    mainWindow.webContents.send('seek-cue', { type, value, time: timeResult.value });
+    res.json({
+      success: true,
+      message: `Sought cue ${type === 'uuid' ? id : `at index ${id}`} to ${timeResult.value}s`
+    });
+  });
+
+  // Get all active cues
+  apiApp.get('/api/cues/active', (req, res) => {
+    if (!mainWindow) {
+      return res.status(500).json({ success: false, message: 'Window not available' });
+    }
+
+    // Request active cues from renderer and wait for response
+    mainWindow.webContents.send('get-active-cues', { responseChannel: 'active-cues-response' });
+
+    // Listen for response (with timeout)
+    const timeout = setTimeout(() => {
+      res.status(504).json({ success: false, message: 'Request timeout' });
+    }, 5000);
+
+    ipcMain.once('active-cues-response', (event, activeCues) => {
+      clearTimeout(timeout);
+      res.json({ success: true, activeCues });
+    });
+  });
+
+
+  // Get cue info
+  apiApp.get('/api/cues/:id', (req, res) => {
+    const { id } = req.params;
+
+    // Use currentProject directly (kept in sync via await saveProject())
+    let item = null;
+    if (currentProject) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(id)) {
+        item = findItemByUuid(id, currentProject.items);
+        if (!item && currentProject.cartOnlyItems) {
+          item = findItemByUuid(id, currentProject.cartOnlyItems);
+        }
+      } else {
+        const indexArray = id.split(',').map(i => parseInt(i.trim()));
+        item = findItemByIndex(indexArray, currentProject.items);
+        if (!item && currentProject.cartOnlyItems) {
+          item = findItemByIndex(indexArray, currentProject.cartOnlyItems);
+        }
+      }
+    }
+
+    if (item) {
+      res.json({ success: true, cue: item });
+    } else {
+      res.status(404).json({ success: false, message: `Cue not found: ${id}` });
     }
   });
 
-  // Stop item
-  apiApp.get('/api/stop/uuid/:uuid', (req, res) => {
-    const { uuid } = req.params;
-    if (mainWindow) {
-      mainWindow.webContents.send('stop-item', { type: 'uuid', value: uuid });
-      res.json({ success: true, message: `Stopped item ${uuid}` });
-    } else {
-      res.status(500).json({ success: false, message: 'Window not available' });
+  // Update cue properties
+  apiApp.patch('/api/cues/:id', (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+
+    if (!mainWindow) {
+      return res.status(500).json({ success: false, message: 'Window not available' });
     }
+
+    // Find the cue to get current values for validation
+    let item = null;
+    let type = null;
+    let value = null;
+
+    if (isUUID(id)) {
+      type = 'uuid';
+      value = id;
+      if (currentProject && currentProject.items) {
+        item = findItemByUuid(id, currentProject.items);
+        if (!item && currentProject.cartOnlyItems) {
+          item = findItemByUuid(id, currentProject.cartOnlyItems);
+        }
+      }
+    } else {
+      const indexArray = id.split(',').map(i => parseInt(i.trim()));
+      type = 'index';
+      value = indexArray;
+      if (currentProject && currentProject.items) {
+        item = findItemByIndex(indexArray, currentProject.items);
+        if (!item && currentProject.cartOnlyItems) {
+          item = findItemByIndex(indexArray, currentProject.cartOnlyItems);
+        }
+      }
+    }
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: `Cue not found: ${id}` });
+    }
+
+    if (item.type !== 'audio') {
+      return res.status(400).json({ success: false, message: 'Can only update audio cues' });
+    }
+
+    // Validate updates
+    const validation = validateCueUpdates(updates, item);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validation.errors
+      });
+    }
+
+    // Send validated updates to renderer
+    mainWindow.webContents.send('update-cue', { type, value, updates: validation.validated });
+    res.json({
+      success: true,
+      message: `Updated cue ${type === 'uuid' ? id : `at index ${id}`}`,
+      updates: validation.validated
+    });
   });
 
   // Get current project info
   apiApp.get('/api/project/info', (req, res) => {
+    // Use currentProject directly (kept in sync via await saveProject())
     if (currentProject) {
       res.json({ success: true, project: currentProject });
     } else {
@@ -363,6 +989,7 @@ function createWindow() {
 
   // Use the global isDevMode flag
   if (isDevMode) {
+    console.log('[DEV] Loading from http://localhost:3000');
     mainWindow.loadURL('http://localhost:3000');
     // Open DevTools in development
     mainWindow.webContents.openDevTools();
@@ -371,7 +998,7 @@ function createWindow() {
     const indexPath = path.join(__dirname, '../.output/public/index.html');
     console.log('Loading production index from:', indexPath);
     console.log('File exists:', fs.existsSync(indexPath));
-    
+
     mainWindow.loadFile(indexPath).catch(err => {
       console.error('Failed to load index.html:', err);
     });
@@ -379,7 +1006,12 @@ function createWindow() {
 
   // Log any loading errors
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.error('Failed to load:', errorCode, errorDescription);
+    console.error('[LOAD ERROR]', errorCode, errorDescription);
+  });
+
+  // Log console messages from renderer
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[RENDERER ${level}]`, message, sourceId ? `(${sourceId}:${line})` : '');
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -1089,8 +1721,22 @@ ipcMain.handle('get-locale-data', (event, localeCode) => {
   return localeFiles.en;
 });
 
-ipcMain.handle('set-current-project', async (event, projectPath) => {
-  currentProject = projectPath;
+ipcMain.handle('set-current-project', async (event, projectData) => {
+  // projectData can be either the full project object, just the path, or null (for backwards compatibility)
+  if (typeof projectData === 'string') {
+    // Legacy: just the path
+    currentProject = { folderPath: projectData };
+    console.log('[API] Project path updated:', projectData);
+  } else if (projectData === null) {
+    // Closing project
+    currentProject = null;
+    console.log('[API] Project closed, cleared from main process');
+  } else {
+    // New: full project object
+    currentProject = projectData;
+    const itemCount = (projectData?.items?.length || 0) + (projectData?.cartOnlyItems?.length || 0);
+    console.log('[API] Project updated:', projectData?.name, `(${itemCount} items)`);
+  }
   // Rebuild menu to update enabled/disabled state of menu items
   createMenu(currentLocale, isDevMode);
   return { success: true };

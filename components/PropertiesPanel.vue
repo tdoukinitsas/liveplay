@@ -465,7 +465,7 @@ const handleSave = async () => {
 };
 
 // Handle normalize: normalize ALL selected audio items individually
-const handleNormalize = () => {
+const handleNormalize = async () => {
   let items = getSelectedItems();
   
   // Fallback to selectedItem if no items in selectedItems set (shouldn't happen now, but safe)
@@ -515,13 +515,13 @@ const handleNormalize = () => {
   });
   
   if (normalizedCount > 0) {
-    saveProject();
+    await saveProject();
     console.log(`Normalized ${normalizedCount} item(s)`);
   }
 };
 
 // Handle trim silence: trim ALL selected audio items individually
-const handleTrimSilence = () => {
+const handleTrimSilence = async () => {
   let items = getSelectedItems();
   
   // Fallback to selectedItem if no items in selectedItems set (shouldn't happen now, but safe)
@@ -584,7 +584,7 @@ const handleTrimSilence = () => {
   });
   
   if (trimmedCount > 0) {
-    saveProject();
+    await saveProject();
     console.log(`Trimmed ${trimmedCount} item(s)`);
   }
 };

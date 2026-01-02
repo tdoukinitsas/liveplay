@@ -117,6 +117,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // API triggers
   onTriggerItem: (callback) => ipcRenderer.on('trigger-item', callback),
   onStopItem: (callback) => ipcRenderer.on('stop-item', callback),
+  onStopAllItems: (callback) => ipcRenderer.on('stop-all-items', callback),
+  onPauseCue: (callback) => ipcRenderer.on('pause-cue', callback),
+  onResumeCue: (callback) => ipcRenderer.on('resume-cue', callback),
+  onSeekCue: (callback) => ipcRenderer.on('seek-cue', callback),
+  onGetActiveCues: (callback) => ipcRenderer.on('get-active-cues', callback),
+  onGetCueInfo: (callback) => ipcRenderer.on('get-cue-info', callback),
+  onUpdateCue: (callback) => ipcRenderer.on('update-cue', callback),
   
   // File association - opening project files
   onOpenProjectFile: (callback) => ipcRenderer.on('open-project-file', callback),
@@ -124,7 +131,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // State viewer - send state updates to main process
   updateAppState: (state) => ipcRenderer.send('update-app-state', state),
-  
+
+  // Send active cues response back to main process
+  sendActiveCuesResponse: (activeCues) => ipcRenderer.send('active-cues-response', activeCues),
+
   // Check if dev mode is enabled
   isDevMode: () => ipcRenderer.invoke('is-dev-mode')
 });
