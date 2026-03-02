@@ -73,7 +73,11 @@ onMounted(() => {
 }
 
 .cart-header {
+  display: flex;
+  align-items: center;
   padding: var(--spacing-md) var(--spacing-lg);
+  min-height: 56px;
+  box-sizing: border-box;
   border-bottom: 1px solid var(--color-border);
   background-color: var(--color-surface);
 }

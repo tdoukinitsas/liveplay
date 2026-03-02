@@ -14,70 +14,48 @@ const execPromise = promisify(exec);
 let ffmpegPath = null;
 let ffmpegAvailable = false;
 
-// Check if ffmpeg is available in PATH or use bundled version
+// Setup bundled ffmpeg - always use the bundled version to avoid
+// issues on OS's with strict security requirements
 async function checkAndSetupFfmpeg() {
-  // First, try to find ffmpeg in PATH
   try {
-    const command = process.platform === 'win32' ? 'where ffmpeg' : 'which ffmpeg';
-    const { stdout } = await execPromise(command);
-    const systemFfmpegPath = stdout.trim().split('\n')[0];
+    const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+    ffmpegPath = ffmpegInstaller.path;
     
-    // Verify it works
-    await execPromise(`"${systemFfmpegPath}" -version`);
-    ffmpegPath = systemFfmpegPath;
-    ffmpegAvailable = true;
-    console.log('Found ffmpeg in system PATH:', ffmpegPath);
-    return true;
-  } catch (error) {
-    console.log('ffmpeg not found in system PATH');
-  }
-
-  // If not in PATH, use bundled version
-  try {
-    const ffmpegStatic = require('@ffmpeg-installer/ffmpeg');
-    ffmpegPath = ffmpegStatic.path;
+    // In packaged app, the path may be inside app.asar - resolve it
+    if (ffmpegPath.includes('app.asar')) {
+      ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked');
+    }
     
     // Verify bundled version works
     await execPromise(`"${ffmpegPath}" -version`);
     ffmpegAvailable = true;
     console.log('Using bundled ffmpeg:', ffmpegPath);
+    
+    // Set ffprobe path from @ffprobe-installer/ffprobe
+    try {
+      const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
+      let ffprobePath = ffprobeInstaller.path;
+      if (ffprobePath.includes('app.asar')) {
+        ffprobePath = ffprobePath.replace('app.asar', 'app.asar.unpacked');
+      }
+      ffmpeg.setFfprobePath(ffprobePath);
+      console.log('Using bundled ffprobe:', ffprobePath);
+    } catch (e) {
+      // Fallback: try ffprobe next to ffmpeg
+      const ffprobeFileName = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
+      const ffprobePath = path.join(path.dirname(ffmpegPath), ffprobeFileName);
+      if (fs.existsSync(ffprobePath)) {
+        ffmpeg.setFfprobePath(ffprobePath);
+        console.log('Using ffprobe from ffmpeg directory:', ffprobePath);
+      }
+    }
+    
     return true;
   } catch (error) {
-    console.error('Failed to setup ffmpeg:', error);
+    console.error('Failed to setup bundled ffmpeg:', error);
+    ffmpegAvailable = false;
     return false;
   }
-}
-
-// Show ffmpeg installation dialog
-async function promptFfmpegInstallation(mainWindow) {
-  const result = await dialog.showMessageBox(mainWindow, {
-    type: 'warning',
-    title: 'FFmpeg Required',
-    message: 'FFmpeg is required for audio processing and YouTube downloads',
-    detail: 'LivePlay can use a bundled version of FFmpeg, or you can install it system-wide for better performance.\n\nWould you like to use the bundled version now?',
-    buttons: ['Use Bundled FFmpeg', 'Download System FFmpeg', 'Cancel'],
-    defaultId: 0,
-    cancelId: 2
-  });
-
-  if (result.response === 0) {
-    // Use bundled version
-    console.log('User chose to use bundled ffmpeg');
-    return true;
-  } else if (result.response === 1) {
-    // Open ffmpeg download page
-    shell.openExternal('https://www.ffmpeg.org/download.html');
-    await dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'FFmpeg Installation',
-      message: 'Please download and install FFmpeg, then restart LivePlay',
-      detail: 'After installing FFmpeg, make sure to add it to your system PATH.',
-      buttons: ['OK']
-    });
-    return false;
-  }
-
-  return false;
 }
 
 // Initialize yt-dlp wrapper
@@ -99,26 +77,68 @@ async function initializeYtDlp() {
     console.log('Binary directory:', binDir);
     console.log('Binary path:', binaryPath);
     
-    // Check if binary already exists
-    if (fs.existsSync(binaryPath)) {
-      console.log('yt-dlp binary already exists');
-      ytDlpPath = binaryPath;
-      ytDlpReady = true;
-      return true;
+    // Check if binary needs updating
+    // Re-download if: binary doesn't exist, or it's older than 7 days
+    let needsDownload = !fs.existsSync(binaryPath);
+    
+    if (!needsDownload) {
+      try {
+        const stats = fs.statSync(binaryPath);
+        const ageInDays = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24);
+        if (ageInDays > 7) {
+          console.log(`yt-dlp binary is ${Math.round(ageInDays)} days old, will update...`);
+          needsDownload = true;
+        } else {
+          console.log(`yt-dlp binary is ${Math.round(ageInDays)} days old, using existing`);
+        }
+      } catch (e) {
+        needsDownload = true;
+      }
     }
     
-    // Download yt-dlp binary - pass the full file path
-    console.log('Downloading yt-dlp binary...');
-    ytDlpPath = await YTDlpWrap.downloadFromGithub(binaryPath);
+    if (needsDownload) {
+      console.log('Downloading latest yt-dlp binary...');
+      // Back up old binary in case download fails
+      const backupPath = binaryPath + '.bak';
+      try {
+        if (fs.existsSync(binaryPath)) {
+          fs.copyFileSync(binaryPath, backupPath);
+          fs.unlinkSync(binaryPath);
+        }
+        ytDlpPath = await YTDlpWrap.downloadFromGithub(binaryPath);
+        // Clean up backup on success
+        if (fs.existsSync(backupPath)) {
+          fs.unlinkSync(backupPath);
+        }
+      } catch (downloadError) {
+        console.error('Failed to download yt-dlp:', downloadError);
+        // Restore backup if download failed
+        if (fs.existsSync(backupPath)) {
+          fs.copyFileSync(backupPath, binaryPath);
+          fs.unlinkSync(backupPath);
+          console.log('Restored previous yt-dlp binary as fallback');
+        } else if (!fs.existsSync(binaryPath)) {
+          throw downloadError;
+        }
+      }
+    }
     
-    // Verify the download
+    // Verify the binary exists and is usable
     if (fs.existsSync(binaryPath)) {
       ytDlpPath = binaryPath;
       ytDlpReady = true;
-      console.log('yt-dlp binary downloaded successfully:', ytDlpPath);
+      
+      // Log version for debugging
+      try {
+        const { stdout } = await execPromise(`"${binaryPath}" --version`);
+        console.log('yt-dlp version:', stdout.trim());
+      } catch (e) {
+        console.log('Could not determine yt-dlp version');
+      }
+      
       return true;
     } else {
-      throw new Error('Failed to download yt-dlp binary');
+      throw new Error('yt-dlp binary not found after initialization');
     }
   } catch (error) {
     console.error('Failed to initialize yt-dlp:', error);
@@ -1503,7 +1523,7 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
     }
     
     if (!ffmpegAvailable) {
-      reject(new Error('FFmpeg is required for YouTube downloads. Please install FFmpeg and restart the application.'));
+      reject(new Error('Bundled FFmpeg failed to initialize. Please restart the application.'));
       return;
     }
     
@@ -1689,8 +1709,11 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(async () => {
-    // Check and setup ffmpeg before creating window
+    // Setup bundled ffmpeg before creating window
     const ffmpegReady = await checkAndSetupFfmpeg();
+    if (!ffmpegReady) {
+      console.error('Warning: Bundled ffmpeg failed to initialize. Audio processing may be limited.');
+    }
     
     createWindow();
     
@@ -1699,17 +1722,6 @@ if (!gotTheLock) {
       mainWindow.once('ready-to-show', () => {
         openFile(fileToOpen);
         fileToOpen = null;
-      });
-    }
-    
-    // If ffmpeg is not available, prompt user after window is shown
-    if (!ffmpegReady && mainWindow) {
-      mainWindow.once('ready-to-show', async () => {
-        const shouldContinue = await promptFfmpegInstallation(mainWindow);
-        if (shouldContinue) {
-          // Try setup again with bundled version
-          await checkAndSetupFfmpeg();
-        }
       });
     }
   });
