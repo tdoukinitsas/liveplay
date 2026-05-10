@@ -154,6 +154,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
+  color: var(--color-text-primary);
 }
 
 .close-btn {
@@ -167,7 +168,7 @@ onUnmounted(() => {
 }
 
 .close-btn:hover {
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 .config-body {
@@ -186,7 +187,7 @@ onUnmounted(() => {
 }
 
 .slot-row:hover {
-  background: var(--color-hover);
+  background: var(--color-surface-hover);
 }
 
 .slot-row.capturing {
@@ -208,7 +209,7 @@ onUnmounted(() => {
   font-family: monospace;
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--color-text-primary);
   background: var(--color-background);
   border: 1px solid var(--color-border);
   border-radius: 4px;
@@ -238,13 +239,13 @@ onUnmounted(() => {
   cursor: pointer;
   border: 1px solid var(--color-border);
   background: var(--color-background);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   transition: background-color 0.15s;
 }
 
 .reset-btn:hover,
 .done-btn:hover {
-  background: var(--color-hover);
+  background: var(--color-surface-hover);
 }
 
 .done-btn {
