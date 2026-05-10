@@ -278,24 +278,18 @@ watch(currentLocale, () => {
   }
 }, { immediate: true });
 
-// Prevent default drag and drop behavior globally
-// (except where specifically handled by components)
+// Enable drag-and-drop globally.
+// Chromium requires preventDefault() on EVERY dragover event (including on
+// intermediate elements) for the drop event to fire. Using capture phase
+// ensures this runs before any component handlers.
 onMounted(() => {
   if (import.meta.client) {
-    // Prevent default drag/drop on document to avoid "stop" cursor
-    // But allow it if a component has already handled it
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+    }, true);
     document.addEventListener('dragover', (e) => {
-      // Only prevent if the event hasn't been handled by a component
-      if (e.defaultPrevented) return;
       e.preventDefault();
-      e.dataTransfer!.dropEffect = 'none';
-    }, true); // Use capture phase
-    
-    document.addEventListener('drop', (e) => {
-      // Only prevent if the event hasn't been handled by a component
-      if (e.defaultPrevented) return;
-      e.preventDefault();
-    }, true); // Use capture phase
+    }, true);
   }
 });
 </script>
