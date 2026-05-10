@@ -90,6 +90,14 @@ export interface DuckingBehavior {
   duckFadeOut?: number; // fade out duration in seconds when restoring (default: 1)
 }
 
+// Cart slot key binding
+export interface CartSlotKeyBinding {
+  key: string;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}
+
 // Cart player item
 export interface CartItem {
   slot: number; // 0-15
@@ -104,6 +112,7 @@ export interface Project {
   folderPath: string;
   items: (AudioItem | GroupItem)[];
   cartItems: CartItem[];
+  cartSlotKeys?: Record<number, CartSlotKeyBinding>;
   cartOnlyItems: AudioItem[]; // Items that exist only in cart (not in playlist)
   theme: Theme;
   createdAt: string;
@@ -201,4 +210,24 @@ export const DEFAULT_GROUP_ITEM: Partial<GroupItem> = {
   endBehavior: { action: 'nothing' },
   isExpanded: true,
   children: []
+};
+
+// Default cart slot key mappings: 1-9 → slots 0-8, 0 → slot 9, Ctrl+1-6 → slots 10-15
+export const DEFAULT_CART_SLOT_KEYS: Record<number, CartSlotKeyBinding> = {
+  0:  { key: '1', ctrlKey: false, shiftKey: false, altKey: false },
+  1:  { key: '2', ctrlKey: false, shiftKey: false, altKey: false },
+  2:  { key: '3', ctrlKey: false, shiftKey: false, altKey: false },
+  3:  { key: '4', ctrlKey: false, shiftKey: false, altKey: false },
+  4:  { key: '5', ctrlKey: false, shiftKey: false, altKey: false },
+  5:  { key: '6', ctrlKey: false, shiftKey: false, altKey: false },
+  6:  { key: '7', ctrlKey: false, shiftKey: false, altKey: false },
+  7:  { key: '8', ctrlKey: false, shiftKey: false, altKey: false },
+  8:  { key: '9', ctrlKey: false, shiftKey: false, altKey: false },
+  9:  { key: '0', ctrlKey: false, shiftKey: false, altKey: false },
+  10: { key: '1', ctrlKey: true, shiftKey: false, altKey: false },
+  11: { key: '2', ctrlKey: true, shiftKey: false, altKey: false },
+  12: { key: '3', ctrlKey: true, shiftKey: false, altKey: false },
+  13: { key: '4', ctrlKey: true, shiftKey: false, altKey: false },
+  14: { key: '5', ctrlKey: true, shiftKey: false, altKey: false },
+  15: { key: '6', ctrlKey: true, shiftKey: false, altKey: false },
 };

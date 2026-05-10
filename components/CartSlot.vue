@@ -16,6 +16,7 @@
   >
     <div v-if="!hasItem" class="empty-slot" @click="handleImport">
       <span class="slot-number">{{ slot + 1 }}</span>
+      <span v-if="keyLabel" class="key-label">{{ keyLabel }}</span>
       <span class="slot-hint">{{ t('cart.clickToImport') }}</span>
     </div>
     
@@ -40,6 +41,7 @@
       <div class="slot-header" @click="handlePlay">
         <span class="slot-number">{{ slot + 1 }}</span>
         <span class="slot-name">{{ item.displayName }}</span>
+        <span v-if="keyLabel" class="key-label">{{ keyLabel }}</span>
       </div>
       
       <!-- Waveform/Progress section at bottom -->
@@ -127,6 +129,7 @@ import type { AudioItem } from '~/types/project';
 const props = defineProps<{
   slot: number;
   item: AudioItem | null;
+  keyLabel?: string;
 }>();
 
 const { currentProject, findItemByUuid, triggerWaveformUpdate } = useProject();
@@ -802,6 +805,17 @@ const handleDrop = async (e: DragEvent) => {
     padding-left: 4px;
     text-align: center;
   }
+
+  .key-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: monospace;
+  }
 }
 
 .slot-content {
@@ -846,6 +860,19 @@ const handleDrop = async (e: DragEvent) => {
     -webkit-box-orient: vertical;
     line-height: 1.3;
     flex: 1;
+  }
+
+  .key-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    padding: 0 4px;
+    font-family: monospace;
+    flex-shrink: 0;
+    line-height: 1.6;
   }
 }
 
