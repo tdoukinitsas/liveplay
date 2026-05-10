@@ -122,8 +122,8 @@ onMounted(() => {
 }
 
 .hotkey-config-btn:hover {
-  background-color: var(--color-hover);
-  color: var(--color-text);
+  background-color: var(--color-surface-hover);
+  color: var(--color-text-primary);
 }
 
 .cart-grid {

@@ -67,7 +67,7 @@ export const eventToBinding = (e: KeyboardEvent): CartSlotKeyBinding => {
 export const useCartHotkeys = () => {
   const { currentProject, selectedItem, saveProject } = useProject();
   const { getCartItem } = useCartItems();
-  const { playCue, stopCue, activeCues } = useAudioEngine();
+  const { playCue, stopCue, pauseCue, resumeCue, activeCues } = useAudioEngine();
 
   /**
    * Get current key mappings, falling back to defaults.
@@ -122,24 +122,54 @@ export const useCartHotkeys = () => {
   };
 
   /**
-   * Toggle play/stop for the selected playlist item.
+   * Get the target audio item for global shortcuts.
+   * Prefers selectedItem, falls back to the first active cue.
+   */
+  const getTargetItem = (): AudioItem | null => {
+    // Try selected item first
+    if (selectedItem.value && selectedItem.value.type === 'audio') {
+      return selectedItem.value as AudioItem;
+    }
+    // Fall back to first active (playing) cue
+    if (activeCues.value.size > 0) {
+      const firstUuid = activeCues.value.keys().next().value;
+      if (firstUuid) {
+        const { findItemByUuid } = useProject();
+        const item = findItemByUuid(firstUuid);
+        if (item && item.type === 'audio') return item as AudioItem;
+        // Check cart-only items
+        const { getCartOnlyItem } = useCartItems();
+        const cartItem = getCartOnlyItem(firstUuid);
+        if (cartItem) return cartItem;
+      }
+    }
+    return null;
+  };
+
+  /**
+   * Toggle pause/resume for the target item. If stopped, start playing.
    */
   const togglePlayStop = () => {
-    if (!selectedItem.value || selectedItem.value.type !== 'audio') return;
-    const item = selectedItem.value as AudioItem;
+    const item = getTargetItem();
+    if (!item) return;
     if (activeCues.value.has(item.uuid)) {
-      stopCue(item.uuid);
+      const cue = activeCues.value.get(item.uuid);
+      if (cue && cue.isPaused) {
+        resumeCue(item.uuid);
+      } else {
+        pauseCue(item.uuid);
+      }
     } else {
       playCue(item);
     }
   };
 
   /**
-   * Toggle loop on the selected item's endBehavior.
+   * Toggle loop on the target item's endBehavior.
    */
   const toggleLoop = () => {
-    if (!selectedItem.value || selectedItem.value.type !== 'audio') return;
-    const item = selectedItem.value as AudioItem;
+    const item = getTargetItem();
+    if (!item) return;
     if (item.endBehavior.action === 'loop') {
       item.endBehavior = { action: 'nothing' };
     } else {
@@ -155,7 +185,7 @@ export const useCartHotkeys = () => {
     if (isTextInputFocused()) return;
     if (!currentProject.value) return;
 
-    // Space = toggle play/stop of selected item
+    // Space = toggle play/stop of selected or playing item
     if (e.key === ' ' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       e.preventDefault();
       e.stopPropagation();
@@ -163,7 +193,7 @@ export const useCartHotkeys = () => {
       return;
     }
 
-    // Right Shift = toggle loop on selected item
+    // Right Shift = toggle loop on selected or playing item
     if (e.key === 'Shift' && e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT) {
       e.preventDefault();
       e.stopPropagation();
