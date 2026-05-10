@@ -8,7 +8,7 @@ import type {
   Theme,
   CartItem
 } from '~/types/project';
-import { DEFAULT_THEME } from '~/types/project';
+import { DEFAULT_THEME, DEFAULT_CART_SLOT_KEYS } from '~/types/project';
 
 export const useProject = () => {
   const currentProject = useState<Project | null>('currentProject', () => null);
@@ -103,6 +103,7 @@ export const useProject = () => {
         folderPath,
         items: [],
         cartItems: [],
+        cartSlotKeys: { ...DEFAULT_CART_SLOT_KEYS },
         cartOnlyItems: [],
         theme: { ...DEFAULT_THEME },
         createdAt: new Date().toISOString(),
@@ -178,6 +179,11 @@ export const useProject = () => {
     // Add cartOnlyItems if missing
     if (!project.cartOnlyItems) {
       project.cartOnlyItems = [];
+    }
+    
+    // Add cartSlotKeys if missing — use defaults
+    if (!project.cartSlotKeys) {
+      project.cartSlotKeys = { ...DEFAULT_CART_SLOT_KEYS };
     }
     
     const migrateItem = (item: BaseItem) => {
