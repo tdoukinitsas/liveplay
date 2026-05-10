@@ -1,6 +1,7 @@
 <template>
   <div 
     class="cart-slot"
+    ref="slotRef"
     :class="{ 
       'has-item': hasItem, 
       'is-playing': isPlaying,
@@ -10,9 +11,6 @@
       'drag-over': isDragOver
     }"
     :style="slotStyle"
-    @dragover.prevent="handleDragOver"
-    @dragleave="handleDragLeave"
-    @drop="handleDrop"
   >
     <div v-if="!hasItem" class="empty-slot" @click="handleImport">
       <span class="slot-number">{{ slot + 1 }}</span>
@@ -128,6 +126,8 @@ const props = defineProps<{
   slot: number;
   item: AudioItem | null;
 }>();
+
+const slotRef = ref<HTMLElement | null>(null);
 
 const { currentProject, findItemByUuid, triggerWaveformUpdate } = useProject();
 const { playCue, stopCue, activeCues } = useAudioEngine();
@@ -496,6 +496,28 @@ let resizeObserver: ResizeObserver | null = null;
 let waveformPollInterval: NodeJS.Timeout | null = null;
 
 onMounted(() => {
+  // Use native DOM listeners for drag-and-drop — Vue event handlers
+  // on this component don't receive drop events (likely a Vue 3 scoped template issue)
+  if (slotRef.value) {
+    slotRef.value.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+    });
+    slotRef.value.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer) {
+        isDragOver.value = true;
+        e.dataTransfer.dropEffect = 'move';
+      }
+    });
+    slotRef.value.addEventListener('dragleave', () => {
+      isDragOver.value = false;
+    });
+    slotRef.value.addEventListener('drop', (e) => {
+      e.preventDefault();
+      handleDrop(e);
+    });
+  }
+
   if (props.item && waveformCanvas.value) {
     nextTick(drawWaveform);
     resizeObserver = new ResizeObserver(() => {
@@ -611,27 +633,9 @@ const handleDragEnd = () => {
   isDragOver.value = false;
 };
 
-const handleDragOver = (e: DragEvent) => {
-  e.preventDefault();
-  if (!e.dataTransfer) return;
-  
-  // Check if it's a cart item being dragged
-  const isCartDrag = e.dataTransfer.types.includes('cart-slot');
-  const isFileDrag = e.dataTransfer.types.includes('Files');
-  const isPlaylistDrag = e.dataTransfer.types.includes('item-uuid') && !isCartDrag;
-  
-  if (isCartDrag || isFileDrag || isPlaylistDrag) {
-    isDragOver.value = true;
-    e.dataTransfer.dropEffect = isCartDrag ? 'move' : 'copy';
-  }
-};
-
-const handleDragLeave = () => {
-  isDragOver.value = false;
-};
-
 const handleDrop = async (e: DragEvent) => {
   e.preventDefault();
+  e.stopPropagation();
   isDragOver.value = false;
   
   if (!e.dataTransfer || !currentProject.value) return;

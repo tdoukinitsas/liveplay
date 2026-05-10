@@ -556,6 +556,7 @@ const handleDragStart = (e: DragEvent) => {
 
 const handleDragOver = (e: DragEvent) => {
   e.preventDefault();
+  e.stopPropagation();
   if (!e.dataTransfer) return;
   
   e.dataTransfer.dropEffect = 'move';
