@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     branches:
-      - main
+      - dev
     paths:
       - 'package.json'
 
@@ -191,7 +191,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ needs.check-version.outputs.version }}
-          name: LivePlay ${{ needs.check-version.outputs.version }}
+          name: E-LivePlay ${{ needs.check-version.outputs.version }}
           body_path: CHANGELOG.md
           draft: false
           prerelease: false
