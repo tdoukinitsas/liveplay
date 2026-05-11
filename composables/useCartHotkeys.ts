@@ -123,14 +123,10 @@ export const useCartHotkeys = () => {
 
   /**
    * Get the target audio item for global shortcuts.
-   * Prefers selectedItem, falls back to the first active cue.
+   * Prefers the active (playing) cue, falls back to selectedItem.
    */
   const getTargetItem = (): AudioItem | null => {
-    // Try selected item first
-    if (selectedItem.value && selectedItem.value.type === 'audio') {
-      return selectedItem.value as AudioItem;
-    }
-    // Fall back to first active (playing) cue
+    // Try active (playing) cue first — pause/resume should target what's audible
     if (activeCues.value.size > 0) {
       const firstUuid = activeCues.value.keys().next().value;
       if (firstUuid) {
@@ -142,6 +138,10 @@ export const useCartHotkeys = () => {
         const cartItem = getCartOnlyItem(firstUuid);
         if (cartItem) return cartItem;
       }
+    }
+    // Fall back to selected item (e.g., to start playback when nothing is playing)
+    if (selectedItem.value && selectedItem.value.type === 'audio') {
+      return selectedItem.value as AudioItem;
     }
     return null;
   };
