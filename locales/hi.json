@@ -6,7 +6,7 @@
     "direction": "ltr"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "फ़ाइल",
@@ -27,7 +27,7 @@
     "about": "LivePlay के बारे में"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "लाइव इवेंट्स के लिए ऑडियो प्लेबैक",
     "newProject": "नया प्रोजेक्ट",
     "openProject": "प्रोजेक्ट खोलें"

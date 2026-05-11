@@ -6,7 +6,7 @@
     "direction": "rtl"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "ملف",
@@ -27,7 +27,7 @@
     "about": "حول LivePlay"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "تشغيل إشارات الصوت للأحداث المباشرة",
     "newProject": "مشروع جديد",
     "openProject": "فتح مشروع"

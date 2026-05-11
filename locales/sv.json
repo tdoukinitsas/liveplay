@@ -6,7 +6,7 @@
     "direction": "ltr"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "Arkiv",
@@ -27,7 +27,7 @@
     "about": "Om LivePlay"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "Ljuduppspelning för liveevenemang",
     "newProject": "Nytt projekt",
     "openProject": "Öppna projekt"

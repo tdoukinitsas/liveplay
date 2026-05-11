@@ -6,7 +6,7 @@
     "direction": "rtl"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "فایل",
@@ -27,7 +27,7 @@
     "about": "درباره LivePlay"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "پخش سیگنال‌های صوتی برای رویدادهای زنده",
     "newProject": "پروژه جدید",
     "openProject": "باز کردن پروژه"

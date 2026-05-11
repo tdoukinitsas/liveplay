@@ -8,12 +8,12 @@
       <div class="about-header">
         <img 
           :src="isDark ? './assets/icons/SVG/liveplay-icon-darkmode@web.svg' : './assets/icons/SVG/liveplay-icon-lightmode@web.svg'"
-          alt="LivePlay"
+          alt="E-LivePlay"
           class="about-logo"
         />
         <div class="about-text">
           <h1 class="about-title">
-            LivePlay
+            E-LivePlay
             <span class="version-badge">v{{ appVersion }}</span>
           </h1>
           <p class="about-subtitle">{{ t('welcome.subtitle') }}</p>

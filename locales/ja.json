@@ -6,7 +6,7 @@
     "direction": "ltr"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "ファイル",
@@ -27,7 +27,7 @@
     "about": "LivePlayについて"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "ライブイベント用オーディオ再生",
     "newProject": "新規プロジェクト",
     "openProject": "プロジェクトを開く"

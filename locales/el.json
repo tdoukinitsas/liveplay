@@ -6,7 +6,7 @@
     "direction": "ltr"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "Αρχείο",
@@ -27,7 +27,7 @@
     "about": "Σχετικά με το LivePlay"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "Αναπαραγωγή αρχείων ήχου για ζωντανές εκδηλώσεις",
     "newProject": "Νέα Εκδήλωση",
     "openProject": "Άνοιγμα Εκδήλωσης"

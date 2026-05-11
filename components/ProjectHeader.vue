@@ -3,7 +3,7 @@
     <div class="header-left">
       <img 
         :src="isDark ? './assets/icons/SVG/liveplay-icon-darkmode@web.svg' : './assets/icons/SVG/liveplay-icon-lightmode@web.svg'"
-        alt="LivePlay"
+        alt="E-LivePlay"
         class="header-logo"
       />
       <h2 class="project-name">{{ currentProject?.name || t('project.noProject') }}</h2>

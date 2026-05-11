@@ -6,7 +6,7 @@
     "direction": "ltr"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "Dosya",
@@ -27,7 +27,7 @@
     "about": "LivePlay Hakkında"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "Canlı etkinlikler için ses oynatma",
     "newProject": "Yeni Proje",
     "openProject": "Proje Aç"

@@ -1,7 +1,7 @@
 {
-  "name": "liveplay",
+  "name": "e-liveplay",
   "version": "1.2.9",
-  "description": "Audio cue playback application for live events",
+  "description": "Enhanced LivePlay - Audio cue playback application for live events",
   "main": "electron/main.js",
   "type": "commonjs",
   "scripts": {
