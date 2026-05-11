@@ -81,6 +81,8 @@ declare global {
       onStopItem: (callback: (event: any, data: any) => void) => void;
       onOpenProjectFile: (callback: (event: any, data: { filePath: string; projectData: any }) => void) => void;
       onOpenLpaFile: (callback: (event: any, data: { lpaPath: string }) => void) => void;
+      readMidiConfig: () => Promise<Record<string, any>>;
+      writeMidiConfig: (config: Record<string, any>) => Promise<{ success: boolean }>;
     };
   }
 

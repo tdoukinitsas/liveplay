@@ -1825,6 +1825,32 @@ function openFile(filePath) {
   }
 }
 
+// MIDI Config Handlers
+const midiConfigPath = path.join(app.getPath('userData'), 'midi-config.json');
+
+ipcMain.handle('read-midi-config', async () => {
+  try {
+    if (fs.existsSync(midiConfigPath)) {
+      const data = fs.readFileSync(midiConfigPath, 'utf-8');
+      return JSON.parse(data);
+    }
+    return {};
+  } catch (error) {
+    console.error('Failed to read MIDI config:', error);
+    return {};
+  }
+});
+
+ipcMain.handle('write-midi-config', async (event, config) => {
+  try {
+    fs.writeFileSync(midiConfigPath, JSON.stringify(config, null, 2), 'utf-8');
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to write MIDI config:', error);
+    throw new Error('Failed to save MIDI configuration');
+  }
+});
+
 app.on('window-all-closed', () => {
   if (apiServer) {
     apiServer.close();
