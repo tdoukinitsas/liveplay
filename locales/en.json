@@ -6,7 +6,7 @@
     "direction": "ltr"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "File",
@@ -27,8 +27,8 @@
     "about": "About LivePlay"
   },
   "welcome": {
-    "title": "LivePlay",
-    "subtitle": "Audio cue playback for live events",
+    "title": "E-LivePlay",
+    "subtitle": "Enhanced LivePlay - Audio cue playback for live events",
     "newProject": "New Project",
     "openProject": "Open Project"
   },

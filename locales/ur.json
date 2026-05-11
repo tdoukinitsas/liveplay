@@ -6,7 +6,7 @@
     "direction": "rtl"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "فائل",
@@ -27,7 +27,7 @@
     "about": "LivePlay کے بارے میں"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "براہ راست تقریبات کے لیے آڈیو پلے بیک",
     "newProject": "نیا پروجیکٹ",
     "openProject": "پروجیکٹ کھولیں"

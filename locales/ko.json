@@ -6,7 +6,7 @@
     "direction": "ltr"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "파일",
@@ -27,7 +27,7 @@
     "about": "LivePlay 정보"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "라이브 이벤트를 위한 오디오 재생",
     "newProject": "새 프로젝트",
     "openProject": "프로젝트 열기"

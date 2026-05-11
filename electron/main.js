@@ -251,7 +251,7 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
     const server = apiApp.listen(currentPort)
       .on('listening', () => {
         apiServer = server;
-        console.log(`LivePlay API Server running on http://localhost:${currentPort}`);
+        console.log(`E-LivePlay API Server running on http://localhost:${currentPort}`);
       })
       .on('error', (err) => {
         if (err.code === 'EADDRINUSE' && attemptsLeft > 0) {
@@ -473,7 +473,7 @@ function createStateViewerWindow() {
   stateViewerWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    title: 'LivePlay - Current State Viewer',
+    title: 'E-LivePlay - Current State Viewer',
     icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -488,7 +488,7 @@ function createStateViewerWindow() {
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>LivePlay State Viewer</title>
+      <title>E-LivePlay State Viewer</title>
       <style>
         * {
           margin: 0;
@@ -625,7 +625,7 @@ function createStateViewerWindow() {
     </head>
     <body>
       <div class="header">
-        <h1>LivePlay - Current State Viewer (Development Mode)</h1>
+        <h1>E-LivePlay - Current State Viewer (Development Mode)</h1>
       </div>
       <div class="container" id="container"></div>
       
@@ -971,7 +971,7 @@ ipcMain.handle('select-project-folder', async () => {
 ipcMain.handle('select-project-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
-    filters: [{ name: 'LivePlay Project', extensions: ['liveplay'] }]
+    filters: [{ name: 'E-LivePlay Project', extensions: ['liveplay'] }]
   });
 
   if (!result.canceled && result.filePaths.length > 0) {
@@ -1167,7 +1167,7 @@ ipcMain.handle('export-project', async (event, projectFolderPath, projectName = 
       title: 'Export Project',
       defaultPath: `${defaultName}.lpa`,
       filters: [
-        { name: 'LivePlay Archive', extensions: ['lpa'] }
+        { name: 'E-LivePlay Archive', extensions: ['lpa'] }
       ]
     });
 
@@ -1248,7 +1248,7 @@ ipcMain.handle('import-project', async (event) => {
       title: 'Import Project',
       properties: ['openFile'],
       filters: [
-        { name: 'LivePlay Archive', extensions: ['lpa'] }
+        { name: 'E-LivePlay Archive', extensions: ['lpa'] }
       ]
     });
 

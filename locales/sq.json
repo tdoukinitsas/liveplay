@@ -6,7 +6,7 @@
     "direction": "ltr"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "Dosje",
@@ -27,7 +27,7 @@
     "about": "Rreth LivePlay"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "Luajtje audio për ngjarje të drejtpërdrejta",
     "newProject": "Projekt i Ri",
     "openProject": "Hap Projektin"

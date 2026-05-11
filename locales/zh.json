@@ -6,7 +6,7 @@
     "direction": "ltr"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "文件",
@@ -27,7 +27,7 @@
     "about": "关于LivePlay"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "现场活动音频播放",
     "newProject": "新建项目",
     "openProject": "打开项目"

@@ -6,7 +6,7 @@
     "direction": "ltr"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "Archivo",
@@ -27,7 +27,7 @@
     "about": "Acerca de LivePlay"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "Reproducción de señales de audio para eventos en vivo",
     "newProject": "Nuevo Proyecto",
     "openProject": "Abrir Proyecto"

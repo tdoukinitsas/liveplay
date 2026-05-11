@@ -6,7 +6,7 @@
     "direction": "ltr"
   },
   "app": {
-    "name": "LivePlay"
+    "name": "E-LivePlay"
   },
   "menu": {
     "file": "Fișier",
@@ -27,7 +27,7 @@
     "about": "Despre LivePlay"
   },
   "welcome": {
-    "title": "LivePlay",
+    "title": "E-LivePlay",
     "subtitle": "Audio cue playback for live events",
     "newProject": "Proiect Nou",
     "openProject": "Deschide Proiect"
