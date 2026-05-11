@@ -28,17 +28,14 @@
   },
   "license": "AGPL-3.0-only",
   "devDependencies": {
-    "@nuxt/types": "^2.17.3",
     "@types/node": "^20.10.5",
     "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
     "electron": "^42.0.0",
     "electron-builder": "^26.0.0",
-    "nuxt": "~3.20.0",
+    "nuxt": "^4.0.0",
     "sass": "^1.69.5",
     "typescript": "^5.3.3",
-    "vue": "^3.4.3",
-    "vue-router": "^4.2.5",
     "wait-on": "^7.2.0"
   },
   "dependencies": {
