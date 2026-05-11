@@ -120,11 +120,9 @@ export const useMidiController = () => {
     }
 
     if (actionId === 'pause-resume') {
-      // Same logic as keyboard Space
+      // Same logic as keyboard Space — prefer active cue over selectedItem
       let targetItem: AudioItem | null = null;
-      if (selectedItem.value && selectedItem.value.type === 'audio') {
-        targetItem = selectedItem.value as AudioItem;
-      } else if (activeCues.value.size > 0) {
+      if (activeCues.value.size > 0) {
         const firstUuid = activeCues.value.keys().next().value;
         if (firstUuid) {
           const { findItemByUuid } = useProject();
@@ -135,6 +133,9 @@ export const useMidiController = () => {
             targetItem = getCartOnlyItem(firstUuid);
           }
         }
+      }
+      if (!targetItem && selectedItem.value && selectedItem.value.type === 'audio') {
+        targetItem = selectedItem.value as AudioItem;
       }
       if (!targetItem) return;
       if (activeCues.value.has(targetItem.uuid)) {
@@ -152,9 +153,7 @@ export const useMidiController = () => {
 
     if (actionId === 'toggle-loop') {
       let targetItem: AudioItem | null = null;
-      if (selectedItem.value && selectedItem.value.type === 'audio') {
-        targetItem = selectedItem.value as AudioItem;
-      } else if (activeCues.value.size > 0) {
+      if (activeCues.value.size > 0) {
         const firstUuid = activeCues.value.keys().next().value;
         if (firstUuid) {
           const { findItemByUuid } = useProject();
@@ -165,6 +164,9 @@ export const useMidiController = () => {
             targetItem = getCartOnlyItem(firstUuid);
           }
         }
+      }
+      if (!targetItem && selectedItem.value && selectedItem.value.type === 'audio') {
+        targetItem = selectedItem.value as AudioItem;
       }
       if (!targetItem) return;
       if (targetItem.endBehavior.action === 'loop') {
