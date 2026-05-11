@@ -1,6 +1,6 @@
 {
   "name": "e-liveplay",
-  "version": "1.2.9",
+  "version": "1.3.0",
   "description": "Enhanced LivePlay - Audio cue playback application for live events",
   "main": "electron/main.js",
   "type": "commonjs",
@@ -58,7 +58,7 @@
   },
   "build": {
     "appId": "com.liveplay.app",
-    "productName": "LivePlay",
+    "productName": "E-LivePlay",
     "directories": {
       "output": "dist-electron"
     },
@@ -90,7 +90,7 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "tdoukinitsas",
+      "owner": "Stevesibilia",
       "repo": "liveplay"
     },
     "win": {
