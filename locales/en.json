@@ -53,7 +53,16 @@
   "cart": {
     "title": "Cart Player",
     "emptySlot": "Click to import or drag item here",
-    "clickToImport": "Click to import or drag item here"
+    "clickToImport": "Click to import or drag item here",
+    "configureHotkeys": "Configure Hotkeys",
+    "hotkeyConfig": "Hotkey Configuration",
+    "slot": "Slot",
+    "currentBinding": "Current Binding",
+    "pressAnyKey": "Press any key...",
+    "conflict": "Already assigned to Slot {slot}",
+    "reserved": "This key combination is reserved",
+    "resetDefaults": "Reset to Defaults",
+    "close": "Close"
   },
   "properties": {
     "title": "Properties",
