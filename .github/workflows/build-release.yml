@@ -56,7 +56,7 @@ jobs:
 
       - name: Clean install dependencies
         shell: bash
-        run: npm ci
+        run: npm install
         env:
           CI: true
 
