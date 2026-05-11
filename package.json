@@ -99,8 +99,7 @@
           ]
         }
       ],
-      "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
-      "publisherName": "Thomas Doukinitsas"
+      "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png"
     },
     "mac": {
       "target": [
