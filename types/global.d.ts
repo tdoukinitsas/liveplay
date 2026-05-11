@@ -89,6 +89,7 @@ declare global {
       onOpenLpaFile: (callback: (event: any, data: { lpaPath: string }) => void) => void;
       readMidiConfig: () => Promise<Record<string, any>>;
       writeMidiConfig: (config: Record<string, any>) => Promise<{ success: boolean }>;
+      writeClipboardText: (text: string) => Promise<{ success: boolean }>;
     };
   }
 

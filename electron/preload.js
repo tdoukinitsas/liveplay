@@ -138,5 +138,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // MIDI config
   readMidiConfig: () => ipcRenderer.invoke('read-midi-config'),
-  writeMidiConfig: (config) => ipcRenderer.invoke('write-midi-config', config)
+  writeMidiConfig: (config) => ipcRenderer.invoke('write-midi-config', config),
+
+  // Clipboard
+  writeClipboardText: (text) => ipcRenderer.invoke('write-clipboard-text', text)
 });

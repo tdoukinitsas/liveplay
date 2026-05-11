@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, protocol, clipboard } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -1225,6 +1225,12 @@ ipcMain.handle('open-external', async (event, url) => {
   } catch (error) {
     return { success: false, error: error.message };
   }
+});
+
+// Clipboard
+ipcMain.handle('write-clipboard-text', (event, text) => {
+  clipboard.writeText(text);
+  return { success: true };
 });
 
 // Update menu language from renderer
