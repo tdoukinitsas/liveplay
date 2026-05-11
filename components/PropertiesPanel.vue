@@ -630,7 +630,7 @@ const handleReplaceMedia = async () => {
 const copyToClipboard = async (text: string) => {
   if (import.meta.client) {
     try {
-      await navigator.clipboard.writeText(text);
+      await window.electronAPI.writeClipboardText(text);
       // Could show a toast notification here
     } catch (error) {
       console.error('Failed to copy:', error);
