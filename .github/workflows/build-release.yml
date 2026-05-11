@@ -51,14 +51,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Clean install dependencies
         shell: bash
-        run: |
-          rm -rf node_modules package-lock.json
-          npm install --include=optional
+        run: npm ci
         env:
           CI: true
 
@@ -188,7 +186,7 @@ jobs:
           cat CHANGELOG.md
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.check-version.outputs.version }}
           name: E-LivePlay ${{ needs.check-version.outputs.version }}
