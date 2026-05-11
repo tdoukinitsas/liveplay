@@ -53,7 +53,16 @@
   "cart": {
     "title": "مشغل الخراطيش",
     "emptySlot": "انقر للاستيراد أو اسحب عنصرًا هنا",
-    "clickToImport": "انقر للاستيراد أو اسحب عنصرًا هنا"
+    "clickToImport": "انقر للاستيراد أو اسحب عنصرًا هنا",
+    "configureHotkeys": "تكوين مفاتيح الاختصار",
+    "hotkeyConfig": "تكوين مفاتيح الاختصار",
+    "slot": "الفتحة",
+    "currentBinding": "التعيين الحالي",
+    "pressAnyKey": "اضغط على أي مفتاح...",
+    "conflict": "مُعين بالفعل للفتحة {slot}",
+    "reserved": "هذا التوليف من المفاتيح محجوز",
+    "resetDefaults": "إعادة تعيين الافتراضيات",
+    "close": "إغلاق"
   },
   "properties": {
     "title": "الخصائص",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "تم التطوير بواسطة",
     "githubRepo": "مستودع GitHub",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "المساهمون"
   },
   "colors": {
     "chooseAccent": "اختيار لون التمييز"

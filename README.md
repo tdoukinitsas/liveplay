@@ -263,42 +263,409 @@ The cart provides 16 slots for instant playback:
 
 ### Remote Control API
 
-Trigger cues from other applications using simple HTTP requests:
+LivePlay exposes an HTTP API on `http://localhost:8080` so external applications can inspect and control playback. All responses are JSON. Slot numbers are **0-based** (slot 1 in the UI = slot `0` in the API).
 
-#### Trigger by UUID
+---
 
-```bash
-curl http://localhost:8080/api/trigger/uuid/YOUR-UUID-HERE- 
+#### Data models
+
+##### Cue (AudioItem)
+
+Every cue endpoint returns or accepts an object with the following shape. Fields marked **read-only** are ignored on `PATCH`.
+
+| Field | Type | Read-only | Description |
+|---|---|:---:|---|
+| `uuid` | string | ✓ | Unique identifier |
+| `type` | `"audio"` | ✓ | Always `"audio"` for cues |
+| `index` | number[] | ✓ | Position in playlist, managed internally |
+| `displayName` | string | | Label shown in the UI |
+| `color` | string | | Hex colour, e.g. `"#FF0000"` |
+| `mediaFileName` | string | ✓ | Audio filename |
+| `mediaPath` | string | ✓ | Relative path from the project folder |
+| `waveformPath` | string | ✓ | Path to the waveform data file |
+| `duration` | number | ✓ | Total file duration in seconds |
+| `inPoint` | number | | Trim start in seconds |
+| `outPoint` | number | | Trim end in seconds |
+| `volume` | number | | `0.0`–`2.0` — `1.0` = 100%, `2.0` = 200% |
+| `fadeOutDuration` | number | | Fade-out when stopped manually, in seconds |
+| `playFade` | number | | Fade-in when playback starts, in seconds |
+| `stopFade` | number | | Fade-out before the natural end, in seconds |
+| `crossFade` | number | | Cross-fade duration to the next track, in seconds |
+| `startBehavior` | StartBehavior | | Action triggered at the start of playback |
+| `endBehavior` | EndBehavior | | Action triggered at the end of playback |
+| `duckingBehavior` | DuckingBehavior | | How this cue interacts with others |
+| `customActions` | CustomAction[] | | Time-point triggered actions |
+
+**StartBehavior**
+
+```json
+{ "action": "nothing" }
+{ "action": "play-next" }
+{ "action": "play-item",  "targetUuid": "..." }
+{ "action": "play-index", "targetIndex": [1, 2] }
 ```
 
+**EndBehavior**
 
-#### Trigger by Index## Audio Item Features
-
-```bash
-
-curl http://localhost:8080/api/trigger/index/0### Ducking Behavior
-
-curl http://localhost:8080/api/trigger/index/1,0  # Second item in first group
-
+```json
+{ "action": "nothing" }
+{ "action": "next" }
+{ "action": "loop" }
+{ "action": "goto-item",  "targetUuid": "..." }
+{ "action": "goto-index", "targetIndex": [1, 2] }
 ```
 
-#### Stop by UUID
+**DuckingBehavior**
 
-```bash
-
-curl http://localhost:8080/api/stop/uuid/YOUR-UUID-HERE
-
+```json
+{ "mode": "stop-all" }
+{ "mode": "no-ducking" }
+{ "mode": "duck-others", "duckLevel": 0.2, "duckFadeIn": 0.25, "duckFadeOut": 1.0 }
 ```
 
-#### Get Project Info
+`duckLevel` is a multiplier — `0.2` means other cues drop to 20% volume.
+
+**CustomAction**
+
+```json
+{ "timePoint": 30.5, "action": { "type": "stop-all" } }
+{ "timePoint": 10.0, "action": { "type": "play-item",  "uuid": "..." } }
+{ "timePoint": 10.0, "action": { "type": "play-index", "index": [0] } }
+{ "timePoint": 5.0,  "action": { "type": "http-request", "request": { "method": "POST", "url": "http://...", "contentType": "json", "body": {} } } }
+```
+
+---
+
+##### Cart slot
+
+| Field | Type | Description |
+|---|---|---|
+| `slot` | number | Slot number, 0-based (slot 1 in the UI = `0`) |
+| `itemUuid` | string | UUID of the assigned audio item |
+| `item` | Cue (AudioItem) | Full audio item details (see above) |
+
+---
+
+#### List all cues
+
+```
+GET /api/cues
+```
+
+Returns every audio item in the playlist (groups are flattened).
 
 ```bash
+curl http://localhost:8080/api/cues
+```
 
+**Response**
+
+```json
+{
+  "success": true,
+  "cues": [
+    {
+      "uuid": "a1b2c3d4-...",
+      "displayName": "Intro Music",
+      "volume": 1.0,
+      "inPoint": 0,
+      "outPoint": 184.3,
+      "duration": 184.3,
+      "color": "#00CC00",
+      "endBehavior": { "action": "next" },
+      "startBehavior": { "action": "nothing" },
+      "duckingBehavior": { "mode": "stop-all" },
+      "fadeOutDuration": 1.0,
+      "playFade": 0,
+      "stopFade": 0,
+      "crossFade": 0,
+      "customActions": [],
+      "type": "audio",
+      "index": [0],
+      "mediaFileName": "intro.mp3",
+      "mediaPath": "media/intro.mp3",
+      "waveformPath": "waveforms/a1b2c3d4-....json"
+    }
+  ]
+}
+```
+
+---
+
+#### Get a single cue
+
+```
+GET /api/cues/:uuid
+```
+
+```bash
+curl http://localhost:8080/api/cues/a1b2c3d4-...
+```
+
+**Response** — same shape as a single entry from `GET /api/cues`, wrapped in `"cue"`:
+
+```json
+{
+  "success": true,
+  "cue": { "uuid": "a1b2c3d4-...", "displayName": "Intro Music", "..." }
+}
+```
+
+**Error (not found)**
+
+```json
+{ "success": false, "message": "Cue not found" }
+```
+
+---
+
+#### Edit a cue's properties
+
+```
+PATCH /api/cues/:uuid
+Content-Type: application/json
+```
+
+Send only the fields you want to change. Read-only fields are silently ignored.
+
+```bash
+curl -X PATCH http://localhost:8080/api/cues/a1b2c3d4-... \
+  -H "Content-Type: application/json" \
+  -d '{"displayName": "Walk-in Music", "volume": 0.8, "endBehavior": {"action": "loop"}}'
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "cue": { "uuid": "a1b2c3d4-...", "displayName": "Walk-in Music", "volume": 0.8, "..." }
+}
+```
+
+---
+
+#### List all cart slots
+
+```
+GET /api/carts
+```
+
+Returns all occupied slots (0–15) with their audio item details.
+
+```bash
+curl http://localhost:8080/api/carts
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "carts": [
+    {
+      "slot": 0,
+      "itemUuid": "a1b2c3d4-...",
+      "item": { "uuid": "a1b2c3d4-...", "displayName": "Stinger 1", "..." }
+    },
+    {
+      "slot": 2,
+      "itemUuid": "e5f6a7b8-...",
+      "item": { "uuid": "e5f6a7b8-...", "displayName": "Applause", "..." }
+    }
+  ]
+}
+```
+
+---
+
+#### Get a single cart slot
+
+```
+GET /api/carts/:slot
+```
+
+```bash
+curl http://localhost:8080/api/carts/0
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "cart": {
+    "slot": 0,
+    "itemUuid": "a1b2c3d4-...",
+    "item": { "uuid": "a1b2c3d4-...", "displayName": "Stinger 1", "..." }
+  }
+}
+```
+
+**Error (empty slot)**
+
+```json
+{ "success": false, "message": "Cart slot is empty" }
+```
+
+---
+
+#### Edit a cart slot's properties
+
+```
+PATCH /api/carts/:slot
+Content-Type: application/json
+```
+
+Same partial-update semantics as cue editing. Send only the fields you want to change.
+
+```bash
+curl -X PATCH http://localhost:8080/api/carts/0 \
+  -H "Content-Type: application/json" \
+  -d '{"volume": 1.2, "duckingBehavior": {"mode": "no-ducking"}}'
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "cart": {
+    "slot": 0,
+    "item": { "uuid": "a1b2c3d4-...", "volume": 1.2, "..." }
+  }
+}
+```
+
+---
+
+#### Trigger a cue by UUID
+
+```
+GET /api/trigger/uuid/:uuid
+```
+
+```bash
+curl http://localhost:8080/api/trigger/uuid/a1b2c3d4-...
+```
+
+**Response**
+
+```json
+{ "success": true, "message": "Triggered item a1b2c3d4-..." }
+```
+
+---
+
+#### Trigger a cue by playlist index
+
+```
+GET /api/trigger/index/:index
+```
+
+Use comma-separated numbers for items nested inside groups.
+
+```bash
+curl http://localhost:8080/api/trigger/index/0       # first cue
+curl http://localhost:8080/api/trigger/index/1,2     # third cue inside second group
+```
+
+**Response**
+
+```json
+{ "success": true, "message": "Triggered item at index 1,2" }
+```
+
+---
+
+#### Trigger a cart slot
+
+```
+GET /api/trigger/cart/slot/:slot
+```
+
+```bash
+curl http://localhost:8080/api/trigger/cart/slot/0   # triggers slot 1 in the UI
+```
+
+**Response**
+
+```json
+{ "success": true, "message": "Triggered cart slot 1" }
+```
+
+---
+
+#### Stop a cue by UUID
+
+```
+GET /api/stop/uuid/:uuid
+```
+
+```bash
+curl http://localhost:8080/api/stop/uuid/a1b2c3d4-...
+```
+
+**Response**
+
+```json
+{ "success": true, "message": "Stopped item a1b2c3d4-..." }
+```
+
+---
+
+#### Stop all cues
+
+```
+GET /api/stop/all
+```
+
+```bash
+curl http://localhost:8080/api/stop/all
+```
+
+**Response**
+
+```json
+{ "success": true, "message": "All cues stopped" }
+```
+
+---
+
+#### Get project info
+
+```
+GET /api/project/info
+```
+
+Returns the full project object including all items, cart slots, and settings.
+
+```bash
 curl http://localhost:8080/api/project/info
-
 ```
 
-**Tip**: Copy the API trigger URL from any cue's Properties Panel.
+**Response**
+
+```json
+{
+  "success": true,
+  "project": {
+    "name": "My Show",
+    "version": "1.0.0",
+    "folderPath": "/path/to/project",
+    "items": [ "..." ],
+    "cartItems": [ "..." ],
+    "cartOnlyItems": [ "..." ],
+    "theme": { "mode": "dark", "accentColor": "#DA1E28" },
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "lastModified": "2025-01-01T12:00:00.000Z"
+  }
+}
+```
+
+---
+
+**Tip**: Copy the UUID for any cue directly from its Properties Panel.
 
 ### Audio Ducking Explained
 

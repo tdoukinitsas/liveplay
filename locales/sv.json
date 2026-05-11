@@ -53,7 +53,16 @@
   "cart": {
     "title": "Kartspelare",
     "emptySlot": "Klicka för att importera eller dra ett objekt hit",
-    "clickToImport": "Klicka för att importera eller dra ett objekt hit"
+    "clickToImport": "Klicka för att importera eller dra ett objekt hit",
+    "configureHotkeys": "Konfigurera Snabbtangenter",
+    "hotkeyConfig": "Snabbtangent-konfiguration",
+    "slot": "Plats",
+    "currentBinding": "Aktuell Bindning",
+    "pressAnyKey": "Tryck på valfri tangent...",
+    "conflict": "Redan tilldelad Plats {slot}",
+    "reserved": "Denna tangentkombination är reserverad",
+    "resetDefaults": "Återställ till Standard",
+    "close": "Stäng"
   },
   "properties": {
     "title": "Egenskaper",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "Utvecklad av",
     "githubRepo": "GitHub-arkiv",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "Bidragsgivare"
   },
   "colors": {
     "chooseAccent": "Välj accentfärg"

@@ -53,7 +53,16 @@
   "cart": {
     "title": "कार्ट प्लेयर",
     "emptySlot": "आयात करने के लिए क्लिक करें या यहाँ एक आइटम खींचें",
-    "clickToImport": "आयात करने के लिए क्लिक करें या यहाँ एक आइटम खींचें"
+    "clickToImport": "आयात करने के लिए क्लिक करें या यहाँ एक आइटम खींचें",
+    "configureHotkeys": "हॉटकी कॉन्फ़िगर करें",
+    "hotkeyConfig": "हॉटकी कॉन्फ़िगरेशन",
+    "slot": "स्लॉट",
+    "currentBinding": "वर्तमान बाइंडिंग",
+    "pressAnyKey": "कोई भी कुंजी दबाएं...",
+    "conflict": "पहले से स्लॉट {slot} को असाइन किया गया",
+    "reserved": "यह कुंजी संयोजन आरक्षित है",
+    "resetDefaults": "डिफ़ॉल्ट पर रीसेट करें",
+    "close": "बंद करें"
   },
   "properties": {
     "title": "गुण",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "द्वारा विकसित",
     "githubRepo": "GitHub रिपॉजिटरी",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "योगदानकर्ता"
   },
   "colors": {
     "chooseAccent": "एक्सेंट रंग चुनें"

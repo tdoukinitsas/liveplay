@@ -53,7 +53,16 @@
   "cart": {
     "title": "카트 플레이어",
     "emptySlot": "가져오려면 클릭하거나 항목을 여기로 드래그하세요",
-    "clickToImport": "가져오려면 클릭하거나 항목을 여기로 드래그하세요"
+    "clickToImport": "가져오려면 클릭하거나 항목을 여기로 드래그하세요",
+    "configureHotkeys": "단축키 설정",
+    "hotkeyConfig": "단축키 구성",
+    "slot": "슬롯",
+    "currentBinding": "현재 할당",
+    "pressAnyKey": "아무 키나 누르세요...",
+    "conflict": "이미 슬롯 {slot}에 할당됨",
+    "reserved": "이 키 조합은 예약되어 있습니다",
+    "resetDefaults": "기본값으로 재설정",
+    "close": "닫기"
   },
   "properties": {
     "title": "속성",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "개발자",
     "githubRepo": "GitHub 저장소",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "기여자"
   },
   "colors": {
     "chooseAccent": "강조 색상 선택"

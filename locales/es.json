@@ -53,7 +53,16 @@
   "cart": {
     "title": "Reproductor de Cartuchos",
     "emptySlot": "Haga clic para importar o arrastre un elemento aquí",
-    "clickToImport": "Haga clic para importar o arrastre un elemento aquí"
+    "clickToImport": "Haga clic para importar o arrastre un elemento aquí",
+    "configureHotkeys": "Configurar Teclas de Acceso Rápido",
+    "hotkeyConfig": "Configuración de Teclas de Acceso Rápido",
+    "slot": "Ranura",
+    "currentBinding": "Asignación Actual",
+    "pressAnyKey": "Presione cualquier tecla...",
+    "conflict": "Ya asignado a la Ranura {slot}",
+    "reserved": "Esta combinación de teclas está reservada",
+    "resetDefaults": "Restablecer Valores Predeterminados",
+    "close": "Cerrar"
   },
   "properties": {
     "title": "Propiedades",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "Desarrollado por",
     "githubRepo": "Repositorio de GitHub",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "Colaboradores"
   },
   "colors": {
     "chooseAccent": "Elegir Color de Acento"

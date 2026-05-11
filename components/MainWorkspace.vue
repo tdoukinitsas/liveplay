@@ -31,8 +31,9 @@
 </template>
 
 <script setup lang="ts">
-const { selectedItem, saveProject, closeProject, currentProject } = useProject();
-const { triggerByUuid, triggerByIndex, stopCue } = useAudioEngine();
+const { selectedItem, saveProject, closeProject, currentProject, findItemByUuid } = useProject();
+const { triggerByUuid, triggerByIndex, stopCue, stopAllCues, playCue } = useAudioEngine();
+const { getCartItem, cartOnlyItems, updateCartOnlyItem } = useCartItems();
 const { t } = useLocalization();
 
 // Progress modal state
@@ -163,7 +164,66 @@ if (import.meta.client && window.electronAPI) {
       stopCue(data.value);
     }
   });
+
+  // Trigger a cart slot by slot number (from HTTP API)
+  window.electronAPI.onTriggerCartSlot((_event, data) => {
+    const item = getCartItem(data.slot);
+    if (item) playCue(item);
+  });
+
+  // Stop all cues (from HTTP API)
+  window.electronAPI.onStopAllCues(() => {
+    stopAllCues();
+  });
+
+  // Update a cue's properties (from HTTP API PATCH /api/cues/:id)
+  const READONLY_ITEM_KEYS = new Set(['uuid', 'type', 'index', 'mediaFileName', 'mediaPath', 'waveformPath', 'waveform', 'duration']);
+  window.electronAPI.onApiUpdateItem((_event, { requestId, id, updates }) => {
+    const item = findItemByUuid(id);
+    if (!item || item.type !== 'audio') {
+      window.electronAPI.sendApiResponse({ requestId, success: false, message: 'Cue not found' });
+      return;
+    }
+    for (const [key, value] of Object.entries(updates)) {
+      if (!READONLY_ITEM_KEYS.has(key)) (item as any)[key] = value;
+    }
+    saveProject();
+    window.electronAPI.sendApiResponse({ requestId, success: true, cue: item });
+  });
+
+  // Update a cart slot's audio item properties (from HTTP API PATCH /api/carts/:slot)
+  window.electronAPI.onApiUpdateCartItem((_event, { requestId, slot, updates }) => {
+    const item = getCartItem(slot);
+    if (!item) {
+      window.electronAPI.sendApiResponse({ requestId, success: false, message: 'Cart slot is empty' });
+      return;
+    }
+    for (const [key, value] of Object.entries(updates)) {
+      if (!READONLY_ITEM_KEYS.has(key)) (item as any)[key] = value;
+    }
+    updateCartOnlyItem(item.uuid, item);
+    saveProject();
+    window.electronAPI.sendApiResponse({ requestId, success: true, cart: { slot, item } });
+  });
 }
+
+// Keep the main process HTTP API server up-to-date with the full project state.
+// Waveform peak arrays are stripped since they are large and not needed by API consumers.
+const stripWaveforms = (items: any[]): any[] =>
+  items.map(item => {
+    const copy = { ...item, waveform: null };
+    if (copy.children) copy.children = stripWaveforms(copy.children);
+    return copy;
+  });
+
+watch(currentProject, (project) => {
+  if (!import.meta.client || !window.electronAPI || !project) return;
+  window.electronAPI.syncProjectData({
+    ...project,
+    items: stripWaveforms(project.items || []),
+    cartOnlyItems: Array.from(cartOnlyItems.value.values()).map(i => ({ ...i, waveform: null }))
+  });
+}, { deep: true, immediate: true });
 
 // Save on F1 key (alternative to big play button)
 const handleKeydown = (e: KeyboardEvent) => {

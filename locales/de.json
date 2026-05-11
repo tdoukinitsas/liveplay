@@ -53,7 +53,16 @@
   "cart": {
     "title": "Kartenspieler",
     "emptySlot": "Klicken Sie zum Importieren oder ziehen Sie ein Element hierher",
-    "clickToImport": "Klicken Sie zum Importieren oder ziehen Sie ein Element hierher"
+    "clickToImport": "Klicken Sie zum Importieren oder ziehen Sie ein Element hierher",
+    "configureHotkeys": "Tastenkürzel Konfigurieren",
+    "hotkeyConfig": "Tastenkürzel-Konfiguration",
+    "slot": "Slot",
+    "currentBinding": "Aktuelle Belegung",
+    "pressAnyKey": "Beliebige Taste drücken...",
+    "conflict": "Bereits Slot {slot} zugewiesen",
+    "reserved": "Diese Tastenkombination ist reserviert",
+    "resetDefaults": "Auf Standardwerte zurücksetzen",
+    "close": "Schließen"
   },
   "properties": {
     "title": "Eigenschaften",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "Entwickelt von",
     "githubRepo": "GitHub-Repository",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "Mitwirkende"
   },
   "colors": {
     "chooseAccent": "Akzentfarbe wählen"

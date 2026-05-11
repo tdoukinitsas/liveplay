@@ -53,7 +53,16 @@
   "cart": {
     "title": "کارٹ پلیئر",
     "emptySlot": "درآمد کرنے کے لیے کلک کریں یا یہاں ایک آئٹم گھسیٹیں",
-    "clickToImport": "درآمد کرنے کے لیے کلک کریں یا یہاں ایک آئٹم گھسیٹیں"
+    "clickToImport": "درآمد کرنے کے لیے کلک کریں یا یہاں ایک آئٹم گھسیٹیں",
+    "configureHotkeys": "ہاٹ کیز ترتیب دیں",
+    "hotkeyConfig": "ہاٹ کی ترتیب",
+    "slot": "سلاٹ",
+    "currentBinding": "موجودہ اسائنمنٹ",
+    "pressAnyKey": "کوئی بھی کی دبائیں...",
+    "conflict": "پہلے سے سلاٹ {slot} کو تفویض کیا گیا",
+    "reserved": "یہ کی کومبی نیشن محفوظ ہے",
+    "resetDefaults": "ڈیفالٹ پر ری سیٹ کریں",
+    "close": "بند کریں"
   },
   "properties": {
     "title": "خصوصیات",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "تیار کردہ",
     "githubRepo": "GitHub ریپوزٹری",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "تعاون کرنے والے"
   },
   "colors": {
     "chooseAccent": "ایکسینٹ رنگ منتخب کریں"

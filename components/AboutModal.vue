@@ -27,13 +27,23 @@
           </p>
           <p class="translator" v-if="t('translationContributor.name')">
             <strong>{{ t('translationContributor.title') }}: </strong>
-            <a 
+            <a
               :href="formatContributorLink(t('translationContributor.contributeLink'))"
               class="translator-link"
               @click.prevent="handleContributorLinkClick(t('translationContributor.contributeLink'))"
             >
               {{ t('translationContributor.name') }}
             </a>
+          </p>
+          <p class="translator" v-if="contributors.length">
+            <strong>{{ t('about.contributors') }}: </strong>
+            <template v-for="(contributor, index) in contributors" :key="contributor.name">
+              <a
+                :href="contributor.link"
+                class="translator-link"
+                @click.prevent="openExternal(contributor.link)"
+              >{{ contributor.name }}</a><template v-if="index < contributors.length - 1">, </template>
+            </template>
           </p>
         </div>
         
@@ -62,11 +72,17 @@
 </template>
 
 <script setup lang="ts">
+import contributorsJson from '~/assets/json/contributors.json';
+
 const emit = defineEmits<{
   close: []
 }>();
 
 const { t } = useLocalization();
+
+const contributors = computed(() =>
+  Object.values(contributorsJson.contributors) as { name: string; link: string }[]
+);
 
 // Get app version
 const appVersion = ref('1.1.3');

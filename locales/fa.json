@@ -53,7 +53,16 @@
   "cart": {
     "title": "پخش‌کننده کارتریج",
     "emptySlot": "برای وارد کردن کلیک کنید یا یک مورد را اینجا بکشید",
-    "clickToImport": "برای وارد کردن کلیک کنید یا یک مورد را اینجا بکشید"
+    "clickToImport": "برای وارد کردن کلیک کنید یا یک مورد را اینجا بکشید",
+    "configureHotkeys": "تنظیم کلیدهای میانبر",
+    "hotkeyConfig": "پیکربندی کلیدهای میانبر",
+    "slot": "اسلات",
+    "currentBinding": "اتصال فعلی",
+    "pressAnyKey": "هر کلیدی را فشار دهید...",
+    "conflict": "قبلاً به اسلات {slot} اختصاص داده شده",
+    "reserved": "این ترکیب کلید رزرو شده است",
+    "resetDefaults": "بازگشت به پیش‌فرض",
+    "close": "بستن"
   },
   "properties": {
     "title": "خصوصیات",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "توسعه یافته توسط",
     "githubRepo": "مخزن GitHub",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "مشارکت‌کنندگان"
   },
   "colors": {
     "chooseAccent": "انتخاب رنگ برجسته"

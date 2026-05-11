@@ -53,7 +53,16 @@
   "cart": {
     "title": "Kartuş Oynatıcı",
     "emptySlot": "İçe aktarmak için tıklayın veya buraya bir öğe sürükleyin",
-    "clickToImport": "İçe aktarmak için tıklayın veya buraya bir öğe sürükleyin"
+    "clickToImport": "İçe aktarmak için tıklayın veya buraya bir öğe sürükleyin",
+    "configureHotkeys": "Kısayol Tuşlarını Yapılandır",
+    "hotkeyConfig": "Kısayol Tuşu Yapılandırması",
+    "slot": "Slot",
+    "currentBinding": "Mevcut Atama",
+    "pressAnyKey": "Herhangi bir tuşa basın...",
+    "conflict": "Zaten Slot {slot}'a atandı",
+    "reserved": "Bu tuş kombinasyonu ayrılmıştır",
+    "resetDefaults": "Varsayılanlara Sıfırla",
+    "close": "Kapat"
   },
   "properties": {
     "title": "Özellikler",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "Geliştiren",
     "githubRepo": "GitHub Deposu",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "Katkıda Bulunanlar"
   },
   "colors": {
     "chooseAccent": "Vurgu Rengini Seç"

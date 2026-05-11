@@ -53,7 +53,16 @@
   "cart": {
     "title": "Reprodutor de Cartuchos",
     "emptySlot": "Clique para importar ou arraste um item aqui",
-    "clickToImport": "Clique para importar ou arraste um item aqui"
+    "clickToImport": "Clique para importar ou arraste um item aqui",
+    "configureHotkeys": "Configurar Atalhos de Teclado",
+    "hotkeyConfig": "Configuração de Atalhos de Teclado",
+    "slot": "Slot",
+    "currentBinding": "Atribuição Atual",
+    "pressAnyKey": "Pressione qualquer tecla...",
+    "conflict": "Já atribuído ao Slot {slot}",
+    "reserved": "Esta combinação de teclas está reservada",
+    "resetDefaults": "Restaurar Padrões",
+    "close": "Fechar"
   },
   "properties": {
     "title": "Propriedades",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "Desenvolvido por",
     "githubRepo": "Repositório GitHub",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "Colaboradores"
   },
   "colors": {
     "chooseAccent": "Escolher Cor de Destaque"

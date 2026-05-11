@@ -117,6 +117,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // API triggers
   onTriggerItem: (callback) => ipcRenderer.on('trigger-item', callback),
   onStopItem: (callback) => ipcRenderer.on('stop-item', callback),
+  onTriggerCartSlot: (callback) => ipcRenderer.on('trigger-cart-slot', callback),
+  onStopAllCues: (callback) => ipcRenderer.on('stop-all-cues', callback),
+
+  // HTTP API — project data sync and PATCH round-trips
+  syncProjectData: (data) => ipcRenderer.send('sync-project-data', data),
+  sendApiResponse: (data) => ipcRenderer.send('api-response', data),
+  onApiUpdateItem: (callback) => ipcRenderer.on('api-update-item', callback),
+  onApiUpdateCartItem: (callback) => ipcRenderer.on('api-update-cart-item', callback),
   
   // File association - opening project files
   onOpenProjectFile: (callback) => ipcRenderer.on('open-project-file', callback),

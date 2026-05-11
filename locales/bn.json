@@ -53,7 +53,16 @@
   "cart": {
     "title": "কার্ট প্লেয়ার",
     "emptySlot": "আমদানি করতে ক্লিক করুন বা এখানে একটি আইটেম টেনে আনুন",
-    "clickToImport": "আমদানি করতে ক্লিক করুন বা এখানে একটি আইটেম টেনে আনুন"
+    "clickToImport": "আমদানি করতে ক্লিক করুন বা এখানে একটি আইটেম টেনে আনুন",
+    "configureHotkeys": "হটকি কনফিগার করুন",
+    "hotkeyConfig": "হটকি কনফিগারেশন",
+    "slot": "স্লট",
+    "currentBinding": "বর্তমান বাইন্ডিং",
+    "pressAnyKey": "যেকোনো কী চাপুন...",
+    "conflict": "ইতিমধ্যে স্লট {slot} এ নির্ধারিত",
+    "reserved": "এই কী সমন্বয়টি সংরক্ষিত",
+    "resetDefaults": "ডিফল্টে রিসেট করুন",
+    "close": "বন্ধ করুন"
   },
   "properties": {
     "title": "বৈশিষ্ট্য",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "দ্বারা উন্নত",
     "githubRepo": "GitHub সংগ্রহস্থল",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "অবদানকারীরা"
   },
   "colors": {
     "chooseAccent": "অ্যাক্সেন্ট রঙ নির্বাচন করুন"

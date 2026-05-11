@@ -53,7 +53,16 @@
   "cart": {
     "title": "Cart Player",
     "emptySlot": "Apasa pentru a importa sau trage fișiere aici",
-    "clickToImport": "Apasa pentru a importa sau trage fișiere aici"
+    "clickToImport": "Apasa pentru a importa sau trage fișiere aici",
+    "configureHotkeys": "Configurare Taste Rapide",
+    "hotkeyConfig": "Configurare Taste Rapide",
+    "slot": "Slot",
+    "currentBinding": "Atribuire Actuală",
+    "pressAnyKey": "Apasă orice tastă...",
+    "conflict": "Deja atribuit Slot-ului {slot}",
+    "reserved": "Această combinație de taste este rezervată",
+    "resetDefaults": "Resetare la Implicite",
+    "close": "Închide"
   },
   "properties": {
     "title": "Proprietati",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "Dezvoltat de",
     "githubRepo": "GitHub Repository",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "Contribuitori"
   },
   "colors": {
     "chooseAccent": "Alege accentul de culoare"

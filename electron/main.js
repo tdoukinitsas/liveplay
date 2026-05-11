@@ -192,8 +192,32 @@ initializeYtDlp();
 let mainWindow = null;
 let apiServer = null;
 let currentProject = null;
+let currentProjectData = null; // Full project data synced from renderer for HTTP API
+const pendingApiRequests = new Map(); // requestId → { resolve } for PATCH round-trips
 let fileToOpen = null; // Store file path if app is opened with a file
 let stateViewerWindow = null; // Debug state viewer window
+
+// Flatten all audio items from a nested project items array
+function flattenAudioItems(items) {
+  const result = [];
+  for (const item of items) {
+    if (item.type === 'audio') result.push(item);
+    if (item.type === 'group' && item.children) result.push(...flattenAudioItems(item.children));
+  }
+  return result;
+}
+
+// Find any item by UUID in a nested items array
+function findProjectItemByUuid(items, uuid) {
+  for (const item of items) {
+    if (item.uuid === uuid) return item;
+    if (item.type === 'group' && item.children) {
+      const found = findProjectItemByUuid(item.children, uuid);
+      if (found) return found;
+    }
+  }
+  return null;
+}
 
 // Check if --dev flag is present in command line arguments
 const isDevMode = process.argv.includes('--dev') || !app.isPackaged;
@@ -203,7 +227,113 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
   const apiApp = express();
   apiApp.use(express.json());
 
-  // Trigger item by UUID
+  // ── Cue endpoints ──────────────────────────────────────────────────────────
+
+  // List all cue items (audio items from playlist, flattened)
+  apiApp.get('/api/cues', (req, res) => {
+    if (!currentProjectData) {
+      return res.status(404).json({ success: false, message: 'No project loaded' });
+    }
+    const cues = flattenAudioItems(currentProjectData.items || []);
+    res.json({ success: true, cues });
+  });
+
+  // Get a cue by UUID
+  apiApp.get('/api/cues/:id', (req, res) => {
+    if (!currentProjectData) {
+      return res.status(404).json({ success: false, message: 'No project loaded' });
+    }
+    const item = findProjectItemByUuid(currentProjectData.items || [], req.params.id);
+    if (!item || item.type !== 'audio') {
+      return res.status(404).json({ success: false, message: 'Cue not found' });
+    }
+    res.json({ success: true, cue: item });
+  });
+
+  // Update a cue by UUID (partial update — only provided fields are changed)
+  apiApp.patch('/api/cues/:id', async (req, res) => {
+    if (!mainWindow) return res.status(500).json({ success: false, message: 'Window not available' });
+    if (!currentProjectData) return res.status(404).json({ success: false, message: 'No project loaded' });
+    const item = findProjectItemByUuid(currentProjectData.items || [], req.params.id);
+    if (!item || item.type !== 'audio') {
+      return res.status(404).json({ success: false, message: 'Cue not found' });
+    }
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const promise = new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        pendingApiRequests.delete(requestId);
+        resolve({ success: false, message: 'Request timeout' });
+      }, 5000);
+      pendingApiRequests.set(requestId, { resolve: (r) => { clearTimeout(timer); resolve(r); } });
+    });
+    mainWindow.webContents.send('api-update-item', { requestId, id: req.params.id, updates: req.body });
+    const result = await promise;
+    res.status(result.success ? 200 : 500).json(result);
+  });
+
+  // ── Cart endpoints ─────────────────────────────────────────────────────────
+
+  // List all cart slots with their audio item details
+  apiApp.get('/api/carts', (req, res) => {
+    if (!currentProjectData) {
+      return res.status(404).json({ success: false, message: 'No project loaded' });
+    }
+    const cartOnlyItems = currentProjectData.cartOnlyItems || [];
+    const carts = (currentProjectData.cartItems || []).map(ci => {
+      const item = cartOnlyItems.find(i => i.uuid === ci.itemUuid)
+        || findProjectItemByUuid(currentProjectData.items || [], ci.itemUuid)
+        || null;
+      return { slot: ci.slot, itemUuid: ci.itemUuid, item };
+    });
+    res.json({ success: true, carts });
+  });
+
+  // Get a cart slot by slot number (0-15)
+  apiApp.get('/api/carts/:slot', (req, res) => {
+    if (!currentProjectData) {
+      return res.status(404).json({ success: false, message: 'No project loaded' });
+    }
+    const slot = parseInt(req.params.slot, 10);
+    if (isNaN(slot) || slot < 0 || slot > 15) {
+      return res.status(400).json({ success: false, message: 'Invalid slot number — must be 0-15' });
+    }
+    const ci = (currentProjectData.cartItems || []).find(c => c.slot === slot);
+    if (!ci) {
+      return res.status(404).json({ success: false, message: 'Cart slot is empty' });
+    }
+    const cartOnlyItems = currentProjectData.cartOnlyItems || [];
+    const item = cartOnlyItems.find(i => i.uuid === ci.itemUuid)
+      || findProjectItemByUuid(currentProjectData.items || [], ci.itemUuid)
+      || null;
+    res.json({ success: true, cart: { slot: ci.slot, itemUuid: ci.itemUuid, item } });
+  });
+
+  // Update a cart slot's audio item by slot number (partial update)
+  apiApp.patch('/api/carts/:slot', async (req, res) => {
+    if (!mainWindow) return res.status(500).json({ success: false, message: 'Window not available' });
+    if (!currentProjectData) return res.status(404).json({ success: false, message: 'No project loaded' });
+    const slot = parseInt(req.params.slot, 10);
+    if (isNaN(slot) || slot < 0 || slot > 15) {
+      return res.status(400).json({ success: false, message: 'Invalid slot number — must be 0-15' });
+    }
+    const ci = (currentProjectData.cartItems || []).find(c => c.slot === slot);
+    if (!ci) return res.status(404).json({ success: false, message: 'Cart slot is empty' });
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const promise = new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        pendingApiRequests.delete(requestId);
+        resolve({ success: false, message: 'Request timeout' });
+      }, 5000);
+      pendingApiRequests.set(requestId, { resolve: (r) => { clearTimeout(timer); resolve(r); } });
+    });
+    mainWindow.webContents.send('api-update-cart-item', { requestId, slot, updates: req.body });
+    const result = await promise;
+    res.status(result.success ? 200 : 500).json(result);
+  });
+
+  // ── Trigger endpoints ──────────────────────────────────────────────────────
+
+  // Trigger cue by UUID
   apiApp.get('/api/trigger/uuid/:uuid', (req, res) => {
     const { uuid } = req.params;
     if (mainWindow) {
@@ -214,7 +344,7 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
     }
   });
 
-  // Trigger item by index
+  // Trigger cue by index (comma-separated, e.g. "0" or "1,2")
   apiApp.get('/api/trigger/index/:index', (req, res) => {
     const { index } = req.params;
     if (mainWindow) {
@@ -226,7 +356,23 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
     }
   });
 
-  // Stop item
+  // Trigger a cart slot by slot number (0-15)
+  apiApp.get('/api/trigger/cart/slot/:slot', (req, res) => {
+    const slot = parseInt(req.params.slot, 10);
+    if (isNaN(slot) || slot < 0 || slot > 15) {
+      return res.status(400).json({ success: false, message: 'Invalid slot number — must be 0-15' });
+    }
+    if (mainWindow) {
+      mainWindow.webContents.send('trigger-cart-slot', { slot });
+      res.json({ success: true, message: `Triggered cart slot ${slot + 1}` });
+    } else {
+      res.status(500).json({ success: false, message: 'Window not available' });
+    }
+  });
+
+  // ── Stop endpoints ─────────────────────────────────────────────────────────
+
+  // Stop a cue by UUID
   apiApp.get('/api/stop/uuid/:uuid', (req, res) => {
     const { uuid } = req.params;
     if (mainWindow) {
@@ -237,10 +383,24 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
     }
   });
 
+  // Stop all cues
+  apiApp.get('/api/stop/all', (req, res) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('stop-all-cues', {});
+      res.json({ success: true, message: 'All cues stopped' });
+    } else {
+      res.status(500).json({ success: false, message: 'Window not available' });
+    }
+  });
+
+  // ── Project info ───────────────────────────────────────────────────────────
+
   // Get current project info
   apiApp.get('/api/project/info', (req, res) => {
-    if (currentProject) {
-      res.json({ success: true, project: currentProject });
+    if (currentProjectData) {
+      res.json({ success: true, project: currentProjectData });
+    } else if (currentProject) {
+      res.json({ success: true, project: { path: currentProject } });
     } else {
       res.status(404).json({ success: false, message: 'No project loaded' });
     }
@@ -1380,6 +1540,21 @@ ipcMain.handle('import-lpa-file', async (event, archivePath) => {
   } catch (error) {
     console.error('Import LPA file error:', error);
     return { success: false, error: error.message };
+  }
+});
+
+// Receive full project data from renderer to power HTTP API GET/PATCH endpoints
+ipcMain.on('sync-project-data', (event, projectData) => {
+  currentProjectData = projectData;
+});
+
+// Receive response from renderer for pending PATCH API requests
+ipcMain.on('api-response', (event, data) => {
+  const { requestId, ...result } = data;
+  const pending = pendingApiRequests.get(requestId);
+  if (pending) {
+    pendingApiRequests.delete(requestId);
+    pending.resolve(result);
   }
 });
 

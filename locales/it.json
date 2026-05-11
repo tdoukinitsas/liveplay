@@ -53,7 +53,16 @@
   "cart": {
     "title": "Riproduttore di Cartucce",
     "emptySlot": "Clicca per importare o trascina un elemento qui",
-    "clickToImport": "Clicca per importare o trascina un elemento qui"
+    "clickToImport": "Clicca per importare o trascina un elemento qui",
+    "configureHotkeys": "Configura Tasti di Scelta Rapida",
+    "hotkeyConfig": "Configurazione Tasti di Scelta Rapida",
+    "slot": "Slot",
+    "currentBinding": "Associazione Attuale",
+    "pressAnyKey": "Premi qualsiasi tasto...",
+    "conflict": "Già assegnato allo Slot {slot}",
+    "reserved": "Questa combinazione di tasti è riservata",
+    "resetDefaults": "Ripristina Predefiniti",
+    "close": "Chiudi"
   },
   "properties": {
     "title": "Proprietà",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "Sviluppato da",
     "githubRepo": "Repository GitHub",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "Collaboratori"
   },
   "colors": {
     "chooseAccent": "Scegli Colore Accento"

@@ -53,7 +53,16 @@
   "cart": {
     "title": "Lecteur de Cartouches",
     "emptySlot": "Cliquez pour importer ou faites glisser un élément ici",
-    "clickToImport": "Cliquez pour importer ou faites glisser un élément ici"
+    "clickToImport": "Cliquez pour importer ou faites glisser un élément ici",
+    "configureHotkeys": "Configurer les Raccourcis",
+    "hotkeyConfig": "Configuration des Raccourcis Clavier",
+    "slot": "Emplacement",
+    "currentBinding": "Association Actuelle",
+    "pressAnyKey": "Appuyez sur n'importe quelle touche...",
+    "conflict": "Déjà assigné à l'Emplacement {slot}",
+    "reserved": "Cette combinaison de touches est réservée",
+    "resetDefaults": "Réinitialiser les Valeurs par Défaut",
+    "close": "Fermer"
   },
   "properties": {
     "title": "Propriétés",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "Développé par",
     "githubRepo": "Dépôt GitHub",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "Contributeurs"
   },
   "colors": {
     "chooseAccent": "Choisir la Couleur d'Accentuation"

@@ -148,7 +148,8 @@
   "about": {
     "developedBy": "Developed by",
     "githubRepo": "GitHub Repository",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "Contributors"
   },
   "colors": {
     "chooseAccent": "Choose Accent Color"

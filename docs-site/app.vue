@@ -177,6 +177,12 @@
             {{ t('footer.viewOnGitHub') }}
           </a>
         </p>
+        <p v-if="contributors.length">
+          <strong>{{ t('footer.contributors') }}: </strong>
+          <template v-for="(contributor, index) in contributors" :key="contributor.name">
+            <a :href="contributor.link" target="_blank" rel="noopener noreferrer">{{ contributor.name }}</a><template v-if="index < contributors.length - 1">, </template>
+          </template>
+        </p>
       </div>
     </footer>
   </div>
@@ -188,7 +194,8 @@ import { useI18n } from './composables/useI18n';
 
 const { t, direction, initLocale, isLocaleLoaded } = useI18n();
 
-const version = ref('1.2.9');
+const version = ref('1.2.10');
+const contributors = ref<{ name: string; link: string }[]>([]);
 
 const downloadLinks = computed(() => {
   const baseUrl = `https://github.com/tdoukinitsas/liveplay/releases/download/v${version.value}`;
@@ -254,6 +261,15 @@ onMounted(async () => {
     version.value = packageData.version;
   } catch (error) {
     console.error('Failed to fetch version:', error);
+  }
+
+  // Fetch contributors
+  try {
+    const contributorsRes = await fetch('/liveplay/contributors.json');
+    const contributorsData = await contributorsRes.json();
+    contributors.value = Object.values(contributorsData.contributors) as { name: string; link: string }[];
+  } catch (error) {
+    console.error('Failed to fetch contributors:', error);
   }
 });
 

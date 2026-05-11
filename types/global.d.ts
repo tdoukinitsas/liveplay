@@ -79,6 +79,12 @@ declare global {
       onManualUpdateAvailable: (callback: (event: any, info: { currentVersion: string; newVersion: string; downloadUrl: string; isManualUpdate: boolean }) => void) => void;
       onTriggerItem: (callback: (event: any, data: any) => void) => void;
       onStopItem: (callback: (event: any, data: any) => void) => void;
+      onTriggerCartSlot: (callback: (event: any, data: { slot: number }) => void) => void;
+      onStopAllCues: (callback: (event: any, data: any) => void) => void;
+      syncProjectData: (data: any) => void;
+      sendApiResponse: (data: any) => void;
+      onApiUpdateItem: (callback: (event: any, data: { requestId: string; id: string; updates: Record<string, any> }) => void) => void;
+      onApiUpdateCartItem: (callback: (event: any, data: { requestId: string; slot: number; updates: Record<string, any> }) => void) => void;
       onOpenProjectFile: (callback: (event: any, data: { filePath: string; projectData: any }) => void) => void;
       onOpenLpaFile: (callback: (event: any, data: { lpaPath: string }) => void) => void;
     };

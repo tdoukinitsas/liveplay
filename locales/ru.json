@@ -53,7 +53,16 @@
   "cart": {
     "title": "Картридж-плеер",
     "emptySlot": "Нажмите для импорта или перетащите элемент сюда",
-    "clickToImport": "Нажмите для импорта или перетащите элемент сюда"
+    "clickToImport": "Нажмите для импорта или перетащите элемент сюда",
+    "configureHotkeys": "Настроить Горячие Клавиши",
+    "hotkeyConfig": "Конфигурация Горячих Клавиш",
+    "slot": "Слот",
+    "currentBinding": "Текущее Назначение",
+    "pressAnyKey": "Нажмите любую клавишу...",
+    "conflict": "Уже назначено на Слот {slot}",
+    "reserved": "Эта комбинация клавиш зарезервирована",
+    "resetDefaults": "Сбросить до Значений по Умолчанию",
+    "close": "Закрыть"
   },
   "properties": {
     "title": "Свойства",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "Разработано",
     "githubRepo": "Репозиторий GitHub",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "Участники"
   },
   "colors": {
     "chooseAccent": "Выбрать цвет акцента"

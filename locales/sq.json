@@ -53,7 +53,16 @@
   "cart": {
     "title": "Luajtësi i Kartelave",
     "emptySlot": "Kliko për të importuar ose zvarrit një artikull këtu",
-    "clickToImport": "Kliko për të importuar ose zvarrit një artikull këtu"
+    "clickToImport": "Kliko për të importuar ose zvarrit një artikull këtu",
+    "configureHotkeys": "Konfiguro Tastet e Shkurtimit",
+    "hotkeyConfig": "Konfigurimi i Tasteve të Shkurtimit",
+    "slot": "Slot",
+    "currentBinding": "Lidhja Aktuale",
+    "pressAnyKey": "Shtypni çdo tast...",
+    "conflict": "Tashmë caktuar te Slot {slot}",
+    "reserved": "Ky kombinim tastesh është i rezervuar",
+    "resetDefaults": "Rivendos Parazgjedhjet",
+    "close": "Mbyll"
   },
   "properties": {
     "title": "Vetitë",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "Zhvilluar nga",
     "githubRepo": "Depot GitHub",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "Kontribuesit"
   },
   "colors": {
     "chooseAccent": "Zgjidh Ngjyrën e Theksuar"

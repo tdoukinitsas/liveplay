@@ -53,7 +53,16 @@
   "cart": {
     "title": "カートプレーヤー",
     "emptySlot": "クリックしてインポートするか、アイテムをここにドラッグしてください",
-    "clickToImport": "クリックしてインポートするか、アイテムをここにドラッグしてください"
+    "clickToImport": "クリックしてインポートするか、アイテムをここにドラッグしてください",
+    "configureHotkeys": "ホットキーの設定",
+    "hotkeyConfig": "ホットキー設定",
+    "slot": "スロット",
+    "currentBinding": "現在の割り当て",
+    "pressAnyKey": "任意のキーを押してください...",
+    "conflict": "すでにスロット {slot} に割り当て済み",
+    "reserved": "このキー組み合わせは予約済みです",
+    "resetDefaults": "デフォルトにリセット",
+    "close": "閉じる"
   },
   "properties": {
     "title": "プロパティ",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "開発者",
     "githubRepo": "GitHubリポジトリ",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "貢献者"
   },
   "colors": {
     "chooseAccent": "アクセントカラーを選択"

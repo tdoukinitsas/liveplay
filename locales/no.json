@@ -53,7 +53,16 @@
   "cart": {
     "title": "Kartspiller",
     "emptySlot": "Klikk for å importere eller dra et element hit",
-    "clickToImport": "Klikk for å importere eller dra et element hit"
+    "clickToImport": "Klikk for å importere eller dra et element hit",
+    "configureHotkeys": "Konfigurer Hurtigtaster",
+    "hotkeyConfig": "Hurtigtast-konfigurasjon",
+    "slot": "Spor",
+    "currentBinding": "Gjeldende Binding",
+    "pressAnyKey": "Trykk på en tast...",
+    "conflict": "Allerede tildelt Spor {slot}",
+    "reserved": "Denne tastekombinasjonen er reservert",
+    "resetDefaults": "Tilbakestill til Standard",
+    "close": "Lukk"
   },
   "properties": {
     "title": "Egenskaper",
@@ -139,7 +148,8 @@
   "about": {
     "developedBy": "Utviklet av",
     "githubRepo": "GitHub-repositorium",
-    "developerName": "Thomas Doukinitsas"
+    "developerName": "Thomas Doukinitsas",
+    "contributors": "Bidragsytere"
   },
   "colors": {
     "chooseAccent": "Velg aksentfarge"
