@@ -2,9 +2,11 @@
   <div class="cart-player" ref="cartPlayerRef">
     <div class="cart-header">
       <h2>Cart Player</h2>
-      <button class="hotkey-config-btn" @click="showHotkeyConfig = true" :title="t('cart.configureHotkeys')">
-        <span class="config-icon">⌨</span>
-      </button>
+      <div class="header-buttons">
+        <button class="hotkey-config-btn" @click="showControlConfig = true" :title="t('cart.configureControls')">
+          <span class="config-icon">&#x2699;</span>
+        </button>
+      </div>
     </div>
     
     <div class="cart-grid" :class="gridClass">
@@ -17,9 +19,9 @@
       />
     </div>
 
-    <CartHotkeyConfig
-      v-if="showHotkeyConfig"
-      @close="showHotkeyConfig = false"
+    <ControlConfigModal
+      v-if="showControlConfig"
+      @close="showControlConfig = false"
     />
   </div>
 </template>
@@ -31,9 +33,10 @@ import { formatKeyLabel } from '~/composables/useCartHotkeys';
 const { currentProject } = useProject();
 const { getCartItem } = useCartItems();
 const { keyMappings, mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
+const { mount: mountMidi, unmount: unmountMidi } = useMidiController();
 const { t } = useLocalization();
 
-const showHotkeyConfig = ref(false);
+const showControlConfig = ref(false);
 const cartPlayerRef = ref<HTMLElement | null>(null);
 const gridClass = ref('grid-cols-2');
 
@@ -63,6 +66,7 @@ const getKeyLabel = (slotIndex: number): string => {
 onMounted(() => {
   if (import.meta.client) {
     mountHotkeys();
+    mountMidi();
     // Initial setup
     updateGridColumns();
     
@@ -77,6 +81,7 @@ onMounted(() => {
     
     onUnmounted(() => {
       unmountHotkeys();
+      unmountMidi();
       resizeObserver.disconnect();
     });
   }

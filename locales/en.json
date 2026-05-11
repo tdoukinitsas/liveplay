@@ -55,7 +55,10 @@
     "emptySlot": "Click to import or drag item here",
     "clickToImport": "Click to import or drag item here",
     "configureHotkeys": "Configure Hotkeys",
+    "configureControls": "Configure Controls",
     "hotkeyConfig": "Hotkey Configuration",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI",
     "slot": "Slot",
     "currentBinding": "Current Binding",
     "pressAnyKey": "Press any key...",
@@ -199,6 +202,17 @@
   "importProgress": {
     "title": "Importing Project",
     "message": "Extracting"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Already assigned to {action}. Reassign?"
   },
   "selectProject": {
     "title": "Select Project",
