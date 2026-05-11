@@ -1,6 +1,6 @@
 {
   "name": "e-liveplay",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "Enhanced LivePlay - Audio cue playback application for live events",
   "main": "electron/main.js",
   "type": "commonjs",
@@ -75,14 +75,14 @@
         "name": "LivePlay Project",
         "description": "LivePlay Project File",
         "role": "Editor",
-        "icon": "assets/icons/4092w/liveplay-document@4092px.png"
+        "icon": "app/assets/icons/4092w/liveplay-document@4092px.png"
       },
       {
         "ext": "lpa",
         "name": "LivePlay Archive",
         "description": "LivePlay Project Archive",
         "role": "Editor",
-        "icon": "assets/icons/4092w/liveplay-archive@4092.png"
+        "icon": "app/assets/icons/4092w/liveplay-archive@4092.png"
       }
     ],
     "publish": {
@@ -99,7 +99,7 @@
           ]
         }
       ],
-      "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png"
+      "icon": "app/assets/icons/4092w/app_icon_darkmode@4092px.png"
     },
     "mac": {
       "target": [
@@ -118,7 +118,7 @@
           ]
         }
       ],
-      "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
+      "icon": "app/assets/icons/4092w/app_icon_darkmode@4092px.png",
       "category": "public.app-category.music"
     },
     "linux": {
@@ -142,7 +142,7 @@
           ]
         }
       ],
-      "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
+      "icon": "app/assets/icons/4092w/app_icon_darkmode@4092px.png",
       "category": "AudioVideo"
     }
   }
