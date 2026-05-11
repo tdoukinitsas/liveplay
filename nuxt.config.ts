@@ -2,6 +2,11 @@
 export default defineNuxtConfig({
   devtools: { enabled: true },
   ssr: false,
+
+  // Workaround for Nuxt 4.4.5 bug with ssr:false (nuxt/nuxt#35033)
+  experimental: {
+    viteEnvironmentApi: true,
+  },
   
   app: {
     head: {
