@@ -95,7 +95,7 @@
         <WaveformTrimmer
           v-if="audioItem && audioItem.mediaPath && audioItem.duration > 0"
           :audio-item="audioItem"
-          @update:volume="(v) => { audioItem.volume = v; }"
+          @update:volume="(v) => { audioItem.volume = v; if (activeCues.has(audioItem.uuid)) setVolume(audioItem.uuid, v); }"
           @update:in-point="(v) => { audioItem.inPoint = v; }"
           @update:out-point="(v) => { audioItem.outPoint = v; }"
           @update:play-fade="handlePlayFadeUpdate"
@@ -214,6 +214,7 @@ import { calculatePerceivedLoudness } from '~/utils/audio';
 
 const { selectedItem, selectedItems, getSelectedItems, saveProject } = useProject();
 const { t } = useLocalization();
+const { activeCues, setVolume } = useAudioEngine();
 
 const audioItem = computed(() => selectedItem.value as AudioItem);
 const groupItem = computed(() => selectedItem.value as GroupItem);

@@ -1317,6 +1317,19 @@ export const useAudioEngine = () => {
     }
   };
 
+  // Set volume on a playing cue in real time
+  const setVolume = (uuid: string, volume: number) => {
+    if (!import.meta.client) return;
+
+    const cue = activeCues.value.get(uuid);
+    if (cue) {
+      const appliedVolume = applyVolumeOffset(volume);
+      cue.howl.volume(appliedVolume);
+      cue.volume = appliedVolume;
+      cue.originalVolume = appliedVolume;
+    }
+  };
+
   return {
     activeCues,
     activeGroups,
@@ -1331,6 +1344,7 @@ export const useAudioEngine = () => {
     pauseCue,
     resumeCue,
     seekCue,
+    setVolume,
     triggerByUuid,
     triggerByIndex,
     triggerGroup
