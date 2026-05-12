@@ -7,6 +7,13 @@
         <span class="db-value">{{ volumeDB.toFixed(1) }} dB</span>
       </div>
       <div class="volume-slider-container">
+        <div class="volume-markers">
+          <span>+10</span>
+          <span>0</span>
+          <span>-12</span>
+          <span>-24</span>
+          <span>-∞</span>
+        </div>
         <input
           type="range"
           orient="vertical"
@@ -18,13 +25,6 @@
           @input="handleVolumeChange"
           :style="{ '--volume-handle-color': volumeHandleColor }"
         />
-        <div class="volume-markers">
-          <span>+10</span>
-          <span>0</span>
-          <span>-12</span>
-          <span>-24</span>
-          <span>-∞</span>
-        </div>
       </div>
     </div>
 
@@ -1138,7 +1138,7 @@ onUnmounted(() => {
 
 .volume-slider-container {
   display: flex;
-  gap: var(--spacing-xs);
+  gap: 2px;
   align-items: center;
   flex: 1;
   min-height: 0;
@@ -1147,7 +1147,7 @@ onUnmounted(() => {
 .volume-slider-vertical {
   writing-mode: vertical-lr;
   direction: rtl;
-  width: 150px;
+  width: 20px;
   height: 100%;
   cursor: pointer;
   -webkit-appearance: slider-vertical;
