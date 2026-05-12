@@ -23,4 +23,11 @@ These are hardcoded, not user-configurable. All three keys are added to `RESERVE
 
 ## Components
 
-No component changes needed — `PlaybackControls.vue` already reactively displays `masterGainDb`, so keyboard-driven changes will reflect in the OUT slider automatically.
+`PlaybackControls.vue` already reactively displays `masterGainDb`, so keyboard-driven volume changes reflect in the OUT slider automatically.
+
+`ControlConfigModal.vue` needs two changes for default-mapping display:
+
+1. **`getKeyLabel`** returns a `{ label, isDefault }` shape (or a parallel `isDefaultKey(slot)` helper). When `keyMappings.value[slotIndex]` is unset, fall back to `DEFAULT_CART_SLOT_KEYS[slotIndex]` and flag it as default. The current `—` placeholder is removed.
+2. **Slot row template** binds an `is-default` class when the displayed value is a default. A `.slot-binding.is-default` CSS rule renders the text in muted/dimmed color (e.g. `opacity: 0.5` or a `--color-muted` token) to visually distinguish defaults from user-saved bindings.
+
+MIDI tab is out of scope — it keeps the existing `—` placeholder for unmapped actions.

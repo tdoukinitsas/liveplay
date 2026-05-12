@@ -19,6 +19,9 @@ const RESERVED_COMBOS: CartSlotKeyBinding[] = [
   { key: 'F1', ctrlKey: false, shiftKey: false, altKey: false },
   { key: ' ', ctrlKey: false, shiftKey: false, altKey: false },
   { key: 'Shift', ctrlKey: false, shiftKey: false, altKey: false },
+  { key: 'Escape', ctrlKey: false, shiftKey: false, altKey: false },
+  { key: 'w', ctrlKey: false, shiftKey: false, altKey: false },
+  { key: 's', ctrlKey: false, shiftKey: false, altKey: false },
 ];
 
 /**
@@ -67,7 +70,7 @@ export const eventToBinding = (e: KeyboardEvent): CartSlotKeyBinding => {
 export const useCartHotkeys = () => {
   const { currentProject, selectedItem, saveProject } = useProject();
   const { getCartItem } = useCartItems();
-  const { playCue, stopCue, pauseCue, resumeCue, activeCues } = useAudioEngine();
+  const { playCue, stopCue, pauseCue, resumeCue, activeCues, stopAllCues, setMasterGain, masterGainDb } = useAudioEngine();
 
   /**
    * Get current key mappings, falling back to defaults.
@@ -190,6 +193,30 @@ export const useCartHotkeys = () => {
       e.preventDefault();
       e.stopPropagation();
       togglePlayStop();
+      return;
+    }
+
+    // Escape = stop all cues
+    if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      stopAllCues();
+      return;
+    }
+
+    // W = master volume +1 dB
+    if (e.key === 'w' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      setMasterGain(masterGainDb.value + 1);
+      return;
+    }
+
+    // S = master volume -1 dB
+    if (e.key === 's' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      setMasterGain(masterGainDb.value - 1);
       return;
     }
 

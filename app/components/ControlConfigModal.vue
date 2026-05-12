@@ -31,15 +31,17 @@
 
       <!-- Keyboard tab -->
       <div v-if="activeTab === 'keyboard'" class="config-body">
+        <div class="category-header">Cart Slots</div>
+        <!-- Cart slot rows -->
         <div
           v-for="slot in 16"
           :key="slot"
-          class="slot-row"
+          class="action-row key-slot-row"
           :class="{ capturing: capturingSlot === slot - 1, conflict: conflictSlot === slot - 1 }"
           @click="startCapture(slot - 1)"
         >
-          <span class="slot-index">{{ slot }}</span>
-          <span class="slot-binding">
+          <span class="action-label">Cart Slot {{ slot }}</span>
+          <span class="action-binding" :class="{ 'is-default': capturingSlot !== slot - 1 && isDefaultKey(slot - 1) }">
             <template v-if="capturingSlot === slot - 1">
               {{ t('cart.pressAnyKey') }}
             </template>
@@ -49,6 +51,14 @@
           </span>
           <span v-if="keyErrorMessage && keyErrorSlot === slot - 1" class="error-msg">{{ keyErrorMessage }}</span>
         </div>
+        <!-- Global shortcut sections -->
+        <template v-for="group in GLOBAL_SHORTCUT_GROUPS" :key="group.category">
+          <div class="category-header">{{ group.category }}</div>
+          <div v-for="shortcut in group.shortcuts" :key="shortcut.label" class="action-row">
+            <span class="action-label">{{ shortcut.label }}</span>
+            <span class="action-binding">{{ shortcut.key }}</span>
+          </div>
+        </template>
       </div>
 
       <!-- MIDI tab -->
@@ -116,6 +126,7 @@
 
 <script setup lang="ts">
 import { formatKeyLabel, eventToBinding, isReservedCombo } from '~/composables/useCartHotkeys';
+import { DEFAULT_CART_SLOT_KEYS } from '~/types/project';
 import {
   MIDI_ACTIONS,
   formatMidiBinding,
@@ -131,7 +142,7 @@ const { t } = useLocalization();
 
 // Keyboard state
 const { keyMappings, updateBinding: updateKeyBinding, resetToDefaults } = useCartHotkeys();
-const { saveProject } = useProject();
+const { currentProject, saveProject } = useProject();
 const capturingSlot = ref<number | null>(null);
 const keyErrorMessage = ref<string | null>(null);
 const keyErrorSlot = ref<number | null>(null);
@@ -153,11 +164,37 @@ const midiConflictInfo = ref<{ actionId: MidiActionId; binding: MidiBinding; con
 
 const activeTab = ref<'keyboard' | 'midi'>('keyboard');
 
+// --- Global shortcuts (hardcoded, read-only) ---
+
+const GLOBAL_SHORTCUT_GROUPS = [
+  {
+    category: 'Playback',
+    shortcuts: [
+      { label: 'Pause / Resume', key: 'Space' },
+      { label: 'Toggle Loop', key: 'Right Shift' },
+      { label: 'Stop All', key: 'Escape' },
+    ],
+  },
+  {
+    category: 'Volume',
+    shortcuts: [
+      { label: 'Volume Up', key: 'W' },
+      { label: 'Volume Down', key: 'S' },
+    ],
+  },
+];
+
 // --- Keyboard helpers ---
+
+const isDefaultKey = (slotIndex: number): boolean => {
+  return !currentProject.value?.cartSlotKeys?.[slotIndex];
+};
 
 const getKeyLabel = (slotIndex: number): string => {
   const binding = keyMappings.value[slotIndex];
-  return binding ? formatKeyLabel(binding) : '—';
+  if (binding) return formatKeyLabel(binding);
+  const def = DEFAULT_CART_SLOT_KEYS[slotIndex];
+  return def ? formatKeyLabel(def) : '—';
 };
 
 const startCapture = (slotIndex: number) => {
@@ -403,45 +440,20 @@ onUnmounted(() => {
 }
 
 /* Keyboard tab rows */
-.slot-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 20px;
+.key-slot-row {
   cursor: pointer;
-  transition: background-color 0.1s;
 }
 
-.slot-row:hover {
-  background: var(--color-surface-hover);
-}
-
-.slot-row.capturing {
+.key-slot-row.capturing {
   background: rgba(59, 130, 246, 0.1);
 }
 
-.slot-row.conflict {
+.key-slot-row.conflict {
   background: rgba(239, 68, 68, 0.1);
 }
 
-.slot-index {
-  font-weight: 700;
-  font-size: 14px;
-  min-width: 24px;
-  color: var(--color-text-secondary);
-}
-
-.slot-binding {
-  font-family: monospace;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  padding: 2px 8px;
-  min-width: 60px;
-  text-align: center;
+.action-binding.is-default {
+  opacity: 0.45;
 }
 
 .error-msg {
