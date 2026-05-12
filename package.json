@@ -88,7 +88,7 @@
     "publish": {
       "provider": "github",
       "owner": "Stevesibilia",
-      "repo": "liveplay"
+      "repo": "enhanced-liveplay"
     },
     "win": {
       "target": [
