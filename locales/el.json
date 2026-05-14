@@ -62,7 +62,10 @@
     "conflict": "Ήδη αντιστοιχισμένο στη Θέση {slot}",
     "reserved": "Αυτός ο συνδυασμός πλήκτρων είναι δεσμευμένος",
     "resetDefaults": "Επαναφορά στις Προεπιλογές",
-    "close": "Κλείσιμο"
+    "close": "Κλείσιμο",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "Ιδιότητες",
@@ -206,5 +209,51 @@
     "message": "Βρέθηκαν πολλαπλές εκδηλώσεις στο αρχείο. Παρακαλώ επιλέξτε ποιο θέλετε να ανοίξετε:",
     "cancel": "Ακύρωση",
     "open": "Άνοιγμα"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "Ρύθμιση ελέγχων",
+    "shortcutBtn": "Συντομεύσεις",
+    "tabKeyboard": "Πληκτρολόγιο",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "Θέσεις καρτ",
+    "sectionPlayback": "Αναπαραγωγή",
+    "sectionVolume": "Ένταση",
+    "cartSlot": "Θέση {n}",
+    "pauseResume": "Παύση / Συνέχεια",
+    "toggleLoop": "Εναλλαγή βρόχου",
+    "stopAll": "Διακοπή όλων",
+    "selectUp": "Επιλογή πάνω",
+    "selectDown": "Επιλογή κάτω",
+    "playSelected": "Αναπαραγωγή επιλεγμένου",
+    "masterVolume": "Κύρια ένταση",
+    "midiDevice": "Συσκευή MIDI",
+    "allDevices": "Όλες οι συσκευές",
+    "conflictSlot": "Ήδη αντιστοιχισμένο στη θέση {n}",
+    "conflictAction": "Ήδη αντιστοιχισμένο σε {action}",
+    "pressAnyKey": "Πατήστε οποιοδήποτε πλήκτρο...",
+    "reserved": "Αυτός ο συνδυασμός πλήκτρων είναι δεσμευμένος",
+    "resetKeyboard": "Επαναφορά προεπιλογών",
+    "resetMidi": "Επαναφορά όλων",
+    "close": "Κλείσιμο",
+    "clear": "Εκκαθάριση",
+    "learn": "Εκμάθηση",
+    "cancel": "Ακύρωση",
+    "waitingForInput": "Αναμονή εισόδου MIDI...",
+    "noDevices": "Δεν ανιχνεύτηκαν συσκευές MIDI",
+    "reassign": "Νέα αντιστοίχιση",
+    "conflictMessage": "Αυτός ο ελεγκτής MIDI είναι ήδη αντιστοιχισμένος στο \"{action}\". Νέα αντιστοίχιση;",
+    "playNext": "Αναπαραγωγή επόμενου"
   }
 }

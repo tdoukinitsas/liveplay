@@ -62,7 +62,10 @@
     "conflict": "Ya asignado a la Ranura {slot}",
     "reserved": "Esta combinación de teclas está reservada",
     "resetDefaults": "Restablecer Valores Predeterminados",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "Propiedades",
@@ -206,5 +209,51 @@
     "message": "Se encontraron múltiples proyectos en el archivo. Por favor, seleccione cuál desea abrir:",
     "cancel": "Cancelar",
     "open": "Abrir"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "Configurar controles",
+    "shortcutBtn": "Atajos",
+    "tabKeyboard": "Teclado",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "Ranuras del carrito",
+    "sectionPlayback": "Reproducción",
+    "sectionVolume": "Volumen",
+    "cartSlot": "Ranura {n}",
+    "pauseResume": "Pausa / Reanudar",
+    "toggleLoop": "Activar bucle",
+    "stopAll": "Detener todo",
+    "selectUp": "Seleccionar arriba",
+    "selectDown": "Seleccionar abajo",
+    "playSelected": "Reproducir seleccionado",
+    "masterVolume": "Volumen principal",
+    "midiDevice": "Dispositivo MIDI",
+    "allDevices": "Todos los dispositivos",
+    "conflictSlot": "Ya asignado a la ranura {n}",
+    "conflictAction": "Ya asignado a {action}",
+    "pressAnyKey": "Presione cualquier tecla...",
+    "reserved": "Esta combinación de teclas está reservada",
+    "resetKeyboard": "Restablecer valores predeterminados",
+    "resetMidi": "Restablecer todo",
+    "close": "Cerrar",
+    "clear": "Limpiar",
+    "learn": "Aprender",
+    "cancel": "Cancelar",
+    "waitingForInput": "Esperando entrada MIDI...",
+    "noDevices": "No se detectaron dispositivos MIDI",
+    "reassign": "Reasignar",
+    "conflictMessage": "Este control MIDI ya está asignado a \"{action}\". ¿Reasignar?",
+    "playNext": "Reproducir siguiente"
   }
 }

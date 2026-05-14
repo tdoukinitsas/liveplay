@@ -194,7 +194,7 @@ import { useI18n } from './composables/useI18n';
 
 const { t, direction, initLocale, isLocaleLoaded } = useI18n();
 
-const version = ref('1.2.10');
+const version = ref('1.2.11');
 const contributors = ref<{ name: string; link: string }[]>([]);
 
 const downloadLinks = computed(() => {

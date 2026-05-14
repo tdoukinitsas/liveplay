@@ -18,15 +18,26 @@
     </div>
     
     <div class="header-right">
+      <button class="action-btn shortcuts-btn" @click="showControlConfig = true">
+        <span class="material-symbols-rounded">keyboard</span>
+        <span>{{ t('controls.shortcutBtn') }}</span>
+      </button>
       <div class="digital-clock">{{ currentTime }}</div>
     </div>
   </div>
+
+  <ControlConfigModal
+    v-if="showControlConfig"
+    @close="showControlConfig = false"
+  />
 </template>
 
 <script setup lang="ts">
 const { currentProject, findItemByUuid, findItemByIndex } = useProject();
 const { t } = useLocalization();
 const { activeCues } = useAudioEngine();
+
+const showControlConfig = ref(false);
 
 const isDark = computed(() => currentProject.value?.theme.mode === 'dark');
 const currentTime = ref('00:00:00');
@@ -232,6 +243,30 @@ onMounted(() => {
 .header-right {
   display: flex;
   align-items: center;
+  gap: var(--spacing-md);
+}
+
+.action-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--color-text-primary);
+
+  &:hover {
+    background-color: var(--color-surface-hover);
+    border-color: var(--color-accent);
+  }
+}
+
+.material-symbols-rounded {
+  font-size: 18px;
 }
 
 .digital-clock {

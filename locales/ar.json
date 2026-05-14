@@ -62,7 +62,10 @@
     "conflict": "مُعين بالفعل للفتحة {slot}",
     "reserved": "هذا التوليف من المفاتيح محجوز",
     "resetDefaults": "إعادة تعيين الافتراضيات",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "الخصائص",
@@ -206,5 +209,51 @@
     "message": "تم العثور على مشاريع متعددة في الأرشيف. يرجى اختيار أي واحد لفتحه:",
     "cancel": "إلغاء",
     "open": "فتح"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "تكوين الضوابط",
+    "shortcutBtn": "اختصارات",
+    "tabKeyboard": "لوحة المفاتيح",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "فتحات العربة",
+    "sectionPlayback": "تشغيل",
+    "sectionVolume": "الصوت",
+    "cartSlot": "الفتحة {n}",
+    "pauseResume": "إيقاف مؤقت / متابعة",
+    "toggleLoop": "تبديل التكرار",
+    "stopAll": "إيقاف الكل",
+    "selectUp": "اختيار للأعلى",
+    "selectDown": "اختيار للأسفل",
+    "playSelected": "تشغيل المحدد",
+    "masterVolume": "الصوت الرئيسي",
+    "midiDevice": "جهاز MIDI",
+    "allDevices": "جميع الأجهزة",
+    "conflictSlot": "تم التعيين بالفعل للفتحة {n}",
+    "conflictAction": "تم التعيين بالفعل لـ {action}",
+    "pressAnyKey": "اضغط على أي مفتاح...",
+    "reserved": "هذه المجموعة من المفاتيح محجوزة",
+    "resetKeyboard": "إعادة التعيين للافتراضي",
+    "resetMidi": "إعادة تعيين الكل",
+    "close": "إغلاق",
+    "clear": "مسح",
+    "learn": "تعلم",
+    "cancel": "إلغاء",
+    "waitingForInput": "في انتظار إدخال MIDI...",
+    "noDevices": "لم يتم اكتشاف أجهزة MIDI",
+    "reassign": "إعادة التعيين",
+    "conflictMessage": "عنصر تحكم MIDI هذا معين بالفعل لـ \"{action}\". إعادة التعيين؟",
+    "playNext": "تشغيل التالي"
   }
 }

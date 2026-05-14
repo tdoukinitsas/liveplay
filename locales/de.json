@@ -62,7 +62,10 @@
     "conflict": "Bereits Slot {slot} zugewiesen",
     "reserved": "Diese Tastenkombination ist reserviert",
     "resetDefaults": "Auf Standardwerte zurücksetzen",
-    "close": "Schließen"
+    "close": "Schließen",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "Eigenschaften",
@@ -206,5 +209,51 @@
     "message": "Mehrere Projekte im Archiv gefunden. Bitte wählen Sie aus, welches geöffnet werden soll:",
     "cancel": "Abbrechen",
     "open": "Öffnen"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "Steuerung konfigurieren",
+    "shortcutBtn": "Tastenkürzel",
+    "tabKeyboard": "Tastatur",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "Cart-Plätze",
+    "sectionPlayback": "Wiedergabe",
+    "sectionVolume": "Lautstärke",
+    "cartSlot": "Cart-Platz {n}",
+    "pauseResume": "Pause / Fortsetzen",
+    "toggleLoop": "Schleife umschalten",
+    "stopAll": "Alles stoppen",
+    "selectUp": "Nach oben auswählen",
+    "selectDown": "Nach unten auswählen",
+    "playSelected": "Ausgewähltes abspielen",
+    "masterVolume": "Hauptlautstärke",
+    "midiDevice": "MIDI-Gerät",
+    "allDevices": "Alle Geräte",
+    "conflictSlot": "Bereits Cart-Platz {n} zugewiesen",
+    "conflictAction": "Bereits {action} zugewiesen",
+    "pressAnyKey": "Beliebige Taste drücken...",
+    "reserved": "Diese Tastenkombination ist reserviert",
+    "resetKeyboard": "Auf Standardwerte zurücksetzen",
+    "resetMidi": "Alle zurücksetzen",
+    "close": "Schließen",
+    "clear": "Löschen",
+    "learn": "Lernen",
+    "cancel": "Abbrechen",
+    "waitingForInput": "Warte auf MIDI-Eingabe...",
+    "noDevices": "Keine MIDI-Geräte erkannt",
+    "reassign": "Neu zuweisen",
+    "conflictMessage": "Diese MIDI-Steuerung ist bereits \"{action}\" zugewiesen. Neu zuweisen?",
+    "playNext": "Nächstes abspielen"
   }
 }

@@ -62,7 +62,10 @@
     "conflict": "पहले से स्लॉट {slot} को असाइन किया गया",
     "reserved": "यह कुंजी संयोजन आरक्षित है",
     "resetDefaults": "डिफ़ॉल्ट पर रीसेट करें",
-    "close": "बंद करें"
+    "close": "बंद करें",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "गुण",
@@ -206,5 +209,51 @@
     "message": "संग्रह में कई प्रोजेक्ट मिले। कृपया चुनें कि कौन सा खोलना है:",
     "cancel": "रद्द करें",
     "open": "खोलें"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "नियंत्रण कॉन्फ़िगर करें",
+    "shortcutBtn": "शॉर्टकट",
+    "tabKeyboard": "कीबोर्ड",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "कार्ट स्लॉट",
+    "sectionPlayback": "प्लेबैक",
+    "sectionVolume": "वॉल्यूम",
+    "cartSlot": "स्लॉट {n}",
+    "pauseResume": "रोकें / जारी रखें",
+    "toggleLoop": "लूप टॉगल करें",
+    "stopAll": "सभी रोकें",
+    "selectUp": "ऊपर चुनें",
+    "selectDown": "नीचे चुनें",
+    "playSelected": "चयनित चलाएं",
+    "masterVolume": "मास्टर वॉल्यूम",
+    "midiDevice": "MIDI डिवाइस",
+    "allDevices": "सभी डिवाइस",
+    "conflictSlot": "स्लॉट {n} को पहले से असाइन किया गया",
+    "conflictAction": "{action} को पहले से असाइन किया गया",
+    "pressAnyKey": "कोई भी कुंजी दबाएं...",
+    "reserved": "यह कुंजी संयोजन आरक्षित है",
+    "resetKeyboard": "डिफ़ॉल्ट पर रीसेट करें",
+    "resetMidi": "सब रीसेट करें",
+    "close": "बंद करें",
+    "clear": "साफ़ करें",
+    "learn": "सीखें",
+    "cancel": "रद्द करें",
+    "waitingForInput": "MIDI इनपुट की प्रतीक्षा...",
+    "noDevices": "कोई MIDI डिवाइस नहीं मिला",
+    "reassign": "पुनः असाइन करें",
+    "conflictMessage": "यह MIDI नियंत्रण पहले से \"{action}\" को असाइन किया गया है। पुनः असाइन करें?",
+    "playNext": "अगला चलाएं"
   }
 }

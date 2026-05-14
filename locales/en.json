@@ -191,7 +191,7 @@
     "installOnExit": "Install on Exit",
     "downloadFailed": "Failed to download update"
   },
-  "translationContributor":{
+  "translationContributor": {
     "title": "Translation Contributor",
     "name": "Thomas Doukinitsas",
     "contributeLink": "www.doukinitsas.info"
@@ -213,7 +213,42 @@
     "close": "Close",
     "waitingForInput": "Waiting for MIDI input...",
     "noDevices": "No MIDI devices detected",
-    "reassign": "Already assigned to {action}. Reassign?"
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "Configure Controls",
+    "shortcutBtn": "Shortcuts",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "Cart Slots",
+    "sectionPlayback": "Playback",
+    "sectionVolume": "Volume",
+    "cartSlot": "Cart Slot {n}",
+    "pauseResume": "Pause / Resume",
+    "toggleLoop": "Toggle Loop",
+    "stopAll": "Stop All",
+    "selectUp": "Select Up",
+    "selectDown": "Select Down",
+    "playSelected": "Play Selected",
+    "masterVolume": "Master Volume",
+    "midiDevice": "MIDI Device",
+    "allDevices": "All Devices",
+    "conflictSlot": "Already assigned to Cart Slot {n}",
+    "conflictAction": "Already assigned to {action}",
+    "pressAnyKey": "Press any key...",
+    "reserved": "This key combination is reserved",
+    "resetKeyboard": "Reset to Defaults",
+    "resetMidi": "Reset All",
+    "close": "Close",
+    "clear": "Clear",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?",
+    "playNext": "Play Next"
   },
   "selectProject": {
     "title": "Select Project",

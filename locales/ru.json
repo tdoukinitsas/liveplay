@@ -62,7 +62,10 @@
     "conflict": "Уже назначено на Слот {slot}",
     "reserved": "Эта комбинация клавиш зарезервирована",
     "resetDefaults": "Сбросить до Значений по Умолчанию",
-    "close": "Закрыть"
+    "close": "Закрыть",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "Свойства",
@@ -206,5 +209,51 @@
     "message": "В архиве найдено несколько проектов. Пожалуйста, выберите, какой открыть:",
     "cancel": "Отмена",
     "open": "Открыть"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "Настройка управления",
+    "shortcutBtn": "Ярлыки",
+    "tabKeyboard": "Клавиатура",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "Слоты карты",
+    "sectionPlayback": "Воспроизведение",
+    "sectionVolume": "Громкость",
+    "cartSlot": "Слот {n}",
+    "pauseResume": "Пауза / Продолжить",
+    "toggleLoop": "Переключить цикл",
+    "stopAll": "Остановить всё",
+    "selectUp": "Выбрать выше",
+    "selectDown": "Выбрать ниже",
+    "playSelected": "Воспроизвести выбранное",
+    "masterVolume": "Основная громкость",
+    "midiDevice": "MIDI-устройство",
+    "allDevices": "Все устройства",
+    "conflictSlot": "Уже назначено слоту {n}",
+    "conflictAction": "Уже назначено {action}",
+    "pressAnyKey": "Нажмите любую клавишу...",
+    "reserved": "Эта комбинация клавиш зарезервирована",
+    "resetKeyboard": "Сбросить до умолчаний",
+    "resetMidi": "Сбросить всё",
+    "close": "Закрыть",
+    "clear": "Очистить",
+    "learn": "Обучить",
+    "cancel": "Отмена",
+    "waitingForInput": "Ожидание MIDI-сигнала...",
+    "noDevices": "MIDI-устройства не обнаружены",
+    "reassign": "Переназначить",
+    "conflictMessage": "Этот MIDI-контроллер уже назначен \"{action}\". Переназначить?",
+    "playNext": "Следующий трек"
   }
 }

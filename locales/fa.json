@@ -62,7 +62,10 @@
     "conflict": "قبلاً به اسلات {slot} اختصاص داده شده",
     "reserved": "این ترکیب کلید رزرو شده است",
     "resetDefaults": "بازگشت به پیش‌فرض",
-    "close": "بستن"
+    "close": "بستن",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "خصوصیات",
@@ -206,5 +209,51 @@
     "message": "پروژه‌های متعددی در آرشیو یافت شد. لطفاً انتخاب کنید کدام یک را می‌خواهید باز کنید:",
     "cancel": "لغو",
     "open": "باز کردن"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "پیکربندی کنترل‌ها",
+    "shortcutBtn": "میانبرها",
+    "tabKeyboard": "صفحه‌کلید",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "شکاف‌های سبد",
+    "sectionPlayback": "پخش",
+    "sectionVolume": "صدا",
+    "cartSlot": "شکاف {n}",
+    "pauseResume": "مکث / ادامه",
+    "toggleLoop": "تغییر حالت حلقه",
+    "stopAll": "توقف همه",
+    "selectUp": "انتخاب بالا",
+    "selectDown": "انتخاب پایین",
+    "playSelected": "پخش انتخاب‌شده",
+    "masterVolume": "صدای اصلی",
+    "midiDevice": "دستگاه MIDI",
+    "allDevices": "همه دستگاه‌ها",
+    "conflictSlot": "قبلاً به شکاف {n} اختصاص داده شده",
+    "conflictAction": "قبلاً به {action} اختصاص داده شده",
+    "pressAnyKey": "هر کلیدی را فشار دهید...",
+    "reserved": "این ترکیب کلید رزرو شده است",
+    "resetKeyboard": "بازنشانی به پیش‌فرض",
+    "resetMidi": "بازنشانی همه",
+    "close": "بستن",
+    "clear": "پاک کردن",
+    "learn": "آموزش",
+    "cancel": "لغو",
+    "waitingForInput": "در انتظار ورودی MIDI...",
+    "noDevices": "هیچ دستگاه MIDI شناسایی نشد",
+    "reassign": "تخصیص مجدد",
+    "conflictMessage": "این کنترل MIDI قبلاً به \"{action}\" اختصاص داده شده است. تخصیص مجدد؟",
+    "playNext": "پخش بعدی"
   }
 }

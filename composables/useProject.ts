@@ -467,6 +467,7 @@ export const useProject = () => {
     triggerWaveformUpdate,
     toggleItemSelection,
     getSelectedItems,
+    getAllItemsFlat,
     createNewProject,
     openProject,
     saveProject,

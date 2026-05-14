@@ -62,7 +62,10 @@
     "conflict": "已分配给槽位 {slot}",
     "reserved": "此键组合已被保留",
     "resetDefaults": "重置为默认值",
-    "close": "关闭"
+    "close": "关闭",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "属性",
@@ -206,5 +209,51 @@
     "message": "在存档中找到多个项目。请选择要打开的项目：",
     "cancel": "取消",
     "open": "打开"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "配置控制",
+    "shortcutBtn": "快捷键",
+    "tabKeyboard": "键盘",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "音频插槽",
+    "sectionPlayback": "播放",
+    "sectionVolume": "音量",
+    "cartSlot": "插槽 {n}",
+    "pauseResume": "暂停 / 恢复",
+    "toggleLoop": "切换循环",
+    "stopAll": "全部停止",
+    "selectUp": "向上选择",
+    "selectDown": "向下选择",
+    "playSelected": "播放所选",
+    "masterVolume": "主音量",
+    "midiDevice": "MIDI设备",
+    "allDevices": "所有设备",
+    "conflictSlot": "已分配给插槽 {n}",
+    "conflictAction": "已分配给 {action}",
+    "pressAnyKey": "按任意键...",
+    "reserved": "此键组合已被保留",
+    "resetKeyboard": "恢复默认值",
+    "resetMidi": "全部重置",
+    "close": "关闭",
+    "clear": "清除",
+    "learn": "学习",
+    "cancel": "取消",
+    "waitingForInput": "等待MIDI输入...",
+    "noDevices": "未检测到MIDI设备",
+    "reassign": "重新分配",
+    "conflictMessage": "此MIDI控制器已分配给\"{action}\"。重新分配？",
+    "playNext": "播放下一首"
   }
 }

@@ -35,14 +35,14 @@ export const useLocalization = () => {
     loadLocales();
   }
 
-  const t = (key: string): string => {
+  const t = (key: string, params?: Record<string, string | number>): string => {
     const keys = key.split('.');
     let value: any = locales.value[currentLocale.value];
-    
+
     if (!value) {
       return key; // Return key if locale not loaded yet
     }
-    
+
     for (const k of keys) {
       if (value && typeof value === 'object' && k !== '_metadata') {
         value = value[k];
@@ -50,8 +50,14 @@ export const useLocalization = () => {
         return key; // Return key if translation not found
       }
     }
-    
-    return typeof value === 'string' ? value : key;
+
+    let result = typeof value === 'string' ? value : key;
+    if (params) {
+      for (const [param, val] of Object.entries(params)) {
+        result = result.replace(`{${param}}`, String(val));
+      }
+    }
+    return result;
   };
 
   const setLocale = (locale: string) => {

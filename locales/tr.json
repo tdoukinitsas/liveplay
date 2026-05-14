@@ -62,7 +62,10 @@
     "conflict": "Zaten Slot {slot}'a atandı",
     "reserved": "Bu tuş kombinasyonu ayrılmıştır",
     "resetDefaults": "Varsayılanlara Sıfırla",
-    "close": "Kapat"
+    "close": "Kapat",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "Özellikler",
@@ -206,5 +209,51 @@
     "message": "Arşivde birden fazla proje bulundu. Lütfen hangisini açmak istediğinizi seçin:",
     "cancel": "İptal",
     "open": "Aç"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "Kontrolleri yapılandır",
+    "shortcutBtn": "Kısayollar",
+    "tabKeyboard": "Klavye",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "Sepet yuvaları",
+    "sectionPlayback": "Oynatma",
+    "sectionVolume": "Ses",
+    "cartSlot": "Yuva {n}",
+    "pauseResume": "Duraklat / Devam et",
+    "toggleLoop": "Döngüyü aç/kapat",
+    "stopAll": "Tümünü durdur",
+    "selectUp": "Yukarı seç",
+    "selectDown": "Aşağı seç",
+    "playSelected": "Seçileni oynat",
+    "masterVolume": "Ana ses",
+    "midiDevice": "MIDI Cihazı",
+    "allDevices": "Tüm cihazlar",
+    "conflictSlot": "Zaten {n}. yuvaya atanmış",
+    "conflictAction": "Zaten {action} için atanmış",
+    "pressAnyKey": "Herhangi bir tuşa basın...",
+    "reserved": "Bu tuş kombinasyonu ayrılmış",
+    "resetKeyboard": "Varsayılanlara sıfırla",
+    "resetMidi": "Tümünü sıfırla",
+    "close": "Kapat",
+    "clear": "Temizle",
+    "learn": "Öğren",
+    "cancel": "İptal",
+    "waitingForInput": "MIDI girişi bekleniyor...",
+    "noDevices": "MIDI cihazı algılanmadı",
+    "reassign": "Yeniden ata",
+    "conflictMessage": "Bu MIDI kontrolü zaten \"{action}\" için atanmış. Yeniden ata?",
+    "playNext": "Sonrakini oynat"
   }
 }

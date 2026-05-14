@@ -62,7 +62,10 @@
     "conflict": "Tashmë caktuar te Slot {slot}",
     "reserved": "Ky kombinim tastesh është i rezervuar",
     "resetDefaults": "Rivendos Parazgjedhjet",
-    "close": "Mbyll"
+    "close": "Mbyll",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "Vetitë",
@@ -206,5 +209,51 @@
     "message": "U gjetën projekte të shumta në arkiv. Ju lutemi zgjidhni cilin të hapni:",
     "cancel": "Anulo",
     "open": "Hap"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "Konfiguro kontrollet",
+    "shortcutBtn": "Shkurtore",
+    "tabKeyboard": "Tastierë",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "Slotët e karrocës",
+    "sectionPlayback": "Luajtja",
+    "sectionVolume": "Volumi",
+    "cartSlot": "Slot {n}",
+    "pauseResume": "Pauzë / Vazhdo",
+    "toggleLoop": "Ndërro buklën",
+    "stopAll": "Ndalo të gjitha",
+    "selectUp": "Zgjidh lart",
+    "selectDown": "Zgjidh poshtë",
+    "playSelected": "Luaj të zgjedhurën",
+    "masterVolume": "Volumi kryesor",
+    "midiDevice": "Pajisja MIDI",
+    "allDevices": "Të gjitha pajisjet",
+    "conflictSlot": "Tashmë e caktuar për slotin {n}",
+    "conflictAction": "Tashmë e caktuar për {action}",
+    "pressAnyKey": "Shtypni çdo çelës...",
+    "reserved": "Ky kombinim çelësash është i rezervuar",
+    "resetKeyboard": "Rivendos vlerat e paracaktuara",
+    "resetMidi": "Rivendos të gjitha",
+    "close": "Mbyll",
+    "clear": "Pastro",
+    "learn": "Mëso",
+    "cancel": "Anulo",
+    "waitingForInput": "Duke pritur hyrjen MIDI...",
+    "noDevices": "Nuk u zbuluan pajisje MIDI",
+    "reassign": "Ricakto",
+    "conflictMessage": "Ky kontroll MIDI është tashmë caktuar për \"{action}\". Ricakto?",
+    "playNext": "Luaj të ardhshmen"
   }
 }

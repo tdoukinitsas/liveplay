@@ -62,7 +62,10 @@
     "conflict": "Allerede tildelt Spor {slot}",
     "reserved": "Denne tastekombinasjonen er reservert",
     "resetDefaults": "Tilbakestill til Standard",
-    "close": "Lukk"
+    "close": "Lukk",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "Egenskaper",
@@ -206,5 +209,51 @@
     "message": "Flere prosjekter funnet i arkivet. Vennligst velg hvilket du vil åpne:",
     "cancel": "Avbryt",
     "open": "Åpne"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "Konfigurer kontroller",
+    "shortcutBtn": "Snarveier",
+    "tabKeyboard": "Tastatur",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "Sporsplasser",
+    "sectionPlayback": "Avspilling",
+    "sectionVolume": "Volum",
+    "cartSlot": "Plass {n}",
+    "pauseResume": "Pause / Fortsett",
+    "toggleLoop": "Bytt løkke",
+    "stopAll": "Stopp alle",
+    "selectUp": "Velg opp",
+    "selectDown": "Velg ned",
+    "playSelected": "Spill av valgt",
+    "masterVolume": "Hovedvolum",
+    "midiDevice": "MIDI-enhet",
+    "allDevices": "Alle enheter",
+    "conflictSlot": "Allerede tilordnet plass {n}",
+    "conflictAction": "Allerede tilordnet {action}",
+    "pressAnyKey": "Trykk på en tast...",
+    "reserved": "Denne tastekombinasjon er reservert",
+    "resetKeyboard": "Tilbakestill til standard",
+    "resetMidi": "Tilbakestill alle",
+    "close": "Lukk",
+    "clear": "Slett",
+    "learn": "Lær",
+    "cancel": "Avbryt",
+    "waitingForInput": "Venter på MIDI-inndata...",
+    "noDevices": "Ingen MIDI-enheter funnet",
+    "reassign": "Tilordne på nytt",
+    "conflictMessage": "Denne MIDI-kontrollen er allerede tilordnet \"{action}\". Tilordne på nytt?",
+    "playNext": "Spill neste"
   }
 }

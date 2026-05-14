@@ -62,7 +62,10 @@
     "conflict": "ইতিমধ্যে স্লট {slot} এ নির্ধারিত",
     "reserved": "এই কী সমন্বয়টি সংরক্ষিত",
     "resetDefaults": "ডিফল্টে রিসেট করুন",
-    "close": "বন্ধ করুন"
+    "close": "বন্ধ করুন",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "বৈশিষ্ট্য",
@@ -206,5 +209,51 @@
     "message": "আর্কাইভে একাধিক প্রকল্প পাওয়া গেছে। অনুগ্রহ করে কোনটি খুলতে চান তা নির্বাচন করুন:",
     "cancel": "বাতিল",
     "open": "খুলুন"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "নিয়ন্ত্রণ কনফিগার করুন",
+    "shortcutBtn": "শর্টকাট",
+    "tabKeyboard": "কীবোর্ড",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "কার্ট স্লট",
+    "sectionPlayback": "প্লেব্যাক",
+    "sectionVolume": "ভলিউম",
+    "cartSlot": "স্লট {n}",
+    "pauseResume": "বিরতি / চালু করুন",
+    "toggleLoop": "লুপ টগল করুন",
+    "stopAll": "সব বন্ধ করুন",
+    "selectUp": "উপরে নির্বাচন করুন",
+    "selectDown": "নিচে নির্বাচন করুন",
+    "playSelected": "নির্বাচিত চালান",
+    "masterVolume": "মাস্টার ভলিউম",
+    "midiDevice": "MIDI ডিভাইস",
+    "allDevices": "সব ডিভাইস",
+    "conflictSlot": "স্লট {n} এ ইতিমধ্যে নির্ধারিত",
+    "conflictAction": "{action} এ ইতিমধ্যে নির্ধারিত",
+    "pressAnyKey": "যেকোনো কী চাপুন...",
+    "reserved": "এই কী সংমিশ্রণ সংরক্ষিত",
+    "resetKeyboard": "ডিফল্টে রিসেট করুন",
+    "resetMidi": "সব রিসেট করুন",
+    "close": "বন্ধ করুন",
+    "clear": "পরিষ্কার করুন",
+    "learn": "শিখুন",
+    "cancel": "বাতিল করুন",
+    "waitingForInput": "MIDI ইনপুটের জন্য অপেক্ষা...",
+    "noDevices": "কোনো MIDI ডিভাইস পাওয়া যায়নি",
+    "reassign": "পুনরায় নির্ধারণ করুন",
+    "conflictMessage": "এই MIDI নিয়ন্ত্রণ ইতিমধ্যে \"{action}\" এ নির্ধারিত। পুনরায় নির্ধারণ করুন?",
+    "playNext": "পরবর্তী চালান"
   }
 }

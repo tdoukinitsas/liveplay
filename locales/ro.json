@@ -62,7 +62,10 @@
     "conflict": "Deja atribuit Slot-ului {slot}",
     "reserved": "Această combinație de taste este rezervată",
     "resetDefaults": "Resetare la Implicite",
-    "close": "Închide"
+    "close": "Închide",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "Proprietati",
@@ -206,5 +209,51 @@
     "message": "Au fost găsite mai multe proiecte în arhivă. Vă rugăm să selectați pe care să-l deschideți:",
     "cancel": "Anulare",
     "open": "Deschide"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "Configurare controale",
+    "shortcutBtn": "Comenzi rapide",
+    "tabKeyboard": "Tastatură",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "Sloturi cart",
+    "sectionPlayback": "Redare",
+    "sectionVolume": "Volum",
+    "cartSlot": "Slot {n}",
+    "pauseResume": "Pauză / Reluare",
+    "toggleLoop": "Comutare buclă",
+    "stopAll": "Oprire tot",
+    "selectUp": "Selectare sus",
+    "selectDown": "Selectare jos",
+    "playSelected": "Redare selectat",
+    "masterVolume": "Volum principal",
+    "midiDevice": "Dispozitiv MIDI",
+    "allDevices": "Toate dispozitivele",
+    "conflictSlot": "Deja atribuit slotului {n}",
+    "conflictAction": "Deja atribuit la {action}",
+    "pressAnyKey": "Apăsați orice tastă...",
+    "reserved": "Această combinație de taste este rezervată",
+    "resetKeyboard": "Resetare la implicit",
+    "resetMidi": "Resetare totală",
+    "close": "Închide",
+    "clear": "Șterge",
+    "learn": "Învățare",
+    "cancel": "Anulare",
+    "waitingForInput": "Așteptând intrare MIDI...",
+    "noDevices": "Nu s-au detectat dispozitive MIDI",
+    "reassign": "Reatribuire",
+    "conflictMessage": "Acest control MIDI este deja atribuit la \"{action}\". Reatribuiți?",
+    "playNext": "Redare următorul"
   }
 }

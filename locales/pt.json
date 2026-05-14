@@ -62,7 +62,10 @@
     "conflict": "Já atribuído ao Slot {slot}",
     "reserved": "Esta combinação de teclas está reservada",
     "resetDefaults": "Restaurar Padrões",
-    "close": "Fechar"
+    "close": "Fechar",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "Propriedades",
@@ -206,5 +209,51 @@
     "message": "Vários projetos encontrados no arquivo. Por favor, selecione qual abrir:",
     "cancel": "Cancelar",
     "open": "Abrir"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "Configurar controles",
+    "shortcutBtn": "Atalhos",
+    "tabKeyboard": "Teclado",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "Slots do painel",
+    "sectionPlayback": "Reprodução",
+    "sectionVolume": "Volume",
+    "cartSlot": "Slot {n}",
+    "pauseResume": "Pausar / Retomar",
+    "toggleLoop": "Alternar loop",
+    "stopAll": "Parar tudo",
+    "selectUp": "Selecionar acima",
+    "selectDown": "Selecionar abaixo",
+    "playSelected": "Reproduzir selecionado",
+    "masterVolume": "Volume principal",
+    "midiDevice": "Dispositivo MIDI",
+    "allDevices": "Todos os dispositivos",
+    "conflictSlot": "Já atribuído ao slot {n}",
+    "conflictAction": "Já atribuído a {action}",
+    "pressAnyKey": "Pressione qualquer tecla...",
+    "reserved": "Esta combinação de teclas está reservada",
+    "resetKeyboard": "Restaurar padrões",
+    "resetMidi": "Redefinir tudo",
+    "close": "Fechar",
+    "clear": "Limpar",
+    "learn": "Aprender",
+    "cancel": "Cancelar",
+    "waitingForInput": "Aguardando entrada MIDI...",
+    "noDevices": "Nenhum dispositivo MIDI detectado",
+    "reassign": "Reatribuir",
+    "conflictMessage": "Este controle MIDI já está atribuído a \"{action}\". Reatribuir?",
+    "playNext": "Reproduzir próximo"
   }
 }

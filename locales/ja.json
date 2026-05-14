@@ -62,7 +62,10 @@
     "conflict": "すでにスロット {slot} に割り当て済み",
     "reserved": "このキー組み合わせは予約済みです",
     "resetDefaults": "デフォルトにリセット",
-    "close": "閉じる"
+    "close": "閉じる",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "プロパティ",
@@ -206,5 +209,51 @@
     "message": "アーカイブに複数のプロジェクトが見つかりました。開くプロジェクトを選択してください：",
     "cancel": "キャンセル",
     "open": "開く"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "コントロール設定",
+    "shortcutBtn": "ショートカット",
+    "tabKeyboard": "キーボード",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "カートスロット",
+    "sectionPlayback": "再生",
+    "sectionVolume": "音量",
+    "cartSlot": "スロット {n}",
+    "pauseResume": "一時停止 / 再開",
+    "toggleLoop": "ループ切替",
+    "stopAll": "すべて停止",
+    "selectUp": "上に選択",
+    "selectDown": "下に選択",
+    "playSelected": "選択を再生",
+    "masterVolume": "マスターボリューム",
+    "midiDevice": "MIDIデバイス",
+    "allDevices": "すべてのデバイス",
+    "conflictSlot": "スロット {n} に割り当て済み",
+    "conflictAction": "{action} に割り当て済み",
+    "pressAnyKey": "任意のキーを押してください...",
+    "reserved": "このキーの組み合わせは予約済みです",
+    "resetKeyboard": "デフォルトにリセット",
+    "resetMidi": "すべてリセット",
+    "close": "閉じる",
+    "clear": "クリア",
+    "learn": "学習",
+    "cancel": "キャンセル",
+    "waitingForInput": "MIDI入力待ち...",
+    "noDevices": "MIDIデバイスが検出されません",
+    "reassign": "再割り当て",
+    "conflictMessage": "このMIDIコントロールは既に「{action}」に割り当てられています。再割り当てしますか？",
+    "playNext": "次を再生"
   }
 }

@@ -62,7 +62,10 @@
     "conflict": "Redan tilldelad Plats {slot}",
     "reserved": "Denna tangentkombination är reserverad",
     "resetDefaults": "Återställ till Standard",
-    "close": "Stäng"
+    "close": "Stäng",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "Egenskaper",
@@ -206,5 +209,51 @@
     "message": "Flera projekt hittades i arkivet. Vänligen välj vilket som ska öppnas:",
     "cancel": "Avbryt",
     "open": "Öppna"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "Konfigurera kontroller",
+    "shortcutBtn": "Genvägar",
+    "tabKeyboard": "Tangentbord",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "Kortplatser",
+    "sectionPlayback": "Uppspelning",
+    "sectionVolume": "Volym",
+    "cartSlot": "Plats {n}",
+    "pauseResume": "Pausa / Fortsätt",
+    "toggleLoop": "Växla loop",
+    "stopAll": "Stoppa alla",
+    "selectUp": "Välj uppåt",
+    "selectDown": "Välj nedåt",
+    "playSelected": "Spela valt",
+    "masterVolume": "Mastervolym",
+    "midiDevice": "MIDI-enhet",
+    "allDevices": "Alla enheter",
+    "conflictSlot": "Redan tilldelat plats {n}",
+    "conflictAction": "Redan tilldelat {action}",
+    "pressAnyKey": "Tryck på valfri tangent...",
+    "reserved": "Denna tangentkombination är reserverad",
+    "resetKeyboard": "Återställ till standard",
+    "resetMidi": "Återställ alla",
+    "close": "Stäng",
+    "clear": "Rensa",
+    "learn": "Lär in",
+    "cancel": "Avbryt",
+    "waitingForInput": "Väntar på MIDI-inmatning...",
+    "noDevices": "Inga MIDI-enheter hittades",
+    "reassign": "Tilldela om",
+    "conflictMessage": "Denna MIDI-kontroll är redan tilldelad \"{action}\". Tilldela om?",
+    "playNext": "Spela nästa"
   }
 }

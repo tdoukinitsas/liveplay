@@ -62,7 +62,10 @@
     "conflict": "이미 슬롯 {slot}에 할당됨",
     "reserved": "이 키 조합은 예약되어 있습니다",
     "resetDefaults": "기본값으로 재설정",
-    "close": "닫기"
+    "close": "닫기",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "속성",
@@ -206,5 +209,51 @@
     "message": "아카이브에서 여러 프로젝트를 찾았습니다. 열 프로젝트를 선택하세요:",
     "cancel": "취소",
     "open": "열기"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "컨트롤 설정",
+    "shortcutBtn": "단축키",
+    "tabKeyboard": "키보드",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "카트 슬롯",
+    "sectionPlayback": "재생",
+    "sectionVolume": "볼륨",
+    "cartSlot": "슬롯 {n}",
+    "pauseResume": "일시정지 / 재개",
+    "toggleLoop": "루프 전환",
+    "stopAll": "모두 중지",
+    "selectUp": "위로 선택",
+    "selectDown": "아래로 선택",
+    "playSelected": "선택 항목 재생",
+    "masterVolume": "마스터 볼륨",
+    "midiDevice": "MIDI 장치",
+    "allDevices": "모든 장치",
+    "conflictSlot": "슬롯 {n}에 이미 할당됨",
+    "conflictAction": "{action}에 이미 할당됨",
+    "pressAnyKey": "아무 키나 누르세요...",
+    "reserved": "이 키 조합은 예약되어 있습니다",
+    "resetKeyboard": "기본값으로 재설정",
+    "resetMidi": "모두 재설정",
+    "close": "닫기",
+    "clear": "지우기",
+    "learn": "학습",
+    "cancel": "취소",
+    "waitingForInput": "MIDI 입력 대기 중...",
+    "noDevices": "MIDI 장치가 감지되지 않음",
+    "reassign": "재할당",
+    "conflictMessage": "이 MIDI 컨트롤은 이미 \"{action}\"에 할당되어 있습니다. 재할당하시겠습니까?",
+    "playNext": "다음 재생"
   }
 }

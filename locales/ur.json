@@ -62,7 +62,10 @@
     "conflict": "پہلے سے سلاٹ {slot} کو تفویض کیا گیا",
     "reserved": "یہ کی کومبی نیشن محفوظ ہے",
     "resetDefaults": "ڈیفالٹ پر ری سیٹ کریں",
-    "close": "بند کریں"
+    "close": "بند کریں",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "خصوصیات",
@@ -206,5 +209,51 @@
     "message": "آرکائیو میں متعدد پروجیکٹس ملے۔ براہ کرم منتخب کریں کہ کون سا کھولنا ہے:",
     "cancel": "منسوخ کریں",
     "open": "کھولیں"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "کنٹرولز ترتیب دیں",
+    "shortcutBtn": "شارٹ کٹس",
+    "tabKeyboard": "کی بورڈ",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "کارٹ سلاٹس",
+    "sectionPlayback": "پلے بیک",
+    "sectionVolume": "آواز",
+    "cartSlot": "سلاٹ {n}",
+    "pauseResume": "روکیں / جاری رکھیں",
+    "toggleLoop": "لوپ ٹوگل کریں",
+    "stopAll": "سب بند کریں",
+    "selectUp": "اوپر منتخب کریں",
+    "selectDown": "نیچے منتخب کریں",
+    "playSelected": "منتخب کو چلائیں",
+    "masterVolume": "ماسٹر آواز",
+    "midiDevice": "MIDI آلہ",
+    "allDevices": "تمام آلات",
+    "conflictSlot": "پہلے سے سلاٹ {n} کو تفویض",
+    "conflictAction": "پہلے سے {action} کو تفویض",
+    "pressAnyKey": "کوئی بھی کلید دبائیں...",
+    "reserved": "یہ کلید کا مجموعہ محفوظ ہے",
+    "resetKeyboard": "پہلے سے طے شدہ پر ری سیٹ کریں",
+    "resetMidi": "سب ری سیٹ کریں",
+    "close": "بند کریں",
+    "clear": "صاف کریں",
+    "learn": "سیکھیں",
+    "cancel": "منسوخ کریں",
+    "waitingForInput": "MIDI ان پٹ کا انتظار...",
+    "noDevices": "کوئی MIDI آلہ نہیں ملا",
+    "reassign": "دوبارہ تفویض کریں",
+    "conflictMessage": "یہ MIDI کنٹرول پہلے سے \"{action}\" کو تفویض ہے۔ دوبارہ تفویض کریں؟",
+    "playNext": "اگلا چلائیں"
   }
 }

@@ -218,11 +218,12 @@ const stripWaveforms = (items: any[]): any[] =>
 
 watch(currentProject, (project) => {
   if (!import.meta.client || !window.electronAPI || !project) return;
-  window.electronAPI.syncProjectData({
+  const data = {
     ...project,
     items: stripWaveforms(project.items || []),
     cartOnlyItems: Array.from(cartOnlyItems.value.values()).map(i => ({ ...i, waveform: null }))
-  });
+  };
+  window.electronAPI.syncProjectData(JSON.parse(JSON.stringify(data)));
 }, { deep: true, immediate: true });
 
 // Save on F1 key (alternative to big play button)

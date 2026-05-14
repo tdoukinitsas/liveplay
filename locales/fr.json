@@ -62,7 +62,10 @@
     "conflict": "Déjà assigné à l'Emplacement {slot}",
     "reserved": "Cette combinaison de touches est réservée",
     "resetDefaults": "Réinitialiser les Valeurs par Défaut",
-    "close": "Fermer"
+    "close": "Fermer",
+    "configureControls": "Configure Controls",
+    "tabKeyboard": "Keyboard",
+    "tabMidi": "MIDI"
   },
   "properties": {
     "title": "Propriétés",
@@ -206,5 +209,51 @@
     "message": "Plusieurs projets trouvés dans l'archive. Veuillez sélectionner celui à ouvrir :",
     "cancel": "Annuler",
     "open": "Ouvrir"
+  },
+  "midi": {
+    "configTitle": "MIDI Controller Configuration",
+    "learn": "Learn",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "resetAll": "Reset All",
+    "close": "Close",
+    "waitingForInput": "Waiting for MIDI input...",
+    "noDevices": "No MIDI devices detected",
+    "reassign": "Reassign",
+    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+  },
+  "controls": {
+    "title": "Configurer les contrôles",
+    "shortcutBtn": "Raccourcis",
+    "tabKeyboard": "Clavier",
+    "tabMidi": "MIDI",
+    "sectionCartSlots": "Emplacements",
+    "sectionPlayback": "Lecture",
+    "sectionVolume": "Volume",
+    "cartSlot": "Emplacement {n}",
+    "pauseResume": "Pause / Reprendre",
+    "toggleLoop": "Activer la boucle",
+    "stopAll": "Tout arrêter",
+    "selectUp": "Sélectionner vers le haut",
+    "selectDown": "Sélectionner vers le bas",
+    "playSelected": "Lire la sélection",
+    "masterVolume": "Volume principal",
+    "midiDevice": "Périphérique MIDI",
+    "allDevices": "Tous les périphériques",
+    "conflictSlot": "Déjà assigné à l'emplacement {n}",
+    "conflictAction": "Déjà assigné à {action}",
+    "pressAnyKey": "Appuyez sur une touche...",
+    "reserved": "Cette combinaison de touches est réservée",
+    "resetKeyboard": "Réinitialiser par défaut",
+    "resetMidi": "Tout réinitialiser",
+    "close": "Fermer",
+    "clear": "Effacer",
+    "learn": "Apprendre",
+    "cancel": "Annuler",
+    "waitingForInput": "En attente d'entrée MIDI...",
+    "noDevices": "Aucun périphérique MIDI détecté",
+    "reassign": "Réassigner",
+    "conflictMessage": "Ce contrôle MIDI est déjà assigné à \"{action}\". Réassigner?",
+    "playNext": "Lire le suivant"
   }
 }

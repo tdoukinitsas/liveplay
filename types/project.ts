@@ -98,6 +98,16 @@ export interface CartSlotKeyBinding {
   altKey: boolean;
 }
 
+// Configurable playback keyboard actions
+export type PlaybackKeyAction =
+  | 'pause-resume'
+  | 'toggle-loop'
+  | 'stop-all'
+  | 'select-up'
+  | 'select-down'
+  | 'play-selected'
+  | 'play-next';
+
 // Cart player item
 export interface CartItem {
   slot: number; // 0-15
@@ -113,6 +123,7 @@ export interface Project {
   items: (AudioItem | GroupItem)[];
   cartItems: CartItem[];
   cartSlotKeys?: Record<number, CartSlotKeyBinding>;
+  playbackKeys?: Record<string, CartSlotKeyBinding | null>;
   cartOnlyItems: AudioItem[]; // Items that exist only in cart (not in playlist)
   theme: Theme;
   createdAt: string;
@@ -212,22 +223,15 @@ export const DEFAULT_GROUP_ITEM: Partial<GroupItem> = {
   children: []
 };
 
-// Default cart slot key mappings: 1-9 → slots 0-8, 0 → slot 9, Ctrl+1-6 → slots 10-15
-export const DEFAULT_CART_SLOT_KEYS: Record<number, CartSlotKeyBinding> = {
-  0:  { key: '1', ctrlKey: false, shiftKey: false, altKey: false },
-  1:  { key: '2', ctrlKey: false, shiftKey: false, altKey: false },
-  2:  { key: '3', ctrlKey: false, shiftKey: false, altKey: false },
-  3:  { key: '4', ctrlKey: false, shiftKey: false, altKey: false },
-  4:  { key: '5', ctrlKey: false, shiftKey: false, altKey: false },
-  5:  { key: '6', ctrlKey: false, shiftKey: false, altKey: false },
-  6:  { key: '7', ctrlKey: false, shiftKey: false, altKey: false },
-  7:  { key: '8', ctrlKey: false, shiftKey: false, altKey: false },
-  8:  { key: '9', ctrlKey: false, shiftKey: false, altKey: false },
-  9:  { key: '0', ctrlKey: false, shiftKey: false, altKey: false },
-  10: { key: '1', ctrlKey: true, shiftKey: false, altKey: false },
-  11: { key: '2', ctrlKey: true, shiftKey: false, altKey: false },
-  12: { key: '3', ctrlKey: true, shiftKey: false, altKey: false },
-  13: { key: '4', ctrlKey: true, shiftKey: false, altKey: false },
-  14: { key: '5', ctrlKey: true, shiftKey: false, altKey: false },
-  15: { key: '6', ctrlKey: true, shiftKey: false, altKey: false },
+// Cart slots have no default key bindings — user assigns them manually
+export const DEFAULT_CART_SLOT_KEYS: Record<number, CartSlotKeyBinding> = {};
+
+// Default keyboard bindings for playback actions
+export const DEFAULT_PLAYBACK_KEYS: Partial<Record<PlaybackKeyAction, CartSlotKeyBinding>> = {
+  'play-next':     { key: ' ',         ctrlKey: false, shiftKey: false, altKey: false },
+  'pause-resume':  { key: 'p',         ctrlKey: false, shiftKey: false, altKey: false },
+  'stop-all':      { key: 'Escape',    ctrlKey: false, shiftKey: false, altKey: false },
+  'select-up':     { key: 'ArrowUp',   ctrlKey: false, shiftKey: false, altKey: false },
+  'select-down':   { key: 'ArrowDown', ctrlKey: false, shiftKey: false, altKey: false },
+  'play-selected': { key: 'Enter',     ctrlKey: false, shiftKey: false, altKey: false },
 };

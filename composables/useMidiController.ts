@@ -13,28 +13,35 @@ export type MidiActionId =
   | 'trigger-slot-4' | 'trigger-slot-5' | 'trigger-slot-6' | 'trigger-slot-7'
   | 'trigger-slot-8' | 'trigger-slot-9' | 'trigger-slot-10' | 'trigger-slot-11'
   | 'trigger-slot-12' | 'trigger-slot-13' | 'trigger-slot-14' | 'trigger-slot-15'
-  | 'pause-resume' | 'toggle-loop' | 'stop-all' | 'master-volume';
+  | 'pause-resume' | 'toggle-loop' | 'stop-all' | 'master-volume'
+  | 'select-up' | 'select-down' | 'play-selected' | 'play-next';
 
 // Config stored in midi-config.json
 export interface MidiConfig {
   bindings: Record<string, MidiBinding>; // actionId → binding
+  preferredDevice?: string;              // preferred MIDI input device name
 }
 
 // All available actions with display metadata
-export const MIDI_ACTIONS: { id: MidiActionId; label: string; category: string; continuous: boolean }[] = [
+export const MIDI_ACTIONS: { id: MidiActionId; labelKey: string; category: string; continuous: boolean; n?: number }[] = [
   // Cart slots
   ...Array.from({ length: 16 }, (_, i) => ({
     id: `trigger-slot-${i}` as MidiActionId,
-    label: `Cart Slot ${i + 1}`,
+    labelKey: 'controls.cartSlot',
     category: 'Cart Slots',
     continuous: false,
+    n: i + 1,
   })),
   // Playback
-  { id: 'pause-resume', label: 'Pause / Resume', category: 'Playback', continuous: false },
-  { id: 'toggle-loop', label: 'Toggle Loop', category: 'Playback', continuous: false },
-  { id: 'stop-all', label: 'Stop All', category: 'Playback', continuous: false },
+  { id: 'pause-resume',  labelKey: 'controls.pauseResume',  category: 'Playback', continuous: false },
+  { id: 'toggle-loop',   labelKey: 'controls.toggleLoop',   category: 'Playback', continuous: false },
+  { id: 'stop-all',      labelKey: 'controls.stopAll',      category: 'Playback', continuous: false },
+  { id: 'select-up',     labelKey: 'controls.selectUp',     category: 'Playback', continuous: false },
+  { id: 'select-down',   labelKey: 'controls.selectDown',   category: 'Playback', continuous: false },
+  { id: 'play-selected', labelKey: 'controls.playSelected', category: 'Playback', continuous: false },
+  { id: 'play-next',     labelKey: 'controls.playNext',     category: 'Playback', continuous: false },
   // Volume
-  { id: 'master-volume', label: 'Master Volume', category: 'Volume', continuous: true },
+  { id: 'master-volume', labelKey: 'controls.masterVolume', category: 'Volume',   continuous: true  },
 ];
 
 /**
@@ -93,10 +100,12 @@ const lastMidiMessage = ref<MidiBinding | null>(null);
 let onLearnCapture: ((binding: MidiBinding) => void) | null = null;
 let mounted = false;
 
+const preferredDevice = computed(() => config.value.preferredDevice ?? null);
+
 export const useMidiController = () => {
   const { getCartItem } = useCartItems();
   const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, setMasterGain } = useAudioEngine();
-  const { selectedItem, saveProject } = useProject();
+  const { selectedItem, saveProject, currentProject, getAllItemsFlat, toggleItemSelection } = useProject();
 
   /**
    * Dispatch a discrete action.
@@ -182,6 +191,50 @@ export const useMidiController = () => {
       stopAllCues();
       return;
     }
+
+    if (actionId === 'select-up' || actionId === 'select-down') {
+      const project = currentProject.value;
+      if (!project) return;
+      const all = getAllItemsFlat(project.items);
+      if (all.length === 0) return;
+      if (!selectedItem.value) {
+        toggleItemSelection(all[0].uuid, false, false);
+        return;
+      }
+      const idx = all.findIndex(i => i.uuid === selectedItem.value!.uuid);
+      if (actionId === 'select-up' && idx > 0) {
+        toggleItemSelection(all[idx - 1].uuid, false, false);
+      } else if (actionId === 'select-down' && idx < all.length - 1) {
+        toggleItemSelection(all[idx + 1].uuid, false, false);
+      } else if (idx === -1) {
+        toggleItemSelection(all[0].uuid, false, false);
+      }
+      return;
+    }
+
+    if (actionId === 'play-selected') {
+      if (!selectedItem.value || selectedItem.value.type !== 'audio') return;
+      playCue(selectedItem.value as import('~/types/project').AudioItem);
+      return;
+    }
+
+    if (actionId === 'play-next') {
+      const project = currentProject.value;
+      if (!project) return;
+      const all = getAllItemsFlat(project.items).filter((i: any) => i.type === 'audio') as import('~/types/project').AudioItem[];
+      if (all.length === 0) return;
+      let currentIdx = -1;
+      if (activeCues.value.size > 0) {
+        const firstUuid = activeCues.value.keys().next().value;
+        if (firstUuid) currentIdx = all.findIndex((i: any) => i.uuid === firstUuid);
+      }
+      if (currentIdx === -1 && selectedItem.value) {
+        currentIdx = all.findIndex((i: any) => i.uuid === selectedItem.value!.uuid);
+      }
+      if (currentIdx === -1 || currentIdx >= all.length - 1) return;
+      playCue(all[currentIdx + 1]);
+      return;
+    }
   };
 
   /**
@@ -201,6 +254,12 @@ export const useMidiController = () => {
   const handleMidiMessage = (event: MIDIMessageEvent) => {
     const data = event.data;
     if (!data) return;
+
+    // Filter to preferred device if one is selected
+    if (config.value.preferredDevice) {
+      const inputName = (event.target as any)?.name as string | undefined;
+      if (inputName !== config.value.preferredDevice) return;
+    }
 
     const parsed = parseMidiMessage(data);
     if (!parsed || parsed.type === 'other') return;
@@ -298,10 +357,22 @@ export const useMidiController = () => {
   const loadConfig = async () => {
     if (import.meta.client && window.electronAPI) {
       const data = await window.electronAPI.readMidiConfig();
-      if (data && data.bindings) {
-        config.value = data as MidiConfig;
+      if (data) {
+        config.value = { bindings: {}, ...data } as MidiConfig;
       }
     }
+  };
+
+  /**
+   * Set (or clear) the preferred MIDI input device.
+   */
+  const setPreferredDevice = (deviceName: string | null) => {
+    if (deviceName) {
+      config.value.preferredDevice = deviceName;
+    } else {
+      delete config.value.preferredDevice;
+    }
+    saveConfig();
   };
 
   /**
@@ -386,6 +457,7 @@ export const useMidiController = () => {
   return {
     config,
     connectedDevices,
+    preferredDevice,
     learning,
     lastMidiMessage,
     mount,
@@ -395,5 +467,6 @@ export const useMidiController = () => {
     updateBinding,
     clearBinding,
     clearAllBindings,
+    setPreferredDevice,
   };
 };
