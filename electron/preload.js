@@ -134,5 +134,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateAppState: (state) => ipcRenderer.send('update-app-state', state),
   
   // Check if dev mode is enabled
-  isDevMode: () => ipcRenderer.invoke('is-dev-mode')
+  isDevMode: () => ipcRenderer.invoke('is-dev-mode'),
+
+  // MIDI config
+  readMidiConfig: () => ipcRenderer.invoke('read-midi-config'),
+  writeMidiConfig: (config) => ipcRenderer.invoke('write-midi-config', config)
 });

@@ -1,5 +1,5 @@
 import type { AudioItem, DuckingBehavior, GroupItem } from '~/types/project';
-import { Howl } from 'howler';
+import { Howl, Howler } from 'howler';
 import { linearToDb, dbToLinear, applyVolumeOffset as applyVolumeOffsetUtil, estimateCurrentLevel } from '~/utils/audio';
 
 // Active cue tracking with Howler instances
@@ -41,6 +41,16 @@ export const useAudioEngine = () => {
   const activeGroups = useState<Map<string, ActiveGroupState>>('activeGroups', () => new Map());
   const masterOutputLevel = useState<number>('masterOutputLevel', () => -60); // Master output level in dB
   const masterPeakLevel = useState<number>('masterPeakLevel', () => -60); // Master peak level in dB
+  const masterGainDb = useState<number>('masterGainDb', () => 0); // Master gain in dB (-60 to 0), 0 = unity
+
+  /**
+   * Set master gain and apply to Howler global volume.
+   */
+  const setMasterGain = (db: number) => {
+    const clamped = Math.max(-60, Math.min(0, db));
+    masterGainDb.value = clamped;
+    Howler.volume(clamped <= -60 ? 0 : dbToLinear(clamped));
+  };
 
   // Helper function to apply -10dB offset to volume
   // This allows the UI to show 0dB as "normal" while actually playing at -10dB
@@ -1312,6 +1322,8 @@ export const useAudioEngine = () => {
     activeGroups,
     masterOutputLevel,
     masterPeakLevel,
+    masterGainDb,
+    setMasterGain,
     playCue,
     stopCue,
     stopAllCues,
