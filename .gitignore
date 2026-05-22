@@ -1,8 +1,16 @@
+# ---------------------------------------------------------------------------
+# Node / Nuxt / Electron (client)
+# ---------------------------------------------------------------------------
 node_modules/
-dist/
-dist-electron/
+client/node_modules/
 .nuxt/
+client/.nuxt/
 .output/
+client/.output/
+dist/
+client/dist/
+dist-electron/
+client/dist-electron/
 .env
 .DS_Store
 *.log
@@ -11,8 +19,21 @@ dist-electron/
 !.vscode/extensions.json
 .idea
 package-lock.json
-dist/
 build/
 out/
 yt-dlp.exe
 .claude
+
+# ---------------------------------------------------------------------------
+# Server (C++ / CMake / vcpkg)
+# ---------------------------------------------------------------------------
+server/build/
+server/build-*/
+server/out/
+server/cmake-build-*/
+server/vcpkg_installed/
+server/.vcpkg-root
+server/CMakeCache.txt
+server/CMakeFiles/
+server/compile_commands.json
+server/.vs/

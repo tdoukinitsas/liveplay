@@ -1,0 +1,32 @@
+{
+  "name": "liveplay-monorepo",
+  "version": "1.3.0",
+  "private": true,
+  "description": "LivePlay — open-source audio playback for live sound operators. Monorepo root: client (Vue/Electron) + server (C++ audio engine).",
+  "license": "AGPL-3.0-only",
+  "author": {
+    "name": "Thomas Doukinitsas",
+    "email": "creativityfilms@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tdoukinitsas/liveplay.git"
+  },
+  "workspaces": [
+    "client"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=client",
+    "dev:client": "npm run dev --workspace=client",
+    "build:client": "npm run build --workspace=client",
+    "build:client:electron": "npm run build:electron --workspace=client",
+    "install:client": "npm install --workspace=client",
+    "server:configure": "cmake -S server -B server/build -G Ninja -DCMAKE_BUILD_TYPE=Release",
+    "server:build": "cmake --build server/build --config Release -j",
+    "server:run": "node -e \"const {spawnSync}=require('child_process');const fs=require('fs');const path=require('path');const cands=['server/build/Release/liveplay-server.exe','server/build/liveplay-server.exe','server/build/liveplay-server'];const bin=cands.find(p=>fs.existsSync(p));if(!bin){console.error('build the server first: npm run server:build');process.exit(1)}spawnSync(path.resolve(bin),process.argv.slice(1),{stdio:'inherit'})\"",
+    "dev:all": "concurrently -n server,client -c blue,green \"npm:server:run\" \"npm:dev:client\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

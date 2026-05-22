@@ -1,0 +1,180 @@
+// ============================================================================
+// liveplay/audio/playback_item.hpp
+// ----------------------------------------------------------------------------
+// A single live cue instance — Tier 1 of the mixer tree.
+//
+// Each PlaybackItem owns:
+//   * Its own ma_decoder (independent state per cue, even when two cues load
+//     the same file — solves the LivePlay 1.x state-sharing bug)
+//   * Per-item linear gain + fade envelope (in/out)
+//   * Transport state (Stopped / Playing / FadingOut / Paused)
+//   * An optional LTCGenerator that occupies a synthetic source channel
+//     appended after the file's real channels
+//   * A per-source-channel Meter
+//
+// Public mutators are control-thread safe (atomics + mutex for the decoder).
+// render_block() is audio-thread-only.
+//
+// Manual-stop fade contract:
+//   stop()        → if the configured fade-out duration is non-zero, transition
+//                   into FadingOut for that duration, then Stopped.
+//   stop_now()    → immediate stop, ignoring fade duration (panic button).
+//   master_stop() → goes through stop() (so fades are honoured).
+//   natural end-of-file → also funnels through stop() with the fade.
+//   ⇒ all three paths converge on the same envelope code → guaranteed
+//     consistent behaviour, fixing the 1.x "fade only on natural end" gap.
+// ============================================================================
+#pragma once
+
+#include "liveplay/audio/ltc_generator.hpp"
+#include "liveplay/audio/meter.hpp"
+#include "liveplay/audio/types.hpp"
+
+#include <atomic>
+#include <chrono>
+#include <filesystem>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <vector>
+
+// Forward-declare to keep miniaudio.h out of this public header.
+struct ma_decoder;
+
+namespace liveplay::audio {
+
+enum class TransportState : std::uint8_t {
+    Stopped     = 0,
+    Playing     = 1,
+    FadingIn    = 2,
+    FadingOut   = 3,
+    Paused      = 4,
+};
+
+struct PlaybackItemDesc {
+    CueId                    id;
+    std::filesystem::path    file_path;
+    SampleRate               mix_sample_rate = kDefaultMixSampleRate;
+    FrameCount               render_block    = kDefaultRenderBlock;
+
+    // Default channel count emitted by the decoder when the file doesn't
+    // declare one we recognise. 2 (stereo) covers ~all real-world cues.
+    ChannelCount             fallback_channels = 2;
+
+    // Per-cue fade durations (0 ms = instant).
+    std::chrono::milliseconds fade_in_duration  {0};
+    std::chrono::milliseconds fade_out_duration {0};
+
+    // LTC: nullopt = no LTC on this cue. When set, the LTCGenerator's mono
+    // output is appended as an extra source channel after the file's
+    // channels — index = file_channels (0-based).
+    bool                      ltc_enabled = false;
+    LTCFrameRate              ltc_frame_rate = LTCFrameRate::Fps30;
+    std::chrono::nanoseconds  ltc_offset    {0};
+};
+
+// Statistics that the control thread can read for UI / debugging.
+struct PlaybackItemStats {
+    TransportState  transport      = TransportState::Stopped;
+    FrameCount      playhead_frame = 0;
+    double          playhead_seconds = 0.0;
+    ChannelCount    source_channels = 0;     // including LTC if enabled
+    bool            file_loaded     = false;
+    bool            at_end          = false;
+};
+
+class PlaybackItem {
+public:
+    explicit PlaybackItem(PlaybackItemDesc desc);
+    ~PlaybackItem();
+
+    PlaybackItem(const PlaybackItem&) = delete;
+    PlaybackItem& operator=(const PlaybackItem&) = delete;
+
+    // Open the decoder. Returns false on failure (file missing, format
+    // unsupported, etc.). Idempotent — calling twice is allowed but rebuilds
+    // the decoder.
+    bool load();
+
+    // Close the decoder and free its memory. Stops playback first.
+    void unload();
+
+    // ---- Transport (control thread) --------------------------------------
+    void play();
+    void stop();                                  // honours fade_out_duration
+    void stop_now();                              // hard stop, ignores fade
+    void pause();
+    void resume();
+    void seek_seconds(double seconds);
+
+    // ---- Mutators --------------------------------------------------------
+    void set_gain_db(float db) noexcept;
+    void set_fade_in (std::chrono::milliseconds d) noexcept { desc_.fade_in_duration  = d; }
+    void set_fade_out(std::chrono::milliseconds d) noexcept { desc_.fade_out_duration = d; }
+    void set_ltc_enabled(bool enabled);
+    void set_ltc_frame_rate(LTCFrameRate fr);
+    void set_ltc_offset(std::chrono::nanoseconds offset) noexcept;
+
+    // ---- Introspection ---------------------------------------------------
+    const CueId&     id() const noexcept                  { return desc_.id; }
+    const PlaybackItemDesc& desc() const noexcept         { return desc_; }
+    ChannelCount     source_channel_count() const noexcept;  // includes LTC if enabled
+    PlaybackItemStats stats() const noexcept;
+
+    MeterSnapshot source_meter(ChannelIndex ch) const noexcept;
+
+    // ---- Audio thread ----------------------------------------------------
+    // Render `frame_count` frames into `out` (deinterleaved per source channel).
+    // `out` must point at an array of `source_channel_count()` channel pointers,
+    // each at least `frame_count` Samples long. The engine pre-allocates these
+    // buffers and reuses them.
+    //
+    // Returns the number of frames actually written. May be less than
+    // frame_count when end-of-file is reached this block; the rest is silenced
+    // and the transport transitions to Stopped (via the fade pathway).
+    std::size_t render_block(Sample* const* out_channel_buffers,
+                             ChannelCount   out_channel_count,
+                             std::size_t    frame_count) noexcept;
+
+private:
+    PlaybackItemDesc desc_;
+
+    // Owned decoder. Pointer because miniaudio types stay out of this header.
+    // Protected by decoder_mutex_ for load/unload/seek; the audio thread
+    // grabs a try_lock and falls back to silence on contention (rare).
+    std::unique_ptr<ma_decoder> decoder_;
+    std::mutex                  decoder_mutex_;
+    bool                        decoder_ready_ = false;
+    ChannelCount                file_channels_ = 0;
+
+    // Transport + gain state (hot atomics).
+    std::atomic<TransportState> transport_{TransportState::Stopped};
+    std::atomic<float>          gain_target_linear_{1.0f};
+    std::atomic<float>          gain_current_linear_{1.0f};     // smoothed
+
+    // Per-block fade state (active when transport_ == FadingIn or FadingOut).
+    std::atomic<float>          fade_start_linear_{0.0f};
+    std::atomic<float>          fade_end_linear_{1.0f};
+    std::atomic<long long>      fade_duration_samples_{0};
+    std::atomic<long long>      fade_elapsed_samples_{0};
+
+    // Playhead in mix-rate frames. Audio thread is the only writer.
+    std::atomic<std::uint64_t>  playhead_frames_{0};
+
+    // LTC generator (optional). Built fresh whenever LTC config changes.
+    std::unique_ptr<LTCGenerator> ltc_;
+    std::atomic<bool>             ltc_enabled_atomic_{false};
+    // Atomic offset so set_ltc_offset() can be called while playing without
+    // touching the LTCGenerator from the control thread.
+    std::atomic<long long>        ltc_offset_ns_{0};
+
+    // Per-source-channel meters (including LTC if enabled). Sized at load().
+    std::vector<std::unique_ptr<Meter>> source_meters_;
+
+    // Helpers ----------------------------------------------------------
+    void start_fade(float from_lin, float to_lin, std::chrono::milliseconds dur,
+                    TransportState during, TransportState after_complete) noexcept;
+    void resize_meters(ChannelCount n);
+};
+
+} // namespace liveplay::audio

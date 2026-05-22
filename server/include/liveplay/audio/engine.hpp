@@ -1,0 +1,250 @@
+// ============================================================================
+// liveplay/audio/engine.hpp
+// ----------------------------------------------------------------------------
+// The top-level AudioEngine. Owns:
+//   * One or more hardware Devices (each wrapping a miniaudio playback device).
+//   * The catalogue of PlaybackItems (cues, keyed by CueId).
+//   * The catalogue of MixerChannels (Tier 2 strips, keyed by MixerChannelId).
+//   * The "topology": which items send to which channels, which channels send
+//     to which master-bus indices, which master-bus indices map to which
+//     (device, hw-channel) pairs. The topology is held as an immutable
+//     snapshot in an std::atomic<std::shared_ptr<const Topology>> so the
+//     render thread reads it lock-free.
+//   * The render thread, which drives all PlaybackItems through the matrix
+//     into per-device PCM ring buffers. Each device's audio callback drains
+//     its own ring buffer.
+//   * Per-master-channel Limiter and Meter (so multi-device routing all
+//     enjoys brick-wall protection + 3rd-tier metering).
+//
+// Thread model:
+//   * Control thread (REST/WS handlers in M3, or test driver here in M2) —
+//     calls every public method except those marked "audio thread".
+//   * Render thread — internal to the engine; runs render_loop_.
+//   * Per-device callback threads — drain ring buffers; never touch engine
+//     state directly.
+//
+// All public methods are control-thread safe. Internal mutations to the
+// topology rebuild a new snapshot and atomic-store it.
+// ============================================================================
+#pragma once
+
+#include "liveplay/audio/limiter.hpp"
+#include "liveplay/audio/meter.hpp"
+#include "liveplay/audio/mixer_channel.hpp"
+#include "liveplay/audio/playback_item.hpp"
+#include "liveplay/audio/types.hpp"
+
+#include <atomic>
+#include <chrono>
+#include <filesystem>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+
+// Forward declare miniaudio types so the header stays clean.
+struct ma_device;
+struct ma_pcm_rb;
+
+namespace liveplay::audio {
+
+// ---------------------------------------------------------------------------
+// Public DTOs returned to the control thread / future REST layer
+// ---------------------------------------------------------------------------
+struct DeviceInfo {
+    DeviceId     id;
+    std::string  display_name;
+    ChannelCount channel_count;
+    SampleRate   sample_rate;
+    bool         is_default;
+};
+
+struct EngineConfig {
+    SampleRate         mix_sample_rate    = kDefaultMixSampleRate;
+    FrameCount         render_block       = kDefaultRenderBlock;
+    MasterChannelIndex master_channels    = 32;     // logical bus width
+    float              master_ceiling_db  = -0.3f;
+};
+
+// ---------------------------------------------------------------------------
+// Immutable topology snapshot (built on the control thread, read on the
+// render thread). Copies of std::shared_ptr<...> point at PlaybackItems and
+// MixerChannels so they stay alive even if removed from the live registries.
+// ---------------------------------------------------------------------------
+struct ItemRouteEntry {
+    std::shared_ptr<PlaybackItem>   item;
+    // For each source channel of the item, a list of (mixer channel ptr, gain).
+    struct SendList {
+        std::vector<std::pair<std::shared_ptr<MixerChannel>, float>> sends;
+    };
+    std::vector<SendList> per_source_channel;
+};
+
+struct MasterRouteEntry {
+    MasterChannelIndex index = kInvalidMasterChannel;
+    // Per master-channel: list of mixer channels feeding it, with gain.
+    std::vector<std::pair<std::shared_ptr<MixerChannel>, float>> sends;
+    // Where this master channel lands on hardware. Empty optional = bus is
+    // logically defined but not yet assigned to a hardware output (silent).
+    std::optional<MasterDestination> destination;
+};
+
+struct Topology {
+    std::vector<ItemRouteEntry>   items;     // all known items (active list filtered at render time)
+    std::vector<MasterRouteEntry> masters;   // size == master_channels
+};
+
+// ---------------------------------------------------------------------------
+class AudioEngine {
+public:
+    explicit AudioEngine(EngineConfig cfg = {});
+    ~AudioEngine();
+
+    AudioEngine(const AudioEngine&)            = delete;
+    AudioEngine& operator=(const AudioEngine&) = delete;
+
+    // ---- Lifecycle -------------------------------------------------------
+    bool start();
+    void stop();
+
+    // ---- Device management ----------------------------------------------
+    std::vector<DeviceInfo> enumerate_devices() const;
+
+    // Open the platform's default playback device with `output_channels`
+    // channels at the engine's mix rate.
+    DeviceId open_default_device(ChannelCount output_channels = 2);
+
+    // Open a device by name (substring match against display_name). Returns
+    // an empty DeviceId on failure.
+    DeviceId open_device_by_name(const std::string& name_substring,
+                                 ChannelCount output_channels = 2);
+
+    void close_device(const DeviceId& id);
+
+    // ---- Items / cues ----------------------------------------------------
+    // Create a fresh, independent PlaybackItem for `file_path`. Two carts
+    // loading the same file get two PlaybackItems with their own state —
+    // this is the fix for the 1.x cross-cart attenuation bug.
+    CueId load_cue(const std::filesystem::path& file_path,
+                   std::optional<CueId> requested_id = std::nullopt);
+
+    void unload_cue(const CueId& id);
+    PlaybackItem* find_cue(const CueId& id) const;
+
+    void play(const CueId& id);
+    void stop(const CueId& id);
+    void stop_all(std::chrono::milliseconds fade = std::chrono::milliseconds{0});
+
+    // ---- Mixer channels --------------------------------------------------
+    MixerChannelId create_mixer_channel(std::string display_name);
+    void remove_mixer_channel(const MixerChannelId& id);
+    MixerChannel* find_mixer_channel(const MixerChannelId& id) const;
+
+    // ---- Routing matrix --------------------------------------------------
+    void route_item_source_to_mixer(const CueId& cue,
+                                    ChannelIndex source_channel,
+                                    const MixerChannelId& mixer,
+                                    float gain_db = 0.0f);
+
+    void unroute_item_source_from_mixer(const CueId& cue,
+                                        ChannelIndex source_channel,
+                                        const MixerChannelId& mixer);
+
+    void route_mixer_to_master(const MixerChannelId& mixer,
+                               MasterChannelIndex master,
+                               float gain_db = 0.0f);
+
+    void unroute_mixer_from_master(const MixerChannelId& mixer,
+                                   MasterChannelIndex master);
+
+    void assign_master_to_device(MasterChannelIndex master,
+                                 const DeviceId& device,
+                                 ChannelIndex hw_channel);
+
+    void clear_master_assignment(MasterChannelIndex master);
+
+    // ---- Master ----------------------------------------------------------
+    void set_master_ceiling_db(float db);
+
+    // ---- Metering reads --------------------------------------------------
+    MeterSnapshot read_master_meter(MasterChannelIndex master) const;
+    float         read_master_gain_reduction_db(MasterChannelIndex master) const;
+
+    // ---- Introspection ---------------------------------------------------
+    const EngineConfig& config() const noexcept { return cfg_; }
+
+private:
+    // ---- Internal device wrapper ----------------------------------------
+    struct Device {
+        DeviceId                    id;
+        std::string                 display_name;
+        ChannelCount                channels = 2;
+        SampleRate                  sample_rate = kDefaultMixSampleRate;
+        std::unique_ptr<ma_device>  ma_dev;
+        std::unique_ptr<ma_pcm_rb>  ring;             // SPSC PCM ring
+        std::vector<Sample>         scratch;          // interleaved staging buffer
+        std::atomic<bool>           started{false};
+    };
+
+    EngineConfig                                 cfg_;
+    mutable std::mutex                           mutex_;          // guards registries + topology rebuild
+    std::unordered_map<std::string, std::shared_ptr<PlaybackItem>>  items_;
+    std::unordered_map<std::string, std::shared_ptr<MixerChannel>>  mixers_;
+    std::vector<std::unique_ptr<Device>>         devices_;
+
+    // Pending route description — the source-of-truth that topology rebuilds from.
+    struct PendingRoute {
+        // item-to-mixer: cue → (source_channel → [(mixer, gainLin), ...])
+        struct ItemSourceRoutes {
+            std::vector<std::vector<std::pair<MixerChannelId, float>>> by_source_channel;
+        };
+        std::unordered_map<std::string, ItemSourceRoutes> item_sources;
+
+        // mixer-to-master: mixerId → [(master, gainLin), ...]
+        std::unordered_map<std::string, std::vector<std::pair<MasterChannelIndex, float>>> mixer_to_master;
+
+        // master-to-device: masterIdx → MasterDestination
+        std::vector<std::optional<MasterDestination>> master_destinations;
+    };
+    PendingRoute pending_;
+
+    // Atomic topology snapshot for the render thread.
+    std::atomic<std::shared_ptr<const Topology>> topology_{};
+
+    // Per master-channel state (lives outside the topology because limiter +
+    // meter are persistent across topology rebuilds).
+    struct MasterChannelState {
+        std::unique_ptr<Limiter> limiter;
+        std::unique_ptr<Meter>   meter;
+    };
+    std::vector<MasterChannelState>  master_state_;
+
+    // Render thread plumbing.
+    std::atomic<bool>                running_{false};
+    std::thread                      render_thread_;
+
+    // Scratch buffers reused by the render thread (allocated once at start()).
+    std::vector<std::vector<Sample>> mixer_accumulators_;  // [mixer_index][frame]
+    std::vector<std::vector<Sample>> master_accumulators_; // [master_index][frame]
+    // Per-item per-source-channel deinterleaved buffers. Indexed by item index
+    // in the current topology snapshot; reallocated when topology changes.
+    std::vector<std::vector<std::vector<Sample>>> item_channel_buffers_;
+
+    // -- Helpers ---------------------------------------------------------
+    void rebuild_topology_locked();
+    void publish_topology(std::shared_ptr<const Topology> snap);
+    std::shared_ptr<const Topology> snapshot_topology() const noexcept;
+
+    void render_loop();
+    void render_one_block(const Topology& topo);
+
+    Device* find_device_locked(const DeviceId& id) const;
+    DeviceId next_device_id();
+
+    static void ma_data_callback(ma_device* dev, void* out, const void* in, std::uint32_t frames);
+};
+
+} // namespace liveplay::audio

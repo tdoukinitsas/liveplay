@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "liveplay-server",
+  "version-string": "0.1.0",
+  "description": "LivePlay headless audio engine and control server.",
+  "homepage": "https://github.com/tdoukinitsas/liveplay",
+  "license": "AGPL-3.0-only",
+  "dependencies": [
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.11.3"
+    },
+    {
+      "name": "crow",
+      "version>=": "1.2.0"
+    },
+    {
+      "name": "taglib",
+      "version>=": "2.0.0"
+    },
+    {
+      "name": "miniaudio",
+      "version>=": "0.11.21"
+    }
+  ],
+  "builtin-baseline": "120deac3062162151622ca4860575a33844ba10b"
+}

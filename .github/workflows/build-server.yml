@@ -1,0 +1,172 @@
+name: Build Server (C++)
+
+# Runs the C++ build on every push/PR that touches the server, plus manually
+# via the Actions tab. Matrix: Windows MSVC, macOS Clang, Ubuntu GCC.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - '.github/workflows/build-server.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - '.github/workflows/build-server.yml'
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: build-server-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows (MSVC)
+            triplet: x64-windows
+            cmake_args: ""
+            artifact_name: liveplay-server-windows-x64
+            binary_glob: |
+              server/build/Release/liveplay-server.exe
+              server/build/liveplay-server.exe
+          - os: macos-latest
+            label: macOS (Clang)
+            triplet: arm64-osx
+            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0"
+            artifact_name: liveplay-server-macos-arm64
+            binary_glob: |
+              server/build/liveplay-server
+          - os: ubuntu-latest
+            label: Linux (GCC)
+            triplet: x64-linux
+            cmake_args: ""
+            artifact_name: liveplay-server-linux-x64
+            binary_glob: |
+              server/build/liveplay-server
+
+    env:
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # GitHub-hosted runners ship vcpkg pre-installed at VCPKG_INSTALLATION_ROOT.
+      # We re-export it as VCPKG_ROOT so CMake's toolchain dance picks it up.
+      - name: Export VCPKG_ROOT
+        shell: bash
+        run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
+
+      # Cache vcpkg's binary archive directory across runs of the same OS.
+      # x-gha binary source is the official GHA cache integration.
+      - name: Configure vcpkg GHA cache
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      # ------------------------------------------------------------------
+      # Platform-specific system dependencies
+      # ------------------------------------------------------------------
+      - name: Install Linux audio dev packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build \
+            pkg-config \
+            libasound2-dev \
+            libpulse-dev \
+            libjack-jackd2-dev \
+            libx11-dev
+
+      - name: Install macOS build tools
+        if: runner.os == 'macOS'
+        run: |
+          brew install ninja pkg-config
+
+      - name: Install Windows build tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install ninja -y
+
+      - name: Configure MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # ------------------------------------------------------------------
+      # Configure & build
+      # ------------------------------------------------------------------
+      - name: CMake configure
+        working-directory: server
+        shell: bash
+        run: |
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
+            ${{ matrix.cmake_args }}
+
+      - name: CMake build
+        working-directory: server
+        run: cmake --build build --config Release -j
+
+      # ------------------------------------------------------------------
+      # Smoke test — the banner should print without crashing.
+      # `--help` is wired up in main.cpp and exits 0 cleanly.
+      # ------------------------------------------------------------------
+      - name: Smoke test (--help)
+        if: runner.os != 'Windows'
+        working-directory: server
+        run: ./build/liveplay-server --help
+
+      - name: Smoke test (--help) Windows
+        if: runner.os == 'Windows'
+        working-directory: server
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path build -Recurse -Filter liveplay-server.exe | Select-Object -First 1
+          if (-not $exe) { throw "liveplay-server.exe not found" }
+          & $exe.FullName --help
+
+      # ------------------------------------------------------------------
+      # Stage and upload artefacts
+      # ------------------------------------------------------------------
+      - name: Stage artefact
+        shell: bash
+        run: |
+          mkdir -p artifact
+          # Copy whichever build/<config>/liveplay-server[.exe] exists.
+          if [ -f "server/build/Release/liveplay-server.exe" ]; then
+            cp "server/build/Release/liveplay-server.exe" artifact/
+          elif [ -f "server/build/liveplay-server.exe" ]; then
+            cp "server/build/liveplay-server.exe" artifact/
+          elif [ -f "server/build/liveplay-server" ]; then
+            cp "server/build/liveplay-server" artifact/
+          else
+            echo "::error::No liveplay-server binary found under server/build/"
+            ls -lR server/build || true
+            exit 1
+          fi
+          cp server/README.md artifact/README.md
+          cp LICENCE.txt artifact/LICENCE.txt
+
+      - name: Upload artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: artifact/
+          retention-days: 14

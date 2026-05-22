@@ -1,11 +1,14 @@
-name: Build and Release
+name: Build and Release (Client)
 
+# Cuts a client release whenever client/package.json's version field changes
+# on main. The server has its own workflow (build-server.yml); a unified
+# packaging pipeline will land in Milestone 6.
 on:
   push:
     branches:
       - main
     paths:
-      - 'package.json'
+      - 'client/package.json'
 
 jobs:
   check-version:
@@ -22,11 +25,11 @@ jobs:
       - name: Check if version changed
         id: version
         run: |
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          CURRENT_VERSION=$(node -p "require('./client/package.json').version")
           echo "version=v${CURRENT_VERSION}" >> $GITHUB_OUTPUT
-          
-          git diff HEAD^ HEAD -- package.json > package_diff.txt
-          
+
+          git diff HEAD^ HEAD -- client/package.json > package_diff.txt
+
           if grep -q '"version"' package_diff.txt; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "Version changed to ${CURRENT_VERSION}"
@@ -43,7 +46,11 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    
+
+    defaults:
+      run:
+        working-directory: client
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -53,6 +60,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: client/package-lock.json
 
       - name: Clean install dependencies
         shell: bash
@@ -92,8 +100,8 @@ jobs:
         with:
           name: windows-build
           path: |
-            dist-electron/*.exe
-            dist-electron/*.exe.blockmap
+            client/dist-electron/*.exe
+            client/dist-electron/*.exe.blockmap
           retention-days: 5
 
       - name: Upload artifacts (Linux)
@@ -102,9 +110,9 @@ jobs:
         with:
           name: linux-build
           path: |
-            dist-electron/*.AppImage
-            dist-electron/*.deb
-            dist-electron/*.rpm
+            client/dist-electron/*.AppImage
+            client/dist-electron/*.deb
+            client/dist-electron/*.rpm
           retention-days: 5
 
       - name: Upload artifacts (macOS)
@@ -113,9 +121,9 @@ jobs:
         with:
           name: macos-build
           path: |
-            dist-electron/*.dmg
-            dist-electron/*.dmg.blockmap
-            dist-electron/*.zip
+            client/dist-electron/*.dmg
+            client/dist-electron/*.dmg.blockmap
+            client/dist-electron/*.zip
           retention-days: 5
 
   release:
@@ -123,7 +131,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -157,34 +165,34 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
-          
+
           # Get the previous tag
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          
+
           if [ -z "$PREVIOUS_TAG" ]; then
             COMMIT_RANGE="HEAD"
           else
             COMMIT_RANGE="${PREVIOUS_TAG}..HEAD"
           fi
-          
+
           # Generate changelog
           echo "## What's Changed" > CHANGELOG.md
           echo "" >> CHANGELOG.md
-          
+
           # Get commits since last tag
           git log ${COMMIT_RANGE} --pretty=format:"- %s (%an)" --no-merges >> CHANGELOG.md
-          
+
           echo "" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
           echo "## Statistics" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
           echo "- **Commits**: $(git rev-list --count ${COMMIT_RANGE})" >> CHANGELOG.md
           echo "- **Contributors**: $(git log ${COMMIT_RANGE} --format='%an' --no-merges | sort -u | wc -l)" >> CHANGELOG.md
-          
+
           # Add language support info
-          LANG_COUNT=$(find locales -name "*.json" -type f | wc -l)
+          LANG_COUNT=$(find client/locales -name "*.json" -type f | wc -l)
           echo "- **Supported Languages**: ${LANG_COUNT}" >> CHANGELOG.md
-          
+
           cat CHANGELOG.md
 
       - name: Create Release
