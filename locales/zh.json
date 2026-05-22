@@ -146,7 +146,8 @@
     "pause": "暂停",
     "resume": "恢复",
     "edit": "编辑",
-    "remove": "移除"
+    "remove": "移除",
+    "setAsNext": "设为下一个"
   },
   "about": {
     "developedBy": "开发者",
@@ -255,5 +256,9 @@
     "reassign": "重新分配",
     "conflictMessage": "此MIDI控制器已分配给\"{action}\"。重新分配？",
     "playNext": "播放下一首"
+  },
+  "status": {
+    "playing": "正在播放",
+    "upNext": "下一个"
   }
 }

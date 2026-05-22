@@ -42,6 +42,37 @@ export const useAudioEngine = () => {
   const masterOutputLevel = useState<number>('masterOutputLevel', () => -60); // Master output level in dB
   const masterPeakLevel = useState<number>('masterPeakLevel', () => -60); // Master peak level in dB
   const masterGainDb = useState<number>('masterGainDb', () => 0); // Master gain in dB (-60 to 0), 0 = unity
+  const nextItemOverrideUuid = useState<string | null>('nextItemOverrideUuid', () => null);
+
+  // Derived: which item will play next, based on currently-playing items' end behaviors.
+  // The manual override (nextItemOverrideUuid) takes priority when set.
+  const autoNextItemUuid = computed((): string | null => {
+    if (!currentProject.value) return null;
+    for (const [uuid] of activeCues.value.entries()) {
+      const item = findItemByUuid(uuid);
+      if (!item || item.type !== 'audio') continue;
+      const audioItem = item as AudioItem;
+      switch (audioItem.endBehavior.action) {
+        case 'next': {
+          const nextIndex = [...audioItem.index];
+          nextIndex[nextIndex.length - 1]++;
+          const nextItem = findItemByIndex(nextIndex);
+          if (nextItem) return nextItem.uuid;
+          break;
+        }
+        case 'goto-item':
+          if (audioItem.endBehavior.targetUuid) return audioItem.endBehavior.targetUuid;
+          break;
+        case 'goto-index':
+          if (audioItem.endBehavior.targetIndex) {
+            const targetItem = findItemByIndex(audioItem.endBehavior.targetIndex);
+            if (targetItem) return targetItem.uuid;
+          }
+          break;
+      }
+    }
+    return null;
+  });
 
   /**
    * Set master gain and apply to Howler global volume.
@@ -224,6 +255,11 @@ export const useAudioEngine = () => {
       if (activeCues.value.has(item.uuid)) {
         console.warn('Cue already playing:', item.uuid);
         return false;
+      }
+
+      // Clear manual "set as next" override once the queued item actually starts playing
+      if (nextItemOverrideUuid.value === item.uuid) {
+        nextItemOverrideUuid.value = null;
       }
 
       const audioPath = `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
@@ -732,8 +768,27 @@ export const useAudioEngine = () => {
     }
   };
 
+  // Set a specific item as the next to play (overrides automatic sequencing)
+  const setNextItem = (uuid: string | null) => {
+    nextItemOverrideUuid.value = uuid;
+  };
+
   // Play next item in sequence
   const playNextItem = (currentIndex: number[]) => {
+    if (nextItemOverrideUuid.value) {
+      const overrideUuid = nextItemOverrideUuid.value;
+      nextItemOverrideUuid.value = null;
+      const overrideItem = findItemByUuid(overrideUuid);
+      if (overrideItem) {
+        if (overrideItem.type === 'audio') {
+          playCue(overrideItem as AudioItem);
+        } else if (overrideItem.type === 'group') {
+          triggerGroup(overrideItem);
+        }
+        return;
+      }
+    }
+
     const nextIndex = [...currentIndex];
     nextIndex[nextIndex.length - 1]++;
 
@@ -1323,7 +1378,10 @@ export const useAudioEngine = () => {
     masterOutputLevel,
     masterPeakLevel,
     masterGainDb,
+    nextItemOverrideUuid,
+    autoNextItemUuid,
     setMasterGain,
+    setNextItem,
     playCue,
     stopCue,
     stopAllCues,

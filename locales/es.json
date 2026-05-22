@@ -146,7 +146,8 @@
     "pause": "Pausar",
     "resume": "Reanudar",
     "edit": "Editar",
-    "remove": "Quitar"
+    "remove": "Quitar",
+    "setAsNext": "Establecer como siguiente"
   },
   "about": {
     "developedBy": "Desarrollado por",
@@ -255,5 +256,9 @@
     "reassign": "Reasignar",
     "conflictMessage": "Este control MIDI ya está asignado a \"{action}\". ¿Reasignar?",
     "playNext": "Reproducir siguiente"
+  },
+  "status": {
+    "playing": "Reproduciendo",
+    "upNext": "A continuación"
   }
 }

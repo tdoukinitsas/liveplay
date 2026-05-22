@@ -146,7 +146,8 @@
     "pause": "Pause",
     "resume": "Resume",
     "edit": "Edit",
-    "remove": "Remove"
+    "remove": "Remove",
+    "setAsNext": "Set As Next"
   },
   "about": {
     "developedBy": "Developed by",
@@ -255,5 +256,9 @@
     "message": "Multiple projects found in the archive. Please select which one to open:",
     "cancel": "Cancel",
     "open": "Open"
+  },
+  "status": {
+    "playing": "Playing",
+    "upNext": "Up Next"
   }
 }

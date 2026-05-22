@@ -46,9 +46,9 @@ export const eventToBinding = (e: KeyboardEvent): CartSlotKeyBinding => ({
 });
 
 export const useCartHotkeys = () => {
-  const { currentProject, selectedItem, saveProject, getAllItemsFlat, toggleItemSelection } = useProject();
+  const { currentProject, selectedItem, selectedItems, saveProject, getAllItemsFlat, toggleItemSelection, findItemByUuid } = useProject();
   const { getCartItem } = useCartItems();
-  const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues } = useAudioEngine();
+  const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem, triggerGroup } = useAudioEngine();
 
   const keyMappings = computed(() =>
     currentProject.value?.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS }
@@ -183,26 +183,22 @@ export const useCartHotkeys = () => {
     }
 
     if (action === 'play-selected') {
-      if (!selectedItem.value || selectedItem.value.type !== 'audio') return;
-      playCue(selectedItem.value as AudioItem);
+      const uuid = Array.from(selectedItems.value).pop();
+      if (!uuid) return;
+      const item = findItemByUuid(uuid);
+      if (!item || item.type !== 'audio') return;
+      playCue(item as AudioItem);
       return;
     }
 
     if (action === 'play-next') {
-      const project = currentProject.value;
-      if (!project) return;
-      const all = getAllItemsFlat(project.items).filter(i => i.type === 'audio') as AudioItem[];
-      if (all.length === 0) return;
-      let currentIdx = -1;
-      if (activeCues.value.size > 0) {
-        const firstUuid = activeCues.value.keys().next().value;
-        if (firstUuid) currentIdx = all.findIndex(i => i.uuid === firstUuid);
-      }
-      if (currentIdx === -1 && selectedItem.value) {
-        currentIdx = all.findIndex(i => i.uuid === selectedItem.value!.uuid);
-      }
-      if (currentIdx === -1 || currentIdx >= all.length - 1) return;
-      playCue(all[currentIdx + 1]);
+      const effectiveUuid = nextItemOverrideUuid.value ?? autoNextItemUuid.value;
+      if (!effectiveUuid) return;
+      const item = findItemByUuid(effectiveUuid);
+      if (!item) return;
+      if (nextItemOverrideUuid.value) setNextItem(null);
+      if (item.type === 'audio') playCue(item as AudioItem);
+      else if (item.type === 'group') triggerGroup(item);
       return;
     }
   };

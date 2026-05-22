@@ -146,7 +146,8 @@
     "pause": "Pauză",
     "resume": "Reia",
     "edit": "Editeaza",
-    "remove": "Îndepărtează"
+    "remove": "Îndepărtează",
+    "setAsNext": "Setează ca următor"
   },
   "about": {
     "developedBy": "Dezvoltat de",
@@ -255,5 +256,9 @@
     "reassign": "Reatribuire",
     "conflictMessage": "Acest control MIDI este deja atribuit la \"{action}\". Reatribuiți?",
     "playNext": "Redare următorul"
+  },
+  "status": {
+    "playing": "Se redă",
+    "upNext": "Următor"
   }
 }

@@ -104,8 +104,8 @@ const preferredDevice = computed(() => config.value.preferredDevice ?? null);
 
 export const useMidiController = () => {
   const { getCartItem } = useCartItems();
-  const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, setMasterGain } = useAudioEngine();
-  const { selectedItem, saveProject, currentProject, getAllItemsFlat, toggleItemSelection } = useProject();
+  const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, setMasterGain, nextItemOverrideUuid, autoNextItemUuid, setNextItem, triggerGroup } = useAudioEngine();
+  const { selectedItem, selectedItems, saveProject, currentProject, getAllItemsFlat, toggleItemSelection, findItemByUuid: findProjectItem } = useProject();
 
   /**
    * Dispatch a discrete action.
@@ -213,26 +213,22 @@ export const useMidiController = () => {
     }
 
     if (actionId === 'play-selected') {
-      if (!selectedItem.value || selectedItem.value.type !== 'audio') return;
-      playCue(selectedItem.value as import('~/types/project').AudioItem);
+      const uuid = Array.from(selectedItems.value).pop();
+      if (!uuid) return;
+      const item = findProjectItem(uuid);
+      if (!item || item.type !== 'audio') return;
+      playCue(item as import('~/types/project').AudioItem);
       return;
     }
 
     if (actionId === 'play-next') {
-      const project = currentProject.value;
-      if (!project) return;
-      const all = getAllItemsFlat(project.items).filter((i: any) => i.type === 'audio') as import('~/types/project').AudioItem[];
-      if (all.length === 0) return;
-      let currentIdx = -1;
-      if (activeCues.value.size > 0) {
-        const firstUuid = activeCues.value.keys().next().value;
-        if (firstUuid) currentIdx = all.findIndex((i: any) => i.uuid === firstUuid);
-      }
-      if (currentIdx === -1 && selectedItem.value) {
-        currentIdx = all.findIndex((i: any) => i.uuid === selectedItem.value!.uuid);
-      }
-      if (currentIdx === -1 || currentIdx >= all.length - 1) return;
-      playCue(all[currentIdx + 1]);
+      const effectiveUuid = nextItemOverrideUuid.value ?? autoNextItemUuid.value;
+      if (!effectiveUuid) return;
+      const item = findProjectItem(effectiveUuid);
+      if (!item) return;
+      if (nextItemOverrideUuid.value) setNextItem(null);
+      if (item.type === 'audio') playCue(item as import('~/types/project').AudioItem);
+      else if (item.type === 'group') triggerGroup(item);
       return;
     }
   };

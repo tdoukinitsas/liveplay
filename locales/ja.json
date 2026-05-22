@@ -146,7 +146,8 @@
     "pause": "一時停止",
     "resume": "再開",
     "edit": "編集",
-    "remove": "削除"
+    "remove": "削除",
+    "setAsNext": "次に設定"
   },
   "about": {
     "developedBy": "開発者",
@@ -255,5 +256,9 @@
     "reassign": "再割り当て",
     "conflictMessage": "このMIDIコントロールは既に「{action}」に割り当てられています。再割り当てしますか？",
     "playNext": "次を再生"
+  },
+  "status": {
+    "playing": "再生中",
+    "upNext": "次へ"
   }
 }

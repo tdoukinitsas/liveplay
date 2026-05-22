@@ -146,7 +146,8 @@
     "pause": "Pushim",
     "resume": "Vazhdo",
     "edit": "Redakto",
-    "remove": "Hiq"
+    "remove": "Hiq",
+    "setAsNext": "Vendos si tjetrin"
   },
   "about": {
     "developedBy": "Zhvilluar nga",
@@ -255,5 +256,9 @@
     "reassign": "Ricakto",
     "conflictMessage": "Ky kontroll MIDI është tashmë caktuar për \"{action}\". Ricakto?",
     "playNext": "Luaj të ardhshmen"
+  },
+  "status": {
+    "playing": "Duke luajtur",
+    "upNext": "Tjetri"
   }
 }

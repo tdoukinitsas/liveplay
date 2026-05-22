@@ -146,7 +146,8 @@
     "pause": "Duraklat",
     "resume": "Devam Et",
     "edit": "Düzenle",
-    "remove": "Kaldır"
+    "remove": "Kaldır",
+    "setAsNext": "Sonraki olarak ayarla"
   },
   "about": {
     "developedBy": "Geliştiren",
@@ -255,5 +256,9 @@
     "reassign": "Yeniden ata",
     "conflictMessage": "Bu MIDI kontrolü zaten \"{action}\" için atanmış. Yeniden ata?",
     "playNext": "Sonrakini oynat"
+  },
+  "status": {
+    "playing": "Çalıyor",
+    "upNext": "Sıradaki"
   }
 }

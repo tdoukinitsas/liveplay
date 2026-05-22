@@ -146,7 +146,8 @@
     "pause": "Pausieren",
     "resume": "Fortsetzen",
     "edit": "Bearbeiten",
-    "remove": "Entfernen"
+    "remove": "Entfernen",
+    "setAsNext": "Als Nächstes festlegen"
   },
   "about": {
     "developedBy": "Entwickelt von",
@@ -255,5 +256,9 @@
     "reassign": "Neu zuweisen",
     "conflictMessage": "Diese MIDI-Steuerung ist bereits \"{action}\" zugewiesen. Neu zuweisen?",
     "playNext": "Nächstes abspielen"
+  },
+  "status": {
+    "playing": "Wird gespielt",
+    "upNext": "Als Nächstes"
   }
 }

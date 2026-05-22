@@ -2,9 +2,10 @@
   <div 
     class="cart-slot"
     ref="slotRef"
-    :class="{ 
-      'has-item': hasItem, 
+    :class="{
+      'has-item': hasItem,
       'is-playing': isPlaying,
+      'is-selected': isSelected,
       'warning-yellow': warningState === 'yellow',
       'warning-orange': warningState === 'orange',
       'warning-red': warningState === 'red',
@@ -18,27 +19,29 @@
       <span class="slot-hint">{{ t('cart.clickToImport') }}</span>
     </div>
     
-    <div 
-      v-else 
+    <div
+      v-else
       class="slot-content"
       draggable="true"
       @dragstart="handleDragStart"
       @dragend="handleDragEnd"
     >
       <!-- Waveform canvas -->
-      <canvas 
+      <canvas
         v-if="item.type === 'audio' && item.waveform"
         ref="waveformCanvas"
         class="cart-waveform-canvas"
       ></canvas>
-      
+
       <!-- Progress overlay -->
       <div v-if="isPlaying" class="cart-progress" :style="progressStyle"></div>
-      
+
       <!-- Item info section -->
-      <div class="slot-header" @click="handlePlay">
+      <div class="slot-header" @click="handleSelect">
         <span class="slot-number">{{ slot + 1 }}</span>
         <span class="slot-name">{{ item.displayName }}</span>
+        <span v-if="isPlaying" class="status-pill playing">{{ t('status.playing') }}</span>
+        <span v-else-if="isQueuedNext" class="status-pill up-next">{{ t('status.upNext') }}</span>
         <span v-if="keyLabel" class="key-label">{{ keyLabel }}</span>
       </div>
       
@@ -55,13 +58,23 @@
       
       <!-- Bottom info bar with action buttons, behavior icons, and duration -->
       <div class="slot-footer">
-        <!-- Action buttons (show on hover) -->
+        <!-- Action buttons (always visible) -->
         <div class="slot-actions">
-          <button class="slot-btn play" @click.stop="handlePlay" :title="t('actions.play')">
-            <span class="material-symbols-rounded">play_arrow</span>
+          <button
+            class="slot-btn play"
+            :class="{ 'is-playing': isPlaying }"
+            @click.stop="isPlaying ? handleStop() : handlePlay()"
+            :title="isPlaying ? t('actions.stop') : t('actions.play')"
+          >
+            <span class="material-symbols-rounded">{{ isPlaying ? 'stop' : 'play_arrow' }}</span>
           </button>
-          <button class="slot-btn stop" @click.stop="handleStop" :title="t('actions.stop')" v-if="isPlaying">
-            <span class="material-symbols-rounded">stop</span>
+          <button
+            class="slot-btn set-next"
+            :class="{ 'is-queued': isManuallyQueued }"
+            @click.stop="handleSetAsNext"
+            :title="t('actions.setAsNext')"
+          >
+            <span class="material-symbols-rounded">fast_forward</span>
           </button>
           <button class="slot-btn edit" @click.stop="handleEdit" :title="t('actions.edit')">
             <span class="material-symbols-rounded">settings</span>
@@ -132,8 +145,8 @@ const props = defineProps<{
 
 const slotRef = ref<HTMLElement | null>(null);
 
-const { currentProject, findItemByUuid, triggerWaveformUpdate } = useProject();
-const { playCue, stopCue, activeCues } = useAudioEngine();
+const { currentProject, selectedItems, findItemByUuid, triggerWaveformUpdate } = useProject();
+const { playCue, stopCue, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem } = useAudioEngine();
 const { t } = useLocalization();
 const { addCartOnlyItem, updateCartOnlyItem, removeCartOnlyItem } = useCartItems();
 
@@ -146,6 +159,13 @@ const isDragOver = ref(false);
 
 const hasItem = computed(() => props.item !== null);
 const isPlaying = computed(() => props.item ? activeCues.value.has(props.item.uuid) : false);
+const isSelected = computed(() => props.item ? selectedItems.value.has(props.item.uuid) : false);
+const isManuallyQueued = computed(() => props.item ? nextItemOverrideUuid.value === props.item.uuid : false);
+const isQueuedNext = computed(() => {
+  if (!props.item) return false;
+  if (nextItemOverrideUuid.value) return nextItemOverrideUuid.value === props.item.uuid;
+  return autoNextItemUuid.value === props.item.uuid;
+});
 
 // Helper to convert hex to rgba
 const hexToRgba = (hex: string, alpha: number) => {
@@ -369,6 +389,12 @@ const generateWaveformForItem = async (item: AudioItem) => {
   }
 };
 
+const handleSelect = () => {
+  if (!props.item) return;
+  selectedItems.value.clear();
+  selectedItems.value.add(props.item.uuid);
+};
+
 const handlePlay = () => {
   if (!props.item) return;
   playCue(props.item);
@@ -377,6 +403,15 @@ const handlePlay = () => {
 const handleStop = () => {
   if (!props.item) return;
   stopCue(props.item.uuid);
+};
+
+const handleSetAsNext = () => {
+  if (!props.item) return;
+  if (isManuallyQueued.value) {
+    setNextItem(null);
+  } else {
+    setNextItem(props.item.uuid);
+  }
 };
 
 const handleDelete = () => {
@@ -396,18 +431,8 @@ const handleDelete = () => {
 
 const handleEdit = () => {
   if (!props.item) return;
-  
-  // Open properties panel for this item
-  const { selectedItem, selectedItems } = useProject();
-  
-  // Clear multi-selection from playlist
-  selectedItems.value.clear();
-  
-  // Add this cart item to selection
-  selectedItems.value.add(props.item.uuid);
-  
-  // Select this cart item
-  selectedItem.value = props.item;
+  const { openItemProperties } = useProject();
+  openItemProperties(props.item.uuid);
 };
 
 const formatTime = (seconds: number): string => {
@@ -751,6 +776,10 @@ const handleDrop = async (e: DragEvent) => {
   &.has-item {
     border-width: 4px;
   }
+
+  &.is-selected {
+    box-shadow: 0 0 0 2px var(--color-accent);
+  }
   
   &.drag-over {
     background-color: var(--color-accent);
@@ -907,57 +936,96 @@ const handleDrop = async (e: DragEvent) => {
   }
 }
 
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.4;
+
+  &.playing {
+    background-color: var(--color-success);
+    color: white;
+  }
+
+  &.up-next {
+    background-color: var(--color-warning);
+    color: black;
+  }
+}
+
 .slot-actions {
   display: flex;
   gap: 4px;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-  
+  flex-shrink: 0;
+
   button.slot-btn {
     width: 28px;
     height: 28px;
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius-sm);
-    background-color: var(--color-surface);
+    background-color: var(--color-background);
     color: var(--color-text-primary);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
     transition: all var(--transition-fast);
-    
-    &:hover {
-      background-color: var(--color-accent);
-      color: white;
-      border-color: var(--color-accent);
+
+    .material-symbols-rounded {
+      font-size: 16px;
     }
-    
+
     &.play {
       &:hover {
         background-color: var(--color-success);
         border-color: var(--color-success);
+        color: white;
+      }
+
+      &.is-playing {
+        &:hover {
+          background-color: var(--color-danger);
+          border-color: var(--color-danger);
+          color: white;
+        }
       }
     }
-    
-    &.stop {
+
+    &.set-next {
       &:hover {
-        background-color: var(--color-danger);
-        border-color: var(--color-danger);
+        background-color: var(--color-warning);
+        border-color: var(--color-warning);
+        color: black;
+      }
+
+      &.is-queued {
+        background-color: var(--color-warning);
+        border-color: var(--color-warning);
+        color: black;
       }
     }
-    
+
+    &.edit {
+      &:hover {
+        background-color: var(--color-accent);
+        border-color: var(--color-accent);
+        color: white;
+      }
+    }
+
     &.delete {
       &:hover {
         background-color: var(--color-danger);
         border-color: var(--color-danger);
+        color: white;
       }
     }
   }
-}
-
-.cart-slot:hover .slot-actions {
-  opacity: 1;
 }
 
 .slot-footer {

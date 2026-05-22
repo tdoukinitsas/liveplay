@@ -54,15 +54,17 @@ export const useProject = () => {
       selectedItems.value.add(uuid);
     }
 
-    // Update single selectedItem for backward compatibility
-    if (selectedItems.value.size === 1) {
-      const uuid = Array.from(selectedItems.value)[0];
-      selectedItem.value = findItemByUuid(uuid);
-    } else if (selectedItems.value.size > 1) {
-      // Multiple selection - keep selectedItem for properties panel
-      selectedItem.value = findItemByUuid(uuid); // Use the last clicked item
-    } else {
+    // Do not auto-open the properties panel on selection — use openItemProperties() explicitly
+    if (selectedItems.value.size === 0) {
       selectedItem.value = null;
+    }
+  };
+
+  // Explicitly open the properties panel for an item (called by Edit buttons)
+  const openItemProperties = (uuid: string) => {
+    const item = findItemByUuid(uuid);
+    if (item) {
+      selectedItem.value = item;
     }
   };
 
@@ -466,6 +468,7 @@ export const useProject = () => {
     waveformUpdateKey,
     triggerWaveformUpdate,
     toggleItemSelection,
+    openItemProperties,
     getSelectedItems,
     getAllItemsFlat,
     createNewProject,

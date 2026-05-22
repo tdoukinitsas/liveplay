@@ -146,7 +146,8 @@
     "pause": "Pause",
     "resume": "Fortsett",
     "edit": "Rediger",
-    "remove": "Fjern"
+    "remove": "Fjern",
+    "setAsNext": "Sett som neste"
   },
   "about": {
     "developedBy": "Utviklet av",
@@ -255,5 +256,9 @@
     "reassign": "Tilordne på nytt",
     "conflictMessage": "Denne MIDI-kontrollen er allerede tilordnet \"{action}\". Tilordne på nytt?",
     "playNext": "Spill neste"
+  },
+  "status": {
+    "playing": "Spiller av",
+    "upNext": "Neste"
   }
 }

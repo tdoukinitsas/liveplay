@@ -146,7 +146,8 @@
     "pause": "مکث",
     "resume": "ادامه",
     "edit": "ویرایش",
-    "remove": "حذف"
+    "remove": "حذف",
+    "setAsNext": "تنظیم به عنوان بعدی"
   },
   "about": {
     "developedBy": "توسعه یافته توسط",
@@ -255,5 +256,9 @@
     "reassign": "تخصیص مجدد",
     "conflictMessage": "این کنترل MIDI قبلاً به \"{action}\" اختصاص داده شده است. تخصیص مجدد؟",
     "playNext": "پخش بعدی"
+  },
+  "status": {
+    "playing": "در حال پخش",
+    "upNext": "بعدی"
   }
 }

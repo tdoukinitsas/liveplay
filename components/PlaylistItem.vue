@@ -51,38 +51,33 @@
         
         <span class="item-name">{{ item.displayName }}</span>
 
+        <span v-if="isPlaying" class="status-pill playing">{{ t('status.playing') }}</span>
+        <span v-else-if="isQueuedNext" class="status-pill up-next">{{ t('status.upNext') }}</span>
+
         <div class="item-actions">
-        <button 
-          v-if="!isPlaying"
-          class="item-btn play" 
-          @click.stop="handlePlay" 
-          :title="t('actions.play')"
-        >
-          <span class="material-symbols-rounded">play_arrow</span>
-        </button>
-        <button 
-          v-if="isPlaying && !isPaused" 
-          class="item-btn pause" 
-          @click.stop="handlePause" 
-          :title="t('actions.pause')"
-        >
-          <span class="material-symbols-rounded">pause</span>
-        </button>
-        <button 
-          v-if="isPlaying && isPaused" 
-          class="item-btn resume" 
-          @click.stop="handleResume" 
-          :title="t('actions.resume')"
-        >
-          <span class="material-symbols-rounded">play_arrow</span>
-        </button>
-        <button class="item-btn stop" @click.stop="handleStop" :title="t('actions.stop')" v-if="isPlaying">
-          <span class="material-symbols-rounded">stop</span>
-        </button>
-        <button class="item-btn delete" @click.stop="handleDelete" :title="t('actions.delete')">
-          <span class="material-symbols-rounded">delete</span>
-        </button>
-      </div>
+          <button
+            class="item-btn play"
+            :class="{ 'is-playing': isPlaying }"
+            @click.stop="isPlaying ? handleStop() : handlePlay()"
+            :title="isPlaying ? t('actions.stop') : t('actions.play')"
+          >
+            <span class="material-symbols-rounded">{{ isPlaying ? 'stop' : 'play_arrow' }}</span>
+          </button>
+          <button
+            class="item-btn set-next"
+            :class="{ 'is-queued': isManuallyQueued }"
+            @click.stop="handleSetAsNext"
+            :title="t('actions.setAsNext')"
+          >
+            <span class="material-symbols-rounded">fast_forward</span>
+          </button>
+          <button class="item-btn edit" @click.stop="handleEdit" :title="t('actions.edit')">
+            <span class="material-symbols-rounded">settings</span>
+          </button>
+          <button class="item-btn delete" @click.stop="handleDelete" :title="t('actions.delete')">
+            <span class="material-symbols-rounded">delete</span>
+          </button>
+        </div>
         
         <!-- Behavior indicators (for audio items) -->
         <div v-if="item.type === 'audio'" class="behavior-indicators">
@@ -148,8 +143,8 @@ const props = defineProps<{
   depth: number;
 }>();
 
-const { selectedItem, selectedItems, toggleItemSelection, removeItem, findItemByUuid, currentProject, waveformUpdateKey, triggerWaveformUpdate } = useProject();
-const { playCue, stopCue, pauseCue, resumeCue, activeCues, activeGroups, triggerGroup } = useAudioEngine();
+const { selectedItem, selectedItems, toggleItemSelection, openItemProperties, removeItem, findItemByUuid, currentProject, waveformUpdateKey, triggerWaveformUpdate } = useProject();
+const { playCue, stopCue, activeCues, activeGroups, triggerGroup, nextItemOverrideUuid, autoNextItemUuid, setNextItem } = useAudioEngine();
 const { t } = useLocalization();
 
 const isExpanded = ref(props.item.type === 'group' ? props.item.isExpanded : false);
@@ -158,9 +153,12 @@ const dragPosition = ref<'top' | 'bottom' | 'group' | null>(null);
 
 const isSelected = computed(() => selectedItems.value.has(props.item.uuid));
 const isPlaying = computed(() => activeCues.value.has(props.item.uuid));
-const isPaused = computed(() => {
-  const cue = activeCues.value.get(props.item.uuid);
-  return cue?.isPaused || false;
+// Manual override — drives the button highlight and toggle behaviour
+const isManuallyQueued = computed(() => nextItemOverrideUuid.value === props.item.uuid);
+// Effective "up next" — manual override wins; falls back to auto-derived from end behavior
+const isQueuedNext = computed(() => {
+  if (nextItemOverrideUuid.value) return nextItemOverrideUuid.value === props.item.uuid;
+  return autoNextItemUuid.value === props.item.uuid;
 });
 const isGroupPlaying = computed(() => props.item.type === 'group' && activeGroups.value.has(props.item.uuid));
 
@@ -519,12 +517,16 @@ const handleStop = () => {
   stopCue(props.item.uuid);
 };
 
-const handlePause = () => {
-  pauseCue(props.item.uuid);
+const handleEdit = () => {
+  openItemProperties(props.item.uuid);
 };
 
-const handleResume = () => {
-  resumeCue(props.item.uuid);
+const handleSetAsNext = () => {
+  if (isManuallyQueued.value) {
+    setNextItem(null);
+  } else {
+    setNextItem(props.item.uuid);
+  }
 };
 
 const handleDelete = () => {
@@ -884,16 +886,33 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   }
 }
 
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  height: 30px;
+
+  &.playing {
+    background-color: var(--color-success);
+    color: white;
+  }
+
+  &.up-next {
+    background-color: var(--color-warning);
+    color: black;
+  }
+}
+
 .item-actions {
   display: flex;
   gap: var(--spacing-xs);
-  opacity: 0;
-  transition: opacity var(--transition-fast);
   z-index: 5;
-  
-  .playlist-item:hover & {
-    opacity: 1;
-  }
+  flex-shrink: 0;
 }
 
 .item-btn {
@@ -903,40 +922,58 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   align-items: center;
   justify-content: center;
   border-radius: var(--border-radius-sm);
-  font-size: 14px;
-  
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+
+  .material-symbols-rounded {
+    font-size: 18px;
+  }
+
   &.play {
-    background-color: var(--color-success);
-    color: white;
-    
     &:hover {
-      opacity: 0.8;
+      background-color: var(--color-success);
+      border-color: var(--color-success);
+      color: white;
+    }
+
+    &.is-playing {
+      &:hover {
+        background-color: var(--color-danger);
+        border-color: var(--color-danger);
+        color: white;
+      }
     }
   }
-  
-  &.pause, &.resume {
-    background-color: #ff9800; /* Orange color for pause/resume */
-    color: white;
-    
+
+  &.set-next {
     &:hover {
-      opacity: 0.8;
+      background-color: var(--color-warning);
+      border-color: var(--color-warning);
+      color: black;
+    }
+
+    &.is-queued {
+      background-color: var(--color-warning);
+      border-color: var(--color-warning);
+      color: black;
     }
   }
-  
-  &.stop {
-    background-color: var(--color-danger);
-    color: white;
-    
+
+  &.edit {
     &:hover {
-      opacity: 0.8;
+      background-color: var(--color-accent);
+      border-color: var(--color-accent);
+      color: white;
     }
   }
-  
+
   &.delete {
-    background-color: var(--color-surface-hover);
-    
     &:hover {
       background-color: var(--color-danger);
+      border-color: var(--color-danger);
       color: white;
     }
   }

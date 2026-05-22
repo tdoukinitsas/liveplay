@@ -146,7 +146,8 @@
     "pause": "Pausa",
     "resume": "Återuppta",
     "edit": "Redigera",
-    "remove": "Ta bort"
+    "remove": "Ta bort",
+    "setAsNext": "Ange som nästa"
   },
   "about": {
     "developedBy": "Utvecklad av",
@@ -255,5 +256,9 @@
     "reassign": "Tilldela om",
     "conflictMessage": "Denna MIDI-kontroll är redan tilldelad \"{action}\". Tilldela om?",
     "playNext": "Spela nästa"
+  },
+  "status": {
+    "playing": "Spelas",
+    "upNext": "Nästa"
   }
 }

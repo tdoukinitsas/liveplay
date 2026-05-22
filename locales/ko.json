@@ -146,7 +146,8 @@
     "pause": "일시정지",
     "resume": "재개",
     "edit": "편집",
-    "remove": "제거"
+    "remove": "제거",
+    "setAsNext": "다음으로 설정"
   },
   "about": {
     "developedBy": "개발자",
@@ -255,5 +256,9 @@
     "reassign": "재할당",
     "conflictMessage": "이 MIDI 컨트롤은 이미 \"{action}\"에 할당되어 있습니다. 재할당하시겠습니까?",
     "playNext": "다음 재생"
+  },
+  "status": {
+    "playing": "재생 중",
+    "upNext": "다음"
   }
 }

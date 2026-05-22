@@ -1,7 +1,17 @@
 <template>
   <div class="playback-controls">
     <div class="controls-left">
-      <button class="control-btn panic-btn" @click="handlePanic" :disabled="activeCues.size === 0">
+      <button
+        class="control-btn play-next-btn"
+        :class="{ 'has-next': !!effectiveNextUuid }"
+        @click="handlePlayNext"
+        :disabled="!effectiveNextUuid"
+        :title="playNextTooltip"
+      >
+        <span class="material-symbols-rounded">fast_forward</span>
+        <span>{{ t('controls.playNext') }}</span>
+      </button>
+      <button class="control-btn panic-btn" @click="handlePanic" :disabled="activeCues.size === 0" :title="stopAllTooltip">
         <span class="icon">⚠</span>
         <span>{{ t('playback.panic') }}</span>
       </button>
@@ -37,11 +47,38 @@
 </template>
 
 <script setup lang="ts">
-const { activeCues, panicStop, masterOutputLevel, masterPeakLevel } = useAudioEngine();
+import { formatKeyLabel } from '~/composables/useCartHotkeys';
+import type { AudioItem } from '~/types/project';
+
+const { activeCues, panicStop, masterOutputLevel, masterPeakLevel, nextItemOverrideUuid, autoNextItemUuid, setNextItem, playCue, triggerGroup } = useAudioEngine();
+const { findItemByUuid } = useProject();
+const { playbackMappings } = useCartHotkeys();
 const { t } = useLocalization();
 
-const handlePanic = () => {
-  panicStop();
+const effectiveNextUuid = computed(() => nextItemOverrideUuid.value ?? autoNextItemUuid.value);
+
+const playNextTooltip = computed(() => {
+  const binding = playbackMappings.value['play-next'];
+  const shortcut = binding ? formatKeyLabel(binding) : '';
+  return shortcut ? `${t('controls.playNext')} (${shortcut})` : t('controls.playNext');
+});
+
+const stopAllTooltip = computed(() => {
+  const binding = playbackMappings.value['stop-all'];
+  const shortcut = binding ? formatKeyLabel(binding) : '';
+  return shortcut ? `${t('playback.panic')} (${shortcut})` : t('playback.panic');
+});
+
+const handlePanic = () => panicStop();
+
+const handlePlayNext = () => {
+  const uuid = effectiveNextUuid.value;
+  if (!uuid) return;
+  const item = findItemByUuid(uuid);
+  if (!item) return;
+  if (nextItemOverrideUuid.value) setNextItem(null);
+  if (item.type === 'audio') playCue(item as AudioItem);
+  else if (item.type === 'group') triggerGroup(item);
 };
 </script>
 
@@ -81,15 +118,33 @@ const handlePanic = () => {
   }
 }
 
+.play-next-btn {
+  color: var(--color-text-secondary);
+
+  &.has-next {
+    background-color: var(--color-warning);
+    border-color: var(--color-warning);
+    color: black;
+    font-weight: 600;
+
+    &:hover:not(:disabled) {
+      background-color: var(--color-warning);
+      border-color: var(--color-warning);
+      filter: brightness(0.88);
+    }
+  }
+}
+
 .panic-btn {
   background-color: var(--color-danger);
   border-color: var(--color-danger);
   color: white;
-  font-size: 18px;
   font-weight: 600;
-  
+
   &:hover:not(:disabled) {
-    opacity: 0.8;
+    background-color: var(--color-danger);
+    border-color: var(--color-danger);
+    filter: brightness(0.85);
   }
 }
 
