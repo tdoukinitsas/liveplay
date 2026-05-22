@@ -41,20 +41,90 @@ jobs:
   build:
     needs: check-version
     if: needs.check-version.outputs.version-changed == 'true'
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            triplet: x64-windows
+          - os: ubuntu-latest
+            triplet: x64-linux
+          - os: macos-latest
+            triplet: arm64-osx
     runs-on: ${{ matrix.os }}
 
-    defaults:
-      run:
-        working-directory: client
+    env:
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # -------------------------------------------------------------------
+      # C++ server toolchain — must build before the client so
+      # electron-builder's extraResources can pick up the binary.
+      # -------------------------------------------------------------------
+      - name: Export VCPKG_ROOT
+        shell: bash
+        run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
+
+      - name: Configure vcpkg GHA cache
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Install Linux audio dev packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build pkg-config \
+            libasound2-dev libpulse-dev libjack-jackd2-dev libx11-dev
+
+      - name: Install macOS build tools
+        if: runner.os == 'macOS'
+        run: brew install ninja pkg-config
+
+      - name: Install Windows build tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install ninja -y
+
+      - name: Configure MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build C++ server
+        shell: bash
+        run: |
+          cmake -S server -B server/build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
+          cmake --build server/build --config Release -j
+
+      - name: Stage server binary for electron-builder (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Ninja produces a single-config build; electron-builder expects
+          # the Release sub-directory layout used by the multi-config preset.
+          New-Item -ItemType Directory -Force "server/build/Release" | Out-Null
+          if (Test-Path "server/build/liveplay-server.exe") {
+            Copy-Item "server/build/liveplay-server.exe" "server/build/Release/" -Force
+          }
+          Get-ChildItem "server/build" -Filter "*.dll" -ErrorAction SilentlyContinue |
+            ForEach-Object { Copy-Item $_.FullName "server/build/Release/" -Force }
+
+      # -------------------------------------------------------------------
+      # Client (Nuxt + Electron)
+      # -------------------------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -64,17 +134,20 @@ jobs:
 
       - name: Clean install dependencies
         shell: bash
+        working-directory: client
         run: |
           rm -rf node_modules package-lock.json
           npm install --include=optional
         env:
           CI: true
 
-      - name: Build application
+      - name: Build Nuxt application
+        working-directory: client
         run: npm run build
 
       - name: Build Electron app (Windows)
         if: matrix.os == 'windows-latest'
+        working-directory: client
         run: npm run electron:build -- --win --x64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -82,6 +155,7 @@ jobs:
 
       - name: Build Electron app (Linux)
         if: matrix.os == 'ubuntu-latest'
+        working-directory: client
         run: npm run electron:build -- --linux --x64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -89,6 +163,7 @@ jobs:
 
       - name: Build Electron app (macOS)
         if: matrix.os == 'macos-latest'
+        working-directory: client
         run: npm run electron:build -- --mac --x64 --arm64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

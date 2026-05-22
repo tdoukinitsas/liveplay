@@ -302,7 +302,7 @@ const emit = defineEmits<{
 const { t } = useLocalization();
 
 // Get audio engine for playback position
-const { activeCues } = useAudioEngine();
+const { activeCues, seekCue } = useAudioEngine();
 
 // Check if this is a cart item
 const isCartItem = computed(() => {
@@ -419,18 +419,17 @@ const crossFadePosition = computed(() => {
 // Seek to position (when clicking waveform)
 const seekToPosition = (absoluteTime: number) => {
   const cue = activeCues.value.get(props.audioItem.uuid);
-  if (!cue || !cue.howl) return;
-  
-  // Convert absolute time to time relative to inPoint for Howler
-  // Howler expects time relative to sprite start when using sprites
+  if (!cue) return;
+
   const inPoint = props.audioItem.inPoint || 0;
-  const seekTime = absoluteTime;
-  
-  // Clamp to valid range
-  const clampedTime = Math.max(inPoint, Math.min(seekTime, props.audioItem.outPoint || props.audioItem.duration));
-  
-  // Seek the Howler instance
-  cue.howl.seek(clampedTime);
+  const clampedTime = Math.max(
+    inPoint,
+    Math.min(absoluteTime, props.audioItem.outPoint || props.audioItem.duration)
+  );
+
+  // Routes to the server (server seek is a no-op for now and logs a warning;
+  // wire-up will land with the engine's seek endpoint).
+  seekCue(props.audioItem.uuid, clampedTime);
 };
 
 // Handle dragging

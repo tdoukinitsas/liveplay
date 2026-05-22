@@ -14,13 +14,47 @@
           <span v-if="server.lastError" class="err">  ({{ server.lastError }})</span>
         </p>
 
-        <label>
-          Server URL
-          <input v-model="draftUrl" placeholder="http://127.0.0.1:4480" />
+        <!-- Mode selector: Local (Electron spawns the C++ server) vs Remote -->
+        <div class="mode-group">
+          <label class="mode-option">
+            <input type="radio" value="local" v-model="draftMode" />
+            <div>
+              <strong>Local</strong>
+              <small>App starts its own audio engine. Best for solo operators.</small>
+            </div>
+          </label>
+          <label class="mode-option">
+            <input type="radio" value="remote" v-model="draftMode" />
+            <div>
+              <strong>Remote</strong>
+              <small>Connect to a LivePlay server running on another machine.</small>
+            </div>
+          </label>
+        </div>
+
+        <label v-if="draftMode === 'local'">
+          Local port
+          <input v-model.number="draftLocalPort" type="number" min="1" max="65535" placeholder="4480" />
         </label>
+        <label v-else>
+          Remote URL
+          <input v-model="draftRemoteUrl" placeholder="http://192.168.1.42:4480" />
+        </label>
+
+        <p v-if="serverStatus" class="server-pid">
+          <template v-if="draftMode === 'local'">
+            <span v-if="serverStatus.running">Engine running (pid {{ serverStatus.pid }})</span>
+            <span v-else class="warn">Engine not running — Apply to start it</span>
+          </template>
+          <template v-else>
+            <span class="hint">Targeting external server. Make sure the remote URL is reachable.</span>
+          </template>
+        </p>
+
         <div class="row">
-          <button class="btn primary" @click="apply">Apply &amp; reconnect</button>
+          <button class="btn primary" @click="apply">Apply</button>
           <button class="btn" @click="server.connect">Retry connect</button>
+          <button v-if="draftMode === 'local' && hasElectron" class="btn" @click="restartLocal">Restart engine</button>
         </div>
 
         <section v-if="server.connected">
@@ -46,25 +80,80 @@
   health, lets the operator open hardware devices on the server side.
 -->
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
 
 const props = defineProps<{ open: boolean }>();
 const emit  = defineEmits<{ (e: 'close'): void }>();
 
-const server   = useLiveplayServer();
-const draftUrl = ref(server.serverUrl);
+const server = useLiveplayServer();
+
+// Local/Remote configuration is owned by the Electron main process (it
+// also spawns the child server when mode === 'local'). In a pure-web
+// context (`electronAPI` undefined), Local mode is hidden because the
+// browser can't spawn binaries — we fall through to Remote-only.
+const electronApi: any = (globalThis as any).electronAPI?.liveplayServer;
+const hasElectron = !!electronApi;
+
+const draftMode      = ref<'local' | 'remote'>('local');
+const draftRemoteUrl = ref('http://127.0.0.1:4480');
+const draftLocalPort = ref(4480);
+const serverStatus   = ref<{ running: boolean; pid?: number } | null>(null);
+
+let stopStatusListener: (() => void) | null = null;
+
+async function loadConfig() {
+  if (!electronApi) {
+    // Web fallback: only remote mode is meaningful.
+    draftMode.value = 'remote';
+    draftRemoteUrl.value = server.serverUrl;
+    return;
+  }
+  const cfg    = await electronApi.getConfig();
+  const status = await electronApi.getStatus();
+  draftMode.value      = cfg.mode;
+  draftRemoteUrl.value = cfg.remoteUrl || 'http://127.0.0.1:4480';
+  draftLocalPort.value = cfg.localPort || 4480;
+  serverStatus.value   = { running: status.running, pid: status.pid };
+}
+
+onMounted(() => {
+  loadConfig();
+  if (electronApi) {
+    stopStatusListener = electronApi.onStateChange((p: any) => {
+      serverStatus.value = { running: p.running, pid: p.pid };
+    });
+  }
+});
+
+onBeforeUnmount(() => { if (stopStatusListener) stopStatusListener(); });
 
 watch(() => props.open, o => {
   if (o) {
-    draftUrl.value = server.serverUrl;
+    loadConfig();
     server.fetchDevices();
   }
 });
 
-function apply() {
-  server.setServerUrl(draftUrl.value.trim());
+async function apply() {
+  if (electronApi) {
+    // Main process persists the choice and starts/stops the child as needed.
+    // The plugin's onStateChange listener will retarget the WebSocket.
+    await electronApi.setConfig({
+      mode:      draftMode.value,
+      remoteUrl: draftRemoteUrl.value.trim(),
+      localPort: draftLocalPort.value,
+    });
+  } else {
+    // Web fallback: just point the client at the typed URL.
+    server.setServerUrl(draftRemoteUrl.value.trim());
+  }
 }
+
+async function restartLocal() {
+  if (electronApi) await electronApi.restart();
+}
+
 function close() { emit('close'); }
 </script>
 
@@ -98,7 +187,27 @@ function close() { emit('close'); }
     color: #eee; padding: 6px 10px; border-radius: 4px;
     font-family: monospace;
   }
-  .row { display: flex; gap: 8px; }
+  .mode-group {
+    display: grid; gap: 6px;
+    border: 1px solid #2a2a2a; border-radius: 6px;
+    padding: 6px; background: #161616;
+  }
+  .mode-option {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px; border-radius: 4px; cursor: pointer;
+    color: #ddd; font-size: 13px;
+    &:hover { background: #1d1d1d; }
+    input[type="radio"] { margin-top: 4px; }
+    div { display: flex; flex-direction: column; gap: 2px; }
+    strong { font-size: 13px; }
+    small { font-size: 11px; color: #888; }
+  }
+  .server-pid {
+    font-size: 11px; color: #aaa; margin: 0;
+    .warn { color: #ffd58a; }
+    .hint { color: #9ec5ff; }
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .btn {
     background: #2a2a2a; border: 1px solid #3a3a3a;
     border-radius: 4px; padding: 6px 12px; color: #ddd; cursor: pointer;

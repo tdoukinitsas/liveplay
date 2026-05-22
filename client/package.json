@@ -101,7 +101,12 @@
         }
       ],
       "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
-      "publisherName": "Thomas Doukinitsas"
+      "publisherName": "Thomas Doukinitsas",
+      "extraResources": [
+        { "from": "../server/build/Release/liveplay-server.exe", "to": "server-bin/liveplay-server.exe" },
+        { "from": "../server/build/Release/tag.dll", "to": "server-bin/tag.dll" },
+        { "from": "../server/build/Release/z.dll",   "to": "server-bin/z.dll" }
+      ]
     },
     "mac": {
       "target": [
@@ -121,7 +126,10 @@
         }
       ],
       "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
-      "category": "public.app-category.music"
+      "category": "public.app-category.music",
+      "extraResources": [
+        { "from": "../server/build/liveplay-server", "to": "server-bin/liveplay-server" }
+      ]
     },
     "linux": {
       "target": [
@@ -145,7 +153,10 @@
         }
       ],
       "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
-      "category": "AudioVideo"
+      "category": "AudioVideo",
+      "extraResources": [
+        { "from": "../server/build/liveplay-server", "to": "server-bin/liveplay-server" }
+      ]
     }
   }
 }

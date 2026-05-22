@@ -14,6 +14,172 @@ const execPromise = promisify(exec);
 let ffmpegPath = null;
 let ffmpegAvailable = false;
 
+// ===========================================================================
+// LivePlay C++ server lifecycle
+// ---------------------------------------------------------------------------
+// When the user runs the desktop client in "local" server mode, Electron
+// spawns the bundled liveplay-server binary as a child process and tears it
+// down on quit. In "remote" mode, the child process is not spawned and the
+// renderer connects to whatever URL the user configured.
+// Config lives in <userData>/liveplay-server.json.
+// ===========================================================================
+const LIVEPLAY_DEFAULT_PORT = 4480;
+const LIVEPLAY_CONFIG_FILENAME = 'liveplay-server.json';
+let liveplayServerProc = null;
+let liveplayServerExitTimer = null;
+
+function liveplayConfigPath() {
+  return path.join(app.getPath('userData'), LIVEPLAY_CONFIG_FILENAME);
+}
+
+function readLiveplayConfig() {
+  try {
+    const raw = fs.readFileSync(liveplayConfigPath(), 'utf-8');
+    const parsed = JSON.parse(raw);
+    return {
+      mode:      parsed.mode === 'remote' ? 'remote' : 'local',
+      remoteUrl: typeof parsed.remoteUrl === 'string' ? parsed.remoteUrl : `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`,
+      localPort: Number.isInteger(parsed.localPort) ? parsed.localPort : LIVEPLAY_DEFAULT_PORT,
+    };
+  } catch {
+    return { mode: 'local', remoteUrl: `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`, localPort: LIVEPLAY_DEFAULT_PORT };
+  }
+}
+
+function writeLiveplayConfig(cfg) {
+  try {
+    fs.writeFileSync(liveplayConfigPath(), JSON.stringify(cfg, null, 2));
+  } catch (e) {
+    console.error('[liveplay-server] could not persist config:', e);
+  }
+}
+
+function resolveServerBinaryPath() {
+  const exeName = process.platform === 'win32' ? 'liveplay-server.exe' : 'liveplay-server';
+
+  if (app.isPackaged) {
+    // Bundled via electron-builder extraResources → resourcesPath/server-bin/
+    return path.join(process.resourcesPath, 'server-bin', exeName);
+  }
+
+  // Dev: client/electron/main.js → ../../server/build/{Release/}<exe>
+  const repoServerDir = path.join(__dirname, '..', '..', 'server', 'build');
+  const candidates = [
+    path.join(repoServerDir, 'Release', exeName),  // MSBuild multi-config
+    path.join(repoServerDir, exeName),              // Ninja single-config
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return candidates[0]; // return first as a useful error path
+}
+
+function startLiveplayServer() {
+  if (liveplayServerProc) return;
+
+  const cfg = readLiveplayConfig();
+  if (cfg.mode !== 'local') return;
+
+  const exePath = resolveServerBinaryPath();
+  if (!fs.existsSync(exePath)) {
+    console.error('[liveplay-server] binary not found at', exePath,
+                  '— skipping spawn. Build the server (cmake --build server/build) or switch to Remote mode.');
+    notifyServerStateChange();
+    return;
+  }
+
+  console.log('[liveplay-server] spawning', exePath, 'on port', cfg.localPort);
+  try {
+    liveplayServerProc = spawn(exePath, ['--port', String(cfg.localPort)], {
+      cwd: path.dirname(exePath),       // so any sidecar DLLs resolve
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+  } catch (e) {
+    console.error('[liveplay-server] spawn failed:', e);
+    liveplayServerProc = null;
+    notifyServerStateChange();
+    return;
+  }
+
+  liveplayServerProc.stdout.on('data', (d) => process.stdout.write(`[server] ${d}`));
+  liveplayServerProc.stderr.on('data', (d) => process.stderr.write(`[server] ${d}`));
+  liveplayServerProc.on('exit', (code, signal) => {
+    console.log('[liveplay-server] exited code=', code, 'signal=', signal);
+    liveplayServerProc = null;
+    if (liveplayServerExitTimer) { clearTimeout(liveplayServerExitTimer); liveplayServerExitTimer = null; }
+    notifyServerStateChange();
+  });
+
+  notifyServerStateChange();
+}
+
+function stopLiveplayServer() {
+  if (!liveplayServerProc) return;
+  const pid = liveplayServerProc.pid;
+  console.log('[liveplay-server] stopping pid', pid);
+
+  try {
+    if (process.platform === 'win32') {
+      // SIGINT is unreliable on Windows native processes; taskkill the tree.
+      exec(`taskkill /pid ${pid} /T /F`, () => {});
+    } else {
+      liveplayServerProc.kill('SIGINT');
+      // Fallback hard-kill after a grace period.
+      liveplayServerExitTimer = setTimeout(() => {
+        if (liveplayServerProc) {
+          try { liveplayServerProc.kill('SIGKILL'); } catch {}
+        }
+      }, 2000);
+    }
+  } catch (e) {
+    console.error('[liveplay-server] kill failed:', e);
+  }
+}
+
+function notifyServerStateChange() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('liveplay-server:state', {
+      running: !!liveplayServerProc,
+      pid:     liveplayServerProc?.pid,
+      config:  readLiveplayConfig(),
+    });
+  }
+}
+
+// IPC: renderer reads/writes config and queries state.
+ipcMain.handle('liveplay-server:get-config', () => readLiveplayConfig());
+
+ipcMain.handle('liveplay-server:set-config', (_e, incoming) => {
+  const next = { ...readLiveplayConfig(), ...incoming };
+  // Sanity: clamp port to a valid TCP range.
+  if (!Number.isInteger(next.localPort) || next.localPort < 1 || next.localPort > 65535) {
+    next.localPort = LIVEPLAY_DEFAULT_PORT;
+  }
+  if (next.mode !== 'local' && next.mode !== 'remote') next.mode = 'local';
+
+  writeLiveplayConfig(next);
+
+  // React to mode/port changes.
+  if (next.mode === 'remote' && liveplayServerProc) stopLiveplayServer();
+  if (next.mode === 'local'  && !liveplayServerProc) startLiveplayServer();
+
+  return next;
+});
+
+ipcMain.handle('liveplay-server:get-status', () => ({
+  running: !!liveplayServerProc,
+  pid:     liveplayServerProc?.pid,
+  config:  readLiveplayConfig(),
+}));
+
+ipcMain.handle('liveplay-server:restart', () => {
+  if (liveplayServerProc) stopLiveplayServer();
+  // Defer the restart to let the kill complete.
+  setTimeout(() => startLiveplayServer(), 500);
+  return true;
+});
+
 // Setup bundled ffmpeg - always use the bundled version to avoid
 // issues on OS's with strict security requirements
 async function checkAndSetupFfmpeg() {
@@ -1928,7 +2094,11 @@ if (!gotTheLock) {
     if (!ffmpegReady) {
       console.error('Warning: Bundled ffmpeg failed to initialize. Audio processing may be limited.');
     }
-    
+
+    // Spawn the C++ audio server alongside the UI (local mode only).
+    // Renderer connects to it via WebSocket once the window is up.
+    startLiveplayServer();
+
     createWindow();
     
     // If a file was opened before the app was ready, open it now
@@ -2030,9 +2200,17 @@ app.on('window-all-closed', () => {
   if (apiServer) {
     apiServer.close();
   }
+  // Always tear down the audio server when the UI is gone.
+  stopLiveplayServer();
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  // Safety net: macOS keeps the app alive after the last window closes, so
+  // ensure the child is gone on actual quit.
+  stopLiveplayServer();
 });
 
 app.on('activate', () => {

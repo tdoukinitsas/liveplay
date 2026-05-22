@@ -1,6 +1,199 @@
 import type { AudioItem, DuckingBehavior, GroupItem } from '~/types/project';
-import { Howl, Howler } from 'howler';
+import { useLiveplayServer } from '~/composables/useLiveplayServer';
+import type { ServerCue } from '~/types/server';
 import { linearToDb, dbToLinear, applyVolumeOffset as applyVolumeOffsetUtil, estimateCurrentLevel } from '~/utils/audio';
+
+// ---------------------------------------------------------------------------
+// ServerHowl — drop-in replacement for the howler `Howl` class. All audio
+// playback now flows through the C++ liveplay-server over WebSocket; this
+// shim preserves the existing useAudioEngine API so legacy components keep
+// working without per-component migration.
+//
+// Implemented methods (matching the surface useAudioEngine.ts used):
+//   constructor({ src, volume, loop, html5, sprite, onload, onend,
+//                 onloaderror, onplayerror }) — registers the cue with the
+//                 server asynchronously; play() is queued until the server
+//                 returns the cue id.
+//   play(spriteName?) | stop() | pause() | unload()
+//   volume(v?)                       — linear amplitude (matches howler)
+//   fade(from, to, durationMs)       — gradual gain ramp via setGainDb
+//   seek(t?)                         — read pulls from live meter broadcast;
+//                                      write logs a warning (server has no
+//                                      seek endpoint yet).
+//   duration()                       — server-supplied duration in seconds
+// ---------------------------------------------------------------------------
+function linearToDbSafe(lin: number): number {
+  if (!isFinite(lin) || lin <= 0) return -120;
+  return 20 * Math.log10(lin);
+}
+
+interface HowlOptions {
+  src: string[];
+  volume?: number;
+  loop?: boolean;
+  html5?: boolean;
+  sprite?: Record<string, [number, number]>;
+  onload?: () => void;
+  onend?: () => void;
+  onloaderror?: (id: number, error: any) => void;
+  onplayerror?: (id: number, error: any) => void;
+}
+
+class ServerHowl {
+  private cueId: string | null = null;
+  private cachedVolume = 1.0;
+  private cachedDuration = 0;
+  private fadeTimer: ReturnType<typeof setInterval> | null = null;
+  private endTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingPlaySprite: string | undefined = undefined;
+  private pendingPlay = false;
+  private isUnloaded = false;
+  private opts: HowlOptions;
+  private server = useLiveplayServer();
+
+  constructor(opts: HowlOptions) {
+    this.opts = opts;
+    this.cachedVolume = opts.volume ?? 1.0;
+
+    // file:// URL → native path. Handles Windows ('file:///C:/foo') and
+    // POSIX ('file:///home/foo'). Caller already URL-encoded the path.
+    const url = opts.src[0] || '';
+    let filePath = url.replace(/^file:\/\//, '');
+    if (/^\/[A-Za-z]:/.test(filePath)) {
+      filePath = filePath.slice(1);    // drop the extra leading slash on Windows
+    }
+    try { filePath = decodeURIComponent(filePath); } catch { /* keep as-is */ }
+
+    this.server.addCueFromPath(filePath)
+      .then((cue: ServerCue) => {
+        if (this.isUnloaded) {
+          this.server.removeCue(cue.id).catch(() => {});
+          return;
+        }
+        this.cueId = cue.id;
+        this.cachedDuration = cue.duration_sec || 0;
+        // Apply initial volume.
+        this.server.setGainDb(cue.id, linearToDbSafe(this.cachedVolume));
+        if (this.opts.onload) {
+          try { this.opts.onload(); } catch (e) { console.error(e); }
+        }
+        // Flush a queued play() that arrived before registration finished.
+        if (this.pendingPlay) {
+          this.pendingPlay = false;
+          this.play(this.pendingPlaySprite);
+        }
+      })
+      .catch((err: any) => {
+        if (this.opts.onloaderror) {
+          try { this.opts.onloaderror(0, err); } catch (e) { console.error(e); }
+        }
+      });
+  }
+
+  play(spriteName?: string): number {
+    if (this.isUnloaded) return 0;
+    if (!this.cueId) {
+      this.pendingPlay = true;
+      this.pendingPlaySprite = spriteName;
+      return 0;
+    }
+    this.server.play(this.cueId);
+
+    // Best-effort onend scheduling — refined later by meter-based detection.
+    if (this.endTimer) { clearTimeout(this.endTimer); this.endTimer = null; }
+    if (this.opts.onend && !this.opts.loop && this.cachedDuration > 0) {
+      const remaining = (this.opts.sprite && spriteName && this.opts.sprite[spriteName])
+        ? this.opts.sprite[spriteName][1]
+        : this.cachedDuration * 1000;
+      this.endTimer = setTimeout(() => {
+        if (this.opts.onend) {
+          try { this.opts.onend(); } catch (e) { console.error(e); }
+        }
+      }, remaining);
+    }
+    return 0;
+  }
+
+  stop(): this {
+    if (this.cueId) this.server.stop(this.cueId);
+    if (this.endTimer) { clearTimeout(this.endTimer); this.endTimer = null; }
+    if (this.fadeTimer) { clearInterval(this.fadeTimer); this.fadeTimer = null; }
+    return this;
+  }
+
+  pause(): this {
+    // Server has no pause yet — emulate as stop. Position is lost on resume.
+    if (this.cueId) this.server.stop(this.cueId);
+    if (this.endTimer) { clearTimeout(this.endTimer); this.endTimer = null; }
+    return this;
+  }
+
+  unload(): this {
+    this.isUnloaded = true;
+    if (this.fadeTimer) { clearInterval(this.fadeTimer); this.fadeTimer = null; }
+    if (this.endTimer) { clearTimeout(this.endTimer); this.endTimer = null; }
+    if (this.cueId) {
+      this.server.removeCue(this.cueId).catch(() => {});
+      this.cueId = null;
+    }
+    return this;
+  }
+
+  volume(v?: number): number | this {
+    if (v === undefined) return this.cachedVolume;
+    this.cachedVolume = v;
+    if (this.cueId) this.server.setGainDb(this.cueId, linearToDbSafe(v));
+    return this;
+  }
+
+  fade(from: number, to: number, durationMs: number): this {
+    if (this.fadeTimer) { clearInterval(this.fadeTimer); this.fadeTimer = null; }
+    if (durationMs <= 0) { this.volume(to); return this; }
+    const startedAt = Date.now();
+    this.fadeTimer = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const t = Math.min(1, elapsed / durationMs);
+      const cur = from + (to - from) * t;
+      this.cachedVolume = cur;
+      if (this.cueId) this.server.setGainDb(this.cueId, linearToDbSafe(cur));
+      if (t >= 1 && this.fadeTimer) {
+        clearInterval(this.fadeTimer);
+        this.fadeTimer = null;
+      }
+    }, 40);
+    return this;
+  }
+
+  seek(t?: number): number | this {
+    if (t === undefined) {
+      // Read from the most recent meter broadcast.
+      if (!this.cueId) return 0;
+      const m: any = this.server.meters;
+      if (m && Array.isArray(m.items)) {
+        const found = m.items.find((it: any) => it.cue_id === this.cueId);
+        if (found && typeof found.playhead_seconds === 'number') {
+          return found.playhead_seconds;
+        }
+      }
+      return 0;
+    }
+    // Server has no seek endpoint yet.
+    console.warn('[useAudioEngine] seek(t) is not yet supported by the C++ server');
+    return this;
+  }
+
+  duration(): number { return this.cachedDuration; }
+}
+
+// Drop-in for the global `Howler` object. Master gain currently no-ops —
+// the server's master ceiling is set via REST elsewhere if needed.
+const ServerHowler = {
+  volume(_v: number) { /* TODO: route to /api/master endpoint */ },
+};
+
+// Aliases so the rest of the file reads as before.
+const Howl = ServerHowl as any;
+const Howler = ServerHowler as any;
 
 // Active cue tracking with Howler instances
 interface ActiveCueState {

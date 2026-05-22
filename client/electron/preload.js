@@ -138,5 +138,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // MIDI config
   readMidiConfig: () => ipcRenderer.invoke('read-midi-config'),
-  writeMidiConfig: (config) => ipcRenderer.invoke('write-midi-config', config)
+  writeMidiConfig: (config) => ipcRenderer.invoke('write-midi-config', config),
+
+  // LivePlay audio server lifecycle (C++ server spawned by main process)
+  liveplayServer: {
+    getConfig: () => ipcRenderer.invoke('liveplay-server:get-config'),
+    setConfig: (cfg) => ipcRenderer.invoke('liveplay-server:set-config', cfg),
+    getStatus: () => ipcRenderer.invoke('liveplay-server:get-status'),
+    restart:   () => ipcRenderer.invoke('liveplay-server:restart'),
+    onStateChange: (callback) => {
+      const listener = (_e, payload) => callback(payload);
+      ipcRenderer.on('liveplay-server:state', listener);
+      return () => ipcRenderer.removeListener('liveplay-server:state', listener);
+    },
+  },
 });
