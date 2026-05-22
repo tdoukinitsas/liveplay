@@ -25,7 +25,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # ---------------------------------------------------------------------------
 if(MSVC)
     add_compile_options(/W4 /permissive- /Zc:__cplusplus /utf-8)
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
+    add_compile_definitions(
+        _CRT_SECURE_NO_WARNINGS
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        _WIN32_WINNT=0x0A00   # Target Windows 10+
+    )
 else()
     add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-parameter)
 endif()
@@ -49,6 +54,10 @@ find_path(MINIAUDIO_INCLUDE_DIR miniaudio.h REQUIRED)
 # ---------------------------------------------------------------------------
 add_library(liveplay_miniaudio STATIC src/audio/miniaudio_impl.c)
 target_include_directories(liveplay_miniaudio PUBLIC ${MINIAUDIO_INCLUDE_DIR})
+# Suppress narrowing warnings inside the miniaudio header (third-party, not our code).
+if(MSVC)
+    target_compile_options(liveplay_miniaudio PRIVATE /wd4244)
+endif()
 
 if(APPLE)
     target_link_libraries(liveplay_miniaudio
@@ -71,9 +80,20 @@ endif()
 # ---------------------------------------------------------------------------
 # Server executable
 # ---------------------------------------------------------------------------
+if(WIN32)
+    # Embed the app icon and version info from the Windows resource script.
+    # The .rc file uses a path relative to its own location, so set the
+    # RC_FLAGS include directory to assets/ so the compiler finds app.ico.
+    set(LIVEPLAY_RC "${CMAKE_CURRENT_SOURCE_DIR}/assets/server.rc")
+    set(CMAKE_RC_FLAGS "/I\"${CMAKE_CURRENT_SOURCE_DIR}/assets\"")
+else()
+    set(LIVEPLAY_RC "")
+endif()
+
 add_executable(liveplay-server
     src/main.cpp
     src/logger.cpp
+    ${LIVEPLAY_RC}
 
     # Milestone 2 — audio engine
     src/audio/meter.cpp

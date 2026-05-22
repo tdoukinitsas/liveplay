@@ -21,7 +21,6 @@
 #include <thread>
 
 #if defined(_WIN32)
-    #define WIN32_LEAN_AND_MEAN
     #include <winsock2.h>
     #include <ws2tcpip.h>
     #include <iphlpapi.h>
@@ -138,36 +137,18 @@ void print_banner(const std::string& bind_iface, int port) {
     constexpr std::string_view C_RESET = "\033[0m";
     constexpr std::string_view C_BOLD  = "\033[1m";
     constexpr std::string_view C_DIM   = "\033[2m";
-    constexpr std::string_view C_CYAN  = "\033[36m";
+    constexpr std::string_view C_RED   = "\033[31m";
     constexpr std::string_view C_GREEN = "\033[32m";
     constexpr std::string_view C_YEL   = "\033[33m";
 
-    // ASCII art kept to pure 7-bit so it renders in every console.
+    // Compact helper: wrap a literal in an ANSI colour and reset.
+    auto clr = [](std::string_view code, std::string_view text) {
+        return std::string{code} + std::string{text} + "\033[0m";
+    };
+
+    // ASCII-art play-button-in-circle — same design language as the SVG icon.
     Logger::raw("");
-    Logger::raw(std::string{C_CYAN} +
-                "    _      _              _             "
-                + std::string{C_RESET});
-    Logger::raw(std::string{C_CYAN} +
-                "   | |    (_)            | |            "
-                + std::string{C_RESET});
-    Logger::raw(std::string{C_CYAN} +
-                "   | |     ___   _____ __| | __ _ _   _ "
-                + std::string{C_RESET});
-    Logger::raw(std::string{C_CYAN} +
-                "   | |    | \\ \\ / / _ \\  _ \\/ _` | | | |"
-                + std::string{C_RESET});
-    Logger::raw(std::string{C_CYAN} +
-                "   | |____| |\\ V /  __/ |_) | (_| | |_| |"
-                + std::string{C_RESET});
-    Logger::raw(std::string{C_CYAN} +
-                "   |______|_| \\_/ \\___|\\__,_|\\__,_|\\__, |"
-                + std::string{C_RESET});
-    Logger::raw(std::string{C_CYAN} +
-                "                                    __/ |"
-                + std::string{C_RESET});
-    Logger::raw(std::string{C_CYAN} +
-                "                                   |___/ "
-                + std::string{C_RESET});
+    Logger::raw(std::string{C_RESET} + "  ▶" + std::string{C_RED} + "⬤");
     Logger::raw("");
 
     Logger::raw(std::string{C_BOLD} + "  LivePlay Server " + std::string{C_RESET} +

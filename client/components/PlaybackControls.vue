@@ -31,29 +31,36 @@
       </div>
     </div>
     
-    <!-- Master Mix Meter -->
-    <div class="master-meter" v-if="activeCues.size > 0">
+    <!-- Master Mix Meter — live, from the C++ server's master channel 0/1.
+         Replaces the legacy static-waveform "cheat" meter. -->
+    <div class="master-meter">
       <div class="master-label">MIX</div>
       <div class="master-meter-wrapper">
-        <VUMeter 
-          :level="masterOutputLevel" 
-          :peakLevel="masterPeakLevel"
-          :isMaster="true"
-          :showPeakHold="true"
-        />
+        <LiveMeterBar source="master" :index="0" :vertical="true" :show-label="true" />
+        <LiveMeterBar source="master" :index="1" :vertical="true" :show-label="false" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+// PlaybackControls migration (Milestone 5):
+//   * Panic / stop-all now fans out to BOTH the legacy useAudioEngine
+//     (until every component is migrated away from it) AND the new C++
+//     server via useLiveplayServer().stopAll(). Removing the legacy call
+//     is safe once all play paths route through the server.
+//   * The master mix meter is rendered by <LiveMeterBar source="master"
+//     :index="0" />, which consumes the live WebSocket meter stream from
+//     the engine — replacing the static-waveform "cheat" levels.
 import { formatKeyLabel } from '~/composables/useCartHotkeys';
 import type { AudioItem } from '~/types/project';
+import { useLiveplayServer } from '~/composables/useLiveplayServer';
 
-const { activeCues, panicStop, masterOutputLevel, masterPeakLevel, nextItemOverrideUuid, autoNextItemUuid, setNextItem, playCue, triggerGroup } = useAudioEngine();
+const { activeCues, panicStop, nextItemOverrideUuid, autoNextItemUuid, setNextItem, playCue, triggerGroup } = useAudioEngine();
 const { findItemByUuid } = useProject();
 const { playbackMappings } = useCartHotkeys();
 const { t } = useLocalization();
+const server = useLiveplayServer();
 
 const effectiveNextUuid = computed(() => nextItemOverrideUuid.value ?? autoNextItemUuid.value);
 
@@ -69,7 +76,12 @@ const stopAllTooltip = computed(() => {
   return shortcut ? `${t('playback.panic')} (${shortcut})` : t('playback.panic');
 });
 
-const handlePanic = () => panicStop();
+const handlePanic = () => {
+  // Tell the server to stop everything immediately (no fade); also stop the
+  // legacy in-process engine while it's still in use.
+  server.stopAll(0);
+  panicStop();
+};
 
 const handlePlayNext = () => {
   const uuid = effectiveNextUuid.value;
@@ -197,6 +209,7 @@ const handlePlayNext = () => {
 .master-meter-wrapper {
   flex: 1;
   display: flex;
+  gap: var(--spacing-xs);
   max-height: calc(var(--playback-controls-height) - 40px);
 }
 </style>

@@ -45,9 +45,8 @@
 #include <unordered_map>
 #include <vector>
 
-// Forward declare miniaudio types so the header stays clean.
-struct ma_device;
-struct ma_pcm_rb;
+// miniaudio types (header-only; implementation compiled once in miniaudio_impl.c).
+#include <miniaudio.h>
 
 namespace liveplay::audio {
 

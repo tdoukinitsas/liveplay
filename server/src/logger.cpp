@@ -13,7 +13,6 @@
 #include <string_view>
 
 #if defined(_WIN32)
-    #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
     #include <io.h>
     #define LP_ISATTY(fd) _isatty(fd)

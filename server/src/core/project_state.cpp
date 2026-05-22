@@ -3,17 +3,20 @@
 // ============================================================================
 #include "liveplay/core/project_state.hpp"
 #include "liveplay/logger.hpp"
+#include "liveplay/meta/metadata.hpp"
 
 #include <fstream>
 
 namespace liveplay::core {
 
 namespace {
-
 inline std::string id_to_string(const audio::CueId& id)          { return id.value; }
 inline std::string id_to_string(const audio::MixerChannelId& id) { return id.value; }
 inline std::string id_to_string(const audio::DeviceId& id)       { return id.value; }
+} // namespace
 
+// ADL-visible to_json overloads — must be in liveplay::core (not anonymous namespace)
+// so nlohmann's adl_serializer can find them for push_back / operator= conversions.
 void to_json(json& j, const CueMeta& m) {
     j = json{
         {"id",            m.id.value},
@@ -65,6 +68,7 @@ void to_json(json& j, const MasterAssignment& a) {
     };
 }
 
+namespace {
 audio::LTCFrameRate fps_index_to_rate(int idx) noexcept {
     switch (idx) {
         case 0: return audio::LTCFrameRate::Fps24;
@@ -100,11 +104,19 @@ audio::CueId ProjectState::add_cue_from_file(const std::filesystem::path& file,
     const auto cue_id = engine_.load_cue(file);
     if (cue_id.empty()) return {};
 
+    // Populate artist/title/duration via TagLib (best-effort; never fatal).
+    const auto md = meta::read_metadata(file);
+
     std::lock_guard lock{mutex_};
     CueMeta meta;
     meta.id           = cue_id;
-    meta.display_name = display_name.empty() ? file.filename().string() : std::move(display_name);
+    meta.display_name = display_name.empty()
+                          ? (md.title.empty() ? file.filename().string() : md.title)
+                          : std::move(display_name);
     meta.file_path    = file;
+    meta.artist       = md.artist;
+    meta.title        = md.title;
+    meta.duration_seconds = static_cast<double>(md.duration.count()) / 1000.0;
     cues_.emplace(cue_id.value, std::move(meta));
     return cue_id;
 }
@@ -114,7 +126,7 @@ void ProjectState::remove_cue(const audio::CueId& id) {
     std::lock_guard lock{mutex_};
     cues_.erase(id.value);
     item_routes_.erase(std::remove_if(item_routes_.begin(), item_routes_.end(),
-                                       [&](const RouteSendV2& r){
+                                       [&](const RouteSendV2& /*r*/){
                                            // can't easily tell which cue this belonged to without
                                            // tagging — for now we just drop nothing here. The engine
                                            // already dropped the cue's routes when unload_cue ran.

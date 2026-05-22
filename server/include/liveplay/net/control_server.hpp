@@ -43,24 +43,15 @@
 
 #include <atomic>
 #include <memory>
-#include <mutex>
 #include <string>
-#include <thread>
-#include <unordered_set>
-
-// Forward-declare Crow types to keep the heavy header out of public consumers.
-namespace crow {
-class SimpleApp;
-namespace websocket { struct connection; }
-}
 
 namespace liveplay::net {
 
 struct ControlServerConfig {
-    std::string  bind_address      = "0.0.0.0";
-    std::uint16_t port              = 4480;
-    std::size_t  meter_broadcast_hz = 60;
-    std::size_t  max_upload_bytes   = 256ull * 1024 * 1024;   // 256 MiB
+    std::string   bind_address       = "0.0.0.0";
+    std::uint16_t port               = 4480;
+    std::size_t   meter_broadcast_hz = 60;
+    std::size_t   max_upload_bytes   = 256ull * 1024 * 1024;   // 256 MiB
 };
 
 class ControlServer {
@@ -68,28 +59,24 @@ public:
     ControlServer(audio::AudioEngine& engine,
                   core::ProjectState& state,
                   ControlServerConfig cfg = {});
-    ~ControlServer();
+    ~ControlServer();   // defined in .cpp where Impl is complete
 
-    // Start the HTTP + WebSocket server. Returns false if Crow could not bind.
     bool start();
     void stop();
 
 private:
-    audio::AudioEngine&       engine_;
-    core::ProjectState&       state_;
-    ControlServerConfig       cfg_;
+    audio::AudioEngine& engine_;
+    core::ProjectState& state_;
+    ControlServerConfig cfg_;
+    std::atomic<bool>   running_{false};
 
-    std::unique_ptr<crow::SimpleApp> app_;
-    std::thread                      app_thread_;
-    std::thread                      broadcast_thread_;
-    std::atomic<bool>                running_{false};
-
-    std::mutex                                    ws_mutex_;
-    std::unordered_set<crow::websocket::connection*> ws_clients_;
+    // Crow + WebSocket state hidden behind pimpl so crow.h stays out of this
+    // header and out of every file that only needs to start/stop the server.
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
 
     void install_routes();
     void broadcast_loop();
-    void handle_ws_message(crow::websocket::connection& conn, const std::string& msg);
 };
 
 } // namespace liveplay::net

@@ -249,7 +249,7 @@ DeviceId AudioEngine::open_device_by_name(const std::string& name_substring,
     cfg.sampleRate         = cfg_.mix_sample_rate;
     cfg.dataCallback       = &AudioEngine::ma_data_callback;
     cfg.pUserData          = dev.get();
-    cfg.periodSizeInFrames = cfg_.render_block;
+    cfg.periodSizeInFrames = static_cast<ma_uint32>(cfg_.render_block);
 
     // For name-substring matching we walk enumerated devices and pick the
     // first whose name contains the substring (case-insensitive). Empty

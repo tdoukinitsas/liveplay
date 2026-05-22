@@ -1,8 +1,19 @@
 // ============================================================================
 // control_server.cpp — see control_server.hpp.
 // ============================================================================
+
+// Must come before crow.h on Windows to avoid redefinition of NOMINMAX etc.
+#ifndef WIN32_LEAN_AND_MEAN
+#  define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef _WIN32_WINNT
+#  define _WIN32_WINNT 0x0A00
+#endif
+
 #include "liveplay/net/control_server.hpp"
 #include "liveplay/logger.hpp"
+#include "liveplay/meta/metadata.hpp"
+#include "liveplay/meta/waveform.hpp"
 
 #include <crow.h>
 #include <crow/middlewares/cors.h>
@@ -12,18 +23,36 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <set>
 #include <sstream>
 #include <string>
 #include <thread>
+#include <unordered_set>
 
-namespace fs   = std::filesystem;
-using json     = nlohmann::json;
+// Windows defines DELETE as a macro (access-rights constant) which breaks
+// crow::HTTPMethod::DELETE. Undefine it after all system/crow includes.
+#ifdef DELETE
+#  undef DELETE
+#endif
+
+namespace fs    = std::filesystem;
+using json      = nlohmann::json;
 namespace audio = liveplay::audio;
 namespace core  = liveplay::core;
 
 namespace liveplay::net {
+
+// Pimpl: all Crow + WebSocket state lives here so crow.h stays out of the
+// public header.
+struct ControlServer::Impl {
+    crow::SimpleApp app;
+    std::thread     app_thread;
+    std::thread     broadcast_thread;
+    std::mutex      ws_mutex;
+    std::unordered_set<crow::websocket::connection*> ws_clients;
+};
 
 namespace {
 
@@ -100,9 +129,8 @@ json cue_to_json(const core::CueMeta& c, audio::AudioEngine& engine) {
 ControlServer::ControlServer(audio::AudioEngine& engine,
                              core::ProjectState& state,
                              ControlServerConfig cfg)
-    : engine_(engine), state_(state), cfg_(std::move(cfg)) {
-    app_ = std::make_unique<crow::SimpleApp>();
-}
+    : engine_(engine), state_(state), cfg_(std::move(cfg)),
+      impl_(std::make_unique<Impl>()) {}
 
 ControlServer::~ControlServer() { stop(); }
 
@@ -111,24 +139,24 @@ bool ControlServer::start() {
     install_routes();
 
     // Crow's SimpleApp::run() blocks; we shove it on a worker thread.
-    app_thread_ = std::thread([this] {
+    impl_->app_thread = std::thread([this] {
         try {
-            app_->bindaddr(cfg_.bind_address).port(cfg_.port).multithreaded().run();
+            impl_->app.bindaddr(cfg_.bind_address).port(cfg_.port).multithreaded().run();
         } catch (const std::exception& ex) {
             Logger::error("ControlServer: crow run() threw: {}", ex.what());
         }
     });
 
-    broadcast_thread_ = std::thread([this] { broadcast_loop(); });
+    impl_->broadcast_thread = std::thread([this] { broadcast_loop(); });
     Logger::success("Control server listening on {}:{}", cfg_.bind_address, cfg_.port);
     return true;
 }
 
 void ControlServer::stop() {
     if (!running_.exchange(false)) return;
-    if (app_) app_->stop();
-    if (broadcast_thread_.joinable()) broadcast_thread_.join();
-    if (app_thread_.joinable()) app_thread_.join();
+    impl_->app.stop();
+    if (impl_->broadcast_thread.joinable()) impl_->broadcast_thread.join();
+    if (impl_->app_thread.joinable())       impl_->app_thread.join();
     Logger::info("Control server stopped.");
 }
 
@@ -197,8 +225,8 @@ void ControlServer::broadcast_loop() {
         const std::string serialized = payload.dump();
 
         // Fan out to all subscribed clients.
-        std::lock_guard lock{ws_mutex_};
-        for (auto* c : ws_clients_) {
+        std::lock_guard lock{impl_->ws_mutex};
+        for (auto* c : impl_->ws_clients) {
             try { c->send_text(serialized); }
             catch (...) { /* connection will be cleaned up by onclose */ }
         }
@@ -210,10 +238,44 @@ void ControlServer::broadcast_loop() {
 }
 
 // ---------------------------------------------------------------------------
+static void handle_ws_message(crow::websocket::connection& conn,
+                               const std::string& msg,
+                               audio::AudioEngine& engine,
+                               core::ProjectState& state) {
+    json j;
+    try { j = json::parse(msg); }
+    catch (const std::exception& e) {
+        conn.send_text(json({{"type", "error"}, {"message", e.what()}}).dump());
+        return;
+    }
+    const std::string type = j.value("type", "");
+    try {
+        if (type == "play")       engine.play(audio::CueId{j.at("cue_id").get<std::string>()});
+        else if (type == "stop")  engine.stop(audio::CueId{j.at("cue_id").get<std::string>()});
+        else if (type == "stop_all")
+            engine.stop_all(std::chrono::milliseconds{j.value("fade_ms", (long long)0)});
+        else if (type == "gain")
+            state.set_cue_gain_db(audio::CueId{j.at("cue_id").get<std::string>()},
+                                   j.value("db", 0.0f));
+        else if (type == "fade")
+            state.set_cue_fade_in(audio::CueId{j.at("cue_id").get<std::string>()},
+                std::chrono::milliseconds{j.value("in_ms", (long long)0)}),
+            state.set_cue_fade_out(audio::CueId{j.at("cue_id").get<std::string>()},
+                std::chrono::milliseconds{j.value("out_ms", (long long)0)});
+        else if (type == "ping")
+            conn.send_text(json({{"type", "pong"}}).dump());
+        else
+            conn.send_text(json({{"type", "error"}, {"message", "unknown type"}}).dump());
+    } catch (const std::exception& e) {
+        conn.send_text(json({{"type", "error"}, {"message", e.what()}}).dump());
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
 void ControlServer::install_routes() {
-    auto& app = *app_;
+    auto& app = impl_->app;
 
     // Permissive CORS preflight for everything (the Electron client is on a
     // different origin).
@@ -501,6 +563,55 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // ---- Metadata + Waveform ----
+    CROW_ROUTE(app, "/api/metadata").methods(crow::HTTPMethod::GET)
+        ([](const crow::request& req) {
+            const char* path = req.url_params.get("path");
+            if (!path) return json_err(400, "missing ?path=");
+            const auto md = liveplay::meta::read_metadata(fs::path{path});
+            return json_ok(json{
+                {"valid",        md.valid},
+                {"artist",       md.artist},
+                {"title",        md.title},
+                {"album",        md.album},
+                {"genre",        md.genre},
+                {"year",         md.year},
+                {"track_number", md.track_number},
+                {"duration_ms",  md.duration.count()},
+                {"sample_rate",  md.sample_rate},
+                {"channels",     md.channels},
+                {"bitrate_kbps", md.bitrate_kbps},
+            });
+        });
+
+    CROW_ROUTE(app, "/api/waveform/<string>").methods(crow::HTTPMethod::GET)
+        ([this](const crow::request& req, std::string cue_id) {
+            const auto meta = state_.find_cue(audio::CueId{cue_id});
+            if (!meta) return json_err(404, "no such cue");
+
+            std::uint32_t buckets = 1000;
+            if (req.url_params.get("buckets")) {
+                try { buckets = static_cast<std::uint32_t>(std::stoi(req.url_params.get("buckets"))); }
+                catch (...) {}
+            }
+
+            const auto wf = liveplay::meta::compute_waveform(meta->file_path, buckets);
+            if (!wf.ok) return json_err(500, "waveform decode failed");
+
+            json channels = json::array();
+            for (const auto& ch : wf.channels) {
+                channels.push_back(json{{"peak", ch.peak}, {"rms", ch.rms}});
+            }
+            return json_ok(json{
+                {"cue_id",          cue_id},
+                {"bucket_count",    wf.bucket_count},
+                {"duration_ms",     wf.duration.count()},
+                {"sample_rate",     wf.sample_rate},
+                {"source_channels", wf.source_channels},
+                {"channels",        std::move(channels)},
+            });
+        });
+
     // ---- Project I/O ----
     CROW_ROUTE(app, "/api/project").methods(crow::HTTPMethod::GET)
         ([this] { return json_ok(state_.to_json()); });
@@ -536,54 +647,22 @@ void ControlServer::install_routes() {
     // ------------------------------------------------------------------
     CROW_WEBSOCKET_ROUTE(app, "/ws")
       .onopen([this](crow::websocket::connection& conn) {
-          std::lock_guard lock{ws_mutex_};
-          ws_clients_.insert(&conn);
-          Logger::info("WS client connected ({} total)", ws_clients_.size());
+          std::lock_guard lock{impl_->ws_mutex};
+          impl_->ws_clients.insert(&conn);
+          Logger::info("WS client connected ({} total)", impl_->ws_clients.size());
       })
       .onclose([this](crow::websocket::connection& conn, const std::string& reason, std::uint16_t /*code*/) {
-          std::lock_guard lock{ws_mutex_};
-          ws_clients_.erase(&conn);
+          std::lock_guard lock{impl_->ws_mutex};
+          impl_->ws_clients.erase(&conn);
           Logger::info("WS client disconnected ({}); {} remaining",
-                       reason, ws_clients_.size());
+                       reason, impl_->ws_clients.size());
       })
       .onmessage([this](crow::websocket::connection& conn,
                         const std::string& data,
                         bool is_binary) {
-          if (is_binary) return;        // we don't accept binary control frames
-          handle_ws_message(conn, data);
+          if (is_binary) return;
+          handle_ws_message(conn, data, engine_, state_);
       });
-}
-
-// ---------------------------------------------------------------------------
-void ControlServer::handle_ws_message(crow::websocket::connection& conn,
-                                      const std::string& msg) {
-    json j;
-    try { j = json::parse(msg); }
-    catch (const std::exception& e) {
-        conn.send_text(json({{"type", "error"}, {"message", e.what()}}).dump());
-        return;
-    }
-    const std::string type = j.value("type", "");
-    try {
-        if (type == "play")       engine_.play(audio::CueId{j.at("cue_id").get<std::string>()});
-        else if (type == "stop")  engine_.stop(audio::CueId{j.at("cue_id").get<std::string>()});
-        else if (type == "stop_all")
-            engine_.stop_all(std::chrono::milliseconds{j.value("fade_ms", (long long)0)});
-        else if (type == "gain")
-            state_.set_cue_gain_db(audio::CueId{j.at("cue_id").get<std::string>()},
-                                    j.value("db", 0.0f));
-        else if (type == "fade")
-            state_.set_cue_fade_in(audio::CueId{j.at("cue_id").get<std::string>()},
-                std::chrono::milliseconds{j.value("in_ms", (long long)0)}),
-            state_.set_cue_fade_out(audio::CueId{j.at("cue_id").get<std::string>()},
-                std::chrono::milliseconds{j.value("out_ms", (long long)0)});
-        else if (type == "ping")
-            conn.send_text(json({{"type", "pong"}}).dump());
-        else
-            conn.send_text(json({{"type", "error"}, {"message", "unknown type"}}).dump());
-    } catch (const std::exception& e) {
-        conn.send_text(json({{"type", "error"}, {"message", e.what()}}).dump());
-    }
 }
 
 } // namespace liveplay::net

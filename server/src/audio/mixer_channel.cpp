@@ -81,7 +81,7 @@ float MixerChannel::current_gain_linear() noexcept {
     fade_elapsed_samples_.store(elapsed, std::memory_order_relaxed);
     const float t = static_cast<float>(elapsed) / static_cast<float>(total);
     // Equal-power-ish cosine ramp feels nicer than linear on faders.
-    const float curve = 0.5f - 0.5f * std::cos(static_cast<float>(M_PI) * t);
+    const float curve = 0.5f - 0.5f * std::cos(3.14159265358979323846f * t);
     return start + (target - start) * curve;
 }
 
