@@ -712,8 +712,11 @@ void ControlServer::install_routes() {
         });
 
     // ---- Project I/O ----
+    // Returns the *full* client-shaped project document (items, groups, cart,
+    // theme, settings) plus a server-side decoration of engine cue ids. This
+    // is the single GET a remote client needs to render the whole project.
     CROW_ROUTE(app, "/api/project").methods(crow::HTTPMethod::Get)
-        ([this] { return json_ok(state_.to_json()); });
+        ([this] { return json_ok(state_.full_document()); });
 
     CROW_ROUTE(app, "/api/project/load").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
@@ -727,7 +730,7 @@ void ControlServer::install_routes() {
                 } else {
                     return json_err(400, "expected 'path' or 'document'");
                 }
-                return json_ok(state_.to_json());
+                return json_ok(state_.full_document());
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
@@ -735,9 +738,142 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
-                const fs::path p = liveplay::util::utf8_to_path(j.at("path").get<std::string>());
-                return state_.save(p) ? json_ok(json({{"ok", true}}))
+                // If no path given, use the project's previously-set file path.
+                fs::path p;
+                if (j.contains("path") && j["path"].is_string()) {
+                    p = liveplay::util::utf8_to_path(j["path"].get<std::string>());
+                    state_.set_project_file_path(p);
+                } else {
+                    p = state_.project_file_path();
+                    if (p.empty()) return json_err(400, "no project file path set");
+                }
+                return state_.save(p) ? json_ok(json({{"ok", true},
+                                                       {"path", liveplay::util::path_to_utf8(p)}}))
                                       : json_err(500, "save failed");
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // Replace the entire project document. Client uses this on app startup if
+    // it has an existing in-memory project it wants to push to the server.
+    CROW_ROUTE(app, "/api/project/document").methods(crow::HTTPMethod::Put)
+        ([this](const crow::request& req){
+            try {
+                auto doc = json::parse(req.body);
+                if (!state_.replace_full_document(doc)) {
+                    return json_err(400, "document not accepted");
+                }
+                return json_ok(state_.full_document());
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // ---- Items (mirror of client's hierarchical playlist) ----
+    CROW_ROUTE(app, "/api/project/items").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                auto j = json::parse(req.body);
+                if (!j.contains("item") || !j["item"].is_object()) {
+                    return json_err(400, "missing 'item' object");
+                }
+                const std::string parent_uuid = j.value("parentUuid", std::string{});
+                state_.add_item(j["item"], parent_uuid);
+                return json_ok(state_.full_document());
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/project/items/<string>").methods(crow::HTTPMethod::Patch)
+        ([this](const crow::request& req, std::string uuid){
+            try {
+                auto patch = json::parse(req.body);
+                if (!state_.update_item(uuid, patch)) {
+                    return json_err(404, "item not found");
+                }
+                return json_ok(state_.full_document());
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/project/items/<string>").methods(crow::HTTPMethod::Delete)
+        ([this](std::string uuid){
+            if (!state_.remove_item(uuid)) return json_err(404, "item not found");
+            return json_ok(state_.full_document());
+        });
+
+    CROW_ROUTE(app, "/api/project/items/reorder").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                auto j = json::parse(req.body);
+                const std::string parent_uuid = j.value("parentUuid", std::string{});
+                std::vector<std::string> uuids;
+                if (j.contains("uuids") && j["uuids"].is_array()) {
+                    for (const auto& u : j["uuids"]) {
+                        if (u.is_string()) uuids.push_back(u.get<std::string>());
+                    }
+                }
+                state_.reorder_items(uuids, parent_uuid);
+                return json_ok(state_.full_document());
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // Item-by-uuid transport (translates item uuid → engine cue id and forwards).
+    CROW_ROUTE(app, "/api/project/items/<string>/play").methods(crow::HTTPMethod::Post)
+        ([this](std::string uuid){
+            const auto cue = state_.item_to_cue_id(uuid);
+            if (!cue) return json_err(404, "item not loaded into engine");
+            engine_.play(*cue);
+            return json_ok(json({{"ok", true}}));
+        });
+    CROW_ROUTE(app, "/api/project/items/<string>/stop").methods(crow::HTTPMethod::Post)
+        ([this](std::string uuid){
+            const auto cue = state_.item_to_cue_id(uuid);
+            if (!cue) return json_err(404, "item not loaded into engine");
+            engine_.stop(*cue);
+            return json_ok(json({{"ok", true}}));
+        });
+    CROW_ROUTE(app, "/api/project/items/<string>/seek").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, std::string uuid){
+            try {
+                auto j = json::parse(req.body);
+                const auto cue = state_.item_to_cue_id(uuid);
+                if (!cue) return json_err(404, "item not loaded into engine");
+                if (auto* pi = engine_.find_cue(*cue)) {
+                    pi->seek_seconds(j.value("seconds", 0.0));
+                }
+                return json_ok(json({{"ok", true}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // ---- Cart slot bindings ----
+    CROW_ROUTE(app, "/api/project/cart").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                auto j = json::parse(req.body);
+                const int slot = j.value("slot", -1);
+                const std::string uuid = j.value("itemUuid", std::string{});
+                if (slot < 0 || uuid.empty()) return json_err(400, "slot and itemUuid required");
+                state_.set_cart_slot(slot, uuid);
+                return json_ok(state_.full_document());
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+    CROW_ROUTE(app, "/api/project/cart/<int>").methods(crow::HTTPMethod::Delete)
+        ([this](int slot){
+            state_.clear_cart_slot(slot);
+            return json_ok(state_.full_document());
+        });
+
+    // ---- Theme + settings patches ----
+    CROW_ROUTE(app, "/api/project/theme").methods(crow::HTTPMethod::Patch)
+        ([this](const crow::request& req){
+            try {
+                auto patch = json::parse(req.body);
+                state_.patch_theme(patch);
+                return json_ok(state_.full_document()["theme"]);
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+    CROW_ROUTE(app, "/api/project/settings").methods(crow::HTTPMethod::Patch)
+        ([this](const crow::request& req){
+            try {
+                auto patch = json::parse(req.body);
+                state_.patch_settings(patch);
+                return json_ok(state_.full_document()["settings"]);
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 

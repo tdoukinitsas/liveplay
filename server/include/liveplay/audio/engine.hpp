@@ -195,6 +195,7 @@ private:
         std::unique_ptr<ma_pcm_rb>  ring;             // SPSC PCM ring
         std::vector<Sample>         scratch;          // interleaved staging buffer
         std::atomic<bool>           started{false};
+        AudioEngine*                engine = nullptr; // back-pointer for callback
     };
 
     EngineConfig                                 cfg_;
@@ -233,6 +234,11 @@ private:
     // Render thread plumbing.
     std::atomic<bool>                running_{false};
     std::thread                      render_thread_;
+
+    // Device-callback-driven render trigger. Each device callback bumps
+    // consumption_counter_ + notifies after consuming samples, waking the
+    // render thread to refill rings. Eliminates the previous polling delay.
+    std::atomic<std::uint32_t>       consumption_counter_{0};
 
     // Scratch buffers reused by the render thread (allocated once at start()).
     std::vector<std::vector<Sample>> mixer_accumulators_;  // [mixer_index][frame]

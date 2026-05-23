@@ -50,7 +50,7 @@ namespace liveplay::net {
 struct ControlServerConfig {
     std::string   bind_address       = "0.0.0.0";
     std::uint16_t port               = 4480;
-    std::size_t   meter_broadcast_hz = 60;
+    std::size_t   meter_broadcast_hz = 25;   // 40 ms / frame — comfortable for UI
     std::size_t   max_upload_bytes   = 256ull * 1024 * 1024;   // 256 MiB
 };
 

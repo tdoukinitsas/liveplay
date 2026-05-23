@@ -73,7 +73,7 @@ AudioFileMetadata read_metadata(const std::filesystem::path& path) noexcept {
             out.year   = static_cast<int>(tag->year());
             out.track_number = static_cast<int>(tag->track());
         }
-        if (out.title.empty()) out.title = path.stem().string();
+        if (out.title.empty()) out.title = util::path_to_utf8(path.stem());
 
         if (auto* props = ref.audioProperties()) {
             out.duration     = std::chrono::milliseconds{props->lengthInMilliseconds()};
@@ -87,8 +87,8 @@ AudioFileMetadata read_metadata(const std::filesystem::path& path) noexcept {
         out.valid = true;
         return out;
     } catch (const std::exception& ex) {
-        Logger::error("read_metadata exception for '{}': {}", path.string(), ex.what());
-        out.title    = path.stem().string();
+        Logger::error("read_metadata exception for '{}': {}", utf8, ex.what());
+        out.title    = util::path_to_utf8(path.stem());
         out.duration = duration_via_miniaudio(path);
         out.valid    = out.duration.count() > 0;
         return out;

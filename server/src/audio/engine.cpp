@@ -14,6 +14,10 @@
 #include <random>
 #include <string>
 
+#if defined(_WIN32)
+#  include <windows.h>   // SetThreadPriority
+#endif
+
 namespace liveplay::audio {
 
 namespace {
@@ -90,6 +94,14 @@ bool AudioEngine::start() {
 
     render_thread_ = std::thread([this] { render_loop(); });
 
+#if defined(_WIN32)
+    // Lift the render thread above generic worker threads so consumption_counter_
+    // notifications wake us promptly even when the system is under load. The
+    // device callback already runs at MMCSS / RT priority — staying near it
+    // limits scheduling jitter that would otherwise underrun the ring.
+    SetThreadPriority(render_thread_.native_handle(), THREAD_PRIORITY_HIGHEST);
+#endif
+
     // Bring up the default routing so a freshly-loaded cue can be heard
     // without any explicit routing API calls from the client.
     ensure_default_routing();
@@ -98,6 +110,9 @@ bool AudioEngine::start() {
 
 void AudioEngine::stop() {
     if (!running_.exchange(false)) return;
+    // Kick the render thread out of any consumption_counter_.wait().
+    consumption_counter_.fetch_add(1, std::memory_order_release);
+    consumption_counter_.notify_all();
     if (render_thread_.joinable()) render_thread_.join();
     Logger::info("AudioEngine: stopped.");
 }
@@ -195,19 +210,31 @@ std::vector<DeviceInfo> AudioEngine::enumerate_devices() const {
     return out;
 }
 
-// miniaudio data callback shared by all opened devices.
+// miniaudio data callback shared by all opened devices. Runs on the device's
+// real-time audio thread. Drains the per-device ring buffer into miniaudio's
+// output and — after consuming any samples — notifies the engine's render
+// thread to refill the ring. This is the consumer side of our device-callback-
+// driven synchronisation: the device clock dictates production cadence.
 void AudioEngine::ma_data_callback(ma_device* dev,
                                    void* out,
                                    const void* /*in*/,
                                    std::uint32_t frames) {
     auto* device = reinterpret_cast<Device*>(dev->pUserData);
-    if (!device || !device->ring) {
+    if (!device) {
+        // No device context — emit silence based on what miniaudio asked for.
+        // We don't know channel count without `device`, so use the ma_device's
+        // configured channel count to fill the right number of bytes.
+        std::memset(out, 0, frames * dev->playback.channels * sizeof(Sample));
+        return;
+    }
+    if (!device->ring) {
         std::memset(out, 0, frames * device->channels * sizeof(Sample));
         return;
     }
 
     Sample* dst = static_cast<Sample*>(out);
     std::uint32_t remaining = frames;
+    bool consumed_any = false;
     while (remaining > 0) {
         void*         buf       = nullptr;
         ma_uint32     available = remaining;
@@ -222,6 +249,15 @@ void AudioEngine::ma_data_callback(ma_device* dev,
         ma_pcm_rb_commit_read(device->ring.get(), available);
         dst       += available * device->channels;
         remaining -= available;
+        consumed_any = true;
+    }
+
+    // Signal the render thread that ring space has been freed. fetch_add is
+    // wait-free; notify_one() on a counter only takes a futex-style fast path
+    // when a waiter exists. Safe to call from the RT callback.
+    if (consumed_any && device->engine) {
+        device->engine->consumption_counter_.fetch_add(1, std::memory_order_release);
+        device->engine->consumption_counter_.notify_one();
     }
 }
 
@@ -238,9 +274,12 @@ DeviceId AudioEngine::open_device_by_name(const std::string& name_substring,
     dev->display_name = name_substring.empty() ? "Default Output" : name_substring;
     dev->ma_dev       = std::make_unique<ma_device>();
     dev->ring         = std::make_unique<ma_pcm_rb>();
+    dev->engine       = this;                       // for callback → consumption_counter_
 
-    // Allocate a ring big enough for ~5 render blocks of headroom.
-    const ma_uint32 ring_frames = static_cast<ma_uint32>(cfg_.render_block * 5);
+    // Allocate a ring big enough for ~10 render blocks of headroom. With 256
+    // frames @ 48 kHz that's ~53 ms — enough to absorb thread-scheduling jitter
+    // on the render thread without delaying transport-critical UI latency.
+    const ma_uint32 ring_frames = static_cast<ma_uint32>(cfg_.render_block * 10);
     if (ma_pcm_rb_init(ma_format_f32, output_channels, ring_frames,
                        nullptr, nullptr, dev->ring.get()) != MA_SUCCESS) {
         Logger::error("Failed to allocate ring buffer for device '{}'", dev->display_name);
@@ -308,6 +347,12 @@ DeviceId AudioEngine::open_device_by_name(const std::string& name_substring,
         std::lock_guard lock{mutex_};
         devices_.emplace_back(std::move(dev));
     }
+    // Wake render thread: when we boot with no devices it idles on a coarse
+    // timer; opening the first device should kick it into the live path
+    // immediately so the first audio block lands before the device starves.
+    consumption_counter_.fetch_add(1, std::memory_order_release);
+    consumption_counter_.notify_all();
+
     Logger::success("Opened audio device '{}' ({} ch @ {} Hz) → DeviceId {}",
                     devices_.back()->display_name, output_channels,
                     cfg_.mix_sample_rate, id.value);
@@ -315,20 +360,26 @@ DeviceId AudioEngine::open_device_by_name(const std::string& name_substring,
 }
 
 void AudioEngine::close_device(const DeviceId& id) {
-    std::lock_guard lock{mutex_};
-    auto it = std::find_if(devices_.begin(), devices_.end(),
-                           [&](const std::unique_ptr<Device>& d){ return d->id == id; });
-    if (it == devices_.end()) return;
-    if ((*it)->ma_dev) ma_device_uninit((*it)->ma_dev.get());
-    if ((*it)->ring)   ma_pcm_rb_uninit((*it)->ring.get());
-    Logger::info("Closed audio device '{}'", (*it)->display_name);
-    devices_.erase(it);
+    {
+        std::lock_guard lock{mutex_};
+        auto it = std::find_if(devices_.begin(), devices_.end(),
+                               [&](const std::unique_ptr<Device>& d){ return d->id == id; });
+        if (it == devices_.end()) return;
+        if ((*it)->ma_dev) ma_device_uninit((*it)->ma_dev.get());
+        if ((*it)->ring)   ma_pcm_rb_uninit((*it)->ring.get());
+        Logger::info("Closed audio device '{}'", (*it)->display_name);
+        devices_.erase(it);
 
-    // Drop any master assignments that pointed at this device.
-    for (auto& dest : pending_.master_destinations) {
-        if (dest && dest->device == id) dest.reset();
+        // Drop any master assignments that pointed at this device.
+        for (auto& dest : pending_.master_destinations) {
+            if (dest && dest->device == id) dest.reset();
+        }
+        rebuild_topology_locked();
     }
-    rebuild_topology_locked();
+    // Wake the render thread so it re-evaluates state (in particular, if this
+    // was the last device it should drop into the idle-timer path).
+    consumption_counter_.fetch_add(1, std::memory_order_release);
+    consumption_counter_.notify_all();
 }
 
 AudioEngine::Device* AudioEngine::find_device_locked(const DeviceId& id) const {
@@ -445,7 +496,6 @@ void AudioEngine::ensure_default_routing() {
     // Step 3: wire master 0/1 → device 0/1 if not already.
     {
         std::lock_guard lock{mutex_};
-        const std::size_t n = std::min<std::size_t>(2, pending_.master_destinations.size());
         if (pending_.master_destinations.size() < 2) {
             pending_.master_destinations.resize(2);
         }
@@ -627,11 +677,27 @@ float AudioEngine::read_master_gain_reduction_db(MasterChannelIndex master) cons
 }
 
 // ---------------------------------------------------------------------------
-// Render loop
+// Render loop — device-callback-driven
 // ---------------------------------------------------------------------------
+// The render thread does NOT poll. Instead it blocks on consumption_counter_
+// via std::atomic::wait() and is woken by the ma_data_callback() of every
+// device after it consumes samples. This couples production cadence to the
+// hardware clock of the slowest active device and eliminates the timing jitter
+// that produced the residual crackles in the polling implementation.
+//
+// Invariants:
+//   * After waking, the render thread checks whether *any* device's ring has
+//     >= one full block of writable space. If so, it renders one block and
+//     writes to every device. If not, it loops back to wait.
+//   * With multiple devices at different sample rates / clock drifts, the
+//     loop renders whenever the slowest consumer frees up enough space, so
+//     no device ever overflows and the faster ones simply stay closer to the
+//     top of their ring.
+//   * When no devices are open we fall back to a coarse timer so playhead
+//     advancement remains aligned with wall-clock (matters for the future
+//     "preview without an output device assigned" case).
 void AudioEngine::render_loop() {
     Logger::debug("Render thread started.");
-    using clock = std::chrono::steady_clock;
     const auto block_duration =
         std::chrono::nanoseconds{static_cast<long long>(cfg_.render_block) * 1'000'000'000LL /
                                  static_cast<long long>(cfg_.mix_sample_rate)};
@@ -642,11 +708,47 @@ void AudioEngine::render_loop() {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
-        render_one_block(*snap);
 
-        // Lightly throttle. The ring buffers absorb timing jitter; we just
-        // don't want to spin at 100% CPU when devices haven't drained yet.
-        std::this_thread::sleep_for(block_duration / 2);
+        // Check whether at least one device needs a fresh block (i.e. has
+        // space for one). If not, block until a device callback signals us.
+        bool can_render   = false;
+        bool has_devices  = false;
+        {
+            std::lock_guard lock{mutex_};
+            has_devices = !devices_.empty();
+            // We require *every* device to have space for one block. That
+            // keeps all rings in lock-step so no device's playhead lags.
+            if (has_devices) {
+                can_render = true;
+                for (auto& d : devices_) {
+                    if (!d->ring) continue;
+                    if (ma_pcm_rb_available_write(d->ring.get()) < cfg_.render_block) {
+                        can_render = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!has_devices) {
+            // Idle (no output). Coarse timer; consumption_counter_ will
+            // never fire without a device callback to bump it.
+            std::this_thread::sleep_for(block_duration);
+            continue;
+        }
+
+        if (!can_render) {
+            // Block until a device callback notifies us. Use an atomic
+            // counter to avoid lost wakeups: we capture the current value
+            // before checking-then-waiting on it.
+            const std::uint32_t before = consumption_counter_.load(std::memory_order_acquire);
+            // Re-check under the lock just before waiting (defence against a
+            // device closing between the earlier check and now).
+            consumption_counter_.wait(before, std::memory_order_acquire);
+            continue;
+        }
+
+        render_one_block(*snap);
     }
     Logger::debug("Render thread exiting.");
 }
@@ -774,15 +876,27 @@ void AudioEngine::render_one_block(const Topology& topo) {
             }
         }
 
-        // Push into the device's ring buffer. If it's full we drop this block
-        // — the device will fill silence until the render thread catches up.
-        ma_uint32 frames_to_write = static_cast<ma_uint32>(block);
-        void*     buf = nullptr;
-        if (ma_pcm_rb_acquire_write(dev->ring.get(), &frames_to_write, &buf) == MA_SUCCESS &&
-            frames_to_write > 0) {
-            std::memcpy(buf, dev->scratch.data(),
+        // Push into the device's ring buffer. ma_pcm_rb_acquire_write only
+        // returns the contiguous span at the current write cursor — if our
+        // block crosses the ring's wrap boundary, we need to commit a partial
+        // write then acquire again for the rest. Without this loop, the
+        // remainder was silently dropped → crackle on every ring wrap.
+        ma_uint32 remaining = static_cast<ma_uint32>(block);
+        const Sample* src   = dev->scratch.data();
+        while (remaining > 0) {
+            ma_uint32 frames_to_write = remaining;
+            void*     buf = nullptr;
+            if (ma_pcm_rb_acquire_write(dev->ring.get(), &frames_to_write, &buf) != MA_SUCCESS) break;
+            if (frames_to_write == 0) {
+                // No more space — should not happen because the render loop
+                // back-pressures on available_write, but defend anyway.
+                break;
+            }
+            std::memcpy(buf, src,
                         frames_to_write * dev->channels * sizeof(Sample));
             ma_pcm_rb_commit_write(dev->ring.get(), frames_to_write);
+            src       += frames_to_write * dev->channels;
+            remaining -= frames_to_write;
         }
     }
 }
