@@ -148,7 +148,7 @@ void print_banner(const std::string& bind_iface, int port) {
 
     // ASCII-art play-button-in-circle — same design language as the SVG icon.
     Logger::raw("");
-    Logger::raw(std::string{C_RESET} + "  ▶" + std::string{C_RED} + "⬤");
+    Logger::raw(std::string{C_RESET} + "  ▶" + std::string{C_RED} + "⬤" + std::string{C_RESET});
     Logger::raw("");
 
     Logger::raw(std::string{C_BOLD} + "  LivePlay Server " + std::string{C_RESET} +

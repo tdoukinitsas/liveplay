@@ -108,9 +108,13 @@ function createClient() {
       return;
     }
     try {
+      // eslint-disable-next-line no-console
+      console.log('[liveplay] connecting to', wsUrl.value);
       ws = new WebSocket(wsUrl.value);
     } catch (e) {
       lastError.value = String(e);
+      // eslint-disable-next-line no-console
+      console.error('[liveplay] WebSocket constructor threw:', e);
       scheduleReconnect();
       return;
     }
@@ -182,8 +186,16 @@ function createClient() {
   }
 
   function wsSend(payload: object) {
+    const body = JSON.stringify(payload);
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(payload));
+      // eslint-disable-next-line no-console
+      console.log('[liveplay] WS send:', body);
+      ws.send(body);
+    } else {
+      // Loudly flag — silent drops are the most painful class of WS bug.
+      const state = ws ? ws.readyState : 'no-ws';
+      // eslint-disable-next-line no-console
+      console.warn('[liveplay] WS send DROPPED (readyState=' + state + '):', body);
     }
   }
 
@@ -200,15 +212,37 @@ function createClient() {
 
   // ---- REST helpers -------------------------------------------------
   async function rest<T = any>(path: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(httpBase.value + path, {
-      headers: { 'Content-Type': 'application/json' },
-      ...init,
-    });
+    const url = httpBase.value + path;
+    // eslint-disable-next-line no-console
+    console.log('[liveplay] rest start:', init?.method || 'GET', url);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...init,
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[liveplay] rest fetch threw:', e);
+      throw e;
+    }
+    // eslint-disable-next-line no-console
+    console.log('[liveplay] rest headers:', res.status, res.statusText, 'for', url);
     if (!res.ok) {
       const text = await res.text().catch(() => res.statusText);
       throw new Error(`${res.status} ${res.statusText} — ${text}`);
     }
-    return res.json() as Promise<T>;
+    let parsed: T;
+    try {
+      parsed = await (res.json() as Promise<T>);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[liveplay] rest json() failed for', url, ':', e);
+      throw e;
+    }
+    // eslint-disable-next-line no-console
+    console.log('[liveplay] rest done:', url);
+    return parsed;
   }
 
   async function fetchCues() {
@@ -246,7 +280,10 @@ function createClient() {
       method: 'POST',
       body: JSON.stringify({ file_path: filePath, display_name: displayName }),
     });
-    await fetchCues();
+    // Refresh the cue list in the background — callers need the new cue id
+    // (already returned by POST), they should NOT block on a secondary fetch.
+    // Awaiting this was deadlocking play() when the GET stalled.
+    fetchCues().catch(() => { /* best-effort */ });
     return cue;
   }
   async function removeCue(cueId: CueId) {
@@ -288,12 +325,12 @@ function createClient() {
       method: 'POST',
       body: JSON.stringify({ name }),
     });
-    await fetchMixerChannels();
+    fetchMixerChannels().catch(() => {});   // fire-and-forget refresh
     return out.id;
   }
   async function removeMixerChannel(id: MixerChannelId) {
     await rest(`/api/mixers/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    await fetchMixerChannels();
+    fetchMixerChannels().catch(() => {});
   }
 
   // ---- Devices ------------------------------------------------------
@@ -302,7 +339,7 @@ function createClient() {
       method: 'POST',
       body: JSON.stringify({ name, channels }),
     });
-    await fetchDevices();
+    fetchDevices().catch(() => {});
     return out.device_id;
   }
   async function closeDevice(id: DeviceId) {
@@ -310,12 +347,15 @@ function createClient() {
       method: 'POST',
       body: JSON.stringify({ id }),
     });
-    await fetchDevices();
+    fetchDevices().catch(() => {});
   }
 
   // ---- Filesystem ---------------------------------------------------
-  async function listServerPath(path: string) {
-    const url = '/api/fs/list?path=' + encodeURIComponent(path);
+  // filter:  'audio' (default), 'all', or a comma list of extensions like
+  //          '.liveplay,.lpa'. Server side enforces; client just passes through.
+  async function listServerPath(path: string, filter: string = 'audio') {
+    const url = '/api/fs/list?path=' + encodeURIComponent(path) +
+                '&filter=' + encodeURIComponent(filter);
     return rest<ServerFsListing>(url);
   }
 

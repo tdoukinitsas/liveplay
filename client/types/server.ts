@@ -62,13 +62,14 @@ export interface ServerMixerChannel {
 export interface ServerFsEntry {
   name: string;
   full_path: string;
-  kind: 'dir' | 'file';
+  kind: 'dir' | 'file' | 'drive';   // drive == top-level volume (Windows C:, D:, ...)
   size?: number;
 }
 
 export interface ServerFsListing {
   path: string;
   parent: string;
+  is_root?: boolean;     // true when path === "" — entries are drives/volumes
   entries: ServerFsEntry[];
 }
 

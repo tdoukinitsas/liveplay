@@ -70,6 +70,8 @@ class ServerHowl {
           this.server.removeCue(cue.id).catch(() => {});
           return;
         }
+        // eslint-disable-next-line no-console
+        console.log('[ServerHowl] registered cue id=', cue.id, 'duration=', cue.duration_sec, 'pendingPlay=', this.pendingPlay);
         this.cueId = cue.id;
         this.cachedDuration = cue.duration_sec || 0;
         // Apply initial volume.
@@ -84,6 +86,8 @@ class ServerHowl {
         }
       })
       .catch((err: any) => {
+        // eslint-disable-next-line no-console
+        console.error('[ServerHowl] addCueFromPath failed:', err);
         if (this.opts.onloaderror) {
           try { this.opts.onloaderror(0, err); } catch (e) { console.error(e); }
         }
@@ -439,10 +443,16 @@ export const useAudioEngine = () => {
     }
   };
 
-  // Play an audio item (using Howler.js in renderer)
+  // Play an audio item (now routed through the C++ server via ServerHowl).
   const playCue = async (item: AudioItem): Promise<boolean> => {
+    // eslint-disable-next-line no-console
+    console.log('[useAudioEngine] playCue() called for', item.uuid, item.displayName, 'mediaServerPath=', item.mediaServerPath, 'mediaFileName=', item.mediaFileName);
     try {
-      if (!import.meta.client || !currentProject.value) return false;
+      if (!import.meta.client || !currentProject.value) {
+        // eslint-disable-next-line no-console
+        console.warn('[useAudioEngine] playCue early-exit: client=', !!import.meta.client, ' project=', !!currentProject.value);
+        return false;
+      }
 
       // Check if already playing
       if (activeCues.value.has(item.uuid)) {
@@ -455,10 +465,17 @@ export const useAudioEngine = () => {
         nextItemOverrideUuid.value = null;
       }
 
-      const audioPath = `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
-      
-      // Convert file path to file:// URL
-      const fileUrl = 'file:///' + audioPath.replace(/\\/g, '/');
+      // Cues imported via the server file picker carry an absolute server
+      // path. Fall back to the legacy project-folder construction for older
+      // items.
+      const audioPath = item.mediaServerPath
+        ? item.mediaServerPath
+        : `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
+
+      // file:// URL — ServerHowl decodes this back to a native path before
+      // sending to the server. Encode the path component so non-ASCII
+      // characters survive the round trip.
+      const fileUrl = 'file:///' + encodeURI(audioPath.replace(/\\/g, '/'));
       
       // Create Howler instance
       const howl = new Howl({
@@ -1018,8 +1035,10 @@ export const useAudioEngine = () => {
         return;
       }
 
-      const audioPath = `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
-      const fileUrl = 'file:///' + audioPath.replace(/\\/g, '/');
+      const audioPath = item.mediaServerPath
+        ? item.mediaServerPath
+        : `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
+      const fileUrl = 'file:///' + encodeURI(audioPath.replace(/\\/g, '/'));
       
       // Create Howler instance (simplified version of playCue)
       const howl = new Howl({

@@ -3,6 +3,7 @@
 // ============================================================================
 #include "liveplay/audio/playback_item.hpp"
 #include "liveplay/logger.hpp"
+#include "liveplay/util/unicode_path.hpp"
 
 #include <miniaudio.h>
 
@@ -76,11 +77,32 @@ bool PlaybackItem::load() {
         /*channels (0 = native)*/ 0,
         desc_.mix_sample_rate);
 
+    // UTF-8 path for logs and JSON; native open uses the platform's preferred
+    // encoding (UTF-16 on Windows so non-ASCII filenames work).
+    const std::string path_utf8 = util::path_to_utf8(desc_.file_path);
+
+    // Diagnose path-encoding issues up front: if the path doesn't make it to
+    // the filesystem layer intact, miniaudio's "Resource does not exist"
+    // becomes ambiguous. fs::exists uses native wide-char syscalls on Windows.
+    std::error_code ec;
+    const bool path_exists = std::filesystem::exists(desc_.file_path, ec);
+    if (!path_exists) {
+        Logger::error("PlaybackItem[{}] file not found at '{}' (fs::exists=false, ec={})",
+                      desc_.id.value, path_utf8, ec.message());
+        decoder_.reset();
+        return false;
+    }
+
+#if defined(_WIN32)
+    const std::wstring path_w = desc_.file_path.wstring();
+    const ma_result rv = ma_decoder_init_file_w(path_w.c_str(), &cfg, decoder_.get());
+#else
     const std::string path_str = desc_.file_path.string();
     const ma_result rv = ma_decoder_init_file(path_str.c_str(), &cfg, decoder_.get());
+#endif
     if (rv != MA_SUCCESS) {
         Logger::error("PlaybackItem[{}] decoder init failed for '{}': {}",
-                      desc_.id.value, path_str, ma_result_description(rv));
+                      desc_.id.value, path_utf8, ma_result_description(rv));
         decoder_.reset();
         return false;
     }
@@ -95,7 +117,7 @@ bool PlaybackItem::load() {
 
     decoder_ready_ = true;
     Logger::info("PlaybackItem[{}] loaded '{}' ({} ch, {} Hz mix-rate, LTC={})",
-                 desc_.id.value, path_str, file_channels_,
+                 desc_.id.value, path_utf8, file_channels_,
                  desc_.mix_sample_rate, desc_.ltc_enabled ? "on" : "off");
     return true;
 }

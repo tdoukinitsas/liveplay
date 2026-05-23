@@ -56,8 +56,19 @@ export const useStateViewer = () => {
         }
       };
 
-      // Send to main process
-      electronAPI.updateAppState(state);
+      // Send to main process. Electron's structured-clone IPC is stricter
+      // than JSON (rejects Proxies, Maps, Sets, class instances, etc.) so
+      // funnel through JSON first and swallow any leftover non-cloneables.
+      try {
+        electronAPI.updateAppState(JSON.parse(JSON.stringify(state)));
+      } catch (err) {
+        // One tick of state viewer is not worth crashing the renderer over.
+        // Stay quiet after the first warning to avoid log spam.
+        if (!(window as any).__stateViewerWarned) {
+          (window as any).__stateViewerWarned = true;
+          console.warn('[stateViewer] skipping un-serialisable state:', err);
+        }
+      }
     }, 500);
   };
 

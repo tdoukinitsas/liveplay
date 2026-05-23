@@ -18,7 +18,7 @@
       </div>
     </div>
     
-    <div class="playlist-content" @drop="handleDrop" @dragover.prevent">
+    <div class="playlist-content" @drop="handleDrop" @dragover.prevent>
       <div v-if="currentProject?.items.length === 0" class="empty-state">
         <p>{{ t('playlist.noItems') }}</p>
         <p class="hint">{{ t('playlist.importHint') }}</p>
@@ -36,6 +36,11 @@
 
     <!-- YouTube Import Modal -->
     <YouTubeImportModal :isOpen="showYouTubeModal" @close="showYouTubeModal = false" />
+
+    <!-- Audio Import Modal — server browse + native upload -->
+    <AudioImportModal :open="showImportModal"
+                      @pick="onImportPick"
+                      @close="showImportModal = false" />
   </div>
 </template>
 
@@ -43,6 +48,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { ref } from 'vue';
 import YouTubeImportModal from './YouTubeImportModal.vue';
+import AudioImportModal from './AudioImportModal.vue';
 import { triggerRef } from 'vue';
 import type { AudioItem, GroupItem } from '~/types/project';
 import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM } from '~/types/project';
@@ -51,15 +57,58 @@ const { currentProject, addItem, updateIndices, saveProject, triggerWaveformUpda
 const { t } = useLocalization();
 
 const showYouTubeModal = ref(false);
+const showImportModal  = ref(false);
 
-const handleImport = async () => {
-  if (!import.meta.client || !window.electronAPI || !currentProject.value) return;
+const handleImport = () => {
+  if (!currentProject.value) return;
+  showImportModal.value = true;
+};
 
-  const filePaths = await window.electronAPI.selectAudioFiles();
-  if (!filePaths || filePaths.length === 0) return;
+// Called once per file the user selected in the modal (server browse or upload).
+// The path is always a server-side absolute path at this point.
+const onImportPick = async (serverPath: string) => {
+  await importFromServerPath(serverPath);
+};
 
-  for (const filePath of filePaths) {
-    await importAudioFile(filePath);
+// New flow: file is already on the server (either browsed there or uploaded).
+// We register it with the server, store the absolute server path on the
+// AudioItem, and let the engine open it directly.
+const importFromServerPath = async (serverPath: string) => {
+  if (!currentProject.value) return;
+  try {
+    const fileName = serverPath.split(/[\\/]/).pop() || 'audio';
+    const uuid = uuidv4();
+
+    // Best-effort metadata from the server — gives us duration without
+    // forcing a separate decode pass on the client.
+    const server = (await import('~/composables/useLiveplayServer')).useLiveplayServer();
+    let duration = 0;
+    try {
+      const md: any = await server.fetchMetadata(serverPath);
+      if (md && typeof md.duration_ms === 'number') duration = md.duration_ms / 1000;
+    } catch (e) {
+      console.warn('[import] fetchMetadata failed, falling back to 0 duration:', e);
+    }
+
+    const audioItem: AudioItem = {
+      ...DEFAULT_AUDIO_ITEM,
+      uuid,
+      index: [currentProject.value.items.length],
+      displayName: fileName.replace(/\.[^/.]+$/, ''),
+      type: 'audio',
+      mediaFileName: fileName,
+      mediaPath: `media/${fileName}`,
+      mediaServerPath: serverPath,    // server-side absolute path (preferred at playback time)
+      waveformPath: `${currentProject.value.folderPath}/waveforms/${uuid}.json`,
+      waveform: undefined,
+      outPoint: duration,
+      duration,
+    } as AudioItem;
+
+    addItem(audioItem);
+    generateWaveformAsync(audioItem);
+  } catch (e) {
+    console.error('Error importing from server path:', e);
   }
 };
 

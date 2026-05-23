@@ -4,6 +4,7 @@
 // ============================================================================
 #include "liveplay/meta/metadata.hpp"
 #include "liveplay/logger.hpp"
+#include "liveplay/util/unicode_path.hpp"
 
 #include <miniaudio.h>
 
@@ -24,8 +25,13 @@ std::string tstring_to_utf8(const TagLib::String& s) {
 std::chrono::milliseconds duration_via_miniaudio(const std::filesystem::path& path) noexcept {
     ma_decoder_config cfg = ma_decoder_config_init(ma_format_f32, 0, 0);
     ma_decoder decoder{};
+#if defined(_WIN32)
+    const std::wstring pw = path.wstring();
+    if (ma_decoder_init_file_w(pw.c_str(), &cfg, &decoder) != MA_SUCCESS) return {};
+#else
     const std::string p = path.string();
     if (ma_decoder_init_file(p.c_str(), &cfg, &decoder) != MA_SUCCESS) return {};
+#endif
     ma_uint64 length_frames = 0;
     ma_uint32 sample_rate   = 0;
     ma_decoder_get_length_in_pcm_frames(&decoder, &length_frames);
@@ -40,12 +46,20 @@ std::chrono::milliseconds duration_via_miniaudio(const std::filesystem::path& pa
 
 AudioFileMetadata read_metadata(const std::filesystem::path& path) noexcept {
     AudioFileMetadata out;
+    const std::string utf8 = util::path_to_utf8(path);
     try {
+#if defined(_WIN32)
+        // TagLib's FileName typedef on Windows is wchar_t* — pass UTF-16 so
+        // non-ASCII paths open correctly.
+        const std::wstring pw = path.wstring();
+        TagLib::FileRef ref{pw.c_str()};
+#else
         const std::string p = path.string();
         TagLib::FileRef ref{p.c_str()};
+#endif
         if (ref.isNull()) {
-            Logger::warn("TagLib: could not open '{}'", p);
-            out.title    = path.stem().string();
+            Logger::warn("TagLib: could not open '{}'", utf8);
+            out.title    = util::path_to_utf8(path.stem());
             out.duration = duration_via_miniaudio(path);
             out.valid    = out.duration.count() > 0;
             return out;

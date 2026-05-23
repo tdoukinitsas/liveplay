@@ -12,6 +12,12 @@ export interface AudioItem extends BaseItem {
   type: 'audio';
   mediaFileName: string;
   mediaPath: string; // Relative path from project folder (e.g., "media/audio.mp3")
+  // Optional absolute path on the server's filesystem. When set, the audio
+  // engine uses this directly and ignores mediaPath/folder construction.
+  // Populated when a cue is imported via the server file browser or by
+  // uploading a file to the server's media_root (rather than the old local
+  // copy-into-project-folder path).
+  mediaServerPath?: string;
   waveformPath: string;
   waveform?: WaveformData; // Optional: waveform data for visualization
   inPoint: number; // in seconds

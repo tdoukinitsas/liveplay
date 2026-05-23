@@ -1,6 +1,6 @@
 {
   "name": "liveplay",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Audio cue playback application for live events",
   "main": "electron/main.js",
   "type": "commonjs",
@@ -32,7 +32,7 @@
     "@types/node": "^20.10.5",
     "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
-    "electron": "^28.0.0",
+    "electron": "28.0.0",
     "electron-builder": "^24.9.1",
     "nuxt": "~3.20.0",
     "sass": "^1.69.5",
@@ -103,9 +103,18 @@
       "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
       "publisherName": "Thomas Doukinitsas",
       "extraResources": [
-        { "from": "../server/build/Release/liveplay-server.exe", "to": "server-bin/liveplay-server.exe" },
-        { "from": "../server/build/Release/tag.dll", "to": "server-bin/tag.dll" },
-        { "from": "../server/build/Release/z.dll",   "to": "server-bin/z.dll" }
+        {
+          "from": "../server/build/Release/liveplay-server.exe",
+          "to": "server-bin/liveplay-server.exe"
+        },
+        {
+          "from": "../server/build/Release/tag.dll",
+          "to": "server-bin/tag.dll"
+        },
+        {
+          "from": "../server/build/Release/z.dll",
+          "to": "server-bin/z.dll"
+        }
       ]
     },
     "mac": {
@@ -128,7 +137,10 @@
       "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
       "category": "public.app-category.music",
       "extraResources": [
-        { "from": "../server/build/liveplay-server", "to": "server-bin/liveplay-server" }
+        {
+          "from": "../server/build/liveplay-server",
+          "to": "server-bin/liveplay-server"
+        }
       ]
     },
     "linux": {
@@ -155,7 +167,10 @@
       "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
       "category": "AudioVideo",
       "extraResources": [
-        { "from": "../server/build/liveplay-server", "to": "server-bin/liveplay-server" }
+        {
+          "from": "../server/build/liveplay-server",
+          "to": "server-bin/liveplay-server"
+        }
       ]
     }
   }

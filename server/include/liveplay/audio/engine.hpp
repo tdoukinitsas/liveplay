@@ -137,6 +137,15 @@ public:
     void stop(const CueId& id);
     void stop_all(std::chrono::milliseconds fade = std::chrono::milliseconds{0});
 
+    // ---- Sensible-default routing ---------------------------------------
+    // Brings the engine into a usable state without explicit routing
+    // calls: opens the default device if no device is open, creates a
+    // "Main" mixer if no mixer exists, wires master 0/1 to the default
+    // device hardware channels 0/1, and routes every loaded cue's first
+    // two source channels through Main. Idempotent — safe to call any
+    // number of times.
+    void ensure_default_routing();
+
     // ---- Mixer channels --------------------------------------------------
     MixerChannelId create_mixer_channel(std::string display_name);
     void remove_mixer_channel(const MixerChannelId& id);

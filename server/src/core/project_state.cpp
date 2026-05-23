@@ -4,6 +4,7 @@
 #include "liveplay/core/project_state.hpp"
 #include "liveplay/logger.hpp"
 #include "liveplay/meta/metadata.hpp"
+#include "liveplay/util/unicode_path.hpp"
 
 #include <fstream>
 
@@ -21,7 +22,7 @@ void to_json(json& j, const CueMeta& m) {
     j = json{
         {"id",            m.id.value},
         {"display_name",  m.display_name},
-        {"file_path",     m.file_path.string()},
+        {"file_path",     util::path_to_utf8(m.file_path)},
         {"artist",        m.artist},
         {"title",         m.title},
         {"duration_sec",  m.duration_seconds},
@@ -222,7 +223,7 @@ json ProjectState::to_json() const {
     json j;
     j["schema_version"] = 2;
     j["project_name"]   = project_name_;
-    j["media_root"]     = media_root_.string();
+    j["media_root"]     = util::path_to_utf8(media_root_);
 
     json cues_arr = json::array();
     for (auto& [_, c] : cues_) cues_arr.push_back(c);
@@ -328,7 +329,7 @@ bool ProjectState::load_from_json(const json& doc_in) {
 
     project_name_ = doc.value("project_name", std::string{"Untitled"});
     if (doc.contains("media_root") && doc["media_root"].is_string()) {
-        media_root_ = std::filesystem::path{doc["media_root"].get<std::string>()};
+        media_root_ = util::utf8_to_path(doc["media_root"].get<std::string>());
     }
 
     if (doc.contains("cues") && doc["cues"].is_array()) {
@@ -336,7 +337,7 @@ bool ProjectState::load_from_json(const json& doc_in) {
             CueMeta m;
             m.id = audio::CueId{c.value("id", std::string{})};
             m.display_name     = c.value("display_name", "");
-            m.file_path        = std::filesystem::path{c.value("file_path", std::string{})};
+            m.file_path        = util::utf8_to_path(c.value("file_path", std::string{}));
             m.artist           = c.value("artist", "");
             m.title            = c.value("title", "");
             m.duration_seconds = c.value("duration_sec", 0.0);

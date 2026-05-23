@@ -1,0 +1,200 @@
+<template>
+  <Teleport to="body">
+    <div v-if="open" class="modal-backdrop" @click.self="close">
+      <div class="modal">
+        <header>
+          <h2>Import audio</h2>
+          <button class="x" @click="close">✕</button>
+        </header>
+
+        <!-- Source mode toggle -->
+        <div class="tabs">
+          <button class="tab" :class="{ active: tab === 'server' }" @click="tab = 'server'">
+            On server
+          </button>
+          <button class="tab" :class="{ active: tab === 'upload' }" @click="tab = 'upload'">
+            Upload from this computer
+          </button>
+        </div>
+
+        <!-- "On server" tab — browses the server's media root via /api/fs/list -->
+        <section v-if="tab === 'server'" class="pane">
+          <ServerFileBrowser :start-path="server.serverUrl ? '' : ''" @select="onServerPick" />
+          <p class="hint">Files already on the server. Double-click a folder to descend, or
+                          click <em>Add</em> next to a file.</p>
+        </section>
+
+        <!-- "Upload" tab — native dialog, then multipart POST to /api/upload -->
+        <section v-else class="pane">
+          <p>Pick one or more files from this computer. They'll be uploaded into
+             the server's media folder.</p>
+
+          <div class="row">
+            <button class="btn primary" :disabled="uploading" @click="pickAndUpload">
+              {{ uploading ? `Uploading…` : 'Choose files…' }}
+            </button>
+            <span v-if="uploadStatus" class="status">{{ uploadStatus }}</span>
+          </div>
+
+          <ul v-if="uploadedThisSession.length" class="uploaded">
+            <li v-for="p in uploadedThisSession" :key="p">
+              <span class="icon">🎵</span>
+              <span class="name">{{ basename(p) }}</span>
+              <button class="btn small primary" @click="emitPick(p)">Add</button>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </Teleport>
+</template>
+
+<!--
+  AudioImportModal.vue
+  -----------------------------------------------------------------------
+  Replaces the native OS file dialog for audio import. Two tabs:
+   * "On server"  — browse the server's filesystem with ServerFileBrowser.
+   * "Upload"     — use Electron's native dialog to pick local files, then
+                    stream them to the server via /api/upload (multipart).
+
+  Emits:
+    pick(serverPath: string)  — caller proceeds to create an AudioItem
+                                using this server-side path.
+    close                     — user dismissed the modal.
+
+  Notes:
+    The user explicitly chose 'Upload to server's media_root' so that
+    both local and remote-server modes behave identically downstream.
+-->
+<script setup lang="ts">
+import { ref } from 'vue';
+import { useLiveplayServer } from '~/composables/useLiveplayServer';
+import ServerFileBrowser from '~/components/ServerFileBrowser.vue';
+
+const props = defineProps<{ open: boolean }>();
+const emit  = defineEmits<{
+  (e: 'pick', serverPath: string): void;
+  (e: 'close'): void;
+}>();
+
+const server = useLiveplayServer();
+const tab    = ref<'server' | 'upload'>('server');
+
+const uploading           = ref(false);
+const uploadStatus        = ref<string>('');
+const uploadedThisSession = ref<string[]>([]);
+
+function close()       { emit('close'); }
+function emitPick(p: string) { emit('pick', p); }
+function basename(p: string): string { return p.split(/[\\/]/).pop() || p; }
+
+function onServerPick(serverPath: string) {
+  emit('pick', serverPath);
+}
+
+// Native dialog → multipart upload → register paths under the server's media_root.
+// Falls back gracefully if not running inside Electron.
+async function pickAndUpload() {
+  const api: any = (globalThis as any).electronAPI;
+  if (!api?.selectAudioFiles) {
+    uploadStatus.value = 'Native file picker is only available in the desktop app.';
+    return;
+  }
+
+  const localPaths: string[] | null = await api.selectAudioFiles();
+  if (!localPaths || localPaths.length === 0) return;
+
+  uploading.value = true;
+  try {
+    for (let i = 0; i < localPaths.length; ++i) {
+      const lp = localPaths[i];
+      uploadStatus.value = `Uploading ${i + 1}/${localPaths.length}: ${basename(lp)}`;
+
+      // Read raw bytes through Electron, then wrap as a File for fetch().
+      // (This avoids needing the renderer to have direct disk access.)
+      const result = await api.readFile(lp);
+      if (!result?.success || !result.data) {
+        console.warn('[import] readFile failed for', lp, result?.error);
+        continue;
+      }
+      const bytes = result.data instanceof ArrayBuffer
+        ? new Uint8Array(result.data)
+        : new Uint8Array(result.data);
+      const file = new File([bytes], basename(lp));
+
+      const out = await server.uploadFile(file, basename(lp));
+      if (out?.saved?.length) {
+        for (const savedPath of out.saved) {
+          uploadedThisSession.value.push(savedPath);
+        }
+      }
+    }
+    uploadStatus.value = `Uploaded ${localPaths.length} file(s). Click "Add" to import.`;
+  } catch (e: any) {
+    uploadStatus.value = `Upload failed: ${e.message ?? e}`;
+  } finally {
+    uploading.value = false;
+  }
+}
+</script>
+
+<style lang="scss" scoped>
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9000;
+}
+.modal {
+  width: min(720px, 92vw);
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 18px;
+  color: #ddd;
+  display: flex; flex-direction: column; gap: 12px;
+
+  header { display: flex; justify-content: space-between; align-items: center; }
+  h2 { margin: 0; font-size: 16px; }
+  .x { background: transparent; border: none; color: #aaa; cursor: pointer; font-size: 16px; }
+
+  .tabs {
+    display: flex; gap: 4px;
+    border-bottom: 1px solid #2a2a2a;
+  }
+  .tab {
+    flex: 1; background: transparent; border: none; cursor: pointer;
+    padding: 8px 12px; color: #888; font-size: 13px;
+    border-bottom: 2px solid transparent;
+    &:hover  { color: #ccc; }
+    &.active { color: #fff; border-bottom-color: #2a5e9a; }
+  }
+
+  .pane { display: flex; flex-direction: column; gap: 10px; }
+  .hint { font-size: 11px; color: #888; margin: 0; }
+
+  .btn {
+    background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 4px;
+    padding: 6px 12px; color: #ddd; cursor: pointer;
+    &:hover:not(:disabled) { background: #353535; }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+    &.primary { background: #2a5e9a; border-color: #2a5e9a; }
+    &.small   { padding: 2px 8px; font-size: 12px; }
+  }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .status { font-size: 12px; color: #aaa; }
+
+  .uploaded {
+    list-style: none; margin: 0; padding: 0;
+    border: 1px solid #2a2a2a; border-radius: 4px; background: #161616;
+    max-height: 200px; overflow: auto;
+    li {
+      display: grid; grid-template-columns: 24px 1fr auto; gap: 8px;
+      align-items: center; padding: 6px 10px;
+      border-bottom: 1px solid #222;
+      &:last-child { border-bottom: none; }
+      .name { color: #eee; }
+    }
+  }
+}
+</style>

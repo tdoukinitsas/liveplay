@@ -2,26 +2,32 @@
 const locales = ref<Record<string, any>>({});
 const availableLocalesData = ref<Array<{ code: string; name: string; direction: string }>>([]);
 
-// Load locales from main process
-const loadLocales = async () => {
-  if (import.meta.client && window.electronAPI) {
+// loadLocales is idempotent — without this guard every component that calls
+// useLocalization() re-fetches all 21 locale files from the main process via
+// IPC on every invocation, which saturates the IPC channel and starves
+// other async work in the renderer (e.g. fetch body reads from the server).
+let _loadLocalesPromise: Promise<void> | null = null;
+const loadLocales = async (): Promise<void> => {
+  if (!import.meta.client || !(window as any).electronAPI) return;
+  if (_loadLocalesPromise) return _loadLocalesPromise;
+  _loadLocalesPromise = (async () => {
     try {
-      // Get available locales list
-      const localesList = await window.electronAPI.getAvailableLocales();
+      const localesList = await (window as any).electronAPI.getAvailableLocales();
       availableLocalesData.value = localesList;
-      
-      // Load all locale data
       const localePromises = localesList.map(async (locale: any) => {
-        const data = await window.electronAPI.getLocaleData(locale.code);
+        const data = await (window as any).electronAPI.getLocaleData(locale.code);
         locales.value[locale.code] = data;
       });
-      
       await Promise.all(localePromises);
+      // eslint-disable-next-line no-console
       console.log(`Dynamically loaded ${Object.keys(locales.value).length} locales`);
     } catch (error) {
       console.error('Failed to load locales from main process:', error);
+      _loadLocalesPromise = null;   // allow a retry on transient failures
+      throw error;
     }
-  }
+  })();
+  return _loadLocalesPromise;
 };
 
 // Dynamically build available locales from loaded data

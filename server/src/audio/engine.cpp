@@ -89,6 +89,10 @@ bool AudioEngine::start() {
                                 std::vector<Sample>(cfg_.render_block, 0.0f));
 
     render_thread_ = std::thread([this] { render_loop(); });
+
+    // Bring up the default routing so a freshly-loaded cue can be heard
+    // without any explicit routing API calls from the client.
+    ensure_default_routing();
     return true;
 }
 
@@ -346,12 +350,16 @@ CueId AudioEngine::load_cue(const std::filesystem::path& file_path,
     auto item = std::make_shared<PlaybackItem>(std::move(desc));
     if (!item->load()) return {};
 
-    std::lock_guard lock{mutex_};
-    items_[item->id().value] = item;
-    pending_.item_sources[item->id().value]
-        .by_source_channel
-        .resize(item->source_channel_count());
-    rebuild_topology_locked();
+    {
+        std::lock_guard lock{mutex_};
+        items_[item->id().value] = item;
+        pending_.item_sources[item->id().value]
+            .by_source_channel
+            .resize(item->source_channel_count());
+        rebuild_topology_locked();
+    }
+    // Bring the new cue into the default routing (no-op if already wired).
+    ensure_default_routing();
     return item->id();
 }
 
@@ -372,11 +380,19 @@ PlaybackItem* AudioEngine::find_cue(const CueId& id) const {
 }
 
 void AudioEngine::play(const CueId& id) {
-    if (auto* item = find_cue(id)) item->play();
+    if (auto* item = find_cue(id)) {
+        Logger::info("play() cue='{}'", id.value);
+        item->play();
+    } else {
+        Logger::warn("play() ignored — no cue with id '{}'", id.value);
+    }
 }
 
 void AudioEngine::stop(const CueId& id) {
-    if (auto* item = find_cue(id)) item->stop();
+    if (auto* item = find_cue(id)) {
+        Logger::info("stop() cue='{}'", id.value);
+        item->stop();
+    }
 }
 
 void AudioEngine::stop_all(std::chrono::milliseconds fade) {
@@ -392,6 +408,85 @@ void AudioEngine::stop_all(std::chrono::milliseconds fade) {
             item->stop();
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Sensible-default routing — bootstrap the engine into a usable state
+// without requiring the caller to call open_default_device + create mixer
+// + route + assign master explicitly. Idempotent.
+// ---------------------------------------------------------------------------
+void AudioEngine::ensure_default_routing() {
+    // Step 1: open a device if none open. open_device_by_name takes its own
+    // lock; we must therefore call it OUTSIDE the engine mutex.
+    DeviceId chosen_device{};
+    {
+        std::lock_guard lock{mutex_};
+        if (!devices_.empty()) chosen_device = devices_.front()->id;
+    }
+    if (chosen_device.empty()) {
+        chosen_device = open_default_device(2);
+        if (chosen_device.empty()) {
+            Logger::warn("ensure_default_routing: could not open default device — playback will be silent.");
+            return;
+        }
+    }
+
+    // Step 2: ensure a "Main" mixer exists. create_mixer_channel locks too.
+    MixerChannelId main_mixer{};
+    {
+        std::lock_guard lock{mutex_};
+        if (!mixers_.empty()) main_mixer = mixers_.begin()->second->id();
+    }
+    if (main_mixer.empty()) {
+        main_mixer = create_mixer_channel("Main");
+        Logger::info("ensure_default_routing: created Main mixer '{}'", main_mixer.value);
+    }
+
+    // Step 3: wire master 0/1 → device 0/1 if not already.
+    {
+        std::lock_guard lock{mutex_};
+        const std::size_t n = std::min<std::size_t>(2, pending_.master_destinations.size());
+        if (pending_.master_destinations.size() < 2) {
+            pending_.master_destinations.resize(2);
+        }
+        for (std::size_t i = 0; i < 2; ++i) {
+            if (!pending_.master_destinations[i].has_value()) {
+                MasterDestination dest;
+                dest.device     = chosen_device;
+                dest.hw_channel = static_cast<ChannelIndex>(i);
+                pending_.master_destinations[i] = dest;
+            }
+        }
+        // Step 4: route Main mixer → master 0 + 1 (mono → both, stereo → L/R).
+        auto& m2m = pending_.mixer_to_master[main_mixer.value];
+        bool has_m0 = false, has_m1 = false;
+        for (auto& p : m2m) {
+            if (p.first == 0) has_m0 = true;
+            if (p.first == 1) has_m1 = true;
+        }
+        if (!has_m0) m2m.emplace_back(0, 1.0f);
+        if (!has_m1) m2m.emplace_back(1, 1.0f);
+
+        // Step 5: auto-route every loaded cue's source channels → Main.
+        // Stereo files get L→master0, R→master1 routing-by-position via the
+        // mixer (mono items default to both via the simple gain=1.0 send).
+        for (auto& [cue_id, item] : items_) {
+            auto& srcs = pending_.item_sources[cue_id].by_source_channel;
+            const auto src_count = item->source_channel_count();
+            if (srcs.size() < src_count) srcs.resize(src_count);
+            for (ChannelIndex ch = 0; ch < src_count; ++ch) {
+                bool already = false;
+                for (auto& s : srcs[ch]) {
+                    if (s.first.value == main_mixer.value) { already = true; break; }
+                }
+                if (!already) srcs[ch].emplace_back(main_mixer, 1.0f);
+            }
+        }
+
+        rebuild_topology_locked();
+    }
+    Logger::info("ensure_default_routing: ready (device='{}', main_mixer='{}')",
+                 chosen_device.value, main_mixer.value);
 }
 
 // ---------------------------------------------------------------------------

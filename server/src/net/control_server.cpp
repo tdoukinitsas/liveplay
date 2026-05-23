@@ -14,6 +14,11 @@
 #include "liveplay/logger.hpp"
 #include "liveplay/meta/metadata.hpp"
 #include "liveplay/meta/waveform.hpp"
+#include "liveplay/util/unicode_path.hpp"
+
+#if defined(_WIN32)
+#  include <windows.h>      // GetLogicalDrives()
+#endif
 
 #include <crow.h>
 #include <crow/middlewares/cors.h>
@@ -31,11 +36,6 @@
 #include <thread>
 #include <unordered_set>
 
-// Windows defines DELETE as a macro (access-rights constant) which breaks
-// crow::HTTPMethod::DELETE. Undefine it after all system/crow includes.
-#ifdef DELETE
-#  undef DELETE
-#endif
 
 namespace fs    = std::filesystem;
 using json      = nlohmann::json;
@@ -100,7 +100,7 @@ json cue_to_json(const core::CueMeta& c, audio::AudioEngine& engine) {
     json j;
     j["id"]            = c.id.value;
     j["display_name"]  = c.display_name;
-    j["file_path"]     = c.file_path.string();
+    j["file_path"]     = liveplay::util::path_to_utf8(c.file_path);
     j["artist"]        = c.artist;
     j["title"]         = c.title;
     j["duration_sec"]  = c.duration_seconds;
@@ -242,9 +242,14 @@ static void handle_ws_message(crow::websocket::connection& conn,
                                const std::string& msg,
                                audio::AudioEngine& engine,
                                core::ProjectState& state) {
+    // Diagnostic — every command goes through here; logging the raw message
+    // confirms the client/server WS is actually delivering transport commands.
+    Logger::info("WS recv: {}", msg);
+
     json j;
     try { j = json::parse(msg); }
     catch (const std::exception& e) {
+        Logger::warn("WS parse failed: {}", e.what());
         conn.send_text(json({{"type", "error"}, {"message", e.what()}}).dump());
         return;
     }
@@ -279,7 +284,7 @@ void ControlServer::install_routes() {
 
     // Permissive CORS preflight for everything (the Electron client is on a
     // different origin).
-    CROW_ROUTE(app, "/<path>").methods(crow::HTTPMethod::OPTIONS)
+    CROW_ROUTE(app, "/<path>").methods(crow::HTTPMethod::Options)
         ([](const crow::request&, std::string){
             crow::response r{204};
             r.add_header("Access-Control-Allow-Origin",  "*");
@@ -289,18 +294,18 @@ void ControlServer::install_routes() {
         });
 
     // ---- Health ----
-    CROW_ROUTE(app, "/api/health").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/health").methods(crow::HTTPMethod::Get)
         ([] { return json_ok(json({{"ok", true}, {"name", "liveplay-server"}})); });
 
     // ---- Devices ----
-    CROW_ROUTE(app, "/api/devices").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/devices").methods(crow::HTTPMethod::Get)
         ([this] {
             json arr = json::array();
             for (auto& d : engine_.enumerate_devices()) arr.push_back(device_info_to_json(d));
             return json_ok(arr);
         });
 
-    CROW_ROUTE(app, "/api/devices/open").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/devices/open").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
@@ -314,7 +319,7 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
-    CROW_ROUTE(app, "/api/devices/close").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/devices/close").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
@@ -324,18 +329,18 @@ void ControlServer::install_routes() {
         });
 
     // ---- Cues ----
-    CROW_ROUTE(app, "/api/cues").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/cues").methods(crow::HTTPMethod::Get)
         ([this] {
             json arr = json::array();
             for (auto& c : state_.list_cues()) arr.push_back(cue_to_json(c, engine_));
             return json_ok(arr);
         });
 
-    CROW_ROUTE(app, "/api/cues").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/cues").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
-                const fs::path file = j.at("file_path").get<std::string>();
+                const fs::path file = liveplay::util::utf8_to_path(j.at("file_path").get<std::string>());
                 std::string name = j.value("display_name", "");
                 const auto id = state_.add_cue_from_file(file, std::move(name));
                 if (id.empty()) return json_err(400, "failed to load file");
@@ -344,31 +349,31 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
-    CROW_ROUTE(app, "/api/cues/<string>").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/cues/<string>").methods(crow::HTTPMethod::Get)
         ([this](std::string id) {
             auto m = state_.find_cue(audio::CueId{id});
             if (!m) return json_err(404, "not found");
             return json_ok(cue_to_json(*m, engine_));
         });
 
-    CROW_ROUTE(app, "/api/cues/<string>").methods(crow::HTTPMethod::DELETE)
+    CROW_ROUTE(app, "/api/cues/<string>").methods(crow::HTTPMethod::Delete)
         ([this](std::string id) {
             state_.remove_cue(audio::CueId{id});
             return json_ok(json({{"ok", true}}));
         });
 
-    CROW_ROUTE(app, "/api/cues/<string>/play").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/cues/<string>/play").methods(crow::HTTPMethod::Post)
         ([this](std::string id) {
             engine_.play(audio::CueId{id});
             return json_ok(json({{"ok", true}}));
         });
-    CROW_ROUTE(app, "/api/cues/<string>/stop").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/cues/<string>/stop").methods(crow::HTTPMethod::Post)
         ([this](std::string id) {
             engine_.stop(audio::CueId{id});
             return json_ok(json({{"ok", true}}));
         });
 
-    CROW_ROUTE(app, "/api/cues/<string>/gain").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/cues/<string>/gain").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req, std::string id){
             try {
                 auto j = json::parse(req.body);
@@ -377,7 +382,7 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
-    CROW_ROUTE(app, "/api/cues/<string>/fade").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/cues/<string>/fade").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req, std::string id){
             try {
                 auto j = json::parse(req.body);
@@ -389,7 +394,7 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
-    CROW_ROUTE(app, "/api/cues/<string>/ltc").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/cues/<string>/ltc").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req, std::string id){
             try {
                 auto j = json::parse(req.body);
@@ -402,7 +407,7 @@ void ControlServer::install_routes() {
         });
 
     // ---- Transport / master ----
-    CROW_ROUTE(app, "/api/transport/stop_all").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/transport/stop_all").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body.empty() ? std::string{"{}"} : req.body);
@@ -411,7 +416,7 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
-    CROW_ROUTE(app, "/api/master/ceiling").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/master/ceiling").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
@@ -421,7 +426,7 @@ void ControlServer::install_routes() {
         });
 
     // ---- Mixer channels ----
-    CROW_ROUTE(app, "/api/mixers").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/mixers").methods(crow::HTTPMethod::Get)
         ([this] {
             json arr = json::array();
             for (auto& m : state_.list_mixer_channels()) {
@@ -436,7 +441,7 @@ void ControlServer::install_routes() {
             return json_ok(arr);
         });
 
-    CROW_ROUTE(app, "/api/mixers").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/mixers").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
@@ -445,14 +450,14 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
-    CROW_ROUTE(app, "/api/mixers/<string>").methods(crow::HTTPMethod::DELETE)
+    CROW_ROUTE(app, "/api/mixers/<string>").methods(crow::HTTPMethod::Delete)
         ([this](std::string id){
             engine_.remove_mixer_channel(audio::MixerChannelId{id});
             return json_ok(json({{"ok", true}}));
         });
 
     // ---- Routing ----
-    CROW_ROUTE(app, "/api/routing/item_to_mixer").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/routing/item_to_mixer").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
@@ -465,7 +470,7 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
-    CROW_ROUTE(app, "/api/routing/mixer_to_master").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/routing/mixer_to_master").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
@@ -477,7 +482,7 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
-    CROW_ROUTE(app, "/api/routing/master_to_device").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/routing/master_to_device").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
@@ -490,31 +495,125 @@ void ControlServer::install_routes() {
         });
 
     // ---- Filesystem browsing ----
-    CROW_ROUTE(app, "/api/fs/list").methods(crow::HTTPMethod::GET)
+    // GET /api/fs/list?path=<utf8>&filter=<comma-separated-exts|all|audio>
+    //   path  ""  → "computer" root: enumerate logical drives on Windows,
+    //                 "/" on POSIX. Each drive is reported with kind=="drive".
+    //   filter:
+    //     "audio" (default) — only show known audio file extensions
+    //     "all"             — list every regular file
+    //     ".liveplay,.lpa"  — comma-separated extension allow-list
+    CROW_ROUTE(app, "/api/fs/list").methods(crow::HTTPMethod::Get)
         ([this](const crow::request& req){
             try {
-                std::string path = req.url_params.get("path") ? req.url_params.get("path") : "";
-                fs::path p = path.empty() ? state_.media_root() : fs::path{path};
-                p = fs::weakly_canonical(p);
+                const char* path_param   = req.url_params.get("path");
+                const char* filter_param = req.url_params.get("filter");
+                std::string path        = path_param ? path_param : "";
+                std::string filter      = filter_param ? filter_param : "audio";
+
+                // Empty path == "computer" root. On Windows we enumerate
+                // logical drives (and mapped network drives). On POSIX we
+                // start at '/'. This lets the picker behave like a native
+                // file dialog.
+                if (path.empty()) {
+                    json out;
+                    out["path"]    = "";        // sentinel: computer root
+                    out["parent"]  = "";
+                    out["is_root"] = true;
+                    out["entries"] = json::array();
+#if defined(_WIN32)
+                    DWORD mask = GetLogicalDrives();
+                    for (char letter = 'A'; letter <= 'Z'; ++letter, mask >>= 1) {
+                        if (!(mask & 1)) continue;
+                        char drive[4] = { letter, ':', '\\', 0 };
+                        json e;
+                        e["name"]      = std::string{letter} + ":";
+                        e["full_path"] = drive;
+                        e["kind"]      = "drive";
+                        out["entries"].push_back(std::move(e));
+                    }
+#else
+                    // On POSIX, root is just '/'; surface it as a single drive.
+                    json e;
+                    e["name"]      = "/";
+                    e["full_path"] = "/";
+                    e["kind"]      = "drive";
+                    out["entries"].push_back(std::move(e));
+#endif
+                    return json_ok(out);
+                }
+
+                fs::path p = liveplay::util::utf8_to_path(path);
+                std::error_code canon_ec;
+                fs::path canon = fs::weakly_canonical(p, canon_ec);
+                if (!canon_ec) p = canon;
                 if (!fs::exists(p)) return json_err(404, "no such path");
 
                 json out;
-                out["path"]    = p.string();
-                out["parent"]  = p.has_parent_path() ? p.parent_path().string() : "";
+                out["path"]    = liveplay::util::path_to_utf8(p);
+                out["parent"]  = p.has_parent_path() && p.parent_path() != p
+                                   ? liveplay::util::path_to_utf8(p.parent_path()) : "";
+                out["is_root"] = false;
                 out["entries"] = json::array();
+
+                // Build the extension allow-list.
+                std::set<std::string> allow;
+                bool allow_all = false;
+                if (filter == "all") {
+                    allow_all = true;
+                } else if (filter == "audio") {
+                    allow = audio_extensions();
+                } else {
+                    // Custom comma-separated list, e.g. ".liveplay,.lpa".
+                    std::string token;
+                    for (char c : filter) {
+                        if (c == ',') {
+                            if (!token.empty()) {
+                                if (token[0] != '.') token.insert(token.begin(), '.');
+                                std::transform(token.begin(), token.end(), token.begin(),
+                                    [](unsigned char ch){ return (char)std::tolower(ch); });
+                                allow.insert(token);
+                                token.clear();
+                            }
+                        } else {
+                            token.push_back(c);
+                        }
+                    }
+                    if (!token.empty()) {
+                        if (token[0] != '.') token.insert(token.begin(), '.');
+                        std::transform(token.begin(), token.end(), token.begin(),
+                            [](unsigned char ch){ return (char)std::tolower(ch); });
+                        allow.insert(token);
+                    }
+                }
+
+                auto ext_passes = [&](const fs::path& pp) -> bool {
+                    if (allow_all) return true;
+                    auto e = pp.extension().string();
+                    std::transform(e.begin(), e.end(), e.begin(),
+                                   [](unsigned char c){ return (char)std::tolower(c); });
+                    return allow.count(e) > 0;
+                };
 
                 if (fs::is_directory(p)) {
                     for (auto& entry : fs::directory_iterator(p, fs::directory_options::skip_permission_denied)) {
+                        const auto& ep = entry.path();
+                        // Hide hidden entries on POSIX (leading dot). Windows
+                        // hidden flag is honoured by fs::directory_iterator
+                        // implicitly only for system files.
+                        const std::string name = liveplay::util::path_to_utf8(ep.filename());
+                        if (!name.empty() && name[0] == '.') continue;
+
                         json e;
-                        e["name"]      = entry.path().filename().string();
-                        e["full_path"] = entry.path().string();
-                        if (entry.is_directory()) {
+                        e["name"]      = name;
+                        e["full_path"] = liveplay::util::path_to_utf8(ep);
+                        std::error_code dir_ec;
+                        if (entry.is_directory(dir_ec)) {
                             e["kind"] = "dir";
                             out["entries"].push_back(std::move(e));
-                        } else if (entry.is_regular_file() && is_audio_file(entry.path())) {
+                        } else if (entry.is_regular_file(dir_ec) && ext_passes(ep)) {
                             e["kind"] = "file";
-                            std::error_code ec;
-                            e["size"] = static_cast<long long>(fs::file_size(entry.path(), ec));
+                            std::error_code size_ec;
+                            e["size"] = static_cast<long long>(fs::file_size(ep, size_ec));
                             out["entries"].push_back(std::move(e));
                         }
                     }
@@ -524,7 +623,7 @@ void ControlServer::install_routes() {
         });
 
     // ---- Multipart upload ----
-    CROW_ROUTE(app, "/api/upload").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/upload").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 if (req.body.size() > cfg_.max_upload_bytes) {
@@ -549,26 +648,26 @@ void ControlServer::install_routes() {
                             filename = fn->second;
                         }
                     }
-                    // Strip path traversal.
-                    fs::path safe_name = fs::path{filename}.filename();
+                    // Strip path traversal — treat the filename bytes as UTF-8.
+                    fs::path safe_name = liveplay::util::utf8_to_path(filename).filename();
                     if (safe_name.empty()) safe_name = "upload.bin";
                     fs::path dest = media / safe_name;
 
                     std::ofstream f{dest, std::ios::binary};
                     if (!f) return json_err(500, "failed to write file");
                     f.write(part.body.data(), static_cast<std::streamsize>(part.body.size()));
-                    saved.push_back(dest.string());
+                    saved.push_back(liveplay::util::path_to_utf8(dest));
                 }
                 return json_ok(json({{"saved", saved}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
     // ---- Metadata + Waveform ----
-    CROW_ROUTE(app, "/api/metadata").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/metadata").methods(crow::HTTPMethod::Get)
         ([](const crow::request& req) {
             const char* path = req.url_params.get("path");
             if (!path) return json_err(400, "missing ?path=");
-            const auto md = liveplay::meta::read_metadata(fs::path{path});
+            const auto md = liveplay::meta::read_metadata(liveplay::util::utf8_to_path(path));
             return json_ok(json{
                 {"valid",        md.valid},
                 {"artist",       md.artist},
@@ -584,7 +683,7 @@ void ControlServer::install_routes() {
             });
         });
 
-    CROW_ROUTE(app, "/api/waveform/<string>").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/waveform/<string>").methods(crow::HTTPMethod::Get)
         ([this](const crow::request& req, std::string cue_id) {
             const auto meta = state_.find_cue(audio::CueId{cue_id});
             if (!meta) return json_err(404, "no such cue");
@@ -613,15 +712,15 @@ void ControlServer::install_routes() {
         });
 
     // ---- Project I/O ----
-    CROW_ROUTE(app, "/api/project").methods(crow::HTTPMethod::GET)
+    CROW_ROUTE(app, "/api/project").methods(crow::HTTPMethod::Get)
         ([this] { return json_ok(state_.to_json()); });
 
-    CROW_ROUTE(app, "/api/project/load").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/project/load").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
                 if (j.contains("path")) {
-                    const fs::path p = j["path"].get<std::string>();
+                    const fs::path p = liveplay::util::utf8_to_path(j["path"].get<std::string>());
                     if (!state_.load(p)) return json_err(400, "load failed");
                 } else if (j.contains("document")) {
                     if (!state_.load_from_json(j["document"])) return json_err(400, "load failed");
@@ -632,11 +731,11 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
-    CROW_ROUTE(app, "/api/project/save").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/api/project/save").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
-                const fs::path p = j.at("path").get<std::string>();
+                const fs::path p = liveplay::util::utf8_to_path(j.at("path").get<std::string>());
                 return state_.save(p) ? json_ok(json({{"ok", true}}))
                                       : json_err(500, "save failed");
             } catch (const std::exception& e) { return json_err(400, e.what()); }

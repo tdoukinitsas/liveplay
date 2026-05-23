@@ -28,12 +28,35 @@
         </button>
       </div>
     </div>
+
+    <!-- Server-side file picker. Used to choose either the project's parent
+         folder (New) or a .liveplay file (Open). The picker browses the
+         server's filesystem (drives, network paths, anywhere). -->
+    <ServerFilePickerModal
+      :open="showPicker"
+      :mode="pickerMode"
+      :filter="pickerFilter"
+      :filter-options="pickerFilterOptions"
+      :start-path="pickerStart"
+      @pick="onPickerPick"
+      @close="showPicker = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import ServerFilePickerModal from './ServerFilePickerModal.vue';
+
 const { createNewProject, openProject } = useProject();
 const { t } = useLocalization();
+
+// Server file picker state — shared by New and Open flows.
+const showPicker          = ref(false);
+const pickerMode          = ref<'file' | 'directory'>('directory');
+const pickerFilter        = ref<string>('.liveplay,.lpa');
+const pickerFilterOptions = ref<string[]>(['.liveplay,.lpa', 'all']);
+const pickerStart         = ref<string>('');
+const pickerIntent        = ref<'new' | 'open'>('open');
 
 // Get app version
 const appVersion = ref('1.1.3');
@@ -47,31 +70,38 @@ onMounted(async () => {
 const theme = useState('theme', () => 'dark');
 const isDark = computed(() => theme.value === 'dark');
 
-const handleNewProject = async () => {
-  if (!import.meta.client || !window.electronAPI) return;
-
-  const folderPath = await window.electronAPI.selectProjectFolder();
-  if (!folderPath) return;
-
-  // Get project name from user - using a simple component since prompt() doesn't work in Electron
-  const projectName = await getProjectName();
-  if (!projectName) return;
-
-  const success = await createNewProject(projectName, folderPath);
-  if (!success) {
-    alert('Failed to create project');
-  }
+const handleNewProject = () => {
+  // Browse the server's filesystem for a parent folder to scaffold into.
+  pickerIntent.value        = 'new';
+  pickerMode.value          = 'directory';
+  pickerFilter.value        = 'all';
+  pickerFilterOptions.value = ['all'];
+  pickerStart.value         = '';
+  showPicker.value          = true;
 };
 
-const handleOpenProject = async () => {
-  if (!import.meta.client || !window.electronAPI) return;
+const handleOpenProject = () => {
+  // Browse for a .liveplay file anywhere on the server's filesystem.
+  pickerIntent.value        = 'open';
+  pickerMode.value          = 'file';
+  pickerFilter.value        = '.liveplay,.lpa';
+  pickerFilterOptions.value = ['.liveplay,.lpa', 'all'];
+  pickerStart.value         = '';
+  showPicker.value          = true;
+};
 
-  const projectFilePath = await window.electronAPI.selectProjectFile();
-  if (!projectFilePath) return;
+const onPickerPick = async (fullPath: string) => {
+  showPicker.value = false;
+  if (!fullPath) return;
 
-  const success = await openProject(projectFilePath);
-  if (!success) {
-    alert('Failed to open project');
+  if (pickerIntent.value === 'new') {
+    const projectName = await getProjectName();
+    if (!projectName) return;
+    const ok = await createNewProject(projectName, fullPath);
+    if (!ok) alert('Failed to create project');
+  } else {
+    const ok = await openProject(fullPath);
+    if (!ok) alert('Failed to open project');
   }
 };
 
