@@ -270,6 +270,58 @@ void PlaybackItem::set_ltc_offset(std::chrono::nanoseconds offset) noexcept {
     ltc_offset_ns_.store(offset.count(), std::memory_order_release);
 }
 
+void PlaybackItem::set_out_point_seconds(double seconds) noexcept {
+    if (seconds <= 0.0) {
+        out_point_frames_.store(0, std::memory_order_release);
+        return;
+    }
+    const auto f = static_cast<std::uint64_t>(seconds *
+                                              static_cast<double>(desc_.mix_sample_rate));
+    out_point_frames_.store(f, std::memory_order_release);
+}
+
+bool PlaybackItem::prime(double seconds, double start_seconds) noexcept {
+    std::lock_guard lock{decoder_mutex_};
+    if (!decoder_ || !decoder_ready_) return false;
+
+    const auto start_frame = (start_seconds <= 0.0)
+        ? ma_uint64{0}
+        : static_cast<ma_uint64>(start_seconds *
+                                 static_cast<double>(desc_.mix_sample_rate));
+    if (start_frame > 0) ma_decoder_seek_to_pcm_frame(decoder_.get(), start_frame);
+
+    // Read and discard `seconds` of audio. We only care that the OS file cache
+    // and miniaudio's internal demuxer state are warmed up — the data goes
+    // nowhere. After the warm read, seek back to start_frame so the first
+    // real read during playback returns the correct position.
+    const std::size_t frames_per_chunk = 4096;
+    const std::size_t frames_total     = static_cast<std::size_t>(
+        seconds * static_cast<double>(desc_.mix_sample_rate));
+    if (frames_total == 0) {
+        if (start_frame > 0) ma_decoder_seek_to_pcm_frame(decoder_.get(), start_frame);
+        return true;
+    }
+
+    std::vector<float> discard(frames_per_chunk *
+                               std::max<std::size_t>(1, file_channels_), 0.0f);
+
+    std::size_t frames_consumed = 0;
+    while (frames_consumed < frames_total) {
+        const std::size_t to_read = std::min(frames_per_chunk,
+                                             frames_total - frames_consumed);
+        ma_uint64 got = 0;
+        const ma_result rv = ma_decoder_read_pcm_frames(
+            decoder_.get(), discard.data(), static_cast<ma_uint64>(to_read), &got);
+        if (rv != MA_SUCCESS && rv != MA_AT_END) break;
+        if (got == 0) break;
+        frames_consumed += static_cast<std::size_t>(got);
+        if (rv == MA_AT_END) break;
+    }
+    // Rewind to start_frame so playback resumes at the expected position.
+    ma_decoder_seek_to_pcm_frame(decoder_.get(), start_frame);
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 
 void PlaybackItem::start_fade(float from_lin, float to_lin,
@@ -424,12 +476,17 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
         }
     }
 
-    // ---- Advance playhead, handle EOF ----
-    playhead_frames_.fetch_add(frames_read, std::memory_order_relaxed);
+    // ---- Advance playhead, handle EOF + soft out-point ----
+    const std::uint64_t new_playhead = playhead_frames_.fetch_add(
+        frames_read, std::memory_order_relaxed) + frames_read;
 
-    if (rv == MA_AT_END || frames_read < frame_count) {
-        // Natural end-of-file routes through stop() so fade-out semantics
-        // remain consistent with manual stops.
+    const std::uint64_t out_point = out_point_frames_.load(std::memory_order_acquire);
+    const bool hit_out_point = (out_point > 0) && (new_playhead >= out_point);
+
+    if (rv == MA_AT_END || frames_read < frame_count || hit_out_point) {
+        // Natural end-of-file, soft out-point, or short read all route through
+        // the same fade-out logic so transport semantics are consistent
+        // regardless of how playback terminated.
         if (transport_.load(std::memory_order_acquire) != TransportState::FadingOut) {
             const auto fade = desc_.fade_out_duration;
             if (fade.count() > 0) {

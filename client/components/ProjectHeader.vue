@@ -18,6 +18,10 @@
     </div>
     
     <div class="header-right">
+      <button class="action-btn shortcuts-btn" @click="showProjectSettings = true" :title="t('settings.title')">
+        <span class="material-symbols-rounded">tune</span>
+        <span>{{ t('settings.title') }}</span>
+      </button>
       <button class="action-btn shortcuts-btn" @click="showControlConfig = true">
         <span class="material-symbols-rounded">keyboard</span>
         <span>{{ t('controls.shortcutBtn') }}</span>
@@ -30,14 +34,21 @@
     v-if="showControlConfig"
     @close="showControlConfig = false"
   />
+  <ProjectSettingsModal
+    :open="showProjectSettings"
+    @close="showProjectSettings = false"
+  />
 </template>
 
 <script setup lang="ts">
+import ProjectSettingsModal from './ProjectSettingsModal.vue';
+
 const { currentProject, findItemByUuid, findItemByIndex } = useProject();
 const { t } = useLocalization();
 const { activeCues } = useAudioEngine();
 
 const showControlConfig = ref(false);
+const showProjectSettings = ref(false);
 
 const isDark = computed(() => currentProject.value?.theme.mode === 'dark');
 const currentTime = ref('00:00:00');

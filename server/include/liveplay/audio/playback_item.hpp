@@ -115,6 +115,23 @@ public:
     void set_ltc_frame_rate(LTCFrameRate fr);
     void set_ltc_offset(std::chrono::nanoseconds offset) noexcept;
 
+    // Configure a soft end-of-playback point in seconds (the item's "out
+    // point"). When the playhead reaches this frame, the same code path as
+    // natural EOF runs — stop() honours fade_out_duration. Pass <= 0 to
+    // disable (play to natural EOF). Safe to set while playing.
+    void set_out_point_seconds(double seconds) noexcept;
+
+    // Pre-warm the decoder by reading and discarding `seconds` of audio
+    // starting from `start_seconds`, then leaving the decoder cursor at
+    // `start_seconds` (so a subsequent play() returns to the same point).
+    // This populates the OS file cache and primes the decoder's internal
+    // state so the *first* read during actual playback doesn't block on
+    // disk I/O — the dominant cause of crackling at the start of a cue.
+    // Returns true on success, false if the decoder isn't ready. Safe to
+    // call while NOT playing; should not be called concurrently with
+    // playback (it holds the decoder mutex).
+    bool prime(double seconds = 2.0, double start_seconds = 0.0) noexcept;
+
     // ---- Introspection ---------------------------------------------------
     const CueId&     id() const noexcept                  { return desc_.id; }
     const PlaybackItemDesc& desc() const noexcept         { return desc_; }
@@ -160,6 +177,11 @@ private:
 
     // Playhead in mix-rate frames. Audio thread is the only writer.
     std::atomic<std::uint64_t>  playhead_frames_{0};
+
+    // Out-point: when playhead_frames_ reaches this value, render_block
+    // triggers the natural-EOF code path (fade-out then Stopped). 0 disables
+    // (play to file end).
+    std::atomic<std::uint64_t>  out_point_frames_{0};
 
     // LTC generator (optional). Built fresh whenever LTC config changes.
     std::unique_ptr<LTCGenerator> ltc_;

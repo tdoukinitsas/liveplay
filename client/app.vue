@@ -50,13 +50,21 @@
       @select="handleProjectSelection"
       @cancel="handleProjectSelectionCancel"
     />
+
+    <!-- Loading overlay (project open / create / save) -->
+    <LoadingOverlay :visible="isLoading" :title="loadingMessage" />
+
+    <!-- Background audio-loading progress (when document already rendered) -->
+    <AudioLoadProgress />
   </div>
 </template>
 
 <script setup lang="ts">
 import 'material-symbols';
 
-const { currentProject, saveProject, openProject } = useProject();
+const { currentProject, saveProject, openProject, isLoading, loadingMessage } = useProject();
+import LoadingOverlay from './components/LoadingOverlay.vue';
+import AudioLoadProgress from './components/AudioLoadProgress.vue';
 const { currentLocale, setLocale, getDirection, t } = useLocalization();
 const theme = useState('theme', () => 'dark');
 

@@ -2,7 +2,7 @@
   <div class="welcome-screen">
     <div class="welcome-container">
       <div class="welcome-header">
-        <img 
+        <img
           :src="isDark ? './assets/icons/SVG/liveplay-icon-darkmode@web.svg' : './assets/icons/SVG/liveplay-icon-lightmode@web.svg'"
           alt="LivePlay"
           class="welcome-logo"
@@ -15,17 +15,81 @@
           <p class="welcome-subtitle">{{ t('welcome.subtitle') }}</p>
         </div>
       </div>
-      
-      <div class="welcome-actions">
-        <button class="welcome-button primary" @click="handleNewProject">
-          <span class="button-icon"><span class="material-symbols-rounded">add</span></span>
-          <span>{{ t('welcome.newProject') }}</span>
-        </button>
-        
-        <button class="welcome-button" @click="handleOpenProject">
-          <span class="button-icon"><span class="material-symbols-rounded">folder</span></span>
-          <span>{{ t('welcome.openProject') }}</span>
-        </button>
+
+      <!-- Stage 1: mode picker. Hidden once we've connected. -->
+      <div v-if="stage === 'mode'" class="welcome-stage">
+        <h2 class="stage-title">{{ t('welcome.modeTitle') }}</h2>
+        <p class="stage-subtitle">{{ t('welcome.modeSubtitle') }}</p>
+        <div class="welcome-actions">
+          <button class="welcome-button primary" @click="chooseLocal">
+            <span class="button-icon"><span class="material-symbols-rounded">computer</span></span>
+            <span class="button-label">
+              <span class="button-label-line">{{ t('welcome.localMode') }}</span>
+              <span class="button-label-sub">{{ t('welcome.localModeDescription') }}</span>
+            </span>
+          </button>
+
+          <button class="welcome-button" @click="chooseRemote">
+            <span class="button-icon"><span class="material-symbols-rounded">lan</span></span>
+            <span class="button-label">
+              <span class="button-label-line">{{ t('welcome.remoteMode') }}</span>
+              <span class="button-label-sub">{{ t('welcome.remoteModeDescription') }}</span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stage 2: remote address entry. -->
+      <div v-else-if="stage === 'remote'" class="welcome-stage">
+        <h2 class="stage-title">{{ t('welcome.remoteConnect') }}</h2>
+        <p class="stage-subtitle">{{ t('welcome.remoteAddressHint') }}</p>
+        <div class="remote-form">
+          <label class="remote-field-label">{{ t('welcome.serverAddress') }}</label>
+          <input
+            v-model="remoteAddress"
+            type="text"
+            class="remote-field-input"
+            :placeholder="t('welcome.serverAddressPlaceholder')"
+            @keydown.enter="connectToRemote"
+          />
+          <p v-if="connectionError" class="remote-error">{{ connectionError }}</p>
+        </div>
+        <div class="remote-actions">
+          <button class="welcome-button" @click="stage = 'mode'">
+            <span class="material-symbols-rounded">arrow_back</span>
+            <span>{{ t('welcome.back') }}</span>
+          </button>
+          <button
+            class="welcome-button primary"
+            :disabled="!remoteAddress || connecting"
+            @click="connectToRemote"
+          >
+            <span class="material-symbols-rounded">link</span>
+            <span>{{ connecting ? t('welcome.connecting') : t('welcome.connect') }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stage 3: project picker. -->
+      <div v-else-if="stage === 'project'" class="welcome-stage">
+        <p class="stage-subtitle connection-summary">
+          <span class="material-symbols-rounded connection-icon">{{ mode === 'remote' ? 'lan' : 'computer' }}</span>
+          {{ mode === 'remote'
+              ? t('welcome.connectedTo', { url: serverUrlDisplay })
+              : t('welcome.connectedLocal') }}
+          <button class="link-button" @click="changeMode">{{ t('welcome.changeMode') }}</button>
+        </p>
+        <div class="welcome-actions">
+          <button class="welcome-button primary" @click="handleNewProject">
+            <span class="button-icon"><span class="material-symbols-rounded">add</span></span>
+            <span>{{ t('welcome.newProject') }}</span>
+          </button>
+
+          <button class="welcome-button" @click="handleOpenProject">
+            <span class="button-icon"><span class="material-symbols-rounded">folder</span></span>
+            <span>{{ t('welcome.openProject') }}</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -49,6 +113,19 @@ import ServerFilePickerModal from './ServerFilePickerModal.vue';
 
 const { createNewProject, openProject } = useProject();
 const { t } = useLocalization();
+const server = useLiveplayServer();
+
+// Three-stage flow: mode picker → (optional remote address) → project picker.
+type Stage = 'mode' | 'remote' | 'project';
+const stage = ref<Stage>('mode');
+const mode  = ref<'local' | 'remote'>('local');
+
+const remoteAddress   = ref('');
+const connecting      = ref(false);
+const connectionError = ref<string>('');
+
+// Computed reflection of the currently-configured server URL.
+const serverUrlDisplay = computed(() => server.serverUrl ?? 'http://127.0.0.1:4480');
 
 // Server file picker state — shared by New and Open flows.
 const showPicker          = ref(false);
@@ -61,17 +138,123 @@ const pickerIntent        = ref<'new' | 'open'>('open');
 // Get app version
 const appVersion = ref('1.1.3');
 onMounted(async () => {
-  if (import.meta.client && window.electronAPI?.getAppVersion) {
-    appVersion.value = await window.electronAPI.getAppVersion();
+  if (import.meta.client && (window as any).electronAPI?.getAppVersion) {
+    appVersion.value = await (window as any).electronAPI.getAppVersion();
   }
+
+  // Read the persisted mode/server config from Electron (if available) and
+  // auto-skip the mode picker if the user has already chosen a side.
+  try {
+    if (import.meta.client && (window as any).electronAPI?.liveplayServer?.getConfig) {
+      const cfg = await (window as any).electronAPI.liveplayServer.getConfig();
+      if (cfg?.mode === 'remote' && cfg.remoteUrl) {
+        mode.value = 'remote';
+        remoteAddress.value = stripScheme(cfg.remoteUrl);
+        server.setServerUrl(cfg.remoteUrl);
+      } else if (cfg?.mode === 'local') {
+        mode.value = 'local';
+        const url = `http://127.0.0.1:${cfg.localPort ?? 4480}`;
+        server.setServerUrl(url);
+      }
+    }
+  } catch (e) {
+    console.warn('[welcome] could not read liveplay-server config:', e);
+  }
+
+  // Always go through the mode-picker so the user is in control of the
+  // current session's server target. We could skip if connected, but the
+  // first-impression UI value of a deliberate choice outweighs the click.
+  stage.value = 'mode';
 });
 
 // Get theme from app state (works even when no project is open)
 const theme = useState('theme', () => 'dark');
 const isDark = computed(() => theme.value === 'dark');
 
+// ---- Mode handlers ---------------------------------------------------------
+function stripScheme(url: string): string {
+  return url.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+}
+function normaliseRemoteUrl(input: string): string {
+  let v = input.trim();
+  if (!v) return '';
+  // Allow bare host or host:port. Default to http:// and port 4480.
+  if (!/^https?:\/\//i.test(v)) v = 'http://' + v;
+  // If no explicit port, append :4480 for convenience.
+  try {
+    const u = new URL(v);
+    if (!u.port) u.port = '4480';
+    return u.origin;
+  } catch {
+    return v;
+  }
+}
+
+async function chooseLocal() {
+  mode.value = 'local';
+  connectionError.value = '';
+  try {
+    if (import.meta.client && (window as any).electronAPI?.liveplayServer?.setConfig) {
+      const cfg = await (window as any).electronAPI.liveplayServer.setConfig({ mode: 'local' });
+      const url = `http://127.0.0.1:${cfg.localPort ?? 4480}`;
+      server.setServerUrl(url);
+    } else {
+      server.setServerUrl('http://127.0.0.1:4480');
+    }
+    stage.value = 'project';
+  } catch (e: any) {
+    connectionError.value = e?.message ?? String(e);
+  }
+}
+
+function chooseRemote() {
+  mode.value = 'remote';
+  connectionError.value = '';
+  if (!remoteAddress.value) {
+    const fallback = stripScheme(server.serverUrl ?? '');
+    if (fallback && fallback !== '127.0.0.1:4480') remoteAddress.value = fallback;
+  }
+  stage.value = 'remote';
+}
+
+function changeMode() {
+  stage.value = 'mode';
+  connectionError.value = '';
+}
+
+async function connectToRemote() {
+  if (!remoteAddress.value) return;
+  const url = normaliseRemoteUrl(remoteAddress.value);
+  if (!url) {
+    connectionError.value = t('welcome.connectionFailed');
+    return;
+  }
+
+  connecting.value = true;
+  connectionError.value = '';
+  try {
+    // Probe the server's /api/health before committing.
+    const r = await fetch(url + '/api/health', { method: 'GET' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+
+    server.setServerUrl(url);
+    if (import.meta.client && (window as any).electronAPI?.liveplayServer?.setConfig) {
+      await (window as any).electronAPI.liveplayServer.setConfig({
+        mode: 'remote',
+        remoteUrl: url,
+      });
+    }
+    stage.value = 'project';
+  } catch (e: any) {
+    console.warn('[welcome] remote connect failed:', e);
+    connectionError.value = t('welcome.connectionFailed') + ' (' + (e?.message ?? e) + ')';
+  } finally {
+    connecting.value = false;
+  }
+}
+
+// ---- Project pickers -------------------------------------------------------
 const handleNewProject = () => {
-  // Browse the server's filesystem for a parent folder to scaffold into.
   pickerIntent.value        = 'new';
   pickerMode.value          = 'directory';
   pickerFilter.value        = 'all';
@@ -81,7 +264,6 @@ const handleNewProject = () => {
 };
 
 const handleOpenProject = () => {
-  // Browse for a .liveplay file anywhere on the server's filesystem.
   pickerIntent.value        = 'open';
   pickerMode.value          = 'file';
   pickerFilter.value        = '.liveplay,.lpa';
@@ -136,13 +318,12 @@ const getProjectName = (): Promise<string | null> => {
 
     buttonContainer.appendChild(cancelBtn);
     buttonContainer.appendChild(okBtn);
-    
+
     dialog.appendChild(h3);
     dialog.appendChild(input);
     dialog.appendChild(buttonContainer);
     overlay.appendChild(dialog);
-    
-    // Append to #app instead of body to inherit theme variables
+
     const appElement = document.getElementById('app') || document.body;
     appElement.appendChild(overlay);
 
@@ -174,13 +355,13 @@ const getProjectName = (): Promise<string | null> => {
 };
 
 // Listen for menu events
-if (import.meta.client && window.electronAPI) {
-  window.electronAPI.onMenuNewProject(() => {
-    handleNewProject();
+if (import.meta.client && (window as any).electronAPI) {
+  (window as any).electronAPI.onMenuNewProject(() => {
+    if (stage.value === 'project') handleNewProject();
   });
 
-  window.electronAPI.onMenuOpenProject(() => {
-    handleOpenProject();
+  (window as any).electronAPI.onMenuOpenProject(() => {
+    if (stage.value === 'project') handleOpenProject();
   });
 }
 </script>
@@ -197,181 +378,173 @@ if (import.meta.client && window.electronAPI) {
 
 .welcome-container {
   text-align: center;
-  max-width: 600px;
-  padding: var(--spacing-xxl);
+  max-width: 540px;
+  padding: 32px;
 }
 
 .welcome-header {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-xxl);
+  margin-bottom: 32px;
 }
 
 .welcome-logo {
-  width: 80px;
-  height: 80px;
-  object-fit: contain;
-}
-
-.welcome-text {
-  text-align: left;
+  width: 96px;
+  height: 96px;
+  margin-bottom: 16px;
 }
 
 .welcome-title {
-  font-size: 64px;
-  font-weight: 600;
-  margin-bottom: var(--spacing-xs);
-  color: var(--color-text-primary);
-  letter-spacing: -2px;
-  line-height: 1;
   display: flex;
-  align-items: baseline;
-  gap: var(--spacing-sm);
+  align-items: center;
+  gap: 12px;
+  font-size: 36px;
+  margin: 0;
+  color: var(--color-text-primary);
 }
 
 .version-badge {
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 2px 10px;
   color: var(--color-text-secondary);
-  opacity: 0.6;
-  letter-spacing: 0;
 }
 
 .welcome-subtitle {
-  font-size: 20px;
+  margin: 8px 0 0;
   color: var(--color-text-secondary);
+}
+
+.welcome-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.stage-title {
+  font-size: 22px;
   margin: 0;
+  color: var(--color-text-primary);
+}
+
+.stage-subtitle {
+  margin: 0 0 8px;
+  color: var(--color-text-secondary);
+}
+
+.connection-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  justify-content: center;
+}
+.connection-icon {
+  font-size: 18px;
+  vertical-align: middle;
+}
+.link-button {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
 }
 
 .welcome-actions {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: 12px;
+  margin-top: 8px;
 }
 
 .welcome-button {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-lg) var(--spacing-xl);
-  font-size: 18px;
-  font-weight: 500;
-  background-color: var(--color-surface);
-  border: 2px solid var(--color-border);
-  border-radius: var(--border-radius-lg);
-  transition: all var(--transition-base);
-
-  &:hover {
-    background-color: var(--color-surface-hover);
-    border-color: var(--color-accent);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-
-  &.primary {
-    background-color: var(--color-accent);
-    border-color: var(--color-accent);
-    color: white;
-
-    &:hover {
-      background-color: var(--color-accent-hover);
-      border-color: var(--color-accent-hover);
-    }
-  }
+  gap: 12px;
+  padding: 14px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  color: var(--color-text-primary);
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.welcome-button:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-accent);
+}
+.welcome-button.primary {
+  background: var(--color-accent);
+  color: white;
+  border-color: var(--color-accent);
+}
+.welcome-button.primary:hover {
+  filter: brightness(1.08);
+}
+.welcome-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .button-icon {
-  font-size: 24px;
-}
-
-/* Modal styles - not scoped since appended to body */
-:global(.modal-overlay) {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
 }
 
-:global(.modal-dialog) {
-  background: var(--color-surface);
-  padding: var(--spacing-xl);
-  border-radius: var(--border-radius-lg);
-  min-width: 400px;
-  border: 1px solid var(--color-border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+.button-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
-
-:global(.modal-title) {
-  margin: 0 0 var(--spacing-md) 0;
-  color: var(--color-text-primary);
-  font-size: 18px;
+.button-label-line {
   font-weight: 600;
 }
-
-:global(.modal-input) {
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
-  margin-bottom: var(--spacing-md);
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  color: var(--color-text-primary);
-  font-size: 14px;
-  box-sizing: border-box;
-  outline: none;
-
-  &:focus {
-    border-color: var(--color-accent);
-  }
+.button-label-sub {
+  font-size: 12px;
+  opacity: 0.8;
 }
 
-:global(.modal-buttons) {
+/* Remote form */
+.remote-form {
   display: flex;
-  gap: var(--spacing-sm);
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
 }
-
-:global(.modal-btn) {
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--border-radius-sm);
-  cursor: pointer;
-  font-size: 14px;
-  transition: all var(--transition-fast);
-  outline: none;
-
-  &:active {
-    transform: translateY(1px);
-  }
+.remote-field-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
 }
-
-:global(.modal-btn-cancel) {
-  background: var(--color-background);
+.remote-field-input {
+  padding: 10px 12px;
+  border-radius: 6px;
   border: 1px solid var(--color-border);
+  background: var(--color-background);
   color: var(--color-text-primary);
-
-  &:hover {
-    background: var(--color-surface-hover);
-  }
+  font-size: 14px;
 }
-
-:global(.modal-btn-primary) {
-  background: var(--color-accent);
-  border: 1px solid var(--color-accent);
-  color: white;
-  font-weight: 500;
-
-  &:hover {
-    background: var(--color-accent-hover);
-    border-color: var(--color-accent-hover);
-  }
+.remote-field-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+.remote-error {
+  color: #e34c4c;
+  font-size: 13px;
+  margin: 0;
+}
+.remote-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  justify-content: flex-end;
 }
 </style>

@@ -10,6 +10,9 @@
 #include <cmath>
 #include <fstream>
 #include <functional>
+#include <future>
+#include <thread>
+#include <unordered_set>
 
 namespace liveplay::core {
 
@@ -89,6 +92,177 @@ audio::LTCFrameRate fps_index_to_rate(int idx) noexcept {
 
 ProjectState::ProjectState(audio::AudioEngine& engine) : engine_(engine) {
     document_ = default_empty_document();
+}
+
+ProjectState::~ProjectState() {
+    // Make sure any in-flight async mirror finishes before the engine is
+    // torn down — otherwise the worker would dereference dangling state.
+    if (load_thread_.joinable()) load_thread_.join();
+}
+
+void ProjectState::start_async_mirror() {
+    // Wait for any prior background mirror to finish before launching a new
+    // one — overlapping mirrors against the same engine state would race.
+    if (load_thread_.joinable()) load_thread_.join();
+    loading_audio_.store(true, std::memory_order_release);
+    load_progress_loaded_.store(0, std::memory_order_release);
+    load_progress_total_.store(0, std::memory_order_release);
+    load_thread_ = std::thread([this] {
+        try {
+            // Phase 1: snapshot what we need to load under a brief lock.
+            std::unordered_map<std::string, std::filesystem::path> wanted;
+            std::unordered_set<std::string> cart_uuids;
+            {
+                std::lock_guard lock{mutex_};
+                json& doc = document_;
+                for_each_item(doc, [&](json& item, const std::string&) {
+                    if (item.value("type", std::string{}) != "audio") return;
+                    const std::string uuid = item.value("uuid", std::string{});
+                    if (uuid.empty()) return;
+                    std::string path_str;
+                    if (item.contains("mediaServerPath") && item["mediaServerPath"].is_string()) {
+                        path_str = item["mediaServerPath"].get<std::string>();
+                    }
+                    if (path_str.empty() && item.contains("mediaPath") &&
+                        item["mediaPath"].is_string()) {
+                        const std::string folder = doc.value("folderPath", std::string{});
+                        if (!folder.empty()) {
+                            path_str = folder;
+                            if (!path_str.empty() && path_str.back() != '/' &&
+                                path_str.back() != '\\') path_str += '/';
+                        }
+                        path_str += item["mediaPath"].get<std::string>();
+                    }
+                    if (!path_str.empty()) {
+                        wanted.emplace(uuid, util::utf8_to_path(path_str));
+                    }
+                });
+                if (doc.contains("cartItems") && doc["cartItems"].is_array()) {
+                    for (const auto& c : doc["cartItems"]) {
+                        if (c.is_object()) {
+                            const std::string u = c.value("itemUuid", std::string{});
+                            if (!u.empty()) cart_uuids.insert(u);
+                        }
+                    }
+                }
+            }
+
+            // Phase 2: parallel decoder init. NO project mutex — load_cue_no_route
+            // only takes the engine's own internal lock. /api/project,
+            // /api/cues, /api/project/progress all stay responsive while
+            // we're here. The OS file I/O is what dominates anyway.
+            load_progress_total_.store(wanted.size(), std::memory_order_release);
+            load_progress_loaded_.store(0, std::memory_order_release);
+
+            const unsigned hw = std::thread::hardware_concurrency();
+            const std::size_t concurrency = (hw <= 1) ? 1u : static_cast<std::size_t>(hw - 1);
+            Logger::info("ProjectState: async-mirroring {} items ({} workers).",
+                         wanted.size(), concurrency);
+
+            struct Loaded {
+                std::string uuid;
+                std::filesystem::path path;
+                audio::CueId cue_id;
+            };
+            std::vector<std::future<Loaded>> in_flight;
+            std::vector<Loaded> done;
+            done.reserve(wanted.size());
+            auto drain_one = [&]() {
+                if (in_flight.empty()) return;
+                done.push_back(in_flight.front().get());
+                in_flight.erase(in_flight.begin());
+                load_progress_loaded_.fetch_add(1, std::memory_order_release);
+            };
+            for (auto& [uuid, path] : wanted) {
+                if (in_flight.size() >= concurrency) drain_one();
+                in_flight.push_back(std::async(std::launch::async,
+                    [this, u = uuid, p = path]() -> Loaded {
+                        return { u, p, engine_.load_cue_no_route(p) };
+                    }));
+            }
+            while (!in_flight.empty()) drain_one();
+
+            // Phase 3: register results + metadata under lock. Cheap because
+            // the heavy I/O is already done — this is just hashtable inserts
+            // and a single routing rebuild.
+            {
+                std::lock_guard lock{mutex_};
+                for (auto& l : done) {
+                    if (l.cue_id.empty()) {
+                        Logger::warn("ProjectState: load failed uuid='{}'", l.uuid);
+                        continue;
+                    }
+                    item_uuid_to_cue_.emplace(l.uuid, l.cue_id);
+
+                    CueMeta meta;
+                    meta.id           = l.cue_id;
+                    meta.file_path    = l.path;
+                    const auto md     = meta::read_metadata(l.path);
+                    meta.display_name = md.title.empty()
+                                          ? util::path_to_utf8(l.path.filename())
+                                          : md.title;
+                    meta.artist       = md.artist;
+                    meta.title        = md.title;
+                    meta.duration_seconds =
+                        static_cast<double>(md.duration.count()) / 1000.0;
+                    cues_.emplace(l.cue_id.value, std::move(meta));
+                }
+                engine_.ensure_default_routing();
+
+                // Apply per-item audio properties to the engine cues we just
+                // registered.
+                for_each_item(document_,
+                    [&](json& it, const std::string&) {
+                        if (it.value("type", std::string{}) != "audio") return;
+                        const std::string uuid = it.value("uuid", std::string{});
+                        auto cit = item_uuid_to_cue_.find(uuid);
+                        if (cit == item_uuid_to_cue_.end()) return;
+                        auto* cue = engine_.find_cue(cit->second);
+                        if (!cue) return;
+                        if (it.contains("volume") && it["volume"].is_number()) {
+                            const float lin = it["volume"].get<float>();
+                            const float db  = (lin <= 0.0001f) ? -120.0f :
+                                                20.0f * std::log10(lin);
+                            cue->set_gain_db(db);
+                        }
+                        if (it.contains("playFade") && it["playFade"].is_number()) {
+                            cue->set_fade_in(std::chrono::milliseconds{
+                                static_cast<long long>(it["playFade"].get<double>() * 1000.0)});
+                        }
+                        if (it.contains("fadeOutDuration") && it["fadeOutDuration"].is_number()) {
+                            cue->set_fade_out(std::chrono::milliseconds{
+                                static_cast<long long>(it["fadeOutDuration"].get<double>() * 1000.0)});
+                        }
+                        if (it.contains("outPoint") && it["outPoint"].is_number()) {
+                            cue->set_out_point_seconds(it["outPoint"].get<double>());
+                        }
+                    });
+            }
+
+            // Phase 4: prime cart cues (also unlocked — engine handles its own).
+            std::vector<std::future<void>> prime_futures;
+            for (const auto& uuid : cart_uuids) {
+                audio::CueId cue;
+                {
+                    std::lock_guard lock{mutex_};
+                    auto it = item_uuid_to_cue_.find(uuid);
+                    if (it == item_uuid_to_cue_.end()) continue;
+                    cue = it->second;
+                }
+                prime_futures.push_back(std::async(std::launch::async,
+                    [this, cue]() {
+                        if (auto* pi = engine_.find_cue(cue)) pi->prime(2.0);
+                    }));
+            }
+            for (auto& f : prime_futures) f.get();
+            if (!cart_uuids.empty()) {
+                Logger::info("ProjectState: primed {} cart cue(s).", cart_uuids.size());
+            }
+        } catch (const std::exception& e) {
+            Logger::error("async mirror threw: {}", e.what());
+        }
+        loading_audio_.store(false, std::memory_order_release);
+    });
 }
 
 void ProjectState::reset() {
@@ -228,31 +402,114 @@ void ProjectState::mirror_items_to_engine_locked() {
         }
     }
 
-    // Load any new items.
-    for (auto& [uuid, path] : wanted) {
-        if (item_uuid_to_cue_.find(uuid) != item_uuid_to_cue_.end()) continue;
-        const auto cue_id = engine_.load_cue(path);
-        if (cue_id.empty()) {
-            Logger::warn("ProjectState: failed to load audio item uuid='{}' path='{}'",
-                         uuid, util::path_to_utf8(path));
-            continue;
+    // Gather the set of cart slot bindings so we can prioritise priming
+    // those items (cart cues need to be hot — they can be triggered at any
+    // moment by a hotkey or MIDI).
+    std::unordered_set<std::string> cart_uuids;
+    if (document_.contains("cartItems") && document_["cartItems"].is_array()) {
+        for (const auto& c : document_["cartItems"]) {
+            if (c.is_object()) {
+                const std::string u = c.value("itemUuid", std::string{});
+                if (!u.empty()) cart_uuids.insert(u);
+            }
         }
-        item_uuid_to_cue_.emplace(uuid, cue_id);
-
-        // Populate CueMeta so /api/cues stays consistent.
-        CueMeta meta;
-        meta.id           = cue_id;
-        meta.file_path    = path;
-        const auto md     = meta::read_metadata(path);
-        meta.display_name = md.title.empty() ? util::path_to_utf8(path.filename()) : md.title;
-        meta.artist       = md.artist;
-        meta.title        = md.title;
-        meta.duration_seconds =
-            static_cast<double>(md.duration.count()) / 1000.0;
-        cues_.emplace(cue_id.value, std::move(meta));
     }
 
-    // Apply per-item audio properties (gain/fade/etc.) to the engine.
+    // Build the list of new items to load (skip already-loaded). We do
+    // metadata + decoder init in parallel because both are I/O bound.
+    struct LoadJob {
+        std::string uuid;
+        std::filesystem::path path;
+    };
+    std::vector<LoadJob> jobs;
+    for (auto& [uuid, path] : wanted) {
+        if (item_uuid_to_cue_.find(uuid) == item_uuid_to_cue_.end()) {
+            jobs.push_back({uuid, path});
+        }
+    }
+
+    if (!jobs.empty()) {
+        load_progress_total_.store(jobs.size(), std::memory_order_release);
+        load_progress_loaded_.store(0, std::memory_order_release);
+        // Use every CPU thread except one (leave one core for the OS/UI). On
+        // single-core machines stay at 1; on hardware_concurrency() returning
+        // 0 (rare) fall back to 1 as well.
+        const unsigned hw = std::thread::hardware_concurrency();
+        const std::size_t concurrency = (hw <= 1) ? 1u : static_cast<std::size_t>(hw - 1);
+        Logger::info("ProjectState: bulk-loading {} audio items ({} parallel workers).",
+                     jobs.size(), concurrency);
+        std::vector<std::future<std::pair<std::string, audio::CueId>>> futures;
+        futures.reserve(jobs.size());
+
+        // Issue all jobs but cap in-flight concurrency by waiting once we
+        // hit the limit. This keeps memory pressure / fd usage bounded for
+        // very large projects.
+        std::vector<std::pair<std::string, audio::CueId>> done;
+        done.reserve(jobs.size());
+
+        auto drain_one = [&]() {
+            if (futures.empty()) return;
+            done.push_back(futures.front().get());
+            futures.erase(futures.begin());
+            load_progress_loaded_.fetch_add(1, std::memory_order_release);
+        };
+
+        for (const auto& job : jobs) {
+            if (futures.size() >= concurrency) drain_one();
+            futures.push_back(std::async(std::launch::async,
+                [this, job]() -> std::pair<std::string, audio::CueId> {
+                    const auto cue_id = engine_.load_cue_no_route(job.path);
+                    return {job.uuid, cue_id};
+                }));
+        }
+        while (!futures.empty()) drain_one();
+
+        // Register results sequentially (cues_ access is single-threaded under
+        // the lock the caller holds).
+        for (auto& [uuid, cue_id] : done) {
+            if (cue_id.empty()) {
+                Logger::warn("ProjectState: failed to load item uuid='{}'", uuid);
+                continue;
+            }
+            item_uuid_to_cue_.emplace(uuid, cue_id);
+
+            const auto file_path = wanted[uuid];
+            CueMeta meta;
+            meta.id           = cue_id;
+            meta.file_path    = file_path;
+            const auto md     = meta::read_metadata(file_path);
+            meta.display_name = md.title.empty()
+                                  ? util::path_to_utf8(file_path.filename())
+                                  : md.title;
+            meta.artist       = md.artist;
+            meta.title        = md.title;
+            meta.duration_seconds =
+                static_cast<double>(md.duration.count()) / 1000.0;
+            cues_.emplace(cue_id.value, std::move(meta));
+        }
+
+        // Now that every cue is in items_, re-route / rebuild ONCE.
+        engine_.ensure_default_routing();
+
+        // Prime cart cues in parallel so their first hit is glitch-free.
+        // Non-cart items are primed on-demand at play time.
+        std::vector<std::future<void>> prime_futures;
+        for (const auto& uuid : cart_uuids) {
+            auto it = item_uuid_to_cue_.find(uuid);
+            if (it == item_uuid_to_cue_.end()) continue;
+            auto* pi = engine_.find_cue(it->second);
+            if (!pi) continue;
+            prime_futures.push_back(std::async(std::launch::async,
+                [pi]() { pi->prime(2.0); }));
+        }
+        for (auto& f : prime_futures) f.get();
+        if (!cart_uuids.empty()) {
+            Logger::info("ProjectState: primed {} cart cue(s).",
+                         cart_uuids.size());
+        }
+    }
+
+    // Apply per-item audio properties (gain/fade/in-out/etc.) to the engine.
     for_each_item(document_,
         [&](json& item, const std::string& /*parent*/) {
             if (item.value("type", std::string{}) != "audio") return;
@@ -277,6 +534,13 @@ void ProjectState::mirror_items_to_engine_locked() {
                 item["fadeOutDuration"].is_number()) {
                 cue->set_fade_out(std::chrono::milliseconds{
                     static_cast<long long>(item["fadeOutDuration"].get<double>() * 1000.0)});
+            }
+            // outPoint: when set (> 0), engine fades out as the playhead reaches
+            // that time instead of running to the file end.
+            if (item.contains("outPoint") && item["outPoint"].is_number()) {
+                cue->set_out_point_seconds(item["outPoint"].get<double>());
+            } else {
+                cue->set_out_point_seconds(0.0);  // disabled
             }
         });
 }
@@ -483,6 +747,9 @@ json ProjectState::full_document() const {
     out["server"] = json{
         {"projectFilePath", util::path_to_utf8(project_file_path_)},
         {"mediaRoot",       util::path_to_utf8(media_root_)},
+        {"audioLoading",    loading_audio_.load(std::memory_order_acquire)},
+        {"audioLoaded",     load_progress_loaded_.load(std::memory_order_acquire)},
+        {"audioTotal",      load_progress_total_.load(std::memory_order_acquire)},
     };
     return out;
 }
@@ -566,6 +833,8 @@ audio::CueId ProjectState::add_item(const json& item, const std::string& parent_
 bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     if (!patch.is_object()) return false;
     bool touched = false;
+    bool media_path_changed = false;
+    json* updated_item = nullptr;
     {
         std::lock_guard lock{mutex_};
         for_each_item(document_,
@@ -573,11 +842,52 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                 if (it.value("uuid", std::string{}) != uuid) return;
                 for (auto& [k, v] : patch.items()) {
                     if (k == "uuid") continue;   // can't repath via patch
+                    // Detect changes that require re-loading the cue into the
+                    // engine (file changed) vs ones that only need a property
+                    // update.
+                    if (k == "mediaPath" || k == "mediaServerPath" ||
+                        k == "mediaFileName") {
+                        media_path_changed = true;
+                    }
                     it[k] = v;
                 }
                 touched = true;
+                updated_item = &it;
             });
-        if (touched) mirror_items_to_engine_locked();
+        if (touched && media_path_changed) {
+            // The source file changed — fall back to the full mirror so the
+            // engine cue is reloaded against the new path. This is the
+            // expensive path; the common-case property update (volume,
+            // fades, in/out, behaviours) bypasses it below.
+            mirror_items_to_engine_locked();
+        } else if (touched && updated_item) {
+            // Cheap path: apply only the audio-engine-visible properties of
+            // this single item to its existing cue. No re-walk, no re-mirror.
+            auto cit = item_uuid_to_cue_.find(uuid);
+            if (cit != item_uuid_to_cue_.end()) {
+                if (auto* cue = engine_.find_cue(cit->second)) {
+                    const json& it = *updated_item;
+                    if (it.contains("volume") && it["volume"].is_number()) {
+                        const float lin = it["volume"].get<float>();
+                        const float db  = (lin <= 0.0001f) ? -120.0f :
+                                            20.0f * std::log10(lin);
+                        cue->set_gain_db(db);
+                    }
+                    if (it.contains("playFade") && it["playFade"].is_number()) {
+                        cue->set_fade_in(std::chrono::milliseconds{
+                            static_cast<long long>(it["playFade"].get<double>() * 1000.0)});
+                    }
+                    if (it.contains("fadeOutDuration") &&
+                        it["fadeOutDuration"].is_number()) {
+                        cue->set_fade_out(std::chrono::milliseconds{
+                            static_cast<long long>(it["fadeOutDuration"].get<double>() * 1000.0)});
+                    }
+                    if (it.contains("outPoint") && it["outPoint"].is_number()) {
+                        cue->set_out_point_seconds(it["outPoint"].get<double>());
+                    }
+                }
+            }
+        }
     }
     return touched;
 }
@@ -704,6 +1014,201 @@ ProjectState::item_to_cue_id(const std::string& uuid) const {
     auto it = item_uuid_to_cue_.find(uuid);
     if (it == item_uuid_to_cue_.end()) return std::nullopt;
     return it->second;
+}
+
+std::string ProjectState::resolve_next_item_locked(const std::string& current_uuid) const {
+    // The lookup is read-only; we need a mutable json& to satisfy for_each_item
+    // (which itself only reads). const_cast is safe here for the same reason
+    // as in resolve_item_path().
+    json& doc = const_cast<json&>(document_);
+
+    // 1) Find the current item + its endBehavior.
+    std::string end_action;
+    std::string end_target_uuid;
+    std::string parent_uuid;
+    bool found = false;
+    for_each_item(doc,
+        [&](json& it, const std::string& parent) {
+            if (found) return;
+            if (it.value("uuid", std::string{}) != current_uuid) return;
+            found = true;
+            parent_uuid = parent;
+            if (it.contains("endBehavior") && it["endBehavior"].is_object()) {
+                const auto& eb = it["endBehavior"];
+                end_action      = eb.value("action", std::string{"nothing"});
+                end_target_uuid = eb.value("targetUuid", std::string{});
+            }
+        });
+    if (!found) return {};
+
+    if (end_action == "goto-item" && !end_target_uuid.empty()) {
+        return end_target_uuid;
+    }
+    if (end_action == "loop" || end_action == "nothing" || end_action.empty()) {
+        return {};   // either replay self or stop; nothing new to prime
+    }
+    if (end_action != "next") return {};
+
+    // 2) "next" — return the sibling immediately following `current_uuid` in
+    // the same level (top or inside a group). Look at the parent's children
+    // array; if `current_uuid` is the last, fall back to nothing.
+    auto find_next_in_array = [&](json& arr) -> std::string {
+        if (!arr.is_array()) return {};
+        for (std::size_t i = 0; i + 1 < arr.size(); ++i) {
+            if (arr[i].is_object() &&
+                arr[i].value("uuid", std::string{}) == current_uuid) {
+                const auto& next = arr[i + 1];
+                if (next.is_object()) return next.value("uuid", std::string{});
+            }
+        }
+        return {};
+    };
+
+    if (parent_uuid.empty()) {
+        // Top-level.
+        if (doc.contains("items")) {
+            const auto next = find_next_in_array(doc["items"]);
+            if (!next.empty()) return next;
+        }
+        return {};
+    }
+
+    // Inside a group — find the group, then look in its children.
+    std::string result;
+    for_each_item(doc,
+        [&](json& it, const std::string& /*p*/) {
+            if (!result.empty()) return;
+            if (it.value("uuid", std::string{}) != parent_uuid) return;
+            if (it.value("type", std::string{}) != "group") return;
+            if (!it.contains("children")) return;
+            result = find_next_in_array(it["children"]);
+        });
+    return result;
+}
+
+// ---------------------------------------------------------------------------
+// Item-level transport with ducking + in/out point semantics.
+// ---------------------------------------------------------------------------
+bool ProjectState::play_item(const std::string& uuid) {
+    // Snapshot everything we need under the lock, then release before
+    // touching the engine (engine calls take their own locks).
+    std::string  ducking_mode  = "stop-all";
+    float        duck_level    = 0.2f;
+    double       in_point      = 0.0;
+    double       fade_out_dur  = 1.0;          // seconds; matches client default
+    audio::CueId target_cue;
+    std::vector<audio::CueId> other_cues;
+
+    {
+        std::lock_guard lock{mutex_};
+        auto cue_it = item_uuid_to_cue_.find(uuid);
+        if (cue_it == item_uuid_to_cue_.end()) return false;
+        target_cue = cue_it->second;
+
+        // Locate the item JSON to read its behavior fields.
+        json* found = nullptr;
+        json& doc = document_;
+        std::function<void(json&)> walk;
+        walk = [&](json& arr) {
+            if (found || !arr.is_array()) return;
+            for (auto& it : arr) {
+                if (found) return;
+                if (!it.is_object()) continue;
+                if (it.value("uuid", std::string{}) == uuid) { found = &it; return; }
+                if (it.value("type", std::string{}) == "group" &&
+                    it.contains("children")) walk(it["children"]);
+            }
+        };
+        if (doc.contains("items"))         walk(doc["items"]);
+        if (!found && doc.contains("cartOnlyItems")) walk(doc["cartOnlyItems"]);
+
+        if (found) {
+            in_point     = found->value("inPoint", 0.0);
+            fade_out_dur = found->value("fadeOutDuration", 1.0);
+            if (found->contains("duckingBehavior") &&
+                (*found)["duckingBehavior"].is_object()) {
+                const auto& dk = (*found)["duckingBehavior"];
+                ducking_mode = dk.value("mode", std::string{"stop-all"});
+                duck_level   = dk.value("duckLevel", 0.2f);
+            }
+        }
+
+        // Collect every cue id except this one. Filtering "is currently
+        // playing" would also work but stop()/duck on a stopped cue is a
+        // cheap no-op, so we don't bother.
+        for (auto& [_, c] : cues_) {
+            if (c.id == target_cue) continue;
+            other_cues.push_back(c.id);
+        }
+    }
+
+    // Apply ducking to other cues before triggering the new one.
+    if (ducking_mode == "stop-all") {
+        const auto fade_ms = std::chrono::milliseconds{
+            static_cast<long long>(std::max(fade_out_dur, 0.0) * 1000.0)};
+        for (auto& cid : other_cues) {
+            if (auto* pi = engine_.find_cue(cid)) {
+                const auto prev_fade = pi->desc().fade_out_duration;
+                pi->set_fade_out(fade_ms);
+                pi->stop();
+                pi->set_fade_out(prev_fade);
+            }
+        }
+    } else if (ducking_mode == "duck-others") {
+        const float lin = std::clamp(duck_level, 0.0f, 1.0f);
+        const float db  = (lin <= 0.0001f) ? -120.0f : 20.0f * std::log10(lin);
+        for (auto& cid : other_cues) {
+            if (auto* pi = engine_.find_cue(cid)) pi->set_gain_db(db);
+        }
+    }
+    // "no-ducking" → do nothing.
+
+    // Prime the target around the configured in-point so the first read
+    // during playback doesn't pay the disk-cache miss that produces the
+    // crackling at the start of cues. prime() leaves the decoder cursor at
+    // start_seconds, so no extra seek call is needed.
+    if (auto* pi = engine_.find_cue(target_cue)) {
+        pi->prime(2.0, in_point);
+    }
+    engine_.play(target_cue);
+
+    // Best-effort: warm the *next* cue too (the one after this one in the
+    // playlist). Done asynchronously so play_item returns immediately. The
+    // resolver is tolerant of missing data — if we can't figure out what's
+    // next, we simply don't pre-warm anything.
+    std::string next_uuid;
+    {
+        std::lock_guard lock{mutex_};
+        next_uuid = resolve_next_item_locked(uuid);
+    }
+    if (!next_uuid.empty()) {
+        std::optional<audio::CueId> next_cue;
+        {
+            std::lock_guard lock{mutex_};
+            auto it = item_uuid_to_cue_.find(next_uuid);
+            if (it != item_uuid_to_cue_.end()) next_cue = it->second;
+        }
+        if (next_cue) {
+            // Detach a thread to prime the next cue; we don't need to wait
+            // for it. The thread is short-lived and joins itself.
+            std::thread([this, cue = *next_cue]() {
+                if (auto* pi = engine_.find_cue(cue)) pi->prime(2.0);
+            }).detach();
+        }
+    }
+    return true;
+}
+
+bool ProjectState::stop_item(const std::string& uuid) {
+    audio::CueId cue;
+    {
+        std::lock_guard lock{mutex_};
+        auto it = item_uuid_to_cue_.find(uuid);
+        if (it == item_uuid_to_cue_.end()) return false;
+        cue = it->second;
+    }
+    engine_.stop(cue);
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -839,35 +1344,41 @@ bool ProjectState::load_from_json(const json& doc_in) {
     // The engine-facing tables (cues_/mixers_/routes_) get populated by
     // mirror_items_to_engine_locked() so audio playback works as before.
     if (is_client_document(doc_in)) {
-        std::lock_guard lock{mutex_};
-        // Unload any previously-loaded engine cues so we start clean.
-        for (auto& [_, id] : item_uuid_to_cue_) engine_.unload_cue(id);
-        item_uuid_to_cue_.clear();
-        cues_.clear();
-        mixers_.clear();
-        item_routes_.clear();
-        mixer_routes_.clear();
-        master_assignments_.clear();
+        {
+            std::lock_guard lock{mutex_};
+            // Unload any previously-loaded engine cues so we start clean.
+            for (auto& [_, id] : item_uuid_to_cue_) engine_.unload_cue(id);
+            item_uuid_to_cue_.clear();
+            cues_.clear();
+            mixers_.clear();
+            item_routes_.clear();
+            mixer_routes_.clear();
+            master_assignments_.clear();
 
-        document_ = doc_in;
-        // Ensure required top-level keys exist (migrate older client saves).
-        if (!document_.contains("settings") || !document_["settings"].is_object()) {
-            document_["settings"] = json{
-                {"defaultOutputDevice", nullptr},
-                {"previewDevice",       nullptr},
-                {"ltcDevice",           nullptr},
-            };
+            document_ = doc_in;
+            // Ensure required top-level keys exist (migrate older client saves).
+            if (!document_.contains("settings") || !document_["settings"].is_object()) {
+                document_["settings"] = json{
+                    {"defaultOutputDevice", nullptr},
+                    {"previewDevice",       nullptr},
+                    {"ltcDevice",           nullptr},
+                };
+            }
+            if (!document_.contains("cartOnlyItems") ||
+                !document_["cartOnlyItems"].is_array()) {
+                document_["cartOnlyItems"] = json::array();
+            }
+            if (!document_.contains("theme") || !document_["theme"].is_object()) {
+                document_["theme"] = json{{"mode", "dark"}, {"accentColor", "#DA1E28"}};
+            }
+            project_name_ = document_.value("name", std::string{"Untitled"});
         }
-        if (!document_.contains("cartOnlyItems") ||
-            !document_["cartOnlyItems"].is_array()) {
-            document_["cartOnlyItems"] = json::array();
-        }
-        if (!document_.contains("theme") || !document_["theme"].is_object()) {
-            document_["theme"] = json{{"mode", "dark"}, {"accentColor", "#DA1E28"}};
-        }
-        project_name_ = document_.value("name", std::string{"Untitled"});
 
-        mirror_items_to_engine_locked();
+        // Audio mirroring happens off-thread so the client can render the
+        // project immediately. Items not yet loaded into the engine will
+        // simply fail play() until ready (rare in practice — by the time the
+        // user clicks anything, the first batch is usually done).
+        start_async_mirror();
         return true;
     }
 

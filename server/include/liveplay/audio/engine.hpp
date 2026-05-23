@@ -130,6 +130,14 @@ public:
     CueId load_cue(const std::filesystem::path& file_path,
                    std::optional<CueId> requested_id = std::nullopt);
 
+    // Bulk-load variant: skips ensure_default_routing() and rebuild_topology()
+    // per call. Used by ProjectState to register many cues without the
+    // O(N²) blow-up that comes from re-walking every loaded cue on each
+    // insert. Caller MUST invoke ensure_default_routing() once after the
+    // batch is complete.
+    CueId load_cue_no_route(const std::filesystem::path& file_path,
+                            std::optional<CueId> requested_id = std::nullopt);
+
     void unload_cue(const CueId& id);
     PlaybackItem* find_cue(const CueId& id) const;
 

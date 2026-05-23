@@ -30,7 +30,24 @@
     "title": "LivePlay",
     "subtitle": "라이브 이벤트를 위한 오디오 재생",
     "newProject": "새 프로젝트",
-    "openProject": "프로젝트 열기"
+    "openProject": "프로젝트 열기",
+    "modeTitle": "Choose Server Mode",
+    "modeSubtitle": "Where should LivePlay run the audio engine?",
+    "localMode": "Local",
+    "localModeDescription": "Run the audio engine on this computer.",
+    "remoteMode": "Remote",
+    "remoteModeDescription": "Connect to a LivePlay server on the network.",
+    "remoteConnect": "Connect to LivePlay server",
+    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
+    "serverAddress": "Server Address",
+    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
+    "connect": "Connect",
+    "connecting": "Connecting…",
+    "connectionFailed": "Could not connect to the server",
+    "connectedLocal": "Using local server on this computer",
+    "connectedTo": "Connected to {url}",
+    "changeMode": "Change",
+    "back": "Back"
   },
   "project": {
     "enterName": "프로젝트 이름 입력",
@@ -260,5 +277,24 @@
   "status": {
     "playing": "재생 중",
     "upNext": "다음"
+  },
+  "settings": {
+    "title": "Project Settings",
+    "audioDevice": "Audio Device",
+    "audioDeviceHelp": "Default device for cue playback.",
+    "previewDevice": "Preview Device",
+    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
+    "ltcDevice": "LTC Device",
+    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
+    "useProjectDefault": "Use project default",
+    "noneSelected": "Not selected",
+    "save": "Save",
+    "close": "Close",
+    "preview": "Preview"
+  },
+  "common": {
+    "default": "default",
+    "loading": "Loading…",
+    "error": "Error"
   }
 }

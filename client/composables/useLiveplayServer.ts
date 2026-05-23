@@ -61,7 +61,9 @@ function createClient() {
     if (typeof window !== 'undefined') {
       window.localStorage?.setItem('liveplay.serverUrl', url);
     }
-    // Reconnect on URL change.
+    // URL change → treat as a brand-new session. Force re-fetch on next
+    // onopen by clearing the first-connect guard.
+    hasEverConnected = false;
     disconnect();
     connect();
   }
@@ -91,14 +93,18 @@ function createClient() {
   // ---- WebSocket ----------------------------------------------------
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  let reconnectDelay = 500;          // backs off to 5 s
+  let reconnectDelay = 1500;         // start higher; backs off to 10 s
+  // True after the *very first* successful onopen for this session. Used to
+  // skip the expensive triple-fetch (cues, mixers, devices) on every reconnect
+  // — those don't change just because the WS bounced.
+  let hasEverConnected = false;
 
   function scheduleReconnect() {
     if (reconnectTimer) return;
     reconnecting.value = true;
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
-      reconnectDelay = Math.min(reconnectDelay * 2, 5000);
+      reconnectDelay = Math.min(reconnectDelay * 2, 10000);
       connect();
     }, reconnectDelay);
   }
@@ -122,10 +128,16 @@ function createClient() {
     ws.onopen = () => {
       connected.value = true;
       reconnecting.value = false;
-      reconnectDelay = 500;
+      reconnectDelay = 1500;
       lastError.value = null;
-      // Refresh server state on (re)connect.
-      void Promise.allSettled([fetchCues(), fetchMixerChannels(), fetchDevices()]);
+      // Only refresh REST-backed catalogues on the very first connection.
+      // Reconnects (e.g. transient Crow WS close-frame issues) don't change
+      // those tables, so re-fetching every time produced a request storm
+      // that masked any actual UI work.
+      if (!hasEverConnected) {
+        hasEverConnected = true;
+        void Promise.allSettled([fetchCues(), fetchMixerChannels(), fetchDevices()]);
+      }
     };
 
     ws.onclose = () => {
@@ -257,6 +269,10 @@ function createClient() {
   async function fetchProject() {
     return rest<any>('/api/project');
   }
+  async function fetchProjectProgress() {
+    return rest<{ loading: boolean; loaded: number; total: number }>(
+      '/api/project/progress');
+  }
   async function loadProjectFromPath(path: string) {
     return rest<any>('/api/project/load', {
       method: 'POST',
@@ -269,10 +285,79 @@ function createClient() {
       body: JSON.stringify({ document }),
     }).then(p => { fetchCues(); fetchMixerChannels(); return p; });
   }
-  async function saveProjectTo(path: string) {
+  async function saveProjectTo(path?: string) {
     return rest<any>('/api/project/save', {
       method: 'POST',
-      body: JSON.stringify({ path }),
+      body: JSON.stringify(path ? { path } : {}),
+    });
+  }
+  // PUT the full project document. Server replaces in-memory state and
+  // re-mirrors audio items into the engine.
+  async function replaceProjectDocument(document: any) {
+    return rest<any>('/api/project/document', {
+      method: 'PUT',
+      body: JSON.stringify(document),
+    }).then(p => { fetchCues(); fetchMixerChannels(); return p; });
+  }
+
+  // ---- Item CRUD (server is the source of truth for project state) ----
+  async function addProjectItem(item: any, parentUuid: string = '') {
+    return rest<any>('/api/project/items', {
+      method: 'POST',
+      body: JSON.stringify({ item, parentUuid }),
+    }).then(p => { fetchCues(); return p; });
+  }
+  async function updateProjectItem(uuid: string, patch: any) {
+    return rest<any>(`/api/project/items/${encodeURIComponent(uuid)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+  }
+  async function removeProjectItem(uuid: string) {
+    return rest<any>(`/api/project/items/${encodeURIComponent(uuid)}`, {
+      method: 'DELETE',
+    }).then(p => { fetchCues(); return p; });
+  }
+  async function reorderProjectItems(uuids: string[], parentUuid: string = '') {
+    return rest<any>('/api/project/items/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ uuids, parentUuid }),
+    });
+  }
+
+  // Transport by item uuid (preferred over cue_id — preserves duckingBehavior
+  // and inPoint semantics on the server side).
+  function playItem(uuid: string)  { wsSend({ type: 'play', item_uuid: uuid }); }
+  function stopItem(uuid: string)  { wsSend({ type: 'stop', item_uuid: uuid }); }
+  async function seekItem(uuid: string, seconds: number) {
+    return rest<any>(`/api/project/items/${encodeURIComponent(uuid)}/seek`, {
+      method: 'POST',
+      body: JSON.stringify({ seconds }),
+    });
+  }
+
+  // Cart slot bindings.
+  async function setCartSlot(slot: number, itemUuid: string) {
+    return rest<any>('/api/project/cart', {
+      method: 'POST',
+      body: JSON.stringify({ slot, itemUuid }),
+    });
+  }
+  async function clearCartSlot(slot: number) {
+    return rest<any>(`/api/project/cart/${slot}`, { method: 'DELETE' });
+  }
+
+  // Theme + settings shallow-merge patches.
+  async function patchTheme(patch: any) {
+    return rest<any>('/api/project/theme', {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+  }
+  async function patchSettings(patch: any) {
+    return rest<any>('/api/project/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
     });
   }
   async function addCueFromPath(filePath: string, displayName?: string) {
@@ -443,8 +528,29 @@ function createClient() {
 
     // project I/O
     fetchProject,
+    fetchProjectProgress,
     loadProjectFromPath,
     loadProjectFromDocument,
+    replaceProjectDocument,
     saveProjectTo,
+
+    // item CRUD via server
+    addProjectItem,
+    updateProjectItem,
+    removeProjectItem,
+    reorderProjectItems,
+
+    // transport by item uuid
+    playItem,
+    stopItem,
+    seekItem,
+
+    // cart bindings
+    setCartSlot,
+    clearCartSlot,
+
+    // theme + settings
+    patchTheme,
+    patchSettings,
   });
 }

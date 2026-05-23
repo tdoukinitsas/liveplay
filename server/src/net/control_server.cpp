@@ -177,19 +177,27 @@ void ControlServer::broadcast_loop() {
 
         json item_meters = json::array();
         for (auto& cue : state_.list_cues()) {
-            if (auto* item = engine_.find_cue(cue.id)) {
-                json m;
-                m["cue_id"]   = cue.id.value;
-                m["transport"] = static_cast<int>(item->stats().transport);
-                m["playhead_seconds"] = item->stats().playhead_seconds;
-                json srcs = json::array();
-                for (audio::ChannelIndex c = 0; c < item->source_channel_count(); ++c) {
-                    auto snap = item->source_meter(c);
-                    srcs.push_back(json{{"peak_db", snap.peak_db}, {"rms_db", snap.rms_db}});
-                }
-                m["sources"] = std::move(srcs);
-                item_meters.push_back(std::move(m));
+            auto* item = engine_.find_cue(cue.id);
+            if (!item) continue;
+            const auto stats = item->stats();
+            // Skip stopped/silent items entirely. With 100+ cues most are
+            // idle and shipping their meters every 40 ms wastes the WS — the
+            // client only needs UI updates for active ones.
+            const bool is_active =
+                stats.transport != audio::TransportState::Stopped;
+            if (!is_active) continue;
+
+            json m;
+            m["cue_id"]            = cue.id.value;
+            m["transport"]         = static_cast<int>(stats.transport);
+            m["playhead_seconds"]  = stats.playhead_seconds;
+            json srcs = json::array();
+            for (audio::ChannelIndex c = 0; c < item->source_channel_count(); ++c) {
+                auto snap = item->source_meter(c);
+                srcs.push_back(json{{"peak_db", snap.peak_db}, {"rms_db", snap.rms_db}});
             }
+            m["sources"] = std::move(srcs);
+            item_meters.push_back(std::move(m));
         }
         payload["items"] = std::move(item_meters);
 
@@ -254,19 +262,54 @@ static void handle_ws_message(crow::websocket::connection& conn,
         return;
     }
     const std::string type = j.value("type", "");
+    // Resolve a transport target: prefer "item_uuid" (preserves duckingBehavior
+    // / inPoint semantics defined in the project document); fall back to
+    // "cue_id" (raw engine id) for low-level callers.
+    auto resolve_cue = [&](const json& jj) -> std::optional<audio::CueId> {
+        if (jj.contains("item_uuid") && jj["item_uuid"].is_string()) {
+            return state.item_to_cue_id(jj["item_uuid"].get<std::string>());
+        }
+        if (jj.contains("cue_id") && jj["cue_id"].is_string()) {
+            return audio::CueId{jj["cue_id"].get<std::string>()};
+        }
+        return std::nullopt;
+    };
+
     try {
-        if (type == "play")       engine.play(audio::CueId{j.at("cue_id").get<std::string>()});
-        else if (type == "stop")  engine.stop(audio::CueId{j.at("cue_id").get<std::string>()});
+        if (type == "play") {
+            // If the client passed an item_uuid, route through play_item so
+            // duckingBehavior + inPoint apply. Otherwise hit the engine
+            // directly with the raw cue id (legacy path).
+            if (j.contains("item_uuid") && j["item_uuid"].is_string()) {
+                state.play_item(j["item_uuid"].get<std::string>());
+            } else {
+                auto cue = resolve_cue(j);
+                if (cue) engine.play(*cue);
+            }
+        }
+        else if (type == "stop") {
+            if (j.contains("item_uuid") && j["item_uuid"].is_string()) {
+                state.stop_item(j["item_uuid"].get<std::string>());
+            } else {
+                auto cue = resolve_cue(j);
+                if (cue) engine.stop(*cue);
+            }
+        }
         else if (type == "stop_all")
             engine.stop_all(std::chrono::milliseconds{j.value("fade_ms", (long long)0)});
-        else if (type == "gain")
-            state.set_cue_gain_db(audio::CueId{j.at("cue_id").get<std::string>()},
-                                   j.value("db", 0.0f));
-        else if (type == "fade")
-            state.set_cue_fade_in(audio::CueId{j.at("cue_id").get<std::string>()},
-                std::chrono::milliseconds{j.value("in_ms", (long long)0)}),
-            state.set_cue_fade_out(audio::CueId{j.at("cue_id").get<std::string>()},
-                std::chrono::milliseconds{j.value("out_ms", (long long)0)});
+        else if (type == "gain") {
+            auto cue = resolve_cue(j);
+            if (cue) state.set_cue_gain_db(*cue, j.value("db", 0.0f));
+        }
+        else if (type == "fade") {
+            auto cue = resolve_cue(j);
+            if (cue) {
+                state.set_cue_fade_in(*cue,
+                    std::chrono::milliseconds{j.value("in_ms", (long long)0)});
+                state.set_cue_fade_out(*cue,
+                    std::chrono::milliseconds{j.value("out_ms", (long long)0)});
+            }
+        }
         else if (type == "ping")
             conn.send_text(json({{"type", "pong"}}).dump());
         else
@@ -718,6 +761,18 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/api/project").methods(crow::HTTPMethod::Get)
         ([this] { return json_ok(state_.full_document()); });
 
+    // Cheap progress poll endpoint — the client hits this during project
+    // open so it can show "loaded X / Y audio cues" without re-fetching the
+    // whole document on a timer.
+    CROW_ROUTE(app, "/api/project/progress").methods(crow::HTTPMethod::Get)
+        ([this] {
+            return json_ok(json({
+                {"loading", state_.audio_loading()},
+                {"loaded",  state_.audio_loaded_count()},
+                {"total",   state_.audio_total_count()},
+            }));
+        });
+
     CROW_ROUTE(app, "/api/project/load").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
@@ -767,6 +822,10 @@ void ControlServer::install_routes() {
         });
 
     // ---- Items (mirror of client's hierarchical playlist) ----
+    // Mutating endpoints return only {ok:true} (plus the affected uuid on
+    // add) instead of the full project document. Sending the full doc on
+    // every property tweak was saturating the network for large projects
+    // and causing WebSocket buffer write errors on slow clients.
     CROW_ROUTE(app, "/api/project/items").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
@@ -775,8 +834,12 @@ void ControlServer::install_routes() {
                     return json_err(400, "missing 'item' object");
                 }
                 const std::string parent_uuid = j.value("parentUuid", std::string{});
-                state_.add_item(j["item"], parent_uuid);
-                return json_ok(state_.full_document());
+                const auto cue_id = state_.add_item(j["item"], parent_uuid);
+                return json_ok(json({
+                    {"ok",    true},
+                    {"uuid",  j["item"].value("uuid", std::string{})},
+                    {"cueId", cue_id.value},
+                }));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
@@ -787,14 +850,14 @@ void ControlServer::install_routes() {
                 if (!state_.update_item(uuid, patch)) {
                     return json_err(404, "item not found");
                 }
-                return json_ok(state_.full_document());
+                return json_ok(json({{"ok", true}, {"uuid", uuid}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
     CROW_ROUTE(app, "/api/project/items/<string>").methods(crow::HTTPMethod::Delete)
         ([this](std::string uuid){
             if (!state_.remove_item(uuid)) return json_err(404, "item not found");
-            return json_ok(state_.full_document());
+            return json_ok(json({{"ok", true}, {"uuid", uuid}}));
         });
 
     CROW_ROUTE(app, "/api/project/items/reorder").methods(crow::HTTPMethod::Post)
@@ -809,23 +872,20 @@ void ControlServer::install_routes() {
                     }
                 }
                 state_.reorder_items(uuids, parent_uuid);
-                return json_ok(state_.full_document());
+                return json_ok(json({{"ok", true}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
-    // Item-by-uuid transport (translates item uuid → engine cue id and forwards).
+    // Item-by-uuid transport. Routed through ProjectState so duckingBehavior,
+    // inPoint, and fade settings from the project document are honoured.
     CROW_ROUTE(app, "/api/project/items/<string>/play").methods(crow::HTTPMethod::Post)
         ([this](std::string uuid){
-            const auto cue = state_.item_to_cue_id(uuid);
-            if (!cue) return json_err(404, "item not loaded into engine");
-            engine_.play(*cue);
+            if (!state_.play_item(uuid)) return json_err(404, "item not loaded into engine");
             return json_ok(json({{"ok", true}}));
         });
     CROW_ROUTE(app, "/api/project/items/<string>/stop").methods(crow::HTTPMethod::Post)
         ([this](std::string uuid){
-            const auto cue = state_.item_to_cue_id(uuid);
-            if (!cue) return json_err(404, "item not loaded into engine");
-            engine_.stop(*cue);
+            if (!state_.stop_item(uuid)) return json_err(404, "item not loaded into engine");
             return json_ok(json({{"ok", true}}));
         });
     CROW_ROUTE(app, "/api/project/items/<string>/seek").methods(crow::HTTPMethod::Post)
@@ -850,13 +910,13 @@ void ControlServer::install_routes() {
                 const std::string uuid = j.value("itemUuid", std::string{});
                 if (slot < 0 || uuid.empty()) return json_err(400, "slot and itemUuid required");
                 state_.set_cart_slot(slot, uuid);
-                return json_ok(state_.full_document());
+                return json_ok(json({{"ok", true}, {"slot", slot}, {"itemUuid", uuid}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
     CROW_ROUTE(app, "/api/project/cart/<int>").methods(crow::HTTPMethod::Delete)
         ([this](int slot){
             state_.clear_cart_slot(slot);
-            return json_ok(state_.full_document());
+            return json_ok(json({{"ok", true}, {"slot", slot}}));
         });
 
     // ---- Theme + settings patches ----

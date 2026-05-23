@@ -1,0 +1,249 @@
+<template>
+  <!-- Note: NOT inside <Teleport> — Vue scoped styles don't reach teleported
+       nodes, which would leave the modal unstyled in production builds. -->
+  <div v-if="open" class="project-settings-backdrop" @click.self="close">
+    <div class="project-settings-modal">
+        <header class="modal-header">
+          <h2>{{ t('settings.title') }}</h2>
+          <button class="close-x" @click="close">✕</button>
+        </header>
+
+        <div class="modal-body">
+          <!-- Audio device (default for cue playback) -->
+          <section class="settings-field">
+            <label class="settings-label">
+              <span class="material-symbols-rounded">speaker</span>
+              {{ t('settings.audioDevice') }}
+            </label>
+            <select
+              class="settings-select"
+              :value="audioDeviceId"
+              @change="onAudioDeviceChange"
+            >
+              <option :value="''">{{ t('settings.noneSelected') }}</option>
+              <option
+                v-for="d in devices"
+                :key="d.id"
+                :value="d.id"
+              >
+                {{ d.display_name }}{{ d.is_default ? ' (' + t('common.default') + ')' : '' }}
+              </option>
+            </select>
+            <p class="settings-help">{{ t('settings.audioDeviceHelp') }}</p>
+          </section>
+
+          <!-- Preview device (used by headphones button) -->
+          <section class="settings-field">
+            <label class="settings-label">
+              <span class="material-symbols-rounded">headphones</span>
+              {{ t('settings.previewDevice') }}
+            </label>
+            <select
+              class="settings-select"
+              :value="previewDeviceId"
+              @change="onPreviewDeviceChange"
+            >
+              <option :value="''">{{ t('settings.noneSelected') }}</option>
+              <option
+                v-for="d in devices"
+                :key="d.id"
+                :value="d.id"
+              >
+                {{ d.display_name }}{{ d.is_default ? ' (' + t('common.default') + ')' : '' }}
+              </option>
+            </select>
+            <p class="settings-help">{{ t('settings.previewDeviceHelp') }}</p>
+          </section>
+
+          <!-- LTC device (timecode output) -->
+          <section class="settings-field">
+            <label class="settings-label">
+              <span class="material-symbols-rounded">schedule</span>
+              {{ t('settings.ltcDevice') }}
+            </label>
+            <select
+              class="settings-select"
+              :value="ltcDeviceId"
+              @change="onLtcDeviceChange"
+            >
+              <option :value="''">{{ t('settings.noneSelected') }}</option>
+              <option
+                v-for="d in devices"
+                :key="d.id"
+                :value="d.id"
+              >
+                {{ d.display_name }}{{ d.is_default ? ' (' + t('common.default') + ')' : '' }}
+              </option>
+            </select>
+            <p class="settings-help">{{ t('settings.ltcDeviceHelp') }}</p>
+          </section>
+        </div>
+
+      <footer class="modal-footer">
+        <button class="modal-btn" @click="close">{{ t('settings.close') }}</button>
+      </footer>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+const props = defineProps<{ open: boolean }>();
+const emit  = defineEmits<{ (e: 'close'): void }>();
+
+const { t } = useLocalization();
+const server = useLiveplayServer();
+const { currentProject } = useProject();
+
+const devices = computed(() => server.devices ?? []);
+
+// The settings live on the project document; we read them from there and
+// patch via the server endpoint.
+const audioDeviceId   = computed(() => currentProject.value?.theme && (currentProject.value as any).settings?.defaultOutputDevice || '');
+const previewDeviceId = computed(() => (currentProject.value as any)?.settings?.previewDevice || '');
+const ltcDeviceId     = computed(() => (currentProject.value as any)?.settings?.ltcDevice || '');
+
+// Make sure devices are loaded when the modal opens.
+watch(() => props.open, async (v) => {
+  if (v) await server.fetchDevices();
+});
+
+// Refresh devices on first mount too.
+onMounted(async () => {
+  try { await server.fetchDevices(); } catch { /* connection may not be ready yet */ }
+});
+
+async function applyPatch(patch: Record<string, any>) {
+  // Optimistic local update so the UI reflects the change immediately.
+  if (currentProject.value) {
+    const settings = ((currentProject.value as any).settings ?? {});
+    (currentProject.value as any).settings = { ...settings, ...patch };
+  }
+  try {
+    await server.patchSettings(patch);
+  } catch (e) {
+    console.warn('[ProjectSettings] patch failed:', e);
+  }
+}
+
+function onAudioDeviceChange(e: Event) {
+  const v = (e.target as HTMLSelectElement).value;
+  applyPatch({ defaultOutputDevice: v || null });
+}
+function onPreviewDeviceChange(e: Event) {
+  const v = (e.target as HTMLSelectElement).value;
+  applyPatch({ previewDevice: v || null });
+}
+function onLtcDeviceChange(e: Event) {
+  const v = (e.target as HTMLSelectElement).value;
+  applyPatch({ ltcDevice: v || null });
+}
+
+function close() {
+  emit('close');
+}
+</script>
+
+<style scoped>
+.project-settings-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.project-settings-modal {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  width: min(520px, 92vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  color: var(--color-text-primary);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.close-x {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+}
+.close-x:hover {
+  color: var(--color-text-primary);
+}
+
+.modal-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.settings-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+.settings-select {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 14px;
+}
+.settings-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+.settings-help {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+}
+.modal-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.modal-btn:hover {
+  background: var(--color-surface-hover);
+}
+</style>

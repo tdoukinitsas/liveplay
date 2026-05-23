@@ -30,7 +30,24 @@
     "title": "LivePlay",
     "subtitle": "লাইভ ইভেন্টের জন্য অডিও প্লেব্যাক",
     "newProject": "নতুন প্রকল্প",
-    "openProject": "প্রকল্প খুলুন"
+    "openProject": "প্রকল্প খুলুন",
+    "modeTitle": "Choose Server Mode",
+    "modeSubtitle": "Where should LivePlay run the audio engine?",
+    "localMode": "Local",
+    "localModeDescription": "Run the audio engine on this computer.",
+    "remoteMode": "Remote",
+    "remoteModeDescription": "Connect to a LivePlay server on the network.",
+    "remoteConnect": "Connect to LivePlay server",
+    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
+    "serverAddress": "Server Address",
+    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
+    "connect": "Connect",
+    "connecting": "Connecting…",
+    "connectionFailed": "Could not connect to the server",
+    "connectedLocal": "Using local server on this computer",
+    "connectedTo": "Connected to {url}",
+    "changeMode": "Change",
+    "back": "Back"
   },
   "project": {
     "enterName": "প্রকল্পের নাম লিখুন",
@@ -260,5 +277,24 @@
   "status": {
     "playing": "চলছে",
     "upNext": "পরবর্তী"
+  },
+  "settings": {
+    "title": "Project Settings",
+    "audioDevice": "Audio Device",
+    "audioDeviceHelp": "Default device for cue playback.",
+    "previewDevice": "Preview Device",
+    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
+    "ltcDevice": "LTC Device",
+    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
+    "useProjectDefault": "Use project default",
+    "noneSelected": "Not selected",
+    "save": "Save",
+    "close": "Close",
+    "preview": "Preview"
+  },
+  "common": {
+    "default": "default",
+    "loading": "Loading…",
+    "error": "Error"
   }
 }

@@ -23,6 +23,7 @@
 #include "liveplay/audio/engine.hpp"
 #include "liveplay/audio/types.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <functional>
@@ -30,6 +31,7 @@
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -81,6 +83,7 @@ struct MasterAssignment {
 class ProjectState {
 public:
     explicit ProjectState(audio::AudioEngine& engine);
+    ~ProjectState();
 
     // Load a project file (.liveplay JSON). Returns true on success. On
     // failure, the previous state is preserved.
@@ -144,6 +147,16 @@ public:
     // Find the engine cue id associated with an item uuid.
     std::optional<audio::CueId> item_to_cue_id(const std::string& uuid) const;
 
+    // Play an item by uuid, applying its duckingBehavior to currently-playing
+    // cues. Returns false if the item is not loaded into the engine.
+    //   * stop-all   → stop every other playing cue (honours their fade-out)
+    //   * duck-others → lower other cues' gain by duckLevel (linear)
+    //   * no-ducking → leave other cues alone
+    // Also honours inPoint (seeks before play) and outPoint (engine returns to
+    // the same fade-out path when the playhead reaches it).
+    bool play_item(const std::string& uuid);
+    bool stop_item(const std::string& uuid);
+
     // Cart slot binding (slot → item uuid). Slot < 0 clears.
     bool set_cart_slot(int slot, const std::string& item_uuid);
     bool clear_cart_slot(int slot);
@@ -163,6 +176,13 @@ public:
     void set_media_root(std::filesystem::path p);
 
     audio::AudioEngine& engine() noexcept { return engine_; }
+
+    // Audio-load progress accessors — the document JSON arrives instantly,
+    // but the engine load can take seconds for big projects. The client
+    // shows a progress bar based on these.
+    bool         audio_loading() const noexcept { return loading_audio_.load(); }
+    std::size_t  audio_loaded_count() const noexcept { return load_progress_loaded_.load(); }
+    std::size_t  audio_total_count()  const noexcept { return load_progress_total_.load(); }
 
 private:
     audio::AudioEngine&        engine_;
@@ -187,6 +207,14 @@ private:
     // uuid → engine cue id, for audio items currently loaded.
     std::unordered_map<std::string, audio::CueId> item_uuid_to_cue_;
 
+    // Background "audio mirror is still in progress" state. Exposed to
+    // clients via /api/project so the UI can show a progress bar without
+    // blocking on the mirror finishing.
+    std::atomic<bool>        loading_audio_{false};
+    std::atomic<std::size_t> load_progress_loaded_{0};
+    std::atomic<std::size_t> load_progress_total_{0};
+    std::thread              load_thread_;
+
     // Backward-compat translator: takes a legacy 1.x project document and
     // produces a v2-flavoured one with the equivalent routing matrix.
     json upgrade_legacy_document(const json& legacy) const;
@@ -204,10 +232,22 @@ private:
     // replace_full_document.
     void mirror_items_to_engine_locked();
 
+    // Run mirror_items_to_engine_locked() asynchronously on a worker thread.
+    // The caller's mutex is released first. Sets loading_audio_=true for the
+    // duration. Used by load() so the document is returned to the client
+    // immediately and audio loading proceeds in the background.
+    void start_async_mirror();
+
     // Walk the items tree calling `visit(item_json, parent_uuid)` for each.
     static void for_each_item(json& doc,
                               const std::function<void(json& /*item*/,
                                                        const std::string& /*parent_uuid*/)>& visit);
+
+    // Return the uuid of the item that should play *after* `current_uuid`,
+    // based on its endBehavior. Empty string if there isn't a deterministic
+    // next item (e.g. "nothing"). Used for cache pre-warming. Caller must
+    // hold mutex_.
+    std::string resolve_next_item_locked(const std::string& current_uuid) const;
 
     // Re-apply the in-memory state to the AudioEngine (post-load or reset).
     void apply_to_engine_locked();

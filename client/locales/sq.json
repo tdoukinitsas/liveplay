@@ -30,7 +30,24 @@
     "title": "LivePlay",
     "subtitle": "Luajtje audio për ngjarje të drejtpërdrejta",
     "newProject": "Projekt i Ri",
-    "openProject": "Hap Projektin"
+    "openProject": "Hap Projektin",
+    "modeTitle": "Choose Server Mode",
+    "modeSubtitle": "Where should LivePlay run the audio engine?",
+    "localMode": "Local",
+    "localModeDescription": "Run the audio engine on this computer.",
+    "remoteMode": "Remote",
+    "remoteModeDescription": "Connect to a LivePlay server on the network.",
+    "remoteConnect": "Connect to LivePlay server",
+    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
+    "serverAddress": "Server Address",
+    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
+    "connect": "Connect",
+    "connecting": "Connecting…",
+    "connectionFailed": "Could not connect to the server",
+    "connectedLocal": "Using local server on this computer",
+    "connectedTo": "Connected to {url}",
+    "changeMode": "Change",
+    "back": "Back"
   },
   "project": {
     "enterName": "Vendos Emrin e Projektit",
@@ -260,5 +277,24 @@
   "status": {
     "playing": "Duke luajtur",
     "upNext": "Tjetri"
+  },
+  "settings": {
+    "title": "Project Settings",
+    "audioDevice": "Audio Device",
+    "audioDeviceHelp": "Default device for cue playback.",
+    "previewDevice": "Preview Device",
+    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
+    "ltcDevice": "LTC Device",
+    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
+    "useProjectDefault": "Use project default",
+    "noneSelected": "Not selected",
+    "save": "Save",
+    "close": "Close",
+    "preview": "Preview"
+  },
+  "common": {
+    "default": "default",
+    "loading": "Loading…",
+    "error": "Error"
   }
 }

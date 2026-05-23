@@ -1,9 +1,27 @@
+// =====================================================================
+// useProject.ts
+// ---------------------------------------------------------------------
+// Project state hook. The *server* owns the canonical project document
+// (it's responsible for reading/writing .liveplay files and feeding
+// audio items into the engine). The client maintains a reactive mirror
+// of that document — components mutate it as before, and a debounced
+// watcher pushes changes back to the server.
+//
+// Migration intent (Milestone 1): all file I/O goes through
+// `useLiveplayServer`. The Electron `window.electronAPI` file methods
+// are no longer used here — the server may be running on a different
+// machine and Electron file paths only make sense on the same host.
+//
+// The public API of this composable is preserved so the existing
+// components (PlaylistView, CartSlot, PropertiesPanel, etc.) can keep
+// mutating `currentProject.value` and have those changes propagate.
+// =====================================================================
 import { v4 as uuidv4 } from 'uuid';
 import { triggerRef } from 'vue';
-import type { 
-  Project, 
-  AudioItem, 
-  GroupItem, 
+import type {
+  Project,
+  AudioItem,
+  GroupItem,
   BaseItem,
   Theme,
   CartItem
@@ -16,6 +34,27 @@ export const useProject = () => {
   const selectedItems = useState<Set<string>>('selectedItems', () => new Set()); // Track multiple selections by UUID
   const activeCues = useState<Map<string, any>>('activeCues', () => new Map());
   const waveformUpdateKey = useState<number>('waveformUpdateKey', () => 0);
+
+  // ---- Server sync plumbing --------------------------------------------
+  // We keep a flag so the watcher can ignore reactivity bursts triggered by
+  // hydration from the server (otherwise we'd ping-pong updates).
+  const isHydrating = useState<boolean>('useProject.isHydrating', () => false);
+  // Path the server should write to on save. Populated by openProject /
+  // createNewProject. Persisted in the document under `server.projectFilePath`
+  // by the server itself, so we can read it back on subsequent fetches.
+  const projectFilePathRef = useState<string>('useProject.projectFilePath', () => '');
+
+  // Loading state — set true during open/create/save so the UI can render a
+  // loading overlay. `loadingMessage` is the title shown in the overlay.
+  const isLoading = useState<boolean>('useProject.isLoading', () => false);
+  const loadingMessage = useState<string>('useProject.loadingMessage', () => '');
+  // Background audio-loading progress (polled while the server is still
+  // mirroring cues into the engine in a worker thread). loading=false means
+  // every audio cue is ready to play.
+  const audioLoadingProgress = useState<{ loading: boolean; loaded: number; total: number }>(
+    'useProject.audioLoadingProgress',
+    () => ({ loading: false, loaded: 0, total: 0 }),
+  );
 
   // Force UI update for waveforms
   const triggerWaveformUpdate = () => {
@@ -32,11 +71,11 @@ export const useProject = () => {
       const lastSelectedUuid = Array.from(selectedItems.value).pop();
       const lastIndex = allItems.findIndex(item => item.uuid === lastSelectedUuid);
       const currentIndex = allItems.findIndex(item => item.uuid === uuid);
-      
+
       if (lastIndex !== -1 && currentIndex !== -1) {
         const start = Math.min(lastIndex, currentIndex);
         const end = Math.max(lastIndex, currentIndex);
-        
+
         for (let i = start; i <= end; i++) {
           selectedItems.value.add(allItems[i].uuid);
         }
@@ -87,21 +126,24 @@ export const useProject = () => {
       .filter(item => item !== null) as BaseItem[];
   };
 
-  // Create a new project
+  // ----------------------------------------------------------------------
+  // Server-backed project I/O.
+  // ----------------------------------------------------------------------
+  // Create a new empty project, push it to the server, and ask the server
+  // to write the .liveplay file.
   const createNewProject = async (name: string, folderPath: string): Promise<boolean> => {
+    isLoading.value = true;
+    loadingMessage.value = 'Creating project…';
     try {
-      // Create project structure
-      const mediaPath = `${folderPath}/media`;
-      const waveformsPath = `${folderPath}/waveforms`;
-
-      if (import.meta.client && window.electronAPI) {
-        await window.electronAPI.ensureDirectory(mediaPath);
-        await window.electronAPI.ensureDirectory(waveformsPath);
+      const server = useLiveplayServer();
+      // Ensure server is reachable; without it we can't actually own state.
+      if (!server.connected) {
+        try { server.connect(); } catch { /* noop */ }
       }
 
       const newProject: Project = {
         name,
-        version: '1.0.0',
+        version: '2.0.0',
         folderPath,
         items: [],
         cartItems: [],
@@ -112,226 +154,159 @@ export const useProject = () => {
         lastModified: new Date().toISOString()
       };
 
-      // Save project file
-      const projectFilePath = `${folderPath}/${name}.liveplay`;
-      if (import.meta.client && window.electronAPI) {
-        await window.electronAPI.writeFile(
-          projectFilePath,
-          JSON.stringify(newProject, null, 2)
-        );
-        await window.electronAPI.setCurrentProject(projectFilePath);
+      // Server-side: replace document with this fresh shell.
+      isHydrating.value = true;
+      try {
+        const doc = await server.replaceProjectDocument(newProject as any);
+        applyServerDocument(doc);
+      } finally {
+        isHydrating.value = false;
       }
 
-      currentProject.value = newProject;
+      // Ask the server to write the file. It joins folderPath/name.liveplay
+      // and the server has the document already, so we just say "save here".
+      const projectFilePath = `${folderPath}/${name}.liveplay`;
+      await server.saveProjectTo(projectFilePath);
+      projectFilePathRef.value = projectFilePath;
       return true;
     } catch (error) {
       console.error('Error creating project:', error);
       return false;
+    } finally {
+      isLoading.value = false;
     }
   };
 
-  // Open an existing project
+  // Open an existing project (path is on the server's filesystem).
   const openProject = async (projectFilePath: string): Promise<boolean> => {
+    isLoading.value = true;
+    loadingMessage.value = 'Loading project…';
     try {
-      if (import.meta.client && window.electronAPI) {
-        const result = await window.electronAPI.readFile(projectFilePath);
-        if (result.success) {
-          const project: Project = JSON.parse(result.data);
-          
-          // Set folderPath from the project file location
-          // Extract the directory path from the .liveplay file path
-          // Handle both forward slashes (Unix) and backslashes (Windows)
-          const normalizedPath = projectFilePath.replace(/\\/g, '/');
-          const folderPath = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
-          project.folderPath = folderPath;
-          
-          console.log('Opening project from:', projectFilePath);
-          console.log('Project folder path set to:', folderPath);
-          
-          // Migrate project to ensure new properties exist
-          migrateProject(project);
-          
-          currentProject.value = project;
-          await window.electronAPI.setCurrentProject(projectFilePath);
-          
-          // Restore cart-only items to memory
-          const { clearCartOnlyItems, addCartOnlyItem } = useCartItems();
-          clearCartOnlyItems();
-          if (project.cartOnlyItems && project.cartOnlyItems.length > 0) {
-            for (const item of project.cartOnlyItems) {
-              addCartOnlyItem(item);
-            }
-          }
-          
-          // Load waveforms from disk asynchronously for all audio items
-          loadWaveformsAsync(project);
-          
-          return true;
-        }
+      const server = useLiveplayServer();
+      if (!server.connected) {
+        try { server.connect(); } catch { /* noop */ }
       }
-      return false;
+
+      isHydrating.value = true;
+      try {
+        const doc = await server.loadProjectFromPath(projectFilePath);
+        applyServerDocument(doc);
+      } finally {
+        isHydrating.value = false;
+      }
+      projectFilePathRef.value = projectFilePath;
+
+      // Restore cart-only items to client-side memory store (used by CartSlot).
+      const { clearCartOnlyItems, addCartOnlyItem } = useCartItems();
+      clearCartOnlyItems();
+      const cartOnly = currentProject.value?.cartOnlyItems ?? [];
+      for (const item of cartOnly) addCartOnlyItem(item);
+
+      // The document landed in milliseconds — but audio cues finish loading
+      // on the server *after* the response returns. Hide the modal screen
+      // and instead surface a progress indicator on a corner of the UI by
+      // polling /api/project/progress. The user can interact with non-audio
+      // controls immediately.
+      void pollLoadingProgress(server);
+      return true;
     } catch (error) {
       console.error('Error opening project:', error);
       return false;
+    } finally {
+      isLoading.value = false;
     }
   };
 
-  // Migrate project to add new properties for backwards compatibility
-  const migrateProject = (project: Project) => {
-    // Add cartOnlyItems if missing
-    if (!project.cartOnlyItems) {
-      project.cartOnlyItems = [];
-    }
-    
-    // Add cartSlotKeys if missing — use defaults
-    if (!project.cartSlotKeys) {
-      project.cartSlotKeys = { ...DEFAULT_CART_SLOT_KEYS };
-    }
-    
-    const migrateItem = (item: BaseItem) => {
-      if (item.type === 'audio') {
-        const audioItem = item as AudioItem;
-        
-        // Add fadeOutDuration if missing
-        if (audioItem.fadeOutDuration === undefined) {
-          audioItem.fadeOutDuration = 1.0;
-        }
-        
-        // Add ducking fade times if missing
-        if (audioItem.duckingBehavior) {
-          if (audioItem.duckingBehavior.duckFadeIn === undefined) {
-            audioItem.duckingBehavior.duckFadeIn = 0.25;
-          }
-          if (audioItem.duckingBehavior.duckFadeOut === undefined) {
-            audioItem.duckingBehavior.duckFadeOut = 1.0;
-          }
-        }
-      } else if (item.type === 'group') {
-        const groupItem = item as GroupItem;
-        for (const child of groupItem.children) {
-          migrateItem(child);
-        }
-      }
-    };
-    
-    // Migrate all items
-    for (const item of project.items) {
-      migrateItem(item);
-    }
-  };
-
-  // Load waveforms from disk asynchronously
-  const loadWaveformsAsync = async (project: Project) => {
-    const loadWaveformForItem = async (item: BaseItem) => {
-      if (item.type === 'audio') {
-        const audioItem = item as AudioItem;
-        
-        // Skip if waveform already loaded and valid
-        if (audioItem.waveform && audioItem.waveform.peaks && audioItem.waveform.peaks.length > 0) {
-          return;
-        }
-        
-        try {
-          const result = await window.electronAPI.readFile(audioItem.waveformPath);
-          if (result.success && result.data) {
-            const waveformData = JSON.parse(result.data);
-            
-            // Validate waveform format
-            if (waveformData.peaks && waveformData.peaks.length && waveformData.duration) {
-              audioItem.waveform = waveformData;
-            } else {
-              console.warn(`Invalid waveform format for ${audioItem.displayName}, regenerating...`);
-              regenerateWaveform(audioItem, project);
-            }
-          } else {
-            // No waveform file exists, generate it
-            regenerateWaveform(audioItem, project);
-          }
-        } catch (error) {
-          console.warn(`Failed to load waveform for ${audioItem.displayName}`, error);
-          regenerateWaveform(audioItem, project);
-        }
-      } else if (item.type === 'group') {
-        // Recursively load waveforms for group children
-        const groupItem = item as GroupItem;
-        for (const child of groupItem.children) {
-          await loadWaveformForItem(child);
-        }
-      }
-    };
-    
-    // Load all waveforms
-    for (const item of project.items) {
-      loadWaveformForItem(item);
-    }
-  };
-
-  // Regenerate waveform using ffmpeg
-  const regenerateWaveform = async (audioItem: AudioItem, project: Project) => {
+  // Background poll of audio-loading progress. Updates `audioLoadingProgress`
+  // until the server reports loading=false, then clears it. Safe to call
+  // multiple times — only one poll runs at a time. Bails out fast when the
+  // first poll already shows loading=false (e.g. small projects that finish
+  // mirroring before the client even asks), avoiding a second HTTP call.
+  let progressPolling = false;
+  async function pollLoadingProgress(server: any) {
+    if (progressPolling) return;
+    progressPolling = true;
     try {
-      // Check if generateWaveform is available
-      if (!window.electronAPI.generateWaveform) {
-        console.warn('generateWaveform not implemented yet - waveform will not be regenerated');
-        return;
+      let firstTick = true;
+      while (true) {
+        let p: { loading: boolean; loaded: number; total: number };
+        try { p = await server.fetchProjectProgress(); }
+        catch { break; }
+        // Skip surfacing tiny loads — if the server's already done on the
+        // first tick, there's nothing to show.
+        if (firstTick && !p.loading) break;
+        firstTick = false;
+        audioLoadingProgress.value = p;
+        if (!p.loading) break;
+        await new Promise(r => setTimeout(r, 400));
       }
-
-      const mediaPath = `${project.folderPath}/media/${audioItem.mediaFileName}`;
-      
-      // Generate waveform using ffmpeg (non-blocking)
-      const result = await window.electronAPI.generateWaveform(mediaPath, audioItem.waveformPath);
-      
-      if (result.success) {
-        // Load the generated waveform
-        const waveformFile = await window.electronAPI.readFile(audioItem.waveformPath);
-        if (waveformFile.success && waveformFile.data) {
-          audioItem.waveform = JSON.parse(waveformFile.data);
-          console.log(`Regenerated waveform for ${audioItem.displayName}`);
-          
-          // Manually trigger reactivity on the project ref
-          if (currentProject.value === project) {
-            triggerRef(currentProject);
-          }
-        }
-      } else {
-        console.error(`Failed to generate waveform for ${audioItem.displayName}:`, result.error);
-      }
-    } catch (error) {
-      console.error(`Failed to regenerate waveform for ${audioItem.displayName}:`, error);
+    } finally {
+      audioLoadingProgress.value = { loading: false, loaded: 0, total: 0 };
+      progressPolling = false;
     }
+  }
+
+  // Migrate raw server doc into the client's reactive ref. Mutating the local
+  // `currentProject` shouldn't trigger a sync back to the server because
+  // we're already mirroring its state.
+  const applyServerDocument = (doc: any) => {
+    if (!doc || typeof doc !== 'object') return;
+    // Pluck out server-only decorations so they don't pollute the client model.
+    const server = doc.server;
+    if (server?.projectFilePath) {
+      projectFilePathRef.value = server.projectFilePath;
+    }
+    // Drop unknown extras but keep the shape compatible with the client Project type.
+    const project: Project = {
+      name: doc.name ?? 'Untitled',
+      version: doc.version ?? '2.0.0',
+      folderPath: doc.folderPath ?? '',
+      items: doc.items ?? [],
+      cartItems: doc.cartItems ?? [],
+      cartSlotKeys: doc.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS },
+      playbackKeys: doc.playbackKeys,
+      cartOnlyItems: doc.cartOnlyItems ?? [],
+      theme: doc.theme ?? { ...DEFAULT_THEME },
+      createdAt: doc.createdAt ?? new Date().toISOString(),
+      lastModified: doc.lastModified ?? new Date().toISOString(),
+    };
+    currentProject.value = project;
+    updateIndices(project.items);
   };
 
-  // Save the current project
+  // Save the current project — the server already has the document, it just
+  // needs to write to disk.
   const saveProject = async (): Promise<boolean> => {
     try {
       if (!currentProject.value) return false;
 
-      // Save cart-only items from memory to project
+      // Mirror cart-only items from the client-side memory store back into
+      // the project doc before pushing.
       const { cartOnlyItems } = useCartItems();
       currentProject.value.cartOnlyItems = Array.from(cartOnlyItems.value.values());
-
       currentProject.value.lastModified = new Date().toISOString();
-      const projectFilePath = `${currentProject.value.folderPath}/${currentProject.value.name}.liveplay`;
 
-      if (import.meta.client && window.electronAPI) {
-        const result = await window.electronAPI.writeFile(
-          projectFilePath,
-          JSON.stringify(currentProject.value, null, 2)
-        );
-        return result.success;
-      }
-      return false;
+      const server = useLiveplayServer();
+      // Push the current document to the server (in case local edits haven't
+      // synced yet) then ask it to write to disk.
+      await server.replaceProjectDocument(toJSON(currentProject.value));
+      const path = projectFilePathRef.value ||
+                   `${currentProject.value.folderPath}/${currentProject.value.name}.liveplay`;
+      const res = await server.saveProjectTo(path);
+      return !!res?.ok;
     } catch (error) {
       console.error('Error saving project:', error);
       return false;
     }
   };
 
-  // Close the current project
+  // Close the current project — clears local state; does NOT delete server-side.
   const closeProject = () => {
     currentProject.value = null;
     selectedItem.value = null;
     activeCues.value.clear();
-    
+    projectFilePathRef.value = '';
+
     // Clear cart-only items from memory
     const { clearCartOnlyItems } = useCartItems();
     clearCartOnlyItems();
@@ -347,19 +322,17 @@ export const useProject = () => {
     });
   };
 
-  // Add an item to the project
+  // Add an item to the project (local mutation; sync watcher will push).
   const addItem = (item: AudioItem | GroupItem, parentIndex?: number[]) => {
     if (!currentProject.value) return;
 
     if (parentIndex && parentIndex.length > 0) {
-      // Add to a group
       const parent = findItemByIndex(parentIndex);
       if (parent && parent.type === 'group') {
         parent.children.push(item);
         updateIndices(parent.children, parentIndex);
       }
     } else {
-      // Add to root
       currentProject.value.items.push(item);
       updateIndices(currentProject.value.items);
     }
@@ -409,11 +382,9 @@ export const useProject = () => {
       return null;
     };
 
-    // First search in project items
     const found = search(currentProject.value.items);
     if (found) return found;
 
-    // Also check cart-only items
     const { getCartOnlyItem } = useCartItems();
     return getCartOnlyItem(uuid);
   };
@@ -443,10 +414,8 @@ export const useProject = () => {
     const item = findItemByIndex(fromIndex);
     if (!item) return;
 
-    // Remove from current position
     removeItem(item.uuid);
 
-    // Add to new position
     if (toIndex.length === 1) {
       currentProject.value.items.splice(toIndex[0], 0, item);
       updateIndices(currentProject.value.items);
@@ -459,6 +428,167 @@ export const useProject = () => {
       }
     }
   };
+
+  // ----------------------------------------------------------------------
+  // Local→server sync. Diff-based: only the sections that actually changed
+  // get pushed, and they go through *targeted* endpoints (PATCH theme, PATCH
+  // settings, individual item updates) rather than re-sending the whole
+  // document. The previous bulk-PUT approach made every keystroke in the
+  // settings modal re-send the entire project, which (a) saturated the
+  // WebSocket on large projects and (b) caused the server to re-mirror
+  // every cue into the engine on every change.
+  // ----------------------------------------------------------------------
+  const toJSON = (v: any): any => JSON.parse(JSON.stringify(v));
+  const stableJson = (v: any): string => JSON.stringify(v ?? null);
+
+  if (import.meta.client) {
+    let syncTimer: ReturnType<typeof setTimeout> | null = null;
+    // Snapshot of the last-synced state, used as the diff base.
+    let lastSynced: any = null;
+
+    // After a hydrate (open/create), set the diff base from the freshly
+    // loaded document so the first watcher fire doesn't trigger spurious
+    // pushes.
+    watch(isHydrating, (h) => {
+      if (h) return;
+      lastSynced = currentProject.value ? toJSON(currentProject.value) : null;
+    });
+
+    watch(currentProject, (p) => {
+      if (!p || isHydrating.value) return;
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => syncDiff(toJSON(p)).catch(err => {
+        // eslint-disable-next-line no-console
+        console.warn('[useProject] sync failed:', err);
+      }), 250);
+    }, { deep: true });
+
+    async function syncDiff(next: any) {
+      const server = useLiveplayServer();
+      if (!server.connected) return;
+      if (!lastSynced) {
+        // No baseline yet — adopt this as the baseline silently.
+        lastSynced = next;
+        return;
+      }
+
+      // Top-level keys we treat as "small" and patch directly. Everything
+      // else falls into the items/cart granular paths.
+      const TARGETED_KEYS = ['theme', 'settings'] as const;
+      for (const k of TARGETED_KEYS) {
+        if (stableJson(next[k]) === stableJson(lastSynced[k])) continue;
+        try {
+          if (k === 'theme')    await server.patchTheme(next.theme ?? {});
+          if (k === 'settings') await server.patchSettings(next.settings ?? {});
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn(`[useProject] patch ${k} failed:`, e);
+        }
+      }
+
+      // Items diff: flatten both sides into uuid→item maps, then push the
+      // minimum set of add / update / delete calls. Reorders fall out as a
+      // single reorder-call per affected parent.
+      const flatten = (root: any): Map<string, { item: any, parentUuid: string }> => {
+        const m = new Map<string, any>();
+        const walk = (arr: any[], parentUuid: string) => {
+          if (!Array.isArray(arr)) return;
+          for (const it of arr) {
+            if (!it || typeof it !== 'object') continue;
+            const u = it.uuid;
+            if (!u) continue;
+            m.set(u, { item: it, parentUuid });
+            if (it.type === 'group' && Array.isArray(it.children)) {
+              walk(it.children, u);
+            }
+          }
+        };
+        walk(root.items ?? [], '');
+        // Cart-only items are flat — treat them as top-level for diff purposes.
+        walk(root.cartOnlyItems ?? [], '');
+        return m;
+      };
+
+      const prev = flatten(lastSynced);
+      const curr = flatten(next);
+
+      // Deletions
+      for (const [uuid] of prev) {
+        if (!curr.has(uuid)) {
+          try { await server.removeProjectItem(uuid); } catch {}
+        }
+      }
+      // Additions
+      for (const [uuid, { item, parentUuid }] of curr) {
+        if (!prev.has(uuid)) {
+          try { await server.addProjectItem(item, parentUuid); } catch {}
+        }
+      }
+      // Updates — push a patch for items whose JSON changed.
+      for (const [uuid, { item }] of curr) {
+        const before = prev.get(uuid);
+        if (!before) continue;        // was new — already handled by Add
+        if (stableJson(before.item) === stableJson(item)) continue;
+        try { await server.updateProjectItem(uuid, item); } catch {}
+      }
+
+      // Cart-slot bindings — diff the top-level `cartItems` array.
+      const cartByPrev = new Map<number, string>();
+      const cartByCurr = new Map<number, string>();
+      for (const c of (lastSynced.cartItems ?? [])) {
+        if (typeof c?.slot === 'number') cartByPrev.set(c.slot, c.itemUuid ?? '');
+      }
+      for (const c of (next.cartItems ?? [])) {
+        if (typeof c?.slot === 'number') cartByCurr.set(c.slot, c.itemUuid ?? '');
+      }
+      // Cleared slots
+      for (const [slot] of cartByPrev) {
+        if (!cartByCurr.has(slot)) { try { await server.clearCartSlot(slot); } catch {} }
+      }
+      // Added / changed bindings
+      for (const [slot, uuid] of cartByCurr) {
+        if (cartByPrev.get(slot) !== uuid) {
+          try { await server.setCartSlot(slot, uuid); } catch {}
+        }
+      }
+
+      // Fallback for top-level keys we don't have a granular endpoint for
+      // yet (hotkey bindings, name, lastModified, ...). Only triggers if one
+      // of them actually changed — common-path edits (settings/theme/items/
+      // cart) never reach this branch.
+      const HANDLED = new Set([
+        'theme', 'settings', 'items', 'cartItems', 'cartOnlyItems',
+        // ignored-by-sync because they're either server-decorated or
+        // updated as a side effect of other changes
+        'server', 'lastModified',
+      ]);
+      const fallback_keys: string[] = [];
+      for (const k of Object.keys(next)) {
+        if (HANDLED.has(k)) continue;
+        if (stableJson(next[k]) !== stableJson(lastSynced[k])) {
+          fallback_keys.push(k);
+        }
+      }
+      // Also catch deletions of top-level keys.
+      for (const k of Object.keys(lastSynced)) {
+        if (HANDLED.has(k) || k in next) continue;
+        fallback_keys.push(k);
+      }
+      if (fallback_keys.length > 0) {
+        try {
+          // For now use the full-document PUT for unhandled keys. This
+          // remains heavy but only fires for rare edits like hotkey
+          // bindings — not for every settings change.
+          await server.replaceProjectDocument(next);
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn('[useProject] fallback PUT failed for', fallback_keys, e);
+        }
+      }
+
+      lastSynced = next;
+    }
+  }
 
   return {
     currentProject,
@@ -480,6 +610,10 @@ export const useProject = () => {
     findItemByUuid,
     findItemByIndex,
     moveItem,
-    updateIndices
+    updateIndices,
+    projectFilePath: projectFilePathRef,
+    isLoading,
+    loadingMessage,
+    audioLoadingProgress,
   };
 };

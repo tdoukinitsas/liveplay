@@ -276,10 +276,12 @@ DeviceId AudioEngine::open_device_by_name(const std::string& name_substring,
     dev->ring         = std::make_unique<ma_pcm_rb>();
     dev->engine       = this;                       // for callback → consumption_counter_
 
-    // Allocate a ring big enough for ~10 render blocks of headroom. With 256
-    // frames @ 48 kHz that's ~53 ms — enough to absorb thread-scheduling jitter
-    // on the render thread without delaying transport-critical UI latency.
-    const ma_uint32 ring_frames = static_cast<ma_uint32>(cfg_.render_block * 10);
+    // Allocate a ring big enough for ~20 render blocks of headroom. With 256
+    // frames @ 48 kHz that's ~107 ms — comfortable margin against decode-path
+    // spikes (disk I/O, MP3/FLAC inner-loop) so transient stalls never reach
+    // the device callback. Transport latency is unaffected because the engine
+    // commits gain/transport state independently of the buffer position.
+    const ma_uint32 ring_frames = static_cast<ma_uint32>(cfg_.render_block * 20);
     if (ma_pcm_rb_init(ma_format_f32, output_channels, ring_frames,
                        nullptr, nullptr, dev->ring.get()) != MA_SUCCESS) {
         Logger::error("Failed to allocate ring buffer for device '{}'", dev->display_name);
@@ -411,6 +413,29 @@ CueId AudioEngine::load_cue(const std::filesystem::path& file_path,
     }
     // Bring the new cue into the default routing (no-op if already wired).
     ensure_default_routing();
+    return item->id();
+}
+
+CueId AudioEngine::load_cue_no_route(const std::filesystem::path& file_path,
+                                     std::optional<CueId> requested_id) {
+    PlaybackItemDesc desc;
+    desc.id              = requested_id.value_or(CueId{gen_uuid_like()});
+    desc.file_path       = file_path;
+    desc.mix_sample_rate = cfg_.mix_sample_rate;
+    desc.render_block    = cfg_.render_block;
+
+    auto item = std::make_shared<PlaybackItem>(std::move(desc));
+    if (!item->load()) return {};
+
+    // Register the cue, but do NOT call rebuild_topology_locked() or
+    // ensure_default_routing() — both walk every loaded cue and turn a bulk
+    // load into O(N²) work. The caller is responsible for invoking
+    // ensure_default_routing() once after the batch finishes.
+    std::lock_guard lock{mutex_};
+    items_[item->id().value] = item;
+    pending_.item_sources[item->id().value]
+        .by_source_channel
+        .resize(item->source_channel_count());
     return item->id();
 }
 
