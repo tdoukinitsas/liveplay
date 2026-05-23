@@ -378,44 +378,94 @@ if (import.meta.client && (window as any).electronAPI) {
 
 .welcome-container {
   text-align: center;
-  max-width: 540px;
-  padding: 32px;
+  max-width: 600px;
+  padding: var(--spacing-xxl);
 }
 
 .welcome-header {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  margin-bottom: 32px;
+  justify-content: center;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xxl);
 }
 
 .welcome-logo {
-  width: 96px;
-  height: 96px;
-  margin-bottom: 16px;
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.welcome-text {
+  text-align: left;
 }
 
 .welcome-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 36px;
-  margin: 0;
+  font-size: 64px;
+  font-weight: 600;
+  margin-bottom: var(--spacing-xs);
   color: var(--color-text-primary);
+  letter-spacing: -2px;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
 }
 
 .version-badge {
-  font-size: 12px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  padding: 2px 10px;
+  font-size: 16px;
+  font-weight: 400;
   color: var(--color-text-secondary);
+  opacity: 0.6;
+  letter-spacing: 0;
 }
 
 .welcome-subtitle {
-  margin: 8px 0 0;
+  font-size: 20px;
   color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.welcome-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  font-size: 18px;
+  font-weight: 500;
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  transition: all var(--transition-base);
+
+  &:hover {
+    background-color: var(--color-surface-hover);
+    border-color: var(--color-accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  &.primary {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+    color: white;
+
+    &:hover {
+      background-color: var(--color-accent-hover);
+      border-color: var(--color-accent-hover);
+    }
+  }
+}
+
+.button-icon {
+  font-size: 24px;
 }
 
 .welcome-stage {
@@ -447,6 +497,7 @@ if (import.meta.client && (window as any).electronAPI) {
   font-size: 18px;
   vertical-align: middle;
 }
+
 .link-button {
   background: none;
   border: none;
@@ -466,11 +517,12 @@ if (import.meta.client && (window as any).electronAPI) {
 .welcome-button {
   display: flex;
   align-items: center;
+  justify-content: left;
   gap: 12px;
   padding: 14px 20px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 2px;
   cursor: pointer;
   font-size: 15px;
   color: var(--color-text-primary);

@@ -4,15 +4,17 @@
       <div class="picker">
         <!-- Top toolbar: navigation + breadcrumb path -->
         <header class="toolbar">
-          <button class="nav-btn" :disabled="historyBack.length === 0" @click="goBack" title="Back">←</button>
-          <button class="nav-btn" :disabled="!canGoUp" @click="goUp" title="Up one level">↑</button>
+          <button class="nav-btn neutral" :disabled="historyBack.length === 0" @click="goBack" title="Back">←</button>
+          <button class="nav-btn neutral" :disabled="!canGoUp" @click="goUp" title="Up one level">↑</button>
           <input
             class="path-input"
             v-model="pathDraft"
             @keydown.enter="navigate(pathDraft)"
             placeholder="Type a path and press Enter"
           />
-          <button class="nav-btn" @click="navigate('')" title="Computer / drives">🖥</button>
+          <button class="nav-btn neutral" @click="navigate('')" title="Computer / drives">
+            <span class="material-symbols-rounded">computer</span>
+          </button>
         </header>
 
         <!-- Breadcrumb -->
@@ -34,7 +36,7 @@
                 :class="[entry.kind, { selected: selected === entry.full_path }]"
                 @click="onEntryClick(entry)"
                 @dblclick="onEntryActivate(entry)">
-              <span class="icon">{{ iconFor(entry) }}</span>
+              <span class="icon material-symbols-rounded">{{ iconNameFor(entry) }}</span>
               <span class="name">{{ entry.name }}</span>
               <span v-if="entry.kind === 'file' && entry.size != null" class="size">
                 {{ formatBytes(entry.size) }}
@@ -188,10 +190,10 @@ const filterLabel = computed(() => filterDisplay(filter.value));
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function iconFor(entry: ServerFsEntry): string {
-  if (entry.kind === 'drive') return '💽';
-  if (entry.kind === 'dir')   return '📁';
-  return '📄';
+function iconNameFor(entry: ServerFsEntry): string {
+  if (entry.kind === 'drive') return 'storage';
+  if (entry.kind === 'dir')   return 'folder';
+  return 'description';
 }
 
 function formatBytes(n: number): string {
@@ -315,9 +317,12 @@ watch(() => props.open, (o) => {
   display: flex; gap: 6px; padding: 10px;
   border-bottom: 1px solid #2a2a2a;
   .nav-btn {
-    background: #2a2a2a; border: 1px solid #3a3a3a;
     border-radius: 4px; padding: 4px 10px;
-    color: #ddd; cursor: pointer;
+    cursor: pointer;
+  }
+  .nav-btn.neutral {
+    background: #2a2a2a; border: 1px solid #3a3a3a;
+    color: #ddd;
     &:hover:not(:disabled) { background: #353535; }
     &:disabled { opacity: 0.4; cursor: not-allowed; }
   }
@@ -332,7 +337,7 @@ watch(() => props.open, (o) => {
   padding: 6px 12px; font-size: 11px; color: #aaa;
   border-bottom: 1px solid #222; background: #161616;
   .crumb {
-    background: transparent; border: none; color: #9ec5ff; cursor: pointer;
+    background: transparent; border: none; color: var(--color-accent); cursor: pointer;
     padding: 2px 4px; font-size: 11px;
     &:hover { text-decoration: underline; }
   }
@@ -351,12 +356,12 @@ watch(() => props.open, (o) => {
   gap: 8px; align-items: center; padding: 6px 14px;
   cursor: pointer; border-bottom: 1px solid #1d1d1d;
   &:hover { background: #1f1f1f; }
-  &.selected { background: #2a3a55; color: #fff; }
+  &.selected { background: var(--color-accent); color: #fff; }
   .icon { text-align: center; }
   .name { color: #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .size { color: #888; font-family: monospace; font-size: 11px; }
-  &.dir   .name { color: #ffd58a; }
-  &.drive .name { color: #b4dcff; font-weight: 600; }
+  &.dir   .name { color: #ffffff; }
+  &.drive .name { color: #ffffff; font-weight: 600; }
 }
 .empty {
   padding: 18px; text-align: center; color: #777; font-style: italic;
@@ -392,7 +397,7 @@ watch(() => props.open, (o) => {
     border-radius: 4px; padding: 6px 16px; color: #ddd; cursor: pointer;
     &:hover:not(:disabled) { background: #353535; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
-    &.primary { background: #2a5e9a; border-color: #2a5e9a; }
+    &.primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
   }
 }
 </style>

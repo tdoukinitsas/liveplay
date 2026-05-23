@@ -15,6 +15,26 @@
   font-display: swap;
 }
 
+// Material Symbols (rounded) for consistent UI icons
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
 
 // CSS Variables for theming
 :root {
@@ -45,6 +65,9 @@
   --playback-controls-height: 120px;
   --properties-panel-height: 300px;
   --cart-player-width: 33.333%;
+  /* Default accent colors so components without an explicit data-theme inherit a usable value */
+  --color-accent: #da1e28;
+  --color-accent-hover: #b71c22;
 }
 
 // Light theme
