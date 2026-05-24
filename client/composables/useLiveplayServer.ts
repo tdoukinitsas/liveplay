@@ -574,10 +574,56 @@ function createClient() {
     return res.json() as Promise<{ saved: string[] }>;
   }
 
-  // ---- Waveform / metadata -----------------------------------------
-  async function fetchWaveform(cueId: CueId, buckets = 1000) {
-    return rest<ServerWaveform>(
-      `/api/waveform/${encodeURIComponent(cueId)}?buckets=${buckets}`);
+  // ---- Waveform fetch queue + cache --------------------------------
+  // Caps concurrent waveform requests to avoid overwhelming the server
+  // when many items enter the viewport simultaneously (e.g. initial mount).
+  const WAVEFORM_CONCURRENCY = 3;
+  const waveformCache = new Map<string, ServerWaveform>();
+  let waveformInFlight = 0;
+  const waveformQueue: Array<() => void> = [];
+
+  function drainWaveformQueue() {
+    while (waveformInFlight < WAVEFORM_CONCURRENCY && waveformQueue.length > 0) {
+      const next = waveformQueue.shift()!;
+      next();
+    }
+  }
+
+  async function fetchWaveform(cueId: CueId, buckets = 1000): Promise<ServerWaveform> {
+    const key = `${cueId}:${buckets}`;
+    if (waveformCache.has(key)) return waveformCache.get(key)!;
+
+    return new Promise<ServerWaveform>((resolve, reject) => {
+      const execute = async () => {
+        waveformInFlight++;
+        try {
+          const data = await rest<ServerWaveform>(
+            `/api/waveform/${encodeURIComponent(cueId)}?buckets=${buckets}`);
+          waveformCache.set(key, data);
+          resolve(data);
+        } catch (e) {
+          reject(e);
+        } finally {
+          waveformInFlight--;
+          drainWaveformQueue();
+        }
+      };
+      if (waveformInFlight < WAVEFORM_CONCURRENCY) {
+        execute();
+      } else {
+        waveformQueue.push(execute);
+      }
+    });
+  }
+
+  function invalidateWaveformCache(cueId?: CueId) {
+    if (cueId) {
+      for (const key of waveformCache.keys()) {
+        if (key.startsWith(`${cueId}:`)) waveformCache.delete(key);
+      }
+    } else {
+      waveformCache.clear();
+    }
   }
   async function fetchMetadata(path: string) {
     return rest('/api/metadata?path=' + encodeURIComponent(path));
@@ -643,6 +689,7 @@ function createClient() {
     listServerPath,
     uploadFile,
     fetchWaveform,
+    invalidateWaveformCache,
     fetchMetadata,
 
     // project I/O

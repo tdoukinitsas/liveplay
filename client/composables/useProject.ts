@@ -17,7 +17,7 @@
 // mutating `currentProject.value` and have those changes propagate.
 // =====================================================================
 import { v4 as uuidv4 } from 'uuid';
-import { triggerRef } from 'vue';
+import { markRaw, triggerRef } from 'vue';
 import type {
   Project,
   AudioItem,
@@ -337,6 +337,12 @@ export const useProject = () => {
         // these items right back to the server as "client adds".
         isHydrating.value = true;
         try {
+          // Prevent Vue from deeply tracking waveform peaks arrays — they are
+          // read-only server data (thousands of floats per item) and making
+          // them reactive freezes the UI when the deep watcher is installed.
+          for (const it of page.items) {
+            if (it?.waveform) it.waveform = markRaw(it.waveform);
+          }
           currentProject.value.items.push(...page.items);
           updateIndices(currentProject.value.items);
         } finally {
@@ -673,6 +679,7 @@ export const useProject = () => {
             const existing = findItemAndParent(patch.uuid);
             if (existing) return;
             const parentUuid = patch.parentUuid || '';
+            if (patch.item?.waveform) patch.item.waveform = markRaw(patch.item.waveform);
             if (!parentUuid) {
               p.items.push(patch.item);
               updateIndices(p.items);
@@ -692,6 +699,7 @@ export const useProject = () => {
             break;
           }
           case 'item_removed': {
+            server().invalidateWaveformCache(patch.uuid);
             const hit = findItemAndParent(patch.uuid);
             if (!hit || !hit.parent) return;
             const idx = hit.parent.findIndex((x: any) => x.uuid === patch.uuid);
@@ -749,6 +757,8 @@ export const useProject = () => {
             break;
           }
           case 'project_changed': {
+            // New project → all cached waveforms are invalid.
+            server().invalidateWaveformCache();
             // A new project was loaded server-side by some other client.
             // Refetch header + restream items.
             void (async () => {
