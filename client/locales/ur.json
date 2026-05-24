@@ -31,23 +31,23 @@
     "subtitle": "براہ راست تقریبات کے لیے آڈیو پلے بیک",
     "newProject": "نیا پروجیکٹ",
     "openProject": "پروجیکٹ کھولیں",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
-    "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "modeTitle": "سرور موڈ منتخب کریں",
+    "modeSubtitle": "LivePlay کو آڈیو انجن کہاں چلانا چاہیے؟",
+    "localMode": "مقامی",
+    "localModeDescription": "اس کمپیوٹر پر آڈیو انجن چلائیں۔",
+    "remoteMode": "ریموٹ",
+    "remoteModeDescription": "نیٹ ورک پر LivePlay سرور سے جڑیں۔",
+    "remoteConnect": "LivePlay سرور سے جڑیں",
+    "remoteAddressHint": "LivePlay سرور کا IP ایڈریس یا ہوسٹ نام درج کریں۔",
+    "serverAddress": "سرور ایڈریس",
+    "serverAddressPlaceholder": "مثلاً 192.168.1.10 یا myserver.local",
+    "connect": "جڑیں",
+    "connecting": "جڑ رہا ہے…",
+    "connectionFailed": "سرور سے نہیں جڑ سکا",
+    "connectedLocal": "اس کمپیوٹر پر مقامی سرور استعمال ہو رہا ہے",
+    "connectedTo": "{url} سے جڑا ہوا",
+    "changeMode": "تبدیل کریں",
+    "back": "واپس"
   },
   "project": {
     "enterName": "پروجیکٹ کا نام درج کریں",
@@ -123,7 +123,15 @@
     "stopFade": "اسٹاپ فیڈ آؤٹ",
     "pauseFade": "پاز/ریزیوم فیڈ",
     "crossFade": "اگلے میں کراس فیڈ",
-    "fadeSettings": "فیڈ سیٹنگز"
+    "fadeSettings": "فیڈ سیٹنگز",
+    "ltcOutputTimecode": "LTC ٹائم کوڈ آؤٹ پٹ",
+    "ltcOutputTimecodeHelp": "اس سگنل کے چلنے کے دوران پروجیکٹ کے LTC ڈیوائس پر SMPTE لینئر ٹائم کوڈ بھیجیں۔",
+    "ltcStartTimecode": "شروعاتی ٹائم کوڈ",
+    "ltcTimecodeFormat": "HH:MM:SS:FF فارمیٹ استعمال کریں (مثلاً 01:00:00:00)",
+    "ltcFrameRate": "فریم ریٹ",
+    "output": "آؤٹ پٹ",
+    "deviceOverride": "آؤٹ پٹ ڈیوائس",
+    "deviceOverrideHelp": "اس سگنل کے لیے پروجیکٹ کی ڈیفالٹ آؤٹ پٹ کو اوور رائیڈ کریں۔ پروجیکٹ کی ترتیب پر عمل کرنے کے لیے 'پروجیکٹ ڈیفالٹ استعمال کریں' پر چھوڑیں۔"
   },
   "playback": {
     "panic": "تمام سگنلز روکیں",
@@ -131,7 +139,8 @@
     "play": "چلائیں",
     "stop": "روکیں",
     "delete": "حذف کریں",
-    "edit": "ترمیم کریں"
+    "edit": "ترمیم کریں",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "کچھ نہیں",
@@ -164,7 +173,10 @@
     "resume": "دوبارہ شروع کریں",
     "edit": "ترمیم کریں",
     "remove": "ہٹائیں",
-    "setAsNext": "اگلے کے طور پر سیٹ کریں"
+    "setAsNext": "اگلے کے طور پر سیٹ کریں",
+    "preview": "ہیڈ فون پر پیش نظارہ",
+    "stopPreview": "پیش نظارہ روکیں",
+    "previewNoDevice": "کوئی پیش نظارہ ڈیوائس ترتیب نہیں — پروجیکٹ سیٹنگز کھولنے کے لیے کلک کریں"
   },
   "about": {
     "developedBy": "تیار کردہ",
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "چل رہا ہے",
-    "upNext": "اگلا"
+    "upNext": "اگلا",
+    "previewing": "پیش نظارہ"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "پروجیکٹ سیٹنگز",
+    "audioDevice": "آڈیو ڈیوائس",
+    "audioDeviceHelp": "سگنل پلے بیک کے لیے ڈیفالٹ ڈیوائس۔",
+    "previewDevice": "پیش نظارہ ڈیوائس",
+    "previewDeviceHelp": "ہیڈ فون بٹن سے سگنلز کا پیش نظارہ کرتے وقت استعمال ہونے والی ڈیوائس۔",
+    "ltcDevice": "LTC ڈیوائس",
+    "ltcDeviceHelp": "LTC ٹائم کوڈ بھیجنے کے لیے استعمال ہونے والی ڈیوائس (اختیاری)۔",
+    "useProjectDefault": "پروجیکٹ ڈیفالٹ استعمال کریں",
+    "noneSelected": "منتخب نہیں",
+    "save": "محفوظ کریں",
+    "close": "بند کریں",
+    "preview": "پیش نظارہ"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "پہلے سے طے شدہ",
+    "loading": "لوڈ ہو رہا ہے…",
+    "error": "خرابی"
   }
 }

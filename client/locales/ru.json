@@ -31,23 +31,23 @@
     "subtitle": "Воспроизведение аудио для живых мероприятий",
     "newProject": "Новый проект",
     "openProject": "Открыть проект",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
-    "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "modeTitle": "Выбор режима сервера",
+    "modeSubtitle": "Где LivePlay должен запустить аудиодвижок?",
+    "localMode": "Локальный",
+    "localModeDescription": "Запустить аудиодвижок на этом компьютере.",
+    "remoteMode": "Удалённый",
+    "remoteModeDescription": "Подключиться к серверу LivePlay в сети.",
+    "remoteConnect": "Подключиться к серверу LivePlay",
+    "remoteAddressHint": "Введите IP-адрес или имя хоста сервера LivePlay.",
+    "serverAddress": "Адрес сервера",
+    "serverAddressPlaceholder": "напр. 192.168.1.10 или myserver.local",
+    "connect": "Подключиться",
+    "connecting": "Подключение…",
+    "connectionFailed": "Не удалось подключиться к серверу",
+    "connectedLocal": "Используется локальный сервер на этом компьютере",
+    "connectedTo": "Подключено к {url}",
+    "changeMode": "Изменить",
+    "back": "Назад"
   },
   "project": {
     "enterName": "Введите название проекта",
@@ -123,7 +123,15 @@
     "stopFade": "Плавное затухание при остановке",
     "pauseFade": "Затухание паузы/возобновления",
     "crossFade": "Перекрёстное затухание к следующему",
-    "fadeSettings": "Настройки затухания"
+    "fadeSettings": "Настройки затухания",
+    "ltcOutputTimecode": "Вывод LTC-тайм-кода",
+    "ltcOutputTimecodeHelp": "Отправлять SMPTE Linear Timecode на LTC-устройство проекта во время воспроизведения этого сигнала.",
+    "ltcStartTimecode": "Начальный тайм-код",
+    "ltcTimecodeFormat": "Используйте формат HH:MM:SS:FF (например, 01:00:00:00)",
+    "ltcFrameRate": "Частота кадров",
+    "output": "Выход",
+    "deviceOverride": "Устройство вывода",
+    "deviceOverrideHelp": "Переопределить стандартный выход проекта для этого сигнала. Оставьте 'Использовать стандарт проекта', чтобы следовать настройке проекта."
   },
   "playback": {
     "panic": "Остановить все сигналы",
@@ -131,7 +139,8 @@
     "play": "Воспроизвести",
     "stop": "Остановить",
     "delete": "Удалить",
-    "edit": "Редактировать"
+    "edit": "Редактировать",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "Ничего",
@@ -164,7 +173,10 @@
     "resume": "Возобновить",
     "edit": "Редактировать",
     "remove": "Убрать",
-    "setAsNext": "Поставить следующим"
+    "setAsNext": "Поставить следующим",
+    "preview": "Прослушать в наушниках",
+    "stopPreview": "Остановить предпросмотр",
+    "previewNoDevice": "Устройство предпросмотра не настроено — нажмите для открытия Настроек проекта"
   },
   "about": {
     "developedBy": "Разработано",
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "Воспроизводится",
-    "upNext": "Следующий"
+    "upNext": "Следующий",
+    "previewing": "Предпросмотр"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "Настройки проекта",
+    "audioDevice": "Аудиоустройство",
+    "audioDeviceHelp": "Стандартное устройство для воспроизведения сигналов.",
+    "previewDevice": "Устройство предпросмотра",
+    "previewDeviceHelp": "Устройство для предпросмотра сигналов через кнопку наушников.",
+    "ltcDevice": "Устройство LTC",
+    "ltcDeviceHelp": "Устройство для отправки тайм-кода LTC (необязательно).",
+    "useProjectDefault": "Использовать стандарт проекта",
+    "noneSelected": "Не выбрано",
+    "save": "Сохранить",
+    "close": "Закрыть",
+    "preview": "Предпросмотр"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "по умолчанию",
+    "loading": "Загрузка…",
+    "error": "Ошибка"
   }
 }

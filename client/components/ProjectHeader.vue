@@ -48,7 +48,7 @@ const { t } = useLocalization();
 const { activeCues } = useAudioEngine();
 
 const showControlConfig = ref(false);
-const showProjectSettings = ref(false);
+const showProjectSettings = useState('showProjectSettings', () => false);
 
 const isDark = computed(() => currentProject.value?.theme.mode === 'dark');
 const currentTime = ref('00:00:00');

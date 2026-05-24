@@ -1,6 +1,6 @@
 {
   "name": "liveplay-monorepo",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "private": true,
   "description": "LivePlay — open-source audio playback for live sound operators. Monorepo root: client (Vue/Electron) + server (C++ audio engine).",
   "license": "AGPL-3.0-only",
@@ -21,7 +21,7 @@
     "build": "npm run server:build && npm run build:client",
     "build:client": "npm run build --workspace=client",
     "build:client:electron": "npm run build:electron --workspace=client",
-    "build:electron": "npm run server:build && npm run build:client:electron",
+    "build:electron": "npm run server:build && node scripts/build-server-app-mac.js && npm run build:client:electron",
     "install:client": "npm install --workspace=client",
     "server:configure": "cmake --preset vs2022 -S server",
     "server:build": "node scripts/build-server.js",

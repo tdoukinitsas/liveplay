@@ -52,6 +52,7 @@ struct CueMeta {
     bool                     ltc_enabled = false;
     int                      ltc_frame_rate_index = 4;     // 30 fps
     std::chrono::nanoseconds ltc_offset_ns{0};
+    std::string              ltc_start_timecode{"00:00:00:00"};
 };
 
 struct MixerChannelMeta {
@@ -157,6 +158,39 @@ public:
     bool play_item(const std::string& uuid);
     bool stop_item(const std::string& uuid);
 
+    // ---- Per-device routing ---------------------------------------------
+    // Ensure a "device mixer" exists for `device_name` (the user-visible
+    // name from /api/devices). Opens the audio device if needed, creates a
+    // dedicated mixer + two master channels routed to it. Returns the
+    // mixer id, or empty on failure (device not found).
+    audio::MixerChannelId ensure_device_routing(const std::string& device_name);
+
+    // Route a cue's first two source channels to the given mixer, removing
+    // any prior item-to-mixer routes for this cue (so the cue plays through
+    // exactly one device's mixer).
+    void route_cue_to_mixer(const audio::CueId& cue,
+                            const audio::MixerChannelId& mixer);
+
+    // ---- Preview --------------------------------------------------------
+    // Play an item through the configured preview device (project
+    // settings.previewDevice). This is independent of the main project
+    // playback — the user can preview one cue while another plays through
+    // the main outputs (DJ-style pre-listen). At most one preview is
+    // active at a time; starting a new one replaces the old. Returns true
+    // on success.
+    bool start_preview(const std::string& item_uuid);
+    bool stop_preview();
+    // uuid of the currently-previewing item, or empty if no preview active.
+    std::string current_preview_item_uuid() const;
+    // Engine cue ID for the active preview, or an empty CueId if none.
+    audio::CueId current_preview_cue_id() const;
+
+    // Route every LTC-enabled cue's synthetic LTC source channel to the
+    // project's configured ltcDevice mixer. Safe to call at any time without
+    // holding mutex_ — it acquires the lock internally as needed and delegates
+    // engine operations to independently-locked engine APIs.
+    void apply_ltc_device_routing();
+
     // Cart slot binding (slot → item uuid). Slot < 0 clears.
     bool set_cart_slot(int slot, const std::string& item_uuid);
     bool clear_cart_slot(int slot);
@@ -214,6 +248,57 @@ private:
     std::atomic<std::size_t> load_progress_loaded_{0};
     std::atomic<std::size_t> load_progress_total_{0};
     std::thread              load_thread_;
+
+    // Per-device routing infrastructure: each unique output device name
+    // referenced by any item's deviceOverride gets its own mixer + a pair
+    // of master channels wired to that device. Indexed by device display
+    // name. The default device's entry is the "Main" mixer + masters 0/1
+    // that the engine sets up automatically.
+    struct DeviceRouting {
+        audio::DeviceId            device;
+        audio::MixerChannelId      mixer;
+        audio::MasterChannelIndex  master_l;
+        audio::MasterChannelIndex  master_r;
+    };
+    std::unordered_map<std::string, DeviceRouting> device_routings_;
+    // Next free master channel pair when allocating new device routings.
+    // Default device occupies 0/1; preview occupies 30/31; overrides start
+    // at 2 and increment by 2.
+    audio::MasterChannelIndex next_override_master_ = 2;
+
+    // Preview state. The preview infrastructure is opened lazily on first
+    // preview request, then re-used (cheaper than reopening the audio
+    // device every time the user pre-listens to a new cue).
+    audio::CueId           preview_cue_;
+    std::string            preview_item_uuid_;
+    audio::MixerChannelId  preview_mixer_;
+    audio::DeviceId        preview_device_;
+    std::string            preview_device_name_;   // last opened, for cleanup on change
+
+    // ---- Sequencer: server-side auto-advance, crossfade, ducking restore ----
+    struct DuckedEntry {
+        audio::CueId cue_id;
+        float        original_gain_db;
+    };
+    struct SequencedItem {
+        std::string              uuid;
+        audio::CueId             cue_id;
+        double                   crossfade_sec       = 0.0;
+        double                   stop_fade_sec       = 0.0;
+        double                   effective_end       = 0.0;
+        bool                     crossfade_triggered = false;
+        bool                     stop_fade_triggered = false;
+        std::vector<DuckedEntry> ducked;
+    };
+    std::vector<SequencedItem> sequenced_items_;
+    std::mutex                 sequencer_mutex_;
+    std::thread                sequencer_thread_;
+    std::atomic<bool>          sequencer_running_{false};
+
+    void start_sequencer();
+    void stop_sequencer();
+    void sequencer_loop();
+    void handle_item_ended(const SequencedItem& item);
 
     // Backward-compat translator: takes a legacy 1.x project document and
     // produces a v2-flavoured one with the equivalent routing matrix.

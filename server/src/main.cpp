@@ -37,7 +37,7 @@
 #endif
 
 #ifndef LIVEPLAY_SERVER_VERSION
-#define LIVEPLAY_SERVER_VERSION "0.0.0-dev"
+#define LIVEPLAY_SERVER_VERSION "0.0.0"
 #endif
 #ifndef LIVEPLAY_SERVER_NAME
 #define LIVEPLAY_SERVER_NAME "liveplay-server"

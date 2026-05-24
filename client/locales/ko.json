@@ -31,23 +31,23 @@
     "subtitle": "라이브 이벤트를 위한 오디오 재생",
     "newProject": "새 프로젝트",
     "openProject": "프로젝트 열기",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
-    "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "modeTitle": "서버 모드 선택",
+    "modeSubtitle": "LivePlay가 오디오 엔진을 어디서 실행할까요?",
+    "localMode": "로컬",
+    "localModeDescription": "이 컴퓨터에서 오디오 엔진을 실행합니다.",
+    "remoteMode": "원격",
+    "remoteModeDescription": "네트워크의 LivePlay 서버에 연결합니다.",
+    "remoteConnect": "LivePlay 서버에 연결",
+    "remoteAddressHint": "LivePlay 서버의 IP 주소 또는 호스트 이름을 입력하세요.",
+    "serverAddress": "서버 주소",
+    "serverAddressPlaceholder": "예: 192.168.1.10 또는 myserver.local",
+    "connect": "연결",
+    "connecting": "연결 중…",
+    "connectionFailed": "서버에 연결할 수 없습니다",
+    "connectedLocal": "이 컴퓨터의 로컬 서버 사용 중",
+    "connectedTo": "{url}에 연결됨",
+    "changeMode": "변경",
+    "back": "뒤로"
   },
   "project": {
     "enterName": "프로젝트 이름 입력",
@@ -123,7 +123,15 @@
     "stopFade": "정지 페이드 아웃",
     "pauseFade": "일시정지/재개 페이드",
     "crossFade": "다음으로 크로스 페이드",
-    "fadeSettings": "페이드 설정"
+    "fadeSettings": "페이드 설정",
+    "ltcOutputTimecode": "LTC 타임코드 출력",
+    "ltcOutputTimecodeHelp": "이 큐가 재생되는 동안 프로젝트의 LTC 장치에 SMPTE 리니어 타임코드를 전송합니다.",
+    "ltcStartTimecode": "시작 타임코드",
+    "ltcTimecodeFormat": "HH:MM:SS:FF 형식을 사용하세요 (예: 01:00:00:00)",
+    "ltcFrameRate": "프레임 속도",
+    "output": "출력",
+    "deviceOverride": "출력 장치",
+    "deviceOverrideHelp": "이 큐에 대한 프로젝트의 기본 출력을 재정의합니다. 프로젝트 설정을 따르려면 '프로젝트 기본값 사용'으로 두세요."
   },
   "playback": {
     "panic": "모든 신호 중지",
@@ -131,7 +139,8 @@
     "play": "재생",
     "stop": "중지",
     "delete": "삭제",
-    "edit": "편집"
+    "edit": "편집",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "없음",
@@ -164,7 +173,10 @@
     "resume": "재개",
     "edit": "편집",
     "remove": "제거",
-    "setAsNext": "다음으로 설정"
+    "setAsNext": "다음으로 설정",
+    "preview": "헤드폰으로 미리 듣기",
+    "stopPreview": "미리 듣기 중지",
+    "previewNoDevice": "미리 듣기 장치 미설정 — 프로젝트 설정을 열려면 클릭하세요"
   },
   "about": {
     "developedBy": "개발자",
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "재생 중",
-    "upNext": "다음"
+    "upNext": "다음",
+    "previewing": "미리 듣기"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "프로젝트 설정",
+    "audioDevice": "오디오 장치",
+    "audioDeviceHelp": "큐 재생을 위한 기본 장치.",
+    "previewDevice": "미리 듣기 장치",
+    "previewDeviceHelp": "헤드폰 버튼으로 큐를 미리 들을 때 사용하는 장치.",
+    "ltcDevice": "LTC 장치",
+    "ltcDeviceHelp": "LTC 타임코드 전송에 사용하는 장치 (선택 사항).",
+    "useProjectDefault": "프로젝트 기본값 사용",
+    "noneSelected": "선택 안 됨",
+    "save": "저장",
+    "close": "닫기",
+    "preview": "미리 듣기"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "기본값",
+    "loading": "불러오는 중…",
+    "error": "오류"
   }
 }

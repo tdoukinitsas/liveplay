@@ -31,23 +31,23 @@
     "subtitle": "Luajtje audio për ngjarje të drejtpërdrejta",
     "newProject": "Projekt i Ri",
     "openProject": "Hap Projektin",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
-    "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "modeTitle": "Zgjidh Modalitetin e Serverit",
+    "modeSubtitle": "Ku duhet LivePlay të ekzekutojë motorin audio?",
+    "localMode": "Lokal",
+    "localModeDescription": "Ekzekuto motorin audio në këtë kompjuter.",
+    "remoteMode": "I Largët",
+    "remoteModeDescription": "Lidhu me një server LivePlay në rrjet.",
+    "remoteConnect": "Lidhu me serverin LivePlay",
+    "remoteAddressHint": "Shkruaj adresën IP ose emrin e hostit të serverit LivePlay.",
+    "serverAddress": "Adresa e Serverit",
+    "serverAddressPlaceholder": "p.sh. 192.168.1.10 ose myserver.local",
+    "connect": "Lidhu",
+    "connecting": "Po lidhet…",
+    "connectionFailed": "Nuk mund të lidhej me serverin",
+    "connectedLocal": "Duke përdorur serverin lokal në këtë kompjuter",
+    "connectedTo": "I lidhur me {url}",
+    "changeMode": "Ndrysho",
+    "back": "Prapa"
   },
   "project": {
     "enterName": "Vendos Emrin e Projektit",
@@ -123,7 +123,15 @@
     "stopFade": "Zbehje në ndalim",
     "pauseFade": "Zbehje pushim/vazhdim",
     "crossFade": "Zbehje e kryqëzuar te tjetra",
-    "fadeSettings": "Cilësimet e zbehjes"
+    "fadeSettings": "Cilësimet e zbehjes",
+    "ltcOutputTimecode": "Dalje e kodit kohor LTC",
+    "ltcOutputTimecodeHelp": "Dërgoni kod kohor linear SMPTE te pajisja LTC e projektit ndërsa kjo sinjal po luan.",
+    "ltcStartTimecode": "Kodi kohor fillestar",
+    "ltcTimecodeFormat": "Përdorni formatin HH:MM:SS:FF (p.sh. 01:00:00:00)",
+    "ltcFrameRate": "Shkalla e kuadrove",
+    "output": "Dalja",
+    "deviceOverride": "Pajisja e daljes",
+    "deviceOverrideHelp": "Mbishkruaj daljen e paracaktuar të projektit për këtë sinjal. Lër në 'Përdor të paracaktuarën e projektit' për të ndjekur cilësimin e projektit."
   },
   "playback": {
     "panic": "Ndalo të Gjitha Sinjalet",
@@ -131,7 +139,8 @@
     "play": "Luaj",
     "stop": "Ndalo",
     "delete": "Fshi",
-    "edit": "Redakto"
+    "edit": "Redakto",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "Asgjë",
@@ -164,7 +173,10 @@
     "resume": "Vazhdo",
     "edit": "Redakto",
     "remove": "Hiq",
-    "setAsNext": "Vendos si tjetrin"
+    "setAsNext": "Vendos si tjetrin",
+    "preview": "Paraparim me kufje",
+    "stopPreview": "Ndalo paraparimin",
+    "previewNoDevice": "Asnjë pajisje paraparimi e konfiguruar — kliko për të hapur Cilësimet e Projektit"
   },
   "about": {
     "developedBy": "Zhvilluar nga",
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "Duke luajtur",
-    "upNext": "Tjetri"
+    "upNext": "Tjetri",
+    "previewing": "Paraparim"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "Cilësimet e Projektit",
+    "audioDevice": "Pajisja Audio",
+    "audioDeviceHelp": "Pajisja e paracaktuar për riprodhimin e sinjaleve.",
+    "previewDevice": "Pajisja e Paraparimit",
+    "previewDeviceHelp": "Pajisja e përdorur gjatë paraparimit të sinjaleve me butonin e kufjeve.",
+    "ltcDevice": "Pajisja LTC",
+    "ltcDeviceHelp": "Pajisja e përdorur për dërgimin e kodit LTC të kohës (opsionale).",
+    "useProjectDefault": "Përdor të paracaktuarën e projektit",
+    "noneSelected": "Asnjë e zgjedhur",
+    "save": "Ruaj",
+    "close": "Mbyll",
+    "preview": "Paraparim"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "e paracaktuar",
+    "loading": "Po ngarkohet…",
+    "error": "Gabim"
   }
 }

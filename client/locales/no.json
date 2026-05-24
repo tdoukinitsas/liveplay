@@ -31,23 +31,23 @@
     "subtitle": "Lydavspilling for livearrangementer",
     "newProject": "Nytt prosjekt",
     "openProject": "Åpne prosjekt",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
-    "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "modeTitle": "Velg servermodus",
+    "modeSubtitle": "Hvor skal LivePlay kjøre lydmotoren?",
+    "localMode": "Lokal",
+    "localModeDescription": "Kjør lydmotoren på denne datamaskinen.",
+    "remoteMode": "Ekstern",
+    "remoteModeDescription": "Koble til en LivePlay-server på nettverket.",
+    "remoteConnect": "Koble til LivePlay-server",
+    "remoteAddressHint": "Angi IP-adressen eller vertsnavnet til LivePlay-serveren.",
+    "serverAddress": "Serveradresse",
+    "serverAddressPlaceholder": "f.eks. 192.168.1.10 eller minserver.local",
+    "connect": "Koble til",
+    "connecting": "Kobler til…",
+    "connectionFailed": "Klarte ikke å koble til serveren",
+    "connectedLocal": "Bruker lokal server på denne datamaskinen",
+    "connectedTo": "Tilkoblet {url}",
+    "changeMode": "Endre",
+    "back": "Tilbake"
   },
   "project": {
     "enterName": "Skriv inn prosjektnavn",
@@ -123,7 +123,15 @@
     "stopFade": "Utfading ved stopp",
     "pauseFade": "Pause/gjenoppta fading",
     "crossFade": "Kryssfading til neste",
-    "fadeSettings": "Fadingsinnstillinger"
+    "fadeSettings": "Fadingsinnstillinger",
+    "ltcOutputTimecode": "Utgang LTC-tidskode",
+    "ltcOutputTimecodeHelp": "Send SMPTE lineær tidskode til prosjektets LTC-enhet mens dette signalet spilles av.",
+    "ltcStartTimecode": "Starttidskode",
+    "ltcTimecodeFormat": "Bruk HH:MM:SS:FF-format (f.eks. 01:00:00:00)",
+    "ltcFrameRate": "Bildehastighet",
+    "output": "Utgang",
+    "deviceOverride": "Utdataenhet",
+    "deviceOverrideHelp": "Overstyr prosjektets standardutgang for dette signalet. La stå på 'Bruk prosjektstandard' for å følge prosjektinnstillingen."
   },
   "playback": {
     "panic": "Stopp alle signaler",
@@ -131,7 +139,8 @@
     "play": "Spill",
     "stop": "Stopp",
     "delete": "Slett",
-    "edit": "Rediger"
+    "edit": "Rediger",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "Ingenting",
@@ -164,7 +173,10 @@
     "resume": "Fortsett",
     "edit": "Rediger",
     "remove": "Fjern",
-    "setAsNext": "Sett som neste"
+    "setAsNext": "Sett som neste",
+    "preview": "Forhåndsvis i hodetelefoner",
+    "stopPreview": "Stopp forhåndsvisning",
+    "previewNoDevice": "Ingen forhåndsvisningsenhet konfigurert — klikk for å åpne Prosjektinnstillinger"
   },
   "about": {
     "developedBy": "Utviklet av",
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "Spiller av",
-    "upNext": "Neste"
+    "upNext": "Neste",
+    "previewing": "Forhåndsvisning"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "Prosjektinnstillinger",
+    "audioDevice": "Lydenhet",
+    "audioDeviceHelp": "Standard enhet for signaleavspilling.",
+    "previewDevice": "Forhåndsvisningsenhet",
+    "previewDeviceHelp": "Enhet brukt ved forhåndsvisning av signaler med hodetelefonknappen.",
+    "ltcDevice": "LTC-enhet",
+    "ltcDeviceHelp": "Enhet brukt til å sende LTC-tidskode (valgfritt).",
+    "useProjectDefault": "Bruk prosjektstandard",
+    "noneSelected": "Ikke valgt",
+    "save": "Lagre",
+    "close": "Lukk",
+    "preview": "Forhåndsvisning"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "standard",
+    "loading": "Laster…",
+    "error": "Feil"
   }
 }

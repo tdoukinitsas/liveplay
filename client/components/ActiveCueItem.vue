@@ -53,12 +53,14 @@
       </div>
     </div>
     
-    <!-- VU Meter -->
+    <!-- VU Meter — drawn from the server's live meter stream so it tracks
+         what the audio engine is actually outputting, not a waveform-based
+         estimate. Stereo widget shows L/R per source channel. -->
     <div class="cue-meter">
-      <VUMeter 
-        :level="cue.currentLevel ?? -60" 
-        :peakLevel="cue.peakLevel ?? -60"
-        :showPeakHold="true"
+      <StereoMeter
+        :cue-id="serverCueId"
+        :min-db="-60"
+        :max-db="0"
       />
     </div>
   </div>
@@ -81,6 +83,7 @@ interface ActiveCueState {
   outPoint?: number;
   currentLevel?: number;
   peakLevel?: number;
+  serverCueId?: string | null;
 }
 
 const props = defineProps<{
@@ -89,6 +92,11 @@ const props = defineProps<{
 
 const { stopCue, pauseCue, resumeCue, seekCue } = useAudioEngine();
 const { t } = useLocalization();
+
+// Server engine cue ID — populated in onload once the server registers the
+// cue and returns its ID. Used by StereoMeter to subscribe to the right
+// WS meter frame.
+const serverCueId = computed<string | null>(() => props.cue.serverCueId ?? null);
 
 // Use the cue's currentTime directly (updated by the audio engine)
 const progress = computed(() => {

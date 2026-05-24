@@ -7,8 +7,12 @@ if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
         CACHE STRING "Vcpkg toolchain file")
 endif()
 
+# Read version from vcpkg.json to keep build version in sync with package manifest
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg.json" VCPKG_JSON_CONTENT)
+string(JSON LIVEPLAY_VERSION GET "${VCPKG_JSON_CONTENT}" "version-string")
+
 project(liveplay-server
-    VERSION 0.1.0
+    VERSION ${LIVEPLAY_VERSION}
     DESCRIPTION "LivePlay headless audio engine and control server"
     LANGUAGES C CXX
 )

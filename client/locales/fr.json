@@ -31,23 +31,23 @@
     "subtitle": "Lecture de signaux audio pour événements en direct",
     "newProject": "Nouveau Projet",
     "openProject": "Ouvrir un Projet",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
+    "modeTitle": "Choisir le Mode Serveur",
+    "modeSubtitle": "Où LivePlay doit-il exécuter le moteur audio ?",
     "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "localModeDescription": "Exécuter le moteur audio sur cet ordinateur.",
+    "remoteMode": "Distant",
+    "remoteModeDescription": "Se connecter à un serveur LivePlay sur le réseau.",
+    "remoteConnect": "Se connecter au serveur LivePlay",
+    "remoteAddressHint": "Entrez l'adresse IP ou le nom d'hôte du serveur LivePlay.",
+    "serverAddress": "Adresse du Serveur",
+    "serverAddressPlaceholder": "ex. 192.168.1.10 ou myserver.local",
+    "connect": "Connecter",
+    "connecting": "Connexion en cours…",
+    "connectionFailed": "Impossible de se connecter au serveur",
+    "connectedLocal": "Utilisation du serveur local sur cet ordinateur",
+    "connectedTo": "Connecté à {url}",
+    "changeMode": "Changer",
+    "back": "Retour"
   },
   "project": {
     "enterName": "Entrez le Nom du Projet",
@@ -123,7 +123,15 @@
     "stopFade": "Fondu de sortie à l'arrêt",
     "pauseFade": "Fondu pause/reprise",
     "crossFade": "Fondu enchaîné vers suivant",
-    "fadeSettings": "Paramètres de fondu"
+    "fadeSettings": "Paramètres de fondu",
+    "ltcOutputTimecode": "Sortie code temporel LTC",
+    "ltcOutputTimecodeHelp": "Envoyer le code temporel linéaire SMPTE au périphérique LTC du projet pendant la lecture de ce signal.",
+    "ltcStartTimecode": "Code temporel de départ",
+    "ltcTimecodeFormat": "Utiliser le format HH:MM:SS:FF (ex. 01:00:00:00)",
+    "ltcFrameRate": "Fréquence d'images",
+    "output": "Sortie",
+    "deviceOverride": "Périphérique de sortie",
+    "deviceOverrideHelp": "Remplacer la sortie par défaut du projet pour ce signal. Laisser sur 'Utiliser la valeur par défaut du projet' pour suivre le paramètre du projet."
   },
   "playback": {
     "panic": "Arrêter Tous les Signaux",
@@ -131,7 +139,8 @@
     "play": "Lecture",
     "stop": "Arrêt",
     "delete": "Supprimer",
-    "edit": "Modifier"
+    "edit": "Modifier",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "Rien",
@@ -164,7 +173,10 @@
     "resume": "Reprendre",
     "edit": "Modifier",
     "remove": "Retirer",
-    "setAsNext": "Définir comme suivant"
+    "setAsNext": "Définir comme suivant",
+    "preview": "Aperçu sur casque",
+    "stopPreview": "Arrêter l'aperçu",
+    "previewNoDevice": "Aucun périphérique d'aperçu configuré — cliquez pour ouvrir les Paramètres du Projet"
   },
   "about": {
     "developedBy": "Développé par",
@@ -211,7 +223,7 @@
   },
   "translationContributor": {
     "title": "Contributeur de Traduction",
-    "name": "AI Translated with Claude Sonnet 4.5",
+    "name": "AI Translated with Claude Sonnet 4.6",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "En lecture",
-    "upNext": "Suivant"
+    "upNext": "Suivant",
+    "previewing": "Aperçu"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "Paramètres du Projet",
+    "audioDevice": "Périphérique Audio",
+    "audioDeviceHelp": "Périphérique par défaut pour la lecture des signaux.",
+    "previewDevice": "Périphérique d'Aperçu",
+    "previewDeviceHelp": "Périphérique utilisé lors de l'aperçu des signaux avec le bouton casque.",
+    "ltcDevice": "Périphérique LTC",
+    "ltcDeviceHelp": "Périphérique utilisé pour envoyer le timecode LTC (optionnel).",
+    "useProjectDefault": "Utiliser la valeur par défaut du projet",
+    "noneSelected": "Non sélectionné",
+    "save": "Enregistrer",
+    "close": "Fermer",
+    "preview": "Aperçu"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "défaut",
+    "loading": "Chargement…",
+    "error": "Erreur"
   }
 }

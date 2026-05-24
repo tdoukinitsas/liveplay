@@ -53,8 +53,18 @@
 
         <span v-if="isPlaying" class="status-pill playing">{{ t('status.playing') }}</span>
         <span v-else-if="isQueuedNext" class="status-pill up-next">{{ t('status.upNext') }}</span>
+        <span v-if="isPreviewing" class="status-pill preview">{{ t('status.previewing') }}</span>
 
         <div class="item-actions">
+          <button
+            v-if="item.type === 'audio'"
+            class="item-btn preview"
+            :class="{ 'is-active': isPreviewing, 'no-device': !hasPreviewDevice }"
+            @click.stop="isPreviewing ? handleStopPreview() : handleStartPreview()"
+            :title="isPreviewing ? t('actions.stopPreview') : (hasPreviewDevice ? t('actions.preview') : t('actions.previewNoDevice'))"
+          >
+            <span class="material-symbols-rounded">headphones</span>
+          </button>
           <button
             class="item-btn play"
             :class="{ 'is-playing': isPlaying }"
@@ -264,137 +274,88 @@ const drawWaveform = () => {
   });
 };
 
-// Redraw waveform when component mounts or updates
+// Redraw waveform when component mounts or updates.
+// Performance: with 80+ items on screen we MUST avoid creating expensive
+// observers and timers for every single item up-front. We use a single
+// IntersectionObserver per component that only draws when the item is in
+// the viewport, and skip the redundant ResizeObserver + 2-second polling
+// loop that the old client used.
 let resizeObserver: ResizeObserver | null = null;
-let waveformPollInterval: NodeJS.Timeout | null = null;
+let intersectionObserver: IntersectionObserver | null = null;
+let isVisible = false;
+let hasDrawnOnce = false;
 
-// Watch for canvas availability and set up observer
-watch(waveformCanvas, (canvas) => {
-  if (canvas && props.item.type === 'audio') {
-    // Canvas is now available, draw waveform
-    nextTick(drawWaveform);
-    
-    // Set up resize observer if not already set up
-    if (!resizeObserver) {
-      resizeObserver = new ResizeObserver(() => {
-        drawWaveform();
-      });
-      resizeObserver.observe(canvas);
-    }
-  }
-});
+function ensureDraw() {
+  if (!isVisible) return;
+  if (props.item.type !== 'audio') return;
+  hasDrawnOnce = true;
+  drawWaveform();
+}
 
 onMounted(() => {
-  if (props.item.type === 'audio' && waveformCanvas.value) {
-    nextTick(drawWaveform);
-    
-    // Redraw on resize
-    resizeObserver = new ResizeObserver(() => {
-      drawWaveform();
-    });
-    resizeObserver.observe(waveformCanvas.value);
-  }
-  
-  // Start polling for waveform if not available yet
-  if (props.item.type === 'audio') {
-    const audioItem = props.item as AudioItem;
-    if (!audioItem.waveform || !audioItem.waveform.peaks || audioItem.waveform.peaks.length === 0) {
-      startWaveformPolling();
+  if (props.item.type !== 'audio' || !waveformCanvas.value) return;
+
+  // Defer the first canvas draw until the item scrolls into view. The
+  // IntersectionObserver also makes sure off-screen items don't redraw
+  // when their props change.
+  intersectionObserver = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      const wasVisible = isVisible;
+      isVisible = e.isIntersecting;
+      if (isVisible && !hasDrawnOnce) {
+        nextTick(ensureDraw);
+      } else if (isVisible && !wasVisible) {
+        // Re-entering viewport — redraw in case the canvas was resized
+        // while hidden.
+        nextTick(ensureDraw);
+      }
     }
-  }
+  }, { rootMargin: '200px' });   // pre-render a bit before they enter view
+  intersectionObserver.observe(waveformCanvas.value);
+
+  // Single ResizeObserver per visible item only.
+  resizeObserver = new ResizeObserver(() => {
+    if (isVisible) drawWaveform();
+  });
+  resizeObserver.observe(waveformCanvas.value);
 });
 
 onUnmounted(() => {
-  if (resizeObserver && waveformCanvas.value) {
-    resizeObserver.unobserve(waveformCanvas.value);
+  if (resizeObserver) {
     resizeObserver.disconnect();
+    resizeObserver = null;
   }
-  
-  if (waveformPollInterval) {
-    clearInterval(waveformPollInterval);
+  if (intersectionObserver) {
+    intersectionObserver.disconnect();
+    intersectionObserver = null;
   }
 });
 
-// Poll for waveform data if not yet available
-const startWaveformPolling = () => {
-  if (waveformPollInterval) return; // Already polling
-  
-  waveformPollInterval = setInterval(async () => {
-    if (props.item.type !== 'audio') {
-      clearInterval(waveformPollInterval!);
-      waveformPollInterval = null;
-      return;
-    }
-    
-    const audioItem = props.item as AudioItem;
-    
-    // Check if waveform is now available
-    if (audioItem.waveform && audioItem.waveform.peaks && audioItem.waveform.peaks.length > 0) {
-      // Waveform loaded, stop polling and redraw
-      clearInterval(waveformPollInterval!);
-      waveformPollInterval = null;
-      nextTick(drawWaveform);
-      return;
-    }
-    
-    // Try to load waveform from file
-    if (window.electronAPI && audioItem.waveformPath) {
-      try {
-        const result = await window.electronAPI.readFile(audioItem.waveformPath);
-        if (result.success && result.data) {
-          const waveformData = JSON.parse(result.data);
-          if (waveformData.peaks && waveformData.peaks.length > 0) {
-            // Find the actual item in the project to ensure reactivity
-            const projectItem = findItemByUuid(audioItem.uuid);
-            if (projectItem && projectItem.type === 'audio') {
-              projectItem.waveform = waveformData;
-              
-              // Update duration from waveform data if available (more accurate than Audio API)
-              if (waveformData.duration && waveformData.duration > 0) {
-                projectItem.duration = waveformData.duration;
-                projectItem.outPoint = waveformData.duration;
-              }
-              
-              // Save the project to persist changes
-              const { saveProject } = useProject();
-              await saveProject();
-            }
-            
-            clearInterval(waveformPollInterval!);
-            waveformPollInterval = null;
-            
-            // Force reactivity update
-            triggerWaveformUpdate();
-            nextTick(drawWaveform);
-            console.log(`Waveform polling found data for ${audioItem.displayName}`);
-          }
-        }
-      } catch (error) {
-        // Silently ignore, will retry on next poll
-      }
-    }
-  }, 2000); // Poll every 2 seconds
-  
-  // Stop polling after 30 seconds
-  setTimeout(() => {
-    if (waveformPollInterval) {
-      clearInterval(waveformPollInterval);
-      waveformPollInterval = null;
-    }
-  }, 30000);
-};
+// NOTE: The old per-item 2-second waveform polling (with saveProject() on
+// every fire) has been removed. With 80+ items in a project that was 80
+// concurrent setIntervals + 80 saveProject calls — the main reason the
+// UI froze on load. Server-owned waveforms now come down with the
+// project document, or via /api/waveform/<cueId> on demand.
+//
+// Likewise the deep-watch on props.item used to redraw the canvas on
+// every reactive change anywhere in the item tree — including volume,
+// inPoint, outPoint, AND any unrelated reactivity bumps. We replace it
+// with shallow watches on the specific fields that change waveform
+// rendering, and skip drawing when the item is not visible.
+watch([
+  () => (props.item as AudioItem | GroupItem).color,
+  () => (props.item as AudioItem).volume,
+  () => (props.item as AudioItem).inPoint,
+  () => (props.item as AudioItem).outPoint,
+  () => (props.item as AudioItem).waveform?.peaks,
+], () => {
+  if (isVisible && props.item.type === 'audio') nextTick(drawWaveform);
+});
 
-watch(() => props.item, () => {
-  if (props.item.type === 'audio') {
-    nextTick(drawWaveform);
-  }
-}, { deep: true });
-
-// Watch for waveform updates
+// Global "redraw all waveforms" trigger — still respected, but no-ops for
+// off-screen items thanks to the visibility check.
 watch(() => waveformUpdateKey.value, () => {
-  if (props.item.type === 'audio') {
-    nextTick(drawWaveform);
-  }
+  if (isVisible && props.item.type === 'audio') nextTick(drawWaveform);
 });
 
 // Calculate playback progress
@@ -519,6 +480,29 @@ const handleStop = () => {
 
 const handleEdit = () => {
   openItemProperties(props.item.uuid);
+};
+
+// ---- Preview (pre-listen) handlers -------------------------------------
+// Preview routes the cue through the configured preview device (typically
+// headphones) without disturbing main project playback. The previewing
+// state is owned by the server (only one preview at a time); the client
+// reads it from useProject().previewItemUuid.
+const { previewItemUuid, startPreview, stopPreview } = useProject();
+const isPreviewing = computed(() =>
+  previewItemUuid.value === props.item.uuid,
+);
+const hasPreviewDevice = computed(() => !!(currentProject.value as any)?.settings?.previewDevice);
+const showProjectSettings = useState('showProjectSettings', () => false);
+const handleStartPreview = () => {
+  if (props.item.type !== 'audio') return;
+  if (!hasPreviewDevice.value) {
+    showProjectSettings.value = true;
+    return;
+  }
+  startPreview(props.item.uuid);
+};
+const handleStopPreview = () => {
+  stopPreview();
 };
 
 const handleSetAsNext = () => {
@@ -898,13 +882,41 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   height: 30px;
 
   &.playing {
-    background-color: var(--color-success);
+    background-color: var(--color-danger);
     color: white;
   }
 
   &.up-next {
     background-color: var(--color-warning);
     color: black;
+  }
+
+  &.preview {
+    background-color: var(--color-success);
+    color: black;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+}
+
+/* Preview button — same general look as other item-btns but visually
+   distinguished when active (headphones lit up). */
+.item-btn.preview {
+  &.no-device {
+    opacity: 0.4;
+  }
+
+  &:not(.no-device):not(.is-active):hover {
+    background-color: var(--color-success);
+    border-color: var(--color-success);
+    color: white;
+  }
+
+  &.is-active {
+    background-color: var(--color-accent);
+    color: white;
+    border-color: var(--color-accent);
   }
 }
 

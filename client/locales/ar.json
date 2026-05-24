@@ -31,23 +31,23 @@
     "subtitle": "تشغيل إشارات الصوت للأحداث المباشرة",
     "newProject": "مشروع جديد",
     "openProject": "فتح مشروع",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
-    "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "modeTitle": "اختيار وضع الخادم",
+    "modeSubtitle": "أين يجب أن يشغّل LivePlay محرك الصوت؟",
+    "localMode": "محلي",
+    "localModeDescription": "تشغيل محرك الصوت على هذا الحاسوب.",
+    "remoteMode": "بعيد",
+    "remoteModeDescription": "الاتصال بخادم LivePlay على الشبكة.",
+    "remoteConnect": "الاتصال بخادم LivePlay",
+    "remoteAddressHint": "أدخل عنوان IP أو اسم المضيف لخادم LivePlay.",
+    "serverAddress": "عنوان الخادم",
+    "serverAddressPlaceholder": "مثال: 192.168.1.10 أو myserver.local",
+    "connect": "اتصال",
+    "connecting": "جاري الاتصال…",
+    "connectionFailed": "تعذّر الاتصال بالخادم",
+    "connectedLocal": "يستخدم الخادم المحلي على هذا الحاسوب",
+    "connectedTo": "متصل بـ {url}",
+    "changeMode": "تغيير",
+    "back": "رجوع"
   },
   "project": {
     "enterName": "أدخل اسم المشروع",
@@ -123,7 +123,15 @@
     "stopFade": "تلاشي عند التوقف",
     "pauseFade": "تلاشي الإيقاف/الاستئناف",
     "crossFade": "تلاشي متقاطع للتالي",
-    "fadeSettings": "إعدادات التلاشي"
+    "fadeSettings": "إعدادات التلاشي",
+    "ltcOutputTimecode": "إخراج كود زمني LTC",
+    "ltcOutputTimecodeHelp": "إرسال كود SMPTE الزمني الخطي إلى جهاز LTC للمشروع أثناء تشغيل هذه الإشارة.",
+    "ltcStartTimecode": "كود زمني ابتدائي",
+    "ltcTimecodeFormat": "استخدم تنسيق HH:MM:SS:FF (مثل 01:00:00:00)",
+    "ltcFrameRate": "معدل الإطارات",
+    "output": "المخرج",
+    "deviceOverride": "جهاز المخرج",
+    "deviceOverrideHelp": "تجاوز المخرج الافتراضي للمشروع لهذا الإشارة. اتركه على 'استخدام إعداد المشروع' للاتباع إعداد المشروع."
   },
   "playback": {
     "panic": "إيقاف جميع الإشارات",
@@ -131,7 +139,8 @@
     "play": "تشغيل",
     "stop": "إيقاف",
     "delete": "حذف",
-    "edit": "تحرير"
+    "edit": "تحرير",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "لا شيء",
@@ -164,7 +173,10 @@
     "resume": "استئناف",
     "edit": "تحرير",
     "remove": "إزالة",
-    "setAsNext": "تعيين كالتالي"
+    "setAsNext": "تعيين كالتالي",
+    "preview": "معاينة على سماعات الرأس",
+    "stopPreview": "إيقاف المعاينة",
+    "previewNoDevice": "لم يتم تكوين جهاز معاينة — انقر لفتح إعدادات المشروع"
   },
   "about": {
     "developedBy": "تم التطوير بواسطة",
@@ -211,7 +223,7 @@
   },
   "translationContributor": {
     "title": "المساهم في الترجمة",
-    "name": "AI Translated with Claude Sonnet 4.5",
+    "name": "AI Translated with Claude Sonnet 4.6",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "قيد التشغيل",
-    "upNext": "التالي"
+    "upNext": "التالي",
+    "previewing": "معاينة"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "إعدادات المشروع",
+    "audioDevice": "جهاز الصوت",
+    "audioDeviceHelp": "الجهاز الافتراضي لتشغيل الإشارات.",
+    "previewDevice": "جهاز المعاينة",
+    "previewDeviceHelp": "الجهاز المستخدم عند معاينة الإشارات بزر سماعات الرأس.",
+    "ltcDevice": "جهاز LTC",
+    "ltcDeviceHelp": "الجهاز المستخدم لإرسال رمز الوقت LTC (اختياري).",
+    "useProjectDefault": "استخدام إعداد المشروع",
+    "noneSelected": "غير محدد",
+    "save": "حفظ",
+    "close": "إغلاق",
+    "preview": "معاينة"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "افتراضي",
+    "loading": "جاري التحميل…",
+    "error": "خطأ"
   }
 }

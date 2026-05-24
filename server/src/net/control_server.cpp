@@ -108,9 +108,10 @@ json cue_to_json(const core::CueMeta& c, audio::AudioEngine& engine) {
     j["fade_in_ms"]    = c.fade_in_ms.count();
     j["fade_out_ms"]   = c.fade_out_ms.count();
     j["ltc"] = json{
-        {"enabled",  c.ltc_enabled},
-        {"fps",      c.ltc_frame_rate_index},
-        {"offset_ns", static_cast<long long>(c.ltc_offset_ns.count())},
+        {"enabled",        c.ltc_enabled},
+        {"fps",            c.ltc_frame_rate_index},
+        {"offset_ns",      static_cast<long long>(c.ltc_offset_ns.count())},
+        {"start_timecode", c.ltc_start_timecode},
     };
     if (auto* item = engine.find_cue(c.id)) {
         const auto s = item->stats();
@@ -161,12 +162,16 @@ void ControlServer::stop() {
 }
 
 // ---------------------------------------------------------------------------
-// Meter broadcaster (~60 fps)
+// Meter broadcaster (~60 fps) + cue_state edge events
 // ---------------------------------------------------------------------------
 void ControlServer::broadcast_loop() {
     using clock = std::chrono::steady_clock;
     const auto period = std::chrono::nanoseconds{
         1'000'000'000LL / static_cast<long long>(std::max<std::size_t>(1, cfg_.meter_broadcast_hz))};
+
+    // Track previous transport state per cue so we can emit cue_state events
+    // exactly once on each transition (rather than every tick).
+    std::unordered_map<std::string, audio::TransportState> prev_transports;
 
     while (running_.load(std::memory_order_acquire)) {
         const auto start = clock::now();
@@ -232,10 +237,32 @@ void ControlServer::broadcast_loop() {
 
         const std::string serialized = payload.dump();
 
-        // Fan out to all subscribed clients.
+        // Detect transport changes and build cue_state edge events.
+        std::vector<std::string> cue_state_events;
+        for (auto& cue : state_.list_cues()) {
+            auto* item = engine_.find_cue(cue.id);
+            const auto current = item
+                ? item->stats().transport
+                : audio::TransportState::Stopped;
+            auto& prev = prev_transports[cue.id.value]; // default → Stopped (0)
+            if (current != prev) {
+                prev = current;
+                json evt;
+                evt["type"]             = "cue_state";
+                evt["cue_id"]           = cue.id.value;
+                evt["transport"]        = static_cast<int>(current);
+                evt["playhead_seconds"] = item ? item->stats().playhead_seconds : 0.0;
+                cue_state_events.push_back(evt.dump());
+            }
+        }
+
+        // Fan out meters + cue_state events to all subscribed clients.
         std::lock_guard lock{impl_->ws_mutex};
         for (auto* c : impl_->ws_clients) {
-            try { c->send_text(serialized); }
+            try {
+                c->send_text(serialized);
+                for (const auto& e : cue_state_events) c->send_text(e);
+            }
             catch (...) { /* connection will be cleaned up by onclose */ }
         }
 
@@ -308,6 +335,15 @@ static void handle_ws_message(crow::websocket::connection& conn,
                     std::chrono::milliseconds{j.value("in_ms", (long long)0)});
                 state.set_cue_fade_out(*cue,
                     std::chrono::milliseconds{j.value("out_ms", (long long)0)});
+            }
+        }
+        else if (type == "seek") {
+            // Low-latency seek over WS. Accepts cue_id or item_uuid + seconds.
+            auto cue = resolve_cue(j);
+            if (cue) {
+                if (auto* pi = engine.find_cue(*cue)) {
+                    pi->seek_seconds(j.value("seconds", 0.0));
+                }
             }
         }
         else if (type == "ping")
@@ -440,11 +476,32 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/api/cues/<string>/ltc").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req, std::string id){
             try {
-                auto j = json::parse(req.body);
-                state_.set_cue_ltc(audio::CueId{id},
-                                   j.value("enabled", false),
-                                   j.value("fps", 4),
-                                   std::chrono::nanoseconds{j.value("offset_ns", (long long)0)});
+                auto j        = json::parse(req.body);
+                const bool enabled = j.value("enabled", false);
+                const int  fps     = j.value("fps", 4);
+                // Accept either a human-readable "HH:MM:SS:FF" start_timecode
+                // or a raw offset_ns (legacy callers). The timecode string takes
+                // priority when present.
+                std::chrono::nanoseconds offset{j.value("offset_ns", (long long)0)};
+                std::string tc_str = j.value("start_timecode", std::string{"00:00:00:00"});
+                if (j.contains("start_timecode") && j["start_timecode"].is_string()) {
+                    // Convert "HH:MM:SS:FF" to nanoseconds using the fps index.
+                    int hh = 0, mm = 0, ss = 0, ff = 0;
+                    static const int kFpsInt[]  = {24, 25, 30, 30, 30};
+                    static const double kFps[]  = {24.0, 25.0, 30000.0/1001.0,
+                                                   30000.0/1001.0, 30.0};
+                    if (std::sscanf(tc_str.c_str(), "%d:%d:%d:%d", &hh, &mm, &ss, &ff) < 4)
+                        std::sscanf(tc_str.c_str(), "%d:%d:%d;%d", &hh, &mm, &ss, &ff);
+                    const int idx = std::clamp(fps, 0, 4);
+                    ff = std::clamp(ff, 0, kFpsInt[idx] - 1);
+                    const long long frames = static_cast<long long>(hh) * 3600LL * kFpsInt[idx]
+                                           + static_cast<long long>(mm) *   60LL * kFpsInt[idx]
+                                           + static_cast<long long>(ss)           * kFpsInt[idx]
+                                           + ff;
+                    const double secs = static_cast<double>(frames) / kFps[idx];
+                    offset = std::chrono::nanoseconds{static_cast<long long>(secs * 1e9)};
+                }
+                state_.set_cue_ltc(audio::CueId{id}, enabled, fps, offset);
                 return json_ok(json({{"ok", true}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
@@ -917,6 +974,38 @@ void ControlServer::install_routes() {
         ([this](int slot){
             state_.clear_cart_slot(slot);
             return json_ok(json({{"ok", true}, {"slot", slot}}));
+        });
+
+    // ---- Preview (DJ-style pre-listening on settings.previewDevice) ----
+    CROW_ROUTE(app, "/api/preview").methods(crow::HTTPMethod::Get)
+        ([this] {
+            const auto item_uuid = state_.current_preview_item_uuid();
+            const auto cue_id    = state_.current_preview_cue_id();
+            return json_ok(json({
+                {"active",   !item_uuid.empty()},
+                {"itemUuid", item_uuid},
+                {"cueId",    cue_id.value},
+            }));
+        });
+    CROW_ROUTE(app, "/api/preview").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                auto j = json::parse(req.body);
+                const std::string uuid = j.value("itemUuid", std::string{});
+                if (uuid.empty()) return json_err(400, "itemUuid required");
+                const bool ok = state_.start_preview(uuid);
+                if (!ok) return json_err(400, "preview could not start (no device, or item not found)");
+                return json_ok(json({
+                    {"ok",      true},
+                    {"itemUuid", uuid},
+                    {"cueId",   state_.current_preview_cue_id().value},
+                }));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+    CROW_ROUTE(app, "/api/preview").methods(crow::HTTPMethod::Delete)
+        ([this] {
+            state_.stop_preview();
+            return json_ok(json({{"ok", true}}));
         });
 
     // ---- Theme + settings patches ----

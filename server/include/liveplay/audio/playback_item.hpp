@@ -121,6 +121,21 @@ public:
     // disable (play to natural EOF). Safe to set while playing.
     void set_out_point_seconds(double seconds) noexcept;
 
+    // Returns true (and clears the flag) if this item finished playing
+    // naturally (reached EOF or out-point, including any configured
+    // fade-out). Returns false if the item was explicitly stopped or
+    // hasn't stopped yet. Called by the ProjectState sequencer thread.
+    bool take_natural_end() noexcept;
+
+    // Current target gain in dB. Used by the sequencer to snapshot a
+    // cue's gain before ducking so it can be restored afterward.
+    float gain_db() const noexcept;
+
+    // Fade out over `dur` and stop, without modifying the stored
+    // fade_out_duration. Used by the crossfade and stop-fade sequencer
+    // so these fades don't disturb the "explicit-stop" fade setting.
+    void stop_with_fade(std::chrono::milliseconds dur);
+
     // Pre-warm the decoder by reading and discarding `seconds` of audio
     // starting from `start_seconds`, then leaving the decoder cursor at
     // `start_seconds` (so a subsequent play() returns to the same point).
@@ -182,6 +197,15 @@ private:
     // triggers the natural-EOF code path (fade-out then Stopped). 0 disables
     // (play to file end).
     std::atomic<std::uint64_t>  out_point_frames_{0};
+
+    // Set to true inside render_block() when the natural-end fade-out
+    // starts (EOF or out-point triggered). Cleared on explicit stop().
+    // When the FadingOut→Stopped transition completes, stopped_naturally_
+    // is set and this flag is cleared.
+    std::atomic<bool> fading_out_naturally_{false};
+    // Set to true when a naturally-initiated fade-out finishes (transport
+    // becomes Stopped). Cleared by take_natural_end() or play().
+    std::atomic<bool> stopped_naturally_{false};
 
     // LTC generator (optional). Built fresh whenever LTC config changes.
     std::unique_ptr<LTCGenerator> ltc_;

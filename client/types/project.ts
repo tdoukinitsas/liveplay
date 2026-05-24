@@ -32,6 +32,10 @@ export interface AudioItem extends BaseItem {
   playFade: number; // fade in duration when playing (default: 0)
   stopFade: number; // fade out duration before end (default: 0)
   crossFade: number; // cross-fade duration to next track (default: 0)
+  // LTC (SMPTE Linear Timecode) output for this cue.
+  ltcEnabled?: boolean;         // output LTC on the project's ltcDevice when playing
+  ltcStartTimecode?: string;    // starting timecode "HH:MM:SS:FF" (default "00:00:00:00")
+  ltcFrameRate?: number;        // 0=24, 1=25, 2=29.97NDF, 3=29.97DF, 4=30 (default 4)
 }
 
 // Waveform data format (from ffmpeg/audiowaveform)
@@ -190,7 +194,7 @@ export const DEFAULT_AUDIO_ITEM: Partial<AudioItem> = {
   endBehavior: { action: 'next' }, // Default: play next item
   startBehavior: { action: 'nothing' },
   customActions: [],
-  duckingBehavior: { 
+  duckingBehavior: {
     mode: 'stop-all', // Default for playlist items: stop all other cues
     duckFadeIn: 0.25,
     duckFadeOut: 1.0
@@ -198,7 +202,10 @@ export const DEFAULT_AUDIO_ITEM: Partial<AudioItem> = {
   fadeOutDuration: 1.0,
   playFade: 0,
   stopFade: 0,
-  crossFade: 0
+  crossFade: 0,
+  ltcEnabled: false,
+  ltcStartTimecode: '00:00:00:00',
+  ltcFrameRate: 4,
 };
 
 // Default for cart items (different from playlist)

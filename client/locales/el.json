@@ -31,23 +31,23 @@
     "subtitle": "Αναπαραγωγή αρχείων ήχου για ζωντανές εκδηλώσεις",
     "newProject": "Νέα Εκδήλωση",
     "openProject": "Άνοιγμα Εκδήλωσης",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
-    "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "modeTitle": "Επιλογή Λειτουργίας Διακομιστή",
+    "modeSubtitle": "Πού να εκτελεί το LivePlay τον κινητήρα ήχου;",
+    "localMode": "Τοπικά",
+    "localModeDescription": "Εκτέλεση του κινητήρα ήχου σε αυτόν τον υπολογιστή.",
+    "remoteMode": "Απομακρυσμένα",
+    "remoteModeDescription": "Σύνδεση σε διακομιστή LivePlay στο δίκτυο.",
+    "remoteConnect": "Σύνδεση στον διακομιστή LivePlay",
+    "remoteAddressHint": "Εισάγετε τη διεύθυνση IP ή το όνομα κεντρικού υπολογιστή του διακομιστή LivePlay.",
+    "serverAddress": "Διεύθυνση Διακομιστή",
+    "serverAddressPlaceholder": "π.χ. 192.168.1.10 ή myserver.local",
+    "connect": "Σύνδεση",
+    "connecting": "Σύνδεση…",
+    "connectionFailed": "Αδυναμία σύνδεσης με τον διακομιστή",
+    "connectedLocal": "Χρήση τοπικού διακομιστή σε αυτόν τον υπολογιστή",
+    "connectedTo": "Συνδεδεμένος με {url}",
+    "changeMode": "Αλλαγή",
+    "back": "Πίσω"
   },
   "project": {
     "enterName": "Εισάγετε το Όνομα της Εκδήλωσης",
@@ -123,7 +123,15 @@
     "stopFade": "Fade Out Διακοπής",
     "pauseFade": "Fade Παύσης/Συνέχισης",
     "crossFade": "Cross-fade στο Επόμενο",
-    "fadeSettings": "Ρυθμίσεις Fade"
+    "fadeSettings": "Ρυθμίσεις Fade",
+    "ltcOutputTimecode": "Έξοδος LTC Timecode",
+    "ltcOutputTimecodeHelp": "Αποστολή SMPTE Linear Timecode στη συσκευή LTC του έργου κατά την αναπαραγωγή αυτής της ένδειξης.",
+    "ltcStartTimecode": "Αρχικό Timecode",
+    "ltcTimecodeFormat": "Χρησιμοποιήστε τη μορφή HH:MM:SS:FF (π.χ. 01:00:00:00)",
+    "ltcFrameRate": "Ρυθμός καρέ",
+    "output": "Έξοδος",
+    "deviceOverride": "Συσκευή εξόδου",
+    "deviceOverrideHelp": "Παράκαμψη της προεπιλεγμένης εξόδου του έργου για αυτή την ένδειξη. Αφήστε στο 'Χρήση προεπιλογής έργου' για να ακολουθεί την ρύθμιση του έργου."
   },
   "playback": {
     "panic": "Σταματημα Όλων",
@@ -131,7 +139,8 @@
     "play": "Αναπαραγωγή",
     "stop": "Σταμάτημα",
     "delete": "Διαγραφή",
-    "edit": "Επεξεργασία"
+    "edit": "Επεξεργασία",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "Τίποτα",
@@ -164,7 +173,10 @@
     "resume": "Συνέχιση",
     "edit": "Επεξεργασία",
     "remove": "Αφαίρεση",
-    "setAsNext": "Ορισμός ως Επόμενο"
+    "setAsNext": "Ορισμός ως Επόμενο",
+    "preview": "Προεπισκόπηση σε ακουστικά",
+    "stopPreview": "Διακοπή προεπισκόπησης",
+    "previewNoDevice": "Δεν έχει διαμορφωθεί συσκευή προεπισκόπησης — κάντε κλικ για να ανοίξετε τις Ρυθμίσεις Εκδήλωσης"
   },
   "about": {
     "developedBy": "Προγραμματισμός και σχεδίαση",
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "Σε αναπαραγωγή",
-    "upNext": "Επόμενο"
+    "upNext": "Επόμενο",
+    "previewing": "Προεπισκόπηση"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "Ρυθμίσεις Εκδήλωσης",
+    "audioDevice": "Συσκευή Ήχου",
+    "audioDeviceHelp": "Προεπιλεγμένη συσκευή για αναπαραγωγή ενδείξεων.",
+    "previewDevice": "Συσκευή Προεπισκόπησης",
+    "previewDeviceHelp": "Συσκευή που χρησιμοποιείται κατά την προεπισκόπηση ενδείξεων με το κουμπί ακουστικών.",
+    "ltcDevice": "Συσκευή LTC",
+    "ltcDeviceHelp": "Συσκευή για αποστολή LTC timecode (προαιρετικό).",
+    "useProjectDefault": "Χρήση προεπιλογής εκδήλωσης",
+    "noneSelected": "Δεν επιλέχθηκε",
+    "save": "Αποθήκευση",
+    "close": "Κλείσιμο",
+    "preview": "Προεπισκόπηση"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "προεπιλογή",
+    "loading": "Φόρτωση…",
+    "error": "Σφάλμα"
   }
 }

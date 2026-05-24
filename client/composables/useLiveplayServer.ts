@@ -90,6 +90,16 @@ function createClient() {
     return () => metersSubscribers.delete(cb);
   }
 
+  // Subscribers for cue transport-state transitions emitted by the server.
+  // Payload: { cue_id, transport (0=Stopped,1=Playing,2=FadingIn,3=FadingOut), playhead_seconds }
+  type CueStatePayload = { cue_id: string; transport: number; playhead_seconds: number };
+  type CueStateSubscriber = (s: CueStatePayload) => void;
+  const cueStateSubscribers = new Set<CueStateSubscriber>();
+  function onCueState(cb: CueStateSubscriber): () => void {
+    cueStateSubscribers.add(cb);
+    return () => cueStateSubscribers.delete(cb);
+  }
+
   // ---- WebSocket ----------------------------------------------------
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -172,6 +182,8 @@ function createClient() {
               playhead_seconds: payload.playhead_seconds,
             };
           }
+          // Notify subscribers (e.g. useAudioEngine cleans up activeCues on stop).
+          for (const cb of cueStateSubscribers) cb(payload as CueStatePayload);
           break;
         }
         case 'pong':
@@ -329,7 +341,16 @@ function createClient() {
   // and inPoint semantics on the server side).
   function playItem(uuid: string)  { wsSend({ type: 'play', item_uuid: uuid }); }
   function stopItem(uuid: string)  { wsSend({ type: 'stop', item_uuid: uuid }); }
-  async function seekItem(uuid: string, seconds: number) {
+  // Low-latency seek over the WebSocket so scrub bars feel responsive. The
+  // REST endpoint is still available for callers that want a guaranteed
+  // ack (mostly tooling) — see seekItemREST below.
+  function seekItem(uuid: string, seconds: number) {
+    wsSend({ type: 'seek', item_uuid: uuid, seconds });
+  }
+  function seekCueId(cueId: string, seconds: number) {
+    wsSend({ type: 'seek', cue_id: cueId, seconds });
+  }
+  async function seekItemREST(uuid: string, seconds: number) {
     return rest<any>(`/api/project/items/${encodeURIComponent(uuid)}/seek`, {
       method: 'POST',
       body: JSON.stringify({ seconds }),
@@ -345,6 +366,20 @@ function createClient() {
   }
   async function clearCartSlot(slot: number) {
     return rest<any>(`/api/project/cart/${slot}`, { method: 'DELETE' });
+  }
+
+  // Preview (DJ-style pre-listening on settings.previewDevice).
+  async function startPreview(itemUuid: string) {
+    return rest<any>('/api/preview', {
+      method: 'POST',
+      body: JSON.stringify({ itemUuid }),
+    });
+  }
+  async function stopPreview() {
+    return rest<any>('/api/preview', { method: 'DELETE' });
+  }
+  async function fetchPreviewState() {
+    return rest<{ active: boolean; itemUuid: string }>('/api/preview');
   }
 
   // Theme + settings shallow-merge patches.
@@ -492,6 +527,7 @@ function createClient() {
     disconnect,
     destroy,
     onMeters,
+    onCueState,
 
     // transport
     play,
@@ -544,6 +580,8 @@ function createClient() {
     playItem,
     stopItem,
     seekItem,
+    seekCueId,
+    seekItemREST,
 
     // cart bindings
     setCartSlot,
@@ -552,5 +590,10 @@ function createClient() {
     // theme + settings
     patchTheme,
     patchSettings,
+
+    // preview
+    startPreview,
+    stopPreview,
+    fetchPreviewState,
   });
 }

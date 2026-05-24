@@ -55,6 +55,41 @@ export const useProject = () => {
     'useProject.audioLoadingProgress',
     () => ({ loading: false, loaded: 0, total: 0 }),
   );
+  // Server-owned preview state: at most one item is "being previewed" at a
+  // time (DJ pre-listen on settings.previewDevice). Empty string = no
+  // preview active. The server updates this; the client mirrors it for UI.
+  const previewItemUuid = useState<string>('useProject.previewItemUuid', () => '');
+  // Engine cue ID for the active preview — needed to subscribe to its meter
+  // stream and drive the seek bar / playhead time in the preview card.
+  const previewCueId = useState<string>('useProject.previewCueId', () => '');
+
+  // ---- Preview controls (delegate to server) ----------------------------
+  async function startPreview(itemUuid: string) {
+    if (!itemUuid) return;
+    const server = useLiveplayServer();
+    try {
+      const res = await server.startPreview(itemUuid);
+      previewItemUuid.value = itemUuid;
+      previewCueId.value = (res as any)?.cueId ?? '';
+    } catch (e) {
+      console.warn('[useProject] startPreview failed:', e);
+      // Refresh authoritative state from the server.
+      try {
+        const s = await server.fetchPreviewState();
+        previewItemUuid.value = s.itemUuid || '';
+        previewCueId.value = (s as any).cueId ?? '';
+      }
+      catch { /* ignore */ }
+    }
+  }
+  async function stopPreview() {
+    const server = useLiveplayServer();
+    try {
+      await server.stopPreview();
+    } catch { /* ignore */ }
+    previewItemUuid.value = '';
+    previewCueId.value = '';
+  }
 
   // Force UI update for waveforms
   const triggerWaveformUpdate = () => {
@@ -178,6 +213,10 @@ export const useProject = () => {
   };
 
   // Open an existing project (path is on the server's filesystem).
+  // UX: we show the central spinner only while waiting on the HTTP round-trip.
+  // The moment the document arrives, the spinner is hidden so Vue can paint
+  // the playlist. Background audio loading is reflected in the corner
+  // AudioLoadProgress banner — *not* the full-screen modal.
   const openProject = async (projectFilePath: string): Promise<boolean> => {
     isLoading.value = true;
     loadingMessage.value = 'Loading project…';
@@ -187,9 +226,18 @@ export const useProject = () => {
         try { server.connect(); } catch { /* noop */ }
       }
 
+      const doc = await server.loadProjectFromPath(projectFilePath);
+
+      // 1) Hide the central spinner IMMEDIATELY — we already have the
+      //    document. Vue will start rendering the (potentially large)
+      //    playlist next; the corner banner takes over for the audio-
+      //    mirror phase that still runs on the server.
+      isLoading.value = false;
+
+      // 2) Hand the document to Vue. Under the hydrating flag so the
+      //    diff-watcher doesn't echo the assignment back to the server.
       isHydrating.value = true;
       try {
-        const doc = await server.loadProjectFromPath(projectFilePath);
         applyServerDocument(doc);
       } finally {
         isHydrating.value = false;
@@ -202,17 +250,14 @@ export const useProject = () => {
       const cartOnly = currentProject.value?.cartOnlyItems ?? [];
       for (const item of cartOnly) addCartOnlyItem(item);
 
-      // The document landed in milliseconds — but audio cues finish loading
-      // on the server *after* the response returns. Hide the modal screen
-      // and instead surface a progress indicator on a corner of the UI by
-      // polling /api/project/progress. The user can interact with non-audio
-      // controls immediately.
+      // 3) Surface the audio-loading progress as a corner indicator.
       void pollLoadingProgress(server);
       return true;
     } catch (error) {
       console.error('Error opening project:', error);
       return false;
     } finally {
+      // Defensive — should already be false at this point on success.
       isLoading.value = false;
     }
   };
@@ -430,164 +475,175 @@ export const useProject = () => {
   };
 
   // ----------------------------------------------------------------------
-  // Local→server sync. Diff-based: only the sections that actually changed
-  // get pushed, and they go through *targeted* endpoints (PATCH theme, PATCH
-  // settings, individual item updates) rather than re-sending the whole
-  // document. The previous bulk-PUT approach made every keystroke in the
-  // settings modal re-send the entire project, which (a) saturated the
-  // WebSocket on large projects and (b) caused the server to re-mirror
-  // every cue into the engine on every change.
+  // Local→server sync. Targeted watchers per top-level section, so settings
+  // / theme changes don't pay the cost of walking the entire items tree.
   // ----------------------------------------------------------------------
-  const toJSON = (v: any): any => JSON.parse(JSON.stringify(v));
+  const toJSON = (v: any): any => v == null ? null : JSON.parse(JSON.stringify(v));
   const stableJson = (v: any): string => JSON.stringify(v ?? null);
 
   if (import.meta.client) {
-    let syncTimer: ReturnType<typeof setTimeout> | null = null;
-    // Snapshot of the last-synced state, used as the diff base.
-    let lastSynced: any = null;
+    // Per-section debounced sync timers.
+    let itemsTimer:    ReturnType<typeof setTimeout> | null = null;
+    let cartTimer:     ReturnType<typeof setTimeout> | null = null;
+    let themeTimer:    ReturnType<typeof setTimeout> | null = null;
+    let settingsTimer: ReturnType<typeof setTimeout> | null = null;
+    // Diff baselines per section. Each is a plain (proxy-stripped) snapshot
+    // of the section as it last left this client. Reset on hydrate.
+    let lastItems:    any = null;
+    let lastCart:     any = null;
+    let lastCartOnly: any = null;
+    let lastTheme:    any = null;
+    let lastSettings: any = null;
 
-    // After a hydrate (open/create), set the diff base from the freshly
-    // loaded document so the first watcher fire doesn't trigger spurious
-    // pushes.
+    // After hydrate, capture per-section baselines so the per-section
+    // watchers don't fire spuriously on the assignment.
     watch(isHydrating, (h) => {
       if (h) return;
-      lastSynced = currentProject.value ? toJSON(currentProject.value) : null;
+      const p = currentProject.value;
+      lastItems    = toJSON(p?.items);
+      lastCart     = toJSON(p?.cartItems);
+      lastCartOnly = toJSON(p?.cartOnlyItems);
+      lastTheme    = toJSON(p?.theme);
+      lastSettings = toJSON((p as any)?.settings);
     });
 
-    watch(currentProject, (p) => {
-      if (!p || isHydrating.value) return;
-      if (syncTimer) clearTimeout(syncTimer);
-      syncTimer = setTimeout(() => syncDiff(toJSON(p)).catch(err => {
-        // eslint-disable-next-line no-console
-        console.warn('[useProject] sync failed:', err);
-      }), 250);
+    const server = () => useLiveplayServer();
+
+    // ---- Theme ----
+    watch(() => currentProject.value?.theme, () => {
+      if (isHydrating.value || !currentProject.value) return;
+      if (themeTimer) clearTimeout(themeTimer);
+      themeTimer = setTimeout(async () => {
+        const next = toJSON(currentProject.value?.theme);
+        if (stableJson(next) === stableJson(lastTheme)) return;
+        lastTheme = next;
+        try { await server().patchTheme(next ?? {}); }
+        catch (e) { console.warn('[useProject] patchTheme failed:', e); }
+      }, 250);
     }, { deep: true });
 
-    async function syncDiff(next: any) {
-      const server = useLiveplayServer();
-      if (!server.connected) return;
-      if (!lastSynced) {
-        // No baseline yet — adopt this as the baseline silently.
-        lastSynced = next;
-        return;
-      }
+    // ---- Settings ----
+    watch(() => (currentProject.value as any)?.settings, () => {
+      if (isHydrating.value || !currentProject.value) return;
+      if (settingsTimer) clearTimeout(settingsTimer);
+      settingsTimer = setTimeout(async () => {
+        const next = toJSON((currentProject.value as any)?.settings);
+        if (stableJson(next) === stableJson(lastSettings)) return;
+        lastSettings = next;
+        try { await server().patchSettings(next ?? {}); }
+        catch (e) { console.warn('[useProject] patchSettings failed:', e); }
+      }, 250);
+    }, { deep: true });
 
-      // Top-level keys we treat as "small" and patch directly. Everything
-      // else falls into the items/cart granular paths.
-      const TARGETED_KEYS = ['theme', 'settings'] as const;
-      for (const k of TARGETED_KEYS) {
-        if (stableJson(next[k]) === stableJson(lastSynced[k])) continue;
-        try {
-          if (k === 'theme')    await server.patchTheme(next.theme ?? {});
-          if (k === 'settings') await server.patchSettings(next.settings ?? {});
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.warn(`[useProject] patch ${k} failed:`, e);
+    // ---- Cart slot bindings ----
+    watch(() => currentProject.value?.cartItems, () => {
+      if (isHydrating.value || !currentProject.value) return;
+      if (cartTimer) clearTimeout(cartTimer);
+      cartTimer = setTimeout(async () => {
+        const next = toJSON(currentProject.value?.cartItems) ?? [];
+        if (stableJson(next) === stableJson(lastCart)) return;
+        const prev = lastCart ?? [];
+        lastCart = next;
+        const cartByPrev = new Map<number, string>();
+        const cartByCurr = new Map<number, string>();
+        for (const c of prev)  if (typeof c?.slot === 'number') cartByPrev.set(c.slot, c.itemUuid ?? '');
+        for (const c of next)  if (typeof c?.slot === 'number') cartByCurr.set(c.slot, c.itemUuid ?? '');
+        for (const [slot] of cartByPrev) {
+          if (!cartByCurr.has(slot)) { try { await server().clearCartSlot(slot); } catch {} }
         }
-      }
+        for (const [slot, uuid] of cartByCurr) {
+          if (cartByPrev.get(slot) !== uuid) { try { await server().setCartSlot(slot, uuid); } catch {} }
+        }
+      }, 250);
+    }, { deep: true });
 
-      // Items diff: flatten both sides into uuid→item maps, then push the
-      // minimum set of add / update / delete calls. Reorders fall out as a
-      // single reorder-call per affected parent.
-      const flatten = (root: any): Map<string, { item: any, parentUuid: string }> => {
-        const m = new Map<string, any>();
-        const walk = (arr: any[], parentUuid: string) => {
-          if (!Array.isArray(arr)) return;
-          for (const it of arr) {
-            if (!it || typeof it !== 'object') continue;
-            const u = it.uuid;
-            if (!u) continue;
-            m.set(u, { item: it, parentUuid });
-            if (it.type === 'group' && Array.isArray(it.children)) {
-              walk(it.children, u);
-            }
-          }
-        };
-        walk(root.items ?? [], '');
-        // Cart-only items are flat — treat them as top-level for diff purposes.
-        walk(root.cartOnlyItems ?? [], '');
-        return m;
+    // ---- Items + cart-only items (structural / per-item property changes) ----
+    // The watcher only fires when the items array or cart-only items array
+    // actually changes. We diff against `lastItems`/`lastCartOnly` to push
+    // a minimal set of add/update/remove calls.
+    const scheduleItemsDiff = () => {
+      if (isHydrating.value || !currentProject.value) return;
+      if (itemsTimer) clearTimeout(itemsTimer);
+      itemsTimer = setTimeout(() => syncItemsDiff().catch(e =>
+        console.warn('[useProject] items diff failed:', e)
+      ), 300);
+    };
+    watch(() => currentProject.value?.items,         scheduleItemsDiff, { deep: true });
+    watch(() => currentProject.value?.cartOnlyItems, scheduleItemsDiff, { deep: true });
+
+    const flatten = (items: any[] | null | undefined,
+                     cartOnly: any[] | null | undefined) => {
+      const m = new Map<string, { item: any; parentUuid: string }>();
+      const walk = (arr: any[] | null | undefined, parentUuid: string) => {
+        if (!Array.isArray(arr)) return;
+        for (const it of arr) {
+          if (!it || typeof it !== 'object') continue;
+          const u = it.uuid;
+          if (!u) continue;
+          m.set(u, { item: it, parentUuid });
+          if (it.type === 'group' && Array.isArray(it.children)) walk(it.children, u);
+        }
       };
+      walk(items, '');
+      walk(cartOnly, '');
+      return m;
+    };
 
-      const prev = flatten(lastSynced);
-      const curr = flatten(next);
+    async function syncItemsDiff() {
+      const srv = server();
+      if (!srv.connected) return;
+      const p = currentProject.value;
+      if (!p) return;
+      const nextItems    = toJSON(p.items)         ?? [];
+      const nextCartOnly = toJSON(p.cartOnlyItems) ?? [];
 
-      // Deletions
+      const items_changed    = stableJson(nextItems)    !== stableJson(lastItems);
+      const cartonly_changed = stableJson(nextCartOnly) !== stableJson(lastCartOnly);
+      if (!items_changed && !cartonly_changed) return;
+
+      const prev = flatten(lastItems, lastCartOnly);
+      const curr = flatten(nextItems, nextCartOnly);
+
+      // Rotate baselines BEFORE awaiting any API calls so a subsequent
+      // watcher fire while we're mid-sync sees the new baseline.
+      lastItems    = nextItems;
+      lastCartOnly = nextCartOnly;
+
       for (const [uuid] of prev) {
-        if (!curr.has(uuid)) {
-          try { await server.removeProjectItem(uuid); } catch {}
-        }
+        if (!curr.has(uuid)) { try { await srv.removeProjectItem(uuid); } catch {} }
       }
-      // Additions
       for (const [uuid, { item, parentUuid }] of curr) {
-        if (!prev.has(uuid)) {
-          try { await server.addProjectItem(item, parentUuid); } catch {}
-        }
+        if (!prev.has(uuid)) { try { await srv.addProjectItem(item, parentUuid); } catch {} }
       }
-      // Updates — push a patch for items whose JSON changed.
       for (const [uuid, { item }] of curr) {
         const before = prev.get(uuid);
-        if (!before) continue;        // was new — already handled by Add
+        if (!before) continue;
         if (stableJson(before.item) === stableJson(item)) continue;
-        try { await server.updateProjectItem(uuid, item); } catch {}
+        try { await srv.updateProjectItem(uuid, item); } catch {}
       }
-
-      // Cart-slot bindings — diff the top-level `cartItems` array.
-      const cartByPrev = new Map<number, string>();
-      const cartByCurr = new Map<number, string>();
-      for (const c of (lastSynced.cartItems ?? [])) {
-        if (typeof c?.slot === 'number') cartByPrev.set(c.slot, c.itemUuid ?? '');
-      }
-      for (const c of (next.cartItems ?? [])) {
-        if (typeof c?.slot === 'number') cartByCurr.set(c.slot, c.itemUuid ?? '');
-      }
-      // Cleared slots
-      for (const [slot] of cartByPrev) {
-        if (!cartByCurr.has(slot)) { try { await server.clearCartSlot(slot); } catch {} }
-      }
-      // Added / changed bindings
-      for (const [slot, uuid] of cartByCurr) {
-        if (cartByPrev.get(slot) !== uuid) {
-          try { await server.setCartSlot(slot, uuid); } catch {}
-        }
-      }
-
-      // Fallback for top-level keys we don't have a granular endpoint for
-      // yet (hotkey bindings, name, lastModified, ...). Only triggers if one
-      // of them actually changed — common-path edits (settings/theme/items/
-      // cart) never reach this branch.
-      const HANDLED = new Set([
-        'theme', 'settings', 'items', 'cartItems', 'cartOnlyItems',
-        // ignored-by-sync because they're either server-decorated or
-        // updated as a side effect of other changes
-        'server', 'lastModified',
-      ]);
-      const fallback_keys: string[] = [];
-      for (const k of Object.keys(next)) {
-        if (HANDLED.has(k)) continue;
-        if (stableJson(next[k]) !== stableJson(lastSynced[k])) {
-          fallback_keys.push(k);
-        }
-      }
-      // Also catch deletions of top-level keys.
-      for (const k of Object.keys(lastSynced)) {
-        if (HANDLED.has(k) || k in next) continue;
-        fallback_keys.push(k);
-      }
-      if (fallback_keys.length > 0) {
-        try {
-          // For now use the full-document PUT for unhandled keys. This
-          // remains heavy but only fires for rare edits like hotkey
-          // bindings — not for every settings change.
-          await server.replaceProjectDocument(next);
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.warn('[useProject] fallback PUT failed for', fallback_keys, e);
-        }
-      }
-
-      lastSynced = next;
     }
+
+    // ---- Fallback for keys without granular endpoints ----
+    // Only fires when one of the specific "no-endpoint-yet" fields changes
+    // (hotkey bindings, project name). Critically does NOT fire on items
+    // / settings / theme — those have targeted watchers above.
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    watch([
+      () => (currentProject.value as any)?.cartSlotKeys,
+      () => (currentProject.value as any)?.playbackKeys,
+      () => currentProject.value?.name,
+    ], () => {
+      if (isHydrating.value || !currentProject.value) return;
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      fallbackTimer = setTimeout(async () => {
+        const p = currentProject.value;
+        if (!p) return;
+        // Only push the whole document for these rare fields. The cost is
+        // acceptable here precisely because the trigger fires rarely.
+        try { await server().replaceProjectDocument(toJSON(p)); }
+        catch (e) { console.warn('[useProject] fallback PUT failed:', e); }
+      }, 800);
+    }, { deep: true });
   }
 
   return {
@@ -615,5 +671,9 @@ export const useProject = () => {
     isLoading,
     loadingMessage,
     audioLoadingProgress,
+    previewItemUuid,
+    previewCueId,
+    startPreview,
+    stopPreview,
   };
 };

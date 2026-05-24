@@ -1,6 +1,6 @@
 {
   "name": "liveplay",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "description": "Audio cue playback application for live events",
   "main": "electron/main.js",
   "type": "commonjs",
@@ -117,6 +117,9 @@
         }
       ]
     },
+    "nsis": {
+      "include": "build/installer.nsh"
+    },
     "mac": {
       "target": [
         {
@@ -142,6 +145,31 @@
           "to": "server-bin/liveplay-server"
         }
       ]
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 150,
+          "y": 220,
+          "type": "file"
+        },
+        {
+          "x": 390,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 560,
+          "y": 220,
+          "type": "file",
+          "path": "../server/build/LivePlay Server.app"
+        }
+      ],
+      "window": {
+        "width": 700,
+        "height": 400
+      }
     },
     "linux": {
       "target": [

@@ -26,18 +26,19 @@ inline std::string id_to_string(const audio::DeviceId& id)       { return id.val
 // so nlohmann's adl_serializer can find them for push_back / operator= conversions.
 void to_json(json& j, const CueMeta& m) {
     j = json{
-        {"id",            m.id.value},
-        {"display_name",  m.display_name},
-        {"file_path",     util::path_to_utf8(m.file_path)},
-        {"artist",        m.artist},
-        {"title",         m.title},
-        {"duration_sec",  m.duration_seconds},
-        {"gain_db",       m.gain_db},
-        {"fade_in_ms",    m.fade_in_ms.count()},
-        {"fade_out_ms",   m.fade_out_ms.count()},
-        {"ltc_enabled",   m.ltc_enabled},
-        {"ltc_fps",       m.ltc_frame_rate_index},
-        {"ltc_offset_ns", static_cast<long long>(m.ltc_offset_ns.count())},
+        {"id",                 m.id.value},
+        {"display_name",       m.display_name},
+        {"file_path",          util::path_to_utf8(m.file_path)},
+        {"artist",             m.artist},
+        {"title",              m.title},
+        {"duration_sec",       m.duration_seconds},
+        {"gain_db",            m.gain_db},
+        {"fade_in_ms",         m.fade_in_ms.count()},
+        {"fade_out_ms",        m.fade_out_ms.count()},
+        {"ltc_enabled",        m.ltc_enabled},
+        {"ltc_fps",            m.ltc_frame_rate_index},
+        {"ltc_offset_ns",      static_cast<long long>(m.ltc_offset_ns.count())},
+        {"ltc_start_timecode", m.ltc_start_timecode},
     };
 }
 
@@ -86,18 +87,68 @@ audio::LTCFrameRate fps_index_to_rate(int idx) noexcept {
     }
 }
 
+// Convert a "HH:MM:SS:FF" (or "HH:MM:SS;FF" drop-frame) SMPTE string and a
+// frame-rate index into a nanosecond offset suitable for LTCGenerator::configure().
+// The offset is the timecode value at playhead position zero.
+std::chrono::nanoseconds parse_smpte_timecode_to_ns(const std::string& tc,
+                                                     int fps_index) noexcept {
+    // Integer fps used for frame counting; real fps used for time conversion.
+    static constexpr int    kFpsInt[]  = {24, 25, 30, 30, 30};
+    static constexpr double kFpsReal[] = {24.0, 25.0,
+                                          30000.0 / 1001.0,   // 29.97 NDF
+                                          30000.0 / 1001.0,   // 29.97 DF
+                                          30.0};
+    const int   idx     = std::clamp(fps_index, 0, 4);
+    const int   fps_int = kFpsInt[idx];
+    const double fps    = kFpsReal[idx];
+
+    int hh = 0, mm = 0, ss = 0, ff = 0;
+    // Try both ':' separator (NDF) and ';' separator (DF convention).
+    if (std::sscanf(tc.c_str(), "%d:%d:%d:%d", &hh, &mm, &ss, &ff) < 4)
+        std::sscanf(tc.c_str(), "%d:%d:%d;%d", &hh, &mm, &ss, &ff);
+
+    hh = std::clamp(hh, 0, 23);
+    mm = std::clamp(mm, 0, 59);
+    ss = std::clamp(ss, 0, 59);
+    ff = std::clamp(ff, 0, fps_int - 1);
+
+    const long long total_frames =
+        static_cast<long long>(hh) * 3600LL * fps_int +
+        static_cast<long long>(mm) *   60LL * fps_int +
+        static_cast<long long>(ss)           * fps_int +
+        static_cast<long long>(ff);
+
+    const double seconds = static_cast<double>(total_frames) / fps;
+    return std::chrono::nanoseconds{static_cast<long long>(seconds * 1e9)};
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
 
 ProjectState::ProjectState(audio::AudioEngine& engine) : engine_(engine) {
     document_ = default_empty_document();
+    start_sequencer();
 }
 
 ProjectState::~ProjectState() {
+    stop_sequencer();
     // Make sure any in-flight async mirror finishes before the engine is
     // torn down — otherwise the worker would dereference dangling state.
     if (load_thread_.joinable()) load_thread_.join();
+
+    // Tear down preview infrastructure on shutdown so the audio device gets
+    // released cleanly.
+    if (!preview_cue_.empty()) {
+        engine_.stop(preview_cue_);
+        engine_.unload_cue(preview_cue_);
+    }
+    if (!preview_mixer_.empty()) {
+        engine_.remove_mixer_channel(preview_mixer_);
+    }
+    if (!preview_device_.empty()) {
+        engine_.close_device(preview_device_);
+    }
 }
 
 void ProjectState::start_async_mirror() {
@@ -112,6 +163,10 @@ void ProjectState::start_async_mirror() {
             // Phase 1: snapshot what we need to load under a brief lock.
             std::unordered_map<std::string, std::filesystem::path> wanted;
             std::unordered_set<std::string> cart_uuids;
+            // LTC: per-item settings snapshotted here, device opened between Phase 2/3.
+            struct LtcItemSnap { bool enabled; std::string timecode; int fps_index; };
+            std::unordered_map<std::string, LtcItemSnap> ltc_snaps;
+            std::string ltc_device_name;
             {
                 std::lock_guard lock{mutex_};
                 json& doc = document_;
@@ -136,6 +191,12 @@ void ProjectState::start_async_mirror() {
                     if (!path_str.empty()) {
                         wanted.emplace(uuid, util::utf8_to_path(path_str));
                     }
+                    // Snapshot LTC settings for this item.
+                    ltc_snaps[uuid] = LtcItemSnap{
+                        item.value("ltcEnabled",        false),
+                        item.value("ltcStartTimecode",  std::string{"00:00:00:00"}),
+                        item.value("ltcFrameRate",       4),
+                    };
                 });
                 if (doc.contains("cartItems") && doc["cartItems"].is_array()) {
                     for (const auto& c : doc["cartItems"]) {
@@ -144,6 +205,12 @@ void ProjectState::start_async_mirror() {
                             if (!u.empty()) cart_uuids.insert(u);
                         }
                     }
+                }
+                // Snapshot the project-level LTC output device name.
+                if (doc.contains("settings") && doc["settings"].is_object()) {
+                    const auto& s = doc["settings"];
+                    if (s.contains("ltcDevice") && s["ltcDevice"].is_string())
+                        ltc_device_name = s["ltcDevice"].get<std::string>();
                 }
             }
 
@@ -182,6 +249,18 @@ void ProjectState::start_async_mirror() {
             }
             while (!in_flight.empty()) drain_one();
 
+            // Phase 2.5: ensure the LTC output device is open and has a mixer
+            // allocated BEFORE we take the mutex again in Phase 3. Doing it here
+            // (no lock held) avoids a deadlock because ensure_device_routing()
+            // acquires mutex_ internally.
+            {
+                bool any_ltc_enabled = false;
+                for (auto& [_, ls] : ltc_snaps)
+                    if (ls.enabled) { any_ltc_enabled = true; break; }
+                if (any_ltc_enabled && !ltc_device_name.empty())
+                    ensure_device_routing(ltc_device_name);
+            }
+
             // Phase 3: register results + metadata under lock. Cheap because
             // the heavy I/O is already done — this is just hashtable inserts
             // and a single routing rebuild.
@@ -210,7 +289,7 @@ void ProjectState::start_async_mirror() {
                 engine_.ensure_default_routing();
 
                 // Apply per-item audio properties to the engine cues we just
-                // registered.
+                // registered (including LTC settings).
                 for_each_item(document_,
                     [&](json& it, const std::string&) {
                         if (it.value("type", std::string{}) != "audio") return;
@@ -235,6 +314,36 @@ void ProjectState::start_async_mirror() {
                         }
                         if (it.contains("outPoint") && it["outPoint"].is_number()) {
                             cue->set_out_point_seconds(it["outPoint"].get<double>());
+                        }
+
+                        // LTC: configure on the PlaybackItem and route its
+                        // synthetic channel to the LTC device mixer (which was
+                        // opened in Phase 2.5 and is now in device_routings_).
+                        auto ls_it = ltc_snaps.find(uuid);
+                        if (ls_it != ltc_snaps.end() && ls_it->second.enabled) {
+                            const auto& ls = ls_it->second;
+                            const auto offset = parse_smpte_timecode_to_ns(ls.timecode, ls.fps_index);
+                            cue->set_ltc_enabled(true);
+                            cue->set_ltc_frame_rate(fps_index_to_rate(ls.fps_index));
+                            cue->set_ltc_offset(offset);
+                            // Persist into CueMeta so /api/cues reflects the setting.
+                            auto cm_it = cues_.find(cit->second.value);
+                            if (cm_it != cues_.end()) {
+                                cm_it->second.ltc_enabled           = true;
+                                cm_it->second.ltc_frame_rate_index  = ls.fps_index;
+                                cm_it->second.ltc_offset_ns         = offset;
+                                cm_it->second.ltc_start_timecode    = ls.timecode;
+                            }
+                            // Route the LTC synthetic channel to the LTC device mixer.
+                            if (!ltc_device_name.empty()) {
+                                auto dr_it = device_routings_.find(ltc_device_name);
+                                if (dr_it != device_routings_.end()) {
+                                    const auto ltc_ch = static_cast<audio::ChannelIndex>(
+                                        cue->source_channel_count() - 1);
+                                    engine_.route_item_source_to_mixer(
+                                        cit->second, ltc_ch, dr_it->second.mixer, 0.0f);
+                                }
+                            }
                         }
                     });
             }
@@ -509,7 +618,10 @@ void ProjectState::mirror_items_to_engine_locked() {
         }
     }
 
-    // Apply per-item audio properties (gain/fade/in-out/etc.) to the engine.
+    // Apply per-item audio properties (gain/fade/in-out/LTC/etc.) to the engine.
+    // NOTE: LTC *device routing* is handled separately in apply_ltc_device_routing()
+    // which is called by callers after they release mutex_ (because
+    // ensure_device_routing() also needs to acquire mutex_).
     for_each_item(document_,
         [&](json& item, const std::string& /*parent*/) {
             if (item.value("type", std::string{}) != "audio") return;
@@ -541,6 +653,27 @@ void ProjectState::mirror_items_to_engine_locked() {
                 cue->set_out_point_seconds(item["outPoint"].get<double>());
             } else {
                 cue->set_out_point_seconds(0.0);  // disabled
+            }
+
+            // LTC: configure enabled/rate/offset on the PlaybackItem.
+            // Routing of the synthetic LTC channel to the ltcDevice is done
+            // AFTER this function returns (via apply_ltc_device_routing()).
+            const bool ltc_on = item.value("ltcEnabled", false);
+            const std::string tc_str = item.value("ltcStartTimecode",
+                                                   std::string{"00:00:00:00"});
+            const int fps_idx = item.value("ltcFrameRate", 4);
+            cue->set_ltc_enabled(ltc_on);
+            if (ltc_on) {
+                const auto offset = parse_smpte_timecode_to_ns(tc_str, fps_idx);
+                cue->set_ltc_frame_rate(fps_index_to_rate(fps_idx));
+                cue->set_ltc_offset(offset);
+                auto cm_it = cues_.find(it->second.value);
+                if (cm_it != cues_.end()) {
+                    cm_it->second.ltc_enabled          = true;
+                    cm_it->second.ltc_frame_rate_index = fps_idx;
+                    cm_it->second.ltc_offset_ns        = offset;
+                    cm_it->second.ltc_start_timecode   = tc_str;
+                }
             }
         });
 }
@@ -625,6 +758,47 @@ void ProjectState::set_cue_ltc(const audio::CueId& id, bool enabled, int fps_ind
     it->second.ltc_enabled = enabled;
     it->second.ltc_frame_rate_index = fps_index;
     it->second.ltc_offset_ns = offset;
+}
+
+// ---------------------------------------------------------------------------
+// LTC device routing — called from outside the mutex so ensure_device_routing
+// (which acquires the mutex itself) can safely do its work.
+// ---------------------------------------------------------------------------
+void ProjectState::apply_ltc_device_routing() {
+    // 1. Under a brief lock, gather: the configured LTC device name and the
+    //    list of LTC-enabled cues with their LTC channel index.
+    std::string ltc_device;
+    std::vector<std::pair<audio::CueId, audio::ChannelIndex>> ltc_routes;
+    {
+        std::lock_guard lock{mutex_};
+        if (document_.contains("settings") && document_["settings"].is_object()) {
+            const auto& s = document_["settings"];
+            if (s.contains("ltcDevice") && s["ltcDevice"].is_string())
+                ltc_device = s["ltcDevice"].get<std::string>();
+        }
+        if (!ltc_device.empty()) {
+            for (auto& [uuid, cue_id] : item_uuid_to_cue_) {
+                auto* pi = engine_.find_cue(cue_id);
+                if (!pi || !pi->desc().ltc_enabled) continue;
+                // The LTC synthetic channel is always the last source channel.
+                const auto ltc_ch = static_cast<audio::ChannelIndex>(
+                    pi->source_channel_count() - 1);
+                ltc_routes.push_back({cue_id, ltc_ch});
+            }
+        }
+    }
+
+    if (ltc_device.empty() || ltc_routes.empty()) return;
+
+    // 2. Ensure the LTC device is open and has a mixer (acquires/releases mutex
+    //    internally — safe because we're not holding mutex_ here).
+    const auto ltc_mixer = ensure_device_routing(ltc_device);
+    if (ltc_mixer.empty()) return;
+
+    // 3. Route each LTC channel to the LTC device mixer (engine ops; no mutex
+    //    needed — the engine has its own independent synchronisation).
+    for (auto& [cue_id, ltc_ch] : ltc_routes)
+        engine_.route_item_source_to_mixer(cue_id, ltc_ch, ltc_mixer, 0.0f);
 }
 
 // ---------------------------------------------------------------------------
@@ -756,24 +930,28 @@ json ProjectState::full_document() const {
 
 bool ProjectState::replace_full_document(const json& doc) {
     if (!doc.is_object()) return false;
-    std::lock_guard lock{mutex_};
-    // Unload everything; mirror_items_to_engine_locked rebuilds.
-    for (auto& [_, id] : item_uuid_to_cue_) engine_.unload_cue(id);
-    item_uuid_to_cue_.clear();
-    cues_.clear();
-    document_ = doc;
-    if (!document_.contains("settings")) {
-        document_["settings"] = json{
-            {"defaultOutputDevice", nullptr},
-            {"previewDevice",       nullptr},
-            {"ltcDevice",           nullptr},
-        };
+    {
+        std::lock_guard lock{mutex_};
+        // Unload everything; mirror_items_to_engine_locked rebuilds.
+        for (auto& [_, id] : item_uuid_to_cue_) engine_.unload_cue(id);
+        item_uuid_to_cue_.clear();
+        cues_.clear();
+        document_ = doc;
+        if (!document_.contains("settings")) {
+            document_["settings"] = json{
+                {"defaultOutputDevice", nullptr},
+                {"previewDevice",       nullptr},
+                {"ltcDevice",           nullptr},
+            };
+        }
+        if (!document_.contains("theme")) {
+            document_["theme"] = json{{"mode", "dark"}, {"accentColor", "#DA1E28"}};
+        }
+        project_name_ = document_.value("name", std::string{"Untitled"});
+        mirror_items_to_engine_locked();
     }
-    if (!document_.contains("theme")) {
-        document_["theme"] = json{{"mode", "dark"}, {"accentColor", "#DA1E28"}};
-    }
-    project_name_ = document_.value("name", std::string{"Untitled"});
-    mirror_items_to_engine_locked();
+    // Route LTC channels to the LTC device (needs to run without mutex_).
+    apply_ltc_device_routing();
     return true;
 }
 
@@ -795,6 +973,7 @@ audio::CueId ProjectState::add_item(const json& item, const std::string& parent_
     const std::string uuid = item.value("uuid", std::string{});
     if (uuid.empty()) return {};
 
+    audio::CueId result;
     {
         std::lock_guard lock{mutex_};
         if (parent_uuid.empty()) {
@@ -825,15 +1004,18 @@ audio::CueId ProjectState::add_item(const json& item, const std::string& parent_
         }
         mirror_items_to_engine_locked();
         auto it = item_uuid_to_cue_.find(uuid);
-        if (it != item_uuid_to_cue_.end()) return it->second;
+        if (it != item_uuid_to_cue_.end()) result = it->second;
     }
-    return {};
+    // Route any LTC-enabled items to the LTC device (after releasing mutex_).
+    apply_ltc_device_routing();
+    return result;
 }
 
 bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     if (!patch.is_object()) return false;
-    bool touched = false;
+    bool touched            = false;
     bool media_path_changed = false;
+    bool ltc_changed        = false;
     json* updated_item = nullptr;
     {
         std::lock_guard lock{mutex_};
@@ -841,13 +1023,14 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
             [&](json& it, const std::string& /*parent*/) {
                 if (it.value("uuid", std::string{}) != uuid) return;
                 for (auto& [k, v] : patch.items()) {
-                    if (k == "uuid") continue;   // can't repath via patch
-                    // Detect changes that require re-loading the cue into the
-                    // engine (file changed) vs ones that only need a property
-                    // update.
+                    if (k == "uuid") continue;
                     if (k == "mediaPath" || k == "mediaServerPath" ||
                         k == "mediaFileName") {
                         media_path_changed = true;
+                    }
+                    if (k == "ltcEnabled" || k == "ltcStartTimecode" ||
+                        k == "ltcFrameRate") {
+                        ltc_changed = true;
                     }
                     it[k] = v;
                 }
@@ -855,14 +1038,10 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                 updated_item = &it;
             });
         if (touched && media_path_changed) {
-            // The source file changed — fall back to the full mirror so the
-            // engine cue is reloaded against the new path. This is the
-            // expensive path; the common-case property update (volume,
-            // fades, in/out, behaviours) bypasses it below.
             mirror_items_to_engine_locked();
         } else if (touched && updated_item) {
-            // Cheap path: apply only the audio-engine-visible properties of
-            // this single item to its existing cue. No re-walk, no re-mirror.
+            // Cheap path: apply audio-engine-visible properties to the
+            // existing PlaybackItem without a full mirror walk.
             auto cit = item_uuid_to_cue_.find(uuid);
             if (cit != item_uuid_to_cue_.end()) {
                 if (auto* cue = engine_.find_cue(cit->second)) {
@@ -885,10 +1064,38 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                     if (it.contains("outPoint") && it["outPoint"].is_number()) {
                         cue->set_out_point_seconds(it["outPoint"].get<double>());
                     }
+                    // LTC property update: configure the PlaybackItem in-place.
+                    if (ltc_changed) {
+                        const bool ltc_on = it.value("ltcEnabled", false);
+                        const std::string tc_str = it.value("ltcStartTimecode",
+                                                            std::string{"00:00:00:00"});
+                        const int fps_idx = it.value("ltcFrameRate", 4);
+                        cue->set_ltc_enabled(ltc_on);
+                        if (ltc_on) {
+                            const auto offset = parse_smpte_timecode_to_ns(tc_str, fps_idx);
+                            cue->set_ltc_frame_rate(fps_index_to_rate(fps_idx));
+                            cue->set_ltc_offset(offset);
+                            auto cm_it = cues_.find(cit->second.value);
+                            if (cm_it != cues_.end()) {
+                                cm_it->second.ltc_enabled          = true;
+                                cm_it->second.ltc_frame_rate_index = fps_idx;
+                                cm_it->second.ltc_offset_ns        = offset;
+                                cm_it->second.ltc_start_timecode   = tc_str;
+                            }
+                        } else {
+                            auto cm_it = cues_.find(cit->second.value);
+                            if (cm_it != cues_.end())
+                                cm_it->second.ltc_enabled = false;
+                        }
+                    }
                 }
             }
         }
     }
+    // Route (or re-route) the LTC channel after releasing mutex_ so
+    // ensure_device_routing() can safely acquire it.
+    if (touched && ltc_changed)
+        apply_ltc_device_routing();
     return touched;
 }
 
@@ -1095,7 +1302,13 @@ bool ProjectState::play_item(const std::string& uuid) {
     std::string  ducking_mode  = "stop-all";
     float        duck_level    = 0.2f;
     double       in_point      = 0.0;
-    double       fade_out_dur  = 1.0;          // seconds; matches client default
+    double       out_point     = 0.0;
+    double       fade_out_dur  = 1.0;
+    double       crossfade_sec = 0.0;
+    double       stop_fade_sec = 0.0;
+    std::string  device_override;
+    std::string  start_behavior_action;
+    std::string  start_behavior_target_uuid;
     audio::CueId target_cue;
     std::vector<audio::CueId> other_cues;
 
@@ -1119,28 +1332,42 @@ bool ProjectState::play_item(const std::string& uuid) {
                     it.contains("children")) walk(it["children"]);
             }
         };
-        if (doc.contains("items"))         walk(doc["items"]);
+        if (doc.contains("items"))              walk(doc["items"]);
         if (!found && doc.contains("cartOnlyItems")) walk(doc["cartOnlyItems"]);
 
         if (found) {
-            in_point     = found->value("inPoint", 0.0);
-            fade_out_dur = found->value("fadeOutDuration", 1.0);
+            in_point      = found->value("inPoint",         0.0);
+            out_point     = found->value("outPoint",         0.0);
+            fade_out_dur  = found->value("fadeOutDuration",  1.0);
+            crossfade_sec = found->value("crossFade",        0.0);
+            stop_fade_sec = found->value("stopFade",         0.0);
             if (found->contains("duckingBehavior") &&
                 (*found)["duckingBehavior"].is_object()) {
                 const auto& dk = (*found)["duckingBehavior"];
-                ducking_mode = dk.value("mode", std::string{"stop-all"});
+                ducking_mode = dk.value("mode",      std::string{"stop-all"});
                 duck_level   = dk.value("duckLevel", 0.2f);
+            }
+            if (found->contains("deviceOverride") &&
+                (*found)["deviceOverride"].is_string()) {
+                device_override = (*found)["deviceOverride"].get<std::string>();
+            }
+            if (found->contains("startBehavior") &&
+                (*found)["startBehavior"].is_object()) {
+                const auto& sb = (*found)["startBehavior"];
+                start_behavior_action      = sb.value("action",     std::string{});
+                start_behavior_target_uuid = sb.value("targetUuid", std::string{});
             }
         }
 
-        // Collect every cue id except this one. Filtering "is currently
-        // playing" would also work but stop()/duck on a stopped cue is a
-        // cheap no-op, so we don't bother.
+        // Collect every cue id except this one.
         for (auto& [_, c] : cues_) {
             if (c.id == target_cue) continue;
             other_cues.push_back(c.id);
         }
     }
+
+    // Snapshot original gains for duck-others before applying ducking.
+    std::vector<DuckedEntry> ducks_made;
 
     // Apply ducking to other cues before triggering the new one.
     if (ducking_mode == "stop-all") {
@@ -1158,24 +1385,76 @@ bool ProjectState::play_item(const std::string& uuid) {
         const float lin = std::clamp(duck_level, 0.0f, 1.0f);
         const float db  = (lin <= 0.0001f) ? -120.0f : 20.0f * std::log10(lin);
         for (auto& cid : other_cues) {
-            if (auto* pi = engine_.find_cue(cid)) pi->set_gain_db(db);
+            if (auto* pi = engine_.find_cue(cid)) {
+                ducks_made.push_back({cid, pi->gain_db()});
+                pi->set_gain_db(db);
+            }
         }
     }
     // "no-ducking" → do nothing.
 
-    // Prime the target around the configured in-point so the first read
-    // during playback doesn't pay the disk-cache miss that produces the
-    // crackling at the start of cues. prime() leaves the decoder cursor at
-    // start_seconds, so no extra seek call is needed.
+    // Apply per-cue device routing right before play.
+    if (!device_override.empty()) {
+        const auto mixer = ensure_device_routing(device_override);
+        if (!mixer.empty()) {
+            route_cue_to_mixer(target_cue, mixer);
+        } else {
+            engine_.ensure_default_routing();
+        }
+    } else {
+        std::vector<audio::MixerChannelId> override_mixers;
+        {
+            std::lock_guard lock{mutex_};
+            for (auto& [_, r] : device_routings_) override_mixers.push_back(r.mixer);
+        }
+        if (auto* pi = engine_.find_cue(target_cue)) {
+            const auto src_count = pi->source_channel_count();
+            for (auto& m : override_mixers) {
+                for (audio::ChannelIndex c = 0; c < src_count; ++c) {
+                    engine_.unroute_item_source_from_mixer(target_cue, c, m);
+                }
+            }
+        }
+        engine_.ensure_default_routing();
+    }
+
+    // Look up file duration for sequencer scheduling (from CueMeta).
+    double file_duration = 0.0;
+    {
+        std::lock_guard lock{mutex_};
+        auto cm_it = cues_.find(target_cue.value);
+        if (cm_it != cues_.end()) file_duration = cm_it->second.duration_seconds;
+    }
+
+    // Prime the target around the configured in-point.
     if (auto* pi = engine_.find_cue(target_cue)) {
+        pi->set_out_point_seconds(out_point > 0.0 ? out_point : 0.0);
         pi->prime(2.0, in_point);
     }
     engine_.play(target_cue);
 
-    // Best-effort: warm the *next* cue too (the one after this one in the
-    // playlist). Done asynchronously so play_item returns immediately. The
-    // resolver is tolerant of missing data — if we can't figure out what's
-    // next, we simply don't pre-warm anything.
+    // Register with the sequencer so it can handle end-behaviour, crossfade,
+    // and stop-fade autonomously — even when the client is disconnected.
+    {
+        const double effective_end = (out_point > 0.0) ? out_point : file_duration;
+        SequencedItem si;
+        si.uuid          = uuid;
+        si.cue_id        = target_cue;
+        si.crossfade_sec = crossfade_sec;
+        si.stop_fade_sec = stop_fade_sec;
+        si.effective_end = effective_end;
+        si.ducked        = std::move(ducks_made);
+
+        std::lock_guard slock{sequencer_mutex_};
+        // Remove any prior sequencer entry for this item (re-play case).
+        sequenced_items_.erase(
+            std::remove_if(sequenced_items_.begin(), sequenced_items_.end(),
+                           [&](const SequencedItem& x){ return x.uuid == uuid; }),
+            sequenced_items_.end());
+        sequenced_items_.push_back(std::move(si));
+    }
+
+    // Best-effort: warm the *next* cue so the first read is glitch-free.
     std::string next_uuid;
     {
         std::lock_guard lock{mutex_};
@@ -1189,13 +1468,19 @@ bool ProjectState::play_item(const std::string& uuid) {
             if (it != item_uuid_to_cue_.end()) next_cue = it->second;
         }
         if (next_cue) {
-            // Detach a thread to prime the next cue; we don't need to wait
-            // for it. The thread is short-lived and joins itself.
             std::thread([this, cue = *next_cue]() {
                 if (auto* pi = engine_.find_cue(cue)) pi->prime(2.0);
             }).detach();
         }
     }
+
+    // Handle start-behaviour immediately.
+    if (start_behavior_action == "stop" && !start_behavior_target_uuid.empty()) {
+        stop_item(start_behavior_target_uuid);
+    } else if (start_behavior_action == "play" && !start_behavior_target_uuid.empty()) {
+        play_item(start_behavior_target_uuid);
+    }
+
     return true;
 }
 
@@ -1207,8 +1492,272 @@ bool ProjectState::stop_item(const std::string& uuid) {
         if (it == item_uuid_to_cue_.end()) return false;
         cue = it->second;
     }
+
+    // Remove from sequencer and restore any ducked gains.
+    {
+        std::lock_guard slock{sequencer_mutex_};
+        auto it = std::find_if(sequenced_items_.begin(), sequenced_items_.end(),
+                               [&](const SequencedItem& si){ return si.uuid == uuid; });
+        if (it != sequenced_items_.end()) {
+            for (auto& dk : it->ducked) {
+                if (auto* pi = engine_.find_cue(dk.cue_id))
+                    pi->set_gain_db(dk.original_gain_db);
+            }
+            sequenced_items_.erase(it);
+        }
+    }
+
     engine_.stop(cue);
     return true;
+}
+
+// ---------------------------------------------------------------------------
+// Per-device routing — each cue with a `deviceOverride` is wired through a
+// dedicated mixer + pair of master channels into that specific output
+// device. Items without an override fall through to the engine's default
+// Main mixer (master channels 0/1, default device).
+// ---------------------------------------------------------------------------
+audio::MixerChannelId
+ProjectState::ensure_device_routing(const std::string& device_name) {
+    if (device_name.empty()) return {};
+    {
+        std::lock_guard lock{mutex_};
+        auto it = device_routings_.find(device_name);
+        if (it != device_routings_.end()) return it->second.mixer;
+    }
+
+    // Open device + allocate masters + create mixer (all engine APIs are
+    // independently locked, so we don't hold our own mutex during them).
+    const auto dev = engine_.open_device_by_name(device_name, 2);
+    if (dev.empty()) {
+        Logger::warn("ensure_device_routing: could not open '{}'", device_name);
+        return {};
+    }
+
+    audio::MasterChannelIndex master_l;
+    audio::MasterChannelIndex master_r;
+    {
+        std::lock_guard lock{mutex_};
+        master_l = next_override_master_;
+        master_r = next_override_master_ + 1;
+        next_override_master_ += 2;
+    }
+
+    const auto mixer = engine_.create_mixer_channel(
+        "Output: " + device_name);
+    engine_.assign_master_to_device(master_l, dev, 0);
+    engine_.assign_master_to_device(master_r, dev, 1);
+    engine_.route_mixer_to_master(mixer, master_l);
+    engine_.route_mixer_to_master(mixer, master_r);
+
+    {
+        std::lock_guard lock{mutex_};
+        device_routings_[device_name] = DeviceRouting{
+            dev, mixer, master_l, master_r,
+        };
+    }
+    Logger::info("ensure_device_routing: '{}' → mixer '{}' (masters {}/{})",
+                 device_name, mixer.value, master_l, master_r);
+    return mixer;
+}
+
+void ProjectState::route_cue_to_mixer(const audio::CueId& cue,
+                                      const audio::MixerChannelId& mixer) {
+    auto* pi = engine_.find_cue(cue);
+    if (!pi) return;
+    const auto src_count = pi->source_channel_count();
+
+    // Drop any prior item-to-mixer routes (incl. Main) by walking every
+    // known mixer — the engine doesn't have a "list routes for cue" API, so
+    // we unroute against each mixer we know about. Cheap because the
+    // unroute is a no-op when no route exists.
+    std::vector<audio::MixerChannelId> known_mixers;
+    {
+        std::lock_guard lock{mutex_};
+        for (auto& [_, m] : mixers_) known_mixers.push_back(m.id);
+        for (auto& [_, r] : device_routings_) known_mixers.push_back(r.mixer);
+    }
+    for (const auto& m : known_mixers) {
+        for (audio::ChannelIndex c = 0; c < src_count; ++c) {
+            engine_.unroute_item_source_from_mixer(cue, c, m);
+        }
+    }
+    for (audio::ChannelIndex c = 0; c < std::min<audio::ChannelCount>(2, src_count); ++c) {
+        engine_.route_item_source_to_mixer(cue, c, mixer);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Preview routing — independent playback of a cue through the configured
+// preview device, used for DJ-style pre-listening. The infrastructure
+// (device + mixer + master assignments) is set up lazily on first preview
+// and reused for subsequent ones.
+// ---------------------------------------------------------------------------
+namespace {
+// Master channels reserved for preview output. Picked from the tail of the
+// 32-channel master bus so they don't collide with project routing.
+constexpr audio::MasterChannelIndex kPreviewMasterL = 30;
+constexpr audio::MasterChannelIndex kPreviewMasterR = 31;
+}  // namespace
+
+bool ProjectState::start_preview(const std::string& item_uuid) {
+    if (item_uuid.empty()) return false;
+
+    // 1. Resolve the source file path under the lock.
+    std::filesystem::path file_path;
+    double in_point = 0.0;
+    std::string preview_device_name;
+    {
+        std::lock_guard lock{mutex_};
+        // path
+        for_each_item(document_,
+            [&](json& it, const std::string&) {
+                if (it.value("uuid", std::string{}) != item_uuid) return;
+                std::string s;
+                if (it.contains("mediaServerPath") && it["mediaServerPath"].is_string()) {
+                    s = it["mediaServerPath"].get<std::string>();
+                }
+                if (s.empty() && it.contains("mediaPath") && it["mediaPath"].is_string()) {
+                    const std::string folder = document_.value("folderPath", std::string{});
+                    if (!folder.empty()) {
+                        s = folder;
+                        if (s.back() != '/' && s.back() != '\\') s += '/';
+                    }
+                    s += it["mediaPath"].get<std::string>();
+                }
+                if (!s.empty()) file_path = util::utf8_to_path(s);
+                in_point = it.value("inPoint", 0.0);
+            });
+        // settings.previewDevice
+        if (document_.contains("settings") && document_["settings"].is_object()) {
+            const auto& s = document_["settings"];
+            if (s.contains("previewDevice") && s["previewDevice"].is_string()) {
+                preview_device_name = s["previewDevice"].get<std::string>();
+            }
+        }
+    }
+    if (file_path.empty()) {
+        Logger::warn("preview: item '{}' has no resolvable file path", item_uuid);
+        return false;
+    }
+
+    // 2. Tear down any in-flight preview cleanly. Keep the mixer + device
+    // open if we have them — they're reused below.
+    {
+        audio::CueId prev_cue;
+        {
+            std::lock_guard lock{mutex_};
+            prev_cue = preview_cue_;
+            preview_cue_ = audio::CueId{};
+            preview_item_uuid_.clear();
+        }
+        if (!prev_cue.empty()) {
+            engine_.stop(prev_cue);
+            engine_.unload_cue(prev_cue);
+        }
+    }
+
+    // 3. Ensure preview infrastructure (device open + mixer + master wiring).
+    audio::MixerChannelId preview_mixer;
+    {
+        // If the user changed the preview device since our last setup,
+        // close the old one and start fresh.
+        std::string current_name;
+        audio::DeviceId current_device;
+        audio::MixerChannelId current_mixer;
+        {
+            std::lock_guard lock{mutex_};
+            current_name   = preview_device_name_;
+            current_device = preview_device_;
+            current_mixer  = preview_mixer_;
+        }
+
+        if (preview_device_name.empty()) {
+            Logger::warn("preview: no preview device configured in settings");
+            return false;
+        }
+
+        if (current_name != preview_device_name && !current_device.empty()) {
+            // Close old preview device + mixer.
+            engine_.close_device(current_device);
+            if (!current_mixer.empty()) engine_.remove_mixer_channel(current_mixer);
+            std::lock_guard lock{mutex_};
+            preview_device_ = audio::DeviceId{};
+            preview_mixer_  = audio::MixerChannelId{};
+            preview_device_name_.clear();
+        }
+
+        if (preview_device_.empty()) {
+            // Open the device, create a dedicated "Preview" mixer, wire it.
+            const auto dev = engine_.open_device_by_name(preview_device_name, 2);
+            if (dev.empty()) {
+                Logger::warn("preview: could not open device '{}'", preview_device_name);
+                return false;
+            }
+            const auto mixer = engine_.create_mixer_channel("Preview");
+            engine_.assign_master_to_device(kPreviewMasterL, dev, 0);
+            engine_.assign_master_to_device(kPreviewMasterR, dev, 1);
+            engine_.route_mixer_to_master(mixer, kPreviewMasterL);
+            engine_.route_mixer_to_master(mixer, kPreviewMasterR);
+            {
+                std::lock_guard lock{mutex_};
+                preview_device_      = dev;
+                preview_mixer_       = mixer;
+                preview_device_name_ = preview_device_name;
+                preview_mixer = mixer;
+            }
+        } else {
+            preview_mixer = preview_mixer_;
+        }
+    }
+
+    // 4. Load the file as a fresh engine cue, route it to the preview mixer
+    // ONLY (no auto-routing to Main). prime + play.
+    const auto cue_id = engine_.load_cue_no_route(file_path);
+    if (cue_id.empty()) return false;
+
+    auto* pi = engine_.find_cue(cue_id);
+    if (pi) {
+        engine_.route_item_source_to_mixer(cue_id, 0, preview_mixer);
+        if (pi->source_channel_count() >= 2) {
+            engine_.route_item_source_to_mixer(cue_id, 1, preview_mixer);
+        }
+        pi->prime(2.0, in_point);
+    }
+    engine_.play(cue_id);
+
+    {
+        std::lock_guard lock{mutex_};
+        preview_cue_       = cue_id;
+        preview_item_uuid_ = item_uuid;
+    }
+    Logger::info("preview: started for item '{}' on '{}'", item_uuid, preview_device_name);
+    return true;
+}
+
+bool ProjectState::stop_preview() {
+    audio::CueId cue;
+    {
+        std::lock_guard lock{mutex_};
+        cue = preview_cue_;
+        preview_cue_ = audio::CueId{};
+        preview_item_uuid_.clear();
+    }
+    if (cue.empty()) return false;
+    engine_.stop(cue);
+    engine_.unload_cue(cue);
+    Logger::info("preview: stopped");
+    return true;
+}
+
+std::string ProjectState::current_preview_item_uuid() const {
+    std::lock_guard lock{mutex_};
+    return preview_item_uuid_;
+}
+
+audio::CueId ProjectState::current_preview_cue_id() const {
+    std::lock_guard lock{mutex_};
+    return preview_cue_;
 }
 
 // ---------------------------------------------------------------------------
@@ -1312,9 +1861,10 @@ json ProjectState::upgrade_legacy_document(const json& legacy) const {
         c["gain_db"]       = src.value("gain_db", src.value("volume_db", 0.0));
         c["fade_in_ms"]    = src.value("fade_in_ms",  static_cast<long long>(0));
         c["fade_out_ms"]   = src.value("fade_out_ms", static_cast<long long>(0));
-        c["ltc_enabled"]   = false;
-        c["ltc_fps"]       = 4;
-        c["ltc_offset_ns"] = 0;
+        c["ltc_enabled"]        = false;
+        c["ltc_fps"]            = 4;
+        c["ltc_offset_ns"]      = 0;
+        c["ltc_start_timecode"] = "00:00:00:00";
         out["cues"].push_back(std::move(c));
     };
     if (legacy.contains("carts") && legacy["carts"].is_array()) {
@@ -1416,9 +1966,10 @@ bool ProjectState::load_from_json(const json& doc_in) {
             m.gain_db          = c.value("gain_db", 0.0f);
             m.fade_in_ms  = std::chrono::milliseconds{c.value("fade_in_ms",  (long long)0)};
             m.fade_out_ms = std::chrono::milliseconds{c.value("fade_out_ms", (long long)0)};
-            m.ltc_enabled = c.value("ltc_enabled", false);
-            m.ltc_frame_rate_index = c.value("ltc_fps", 4);
-            m.ltc_offset_ns = std::chrono::nanoseconds{c.value("ltc_offset_ns", (long long)0)};
+            m.ltc_enabled          = c.value("ltc_enabled",        false);
+            m.ltc_frame_rate_index = c.value("ltc_fps",            4);
+            m.ltc_offset_ns        = std::chrono::nanoseconds{c.value("ltc_offset_ns", (long long)0)};
+            m.ltc_start_timecode   = c.value("ltc_start_timecode", std::string{"00:00:00:00"});
             cues_.emplace(m.id.value, std::move(m));
         }
     }
@@ -1536,6 +2087,206 @@ void ProjectState::apply_to_engine_locked() {
             engine_.assign_master_to_device(a.master_channel, a.device, a.hw_channel);
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Sequencer — server-side auto-advance, crossfade, ducking restore
+// ---------------------------------------------------------------------------
+void ProjectState::start_sequencer() {
+    sequencer_running_.store(true, std::memory_order_release);
+    sequencer_thread_ = std::thread([this]{ sequencer_loop(); });
+}
+
+void ProjectState::stop_sequencer() {
+    sequencer_running_.store(false, std::memory_order_release);
+    if (sequencer_thread_.joinable()) sequencer_thread_.join();
+}
+
+void ProjectState::sequencer_loop() {
+    using namespace std::chrono_literals;
+
+    while (sequencer_running_.load(std::memory_order_acquire)) {
+        std::this_thread::sleep_for(50ms);
+        if (!sequencer_running_.load(std::memory_order_acquire)) break;
+
+        struct PendingAction {
+            SequencedItem item;
+            enum class Kind {
+                NaturalEnd,    // take_natural_end() returned true
+                Crossfade,     // start next + fade out current
+                BeginStopFade, // begin fading out (item stays until Stopped)
+                StopFadeEnded, // stop-fade complete → fire end behavior
+                Cleanup,       // cue gone; restore ducking, no end behavior
+            } kind;
+        };
+        std::vector<PendingAction> pending;
+
+        {
+            std::lock_guard slock{sequencer_mutex_};
+            for (auto& si : sequenced_items_) {
+                auto* pi = engine_.find_cue(si.cue_id);
+                if (!pi) {
+                    pending.push_back({si, PendingAction::Kind::Cleanup});
+                    continue;
+                }
+
+                // Natural end takes priority over all timing checks.
+                if (pi->take_natural_end()) {
+                    pending.push_back({si, PendingAction::Kind::NaturalEnd});
+                    continue;
+                }
+
+                // Stop-fade completed (transport settled to Stopped).
+                const auto ts = pi->stats().transport;
+                if (ts == audio::TransportState::Stopped && si.stop_fade_triggered) {
+                    pending.push_back({si, PendingAction::Kind::StopFadeEnded});
+                    continue;
+                }
+
+                // Timing-based triggers only apply when we know the duration.
+                if (si.effective_end <= 0.0) continue;
+                const double pos       = pi->stats().playhead_seconds;
+                const double remaining = si.effective_end - pos;
+
+                if (!si.crossfade_triggered && si.crossfade_sec > 0.0 &&
+                    remaining <= si.crossfade_sec && remaining > 0.0) {
+                    si.crossfade_triggered = true;
+                    pending.push_back({si, PendingAction::Kind::Crossfade});
+                } else if (!si.stop_fade_triggered && si.stop_fade_sec > 0.0 &&
+                           si.crossfade_sec <= 0.0 &&
+                           remaining <= si.stop_fade_sec && remaining > 0.0) {
+                    si.stop_fade_triggered = true;
+                    pending.push_back({si, PendingAction::Kind::BeginStopFade});
+                }
+            }
+
+            // Remove terminal items while the lock is held.
+            for (const auto& p : pending) {
+                const bool terminal =
+                    p.kind == PendingAction::Kind::NaturalEnd  ||
+                    p.kind == PendingAction::Kind::Crossfade   ||
+                    p.kind == PendingAction::Kind::StopFadeEnded ||
+                    p.kind == PendingAction::Kind::Cleanup;
+                if (terminal) {
+                    sequenced_items_.erase(
+                        std::remove_if(sequenced_items_.begin(), sequenced_items_.end(),
+                            [&](const SequencedItem& x){ return x.uuid == p.item.uuid; }),
+                        sequenced_items_.end());
+                }
+                // BeginStopFade items stay until they reach the Stopped state.
+            }
+        }
+
+        // Execute pending actions with the sequencer lock released.
+        for (const auto& p : pending) {
+            switch (p.kind) {
+            case PendingAction::Kind::NaturalEnd:
+            case PendingAction::Kind::StopFadeEnded:
+                handle_item_ended(p.item);
+                break;
+
+            case PendingAction::Kind::Crossfade: {
+                // Restore ducked gains so the new cue's ducking applies fresh.
+                for (const auto& dk : p.item.ducked) {
+                    if (auto* pi = engine_.find_cue(dk.cue_id))
+                        pi->set_gain_db(dk.original_gain_db);
+                }
+                // Fade out the old cue over the crossfade window.
+                if (auto* pi = engine_.find_cue(p.item.cue_id)) {
+                    pi->stop_with_fade(std::chrono::milliseconds{
+                        static_cast<long long>(p.item.crossfade_sec * 1000.0)});
+                }
+                // Start the next cue (it will register itself with the sequencer).
+                std::string next_uuid;
+                {
+                    std::lock_guard lock{mutex_};
+                    next_uuid = resolve_next_item_locked(p.item.uuid);
+                }
+                if (!next_uuid.empty()) play_item(next_uuid);
+                break;
+            }
+
+            case PendingAction::Kind::BeginStopFade:
+                if (auto* pi = engine_.find_cue(p.item.cue_id)) {
+                    pi->stop_with_fade(std::chrono::milliseconds{
+                        static_cast<long long>(p.item.stop_fade_sec * 1000.0)});
+                }
+                break;
+
+            case PendingAction::Kind::Cleanup:
+                for (const auto& dk : p.item.ducked) {
+                    if (auto* pi = engine_.find_cue(dk.cue_id))
+                        pi->set_gain_db(dk.original_gain_db);
+                }
+                break;
+            }
+        }
+    }
+}
+
+void ProjectState::handle_item_ended(const SequencedItem& item) {
+    // Restore ducked gains first so the next item starts with clean levels.
+    for (const auto& dk : item.ducked) {
+        if (auto* pi = engine_.find_cue(dk.cue_id))
+            pi->set_gain_db(dk.original_gain_db);
+    }
+
+    // Read end-behaviour from the document.
+    std::string end_action;
+    std::string target_uuid;
+    int         target_index = -1;
+    {
+        std::lock_guard lock{mutex_};
+        json* found = nullptr;
+        const std::string& uuid = item.uuid;
+        std::function<void(json&)> walk;
+        walk = [&](json& arr) {
+            if (found || !arr.is_array()) return;
+            for (auto& it : arr) {
+                if (found) return;
+                if (!it.is_object()) continue;
+                if (it.value("uuid", std::string{}) == uuid) { found = &it; return; }
+                if (it.value("type", std::string{}) == "group" &&
+                    it.contains("children")) walk(it["children"]);
+            }
+        };
+        json& doc = document_;
+        if (doc.contains("items"))              walk(doc["items"]);
+        if (!found && doc.contains("cartOnlyItems")) walk(doc["cartOnlyItems"]);
+
+        if (found && found->contains("endBehavior") &&
+            (*found)["endBehavior"].is_object()) {
+            const auto& eb = (*found)["endBehavior"];
+            end_action   = eb.value("action",      std::string{});
+            target_uuid  = eb.value("targetUuid",  std::string{});
+            target_index = eb.value("targetIndex", -1);
+        }
+    }
+
+    if (end_action == "loop") {
+        play_item(item.uuid);
+    } else if (end_action == "next") {
+        std::string next_uuid;
+        {
+            std::lock_guard lock{mutex_};
+            next_uuid = resolve_next_item_locked(item.uuid);
+        }
+        if (!next_uuid.empty()) play_item(next_uuid);
+    } else if (end_action == "goto-item" && !target_uuid.empty()) {
+        play_item(target_uuid);
+    } else if (end_action == "goto-index" && target_index >= 0) {
+        std::string idx_uuid;
+        {
+            std::lock_guard lock{mutex_};
+            if (document_.contains("items") && document_["items"].is_array()) {
+                const auto& arr = document_["items"];
+                if (target_index < static_cast<int>(arr.size()))
+                    idx_uuid = arr[target_index].value("uuid", std::string{});
+            }
+        }
+        if (!idx_uuid.empty()) play_item(idx_uuid);
+    }
+    // "nothing" or unrecognized → do nothing.
 }
 
 } // namespace liveplay::core

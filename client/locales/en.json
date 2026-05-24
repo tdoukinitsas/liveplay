@@ -132,6 +132,9 @@
     "basicInfo": "Basic Info",
     "loadingAudioData": "Loading audio data...",
     "playback": "Playback",
+    "output": "Output",
+    "deviceOverride": "Output device",
+    "deviceOverrideHelp": "Override the project's default output for this cue. Leave on 'Use project default' to follow the project setting.",
     "ducking": "Ducking",
     "duckLevel": "Duck Level",
     "trimSilence": "Trim Silence",
@@ -142,7 +145,12 @@
     "stopFade": "Stop Fade Out",
     "pauseFade": "Pause/Resume Fade",
     "crossFade": "Cross-fade to Next",
-    "fadeSettings": "Fade Settings"
+    "fadeSettings": "Fade Settings",
+    "ltcOutputTimecode": "Output LTC Timecode",
+    "ltcOutputTimecodeHelp": "Send SMPTE Linear Timecode to the project's LTC device while this cue plays.",
+    "ltcStartTimecode": "Starting Timecode",
+    "ltcTimecodeFormat": "Use HH:MM:SS:FF format (e.g. 01:00:00:00)",
+    "ltcFrameRate": "Frame Rate"
   },
   "playback": {
     "panic": "Stop All Cues",
@@ -150,7 +158,8 @@
     "play": "Play",
     "stop": "Stop",
     "delete": "Delete",
-    "edit": "Edit"
+    "edit": "Edit",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "Nothing",
@@ -183,7 +192,10 @@
     "resume": "Resume",
     "edit": "Edit",
     "remove": "Remove",
-    "setAsNext": "Set As Next"
+    "setAsNext": "Set As Next",
+    "preview": "Preview on headphones",
+    "stopPreview": "Stop preview",
+    "previewNoDevice": "No preview device configured — click to open Project Settings"
   },
   "about": {
     "developedBy": "Developed by",
@@ -295,6 +307,7 @@
   },
   "status": {
     "playing": "Playing",
-    "upNext": "Up Next"
+    "upNext": "Up Next",
+    "previewing": "Preview"
   }
 }

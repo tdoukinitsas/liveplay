@@ -31,23 +31,23 @@
     "subtitle": "Ljuduppspelning för liveevenemang",
     "newProject": "Nytt projekt",
     "openProject": "Öppna projekt",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
-    "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "modeTitle": "Välj serverläge",
+    "modeSubtitle": "Var ska LivePlay köra ljudmotorn?",
+    "localMode": "Lokal",
+    "localModeDescription": "Kör ljudmotorn på den här datorn.",
+    "remoteMode": "Fjärr",
+    "remoteModeDescription": "Anslut till en LivePlay-server i nätverket.",
+    "remoteConnect": "Anslut till LivePlay-server",
+    "remoteAddressHint": "Ange IP-adressen eller värdnamnet för LivePlay-servern.",
+    "serverAddress": "Serveradress",
+    "serverAddressPlaceholder": "t.ex. 192.168.1.10 eller minserver.local",
+    "connect": "Anslut",
+    "connecting": "Ansluter…",
+    "connectionFailed": "Kunde inte ansluta till servern",
+    "connectedLocal": "Använder lokal server på den här datorn",
+    "connectedTo": "Ansluten till {url}",
+    "changeMode": "Ändra",
+    "back": "Tillbaka"
   },
   "project": {
     "enterName": "Ange projektnamn",
@@ -123,7 +123,15 @@
     "stopFade": "Tona ut vid stopp",
     "pauseFade": "Pausa/återuppta toning",
     "crossFade": "Korsfadning till nästa",
-    "fadeSettings": "Toningsinställningar"
+    "fadeSettings": "Toningsinställningar",
+    "ltcOutputTimecode": "Utmatning av LTC-tidskod",
+    "ltcOutputTimecodeHelp": "Skicka SMPTE linjär tidskod till projektets LTC-enhet medan detta signal spelas upp.",
+    "ltcStartTimecode": "Starttidskod",
+    "ltcTimecodeFormat": "Använd formatet HH:MM:SS:FF (t.ex. 01:00:00:00)",
+    "ltcFrameRate": "Bildfrekvens",
+    "output": "Utgång",
+    "deviceOverride": "Utgångsenhet",
+    "deviceOverrideHelp": "Åsidosätt projektets standardutgång för det här signalet. Lämna på 'Använd projektstandard' för att följa projektinställningen."
   },
   "playback": {
     "panic": "Stoppa alla signaler",
@@ -131,7 +139,8 @@
     "play": "Spela",
     "stop": "Stoppa",
     "delete": "Ta bort",
-    "edit": "Redigera"
+    "edit": "Redigera",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "Ingenting",
@@ -164,7 +173,10 @@
     "resume": "Återuppta",
     "edit": "Redigera",
     "remove": "Ta bort",
-    "setAsNext": "Ange som nästa"
+    "setAsNext": "Ange som nästa",
+    "preview": "Förhandsgranska i hörlurar",
+    "stopPreview": "Stoppa förhandsgranskning",
+    "previewNoDevice": "Ingen förhandsgranskningsenhet konfigurerad — klicka för att öppna Projektinställningar"
   },
   "about": {
     "developedBy": "Utvecklad av",
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "Spelas",
-    "upNext": "Nästa"
+    "upNext": "Nästa",
+    "previewing": "Förhandsgranskning"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "Projektinställningar",
+    "audioDevice": "Ljudenhet",
+    "audioDeviceHelp": "Standardenhet för signaluppspelning.",
+    "previewDevice": "Förhandsgranskningsenhet",
+    "previewDeviceHelp": "Enhet som används vid förhandsgranskning av signaler med hörlursknappen.",
+    "ltcDevice": "LTC-enhet",
+    "ltcDeviceHelp": "Enhet som används för att skicka LTC-tidkod (valfritt).",
+    "useProjectDefault": "Använd projektstandard",
+    "noneSelected": "Ej vald",
+    "save": "Spara",
+    "close": "Stäng",
+    "preview": "Förhandsgranskning"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "standard",
+    "loading": "Laddar…",
+    "error": "Fel"
   }
 }

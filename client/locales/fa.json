@@ -31,23 +31,23 @@
     "subtitle": "پخش سیگنال‌های صوتی برای رویدادهای زنده",
     "newProject": "پروژه جدید",
     "openProject": "باز کردن پروژه",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
-    "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "modeTitle": "انتخاب حالت سرور",
+    "modeSubtitle": "LivePlay موتور صوتی را کجا اجرا کند؟",
+    "localMode": "محلی",
+    "localModeDescription": "اجرای موتور صوتی روی این رایانه.",
+    "remoteMode": "از راه دور",
+    "remoteModeDescription": "اتصال به سرور LivePlay در شبکه.",
+    "remoteConnect": "اتصال به سرور LivePlay",
+    "remoteAddressHint": "آدرس IP یا نام میزبان سرور LivePlay را وارد کنید.",
+    "serverAddress": "آدرس سرور",
+    "serverAddressPlaceholder": "مثلاً 192.168.1.10 یا myserver.local",
+    "connect": "اتصال",
+    "connecting": "در حال اتصال…",
+    "connectionFailed": "اتصال به سرور ممکن نیست",
+    "connectedLocal": "استفاده از سرور محلی روی این رایانه",
+    "connectedTo": "متصل به {url}",
+    "changeMode": "تغییر",
+    "back": "برگشت"
   },
   "project": {
     "enterName": "نام پروژه را وارد کنید",
@@ -123,7 +123,15 @@
     "stopFade": "محو شدن در توقف",
     "pauseFade": "محو شدن مکث/ادامه",
     "crossFade": "محو متقاطع به بعدی",
-    "fadeSettings": "تنظیمات محو شدن"
+    "fadeSettings": "تنظیمات محو شدن",
+    "ltcOutputTimecode": "خروجی کد زمانی LTC",
+    "ltcOutputTimecodeHelp": "ارسال کد زمانی خطی SMPTE به دستگاه LTC پروژه در حین پخش این سیگنال.",
+    "ltcStartTimecode": "کد زمانی شروع",
+    "ltcTimecodeFormat": "از فرمت HH:MM:SS:FF استفاده کنید (مثلاً 01:00:00:00)",
+    "ltcFrameRate": "نرخ فریم",
+    "output": "خروجی",
+    "deviceOverride": "دستگاه خروجی",
+    "deviceOverrideHelp": "خروجی پیش‌فرض پروژه را برای این سیگنال نادیده بگیرید. برای پیروی از تنظیم پروژه، روی 'استفاده از پیش‌فرض پروژه' بگذارید."
   },
   "playback": {
     "panic": "توقف همه سیگنال‌ها",
@@ -131,7 +139,8 @@
     "play": "پخش",
     "stop": "توقف",
     "delete": "حذف",
-    "edit": "ویرایش"
+    "edit": "ویرایش",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "هیچ",
@@ -164,7 +173,10 @@
     "resume": "ادامه",
     "edit": "ویرایش",
     "remove": "حذف",
-    "setAsNext": "تنظیم به عنوان بعدی"
+    "setAsNext": "تنظیم به عنوان بعدی",
+    "preview": "پیش‌نمایش روی هدفون",
+    "stopPreview": "توقف پیش‌نمایش",
+    "previewNoDevice": "دستگاه پیش‌نمایش تنظیم نشده — برای باز کردن تنظیمات پروژه کلیک کنید"
   },
   "about": {
     "developedBy": "توسعه یافته توسط",
@@ -211,7 +223,7 @@
   },
   "translationContributor": {
     "title": "همکار ترجمه",
-    "name": "AI Translated with Claude Sonnet 4.5",
+    "name": "AI Translated with Claude Sonnet 4.6",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "در حال پخش",
-    "upNext": "بعدی"
+    "upNext": "بعدی",
+    "previewing": "پیش‌نمایش"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "تنظیمات پروژه",
+    "audioDevice": "دستگاه صوتی",
+    "audioDeviceHelp": "دستگاه پیش‌فرض برای پخش سیگنال.",
+    "previewDevice": "دستگاه پیش‌نمایش",
+    "previewDeviceHelp": "دستگاهی که هنگام پیش‌نمایش سیگنال با دکمه هدفون استفاده می‌شود.",
+    "ltcDevice": "دستگاه LTC",
+    "ltcDeviceHelp": "دستگاه مورد استفاده برای ارسال LTC timecode (اختیاری).",
+    "useProjectDefault": "استفاده از پیش‌فرض پروژه",
+    "noneSelected": "انتخاب نشده",
+    "save": "ذخیره",
+    "close": "بستن",
+    "preview": "پیش‌نمایش"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "پیش‌فرض",
+    "loading": "در حال بارگذاری…",
+    "error": "خطا"
   }
 }

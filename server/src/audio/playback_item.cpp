@@ -160,6 +160,11 @@ void PlaybackItem::play() {
     const TransportState st = transport_.load(std::memory_order_acquire);
     if (st == TransportState::Playing || st == TransportState::FadingIn) return;
 
+    // Reset natural-end flags so take_natural_end() doesn't fire for a
+    // stale previous play on this same item.
+    stopped_naturally_.store(false, std::memory_order_release);
+    fading_out_naturally_.store(false, std::memory_order_release);
+
     // Begin a fade-in if configured; otherwise jump straight to full gain.
     const auto fade = desc_.fade_in_duration;
     if (fade.count() > 0) {
@@ -176,7 +181,18 @@ void PlaybackItem::play() {
 
 void PlaybackItem::stop() {
     const TransportState st = transport_.load(std::memory_order_acquire);
-    if (st == TransportState::Stopped || st == TransportState::FadingOut) return;
+    if (st == TransportState::Stopped) return;
+    if (st == TransportState::FadingOut) {
+        // Honour an explicit stop even when the item is already fading naturally
+        // (e.g. reached its out-point). Cutting it immediately prevents audible
+        // overlap with the next item that is about to start.
+        stop_now();
+        return;
+    }
+
+    // User-initiated stop: cancel natural-end tracking so the sequencer
+    // doesn't auto-advance after this explicit stop.
+    fading_out_naturally_.store(false, std::memory_order_release);
 
     const auto fade = desc_.fade_out_duration;
     if (fade.count() > 0) {
@@ -191,6 +207,8 @@ void PlaybackItem::stop() {
 }
 
 void PlaybackItem::stop_now() {
+    stopped_naturally_.store(false, std::memory_order_release);
+    fading_out_naturally_.store(false, std::memory_order_release);
     transport_.store(TransportState::Stopped, std::memory_order_release);
     gain_current_linear_.store(gain_target_linear_.load(), std::memory_order_release);
     fade_duration_samples_.store(0, std::memory_order_relaxed);
@@ -433,6 +451,11 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
                 transport_.store(TransportState::Playing, std::memory_order_release);
             } else {  // FadingOut
                 transport_.store(TransportState::Stopped, std::memory_order_release);
+                // If this fade was triggered by natural EOF/out-point,
+                // signal the sequencer so it can auto-advance.
+                if (fading_out_naturally_.exchange(false, std::memory_order_acq_rel)) {
+                    stopped_naturally_.store(true, std::memory_order_release);
+                }
             }
         } else {
             gain_current_linear_.store(gain_end, std::memory_order_release);
@@ -488,17 +511,43 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
         // the same fade-out logic so transport semantics are consistent
         // regardless of how playback terminated.
         if (transport_.load(std::memory_order_acquire) != TransportState::FadingOut) {
+            fading_out_naturally_.store(true, std::memory_order_release);
             const auto fade = desc_.fade_out_duration;
             if (fade.count() > 0) {
                 start_fade(gain_current_linear_.load(), 0.0f, fade,
                            TransportState::FadingOut, TransportState::Stopped);
             } else {
+                fading_out_naturally_.store(false, std::memory_order_release);
+                stopped_naturally_.store(true, std::memory_order_release);
                 transport_.store(TransportState::Stopped, std::memory_order_release);
             }
         }
     }
 
     return static_cast<std::size_t>(frames_read);
+}
+
+bool PlaybackItem::take_natural_end() noexcept {
+    return stopped_naturally_.exchange(false, std::memory_order_acq_rel);
+}
+
+float PlaybackItem::gain_db() const noexcept {
+    const float lin = gain_target_linear_.load(std::memory_order_acquire);
+    if (lin <= 0.0f) return -120.0f;
+    return 20.0f * std::log10(lin);
+}
+
+void PlaybackItem::stop_with_fade(std::chrono::milliseconds dur) {
+    const TransportState st = transport_.load(std::memory_order_acquire);
+    if (st == TransportState::Stopped || st == TransportState::FadingOut) return;
+    // Not a natural end — don't set fading_out_naturally_ so the sequencer
+    // won't auto-advance on this particular fade completion.
+    if (dur.count() > 0) {
+        start_fade(gain_current_linear_.load(), 0.0f, dur,
+                   TransportState::FadingOut, TransportState::Stopped);
+    } else {
+        stop_now();
+    }
 }
 
 } // namespace liveplay::audio

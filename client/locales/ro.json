@@ -28,26 +28,26 @@
   },
   "welcome": {
     "title": "LivePlay",
-    "subtitle": "Audio cue playback for live events",
+    "subtitle": "Redare audio pentru evenimente live",
     "newProject": "Proiect Nou",
     "openProject": "Deschide Proiect",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
+    "modeTitle": "Alege Modul Server",
+    "modeSubtitle": "Unde ar trebui LivePlay să ruleze motorul audio?",
     "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "localModeDescription": "Rulează motorul audio pe acest computer.",
+    "remoteMode": "La distanță",
+    "remoteModeDescription": "Conectează-te la un server LivePlay în rețea.",
+    "remoteConnect": "Conectare la serverul LivePlay",
+    "remoteAddressHint": "Introduceți adresa IP sau numele gazdă al serverului LivePlay.",
+    "serverAddress": "Adresa Serverului",
+    "serverAddressPlaceholder": "ex. 192.168.1.10 sau serverulmeu.local",
+    "connect": "Conectare",
+    "connecting": "Se conectează…",
+    "connectionFailed": "Nu s-a putut conecta la server",
+    "connectedLocal": "Folosind serverul local de pe acest computer",
+    "connectedTo": "Conectat la {url}",
+    "changeMode": "Schimbă",
+    "back": "Înapoi"
   },
   "project": {
     "enterName": "Introduceti Nume Proiect",
@@ -123,7 +123,15 @@
     "stopFade": "Fade Out la Stop",
     "pauseFade": "Fade la Pauză/Reluare",
     "crossFade": "Cross-fade la Următor",
-    "fadeSettings": "Setări Fade"
+    "fadeSettings": "Setări Fade",
+    "ltcOutputTimecode": "Ieșire cod de timp LTC",
+    "ltcOutputTimecodeHelp": "Trimite cod de timp liniar SMPTE la dispozitivul LTC al proiectului în timp ce acest semnal se redă.",
+    "ltcStartTimecode": "Cod de timp de start",
+    "ltcTimecodeFormat": "Folosiți formatul HH:MM:SS:FF (ex. 01:00:00:00)",
+    "ltcFrameRate": "Rată de cadre",
+    "output": "Ieșire",
+    "deviceOverride": "Dispozitiv de ieșire",
+    "deviceOverrideHelp": "Suprascrie ieșirea implicită a proiectului pentru acest semnal. Lasă pe 'Folosește implicit proiect' pentru a urma setarea proiectului."
   },
   "playback": {
     "panic": "Oprește Toate Cues",
@@ -131,7 +139,8 @@
     "play": "Play",
     "stop": "Stop",
     "delete": "Sterge",
-    "edit": "Editeaza"
+    "edit": "Editeaza",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "Nimic",
@@ -164,7 +173,10 @@
     "resume": "Reia",
     "edit": "Editeaza",
     "remove": "Îndepărtează",
-    "setAsNext": "Setează ca următor"
+    "setAsNext": "Setează ca următor",
+    "preview": "Previzualizare la căști",
+    "stopPreview": "Oprire previzualizare",
+    "previewNoDevice": "Niciun dispozitiv de previzualizare configurat — clic pentru a deschide Setările Proiectului"
   },
   "about": {
     "developedBy": "Dezvoltat de",
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "Se redă",
-    "upNext": "Următor"
+    "upNext": "Următor",
+    "previewing": "Previzualizare"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "Setări Proiect",
+    "audioDevice": "Dispozitiv Audio",
+    "audioDeviceHelp": "Dispozitiv implicit pentru redarea semnalelor.",
+    "previewDevice": "Dispozitiv de Previzualizare",
+    "previewDeviceHelp": "Dispozitiv folosit la previzualizarea semnalelor cu butonul pentru căști.",
+    "ltcDevice": "Dispozitiv LTC",
+    "ltcDeviceHelp": "Dispozitiv folosit pentru a trimite codul de timp LTC (opțional).",
+    "useProjectDefault": "Folosește implicit proiect",
+    "noneSelected": "Neselectat",
+    "save": "Salvează",
+    "close": "Închide",
+    "preview": "Previzualizare"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "implicit",
+    "loading": "Se încarcă…",
+    "error": "Eroare"
   }
 }

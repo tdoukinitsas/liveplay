@@ -31,23 +31,23 @@
     "subtitle": "现场活动音频播放",
     "newProject": "新建项目",
     "openProject": "打开项目",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
-    "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "modeTitle": "选择服务器模式",
+    "modeSubtitle": "LivePlay 应在哪里运行音频引擎？",
+    "localMode": "本地",
+    "localModeDescription": "在本计算机上运行音频引擎。",
+    "remoteMode": "远程",
+    "remoteModeDescription": "连接到网络上的 LivePlay 服务器。",
+    "remoteConnect": "连接到 LivePlay 服务器",
+    "remoteAddressHint": "输入 LivePlay 服务器的 IP 地址或主机名。",
+    "serverAddress": "服务器地址",
+    "serverAddressPlaceholder": "例如 192.168.1.10 或 myserver.local",
+    "connect": "连接",
+    "connecting": "正在连接…",
+    "connectionFailed": "无法连接到服务器",
+    "connectedLocal": "正在使用此计算机上的本地服务器",
+    "connectedTo": "已连接到 {url}",
+    "changeMode": "更改",
+    "back": "返回"
   },
   "project": {
     "enterName": "输入项目名称",
@@ -123,7 +123,15 @@
     "stopFade": "停止淡出",
     "pauseFade": "暂停/恢复淡化",
     "crossFade": "交叉淡化到下一个",
-    "fadeSettings": "淡化设置"
+    "fadeSettings": "淡化设置",
+    "ltcOutputTimecode": "输出LTC时间码",
+    "ltcOutputTimecodeHelp": "在此提示播放时向项目的LTC设备发送SMPTE线性时间码。",
+    "ltcStartTimecode": "起始时间码",
+    "ltcTimecodeFormat": "使用HH:MM:SS:FF格式（例如：01:00:00:00）",
+    "ltcFrameRate": "帧率",
+    "output": "输出",
+    "deviceOverride": "输出设备",
+    "deviceOverrideHelp": "为此信号覆盖项目的默认输出。留在"使用项目默认"以遵循项目设置。"
   },
   "playback": {
     "panic": "停止所有信号",
@@ -131,7 +139,8 @@
     "play": "播放",
     "stop": "停止",
     "delete": "删除",
-    "edit": "编辑"
+    "edit": "编辑",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "无",
@@ -164,7 +173,10 @@
     "resume": "恢复",
     "edit": "编辑",
     "remove": "移除",
-    "setAsNext": "设为下一个"
+    "setAsNext": "设为下一个",
+    "preview": "在耳机中预听",
+    "stopPreview": "停止预听",
+    "previewNoDevice": "未配置预听设备 — 单击以打开项目设置"
   },
   "about": {
     "developedBy": "开发者",
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "正在播放",
-    "upNext": "下一个"
+    "upNext": "下一个",
+    "previewing": "预听中"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "项目设置",
+    "audioDevice": "音频设备",
+    "audioDeviceHelp": "信号播放的默认设备。",
+    "previewDevice": "预听设备",
+    "previewDeviceHelp": "使用耳机按钮预听信号时所用的设备。",
+    "ltcDevice": "LTC设备",
+    "ltcDeviceHelp": "用于发送LTC时间码的设备（可选）。",
+    "useProjectDefault": "使用项目默认",
+    "noneSelected": "未选择",
+    "save": "保存",
+    "close": "关闭",
+    "preview": "预听"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "默认",
+    "loading": "加载中…",
+    "error": "错误"
   }
 }

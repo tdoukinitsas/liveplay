@@ -31,23 +31,23 @@
     "subtitle": "Reprodução de sinais de áudio para eventos ao vivo",
     "newProject": "Novo Projeto",
     "openProject": "Abrir Projeto",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
+    "modeTitle": "Escolher Modo de Servidor",
+    "modeSubtitle": "Onde o LivePlay deve executar o motor de áudio?",
     "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "localModeDescription": "Execute o motor de áudio neste computador.",
+    "remoteMode": "Remoto",
+    "remoteModeDescription": "Conecte-se a um servidor LivePlay na rede.",
+    "remoteConnect": "Conectar ao servidor LivePlay",
+    "remoteAddressHint": "Introduza o endereço IP ou nome do host do servidor LivePlay.",
+    "serverAddress": "Endereço do Servidor",
+    "serverAddressPlaceholder": "ex.: 192.168.1.10 ou meuservidor.local",
+    "connect": "Conectar",
+    "connecting": "A conectar…",
+    "connectionFailed": "Não foi possível conectar ao servidor",
+    "connectedLocal": "Usando servidor local neste computador",
+    "connectedTo": "Conectado a {url}",
+    "changeMode": "Alterar",
+    "back": "Voltar"
   },
   "project": {
     "enterName": "Digite o Nome do Projeto",
@@ -123,7 +123,15 @@
     "stopFade": "Fade de saída na parada",
     "pauseFade": "Fade de pausar/retomar",
     "crossFade": "Crossfade para o próximo",
-    "fadeSettings": "Configurações de fade"
+    "fadeSettings": "Configurações de fade",
+    "ltcOutputTimecode": "Saída de código de tempo LTC",
+    "ltcOutputTimecodeHelp": "Enviar código de tempo linear SMPTE para o dispositivo LTC do projeto enquanto este sinal é reproduzido.",
+    "ltcStartTimecode": "Código de tempo inicial",
+    "ltcTimecodeFormat": "Use o formato HH:MM:SS:FF (ex.: 01:00:00:00)",
+    "ltcFrameRate": "Taxa de quadros",
+    "output": "Saída",
+    "deviceOverride": "Dispositivo de saída",
+    "deviceOverrideHelp": "Substitua a saída padrão do projeto para este sinal. Deixe em 'Usar padrão do projeto' para seguir a configuração do projeto."
   },
   "playback": {
     "panic": "Parar Todos os Sinais",
@@ -131,7 +139,8 @@
     "play": "Reproduzir",
     "stop": "Parar",
     "delete": "Excluir",
-    "edit": "Editar"
+    "edit": "Editar",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "Nada",
@@ -164,7 +173,10 @@
     "resume": "Retomar",
     "edit": "Editar",
     "remove": "Remover",
-    "setAsNext": "Definir como próximo"
+    "setAsNext": "Definir como próximo",
+    "preview": "Pré-visualizar nos auscultadores",
+    "stopPreview": "Parar pré-visualização",
+    "previewNoDevice": "Nenhum dispositivo de pré-visualização configurado — clique para abrir as Definições do Projeto"
   },
   "about": {
     "developedBy": "Desenvolvido por",
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "A reproduzir",
-    "upNext": "A seguir"
+    "upNext": "A seguir",
+    "previewing": "Pré-visualização"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "Definições do Projeto",
+    "audioDevice": "Dispositivo de Áudio",
+    "audioDeviceHelp": "Dispositivo padrão para reprodução de sinais.",
+    "previewDevice": "Dispositivo de Pré-visualização",
+    "previewDeviceHelp": "Dispositivo usado ao pré-visualizar sinais com o botão dos auscultadores.",
+    "ltcDevice": "Dispositivo LTC",
+    "ltcDeviceHelp": "Dispositivo usado para enviar código de tempo LTC (opcional).",
+    "useProjectDefault": "Usar padrão do projeto",
+    "noneSelected": "Não selecionado",
+    "save": "Guardar",
+    "close": "Fechar",
+    "preview": "Pré-visualização"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "padrão",
+    "loading": "A carregar…",
+    "error": "Erro"
   }
 }

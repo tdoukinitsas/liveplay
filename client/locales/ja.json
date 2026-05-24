@@ -31,23 +31,23 @@
     "subtitle": "ライブイベント用オーディオ再生",
     "newProject": "新規プロジェクト",
     "openProject": "プロジェクトを開く",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
-    "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "modeTitle": "サーバーモードを選択",
+    "modeSubtitle": "LivePlayはどこでオーディオエンジンを実行しますか？",
+    "localMode": "ローカル",
+    "localModeDescription": "このコンピューターでオーディオエンジンを実行します。",
+    "remoteMode": "リモート",
+    "remoteModeDescription": "ネットワーク上のLivePlayサーバーに接続します。",
+    "remoteConnect": "LivePlayサーバーに接続",
+    "remoteAddressHint": "LivePlayサーバーのIPアドレスまたはホスト名を入力してください。",
+    "serverAddress": "サーバーアドレス",
+    "serverAddressPlaceholder": "例: 192.168.1.10 または myserver.local",
+    "connect": "接続",
+    "connecting": "接続中…",
+    "connectionFailed": "サーバーに接続できませんでした",
+    "connectedLocal": "このコンピューターのローカルサーバーを使用中",
+    "connectedTo": "{url} に接続済み",
+    "changeMode": "変更",
+    "back": "戻る"
   },
   "project": {
     "enterName": "プロジェクト名を入力",
@@ -123,7 +123,15 @@
     "stopFade": "停止フェードアウト",
     "pauseFade": "一時停止/再開フェード",
     "crossFade": "次へクロスフェード",
-    "fadeSettings": "フェード設定"
+    "fadeSettings": "フェード設定",
+    "ltcOutputTimecode": "LTCタイムコード出力",
+    "ltcOutputTimecodeHelp": "このキューの再生中にプロジェクトのLTCデバイスへSMPTEリニアタイムコードを送信します。",
+    "ltcStartTimecode": "開始タイムコード",
+    "ltcTimecodeFormat": "HH:MM:SS:FF形式を使用してください（例：01:00:00:00）",
+    "ltcFrameRate": "フレームレート",
+    "output": "出力",
+    "deviceOverride": "出力デバイス",
+    "deviceOverrideHelp": "このキューのプロジェクトのデフォルト出力を上書きします。プロジェクト設定に従うには「プロジェクトデフォルトを使用」のままにしてください。"
   },
   "playback": {
     "panic": "すべての信号を停止",
@@ -131,7 +139,8 @@
     "play": "再生",
     "stop": "停止",
     "delete": "削除",
-    "edit": "編集"
+    "edit": "編集",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "何もしない",
@@ -164,7 +173,10 @@
     "resume": "再開",
     "edit": "編集",
     "remove": "削除",
-    "setAsNext": "次に設定"
+    "setAsNext": "次に設定",
+    "preview": "ヘッドフォンでプレビュー",
+    "stopPreview": "プレビューを停止",
+    "previewNoDevice": "プレビューデバイスが未設定です — プロジェクト設定を開くにはクリック"
   },
   "about": {
     "developedBy": "開発者",
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "再生中",
-    "upNext": "次へ"
+    "upNext": "次へ",
+    "previewing": "プレビュー"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "プロジェクト設定",
+    "audioDevice": "オーディオデバイス",
+    "audioDeviceHelp": "キュー再生のデフォルトデバイス。",
+    "previewDevice": "プレビューデバイス",
+    "previewDeviceHelp": "ヘッドフォンボタンでキューをプレビューする際に使用するデバイス。",
+    "ltcDevice": "LTCデバイス",
+    "ltcDeviceHelp": "LTCタイムコードの送信に使用するデバイス（オプション）。",
+    "useProjectDefault": "プロジェクトデフォルトを使用",
+    "noneSelected": "未選択",
+    "save": "保存",
+    "close": "閉じる",
+    "preview": "プレビュー"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "デフォルト",
+    "loading": "読み込み中…",
+    "error": "エラー"
   }
 }

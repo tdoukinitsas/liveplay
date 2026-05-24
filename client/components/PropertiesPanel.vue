@@ -111,6 +111,69 @@
         </div>
       </div>
       
+      <!-- Output Tab -->
+      <div v-if="activeTab === 'output' && selectedItem.type === 'audio'" class="tab-panel">
+        <div class="property-field">
+          <label>{{ t('properties.deviceOverride') }}</label>
+          <select
+            :value="(audioItem as any).deviceOverride ?? ''"
+            @change="onDeviceOverrideChange"
+          >
+            <option value="">{{ t('settings.useProjectDefault') }}</option>
+            <option
+              v-for="d in devicesList"
+              :key="d.id"
+              :value="d.id"
+            >
+              {{ d.display_name }}{{ d.is_default ? ' (' + t('common.default') + ')' : '' }}
+            </option>
+          </select>
+          <p class="property-help">{{ t('properties.deviceOverrideHelp') }}</p>
+        </div>
+
+        <!-- LTC Output Section -->
+        <div class="property-field">
+          <label class="ltc-checkbox-label">
+            <input
+              type="checkbox"
+              :checked="audioItem.ltcEnabled ?? false"
+              @change="onLtcEnabledChange"
+            />
+            {{ t('properties.ltcOutputTimecode') }}
+          </label>
+          <p class="property-help">{{ t('properties.ltcOutputTimecodeHelp') }}</p>
+        </div>
+
+        <div class="property-field" :class="{ 'field-disabled': !(audioItem.ltcEnabled ?? false) }">
+          <label>{{ t('properties.ltcStartTimecode') }}</label>
+          <input
+            type="text"
+            :value="audioItem.ltcStartTimecode ?? '00:00:00:00'"
+            :disabled="!(audioItem.ltcEnabled ?? false)"
+            :class="{ invalid: !ltcTimecodeValid }"
+            placeholder="HH:MM:SS:FF"
+            maxlength="11"
+            @change="onLtcTimecodeChange"
+          />
+          <p v-if="!ltcTimecodeValid" class="property-help property-help--error">
+            {{ t('properties.ltcTimecodeFormat') }}
+          </p>
+        </div>
+
+        <div class="property-field" :class="{ 'field-disabled': !(audioItem.ltcEnabled ?? false) }">
+          <label>{{ t('properties.ltcFrameRate') }}</label>
+          <select
+            :value="audioItem.ltcFrameRate ?? 4"
+            :disabled="!(audioItem.ltcEnabled ?? false)"
+            @change="onLtcFrameRateChange"
+          >
+            <option v-for="opt in ltcFrameRateOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+      </div>
+
       <!-- Ducking Tab -->
       <div v-if="activeTab === 'ducking' && selectedItem.type === 'audio'" class="tab-panel">
         <div class="property-field">
@@ -216,6 +279,66 @@ const { selectedItem, selectedItems, getSelectedItems, saveProject } = useProjec
 const { t } = useLocalization();
 
 const audioItem = computed(() => selectedItem.value as AudioItem);
+
+// Available output devices (for the per-item Output tab). Pulled from the
+// shared server state — populated once on connect.
+const _server = useLiveplayServer();
+const devicesList = computed(() => _server.devices ?? []);
+const onDeviceOverrideChange = (e: Event) => {
+  const v = (e.target as HTMLSelectElement).value;
+  const it = audioItem.value as any;
+  if (!v) {
+    delete it.deviceOverride;
+  } else {
+    it.deviceOverride = v;
+  }
+  handleSave();
+};
+
+// LTC helpers
+const SMPTE_RE = /^\d{2}:\d{2}:\d{2}[:;]\d{2}$/;
+
+const ltcTimecodeValid = computed(() => {
+  const tc = audioItem.value?.ltcStartTimecode ?? '00:00:00:00';
+  return SMPTE_RE.test(tc);
+});
+
+const ltcFrameRateOptions = [
+  { value: 0, label: '24 fps' },
+  { value: 1, label: '25 fps' },
+  { value: 2, label: '29.97 fps NDF' },
+  { value: 3, label: '29.97 fps DF' },
+  { value: 4, label: '30 fps' },
+];
+
+const onLtcEnabledChange = (e: Event) => {
+  audioItem.value.ltcEnabled = (e.target as HTMLInputElement).checked;
+  if (audioItem.value.ltcEnabled && !audioItem.value.ltcStartTimecode) {
+    audioItem.value.ltcStartTimecode = '00:00:00:00';
+  }
+  if (audioItem.value.ltcFrameRate === undefined) {
+    audioItem.value.ltcFrameRate = 4;
+  }
+  handleSave();
+};
+
+const onLtcTimecodeChange = (e: Event) => {
+  const raw = (e.target as HTMLInputElement).value.trim();
+  // Normalise: replace semicolon separator (DF convention) with colon for storage.
+  const normalised = raw.replace(/;(\d{2})$/, ':$1');
+  if (SMPTE_RE.test(normalised)) {
+    audioItem.value.ltcStartTimecode = normalised;
+    handleSave();
+  } else {
+    // Reset the input to the last valid value.
+    (e.target as HTMLInputElement).value = audioItem.value.ltcStartTimecode ?? '00:00:00:00';
+  }
+};
+
+const onLtcFrameRateChange = (e: Event) => {
+  audioItem.value.ltcFrameRate = parseInt((e.target as HTMLSelectElement).value, 10);
+  handleSave();
+};
 const groupItem = computed(() => selectedItem.value as GroupItem);
 
 // Check if selected item is a cart item
@@ -241,6 +364,7 @@ const allTabs = computed<Tab[]>(() => [
   { id: 'basic', label: t('properties.basicInfo'), icon: 'info' },
   { id: 'media', label: t('properties.media'), icon: 'audio_file', audioOnly: true },
   { id: 'playback', label: t('properties.playback'), icon: 'play_circle', audioOnly: true },
+  { id: 'output', label: t('properties.output'), icon: 'speaker', audioOnly: true },
   { id: 'ducking', label: t('properties.ducking'), icon: 'volume_down', audioOnly: true },
   { id: 'startBehavior', label: t('properties.startBehavior'), icon: 'play_arrow' },
   { id: 'endBehavior', label: t('properties.endBehavior'), icon: 'stop_circle' }
@@ -874,6 +998,45 @@ const formatTime = (seconds: number): string => {
   font-size: 11px;
   color: var(--color-text-secondary);
   margin-top: 4px;
+}
+
+.ltc-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-accent);
+    cursor: pointer;
+  }
+}
+
+.field-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.property-field input.invalid {
+  border-color: #e53e3e;
+
+  &:focus {
+    border-color: #e53e3e;
+  }
+}
+
+.property-help {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+.property-help--error {
+  color: #e53e3e;
 }
 
 .loading-message {

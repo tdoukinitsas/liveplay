@@ -31,23 +31,23 @@
     "subtitle": "Canlı etkinlikler için ses oynatma",
     "newProject": "Yeni Proje",
     "openProject": "Proje Aç",
-    "modeTitle": "Choose Server Mode",
-    "modeSubtitle": "Where should LivePlay run the audio engine?",
-    "localMode": "Local",
-    "localModeDescription": "Run the audio engine on this computer.",
-    "remoteMode": "Remote",
-    "remoteModeDescription": "Connect to a LivePlay server on the network.",
-    "remoteConnect": "Connect to LivePlay server",
-    "remoteAddressHint": "Enter the IP address or hostname of the LivePlay server.",
-    "serverAddress": "Server Address",
-    "serverAddressPlaceholder": "e.g. 192.168.1.10 or myserver.local",
-    "connect": "Connect",
-    "connecting": "Connecting…",
-    "connectionFailed": "Could not connect to the server",
-    "connectedLocal": "Using local server on this computer",
-    "connectedTo": "Connected to {url}",
-    "changeMode": "Change",
-    "back": "Back"
+    "modeTitle": "Sunucu Modunu Seç",
+    "modeSubtitle": "LivePlay ses motorunu nerede çalıştırmalı?",
+    "localMode": "Yerel",
+    "localModeDescription": "Ses motorunu bu bilgisayarda çalıştır.",
+    "remoteMode": "Uzak",
+    "remoteModeDescription": "Ağdaki bir LivePlay sunucusuna bağlan.",
+    "remoteConnect": "LivePlay sunucusuna bağlan",
+    "remoteAddressHint": "LivePlay sunucusunun IP adresini veya ana bilgisayar adını girin.",
+    "serverAddress": "Sunucu Adresi",
+    "serverAddressPlaceholder": "ör. 192.168.1.10 veya sunucum.local",
+    "connect": "Bağlan",
+    "connecting": "Bağlanıyor…",
+    "connectionFailed": "Sunucuya bağlanılamadı",
+    "connectedLocal": "Bu bilgisayardaki yerel sunucu kullanılıyor",
+    "connectedTo": "{url} adresine bağlandı",
+    "changeMode": "Değiştir",
+    "back": "Geri"
   },
   "project": {
     "enterName": "Proje Adını Girin",
@@ -123,7 +123,15 @@
     "stopFade": "Durdurma Kademeli Bitiş",
     "pauseFade": "Duraklat/Devam Et Solması",
     "crossFade": "Sonrakine Çapraz Solma",
-    "fadeSettings": "Solma Ayarları"
+    "fadeSettings": "Solma Ayarları",
+    "ltcOutputTimecode": "LTC Zaman Kodu Çıkışı",
+    "ltcOutputTimecodeHelp": "Bu sinyal çalarken projenin LTC cihazına SMPTE Doğrusal Zaman Kodu gönderin.",
+    "ltcStartTimecode": "Başlangıç Zaman Kodu",
+    "ltcTimecodeFormat": "HH:MM:SS:FF biçimini kullanın (örn. 01:00:00:00)",
+    "ltcFrameRate": "Kare Hızı",
+    "output": "Çıkış",
+    "deviceOverride": "Çıkış cihazı",
+    "deviceOverrideHelp": "Bu sinyal için projenin varsayılan çıkışını geçersiz kıl. Proje ayarını takip etmek için 'Proje varsayılanını kullan' olarak bırakın."
   },
   "playback": {
     "panic": "Tüm Sinyalleri Durdur",
@@ -131,7 +139,8 @@
     "play": "Oynat",
     "stop": "Durdur",
     "delete": "Sil",
-    "edit": "Düzenle"
+    "edit": "Düzenle",
+    "masterMix": "Master"
   },
   "endBehavior": {
     "nothing": "Hiçbir şey",
@@ -164,7 +173,10 @@
     "resume": "Devam Et",
     "edit": "Düzenle",
     "remove": "Kaldır",
-    "setAsNext": "Sonraki olarak ayarla"
+    "setAsNext": "Sonraki olarak ayarla",
+    "preview": "Kulaklıkta ön izleme",
+    "stopPreview": "Ön izlemeyi durdur",
+    "previewNoDevice": "Ön izleme cihazı yapılandırılmamış — Proje Ayarlarını açmak için tıklayın"
   },
   "about": {
     "developedBy": "Geliştiren",
@@ -276,25 +288,26 @@
   },
   "status": {
     "playing": "Çalıyor",
-    "upNext": "Sıradaki"
+    "upNext": "Sıradaki",
+    "previewing": "Ön İzleme"
   },
   "settings": {
-    "title": "Project Settings",
-    "audioDevice": "Audio Device",
-    "audioDeviceHelp": "Default device for cue playback.",
-    "previewDevice": "Preview Device",
-    "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
-    "ltcDevice": "LTC Device",
-    "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
-    "useProjectDefault": "Use project default",
-    "noneSelected": "Not selected",
-    "save": "Save",
-    "close": "Close",
-    "preview": "Preview"
+    "title": "Proje Ayarları",
+    "audioDevice": "Ses Cihazı",
+    "audioDeviceHelp": "Sinyal oynatma için varsayılan cihaz.",
+    "previewDevice": "Ön İzleme Cihazı",
+    "previewDeviceHelp": "Kulaklık düğmesiyle sinyalleri ön izlerken kullanılan cihaz.",
+    "ltcDevice": "LTC Cihazı",
+    "ltcDeviceHelp": "LTC zaman kodu göndermek için kullanılan cihaz (isteğe bağlı).",
+    "useProjectDefault": "Proje varsayılanını kullan",
+    "noneSelected": "Seçilmedi",
+    "save": "Kaydet",
+    "close": "Kapat",
+    "preview": "Ön İzleme"
   },
   "common": {
-    "default": "default",
-    "loading": "Loading…",
-    "error": "Error"
+    "default": "varsayılan",
+    "loading": "Yükleniyor…",
+    "error": "Hata"
   }
 }
