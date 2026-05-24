@@ -21,15 +21,24 @@
         <h2 class="stage-title">{{ t('welcome.modeTitle') }}</h2>
         <p class="stage-subtitle">{{ t('welcome.modeSubtitle') }}</p>
         <div class="welcome-actions">
-          <button class="welcome-button primary" @click="chooseLocal">
-            <span class="button-icon"><span class="material-symbols-rounded">computer</span></span>
+          <button
+            class="welcome-button primary"
+            :disabled="connecting"
+            @click="chooseLocal"
+          >
+            <span class="button-icon">
+              <span v-if="connecting && mode === 'local'" class="material-symbols-rounded spin">progress_activity</span>
+              <span v-else class="material-symbols-rounded">computer</span>
+            </span>
             <span class="button-label">
-              <span class="button-label-line">{{ t('welcome.localMode') }}</span>
+              <span class="button-label-line">
+                {{ connecting && mode === 'local' ? 'Starting local server…' : t('welcome.localMode') }}
+              </span>
               <span class="button-label-sub">{{ t('welcome.localModeDescription') }}</span>
             </span>
           </button>
 
-          <button class="welcome-button" @click="chooseRemote">
+          <button class="welcome-button" :disabled="connecting" @click="chooseRemote">
             <span class="button-icon"><span class="material-symbols-rounded">lan</span></span>
             <span class="button-label">
               <span class="button-label-line">{{ t('welcome.remoteMode') }}</span>
@@ -37,12 +46,41 @@
             </span>
           </button>
         </div>
+        <p v-if="connectionError" class="remote-error">{{ connectionError }}</p>
       </div>
 
       <!-- Stage 2: remote address entry. -->
       <div v-else-if="stage === 'remote'" class="welcome-stage">
         <h2 class="stage-title">{{ t('welcome.remoteConnect') }}</h2>
         <p class="stage-subtitle">{{ t('welcome.remoteAddressHint') }}</p>
+
+        <!-- Auto-discovered servers on this LAN. Populated by the UDP beacon. -->
+        <div v-if="discoveredServers.length > 0" class="discovered-servers">
+          <div class="discovered-header">
+            <span class="material-symbols-rounded">radar</span>
+            <span>Servers on this network</span>
+          </div>
+          <button
+            v-for="srv in discoveredServers"
+            :key="srv.instanceId"
+            class="discovered-row"
+            @click="connectToDiscovered(srv)"
+            :disabled="connecting"
+          >
+            <span class="material-symbols-rounded discovered-icon">dns</span>
+            <span class="discovered-main">
+              <span class="discovered-name">{{ srv.name }}</span>
+              <span class="discovered-meta">
+                {{ srv.host }}:{{ srv.port }}
+                <span v-if="srv.hasOpenProject" class="discovered-project">
+                  · {{ srv.projectName || 'project open' }} ({{ srv.itemCount }})
+                </span>
+              </span>
+            </span>
+            <span class="material-symbols-rounded discovered-arrow">arrow_forward</span>
+          </button>
+        </div>
+
         <div class="remote-form">
           <label class="remote-field-label">{{ t('welcome.serverAddress') }}</label>
           <input
@@ -111,7 +149,7 @@
 <script setup lang="ts">
 import ServerFilePickerModal from './ServerFilePickerModal.vue';
 
-const { createNewProject, openProject } = useProject();
+const { createNewProject, openProject, tryRejoinExistingProject } = useProject();
 const { t } = useLocalization();
 const server = useLiveplayServer();
 
@@ -123,6 +161,21 @@ const mode  = ref<'local' | 'remote'>('local');
 const remoteAddress   = ref('');
 const connecting      = ref(false);
 const connectionError = ref<string>('');
+
+// LAN-discovered servers (populated from the UDP beacon via Electron IPC).
+type DiscoveredServer = {
+  instanceId: string;
+  name: string;
+  host: string;
+  port: number;
+  version: string;
+  projectName: string;
+  hasOpenProject: boolean;
+  itemCount: number;
+  url: string;
+};
+const discoveredServers = ref<DiscoveredServer[]>([]);
+let stopDiscoverySub: (() => void) | null = null;
 
 // Computed reflection of the currently-configured server URL.
 const serverUrlDisplay = computed(() => server.serverUrl ?? 'http://127.0.0.1:4480');
@@ -165,6 +218,26 @@ onMounted(async () => {
   // current session's server target. We could skip if connected, but the
   // first-impression UI value of a deliberate choice outweighs the click.
   stage.value = 'mode';
+
+  // Start LAN discovery so the remote-mode stage immediately shows any
+  // servers visible on the network.
+  try {
+    const disc = (window as any).electronAPI?.liveplayDiscovery;
+    if (disc) {
+      await disc.start();
+      const initial = await disc.list();
+      if (Array.isArray(initial)) discoveredServers.value = initial;
+      stopDiscoverySub = disc.onServers((list: DiscoveredServer[]) => {
+        discoveredServers.value = list ?? [];
+      });
+    }
+  } catch (e) {
+    console.warn('[welcome] discovery start failed:', e);
+  }
+});
+
+onUnmounted(() => {
+  if (stopDiscoverySub) { try { stopDiscoverySub(); } catch {} stopDiscoverySub = null; }
 });
 
 // Get theme from app state (works even when no project is open)
@@ -193,17 +266,36 @@ function normaliseRemoteUrl(input: string): string {
 async function chooseLocal() {
   mode.value = 'local';
   connectionError.value = '';
+  connecting.value = true;
   try {
-    if (import.meta.client && (window as any).electronAPI?.liveplayServer?.setConfig) {
-      const cfg = await (window as any).electronAPI.liveplayServer.setConfig({ mode: 'local' });
+    const api = (window as any).electronAPI?.liveplayServer;
+    if (import.meta.client && api?.setConfig) {
+      const cfg = await api.setConfig({ mode: 'local' });
       const url = `http://127.0.0.1:${cfg.localPort ?? 4480}`;
       server.setServerUrl(url);
+      // Spawn (or reattach to) the server, then wait until /api/health
+      // answers so the WS connect below doesn't race the bind.
+      if (api.ensureRunning) {
+        const res = await api.ensureRunning();
+        if (!res?.ok) {
+          connectionError.value = res?.error
+            ? `Local server failed to start: ${res.error}`
+            : 'Local server failed to start';
+          return;
+        }
+      }
     } else {
       server.setServerUrl('http://127.0.0.1:4480');
     }
+    // If a project is already open server-side (e.g. the user kept the
+    // detached server running between renderer reloads), drop straight
+    // into the workspace.
+    if (await tryRejoinExistingProject()) return;
     stage.value = 'project';
   } catch (e: any) {
     connectionError.value = e?.message ?? String(e);
+  } finally {
+    connecting.value = false;
   }
 }
 
@@ -244,9 +336,39 @@ async function connectToRemote() {
         remoteUrl: url,
       });
     }
+    // Multi-client: if the remote server is already running a project,
+    // join the live session directly instead of showing New/Open.
+    if (await tryRejoinExistingProject()) return;
     stage.value = 'project';
   } catch (e: any) {
     console.warn('[welcome] remote connect failed:', e);
+    connectionError.value = t('welcome.connectionFailed') + ' (' + (e?.message ?? e) + ')';
+  } finally {
+    connecting.value = false;
+  }
+}
+
+// Click handler on a row in the discovered-servers list. Skips the manual
+// URL probe (the beacon proved the server is up) and dives straight into
+// the rejoin flow.
+async function connectToDiscovered(srv: DiscoveredServer) {
+  if (connecting.value) return;
+  connecting.value = true;
+  connectionError.value = '';
+  try {
+    const url = srv.url;
+    remoteAddress.value = stripScheme(url);
+    server.setServerUrl(url);
+    if (import.meta.client && (window as any).electronAPI?.liveplayServer?.setConfig) {
+      await (window as any).electronAPI.liveplayServer.setConfig({
+        mode: 'remote',
+        remoteUrl: url,
+      });
+    }
+    if (await tryRejoinExistingProject()) return;
+    stage.value = 'project';
+  } catch (e: any) {
+    console.warn('[welcome] discovered-server connect failed:', e);
     connectionError.value = t('welcome.connectionFailed') + ' (' + (e?.message ?? e) + ')';
   } finally {
     connecting.value = false;
@@ -599,4 +721,58 @@ if (import.meta.client && (window as any).electronAPI) {
   margin-top: 12px;
   justify-content: flex-end;
 }
+
+.discovered-servers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 14px;
+  padding: 10px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+.discovered-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: 4px;
+}
+.discovered-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.discovered-row:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-accent);
+}
+.discovered-row:disabled { opacity: 0.5; cursor: default; }
+.discovered-icon { color: var(--color-accent); }
+.discovered-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.discovered-name { font-weight: 600; }
+.discovered-meta {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.discovered-project { color: var(--color-accent); }
+.discovered-arrow { color: var(--color-text-secondary); }
+
+@keyframes lp-spin { to { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: lp-spin 0.85s linear infinite; }
 </style>

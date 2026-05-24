@@ -273,6 +273,21 @@ void ControlServer::broadcast_loop() {
 }
 
 // ---------------------------------------------------------------------------
+// Multi-client mutation fan-out. Mutating REST routes call this with a
+// doc_patch event so every connected client mirrors the change in real
+// time. The originating client also receives the echo — applying it is
+// idempotent on its side (uuid lookup) and keeps the local diff-watcher
+// quiet because the client wraps the apply in its `isHydrating` flag.
+void ControlServer::broadcast_doc_patch(const json& payload) {
+    const std::string serialized = payload.dump();
+    std::lock_guard lock{impl_->ws_mutex};
+    for (auto* c : impl_->ws_clients) {
+        try { c->send_text(serialized); }
+        catch (...) { /* onclose will clean up dead connections */ }
+    }
+}
+
+// ---------------------------------------------------------------------------
 static void handle_ws_message(crow::websocket::connection& conn,
                                const std::string& msg,
                                audio::AudioEngine& engine,
@@ -818,6 +833,30 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/api/project").methods(crow::HTTPMethod::Get)
         ([this] { return json_ok(state_.full_document()); });
 
+    // Lightweight header — theme, settings, cart, project name, item count.
+    // Clients hit this first so they can paint the workspace shell before
+    // the (potentially large) items array has even started downloading.
+    // Pair with /api/project/items?offset=&limit= to stream the playlist.
+    CROW_ROUTE(app, "/api/project/header").methods(crow::HTTPMethod::Get)
+        ([this] { return json_ok(state_.header_document()); });
+
+    // Paged top-level items. `offset` defaults to 0, `limit` to 100
+    // (sane upper bound: even on slow LANs a 100-item page comes back
+    // in well under a frame). Returns { offset, limit, total, items: [...] }.
+    CROW_ROUTE(app, "/api/project/items").methods(crow::HTTPMethod::Get)
+        ([this](const crow::request& req){
+            std::size_t offset = 0, limit = 100;
+            if (const char* p = req.url_params.get("offset")) {
+                try { offset = static_cast<std::size_t>(std::max(0, std::stoi(p))); }
+                catch (...) {}
+            }
+            if (const char* p = req.url_params.get("limit")) {
+                try { limit = static_cast<std::size_t>(std::clamp(std::stoi(p), 1, 1000)); }
+                catch (...) {}
+            }
+            return json_ok(state_.items_page(offset, limit));
+        });
+
     // Cheap progress poll endpoint — the client hits this during project
     // open so it can show "loaded X / Y audio cues" without re-fetching the
     // whole document on a timer.
@@ -842,7 +881,16 @@ void ControlServer::install_routes() {
                 } else {
                     return json_err(400, "expected 'path' or 'document'");
                 }
-                return json_ok(state_.full_document());
+                // Return the header only — clients fetch items separately
+                // via /api/project/items so big projects don't pay the
+                // full-document serialization cost on the open round-trip.
+                auto header = state_.header_document();
+                // Tell every other connected client to drop their current
+                // view and rejoin: a new project just landed server-side.
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "project_changed"},
+                });
+                return json_ok(header);
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
@@ -867,6 +915,8 @@ void ControlServer::install_routes() {
 
     // Replace the entire project document. Client uses this on app startup if
     // it has an existing in-memory project it wants to push to the server.
+    // Like /api/project/load, this returns the header rather than the full
+    // document so the round-trip stays cheap for large projects.
     CROW_ROUTE(app, "/api/project/document").methods(crow::HTTPMethod::Put)
         ([this](const crow::request& req){
             try {
@@ -874,7 +924,11 @@ void ControlServer::install_routes() {
                 if (!state_.replace_full_document(doc)) {
                     return json_err(400, "document not accepted");
                 }
-                return json_ok(state_.full_document());
+                auto header = state_.header_document();
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "project_changed"},
+                });
+                return json_ok(header);
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
@@ -892,6 +946,13 @@ void ControlServer::install_routes() {
                 }
                 const std::string parent_uuid = j.value("parentUuid", std::string{});
                 const auto cue_id = state_.add_item(j["item"], parent_uuid);
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "item_added"},
+                    {"uuid", j["item"].value("uuid", std::string{})},
+                    {"parentUuid", parent_uuid},
+                    {"item", j["item"]},
+                    {"cueId", cue_id.value},
+                });
                 return json_ok(json({
                     {"ok",    true},
                     {"uuid",  j["item"].value("uuid", std::string{})},
@@ -907,6 +968,10 @@ void ControlServer::install_routes() {
                 if (!state_.update_item(uuid, patch)) {
                     return json_err(404, "item not found");
                 }
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "item_updated"},
+                    {"uuid", uuid}, {"patch", patch},
+                });
                 return json_ok(json({{"ok", true}, {"uuid", uuid}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
@@ -914,6 +979,9 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/api/project/items/<string>").methods(crow::HTTPMethod::Delete)
         ([this](std::string uuid){
             if (!state_.remove_item(uuid)) return json_err(404, "item not found");
+            broadcast_doc_patch(json{
+                {"type", "doc_patch"}, {"op", "item_removed"}, {"uuid", uuid},
+            });
             return json_ok(json({{"ok", true}, {"uuid", uuid}}));
         });
 
@@ -929,6 +997,10 @@ void ControlServer::install_routes() {
                     }
                 }
                 state_.reorder_items(uuids, parent_uuid);
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "items_reordered"},
+                    {"parentUuid", parent_uuid}, {"uuids", uuids},
+                });
                 return json_ok(json({{"ok", true}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
@@ -967,12 +1039,19 @@ void ControlServer::install_routes() {
                 const std::string uuid = j.value("itemUuid", std::string{});
                 if (slot < 0 || uuid.empty()) return json_err(400, "slot and itemUuid required");
                 state_.set_cart_slot(slot, uuid);
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "cart_slot_set"},
+                    {"slot", slot}, {"itemUuid", uuid},
+                });
                 return json_ok(json({{"ok", true}, {"slot", slot}, {"itemUuid", uuid}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
     CROW_ROUTE(app, "/api/project/cart/<int>").methods(crow::HTTPMethod::Delete)
         ([this](int slot){
             state_.clear_cart_slot(slot);
+            broadcast_doc_patch(json{
+                {"type", "doc_patch"}, {"op", "cart_slot_cleared"}, {"slot", slot},
+            });
             return json_ok(json({{"ok", true}, {"slot", slot}}));
         });
 
@@ -1014,7 +1093,11 @@ void ControlServer::install_routes() {
             try {
                 auto patch = json::parse(req.body);
                 state_.patch_theme(patch);
-                return json_ok(state_.full_document()["theme"]);
+                auto theme = state_.full_document()["theme"];
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "theme_patched"}, {"theme", theme},
+                });
+                return json_ok(theme);
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
     CROW_ROUTE(app, "/api/project/settings").methods(crow::HTTPMethod::Patch)
@@ -1022,7 +1105,11 @@ void ControlServer::install_routes() {
             try {
                 auto patch = json::parse(req.body);
                 state_.patch_settings(patch);
-                return json_ok(state_.full_document()["settings"]);
+                auto settings = state_.full_document()["settings"];
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "settings_patched"}, {"settings", settings},
+                });
+                return json_ok(settings);
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 

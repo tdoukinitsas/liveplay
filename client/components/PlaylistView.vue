@@ -26,11 +26,17 @@
       
       <div v-else class="item-list">
         <PlaylistItem
-          v-for="item in currentProject.items"
+          v-for="item in visibleItems"
           :key="item.uuid"
           :item="item"
           :depth="0"
         />
+        <!-- Placeholder row so the user sees mounting is in progress while
+             the remaining items hydrate across the next few frames. -->
+        <div v-if="visibleItems.length < currentProject.items.length"
+             class="item-list-progress">
+          {{ t('common.loading') }} ({{ visibleItems.length }} / {{ currentProject.items.length }})
+        </div>
       </div>
     </div>
 
@@ -58,6 +64,54 @@ const { t } = useLocalization();
 
 const showYouTubeModal = ref(false);
 const showImportModal  = ref(false);
+
+// ---------------------------------------------------------------------------
+// Progressive mount.
+// ---------------------------------------------------------------------------
+// <PlaylistItem> is a heavy component (~1000 LOC, observers, refs). Mounting
+// hundreds of them in a single tick freezes the renderer for hundreds of ms
+// after the project header arrives. We mount in chunks across animation
+// frames so the workspace stays interactive while the rest hydrate.
+//
+// First batch is sized to fill a typical viewport (~25 rows). Subsequent
+// batches are larger (50/RAF) since by then the user is already looking at
+// rendered content — they tolerate background work better than initial blank.
+const INITIAL_RENDER  = 25;
+const RENDER_INCREMENT = 50;
+const renderLimit = ref(INITIAL_RENDER);
+
+const visibleItems = computed(() => {
+  const all = currentProject.value?.items ?? [];
+  return renderLimit.value >= all.length ? all : all.slice(0, renderLimit.value);
+});
+
+// Whenever the project changes (open/new/close), reset the mount window and
+// kick off the progressive expansion.
+let raf: number | null = null;
+function scheduleMoreItems() {
+  if (raf !== null) return;
+  raf = requestAnimationFrame(() => {
+    raf = null;
+    const total = currentProject.value?.items.length ?? 0;
+    if (renderLimit.value >= total) return;
+    renderLimit.value = Math.min(total, renderLimit.value + RENDER_INCREMENT);
+    if (renderLimit.value < total) scheduleMoreItems();
+  });
+}
+
+// React to (a) new project loaded, (b) streamed pages appended, (c) user adds.
+watch(
+  () => currentProject.value?.items.length ?? 0,
+  (total) => {
+    if (total === 0) { renderLimit.value = INITIAL_RENDER; return; }
+    if (renderLimit.value < total) scheduleMoreItems();
+  },
+  { immediate: true },
+);
+
+onUnmounted(() => {
+  if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
+});
 
 const handleImport = () => {
   if (!currentProject.value) return;
@@ -393,5 +447,13 @@ const handleDrop = async (e: DragEvent) => {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
+}
+
+.item-list-progress {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  opacity: 0.7;
 }
 </style>

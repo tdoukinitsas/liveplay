@@ -3,8 +3,14 @@ export default defineNuxtConfig({
   devtools: {
     enabled: true,
 
+    // Timeline disabled: it wraps every auto-imported composable in a
+    // `__nuxtTimelineWrap` at module-top-level, which reads the wrapped
+    // binding eagerly. With the useCartItems ↔ useProject auto-import
+    // cycle that read hits TDZ and crashes the renderer to a white screen.
+    // Re-enable only after breaking the cycle (e.g. move the shared map
+    // out of useCartItems into a neutral module imported by both).
     timeline: {
-      enabled: true
+      enabled: false
     }
   },
   ssr: false,

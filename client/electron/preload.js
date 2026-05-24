@@ -146,10 +146,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setConfig: (cfg) => ipcRenderer.invoke('liveplay-server:set-config', cfg),
     getStatus: () => ipcRenderer.invoke('liveplay-server:get-status'),
     restart:   () => ipcRenderer.invoke('liveplay-server:restart'),
+    shutdown:  () => ipcRenderer.invoke('liveplay-server:shutdown'),
+    ensureRunning: () => ipcRenderer.invoke('liveplay-server:ensure-running'),
     onStateChange: (callback) => {
       const listener = (_e, payload) => callback(payload);
       ipcRenderer.on('liveplay-server:state', listener);
       return () => ipcRenderer.removeListener('liveplay-server:state', listener);
+    },
+  },
+
+  // Top-level app lifecycle (used by the connection-lost modal).
+  app: {
+    relaunch: () => ipcRenderer.invoke('app:relaunch'),
+    exit:     () => ipcRenderer.invoke('app:exit'),
+  },
+
+  // LAN auto-discovery of other LivePlay servers (UDP beacons on the LAN).
+  liveplayDiscovery: {
+    start: () => ipcRenderer.invoke('liveplay-discovery:start'),
+    list:  () => ipcRenderer.invoke('liveplay-discovery:list'),
+    onServers: (callback) => {
+      const listener = (_e, servers) => callback(servers);
+      ipcRenderer.on('liveplay-discovery:servers', listener);
+      return () => ipcRenderer.removeListener('liveplay-discovery:servers', listener);
     },
   },
 });

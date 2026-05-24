@@ -100,6 +100,15 @@ function createClient() {
     return () => cueStateSubscribers.delete(cb);
   }
 
+  // Subscribers for multi-client doc_patch fan-out events.
+  // Payload: { type: 'doc_patch', op: 'item_added'|'item_updated'|... , ... }
+  type DocPatchSubscriber = (p: any) => void;
+  const docPatchSubscribers = new Set<DocPatchSubscriber>();
+  function onDocPatch(cb: DocPatchSubscriber): () => void {
+    docPatchSubscribers.add(cb);
+    return () => docPatchSubscribers.delete(cb);
+  }
+
   // ---- WebSocket ----------------------------------------------------
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -108,6 +117,15 @@ function createClient() {
   // skip the expensive triple-fetch (cues, mixers, devices) on every reconnect
   // — those don't change just because the WS bounced.
   let hasEverConnected = false;
+  // Count of consecutive failed reconnect attempts. Resets on every onopen.
+  // Used to gate the "we're really down" UI signal: a single bounce shouldn't
+  // pop a modal, but four failed retries with growing backoff almost certainly
+  // means the server is gone.
+  const failedReconnectAttempts = ref(0);
+  // True once we've decided the server is gone. Cleared on a successful
+  // reconnect. UI binds to this to show the connection-lost modal.
+  const connectionLost = ref(false);
+  const CONNECTION_LOST_THRESHOLD = 4;
 
   function scheduleReconnect() {
     if (reconnectTimer) return;
@@ -117,6 +135,18 @@ function createClient() {
       reconnectDelay = Math.min(reconnectDelay * 2, 10000);
       connect();
     }, reconnectDelay);
+  }
+
+  // Force an immediate reconnect attempt. Resets backoff and the
+  // "connection lost" flag so the UI dismisses the disconnect modal.
+  // Used by the Reconnect button.
+  function forceReconnect() {
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    reconnectDelay = 1500;
+    failedReconnectAttempts.value = 0;
+    connectionLost.value = false;
+    disconnect();
+    connect();
   }
 
   function connect() {
@@ -140,6 +170,8 @@ function createClient() {
       reconnecting.value = false;
       reconnectDelay = 1500;
       lastError.value = null;
+      failedReconnectAttempts.value = 0;
+      connectionLost.value = false;
       // Only refresh REST-backed catalogues on the very first connection.
       // Reconnects (e.g. transient Crow WS close-frame issues) don't change
       // those tables, so re-fetching every time produced a request storm
@@ -151,7 +183,18 @@ function createClient() {
     };
 
     ws.onclose = () => {
+      const wasConnected = connected.value;
       connected.value = false;
+      // Only count this as a "failed reconnect" if we never successfully
+      // connected before *this* attempt — i.e., the WebSocket just bounced
+      // straight to close without an onopen in between. Pre-handshake
+      // failures are the strong "server is gone" signal we want to catch.
+      if (!wasConnected && hasEverConnected) {
+        failedReconnectAttempts.value++;
+        if (failedReconnectAttempts.value >= CONNECTION_LOST_THRESHOLD) {
+          connectionLost.value = true;
+        }
+      }
       scheduleReconnect();
     };
 
@@ -184,6 +227,14 @@ function createClient() {
           }
           // Notify subscribers (e.g. useAudioEngine cleans up activeCues on stop).
           for (const cb of cueStateSubscribers) cb(payload as CueStatePayload);
+          break;
+        }
+        case 'doc_patch': {
+          // Multi-client mirror: another client (or the local mutator
+          // itself) just changed something. Hand off to subscribers
+          // (useProject installs one that applies the patch under
+          // isHydrating so the local diff-watcher doesn't echo it back).
+          for (const cb of docPatchSubscribers) cb(payload);
           break;
         }
         case 'pong':
@@ -280,6 +331,35 @@ function createClient() {
   }
   async function fetchProject() {
     return rest<any>('/api/project');
+  }
+  // Lightweight header — everything except the items tree. Used by the
+  // "open project" flow so the workspace shell paints before the items
+  // array has even started downloading.
+  async function fetchProjectHeader() {
+    return rest<{
+      name: string;
+      version: string;
+      folderPath: string;
+      createdAt: string;
+      lastModified: string;
+      theme: any;
+      settings: any;
+      cartItems: any[];
+      cartSlotKeys: any;
+      playbackKeys: any;
+      cartOnlyItems: any[];
+      itemCount: number;
+      hasOpenProject: boolean;
+      server: { projectFilePath: string; mediaRoot: string;
+                audioLoading: boolean; audioLoaded: number; audioTotal: number };
+    }>('/api/project/header');
+  }
+  // Paged items. Caller drives the loop; we keep this stateless so it
+  // composes with the open-project streaming logic in useProject.
+  async function fetchProjectItemsPage(offset = 0, limit = 100) {
+    return rest<{
+      offset: number; limit: number; total: number; items: any[];
+    }>(`/api/project/items?offset=${offset}&limit=${limit}`);
   }
   async function fetchProjectProgress() {
     return rest<{ loading: boolean; loaded: number; total: number }>(
@@ -513,6 +593,7 @@ function createClient() {
     serverUrl,
     connected,
     reconnecting,
+    connectionLost,
     lastError,
     cues,
     mixerChannels,
@@ -525,9 +606,11 @@ function createClient() {
     // lifecycle
     connect,
     disconnect,
+    forceReconnect,
     destroy,
     onMeters,
     onCueState,
+    onDocPatch,
 
     // transport
     play,
@@ -564,6 +647,8 @@ function createClient() {
 
     // project I/O
     fetchProject,
+    fetchProjectHeader,
+    fetchProjectItemsPage,
     fetchProjectProgress,
     loadProjectFromPath,
     loadProjectFromDocument,

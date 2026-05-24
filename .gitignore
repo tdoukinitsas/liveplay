@@ -20,7 +20,7 @@ client/dist-electron/
 .idea
 package-lock.json
 build/
-!client/build/installer.nsh
+!client/build/
 out/
 yt-dlp.exe
 .claude

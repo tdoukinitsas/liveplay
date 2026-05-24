@@ -56,6 +56,15 @@
 
     <!-- Background audio-loading progress (when document already rendered) -->
     <AudioLoadProgress />
+
+    <!-- LocalServerStatus pill intentionally not mounted. The local server
+         now runs as a visible application with its own console window /
+         taskbar entry, so the user has a direct way to see and stop it.
+         Keep the component on disk in case we want to re-enable it later. -->
+    <!-- <LocalServerStatus /> -->
+
+    <!-- Persistent disconnect → ask the user how to recover -->
+    <ConnectionLostModal />
   </div>
 </template>
 

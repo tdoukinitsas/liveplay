@@ -43,6 +43,7 @@
 
 #include <atomic>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <string>
 
 namespace liveplay::net {
@@ -77,6 +78,11 @@ private:
 
     void install_routes();
     void broadcast_loop();
+
+    // Fan-out helper for multi-client mutation sync. Mutating REST routes
+    // call this with a doc_patch payload so every connected client mirrors
+    // the change. Defined in control_server.cpp where Impl is complete.
+    void broadcast_doc_patch(const nlohmann::json& payload);
 };
 
 } // namespace liveplay::net

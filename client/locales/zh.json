@@ -131,7 +131,7 @@
     "ltcFrameRate": "帧率",
     "output": "输出",
     "deviceOverride": "输出设备",
-    "deviceOverrideHelp": "为此信号覆盖项目的默认输出。留在"使用项目默认"以遵循项目设置。"
+    "deviceOverrideHelp": "为此信号覆盖项目的默认输出。留在「使用项目默认」以遵循项目设置。"
   },
   "playback": {
     "panic": "停止所有信号",

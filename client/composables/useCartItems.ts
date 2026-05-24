@@ -1,9 +1,16 @@
 import type { AudioItem } from '~/types/project';
 
-// Store cart-only items separately (not in the playlist)
-const cartOnlyItems = ref<Map<string, AudioItem>>(new Map());
-
 export const useCartItems = () => {
+  // Store cart-only items separately (not in the playlist). Held via
+  // useState so the shared map is SSR-safe and — critically — its
+  // initializer doesn't run at module-top-level, which combined with
+  // the bidirectional auto-import between useCartItems and useProject
+  // could trip Vite's ESM-cycle TDZ ("Cannot access '_$__useProject'
+  // before initialization").
+  const cartOnlyItems = useState<Map<string, AudioItem>>(
+    'useCartItems.cartOnlyItems',
+    () => new Map(),
+  );
   const { currentProject } = useProject();
 
   // Add an item that exists ONLY in the cart (not in playlist)

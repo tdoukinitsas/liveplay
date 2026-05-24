@@ -189,11 +189,13 @@ export const useProject = () => {
         lastModified: new Date().toISOString()
       };
 
-      // Server-side: replace document with this fresh shell.
+      // Server-side: replace document with this fresh shell. Returns the
+      // header (items array is empty for a fresh project anyway, so no
+      // streaming is needed here).
       isHydrating.value = true;
       try {
-        const doc = await server.replaceProjectDocument(newProject as any);
-        applyServerDocument(doc);
+        const header = await server.replaceProjectDocument(newProject as any);
+        applyServerHeader(header);
       } finally {
         isHydrating.value = false;
       }
@@ -212,11 +214,57 @@ export const useProject = () => {
     }
   };
 
+  // Probe the server for a project already in memory and, if there is one,
+  // hydrate the client directly into it (no file load, no spinner). Used by
+  // the welcome screen on connect: if another client already opened a
+  // project, we drop straight into MainWorkspace instead of showing
+  // New/Open. Returns true if a project was rejoined.
+  const tryRejoinExistingProject = async (): Promise<boolean> => {
+    try {
+      const server = useLiveplayServer();
+      if (!server.connected) {
+        try { server.connect(); } catch { /* noop */ }
+      }
+      const header = await server.fetchProjectHeader();
+      if (!header || !header.hasOpenProject) return false;
+
+      isHydrating.value = true;
+      try {
+        applyServerHeader(header);
+      } finally {
+        isHydrating.value = false;
+      }
+      if (header.server?.projectFilePath) {
+        projectFilePathRef.value = header.server.projectFilePath;
+      }
+
+      const { clearCartOnlyItems, addCartOnlyItem } = useCartItems();
+      clearCartOnlyItems();
+      const cartOnly = currentProject.value?.cartOnlyItems ?? [];
+      for (const item of cartOnly) addCartOnlyItem(item);
+
+      void streamItemPages(server, header.itemCount ?? 0);
+      void pollLoadingProgress(server);
+      return true;
+    } catch (e) {
+      console.warn('[useProject] tryRejoinExistingProject failed:', e);
+      return false;
+    }
+  };
+
   // Open an existing project (path is on the server's filesystem).
-  // UX: we show the central spinner only while waiting on the HTTP round-trip.
-  // The moment the document arrives, the spinner is hidden so Vue can paint
-  // the playlist. Background audio loading is reflected in the corner
-  // AudioLoadProgress banner — *not* the full-screen modal.
+  // UX flow:
+  //   1. POST /api/project/load — server reads the file, kicks off async
+  //      engine mirror, and returns the *header* (theme/settings/cart/
+  //      itemCount). The full items array is NOT in this payload, so the
+  //      round-trip stays cheap regardless of project size.
+  //   2. Apply the header → hide the spinner so the workspace shell can
+  //      paint (cart slots, theme, project name).
+  //   3. Stream item pages from /api/project/items in batches of 100,
+  //      yielding to the renderer between pages so the playlist paints
+  //      incrementally instead of in one giant tick.
+  //   4. The corner AudioLoadProgress banner takes over for the
+  //      audio-mirror phase still running on the server.
   const openProject = async (projectFilePath: string): Promise<boolean> => {
     isLoading.value = true;
     loadingMessage.value = 'Loading project…';
@@ -226,19 +274,17 @@ export const useProject = () => {
         try { server.connect(); } catch { /* noop */ }
       }
 
-      const doc = await server.loadProjectFromPath(projectFilePath);
+      // (1) Ask the server to load the file. Returns the header.
+      const header = await server.loadProjectFromPath(projectFilePath);
 
-      // 1) Hide the central spinner IMMEDIATELY — we already have the
-      //    document. Vue will start rendering the (potentially large)
-      //    playlist next; the corner banner takes over for the audio-
-      //    mirror phase that still runs on the server.
+      // (2) Hide the central spinner IMMEDIATELY — header is enough for
+      //     the shell to paint. The items array is empty at this point;
+      //     pages are pushed in below.
       isLoading.value = false;
 
-      // 2) Hand the document to Vue. Under the hydrating flag so the
-      //    diff-watcher doesn't echo the assignment back to the server.
       isHydrating.value = true;
       try {
-        applyServerDocument(doc);
+        applyServerHeader(header);
       } finally {
         isHydrating.value = false;
       }
@@ -250,7 +296,11 @@ export const useProject = () => {
       const cartOnly = currentProject.value?.cartOnlyItems ?? [];
       for (const item of cartOnly) addCartOnlyItem(item);
 
-      // 3) Surface the audio-loading progress as a corner indicator.
+      // (3) Stream pages in the background. Don't await — let the caller
+      //     return so the workspace can paint while pages trickle in.
+      void streamItemPages(server, header?.itemCount ?? 0);
+
+      // (4) Surface the audio-loading progress as a corner indicator.
       void pollLoadingProgress(server);
       return true;
     } catch (error) {
@@ -261,6 +311,101 @@ export const useProject = () => {
       isLoading.value = false;
     }
   };
+
+  // Stream paged items from the server into currentProject.items. Yields
+  // to the renderer between pages via requestAnimationFrame so the
+  // playlist paints incrementally rather than blocking on one giant tick.
+  // Safe to call multiple times — bails if currentProject becomes null.
+  let itemStreamSeq = 0;
+  async function streamItemPages(server: any, totalHint: number) {
+    const mySeq = ++itemStreamSeq;
+    const PAGE = 100;
+    let offset = 0;
+    try {
+      while (true) {
+        // Abort if another openProject started, or the project was closed.
+        if (mySeq !== itemStreamSeq) return;
+        if (!currentProject.value) return;
+        let page: { offset: number; limit: number; total: number; items: any[] };
+        try { page = await server.fetchProjectItemsPage(offset, PAGE); }
+        catch (e) { console.warn('[useProject] item page fetch failed:', e); return; }
+
+        if (!Array.isArray(page.items) || page.items.length === 0) break;
+        if (mySeq !== itemStreamSeq || !currentProject.value) return;
+
+        // Push under the hydrating flag so the diff-watcher doesn't echo
+        // these items right back to the server as "client adds".
+        isHydrating.value = true;
+        try {
+          currentProject.value.items.push(...page.items);
+          updateIndices(currentProject.value.items);
+        } finally {
+          isHydrating.value = false;
+        }
+
+        offset += page.items.length;
+        if (offset >= page.total) break;
+
+        // Yield so Vue paints the freshly-pushed rows before we fetch
+        // the next page.
+        await new Promise<void>(r => {
+          if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => r());
+          } else {
+            setTimeout(r, 0);
+          }
+        });
+      }
+      // After streaming completes, refresh the items-diff baseline so the
+      // next user edit doesn't get diffed against the empty array we
+      // started with (which would push the entire playlist back to the
+      // server as "adds"). Then install the items deep-watcher — this is
+      // deferred until *now* on purpose. Installing it before pages were
+      // streamed would force Vue to walk the growing items array on every
+      // push (O(n²)) and is what made large projects feel like they
+      // hung for several seconds after opening.
+      refreshItemsBaselineAfterHydrate();
+      installItemsWatcherFn?.();
+      void totalHint; // currently informational only
+    } catch (e) {
+      console.warn('[useProject] streamItemPages crashed:', e);
+    }
+  }
+
+  // Apply a header-only response to currentProject. Items array is left
+  // empty for streamItemPages() to populate.
+  const applyServerHeader = (header: any) => {
+    if (!header || typeof header !== 'object') return;
+    if (header.server?.projectFilePath) {
+      projectFilePathRef.value = header.server.projectFilePath;
+    }
+    const project: Project = {
+      name:           header.name ?? 'Untitled',
+      version:        header.version ?? '2.0.0',
+      folderPath:     header.folderPath ?? '',
+      items:          [], // populated by streamItemPages
+      cartItems:      header.cartItems ?? [],
+      cartSlotKeys:   header.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS },
+      playbackKeys:   header.playbackKeys,
+      cartOnlyItems:  header.cartOnlyItems ?? [],
+      theme:          header.theme ?? { ...DEFAULT_THEME },
+      createdAt:      header.createdAt ?? new Date().toISOString(),
+      lastModified:   header.lastModified ?? new Date().toISOString(),
+    };
+    if (header.settings) (project as any).settings = header.settings;
+    currentProject.value = project;
+    updateIndices(project.items);
+  };
+
+  // Hook for streamItemPages to refresh diff baselines after hydration
+  // completes. Set up by the per-section watcher block below.
+  let refreshItemsBaselineAfterHydrate: () => void = () => {};
+  // Install / teardown hooks for the items deep-watcher. Wired up below
+  // in the watcher block; called by streamItemPages (install after the
+  // last page lands) and closeProject (teardown so a re-open re-installs
+  // cleanly).
+  let installItemsWatcherFn:   null | (() => void) = null;
+  let uninstallItemsWatcherFn: null | (() => void) = null;
 
   // Background poll of audio-loading progress. Updates `audioLoadingProgress`
   // until the server reports loading=false, then clears it. Safe to call
@@ -291,33 +436,6 @@ export const useProject = () => {
     }
   }
 
-  // Migrate raw server doc into the client's reactive ref. Mutating the local
-  // `currentProject` shouldn't trigger a sync back to the server because
-  // we're already mirroring its state.
-  const applyServerDocument = (doc: any) => {
-    if (!doc || typeof doc !== 'object') return;
-    // Pluck out server-only decorations so they don't pollute the client model.
-    const server = doc.server;
-    if (server?.projectFilePath) {
-      projectFilePathRef.value = server.projectFilePath;
-    }
-    // Drop unknown extras but keep the shape compatible with the client Project type.
-    const project: Project = {
-      name: doc.name ?? 'Untitled',
-      version: doc.version ?? '2.0.0',
-      folderPath: doc.folderPath ?? '',
-      items: doc.items ?? [],
-      cartItems: doc.cartItems ?? [],
-      cartSlotKeys: doc.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS },
-      playbackKeys: doc.playbackKeys,
-      cartOnlyItems: doc.cartOnlyItems ?? [],
-      theme: doc.theme ?? { ...DEFAULT_THEME },
-      createdAt: doc.createdAt ?? new Date().toISOString(),
-      lastModified: doc.lastModified ?? new Date().toISOString(),
-    };
-    currentProject.value = project;
-    updateIndices(project.items);
-  };
 
   // Save the current project — the server already has the document, it just
   // needs to write to disk.
@@ -347,6 +465,12 @@ export const useProject = () => {
 
   // Close the current project — clears local state; does NOT delete server-side.
   const closeProject = () => {
+    // Tear down the items deep-watcher before nulling the project so the
+    // null assignment doesn't trigger one last (now meaningless) sync.
+    // The watcher is re-installed by streamItemPages when the next
+    // project is opened.
+    uninstallItemsWatcherFn?.();
+
     currentProject.value = null;
     selectedItem.value = null;
     activeCues.value.clear();
@@ -497,17 +621,159 @@ export const useProject = () => {
 
     // After hydrate, capture per-section baselines so the per-section
     // watchers don't fire spuriously on the assignment.
-    watch(isHydrating, (h) => {
-      if (h) return;
+    const captureBaselines = () => {
       const p = currentProject.value;
       lastItems    = toJSON(p?.items);
       lastCart     = toJSON(p?.cartItems);
       lastCartOnly = toJSON(p?.cartOnlyItems);
       lastTheme    = toJSON(p?.theme);
       lastSettings = toJSON((p as any)?.settings);
-    });
+    };
+    watch(isHydrating, (h) => { if (!h) captureBaselines(); });
+    // Expose a refresh hook for streamItemPages — after it finishes
+    // pushing all pages, the items baseline needs to reflect the
+    // *streamed* items, otherwise the next user edit will be diffed
+    // against the empty array we started with and re-push the whole
+    // playlist as "client adds".
+    refreshItemsBaselineAfterHydrate = captureBaselines;
 
     const server = () => useLiveplayServer();
+
+    // ---- Inbound doc_patch handler (multi-client mirror) ----
+    // Helper that finds an item anywhere in the items tree.
+    const findItemAndParent = (
+      uuid: string,
+    ): { item: any; parent: any[] | null } | null => {
+      const p = currentProject.value;
+      if (!p) return null;
+      const search = (arr: any[], parent: any[] | null): any => {
+        for (const it of arr) {
+          if (it.uuid === uuid) return { item: it, parent: parent ?? arr };
+          if (it.type === 'group' && Array.isArray(it.children)) {
+            const r = search(it.children, it.children);
+            if (r) return r;
+          }
+        }
+        return null;
+      };
+      return search(p.items, p.items);
+    };
+
+    const applyDocPatch = (patch: any) => {
+      const p = currentProject.value;
+      if (!p) return;
+      const op = patch?.op;
+      // All patch application happens under isHydrating so the local
+      // diff-watcher doesn't echo these back to the server as fresh edits.
+      isHydrating.value = true;
+      try {
+        switch (op) {
+          case 'item_added': {
+            // Skip if we already have this uuid (originating client).
+            const existing = findItemAndParent(patch.uuid);
+            if (existing) return;
+            const parentUuid = patch.parentUuid || '';
+            if (!parentUuid) {
+              p.items.push(patch.item);
+              updateIndices(p.items);
+            } else {
+              const parentHit = findItemAndParent(parentUuid);
+              if (parentHit?.item?.type === 'group') {
+                parentHit.item.children.push(patch.item);
+                updateIndices(parentHit.item.children, parentHit.item.index);
+              }
+            }
+            break;
+          }
+          case 'item_updated': {
+            const hit = findItemAndParent(patch.uuid);
+            if (!hit) return;
+            Object.assign(hit.item, patch.patch ?? {});
+            break;
+          }
+          case 'item_removed': {
+            const hit = findItemAndParent(patch.uuid);
+            if (!hit || !hit.parent) return;
+            const idx = hit.parent.findIndex((x: any) => x.uuid === patch.uuid);
+            if (idx >= 0) hit.parent.splice(idx, 1);
+            updateIndices(p.items);
+            break;
+          }
+          case 'items_reordered': {
+            const parentUuid = patch.parentUuid || '';
+            const uuids: string[] = Array.isArray(patch.uuids) ? patch.uuids : [];
+            const target = parentUuid
+              ? findItemAndParent(parentUuid)?.item?.children
+              : p.items;
+            if (!Array.isArray(target)) return;
+            const byUuid = new Map(target.map((x: any) => [x.uuid, x]));
+            const reordered: any[] = [];
+            for (const u of uuids) {
+              const it = byUuid.get(u);
+              if (it) reordered.push(it);
+            }
+            // Append anything we didn't see in the patch (defensive).
+            for (const it of target) {
+              if (!uuids.includes(it.uuid)) reordered.push(it);
+            }
+            target.splice(0, target.length, ...reordered);
+            updateIndices(p.items);
+            break;
+          }
+          case 'cart_slot_set': {
+            const slot = patch.slot;
+            const uuid = patch.itemUuid;
+            if (typeof slot !== 'number' || !uuid) return;
+            const existing = (p.cartItems ?? []).findIndex((c: any) => c.slot === slot);
+            const next: CartItem = { slot, itemUuid: uuid, index: [-1, slot] };
+            if (existing >= 0) p.cartItems[existing] = next;
+            else p.cartItems.push(next);
+            break;
+          }
+          case 'cart_slot_cleared': {
+            const slot = patch.slot;
+            if (typeof slot !== 'number') return;
+            p.cartItems = (p.cartItems ?? []).filter((c: any) => c.slot !== slot);
+            break;
+          }
+          case 'theme_patched': {
+            if (patch.theme && typeof patch.theme === 'object') {
+              p.theme = { ...p.theme, ...patch.theme };
+            }
+            break;
+          }
+          case 'settings_patched': {
+            if (patch.settings && typeof patch.settings === 'object') {
+              (p as any).settings = { ...(p as any).settings, ...patch.settings };
+            }
+            break;
+          }
+          case 'project_changed': {
+            // A new project was loaded server-side by some other client.
+            // Refetch header + restream items.
+            void (async () => {
+              try {
+                const header = await server().fetchProjectHeader();
+                if (!header) return;
+                applyServerHeader(header);
+                if (header.hasOpenProject) {
+                  void streamItemPages(server(), header.itemCount ?? 0);
+                }
+              } catch (e) {
+                console.warn('[useProject] project_changed refetch failed:', e);
+              }
+            })();
+            break;
+          }
+        }
+      } finally {
+        // Defer the flag reset by a microtask so any reactive watchers
+        // running this tick still see hydrating=true.
+        queueMicrotask(() => { isHydrating.value = false; });
+      }
+    };
+
+    server().onDocPatch(applyDocPatch);
 
     // ---- Theme ----
     watch(() => currentProject.value?.theme, () => {
@@ -561,6 +827,15 @@ export const useProject = () => {
     // The watcher only fires when the items array or cart-only items array
     // actually changes. We diff against `lastItems`/`lastCartOnly` to push
     // a minimal set of add/update/remove calls.
+    //
+    // CRUCIAL PERF NOTE: `{ deep: true }` makes Vue traverse the entire
+    // items tree to maintain reactivity tracking. During streamItemPages
+    // we push pages of 100 items each — re-running deep-tracking on each
+    // push is O(n²) on the cumulative item count and is what makes the
+    // UI hang for a few seconds on large projects. We solve that by NOT
+    // installing the watcher up front: `installItemsWatcher` is called
+    // from `refreshItemsBaselineAfterHydrate` (the hook fired after
+    // streamItemPages finishes), and torn down in closeProject.
     const scheduleItemsDiff = () => {
       if (isHydrating.value || !currentProject.value) return;
       if (itemsTimer) clearTimeout(itemsTimer);
@@ -568,8 +843,22 @@ export const useProject = () => {
         console.warn('[useProject] items diff failed:', e)
       ), 300);
     };
-    watch(() => currentProject.value?.items,         scheduleItemsDiff, { deep: true });
-    watch(() => currentProject.value?.cartOnlyItems, scheduleItemsDiff, { deep: true });
+
+    let stopItemsWatcher:    null | (() => void) = null;
+    let stopCartOnlyWatcher: null | (() => void) = null;
+    const installItemsWatcher = () => {
+      if (stopItemsWatcher && stopCartOnlyWatcher) return;
+      stopItemsWatcher    = watch(() => currentProject.value?.items,
+                                  scheduleItemsDiff, { deep: true });
+      stopCartOnlyWatcher = watch(() => currentProject.value?.cartOnlyItems,
+                                  scheduleItemsDiff, { deep: true });
+    };
+    const uninstallItemsWatcher = () => {
+      if (stopItemsWatcher)    { try { stopItemsWatcher(); }    catch {} stopItemsWatcher    = null; }
+      if (stopCartOnlyWatcher) { try { stopCartOnlyWatcher(); } catch {} stopCartOnlyWatcher = null; }
+    };
+    installItemsWatcherFn   = installItemsWatcher;
+    uninstallItemsWatcherFn = uninstallItemsWatcher;
 
     const flatten = (items: any[] | null | undefined,
                      cartOnly: any[] | null | undefined) => {
@@ -659,6 +948,7 @@ export const useProject = () => {
     getAllItemsFlat,
     createNewProject,
     openProject,
+    tryRejoinExistingProject,
     saveProject,
     closeProject,
     addItem,

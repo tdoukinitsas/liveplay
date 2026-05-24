@@ -103,6 +103,20 @@ public:
     // client can render the whole project from a single GET.
     json full_document() const;
 
+    // Lightweight header for the project: everything *except* the items
+    // tree. Lets the client paint the workspace shell (theme, settings,
+    // cart slots, project name) before the (potentially large) items
+    // array has even started downloading. `itemCount` is the number of
+    // top-level items the client can expect from /api/project/items.
+    json header_document() const;
+
+    // Return a page of top-level items in document order. `offset` and
+    // `limit` are clamped to the valid range. Items are decorated with
+    // their server-side `cueId` exactly as `full_document()` does, and
+    // groups carry their full `children` tree (groups are usually small;
+    // we don't paginate within them).
+    json items_page(std::size_t offset, std::size_t limit) const;
+
     // Replace the full project document. The server extracts audio items
     // (uuid → file path) and re-mirrors them onto the engine. Other fields
     // are stored verbatim for the client to read back.

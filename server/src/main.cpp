@@ -10,11 +10,16 @@
 #include "liveplay/core/project_state.hpp"
 #include "liveplay/logger.hpp"
 #include "liveplay/net/control_server.hpp"
+#include "liveplay/net/discovery.hpp"
+
+#include <nlohmann/json.hpp>
 
 #include <atomic>
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -200,6 +205,7 @@ void print_banner(const std::string& bind_iface, int port) {
 struct CliOptions {
     int         port      = kDefaultPort;
     std::string bind_addr = "0.0.0.0";
+    std::string pidfile;                   // optional; if set, write JSON {pid,port,startedAt}
     bool        verbose   = false;
 };
 
@@ -217,6 +223,8 @@ CliOptions parse_cli(int argc, char** argv) {
             next(opts.port);
         } else if (a == "--bind" || a == "-b") {
             if (i + 1 < argc) opts.bind_addr = argv[++i];
+        } else if (a == "--pidfile") {
+            if (i + 1 < argc) opts.pidfile = argv[++i];
         } else if (a == "--verbose" || a == "-v") {
             opts.verbose = true;
         } else if (a == "--help" || a == "-h") {
@@ -224,6 +232,7 @@ CliOptions parse_cli(int argc, char** argv) {
                 "Usage: %s [options]\n"
                 "  -p, --port <port>     Port to listen on (default %d)\n"
                 "  -b, --bind <addr>     Interface to bind (default 0.0.0.0)\n"
+                "      --pidfile <path>  Write JSON {pid,port,startedAt} after binding\n"
                 "  -v, --verbose         Enable debug-level logging\n"
                 "  -h, --help            Show this help and exit\n",
                 LIVEPLAY_SERVER_NAME, kDefaultPort);
@@ -296,6 +305,44 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    // Write the pidfile so the Electron client can find the real server PID
+    // when launched indirectly (e.g. via `cmd /c start`, which gives back the
+    // PID of `cmd.exe`, not us). Failures here are non-fatal — the server
+    // runs fine without a pidfile, the client just can't adopt it on restart.
+    if (!opts.pidfile.empty()) {
+        try {
+            using clock = std::chrono::system_clock;
+            const auto now = clock::now();
+            const auto ts = std::chrono::duration_cast<std::chrono::seconds>(
+                                now.time_since_epoch()).count();
+            nlohmann::json j{
+                {"pid",       static_cast<long long>(
+#if defined(_WIN32)
+                    GetCurrentProcessId()
+#else
+                    ::getpid()
+#endif
+                )},
+                {"port",      opts.port},
+                {"startedAt", static_cast<long long>(ts)},
+            };
+            std::ofstream f{opts.pidfile, std::ios::binary | std::ios::trunc};
+            if (f) f << j.dump(2);
+        } catch (const std::exception& ex) {
+            Logger::warn("Failed to write pidfile '{}': {}", opts.pidfile, ex.what());
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // LAN auto-discovery beacon — best-effort, non-fatal if it can't bind.
+    // ------------------------------------------------------------------
+    net::DiscoveryConfig disc_cfg;
+    disc_cfg.advertised_port = static_cast<std::uint16_t>(opts.port);
+    auto beacon = std::make_unique<net::DiscoveryBeacon>(*project, disc_cfg);
+    if (!beacon->start()) {
+        Logger::warn("LAN discovery beacon disabled (clients must connect by IP).");
+    }
+
     // Heartbeat loop. Every 30 s we tick a debug line so operators can confirm
     // the process is alive over long sessions. SIGINT/SIGTERM flips g_running.
     using clock = std::chrono::steady_clock;
@@ -311,11 +358,17 @@ int main(int argc, char** argv) {
 
     Logger::raw("");
     Logger::info("Shutdown signal received — stopping cleanly.");
+    if (beacon) beacon->stop();
+    beacon.reset();
     server->stop();
     server.reset();
     project.reset();
     engine->stop();
     engine.reset();
+    if (!opts.pidfile.empty()) {
+        std::error_code ec;
+        std::filesystem::remove(opts.pidfile, ec);
+    }
     Logger::success("Bye.");
     return 0;
 }

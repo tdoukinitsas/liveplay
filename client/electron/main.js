@@ -18,18 +18,72 @@ let ffmpegAvailable = false;
 // LivePlay C++ server lifecycle
 // ---------------------------------------------------------------------------
 // When the user runs the desktop client in "local" server mode, Electron
-// spawns the bundled liveplay-server binary as a child process and tears it
-// down on quit. In "remote" mode, the child process is not spawned and the
-// renderer connects to whatever URL the user configured.
-// Config lives in <userData>/liveplay-server.json.
+// spawns the bundled liveplay-server binary as a *detached* child process —
+// it survives renderer reloads and Electron quits. A lockfile records the
+// PID + port so the next launch can reattach to the running instance
+// instead of spawning a duplicate (which would clash on the same port).
+//
+// Users can explicitly shut the server down via the
+// `liveplay-server:shutdown` IPC handle. Config lives in
+// <userData>/liveplay-server.json; lock in <userData>/liveplay-server.lock.
 // ===========================================================================
 const LIVEPLAY_DEFAULT_PORT = 4480;
 const LIVEPLAY_CONFIG_FILENAME = 'liveplay-server.json';
+const LIVEPLAY_LOCK_FILENAME   = 'liveplay-server.lock';
+// liveplayServerProc is the spawned ChildProcess when *this* renderer
+// instance started the server. After a reattach on a fresh launch we may
+// only have a PID — see liveplayServerPid below.
 let liveplayServerProc = null;
+let liveplayServerPid  = null;
+let liveplayServerPort = LIVEPLAY_DEFAULT_PORT;
 let liveplayServerExitTimer = null;
 
 function liveplayConfigPath() {
   return path.join(app.getPath('userData'), LIVEPLAY_CONFIG_FILENAME);
+}
+function liveplayLockPath() {
+  return path.join(app.getPath('userData'), LIVEPLAY_LOCK_FILENAME);
+}
+
+function readLiveplayLock() {
+  try {
+    const raw = fs.readFileSync(liveplayLockPath(), 'utf-8');
+    const j = JSON.parse(raw);
+    if (Number.isInteger(j.pid) && Number.isInteger(j.port)) return j;
+  } catch {}
+  return null;
+}
+
+function writeLiveplayLock(pid, port) {
+  try {
+    fs.writeFileSync(
+      liveplayLockPath(),
+      JSON.stringify({ pid, port, startedAt: new Date().toISOString() }, null, 2),
+    );
+  } catch (e) {
+    console.warn('[liveplay-server] could not write lock file:', e);
+  }
+}
+
+function deleteLiveplayLock() {
+  try { fs.unlinkSync(liveplayLockPath()); } catch {}
+}
+
+function isPidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; }
+  catch (e) { return e.code === 'EPERM'; /* process exists but we lack permission */ }
+}
+
+async function probeServerHealth(port, timeoutMs = 1000) {
+  return new Promise((resolve) => {
+    const req = require('http').get(
+      { host: '127.0.0.1', port, path: '/api/health', timeout: timeoutMs },
+      (res) => { resolve(res.statusCode === 200); res.resume(); },
+    );
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.on('error',   () => resolve(false));
+  });
 }
 
 function readLiveplayConfig() {
@@ -74,11 +128,36 @@ function resolveServerBinaryPath() {
   return candidates[0]; // return first as a useful error path
 }
 
-function startLiveplayServer() {
-  if (liveplayServerProc) return;
+// Passive: probe the lockfile and adopt the running server if there is
+// one, but do NOT spawn a new one. Called at startup so users who quit
+// the renderer while the detached server kept running rejoin
+// transparently. Spawning is deferred to startLiveplayServer (which the
+// renderer triggers only when the user picks Local mode).
+async function tryReattachLiveplayServer() {
+  if (liveplayServerProc || liveplayServerPid) return;
+  const lock = readLiveplayLock();
+  if (!lock) return;
+  if (isPidAlive(lock.pid) && await probeServerHealth(lock.port)) {
+    console.log('[liveplay-server] reattaching to pid', lock.pid, 'on port', lock.port);
+    liveplayServerPid  = lock.pid;
+    liveplayServerPort = lock.port;
+    notifyServerStateChange();
+    return;
+  }
+  // Stale — process gone or unhealthy. Clear the lock so future writes start clean.
+  deleteLiveplayLock();
+}
+
+async function startLiveplayServer() {
+  // Already managing one in this process — nothing to do.
+  if (liveplayServerProc || liveplayServerPid) return;
 
   const cfg = readLiveplayConfig();
   if (cfg.mode !== 'local') return;
+
+  // Try reattaching first in case another instance left a running server.
+  await tryReattachLiveplayServer();
+  if (liveplayServerProc || liveplayServerPid) return;
 
   const exePath = resolveServerBinaryPath();
   if (!fs.existsSync(exePath)) {
@@ -88,13 +167,59 @@ function startLiveplayServer() {
     return;
   }
 
-  console.log('[liveplay-server] spawning', exePath, 'on port', cfg.localPort);
+  // The server is launched as a normal application with its own console
+  // window (Windows) or its own Terminal window (macOS) so the user can
+  // see it in the taskbar/dock and stop it directly. We pass --pidfile so
+  // the server writes its real PID to the lockfile — necessary on Windows
+  // because `cmd /c start` returns the PID of cmd.exe, not the server.
+  const lockPath = liveplayLockPath();
+  // Pre-clear any stale lock so the freshly-started server's write is the
+  // canonical one and our tryReattach race-condition window is minimal.
+  deleteLiveplayLock();
+  liveplayServerPort = cfg.localPort;
+
+  console.log('[liveplay-server] launching (visible console)', exePath, 'on port', cfg.localPort);
+  const serverArgs = [
+    '--port',    String(cfg.localPort),
+    '--pidfile', lockPath,
+  ];
   try {
-    liveplayServerProc = spawn(exePath, ['--port', String(cfg.localPort)], {
-      cwd: path.dirname(exePath),       // so any sidecar DLLs resolve
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    });
+    if (process.platform === 'win32') {
+      // `cmd /c start "<title>" /D "<cwd>" "<exe>" <args>` pops a new
+      // console window (with a real taskbar entry) running the server.
+      // cmd.exe exits immediately; the server runs detached from us.
+      liveplayServerProc = spawn(
+        'cmd.exe',
+        ['/c', 'start', 'LivePlay Server',
+         '/D', path.dirname(exePath),
+         exePath, ...serverArgs],
+        {
+          stdio: 'ignore',
+          windowsHide: false,
+          detached: true,
+        },
+      );
+    } else if (process.platform === 'darwin') {
+      // Open a Terminal.app window that runs the server. Quoting is fiddly
+      // because the AppleScript is one string — escape the path manually.
+      const shellQuote = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
+      const cmdLine = [exePath, ...serverArgs].map(shellQuote).join(' ');
+      liveplayServerProc = spawn(
+        'osascript',
+        ['-e', `tell application "Terminal" to do script "${cmdLine.replace(/"/g, '\\"')}"`],
+        { stdio: 'ignore', detached: true },
+      );
+    } else {
+      // Linux / other POSIX: spawn directly. If the user launched the
+      // Electron app from a terminal, the server inherits that terminal
+      // and is visible. If launched from a desktop launcher, there's no
+      // console — best-effort.
+      liveplayServerProc = spawn(exePath, serverArgs, {
+        cwd: path.dirname(exePath),
+        stdio: 'ignore',
+        detached: true,
+      });
+    }
   } catch (e) {
     console.error('[liveplay-server] spawn failed:', e);
     liveplayServerProc = null;
@@ -102,48 +227,82 @@ function startLiveplayServer() {
     return;
   }
 
-  liveplayServerProc.stdout.on('data', (d) => process.stdout.write(`[server] ${d}`));
-  liveplayServerProc.stderr.on('data', (d) => process.stderr.write(`[server] ${d}`));
-  liveplayServerProc.on('exit', (code, signal) => {
-    console.log('[liveplay-server] exited code=', code, 'signal=', signal);
-    liveplayServerProc = null;
-    if (liveplayServerExitTimer) { clearTimeout(liveplayServerExitTimer); liveplayServerExitTimer = null; }
-    notifyServerStateChange();
-  });
+  // The spawn handle we hold is either cmd.exe (Windows), osascript (macOS),
+  // or the server itself (Linux). We don't track its lifetime — the real
+  // server's PID arrives via the pidfile within ~1 s. unref() so Electron
+  // can quit independently.
+  try { liveplayServerProc.unref(); } catch {}
+  liveplayServerProc = null;   // discard the launcher handle
+
+  // Poll the pidfile so the renderer (and onStateChange listeners) learn
+  // the real PID. Don't await — this returns to the caller immediately;
+  // ensureRunning() handles the "wait until healthy" gate.
+  void pollPidfileForServerPid(lockPath);
 
   notifyServerStateChange();
 }
 
-function stopLiveplayServer() {
-  if (!liveplayServerProc) return;
-  const pid = liveplayServerProc.pid;
-  console.log('[liveplay-server] stopping pid', pid);
+// Watch the pidfile until the server writes it (or we time out). The
+// server creates this file after binding, so its presence implies the
+// server is ~ready.
+async function pollPidfileForServerPid(lockPath) {
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    const lock = readLiveplayLock();
+    if (lock && Number.isInteger(lock.pid)) {
+      liveplayServerPid  = lock.pid;
+      liveplayServerPort = lock.port ?? liveplayServerPort;
+      notifyServerStateChange();
+      return;
+    }
+    await new Promise(r => setTimeout(r, 150));
+  }
+  console.warn('[liveplay-server] pidfile did not appear at', lockPath,
+               '— server may have failed to launch (check the console window).');
+}
 
+// Stop the local server. Since the server now always runs as an external
+// process (visible terminal, written PID via pidfile), we only have a PID
+// to work with — there is no ChildProcess handle.
+function stopLiveplayServer() {
+  const pid = liveplayServerPid;
+  if (!pid) {
+    deleteLiveplayLock();
+    notifyServerStateChange();
+    return;
+  }
+  console.log('[liveplay-server] stopping pid', pid);
   try {
     if (process.platform === 'win32') {
-      // SIGINT is unreliable on Windows native processes; taskkill the tree.
+      // /T also closes the console window the server was hosted in.
       exec(`taskkill /pid ${pid} /T /F`, () => {});
     } else {
-      liveplayServerProc.kill('SIGINT');
-      // Fallback hard-kill after a grace period.
+      try { process.kill(pid, 'SIGINT'); } catch {}
       liveplayServerExitTimer = setTimeout(() => {
-        if (liveplayServerProc) {
-          try { liveplayServerProc.kill('SIGKILL'); } catch {}
-        }
+        try { process.kill(pid, 'SIGKILL'); } catch {}
       }, 2000);
     }
   } catch (e) {
     console.error('[liveplay-server] kill failed:', e);
   }
+  deleteLiveplayLock();
+  liveplayServerProc = null;
+  liveplayServerPid  = null;
+  notifyServerStateChange();
+}
+
+function liveplayServerStatus() {
+  const pid = liveplayServerProc?.pid ?? liveplayServerPid;
+  return {
+    running: !!pid,
+    pid,
+    config:  readLiveplayConfig(),
+  };
 }
 
 function notifyServerStateChange() {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('liveplay-server:state', {
-      running: !!liveplayServerProc,
-      pid:     liveplayServerProc?.pid,
-      config:  readLiveplayConfig(),
-    });
+    mainWindow.webContents.send('liveplay-server:state', liveplayServerStatus());
   }
 }
 
@@ -160,24 +319,159 @@ ipcMain.handle('liveplay-server:set-config', (_e, incoming) => {
 
   writeLiveplayConfig(next);
 
-  // React to mode/port changes.
-  if (next.mode === 'remote' && liveplayServerProc) stopLiveplayServer();
-  if (next.mode === 'local'  && !liveplayServerProc) startLiveplayServer();
+  // React to mode/port changes. In local mode, treat both an in-process
+  // child and a reattached PID as "already running".
+  if (next.mode === 'remote' && (liveplayServerProc || liveplayServerPid)) stopLiveplayServer();
+  if (next.mode === 'local'  && !liveplayServerProc && !liveplayServerPid) {
+    void startLiveplayServer();
+  }
 
   return next;
 });
 
-ipcMain.handle('liveplay-server:get-status', () => ({
-  running: !!liveplayServerProc,
-  pid:     liveplayServerProc?.pid,
-  config:  readLiveplayConfig(),
-}));
+ipcMain.handle('liveplay-server:get-status', () => liveplayServerStatus());
+
+// Generic app lifecycle controls used by the connection-lost modal.
+// `relaunch` re-spawns the renderer in a clean state (the detached
+// liveplay-server keeps running and is reattached on the next launch).
+// `exit` just quits without touching the server.
+ipcMain.handle('app:relaunch', () => {
+  app.relaunch();
+  app.exit(0);
+  return true;
+});
+ipcMain.handle('app:exit', () => {
+  app.exit(0);
+  return true;
+});
 
 ipcMain.handle('liveplay-server:restart', () => {
-  if (liveplayServerProc) stopLiveplayServer();
+  stopLiveplayServer();
   // Defer the restart to let the kill complete.
   setTimeout(() => startLiveplayServer(), 500);
   return true;
+});
+
+// Explicit shutdown — the server is now detached, so quitting the
+// renderer no longer kills it. The user (or the about-to-quit prompt)
+// invokes this when they really want it gone.
+ipcMain.handle('liveplay-server:shutdown', () => {
+  stopLiveplayServer();
+  return true;
+});
+
+// Start the server (if not already running) and wait until /api/health
+// answers. The welcome screen calls this when the user picks Local mode
+// so the renderer doesn't try to connect before the server is bound.
+// Returns { ok, port, error? } — never throws.
+ipcMain.handle('liveplay-server:ensure-running', async () => {
+  const cfg = readLiveplayConfig();
+  if (cfg.mode !== 'local') {
+    return { ok: false, port: cfg.localPort, error: 'config mode is not local' };
+  }
+  if (!liveplayServerProc && !liveplayServerPid) {
+    try { await startLiveplayServer(); }
+    catch (e) { return { ok: false, port: cfg.localPort, error: String(e) }; }
+  }
+  // Poll health. The detached console process needs a moment to bind.
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    if (await probeServerHealth(cfg.localPort, 800)) {
+      return { ok: true, port: cfg.localPort };
+    }
+    await new Promise(r => setTimeout(r, 200));
+  }
+  return { ok: false, port: cfg.localPort, error: 'server did not become healthy within 10s' };
+});
+
+// ===========================================================================
+// LAN auto-discovery — listen for the C++ server's UDP beacon and surface
+// every nearby server in the welcome screen's remote-mode picker.
+// ---------------------------------------------------------------------------
+// We bind a single dgram socket lazily on first discover-start request and
+// keep it alive for the rest of the process — repeatedly binding/closing
+// causes brief windows where beacons are missed. Last-seen entries are
+// pruned after 12 s so a server that's been turned off disappears from
+// the picker quickly enough to feel responsive.
+// ===========================================================================
+const dgram = require('dgram');
+const DISCOVERY_PORT     = 4481;
+const DISCOVERY_TIMEOUT  = 12000;
+let discoverySocket  = null;
+let discoveryStarted = false;
+const discoveredServers = new Map(); // key: instanceId, value: {entry, lastSeen}
+
+function startDiscoveryListener() {
+  if (discoveryStarted) return;
+  discoveryStarted = true;
+  try {
+    discoverySocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+  } catch (e) {
+    console.warn('[liveplay-discovery] createSocket failed:', e);
+    discoveryStarted = false;
+    return;
+  }
+  discoverySocket.on('error', (err) => {
+    console.warn('[liveplay-discovery] socket error:', err.message);
+  });
+  discoverySocket.on('message', (buf, rinfo) => {
+    let msg;
+    try { msg = JSON.parse(buf.toString('utf-8')); } catch { return; }
+    if (!msg || msg.type !== 'liveplay-beacon') return;
+    const id = String(msg.instanceId || `${rinfo.address}:${msg.port}`);
+    const entry = {
+      instanceId:     id,
+      name:           String(msg.name || 'liveplay'),
+      host:           rinfo.address,                       // LAN IP the packet came from
+      port:           Number.isInteger(msg.port) ? msg.port : 4480,
+      version:        String(msg.version || ''),
+      projectName:    String(msg.projectName || ''),
+      hasOpenProject: !!msg.hasOpenProject,
+      itemCount:      Number.isInteger(msg.itemCount) ? msg.itemCount : 0,
+      url:            `http://${rinfo.address}:${Number.isInteger(msg.port) ? msg.port : 4480}`,
+    };
+    discoveredServers.set(id, { entry, lastSeen: Date.now() });
+    broadcastDiscovered();
+  });
+  try {
+    // Bind on 0.0.0.0:DISCOVERY_PORT to receive broadcasts. reuseAddr lets
+    // multiple LivePlay clients on the same machine coexist.
+    discoverySocket.bind(DISCOVERY_PORT, () => {
+      try { discoverySocket.setBroadcast(true); } catch {}
+      console.log('[liveplay-discovery] listening on UDP/' + DISCOVERY_PORT);
+    });
+  } catch (e) {
+    console.warn('[liveplay-discovery] bind failed:', e);
+  }
+
+  // Periodically prune stale entries.
+  setInterval(() => {
+    const now = Date.now();
+    let changed = false;
+    for (const [id, v] of discoveredServers) {
+      if (now - v.lastSeen > DISCOVERY_TIMEOUT) {
+        discoveredServers.delete(id);
+        changed = true;
+      }
+    }
+    if (changed) broadcastDiscovered();
+  }, 4000).unref();
+}
+
+function broadcastDiscovered() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const list = Array.from(discoveredServers.values()).map(v => v.entry);
+  mainWindow.webContents.send('liveplay-discovery:servers', list);
+}
+
+ipcMain.handle('liveplay-discovery:start', () => {
+  startDiscoveryListener();
+  broadcastDiscovered();          // immediate refresh for the new subscriber
+  return true;
+});
+
+ipcMain.handle('liveplay-discovery:list', () => {
+  return Array.from(discoveredServers.values()).map(v => v.entry);
 });
 
 // Setup bundled ffmpeg - always use the bundled version to avoid
@@ -2095,9 +2389,11 @@ if (!gotTheLock) {
       console.error('Warning: Bundled ffmpeg failed to initialize. Audio processing may be limited.');
     }
 
-    // Spawn the C++ audio server alongside the UI (local mode only).
-    // Renderer connects to it via WebSocket once the window is up.
-    startLiveplayServer();
+    // At boot we ONLY adopt an already-running server (via the lockfile).
+    // Spawning a fresh server is deferred until the user explicitly picks
+    // Local mode in the welcome screen — otherwise we'd briefly spawn a
+    // server even for users who only ever use Remote mode.
+    void tryReattachLiveplayServer();
 
     createWindow();
     
@@ -2200,17 +2496,14 @@ app.on('window-all-closed', () => {
   if (apiServer) {
     apiServer.close();
   }
-  // Always tear down the audio server when the UI is gone.
-  stopLiveplayServer();
+  // The liveplay audio server is intentionally NOT stopped here — it was
+  // spawned detached so it survives renderer reloads and Electron quits.
+  // Users explicitly shut it down via the `liveplay-server:shutdown` IPC
+  // (or by killing the PID directly). On next launch we reattach via the
+  // lockfile.
   if (process.platform !== 'darwin') {
     app.quit();
   }
-});
-
-app.on('before-quit', () => {
-  // Safety net: macOS keeps the app alive after the last window closes, so
-  // ensure the child is gone on actual quit.
-  stopLiveplayServer();
 });
 
 app.on('activate', () => {

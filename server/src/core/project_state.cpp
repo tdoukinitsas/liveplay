@@ -891,30 +891,35 @@ bool ProjectState::save(const std::filesystem::path& path) const {
 // ---------------------------------------------------------------------------
 // Full-document accessors
 // ---------------------------------------------------------------------------
+namespace {
+// Walk an items array (or a group's children) and decorate each audio
+// item with its engine cueId. Recurses into groups. Caller holds the
+// project mutex.
+void annotate_items_with_cue_ids(
+    json& arr,
+    const std::unordered_map<std::string, audio::CueId>& item_uuid_to_cue) {
+    if (!arr.is_array()) return;
+    for (auto& it : arr) {
+        if (!it.is_object()) continue;
+        const std::string uuid = it.value("uuid", std::string{});
+        if (it.value("type", std::string{}) == "audio") {
+            auto found = item_uuid_to_cue.find(uuid);
+            if (found != item_uuid_to_cue.end()) {
+                it["cueId"] = found->second.value;
+            }
+        } else if (it.value("type", std::string{}) == "group" &&
+                   it.contains("children")) {
+            annotate_items_with_cue_ids(it["children"], item_uuid_to_cue);
+        }
+    }
+}
+} // namespace
+
 json ProjectState::full_document() const {
     std::lock_guard lock{mutex_};
     json out = document_;
-    // Decorate audio items with their server-side cue_id so the client can
-    // map UI → engine commands without a separate lookup pass.
-    std::function<void(json&)> annotate;
-    annotate = [&](json& arr) {
-        if (!arr.is_array()) return;
-        for (auto& it : arr) {
-            if (!it.is_object()) continue;
-            const std::string uuid = it.value("uuid", std::string{});
-            if (it.value("type", std::string{}) == "audio") {
-                auto found = item_uuid_to_cue_.find(uuid);
-                if (found != item_uuid_to_cue_.end()) {
-                    it["cueId"] = found->second.value;
-                }
-            } else if (it.value("type", std::string{}) == "group" &&
-                       it.contains("children")) {
-                annotate(it["children"]);
-            }
-        }
-    };
-    if (out.contains("items"))         annotate(out["items"]);
-    if (out.contains("cartOnlyItems")) annotate(out["cartOnlyItems"]);
+    if (out.contains("items"))         annotate_items_with_cue_ids(out["items"],         item_uuid_to_cue_);
+    if (out.contains("cartOnlyItems")) annotate_items_with_cue_ids(out["cartOnlyItems"], item_uuid_to_cue_);
 
     // Attach a minimal "server" block so the client can read project file
     // path, available engine cues, etc. without a separate fetch.
@@ -928,11 +933,77 @@ json ProjectState::full_document() const {
     return out;
 }
 
+json ProjectState::header_document() const {
+    std::lock_guard lock{mutex_};
+    // Cart-only items carry waveform data is already lazy, but the array
+    // itself is small relative to the full playlist. We DO include it
+    // because the cart slots reference these items and the workspace
+    // can't paint cart buttons without them.
+    json cart_only = document_.value("cartOnlyItems", json::array());
+    annotate_items_with_cue_ids(cart_only, item_uuid_to_cue_);
+
+    const auto& items = document_.value("items", json::array());
+    const std::size_t item_count = items.is_array() ? items.size() : 0;
+
+    return json{
+        {"name",         document_.value("name", "")},
+        {"version",      document_.value("version", "")},
+        {"folderPath",   document_.value("folderPath", "")},
+        {"createdAt",    document_.value("createdAt", "")},
+        {"lastModified", document_.value("lastModified", "")},
+        {"theme",        document_.value("theme",         json::object())},
+        {"settings",     document_.value("settings",      json::object())},
+        {"cartItems",    document_.value("cartItems",     json::array())},
+        {"cartSlotKeys", document_.value("cartSlotKeys",  json::object())},
+        {"playbackKeys", document_.value("playbackKeys",  json::object())},
+        {"cartOnlyItems", std::move(cart_only)},
+        {"itemCount",    item_count},
+        // "Open" means a real project landed — either it has items or it
+        // was loaded/saved from disk. A fresh server has a default name
+        // "Untitled" but no file path and no items, so the welcome screen
+        // should still show New/Open.
+        {"hasOpenProject", item_count > 0 ||
+                           !project_file_path_.empty()},
+        {"server", json{
+            {"projectFilePath", util::path_to_utf8(project_file_path_)},
+            {"mediaRoot",       util::path_to_utf8(media_root_)},
+            {"audioLoading",    loading_audio_.load(std::memory_order_acquire)},
+            {"audioLoaded",     load_progress_loaded_.load(std::memory_order_acquire)},
+            {"audioTotal",      load_progress_total_.load(std::memory_order_acquire)},
+        }},
+    };
+}
+
+json ProjectState::items_page(std::size_t offset, std::size_t limit) const {
+    std::lock_guard lock{mutex_};
+    const auto& items = document_.value("items", json::array());
+    const std::size_t total = items.is_array() ? items.size() : 0;
+    if (offset > total) offset = total;
+    const std::size_t end = (limit > total - offset) ? total : offset + limit;
+
+    json page = json::array();
+    if (items.is_array()) {
+        for (std::size_t i = offset; i < end; ++i) {
+            page.push_back(items[i]);
+        }
+    }
+    annotate_items_with_cue_ids(page, item_uuid_to_cue_);
+
+    return json{
+        {"offset", offset},
+        {"limit",  limit},
+        {"total",  total},
+        {"items",  std::move(page)},
+    };
+}
+
 bool ProjectState::replace_full_document(const json& doc) {
     if (!doc.is_object()) return false;
     {
         std::lock_guard lock{mutex_};
-        // Unload everything; mirror_items_to_engine_locked rebuilds.
+        // Unload everything; start_async_mirror() rebuilds the engine state
+        // off-thread so this call returns immediately and the client can
+        // start rendering.
         for (auto& [_, id] : item_uuid_to_cue_) engine_.unload_cue(id);
         item_uuid_to_cue_.clear();
         cues_.clear();
@@ -948,9 +1019,13 @@ bool ProjectState::replace_full_document(const json& doc) {
             document_["theme"] = json{{"mode", "dark"}, {"accentColor", "#DA1E28"}};
         }
         project_name_ = document_.value("name", std::string{"Untitled"});
-        mirror_items_to_engine_locked();
     }
-    // Route LTC channels to the LTC device (needs to run without mutex_).
+    // Kick off the engine mirror asynchronously — matches load_from_json's
+    // path so the PUT /api/project/document handler doesn't block on cue
+    // decode for large projects. start_async_mirror() takes mutex_ itself,
+    // so it must run after the lock above is released.
+    start_async_mirror();
+    // Route LTC channels to the LTC device (also acquires mutex_ internally).
     apply_ltc_device_routing();
     return true;
 }

@@ -110,6 +110,7 @@ add_executable(liveplay-server
     # Milestone 3 — project state + control plane
     src/core/project_state.cpp
     src/net/control_server.cpp
+    src/net/discovery.cpp
 
     # Milestone 4 — metadata + waveform
     src/meta/metadata.cpp

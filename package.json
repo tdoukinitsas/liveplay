@@ -22,6 +22,7 @@
     "build:client": "npm run build --workspace=client",
     "build:client:electron": "npm run build:electron --workspace=client",
     "build:electron": "npm run server:build && node scripts/build-server-app-mac.js && npm run build:client:electron",
+    "build:electron:clean": "node -e \"['server/build','client/.nuxt','client/.output','client/dist','client/dist-electron'].forEach(d=>{try{require('fs').rmSync(d,{recursive:true,force:true})}catch(e){}})\" && npm run build:electron",
     "install:client": "npm install --workspace=client",
     "server:configure": "cmake --preset vs2022 -S server",
     "server:build": "node scripts/build-server.js",
