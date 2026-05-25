@@ -172,6 +172,17 @@ public:
     bool play_item(const std::string& uuid);
     bool stop_item(const std::string& uuid);
 
+    // Trigger an item by uuid: audio items go through play_item; group items
+    // are dispatched per their startBehavior (play-first / play-all),
+    // mirroring the client's triggerGroup() logic.
+    bool trigger_item(const std::string& uuid);
+
+    // User-set "Up Next" override. When the currently-playing item ends with
+    // endBehavior.action == "next", this uuid is consumed (and cleared)
+    // before falling back to the static sibling order. Pass empty string to
+    // clear without consuming. Safe to call at any time.
+    void set_next_item_override(const std::string& uuid);
+
     // ---- Per-device routing ---------------------------------------------
     // Ensure a "device mixer" exists for `device_name` (the user-visible
     // name from /api/devices). Opens the audio device if needed, creates a
@@ -254,6 +265,11 @@ private:
 
     // uuid → engine cue id, for audio items currently loaded.
     std::unordered_map<std::string, audio::CueId> item_uuid_to_cue_;
+
+    // Pending "Up Next" override set by the user mid-playback. Consumed and
+    // cleared when the currently-playing item's end-behavior fires "next".
+    // Guarded by mutex_.
+    std::string next_item_override_;
 
     // Background "audio mirror is still in progress" state. Exposed to
     // clients via /api/project so the UI can show a progress bar without

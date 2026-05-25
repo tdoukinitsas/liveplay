@@ -292,14 +292,12 @@ static void handle_ws_message(crow::websocket::connection& conn,
                                const std::string& msg,
                                audio::AudioEngine& engine,
                                core::ProjectState& state) {
-    // Diagnostic — every command goes through here; logging the raw message
-    // confirms the client/server WS is actually delivering transport commands.
-    Logger::info("WS recv: {}", msg);
+    Logger::api_request("WS ← {}", msg);
 
     json j;
     try { j = json::parse(msg); }
     catch (const std::exception& e) {
-        Logger::warn("WS parse failed: {}", e.what());
+        Logger::warn("WS message parse failed: {}", e.what());
         conn.send_text(json({{"type", "error"}, {"message", e.what()}}).dump());
         return;
     }
@@ -319,53 +317,87 @@ static void handle_ws_message(crow::websocket::connection& conn,
 
     try {
         if (type == "play") {
-            // If the client passed an item_uuid, route through play_item so
-            // duckingBehavior + inPoint apply. Otherwise hit the engine
-            // directly with the raw cue id (legacy path).
             if (j.contains("item_uuid") && j["item_uuid"].is_string()) {
-                state.play_item(j["item_uuid"].get<std::string>());
+                const auto uuid = j["item_uuid"].get<std::string>();
+                Logger::playback("PLAY item_uuid={}", uuid);
+                state.play_item(uuid);
             } else {
                 auto cue = resolve_cue(j);
-                if (cue) engine.play(*cue);
+                if (cue) {
+                    Logger::playback("PLAY cue_id={}", cue->value);
+                    engine.play(*cue);
+                } else {
+                    Logger::warn("WS play: no valid cue target in message");
+                }
             }
         }
         else if (type == "stop") {
             if (j.contains("item_uuid") && j["item_uuid"].is_string()) {
-                state.stop_item(j["item_uuid"].get<std::string>());
+                const auto uuid = j["item_uuid"].get<std::string>();
+                Logger::playback("STOP item_uuid={}", uuid);
+                state.stop_item(uuid);
             } else {
                 auto cue = resolve_cue(j);
-                if (cue) engine.stop(*cue);
+                if (cue) {
+                    Logger::playback("STOP cue_id={}", cue->value);
+                    engine.stop(*cue);
+                } else {
+                    Logger::warn("WS stop: no valid cue target in message");
+                }
             }
         }
-        else if (type == "stop_all")
-            engine.stop_all(std::chrono::milliseconds{j.value("fade_ms", (long long)0)});
+        else if (type == "stop_all") {
+            const auto fade_ms = j.value("fade_ms", (long long)0);
+            Logger::playback("STOP ALL (fade {}ms)", fade_ms);
+            engine.stop_all(std::chrono::milliseconds{fade_ms});
+        }
         else if (type == "gain") {
             auto cue = resolve_cue(j);
-            if (cue) state.set_cue_gain_db(*cue, j.value("db", 0.0f));
+            if (cue) {
+                const float db = j.value("db", 0.0f);
+                Logger::api_request("WS gain cue_id={} db={:.1f}", cue->value, db);
+                state.set_cue_gain_db(*cue, db);
+            }
         }
         else if (type == "fade") {
             auto cue = resolve_cue(j);
             if (cue) {
-                state.set_cue_fade_in(*cue,
-                    std::chrono::milliseconds{j.value("in_ms", (long long)0)});
-                state.set_cue_fade_out(*cue,
-                    std::chrono::milliseconds{j.value("out_ms", (long long)0)});
+                const auto in_ms  = j.value("in_ms",  (long long)0);
+                const auto out_ms = j.value("out_ms", (long long)0);
+                Logger::api_request("WS fade cue_id={} in={}ms out={}ms",
+                                    cue->value, in_ms, out_ms);
+                state.set_cue_fade_in (*cue, std::chrono::milliseconds{in_ms});
+                state.set_cue_fade_out(*cue, std::chrono::milliseconds{out_ms});
             }
         }
         else if (type == "seek") {
-            // Low-latency seek over WS. Accepts cue_id or item_uuid + seconds.
             auto cue = resolve_cue(j);
             if (cue) {
+                const double secs = j.value("seconds", 0.0);
+                Logger::playback("SEEK {:.2f}s → cue_id={}", secs, cue->value);
                 if (auto* pi = engine.find_cue(*cue)) {
-                    pi->seek_seconds(j.value("seconds", 0.0));
+                    pi->seek_seconds(secs);
                 }
             }
         }
-        else if (type == "ping")
+        else if (type == "set_next_item") {
+            // User-set "Up Next" override. Empty/null item_uuid clears it.
+            std::string uuid;
+            if (j.contains("item_uuid") && j["item_uuid"].is_string()) {
+                uuid = j["item_uuid"].get<std::string>();
+            }
+            Logger::playback("SET NEXT item_uuid={}", uuid.empty() ? "<clear>" : uuid);
+            state.set_next_item_override(uuid);
+        }
+        else if (type == "ping") {
             conn.send_text(json({{"type", "pong"}}).dump());
-        else
+        }
+        else {
+            Logger::warn("WS unknown message type: {}", type);
             conn.send_text(json({{"type", "error"}, {"message", "unknown type"}}).dump());
+        }
     } catch (const std::exception& e) {
+        Logger::error("WS handler threw: {}", e.what());
         conn.send_text(json({{"type", "error"}, {"message", e.what()}}).dump());
     }
 }
@@ -838,7 +870,14 @@ void ControlServer::install_routes() {
     // the (potentially large) items array has even started downloading.
     // Pair with /api/project/items?offset=&limit= to stream the playlist.
     CROW_ROUTE(app, "/api/project/header").methods(crow::HTTPMethod::Get)
-        ([this] { return json_ok(state_.header_document()); });
+        ([this] {
+            Logger::api_request("GET /api/project/header");
+            auto hdr = state_.header_document();
+            Logger::api_response("GET /api/project/header OK — '{}' ({} items)",
+                                 hdr.value("name", "?"),
+                                 hdr.value("itemCount", (std::size_t)0));
+            return json_ok(hdr);
+        });
 
     // Paged top-level items. `offset` defaults to 0, `limit` to 100
     // (sane upper bound: even on slow LANs a 100-item page comes back
@@ -854,7 +893,13 @@ void ControlServer::install_routes() {
                 try { limit = static_cast<std::size_t>(std::clamp(std::stoi(p), 1, 1000)); }
                 catch (...) {}
             }
-            return json_ok(state_.items_page(offset, limit));
+            Logger::api_request("GET /api/project/items offset={} limit={}", offset, limit);
+            auto page = state_.items_page(offset, limit);
+            Logger::api_response("GET /api/project/items offset={} → {}/{} items",
+                                 offset,
+                                 page.value("items", json::array()).size(),
+                                 page.value("total", (std::size_t)0));
+            return json_ok(page);
         });
 
     // Cheap progress poll endpoint — the client hits this during project
@@ -874,43 +919,66 @@ void ControlServer::install_routes() {
             try {
                 auto j = json::parse(req.body);
                 if (j.contains("path")) {
-                    const fs::path p = liveplay::util::utf8_to_path(j["path"].get<std::string>());
-                    if (!state_.load(p)) return json_err(400, "load failed");
+                    const std::string path_str = j["path"].get<std::string>();
+                    Logger::api_request("POST /api/project/load path='{}'", path_str);
+                    const fs::path p = liveplay::util::utf8_to_path(path_str);
+                    if (!state_.load(p)) {
+                        Logger::error("POST /api/project/load FAILED — load returned false for '{}'", path_str);
+                        return json_err(400, "load failed");
+                    }
                 } else if (j.contains("document")) {
-                    if (!state_.load_from_json(j["document"])) return json_err(400, "load failed");
+                    Logger::api_request("POST /api/project/load (from document)");
+                    if (!state_.load_from_json(j["document"])) {
+                        Logger::error("POST /api/project/load FAILED — document rejected");
+                        return json_err(400, "load failed");
+                    }
                 } else {
+                    Logger::warn("POST /api/project/load — missing 'path' or 'document' in body");
                     return json_err(400, "expected 'path' or 'document'");
                 }
-                // Return the header only — clients fetch items separately
-                // via /api/project/items so big projects don't pay the
-                // full-document serialization cost on the open round-trip.
                 auto header = state_.header_document();
-                // Tell every other connected client to drop their current
-                // view and rejoin: a new project just landed server-side.
+                const std::size_t item_count = header.value("itemCount", (std::size_t)0);
+                Logger::api_response("POST /api/project/load OK — '{}' ({} items)",
+                                     header.value("name", "?"), item_count);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "project_changed"},
                 });
                 return json_ok(header);
-            } catch (const std::exception& e) { return json_err(400, e.what()); }
+            } catch (const std::exception& e) {
+                Logger::error("POST /api/project/load threw: {}", e.what());
+                return json_err(400, e.what());
+            }
         });
 
     CROW_ROUTE(app, "/api/project/save").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
-                // If no path given, use the project's previously-set file path.
                 fs::path p;
                 if (j.contains("path") && j["path"].is_string()) {
                     p = liveplay::util::utf8_to_path(j["path"].get<std::string>());
                     state_.set_project_file_path(p);
                 } else {
                     p = state_.project_file_path();
-                    if (p.empty()) return json_err(400, "no project file path set");
+                    if (p.empty()) {
+                        Logger::warn("POST /api/project/save — no path set");
+                        return json_err(400, "no project file path set");
+                    }
                 }
-                return state_.save(p) ? json_ok(json({{"ok", true},
-                                                       {"path", liveplay::util::path_to_utf8(p)}}))
-                                      : json_err(500, "save failed");
-            } catch (const std::exception& e) { return json_err(400, e.what()); }
+                Logger::api_request("POST /api/project/save path='{}'",
+                                    liveplay::util::path_to_utf8(p));
+                if (!state_.save(p)) {
+                    Logger::error("POST /api/project/save FAILED for '{}'",
+                                  liveplay::util::path_to_utf8(p));
+                    return json_err(500, "save failed");
+                }
+                const auto path_str = liveplay::util::path_to_utf8(p);
+                Logger::api_response("POST /api/project/save OK → '{}'", path_str);
+                return json_ok(json({{"ok", true}, {"path", path_str}}));
+            } catch (const std::exception& e) {
+                Logger::error("POST /api/project/save threw: {}", e.what());
+                return json_err(400, e.what());
+            }
         });
 
     // Replace the entire project document. Client uses this on app startup if
@@ -921,15 +989,24 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req){
             try {
                 auto doc = json::parse(req.body);
+                const std::string proj_name = doc.value("name", "?");
+                Logger::api_request("PUT /api/project/document name='{}'", proj_name);
                 if (!state_.replace_full_document(doc)) {
+                    Logger::error("PUT /api/project/document — document not accepted");
                     return json_err(400, "document not accepted");
                 }
                 auto header = state_.header_document();
+                const std::size_t item_count = header.value("itemCount", (std::size_t)0);
+                Logger::api_response("PUT /api/project/document OK — '{}' ({} items)",
+                                     proj_name, item_count);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "project_changed"},
                 });
                 return json_ok(header);
-            } catch (const std::exception& e) { return json_err(400, e.what()); }
+            } catch (const std::exception& e) {
+                Logger::error("PUT /api/project/document threw: {}", e.what());
+                return json_err(400, e.what());
+            }
         });
 
     // ---- Items (mirror of client's hierarchical playlist) ----
@@ -942,43 +1019,64 @@ void ControlServer::install_routes() {
             try {
                 auto j = json::parse(req.body);
                 if (!j.contains("item") || !j["item"].is_object()) {
+                    Logger::warn("POST /api/project/items — missing 'item' object");
                     return json_err(400, "missing 'item' object");
                 }
+                const std::string item_uuid  = j["item"].value("uuid", std::string{});
+                const std::string item_name  = j["item"].value("displayName", std::string{});
                 const std::string parent_uuid = j.value("parentUuid", std::string{});
+                Logger::api_request("POST /api/project/items uuid='{}' name='{}'{}", item_uuid,
+                                    item_name, parent_uuid.empty() ? "" : " parent='" + parent_uuid + "'");
                 const auto cue_id = state_.add_item(j["item"], parent_uuid);
+                Logger::api_response("POST /api/project/items OK — uuid='{}' cueId='{}'",
+                                     item_uuid, cue_id.value);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "item_added"},
-                    {"uuid", j["item"].value("uuid", std::string{})},
+                    {"uuid", item_uuid},
                     {"parentUuid", parent_uuid},
                     {"item", j["item"]},
                     {"cueId", cue_id.value},
                 });
                 return json_ok(json({
                     {"ok",    true},
-                    {"uuid",  j["item"].value("uuid", std::string{})},
+                    {"uuid",  item_uuid},
                     {"cueId", cue_id.value},
                 }));
-            } catch (const std::exception& e) { return json_err(400, e.what()); }
+            } catch (const std::exception& e) {
+                Logger::error("POST /api/project/items threw: {}", e.what());
+                return json_err(400, e.what());
+            }
         });
 
     CROW_ROUTE(app, "/api/project/items/<string>").methods(crow::HTTPMethod::Patch)
         ([this](const crow::request& req, std::string uuid){
             try {
                 auto patch = json::parse(req.body);
+                Logger::api_request("PATCH /api/project/items/{}", uuid);
                 if (!state_.update_item(uuid, patch)) {
+                    Logger::warn("PATCH /api/project/items/{} — item not found", uuid);
                     return json_err(404, "item not found");
                 }
+                Logger::api_response("PATCH /api/project/items/{} OK", uuid);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "item_updated"},
                     {"uuid", uuid}, {"patch", patch},
                 });
                 return json_ok(json({{"ok", true}, {"uuid", uuid}}));
-            } catch (const std::exception& e) { return json_err(400, e.what()); }
+            } catch (const std::exception& e) {
+                Logger::error("PATCH /api/project/items/{} threw: {}", uuid, e.what());
+                return json_err(400, e.what());
+            }
         });
 
     CROW_ROUTE(app, "/api/project/items/<string>").methods(crow::HTTPMethod::Delete)
         ([this](std::string uuid){
-            if (!state_.remove_item(uuid)) return json_err(404, "item not found");
+            Logger::api_request("DELETE /api/project/items/{}", uuid);
+            if (!state_.remove_item(uuid)) {
+                Logger::warn("DELETE /api/project/items/{} — not found", uuid);
+                return json_err(404, "item not found");
+            }
+            Logger::api_response("DELETE /api/project/items/{} OK", uuid);
             broadcast_doc_patch(json{
                 {"type", "doc_patch"}, {"op", "item_removed"}, {"uuid", uuid},
             });
@@ -996,38 +1094,62 @@ void ControlServer::install_routes() {
                         if (u.is_string()) uuids.push_back(u.get<std::string>());
                     }
                 }
+                Logger::api_request("POST /api/project/items/reorder ({} items){}", uuids.size(),
+                                    parent_uuid.empty() ? "" : " parent='" + parent_uuid + "'");
                 state_.reorder_items(uuids, parent_uuid);
+                Logger::api_response("POST /api/project/items/reorder OK");
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "items_reordered"},
                     {"parentUuid", parent_uuid}, {"uuids", uuids},
                 });
                 return json_ok(json({{"ok", true}}));
-            } catch (const std::exception& e) { return json_err(400, e.what()); }
+            } catch (const std::exception& e) {
+                Logger::error("POST /api/project/items/reorder threw: {}", e.what());
+                return json_err(400, e.what());
+            }
         });
 
     // Item-by-uuid transport. Routed through ProjectState so duckingBehavior,
     // inPoint, and fade settings from the project document are honoured.
     CROW_ROUTE(app, "/api/project/items/<string>/play").methods(crow::HTTPMethod::Post)
         ([this](std::string uuid){
-            if (!state_.play_item(uuid)) return json_err(404, "item not loaded into engine");
+            Logger::playback("PLAY item_uuid={} (REST)", uuid);
+            if (!state_.play_item(uuid)) {
+                Logger::warn("PLAY item_uuid={} — item not loaded into engine", uuid);
+                return json_err(404, "item not loaded into engine");
+            }
+            Logger::api_response("PLAY item_uuid={} OK", uuid);
             return json_ok(json({{"ok", true}}));
         });
     CROW_ROUTE(app, "/api/project/items/<string>/stop").methods(crow::HTTPMethod::Post)
         ([this](std::string uuid){
-            if (!state_.stop_item(uuid)) return json_err(404, "item not loaded into engine");
+            Logger::playback("STOP item_uuid={} (REST)", uuid);
+            if (!state_.stop_item(uuid)) {
+                Logger::warn("STOP item_uuid={} — item not loaded into engine", uuid);
+                return json_err(404, "item not loaded into engine");
+            }
+            Logger::api_response("STOP item_uuid={} OK", uuid);
             return json_ok(json({{"ok", true}}));
         });
     CROW_ROUTE(app, "/api/project/items/<string>/seek").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req, std::string uuid){
             try {
                 auto j = json::parse(req.body);
+                const double secs = j.value("seconds", 0.0);
+                Logger::playback("SEEK {:.2f}s → item_uuid={} (REST)", secs, uuid);
                 const auto cue = state_.item_to_cue_id(uuid);
-                if (!cue) return json_err(404, "item not loaded into engine");
+                if (!cue) {
+                    Logger::warn("SEEK item_uuid={} — not loaded into engine", uuid);
+                    return json_err(404, "item not loaded into engine");
+                }
                 if (auto* pi = engine_.find_cue(*cue)) {
-                    pi->seek_seconds(j.value("seconds", 0.0));
+                    pi->seek_seconds(secs);
                 }
                 return json_ok(json({{"ok", true}}));
-            } catch (const std::exception& e) { return json_err(400, e.what()); }
+            } catch (const std::exception& e) {
+                Logger::error("POST /api/project/items/{}/seek threw: {}", uuid, e.what());
+                return json_err(400, e.what());
+            }
         });
 
     // ---- Cart slot bindings ----
@@ -1037,18 +1159,28 @@ void ControlServer::install_routes() {
                 auto j = json::parse(req.body);
                 const int slot = j.value("slot", -1);
                 const std::string uuid = j.value("itemUuid", std::string{});
-                if (slot < 0 || uuid.empty()) return json_err(400, "slot and itemUuid required");
+                if (slot < 0 || uuid.empty()) {
+                    Logger::warn("POST /api/project/cart — slot and itemUuid required");
+                    return json_err(400, "slot and itemUuid required");
+                }
+                Logger::api_request("POST /api/project/cart slot={} itemUuid='{}'", slot, uuid);
                 state_.set_cart_slot(slot, uuid);
+                Logger::api_response("POST /api/project/cart OK — slot={} uuid='{}'", slot, uuid);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "cart_slot_set"},
                     {"slot", slot}, {"itemUuid", uuid},
                 });
                 return json_ok(json({{"ok", true}, {"slot", slot}, {"itemUuid", uuid}}));
-            } catch (const std::exception& e) { return json_err(400, e.what()); }
+            } catch (const std::exception& e) {
+                Logger::error("POST /api/project/cart threw: {}", e.what());
+                return json_err(400, e.what());
+            }
         });
     CROW_ROUTE(app, "/api/project/cart/<int>").methods(crow::HTTPMethod::Delete)
         ([this](int slot){
+            Logger::api_request("DELETE /api/project/cart/{}", slot);
             state_.clear_cart_slot(slot);
+            Logger::api_response("DELETE /api/project/cart/{} OK", slot);
             broadcast_doc_patch(json{
                 {"type", "doc_patch"}, {"op", "cart_slot_cleared"}, {"slot", slot},
             });
@@ -1071,19 +1203,33 @@ void ControlServer::install_routes() {
             try {
                 auto j = json::parse(req.body);
                 const std::string uuid = j.value("itemUuid", std::string{});
-                if (uuid.empty()) return json_err(400, "itemUuid required");
+                if (uuid.empty()) {
+                    Logger::warn("POST /api/preview — itemUuid required");
+                    return json_err(400, "itemUuid required");
+                }
+                Logger::playback("PREVIEW START item_uuid='{}'", uuid);
                 const bool ok = state_.start_preview(uuid);
-                if (!ok) return json_err(400, "preview could not start (no device, or item not found)");
+                if (!ok) {
+                    Logger::warn("PREVIEW START failed for item_uuid='{}' — no device or item not found", uuid);
+                    return json_err(400, "preview could not start (no device, or item not found)");
+                }
+                const auto cue_id = state_.current_preview_cue_id().value;
+                Logger::api_response("POST /api/preview OK — cueId='{}'", cue_id);
                 return json_ok(json({
                     {"ok",      true},
                     {"itemUuid", uuid},
-                    {"cueId",   state_.current_preview_cue_id().value},
+                    {"cueId",   cue_id},
                 }));
-            } catch (const std::exception& e) { return json_err(400, e.what()); }
+            } catch (const std::exception& e) {
+                Logger::error("POST /api/preview threw: {}", e.what());
+                return json_err(400, e.what());
+            }
         });
     CROW_ROUTE(app, "/api/preview").methods(crow::HTTPMethod::Delete)
         ([this] {
+            Logger::playback("PREVIEW STOP");
             state_.stop_preview();
+            Logger::api_response("DELETE /api/preview OK");
             return json_ok(json({{"ok", true}}));
         });
 
@@ -1092,25 +1238,35 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req){
             try {
                 auto patch = json::parse(req.body);
+                Logger::api_request("PATCH /api/project/theme");
                 state_.patch_theme(patch);
                 auto theme = state_.full_document()["theme"];
+                Logger::api_response("PATCH /api/project/theme OK");
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "theme_patched"}, {"theme", theme},
                 });
                 return json_ok(theme);
-            } catch (const std::exception& e) { return json_err(400, e.what()); }
+            } catch (const std::exception& e) {
+                Logger::error("PATCH /api/project/theme threw: {}", e.what());
+                return json_err(400, e.what());
+            }
         });
     CROW_ROUTE(app, "/api/project/settings").methods(crow::HTTPMethod::Patch)
         ([this](const crow::request& req){
             try {
                 auto patch = json::parse(req.body);
+                Logger::api_request("PATCH /api/project/settings");
                 state_.patch_settings(patch);
                 auto settings = state_.full_document()["settings"];
+                Logger::api_response("PATCH /api/project/settings OK");
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "settings_patched"}, {"settings", settings},
                 });
                 return json_ok(settings);
-            } catch (const std::exception& e) { return json_err(400, e.what()); }
+            } catch (const std::exception& e) {
+                Logger::error("PATCH /api/project/settings threw: {}", e.what());
+                return json_err(400, e.what());
+            }
         });
 
     // ------------------------------------------------------------------

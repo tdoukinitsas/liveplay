@@ -216,14 +216,15 @@ function createClient() {
           break;
         }
         case 'cue_state': {
-          // Patch local cue cache to reflect immediate transport changes.
+          // Mutate only the changed properties rather than replacing the whole
+          // object.  Replacing triggers Vue to invalidate every component that
+          // holds a reference to the old cue object; in-place mutation lets Vue
+          // track the narrower `transport` / `playhead_seconds` dependencies
+          // and avoids a broad re-render cascade across all PlaylistItems.
           const idx = cues.value.findIndex(c => c.id === payload.cue_id);
           if (idx >= 0) {
-            cues.value[idx] = {
-              ...cues.value[idx],
-              transport: payload.transport,
-              playhead_seconds: payload.playhead_seconds,
-            };
+            cues.value[idx].transport        = payload.transport;
+            cues.value[idx].playhead_seconds = payload.playhead_seconds;
           }
           // Notify subscribers (e.g. useAudioEngine cleans up activeCues on stop).
           for (const cb of cueStateSubscribers) cb(payload as CueStatePayload);
@@ -421,6 +422,11 @@ function createClient() {
   // and inPoint semantics on the server side).
   function playItem(uuid: string)  { wsSend({ type: 'play', item_uuid: uuid }); }
   function stopItem(uuid: string)  { wsSend({ type: 'stop', item_uuid: uuid }); }
+  // Tell the server which item to play when the currently-playing item's
+  // end-behavior fires "next". Pass null to clear.
+  function setNextItem(uuid: string | null) {
+    wsSend({ type: 'set_next_item', item_uuid: uuid ?? '' });
+  }
   // Low-latency seek over the WebSocket so scrub bars feel responsive. The
   // REST endpoint is still available for callers that want a guaranteed
   // ack (mostly tooling) — see seekItemREST below.
@@ -711,6 +717,7 @@ function createClient() {
     // transport by item uuid
     playItem,
     stopItem,
+    setNextItem,
     seekItem,
     seekCueId,
     seekItemREST,

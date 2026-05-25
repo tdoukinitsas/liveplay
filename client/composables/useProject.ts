@@ -17,7 +17,7 @@
 // mutating `currentProject.value` and have those changes propagate.
 // =====================================================================
 import { v4 as uuidv4 } from 'uuid';
-import { markRaw, triggerRef } from 'vue';
+import { markRaw, nextTick, toRaw, triggerRef } from 'vue';
 import type {
   Project,
   AudioItem,
@@ -27,6 +27,28 @@ import type {
   CartItem
 } from '~/types/project';
 import { DEFAULT_THEME, DEFAULT_CART_SLOT_KEYS } from '~/types/project';
+
+// ---------------------------------------------------------------------------
+// MODULE-SCOPED state for cross-call coordination.
+//
+// `useProject()` is invoked once per component (35+ components do so), so any
+// variables declared inside the function body live in a per-call closure.
+// That used to mean every component installed its OWN set of debounced
+// watchers (theme, settings, cart, items, fallback) — N watchers all firing
+// on every reactive change, producing N parallel PATCH/POST/PUT calls. That
+// in turn produced N broadcast echoes which fed back into the watchers, and
+// the system melted down.
+//
+// The reactive *state* is already shared (via Nuxt's useState), so we only
+// need to install the sync watchers exactly once for the whole app. The
+// guard below is that one-shot latch; the install hooks are kept here so
+// streamItemPages / closeProject (which live inside the per-call closure)
+// can still poke into the single global watcher block.
+// ---------------------------------------------------------------------------
+let _syncWatchersInstalled = false;
+let _refreshItemsBaselineAfterHydrate: () => void = () => {};
+let _installItemsWatcherFn:   null | (() => void) = null;
+let _uninstallItemsWatcherFn: null | (() => void) = null;
 
 export const useProject = () => {
   const currentProject = useState<Project | null>('currentProject', () => null);
@@ -197,6 +219,12 @@ export const useProject = () => {
         const header = await server.replaceProjectDocument(newProject as any);
         applyServerHeader(header);
       } finally {
+        // Wait for Vue to flush watchers (which see isHydrating=true and
+        // bail) BEFORE clearing the flag. Setting it false synchronously
+        // would lose the race: watchers run in a microtask after this
+        // function returns, see isHydrating=false, and echo every change
+        // back to the server.
+        await nextTick();
         isHydrating.value = false;
       }
 
@@ -232,6 +260,7 @@ export const useProject = () => {
       try {
         applyServerHeader(header);
       } finally {
+        await nextTick();
         isHydrating.value = false;
       }
       if (header.server?.projectFilePath) {
@@ -286,6 +315,7 @@ export const useProject = () => {
       try {
         applyServerHeader(header);
       } finally {
+        await nextTick();
         isHydrating.value = false;
       }
       projectFilePathRef.value = projectFilePath;
@@ -346,6 +376,11 @@ export const useProject = () => {
           currentProject.value.items.push(...page.items);
           updateIndices(currentProject.value.items);
         } finally {
+          // Defer clearing the flag until after Vue flushes its watcher
+          // queue — otherwise the items/cartOnly deep watchers run with
+          // isHydrating=false and echo the just-pushed page back as a
+          // diff (PUT /api/project/document storm).
+          await nextTick();
           isHydrating.value = false;
         }
 
@@ -371,7 +406,7 @@ export const useProject = () => {
       // push (O(n²)) and is what made large projects feel like they
       // hung for several seconds after opening.
       refreshItemsBaselineAfterHydrate();
-      installItemsWatcherFn?.();
+      installItemsWatcherFn();
       void totalHint; // currently informational only
     } catch (e) {
       console.warn('[useProject] streamItemPages crashed:', e);
@@ -403,15 +438,12 @@ export const useProject = () => {
     updateIndices(project.items);
   };
 
-  // Hook for streamItemPages to refresh diff baselines after hydration
-  // completes. Set up by the per-section watcher block below.
-  let refreshItemsBaselineAfterHydrate: () => void = () => {};
-  // Install / teardown hooks for the items deep-watcher. Wired up below
-  // in the watcher block; called by streamItemPages (install after the
-  // last page lands) and closeProject (teardown so a re-open re-installs
-  // cleanly).
-  let installItemsWatcherFn:   null | (() => void) = null;
-  let uninstallItemsWatcherFn: null | (() => void) = null;
+  // Refer to the module-scoped install hooks so streamItemPages and
+  // closeProject below can still call them via familiar names. The actual
+  // assignment happens once inside the install-once block further down.
+  const refreshItemsBaselineAfterHydrate = () => _refreshItemsBaselineAfterHydrate();
+  const installItemsWatcherFn   = () => _installItemsWatcherFn?.();
+  const uninstallItemsWatcherFn = () => _uninstallItemsWatcherFn?.();
 
   // Background poll of audio-loading progress. Updates `audioLoadingProgress`
   // until the server reports loading=false, then clears it. Safe to call
@@ -475,7 +507,7 @@ export const useProject = () => {
     // null assignment doesn't trigger one last (now meaningless) sync.
     // The watcher is re-installed by streamItemPages when the next
     // project is opened.
-    uninstallItemsWatcherFn?.();
+    uninstallItemsWatcherFn();
 
     currentProject.value = null;
     selectedItem.value = null;
@@ -611,7 +643,29 @@ export const useProject = () => {
   const toJSON = (v: any): any => v == null ? null : JSON.parse(JSON.stringify(v));
   const stableJson = (v: any): string => JSON.stringify(v ?? null);
 
-  if (import.meta.client) {
+  // Serialise items while stripping the `waveform` field (large read-only
+  // server blobs that must never be diff'd or pushed back).
+  //
+  // Uses toRaw() to bypass Vue's reactive proxy before traversing — this
+  // avoids triggering Vue's track() getter on every property access, which
+  // was the main cause of the multi-second UI freeze when serialising a large
+  // project (JSON.stringify on a reactive object calls track() for every
+  // property, adding ~1ms per item × 87 items = ~900ms of overhead alone).
+  const _deepToRaw = (v: any): any => {
+    const r = toRaw(v);
+    if (r === null || typeof r !== 'object') return r;
+    if (Array.isArray(r)) return r.map(_deepToRaw);
+    const out: Record<string, any> = {};
+    for (const k of Object.keys(r)) {
+      if (k === 'waveform') continue;
+      out[k] = _deepToRaw(r[k]);
+    }
+    return out;
+  };
+  const itemsToJSON = _deepToRaw;
+
+  if (import.meta.client && !_syncWatchersInstalled) {
+    _syncWatchersInstalled = true;
     // Per-section debounced sync timers.
     let itemsTimer:    ReturnType<typeof setTimeout> | null = null;
     let cartTimer:     ReturnType<typeof setTimeout> | null = null;
@@ -629,9 +683,11 @@ export const useProject = () => {
     // watchers don't fire spuriously on the assignment.
     const captureBaselines = () => {
       const p = currentProject.value;
-      lastItems    = toJSON(p?.items);
+      // Strip waveform peaks from the items baseline — they are large
+      // read-only server blobs that must never be included in the diff.
+      lastItems    = itemsToJSON(p?.items);
       lastCart     = toJSON(p?.cartItems);
-      lastCartOnly = toJSON(p?.cartOnlyItems);
+      lastCartOnly = itemsToJSON(p?.cartOnlyItems);
       lastTheme    = toJSON(p?.theme);
       lastSettings = toJSON((p as any)?.settings);
     };
@@ -641,7 +697,7 @@ export const useProject = () => {
     // *streamed* items, otherwise the next user edit will be diffed
     // against the empty array we started with and re-push the whole
     // playlist as "client adds".
-    refreshItemsBaselineAfterHydrate = captureBaselines;
+    _refreshItemsBaselineAfterHydrate = captureBaselines;
 
     const server = () => useLiveplayServer();
 
@@ -760,12 +816,22 @@ export const useProject = () => {
             // New project → all cached waveforms are invalid.
             server().invalidateWaveformCache();
             // A new project was loaded server-side by some other client.
-            // Refetch header + restream items.
+            // Refetch header + restream items. isHydrating is reset to false
+            // by the outer finally before the async fetch resolves, so we must
+            // re-set it around applyServerHeader to prevent the fallback
+            // watcher from echoing the new header back as a PUT (which would
+            // create an infinite project_changed loop).
             void (async () => {
               try {
                 const header = await server().fetchProjectHeader();
                 if (!header) return;
-                applyServerHeader(header);
+                isHydrating.value = true;
+                try {
+                  applyServerHeader(header);
+                } finally {
+                  await nextTick();
+                  isHydrating.value = false;
+                }
                 if (header.hasOpenProject) {
                   void streamItemPages(server(), header.itemCount ?? 0);
                 }
@@ -867,8 +933,8 @@ export const useProject = () => {
       if (stopItemsWatcher)    { try { stopItemsWatcher(); }    catch {} stopItemsWatcher    = null; }
       if (stopCartOnlyWatcher) { try { stopCartOnlyWatcher(); } catch {} stopCartOnlyWatcher = null; }
     };
-    installItemsWatcherFn   = installItemsWatcher;
-    uninstallItemsWatcherFn = uninstallItemsWatcher;
+    _installItemsWatcherFn   = installItemsWatcher;
+    _uninstallItemsWatcherFn = uninstallItemsWatcher;
 
     const flatten = (items: any[] | null | undefined,
                      cartOnly: any[] | null | undefined) => {
@@ -893,8 +959,8 @@ export const useProject = () => {
       if (!srv.connected) return;
       const p = currentProject.value;
       if (!p) return;
-      const nextItems    = toJSON(p.items)         ?? [];
-      const nextCartOnly = toJSON(p.cartOnlyItems) ?? [];
+      const nextItems    = itemsToJSON(p.items)         ?? [];
+      const nextCartOnly = itemsToJSON(p.cartOnlyItems) ?? [];
 
       const items_changed    = stableJson(nextItems)    !== stableJson(lastItems);
       const cartonly_changed = stableJson(nextCartOnly) !== stableJson(lastCartOnly);

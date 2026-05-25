@@ -1586,6 +1586,77 @@ bool ProjectState::stop_item(const std::string& uuid) {
     return true;
 }
 
+void ProjectState::set_next_item_override(const std::string& uuid) {
+    std::lock_guard lock{mutex_};
+    next_item_override_ = uuid;
+}
+
+// Dispatch by item type: audio → play_item; group → walk startBehavior
+// (play-first plays the first child recursively; play-all triggers every
+// child). Mirrors the client's triggerGroup() so auto-next / Up Next
+// override / goto-item behave consistently when the target is a group.
+bool ProjectState::trigger_item(const std::string& uuid) {
+    // Look up the item's type and (for groups) startBehavior + children.
+    std::string type;
+    std::string start_action;
+    std::vector<std::string> child_uuids;
+    {
+        std::lock_guard lock{mutex_};
+        json* found = nullptr;
+        json& doc = document_;
+        std::function<void(json&)> walk;
+        walk = [&](json& arr) {
+            if (found || !arr.is_array()) return;
+            for (auto& it : arr) {
+                if (found) return;
+                if (!it.is_object()) continue;
+                if (it.value("uuid", std::string{}) == uuid) { found = &it; return; }
+                if (it.value("type", std::string{}) == "group" &&
+                    it.contains("children")) walk(it["children"]);
+            }
+        };
+        if (doc.contains("items"))              walk(doc["items"]);
+        if (!found && doc.contains("cartOnlyItems")) walk(doc["cartOnlyItems"]);
+        if (!found) return false;
+
+        type = found->value("type", std::string{});
+        if (type == "group") {
+            if (found->contains("startBehavior") &&
+                (*found)["startBehavior"].is_object()) {
+                start_action = (*found)["startBehavior"]
+                                   .value("action", std::string{"play-first"});
+            } else {
+                start_action = "play-first";
+            }
+            if (found->contains("children") && (*found)["children"].is_array()) {
+                for (auto& c : (*found)["children"]) {
+                    if (c.is_object()) {
+                        auto u = c.value("uuid", std::string{});
+                        if (!u.empty()) child_uuids.push_back(std::move(u));
+                    }
+                }
+            }
+        }
+    }
+
+    if (type == "audio") {
+        return play_item(uuid);
+    }
+    if (type == "group") {
+        if (child_uuids.empty()) return false;
+        if (start_action == "play-all") {
+            bool any = false;
+            for (const auto& cu : child_uuids) {
+                if (trigger_item(cu)) any = true;
+            }
+            return any;
+        }
+        // Default / "play-first": trigger only the first child.
+        return trigger_item(child_uuids.front());
+    }
+    return false;
+}
+
 // ---------------------------------------------------------------------------
 // Per-device routing — each cue with a `deviceOverride` is wired through a
 // dedicated mixer + pair of master channels into that specific output
@@ -2272,12 +2343,18 @@ void ProjectState::sequencer_loop() {
                         static_cast<long long>(p.item.crossfade_sec * 1000.0)});
                 }
                 // Start the next cue (it will register itself with the sequencer).
+                // Honour user-set Up Next override, same as handle_item_ended.
                 std::string next_uuid;
                 {
                     std::lock_guard lock{mutex_};
-                    next_uuid = resolve_next_item_locked(p.item.uuid);
+                    if (!next_item_override_.empty()) {
+                        next_uuid = std::move(next_item_override_);
+                        next_item_override_.clear();
+                    } else {
+                        next_uuid = resolve_next_item_locked(p.item.uuid);
+                    }
                 }
-                if (!next_uuid.empty()) play_item(next_uuid);
+                if (!next_uuid.empty()) trigger_item(next_uuid);
                 break;
             }
 
@@ -2344,11 +2421,17 @@ void ProjectState::handle_item_ended(const SequencedItem& item) {
         std::string next_uuid;
         {
             std::lock_guard lock{mutex_};
-            next_uuid = resolve_next_item_locked(item.uuid);
+            // User-set override wins; consume it.
+            if (!next_item_override_.empty()) {
+                next_uuid = std::move(next_item_override_);
+                next_item_override_.clear();
+            } else {
+                next_uuid = resolve_next_item_locked(item.uuid);
+            }
         }
-        if (!next_uuid.empty()) play_item(next_uuid);
+        if (!next_uuid.empty()) trigger_item(next_uuid);
     } else if (end_action == "goto-item" && !target_uuid.empty()) {
-        play_item(target_uuid);
+        trigger_item(target_uuid);
     } else if (end_action == "goto-index" && target_index >= 0) {
         std::string idx_uuid;
         {
@@ -2359,7 +2442,7 @@ void ProjectState::handle_item_ended(const SequencedItem& item) {
                     idx_uuid = arr[target_index].value("uuid", std::string{});
             }
         }
-        if (!idx_uuid.empty()) play_item(idx_uuid);
+        if (!idx_uuid.empty()) trigger_item(idx_uuid);
     }
     // "nothing" or unrecognized → do nothing.
 }

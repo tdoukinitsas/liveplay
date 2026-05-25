@@ -32,6 +32,9 @@ enum class LogLevel {
     Success,
     Warn,
     Error,
+    ApiRequest,   // [API REQUEST]  magenta — exact client↔server communication
+    ApiResponse,  // [API RESPONSE] cyan    — exact server↔client replies
+    Playback,     // [PLAYBACK]     orange  — play/stop/seek events
 };
 
 class Logger {
@@ -67,13 +70,28 @@ public:
     static void error(std::format_string<Args...> fmt, Args&&... args) {
         log(LogLevel::Error, std::format(fmt, std::forward<Args>(args)...));
     }
+    template <typename... Args>
+    static void api_request(std::format_string<Args...> fmt, Args&&... args) {
+        log(LogLevel::ApiRequest, std::format(fmt, std::forward<Args>(args)...));
+    }
+    template <typename... Args>
+    static void api_response(std::format_string<Args...> fmt, Args&&... args) {
+        log(LogLevel::ApiResponse, std::format(fmt, std::forward<Args>(args)...));
+    }
+    template <typename... Args>
+    static void playback(std::format_string<Args...> fmt, Args&&... args) {
+        log(LogLevel::Playback, std::format(fmt, std::forward<Args>(args)...));
+    }
 
     // Plain-string overloads for already-formatted messages.
-    static void debug(std::string_view msg)   { log(LogLevel::Debug, msg); }
-    static void info(std::string_view msg)    { log(LogLevel::Info, msg); }
-    static void success(std::string_view msg) { log(LogLevel::Success, msg); }
-    static void warn(std::string_view msg)    { log(LogLevel::Warn, msg); }
-    static void error(std::string_view msg)   { log(LogLevel::Error, msg); }
+    static void debug(std::string_view msg)        { log(LogLevel::Debug, msg); }
+    static void info(std::string_view msg)         { log(LogLevel::Info, msg); }
+    static void success(std::string_view msg)      { log(LogLevel::Success, msg); }
+    static void warn(std::string_view msg)         { log(LogLevel::Warn, msg); }
+    static void error(std::string_view msg)        { log(LogLevel::Error, msg); }
+    static void api_request(std::string_view msg)  { log(LogLevel::ApiRequest, msg); }
+    static void api_response(std::string_view msg) { log(LogLevel::ApiResponse, msg); }
+    static void playback(std::string_view msg)     { log(LogLevel::Playback, msg); }
 
     // -------------------- low-level / utilities -----------------------------
     // Write a raw line *with* ANSI codes preserved if color is on, stripped
@@ -116,6 +134,8 @@ inline constexpr std::string_view bright_yellow = "\033[93m";
 inline constexpr std::string_view bright_blue   = "\033[94m";
 inline constexpr std::string_view bright_cyan   = "\033[96m";
 inline constexpr std::string_view bright_white  = "\033[97m";
+// 256-colour orange — rendered by Win10 VT, macOS Terminal, most modern terminals.
+inline constexpr std::string_view orange        = "\033[38;5;208m";
 } // namespace ansi
 
 } // namespace liveplay

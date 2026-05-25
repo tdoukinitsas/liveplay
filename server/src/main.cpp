@@ -7,6 +7,7 @@
 // plug in at the marked extension points.
 // ============================================================================
 #include "liveplay/audio/engine.hpp"
+#include "liveplay/core/backup_manager.hpp"
 #include "liveplay/core/project_state.hpp"
 #include "liveplay/logger.hpp"
 #include "liveplay/net/control_server.hpp"
@@ -29,6 +30,7 @@
     #include <winsock2.h>
     #include <ws2tcpip.h>
     #include <iphlpapi.h>
+    #include <windows.h>
     #pragma comment(lib, "iphlpapi.lib")
     #pragma comment(lib, "ws2_32.lib")
 #else
@@ -250,6 +252,25 @@ int main(int argc, char** argv) {
     namespace core  = liveplay::core;
     namespace net   = liveplay::net;
 
+#if defined(_WIN32)
+    SetConsoleTitle(L"LivePlay Server");
+    // Set the taskbar icon to the embedded IDI_APPICON resource. Console
+    // windows use conhost.exe's icon by default; we must push ours explicitly.
+    {
+        // Resource ordinal 1 matches IDI_APPICON from winresrc.h / server.rc
+        HICON hIcon = static_cast<HICON>(
+            LoadImage(GetModuleHandle(nullptr), MAKEINTRESOURCE(1),
+                      IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED));
+        if (hIcon) {
+            HWND hwnd = GetConsoleWindow();
+            if (hwnd) {
+                SendMessage(hwnd, WM_SETICON, ICON_BIG,   reinterpret_cast<LPARAM>(hIcon));
+                SendMessage(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hIcon));
+            }
+        }
+    }
+#endif
+
     Logger::init();
     const CliOptions opts = parse_cli(argc, argv);
     if (opts.verbose) Logger::set_min_level(LogLevel::Debug);
@@ -294,6 +315,8 @@ int main(int argc, char** argv) {
     // Project state + control plane (Milestone 3)
     // ------------------------------------------------------------------
     auto project = std::make_unique<core::ProjectState>(*engine);
+    auto backup  = std::make_unique<core::BackupManager>(*project);
+    backup->start();
 
     net::ControlServerConfig server_cfg;
     server_cfg.bind_address = opts.bind_addr;
@@ -362,6 +385,8 @@ int main(int argc, char** argv) {
     beacon.reset();
     server->stop();
     server.reset();
+    backup->stop();
+    backup.reset();
     project.reset();
     engine->stop();
     engine.reset();

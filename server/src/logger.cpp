@@ -114,11 +114,14 @@ struct LevelStyle {
 
 LevelStyle style_for(LogLevel level) {
     switch (level) {
-        case LogLevel::Debug:   return {"DBUG", ansi::cyan};
-        case LogLevel::Info:    return {"INFO", ansi::green};
-        case LogLevel::Success: return {"OK  ", ansi::bright_green};
-        case LogLevel::Warn:    return {"WARN", ansi::yellow};
-        case LogLevel::Error:   return {"ERR ", ansi::bright_red};
+        case LogLevel::Debug:       return {"DBUG",         ansi::cyan};
+        case LogLevel::Info:        return {"INFO",         ansi::green};
+        case LogLevel::Success:     return {"OK",           ansi::bright_green};
+        case LogLevel::Warn:        return {"WARNING",      ansi::yellow};
+        case LogLevel::Error:       return {"ERROR",        ansi::bright_red};
+        case LogLevel::ApiRequest:  return {"API REQUEST",  ansi::magenta};
+        case LogLevel::ApiResponse: return {"API RESPONSE", ansi::cyan};
+        case LogLevel::Playback:    return {"PLAYBACK",     ansi::orange};
     }
     return {"????", ansi::white};
 }

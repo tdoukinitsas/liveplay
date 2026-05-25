@@ -451,7 +451,7 @@ export const useAudioEngine = () => {
 
       // Clear manual "set as next" override once the queued item actually starts playing
       if (nextItemOverrideUuid.value === item.uuid) {
-        nextItemOverrideUuid.value = null;
+        setNextItem(null);
       }
 
       // Cues imported via the server file picker carry an absolute server
@@ -881,16 +881,25 @@ export const useAudioEngine = () => {
     }
   };
 
-  // Set a specific item as the next to play (overrides automatic sequencing)
+  // Set a specific item as the next to play (overrides automatic sequencing).
+  // Mirrors the override to the server so the playback engine (which owns
+  // end-behavior dispatch) honours it when the current item ends.
   const setNextItem = (uuid: string | null) => {
     nextItemOverrideUuid.value = uuid;
+    try {
+      useLiveplayServer().setNextItem(uuid);
+    } catch (err) {
+      // Server bridge may not be available in some test contexts — UI state
+      // still updates so behaviour degrades gracefully.
+      console.warn('setNextItem: server bridge unavailable', err);
+    }
   };
 
   // Play next item in sequence
   const playNextItem = (currentIndex: number[]) => {
     if (nextItemOverrideUuid.value) {
       const overrideUuid = nextItemOverrideUuid.value;
-      nextItemOverrideUuid.value = null;
+      setNextItem(null);
       const overrideItem = findItemByUuid(overrideUuid);
       if (overrideItem) {
         if (overrideItem.type === 'audio') {

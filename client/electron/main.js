@@ -185,12 +185,14 @@ async function startLiveplayServer() {
   ];
   try {
     if (process.platform === 'win32') {
-      // `cmd /c start "<title>" /D "<cwd>" "<exe>" <args>` pops a new
-      // console window (with a real taskbar entry) running the server.
-      // cmd.exe exits immediately; the server runs detached from us.
+      // `cmd /c start "" /D "<cwd>" "<exe>" <args>` opens a visible console
+      // window in the taskbar. The empty-string title avoids the Windows quirk
+      // where the first quoted arg to `start` is treated as the window title
+      // instead of the executable. The server binary's own embedded icon and
+      // the title it sets via SetConsoleTitle() then appear in the taskbar.
       liveplayServerProc = spawn(
         'cmd.exe',
-        ['/c', 'start', 'LivePlay Server',
+        ['/c', 'start', '',
          '/D', path.dirname(exePath),
          exePath, ...serverArgs],
         {
@@ -319,12 +321,10 @@ ipcMain.handle('liveplay-server:set-config', (_e, incoming) => {
 
   writeLiveplayConfig(next);
 
-  // React to mode/port changes. In local mode, treat both an in-process
-  // child and a reattached PID as "already running".
+  // If switching to remote, stop any running local server.
   if (next.mode === 'remote' && (liveplayServerProc || liveplayServerPid)) stopLiveplayServer();
-  if (next.mode === 'local'  && !liveplayServerProc && !liveplayServerPid) {
-    void startLiveplayServer();
-  }
+  // Do NOT auto-start in local mode here — the caller (ensure-running) is
+  // responsible for starting the server so it isn't spawned twice.
 
   return next;
 });
