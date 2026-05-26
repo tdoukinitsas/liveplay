@@ -67,7 +67,7 @@ taglib provides pkg-config modules:
   # Audio meta-data library (C bindings)
   taglib_c
 
-All requested installations completed successfully in: 574 us
+All requested installations completed successfully in: 475 us
 -- Running vcpkg install - done
 -- The C compiler identification is AppleClang 16.0.0.16000026
 -- The CXX compiler identification is AppleClang 16.0.0.16000026
@@ -86,233 +86,28 @@ All requested installations completed successfully in: 574 us
 -- Found Threads: TRUE
 -- Found nlohmann_json: /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/share/nlohmann_json/nlohmann_jsonConfig.cmake (found version "3.12.0")
 -- Found ZLIB: optimized;/Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/lib/libz.a;debug;/Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/debug/lib/libz.a (found version "1.3.2")
--- Configuring done (11.2s)
--- Generating done (0.2s)
+-- Configuring done (8.8s)
+-- Generating done (0.1s)
 -- Build files have been written to: /Users/tdoukinitsas/Documents/Github/liveplay/server/build
 > cmake --build /Users/tdoukinitsas/Documents/Github/liveplay/server/build --preset default
-[6/18] Building CXX object CMakeFiles/liveplay-server.dir/src/main.cpp.o
-FAILED: [code=1] CMakeFiles/liveplay-server.dir/src/main.cpp.o 
-/usr/bin/c++ -DASIO_NO_DEPRECATED -DLIVEPLAY_SERVER_NAME=\"liveplay-server\" -DLIVEPLAY_SERVER_VERSION=\"2.0.0\" -DMINIZ_STATIC_DEFINE -DTAGLIB_STATIC -I/Users/tdoukinitsas/Documents/Github/liveplay/server/include -isystem /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include -isystem /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/miniz -isystem /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/taglib -O3 -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wno-unused-parameter -MD -MT CMakeFiles/liveplay-server.dir/src/main.cpp.o -MF CMakeFiles/liveplay-server.dir/src/main.cpp.o.d -o CMakeFiles/liveplay-server.dir/src/main.cpp.o -c /Users/tdoukinitsas/Documents/Github/liveplay/server/src/main.cpp
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/src/main.cpp:9:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/engine.hpp:31:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/limiter.hpp:24:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/types.hpp:10:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono:810:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/convert_to_tm.h:22:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/statically_widen.h:17:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/concepts.h:17:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_parse_context.h:16:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string_view:939:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1810:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/for_each.h:16:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/movable_box.h:23:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional:1289:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/atomic:591:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/aliases.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_base.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_sync.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/contention_t.h:12:
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/cxx_atomic_impl.h:306:37: error: _Atomic cannot be applied to type 'std::shared_ptr<const liveplay::audio::Topology>' which is not trivially copyable
-  306 |   _LIBCPP_DISABLE_EXTENSION_WARNING _Atomic(_Tp) __a_value;
-      |                                     ^
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/cxx_atomic_impl.h:815:35: note: in instantiation of template class 'std::__cxx_atomic_base_impl<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-  815 | struct __cxx_atomic_impl : public _Base {
-      |                                   ^
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_base.h:34:34: note: in instantiation of template class 'std::__cxx_atomic_impl<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-   34 |   mutable __cxx_atomic_impl<_Tp> __a_;
-      |                                  ^
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic.h:36:24: note: in instantiation of template class 'std::__atomic_base<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-   36 | struct atomic : public __atomic_base<_Tp> {
-      |                        ^
-/Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/engine.hpp:248:50: note: in instantiation of template class 'std::atomic<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-  248 |     std::atomic<std::shared_ptr<const Topology>> topology_{};
-      |                                                  ^
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/src/main.cpp:9:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/engine.hpp:31:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/limiter.hpp:24:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/types.hpp:10:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono:810:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/convert_to_tm.h:22:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/statically_widen.h:17:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/concepts.h:17:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_parse_context.h:16:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string_view:939:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1810:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/for_each.h:16:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/movable_box.h:23:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional:1289:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/atomic:591:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/aliases.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_base.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_sync.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/contention_t.h:12:
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/cxx_atomic_impl.h:816:17: error: static assertion failed due to requirement 'is_trivially_copyable<std::shared_ptr<const liveplay::audio::Topology>>::value': std::atomic<T> requires that 'T' be a trivially copyable type
-  816 |   static_assert(is_trivially_copyable<_Tp>::value, "std::atomic<T> requires that 'T' be a trivially copyable type");
-      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_base.h:34:34: note: in instantiation of template class 'std::__cxx_atomic_impl<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-   34 |   mutable __cxx_atomic_impl<_Tp> __a_;
-      |                                  ^
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic.h:36:24: note: in instantiation of template class 'std::__atomic_base<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-   36 | struct atomic : public __atomic_base<_Tp> {
-      |                        ^
-/Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/engine.hpp:248:50: note: in instantiation of template class 'std::atomic<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-  248 |     std::atomic<std::shared_ptr<const Topology>> topology_{};
-      |                                                  ^
-/Users/tdoukinitsas/Documents/Github/liveplay/server/src/main.cpp:115:32: error: use of undeclared identifier 'IFF_UP'
-  115 |         if (!(ifa->ifa_flags & IFF_UP) || (ifa->ifa_flags & IFF_LOOPBACK)) continue;
-      |                                ^
-/Users/tdoukinitsas/Documents/Github/liveplay/server/src/main.cpp:115:61: error: use of undeclared identifier 'IFF_LOOPBACK'
-  115 |         if (!(ifa->ifa_flags & IFF_UP) || (ifa->ifa_flags & IFF_LOOPBACK)) continue;
-      |                                                             ^
-/Users/tdoukinitsas/Documents/Github/liveplay/server/src/main.cpp:153:10: warning: unused variable 'clr' [-Wunused-variable]
-  153 |     auto clr = [](std::string_view code, std::string_view text) {
+[8/18] Building CXX object CMakeFiles/liveplay-server.dir/src/main.cpp.o
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/main.cpp:155:10: warning: unused variable 'clr' [-Wunused-variable]
+  155 |     auto clr = [](std::string_view code, std::string_view text) {
       |          ^~~
-1 warning and 4 errors generated.
-[9/18] Building CXX object CMakeFiles/liveplay-server.dir/src/audio/engine.cpp.o
-FAILED: [code=1] CMakeFiles/liveplay-server.dir/src/audio/engine.cpp.o 
-/usr/bin/c++ -DASIO_NO_DEPRECATED -DLIVEPLAY_SERVER_NAME=\"liveplay-server\" -DLIVEPLAY_SERVER_VERSION=\"2.0.0\" -DMINIZ_STATIC_DEFINE -DTAGLIB_STATIC -I/Users/tdoukinitsas/Documents/Github/liveplay/server/include -isystem /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include -isystem /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/miniz -isystem /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/taglib -O3 -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wno-unused-parameter -MD -MT CMakeFiles/liveplay-server.dir/src/audio/engine.cpp.o -MF CMakeFiles/liveplay-server.dir/src/audio/engine.cpp.o.d -o CMakeFiles/liveplay-server.dir/src/audio/engine.cpp.o -c /Users/tdoukinitsas/Documents/Github/liveplay/server/src/audio/engine.cpp
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/src/audio/engine.cpp:4:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/engine.hpp:31:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/limiter.hpp:24:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/types.hpp:10:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono:810:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/convert_to_tm.h:22:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/statically_widen.h:17:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/concepts.h:17:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_parse_context.h:16:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string_view:939:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1810:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/for_each.h:16:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/movable_box.h:23:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional:1289:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/atomic:591:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/aliases.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_base.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_sync.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/contention_t.h:12:
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/cxx_atomic_impl.h:306:37: error: _Atomic cannot be applied to type 'std::shared_ptr<const liveplay::audio::Topology>' which is not trivially copyable
-  306 |   _LIBCPP_DISABLE_EXTENSION_WARNING _Atomic(_Tp) __a_value;
-      |                                     ^
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/cxx_atomic_impl.h:815:35: note: in instantiation of template class 'std::__cxx_atomic_base_impl<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-  815 | struct __cxx_atomic_impl : public _Base {
-      |                                   ^
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_base.h:34:34: note: in instantiation of template class 'std::__cxx_atomic_impl<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-   34 |   mutable __cxx_atomic_impl<_Tp> __a_;
-      |                                  ^
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic.h:36:24: note: in instantiation of template class 'std::__atomic_base<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-   36 | struct atomic : public __atomic_base<_Tp> {
-      |                        ^
-/Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/engine.hpp:248:50: note: in instantiation of template class 'std::atomic<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-  248 |     std::atomic<std::shared_ptr<const Topology>> topology_{};
-      |                                                  ^
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/src/audio/engine.cpp:4:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/engine.hpp:31:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/limiter.hpp:24:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/types.hpp:10:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono:810:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/convert_to_tm.h:22:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/statically_widen.h:17:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/concepts.h:17:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_parse_context.h:16:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string_view:939:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1810:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/for_each.h:16:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/movable_box.h:23:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional:1289:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/atomic:591:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/aliases.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_base.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_sync.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/contention_t.h:12:
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/cxx_atomic_impl.h:816:17: error: static assertion failed due to requirement 'is_trivially_copyable<std::shared_ptr<const liveplay::audio::Topology>>::value': std::atomic<T> requires that 'T' be a trivially copyable type
-  816 |   static_assert(is_trivially_copyable<_Tp>::value, "std::atomic<T> requires that 'T' be a trivially copyable type");
-      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_base.h:34:34: note: in instantiation of template class 'std::__cxx_atomic_impl<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-   34 |   mutable __cxx_atomic_impl<_Tp> __a_;
-      |                                  ^
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic.h:36:24: note: in instantiation of template class 'std::__atomic_base<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-   36 | struct atomic : public __atomic_base<_Tp> {
-      |                        ^
-/Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/engine.hpp:248:50: note: in instantiation of template class 'std::atomic<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-  248 |     std::atomic<std::shared_ptr<const Topology>> topology_{};
-      |                                                  ^
-2 errors generated.
-[10/18] Building CXX object CMakeFiles/liveplay-server.dir/src/core/project_state.cpp.o
-FAILED: [code=1] CMakeFiles/liveplay-server.dir/src/core/project_state.cpp.o 
-/usr/bin/c++ -DASIO_NO_DEPRECATED -DLIVEPLAY_SERVER_NAME=\"liveplay-server\" -DLIVEPLAY_SERVER_VERSION=\"2.0.0\" -DMINIZ_STATIC_DEFINE -DTAGLIB_STATIC -I/Users/tdoukinitsas/Documents/Github/liveplay/server/include -isystem /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include -isystem /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/miniz -isystem /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/taglib -O3 -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wno-unused-parameter -MD -MT CMakeFiles/liveplay-server.dir/src/core/project_state.cpp.o -MF CMakeFiles/liveplay-server.dir/src/core/project_state.cpp.o.d -o CMakeFiles/liveplay-server.dir/src/core/project_state.cpp.o -c /Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:4:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/core/project_state.hpp:23:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/engine.hpp:31:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/limiter.hpp:24:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/types.hpp:10:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono:810:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/convert_to_tm.h:22:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/statically_widen.h:17:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/concepts.h:17:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_parse_context.h:16:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string_view:939:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1810:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/for_each.h:16:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/movable_box.h:23:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional:1289:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/atomic:591:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/aliases.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_base.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_sync.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/contention_t.h:12:
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/cxx_atomic_impl.h:306:37: error: _Atomic cannot be applied to type 'std::shared_ptr<const liveplay::audio::Topology>' which is not trivially copyable
-  306 |   _LIBCPP_DISABLE_EXTENSION_WARNING _Atomic(_Tp) __a_value;
-      |                                     ^
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/cxx_atomic_impl.h:815:35: note: in instantiation of template class 'std::__cxx_atomic_base_impl<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-  815 | struct __cxx_atomic_impl : public _Base {
-      |                                   ^
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_base.h:34:34: note: in instantiation of template class 'std::__cxx_atomic_impl<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-   34 |   mutable __cxx_atomic_impl<_Tp> __a_;
-      |                                  ^
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic.h:36:24: note: in instantiation of template class 'std::__atomic_base<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-   36 | struct atomic : public __atomic_base<_Tp> {
-      |                        ^
-/Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/engine.hpp:248:50: note: in instantiation of template class 'std::atomic<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-  248 |     std::atomic<std::shared_ptr<const Topology>> topology_{};
-      |                                                  ^
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:4:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/core/project_state.hpp:23:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/engine.hpp:31:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/limiter.hpp:24:
-In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/types.hpp:10:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono:810:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/convert_to_tm.h:22:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/statically_widen.h:17:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/concepts.h:17:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_parse_context.h:16:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string_view:939:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1810:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/for_each.h:16:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/movable_box.h:23:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional:1289:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/atomic:591:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/aliases.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_base.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_sync.h:12:
-In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/contention_t.h:12:
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/cxx_atomic_impl.h:816:17: error: static assertion failed due to requirement 'is_trivially_copyable<std::shared_ptr<const liveplay::audio::Topology>>::value': std::atomic<T> requires that 'T' be a trivially copyable type
-  816 |   static_assert(is_trivially_copyable<_Tp>::value, "std::atomic<T> requires that 'T' be a trivially copyable type");
-      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_base.h:34:34: note: in instantiation of template class 'std::__cxx_atomic_impl<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-   34 |   mutable __cxx_atomic_impl<_Tp> __a_;
-      |                                  ^
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic.h:36:24: note: in instantiation of template class 'std::__atomic_base<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-   36 | struct atomic : public __atomic_base<_Tp> {
-      |                        ^
-/Users/tdoukinitsas/Documents/Github/liveplay/server/include/liveplay/audio/engine.hpp:248:50: note: in instantiation of template class 'std::atomic<std::shared_ptr<const liveplay::audio::Topology>>' requested here
-  248 |     std::atomic<std::shared_ptr<const Topology>> topology_{};
-      |                                                  ^
+1 warning generated.
+[10/18] Building CXX object CMakeFiles/liveplay-server.dir/src/net/control_server.cpp.o
+FAILED: [code=1] CMakeFiles/liveplay-server.dir/src/net/control_server.cpp.o 
+/usr/bin/c++ -DASIO_NO_DEPRECATED -DLIVEPLAY_SERVER_NAME=\"liveplay-server\" -DLIVEPLAY_SERVER_VERSION=\"2.0.0\" -DMINIZ_STATIC_DEFINE -DTAGLIB_STATIC -I/Users/tdoukinitsas/Documents/Github/liveplay/server/include -isystem /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include -isystem /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/miniz -isystem /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/taglib -O3 -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wno-unused-parameter -MD -MT CMakeFiles/liveplay-server.dir/src/net/control_server.cpp.o -MF CMakeFiles/liveplay-server.dir/src/net/control_server.cpp.o.d -o CMakeFiles/liveplay-server.dir/src/net/control_server.cpp.o -c /Users/tdoukinitsas/Documents/Github/liveplay/server/src/net/control_server.cpp
+In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/src/net/control_server.cpp:23:
+In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/crow.h:7:
+In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/crow/socket_adaptors.h:13:
+In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/asio.hpp:18:
+In file included from /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/asio/any_completion_executor.hpp:18:
+/Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/include/asio/detail/config.hpp:708:12: fatal error: 'winapifamily.h' file not found
+  708 | #  include <winapifamily.h>
+      |            ^~~~~~~~~~~~~~~~
+1 error generated.
+[15/18] Building CXX object CMakeFiles/liveplay-server.dir/src/core/project_state.cpp.o
 /Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:2544:72: warning: missing field 'custom_action' initializer [-Wmissing-field-initializers]
  2544 |                     pending.push_back({si, PendingAction::Kind::Cleanup});
       |                                                                        ^
@@ -328,9 +123,18 @@ In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/in
 /Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:2586:78: warning: missing field 'custom_action' initializer [-Wmissing-field-initializers]
  2586 |                     pending.push_back({si, PendingAction::Kind::BeginStopFade});
       |                                                                              ^
-5 warnings and 2 errors generated.
-[11/18] Building C object CMakeFiles/liveplay_miniaudio.dir/src/audio/miniaudio_impl.c.o
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:22:20: warning: unused function 'id_to_string' [-Wunused-function]
+   22 | inline std::string id_to_string(const audio::CueId& id)          { return id.value; }
+      |                    ^~~~~~~~~~~~
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:23:20: warning: unused function 'id_to_string' [-Wunused-function]
+   23 | inline std::string id_to_string(const audio::MixerChannelId& id) { return id.value; }
+      |                    ^~~~~~~~~~~~
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:24:20: warning: unused function 'id_to_string' [-Wunused-function]
+   24 | inline std::string id_to_string(const audio::DeviceId& id)       { return id.value; }
+      |                    ^~~~~~~~~~~~
+8 warnings generated.
 ninja: build stopped: subcommand failed.
 
 [build-all] Command failed: node scripts/build-server.js
+Thomass-2012-Mac-mini:liveplay tdoukinitsas$ 
 Thomass-2012-Mac-mini:liveplay tdoukinitsas$ 
