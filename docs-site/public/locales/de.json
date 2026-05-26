@@ -41,6 +41,14 @@
       "title": "Intuitive Benutzeroberfläche",
       "description": "LivePlay verfügt über eine saubere, einfache und moderne Benutzeroberfläche, die speziell für Live-Tontechniker entwickelt wurde. Organisieren Sie Ihre Haupt-Sounddateien in Playlists und fügen Sie Sounds zu einem Cart-Player für schnellen Zugriff oder Ansagen hinzu. Audio-Dateien, die zum Cart hinzugefügt werden, verhalten sich automatisch wie Ansagen und reduzieren jedes Hintergrundaudio bei der Wiedergabe."
     },
+    "audioEngine": {
+      "title": "Professional Audio Engine",
+      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+    },
+    "routing": {
+      "title": "Multi-Device Audio Routing",
+      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+    },
     "waveform": {
       "title": "Wellenform-Editor",
       "description": "Schneiden Sie Ihr Audio präzise mit dem integrierten Wellenform-Editor. Setzen Sie Ein- und Ausstiegspunkte, passen Sie die Lautstärke an und konfigurieren Sie Fade-Zeiten visuell. Sie können auch automatisch basierend auf Stille schneiden oder die Lautstärke automatisch anpassen, damit alle Audiopegel konsistent sind."
@@ -56,6 +64,10 @@
     "ducking": {
       "title": "Automatisches Ducking",
       "description": "Konfigurieren Sie automatisches Ducking, um die Lautstärke von Hintergrundmusik zu reduzieren, wenn Ansagen oder Dialoge abgespielt werden. Perfekt für reibungslose Übergänge in Live-Produktionen."
+    },
+    "remoteOperation": {
+      "title": "Local or Remote Operation",
+      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
     },
     "firstLaunch": {
       "title": "Schnelle Einrichtung",

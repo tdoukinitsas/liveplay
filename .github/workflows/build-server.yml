@@ -37,10 +37,17 @@ jobs:
               server/build/Release/liveplay-server.exe
               server/build/liveplay-server.exe
           - os: macos-latest
-            label: macOS (Clang)
+            label: macOS Apple Silicon (Clang)
             triplet: arm64-osx
             cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0"
             artifact_name: liveplay-server-macos-arm64
+            binary_glob: |
+              server/build/liveplay-server
+          - os: macos-13
+            label: macOS Intel (Clang)
+            triplet: x64-osx
+            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"
+            artifact_name: liveplay-server-macos-x64
             binary_glob: |
               server/build/liveplay-server
           - os: ubuntu-latest

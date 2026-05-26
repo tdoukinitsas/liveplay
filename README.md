@@ -2,12 +2,12 @@
 
 ![Main liveplay user interface, with playlist editor, cue cart and properties panel](client/public/screenshots/liveplay_screenshot.jpg)
 
-LivePlay is a free, open-source audio playback system for live sound operators who need reliable, flexible cue management. As of v2.0 it ships as a **decoupled client/server** application:
+LivePlay is a free, open-source audio playback system for live sound operators who need reliable, flexible cue management. It ships as a **decoupled client/server** application:
 
 - **`/server`** — a headless, cross-platform C++ application that owns the audio engine, project state, REST/WebSocket control plane, and metadata/waveform analysis.
-- **`/client`** — the existing Vue 3 / Nuxt 3 / Electron desktop application, refactored to act as a remote control over WebSocket and REST. No audio is played in the renderer process.
+- **`/client`** — a Vue 3 / Nuxt 3 / Electron desktop application that acts as a remote control over WebSocket and REST. No audio is played in the renderer process.
 
-Splitting the audio engine out of the renderer process gives LivePlay direct access to ASIO/Core Audio/ALSA, true multi-device output routing, native DSP (limiter, LTC, metering at audio-callback rate), and independent per-cue playback instances — none of which were achievable through Chromium's Web Audio sandbox.
+The decoupled architecture gives LivePlay direct access to WASAPI/Core Audio/ALSA, true multi-device output routing, native DSP (limiter, LTC, metering at audio-callback rate), and independent per-cue playback instances.
 
 **Available in 20 languages** with full RTL support.
 
@@ -75,7 +75,7 @@ The C++ engine routes audio through three explicit tiers. Every cue's audio is p
 ```
 
 - **Tier 1 — `PlaybackItem`** ([server/include/liveplay/audio/playback_item.hpp](server/include/liveplay/audio/playback_item.hpp))
-  Each cue gets its own `PlaybackItem` with its own `ma_decoder`, gain/fade state, LTC generator, and per-source-channel meter. Loading the same `.wav` into two cart slots yields **two independent instances** — this is the fix for the LivePlay 1.x state-sharing bug where attenuating one cart silently attenuated the other.
+  Each cue gets its own `PlaybackItem` with its own `ma_decoder`, gain/fade state, LTC generator, and per-source-channel meter. Loading the same `.wav` into two cart slots yields **two independent instances** — attenuating one never affects the other.
 - **Tier 2 — `MixerChannel`** ([server/include/liveplay/audio/mixer_channel.hpp](server/include/liveplay/audio/mixer_channel.hpp))
   A virtual mixer strip with gain, mute, solo, and a smooth-fade ramp. Multiple items can route into the same channel; multiple source channels of one item can route to different channels.
 - **Tier 3 — Master Output Bus** ([server/include/liveplay/audio/engine.hpp](server/include/liveplay/audio/engine.hpp))
@@ -109,7 +109,7 @@ Offset: any non-negative `chrono::nanoseconds`. So a cue can be set up to emit `
 
 ### Manual-Stop Fade-Out Contract
 
-The 1.x client only honoured the user-defined fade-out on **natural** end-of-file. LivePlay v2 funnels all three stop paths through the same envelope:
+All three stop paths funnel through the same fade-out envelope:
 
 - `PlaybackItem::stop()` (user pressed Stop, or master Stop-All) — honours `fade_out_duration`.
 - `PlaybackItem::stop_now()` — emergency panic, no fade.
@@ -125,7 +125,7 @@ Each master channel carries a lookahead brick-wall limiter ([server/include/live
 - Lookahead: **5 ms** (≈ 240 samples at 48 kHz)
 - Release: **50 ms**
 
-The detector runs a sliding-max peak window with O(1) amortised update; the gain envelope snaps down within the lookahead and one-pole-releases back to unity. Output is mathematically clamped to the ceiling so clipping is impossible for finite inputs. This replaces the legacy "reduce every cue by 6 dB" hack from 1.x.
+The detector runs a sliding-max peak window with O(1) amortised update; the gain envelope snaps down within the lookahead and one-pole-releases back to unity. Output is mathematically clamped to the ceiling so clipping is impossible for finite inputs.
 
 ### Real-Time Metering (3 Stages)
 
@@ -156,7 +156,7 @@ The WebSocket frame the client receives:
 }
 ```
 
-The 1.x "cheat" — sampling the static waveform thumbnail's amplitude at the playhead — is gone. Live metering is real audio-callback amplitude.
+Metering is driven directly from audio-callback amplitude data.
 
 ### Network Event Lifecycle
 
@@ -198,21 +198,21 @@ The result: existing `.liveplay` projects open and play identically. Operators c
 liveplay/
 ├── client/                          Vue 3 / Nuxt 3 / Electron desktop UI
 │   ├── components/                  Vue SFCs
-│   │   ├── WaveformCanvas.vue       (NEW) canvas-rendered waveform
-│   │   ├── ServerFileBrowser.vue    (NEW) /api/fs/list browser
-│   │   ├── RoutingMatrixPanel.vue   (NEW) 3-tier routing UI
-│   │   ├── LiveMeterBar.vue         (NEW) live WS meter widget
-│   │   ├── ServerSettingsModal.vue  (NEW) server URL config
-│   │   └── …existing 1.x components…
+│   │   ├── WaveformCanvas.vue       canvas-rendered waveform
+│   │   ├── ServerFileBrowser.vue    /api/fs/list browser
+│   │   ├── RoutingMatrixPanel.vue   3-tier routing UI
+│   │   ├── LiveMeterBar.vue         live WS meter widget
+│   │   ├── ServerSettingsModal.vue  server URL / mode config
+│   │   └── …other components…
 │   ├── composables/
-│   │   ├── useLiveplayServer.ts     (NEW) REST + WS client (singleton)
-│   │   ├── useLiveMeters.ts         (NEW) meter-subscription helpers
-│   │   └── …existing composables…
+│   │   ├── useLiveplayServer.ts     REST + WS client (singleton)
+│   │   ├── useLiveMeters.ts         meter-subscription helpers
+│   │   └── …other composables…
 │   ├── plugins/
 │   │   └── liveplay-server.client.ts  Nuxt plugin: auto-connect on boot
 │   ├── types/
-│   │   ├── server.ts                (NEW) server DTOs
-│   │   └── project.ts               existing project model
+│   │   ├── server.ts                server DTOs
+│   │   └── project.ts               project model
 │   ├── electron/                    Electron main process + preload
 │   ├── nuxt.config.ts
 │   └── package.json
@@ -242,7 +242,7 @@ liveplay/
 ├── package.json                     workspaces root (orchestrator scripts)
 ├── README.md                        this file
 ├── LICENCE.txt                      AGPL-3.0
-├── docs-site/, guides/, openspec/   unchanged
+├── docs-site/, guides/, openspec/   docs, guides, API spec
 └── .gitignore                       client + server build outputs
 ```
 
@@ -391,32 +391,23 @@ strip dist/bin/liveplay-server
 
 ### Bundling the server inside the Electron installer
 
-The recipe (proposed for v2.1 — currently the server ships as a separate artefact during the migration window):
+The Electron installer bundles the server binary automatically. The recipe:
 
 1. Build `liveplay-server` for each target OS using `build-server.yml`.
-2. Download the per-OS binary into `client/electron/resources/server/`.
+2. Place the per-OS binary at `client/electron/resources/server-bin/`.
 3. Reference it from `client/package.json`'s `build.extraResources`:
 
 ```json
 "build": {
   "extraResources": [
-    { "from": "electron/resources/server", "to": "server" }
+    { "from": "electron/resources/server-bin", "to": "server-bin" }
   ]
 }
 ```
 
-4. In `client/electron/main.js`, spawn it at app start:
+4. The Electron main process (`client/electron/main.js`) resolves the bundled binary path via `resolveServerBinaryPath()` and spawns it as a detached child process on first launch. A lockfile records the PID so subsequent launches reattach to the running instance rather than spawning a duplicate.
 
-```js
-const { spawn } = require('node:child_process');
-const path      = require('node:path');
-const serverBin = path.join(process.resourcesPath, 'server',
-  process.platform === 'win32' ? 'liveplay-server.exe' : 'liveplay-server');
-const child = spawn(serverBin, ['--port', '4480'], { stdio: 'inherit' });
-app.on('before-quit', () => child.kill('SIGTERM'));
-```
-
-5. **Code signing** — sign the server binary alongside the Electron app: Windows via `signtool` (electron-builder does this automatically if the binary is in `extraResources`), macOS via the hardened runtime + the `entitlements` in the `build.mac` block (requires `com.apple.security.device.audio-input` for ASIO-like backends).
+5. **Code signing** — sign the server binary alongside the Electron app: Windows via `signtool` (electron-builder does this automatically if the binary is in `extraResources`), macOS via the hardened runtime + the `entitlements` in the `build.mac` block (requires `com.apple.security.device.audio-input` for Core Audio).
 
 ### Cross-platform notes
 
@@ -452,9 +443,9 @@ GitHub's pre-installed vcpkg on the hosted runners is used (`VCPKG_INSTALLATION_
 Style:
 
 - Server: C++20, `clang-format` (Google-ish), no exceptions in audio-callback code, atomics for hot params, RAII everywhere.
-- Client: Vue 3 Composition API + TypeScript. New components consume `useLiveplayServer()` rather than `useAudioEngine()` where practical — the legacy in-process engine is being retired component-by-component.
+- Client: Vue 3 Composition API + TypeScript. All components communicate with the server via `useLiveplayServer()`.
 
-The migration of the remaining 1.x components (`CartPlayer`, `PlaylistItem`, `WaveformTrimmer`, etc.) onto the server pipeline is tracked in [openspec/](openspec/). PRs welcome.
+Ongoing work (component migrations, new REST endpoints, etc.) is tracked in [openspec/](openspec/). PRs welcome.
 
 ---
 

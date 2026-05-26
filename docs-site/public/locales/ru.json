@@ -41,6 +41,14 @@
       "title": "Интуитивный интерфейс",
       "description": "LivePlay имеет чистый, простой и современный интерфейс, разработанный специально для операторов живого звука. Организуйте ваши основные звуковые файлы в плейлисты и добавляйте звуки в проигрыватель корзины для быстрого доступа или объявлений. Аудиофайлы, добавленные в корзину, автоматически будут вести себя как объявления, приглушая любой фоновый звук при воспроизведении."
     },
+    "audioEngine": {
+      "title": "Professional Audio Engine",
+      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+    },
+    "routing": {
+      "title": "Multi-Device Audio Routing",
+      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+    },
     "waveform": {
       "title": "Редактор формы волны",
       "description": "Обрезайте аудио с точностью, используя встроенный редактор формы волны. Устанавливайте точки входа и выхода, регулируйте громкость и визуально настраивайте время затухания. Вы также можете автоматически обрезать на основе тишины или автоматически настроить громкость, чтобы все уровни аудио были согласованными."
@@ -56,6 +64,10 @@
     "ducking": {
       "title": "Автоматическое приглушение",
       "description": "Настройте автоматическое приглушение для снижения громкости фоновой музыки при воспроизведении объявлений или диалогов. Идеально подходит для плавных переходов в живых постановках."
+    },
+    "remoteOperation": {
+      "title": "Local or Remote Operation",
+      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
     },
     "firstLaunch": {
       "title": "Быстрая настройка",

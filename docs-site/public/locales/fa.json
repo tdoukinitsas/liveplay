@@ -41,6 +41,14 @@
       "title": "رابط کاربری شهودی",
       "description": "LivePlay دارای یک رابط کاربری تمیز، ساده و مدرن است که به طور خاص برای اپراتورهای صدای زنده طراحی شده است. فایل‌های صوتی اصلی خود را در لیست‌های پخش سازماندهی کنید و صداها را به پخش‌کننده سبد خرید برای دسترسی سریع یا اعلان‌ها اضافه کنید. فایل‌های صوتی اضافه شده به سبد خرید به طور خودکار مانند اعلان‌ها عمل می‌کنند و هر صدای پس‌زمینه را در حین پخش کاهش می‌دهند."
     },
+    "audioEngine": {
+      "title": "Professional Audio Engine",
+      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+    },
+    "routing": {
+      "title": "Multi-Device Audio Routing",
+      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+    },
     "waveform": {
       "title": "ویرایشگر شکل موج",
       "description": "صدای خود را با دقت با استفاده از ویرایشگر شکل موج داخلی تریم کنید. نقاط ورود و خروج را تنظیم کنید، حجم را تنظیم کنید و زمان‌های محو شدن را به صورت بصری پیکربندی کنید. همچنین می‌توانید به طور خودکار بر اساس سکوت تریم کنید، یا حجم را به طور خودکار تنظیم کنید تا همه سطوح صدا ثابت باشند."
@@ -56,6 +64,10 @@
     "ducking": {
       "title": "کاهش خودکار",
       "description": "کاهش خودکار را پیکربندی کنید تا حجم موسیقی پس‌زمینه را هنگام پخش اعلان‌ها یا گفتگو کاهش دهید. عالی برای انتقال‌های روان در تولیدات زنده."
+    },
+    "remoteOperation": {
+      "title": "Local or Remote Operation",
+      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
     },
     "firstLaunch": {
       "title": "راه‌اندازی سریع",

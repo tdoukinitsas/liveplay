@@ -41,6 +41,14 @@
       "title": "واجهة بديهية",
       "description": "يتميز LivePlay بواجهة نظيفة وبسيطة وحديثة مصممة خصيصًا لمشغلي الصوت المباشر. قم بتنظيم ملفات الصوت الرئيسية في قوائم التشغيل وأضف الأصوات إلى مشغل العربة للوصول السريع أو الإعلانات. ستتصرف الملفات الصوتية المضافة إلى العربة تلقائيًا كإعلانات، مما يخفض أي صوت خلفي أثناء التشغيل."
     },
+    "audioEngine": {
+      "title": "Professional Audio Engine",
+      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+    },
+    "routing": {
+      "title": "Multi-Device Audio Routing",
+      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+    },
     "waveform": {
       "title": "محرر الشكل الموجي",
       "description": "قم بقص الصوت بدقة باستخدام محرر الشكل الموجي المدمج. قم بتعيين نقاط الدخول والخروج، وضبط مستوى الصوت، وتكوين أوقات التلاشي بصريًا. يمكنك أيضًا القص تلقائيًا بناءً على الصمت، أو ضبط مستوى الصوت تلقائيًا بحيث تكون جميع مستويات الصوت متسقة."
@@ -56,6 +64,10 @@
     "ducking": {
       "title": "خفض تلقائي",
       "description": "قم بتكوين الخفض التلقائي لخفض مستوى صوت الموسيقى الخلفية عند تشغيل الإعلانات أو الحوار. مثالي للانتقالات السلسة في الإنتاجات المباشرة."
+    },
+    "remoteOperation": {
+      "title": "Local or Remote Operation",
+      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
     },
     "firstLaunch": {
       "title": "إعداد سريع",

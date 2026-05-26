@@ -1,14 +1,16 @@
-name: Build and Release (Client)
+name: Build and Release
 
-# Cuts a client release whenever client/package.json's version field changes
-# on main. The server has its own workflow (build-server.yml); a unified
-# packaging pipeline will land in Milestone 6.
+# Cuts a release whenever the monorepo root version (package.json) changes on
+# main. Builds the C++ server and the Electron client together on each
+# platform — Windows x64, macOS Intel (x64), macOS Apple Silicon (arm64), and
+# Linux x64 — and publishes a single GitHub Release with all installers.
 on:
   push:
     branches:
       - main
     paths:
-      - 'client/package.json'
+      - 'package.json'
+  workflow_dispatch:
 
 jobs:
   check-version:
@@ -25,11 +27,17 @@ jobs:
       - name: Check if version changed
         id: version
         run: |
-          CURRENT_VERSION=$(node -p "require('./client/package.json').version")
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "version=v${CURRENT_VERSION}" >> $GITHUB_OUTPUT
 
-          git diff HEAD^ HEAD -- client/package.json > package_diff.txt
+          # workflow_dispatch always runs.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Manual dispatch — building ${CURRENT_VERSION}"
+            exit 0
+          fi
 
+          git diff HEAD^ HEAD -- package.json > package_diff.txt
           if grep -q '"version"' package_diff.txt; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "Version changed to ${CURRENT_VERSION}"
@@ -41,17 +49,37 @@ jobs:
   build:
     needs: check-version
     if: needs.check-version.outputs.version-changed == 'true'
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
+            label: Windows x64
             triplet: x64-windows
+            artifact_name: windows-build
+            electron_args: --win --x64 --publish never
+            cmake_args: ""
           - os: ubuntu-latest
+            label: Linux x64
             triplet: x64-linux
+            artifact_name: linux-build
+            electron_args: --linux --x64 --publish never
+            cmake_args: ""
+          - os: macos-13
+            label: macOS Intel (x64)
+            triplet: x64-osx
+            artifact_name: macos-x64-build
+            electron_args: --mac --x64 --publish never
+            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"
           - os: macos-latest
+            label: macOS Apple Silicon (arm64)
             triplet: arm64-osx
+            artifact_name: macos-arm64-build
+            electron_args: --mac --arm64 --publish never
+            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0"
     runs-on: ${{ matrix.os }}
+    name: ${{ matrix.label }}
 
     env:
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
@@ -106,7 +134,8 @@ jobs:
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
-            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
+            ${{ matrix.cmake_args }}
           cmake --build server/build --config Release -j
 
       - name: Stage server binary for electron-builder (Windows)
@@ -121,6 +150,10 @@ jobs:
           }
           Get-ChildItem "server/build" -Filter "*.dll" -ErrorAction SilentlyContinue |
             ForEach-Object { Copy-Item $_.FullName "server/build/Release/" -Force }
+
+      - name: Build macOS server .app bundle
+        if: runner.os == 'macOS'
+        run: node scripts/build-server-app-mac.js
 
       # -------------------------------------------------------------------
       # Client (Nuxt + Electron)
@@ -145,60 +178,37 @@ jobs:
         working-directory: client
         run: npm run build
 
-      - name: Build Electron app (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Build Electron app
         working-directory: client
-        run: npm run electron:build -- --win --x64 --publish never
+        run: npm run electron:build -- ${{ matrix.electron_args }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI: true
 
-      - name: Build Electron app (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        working-directory: client
-        run: npm run electron:build -- --linux --x64 --publish never
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI: true
+      - name: Collect installers into /build/
+        shell: bash
+        run: |
+          mkdir -p build
+          shopt -s nullglob
+          # Copy installer artefacts only (skip unpacked dirs / debug yaml).
+          for f in client/dist-electron/*.exe \
+                   client/dist-electron/*.exe.blockmap \
+                   client/dist-electron/*.dmg \
+                   client/dist-electron/*.dmg.blockmap \
+                   client/dist-electron/*.zip \
+                   client/dist-electron/*.AppImage \
+                   client/dist-electron/*.deb \
+                   client/dist-electron/*.rpm \
+                   client/dist-electron/latest*.yml; do
+            [ -e "$f" ] && cp "$f" build/
+          done
+          ls -la build/ || true
 
-      - name: Build Electron app (macOS)
-        if: matrix.os == 'macos-latest'
-        working-directory: client
-        run: npm run electron:build -- --mac --x64 --arm64 --publish never
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI: true
-
-      - name: Upload artifacts (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build
-          path: |
-            client/dist-electron/*.exe
-            client/dist-electron/*.exe.blockmap
-          retention-days: 5
-
-      - name: Upload artifacts (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-build
-          path: |
-            client/dist-electron/*.AppImage
-            client/dist-electron/*.deb
-            client/dist-electron/*.rpm
-          retention-days: 5
-
-      - name: Upload artifacts (macOS)
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-build
-          path: |
-            client/dist-electron/*.dmg
-            client/dist-electron/*.dmg.blockmap
-            client/dist-electron/*.zip
+          name: ${{ matrix.artifact_name }}
+          path: build/*
           retention-days: 5
 
   release:
@@ -225,10 +235,16 @@ jobs:
           name: linux-build
           path: ./artifacts
 
-      - name: Download macOS artifacts
+      - name: Download macOS Intel artifacts
         uses: actions/download-artifact@v4
         with:
-          name: macos-build
+          name: macos-x64-build
+          path: ./artifacts
+
+      - name: Download macOS Apple Silicon artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-arm64-build
           path: ./artifacts
 
       - name: List downloaded artifacts
@@ -241,32 +257,26 @@ jobs:
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
 
-          # Get the previous tag
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-
           if [ -z "$PREVIOUS_TAG" ]; then
             COMMIT_RANGE="HEAD"
           else
             COMMIT_RANGE="${PREVIOUS_TAG}..HEAD"
           fi
 
-          # Generate changelog
-          echo "## What's Changed" > CHANGELOG.md
-          echo "" >> CHANGELOG.md
-
-          # Get commits since last tag
-          git log ${COMMIT_RANGE} --pretty=format:"- %s (%an)" --no-merges >> CHANGELOG.md
-
-          echo "" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "## Statistics" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "- **Commits**: $(git rev-list --count ${COMMIT_RANGE})" >> CHANGELOG.md
-          echo "- **Contributors**: $(git log ${COMMIT_RANGE} --format='%an' --no-merges | sort -u | wc -l)" >> CHANGELOG.md
-
-          # Add language support info
-          LANG_COUNT=$(find client/locales -name "*.json" -type f | wc -l)
-          echo "- **Supported Languages**: ${LANG_COUNT}" >> CHANGELOG.md
+          {
+            echo "## What's Changed"
+            echo ""
+            git log ${COMMIT_RANGE} --pretty=format:"- %s (%an)" --no-merges
+            echo ""
+            echo ""
+            echo "## Statistics"
+            echo ""
+            echo "- **Commits**: $(git rev-list --count ${COMMIT_RANGE})"
+            echo "- **Contributors**: $(git log ${COMMIT_RANGE} --format='%an' --no-merges | sort -u | wc -l)"
+            LANG_COUNT=$(find client/locales -name "*.json" -type f | wc -l)
+            echo "- **Supported Languages**: ${LANG_COUNT}"
+          } > CHANGELOG.md
 
           cat CHANGELOG.md
 

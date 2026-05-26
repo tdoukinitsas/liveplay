@@ -41,6 +41,14 @@
       "title": "بدیہی انٹرفیس",
       "description": "LivePlay ایک صاف، سادہ اور جدید انٹرفیس رکھتا ہے جو خاص طور پر لائیو ساؤنڈ آپریٹرز کے لیے ڈیزائن کیا گیا ہے۔ اپنی مین ساؤنڈ فائلوں کو پلے لسٹس میں ترتیب دیں اور فوری رسائی یا اعلانات کے لیے کارٹ پلیئر میں آوازیں شامل کریں۔ کارٹ میں شامل کی گئی آڈیو فائلیں خودکار طور پر اعلانات کی طرح کام کریں گی، پلے بیک کے دوران کسی بھی پس منظر کی آڈیو کو کم کرتے ہوئے۔"
     },
+    "audioEngine": {
+      "title": "Professional Audio Engine",
+      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+    },
+    "routing": {
+      "title": "Multi-Device Audio Routing",
+      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+    },
     "waveform": {
       "title": "ویو فارم ٹرمر",
       "description": "بلٹ ان ویو فارم ایڈیٹر استعمال کرکے درستگی کے ساتھ اپنی آڈیو کو ٹرم کریں۔ ان اور آؤٹ پوائنٹس سیٹ کریں، والیوم ایڈجسٹ کریں اور فیڈ ٹائمز کو بصری طور پر ترتیب دیں۔ آپ خاموشی کی بنیاد پر خودکار طور پر ٹرم بھی کر سکتے ہیں، یا والیوم کو خودکار طور پر ایڈجسٹ کر سکتے ہیں تاکہ تمام آڈیو لیولز مستقل ہوں۔"
@@ -56,6 +64,10 @@
     "ducking": {
       "title": "خودکار ڈکنگ",
       "description": "اعلانات یا مکالمے چلنے پر پس منظر کی موسیقی کے والیوم کو کم کرنے کے لیے خودکار ڈکنگ کو ترتیب دیں۔ لائیو پروڈکشنز میں ہموار منتقلی کے لیے بہترین۔"
+    },
+    "remoteOperation": {
+      "title": "Local or Remote Operation",
+      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
     },
     "firstLaunch": {
       "title": "فوری سیٹ اپ",

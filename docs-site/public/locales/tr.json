@@ -41,6 +41,14 @@
       "title": "Sezgisel Arayüz",
       "description": "LivePlay, canlı ses operatörleri için özel olarak tasarlanmış temiz, basit ve modern bir arayüze sahiptir. Ana ses dosyalarınızı oynatma listelerinde düzenleyin ve hızlı erişim veya duyurular için arabaya ses ekleyin. Arabaya eklenen ses dosyaları otomatik olarak duyuru gibi davranır ve oynatma sırasında arka plan sesini azaltır."
     },
+    "audioEngine": {
+      "title": "Professional Audio Engine",
+      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+    },
+    "routing": {
+      "title": "Multi-Device Audio Routing",
+      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+    },
     "waveform": {
       "title": "Dalga Formu Düzenleyici",
       "description": "Yerleşik dalga formu düzenleyiciyi kullanarak sesinizi hassas bir şekilde kırpın. Giriş ve çıkış noktalarını ayarlayın, ses seviyesini ayarlayın ve solma sürelerini görsel olarak yapılandırın. Ayrıca sessizliğe göre otomatik olarak kırpabilir veya tüm ses seviyelerinin tutarlı olması için ses seviyesini otomatik olarak ayarlayabilirsiniz."
@@ -56,6 +64,10 @@
     "ducking": {
       "title": "Otomatik Azaltma",
       "description": "Duyurular veya diyaloglar çaldığında arka plan müziğinin ses seviyesini düşürmek için otomatik azaltmayı yapılandırın. Canlı prodüksiyonlarda yumuşak geçişler için mükemmel."
+    },
+    "remoteOperation": {
+      "title": "Local or Remote Operation",
+      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
     },
     "firstLaunch": {
       "title": "Hızlı Kurulum",

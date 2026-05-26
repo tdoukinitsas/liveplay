@@ -122,6 +122,20 @@
         </FeatureHighlight>
 
         <FeatureHighlight
+          :title="t('features.audioEngine.title')"
+          image-src="/liveplay/screenshots/liveplay_screenshot_audio_engine.jpg"
+        >
+          <p>{{ t('features.audioEngine.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.routing.title')"
+          image-src="/liveplay/screenshots/liveplay_screenshot_routing.jpg"
+        >
+          <p>{{ t('features.routing.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
           :title="t('features.waveform.title')"
           image-src="/liveplay/screenshots/liveplay_screenshot_waveformtrimmer.jpg"
         >
@@ -147,6 +161,13 @@
           image-src="/liveplay/screenshots/liveplay_screenshot_ducking.jpg"
         >
           <p>{{ t('features.ducking.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.remoteOperation.title')"
+          image-src="/liveplay/screenshots/liveplay_screenshot_server_settings.jpg"
+        >
+          <p>{{ t('features.remoteOperation.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight

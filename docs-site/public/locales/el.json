@@ -41,6 +41,14 @@
       "title": "Εύκολο στην Χρήση",
       "description": "Το LivePlay διαθέτει μια καθαρή, απλή και σύγχρονη διεπαφή σχεδιασμένη ειδικά για χειριστές ζωντανού ήχου. Οργανώστε τα κύρια αρχεία ήχου σε λίστες αναπαραγωγής και προσθέστε ήχους σε μια δεύτερη λίστα για γρήγορη πρόσβαση ή ανακοινώσεις. Τα αρχεία ήχου που προστίθενται στην δεύτερη λίστα θα συμπεριφέρονται αυτόματα ως ανακοινώσεις, μειώνοντας τον κύριο ήχο κατά την αναπαραγωγή."
     },
+    "audioEngine": {
+      "title": "Professional Audio Engine",
+      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+    },
+    "routing": {
+      "title": "Multi-Device Audio Routing",
+      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+    },
     "waveform": {
       "title": "Επεξεργαστής Κυματομορφής",
       "description": "Κόψτε τον ήχο σας με ακρίβεια χρησιμοποιώντας τον ενσωματωμένο επεξεργαστή κυματομορφής. Ορίστε σημεία εισόδου και εξόδου, προσαρμόστε την ένταση και ρυθμίστε οπτικά τους χρόνους fade. Μπορείτε επίσης να κόψετε αυτόματα με βάση τη σιωπή ή να προσαρμόσετε αυτόματα την ένταση έτσι ώστε όλα τα επίπεδα ήχου να είναι παρόμοια."
@@ -56,6 +64,10 @@
     "ducking": {
       "title": "Αυτόματη Μείωση",
       "description": "Ρυθμίστε την αυτόματη μείωση για να μειώσετε την ένταση της μουσικής φόντου όταν αναπαράγονται ανακοινώσεις ή διάλογοι. Ιδανικό για ομαλές μεταβάσεις σε ζωντανές παραγωγές."
+    },
+    "remoteOperation": {
+      "title": "Local or Remote Operation",
+      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
     },
     "firstLaunch": {
       "title": "Γρήγορη Ρύθμιση",

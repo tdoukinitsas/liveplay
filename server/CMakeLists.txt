@@ -47,6 +47,12 @@ endif()
 find_package(Threads REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(Crow CONFIG REQUIRED)
+# TagLib's exported targets reference ZLIB::ZLIB in their link interface.
+# We must resolve it here so the target exists when TagLib is consumed —
+# otherwise CMake errors out on macOS / Linux with:
+#   "the link interface of target 'taglib::tag' contains: ZLIB::ZLIB but
+#    the target was not found."
+find_package(ZLIB REQUIRED)
 find_package(unofficial-taglib CONFIG QUIET)
 if(NOT unofficial-taglib_FOUND)
     find_package(TagLib CONFIG REQUIRED)
