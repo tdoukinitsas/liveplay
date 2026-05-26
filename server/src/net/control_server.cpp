@@ -3,11 +3,16 @@
 // ============================================================================
 
 // Must come before crow.h on Windows to avoid redefinition of NOMINMAX etc.
-#ifndef WIN32_LEAN_AND_MEAN
-#  define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef _WIN32_WINNT
-#  define _WIN32_WINNT 0x0A00
+// These must only fire on Windows — defining _WIN32_WINNT on macOS/Linux
+// makes ASIO's config.hpp think it's a Windows target and try to pull in
+// <winapifamily.h>, which obviously doesn't exist there.
+#if defined(_WIN32)
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  ifndef _WIN32_WINNT
+#    define _WIN32_WINNT 0x0A00
+#  endif
 #endif
 
 #include "liveplay/net/control_server.hpp"
