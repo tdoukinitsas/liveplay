@@ -253,9 +253,13 @@ void PlaybackItem::set_gain_db(float db) noexcept {
     const float lin = db_to_lin(db);
     gain_target_linear_.store(lin, std::memory_order_release);
     // Don't disturb an in-flight fade; the fade end-point reflects this value
-    // by virtue of being captured on play()/stop().
+    // by virtue of being captured on play()/stop(). If we're stopped, snap
+    // so the next play() picks up the new value cleanly. While Playing/Paused
+    // we leave gain_current_linear_ alone — render_block() smoothly slews it
+    // toward the new target (see the no-fade branch there), which removes
+    // the audible step on duck-others and on UI fader moves.
     const TransportState st = transport_.load(std::memory_order_acquire);
-    if (st != TransportState::FadingIn && st != TransportState::FadingOut) {
+    if (st == TransportState::Stopped) {
         gain_current_linear_.store(lin, std::memory_order_release);
     }
 }
@@ -471,6 +475,30 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
                 }
             }
         } else {
+            gain_current_linear_.store(gain_end, std::memory_order_release);
+        }
+    } else {
+        // No fade active — but if set_gain_db() changed the *target* while we
+        // were playing (e.g. auto-duck "duck-others", or a UI fader move), the
+        // current and target diverge. Smoothly slew current toward target over
+        // a short, fixed window. Without this, ducking is an audible step
+        // (-20 dB in one sample is a click on every transition) and per-item
+        // volume slider moves on the UI also click.
+        const float target = gain_target_linear_.load(std::memory_order_acquire);
+        if (target != gain_now) {
+            // ~50 ms slew at the configured mix rate. Long enough to remove
+            // any click, short enough that "ducking now" still feels immediate.
+            constexpr long long kRampMs = 50;
+            const long long ramp_samples = std::max<long long>(1,
+                static_cast<long long>(desc_.mix_sample_rate) * kRampMs / 1000);
+            const long long advance = static_cast<long long>(frame_count);
+            if (advance >= ramp_samples) {
+                gain_end = target;
+            } else {
+                const float alpha =
+                    static_cast<float>(advance) / static_cast<float>(ramp_samples);
+                gain_end = gain_now + (target - gain_now) * alpha;
+            }
             gain_current_linear_.store(gain_end, std::memory_order_release);
         }
     }

@@ -314,12 +314,18 @@ async function runExport(opts: { outputPath: string; downloadTo?: string }) {
 }
 
 // Keep the main process HTTP API server up-to-date with the full project state.
-// Waveform peak arrays are stripped since they are large and not needed by API consumers.
+// Waveform peak arrays are stripped from the bulk playlist (large, and API
+// consumers don't need them), but PRESERVED for items the detached cart
+// window has to render: cart-only items, plus any playlist item referenced
+// by a cart slot. Without this the detached cart window's waveform canvases
+// stay blank because it can't poll the project folder when the server is
+// remote.
 // NOTE: This watcher should NOT run in cart window mode to avoid feedback loops.
-const stripWaveforms = (items: any[]): any[] =>
+const stripWaveformsKeeping = (items: any[], keep: Set<string>): any[] =>
   items.map(item => {
-    const copy = { ...item, waveform: null };
-    if (copy.children) copy.children = stripWaveforms(copy.children);
+    const copy: any = { ...item };
+    if (!keep.has(item.uuid)) copy.waveform = null;
+    if (copy.children) copy.children = stripWaveformsKeeping(copy.children, keep);
     return copy;
   });
 
@@ -331,10 +337,15 @@ const isCartWindowMode = import.meta.client
 watch(currentProject, (project) => {
   // Only sync from main window, not from detached cart window
   if (!import.meta.client || !window.electronAPI || !project || isCartWindowMode) return;
+  const cartReferenced = new Set<string>(
+    (project.cartItems || []).map((ci: any) => ci.itemUuid).filter(Boolean)
+  );
   const data = {
     ...project,
-    items: stripWaveforms(project.items || []),
-    cartOnlyItems: Array.from(cartOnlyItems.value.values()).map(i => ({ ...i, waveform: null }))
+    items: stripWaveformsKeeping(project.items || [], cartReferenced),
+    // Cart-only items always keep their waveform — the detached cart window
+    // needs them and they're a small set (≤ 16 slots in practice).
+    cartOnlyItems: Array.from(cartOnlyItems.value.values()).map(i => ({ ...i }))
   };
   window.electronAPI.syncProjectData(JSON.parse(JSON.stringify(data)));
 }, { deep: true, immediate: true });

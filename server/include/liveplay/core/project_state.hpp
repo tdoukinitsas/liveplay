@@ -269,6 +269,7 @@ public:
 private:
     audio::AudioEngine&        engine_;
     mutable std::mutex         mutex_;
+    std::mutex                 mirror_mutex_;
 
     std::unordered_map<std::string, CueMeta>          cues_;
     std::unordered_map<std::string, MixerChannelMeta> mixers_;

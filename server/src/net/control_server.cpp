@@ -343,19 +343,16 @@ void ControlServer::broadcast_loop() {
         payload["type"] = "meters";
 
         json item_meters = json::array();
-        for (auto& cue : state_.list_cues()) {
-            auto* item = engine_.find_cue(cue.id);
-            if (!item) continue;
+        // Helper: append a meter frame for an arbitrary engine cue. Used for
+        // both project cues and the preview cue (which is engine-only, not in
+        // state_.list_cues()).
+        auto append_meter_for = [&](const audio::CueId& cue_id) {
+            auto* item = engine_.find_cue(cue_id);
+            if (!item) return;
             const auto stats = item->stats();
-            // Skip stopped/silent items entirely. With 100+ cues most are
-            // idle and shipping their meters every 40 ms wastes the WS — the
-            // client only needs UI updates for active ones.
-            const bool is_active =
-                stats.transport != audio::TransportState::Stopped;
-            if (!is_active) continue;
-
+            if (stats.transport == audio::TransportState::Stopped) return;
             json m;
-            m["cue_id"]            = cue.id.value;
+            m["cue_id"]            = cue_id.value;
             m["transport"]         = static_cast<int>(stats.transport);
             m["playhead_seconds"]  = stats.playhead_seconds;
             json srcs = json::array();
@@ -365,7 +362,13 @@ void ControlServer::broadcast_loop() {
             }
             m["sources"] = std::move(srcs);
             item_meters.push_back(std::move(m));
-        }
+        };
+        for (auto& cue : state_.list_cues()) append_meter_for(cue.id);
+        // Preview cue lives outside list_cues() because it's loaded with
+        // load_cue_no_route — emit its frame explicitly so the client's
+        // preview card can drive playhead time and the seek bar.
+        const auto preview_cue = state_.current_preview_cue_id();
+        if (!preview_cue.empty()) append_meter_for(preview_cue);
         payload["items"] = std::move(item_meters);
 
         json mixer_meters = json::array();

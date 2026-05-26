@@ -77,20 +77,31 @@
           :show-peak-value="true"
         />
         <div class="output-fader" :title="`${pair.label} output gain`">
-          <span class="output-fader__db">{{ formatGainLabel(getOutputGainDb(pair.leftIndex)) }}</span>
-          <div class="output-fader__slider-wrap">
+          <div class="output-fader__db-wrap">
             <input
-              type="range"
-              class="output-fader__slider"
-              :min="-60"
-              :max="6"
-              step="0.5"
-              :value="getOutputGainDb(pair.leftIndex)"
-              @input="onOutputGainInput(pair.leftIndex, pair.rightIndex, Number(($event.target as HTMLInputElement).value))"
-              @dblclick="resetOutputGain(pair.leftIndex, pair.rightIndex)"
-              title="Double-click to reset to 0 dB"
+              v-if="editingGainIndex === pair.leftIndex"
+              type="number"
+              class="output-fader__db-input"
+              v-model="editingGainValue"
+              @blur="commitGainEdit(pair.leftIndex, pair.rightIndex)"
+              @keyup.enter="commitGainEdit(pair.leftIndex, pair.rightIndex)"
             />
+            <span
+              v-else
+              class="output-fader__db"
+              @click="startGainEdit(pair.leftIndex, getOutputGainDb(pair.leftIndex))"
+              :title="t('actions.clickToEdit') || 'Click to type a value'"
+            >
+              {{ formatGainLabel(getOutputGainDb(pair.leftIndex)) }}
+            </span>
           </div>
+          <CanvasFader
+            :db="getOutputGainDb(pair.leftIndex)"
+            :min-db="-60"
+            :max-db="6"
+            @input="(db: number) => onOutputGainInput(pair.leftIndex, pair.rightIndex, db)"
+            @reset="resetOutputGain(pair.leftIndex, pair.rightIndex)"
+          />
         </div>
       </div>
     </div>
@@ -110,6 +121,7 @@ import { formatKeyLabel } from '~/composables/useCartHotkeys';
 import type { AudioItem } from '~/types/project';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
 import { useCueMeters } from '~/composables/useLiveMeters';
+import CanvasFader from './CanvasFader.vue';
 
 const { activeCues, panicStop, nextItemOverrideUuid, autoNextItemUuid, setNextItem, playCue, triggerGroup } = useAudioEngine();
 const { findItemByUuid, previewItemUuid, previewCueId, stopPreview } = useProject();
@@ -222,6 +234,32 @@ function onOutputGainInput(leftIndex: number, rightIndex: number, db: number) {
   // Update both channels of the stereo pair together.
   server.setOutputChannelGainDb(leftIndex, db);
   server.setOutputChannelGainDb(rightIndex, db);
+}
+
+// ---- Per-output gain faders -----------------------------------------------
+const editingGainIndex = ref<number | null>(null);
+const editingGainValue = ref<number>(0);
+
+function startGainEdit(leftIndex: number, currentDb: number) {
+  editingGainIndex.value = leftIndex;
+  editingGainValue.value = Number(currentDb.toFixed(1));
+  nextTick(() => {
+    const el = document.querySelector('.output-fader__db-input') as HTMLInputElement;
+    if (el) {
+      el.focus();
+      el.select();
+    }
+  });
+}
+
+function commitGainEdit(leftIndex: number, rightIndex: number) {
+  if (editingGainIndex.value === leftIndex) {
+    let val = Number(editingGainValue.value);
+    if (isNaN(val)) val = 0;
+    val = Math.max(-60, Math.min(6, val));
+    onOutputGainInput(leftIndex, rightIndex, val);
+    editingGainIndex.value = null;
+  }
 }
 
 function resetOutputGain(leftIndex: number, rightIndex: number) {
@@ -442,74 +480,48 @@ const handlePlayNext = () => {
   padding: 2px 0;
   width: 20px;
 
+
   &__db {
     font-family: var(--font-mono, monospace);
-    font-size: 8px;
-    color: var(--color-text-secondary);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-primary);
     text-align: center;
     line-height: 1;
     flex-shrink: 0;
-    min-width: 20px;
+    min-width: 28px;
+    cursor: text;
+    padding: 2px 4px;
+    background: rgba(128, 128, 128, 0.15);
+    border-radius: 4px;
   }
 
-  /* The slider is a horizontal range rotated -90deg to appear vertical.
-     writing-mode: vertical-lr is unreliable in Electron's Chromium for
-     <input type="range">; rotate transform is universally supported.
-     The wrapper shrinks to the slider's visual footprint so nothing overflows. */
-  &__slider-wrap {
-    flex: 1;
-    min-height: 0;
-    width: 20px;
-    overflow: visible;
+  &__db-input {
+    width: 34px;
+    height: 16px;
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    text-align: center;
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-accent);
+    border-radius: 2px;
+    outline: none;
+    padding: 0;
+  }
+  &__db-input::-webkit-inner-spin-button,
+  &__db-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  &__db-wrap {
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
+    height: 18px;
   }
 
-  &__slider {
-    /* Rendered horizontal then rotated; height = visual width, width = visual height */
-    width: calc(var(--playback-controls-height) - 34px);
-    height: 20px;
-    transform: rotate(-90deg);
-    cursor: pointer;
-    accent-color: var(--color-accent);
-    background: transparent;
-
-    &::-webkit-slider-runnable-track {
-      height: 4px;
-      background: var(--color-border);
-      border-radius: 2px;
-    }
-    &::-moz-range-track {
-      height: 4px;
-      background: var(--color-border);
-      border-radius: 2px;
-    }
-
-    &::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: var(--color-accent);
-      border: 2px solid var(--color-surface);
-      margin-top: -4px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-      transition: transform var(--transition-fast);
-    }
-    &::-moz-range-thumb {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: var(--color-accent);
-      border: 2px solid var(--color-surface);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-    }
-
-    &:hover::-webkit-slider-thumb,
-    &:focus::-webkit-slider-thumb { transform: scale(1.2); }
-    &:focus { outline: none; }
-  }
 }
 
 .preview-cue-meter {

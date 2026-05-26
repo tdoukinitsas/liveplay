@@ -132,16 +132,21 @@
         </div>
 
         <!-- LTC Output Section -->
-        <div class="property-field">
+        <div class="property-field" :class="{ 'field-disabled': !ltcDeviceConfigured }">
           <label class="ltc-checkbox-label">
             <input
               type="checkbox"
-              :checked="audioItem.ltcEnabled ?? false"
+              :checked="(audioItem.ltcEnabled ?? false) && ltcDeviceConfigured"
+              :disabled="!ltcDeviceConfigured"
               @change="onLtcEnabledChange"
             />
             {{ t('properties.ltcOutputTimecode') }}
           </label>
-          <p class="property-help">{{ t('properties.ltcOutputTimecodeHelp') }}</p>
+          <p class="property-help">
+            {{ ltcDeviceConfigured
+                ? t('properties.ltcOutputTimecodeHelp')
+                : (t('properties.ltcRequiresDevice') || 'Select an LTC output device in Project Settings to enable timecode output.') }}
+          </p>
         </div>
 
         <div class="property-field" :class="{ 'field-disabled': !(audioItem.ltcEnabled ?? false) }">
@@ -275,10 +280,19 @@ import type { AudioItem, GroupItem } from '~/types/project';
 import { PRESET_COLORS } from '~/types/project';
 import { calculatePerceivedLoudness } from '~/utils/audio';
 
-const { selectedItem, selectedItems, getSelectedItems, saveProject } = useProject();
+const { selectedItem, selectedItems, getSelectedItems, saveProject, currentProject } = useProject();
 const { t } = useLocalization();
 
 const audioItem = computed(() => selectedItem.value as AudioItem);
+
+// LTC output is only meaningful when a project-wide LTC device is configured.
+// The checkbox stays disabled until then to prevent users from "enabling"
+// timecode that has nowhere to go (which is the most common LTC-silent
+// support report we get).
+const ltcDeviceConfigured = computed(() => {
+  const dev = (currentProject.value as any)?.settings?.ltcDevice;
+  return typeof dev === 'string' && dev.length > 0;
+});
 
 // Available output devices (for the per-item Output tab). Pulled from the
 // shared server state — populated once on connect.

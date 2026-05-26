@@ -775,8 +775,10 @@ if (import.meta.client && (window as any).electronAPI) {
 
 @keyframes lp-spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: lp-spin 0.85s linear infinite; }
+</style>
 
-/* New-project name dialog */
+/* New-project name dialog — unscoped due to Teleport to body */
+<style>
 .name-dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -799,67 +801,67 @@ if (import.meta.client && (window as any).electronAPI) {
   flex-direction: column;
   gap: var(--spacing-md);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
 
-  &__title {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--color-text-primary);
-  }
+.name-dialog__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
 
-  &__input {
-    padding: 10px 12px;
-    background: var(--color-background);
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    color: var(--color-text-primary);
-    font-size: 14px;
-    outline: none;
-    transition: border-color var(--transition-fast);
+.name-dialog__input {
+  padding: 10px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
 
-    &:focus {
-      border-color: var(--color-accent);
-    }
-  }
+.name-dialog__input:focus {
+  border-color: var(--color-accent);
+}
 
-  &__actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--spacing-sm);
-  }
+.name-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+}
 
-  &__btn {
-    padding: 8px 20px;
-    border-radius: var(--border-radius-md);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    border: 1px solid var(--color-border);
-    background: var(--color-background);
-    color: var(--color-text-primary);
-    transition: background var(--transition-fast), border-color var(--transition-fast);
+.name-dialog__btn {
+  padding: 8px 20px;
+  border-radius: var(--border-radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
 
-    &:hover:not(:disabled) {
-      background: var(--color-surface-hover);
-      border-color: var(--color-accent);
-    }
+.name-dialog__btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-accent);
+}
 
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+.name-dialog__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
-    &--primary {
-      background: var(--color-accent);
-      border-color: var(--color-accent);
-      color: #fff;
+.name-dialog__btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
 
-      &:hover:not(:disabled) {
-        filter: brightness(1.1);
-        background: var(--color-accent);
-        border-color: var(--color-accent);
-      }
-    }
-  }
+.name-dialog__btn--primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
 }
 </style>

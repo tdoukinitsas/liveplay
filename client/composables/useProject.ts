@@ -509,9 +509,8 @@ export const useProject = () => {
       currentProject.value.lastModified = new Date().toISOString();
 
       const server = useLiveplayServer();
-      // Push the current document to the server (in case local edits haven't
-      // synced yet) then ask it to write to disk.
-      await server.replaceProjectDocument(toJSON(currentProject.value));
+      // The server's in-memory document is already kept in sync via the
+      // granular watchers. We just ask it to write to disk.
       const path = projectFilePathRef.value ||
                    `${currentProject.value.folderPath}/${currentProject.value.name}.liveplay`;
       const res = await server.saveProjectTo(path);
@@ -710,7 +709,11 @@ export const useProject = () => {
   };
   const itemsToJSON = _deepToRaw;
 
-  if (import.meta.client && !_syncWatchersInstalled) {
+  const isCartWindowMode = import.meta.client
+    ? new URLSearchParams(window.location.search).get('cartWindow') === '1'
+    : false;
+
+  if (import.meta.client && !_syncWatchersInstalled && !isCartWindowMode) {
     _syncWatchersInstalled = true;
     // Per-section debounced sync timers.
     let itemsTimer:    ReturnType<typeof setTimeout> | null = null;

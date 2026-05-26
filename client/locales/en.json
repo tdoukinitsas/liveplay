@@ -153,6 +153,7 @@
     "fadeSettings": "Fade Settings",
     "ltcOutputTimecode": "Output LTC Timecode",
     "ltcOutputTimecodeHelp": "Send SMPTE Linear Timecode to the project's LTC device while this cue plays.",
+    "ltcRequiresDevice": "Select an LTC output device in Project Settings to enable timecode output.",
     "ltcStartTimecode": "Starting Timecode",
     "ltcTimecodeFormat": "Use HH:MM:SS:FF format (e.g. 01:00:00:00)",
     "ltcFrameRate": "Frame Rate"
@@ -200,7 +201,8 @@
     "setAsNext": "Set As Next",
     "preview": "Preview on headphones",
     "stopPreview": "Stop preview",
-    "previewNoDevice": "No preview device configured — click to open Project Settings"
+    "previewNoDevice": "No preview device configured — click to open Project Settings",
+    "clickToEdit": "Click to type a value"
   },
   "about": {
     "developedBy": "Developed by",

@@ -262,7 +262,10 @@ ProjectState::~ProjectState() {
     stop_sequencer();
     // Make sure any in-flight async mirror finishes before the engine is
     // torn down — otherwise the worker would dereference dangling state.
-    if (load_thread_.joinable()) load_thread_.join();
+    {
+        std::lock_guard lock{mirror_mutex_};
+        if (load_thread_.joinable()) load_thread_.join();
+    }
 
     // Tear down preview infrastructure on shutdown so the audio device gets
     // released cleanly.
@@ -281,10 +284,13 @@ ProjectState::~ProjectState() {
 void ProjectState::start_async_mirror() {
     // Wait for any prior background mirror to finish before launching a new
     // one — overlapping mirrors against the same engine state would race.
+    std::lock_guard mirror_lock{mirror_mutex_};
     if (load_thread_.joinable()) load_thread_.join();
+
     loading_audio_.store(true, std::memory_order_release);
     load_progress_loaded_.store(0, std::memory_order_release);
     load_progress_total_.store(0, std::memory_order_release);
+
     load_thread_ = std::thread([this] {
         try {
             // Phase 1: snapshot what we need to load under a brief lock.
@@ -294,6 +300,7 @@ void ProjectState::start_async_mirror() {
             struct LtcItemSnap { bool enabled; std::string timecode; int fps_index; };
             std::unordered_map<std::string, LtcItemSnap> ltc_snaps;
             std::string ltc_device_name;
+            std::unordered_map<std::string, std::filesystem::path> actually_wanted;
             {
                 std::lock_guard lock{mutex_};
                 json& doc = document_;
@@ -339,19 +346,37 @@ void ProjectState::start_async_mirror() {
                     if (s.contains("ltcDevice") && s["ltcDevice"].is_string())
                         ltc_device_name = s["ltcDevice"].get<std::string>();
                 }
+
+                // Unload missing cues
+                for (auto it = item_uuid_to_cue_.begin(); it != item_uuid_to_cue_.end();) {
+                    if (wanted.find(it->first) == wanted.end()) {
+                        engine_.unload_cue(it->second);
+                        cues_.erase(it->second.value);
+                        it = item_uuid_to_cue_.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+
+                // Filter to only new items that haven't been loaded yet
+                for (auto& [u, p] : wanted) {
+                    if (item_uuid_to_cue_.find(u) == item_uuid_to_cue_.end()) {
+                        actually_wanted.emplace(u, p);
+                    }
+                }
             }
 
             // Phase 2: parallel decoder init. NO project mutex — load_cue_no_route
             // only takes the engine's own internal lock. /api/project,
             // /api/cues, /api/project/progress all stay responsive while
             // we're here. The OS file I/O is what dominates anyway.
-            load_progress_total_.store(wanted.size(), std::memory_order_release);
+            load_progress_total_.store(actually_wanted.size(), std::memory_order_release);
             load_progress_loaded_.store(0, std::memory_order_release);
 
             const unsigned hw = std::thread::hardware_concurrency();
             const std::size_t concurrency = (hw <= 1) ? 1u : static_cast<std::size_t>(hw - 1);
             Logger::info("ProjectState: async-mirroring {} items ({} workers).",
-                         wanted.size(), concurrency);
+                         actually_wanted.size(), concurrency);
 
             struct Loaded {
                 std::string uuid;
@@ -360,14 +385,14 @@ void ProjectState::start_async_mirror() {
             };
             std::vector<std::future<Loaded>> in_flight;
             std::vector<Loaded> done;
-            done.reserve(wanted.size());
+            done.reserve(actually_wanted.size());
             auto drain_one = [&]() {
                 if (in_flight.empty()) return;
                 done.push_back(in_flight.front().get());
                 in_flight.erase(in_flight.begin());
                 load_progress_loaded_.fetch_add(1, std::memory_order_release);
             };
-            for (auto& [uuid, path] : wanted) {
+            for (auto& [uuid, path] : actually_wanted) {
                 if (in_flight.size() >= concurrency) drain_one();
                 in_flight.push_back(std::async(std::launch::async,
                     [this, u = uuid, p = path]() -> Loaded {
@@ -413,7 +438,6 @@ void ProjectState::start_async_mirror() {
                         static_cast<double>(md.duration.count()) / 1000.0;
                     cues_.emplace(l.cue_id.value, std::move(meta));
                 }
-                engine_.ensure_default_routing();
 
                 // Apply per-item audio properties to the engine cues we just
                 // registered (including LTC settings).
@@ -473,6 +497,11 @@ void ProjectState::start_async_mirror() {
                             }
                         }
                     });
+
+                // Now that properties like ltc_enabled are applied, establish
+                // default routing. This ensures LTC channels aren't mistakenly
+                // routed to the Main mixer.
+                engine_.ensure_default_routing();
             }
 
             // Phase 4: prime cart cues (also unlocked — engine handles its own).
@@ -724,9 +753,6 @@ void ProjectState::mirror_items_to_engine_locked() {
             cues_.emplace(cue_id.value, std::move(meta));
         }
 
-        // Now that every cue is in items_, re-route / rebuild ONCE.
-        engine_.ensure_default_routing();
-
         // Prime cart cues in parallel so their first hit is glitch-free.
         // Non-cart items are primed on-demand at play time.
         std::vector<std::future<void>> prime_futures;
@@ -803,6 +829,10 @@ void ProjectState::mirror_items_to_engine_locked() {
                 }
             }
         });
+
+    // Now that every cue is in items_ and properties like ltc_enabled are
+    // configured, establish default routing ONCE.
+    engine_.ensure_default_routing();
 }
 
 // ---------------------------------------------------------------------------
@@ -1157,12 +1187,6 @@ bool ProjectState::replace_full_document(const json& doc) {
     if (!doc.is_object()) return false;
     {
         std::lock_guard lock{mutex_};
-        // Unload everything; start_async_mirror() rebuilds the engine state
-        // off-thread so this call returns immediately and the client can
-        // start rendering.
-        for (auto& [_, id] : item_uuid_to_cue_) engine_.unload_cue(id);
-        item_uuid_to_cue_.clear();
-        cues_.clear();
         document_ = doc;
         if (!document_.contains("settings")) {
             document_["settings"] = json{
@@ -2161,13 +2185,22 @@ bool ProjectState::patch_theme(const json& patch) {
 
 bool ProjectState::patch_settings(const json& patch) {
     if (!patch.is_object()) return false;
-    std::lock_guard lock{mutex_};
-    if (!document_.contains("settings") || !document_["settings"].is_object()) {
-        document_["settings"] = json::object();
+    bool ltc_device_changed = false;
+    {
+        std::lock_guard lock{mutex_};
+        if (!document_.contains("settings") || !document_["settings"].is_object()) {
+            document_["settings"] = json::object();
+        }
+        for (auto& [k, v] : patch.items()) {
+            if (k == "ltcDevice") ltc_device_changed = true;
+            document_["settings"][k] = v;
+        }
     }
-    for (auto& [k, v] : patch.items()) document_["settings"][k] = v;
-    // settings changes may require re-routing (default device, preview device).
-    // For now we just record them; routing wiring comes in the next phase.
+    // settings.ltcDevice toggled / changed: open the device, build its mixer,
+    // and route every LTC-enabled cue's synthetic channel into it. Without
+    // this, LTC was silent until the user replayed an item (which is when
+    // play_item happens to call apply_ltc_device_routing() too).
+    if (ltc_device_changed) apply_ltc_device_routing();
     return true;
 }
 
@@ -2701,6 +2734,10 @@ void ProjectState::set_external_action_handler(std::function<void(const json&)> 
 }
 
 void ProjectState::handle_item_ended(const SequencedItem& item) {
+    // Ensure the engine explicitly transitions the transport state and 
+    // triggers a cue_state broadcast so the client UI updates.
+    engine_.stop(item.cue_id);
+
     // Restore ducked gains first so the next item starts with clean levels.
     for (const auto& dk : item.ducked) {
         if (auto* pi = engine_.find_cue(dk.cue_id))

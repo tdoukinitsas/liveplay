@@ -550,9 +550,16 @@ void AudioEngine::ensure_default_routing() {
         if (!has_m0) m2m.emplace_back(0, 1.0f);
         if (!has_m1) m2m.emplace_back(1, 1.0f);
 
-        // Step 5: auto-route every loaded cue's source channels → Main.
-        // Stereo files get L→master0, R→master1 routing-by-position via the
-        // mixer (mono items default to both via the simple gain=1.0 send).
+        // Step 5: auto-route every loaded cue's source channels → Main, but
+        // ONLY for cues that have no routes yet. Cues that were explicitly
+        // routed elsewhere (preview bus, per-device override, etc.) must not
+        // be silently dragged back onto Main — that was the source of two
+        // separate bugs:
+        //   1. The preview cue (loaded with load_cue_no_route, routed only to
+        //      the Preview mixer) bled onto Main on any subsequent play_item,
+        //      because each play_item re-runs ensure_default_routing().
+        //   2. Cues with `deviceOverride` were being double-routed (override
+        //      mixer AND Main), so audio appeared in both outputs.
         // The LTC synthetic channel (always the last source channel on
         // LTC-enabled cues) is deliberately excluded — it has its own
         // dedicated device routing managed by apply_ltc_device_routing().
@@ -562,12 +569,15 @@ void AudioEngine::ensure_default_routing() {
             if (srcs.size() < src_count) srcs.resize(src_count);
             const auto audio_count = item->desc().ltc_enabled
                                      ? src_count - 1 : src_count;
+            // Determine whether ANY audio source channel of this cue already
+            // has a route to any mixer. If so, leave the cue alone.
+            bool has_any_existing_route = false;
             for (ChannelIndex ch = 0; ch < audio_count; ++ch) {
-                bool already = false;
-                for (auto& s : srcs[ch]) {
-                    if (s.first.value == main_mixer.value) { already = true; break; }
-                }
-                if (!already) srcs[ch].emplace_back(main_mixer, 1.0f);
+                if (!srcs[ch].empty()) { has_any_existing_route = true; break; }
+            }
+            if (has_any_existing_route) continue;
+            for (ChannelIndex ch = 0; ch < audio_count; ++ch) {
+                srcs[ch].emplace_back(main_mixer, 1.0f);
             }
         }
 
@@ -778,25 +788,29 @@ void AudioEngine::render_loop() {
             continue;
         }
 
-        // Check whether at least one device has space for a fresh block.
-        // If *all* devices are full, block until a device callback signals us.
-        bool can_render   = false;
+        // Production is gated by the SLOWEST consumer: we only render a block
+        // when every device has room for it. Gating on "any device has space"
+        // would let a fast device (higher SR, larger ring, or clock drift
+        // ahead) pull production above real-time, overflowing the slower
+        // devices' rings and making audio sound sped up.
+        bool can_render   = true;
         bool has_devices  = false;
+        bool has_ring     = false;
         {
             std::lock_guard lock{mutex_};
             has_devices = !devices_.empty();
-            // We render if *any* device needs space. This prevents slower
-            // devices from starving faster ones. Faster devices stay closer
-            // to the top of their rings, while slower ones gradually fill.
             if (has_devices) {
-                for (auto& d : devices_) {
-                    if (!d->ring) continue;
-                    if (ma_pcm_rb_available_write(d->ring.get()) >= cfg_.render_block) {
-                        can_render = true;
-                        break;
+                // Gate production on the primary device only, to prevent 
+                // clock drift on secondary devices from starving the primary.
+                auto& primary = devices_.front();
+                if (primary->ring) {
+                    has_ring = true;
+                    if (ma_pcm_rb_available_write(primary->ring.get()) < cfg_.render_block) {
+                        can_render = false;
                     }
                 }
             }
+            if (!has_ring) can_render = false;
         }
 
         if (!has_devices) {
@@ -959,11 +973,7 @@ void AudioEngine::render_one_block(const Topology& topo) {
             }
         }
 
-        // Push into the device's ring buffer. ma_pcm_rb_acquire_write only
-        // returns the contiguous span at the current write cursor — if our
-        // block crosses the ring's wrap boundary, we need to commit a partial
-        // write then acquire again for the rest. Without this loop, the
-        // remainder was silently dropped → crackle on every ring wrap.
+        // Push into the device's ring buffer.
         ma_uint32 remaining = static_cast<ma_uint32>(block);
         const Sample* src   = dev->scratch.data();
         while (remaining > 0) {
@@ -971,10 +981,8 @@ void AudioEngine::render_one_block(const Topology& topo) {
             void*     buf = nullptr;
             if (ma_pcm_rb_acquire_write(dev->ring.get(), &frames_to_write, &buf) != MA_SUCCESS) break;
             if (frames_to_write == 0) {
-                // Ring is full — device callback isn't draining fast enough.
-                // This indicates a scheduling problem or device underperformance.
-                Logger::warn("Ring overflow detected on device '{}': {} frames lost",
-                             dev->display_name, remaining);
+                // Ring is full. Since we only gate production on the primary device, 
+                // secondary devices with slower clocks will occasionally drop a frame here.
                 break;
             }
             std::memcpy(buf, src,

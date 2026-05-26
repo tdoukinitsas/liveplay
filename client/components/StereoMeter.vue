@@ -20,8 +20,8 @@
           class="stereo-meter__mark"
           :style="{ bottom: m.pct + '%' }"
         >
-          <span class="stereo-meter__mark-text">{{ m.label }}</span>
-          <span class="stereo-meter__mark-tick" />
+          <span class="stereo-meter__mark-text" :style="{ color: m.color }">{{ m.label }}</span>
+          <span class="stereo-meter__mark-tick" :style="{ background: m.color }" />
         </div>
       </div>
 
@@ -93,31 +93,28 @@ const rmsR = computed(() => props.cueId != null
   ? (cueStream.sources.value[1]?.rms_db ?? cueStream.sources.value[0]?.rms_db ?? -120)
   : rightStream.rms.value);
 
-// EBU R128-inspired gradient (bottom → top):
+// EBU R128-inspired band colours. The meter now renders as a SOLID block of
+// the colour matching the current level, rather than a gradient — quieter
+// reads stay cyan/green; only loud signals turn amber or red. Scale tick
+// labels are coloured to match the band they sit in so the same palette
+// reads the same way against the bar.
 //   Cyan  #00b8d4 : undermodulated  (below -40 dBFS)
 //   Green #00e676 : normal range    (-40 to -18 dBFS, around EBU target)
 //   Amber #ffc400 : tolerance zone  (-18 to -9 dBFS)
 //   Red   #ff1744 : out-of-bounds   (above -9 dBFS / True Peak warning)
-const ebuGradient = computed(() => {
-  const { minDb, maxDb } = props;
-  const range = maxDb - minDb;
-  const p = (db: number) =>
-    Math.min(100, Math.max(0, ((db - minDb) / range) * 100)).toFixed(2);
-  return (
-    `linear-gradient(to top,` +
-    `#00b8d4 0%,#00b8d4 ${p(-40)}%,` +
-    `#00e676 ${p(-40)}%,#00e676 ${p(-18)}%,` +
-    `#ffc400 ${p(-18)}%,#ffc400 ${p(-9)}%,` +
-    `#ff1744 ${p(-9)}%,#ff1744 100%)`
-  );
-});
+function colorForDb(db: number): string {
+  if (db >= -9)  return '#ff1744';
+  if (db >= -18) return '#ffc400';
+  if (db >= -40) return '#00e676';
+  return '#00b8d4';
+}
 
 function fillStyle(db: number, opacity: number): Record<string, string> {
   const pct = Math.min(100, Math.max(0,
     ((db - props.minDb) / (props.maxDb - props.minDb)) * 100));
   return {
     height: '100%',
-    background: ebuGradient.value,
+    background: colorForDb(db),
     clipPath: `inset(${(100 - pct).toFixed(2)}% 0 0 0)`,
     opacity: String(opacity),
   };
@@ -128,7 +125,8 @@ const rmsStyleL  = computed(() => fillStyle(rmsL.value,  0.4));
 const peakStyleR = computed(() => fillStyle(peakR.value, 1));
 const rmsStyleR  = computed(() => fillStyle(rmsR.value,  0.4));
 
-// Scale tick marks at key EBU reference levels
+// Scale tick marks at key EBU reference levels. Each tick carries the band
+// colour for its dB value so the legend visually agrees with the bar fill.
 const scaleMarks = computed(() => {
   const { minDb, maxDb } = props;
   const range = maxDb - minDb;
@@ -138,6 +136,7 @@ const scaleMarks = computed(() => {
       db,
       pct: ((db - minDb) / range) * 100,
       label: db === 0 ? '0' : String(db),
+      color: colorForDb(db),
     }));
 });
 
