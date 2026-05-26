@@ -82,6 +82,8 @@
     "reserved": "Ky kombinim tastesh është i rezervuar",
     "resetDefaults": "Rivendos Parazgjedhjet",
     "close": "Mbyll",
+    "detach": "Shkëput",
+    "attach": "Bashko",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

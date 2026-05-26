@@ -82,6 +82,8 @@
     "reserved": "یہ کی کومبی نیشن محفوظ ہے",
     "resetDefaults": "ڈیفالٹ پر ری سیٹ کریں",
     "close": "بند کریں",
+    "detach": "الگ کریں",
+    "attach": "منسلک کریں",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

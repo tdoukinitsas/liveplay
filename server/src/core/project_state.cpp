@@ -1269,11 +1269,13 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                     if (k == "uuid") continue;
                     if (k == "mediaPath" || k == "mediaServerPath" ||
                         k == "mediaFileName") {
-                        media_path_changed = true;
+                        if (!it.contains(k) || it[k] != v)
+                            media_path_changed = true;
                     }
                     if (k == "ltcEnabled" || k == "ltcStartTimecode" ||
                         k == "ltcFrameRate") {
-                        ltc_changed = true;
+                        if (!it.contains(k) || it[k] != v)
+                            ltc_changed = true;
                     }
                     it[k] = v;
                 }
@@ -1681,6 +1683,10 @@ bool ProjectState::play_item(const std::string& uuid) {
         }
         engine_.ensure_default_routing();
     }
+
+    // Re-establish LTC device routing after any audio routing changes above
+    // may have disrupted it (unrouting all channels clears LTC device routes).
+    apply_ltc_device_routing();
 
     // Look up file duration for sequencer scheduling (from CueMeta).
     double file_duration = 0.0;

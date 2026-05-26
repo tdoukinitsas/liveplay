@@ -82,6 +82,8 @@
     "reserved": "यह कुंजी संयोजन आरक्षित है",
     "resetDefaults": "डिफ़ॉल्ट पर रीसेट करें",
     "close": "बंद करें",
+    "detach": "अलग करें",
+    "attach": "जोड़ें",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

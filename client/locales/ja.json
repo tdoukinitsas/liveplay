@@ -82,6 +82,8 @@
     "reserved": "このキー組み合わせは予約済みです",
     "resetDefaults": "デフォルトにリセット",
     "close": "閉じる",
+    "detach": "切り離す",
+    "attach": "元に戻す",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

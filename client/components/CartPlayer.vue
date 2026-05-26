@@ -2,6 +2,25 @@
   <div class="cart-player" ref="cartPlayerRef">
     <div class="cart-header">
       <h2>{{ t('cart.title') }}</h2>
+      <div class="cart-header-actions">
+        <button
+          v-if="!isDetachedWindow"
+          class="action-btn"
+          :disabled="!currentProject"
+          @click="handleDetach"
+        >
+          <span class="material-symbols-rounded">open_in_new</span>
+          <span>{{ t('cart.detach') }}</span>
+        </button>
+        <button
+          v-else
+          class="action-btn"
+          @click="handleAttach"
+        >
+          <span class="material-symbols-rounded">picture_in_picture_alt</span>
+          <span>{{ t('cart.attach') }}</span>
+        </button>
+      </div>
     </div>
 
     <div class="cart-grid" :class="gridClass">
@@ -20,11 +39,25 @@
 import type { AudioItem } from '~/types/project';
 import { formatKeyLabel } from '~/composables/useCartHotkeys';
 
+defineProps<{
+  isDetachedWindow?: boolean;
+}>();
+
 const { currentProject } = useProject();
 const { getCartItem } = useCartItems();
 const { keyMappings, mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
 const { mount: mountMidi, unmount: unmountMidi } = useMidiController();
 const { t } = useLocalization();
+
+const handleDetach = () => {
+  if (!currentProject.value || !import.meta.client || !window.electronAPI) return;
+  window.electronAPI.openCartPlayerWindow(currentProject.value.folderPath);
+};
+
+const handleAttach = () => {
+  if (!import.meta.client || !window.electronAPI) return;
+  window.electronAPI.attachCartPlayerWindow();
+};
 
 const cartPlayerRef = ref<HTMLElement | null>(null);
 const gridClass = ref('grid-cols-2');
@@ -89,6 +122,7 @@ onMounted(() => {
 .cart-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: var(--spacing-md) var(--spacing-lg);
   min-height: 75px;
   box-sizing: border-box;
@@ -99,6 +133,39 @@ onMounted(() => {
 .cart-header h2 {
   font-size: 18px;
   font-weight: 600;
+}
+
+.cart-header-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.action-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-surface-hover);
+    border-color: var(--color-accent);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .material-symbols-rounded {
+    font-size: 16px;
+  }
 }
 
 .cart-grid {

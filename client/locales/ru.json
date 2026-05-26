@@ -82,6 +82,8 @@
     "reserved": "Эта комбинация клавиш зарезервирована",
     "resetDefaults": "Сбросить до Значений по Умолчанию",
     "close": "Закрыть",
+    "detach": "Открепить",
+    "attach": "Прикрепить",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

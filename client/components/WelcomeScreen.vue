@@ -143,6 +143,27 @@
       @pick="onPickerPick"
       @close="showPicker = false"
     />
+
+    <!-- New-project name dialog -->
+    <Teleport to="body">
+      <div v-if="showNameDialog" class="name-dialog-backdrop" @click.self="cancelNameDialog">
+        <div class="name-dialog">
+          <h3 class="name-dialog__title">{{ t('project.enterName') }}</h3>
+          <input
+            ref="nameDialogInput"
+            class="name-dialog__input"
+            v-model="nameDialogValue"
+            :placeholder="t('project.placeholder')"
+            @keydown.enter="confirmNameDialog"
+            @keydown.escape="cancelNameDialog"
+          />
+          <div class="name-dialog__actions">
+            <button class="name-dialog__btn" @click="cancelNameDialog">{{ t('project.cancel') }}</button>
+            <button class="name-dialog__btn name-dialog__btn--primary" :disabled="!nameDialogValue.trim()" @click="confirmNameDialog">{{ t('project.ok') }}</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -406,8 +427,8 @@ const handleNewProject = () => {
 const handleOpenProject = () => {
   pickerIntent.value        = 'open';
   pickerMode.value          = 'file';
-  pickerFilter.value        = '.liveplay,.lpa';
-  pickerFilterOptions.value = ['.liveplay,.lpa', 'all'];
+  pickerFilter.value        = '.liveplay';
+  pickerFilterOptions.value = ['.liveplay', 'all'];
   pickerStart.value         = '';
   showPicker.value          = true;
 };
@@ -427,72 +448,33 @@ const onPickerPick = async (fullPath: string) => {
   }
 };
 
-// Simple inline project name dialog
+// Vue-reactive project-name dialog — replaces the old imperative DOM version.
+const showNameDialog   = ref(false);
+const nameDialogValue  = ref('');
+const nameDialogInput  = ref<HTMLInputElement | null>(null);
+let   nameDialogResolve: ((v: string | null) => void) | null = null;
+
 const getProjectName = (): Promise<string | null> => {
+  nameDialogValue.value = '';
+  showNameDialog.value  = true;
+  nextTick(() => nameDialogInput.value?.focus());
   return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-
-    const dialog = document.createElement('div');
-    dialog.className = 'modal-dialog';
-
-    const h3 = document.createElement('h3');
-    h3.textContent = t('project.enterName');
-    h3.className = 'modal-title';
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'modal-input';
-    input.placeholder = t('project.placeholder');
-
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'modal-buttons';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'modal-btn modal-btn-cancel';
-    cancelBtn.textContent = t('project.cancel');
-
-    const okBtn = document.createElement('button');
-    okBtn.className = 'modal-btn modal-btn-primary';
-    okBtn.textContent = t('project.ok');
-
-    buttonContainer.appendChild(cancelBtn);
-    buttonContainer.appendChild(okBtn);
-
-    dialog.appendChild(h3);
-    dialog.appendChild(input);
-    dialog.appendChild(buttonContainer);
-    overlay.appendChild(dialog);
-
-    const appElement = document.getElementById('app') || document.body;
-    appElement.appendChild(overlay);
-
-    input.focus();
-
-    const cleanup = () => {
-      appElement.removeChild(overlay);
-    };
-
-    okBtn.onclick = () => {
-      const value = input.value.trim();
-      cleanup();
-      resolve(value || null);
-    };
-
-    cancelBtn.onclick = () => {
-      cleanup();
-      resolve(null);
-    };
-
-    input.onkeydown = (e) => {
-      if (e.key === 'Enter') {
-        okBtn.click();
-      } else if (e.key === 'Escape') {
-        cancelBtn.click();
-      }
-    };
+    nameDialogResolve = resolve;
   });
 };
+
+function confirmNameDialog() {
+  const v = nameDialogValue.value.trim();
+  showNameDialog.value = false;
+  nameDialogResolve?.(v || null);
+  nameDialogResolve = null;
+}
+
+function cancelNameDialog() {
+  showNameDialog.value = false;
+  nameDialogResolve?.(null);
+  nameDialogResolve = null;
+}
 
 // Listen for menu events
 if (import.meta.client && (window as any).electronAPI) {
@@ -793,4 +775,91 @@ if (import.meta.client && (window as any).electronAPI) {
 
 @keyframes lp-spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: lp-spin 0.85s linear infinite; }
+
+/* New-project name dialog */
+.name-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9200;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.name-dialog {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-xl);
+  min-width: 360px;
+  max-width: 480px;
+  width: 90vw;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  &__title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  &__input {
+    padding: 10px 12px;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-primary);
+    font-size: 14px;
+    outline: none;
+    transition: border-color var(--transition-fast);
+
+    &:focus {
+      border-color: var(--color-accent);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+  }
+
+  &__btn {
+    padding: 8px 20px;
+    border-radius: var(--border-radius-md);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--color-border);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+
+    &:hover:not(:disabled) {
+      background: var(--color-surface-hover);
+      border-color: var(--color-accent);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &--primary {
+      background: var(--color-accent);
+      border-color: var(--color-accent);
+      color: #fff;
+
+      &:hover:not(:disabled) {
+        filter: brightness(1.1);
+        background: var(--color-accent);
+        border-color: var(--color-accent);
+      }
+    }
+  }
+}
 </style>

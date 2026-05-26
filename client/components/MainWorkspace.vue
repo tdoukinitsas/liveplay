@@ -4,17 +4,18 @@
     <PlaybackControls />
     
     <div class="workspace-content">
-      <div v-if="!cartFullscreen" class="playlist-section" :style="{ width: cartClosed ? '100%' : `calc(100% - ${cartWidth}px)` }">
+      <div v-if="!cartFullscreen" class="playlist-section" :style="{ width: (cartClosed || cartDetached) ? '100%' : `calc(100% - ${cartWidth}px)` }">
         <PlaylistView />
       </div>
-      
-      <div 
+
+      <div
+        v-if="!cartDetached"
         class="resize-handle"
         :class="{ 'collapsed-left': cartFullscreen, 'collapsed-right': cartClosed }"
         @mousedown="startResize"
       ></div>
-      
-      <div v-if="!cartClosed" class="cart-section" :style="{ width: cartFullscreen ? '100%' : `${cartWidth}px` }">
+
+      <div v-if="!cartClosed && !cartDetached" class="cart-section" :style="{ width: cartFullscreen ? '100%' : `${cartWidth}px` }">
         <CartPlayer />
       </div>
     </div>
@@ -76,6 +77,7 @@ const cartWidth = ref(500);
 const isResizing = ref(false);
 const cartClosed = ref(false);
 const cartFullscreen = ref(false);
+const cartDetached = ref(false);
 
 const startResize = (e: MouseEvent) => {
   isResizing.value = true;
@@ -158,6 +160,14 @@ if (import.meta.client && window.electronAPI) {
     if (currentProject.value) {
       window.electronAPI.openFolder(currentProject.value.folderPath);
     }
+  });
+
+  // Cart window detach/attach
+  window.electronAPI.onCartPlayerWindowOpened(() => {
+    cartDetached.value = true;
+  });
+  window.electronAPI.onCartPlayerWindowClosed(() => {
+    cartDetached.value = false;
   });
 
   // Listen for API triggers
@@ -305,6 +315,7 @@ async function runExport(opts: { outputPath: string; downloadTo?: string }) {
 
 // Keep the main process HTTP API server up-to-date with the full project state.
 // Waveform peak arrays are stripped since they are large and not needed by API consumers.
+// NOTE: This watcher should NOT run in cart window mode to avoid feedback loops.
 const stripWaveforms = (items: any[]): any[] =>
   items.map(item => {
     const copy = { ...item, waveform: null };
@@ -312,8 +323,14 @@ const stripWaveforms = (items: any[]): any[] =>
     return copy;
   });
 
+// Check if this is cart window mode by looking at URL query param
+const isCartWindowMode = import.meta.client
+  ? new URLSearchParams(window.location.search).get('cartWindow') === '1'
+  : false;
+
 watch(currentProject, (project) => {
-  if (!import.meta.client || !window.electronAPI || !project) return;
+  // Only sync from main window, not from detached cart window
+  if (!import.meta.client || !window.electronAPI || !project || isCartWindowMode) return;
   const data = {
     ...project,
     items: stripWaveforms(project.items || []),

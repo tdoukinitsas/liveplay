@@ -260,6 +260,10 @@ function createClient() {
             // (useAudioEngine) see "Playing" for items the snapshot lists.
             for (const cb of cueStateSubscribers) cb(c);
           }
+          // Restore per-output-channel gains from snapshot.
+          for (const g of (snap as any).output_channel_gains ?? []) {
+            outputChannelGains.value[g.channel] = g.db;
+          }
           for (const cb of playbackSnapshotSubscribers) cb(snap);
           break;
         }
@@ -279,6 +283,15 @@ function createClient() {
           break;
         }
         case 'doc_patch': {
+          // Handle output_channel_gain_changed locally before fanning out.
+          if (payload.op === 'output_channel_gain_changed' &&
+              typeof payload.channel === 'number' &&
+              typeof payload.db === 'number') {
+            outputChannelGains.value = {
+              ...outputChannelGains.value,
+              [payload.channel]: payload.db,
+            };
+          }
           // Multi-client mirror: another client (or the local mutator
           // itself) just changed something. Hand off to subscribers
           // (useProject installs one that applies the patch under
@@ -640,6 +653,17 @@ function createClient() {
     return rest<{ db: number }>('/api/master/gain');
   }
 
+  // Per-output-channel gain. Broadcasts output_channel_gain_changed to all clients.
+  async function setOutputChannelGainDb(channel: number, db: number) {
+    return rest<any>(`/api/master/channels/${channel}/gain`, {
+      method: 'POST',
+      body: JSON.stringify({ db }),
+    });
+  }
+
+  // Reactive map of per-output-channel gains (channel index → dB).
+  const outputChannelGains = ref<Record<number, number>>({});
+
   // Theme + settings shallow-merge patches.
   async function patchTheme(patch: any) {
     return rest<any>('/api/project/theme', {
@@ -735,6 +759,12 @@ function createClient() {
     const url = '/api/fs/list?path=' + encodeURIComponent(path) +
                 '&filter=' + encodeURIComponent(filter);
     return rest<ServerFsListing>(url);
+  }
+  async function createServerDirectory(path: string) {
+    return rest<{ path: string }>('/api/fs/mkdir', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    });
   }
 
   // ---- Upload (multipart) -------------------------------------------
@@ -866,6 +896,7 @@ function createClient() {
 
     // fs / uploads / waveform
     listServerPath,
+    createServerDirectory,
     uploadFile,
     fetchWaveform,
     invalidateWaveformCache,
@@ -906,6 +937,8 @@ function createClient() {
     seekItemREST,
     setMasterGainDb,
     fetchMasterGainDb,
+    outputChannelGains,
+    setOutputChannelGainDb,
 
     // cart bindings
     setCartSlot,

@@ -65,18 +65,34 @@
       </div>
     </div>
     
-    <!-- Per-output meters — one StereoMeter per active audio output pair.
+    <!-- Per-output meters — one StereoMeter + volume fader per active audio output pair.
          Main output (masters 0/1) is always shown. Preview (30/31) and
          device-override pairs (2+) appear when they carry signal. -->
     <div class="output-meters">
-      <StereoMeter
-        v-for="pair in outputPairs"
-        :key="pair.key"
-        :left-index="pair.leftIndex"
-        :right-index="pair.rightIndex"
-        :label="pair.label"
-        :show-peak-value="true"
-      />
+      <div v-for="pair in outputPairs" :key="pair.key" class="output-pair">
+        <StereoMeter
+          :left-index="pair.leftIndex"
+          :right-index="pair.rightIndex"
+          :label="pair.label"
+          :show-peak-value="true"
+        />
+        <div class="output-fader" :title="`${pair.label} output gain`">
+          <span class="output-fader__db">{{ formatGainLabel(getOutputGainDb(pair.leftIndex)) }}</span>
+          <div class="output-fader__slider-wrap">
+            <input
+              type="range"
+              class="output-fader__slider"
+              :min="-60"
+              :max="6"
+              step="0.5"
+              :value="getOutputGainDb(pair.leftIndex)"
+              @input="onOutputGainInput(pair.leftIndex, pair.rightIndex, Number(($event.target as HTMLInputElement).value))"
+              @dblclick="resetOutputGain(pair.leftIndex, pair.rightIndex)"
+              title="Double-click to reset to 0 dB"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -190,6 +206,28 @@ const handlePanic = () => {
   server.stopAll(0);
   panicStop();
 };
+
+// ---- Per-output gain faders -----------------------------------------------
+function getOutputGainDb(leftIndex: number): number {
+  return server.outputChannelGains[leftIndex] ?? 0;
+}
+
+function formatGainLabel(db: number): string {
+  if (db <= -60) return '−∞';
+  if (db === 0)  return '0';
+  return (db > 0 ? '+' : '') + db.toFixed(db % 1 === 0 ? 0 : 1);
+}
+
+function onOutputGainInput(leftIndex: number, rightIndex: number, db: number) {
+  // Update both channels of the stereo pair together.
+  server.setOutputChannelGainDb(leftIndex, db);
+  server.setOutputChannelGainDb(rightIndex, db);
+}
+
+function resetOutputGain(leftIndex: number, rightIndex: number) {
+  server.setOutputChannelGainDb(leftIndex, 0);
+  server.setOutputChannelGainDb(rightIndex, 0);
+}
 
 const handlePlayNext = () => {
   const uuid = effectiveNextUuid.value;
@@ -380,11 +418,98 @@ const handlePlayNext = () => {
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-sm);
   padding-left: var(--spacing-md);
   border-left: 2px solid var(--color-border);
   height: calc(var(--playback-controls-height) - 16px);
   flex-shrink: 0;
+}
+
+.output-pair {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 4px;
+}
+
+/* Vertical gain fader — Carbon-flavoured */
+.output-fader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  padding: 2px 0;
+  width: 20px;
+
+  &__db {
+    font-family: var(--font-mono, monospace);
+    font-size: 8px;
+    color: var(--color-text-secondary);
+    text-align: center;
+    line-height: 1;
+    flex-shrink: 0;
+    min-width: 20px;
+  }
+
+  /* The slider is a horizontal range rotated -90deg to appear vertical.
+     writing-mode: vertical-lr is unreliable in Electron's Chromium for
+     <input type="range">; rotate transform is universally supported.
+     The wrapper shrinks to the slider's visual footprint so nothing overflows. */
+  &__slider-wrap {
+    flex: 1;
+    min-height: 0;
+    width: 20px;
+    overflow: visible;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__slider {
+    /* Rendered horizontal then rotated; height = visual width, width = visual height */
+    width: calc(var(--playback-controls-height) - 34px);
+    height: 20px;
+    transform: rotate(-90deg);
+    cursor: pointer;
+    accent-color: var(--color-accent);
+    background: transparent;
+
+    &::-webkit-slider-runnable-track {
+      height: 4px;
+      background: var(--color-border);
+      border-radius: 2px;
+    }
+    &::-moz-range-track {
+      height: 4px;
+      background: var(--color-border);
+      border-radius: 2px;
+    }
+
+    &::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--color-accent);
+      border: 2px solid var(--color-surface);
+      margin-top: -4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      transition: transform var(--transition-fast);
+    }
+    &::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--color-accent);
+      border: 2px solid var(--color-surface);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+
+    &:hover::-webkit-slider-thumb,
+    &:focus::-webkit-slider-thumb { transform: scale(1.2); }
+    &:focus { outline: none; }
+  }
 }
 
 .preview-cue-meter {

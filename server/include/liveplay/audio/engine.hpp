@@ -189,6 +189,11 @@ public:
     void set_master_gain_db(float db);
     float master_gain_db() const noexcept;
 
+    // Per-output-channel gain (applied per master channel, after the global
+    // master gain). 0 dB = unity; range clamped to -120..+12.
+    void  set_output_channel_gain_db(MasterChannelIndex ch, float db);
+    float output_channel_gain_db(MasterChannelIndex ch) const noexcept;
+
     // ---- Metering reads --------------------------------------------------
     MeterSnapshot read_master_meter(MasterChannelIndex master) const;
     float         read_master_gain_reduction_db(MasterChannelIndex master) const;
@@ -214,6 +219,10 @@ private:
     // Master gain in linear amplitude. Audio thread reads via load-acquire;
     // set_master_gain_db is the only writer. 1.0 = unity (0 dB).
     std::atomic<float>                           master_gain_linear_{1.0f};
+    // Per-output-channel gains (index matches master channel index).
+    // Allocated to cfg_.master_channels entries in start(); all default 1.0f.
+    // Protected by mutex_; audio thread reads with lock.
+    std::vector<float>                           output_channel_gains_;
     mutable std::mutex                           mutex_;          // guards registries + topology rebuild
     std::unordered_map<std::string, std::shared_ptr<PlaybackItem>>  items_;
     std::unordered_map<std::string, std::shared_ptr<MixerChannel>>  mixers_;

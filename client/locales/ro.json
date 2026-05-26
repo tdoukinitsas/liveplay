@@ -82,6 +82,8 @@
     "reserved": "Această combinație de taste este rezervată",
     "resetDefaults": "Resetare la Implicite",
     "close": "Închide",
+    "detach": "Separă",
+    "attach": "Ataşează",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

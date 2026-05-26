@@ -82,6 +82,8 @@
     "reserved": "این ترکیب کلید رزرو شده است",
     "resetDefaults": "بازگشت به پیش‌فرض",
     "close": "بستن",
+    "detach": "جداسازی",
+    "attach": "ضمیمه",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

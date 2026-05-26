@@ -134,6 +134,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onOpenProjectFile: (callback) => ipcRenderer.on('open-project-file', callback),
   onOpenLpaFile: (callback) => ipcRenderer.on('open-lpa-file', callback),
   
+  // Cart player window — detach/attach
+  openCartPlayerWindow: (projectFolderPath) => ipcRenderer.invoke('open-cart-player-window', projectFolderPath),
+  attachCartPlayerWindow: () => ipcRenderer.send('cart-player-window-attach'),
+  getCartWindowProjectData: () => ipcRenderer.invoke('get-cart-window-project-data'),
+  onCartPlayerWindowOpened: (callback) => ipcRenderer.on('cart-player-window-opened', callback),
+  onCartPlayerWindowClosed: (callback) => ipcRenderer.on('cart-player-window-closed', callback),
+  onCartWindowProjectUpdate: (callback) => ipcRenderer.on('cart-window-project-update', callback),
+
   // State viewer - send state updates to main process
   updateAppState: (state) => ipcRenderer.send('update-app-state', state),
   

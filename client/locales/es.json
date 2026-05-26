@@ -82,6 +82,8 @@
     "reserved": "Esta combinación de teclas está reservada",
     "resetDefaults": "Restablecer Valores Predeterminados",
     "close": "Cerrar",
+    "detach": "Separar",
+    "attach": "Integrar",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

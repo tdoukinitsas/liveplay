@@ -82,6 +82,8 @@
     "reserved": "এই কী সমন্বয়টি সংরক্ষিত",
     "resetDefaults": "ডিফল্টে রিসেট করুন",
     "close": "বন্ধ করুন",
+    "detach": "আলাদা করুন",
+    "attach": "সংযুক্ত করুন",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

@@ -1,7 +1,19 @@
 <template>
   <div id="app" :data-theme="theme">
-    <WelcomeScreen v-if="!currentProject" />
-    <MainWorkspace v-else />
+    <!-- Cart-window mode: standalone detached cart player -->
+    <template v-if="isCartWindow">
+      <div class="cart-window-root">
+        <CartPlayer v-if="currentProject" :is-detached-window="true" />
+        <div v-else class="cart-window-loading">
+          <span class="material-symbols-rounded">queue_music</span>
+        </div>
+      </div>
+    </template>
+
+    <!-- Normal mode -->
+    <template v-else>
+      <WelcomeScreen v-if="!currentProject" />
+      <MainWorkspace v-else />
     
     <!-- Accent Color Picker Modal -->
     <div v-if="showColorPicker" class="color-picker-overlay" @click="showColorPicker = false">
@@ -97,23 +109,31 @@
       @pick="onImportServerPickerPick"
       @close="importServerPickerOpen = false"
     />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import 'material-symbols';
+import CartPlayer from './components/CartPlayer.vue';
 
 const {
   currentProject, saveProject, openProject,
   isLoading, loadingMessage,
   repairDialogVisible, repairDialogIssues, confirmRepair, cancelRepair,
 } = useProject();
+const { cartOnlyItems, clearCartOnlyItems, addCartOnlyItem } = useCartItems();
 import LoadingOverlay from './components/LoadingOverlay.vue';
 import AudioLoadProgress from './components/AudioLoadProgress.vue';
 import LocationChoiceModal from './components/LocationChoiceModal.vue';
 import ServerFilePickerModal from './components/ServerFilePickerModal.vue';
 const { currentLocale, setLocale, getDirection, t } = useLocalization();
 const theme = useState('theme', () => 'dark');
+
+// Detect if this window is the detached cart player window
+const isCartWindow = import.meta.client
+  ? new URLSearchParams(window.location.search).get('cartWindow') === '1'
+  : false;
 
 // Initialize state viewer for dev mode
 useStateViewer();
@@ -157,9 +177,46 @@ const accentColors = [
   '#ff7eb6', '#ee5396', '#d02670', // Pinks
 ];
 
+// Cart window: fetch project data from main process and keep in sync
+function applyCartWindowProjectData(projectData: any) {
+  if (!projectData || !isCartWindow) return;
+  clearCartOnlyItems();
+  if (Array.isArray(projectData.cartOnlyItems)) {
+    for (const item of projectData.cartOnlyItems) {
+      addCartOnlyItem(item);
+    }
+  }
+  // In cart window mode, only set currentProject without triggering watchers
+  // Use Object.assign to preserve reactivity while avoiding deep-watch triggers
+  if (currentProject.value) {
+    Object.assign(currentProject.value, projectData);
+  } else {
+    currentProject.value = projectData;
+  }
+  // Apply theme from project
+  if (projectData.theme?.mode) {
+    theme.value = projectData.theme.mode;
+  }
+  if (projectData.theme?.accentColor) {
+    document.documentElement.style.setProperty('--color-accent-custom', projectData.theme.accentColor);
+  }
+}
+
 // Listen to menu events
 onMounted(() => {
   if (import.meta.client && window.electronAPI) {
+    // Cart window initialisation: load project data then listen for updates
+    if (isCartWindow) {
+      window.electronAPI.getCartWindowProjectData().then((projectData: any) => {
+        applyCartWindowProjectData(projectData);
+      });
+      window.electronAPI.onCartWindowProjectUpdate((_event: any, projectData: any) => {
+        applyCartWindowProjectData(projectData);
+      });
+      // Apply locale from localStorage (already handled by useLocalization)
+      return; // skip main-window-only event listeners below
+    }
+
     window.electronAPI.onMenuToggleDarkMode(() => {
       theme.value = theme.value === 'dark' ? 'light' : 'dark';
       if (currentProject.value) {
@@ -467,5 +524,28 @@ onMounted(() => {
 
 .close-dialog:hover {
   background: var(--color-surface-hover);
+}
+
+.cart-window-root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-background);
+}
+
+.cart-window-loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-background);
+  color: var(--color-text-secondary);
+
+  .material-symbols-rounded {
+    font-size: 48px;
+    opacity: 0.3;
+  }
 }
 </style>

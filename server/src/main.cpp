@@ -9,6 +9,7 @@
 #include "liveplay/audio/engine.hpp"
 #include "liveplay/core/backup_manager.hpp"
 #include "liveplay/core/project_state.hpp"
+#include "liveplay/crash_handler.hpp"
 #include "liveplay/logger.hpp"
 #include "liveplay/net/control_server.hpp"
 #include "liveplay/net/discovery.hpp"
@@ -274,6 +275,20 @@ int main(int argc, char** argv) {
     Logger::init();
     const CliOptions opts = parse_cli(argc, argv);
     if (opts.verbose) Logger::set_min_level(LogLevel::Debug);
+
+    // Drop crash reports next to the executable so the operator can find them
+    // even after the console window has closed.
+    {
+        std::error_code ec;
+        std::filesystem::path exe_dir = std::filesystem::current_path(ec);
+#if defined(_WIN32)
+        wchar_t exe_path_w[MAX_PATH] = {};
+        if (GetModuleFileNameW(nullptr, exe_path_w, MAX_PATH) > 0) {
+            exe_dir = std::filesystem::path{exe_path_w}.parent_path();
+        }
+#endif
+        install_crash_handlers((exe_dir / "crash-logs").string());
+    }
 
     install_signal_handlers();
 

@@ -414,24 +414,28 @@ void ControlServer::broadcast_loop() {
                 evt["cue_id"]           = cue.id.value;
                 evt["transport"]        = static_cast<int>(current);
                 evt["playhead_seconds"] = item ? item->stats().playhead_seconds : 0.0;
+                if (auto uuid = state_.cue_to_item_uuid(cue.id)) evt["item_uuid"] = *uuid;
                 cue_state_events.push_back(evt.dump());
             }
         }
 
-        // Build any pending playback_snapshot payload before grabbing the
-        // mutex — build_playback_snapshot acquires state/engine locks of
-        // its own and we want to keep ws_mutex held for as short as
-        // possible to avoid stalling onopen/onclose.
-        std::string snapshot_serialized;
+        // Build any pending playback_snapshot payload WITHOUT holding ws_mutex.
+        // build_playback_snapshot acquires state/engine mutexes internally, and
+        // HTTP handlers hold those same mutexes while calling broadcast_doc_patch
+        // (which also needs ws_mutex). Acquiring ws_mutex → state mutex from the
+        // broadcast thread while HTTP handlers do state mutex → ws_mutex is the
+        // classic ABBA deadlock that crashes the server on client connect.
+        bool has_pending = false;
         {
             std::lock_guard lock{impl_->ws_mutex};
-            if (!impl_->ws_clients_pending_snapshot.empty()) {
-                try {
-                    snapshot_serialized =
-                        build_playback_snapshot(engine_, state_).dump();
-                } catch (const std::exception& e) {
-                    Logger::warn("build_playback_snapshot failed: {}", e.what());
-                }
+            has_pending = !impl_->ws_clients_pending_snapshot.empty();
+        }
+        std::string snapshot_serialized;
+        if (has_pending) {
+            try {
+                snapshot_serialized = build_playback_snapshot(engine_, state_).dump();
+            } catch (const std::exception& e) {
+                Logger::warn("build_playback_snapshot failed: {}", e.what());
             }
         }
 
@@ -485,17 +489,25 @@ static json build_playback_snapshot(audio::AudioEngine& engine,
         if (!item) continue;
         const auto s = item->stats();
         if (s.transport == audio::TransportState::Stopped) continue;
-        cues_arr.push_back(json{
+        json entry{
             {"cue_id",           cue.id.value},
             {"transport",        static_cast<int>(s.transport)},
             {"playhead_seconds", s.playhead_seconds},
-        });
+        };
+        if (auto uuid = state.cue_to_item_uuid(cue.id)) entry["item_uuid"] = *uuid;
+        cues_arr.push_back(std::move(entry));
+    }
+    json out_gains = json::array();
+    for (audio::MasterChannelIndex i = 0; i < engine.config().master_channels; ++i) {
+        const float db = engine.output_channel_gain_db(i);
+        if (db != 0.0f) out_gains.push_back(json{{"channel", i}, {"db", db}});
     }
     return json{
-        {"type",           "playback_snapshot"},
-        {"cues",           std::move(cues_arr)},
-        {"next_item_uuid", state.next_item_override()},
-        {"master_gain_db", engine.master_gain_db()},
+        {"type",                "playback_snapshot"},
+        {"cues",                std::move(cues_arr)},
+        {"next_item_uuid",      state.next_item_override()},
+        {"master_gain_db",      engine.master_gain_db()},
+        {"output_channel_gains", std::move(out_gains)},
         {"preview", json{
             {"item_uuid", state.current_preview_item_uuid()},
             {"cue_id",    state.current_preview_cue_id().value},
@@ -866,6 +878,35 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // Per-output-channel gain. GET returns all channels; POST body { "db": float }
+    // sets the gain for a specific master channel index.
+    CROW_ROUTE(app, "/api/master/channels/<int>/gain").methods(crow::HTTPMethod::Get)
+        ([this](int idx){
+            if (idx < 0) return json_err(400, "invalid channel index");
+            return json_ok(json({
+                {"channel", idx},
+                {"db", engine_.output_channel_gain_db(static_cast<audio::MasterChannelIndex>(idx))},
+            }));
+        });
+    CROW_ROUTE(app, "/api/master/channels/<int>/gain").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, int idx){
+            try {
+                if (idx < 0) return json_err(400, "invalid channel index");
+                auto j = json::parse(req.body);
+                const float db = j.value("db", 0.0f);
+                const auto ch = static_cast<audio::MasterChannelIndex>(idx);
+                engine_.set_output_channel_gain_db(ch, db);
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "output_channel_gain_changed"},
+                    {"channel", idx}, {"db", engine_.output_channel_gain_db(ch)},
+                });
+                return json_ok(json({
+                    {"ok", true}, {"channel", idx},
+                    {"db", engine_.output_channel_gain_db(ch)},
+                }));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
     // ---- Mixer channels ----
     CROW_ROUTE(app, "/api/mixers").methods(crow::HTTPMethod::Get)
         ([this] {
@@ -1060,6 +1101,23 @@ void ControlServer::install_routes() {
                     }
                 }
                 return json_ok(out);
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // POST /api/fs/mkdir  body: { "path": "<utf8-absolute-path>" }
+    // Creates a new directory (and all parent directories). Returns { "path": "<created>" }.
+    CROW_ROUTE(app, "/api/fs/mkdir").methods(crow::HTTPMethod::Post)
+        ([](const crow::request& req){
+            try {
+                auto j = json::parse(req.body);
+                if (!j.contains("path") || !j["path"].is_string())
+                    return json_err(400, "missing 'path'");
+                const fs::path dir = liveplay::util::utf8_to_path(j["path"].get<std::string>());
+                if (dir.empty()) return json_err(400, "empty path");
+                std::error_code ec;
+                fs::create_directories(dir, ec);
+                if (ec) return json_err(400, ec.message());
+                return json_ok(json({{"path", liveplay::util::path_to_utf8(dir)}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 

@@ -82,6 +82,8 @@
     "reserved": "Αυτός ο συνδυασμός πλήκτρων είναι δεσμευμένος",
     "resetDefaults": "Επαναφορά στις Προεπιλογές",
     "close": "Κλείσιμο",
+    "detach": "Αποσύνδεση",
+    "attach": "Επισύνδεση",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

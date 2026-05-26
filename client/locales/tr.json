@@ -82,6 +82,8 @@
     "reserved": "Bu tuş kombinasyonu ayrılmıştır",
     "resetDefaults": "Varsayılanlara Sıfırla",
     "close": "Kapat",
+    "detach": "Ayır",
+    "attach": "Ekle",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

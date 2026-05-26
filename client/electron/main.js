@@ -656,6 +656,7 @@ let currentProjectData = null; // Full project data synced from renderer for HTT
 const pendingApiRequests = new Map(); // requestId → { resolve } for PATCH round-trips
 let fileToOpen = null; // Store file path if app is opened with a file
 let stateViewerWindow = null; // Debug state viewer window
+let cartPlayerWindow = null;  // Detached cart player window
 
 // Flatten all audio items from a nested project items array
 function flattenAudioItems(items) {
@@ -1081,6 +1082,54 @@ function createWindow() {
 
   createMenu('en', isDevMode);
   startAPIServer();
+}
+
+// Create detached cart player window
+function createCartPlayerWindow() {
+  if (cartPlayerWindow) {
+    cartPlayerWindow.focus();
+    return;
+  }
+
+  cartPlayerWindow = new BrowserWindow({
+    width: 900,
+    height: 700,
+    minWidth: 380,
+    minHeight: 400,
+    title: 'LivePlay - Cart Player',
+    icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+      webSecurity: false
+    }
+  });
+
+  if (isDevMode) {
+    cartPlayerWindow.loadURL('http://localhost:3000/?cartWindow=1');
+  } else {
+    const indexPath = path.join(__dirname, '../.output/public/index.html');
+    cartPlayerWindow.loadFile(indexPath, { query: { cartWindow: '1' } });
+  }
+
+  cartPlayerWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[CartWindow] Failed to load:', errorCode, errorDescription);
+  });
+
+  cartPlayerWindow.on('closed', () => {
+    cartPlayerWindow = null;
+    if (mainWindow) {
+      mainWindow.webContents.send('cart-player-window-closed');
+    }
+  });
+
+  // Notify main window that cart window is open
+  cartPlayerWindow.webContents.once('did-finish-load', () => {
+    if (mainWindow) {
+      mainWindow.webContents.send('cart-player-window-opened');
+    }
+  });
 }
 
 // Create state viewer window for debugging
@@ -2041,26 +2090,52 @@ ipcMain.handle('import-lpa-file', async (event, archivePath) => {
 });
 
 // Receive full project data from renderer to power HTTP API GET/PATCH endpoints
+// Only sync from the main window, not from the detached cart window (to avoid feedback loops)
 ipcMain.on('sync-project-data', (event, projectData) => {
-  currentProjectData = projectData;
-  // Keep the menu's "Export Project" / similar items in sync with whether
-  // a project is actually open in the renderer. The server-backed flow
-  // never calls set-current-project explicitly, so without this the menu
-  // gate (enabled: currentProject !== null) would stay stuck off forever
-  // and File > Export Project would appear greyed out even with a project
-  // loaded. Rebuild the menu only when the open/closed transition flips,
-  // since createMenu() is not free.
-  const nextOpen = projectData
-    ? (projectData.folderPath || projectData.name || 'open')
-    : null;
-  const wasOpen = currentProject !== null;
-  const isOpen  = nextOpen   !== null;
-  if (wasOpen !== isOpen) {
-    currentProject = nextOpen;
-    createMenu(currentLocale, isDevMode);
-  } else {
-    currentProject = nextOpen;
+  // Check if this sync is coming from the main window (not the cart window)
+  const isFromMainWindow = event.sender === mainWindow?.webContents;
+
+  if (isFromMainWindow) {
+    currentProjectData = projectData;
+    // Keep the menu's "Export Project" / similar items in sync with whether
+    // a project is actually open in the renderer. The server-backed flow
+    // never calls set-current-project explicitly, so without this the menu
+    // gate (enabled: currentProject !== null) would stay stuck off forever
+    // and File > Export Project would appear greyed out even with a project
+    // loaded. Rebuild the menu only when the open/closed transition flips,
+    // since createMenu() is not free.
+    const nextOpen = projectData
+      ? (projectData.folderPath || projectData.name || 'open')
+      : null;
+    const wasOpen = currentProject !== null;
+    const isOpen  = nextOpen   !== null;
+    if (wasOpen !== isOpen) {
+      currentProject = nextOpen;
+      createMenu(currentLocale, isDevMode);
+    } else {
+      currentProject = nextOpen;
+    }
+    // Forward project updates to the detached cart window if open
+    if (cartPlayerWindow && projectData) {
+      cartPlayerWindow.webContents.send('cart-window-project-update', projectData);
+    }
   }
+  // Silently ignore syncs from the cart window to prevent feedback loops
+});
+
+// Cart player window IPC handlers
+ipcMain.handle('open-cart-player-window', () => {
+  createCartPlayerWindow();
+});
+
+ipcMain.on('cart-player-window-attach', () => {
+  if (cartPlayerWindow) {
+    cartPlayerWindow.close();
+  }
+});
+
+ipcMain.handle('get-cart-window-project-data', () => {
+  return currentProjectData || null;
 });
 
 // Receive response from renderer for pending PATCH API requests

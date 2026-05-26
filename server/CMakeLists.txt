@@ -101,6 +101,7 @@ endif()
 add_executable(liveplay-server
     src/main.cpp
     src/logger.cpp
+    src/crash_handler.cpp
     ${LIVEPLAY_RC}
 
     # Milestone 2 — audio engine
@@ -146,7 +147,7 @@ elseif(TARGET unofficial::taglib::tag)
 endif()
 
 if(WIN32)
-    target_link_libraries(liveplay-server PRIVATE ws2_32 mswsock)
+    target_link_libraries(liveplay-server PRIVATE ws2_32 mswsock dbghelp)
     # Modern Windows console: opt in to UTF-8 + VT for the banner.
     target_compile_definitions(liveplay-server PRIVATE UNICODE _UNICODE)
 endif()

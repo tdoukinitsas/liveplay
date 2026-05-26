@@ -82,6 +82,8 @@
     "reserved": "此键组合已被保留",
     "resetDefaults": "重置为默认值",
     "close": "关闭",
+    "detach": "分离",
+    "attach": "合并",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

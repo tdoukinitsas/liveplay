@@ -104,7 +104,9 @@
     "conflict": "Already assigned to Slot {slot}",
     "reserved": "This key combination is reserved",
     "resetDefaults": "Reset to Defaults",
-    "close": "Close"
+    "close": "Close",
+    "detach": "Detach",
+    "attach": "Attach"
   },
   "properties": {
     "title": "Properties",

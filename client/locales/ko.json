@@ -82,6 +82,8 @@
     "reserved": "이 키 조합은 예약되어 있습니다",
     "resetDefaults": "기본값으로 재설정",
     "close": "닫기",
+    "detach": "분리",
+    "attach": "통합",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

@@ -82,6 +82,8 @@
     "reserved": "Cette combinaison de touches est réservée",
     "resetDefaults": "Réinitialiser les Valeurs par Défaut",
     "close": "Fermer",
+    "detach": "Détacher",
+    "attach": "Rattacher",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

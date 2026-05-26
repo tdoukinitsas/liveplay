@@ -54,6 +54,20 @@
             <label>File:&nbsp;</label>
             <input class="filename" v-model="filenameDraft" placeholder="(select a file above)" />
           </div>
+          <!-- New-folder inline form — shown while creating -->
+          <div v-if="newFolderMode" class="newfolder-row">
+            <span class="material-symbols-rounded newfolder-icon">create_new_folder</span>
+            <input
+              ref="newFolderInput"
+              class="newfolder-name"
+              v-model="newFolderName"
+              placeholder="New folder name"
+              @keydown.enter="confirmNewFolder"
+              @keydown.escape="cancelNewFolder"
+            />
+            <button class="btn primary small" @click="confirmNewFolder" :disabled="!newFolderName.trim()">Create</button>
+            <button class="btn small" @click="cancelNewFolder">Cancel</button>
+          </div>
           <div class="filter-row">
             <select v-model="filter" @change="reload" class="filter">
               <option v-if="filterOptions.includes('audio')" value="audio">Audio files</option>
@@ -61,6 +75,16 @@
                       :key="opt" :value="opt">{{ filterDisplay(opt) }}</option>
               <option v-if="filterOptions.includes('all')" value="all">All files</option>
             </select>
+            <button
+              v-if="!isRoot"
+              class="btn"
+              :disabled="newFolderMode"
+              @click="startNewFolder"
+              title="New folder"
+            >
+              <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">create_new_folder</span>
+              New folder
+            </button>
             <span class="spacer"></span>
             <button class="btn" @click="cancel">Cancel</button>
             <button class="btn primary" :disabled="!canConfirm" @click="confirm">
@@ -96,7 +120,7 @@
     close                  — user cancelled
 -->
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
 import type { ServerFsEntry, ServerFsListing } from '~/types/server';
 
@@ -206,8 +230,10 @@ function formatBytes(n: number): string {
 }
 
 function filterDisplay(f: string): string {
-  if (f === 'all')   return 'All files';
-  if (f === 'audio') return 'Audio files';
+  if (f === 'all')        return 'All files';
+  if (f === 'audio')      return 'Audio files';
+  if (f === '.liveplay')  return 'LivePlay projects (.liveplay)';
+  if (f === '.liveplay,.lpa') return 'LivePlay projects';
   return f;
 }
 
@@ -283,6 +309,46 @@ function confirm() {
 }
 
 function cancel() { emit('close'); }
+
+// ---------------------------------------------------------------------------
+// New-folder inline creation
+// ---------------------------------------------------------------------------
+const newFolderMode  = ref(false);
+const newFolderName  = ref('');
+const newFolderInput = ref<HTMLInputElement | null>(null);
+
+async function startNewFolder() {
+  if (isRoot.value) return;
+  newFolderName.value = '';
+  newFolderMode.value = true;
+  await nextTick();
+  newFolderInput.value?.focus();
+}
+
+async function confirmNewFolder() {
+  const name = newFolderName.value.trim();
+  if (!name) return;
+  const parent = currentPath.value;
+  if (!parent) return;
+  const isWin = /^[A-Za-z]:[\\/]/.test(parent);
+  const sep = isWin ? '\\' : '/';
+  const newPath = parent.replace(/[\\/]+$/, '') + sep + name;
+  try {
+    await server.createServerDirectory(newPath);
+    newFolderMode.value = false;
+    newFolderName.value = '';
+    await navigate(newPath);   // navigate into the freshly-created folder
+  } catch (e: any) {
+    error.value = String(e?.message ?? e);
+    newFolderMode.value = false;
+    newFolderName.value = '';
+  }
+}
+
+function cancelNewFolder() {
+  newFolderMode.value = false;
+  newFolderName.value = '';
+}
 
 // ---------------------------------------------------------------------------
 // Open / close lifecycle
@@ -395,6 +461,28 @@ watch(() => props.open, (o) => {
   .btn {
     background: #2a2a2a; border: 1px solid #3a3a3a;
     border-radius: 4px; padding: 6px 16px; color: #ddd; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+    &:hover:not(:disabled) { background: #353535; }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+    &.primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+    &.small { padding: 4px 10px; font-size: 12px; }
+  }
+}
+.newfolder-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 0;
+  border-top: 1px solid #2a2a2a;
+  .newfolder-icon { color: var(--color-accent); font-size: 18px; flex-shrink: 0; }
+  .newfolder-name {
+    flex: 1;
+    background: #1d1d1d; border: 1px solid #3a3a3a;
+    border-radius: 4px; padding: 4px 10px;
+    color: #eee; font-size: 13px;
+    &:focus { outline: none; border-color: var(--color-accent); }
+  }
+  .btn {
+    background: #2a2a2a; border: 1px solid #3a3a3a;
+    border-radius: 4px; padding: 4px 10px; font-size: 12px; color: #ddd; cursor: pointer;
     &:hover:not(:disabled) { background: #353535; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
     &.primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }

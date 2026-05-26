@@ -82,6 +82,8 @@
     "reserved": "هذا التوليف من المفاتيح محجوز",
     "resetDefaults": "إعادة تعيين الافتراضيات",
     "close": "إغلاق",
+    "detach": "فصل",
+    "attach": "إرفاق",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

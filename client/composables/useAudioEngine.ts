@@ -61,6 +61,7 @@ const TRANSPORT_PAUSED    = 4;
 
 export const useAudioEngine = () => {
   const { currentProject, findItemByUuid, findItemByIndex } = useProject();
+  const { cartOnlyItems } = useCartItems();
   const server = useLiveplayServer();
 
   // ---- Reactive state ------------------------------------------------
@@ -100,12 +101,8 @@ export const useAudioEngine = () => {
     // valid playback targets — the server annotates them with cueId in
     // header_document() too. Without this branch their cue_state events
     // had nowhere to land and the UI never showed them as playing.
-    const cartOnly = currentProject.value.cartOnlyItems ?? [];
-    for (const it of cartOnly) {
-      if (it && (it as any).type === 'audio' &&
-          (it as any).cueId === cueId) {
-        return it as AudioItem;
-      }
+    for (const it of cartOnlyItems.value.values()) {
+      if (it && (it as any).cueId === cueId) return it as AudioItem;
     }
     return null;
   };
@@ -255,9 +252,8 @@ export const useAudioEngine = () => {
   // cue_state edges: Playing/FadingIn/Paused create or update; Stopped
   // removes. FadingOut keeps the entry so the bar continues to render
   // its trailing seconds.
-  server.onCueState(({ cue_id, transport, playhead_seconds }) => {
+  server.onCueState(({ cue_id, transport, playhead_seconds, item_uuid }: any) => {
     if (transport === TRANSPORT_STOPPED) {
-      // Locate by serverCueId. If found, drop it.
       for (const [uuid, cue] of activeCues.value) {
         if (cue.serverCueId === cue_id) {
           removeActiveCue(uuid);
@@ -267,9 +263,11 @@ export const useAudioEngine = () => {
       recomputeActiveGroups();
       return;
     }
-    const item = findItemByServerCueId(cue_id);
-    if (!item) return;
-    upsertActiveCue(item, transport, playhead_seconds, cue_id);
+    // Prefer item_uuid (server now includes it) so cart items without a
+    // cueId annotation are still resolved. Fall back to cueId lookup.
+    const item = (item_uuid ? findItemByUuid(item_uuid) : null) ?? findItemByServerCueId(cue_id);
+    if (!item || item.type !== 'audio') return;
+    upsertActiveCue(item as AudioItem, transport, playhead_seconds, cue_id);
     recomputeActiveGroups();
   });
 

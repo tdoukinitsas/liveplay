@@ -82,6 +82,8 @@
     "reserved": "Denne tastekombinasjonen er reservert",
     "resetDefaults": "Tilbakestill til Standard",
     "close": "Lukk",
+    "detach": "Løsne",
+    "attach": "Fest",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

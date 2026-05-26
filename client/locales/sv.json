@@ -82,6 +82,8 @@
     "reserved": "Denna tangentkombination är reserverad",
     "resetDefaults": "Återställ till Standard",
     "close": "Stäng",
+    "detach": "Koppla loss",
+    "attach": "Koppla in",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

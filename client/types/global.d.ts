@@ -92,6 +92,13 @@ declare global {
       onOpenLpaFile: (callback: (event: any, data: { lpaPath: string }) => void) => void;
       readMidiConfig: () => Promise<Record<string, any>>;
       writeMidiConfig: (config: Record<string, any>) => Promise<{ success: boolean }>;
+      // Cart player window
+      openCartPlayerWindow: (projectFolderPath: string) => Promise<void>;
+      attachCartPlayerWindow: () => void;
+      getCartWindowProjectData: () => Promise<any>;
+      onCartPlayerWindowOpened: (callback: () => void) => void;
+      onCartPlayerWindowClosed: (callback: () => void) => void;
+      onCartWindowProjectUpdate: (callback: (event: any, projectData: any) => void) => void;
     };
   }
 

@@ -82,6 +82,8 @@
     "reserved": "Questa combinazione di tasti è riservata",
     "resetDefaults": "Ripristina Predefiniti",
     "close": "Chiudi",
+    "detach": "Scollega",
+    "attach": "Reinserisci",
     "configureControls": "Configure Controls",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI"

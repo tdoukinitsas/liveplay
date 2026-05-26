@@ -92,6 +92,9 @@ bool AudioEngine::start() {
     master_accumulators_.assign(cfg_.master_channels,
                                 std::vector<Sample>(cfg_.render_block, 0.0f));
 
+    // Initialise per-output-channel gains to unity (0 dB).
+    output_channel_gains_.assign(cfg_.master_channels, 1.0f);
+
     render_thread_ = std::thread([this] { render_loop(); });
 
 #if defined(_WIN32)
@@ -240,8 +243,13 @@ void AudioEngine::ma_data_callback(ma_device* dev,
         ma_uint32     available = remaining;
         if (ma_pcm_rb_acquire_read(device->ring.get(), &available, &buf) != MA_SUCCESS) break;
         if (available == 0) {
-            // Ring underrun — fill with silence and bail. Operators will hear
-            // a brief gap rather than garbage if the render thread stalls.
+            // Ring underrun — render thread isn't keeping up with hardware consumption.
+            // Fill with silence so operators hear silence instead of garbage.
+            if (remaining == frames) {
+                // Entire block is missing — likely indicates a scheduling hiccup
+                Logger::warn("Ring underrun on device '{}': {} frames starved",
+                             device->display_name, remaining);
+            }
             std::memset(dst, 0, remaining * device->channels * sizeof(Sample));
             break;
         }
@@ -276,12 +284,12 @@ DeviceId AudioEngine::open_device_by_name(const std::string& name_substring,
     dev->ring         = std::make_unique<ma_pcm_rb>();
     dev->engine       = this;                       // for callback → consumption_counter_
 
-    // Allocate a ring big enough for ~40 render blocks of headroom. With 256
-    // frames @ 48 kHz that's ~213 ms — comfortable margin against decode-path
+    // Allocate a ring big enough for ~80 render blocks of headroom. With 256
+    // frames @ 48 kHz that's ~427 ms — provides extra margin against decode-path
     // spikes (disk I/O, MP3/FLAC inner-loop) so transient stalls never reach
     // the device callback. Transport latency is unaffected because the engine
     // commits gain/transport state independently of the buffer position.
-    const ma_uint32 ring_frames = static_cast<ma_uint32>(cfg_.render_block * 40);
+    const ma_uint32 ring_frames = static_cast<ma_uint32>(cfg_.render_block * 80);
     if (ma_pcm_rb_init(ma_format_f32, output_channels, ring_frames,
                        nullptr, nullptr, dev->ring.get()) != MA_SUCCESS) {
         Logger::error("Failed to allocate ring buffer for device '{}'", dev->display_name);
@@ -545,11 +553,16 @@ void AudioEngine::ensure_default_routing() {
         // Step 5: auto-route every loaded cue's source channels → Main.
         // Stereo files get L→master0, R→master1 routing-by-position via the
         // mixer (mono items default to both via the simple gain=1.0 send).
+        // The LTC synthetic channel (always the last source channel on
+        // LTC-enabled cues) is deliberately excluded — it has its own
+        // dedicated device routing managed by apply_ltc_device_routing().
         for (auto& [cue_id, item] : items_) {
             auto& srcs = pending_.item_sources[cue_id].by_source_channel;
             const auto src_count = item->source_channel_count();
             if (srcs.size() < src_count) srcs.resize(src_count);
-            for (ChannelIndex ch = 0; ch < src_count; ++ch) {
+            const auto audio_count = item->desc().ltc_enabled
+                                     ? src_count - 1 : src_count;
+            for (ChannelIndex ch = 0; ch < audio_count; ++ch) {
                 bool already = false;
                 for (auto& s : srcs[ch]) {
                     if (s.first.value == main_mixer.value) { already = true; break; }
@@ -704,6 +717,24 @@ float AudioEngine::master_gain_db() const noexcept {
     return 20.0f * std::log10(lin);
 }
 
+void AudioEngine::set_output_channel_gain_db(MasterChannelIndex ch, float db) {
+    const float clamped = std::clamp(db, -120.0f, 12.0f);
+    const float lin = (clamped <= -120.0f) ? 0.0f
+                                           : std::pow(10.0f, clamped / 20.0f);
+    std::lock_guard lock{mutex_};
+    if (ch < output_channel_gains_.size()) {
+        output_channel_gains_[ch] = lin;
+    }
+}
+
+float AudioEngine::output_channel_gain_db(MasterChannelIndex ch) const noexcept {
+    std::lock_guard lock{mutex_};
+    if (ch >= output_channel_gains_.size()) return 0.0f;
+    const float lin = output_channel_gains_[ch];
+    if (lin <= 0.0f) return -120.0f;
+    return 20.0f * std::log10(lin);
+}
+
 MeterSnapshot AudioEngine::read_master_meter(MasterChannelIndex master) const {
     if (master >= master_state_.size()) return {};
     return master_state_[master].meter->snapshot();
@@ -747,21 +778,21 @@ void AudioEngine::render_loop() {
             continue;
         }
 
-        // Check whether at least one device needs a fresh block (i.e. has
-        // space for one). If not, block until a device callback signals us.
+        // Check whether at least one device has space for a fresh block.
+        // If *all* devices are full, block until a device callback signals us.
         bool can_render   = false;
         bool has_devices  = false;
         {
             std::lock_guard lock{mutex_};
             has_devices = !devices_.empty();
-            // We require *every* device to have space for one block. That
-            // keeps all rings in lock-step so no device's playhead lags.
+            // We render if *any* device needs space. This prevents slower
+            // devices from starving faster ones. Faster devices stay closer
+            // to the top of their rings, while slower ones gradually fill.
             if (has_devices) {
-                can_render = true;
                 for (auto& d : devices_) {
                     if (!d->ring) continue;
-                    if (ma_pcm_rb_available_write(d->ring.get()) < cfg_.render_block) {
-                        can_render = false;
+                    if (ma_pcm_rb_available_write(d->ring.get()) >= cfg_.render_block) {
+                        can_render = true;
                         break;
                     }
                 }
@@ -796,10 +827,12 @@ void AudioEngine::render_one_block(const Topology& topo) {
 
     // ---- (Re)size scratch buffers if the mixer count changed ----
     std::vector<std::shared_ptr<MixerChannel>> active_mixers;
+    std::vector<float> channel_gains_snapshot;
     {
         std::lock_guard lock{mutex_};
         active_mixers.reserve(mixers_.size());
         for (auto& [_, m] : mixers_) active_mixers.emplace_back(m);
+        channel_gains_snapshot = output_channel_gains_;
     }
     if (mixer_accumulators_.size() < active_mixers.size()) {
         mixer_accumulators_.resize(active_mixers.size(),
@@ -878,12 +911,20 @@ void AudioEngine::render_one_block(const Topology& topo) {
         }
     }
 
-    // ---- Tier-3: master gain → per master-channel limiter + meter ----
+    // ---- Tier-3: master gain → per-channel output gain → limiter + meter ----
     const float mg = master_gain_linear_.load(std::memory_order_acquire);
     for (MasterChannelIndex mc = 0; mc < cfg_.master_channels; ++mc) {
         Sample* buf = master_accumulators_[mc].data();
+        // Global master gain
         if (mg != 1.0f) {
             for (std::size_t s = 0; s < block; ++s) buf[s] *= mg;
+        }
+        // Per-output-channel gain (independent fader per device output pair)
+        if (mc < channel_gains_snapshot.size()) {
+            const float og = channel_gains_snapshot[mc];
+            if (og != 1.0f) {
+                for (std::size_t s = 0; s < block; ++s) buf[s] *= og;
+            }
         }
         master_state_[mc].limiter->process(buf, block);
         master_state_[mc].meter->push_block(buf, block);
@@ -930,8 +971,10 @@ void AudioEngine::render_one_block(const Topology& topo) {
             void*     buf = nullptr;
             if (ma_pcm_rb_acquire_write(dev->ring.get(), &frames_to_write, &buf) != MA_SUCCESS) break;
             if (frames_to_write == 0) {
-                // No more space — should not happen because the render loop
-                // back-pressures on available_write, but defend anyway.
+                // Ring is full — device callback isn't draining fast enough.
+                // This indicates a scheduling problem or device underperformance.
+                Logger::warn("Ring overflow detected on device '{}': {} frames lost",
+                             dev->display_name, remaining);
                 break;
             }
             std::memcpy(buf, src,
