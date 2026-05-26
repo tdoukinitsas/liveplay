@@ -691,6 +691,19 @@ void AudioEngine::set_master_ceiling_db(float db) {
     }
 }
 
+void AudioEngine::set_master_gain_db(float db) {
+    const float clamped = std::clamp(db, -120.0f, 12.0f);
+    const float lin = (clamped <= -120.0f) ? 0.0f
+                                            : std::pow(10.0f, clamped / 20.0f);
+    master_gain_linear_.store(lin, std::memory_order_release);
+}
+
+float AudioEngine::master_gain_db() const noexcept {
+    const float lin = master_gain_linear_.load(std::memory_order_acquire);
+    if (lin <= 0.0f) return -120.0f;
+    return 20.0f * std::log10(lin);
+}
+
 MeterSnapshot AudioEngine::read_master_meter(MasterChannelIndex master) const {
     if (master >= master_state_.size()) return {};
     return master_state_[master].meter->snapshot();
@@ -865,9 +878,13 @@ void AudioEngine::render_one_block(const Topology& topo) {
         }
     }
 
-    // ---- Tier-3: per master-channel limiter + meter ----
+    // ---- Tier-3: master gain → per master-channel limiter + meter ----
+    const float mg = master_gain_linear_.load(std::memory_order_acquire);
     for (MasterChannelIndex mc = 0; mc < cfg_.master_channels; ++mc) {
         Sample* buf = master_accumulators_[mc].data();
+        if (mg != 1.0f) {
+            for (std::size_t s = 0; s < block; ++s) buf[s] *= mg;
+        }
         master_state_[mc].limiter->process(buf, block);
         master_state_[mc].meter->push_block(buf, block);
     }

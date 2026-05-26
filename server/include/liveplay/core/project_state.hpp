@@ -81,6 +81,12 @@ struct MasterAssignment {
     audio::ChannelIndex hw_channel;
 };
 
+// Describes issues detected and fixed when loading a corrupt project.
+struct RepairInfo {
+    bool repaired = false;
+    std::vector<std::string> issues;
+};
+
 class ProjectState {
 public:
     explicit ProjectState(audio::AudioEngine& engine);
@@ -93,6 +99,16 @@ public:
 
     // Replace state from an in-memory JSON document. Same semantics as load.
     bool load_from_json(const json& doc);
+
+    // Returns and clears any repair info recorded during the last load /
+    // load_from_json call. The repair has already been applied in memory;
+    // call save() if the caller wants to persist it.
+    RepairInfo consume_repair_info();
+
+    // Re-run validation + repair on the in-memory document and return the
+    // result. Useful when the caller wants to trigger an explicit repair
+    // after the fact. Does NOT save to disk.
+    RepairInfo repair_project();
 
     // Serialise the engine-facing portion (cues/mixers/routing).
     json to_json() const;
@@ -161,6 +177,10 @@ public:
     std::optional<std::filesystem::path> resolve_item_path(const std::string& uuid) const;
     // Find the engine cue id associated with an item uuid.
     std::optional<audio::CueId> item_to_cue_id(const std::string& uuid) const;
+    // Reverse lookup: which project item (if any) owns this engine cue?
+    // Used by the WS handler to route low-level play(cue_id) calls through
+    // play_item() so duckingBehavior / inPoint / endBehavior take effect.
+    std::optional<std::string> cue_to_item_uuid(const audio::CueId& id) const;
 
     // Play an item by uuid, applying its duckingBehavior to currently-playing
     // cues. Returns false if the item is not loaded into the engine.
@@ -182,6 +202,9 @@ public:
     // before falling back to the static sibling order. Pass empty string to
     // clear without consuming. Safe to call at any time.
     void set_next_item_override(const std::string& uuid);
+    // Current "Up Next" override, or empty if none. Used by the control
+    // server to seed newly-connected clients with the live override state.
+    std::string next_item_override() const;
 
     // ---- Per-device routing ---------------------------------------------
     // Ensure a "device mixer" exists for `device_name` (the user-visible
@@ -263,6 +286,9 @@ private:
     // whole document here so a remote client can fetch it back via GET.
     json document_;
 
+    // Repair info from the last load. Consumed by consume_repair_info().
+    RepairInfo pending_repair_info_;
+
     // uuid → engine cue id, for audio items currently loaded.
     std::unordered_map<std::string, audio::CueId> item_uuid_to_cue_;
 
@@ -310,6 +336,14 @@ private:
         audio::CueId cue_id;
         float        original_gain_db;
     };
+    // A scheduled custom action: at `time_point` seconds (absolute time
+    // within the audio file, before in_point trimming), do `action`. Driven
+    // by the sequencer alongside crossfade / stop-fade.
+    struct ScheduledCustomAction {
+        double  time_point  = 0.0;
+        json    action;       // copy of the project document's action node
+        bool    triggered    = false;
+    };
     struct SequencedItem {
         std::string              uuid;
         audio::CueId             cue_id;
@@ -319,6 +353,7 @@ private:
         bool                     crossfade_triggered = false;
         bool                     stop_fade_triggered = false;
         std::vector<DuckedEntry> ducked;
+        std::vector<ScheduledCustomAction> custom_actions;
     };
     std::vector<SequencedItem> sequenced_items_;
     std::mutex                 sequencer_mutex_;
@@ -329,6 +364,18 @@ private:
     void stop_sequencer();
     void sequencer_loop();
     void handle_item_ended(const SequencedItem& item);
+    void execute_custom_action(const json& action);
+
+public:
+    // Subscribe to "external" custom actions the server can't perform on its
+    // own — currently just http-request. The control server installs a
+    // handler that broadcasts the action as a doc_patch so a connected
+    // client makes the actual fetch. Keeps a libcurl/winhttp dependency
+    // out of the server.
+    void set_external_action_handler(std::function<void(const json&)> handler);
+
+private:
+    std::function<void(const json&)> external_action_handler_;
 
     // Backward-compat translator: takes a legacy 1.x project document and
     // produces a v2-flavoured one with the equivalent routing matrix.

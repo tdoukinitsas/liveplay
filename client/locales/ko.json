@@ -47,7 +47,9 @@
     "connectedLocal": "이 컴퓨터의 로컬 서버 사용 중",
     "connectedTo": "{url}에 연결됨",
     "changeMode": "변경",
-    "back": "뒤로"
+    "back": "뒤로",
+    "startingLocalServer": "로컬 서버 시작 중…",
+    "serversOnThisNetwork": "이 네트워크의 서버"
   },
   "project": {
     "enterName": "프로젝트 이름 입력",
@@ -309,5 +311,12 @@
     "default": "기본값",
     "loading": "불러오는 중…",
     "error": "오류"
+  },
+  "repair": {
+    "title": "손상된 프로젝트 감지",
+    "message": "이 프로젝트에 문제가 발견되어 자동으로 복구되었습니다. 다음 문제가 감지되었습니다:",
+    "dataLossWarning": "경고: 복구 과정에서 일부 데이터가 손실되었을 수 있습니다.",
+    "repairAndSave": "복구 후 저장",
+    "openAnyway": "저장하지 않고 열기"
   }
 }

@@ -50,10 +50,17 @@ let _refreshItemsBaselineAfterHydrate: () => void = () => {};
 let _installItemsWatcherFn:   null | (() => void) = null;
 let _uninstallItemsWatcherFn: null | (() => void) = null;
 
+// ---- Repair dialog state (module-scoped so it works across all useProject() calls) ----
+const repairDialogVisible = ref(false);
+const repairDialogIssues  = ref<string[]>([]);
+let _repairPromiseResolve: ((confirmed: boolean) => void) | null = null;
+
 export const useProject = () => {
   const currentProject = useState<Project | null>('currentProject', () => null);
   const selectedItem = useState<BaseItem | null>('selectedItem', () => null);
   const selectedItems = useState<Set<string>>('selectedItems', () => new Set()); // Track multiple selections by UUID
+  // NB: activeCues is owned by useAudioEngine (it's the server projection).
+  // useProject only clears it on closeProject; we re-use the same useState key.
   const activeCues = useState<Map<string, any>>('activeCues', () => new Map());
   const waveformUpdateKey = useState<number>('waveformUpdateKey', () => 0);
 
@@ -305,6 +312,20 @@ export const useProject = () => {
 
       // (1) Ask the server to load the file. Returns the header.
       const header = await server.loadProjectFromPath(projectFilePath);
+
+      // (1b) If the server detected and auto-repaired corruption, prompt the
+      //      user and offer to save the repaired version.
+      if (header?.needsRepair) {
+        repairDialogIssues.value = Array.isArray(header.repairIssues) ? header.repairIssues : [];
+        repairDialogVisible.value = true;
+        const confirmed = await new Promise<boolean>(resolve => {
+          _repairPromiseResolve = resolve;
+        });
+        repairDialogVisible.value = false;
+        if (confirmed) {
+          try { await server.repairProject(); } catch { /* save failure is non-fatal */ }
+        }
+      }
 
       // (2) Hide the central spinner IMMEDIATELY — header is enough for
       //     the shell to paint. The items array is empty at this point;
@@ -812,6 +833,23 @@ export const useProject = () => {
             }
             break;
           }
+          case 'next_item_set':
+            // Handled in useAudioEngine.onDocPatch — server-authoritative.
+            break;
+          case 'master_gain_changed':
+          case 'custom_action_http':
+            // Handled in useAudioEngine.onDocPatch.
+            break;
+          case 'preview_started': {
+            previewItemUuid.value = patch.itemUuid || '';
+            previewCueId.value = patch.cueId || '';
+            break;
+          }
+          case 'preview_stopped': {
+            previewItemUuid.value = '';
+            previewCueId.value = '';
+            break;
+          }
           case 'project_changed': {
             // New project → all cached waveforms are invalid.
             server().invalidateWaveformCache();
@@ -850,6 +888,14 @@ export const useProject = () => {
     };
 
     server().onDocPatch(applyDocPatch);
+
+    // Apply the server's connect/reconnect snapshot. Covers preview state;
+    // transport + master gain + next-item are handled in useAudioEngine.
+    server().onPlaybackSnapshot((snap: any) => {
+      const prev = snap?.preview ?? {};
+      previewItemUuid.value = prev.item_uuid || '';
+      previewCueId.value = prev.cue_id || '';
+    });
 
     // ---- Theme ----
     watch(() => currentProject.value?.theme, () => {
@@ -1011,6 +1057,9 @@ export const useProject = () => {
     }, { deep: true });
   }
 
+  const confirmRepair = () => { _repairPromiseResolve?.(true);  _repairPromiseResolve = null; };
+  const cancelRepair  = () => { _repairPromiseResolve?.(false); _repairPromiseResolve = null; };
+
   return {
     currentProject,
     selectedItem,
@@ -1041,5 +1090,9 @@ export const useProject = () => {
     previewCueId,
     startPreview,
     stopPreview,
+    repairDialogVisible,
+    repairDialogIssues,
+    confirmRepair,
+    cancelRepair,
   };
 };

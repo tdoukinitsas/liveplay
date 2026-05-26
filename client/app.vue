@@ -54,6 +54,14 @@
     <!-- Loading overlay (project open / create / save) -->
     <LoadingOverlay :visible="isLoading" :title="loadingMessage" />
 
+    <!-- Project repair dialog -->
+    <ProjectRepairModal
+      :visible="repairDialogVisible"
+      :issues="repairDialogIssues"
+      @confirm="confirmRepair"
+      @cancel="cancelRepair"
+    />
+
     <!-- Background audio-loading progress (when document already rendered) -->
     <AudioLoadProgress />
 
@@ -71,7 +79,11 @@
 <script setup lang="ts">
 import 'material-symbols';
 
-const { currentProject, saveProject, openProject, isLoading, loadingMessage } = useProject();
+const {
+  currentProject, saveProject, openProject,
+  isLoading, loadingMessage,
+  repairDialogVisible, repairDialogIssues, confirmRepair, cancelRepair,
+} = useProject();
 import LoadingOverlay from './components/LoadingOverlay.vue';
 import AudioLoadProgress from './components/AudioLoadProgress.vue';
 const { currentLocale, setLocale, getDirection, t } = useLocalization();

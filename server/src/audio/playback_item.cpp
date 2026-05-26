@@ -337,6 +337,19 @@ bool PlaybackItem::prime(double seconds, double start_seconds) noexcept {
     }
     // Rewind to start_frame so playback resumes at the expected position.
     ma_decoder_seek_to_pcm_frame(decoder_.get(), start_frame);
+    // Resync the engine's playhead counter to match the decoder. Without
+    // this, a second play of an item that previously reached EOF would
+    // start with playhead_frames_ at the file end — render_block would
+    // see new_playhead >= out_point on the very first block and fire a
+    // bogus natural-end immediately. The decoder keeps yielding audio
+    // (from in_point onward) during the fade, so the symptom is "audio
+    // continues playing even though the UI thinks the cue stopped" and
+    // the up-next item never triggers because the fade gets clipped.
+    playhead_frames_.store(start_frame, std::memory_order_release);
+    // Also clear any stale natural-end flags from a prior playthrough so
+    // the sequencer doesn't immediately consume one before we even play.
+    stopped_naturally_.store(false, std::memory_order_release);
+    fading_out_naturally_.store(false, std::memory_order_release);
     return true;
 }
 

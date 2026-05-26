@@ -47,7 +47,9 @@
     "connectedLocal": "Använder lokal server på den här datorn",
     "connectedTo": "Ansluten till {url}",
     "changeMode": "Ändra",
-    "back": "Tillbaka"
+    "back": "Tillbaka",
+    "startingLocalServer": "Startar lokal server…",
+    "serversOnThisNetwork": "Servrar på detta nätverk"
   },
   "project": {
     "enterName": "Ange projektnamn",
@@ -309,5 +311,12 @@
     "default": "standard",
     "loading": "Laddar…",
     "error": "Fel"
+  },
+  "repair": {
+    "title": "Skadat projekt upptäckt",
+    "message": "Det här projektet hade problem och har reparerats automatiskt. Följande problem hittades:",
+    "dataLossWarning": "Varning: viss data kan ha förlorats vid reparationen.",
+    "repairAndSave": "Reparera och Spara",
+    "openAnyway": "Öppna utan att Spara"
   }
 }

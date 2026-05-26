@@ -29,15 +29,11 @@ export const useStateViewer = () => {
             displayName: cue.displayName,
             duration: cue.duration,
             currentTime: cue.currentTime,
-            volume: cue.volume,
-            isDucked: cue.isDucked,
-            originalVolume: cue.originalVolume,
+            isPaused: cue.isPaused,
             color: cue.color,
             inPoint: cue.inPoint,
             outPoint: cue.outPoint,
-            currentLevel: cue.currentLevel,
-            peakLevel: cue.peakLevel
-            // Exclude howl and progressInterval as they can't be cloned
+            serverCueId: cue.serverCueId,
           })) : [],
           activeGroups: activeGroups.value ? Array.from(activeGroups.value) : [],
           masterOutputLevel: masterOutputLevel.value,

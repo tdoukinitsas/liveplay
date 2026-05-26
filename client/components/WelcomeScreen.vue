@@ -32,7 +32,7 @@
             </span>
             <span class="button-label">
               <span class="button-label-line">
-                {{ connecting && mode === 'local' ? 'Starting local server…' : t('welcome.localMode') }}
+                {{ connecting && mode === 'local' ? t('welcome.startingLocalServer') : t('welcome.localMode') }}
               </span>
               <span class="button-label-sub">{{ t('welcome.localModeDescription') }}</span>
             </span>
@@ -58,7 +58,7 @@
         <div v-if="discoveredServers.length > 0" class="discovered-servers">
           <div class="discovered-header">
             <span class="material-symbols-rounded">radar</span>
-            <span>Servers on this network</span>
+            <span>{{ t('welcome.serversOnThisNetwork') }}</span>
           </div>
           <button
             v-for="srv in discoveredServers"

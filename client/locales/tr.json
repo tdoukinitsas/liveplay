@@ -47,7 +47,9 @@
     "connectedLocal": "Bu bilgisayardaki yerel sunucu kullanılıyor",
     "connectedTo": "{url} adresine bağlandı",
     "changeMode": "Değiştir",
-    "back": "Geri"
+    "back": "Geri",
+    "startingLocalServer": "Yerel sunucu başlatılıyor…",
+    "serversOnThisNetwork": "Bu ağdaki sunucular"
   },
   "project": {
     "enterName": "Proje Adını Girin",
@@ -309,5 +311,12 @@
     "default": "varsayılan",
     "loading": "Yükleniyor…",
     "error": "Hata"
+  },
+  "repair": {
+    "title": "Bozuk proje tespit edildi",
+    "message": "Bu projede sorunlar tespit edildi ve otomatik olarak onarıldı. Şu sorunlar tespit edildi:",
+    "dataLossWarning": "Uyarı: onarım sırasında bazı veriler kaybolmuş olabilir.",
+    "repairAndSave": "Onar ve Kaydet",
+    "openAnyway": "Kaydetmeden Aç"
   }
 }

@@ -47,7 +47,9 @@
     "connectedLocal": "このコンピューターのローカルサーバーを使用中",
     "connectedTo": "{url} に接続済み",
     "changeMode": "変更",
-    "back": "戻る"
+    "back": "戻る",
+    "startingLocalServer": "ローカルサーバーを起動中…",
+    "serversOnThisNetwork": "このネットワーク上のサーバー"
   },
   "project": {
     "enterName": "プロジェクト名を入力",
@@ -309,5 +311,12 @@
     "default": "デフォルト",
     "loading": "読み込み中…",
     "error": "エラー"
+  },
+  "repair": {
+    "title": "破損したプロジェクトを検出",
+    "message": "このプロジェクトに問題が見つかり、自動的に修復されました。次の問題が検出されました：",
+    "dataLossWarning": "警告：修復中に一部のデータが失われた可能性があります。",
+    "repairAndSave": "修復して保存",
+    "openAnyway": "保存せずに開く"
   }
 }

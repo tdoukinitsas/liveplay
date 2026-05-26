@@ -8,10 +8,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <ctime>
 #include <fstream>
 #include <functional>
 #include <future>
 #include <thread>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace liveplay::core {
@@ -20,6 +22,131 @@ namespace {
 inline std::string id_to_string(const audio::CueId& id)          { return id.value; }
 inline std::string id_to_string(const audio::MixerChannelId& id) { return id.value; }
 inline std::string id_to_string(const audio::DeviceId& id)       { return id.value; }
+
+// Convert a Unix timestamp (seconds since epoch) to an ISO 8601 UTC string.
+inline std::string unix_ts_to_iso(std::int64_t unix_sec) {
+    const std::time_t t = static_cast<std::time_t>(unix_sec);
+    std::tm tm_buf{};
+#ifdef _WIN32
+    gmtime_s(&tm_buf, &t);
+#else
+    gmtime_r(&t, &tm_buf);
+#endif
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.000Z", &tm_buf);
+    return std::string{buf};
+}
+
+// Return the current time as an ISO 8601 UTC string.
+inline std::string now_iso() {
+    const auto now = std::chrono::system_clock::now();
+    return unix_ts_to_iso(
+        static_cast<std::int64_t>(
+            std::chrono::duration_cast<std::chrono::seconds>(
+                now.time_since_epoch()).count()));
+}
+
+// Read lastModified from a document, tolerating both ISO string and legacy
+// Unix-timestamp integer formats. Returns "" if the field is absent or
+// has an unexpected type.
+inline std::string read_last_modified(const json& doc) {
+    if (!doc.contains("lastModified")) return "";
+    const auto& lm = doc["lastModified"];
+    if (lm.is_string())          return lm.get<std::string>();
+    if (lm.is_number_integer())  return unix_ts_to_iso(lm.get<std::int64_t>());
+    if (lm.is_number_unsigned()) return unix_ts_to_iso(
+                                     static_cast<std::int64_t>(lm.get<std::uint64_t>()));
+    return "";
+}
+
+// ---------------------------------------------------------------------------
+// Project document validation + repair
+// ---------------------------------------------------------------------------
+
+// Walk an items array recursively, counting every UUID occurrence.
+void count_uuids_in_items(const json& items,
+                          std::unordered_map<std::string, int>& counts) {
+    if (!items.is_array()) return;
+    for (const auto& it : items) {
+        if (!it.is_object()) continue;
+        const std::string uuid = it.value("uuid", std::string{});
+        if (!uuid.empty()) ++counts[uuid];
+        if (it.value("type", std::string{}) == "group" && it.contains("children"))
+            count_uuids_in_items(it["children"], counts);
+    }
+}
+
+// Remove duplicate-UUID entries from `items` (keep first occurrence).
+// `seen` is the set of already-accepted UUIDs (pre-populated from other arrays
+// if needed). Returns the number of items removed.
+int remove_duplicate_items(json& items, std::unordered_set<std::string>& seen) {
+    if (!items.is_array()) return 0;
+    int removed = 0;
+    for (int i = static_cast<int>(items.size()) - 1; i >= 0; --i) {
+        auto& it = items[i];
+        if (!it.is_object()) continue;
+        const std::string uuid = it.value("uuid", std::string{});
+        if (!uuid.empty()) {
+            if (seen.count(uuid)) {
+                items.erase(items.begin() + i);
+                ++removed;
+                continue;
+            }
+            seen.insert(uuid);
+        }
+        // Recurse into groups for duplicates within children.
+        if (it.value("type", std::string{}) == "group" && it.contains("children"))
+            removed += remove_duplicate_items(it["children"], seen);
+    }
+    return removed;
+}
+
+// Inspect `doc` for known corruption patterns. Repairs in place and returns
+// a RepairInfo describing what was fixed (empty if nothing needed repair).
+RepairInfo detect_and_repair(json& doc) {
+    RepairInfo info;
+
+    // ---- 1. lastModified stored as Unix integer instead of ISO string ----
+    if (doc.contains("lastModified") && !doc["lastModified"].is_string()) {
+        doc["lastModified"] = read_last_modified(doc);
+        info.repaired = true;
+        info.issues.push_back(
+            "lastModified was stored as a number; converted to ISO 8601 string");
+    }
+
+    // ---- 2. Duplicate UUIDs in the items array ----
+    if (doc.contains("items") && doc["items"].is_array()) {
+        std::unordered_set<std::string> seen;
+        const int removed = remove_duplicate_items(doc["items"], seen);
+        if (removed > 0) {
+            info.repaired = true;
+            info.issues.push_back(
+                "Removed " + std::to_string(removed) +
+                " duplicate item(s) from the playlist");
+        }
+    }
+
+    // ---- 3. Duplicate UUIDs in cartOnlyItems ----
+    if (doc.contains("cartOnlyItems") && doc["cartOnlyItems"].is_array()) {
+        // Build the already-seen set from items so cross-array dupes are caught.
+        std::unordered_set<std::string> seen;
+        if (doc.contains("items")) {
+            std::unordered_map<std::string, int> counts;
+            count_uuids_in_items(doc["items"], counts);
+            for (auto& [u, _] : counts) seen.insert(u);
+        }
+        const int removed = remove_duplicate_items(doc["cartOnlyItems"], seen);
+        if (removed > 0) {
+            info.repaired = true;
+            info.issues.push_back(
+                "Removed " + std::to_string(removed) +
+                " duplicate item(s) from the cart");
+        }
+    }
+
+    return info;
+}
+
 } // namespace
 
 // ADL-visible to_json overloads — must be in liveplay::core (not anonymous namespace)
@@ -683,6 +810,26 @@ void ProjectState::mirror_items_to_engine_locked() {
 // ---------------------------------------------------------------------------
 audio::CueId ProjectState::add_cue_from_file(const std::filesystem::path& file,
                                              std::string display_name) {
+    // De-dupe: if a cue is already loaded for this file path (typical case
+    // is the project mirror loading every item up front), reuse it instead
+    // of creating a parallel engine cue. Without this, the legacy
+    // ServerHowl path creates a *second* cue for every project item, and
+    // play(cue_id) on that orphan bypasses ProjectState::play_item — which
+    // is what carries duckingBehavior / inPoint / fades / endBehavior into
+    // the engine. The user-visible symptom is in/out points and Up Next
+    // not firing.
+    {
+        std::error_code ec;
+        const auto canonical = std::filesystem::weakly_canonical(file, ec);
+        const auto& want = ec ? file : canonical;
+        std::lock_guard lock{mutex_};
+        for (auto& [id, c] : cues_) {
+            std::error_code ec2;
+            const auto have = std::filesystem::weakly_canonical(c.file_path, ec2);
+            const auto& cmp = ec2 ? c.file_path : have;
+            if (cmp == want) return audio::CueId{id};
+        }
+    }
     const auto cue_id = engine_.load_cue(file);
     if (cue_id.empty()) return {};
 
@@ -704,6 +851,16 @@ audio::CueId ProjectState::add_cue_from_file(const std::filesystem::path& file,
 }
 
 void ProjectState::remove_cue(const audio::CueId& id) {
+    // Don't unload a cue that belongs to a project item — multiple
+    // ServerHowl instances on the client may share it (add_cue_from_file
+    // dedupes by path), and removing it would yank audio out from under
+    // a sibling that's still using it.
+    {
+        std::lock_guard lock{mutex_};
+        for (const auto& [_, cue_id] : item_uuid_to_cue_) {
+            if (cue_id.value == id.value) return;
+        }
+    }
     engine_.unload_cue(id);
     std::lock_guard lock{mutex_};
     cues_.erase(id.value);
@@ -877,8 +1034,7 @@ bool ProjectState::save(const std::filesystem::path& path) const {
         {
             std::lock_guard lock{mutex_};
             doc = document_;
-            doc["lastModified"] = std::chrono::duration_cast<std::chrono::seconds>(
-                std::chrono::system_clock::now().time_since_epoch()).count();
+            doc["lastModified"] = now_iso();
         }
         f << doc.dump(2);
         return true;
@@ -950,7 +1106,7 @@ json ProjectState::header_document() const {
         {"version",      document_.value("version", "")},
         {"folderPath",   document_.value("folderPath", "")},
         {"createdAt",    document_.value("createdAt", "")},
-        {"lastModified", document_.value("lastModified", "")},
+        {"lastModified", read_last_modified(document_)},
         {"theme",        document_.value("theme",         json::object())},
         {"settings",     document_.value("settings",      json::object())},
         {"cartItems",    document_.value("cartItems",     json::array())},
@@ -1051,6 +1207,18 @@ audio::CueId ProjectState::add_item(const json& item, const std::string& parent_
     audio::CueId result;
     {
         std::lock_guard lock{mutex_};
+
+        // Reject duplicates — the same UUID must not appear twice in the document.
+        bool already_exists = false;
+        for_each_item(document_, [&](json& it, const std::string&) {
+            if (it.value("uuid", std::string{}) == uuid) already_exists = true;
+        });
+        if (already_exists) {
+            Logger::warn("add_item: uuid '{}' already exists, ignoring duplicate", uuid);
+            auto it = item_uuid_to_cue_.find(uuid);
+            return it != item_uuid_to_cue_.end() ? it->second : audio::CueId{};
+        }
+
         if (parent_uuid.empty()) {
             if (!document_.contains("items") || !document_["items"].is_array()) {
                 document_["items"] = json::array();
@@ -1298,6 +1466,15 @@ ProjectState::item_to_cue_id(const std::string& uuid) const {
     return it->second;
 }
 
+std::optional<std::string>
+ProjectState::cue_to_item_uuid(const audio::CueId& id) const {
+    std::lock_guard lock{mutex_};
+    for (const auto& [uuid, cue_id] : item_uuid_to_cue_) {
+        if (cue_id.value == id.value) return uuid;
+    }
+    return std::nullopt;
+}
+
 std::string ProjectState::resolve_next_item_locked(const std::string& current_uuid) const {
     // The lookup is read-only; we need a mutable json& to satisfy for_each_item
     // (which itself only reads). const_cast is safe here for the same reason
@@ -1387,6 +1564,7 @@ bool ProjectState::play_item(const std::string& uuid) {
     audio::CueId target_cue;
     std::vector<audio::CueId> other_cues;
 
+    std::vector<ScheduledCustomAction> custom_actions_snapshot;
     {
         std::lock_guard lock{mutex_};
         auto cue_it = item_uuid_to_cue_.find(uuid);
@@ -1431,6 +1609,17 @@ bool ProjectState::play_item(const std::string& uuid) {
                 const auto& sb = (*found)["startBehavior"];
                 start_behavior_action      = sb.value("action",     std::string{});
                 start_behavior_target_uuid = sb.value("targetUuid", std::string{});
+            }
+            // Snapshot custom actions for the sequencer to dispatch.
+            if (found->contains("customActions") &&
+                (*found)["customActions"].is_array()) {
+                for (const auto& ca : (*found)["customActions"]) {
+                    if (!ca.is_object() || !ca.contains("action")) continue;
+                    ScheduledCustomAction sca;
+                    sca.time_point = ca.value("timePoint", 0.0);
+                    sca.action     = ca["action"];
+                    custom_actions_snapshot.push_back(std::move(sca));
+                }
             }
         }
 
@@ -1519,6 +1708,7 @@ bool ProjectState::play_item(const std::string& uuid) {
         si.stop_fade_sec = stop_fade_sec;
         si.effective_end = effective_end;
         si.ducked        = std::move(ducks_made);
+        si.custom_actions = std::move(custom_actions_snapshot);
 
         std::lock_guard slock{sequencer_mutex_};
         // Remove any prior sequencer entry for this item (re-play case).
@@ -1589,6 +1779,11 @@ bool ProjectState::stop_item(const std::string& uuid) {
 void ProjectState::set_next_item_override(const std::string& uuid) {
     std::lock_guard lock{mutex_};
     next_item_override_ = uuid;
+}
+
+std::string ProjectState::next_item_override() const {
+    std::lock_guard lock{mutex_};
+    return next_item_override_;
 }
 
 // Dispatch by item type: audio → play_item; group → walk startBehavior
@@ -2040,6 +2235,16 @@ bool ProjectState::load_from_json(const json& doc_in) {
     // The engine-facing tables (cues_/mixers_/routes_) get populated by
     // mirror_items_to_engine_locked() so audio playback works as before.
     if (is_client_document(doc_in)) {
+        // Run repair before taking the lock — it's pure document transformation.
+        json doc_repaired = doc_in;
+        RepairInfo repair = detect_and_repair(doc_repaired);
+        if (repair.repaired) {
+            Logger::warn("ProjectState::load_from_json: project repaired ({} issue(s)).",
+                         repair.issues.size());
+            for (const auto& issue : repair.issues)
+                Logger::warn("  - {}", issue);
+        }
+
         {
             std::lock_guard lock{mutex_};
             // Unload any previously-loaded engine cues so we start clean.
@@ -2051,7 +2256,7 @@ bool ProjectState::load_from_json(const json& doc_in) {
             mixer_routes_.clear();
             master_assignments_.clear();
 
-            document_ = doc_in;
+            document_ = std::move(doc_repaired);
             // Ensure required top-level keys exist (migrate older client saves).
             if (!document_.contains("settings") || !document_["settings"].is_object()) {
                 document_["settings"] = json{
@@ -2068,6 +2273,7 @@ bool ProjectState::load_from_json(const json& doc_in) {
                 document_["theme"] = json{{"mode", "dark"}, {"accentColor", "#DA1E28"}};
             }
             project_name_ = document_.value("name", std::string{"Untitled"});
+            pending_repair_info_ = std::move(repair);
         }
 
         // Audio mirroring happens off-thread so the client can render the
@@ -2187,6 +2393,28 @@ bool ProjectState::load(const std::filesystem::path& path) {
     }
 }
 
+RepairInfo ProjectState::consume_repair_info() {
+    std::lock_guard lock{mutex_};
+    RepairInfo result;
+    std::swap(result, pending_repair_info_);
+    return result;
+}
+
+RepairInfo ProjectState::repair_project() {
+    json doc;
+    {
+        std::lock_guard lock{mutex_};
+        doc = document_;
+    }
+    RepairInfo info = detect_and_repair(doc);
+    if (info.repaired) {
+        std::lock_guard lock{mutex_};
+        document_ = std::move(doc);
+        Logger::info("ProjectState::repair_project: {} issue(s) repaired.", info.issues.size());
+    }
+    return info;
+}
+
 void ProjectState::apply_to_engine_locked() {
     // 1) Load every cue's file into the engine. We accept that this can fail
     //    for missing files; the entry stays in the project for the user to
@@ -2263,7 +2491,9 @@ void ProjectState::sequencer_loop() {
                 BeginStopFade, // begin fading out (item stays until Stopped)
                 StopFadeEnded, // stop-fade complete → fire end behavior
                 Cleanup,       // cue gone; restore ducking, no end behavior
+                CustomAction,  // fire one of the item's customActions
             } kind;
+            json custom_action;  // populated only for Kind::CustomAction
         };
         std::vector<PendingAction> pending;
 
@@ -2289,9 +2519,21 @@ void ProjectState::sequencer_loop() {
                     continue;
                 }
 
+                const double pos = pi->stats().playhead_seconds;
+
+                // Custom-action dispatch: any action whose time_point we've
+                // crossed fires now. Snapshot the action JSON into pending so
+                // we can execute it outside the lock.
+                for (auto& sca : si.custom_actions) {
+                    if (sca.triggered) continue;
+                    if (pos < sca.time_point) continue;
+                    sca.triggered = true;
+                    pending.push_back({si, PendingAction::Kind::CustomAction,
+                                       sca.action});
+                }
+
                 // Timing-based triggers only apply when we know the duration.
                 if (si.effective_end <= 0.0) continue;
-                const double pos       = pi->stats().playhead_seconds;
                 const double remaining = si.effective_end - pos;
 
                 if (!si.crossfade_triggered && si.crossfade_sec > 0.0 &&
@@ -2371,9 +2613,85 @@ void ProjectState::sequencer_loop() {
                         pi->set_gain_db(dk.original_gain_db);
                 }
                 break;
+
+            case PendingAction::Kind::CustomAction:
+                execute_custom_action(p.custom_action);
+                break;
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Custom-action dispatcher — fired by the sequencer when an item's playhead
+// crosses a customAction.timePoint. Server-side action types are executed
+// directly; http-request is fanned out via the broadcast hook (which the
+// control server wires up so a connected client performs the actual fetch).
+// ---------------------------------------------------------------------------
+void ProjectState::execute_custom_action(const json& action) {
+    if (!action.is_object()) return;
+    const std::string type = action.value("type", "");
+
+    if (type == "play-item") {
+        const auto u = action.value("uuid", std::string{});
+        if (!u.empty()) trigger_item(u);
+    }
+    else if (type == "play-index") {
+        // index is an array path through the items tree. Resolve under lock.
+        std::vector<int> idx;
+        if (action.contains("index") && action["index"].is_array()) {
+            for (const auto& v : action["index"]) {
+                if (v.is_number_integer()) idx.push_back(v.get<int>());
+            }
+        }
+        std::string target_uuid;
+        {
+            std::lock_guard lock{mutex_};
+            const json* arr = document_.contains("items") ? &document_["items"] : nullptr;
+            const json* current = nullptr;
+            for (std::size_t depth = 0; depth < idx.size() && arr && arr->is_array(); ++depth) {
+                const int i = idx[depth];
+                if (i < 0 || i >= static_cast<int>(arr->size())) { current = nullptr; break; }
+                current = &(*arr)[i];
+                if (depth + 1 < idx.size()) {
+                    if (current->value("type", std::string{}) == "group" &&
+                        current->contains("children")) {
+                        arr = &(*current)["children"];
+                    } else { current = nullptr; break; }
+                }
+            }
+            if (current && current->is_object())
+                target_uuid = current->value("uuid", std::string{});
+        }
+        if (!target_uuid.empty()) trigger_item(target_uuid);
+    }
+    else if (type == "stop-all") {
+        engine_.stop_all(std::chrono::milliseconds{0});
+    }
+    else if (type == "http-request") {
+        // Hand off to whoever subscribed via set_external_action_handler.
+        // The control server wires this to a doc_patch broadcast so a
+        // connected client executes the fetch — keeping server free of an
+        // HTTP client dependency.
+        std::function<void(const json&)> handler;
+        {
+            std::lock_guard lock{mutex_};
+            handler = external_action_handler_;
+        }
+        if (handler) {
+            try { handler(action); } catch (...) {}
+        } else {
+            Logger::warn("custom action http-request: no handler installed");
+        }
+    }
+    else {
+        Logger::warn("custom action: unknown type '{}'", type);
+    }
+}
+
+void ProjectState::set_external_action_handler(std::function<void(const json&)> h) {
+    std::lock_guard lock{mutex_};
+    external_action_handler_ = std::move(h);
 }
 
 void ProjectState::handle_item_ended(const SequencedItem& item) {

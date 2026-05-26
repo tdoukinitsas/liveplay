@@ -47,7 +47,9 @@
     "connectedLocal": "Lokaler Server auf diesem Computer wird verwendet",
     "connectedTo": "Verbunden mit {url}",
     "changeMode": "Ändern",
-    "back": "Zurück"
+    "back": "Zurück",
+    "startingLocalServer": "Lokaler Server wird gestartet…",
+    "serversOnThisNetwork": "Server in diesem Netzwerk"
   },
   "project": {
     "enterName": "Projektnamen eingeben",
@@ -309,5 +311,12 @@
     "default": "Standard",
     "loading": "Wird geladen…",
     "error": "Fehler"
+  },
+  "repair": {
+    "title": "Beschädigtes Projekt erkannt",
+    "message": "Dieses Projekt weist Fehler auf und wurde automatisch repariert. Folgende Probleme wurden festgestellt:",
+    "dataLossWarning": "Warnung: Bei der Reparatur könnten einige Daten verloren gegangen sein.",
+    "repairAndSave": "Reparieren & Speichern",
+    "openAnyway": "Ohne Speichern öffnen"
   }
 }

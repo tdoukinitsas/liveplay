@@ -28,7 +28,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Compile options
 # ---------------------------------------------------------------------------
 if(MSVC)
-    add_compile_options(/W4 /permissive- /Zc:__cplusplus /utf-8)
+    # /bigobj — Crow's heavy template instantiation pushes control_server.cpp
+    # past the default COFF section limit.
+    add_compile_options(/W4 /permissive- /Zc:__cplusplus /utf-8 /bigobj)
     add_compile_definitions(
         _CRT_SECURE_NO_WARNINGS
         NOMINMAX

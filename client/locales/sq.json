@@ -47,7 +47,9 @@
     "connectedLocal": "Duke përdorur serverin lokal në këtë kompjuter",
     "connectedTo": "I lidhur me {url}",
     "changeMode": "Ndrysho",
-    "back": "Prapa"
+    "back": "Prapa",
+    "startingLocalServer": "Fillimi i serverit lokal…",
+    "serversOnThisNetwork": "Serverët në këtë rrjet"
   },
   "project": {
     "enterName": "Vendos Emrin e Projektit",
@@ -309,5 +311,12 @@
     "default": "e paracaktuar",
     "loading": "Po ngarkohet…",
     "error": "Gabim"
+  },
+  "repair": {
+    "title": "Projekt i korruptuar i zbuluar",
+    "message": "Ky projekt kishte probleme dhe u riparua automatikisht. U zbuluan problemet e mëposhtme:",
+    "dataLossWarning": "Paralajmërim: disa të dhëna mund të jenë humbur gjatë riparimit.",
+    "repairAndSave": "Riparo dhe Ruaj",
+    "openAnyway": "Hap pa Ruajtur"
   }
 }

@@ -47,7 +47,9 @@
     "connectedLocal": "正在使用此计算机上的本地服务器",
     "connectedTo": "已连接到 {url}",
     "changeMode": "更改",
-    "back": "返回"
+    "back": "返回",
+    "startingLocalServer": "正在启动本地服务器…",
+    "serversOnThisNetwork": "该网络上的服务器"
   },
   "project": {
     "enterName": "输入项目名称",
@@ -309,5 +311,12 @@
     "default": "默认",
     "loading": "加载中…",
     "error": "错误"
+  },
+  "repair": {
+    "title": "检测到损坏的项目",
+    "message": "此项目存在问题并已被自动修复。检测到以下问题：",
+    "dataLossWarning": "警告：修复过程中可能丢失了部分数据。",
+    "repairAndSave": "修复并保存",
+    "openAnyway": "不保存直接打开"
   }
 }

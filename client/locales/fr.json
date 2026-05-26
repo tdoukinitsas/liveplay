@@ -47,7 +47,9 @@
     "connectedLocal": "Utilisation du serveur local sur cet ordinateur",
     "connectedTo": "Connecté à {url}",
     "changeMode": "Changer",
-    "back": "Retour"
+    "back": "Retour",
+    "startingLocalServer": "Démarrage du serveur local…",
+    "serversOnThisNetwork": "Serveurs sur ce réseau"
   },
   "project": {
     "enterName": "Entrez le Nom du Projet",
@@ -309,5 +311,12 @@
     "default": "défaut",
     "loading": "Chargement…",
     "error": "Erreur"
+  },
+  "repair": {
+    "title": "Projet corrompu détecté",
+    "message": "Ce projet présentait des problèmes et a été réparé automatiquement. Les problèmes suivants ont été détectés :",
+    "dataLossWarning": "Avertissement : des données ont peut-être été perdues lors de la réparation.",
+    "repairAndSave": "Réparer et Enregistrer",
+    "openAnyway": "Ouvrir sans Enregistrer"
   }
 }

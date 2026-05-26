@@ -100,6 +100,22 @@ function createClient() {
     return () => cueStateSubscribers.delete(cb);
   }
 
+  // Subscribers for the server's playback_snapshot message — sent once on
+  // every (re)connect so the client can rebuild its idea of what's playing,
+  // what's "Up Next", and any active preview without waiting for the next
+  // transport edge to fire.
+  type PlaybackSnapshot = {
+    cues: Array<{ cue_id: string; transport: number; playhead_seconds: number }>;
+    next_item_uuid: string;
+    preview: { item_uuid: string; cue_id: string };
+  };
+  type PlaybackSnapshotSubscriber = (s: PlaybackSnapshot) => void;
+  const playbackSnapshotSubscribers = new Set<PlaybackSnapshotSubscriber>();
+  function onPlaybackSnapshot(cb: PlaybackSnapshotSubscriber): () => void {
+    playbackSnapshotSubscribers.add(cb);
+    return () => playbackSnapshotSubscribers.delete(cb);
+  }
+
   // Subscribers for multi-client doc_patch fan-out events.
   // Payload: { type: 'doc_patch', op: 'item_added'|'item_updated'|... , ... }
   type DocPatchSubscriber = (p: any) => void;
@@ -179,6 +195,14 @@ function createClient() {
       if (!hasEverConnected) {
         hasEverConnected = true;
         void Promise.allSettled([fetchCues(), fetchMixerChannels(), fetchDevices()]);
+      } else {
+        // On reconnect, the server's playback_snapshot (sent immediately
+        // after the WS open) covers transport/up-next/preview state, but
+        // the project document itself may have been mutated by another
+        // client while we were offline. Refetch the cue catalogue so any
+        // cues added in the meantime show up; subscribers (useProject)
+        // can listen on onPlaybackSnapshot to do a header re-sync as well.
+        void fetchCues().catch(() => {});
       }
     };
 
@@ -213,6 +237,26 @@ function createClient() {
         case 'meters': {
           meters.value = payload as MetersBroadcast;
           for (const cb of metersSubscribers) cb(payload as MetersBroadcast);
+          break;
+        }
+        case 'playback_snapshot': {
+          // Update each known cue's transport in place so any UI bound to
+          // `cues[i].transport` repaints. The cue may not be in the local
+          // list yet on a cold reconnect — that's handled by the broader
+          // refetch below, which re-runs the catalogue fetches and then
+          // a second snapshot is applied as cue_state edges resume.
+          const snap = payload as PlaybackSnapshot;
+          for (const c of snap.cues ?? []) {
+            const idx = cues.value.findIndex(x => x.id === c.cue_id);
+            if (idx >= 0) {
+              cues.value[idx].transport = c.transport as any;
+              cues.value[idx].playhead_seconds = c.playhead_seconds;
+            }
+            // Also fire as a synthetic cue_state event so subscribers
+            // (useAudioEngine) see "Playing" for items the snapshot lists.
+            for (const cb of cueStateSubscribers) cb(c);
+          }
+          for (const cb of playbackSnapshotSubscribers) cb(snap);
           break;
         }
         case 'cue_state': {
@@ -384,6 +428,9 @@ function createClient() {
       body: JSON.stringify(path ? { path } : {}),
     });
   }
+  async function repairProject(): Promise<{ repaired: boolean; issues: string[] }> {
+    return rest<any>('/api/project/repair', { method: 'POST', body: '{}' });
+  }
   // PUT the full project document. Server replaces in-memory state and
   // re-mirrors audio items into the engine.
   async function replaceProjectDocument(document: any) {
@@ -419,9 +466,12 @@ function createClient() {
   }
 
   // Transport by item uuid (preferred over cue_id — preserves duckingBehavior
-  // and inPoint semantics on the server side).
+  // and inPoint semantics on the server side). The server routes `play` for
+  // a group uuid through trigger_item so group startBehavior fires.
   function playItem(uuid: string)  { wsSend({ type: 'play', item_uuid: uuid }); }
   function stopItem(uuid: string)  { wsSend({ type: 'stop', item_uuid: uuid }); }
+  function pauseItem(uuid: string) { wsSend({ type: 'pause',  item_uuid: uuid }); }
+  function resumeItem(uuid: string){ wsSend({ type: 'resume', item_uuid: uuid }); }
   // Tell the server which item to play when the currently-playing item's
   // end-behavior fires "next". Pass null to clear.
   function setNextItem(uuid: string | null) {
@@ -466,6 +516,18 @@ function createClient() {
   }
   async function fetchPreviewState() {
     return rest<{ active: boolean; itemUuid: string }>('/api/preview');
+  }
+
+  // Master gain (dB). Server is the authority — REST POST persists and
+  // broadcasts to every client via master_gain_changed doc_patch.
+  async function setMasterGainDb(db: number) {
+    return rest<any>('/api/master/gain', {
+      method: 'POST',
+      body: JSON.stringify({ db }),
+    });
+  }
+  async function fetchMasterGainDb() {
+    return rest<{ db: number }>('/api/master/gain');
   }
 
   // Theme + settings shallow-merge patches.
@@ -663,6 +725,7 @@ function createClient() {
     onMeters,
     onCueState,
     onDocPatch,
+    onPlaybackSnapshot,
 
     // transport
     play,
@@ -707,6 +770,7 @@ function createClient() {
     loadProjectFromDocument,
     replaceProjectDocument,
     saveProjectTo,
+    repairProject,
 
     // item CRUD via server
     addProjectItem,
@@ -717,10 +781,14 @@ function createClient() {
     // transport by item uuid
     playItem,
     stopItem,
+    pauseItem,
+    resumeItem,
     setNextItem,
     seekItem,
     seekCueId,
     seekItemREST,
+    setMasterGainDb,
+    fetchMasterGainDb,
 
     // cart bindings
     setCartSlot,

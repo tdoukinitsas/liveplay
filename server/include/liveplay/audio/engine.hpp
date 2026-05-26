@@ -184,6 +184,10 @@ public:
 
     // ---- Master ----------------------------------------------------------
     void set_master_ceiling_db(float db);
+    // Master gain in dB. Applied to every master accumulator before the
+    // limiter, so a value of 0 dB is unity. Range is clamped at -120..+12.
+    void set_master_gain_db(float db);
+    float master_gain_db() const noexcept;
 
     // ---- Metering reads --------------------------------------------------
     MeterSnapshot read_master_meter(MasterChannelIndex master) const;
@@ -207,6 +211,9 @@ private:
     };
 
     EngineConfig                                 cfg_;
+    // Master gain in linear amplitude. Audio thread reads via load-acquire;
+    // set_master_gain_db is the only writer. 1.0 = unity (0 dB).
+    std::atomic<float>                           master_gain_linear_{1.0f};
     mutable std::mutex                           mutex_;          // guards registries + topology rebuild
     std::unordered_map<std::string, std::shared_ptr<PlaybackItem>>  items_;
     std::unordered_map<std::string, std::shared_ptr<MixerChannel>>  mixers_;

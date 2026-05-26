@@ -47,7 +47,9 @@
     "connectedLocal": "Bruker lokal server på denne datamaskinen",
     "connectedTo": "Tilkoblet {url}",
     "changeMode": "Endre",
-    "back": "Tilbake"
+    "back": "Tilbake",
+    "startingLocalServer": "Starter lokal server…",
+    "serversOnThisNetwork": "Servere på dette nettverket"
   },
   "project": {
     "enterName": "Skriv inn prosjektnavn",
@@ -309,5 +311,12 @@
     "default": "standard",
     "loading": "Laster…",
     "error": "Feil"
+  },
+  "repair": {
+    "title": "Skadet prosjekt oppdaget",
+    "message": "Dette prosjektet hadde problemer og er blitt reparert automatisk. Følgende problemer ble oppdaget:",
+    "dataLossWarning": "Advarsel: noen data kan ha gått tapt under reparasjonen.",
+    "repairAndSave": "Reparer og Lagre",
+    "openAnyway": "Åpne uten å Lagre"
   }
 }

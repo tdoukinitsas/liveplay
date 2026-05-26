@@ -35,6 +35,7 @@
     "modeSubtitle": "Where should LivePlay run the audio engine?",
     "localMode": "Local",
     "localModeDescription": "Run the audio engine on this computer.",
+    "startingLocalServer": "Starting local server…",
     "remoteMode": "Remote",
     "remoteModeDescription": "Connect to a LivePlay server on the network.",
     "remoteConnect": "Connect to LivePlay server",
@@ -47,7 +48,8 @@
     "connectedLocal": "Using local server on this computer",
     "connectedTo": "Connected to {url}",
     "changeMode": "Change",
-    "back": "Back"
+    "back": "Back",
+    "serversOnThisNetwork": "Servers on this network"
   },
   "settings": {
     "title": "Project Settings",
@@ -201,7 +203,36 @@
     "developedBy": "Developed by",
     "githubRepo": "GitHub Repository",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "Contributors"
+    "contributors": "Contributors",
+    "license": "AGPL-3.0-only License"
+  },
+  "connectionLost": {
+    "title": "Connection lost",
+    "message": "The connection to the LivePlay server at {url} has been lost.",
+    "attempting": "Attempting to reconnect…",
+    "reconnect": "Reconnect",
+    "restart": "Restart",
+    "exit": "Exit",
+    "reconnectHint": "Reconnect tries the same server again.",
+    "restartHint": "Restart relaunches just the client (the audio server keeps running).",
+    "exitHint": "Exit quits the client."
+  },
+  "audioImport": {
+    "title": "Import audio",
+    "tabServer": "On server",
+    "tabUpload": "Upload from this computer",
+    "serverHint": "Files already on the server. Double-click a folder to descend, or click Add next to a file.",
+    "uploadDescription": "Pick one or more files from this computer. They'll be uploaded into the server's media folder.",
+    "chooseFiles": "Choose files…",
+    "uploading": "Uploading…",
+    "uploadingProgress": "Uploading {current}/{total}: {filename}"
+  },
+  "localServer": {
+    "restartServer": "Restart server"
+  },
+  "serverSettings": {
+    "reconnecting": "● Reconnecting…",
+    "restartEngine": "Restart engine"
   },
   "colors": {
     "chooseAccent": "Choose Accent Color"
@@ -309,5 +340,12 @@
     "playing": "Playing",
     "upNext": "Up Next",
     "previewing": "Preview"
+  },
+  "repair": {
+    "title": "Corrupt Project Detected",
+    "message": "This project was found to have issues and has been automatically repaired. The following problems were detected:",
+    "dataLossWarning": "Warning: some data may have been lost during repair.",
+    "repairAndSave": "Repair & Save",
+    "openAnyway": "Open Without Saving"
   }
 }

@@ -1,237 +1,228 @@
-import type { AudioItem, DuckingBehavior, GroupItem } from '~/types/project';
-import { useLiveplayServer } from '~/composables/useLiveplayServer';
-import type { ServerCue } from '~/types/server';
-import { linearToDb, dbToLinear, applyVolumeOffset as applyVolumeOffsetUtil, estimateCurrentLevel } from '~/utils/audio';
-
-// ---------------------------------------------------------------------------
-// ServerHowl — drop-in replacement for the howler `Howl` class. All audio
-// playback now flows through the C++ liveplay-server over WebSocket; this
-// shim preserves the existing useAudioEngine API so legacy components keep
-// working without per-component migration.
+// =====================================================================
+// useAudioEngine.ts
+// ---------------------------------------------------------------------
+// Thin projection of the server's playback state. Nothing in here owns
+// transport, ducking, fades, end-behaviour, group sequencing or
+// custom-action scheduling — that all lives in the C++ ProjectState +
+// AudioEngine + sequencer. The composable's only job is:
 //
-// Implemented methods (matching the surface useAudioEngine.ts used):
-//   constructor({ src, volume, loop, html5, sprite, onload, onend,
-//                 onloaderror, onplayerror }) — registers the cue with the
-//                 server asynchronously; play() is queued until the server
-//                 returns the cue id.
-//   play(spriteName?) | stop() | pause() | unload()
-//   volume(v?)                       — linear amplitude (matches howler)
-//   fade(from, to, durationMs)       — gradual gain ramp via setGainDb
-//   seek(t?)                         — read pulls from live meter broadcast;
-//                                      write logs a warning (server has no
-//                                      seek endpoint yet).
-//   duration()                       — server-supplied duration in seconds
-// ---------------------------------------------------------------------------
-function linearToDbSafe(lin: number): number {
-  if (!isFinite(lin) || lin <= 0) return -120;
-  return 20 * Math.log10(lin);
-}
+//   1. Translate component-level intents (playCue / stopCue / seekCue /
+//      pauseCue / setMasterGain / setNextItem / ...) into WS or REST
+//      calls.
+//   2. Maintain a *reactive view* of what the server is doing:
+//        - `activeCues`    : Map<itemUuid, ActiveCueView>
+//        - `activeGroups`  : Map<groupUuid, ActiveGroupView>     (derived)
+//        - `masterOutputLevel`, `masterPeakLevel`  (read from server meters)
+//        - `masterGainDb`              (server-authoritative)
+//        - `nextItemOverrideUuid`      (server-authoritative)
+//        - `autoNextItemUuid`          (derived from project doc)
+//
+// Every field is updated from one of:
+//   * `cue_state` WS edges (Stopped/Playing/FadingIn/FadingOut/Paused)
+//   * `playback_snapshot` WS message on (re)connect
+//   * `meters` WS broadcast (playhead per active cue, master levels)
+//   * `doc_patch` ops broadcast from REST mutators (next_item_set,
+//     master_gain_changed, preview_started/stopped)
+//
+// Component compatibility: the public surface (function names + the
+// shape of activeCues / activeGroups entries) matches the legacy
+// composable so existing components don't need changes.
+// =====================================================================
+import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
 
-interface HowlOptions {
-  src: string[];
-  volume?: number;
-  loop?: boolean;
-  html5?: boolean;
-  sprite?: Record<string, [number, number]>;
-  fadeOutMs?: number;
-  onload?: () => void;
-  onend?: () => void;
-  onloaderror?: (id: number, error: any) => void;
-  onplayerror?: (id: number, error: any) => void;
-}
-
-class ServerHowl {
-  cueId: string | null = null;
-  private cachedVolume = 1.0;
-  cachedDuration = 0;
-  private fadeTimer: ReturnType<typeof setInterval> | null = null;
-  private pendingPlaySprite: string | undefined = undefined;
-  private pendingPlay = false;
-  private isUnloaded = false;
-  private opts: HowlOptions;
-  private server = useLiveplayServer();
-
-  constructor(opts: HowlOptions) {
-    this.opts = opts;
-    this.cachedVolume = opts.volume ?? 1.0;
-
-    // file:// URL → native path. Handles Windows ('file:///C:/foo') and
-    // POSIX ('file:///home/foo'). Caller already URL-encoded the path.
-    const url = opts.src[0] || '';
-    let filePath = url.replace(/^file:\/\//, '');
-    if (/^\/[A-Za-z]:/.test(filePath)) {
-      filePath = filePath.slice(1);    // drop the extra leading slash on Windows
-    }
-    try { filePath = decodeURIComponent(filePath); } catch { /* keep as-is */ }
-
-    this.server.addCueFromPath(filePath)
-      .then((cue: ServerCue) => {
-        if (this.isUnloaded) {
-          this.server.removeCue(cue.id).catch(() => {});
-          return;
-        }
-        // eslint-disable-next-line no-console
-        console.log('[ServerHowl] registered cue id=', cue.id, 'duration=', cue.duration_sec, 'pendingPlay=', this.pendingPlay);
-        this.cueId = cue.id;
-        this.cachedDuration = cue.duration_sec || 0;
-        // Apply initial volume.
-        this.server.setGainDb(cue.id, linearToDbSafe(this.cachedVolume));
-        if (this.opts.onload) {
-          try { this.opts.onload(); } catch (e) { console.error(e); }
-        }
-        // Flush a queued play() that arrived before registration finished.
-        if (this.pendingPlay) {
-          this.pendingPlay = false;
-          this.play(this.pendingPlaySprite);
-        }
-      })
-      .catch((err: any) => {
-        // eslint-disable-next-line no-console
-        console.error('[ServerHowl] addCueFromPath failed:', err);
-        if (this.opts.onloaderror) {
-          try { this.opts.onloaderror(0, err); } catch (e) { console.error(e); }
-        }
-      });
-  }
-
-  play(spriteName?: string): number {
-    if (this.isUnloaded) return 0;
-    if (!this.cueId) {
-      this.pendingPlay = true;
-      this.pendingPlaySprite = spriteName;
-      return 0;
-    }
-    this.server.play(this.cueId);
-    return 0;
-  }
-
-  stop(): this {
-    if (this.cueId) this.server.stop(this.cueId);
-    if (this.fadeTimer) { clearInterval(this.fadeTimer); this.fadeTimer = null; }
-    return this;
-  }
-
-  pause(): this {
-    // Server has no pause yet — emulate as stop. Position is lost on resume.
-    if (this.cueId) this.server.stop(this.cueId);
-    return this;
-  }
-
-  unload(): this {
-    this.isUnloaded = true;
-    if (this.fadeTimer) { clearInterval(this.fadeTimer); this.fadeTimer = null; }
-    if (this.cueId) {
-      this.server.removeCue(this.cueId).catch(() => {});
-      this.cueId = null;
-    }
-    return this;
-  }
-
-  volume(v?: number): number | this {
-    if (v === undefined) return this.cachedVolume;
-    this.cachedVolume = v;
-    if (this.cueId) this.server.setGainDb(this.cueId, linearToDbSafe(v));
-    return this;
-  }
-
-  fade(from: number, to: number, durationMs: number): this {
-    if (this.fadeTimer) { clearInterval(this.fadeTimer); this.fadeTimer = null; }
-    if (durationMs <= 0) { this.volume(to); return this; }
-    const startedAt = Date.now();
-    this.fadeTimer = setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const t = Math.min(1, elapsed / durationMs);
-      const cur = from + (to - from) * t;
-      this.cachedVolume = cur;
-      if (this.cueId) this.server.setGainDb(this.cueId, linearToDbSafe(cur));
-      if (t >= 1 && this.fadeTimer) {
-        clearInterval(this.fadeTimer);
-        this.fadeTimer = null;
-      }
-    }, 40);
-    return this;
-  }
-
-  seek(t?: number): number | this {
-    if (t === undefined) {
-      // Read from the most recent meter broadcast.
-      if (!this.cueId) return 0;
-      const m: any = this.server.meters;
-      if (m && Array.isArray(m.items)) {
-        const found = m.items.find((it: any) => it.cue_id === this.cueId);
-        if (found && typeof found.playhead_seconds === 'number') {
-          return found.playhead_seconds;
-        }
-      }
-      return 0;
-    }
-    // Forward the seek over the WebSocket. The server's PlaybackItem handles
-    // the seek lock-free (drops the decoder mutex briefly during the actual
-    // seek_to_pcm_frame call) so this is glitchless during playback.
-    if (this.cueId && typeof t === 'number' && Number.isFinite(t)) {
-      this.server.seekCueId(this.cueId, Math.max(0, t));
-    }
-    return this;
-  }
-
-  duration(): number { return this.cachedDuration; }
-}
-
-// Drop-in for the global `Howler` object. Master gain currently no-ops —
-// the server's master ceiling is set via REST elsewhere if needed.
-const ServerHowler = {
-  volume(_v: number) { /* TODO: route to /api/master endpoint */ },
-};
-
-// Aliases so the rest of the file reads as before.
-const Howl = ServerHowl as any;
-const Howler = ServerHowler as any;
-
-// Active cue tracking with Howler instances
-interface ActiveCueState {
+// ---------------------------------------------------------------------
+// Shapes consumed by Vue components.
+// ---------------------------------------------------------------------
+export interface ActiveCueView {
   uuid: string;
   displayName: string;
-  duration: number;
-  currentTime: number;
-  volume: number;
-  isDucked: boolean;
-  isPaused: boolean; // Track pause state
-  originalVolume: number;
-  duckedBy: Set<string>; // Track which cues are ducking this one
-  howl: ServerHowl;
-  progressInterval?: any;
+  duration: number;       // trimmed (outPoint - inPoint)
+  currentTime: number;    // playhead relative to inPoint
+  isPaused: boolean;
   color?: string;
-  inPoint?: number; // Store inPoint for seek operations
-  outPoint?: number; // Store outPoint for reference
-  currentLevel?: number; // Current audio level in dB (-60 to 0)
-  peakLevel?: number; // Peak audio level in dB
-  stopFadeTriggered?: boolean; // Track if stop fade has been started
-  crossFadeTriggered?: boolean; // Track if crossfade has been started
-  serverCueId?: string | null; // Engine cue ID assigned by the server (for VU meter subscription)
+  inPoint?: number;
+  outPoint?: number;
+  serverCueId?: string | null;
 }
 
-// Active group tracking for progress indicators
-interface ActiveGroupState {
+export interface ActiveGroupView {
   uuid: string;
   displayName: string;
-  totalDuration: number; // Total duration of all auto-playing items
-  currentTime: number; // Current progress through the sequence
-  playbackChain: string[]; // UUIDs of items that will play in sequence
-  currentItemIndex: number; // Index in the playback chain
-  lastPlayedItem: string | null; // Last item that played in this group
+  totalDuration: number;
+  currentTime: number;
 }
+
+// Server's TransportState enum (mirrors C++).
+const TRANSPORT_STOPPED   = 0;
+const TRANSPORT_PLAYING   = 1;
+const TRANSPORT_FADING_IN = 2;
+const TRANSPORT_FADING_OUT= 3;
+const TRANSPORT_PAUSED    = 4;
 
 export const useAudioEngine = () => {
   const { currentProject, findItemByUuid, findItemByIndex } = useProject();
-  const activeCues = useState<Map<string, ActiveCueState>>('activeCues', () => new Map());
-  const activeGroups = useState<Map<string, ActiveGroupState>>('activeGroups', () => new Map());
-  const masterOutputLevel = useState<number>('masterOutputLevel', () => -60); // Master output level in dB
-  const masterPeakLevel = useState<number>('masterPeakLevel', () => -60); // Master peak level in dB
-  const masterGainDb = useState<number>('masterGainDb', () => 0); // Master gain in dB (-60 to 0), 0 = unity
+  const server = useLiveplayServer();
+
+  // ---- Reactive state ------------------------------------------------
+  const activeCues   = useState<Map<string, ActiveCueView>>('activeCues',  () => new Map());
+  const activeGroups = useState<Map<string, ActiveGroupView>>('activeGroups', () => new Map());
+
+  // Master meter values read straight off the server's master_channels
+  // broadcast (the engine's real master meter). Combines L+R so the
+  // existing master-level UI doesn't need a stereo split.
+  const masterOutputLevel = useState<number>('masterOutputLevel', () => -60);
+  const masterPeakLevel   = useState<number>('masterPeakLevel',   () => -60);
+
+  // Server-authoritative master gain. setMasterGain pushes via REST;
+  // the master_gain_changed doc_patch reflects it back to every client.
+  const masterGainDb = useState<number>('masterGainDb', () => 0);
+
+  // Server-authoritative "Up Next" override. setNextItem writes via WS,
+  // server fans out as next_item_set doc_patch.
   const nextItemOverrideUuid = useState<string | null>('nextItemOverrideUuid', () => null);
 
-  // Derived: which item will play next, based on currently-playing items' end behaviors.
-  // The manual override (nextItemOverrideUuid) takes priority when set.
+  // ---- Helpers -------------------------------------------------------
+  const findItemByServerCueId = (cueId: string): AudioItem | null => {
+    if (!currentProject.value || !cueId) return null;
+    const walk = (arr: (AudioItem | GroupItem)[]): AudioItem | null => {
+      for (const it of arr) {
+        if (it.type === 'audio' && (it as any).cueId === cueId) return it as AudioItem;
+        if (it.type === 'group') {
+          const hit = walk((it as GroupItem).children);
+          if (hit) return hit;
+        }
+      }
+      return null;
+    };
+    const fromPlaylist = walk(currentProject.value.items);
+    if (fromPlaylist) return fromPlaylist;
+    // Cart-only items live outside the main playlist tree but are still
+    // valid playback targets — the server annotates them with cueId in
+    // header_document() too. Without this branch their cue_state events
+    // had nowhere to land and the UI never showed them as playing.
+    const cartOnly = currentProject.value.cartOnlyItems ?? [];
+    for (const it of cartOnly) {
+      if (it && (it as any).type === 'audio' &&
+          (it as any).cueId === cueId) {
+        return it as AudioItem;
+      }
+    }
+    return null;
+  };
+
+  const findParentGroup = (itemUuid: string): GroupItem | null => {
+    if (!currentProject.value) return null;
+    const search = (group: GroupItem): GroupItem | null => {
+      for (const child of group.children) {
+        if (child.uuid === itemUuid) return group;
+        if (child.type === 'group') {
+          const found = search(child as GroupItem);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    for (const item of currentProject.value.items) {
+      if (item.type === 'group') {
+        const found = search(item as GroupItem);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  // Build the trimmed (in→out) duration for an audio item.
+  const trimmedDuration = (item: AudioItem): number => {
+    const inP  = item.inPoint  || 0;
+    const outP = item.outPoint || item.duration || 0;
+    return Math.max(0, outP - inP);
+  };
+
+  // Insert / update an activeCue from a server signal. Idempotent.
+  const upsertActiveCue = (item: AudioItem, transport: number,
+                           playheadSeconds: number, cueId: string | null) => {
+    const inPoint  = item.inPoint  || 0;
+    const existing = activeCues.value.get(item.uuid);
+    const view: ActiveCueView = existing ? { ...existing } : {
+      uuid: item.uuid,
+      displayName: item.displayName,
+      duration: trimmedDuration(item),
+      currentTime: 0,
+      isPaused: false,
+      color: item.color,
+      inPoint: item.inPoint,
+      outPoint: item.outPoint,
+      serverCueId: cueId,
+    };
+    view.displayName = item.displayName;
+    view.duration    = trimmedDuration(item);
+    view.color       = item.color;
+    view.inPoint     = item.inPoint;
+    view.outPoint    = item.outPoint;
+    if (cueId) view.serverCueId = cueId;
+    view.currentTime = Math.max(0, Math.min(view.duration, playheadSeconds - inPoint));
+    view.isPaused    = (transport === TRANSPORT_PAUSED);
+    // Map mutation: explicit set keeps reactivity in a Map<>.
+    activeCues.value.set(item.uuid, view);
+  };
+
+  const removeActiveCue = (uuid: string) => {
+    activeCues.value.delete(uuid);
+  };
+
+  // ---- activeGroups projection --------------------------------------
+  // A group is "playing" if any of its descendant audio items is in
+  // activeCues. totalDuration / currentTime are computed from the
+  // group's children list and the playhead of the currently-playing
+  // child (server is the timing authority).
+  const recomputeActiveGroups = () => {
+    if (!currentProject.value) {
+      activeGroups.value.clear();
+      return;
+    }
+    const next = new Map<string, ActiveGroupView>();
+    const walk = (group: GroupItem) => {
+      let total = 0;
+      let acc   = 0;
+      let foundActive = false;
+      let activeReached = false;
+      for (const child of group.children) {
+        if (child.type === 'audio') {
+          const a = child as AudioItem;
+          const d = trimmedDuration(a);
+          total += d;
+          const playing = activeCues.value.get(a.uuid);
+          if (playing) {
+            foundActive = true;
+            acc += playing.currentTime;
+            activeReached = true;
+          } else if (!activeReached) {
+            acc += d;     // assume earlier siblings already played
+          }
+        } else if (child.type === 'group') {
+          walk(child as GroupItem);  // nested groups get their own entry
+        }
+      }
+      if (foundActive) {
+        // Reset acc-of-earlier-siblings heuristic if we never actually
+        // found a currently-playing child here.
+      }
+      if (foundActive) {
+        next.set(group.uuid, {
+          uuid: group.uuid,
+          displayName: group.displayName,
+          totalDuration: total,
+          currentTime: Math.min(acc, total),
+        });
+      }
+    };
+    for (const item of currentProject.value.items) {
+      if (item.type === 'group') walk(item as GroupItem);
+    }
+    activeGroups.value = next;
+  };
+
+  // ---- autoNextItemUuid (derived) -----------------------------------
   const autoNextItemUuid = computed((): string | null => {
     if (!currentProject.value) return null;
     for (const [uuid] of activeCues.value.entries()) {
@@ -251,8 +242,8 @@ export const useAudioEngine = () => {
           break;
         case 'goto-index':
           if (audioItem.endBehavior.targetIndex) {
-            const targetItem = findItemByIndex(audioItem.endBehavior.targetIndex);
-            if (targetItem) return targetItem.uuid;
+            const target = findItemByIndex(audioItem.endBehavior.targetIndex);
+            if (target) return target.uuid;
           }
           break;
       }
@@ -260,1188 +251,202 @@ export const useAudioEngine = () => {
     return null;
   });
 
-  /**
-   * Set master gain and apply to Howler global volume.
-   */
-  const setMasterGain = (db: number) => {
-    const clamped = Math.max(-60, Math.min(0, db));
-    masterGainDb.value = clamped;
-    Howler.volume(clamped <= -60 ? 0 : dbToLinear(clamped));
-  };
-
-  // Helper function to apply -10dB offset to volume
-  // This allows the UI to show 0dB as "normal" while actually playing at -10dB
-  // Giving us +10dB headroom for louder playback
-  const applyVolumeOffset = (uiVolume: number): number => {
-    // Clamp input volume to max +10dB (3.162) to prevent issues
-    const maxVolume = Math.pow(10, 10 / 20); // +10dB = 3.162
-    const clampedVolume = Math.min(Math.max(uiVolume, 0), maxVolume);
-    return applyVolumeOffsetUtil(clampedVolume);
-  };
-
-  // Estimate audio level based on volume and waveform data
-  // This samples the waveform at the current playback position
-  const estimateAudioLevel = (volume: number, item: AudioItem, currentTime: number): number => {
-    if (volume <= 0) return -60;
-    
-    // Convert volume to dB as base level
-    const baseDB = linearToDb(volume);
-    
-    // Try to get waveform data for more accurate level
-    let waveformMultiplier = 0.7; // Default if no waveform (assume 70% average)
-    
-    if (item.waveform && item.waveform.peaks && item.waveform.peaks.length > 0) {
-      const peaks = item.waveform.peaks;
-      const duration = item.duration;
-      
-      // Calculate which peak index corresponds to current time
-      // Account for inPoint offset
-      const absoluteTime = currentTime + (item.inPoint || 0);
-      const progress = absoluteTime / duration;
-      const peakIndex = Math.floor(progress * peaks.length);
-      
-      // Get peak value (0-1) at current position
-      if (peakIndex >= 0 && peakIndex < peaks.length) {
-        waveformMultiplier = peaks[peakIndex];
-        
-        // Add slight variation to adjacent peaks for smoother animation
-        if (peakIndex > 0 && peakIndex < peaks.length - 1) {
-          const avg = (peaks[peakIndex - 1] + peaks[peakIndex] + peaks[peakIndex + 1]) / 3;
-          waveformMultiplier = avg;
+  // ---- WS / REST plumbing -------------------------------------------
+  // cue_state edges: Playing/FadingIn/Paused create or update; Stopped
+  // removes. FadingOut keeps the entry so the bar continues to render
+  // its trailing seconds.
+  server.onCueState(({ cue_id, transport, playhead_seconds }) => {
+    if (transport === TRANSPORT_STOPPED) {
+      // Locate by serverCueId. If found, drop it.
+      for (const [uuid, cue] of activeCues.value) {
+        if (cue.serverCueId === cue_id) {
+          removeActiveCue(uuid);
+          break;
         }
       }
+      recomputeActiveGroups();
+      return;
     }
-    
-    // Convert waveform multiplier to dB reduction
-    // 0.0 = -60dB, 0.5 = -6dB, 1.0 = 0dB
-    const waveformDB = linearToDb(waveformMultiplier);
-    
-    // Combine base volume and waveform level
-    const totalDB = baseDB + waveformDB;
-    
-    return Math.max(-60, Math.min(0, totalDB));
-  };
+    const item = findItemByServerCueId(cue_id);
+    if (!item) return;
+    upsertActiveCue(item, transport, playhead_seconds, cue_id);
+    recomputeActiveGroups();
+  });
 
-  // Update all cue levels and calculate master output
-  const updateAudioLevels = () => {
-    let sumLinear = 0; // Sum of linear amplitudes for mixing
-    
-    for (const cue of activeCues.value.values()) {
-      // Find the item to get waveform data
-      const item = findItemByUuid(cue.uuid);
-      if (!item || item.type !== 'audio') continue;
-      
-      // Estimate current level based on volume and waveform
-      const currentLevel = estimateAudioLevel(cue.volume, item as AudioItem, cue.currentTime);
-      cue.currentLevel = currentLevel;
-      
-      // Update peak hold (decays slowly)
-      if (!cue.peakLevel || currentLevel > cue.peakLevel) {
-        cue.peakLevel = currentLevel;
+  // On (re)connect the server pushes a snapshot of what's already
+  // playing. useLiveplayServer fires this BEFORE synthesising per-cue
+  // events; we use it to refresh master gain + next-item state too.
+  server.onPlaybackSnapshot((snap: any) => {
+    if (snap && typeof snap.master_gain_db === 'number') {
+      masterGainDb.value = snap.master_gain_db;
+    }
+    nextItemOverrideUuid.value = snap?.next_item_uuid || null;
+  });
+
+  // Doc_patch: server-driven state changes other clients might trigger.
+  server.onDocPatch((patch: any) => {
+    if (!patch || typeof patch !== 'object') return;
+    switch (patch.op) {
+      case 'next_item_set':
+        nextItemOverrideUuid.value = patch.itemUuid || null;
+        break;
+      case 'master_gain_changed':
+        if (typeof patch.db === 'number') masterGainDb.value = patch.db;
+        break;
+      case 'custom_action_http':
+        // The server's sequencer fired a custom http-request action.
+        // We execute it client-side because the server has no HTTP
+        // client of its own. Best-effort; failures are logged.
+        void executeHttpRequest(patch.action?.request);
+        break;
+    }
+  });
+
+  // Meter broadcast: master levels + per-cue playhead. Master level is
+  // a derived L+R sum so the existing single-bar UI keeps working;
+  // accurate per-channel meters use StereoMeter directly.
+  server.onMeters((m: any) => {
+    if (!m) return;
+    if (Array.isArray(m.items)) {
+      for (const meter of m.items) {
+        for (const cue of activeCues.value.values()) {
+          if (cue.serverCueId !== meter.cue_id) continue;
+          const inP = cue.inPoint || 0;
+          cue.currentTime = Math.max(0,
+            Math.min(meter.playhead_seconds - inP, cue.duration));
+          break;
+        }
+      }
+      // Rebuild group projection so playhead changes propagate to
+      // group progress indicators.
+      recomputeActiveGroups();
+    }
+    if (Array.isArray(m.master_channels) && m.master_channels.length > 0) {
+      // Sum L and R (channels 0 and 1) for a single mono master level.
+      let peakDb = -60;
+      let combinedRms = 0;
+      for (const mc of m.master_channels) {
+        if (mc.index !== 0 && mc.index !== 1) continue;
+        if (typeof mc.peak_db === 'number' && mc.peak_db > peakDb) peakDb = mc.peak_db;
+        if (typeof mc.rms_db === 'number') {
+          // Convert dB → linear and sum so 2× the level reads ~+6 dB.
+          combinedRms += Math.pow(10, mc.rms_db / 20);
+        }
+      }
+      const rmsDb = combinedRms > 0
+        ? Math.max(-60, 20 * Math.log10(combinedRms))
+        : -60;
+      masterOutputLevel.value = Math.max(-60, Math.min(0, rmsDb));
+      if (peakDb > masterPeakLevel.value) {
+        masterPeakLevel.value = Math.max(-60, Math.min(0, peakDb));
       } else {
-        // Decay peak hold by 1dB per update cycle
-        cue.peakLevel = Math.max(currentLevel, cue.peakLevel - 1);
-      }
-      
-      // Convert dB to linear amplitude for mixing
-      const linearAmplitude = dbToLinear(currentLevel);
-      sumLinear += linearAmplitude;
-    }
-    
-    // Convert summed linear amplitude back to dB for master meter
-    const masterLevel = linearToDb(sumLinear);
-    masterOutputLevel.value = Math.max(-60, Math.min(0, masterLevel));
-    
-    // Update master peak hold
-    if (masterLevel > masterPeakLevel.value) {
-      masterPeakLevel.value = masterLevel;
-    } else {
-      masterPeakLevel.value = Math.max(masterLevel, masterPeakLevel.value - 0.5);
-    }
-    
-    // Reset to -60 if no active cues
-    if (activeCues.value.size === 0) {
-      masterOutputLevel.value = -60;
-      masterPeakLevel.value = -60;
-    }
-  };
-
-  // Apply ducking behavior (using Howler volume control)
-  const applyDucking = (newCueUuid: string, behavior: DuckingBehavior) => {
-    const cues = Array.from(activeCues.value.values());
-
-    if (behavior.mode === 'stop-all') {
-      // Stop all other cues with fade out
-      for (const cue of cues) {
-        if (cue.uuid !== newCueUuid) {
-          stopCue(cue.uuid);
-        }
-      }
-    } else if (behavior.mode === 'duck-others' && behavior.duckLevel !== undefined) {
-      // Lower volume of other cues with fade. Treat 0 as unset; minimum 500 ms.
-      const fadeInDuration = (behavior.duckFadeIn || 0.5) * 1000;
-      
-      for (const cue of cues) {
-        if (cue.uuid !== newCueUuid) {
-          if (!cue.isDucked) {
-            cue.originalVolume = cue.volume;
-            cue.isDucked = true;
-          }
-          
-          // Track that this cue is being ducked by the new cue
-          cue.duckedBy.add(newCueUuid);
-          
-          const duckedVolume = cue.originalVolume * behavior.duckLevel;
-          
-          // Fade to ducked volume
-          cue.howl.fade(cue.volume, duckedVolume, fadeInDuration);
-          cue.volume = duckedVolume;
-        }
+        masterPeakLevel.value = Math.max(masterPeakLevel.value - 0.5, masterOutputLevel.value);
       }
     }
-    // 'no-ducking' mode does nothing
-  };
+  });
 
-  // Restore volumes after ducking
-  const restoreDuckedVolumes = (endingCueUuid: string) => {
-    const cues = Array.from(activeCues.value.values());
-    
-    // Check if the ending cue was a ducking cue
-    const endingItem = findItemByUuid(endingCueUuid);
-    if (!endingItem || endingItem.type !== 'audio') return;
-    
-    const audioItem = endingItem as AudioItem;
-    
-    // Only restore if the ending cue had duck-others behavior
-    if (audioItem.duckingBehavior.mode === 'duck-others') {
-      const fadeOutDuration = (audioItem.duckingBehavior.duckFadeOut ?? 1.0) * 1000; // Convert to ms
-      
-      // Remove this cue from all duckedBy sets and restore volumes if no other ducking cues remain
-      for (const cue of cues) {
-        if (cue.duckedBy.has(endingCueUuid)) {
-          cue.duckedBy.delete(endingCueUuid);
-          
-          // If no other cues are ducking this one, restore its volume
-          if (cue.duckedBy.size === 0 && cue.isDucked) {
-            cue.howl.fade(cue.volume, cue.originalVolume, fadeOutDuration);
-            cue.volume = cue.originalVolume;
-            cue.isDucked = false;
-          }
-        }
+  // When the project items finish streaming (or items are added/removed
+  // by another client), re-resolve any pending activeCues that we
+  // received cue_state for before the items existed locally.
+  watch(() => currentProject.value?.items?.length, () => {
+    // Sweep server.cues for anything Playing-like and ensure an entry.
+    for (const sc of server.cues ?? []) {
+      const t = (sc as any).transport;
+      if (t == null || t === TRANSPORT_STOPPED) continue;
+      // Already tracked by serverCueId?
+      let tracked = false;
+      for (const cue of activeCues.value.values()) {
+        if (cue.serverCueId === sc.id) { tracked = true; break; }
       }
+      if (tracked) continue;
+      const item = findItemByServerCueId(sc.id);
+      if (!item) continue;
+      upsertActiveCue(item, t, (sc as any).playhead_seconds ?? 0, sc.id);
     }
-  };
+    recomputeActiveGroups();
+  });
 
-  // Play an audio item (now routed through the C++ server via ServerHowl).
+  // ---- Transport intents (forward to server) -------------------------
+  // Note: the server's WS `play` handler routes to trigger_item, which
+  // dispatches audio→play_item and group→walk-startBehavior. So a single
+  // playItem(uuid) is enough for both kinds of items.
   const playCue = async (item: AudioItem): Promise<boolean> => {
-    // eslint-disable-next-line no-console
-    console.log('[useAudioEngine] playCue() called for', item.uuid, item.displayName, 'mediaServerPath=', item.mediaServerPath, 'mediaFileName=', item.mediaFileName);
-    try {
-      if (!import.meta.client || !currentProject.value) {
-        // eslint-disable-next-line no-console
-        console.warn('[useAudioEngine] playCue early-exit: client=', !!import.meta.client, ' project=', !!currentProject.value);
-        return false;
-      }
-
-      // Check if already playing
-      if (activeCues.value.has(item.uuid)) {
-        console.warn('Cue already playing:', item.uuid);
-        return false;
-      }
-
-      // Clear manual "set as next" override once the queued item actually starts playing
-      if (nextItemOverrideUuid.value === item.uuid) {
-        setNextItem(null);
-      }
-
-      // Cues imported via the server file picker carry an absolute server
-      // path. Fall back to the legacy project-folder construction for older
-      // items.
-      const audioPath = item.mediaServerPath
-        ? item.mediaServerPath
-        : `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
-
-      // file:// URL — ServerHowl decodes this back to a native path before
-      // sending to the server. Encode the path component so non-ASCII
-      // characters survive the round trip.
-      const fileUrl = 'file:///' + encodeURI(audioPath.replace(/\\/g, '/'));
-      
-      // Create Howler instance
-      const howl = new Howl({
-        src: [fileUrl],
-        html5: true, // Use HTML5 Audio for better file system access
-        volume: applyVolumeOffset(item.volume), // Apply -10dB offset
-        loop: item.endBehavior.action === 'loop',
-        fadeOutMs: (item.fadeOutDuration ?? 0) * 1000,
-        sprite: item.inPoint || item.outPoint ? {
-          main: [
-            (item.inPoint || 0) * 1000,
-            ((item.outPoint || item.duration) - (item.inPoint || 0)) * 1000
-          ]
-        } : undefined,
-        onload: () => {
-          const cue = activeCues.value.get(item.uuid);
-          if (cue) {
-            cue.serverCueId = (howl as any).cueId ?? null;
-
-            // Get the actual file duration from Howler
-            const actualFileDuration = howl.duration();
-
-            // For trimmed items (with sprites), duration should be the trimmed duration
-            // But make sure outPoint doesn't exceed actual file duration
-            const inPoint = item.inPoint || 0;
-            const requestedOutPoint = item.outPoint || item.duration;
-            const actualOutPoint = Math.min(requestedOutPoint, actualFileDuration);
-            
-            // Calculate trimmed duration, ensuring it doesn't exceed file bounds
-            const trimmedDuration = actualOutPoint - inPoint;
-            
-            cue.duration = trimmedDuration;
-            
-            // Update the outPoint in cue state to reflect actual file bounds
-            cue.outPoint = actualOutPoint;
-            
-            // Start progress tracking
-            cue.progressInterval = setInterval(() => {
-              if (!activeCues.value.has(item.uuid)) {
-                clearInterval(cue.progressInterval);
-                return;
-              }
-              
-              // When using sprites, seek() returns absolute position in file
-              // We need to subtract inPoint to get position relative to sprite start
-              const absoluteTime = howl.seek() as number;
-              const inPoint = item.inPoint || 0;
-              const currentTime = absoluteTime - inPoint;
-              
-              // Check if playback has reached or exceeded the actual file duration
-              const actualFileDuration = howl.duration();
-              if (absoluteTime >= actualFileDuration || absoluteTime >= (cue.outPoint || item.duration)) {
-                // EOF or out-point detected. Stop the progress interval and clean up
-                // UI state, but do NOT call handleEndBehavior() here — the endTimer
-                // (delayed by fadeOutMs) is the sole trigger for end behavior so the
-                // C++ fade-out can finish before the next item starts.
-                clearInterval(cue.progressInterval);
-                activeCues.value.delete(item.uuid);
-                restoreDuckedVolumes(item.uuid);
-
-                const parentGroup = findParentGroup(item.uuid);
-                if (parentGroup) {
-                  const groupState = activeGroups.value.get(parentGroup.uuid);
-                  if (groupState) {
-                    const itemIndex = groupState.playbackChain.indexOf(item.uuid);
-                    if (itemIndex === groupState.playbackChain.length - 1) {
-                      stopGroupTracking(parentGroup.uuid);
-                    }
-                  }
-                }
-                return;
-              }
-
-              // Clamp to valid range (0 to trimmed duration)
-              cue.currentTime = Math.max(0, Math.min(currentTime, cue.duration));
-
-              // Update audio levels for VU meters
-              updateAudioLevels();
-
-              // Update group progress
-              const parentGroup = findParentGroup(item.uuid);
-              if (parentGroup) {
-                const groupState = activeGroups.value.get(parentGroup.uuid);
-                if (groupState) {
-                  // Calculate accumulated time up to current item
-                  let accumulatedTime = 0;
-                  for (let i = 0; i < groupState.currentItemIndex; i++) {
-                    const uuid = groupState.playbackChain[i];
-                    const prevItem = findItemByUuid(uuid);
-                    if (prevItem && prevItem.type === 'audio') {
-                      const audioItem = prevItem as AudioItem;
-                      accumulatedTime += audioItem.outPoint - audioItem.inPoint;
-                    }
-                  }
-                  // Add current item's progress
-                  groupState.currentTime = accumulatedTime + currentTime;
-                }
-              }
-              
-            }, 100); // Update every 100ms
-          }
-        },
-        onloaderror: (id, error) => {
-          console.error('Error loading audio:', error);
-          activeCues.value.delete(item.uuid);
-        },
-        onplayerror: (id, error) => {
-          console.error('Error playing audio:', error);
-          activeCues.value.delete(item.uuid);
-        }
-      });
-
-      // Create active cue state
-      const activeCue: ActiveCueState = {
-        uuid: item.uuid,
-        displayName: item.displayName,
-        currentTime: 0,
-        duration: item.inPoint || item.outPoint 
-          ? (item.outPoint || item.duration) - (item.inPoint || 0)
-          : item.duration,
-        volume: applyVolumeOffset(item.volume), // Apply -10dB offset
-        isDucked: false,
-        isPaused: false, // Initialize as not paused
-        originalVolume: applyVolumeOffset(item.volume), // Apply -10dB offset
-        duckedBy: new Set<string>(),
-        howl,
-        color: item.color, // Pass item color to active cue
-        inPoint: item.inPoint, // Store for seek operations
-        outPoint: item.outPoint, // Store for reference
-        currentLevel: -60, // Initialize level meter
-        peakLevel: -60 // Initialize peak hold
-      };
-
-      activeCues.value.set(item.uuid, activeCue);
-
-      // Apply ducking before playback
-      applyDucking(item.uuid, item.duckingBehavior);
-      
-      // Update group progress tracking
-      updateGroupProgress(item.uuid);
-
-      // Check if this is a cart item (skip fades for cart items)
-      const isCartItem = item.index && item.index.length > 0 && item.index[0] === -1;
-
-      // Apply play fade if configured and not a cart item
-      if (!isCartItem && item.playFade && item.playFade > 0) {
-        // Start at zero volume
-        howl.volume(0);
-        
-        // Start playback
-        if (item.inPoint || item.outPoint) {
-          howl.play('main');
-        } else {
-          howl.play();
-        }
-        
-        // Fade in to target volume
-        howl.fade(0, applyVolumeOffset(item.volume), item.playFade * 1000);
-      } else {
-        // Normal playback without fade
-        if (item.inPoint || item.outPoint) {
-          howl.play('main');
-        } else {
-          howl.play();
-        }
-      }
-
-      // Schedule custom actions
-      scheduleCustomActions(item);
-
-      return true;
-    } catch (error) {
-      console.error('Error playing cue:', error);
-      activeCues.value.delete(item.uuid);
-      return false;
-    }
+    if (!item || !item.uuid) return false;
+    server.playItem(item.uuid);
+    return true;
+  };
+  const triggerByUuid = (uuid: string) => {
+    if (!uuid) return;
+    server.playItem(uuid);
+  };
+  const triggerByIndex = (index: number[]) => {
+    const item = findItemByIndex(index);
+    if (item) server.playItem(item.uuid);
+  };
+  const triggerGroup = (group: GroupItem) => {
+    if (group?.uuid) server.playItem(group.uuid);
   };
 
-  // Stop a cue
   const stopCue = async (uuid: string) => {
-    if (!import.meta.client) return;
-
-    const cue = activeCues.value.get(uuid);
-    if (cue) {
-      try {
-        // Get the audio item to retrieve fade out duration
-        const item = findItemByUuid(uuid);
-        const fadeOutDuration = (item && item.type === 'audio') 
-          ? ((item as AudioItem).fadeOutDuration ?? 1.0) * 1000 
-          : 1000; // Default 1 second in ms
-
-        // Clear progress interval immediately
-        if (cue.progressInterval) {
-          clearInterval(cue.progressInterval);
-        }
-
-        // Restore ducked volumes BEFORE fading out (so restoration happens in parallel)
-        restoreDuckedVolumes(uuid);
-
-        // Fade out before stopping
-        cue.howl.fade(cue.volume, 0, fadeOutDuration);
-        
-        // Remove from active cues immediately (so other functions know it's stopping)
-        activeCues.value.delete(uuid);
-        
-        // Check if this was part of a tracked group
-        const parentGroup = findParentGroup(uuid);
-        if (parentGroup && activeGroups.value.has(parentGroup.uuid)) {
-          // Check if there are any other items from this group still playing
-          const groupState = activeGroups.value.get(parentGroup.uuid);
-          if (groupState) {
-            const anyGroupItemPlaying = groupState.playbackChain.some(itemUuid => 
-              activeCues.value.has(itemUuid)
-            );
-            
-            // If no items from this group are playing, stop group tracking
-            if (!anyGroupItemPlaying) {
-              stopGroupTracking(parentGroup.uuid);
-            }
-          }
-        }
-        
-        // Wait for fade to complete, then stop and unload
-        setTimeout(() => {
-          cue.howl.stop();
-          cue.howl.unload();
-        }, fadeOutDuration);
-        
-      } catch (error) {
-        console.error('Error stopping cue:', error);
-      }
-    }
+    if (!uuid) return;
+    server.stopItem(uuid);
   };
+  const stopAllCues = async () => { server.stopAll(0); };
+  const panicStop   = async () => { server.stopAll(0); };
 
-  // Stop all cues
-  const stopAllCues = async () => {
-    if (!import.meta.client) return;
-
-    try {
-      for (const [uuid, cue] of activeCues.value.entries()) {
-        if (cue.progressInterval) {
-          clearInterval(cue.progressInterval);
-        }
-        cue.howl.stop();
-        cue.howl.unload();
-      }
-      activeCues.value.clear();
-    } catch (error) {
-      console.error('Error stopping all cues:', error);
-    }
-  };
-
-  // Panic stop - fade out all cues over 0.5 seconds then stop
-  const panicStop = async () => {
-    if (!import.meta.client) return;
-
-    try {
-      const fadeOutDuration = 500; // 0.5 seconds in ms
-      
-      for (const [uuid, cue] of activeCues.value.entries()) {
-        // Fade out to 0
-        cue.howl.fade(cue.volume, 0, fadeOutDuration);
-      }
-      
-      // Wait for fade to complete, then stop all
-      setTimeout(() => {
-        for (const [uuid, cue] of activeCues.value.entries()) {
-          if (cue.progressInterval) {
-            clearInterval(cue.progressInterval);
-          }
-          cue.howl.stop();
-          cue.howl.unload();
-        }
-        activeCues.value.clear();
-      }, fadeOutDuration);
-    } catch (error) {
-      console.error('Error panic stopping cues:', error);
-    }
-  };
-
-  // Pause a cue
   const pauseCue = async (uuid: string) => {
-    if (!import.meta.client) return;
-
-    const cue = activeCues.value.get(uuid);
-    if (cue && !cue.isPaused) {
-      try {
-        cue.howl.pause();
-        cue.isPaused = true;
-      } catch (error) {
-        console.error('Error pausing cue:', error);
-      }
-    }
+    if (!uuid) return;
+    server.pauseItem(uuid);
   };
-
-  // Resume a paused cue
   const resumeCue = async (uuid: string) => {
-    if (!import.meta.client) return;
-
-    const cue = activeCues.value.get(uuid);
-    if (cue && cue.isPaused) {
-      try {
-        cue.howl.play();
-        cue.isPaused = false;
-      } catch (error) {
-        console.error('Error resuming cue:', error);
-      }
-    }
+    if (!uuid) return;
+    server.resumeItem(uuid);
   };
 
-  // Handle end behavior
-  const handleEndBehavior = (item: AudioItem) => {
-    const behavior = item.endBehavior;
-
-    switch (behavior.action) {
-      case 'next':
-        playNextItem(item.index);
-        break;
-      case 'goto-item':
-        if (behavior.targetUuid) {
-          triggerByUuid(behavior.targetUuid);
-        }
-        break;
-      case 'goto-index':
-        if (behavior.targetIndex) {
-          triggerByIndex(behavior.targetIndex);
-        }
-        break;
-      case 'loop':
-        // Loop is handled by Howler's loop setting, no need to manually re-trigger
-        break;
-      case 'nothing':
-      default:
-        break;
-    }
+  // Seek is always in *absolute* file-time (matches the legacy contract).
+  // Use the REST endpoint for a guaranteed ack; the WS path drops the
+  // message silently if the cue isn't loaded yet.
+  const seekCue = async (uuid: string, absoluteTime: number) => {
+    if (!uuid) return;
+    server.seekItem(uuid, Math.max(0, absoluteTime));
   };
 
-  // Handle start behavior
-  const handleStartBehavior = (item: AudioItem) => {
-    const behavior = item.startBehavior;
-
-    switch (behavior.action) {
-      case 'play-next':
-        playNextItem(item.index);
-        break;
-      case 'play-item':
-        if (behavior.targetUuid) {
-          triggerByUuid(behavior.targetUuid);
-        }
-        break;
-      case 'play-index':
-        if (behavior.targetIndex) {
-          triggerByIndex(behavior.targetIndex);
-        }
-        break;
-      case 'nothing':
-      default:
-        break;
-    }
+  const setMasterGain = (db: number) => {
+    const clamped = Math.max(-120, Math.min(12, db));
+    masterGainDb.value = clamped;  // optimistic; server echoes back via doc_patch
+    void server.setMasterGainDb(clamped);
   };
 
-  // Schedule custom actions
-  const scheduleCustomActions = (item: AudioItem) => {
-    item.customActions.forEach(customAction => {
-      const timeoutMs = (customAction.timePoint - (item.inPoint || 0)) * 1000;
-      
-      if (timeoutMs > 0) {
-        setTimeout(() => {
-          executeCustomAction(customAction.action);
-        }, timeoutMs);
-      }
-    });
+  const setNextItem = (uuid: string | null) => {
+    nextItemOverrideUuid.value = uuid;
+    server.setNextItem(uuid);
   };
 
-  // Execute custom action
-  const executeCustomAction = async (action: any) => {
-    switch (action.type) {
-      case 'play-item':
-        triggerByUuid(action.uuid);
-        break;
-      case 'play-index':
-        triggerByIndex(action.index);
-        break;
-      case 'stop-all':
-        stopAllCues();
-        break;
-      case 'http-request':
-        await executeHttpRequest(action.request);
-        break;
-    }
-  };
-
-  // Execute HTTP request
-  const executeHttpRequest = async (request: any) => {
+  // ---- Custom action: http-request (client-side handler) ------------
+  // The server's sequencer schedules custom actions and executes the
+  // server-side ones directly (play-item / play-index / stop-all).
+  // For http-request it broadcasts a doc_patch which lands here.
+  async function executeHttpRequest(request: any) {
+    if (!request || typeof request !== 'object' || !request.url) return;
     try {
       const options: RequestInit = {
-        method: request.method,
-        headers: {}
+        method: request.method || 'GET',
+        headers: {},
       };
-
       if (request.body) {
         if (request.contentType === 'json') {
-          options.headers = { 'Content-Type': 'application/json' };
+          (options.headers as any)['Content-Type'] = 'application/json';
           options.body = JSON.stringify(request.body);
         } else {
-          options.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+          (options.headers as any)['Content-Type'] =
+            'application/x-www-form-urlencoded';
           options.body = new URLSearchParams(request.body).toString();
         }
       }
-
       await fetch(request.url, options);
-    } catch (error) {
-      console.error('Error executing HTTP request:', error);
+    } catch (e) {
+      console.warn('[useAudioEngine] custom http-request failed:', e);
     }
-  };
-
-  // Set a specific item as the next to play (overrides automatic sequencing).
-  // Mirrors the override to the server so the playback engine (which owns
-  // end-behavior dispatch) honours it when the current item ends.
-  const setNextItem = (uuid: string | null) => {
-    nextItemOverrideUuid.value = uuid;
-    try {
-      useLiveplayServer().setNextItem(uuid);
-    } catch (err) {
-      // Server bridge may not be available in some test contexts — UI state
-      // still updates so behaviour degrades gracefully.
-      console.warn('setNextItem: server bridge unavailable', err);
-    }
-  };
-
-  // Play next item in sequence
-  const playNextItem = (currentIndex: number[]) => {
-    if (nextItemOverrideUuid.value) {
-      const overrideUuid = nextItemOverrideUuid.value;
-      setNextItem(null);
-      const overrideItem = findItemByUuid(overrideUuid);
-      if (overrideItem) {
-        if (overrideItem.type === 'audio') {
-          playCue(overrideItem as AudioItem);
-        } else if (overrideItem.type === 'group') {
-          triggerGroup(overrideItem);
-        }
-        return;
-      }
-    }
-
-    const nextIndex = [...currentIndex];
-    nextIndex[nextIndex.length - 1]++;
-
-    const nextItem = findItemByIndex(nextIndex);
-    if (nextItem) {
-      if (nextItem.type === 'audio') {
-        playCue(nextItem);
-      } else if (nextItem.type === 'group') {
-        triggerGroup(nextItem);
-      }
-    }
-  };
-
-  // Get next audio item without triggering it
-  const getNextItem = (currentIndex: number[]): AudioItem | null => {
-    const nextIndex = [...currentIndex];
-    nextIndex[nextIndex.length - 1]++;
-
-    const nextItem = findItemByIndex(nextIndex);
-    if (nextItem && nextItem.type === 'audio') {
-      return nextItem as AudioItem;
-    }
-    return null;
-  };
-
-  // Start a track with crossfade (fade in over specified duration)
-  const startCrossfadeTrack = async (item: AudioItem, crossfadeDuration: number) => {
-    try {
-      if (!import.meta.client || !currentProject.value) return;
-
-      // Check if already playing
-      if (activeCues.value.has(item.uuid)) {
-        console.warn('Cue already playing:', item.uuid);
-        return;
-      }
-
-      const audioPath = item.mediaServerPath
-        ? item.mediaServerPath
-        : `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
-      const fileUrl = 'file:///' + encodeURI(audioPath.replace(/\\/g, '/'));
-      
-      // Create Howler instance (simplified version of playCue)
-      const howl = new Howl({
-        src: [fileUrl],
-        html5: true,
-        volume: 0, // Start at zero for crossfade
-        loop: item.endBehavior.action === 'loop',
-        sprite: item.inPoint || item.outPoint ? {
-          main: [
-            (item.inPoint || 0) * 1000,
-            ((item.outPoint || item.duration) - (item.inPoint || 0)) * 1000
-          ]
-        } : undefined,
-        onload: () => {
-          const cue = activeCues.value.get(item.uuid);
-          if (cue) {
-            cue.serverCueId = (howl as any).cueId ?? null;
-
-            // Get the actual file duration from Howler
-            const actualFileDuration = howl.duration();
-
-            // For trimmed items (with sprites), duration should be the trimmed duration
-            // But make sure outPoint doesn't exceed actual file duration
-            const inPoint = item.inPoint || 0;
-            const requestedOutPoint = item.outPoint || item.duration;
-            const actualOutPoint = Math.min(requestedOutPoint, actualFileDuration);
-            
-            // Calculate trimmed duration, ensuring it doesn't exceed file bounds
-            const trimmedDuration = actualOutPoint - inPoint;
-            
-            cue.duration = trimmedDuration;
-            
-            // Update the outPoint in cue state to reflect actual file bounds
-            cue.outPoint = actualOutPoint;
-            
-            // Start progress tracking (same as playCue)
-            cue.progressInterval = setInterval(() => {
-              if (!activeCues.value.has(item.uuid)) {
-                clearInterval(cue.progressInterval);
-                return;
-              }
-              
-              const absoluteTime = howl.seek() as number;
-              const inPoint = item.inPoint || 0;
-              const currentTime = absoluteTime - inPoint;
-              
-              cue.currentTime = Math.max(0, Math.min(currentTime, cue.duration));
-
-              updateAudioLevels();
-
-              const parentGroup = findParentGroup(item.uuid);
-              if (parentGroup) {
-                const groupState = activeGroups.value.get(parentGroup.uuid);
-                if (groupState) {
-                  let accumulatedTime = 0;
-                  for (let i = 0; i < groupState.currentItemIndex; i++) {
-                    const uuid = groupState.playbackChain[i];
-                    const prevItem = findItemByUuid(uuid);
-                    if (prevItem && prevItem.type === 'audio') {
-                      const audioItem = prevItem as AudioItem;
-                      accumulatedTime += audioItem.outPoint - audioItem.inPoint;
-                    }
-                  }
-                  groupState.currentTime = accumulatedTime + currentTime;
-                }
-              }
-            }, 100);
-          }
-        },
-        onloaderror: (id, error) => {
-          console.error('Error loading audio:', error);
-          activeCues.value.delete(item.uuid);
-        },
-        onplayerror: (id, error) => {
-          console.error('Error playing audio:', error);
-          activeCues.value.delete(item.uuid);
-        }
-      });
-
-      // Create active cue state
-      const activeCue: ActiveCueState = {
-        uuid: item.uuid,
-        displayName: item.displayName,
-        currentTime: 0,
-        duration: item.inPoint || item.outPoint 
-          ? (item.outPoint || item.duration) - (item.inPoint || 0)
-          : item.duration,
-        volume: applyVolumeOffset(item.volume),
-        isDucked: false,
-        isPaused: false,
-        originalVolume: applyVolumeOffset(item.volume),
-        duckedBy: new Set<string>(),
-        howl,
-        color: item.color,
-        inPoint: item.inPoint,
-        outPoint: item.outPoint,
-        currentLevel: -60,
-        peakLevel: -60
-      };
-
-      activeCues.value.set(item.uuid, activeCue);
-
-      // Apply ducking before playback
-      applyDucking(item.uuid, item.duckingBehavior);
-      updateGroupProgress(item.uuid);
-
-      // Start playback and fade in (ignoring item's playFade, use crossfade duration)
-      if (item.inPoint || item.outPoint) {
-        howl.play('main');
-      } else {
-        howl.play();
-      }
-      
-      // Fade in to target volume over crossfade duration
-      howl.fade(0, applyVolumeOffset(item.volume), crossfadeDuration * 1000);
-
-      scheduleCustomActions(item);
-
-    } catch (error) {
-      console.error('Error starting crossfade track:', error);
-    }
-  };
-
-  // Trigger by UUID
-  const triggerByUuid = (uuid: string) => {
-    const item = findItemByUuid(uuid);
-    if (item) {
-      if (item.type === 'audio') {
-        playCue(item);
-      } else if (item.type === 'group') {
-        triggerGroup(item);
-      }
-    }
-  };
-
-  // Trigger by index
-  const triggerByIndex = (index: number[]) => {
-    const item = findItemByIndex(index);
-    if (item) {
-      if (item.type === 'audio') {
-        playCue(item);
-      } else if (item.type === 'group') {
-        triggerGroup(item);
-      }
-    }
-  };
-
-  // Calculate the playback chain for a group (items that will play automatically)
-  const calculateGroupPlaybackChain = (group: GroupItem, startingItemUuid?: string): string[] => {
-    const chain: string[] = [];
-    const visited = new Set<string>(); // Prevent infinite loops
-    
-    // Find starting item
-    let currentItem: AudioItem | null = null;
-    
-    if (startingItemUuid) {
-      // Start from specified item
-      const item = findItemByUuid(startingItemUuid);
-      if (item && item.type === 'audio') {
-        currentItem = item as AudioItem;
-      }
-    } else {
-      // Start from first audio item in group based on start behavior
-      if (group.startBehavior.action === 'play-first') {
-        const firstAudio = findFirstAudioInGroup(group);
-        if (firstAudio) currentItem = firstAudio;
-      } else {
-        // For 'play-all', we don't track group progress
-        return [];
-      }
-    }
-    
-    if (!currentItem) return [];
-    
-    // Build the chain by following end behaviors
-    while (currentItem && !visited.has(currentItem.uuid)) {
-      visited.add(currentItem.uuid);
-      chain.push(currentItem.uuid);
-      
-      const endBehavior = currentItem.endBehavior;
-      
-      if (endBehavior.action === 'next') {
-        // Find next item in the group
-        const nextItem = findNextItemInGroup(group, currentItem);
-        if (nextItem && nextItem.type === 'audio') {
-          currentItem = nextItem as AudioItem;
-        } else {
-          break; // No more items
-        }
-      } else if (endBehavior.action === 'goto-item' && endBehavior.targetUuid) {
-        const targetItem = findItemByUuid(endBehavior.targetUuid);
-        
-        // Check if target is in the same group
-        if (targetItem && targetItem.type === 'audio' && isItemInGroup(group, targetItem.uuid)) {
-          // Check if we're going forward or backward
-          const targetIndex = chain.indexOf(targetItem.uuid);
-          if (targetIndex === -1) {
-            // Going forward - add to chain
-            currentItem = targetItem as AudioItem;
-          } else {
-            // Going backward (loop) - reset chain
-            return [targetItem.uuid];
-          }
-        } else {
-          // Jumping outside group - stop tracking
-          break;
-        }
-      } else if (endBehavior.action === 'goto-index' && endBehavior.targetIndex) {
-        const targetItem = findItemByIndex(endBehavior.targetIndex);
-        
-        if (targetItem && targetItem.type === 'audio' && isItemInGroup(group, targetItem.uuid)) {
-          const targetIndex = chain.indexOf(targetItem.uuid);
-          if (targetIndex === -1) {
-            currentItem = targetItem as AudioItem;
-          } else {
-            return [targetItem.uuid];
-          }
-        } else {
-          break;
-        }
-      } else if (endBehavior.action === 'loop') {
-        // Single item loop - don't continue chain
-        break;
-      } else {
-        // 'nothing' or unknown - stop chain
-        break;
-      }
-    }
-    
-    return chain;
-  };
-  
-  // Helper: Find first audio item in group (recursively)
-  const findFirstAudioInGroup = (group: GroupItem): AudioItem | null => {
-    for (const child of group.children) {
-      if (child.type === 'audio') {
-        return child as AudioItem;
-      } else if (child.type === 'group') {
-        const found = findFirstAudioInGroup(child as GroupItem);
-        if (found) return found;
-      }
-    }
-    return null;
-  };
-  
-  // Helper: Find next item in group
-  const findNextItemInGroup = (group: GroupItem, currentItem: AudioItem): AudioItem | GroupItem | null => {
-    const flatten = (items: any[]): any[] => {
-      const result: any[] = [];
-      for (const item of items) {
-        result.push(item);
-        if (item.type === 'group') {
-          result.push(...flatten(item.children));
-        }
-      }
-      return result;
-    };
-    
-    const allItems = flatten(group.children);
-    const currentIndex = allItems.findIndex(item => item.uuid === currentItem.uuid);
-    
-    if (currentIndex >= 0 && currentIndex < allItems.length - 1) {
-      return allItems[currentIndex + 1];
-    }
-    
-    return null;
-  };
-  
-  // Helper: Check if item is in group
-  const isItemInGroup = (group: GroupItem, itemUuid: string): boolean => {
-    for (const child of group.children) {
-      if (child.uuid === itemUuid) return true;
-      if (child.type === 'group') {
-        if (isItemInGroup(child as GroupItem, itemUuid)) return true;
-      }
-    }
-    return false;
-  };
-  
-  // Find parent group of an item
-  const findParentGroup = (itemUuid: string): GroupItem | null => {
-    if (!currentProject.value) return null;
-    
-    const searchInGroup = (group: GroupItem): GroupItem | null => {
-      for (const child of group.children) {
-        if (child.uuid === itemUuid) return group;
-        if (child.type === 'group') {
-          const found = searchInGroup(child as GroupItem);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-    
-    for (const item of currentProject.value.items) {
-      if (item.type === 'group') {
-        const found = searchInGroup(item as GroupItem);
-        if (found) return found;
-      }
-    }
-    
-    return null;
-  };
-  
-  // Start tracking a group
-  const startGroupTracking = (group: GroupItem, startingItemUuid?: string) => {
-    const chain = calculateGroupPlaybackChain(group, startingItemUuid);
-    
-    if (chain.length === 0) return; // Can't track 'play-all' groups
-    
-    // Calculate total duration
-    let totalDuration = 0;
-    for (const itemUuid of chain) {
-      const item = findItemByUuid(itemUuid);
-      if (item && item.type === 'audio') {
-        const audioItem = item as AudioItem;
-        const duration = audioItem.outPoint - audioItem.inPoint;
-        totalDuration += duration;
-      }
-    }
-    
-    activeGroups.value.set(group.uuid, {
-      uuid: group.uuid,
-      displayName: group.displayName,
-      totalDuration,
-      currentTime: 0,
-      playbackChain: chain,
-      currentItemIndex: 0,
-      lastPlayedItem: null
-    });
-  };
-  
-  // Update group progress when an item plays
-  const updateGroupProgress = (itemUuid: string) => {
-    // Find which group this item belongs to
-    const parentGroup = findParentGroup(itemUuid);
-    if (!parentGroup) return;
-    
-    const groupState = activeGroups.value.get(parentGroup.uuid);
-    if (!groupState) {
-      // Start tracking if not already
-      startGroupTracking(parentGroup, itemUuid);
-      return;
-    }
-    
-    // Check if this item is in the playback chain
-    const itemIndex = groupState.playbackChain.indexOf(itemUuid);
-    
-    if (itemIndex === -1) {
-      // Item not in chain - recalculate from this item
-      const newChain = calculateGroupPlaybackChain(parentGroup, itemUuid);
-      if (newChain.length > 0) {
-        let totalDuration = 0;
-        for (const uuid of newChain) {
-          const item = findItemByUuid(uuid);
-          if (item && item.type === 'audio') {
-            const audioItem = item as AudioItem;
-            totalDuration += audioItem.outPoint - audioItem.inPoint;
-          }
-        }
-        
-        groupState.playbackChain = newChain;
-        groupState.totalDuration = totalDuration;
-        groupState.currentItemIndex = 0;
-        groupState.currentTime = 0;
-        groupState.lastPlayedItem = itemUuid;
-      }
-    } else if (groupState.lastPlayedItem) {
-      // Check if we're going backward
-      const lastIndex = groupState.playbackChain.indexOf(groupState.lastPlayedItem);
-      if (lastIndex > itemIndex) {
-        // Going backward - reset and recalculate
-        const newChain = calculateGroupPlaybackChain(parentGroup, itemUuid);
-        if (newChain.length > 0) {
-          let totalDuration = 0;
-          for (const uuid of newChain) {
-            const item = findItemByUuid(uuid);
-            if (item && item.type === 'audio') {
-              const audioItem = item as AudioItem;
-              totalDuration += audioItem.outPoint - audioItem.inPoint;
-            }
-          }
-          
-          groupState.playbackChain = newChain;
-          groupState.totalDuration = totalDuration;
-          groupState.currentItemIndex = 0;
-          groupState.currentTime = 0;
-        }
-      } else {
-        // Going forward - update position
-        groupState.currentItemIndex = itemIndex;
-        
-        // Calculate current time (sum of durations of previous items)
-        let accumulatedTime = 0;
-        for (let i = 0; i < itemIndex; i++) {
-          const uuid = groupState.playbackChain[i];
-          const item = findItemByUuid(uuid);
-          if (item && item.type === 'audio') {
-            const audioItem = item as AudioItem;
-            accumulatedTime += audioItem.outPoint - audioItem.inPoint;
-          }
-        }
-        groupState.currentTime = accumulatedTime;
-      }
-    }
-    
-    groupState.lastPlayedItem = itemUuid;
-  };
-  
-  // Stop tracking a group
-  const stopGroupTracking = (groupUuid: string) => {
-    activeGroups.value.delete(groupUuid);
-  };
-
-  // Trigger a group
-  const triggerGroup = (group: any) => {
-    // Start tracking group progress
-    startGroupTracking(group);
-    
-    if (group.startBehavior.action === 'play-first') {
-      if (group.children.length > 0) {
-        const firstChild = group.children[0];
-        if (firstChild.type === 'audio') {
-          playCue(firstChild);
-        } else if (firstChild.type === 'group') {
-          triggerGroup(firstChild);
-        }
-      }
-    } else if (group.startBehavior.action === 'play-all') {
-      group.children.forEach((child: any) => {
-        if (child.type === 'audio') {
-          playCue(child);
-        } else if (child.type === 'group') {
-          triggerGroup(child);
-        }
-      });
-    }
-  };
-
-  // Seek to a position (simple version without fade)
-  const seekCue = async (uuid: string, absoluteTime: number) => {
-    if (!import.meta.client) return;
-
-    const cue = activeCues.value.get(uuid);
-    if (cue) {
-      try {
-        cue.howl.seek(absoluteTime);
-      } catch (error) {
-        console.error('Error seeking cue:', error);
-      }
-    }
-  };
-
-  // Shared cleanup: clear progress tracking and remove from activeCues.
-  const cleanupActiveCue = (uuid: string) => {
-    const cue = activeCues.value.get(uuid);
-    if (!cue) return;
-    if (cue.progressInterval) clearInterval(cue.progressInterval);
-    activeCues.value.delete(uuid);
-    restoreDuckedVolumes(uuid);
-    const parentGroup = findParentGroup(uuid);
-    if (parentGroup) {
-      const groupState = activeGroups.value.get(parentGroup.uuid);
-      if (groupState) {
-        const itemIndex = groupState.playbackChain.indexOf(uuid);
-        if (itemIndex === groupState.playbackChain.length - 1) {
-          stopGroupTracking(parentGroup.uuid);
-        }
-      }
-    }
-  };
-
-  // Listen for server-side transport transitions. When the server signals
-  // Stopped for a cue we're tracking, clean up the activeCue entry so the UI
-  // reflects that the item has finished — replacing the old JS endTimer that
-  // was disconnected from actual server state.
-  {
-    const server = useLiveplayServer();
-    server.onCueState(({ cue_id, transport }) => {
-      if (transport !== 0) return; // 0 = Stopped
-      for (const [uuid, cue] of activeCues.value) {
-        if (cue.howl.cueId !== cue_id) continue;
-        const item = findItemByUuid(uuid);
-        // For loop items, the server immediately restarts — don't remove the
-        // activeCue entry on every loop iteration (would flicker the UI).
-        if (item && item.type === 'audio' &&
-            (item as AudioItem).endBehavior.action === 'loop') return;
-        cleanupActiveCue(uuid);
-        return;
-      }
-    });
   }
 
   return {
@@ -1463,6 +468,6 @@ export const useAudioEngine = () => {
     seekCue,
     triggerByUuid,
     triggerByIndex,
-    triggerGroup
+    triggerGroup,
   };
 };

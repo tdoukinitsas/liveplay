@@ -67,22 +67,18 @@
 </template>
 
 <script setup lang="ts">
+// Projection of the server's view of an active cue. Owned by useAudioEngine
+// which rebuilds it from cue_state / playback_snapshot / meters broadcasts.
+// No client-side playback state lives here.
 interface ActiveCueState {
   uuid: string;
   displayName: string;
   duration: number;
   currentTime: number;
-  volume: number;
-  isDucked: boolean;
   isPaused: boolean;
-  originalVolume: number;
-  howl?: any;
-  progressInterval?: any;
   color?: string;
   inPoint?: number;
   outPoint?: number;
-  currentLevel?: number;
-  peakLevel?: number;
   serverCueId?: string | null;
 }
 
@@ -159,21 +155,12 @@ const handleResume = () => {
 };
 
 const handleSeek = (e: MouseEvent) => {
-  // Seeking with fade support
-  if (props.cue.howl) {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percent = x / rect.width;
-    
-    // Calculate seek time relative to trimmed duration
-    const relativeSeekTime = percent * props.cue.duration;
-    
-    // For trimmed items, add inPoint to get absolute position in file
-    const absoluteSeekTime = relativeSeekTime + (props.cue.inPoint || 0);
-    
-    // Use the audio engine's seekCue function which handles fade
-    seekCue(props.cue.uuid, absoluteSeekTime);
-  }
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const percent = x / rect.width;
+  // Trimmed → absolute file time.
+  const absoluteSeekTime = percent * props.cue.duration + (props.cue.inPoint || 0);
+  seekCue(props.cue.uuid, absoluteSeekTime);
 };
 
 const formatTime = (seconds: number): string => {

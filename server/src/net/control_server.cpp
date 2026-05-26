@@ -44,6 +44,10 @@ namespace core  = liveplay::core;
 
 namespace liveplay::net {
 
+// Forward declarations (definitions further down).
+static nlohmann::json build_playback_snapshot(audio::AudioEngine& engine,
+                                              core::ProjectState& state);
+
 // Pimpl: all Crow + WebSocket state lives here so crow.h stays out of the
 // public header.
 struct ControlServer::Impl {
@@ -52,6 +56,13 @@ struct ControlServer::Impl {
     std::thread     broadcast_thread;
     std::mutex      ws_mutex;
     std::unordered_set<crow::websocket::connection*> ws_clients;
+    // Clients that need an initial playback_snapshot push. Populated by
+    // onopen, drained by broadcast_loop under ws_mutex — keeps all send_text
+    // calls on a single connection serialised through one mutex (Crow's
+    // websocket::connection is not safe under concurrent writes; calling
+    // send_text directly from onopen while broadcast_loop was concurrently
+    // sending meters to the same conn caused the crash on connect).
+    std::unordered_set<crow::websocket::connection*> ws_clients_pending_snapshot;
 };
 
 namespace {
@@ -138,6 +149,18 @@ ControlServer::~ControlServer() { stop(); }
 bool ControlServer::start() {
     if (running_.exchange(true)) return true;
     install_routes();
+
+    // Hand custom http-request actions off to clients. The server has no
+    // HTTP client of its own; broadcasting as a doc_patch lets any
+    // connected client execute the fetch. This is a best-effort fan-out;
+    // if no client is connected the action is silently dropped.
+    state_.set_external_action_handler([this](const json& action) {
+        broadcast_doc_patch(json{
+            {"type", "doc_patch"},
+            {"op",   "custom_action_http"},
+            {"action", action},
+        });
+    });
 
     // Crow's SimpleApp::run() blocks; we shove it on a worker thread.
     impl_->app_thread = std::thread([this] {
@@ -256,10 +279,32 @@ void ControlServer::broadcast_loop() {
             }
         }
 
-        // Fan out meters + cue_state events to all subscribed clients.
+        // Build any pending playback_snapshot payload before grabbing the
+        // mutex — build_playback_snapshot acquires state/engine locks of
+        // its own and we want to keep ws_mutex held for as short as
+        // possible to avoid stalling onopen/onclose.
+        std::string snapshot_serialized;
+        {
+            std::lock_guard lock{impl_->ws_mutex};
+            if (!impl_->ws_clients_pending_snapshot.empty()) {
+                try {
+                    snapshot_serialized =
+                        build_playback_snapshot(engine_, state_).dump();
+                } catch (const std::exception& e) {
+                    Logger::warn("build_playback_snapshot failed: {}", e.what());
+                }
+            }
+        }
+
+        // Fan out meters + cue_state events to all subscribed clients,
+        // plus snapshots for any client still flagged as pending.
         std::lock_guard lock{impl_->ws_mutex};
         for (auto* c : impl_->ws_clients) {
             try {
+                if (!snapshot_serialized.empty() &&
+                    impl_->ws_clients_pending_snapshot.erase(c)) {
+                    c->send_text(snapshot_serialized);
+                }
                 c->send_text(serialized);
                 for (const auto& e : cue_state_events) c->send_text(e);
             }
@@ -285,6 +330,38 @@ void ControlServer::broadcast_doc_patch(const json& payload) {
         try { c->send_text(serialized); }
         catch (...) { /* onclose will clean up dead connections */ }
     }
+}
+
+// Build a snapshot of all currently-known playback state. Sent to each new
+// WS client on connect so a freshly-reconnected client immediately mirrors
+// what every other client already sees: which cues are playing, where the
+// playhead is, the user-set "Up Next" override, and the active preview.
+// Without this, after a reconnect (or a second client joining mid-show)
+// the UI would think nothing is playing until the next transport edge fires.
+static json build_playback_snapshot(audio::AudioEngine& engine,
+                                    core::ProjectState& state) {
+    json cues_arr = json::array();
+    for (auto& cue : state.list_cues()) {
+        auto* item = engine.find_cue(cue.id);
+        if (!item) continue;
+        const auto s = item->stats();
+        if (s.transport == audio::TransportState::Stopped) continue;
+        cues_arr.push_back(json{
+            {"cue_id",           cue.id.value},
+            {"transport",        static_cast<int>(s.transport)},
+            {"playhead_seconds", s.playhead_seconds},
+        });
+    }
+    return json{
+        {"type",           "playback_snapshot"},
+        {"cues",           std::move(cues_arr)},
+        {"next_item_uuid", state.next_item_override()},
+        {"master_gain_db", engine.master_gain_db()},
+        {"preview", json{
+            {"item_uuid", state.current_preview_item_uuid()},
+            {"cue_id",    state.current_preview_cue_id().value},
+        }},
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -320,12 +397,26 @@ static void handle_ws_message(crow::websocket::connection& conn,
             if (j.contains("item_uuid") && j["item_uuid"].is_string()) {
                 const auto uuid = j["item_uuid"].get<std::string>();
                 Logger::playback("PLAY item_uuid={}", uuid);
-                state.play_item(uuid);
+                // trigger_item dispatches by item type: audio → play_item,
+                // group → walks startBehavior. Without this, WS plays of
+                // group items were silently ignored.
+                state.trigger_item(uuid);
             } else {
                 auto cue = resolve_cue(j);
                 if (cue) {
-                    Logger::playback("PLAY cue_id={}", cue->value);
-                    engine.play(*cue);
+                    // If this cue corresponds to a project item, route
+                    // through play_item so duckingBehavior / inPoint /
+                    // fades / endBehavior / sequencer auto-advance fire.
+                    // Only fall back to raw engine.play() for orphan cues
+                    // (e.g. ad-hoc /api/cues registrations with no item).
+                    if (auto uuid = state.cue_to_item_uuid(*cue)) {
+                        Logger::playback("PLAY cue_id={} → item_uuid={}",
+                                         cue->value, *uuid);
+                        state.play_item(*uuid);
+                    } else {
+                        Logger::playback("PLAY cue_id={} (orphan)", cue->value);
+                        engine.play(*cue);
+                    }
                 } else {
                     Logger::warn("WS play: no valid cue target in message");
                 }
@@ -339,11 +430,38 @@ static void handle_ws_message(crow::websocket::connection& conn,
             } else {
                 auto cue = resolve_cue(j);
                 if (cue) {
-                    Logger::playback("STOP cue_id={}", cue->value);
-                    engine.stop(*cue);
+                    if (auto uuid = state.cue_to_item_uuid(*cue)) {
+                        Logger::playback("STOP cue_id={} → item_uuid={}",
+                                         cue->value, *uuid);
+                        state.stop_item(*uuid);
+                    } else {
+                        Logger::playback("STOP cue_id={} (orphan)", cue->value);
+                        engine.stop(*cue);
+                    }
                 } else {
                     Logger::warn("WS stop: no valid cue target in message");
                 }
+            }
+        }
+        else if (type == "pause" || type == "resume") {
+            // Pause/resume hold the playhead without unloading. Routed via
+            // item_uuid (preferred) or cue_id. No effect on Stopped cues.
+            std::optional<audio::CueId> cue;
+            if (j.contains("item_uuid") && j["item_uuid"].is_string()) {
+                cue = state.item_to_cue_id(j["item_uuid"].get<std::string>());
+            } else {
+                cue = resolve_cue(j);
+            }
+            if (cue) {
+                if (auto* pi = engine.find_cue(*cue)) {
+                    Logger::playback("{} cue_id={}",
+                                     type == "pause" ? "PAUSE" : "RESUME",
+                                     cue->value);
+                    if (type == "pause") pi->pause();
+                    else                 pi->resume();
+                }
+            } else {
+                Logger::warn("WS {}: no valid cue target", type);
             }
         }
         else if (type == "stop_all") {
@@ -388,6 +506,8 @@ static void handle_ws_message(crow::websocket::connection& conn,
             }
             Logger::playback("SET NEXT item_uuid={}", uuid.empty() ? "<clear>" : uuid);
             state.set_next_item_override(uuid);
+            // Fan-out to every client happens in the .onmessage wrapper
+            // (which has access to the ControlServer for broadcast).
         }
         else if (type == "ping") {
             conn.send_text(json({{"type", "pong"}}).dump());
@@ -569,6 +689,22 @@ void ControlServer::install_routes() {
                 auto j = json::parse(req.body);
                 engine_.set_master_ceiling_db(j.value("db", -0.3f));
                 return json_ok(json({{"ok", true}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/master/gain").methods(crow::HTTPMethod::Get)
+        ([this]{ return json_ok(json({{"db", engine_.master_gain_db()}})); });
+    CROW_ROUTE(app, "/api/master/gain").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                auto j = json::parse(req.body);
+                const float db = j.value("db", 0.0f);
+                engine_.set_master_gain_db(db);
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "master_gain_changed"},
+                    {"db", engine_.master_gain_db()},
+                });
+                return json_ok(json({{"ok", true}, {"db", engine_.master_gain_db()}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
@@ -936,16 +1072,52 @@ void ControlServer::install_routes() {
                     Logger::warn("POST /api/project/load — missing 'path' or 'document' in body");
                     return json_err(400, "expected 'path' or 'document'");
                 }
+                auto repair = state_.consume_repair_info();
                 auto header = state_.header_document();
                 const std::size_t item_count = header.value("itemCount", (std::size_t)0);
-                Logger::api_response("POST /api/project/load OK — '{}' ({} items)",
-                                     header.value("name", "?"), item_count);
+                Logger::api_response("POST /api/project/load OK — '{}' ({} items){}",
+                                     header.value("name", "?"), item_count,
+                                     repair.repaired ? " [repaired]" : "");
+                // Attach repair metadata so the client can prompt the user.
+                header["needsRepair"] = repair.repaired;
+                if (repair.repaired) {
+                    auto issues = json::array();
+                    for (const auto& iss : repair.issues) issues.push_back(iss);
+                    header["repairIssues"] = std::move(issues);
+                }
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "project_changed"},
                 });
                 return json_ok(header);
             } catch (const std::exception& e) {
                 Logger::error("POST /api/project/load threw: {}", e.what());
+                return json_err(400, e.what());
+            }
+        });
+
+    // Repair the currently-loaded project and save it to disk. Called by the
+    // client after the user confirms the repair prompt.
+    CROW_ROUTE(app, "/api/project/repair").methods(crow::HTTPMethod::Post)
+        ([this]{
+            try {
+                Logger::api_request("POST /api/project/repair");
+                const auto repair = state_.repair_project();
+                if (repair.repaired) {
+                    const auto path = state_.project_file_path();
+                    if (!path.empty()) {
+                        if (!state_.save(path)) {
+                            Logger::error("POST /api/project/repair — save failed for '{}'",
+                                          liveplay::util::path_to_utf8(path));
+                            return json_err(500, "repair succeeded but save failed");
+                        }
+                    }
+                }
+                auto issues = json::array();
+                for (const auto& iss : repair.issues) issues.push_back(iss);
+                Logger::api_response("POST /api/project/repair OK — repaired={}", repair.repaired);
+                return json_ok(json{{"repaired", repair.repaired}, {"issues", std::move(issues)}});
+            } catch (const std::exception& e) {
+                Logger::error("POST /api/project/repair threw: {}", e.what());
                 return json_err(400, e.what());
             }
         });
@@ -1215,6 +1387,14 @@ void ControlServer::install_routes() {
                 }
                 const auto cue_id = state_.current_preview_cue_id().value;
                 Logger::api_response("POST /api/preview OK — cueId='{}'", cue_id);
+                // Mirror preview state to every other connected client so
+                // they can show the preview card / cue id in real time.
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"},
+                    {"op",   "preview_started"},
+                    {"itemUuid", uuid},
+                    {"cueId", cue_id},
+                });
                 return json_ok(json({
                     {"ok",      true},
                     {"itemUuid", uuid},
@@ -1230,6 +1410,10 @@ void ControlServer::install_routes() {
             Logger::playback("PREVIEW STOP");
             state_.stop_preview();
             Logger::api_response("DELETE /api/preview OK");
+            broadcast_doc_patch(json{
+                {"type", "doc_patch"},
+                {"op",   "preview_stopped"},
+            });
             return json_ok(json({{"ok", true}}));
         });
 
@@ -1276,11 +1460,19 @@ void ControlServer::install_routes() {
       .onopen([this](crow::websocket::connection& conn) {
           std::lock_guard lock{impl_->ws_mutex};
           impl_->ws_clients.insert(&conn);
+          // Mark this client for a playback_snapshot push on the next
+          // broadcast tick. The snapshot can't be sent inline here because
+          // build_playback_snapshot takes both engine and project locks
+          // (potentially seconds, e.g. mid project mirror) and Crow's
+          // connection is not safe to write from two threads at once —
+          // direct send_text here races the broadcast thread.
+          impl_->ws_clients_pending_snapshot.insert(&conn);
           Logger::info("WS client connected ({} total)", impl_->ws_clients.size());
       })
       .onclose([this](crow::websocket::connection& conn, const std::string& reason, std::uint16_t /*code*/) {
           std::lock_guard lock{impl_->ws_mutex};
           impl_->ws_clients.erase(&conn);
+          impl_->ws_clients_pending_snapshot.erase(&conn);
           Logger::info("WS client disconnected ({}); {} remaining",
                        reason, impl_->ws_clients.size());
       })
@@ -1289,6 +1481,24 @@ void ControlServer::install_routes() {
                         bool is_binary) {
           if (is_binary) return;
           handle_ws_message(conn, data, engine_, state_);
+          // After applying any state-mutating WS message, fan out the
+          // relevant change to every other client so multi-client mirroring
+          // stays consistent (the originating client gets the echo too —
+          // its local state already matches so the apply is a no-op).
+          try {
+              const auto j = json::parse(data);
+              const std::string type = j.value("type", "");
+              if (type == "set_next_item") {
+                  std::string uuid;
+                  if (j.contains("item_uuid") && j["item_uuid"].is_string())
+                      uuid = j["item_uuid"].get<std::string>();
+                  broadcast_doc_patch(json{
+                      {"type", "doc_patch"},
+                      {"op",   "next_item_set"},
+                      {"itemUuid", uuid},
+                  });
+              }
+          } catch (...) { /* malformed already logged in handle_ws_message */ }
       });
 }
 

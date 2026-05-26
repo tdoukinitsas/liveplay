@@ -47,7 +47,9 @@
     "connectedLocal": "Folosind serverul local de pe acest computer",
     "connectedTo": "Conectat la {url}",
     "changeMode": "Schimbă",
-    "back": "Înapoi"
+    "back": "Înapoi",
+    "startingLocalServer": "Se pornește serverul local…",
+    "serversOnThisNetwork": "Servere pe această rețea"
   },
   "project": {
     "enterName": "Introduceti Nume Proiect",
@@ -309,5 +311,12 @@
     "default": "implicit",
     "loading": "Se încarcă…",
     "error": "Eroare"
+  },
+  "repair": {
+    "title": "Proiect corupt detectat",
+    "message": "Acest proiect a avut probleme și a fost reparat automat. Au fost detectate următoarele probleme:",
+    "dataLossWarning": "Avertisment: unele date ar putea fi pierdute în urma reparării.",
+    "repairAndSave": "Repară și Salvează",
+    "openAnyway": "Deschide fără a Salva"
   }
 }
