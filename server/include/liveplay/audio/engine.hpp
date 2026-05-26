@@ -48,6 +48,61 @@
 // miniaudio types (header-only; implementation compiled once in miniaudio_impl.c).
 #include <miniaudio.h>
 
+// ---------------------------------------------------------------------------
+// AtomicSharedPtr<T>
+// ---------------------------------------------------------------------------
+// std::atomic<std::shared_ptr<T>> (C++20) isn't implemented in Apple Clang's
+// libc++ 16 (shipped with macOS Command Line Tools). Where the standard
+// specialization is available we use it directly; otherwise we wrap the
+// pre-C++20 std::atomic_load / std::atomic_store free-function overloads,
+// which remain functional on every common standard library (libc++, libstdc++,
+// MSVC STL) even though they were marked deprecated in C++20.
+//
+// The interface is intentionally minimal — load / store with sequential
+// consistency, which is all engine.cpp needs.
+// ---------------------------------------------------------------------------
+namespace liveplay::audio::detail {
+
+#if defined(__cpp_lib_atomic_shared_ptr) && __cpp_lib_atomic_shared_ptr >= 201711L
+template <class T>
+using AtomicSharedPtr = std::atomic<std::shared_ptr<T>>;
+#else
+
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
+template <class T>
+class AtomicSharedPtr {
+public:
+    AtomicSharedPtr() noexcept = default;
+    explicit AtomicSharedPtr(std::shared_ptr<T> p) noexcept : value_(std::move(p)) {}
+
+    std::shared_ptr<T> load() const noexcept {
+        return std::atomic_load(&value_);
+    }
+    void store(std::shared_ptr<T> p) noexcept {
+        std::atomic_store(&value_, std::move(p));
+    }
+
+private:
+    std::shared_ptr<T> value_{};
+};
+
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#endif
+
+#endif // __cpp_lib_atomic_shared_ptr
+
+} // namespace liveplay::audio::detail
+
 namespace liveplay::audio {
 
 // ---------------------------------------------------------------------------
@@ -245,7 +300,7 @@ private:
     PendingRoute pending_;
 
     // Atomic topology snapshot for the render thread.
-    std::atomic<std::shared_ptr<const Topology>> topology_{};
+    detail::AtomicSharedPtr<const Topology> topology_{};
 
     // Per master-channel state (lives outside the topology because limiter +
     // meter are persistent across topology rebuilds).

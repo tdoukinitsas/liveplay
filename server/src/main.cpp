@@ -37,6 +37,8 @@
 #else
     #include <arpa/inet.h>
     #include <ifaddrs.h>
+    #include <net/if.h>        // IFF_UP, IFF_LOOPBACK (macOS/BSD don't expose
+                               // these via <sys/socket.h> the way Linux does)
     #include <netdb.h>
     #include <netinet/in.h>
     #include <sys/socket.h>
