@@ -53,6 +53,8 @@ if(NOT unofficial-taglib_FOUND)
 endif()
 # vcpkg's miniaudio is header-only; the implementation TU is compiled below.
 find_path(MINIAUDIO_INCLUDE_DIR miniaudio.h REQUIRED)
+# miniz — used for .lpa (zip) packaging of project exports/imports.
+find_package(miniz CONFIG REQUIRED)
 
 # ---------------------------------------------------------------------------
 # miniaudio implementation translation unit
@@ -131,6 +133,7 @@ target_link_libraries(liveplay-server
         nlohmann_json::nlohmann_json
         Crow::Crow
         liveplay_miniaudio
+        miniz::miniz
 )
 
 # Link TagLib under whichever target name vcpkg exposed.

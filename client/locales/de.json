@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "Projekt wird exportiert",
-    "message": "Komprimieren"
+    "message": "Komprimieren",
+    "downloading": "Wird heruntergeladen"
   },
   "importProgress": {
     "title": "Projekt wird importiert",
@@ -310,7 +311,8 @@
   "common": {
     "default": "Standard",
     "loading": "Wird geladen…",
-    "error": "Fehler"
+    "error": "Fehler",
+    "cancel": "Abbrechen"
   },
   "repair": {
     "title": "Beschädigtes Projekt erkannt",
@@ -318,5 +320,31 @@
     "dataLossWarning": "Warnung: Bei der Reparatur könnten einige Daten verloren gegangen sein.",
     "repairAndSave": "Reparieren & Speichern",
     "openAnyway": "Ohne Speichern öffnen"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "Projekt exportieren",
+    "chooseLocationMessage": "Wo soll das Projektarchiv gespeichert werden? Sie können es auf dem Server speichern oder auf diesen Computer herunterladen.",
+    "saveOnServer": "Auf Server speichern",
+    "downloadHere": "Hier herunterladen"
+  },
+  "importProject": {
+    "chooseSourceTitle": "Projekt importieren",
+    "chooseSourceMessage": "Wo befindet sich das Projektarchiv? Sie können eines auswählen, das bereits auf dem Server liegt, oder eines von diesem Computer hochladen.",
+    "fromServer": "Server durchsuchen",
+    "fromThisComputer": "Von diesem Computer"
+  },
+  "importAudio": {
+    "title": "Audio importieren",
+    "tabServer": "Auf Server",
+    "tabUpload": "Von diesem Computer hochladen",
+    "serverHint": "Dateien, die bereits auf dem Server liegen. Doppelklicken Sie auf einen Ordner, um darin zu navigieren, oder klicken Sie auf Hinzufügen neben einer Datei.",
+    "uploadIntro": "Wählen Sie eine oder mehrere Dateien von diesem Computer aus. Sie werden in den Medienordner des Servers hochgeladen.",
+    "uploading": "Wird hochgeladen…",
+    "chooseFiles": "Dateien auswählen…",
+    "add": "Hinzufügen",
+    "desktopOnly": "Der native Dateiauswähler ist nur in der Desktop-App verfügbar.",
+    "uploadingProgress": "Wird hochgeladen {i}/{total}: {name}",
+    "uploadedCount": "{count} Datei(en) hochgeladen. Klicken Sie auf \"Hinzufügen\", um zu importieren.",
+    "uploadFailed": "Upload fehlgeschlagen: {error}"
   }
 }

@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "正在导出项目",
-    "message": "正在压缩"
+    "message": "正在压缩",
+    "downloading": "正在下载"
   },
   "importProgress": {
     "title": "正在导入项目",
@@ -310,7 +311,8 @@
   "common": {
     "default": "默认",
     "loading": "加载中…",
-    "error": "错误"
+    "error": "错误",
+    "cancel": "取消"
   },
   "repair": {
     "title": "检测到损坏的项目",
@@ -318,5 +320,31 @@
     "dataLossWarning": "警告：修复过程中可能丢失了部分数据。",
     "repairAndSave": "修复并保存",
     "openAnyway": "不保存直接打开"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "导出项目",
+    "chooseLocationMessage": "项目存档应保存在何处？您可以将其保存到服务器，或下载到此计算机。",
+    "saveOnServer": "保存到服务器",
+    "downloadHere": "下载到此处"
+  },
+  "importProject": {
+    "chooseSourceTitle": "导入项目",
+    "chooseSourceMessage": "项目存档在哪里？您可以选择服务器上已有的，或从此计算机上传。",
+    "fromServer": "浏览服务器",
+    "fromThisComputer": "来自此计算机"
+  },
+  "importAudio": {
+    "title": "导入音频",
+    "tabServer": "在服务器上",
+    "tabUpload": "从此计算机上传",
+    "serverHint": "服务器上已有的文件。双击文件夹进入,或点击文件旁边的添加。",
+    "uploadIntro": "从此计算机选择一个或多个文件。它们将上传到服务器的媒体文件夹。",
+    "uploading": "上传中…",
+    "chooseFiles": "选择文件…",
+    "add": "添加",
+    "desktopOnly": "原生文件选择器仅在桌面应用中可用。",
+    "uploadingProgress": "上传中 {i}/{total}：{name}",
+    "uploadedCount": "已上传 {count} 个文件。点击\"添加\"以导入。",
+    "uploadFailed": "上传失败：{error}"
   }
 }

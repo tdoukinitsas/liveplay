@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "Eksporterer Prosjekt",
-    "message": "Komprimerer"
+    "message": "Komprimerer",
+    "downloading": "Laster ned"
   },
   "importProgress": {
     "title": "Importerer Prosjekt",
@@ -310,7 +311,8 @@
   "common": {
     "default": "standard",
     "loading": "Laster…",
-    "error": "Feil"
+    "error": "Feil",
+    "cancel": "Avbryt"
   },
   "repair": {
     "title": "Skadet prosjekt oppdaget",
@@ -318,5 +320,31 @@
     "dataLossWarning": "Advarsel: noen data kan ha gått tapt under reparasjonen.",
     "repairAndSave": "Reparer og Lagre",
     "openAnyway": "Åpne uten å Lagre"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "Eksporter prosjekt",
+    "chooseLocationMessage": "Hvor skal prosjektarkivet lagres? Du kan lagre det på serveren eller laste det ned til denne datamaskinen.",
+    "saveOnServer": "Lagre på server",
+    "downloadHere": "Last ned her"
+  },
+  "importProject": {
+    "chooseSourceTitle": "Importer prosjekt",
+    "chooseSourceMessage": "Hvor er prosjektarkivet? Du kan velge ett som allerede ligger på serveren, eller laste opp ett fra denne datamaskinen.",
+    "fromServer": "Bla i server",
+    "fromThisComputer": "Fra denne datamaskinen"
+  },
+  "importAudio": {
+    "title": "Importer lyd",
+    "tabServer": "På serveren",
+    "tabUpload": "Last opp fra denne datamaskinen",
+    "serverHint": "Filer som allerede ligger på serveren. Dobbeltklikk på en mappe for å gå inn, eller klikk Legg til ved siden av en fil.",
+    "uploadIntro": "Velg én eller flere filer fra denne datamaskinen. De blir lastet opp til serverens mediemappe.",
+    "uploading": "Laster opp…",
+    "chooseFiles": "Velg filer…",
+    "add": "Legg til",
+    "desktopOnly": "Den native filvelgeren er bare tilgjengelig i skrivebordsappen.",
+    "uploadingProgress": "Laster opp {i}/{total}: {name}",
+    "uploadedCount": "Lastet opp {count} fil(er). Klikk \"Legg til\" for å importere.",
+    "uploadFailed": "Opplasting mislyktes: {error}"
   }
 }

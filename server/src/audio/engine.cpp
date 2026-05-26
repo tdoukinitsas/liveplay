@@ -276,12 +276,12 @@ DeviceId AudioEngine::open_device_by_name(const std::string& name_substring,
     dev->ring         = std::make_unique<ma_pcm_rb>();
     dev->engine       = this;                       // for callback → consumption_counter_
 
-    // Allocate a ring big enough for ~20 render blocks of headroom. With 256
-    // frames @ 48 kHz that's ~107 ms — comfortable margin against decode-path
+    // Allocate a ring big enough for ~40 render blocks of headroom. With 256
+    // frames @ 48 kHz that's ~213 ms — comfortable margin against decode-path
     // spikes (disk I/O, MP3/FLAC inner-loop) so transient stalls never reach
     // the device callback. Transport latency is unaffected because the engine
     // commits gain/transport state independently of the buffer position.
-    const ma_uint32 ring_frames = static_cast<ma_uint32>(cfg_.render_block * 20);
+    const ma_uint32 ring_frames = static_cast<ma_uint32>(cfg_.render_block * 40);
     if (ma_pcm_rb_init(ma_format_f32, output_channels, ring_frames,
                        nullptr, nullptr, dev->ring.get()) != MA_SUCCESS) {
         Logger::error("Failed to allocate ring buffer for device '{}'", dev->display_name);

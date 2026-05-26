@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "Exportare Proiect",
-    "message": "Comprimare"
+    "message": "Comprimare",
+    "downloading": "Se descarcă"
   },
   "importProgress": {
     "title": "Importare Proiect",
@@ -310,7 +311,8 @@
   "common": {
     "default": "implicit",
     "loading": "Se încarcă…",
-    "error": "Eroare"
+    "error": "Eroare",
+    "cancel": "Anulează"
   },
   "repair": {
     "title": "Proiect corupt detectat",
@@ -318,5 +320,31 @@
     "dataLossWarning": "Avertisment: unele date ar putea fi pierdute în urma reparării.",
     "repairAndSave": "Repară și Salvează",
     "openAnyway": "Deschide fără a Salva"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "Exportă proiectul",
+    "chooseLocationMessage": "Unde trebuie salvată arhiva proiectului? O puteți salva pe server sau o puteți descărca pe acest computer.",
+    "saveOnServer": "Salvează pe server",
+    "downloadHere": "Descarcă aici"
+  },
+  "importProject": {
+    "chooseSourceTitle": "Importă proiectul",
+    "chooseSourceMessage": "Unde se află arhiva proiectului? Puteți alege una deja pe server sau încărca una de pe acest computer.",
+    "fromServer": "Răsfoiește serverul",
+    "fromThisComputer": "De pe acest computer"
+  },
+  "importAudio": {
+    "title": "Importă audio",
+    "tabServer": "Pe server",
+    "tabUpload": "Încarcă de pe acest computer",
+    "serverHint": "Fișiere deja pe server. Faceți dublu clic pe un folder pentru a coborî, sau faceți clic pe Adaugă lângă un fișier.",
+    "uploadIntro": "Alegeți unul sau mai multe fișiere de pe acest computer. Vor fi încărcate în folderul media al serverului.",
+    "uploading": "Se încarcă…",
+    "chooseFiles": "Alegeți fișiere…",
+    "add": "Adaugă",
+    "desktopOnly": "Selectorul nativ de fișiere este disponibil doar în aplicația desktop.",
+    "uploadingProgress": "Se încarcă {i}/{total}: {name}",
+    "uploadedCount": "{count} fișier(e) încărcat(e). Faceți clic pe \"Adaugă\" pentru a importa.",
+    "uploadFailed": "Încărcare eșuată: {error}"
   }
 }

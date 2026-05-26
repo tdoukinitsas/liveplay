@@ -73,6 +73,30 @@
 
     <!-- Persistent disconnect → ask the user how to recover -->
     <ConnectionLostModal />
+
+    <!-- Import: server vs client choice (only for remote servers). -->
+    <LocationChoiceModal
+      :visible="importChoiceVisible"
+      :title="t('importProject.chooseSourceTitle')"
+      :message="t('importProject.chooseSourceMessage')"
+      :server-label="t('importProject.fromServer')"
+      :client-label="t('importProject.fromThisComputer')"
+      :cancel-label="t('common.cancel')"
+      @pick="onImportChoice"
+      @cancel="importChoiceVisible = false"
+    />
+
+    <!-- Server file picker — used both to choose a .lpa on the server,
+         and to choose the extract destination. -->
+    <ServerFilePickerModal
+      :open="importServerPickerOpen"
+      :mode="importServerPickerStage === 'destination' ? 'directory' : 'file'"
+      :filter="importServerPickerStage === 'destination' ? 'all' : '.lpa'"
+      :filter-options="importServerPickerStage === 'destination' ? ['all'] : ['.lpa', 'all']"
+      start-path=""
+      @pick="onImportServerPickerPick"
+      @close="importServerPickerOpen = false"
+    />
   </div>
 </template>
 
@@ -86,6 +110,8 @@ const {
 } = useProject();
 import LoadingOverlay from './components/LoadingOverlay.vue';
 import AudioLoadProgress from './components/AudioLoadProgress.vue';
+import LocationChoiceModal from './components/LocationChoiceModal.vue';
+import ServerFilePickerModal from './components/ServerFilePickerModal.vue';
 const { currentLocale, setLocale, getDirection, t } = useLocalization();
 const theme = useState('theme', () => 'dark');
 
@@ -154,44 +180,16 @@ onMounted(() => {
       showAboutModal.value = true;
     });
     
-    // Handle import project (works even on welcome screen)
-    window.electronAPI.onMenuImportProject(async () => {
-      try {
-        // Set up progress listener
-        const progressListener = (_event: any, data: { percentage: number; fileName: string }) => {
-          progressModal.value = {
-            visible: true,
-            title: t('importProgress.title'),
-            message: `${t('importProgress.message')} ${data.fileName}...`,
-            percentage: data.percentage
-          };
-        };
-        
-        window.electronAPI.onImportProgress(progressListener);
-        
-        const result = await window.electronAPI.importProject();
-        
-        // Clean up listener
-        window.electronAPI.removeImportProgressListener(progressListener);
-        
-        // Hide modal
-        progressModal.value.visible = false;
-        
-        if (result.success) {
-          // Handle multiple projects
-          if (result.multipleProjects && result.projectFiles) {
-            availableProjects.value = result.projectFiles;
-            pendingImportPath.value = result.extractPath;
-            showProjectSelection.value = true;
-          } else if (result.projectPath) {
-            // Single project - open directly
-            await openProject(result.projectPath);
-          }
-        }
-      } catch (error) {
-        console.error('Import failed:', error);
-        progressModal.value.visible = false;
-      }
+    // File > Import Project. When the server is on this same machine the
+    // .lpa already lives somewhere we can reach — show the server file
+    // picker. When the server is remote, ask the user whether they want
+    // to browse the server's filesystem OR pick a .lpa from this computer
+    // and upload it. The actual archive extraction always happens on the
+    // server now (no more Electron-side extract path), because the
+    // extracted project folder MUST live next to the server's audio
+    // engine — otherwise the audio files don't resolve at playback.
+    window.electronAPI.onMenuImportProject(() => {
+      startImportFlow();
     });
 
     // Listen for update events
@@ -216,45 +214,25 @@ onMounted(() => {
       }
     });
     
-    // Listen for .lpa file opening (from double-click file association)
+    // Listen for .lpa file opening (from double-click file association).
+    // The path is always a local-machine path. We buffer the file in memory
+    // and reuse the standard import flow's destination-picker so the server
+    // owns the extraction in all cases (local OR remote server).
     window.electronAPI.onOpenLpaFile(async (event: any, data: { lpaPath: string }) => {
       try {
-        console.log('Opening .lpa file:', data.lpaPath);
-        
-        // Set up progress listener
-        const progressListener = (_event: any, progressData: { percentage: number; fileName: string }) => {
-          progressModal.value = {
-            visible: true,
-            title: t('importProgress.title'),
-            message: `${t('importProgress.message')} ${progressData.fileName}...`,
-            percentage: progressData.percentage
-          };
-        };
-        
-        window.electronAPI.onImportProgress(progressListener);
-        
-        const result = await window.electronAPI.importLpaFile(data.lpaPath);
-        
-        // Clean up listener
-        window.electronAPI.removeImportProgressListener(progressListener);
-        
-        // Hide modal
-        progressModal.value.visible = false;
-        
-        if (result.success) {
-          // Handle multiple projects
-          if (result.multipleProjects && result.projectFiles) {
-            availableProjects.value = result.projectFiles;
-            pendingImportPath.value = result.extractPath;
-            showProjectSelection.value = true;
-          } else if (result.projectPath) {
-            // Single project - open directly
-            await openProject(result.projectPath);
-          }
+        const result = await (window as any).electronAPI.readAudioFile(data.lpaPath);
+        if (!result?.success || !result.data) {
+          console.error('Failed to read .lpa:', result?.error);
+          return;
         }
+        const bytes = new Uint8Array(result.data);
+        const name  = data.lpaPath.split(/[\\/]/).pop() || 'import.lpa';
+        pendingArchiveBlob.value     = new File([bytes], name);
+        pendingArchiveBlobName.value = name;
+        importServerPickerStage.value = 'destination';
+        importServerPickerOpen.value  = true;
       } catch (error) {
         console.error('Failed to open .lpa file:', error);
-        progressModal.value.visible = false;
       }
     });
 
@@ -271,6 +249,107 @@ const changeAccentColor = (color: string) => {
     showColorPicker.value = false;
   }
 };
+
+// ---------------------------------------------------------------------------
+// Import project flow (dual-dialog when client and server are on different
+// machines). The extraction ALWAYS happens server-side because the
+// extracted project folder needs to live next to the audio engine.
+// ---------------------------------------------------------------------------
+const importChoiceVisible       = ref(false);
+const importServerPickerOpen    = ref(false);
+const importServerPickerStage   = ref<'archive' | 'destination'>('archive');
+const pendingArchiveOnServer    = ref<string>('');           // server-side .lpa path
+const pendingArchiveBlob        = ref<File | null>(null);    // client-side .lpa
+const pendingArchiveBlobName    = ref<string>('');
+
+function startImportFlow() {
+  const server = useLiveplayServer();
+  importServerPickerStage.value = 'archive';
+  if (server.isLocalServer.value) {
+    importServerPickerOpen.value = true;
+  } else {
+    importChoiceVisible.value = true;
+  }
+}
+
+async function onImportChoice(choice: 'server' | 'client') {
+  importChoiceVisible.value = false;
+  if (choice === 'server') {
+    importServerPickerStage.value = 'archive';
+    importServerPickerOpen.value = true;
+    return;
+  }
+  // client → ask Electron for an .lpa from this computer, then move on to
+  // the server-destination picker so the user chooses WHERE on the server
+  // it should be extracted.
+  const lpaPath = await (window as any).electronAPI.showOpenArchiveDialog();
+  if (!lpaPath) return;
+  const result = await (window as any).electronAPI.readAudioFile(lpaPath);
+  if (!result?.success || !result.data) {
+    console.error('Failed to read .lpa:', result?.error);
+    return;
+  }
+  const bytes = new Uint8Array(result.data);
+  const name  = lpaPath.split(/[\\/]/).pop() || 'import.lpa';
+  pendingArchiveBlob.value     = new File([bytes], name);
+  pendingArchiveBlobName.value = name;
+  importServerPickerStage.value = 'destination';
+  importServerPickerOpen.value  = true;
+}
+
+async function onImportServerPickerPick(serverPath: string) {
+  importServerPickerOpen.value = false;
+  if (!serverPath) return;
+  const server = useLiveplayServer();
+
+  if (importServerPickerStage.value === 'archive') {
+    // The user picked a .lpa that already lives on the server. Now ask
+    // WHERE to extract it (also on the server).
+    pendingArchiveOnServer.value = serverPath;
+    importServerPickerStage.value = 'destination';
+    importServerPickerOpen.value  = true;
+    return;
+  }
+
+  // 'destination': we know the .lpa (either on server or buffered locally)
+  // AND now the extraction directory. Kick off the import.
+  progressModal.value = {
+    visible: true,
+    title:   t('importProgress.title'),
+    message: `${t('importProgress.message')} ${pendingArchiveBlobName.value ||
+              pendingArchiveOnServer.value.split(/[\\/]/).pop() || ''}…`,
+    percentage: 40,
+  };
+  try {
+    let result;
+    if (pendingArchiveBlob.value) {
+      result = await server.importProjectArchiveUpload(
+        pendingArchiveBlob.value, serverPath, pendingArchiveBlobName.value);
+    } else {
+      result = await server.importProjectArchiveFromServer(
+        pendingArchiveOnServer.value, serverPath);
+    }
+    progressModal.value.percentage = 100;
+    if (result.projectFiles.length === 0) {
+      console.error('No .liveplay file in archive');
+      return;
+    }
+    if (result.projectFiles.length > 1) {
+      availableProjects.value = result.projectFiles;
+      pendingImportPath.value = result.extractPath;
+      showProjectSelection.value = true;
+    } else {
+      await openProject(`${result.extractPath}/${result.projectFiles[0]}`);
+    }
+  } catch (e) {
+    console.error('Import failed:', e);
+  } finally {
+    setTimeout(() => { progressModal.value.visible = false; }, 300);
+    pendingArchiveOnServer.value = '';
+    pendingArchiveBlob.value     = null;
+    pendingArchiveBlobName.value = '';
+  }
+}
 
 // Handle project selection from multiple projects
 const handleProjectSelection = async (projectName: string) => {

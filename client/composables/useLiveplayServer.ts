@@ -192,6 +192,10 @@ function createClient() {
       // Reconnects (e.g. transient Crow WS close-frame issues) don't change
       // those tables, so re-fetching every time produced a request storm
       // that masked any actual UI work.
+      // Always re-check whether we're talking to a server on this same
+      // machine — the URL might look remote (LAN IP) but route to loopback,
+      // and /api/whoami is the only authoritative answer.
+      void refreshIsLocalServer();
       if (!hasEverConnected) {
         hasEverConnected = true;
         void Promise.allSettled([fetchCues(), fetchMixerChannels(), fetchDevices()]);
@@ -430,6 +434,112 @@ function createClient() {
   }
   async function repairProject(): Promise<{ repaired: boolean; issues: string[] }> {
     return rest<any>('/api/project/repair', { method: 'POST', body: '{}' });
+  }
+  // Close the project on the server (reset to no-project state). Mirrors the
+  // local closeProject() in useProject so the server doesn't keep playing /
+  // holding a project we've dismissed.
+  async function closeProjectOnServer(): Promise<{ closed: boolean }> {
+    return rest<any>('/api/project/close', { method: 'POST', body: '{}' });
+  }
+
+  // True when the configured server is running on this same machine. Used
+  // by import/export flows to decide whether to show the dual-dialog choice
+  // (server vs. this computer) — picking files from "this computer" is
+  // meaningless when the server IS this computer.
+  //
+  // We can't rely on hostname alone: the user may connect to a server on
+  // their own machine via its LAN IP (192.168.x.x) instead of localhost.
+  // The authoritative answer comes from /api/whoami, which reports back
+  // whether the server saw the request arrive on its loopback interface.
+  // The reactive `isLocalServer` ref is updated on every reconnect.
+  const isLocalServer = ref<boolean>(false);
+
+  // Synchronous loopback-hostname check as a fast-path — used as the
+  // initial value before /api/whoami answers, and as the fallback when the
+  // server isn't reachable yet.
+  function urlLooksLocal(url: string): boolean {
+    try {
+      const h = new URL(url).hostname.toLowerCase();
+      return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]';
+    } catch { return false; }
+  }
+  isLocalServer.value = urlLooksLocal(serverUrl.value);
+
+  async function refreshIsLocalServer(): Promise<void> {
+    try {
+      const r = await rest<{ clientIp: string; isLocal: boolean }>('/api/whoami');
+      isLocalServer.value = !!r.isLocal;
+    } catch {
+      // Network blip — fall back to URL heuristic so we still have an answer.
+      isLocalServer.value = urlLooksLocal(serverUrl.value);
+    }
+  }
+
+  // Package a project folder server-side into a .lpa archive.
+  //  * outputPath set → archive written there on the server; no download token.
+  //  * outputPath empty → archive staged in server temp dir; response carries
+  //    a one-shot download token the client redeems via downloadArchive().
+  async function exportProjectArchive(folderPath: string, projectName?: string,
+                                      outputPath?: string) {
+    return rest<{
+      archivePath: string;
+      size: number;
+      downloadToken?: string;
+      downloadFilename?: string;
+    }>('/api/project/export', {
+      method: 'POST',
+      body: JSON.stringify({
+        folderPath,
+        projectName: projectName ?? '',
+        outputPath:  outputPath  ?? '',
+      }),
+    });
+  }
+
+  // Redeem a one-shot download token and return the .lpa bytes as a Blob.
+  // The server deletes the temp file after streaming, so a token is single-use.
+  async function downloadArchive(token: string): Promise<Blob> {
+    const res = await fetch(httpBase.value + '/api/file/download?token=' +
+                            encodeURIComponent(token));
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      throw new Error(`download failed: ${res.status} ${text}`);
+    }
+    return await res.blob();
+  }
+
+  // Upload a .lpa archive from the client and have the server extract it
+  // into `extractPath` (server-side absolute path).
+  async function importProjectArchiveUpload(file: File | Blob,
+                                            extractPath: string,
+                                            filename?: string) {
+    const fd = new FormData();
+    fd.append('file', file, filename ?? (file as File).name ?? 'import.lpa');
+    fd.append('extractPath', extractPath);
+    const res = await fetch(httpBase.value + '/api/project/import', {
+      method: 'POST',
+      body: fd,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      throw new Error(`import upload failed: ${res.status} ${text}`);
+    }
+    return res.json() as Promise<{
+      extractPath: string;
+      projectFiles: string[];
+    }>;
+  }
+
+  // Have the server extract a .lpa archive that already exists on its
+  // filesystem (chosen via the server file browser).
+  async function importProjectArchiveFromServer(archivePath: string,
+                                                extractPath: string) {
+    return rest<{ extractPath: string; projectFiles: string[] }>(
+      '/api/project/import',
+      {
+        method: 'POST',
+        body: JSON.stringify({ archivePath, extractPath }),
+      });
   }
   // PUT the full project document. Server replaces in-memory state and
   // re-mirrors audio items into the engine.
@@ -771,6 +881,13 @@ function createClient() {
     replaceProjectDocument,
     saveProjectTo,
     repairProject,
+    closeProjectOnServer,
+    isLocalServer,
+    refreshIsLocalServer,
+    exportProjectArchive,
+    downloadArchive,
+    importProjectArchiveUpload,
+    importProjectArchiveFromServer,
 
     // item CRUD via server
     addProjectItem,

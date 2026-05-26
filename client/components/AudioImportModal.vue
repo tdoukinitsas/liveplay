@@ -3,35 +3,35 @@
     <div v-if="open" class="modal-backdrop" @click.self="close">
       <div class="modal">
         <header>
-          <h2>Import audio</h2>
+          <h2>{{ t('importAudio.title') }}</h2>
           <button class="x" @click="close">✕</button>
         </header>
 
-        <!-- Source mode toggle -->
-        <div class="tabs">
+        <!-- Source mode toggle. Only rendered when the server is on a
+             different machine; otherwise "upload" makes no sense and we
+             skip the tabs entirely. -->
+        <div v-if="!server.isLocalServer.value" class="tabs">
           <button class="tab" :class="{ active: tab === 'server' }" @click="tab = 'server'">
-            On server
+            {{ t('importAudio.tabServer') }}
           </button>
           <button class="tab" :class="{ active: tab === 'upload' }" @click="tab = 'upload'">
-            Upload from this computer
+            {{ t('importAudio.tabUpload') }}
           </button>
         </div>
 
-        <!-- "On server" tab — browses the server's media root via /api/fs/list -->
+        <!-- "On server" tab — browses the server's filesystem via /api/fs/list -->
         <section v-if="tab === 'server'" class="pane">
           <ServerFileBrowser :start-path="server.serverUrl ? '' : ''" @select="onServerPick" />
-          <p class="hint">Files already on the server. Double-click a folder to descend, or
-                          click <em>Add</em> next to a file.</p>
+          <p class="hint">{{ t('importAudio.serverHint') }}</p>
         </section>
 
         <!-- "Upload" tab — native dialog, then multipart POST to /api/upload -->
         <section v-else class="pane">
-          <p>Pick one or more files from this computer. They'll be uploaded into
-             the server's media folder.</p>
+          <p>{{ t('importAudio.uploadIntro') }}</p>
 
           <div class="row">
             <button class="btn primary" :disabled="uploading" @click="pickAndUpload">
-              {{ uploading ? `Uploading…` : 'Choose files…' }}
+              {{ uploading ? t('importAudio.uploading') : t('importAudio.chooseFiles') }}
             </button>
             <span v-if="uploadStatus" class="status">{{ uploadStatus }}</span>
           </div>
@@ -40,7 +40,9 @@
             <li v-for="p in uploadedThisSession" :key="p">
               <span class="icon">🎵</span>
               <span class="name">{{ basename(p) }}</span>
-              <button class="btn small primary" @click="emitPick(p)">Add</button>
+              <button class="btn small primary" @click="emitPick(p)">
+                {{ t('importAudio.add') }}
+              </button>
             </li>
           </ul>
         </section>
@@ -78,6 +80,9 @@ const emit  = defineEmits<{
 }>();
 
 const server = useLiveplayServer();
+const { t }  = useLocalization();
+// When the server is on this same machine, "Upload from this computer" is
+// meaningless — we just want the server file browser.
 const tab    = ref<'server' | 'upload'>('server');
 
 const uploading           = ref(false);
@@ -97,7 +102,7 @@ function onServerPick(serverPath: string) {
 async function pickAndUpload() {
   const api: any = (globalThis as any).electronAPI;
   if (!api?.selectAudioFiles) {
-    uploadStatus.value = 'Native file picker is only available in the desktop app.';
+    uploadStatus.value = t('importAudio.desktopOnly');
     return;
   }
 
@@ -108,18 +113,19 @@ async function pickAndUpload() {
   try {
     for (let i = 0; i < localPaths.length; ++i) {
       const lp = localPaths[i];
-      uploadStatus.value = `Uploading ${i + 1}/${localPaths.length}: ${basename(lp)}`;
+      uploadStatus.value = t('importAudio.uploadingProgress',
+        { i: i + 1, total: localPaths.length, name: basename(lp) });
 
       // Read raw bytes through Electron, then wrap as a File for fetch().
       // (This avoids needing the renderer to have direct disk access.)
-      const result = await api.readFile(lp);
+      // readAudioFile returns the binary as a number[]; readFile would
+      // try to decode utf8 and corrupt audio payloads.
+      const result = await api.readAudioFile(lp);
       if (!result?.success || !result.data) {
-        console.warn('[import] readFile failed for', lp, result?.error);
+        console.warn('[import] readAudioFile failed for', lp, result?.error);
         continue;
       }
-      const bytes = result.data instanceof ArrayBuffer
-        ? new Uint8Array(result.data)
-        : new Uint8Array(result.data);
+      const bytes = new Uint8Array(result.data);
       const file = new File([bytes], basename(lp));
 
       const out = await server.uploadFile(file, basename(lp));
@@ -129,9 +135,9 @@ async function pickAndUpload() {
         }
       }
     }
-    uploadStatus.value = `Uploaded ${localPaths.length} file(s). Click "Add" to import.`;
+    uploadStatus.value = t('importAudio.uploadedCount', { count: localPaths.length });
   } catch (e: any) {
-    uploadStatus.value = `Upload failed: ${e.message ?? e}`;
+    uploadStatus.value = t('importAudio.uploadFailed', { error: e?.message ?? e });
   } finally {
     uploading.value = false;
   }

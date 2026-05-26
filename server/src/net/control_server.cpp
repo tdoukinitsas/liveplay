@@ -22,18 +22,24 @@
 
 #include <crow.h>
 #include <crow/middlewares/cors.h>
+#include <miniz.h>
 
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <mutex>
 #include <nlohmann/json.hpp>
+#include <optional>
+#include <random>
 #include <set>
 #include <sstream>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <unordered_set>
 
 
@@ -95,6 +101,139 @@ crow::response json_err(int status, std::string_view message) {
     r.add_header("Content-Type", "application/json");
     r.add_header("Access-Control-Allow-Origin", "*");
     return r;
+}
+
+// ---------------------------------------------------------------------------
+// Zip helpers (.lpa = zip of a project folder)
+// ---------------------------------------------------------------------------
+// Recursively pack every regular file under `root` into a .zip at `out_zip`.
+// Entries are stored with paths relative to `root` using forward slashes,
+// so the archive is portable between OSes.
+static bool zip_pack_directory(const fs::path& root, const fs::path& out_zip) {
+    mz_zip_archive zip{};
+    std::memset(&zip, 0, sizeof(zip));
+    const std::string out_utf8 = liveplay::util::path_to_utf8(out_zip);
+    if (!mz_zip_writer_init_file(&zip, out_utf8.c_str(), 0)) {
+        Logger::error("zip_pack_directory: init failed for '{}'", out_utf8);
+        return false;
+    }
+    bool ok = true;
+    try {
+        for (auto it = fs::recursive_directory_iterator(root);
+             it != fs::recursive_directory_iterator(); ++it) {
+            if (!it->is_regular_file()) continue;
+            const fs::path rel = fs::relative(it->path(), root);
+            // Forward-slash, UTF-8 entry name.
+            std::string entry = liveplay::util::path_to_utf8(rel);
+            std::replace(entry.begin(), entry.end(), '\\', '/');
+            const std::string src = liveplay::util::path_to_utf8(it->path());
+            if (!mz_zip_writer_add_file(&zip, entry.c_str(), src.c_str(),
+                                        nullptr, 0, MZ_DEFAULT_LEVEL)) {
+                Logger::error("zip_pack_directory: add '{}' failed", entry);
+                ok = false;
+                break;
+            }
+        }
+    } catch (const std::exception& e) {
+        Logger::error("zip_pack_directory: walk threw: {}", e.what());
+        ok = false;
+    }
+    if (ok && !mz_zip_writer_finalize_archive(&zip)) {
+        Logger::error("zip_pack_directory: finalize failed");
+        ok = false;
+    }
+    mz_zip_writer_end(&zip);
+    if (!ok) { std::error_code ec; fs::remove(out_zip, ec); }
+    return ok;
+}
+
+// Extract every entry in `src_zip` into directory `out_dir`. Paths inside the
+// archive are sanitised — leading slashes, "..", and absolute prefixes are
+// rejected so a hostile archive can't escape `out_dir`.
+static bool zip_extract_to(const fs::path& src_zip, const fs::path& out_dir) {
+    mz_zip_archive zip{};
+    std::memset(&zip, 0, sizeof(zip));
+    const std::string in_utf8 = liveplay::util::path_to_utf8(src_zip);
+    if (!mz_zip_reader_init_file(&zip, in_utf8.c_str(), 0)) {
+        Logger::error("zip_extract_to: init failed for '{}'", in_utf8);
+        return false;
+    }
+    std::error_code ec;
+    fs::create_directories(out_dir, ec);
+    bool ok = true;
+    const mz_uint count = mz_zip_reader_get_num_files(&zip);
+    for (mz_uint i = 0; i < count; ++i) {
+        mz_zip_archive_file_stat st{};
+        if (!mz_zip_reader_file_stat(&zip, i, &st)) { ok = false; break; }
+        std::string name = st.m_filename;
+        // Sanitise: reject absolute or parent-traversal entries.
+        if (name.empty()) continue;
+        if (name.front() == '/' || name.front() == '\\') {
+            Logger::warn("zip_extract_to: skipping absolute entry '{}'", name);
+            continue;
+        }
+        if (name.find("..") != std::string::npos) {
+            Logger::warn("zip_extract_to: skipping suspicious entry '{}'", name);
+            continue;
+        }
+        const fs::path dest = out_dir / liveplay::util::utf8_to_path(name);
+        if (mz_zip_reader_is_file_a_directory(&zip, i)) {
+            fs::create_directories(dest, ec);
+            continue;
+        }
+        if (dest.has_parent_path()) fs::create_directories(dest.parent_path(), ec);
+        const std::string dest_utf8 = liveplay::util::path_to_utf8(dest);
+        if (!mz_zip_reader_extract_to_file(&zip, i, dest_utf8.c_str(), 0)) {
+            Logger::error("zip_extract_to: extract '{}' failed", name);
+            ok = false;
+            break;
+        }
+    }
+    mz_zip_reader_end(&zip);
+    return ok;
+}
+
+// One-shot download tokens. The export endpoint creates a token that points
+// at a server-side .lpa; the client redeems the token via GET /api/file/download
+// once. Tokens are kept in memory and expire after 10 minutes. A token can
+// only be redeemed once — preventing accidental link-sharing leaks.
+struct DownloadToken {
+    fs::path path;
+    std::chrono::steady_clock::time_point expires_at;
+};
+static std::mutex g_download_tokens_mutex;
+static std::unordered_map<std::string, DownloadToken> g_download_tokens;
+
+static std::string make_download_token() {
+    // RFC 4122-ish random hex. We don't need crypto strength — these are
+    // short-lived single-use claim tickets, not auth credentials.
+    static thread_local std::mt19937_64 rng{std::random_device{}()};
+    std::ostringstream os;
+    for (int i = 0; i < 4; ++i) os << std::hex << std::setw(16) << std::setfill('0') << rng();
+    return os.str();
+}
+
+static void register_download_token(const std::string& token, fs::path path) {
+    std::lock_guard lock{g_download_tokens_mutex};
+    g_download_tokens[token] = DownloadToken{
+        std::move(path),
+        std::chrono::steady_clock::now() + std::chrono::minutes(10),
+    };
+}
+
+static std::optional<fs::path> redeem_download_token(const std::string& token) {
+    std::lock_guard lock{g_download_tokens_mutex};
+    // GC any expired entries while we're here.
+    const auto now = std::chrono::steady_clock::now();
+    for (auto it = g_download_tokens.begin(); it != g_download_tokens.end();) {
+        if (it->second.expires_at <= now) it = g_download_tokens.erase(it);
+        else ++it;
+    }
+    auto it = g_download_tokens.find(token);
+    if (it == g_download_tokens.end()) return std::nullopt;
+    fs::path p = std::move(it->second.path);
+    g_download_tokens.erase(it);
+    return p;
 }
 
 json device_info_to_json(const audio::DeviceInfo& d) {
@@ -542,6 +681,25 @@ void ControlServer::install_routes() {
     // ---- Health ----
     CROW_ROUTE(app, "/api/health").methods(crow::HTTPMethod::Get)
         ([] { return json_ok(json({{"ok", true}, {"name", "liveplay-server"}})); });
+
+    // Returns the requesting client's IP as seen by the server, plus a
+    // boolean `isLocal` that's true when the client lives on the same
+    // machine (loopback addresses). Used by the import/export flows to
+    // decide whether to offer the dual-dialog choice — picking files from
+    // "this computer" only makes sense when client and server are different
+    // machines.
+    CROW_ROUTE(app, "/api/whoami").methods(crow::HTTPMethod::Get)
+        ([](const crow::request& req){
+            const std::string ip = req.remote_ip_address;
+            // Loopback test covers IPv4 127.0.0.0/8 plus the usual IPv6 forms.
+            const bool is_local =
+                ip == "127.0.0.1" ||
+                ip == "::1" ||
+                ip == "0:0:0:0:0:0:0:1" ||
+                ip == "::ffff:127.0.0.1" ||
+                ip.rfind("127.", 0) == 0;
+            return json_ok(json{{"clientIp", ip}, {"isLocal", is_local}});
+        });
 
     // ---- Devices ----
     CROW_ROUTE(app, "/api/devices").methods(crow::HTTPMethod::Get)
@@ -1095,27 +1253,254 @@ void ControlServer::install_routes() {
             }
         });
 
+    // Close the currently-loaded project on the server. After this the
+    // server has no open project — the next /api/project/header will report
+    // hasOpenProject=false and clients land back on the welcome screen. We
+    // broadcast a project_changed doc_patch so any other connected clients
+    // also drop their local mirror.
+    CROW_ROUTE(app, "/api/project/close").methods(crow::HTTPMethod::Post)
+        ([this]{
+            try {
+                Logger::api_request("POST /api/project/close");
+                state_.reset();
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "project_changed"},
+                });
+                Logger::api_response("POST /api/project/close OK");
+                return json_ok(json{{"closed", true}});
+            } catch (const std::exception& e) {
+                Logger::error("POST /api/project/close threw: {}", e.what());
+                return json_err(400, e.what());
+            }
+        });
+
+    // ---- Project export / import (.lpa archives) ----
+    // Package a project folder into a .lpa (zip) archive on the server side.
+    // Request body:
+    //   {
+    //     "folderPath": "/abs/path/to/project/folder",   // required
+    //     "outputPath": "/abs/path/to/save/here.lpa",    // optional; when
+    //                                                    // present, the file
+    //                                                    // is written to this
+    //                                                    // server location.
+    //     "projectName": "MyShow"                        // optional, used to
+    //                                                    // build a default
+    //                                                    // filename when
+    //                                                    // outputPath is
+    //                                                    // omitted.
+    //   }
+    // If `outputPath` is omitted the archive is written to a temp directory
+    // on the server and a one-shot download token is returned so the client
+    // can fetch it back via GET /api/file/download?token=…
+    // Response: { "archivePath": "...", "downloadToken": "..." (optional),
+    //             "size": <bytes> }
+    CROW_ROUTE(app, "/api/project/export").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                Logger::api_request("POST /api/project/export");
+                auto j = json::parse(req.body);
+                if (!j.contains("folderPath") || !j["folderPath"].is_string()) {
+                    return json_err(400, "expected 'folderPath'");
+                }
+                const fs::path src = liveplay::util::utf8_to_path(
+                    j["folderPath"].get<std::string>());
+                if (!fs::exists(src) || !fs::is_directory(src)) {
+                    return json_err(400, "folderPath does not exist or is not a directory");
+                }
+                const std::string default_name =
+                    j.value("projectName", src.filename().string()) + ".lpa";
+
+                fs::path out;
+                bool to_temp = false;
+                if (j.contains("outputPath") && j["outputPath"].is_string() &&
+                    !j["outputPath"].get<std::string>().empty()) {
+                    out = liveplay::util::utf8_to_path(j["outputPath"].get<std::string>());
+                    if (out.has_parent_path()) fs::create_directories(out.parent_path());
+                } else {
+                    // Stage in a temp directory; surface via download token.
+                    fs::path tmp = fs::temp_directory_path() / "liveplay-exports";
+                    fs::create_directories(tmp);
+                    out = tmp / default_name;
+                    to_temp = true;
+                }
+
+                if (!zip_pack_directory(src, out)) {
+                    return json_err(500, "failed to package archive");
+                }
+                std::uintmax_t size = 0;
+                try { size = fs::file_size(out); } catch (...) {}
+
+                json resp = {
+                    {"archivePath", liveplay::util::path_to_utf8(out)},
+                    {"size",        static_cast<std::uint64_t>(size)},
+                };
+                if (to_temp) {
+                    const std::string token = make_download_token();
+                    register_download_token(token, out);
+                    resp["downloadToken"] = token;
+                    resp["downloadFilename"] = default_name;
+                }
+                Logger::api_response("POST /api/project/export OK — '{}' ({} bytes)",
+                                     liveplay::util::path_to_utf8(out), size);
+                return json_ok(resp);
+            } catch (const std::exception& e) {
+                Logger::error("POST /api/project/export threw: {}", e.what());
+                return json_err(400, e.what());
+            }
+        });
+
+    // Stream a server-side file to the client by one-shot download token.
+    // The token is consumed (single-use) on success. Used by the export flow
+    // when the user picks "Save on my computer" and the .lpa was packaged in
+    // a temp dir server-side.
+    CROW_ROUTE(app, "/api/file/download").methods(crow::HTTPMethod::Get)
+        ([this](const crow::request& req){
+            const char* token = req.url_params.get("token");
+            if (!token) return json_err(400, "missing ?token=");
+            auto path_opt = redeem_download_token(token);
+            if (!path_opt) return json_err(404, "token expired or invalid");
+            const fs::path& p = *path_opt;
+            std::ifstream f{p, std::ios::binary | std::ios::ate};
+            if (!f) return json_err(500, "failed to open archive");
+            const auto size = f.tellg();
+            f.seekg(0, std::ios::beg);
+            std::string body(static_cast<std::size_t>(size), '\0');
+            f.read(body.data(), size);
+
+            crow::response r{200, std::move(body)};
+            r.add_header("Content-Type", "application/octet-stream");
+            r.add_header("Content-Disposition",
+                         "attachment; filename=\"" + p.filename().string() + "\"");
+            r.add_header("Access-Control-Allow-Origin", "*");
+            // The temp file has served its purpose; delete it to bound disk
+            // usage on the server.
+            std::error_code ec; fs::remove(p, ec);
+            return r;
+        });
+
+    // Import a .lpa archive that the client uploaded via multipart, OR an
+    // archive already sitting on the server's filesystem (by absolute path).
+    // Request body:
+    //   * multipart/form-data with one part named "file" and the uploaded
+    //     .lpa, PLUS a "extractPath" form field for the destination directory
+    //     on the server. The archive is extracted, then the upload is
+    //     deleted. Response includes `projectFiles` (list of .liveplay files
+    //     discovered) and `extractPath`.
+    //   * application/json: { "archivePath": "/abs/path.lpa", "extractPath": "/abs/dest" }
+    //     Same response shape; no upload step.
+    CROW_ROUTE(app, "/api/project/import").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                Logger::api_request("POST /api/project/import");
+                fs::path archive_path;
+                fs::path extract_path;
+                bool delete_archive_after = false;
+
+                const auto ct_it = req.headers.find("Content-Type");
+                const std::string ct = ct_it != req.headers.end() ? ct_it->second : "";
+
+                if (ct.find("multipart/") != std::string::npos) {
+                    crow::multipart::message mp{req};
+                    std::string filename = "import.lpa";
+                    const crow::multipart::part* file_part = nullptr;
+                    for (const auto& part : mp.parts) {
+                        auto cd = part.headers.find("Content-Disposition");
+                        if (cd == part.headers.end()) continue;
+                        auto name_it = cd->second.params.find("name");
+                        if (name_it == cd->second.params.end()) continue;
+                        if (name_it->second == "file") {
+                            file_part = &part;
+                            auto fn = cd->second.params.find("filename");
+                            if (fn != cd->second.params.end() && !fn->second.empty())
+                                filename = fn->second;
+                        } else if (name_it->second == "extractPath") {
+                            extract_path = liveplay::util::utf8_to_path(part.body);
+                        }
+                    }
+                    if (!file_part) return json_err(400, "missing 'file' part");
+                    if (extract_path.empty())
+                        return json_err(400, "missing 'extractPath' form field");
+                    fs::path tmp = fs::temp_directory_path() / "liveplay-imports";
+                    fs::create_directories(tmp);
+                    archive_path = tmp /
+                        (liveplay::util::utf8_to_path(filename).filename().empty()
+                            ? fs::path{"import.lpa"}
+                            : liveplay::util::utf8_to_path(filename).filename());
+                    std::ofstream of{archive_path, std::ios::binary};
+                    if (!of) return json_err(500, "failed to stage uploaded archive");
+                    of.write(file_part->body.data(),
+                             static_cast<std::streamsize>(file_part->body.size()));
+                    of.close();
+                    delete_archive_after = true;
+                } else {
+                    auto j = json::parse(req.body);
+                    if (!j.contains("archivePath") || !j["archivePath"].is_string())
+                        return json_err(400, "expected 'archivePath'");
+                    if (!j.contains("extractPath") || !j["extractPath"].is_string())
+                        return json_err(400, "expected 'extractPath'");
+                    archive_path = liveplay::util::utf8_to_path(j["archivePath"].get<std::string>());
+                    extract_path = liveplay::util::utf8_to_path(j["extractPath"].get<std::string>());
+                }
+
+                if (!fs::exists(archive_path))
+                    return json_err(400, "archive does not exist");
+                fs::create_directories(extract_path);
+
+                if (!zip_extract_to(archive_path, extract_path)) {
+                    if (delete_archive_after) { std::error_code ec; fs::remove(archive_path, ec); }
+                    return json_err(500, "extract failed");
+                }
+                if (delete_archive_after) { std::error_code ec; fs::remove(archive_path, ec); }
+
+                // Find all .liveplay files in the extracted folder (top-level).
+                json project_files = json::array();
+                for (auto& e : fs::directory_iterator(extract_path)) {
+                    if (e.is_regular_file() && e.path().extension() == ".liveplay") {
+                        project_files.push_back(e.path().filename().string());
+                    }
+                }
+                json resp = {
+                    {"extractPath",  liveplay::util::path_to_utf8(extract_path)},
+                    {"projectFiles", std::move(project_files)},
+                };
+                Logger::api_response("POST /api/project/import OK — extracted to '{}'",
+                                     liveplay::util::path_to_utf8(extract_path));
+                return json_ok(resp);
+            } catch (const std::exception& e) {
+                Logger::error("POST /api/project/import threw: {}", e.what());
+                return json_err(400, e.what());
+            }
+        });
+
     // Repair the currently-loaded project and save it to disk. Called by the
     // client after the user confirms the repair prompt.
     CROW_ROUTE(app, "/api/project/repair").methods(crow::HTTPMethod::Post)
         ([this]{
             try {
                 Logger::api_request("POST /api/project/repair");
+                // The document was already repaired on load (load_from_json
+                // ran detect_and_repair before storing it). Calling
+                // repair_project() here just re-validates — it is a no-op if
+                // the in-memory doc is already clean. We must still save
+                // unconditionally, because the file on disk is the
+                // unrepaired original and the user just confirmed they want
+                // the repair persisted.
                 const auto repair = state_.repair_project();
-                if (repair.repaired) {
-                    const auto path = state_.project_file_path();
-                    if (!path.empty()) {
-                        if (!state_.save(path)) {
-                            Logger::error("POST /api/project/repair — save failed for '{}'",
-                                          liveplay::util::path_to_utf8(path));
-                            return json_err(500, "repair succeeded but save failed");
-                        }
+                const auto path = state_.project_file_path();
+                bool saved = false;
+                if (!path.empty()) {
+                    if (!state_.save(path)) {
+                        Logger::error("POST /api/project/repair — save failed for '{}'",
+                                      liveplay::util::path_to_utf8(path));
+                        return json_err(500, "repair succeeded but save failed");
                     }
+                    saved = true;
                 }
                 auto issues = json::array();
                 for (const auto& iss : repair.issues) issues.push_back(iss);
-                Logger::api_response("POST /api/project/repair OK — repaired={}", repair.repaired);
-                return json_ok(json{{"repaired", repair.repaired}, {"issues", std::move(issues)}});
+                Logger::api_response("POST /api/project/repair OK — repaired={} saved={}",
+                                     repair.repaired, saved);
+                return json_ok(json{{"repaired", repair.repaired}, {"issues", std::move(issues)}, {"saved", saved}});
             } catch (const std::exception& e) {
                 Logger::error("POST /api/project/repair threw: {}", e.what());
                 return json_err(400, e.what());

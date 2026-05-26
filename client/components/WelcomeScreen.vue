@@ -214,10 +214,28 @@ onMounted(async () => {
     console.warn('[welcome] could not read liveplay-server config:', e);
   }
 
-  // Always go through the mode-picker so the user is in control of the
-  // current session's server target. We could skip if connected, but the
-  // first-impression UI value of a deliberate choice outweighs the click.
-  stage.value = 'mode';
+  // If the user just hit File > New / Open while a project was open, we
+  // closed that project to land them here — skip the mode picker (their
+  // server is still configured) and pop the appropriate picker straight
+  // away. Without this, File > New would dump them at the mode picker
+  // instead of the new-project flow they actually asked for.
+  let welcomeIntent: string | null = null;
+  try { welcomeIntent = sessionStorage.getItem('liveplay:welcomeIntent'); } catch {}
+  if (welcomeIntent === 'new' || welcomeIntent === 'open') {
+    try { sessionStorage.removeItem('liveplay:welcomeIntent'); } catch {}
+    stage.value = 'project';
+    // Defer to next tick so the project-stage UI is mounted before we
+    // ask it to open its modal.
+    nextTick(() => {
+      if (welcomeIntent === 'new') handleNewProject();
+      else                          handleOpenProject();
+    });
+  } else {
+    // Always go through the mode-picker so the user is in control of the
+    // current session's server target. We could skip if connected, but the
+    // first-impression UI value of a deliberate choice outweighs the click.
+    stage.value = 'mode';
+  }
 
   // Start LAN discovery so the remote-mode stage immediately shows any
   // servers visible on the network.

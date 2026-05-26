@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "Duke Eksportuar Projektin",
-    "message": "Duke Kompresuar"
+    "message": "Duke Kompresuar",
+    "downloading": "Po shkarkohet"
   },
   "importProgress": {
     "title": "Duke Importuar Projektin",
@@ -310,7 +311,8 @@
   "common": {
     "default": "e paracaktuar",
     "loading": "Po ngarkohet…",
-    "error": "Gabim"
+    "error": "Gabim",
+    "cancel": "Anulo"
   },
   "repair": {
     "title": "Projekt i korruptuar i zbuluar",
@@ -318,5 +320,31 @@
     "dataLossWarning": "Paralajmërim: disa të dhëna mund të jenë humbur gjatë riparimit.",
     "repairAndSave": "Riparo dhe Ruaj",
     "openAnyway": "Hap pa Ruajtur"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "Eksporto projektin",
+    "chooseLocationMessage": "Ku duhet të ruhet arkivi i projektit? Mund ta ruani në server, ose ta shkarkoni në këtë kompjuter.",
+    "saveOnServer": "Ruaj në server",
+    "downloadHere": "Shkarko këtu"
+  },
+  "importProject": {
+    "chooseSourceTitle": "Importo projektin",
+    "chooseSourceMessage": "Ku është arkivi i projektit? Mund të zgjidhni një që është tashmë në server, ose të ngarkoni një nga ky kompjuter.",
+    "fromServer": "Shfleto serverin",
+    "fromThisComputer": "Nga ky kompjuter"
+  },
+  "importAudio": {
+    "title": "Importo audio",
+    "tabServer": "Në server",
+    "tabUpload": "Ngarko nga ky kompjuter",
+    "serverHint": "Skedarë tashmë në server. Klikoni dy herë mbi një dosje për të zbritur, ose klikoni Shto pranë një skedari.",
+    "uploadIntro": "Zgjidhni një ose më shumë skedarë nga ky kompjuter. Ato do të ngarkohen në dosjen e medias së serverit.",
+    "uploading": "Po ngarkohet…",
+    "chooseFiles": "Zgjidhni skedarë…",
+    "add": "Shto",
+    "desktopOnly": "Zgjedhësi vendor i skedarëve është i disponueshëm vetëm në aplikacionin desktop.",
+    "uploadingProgress": "Po ngarkohet {i}/{total}: {name}",
+    "uploadedCount": "U ngarkua {count} skedar(ë). Klikoni \"Shto\" për të importuar.",
+    "uploadFailed": "Ngarkimi dështoi: {error}"
   }
 }

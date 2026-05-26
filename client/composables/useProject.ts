@@ -522,8 +522,10 @@ export const useProject = () => {
     }
   };
 
-  // Close the current project — clears local state; does NOT delete server-side.
-  const closeProject = () => {
+  // Close the current project — clears local state AND tells the server to
+  // unload its in-memory document so we land back on the welcome screen
+  // (where the user can pick New or Open).
+  const closeProject = async () => {
     // Tear down the items deep-watcher before nulling the project so the
     // null assignment doesn't trigger one last (now meaningless) sync.
     // The watcher is re-installed by streamItemPages when the next
@@ -538,6 +540,29 @@ export const useProject = () => {
     // Clear cart-only items from memory
     const { clearCartOnlyItems } = useCartItems();
     clearCartOnlyItems();
+
+    // Let the Electron main process know the project closed so it can
+    // re-grey-out the "Export Project" menu item etc. The watch() in
+    // MainWorkspace only fires on project *changes* (and skips null), so
+    // without this nudge the menu would stay "open" forever once a
+    // project had been opened.
+    try {
+      if (import.meta.client && (window as any).electronAPI?.syncProjectData) {
+        (window as any).electronAPI.syncProjectData(null);
+      }
+    } catch { /* noop */ }
+
+    // Ask the server to drop its in-memory project too. If we don't do this,
+    // tryRejoinExistingProject() on the welcome screen would immediately
+    // pull the user right back into the project we just dismissed.
+    try {
+      const server = useLiveplayServer();
+      if (server.connected) {
+        await server.closeProjectOnServer();
+      }
+    } catch (e) {
+      console.warn('[useProject] closeProjectOnServer failed:', e);
+    }
   };
 
   // Update item indices recursively

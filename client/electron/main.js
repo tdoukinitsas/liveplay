@@ -1643,6 +1643,43 @@ ipcMain.handle('write-file', async (event, filePath, data) => {
   }
 });
 
+// Save dialog for the .lpa download flow. Returns the chosen absolute path
+// or null on cancel. `defaultName` is the suggested filename (e.g. "MyShow.lpa").
+ipcMain.handle('show-save-archive-dialog', async (event, defaultName) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save Project Archive',
+    defaultPath: defaultName || 'project.lpa',
+    filters: [{ name: 'LivePlay Archive', extensions: ['lpa'] }],
+  });
+  if (result.canceled || !result.filePath) return null;
+  return result.filePath;
+});
+
+// Open dialog for the .lpa upload flow (client picks a .lpa from local disk
+// to upload to a remote server for extraction). Returns the absolute path or
+// null on cancel.
+ipcMain.handle('show-open-archive-dialog', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose Project Archive',
+    properties: ['openFile'],
+    filters: [{ name: 'LivePlay Archive', extensions: ['lpa'] }],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});
+
+// Write raw bytes (binary) to a local file. Used by the download flow to
+// persist the .lpa blob streamed back from the server.
+ipcMain.handle('write-binary-file', async (event, filePath, data) => {
+  try {
+    const buf = Buffer.from(new Uint8Array(data));
+    fs.writeFileSync(filePath, buf);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('copy-file', async (event, source, destination) => {
   try {
     // Ensure destination directory exists
@@ -2006,6 +2043,24 @@ ipcMain.handle('import-lpa-file', async (event, archivePath) => {
 // Receive full project data from renderer to power HTTP API GET/PATCH endpoints
 ipcMain.on('sync-project-data', (event, projectData) => {
   currentProjectData = projectData;
+  // Keep the menu's "Export Project" / similar items in sync with whether
+  // a project is actually open in the renderer. The server-backed flow
+  // never calls set-current-project explicitly, so without this the menu
+  // gate (enabled: currentProject !== null) would stay stuck off forever
+  // and File > Export Project would appear greyed out even with a project
+  // loaded. Rebuild the menu only when the open/closed transition flips,
+  // since createMenu() is not free.
+  const nextOpen = projectData
+    ? (projectData.folderPath || projectData.name || 'open')
+    : null;
+  const wasOpen = currentProject !== null;
+  const isOpen  = nextOpen   !== null;
+  if (wasOpen !== isOpen) {
+    currentProject = nextOpen;
+    createMenu(currentLocale, isDevMode);
+  } else {
+    currentProject = nextOpen;
+  }
 });
 
 // Receive response from renderer for pending PATCH API requests

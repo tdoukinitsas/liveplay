@@ -25,6 +25,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     throw new Error(result.error || 'Failed to load audio');
   },
   writeFile: (filePath, data) => ipcRenderer.invoke('write-file', filePath, data),
+  // Dialogs + binary helpers used by the dual-dialog import/export flows.
+  showSaveArchiveDialog: (defaultName) => ipcRenderer.invoke('show-save-archive-dialog', defaultName),
+  showOpenArchiveDialog: () => ipcRenderer.invoke('show-open-archive-dialog'),
+  writeBinaryFile: (filePath, data) => ipcRenderer.invoke('write-binary-file', filePath, data),
   copyFile: (source, destination) => ipcRenderer.invoke('copy-file', source, destination),
   ensureDirectory: (dirPath) => ipcRenderer.invoke('ensure-directory', dirPath),
   openFolder: (folderPath) => ipcRenderer.invoke('open-folder', folderPath),

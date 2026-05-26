@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "Exportation du Projet",
-    "message": "Compression"
+    "message": "Compression",
+    "downloading": "Téléchargement"
   },
   "importProgress": {
     "title": "Importation du Projet",
@@ -310,7 +311,8 @@
   "common": {
     "default": "défaut",
     "loading": "Chargement…",
-    "error": "Erreur"
+    "error": "Erreur",
+    "cancel": "Annuler"
   },
   "repair": {
     "title": "Projet corrompu détecté",
@@ -318,5 +320,31 @@
     "dataLossWarning": "Avertissement : des données ont peut-être été perdues lors de la réparation.",
     "repairAndSave": "Réparer et Enregistrer",
     "openAnyway": "Ouvrir sans Enregistrer"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "Exporter le projet",
+    "chooseLocationMessage": "Où l'archive du projet doit-elle être enregistrée ? Vous pouvez l'enregistrer sur le serveur ou la télécharger sur cet ordinateur.",
+    "saveOnServer": "Enregistrer sur le serveur",
+    "downloadHere": "Télécharger ici"
+  },
+  "importProject": {
+    "chooseSourceTitle": "Importer le projet",
+    "chooseSourceMessage": "Où se trouve l'archive du projet ? Vous pouvez en choisir une déjà sur le serveur ou en téléverser une depuis cet ordinateur.",
+    "fromServer": "Parcourir le serveur",
+    "fromThisComputer": "Depuis cet ordinateur"
+  },
+  "importAudio": {
+    "title": "Importer de l'audio",
+    "tabServer": "Sur le serveur",
+    "tabUpload": "Téléverser depuis cet ordinateur",
+    "serverHint": "Fichiers déjà sur le serveur. Double-cliquez sur un dossier pour y descendre, ou cliquez sur Ajouter à côté d'un fichier.",
+    "uploadIntro": "Choisissez un ou plusieurs fichiers depuis cet ordinateur. Ils seront téléversés dans le dossier média du serveur.",
+    "uploading": "Téléversement…",
+    "chooseFiles": "Choisir des fichiers…",
+    "add": "Ajouter",
+    "desktopOnly": "Le sélecteur de fichiers natif n'est disponible que dans l'application de bureau.",
+    "uploadingProgress": "Téléversement {i}/{total} : {name}",
+    "uploadedCount": "{count} fichier(s) téléversé(s). Cliquez sur « Ajouter » pour importer.",
+    "uploadFailed": "Échec du téléversement : {error}"
   }
 }

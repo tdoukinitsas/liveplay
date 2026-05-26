@@ -68,7 +68,8 @@
   "common": {
     "default": "default",
     "loading": "Loading…",
-    "error": "Error"
+    "error": "Error",
+    "cancel": "Cancel"
   },
   "project": {
     "enterName": "Enter Project Name",
@@ -278,7 +279,8 @@
   },
   "exportProgress": {
     "title": "Exporting Project",
-    "message": "Compressing"
+    "message": "Compressing",
+    "downloading": "Downloading"
   },
   "importProgress": {
     "title": "Importing Project",
@@ -347,5 +349,31 @@
     "dataLossWarning": "Warning: some data may have been lost during repair.",
     "repairAndSave": "Repair & Save",
     "openAnyway": "Open Without Saving"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "Export Project",
+    "chooseLocationMessage": "Where should the project archive be saved? You can save it on the server, or download it to this computer.",
+    "saveOnServer": "Save on Server",
+    "downloadHere": "Download Here"
+  },
+  "importProject": {
+    "chooseSourceTitle": "Import Project",
+    "chooseSourceMessage": "Where is the project archive? You can pick one already on the server, or upload one from this computer.",
+    "fromServer": "Browse Server",
+    "fromThisComputer": "From This Computer"
+  },
+  "importAudio": {
+    "title": "Import audio",
+    "tabServer": "On server",
+    "tabUpload": "Upload from this computer",
+    "serverHint": "Files already on the server. Double-click a folder to descend, or click Add next to a file.",
+    "uploadIntro": "Pick one or more files from this computer. They will be uploaded into the server's media folder.",
+    "uploading": "Uploading…",
+    "chooseFiles": "Choose files…",
+    "add": "Add",
+    "desktopOnly": "Native file picker is only available in the desktop app.",
+    "uploadingProgress": "Uploading {i}/{total}: {name}",
+    "uploadedCount": "Uploaded {count} file(s). Click \"Add\" to import.",
+    "uploadFailed": "Upload failed: {error}"
   }
 }

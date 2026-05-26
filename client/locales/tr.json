@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "Proje Dışa Aktarılıyor",
-    "message": "Sıkıştırılıyor"
+    "message": "Sıkıştırılıyor",
+    "downloading": "İndiriliyor"
   },
   "importProgress": {
     "title": "Proje İçe Aktarılıyor",
@@ -310,7 +311,8 @@
   "common": {
     "default": "varsayılan",
     "loading": "Yükleniyor…",
-    "error": "Hata"
+    "error": "Hata",
+    "cancel": "İptal"
   },
   "repair": {
     "title": "Bozuk proje tespit edildi",
@@ -318,5 +320,31 @@
     "dataLossWarning": "Uyarı: onarım sırasında bazı veriler kaybolmuş olabilir.",
     "repairAndSave": "Onar ve Kaydet",
     "openAnyway": "Kaydetmeden Aç"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "Projeyi Dışa Aktar",
+    "chooseLocationMessage": "Proje arşivi nereye kaydedilmeli? Sunucuya kaydedebilir veya bu bilgisayara indirebilirsiniz.",
+    "saveOnServer": "Sunucuya Kaydet",
+    "downloadHere": "Buraya İndir"
+  },
+  "importProject": {
+    "chooseSourceTitle": "Projeyi İçe Aktar",
+    "chooseSourceMessage": "Proje arşivi nerede? Sunucuda zaten olan birini seçebilir veya bu bilgisayardan yükleyebilirsiniz.",
+    "fromServer": "Sunucuya Gözat",
+    "fromThisComputer": "Bu Bilgisayardan"
+  },
+  "importAudio": {
+    "title": "Ses içe aktar",
+    "tabServer": "Sunucuda",
+    "tabUpload": "Bu bilgisayardan yükle",
+    "serverHint": "Sunucuda zaten bulunan dosyalar. İnmek için bir klasöre çift tıklayın veya bir dosyanın yanındaki Ekle düğmesine tıklayın.",
+    "uploadIntro": "Bu bilgisayardan bir veya daha fazla dosya seçin. Sunucunun medya klasörüne yüklenecekler.",
+    "uploading": "Yükleniyor…",
+    "chooseFiles": "Dosyaları seç…",
+    "add": "Ekle",
+    "desktopOnly": "Yerel dosya seçici yalnızca masaüstü uygulamasında kullanılabilir.",
+    "uploadingProgress": "Yükleniyor {i}/{total}: {name}",
+    "uploadedCount": "{count} dosya yüklendi. İçe aktarmak için \"Ekle\" düğmesine tıklayın.",
+    "uploadFailed": "Yükleme başarısız: {error}"
   }
 }

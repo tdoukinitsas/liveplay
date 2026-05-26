@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "Exportando Proyecto",
-    "message": "Comprimiendo"
+    "message": "Comprimiendo",
+    "downloading": "Descargando"
   },
   "importProgress": {
     "title": "Importando Proyecto",
@@ -310,7 +311,8 @@
   "common": {
     "default": "predeterminado",
     "loading": "Cargando…",
-    "error": "Error"
+    "error": "Error",
+    "cancel": "Cancelar"
   },
   "repair": {
     "title": "Proyecto dañado detectado",
@@ -318,5 +320,31 @@
     "dataLossWarning": "Advertencia: algunos datos pueden haberse perdido durante la reparación.",
     "repairAndSave": "Reparar y Guardar",
     "openAnyway": "Abrir sin Guardar"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "Exportar proyecto",
+    "chooseLocationMessage": "¿Dónde se debe guardar el archivo del proyecto? Puede guardarlo en el servidor o descargarlo a este equipo.",
+    "saveOnServer": "Guardar en servidor",
+    "downloadHere": "Descargar aquí"
+  },
+  "importProject": {
+    "chooseSourceTitle": "Importar proyecto",
+    "chooseSourceMessage": "¿Dónde está el archivo del proyecto? Puede elegir uno que ya esté en el servidor o subir uno desde este equipo.",
+    "fromServer": "Explorar servidor",
+    "fromThisComputer": "Desde este equipo"
+  },
+  "importAudio": {
+    "title": "Importar audio",
+    "tabServer": "En el servidor",
+    "tabUpload": "Subir desde este equipo",
+    "serverHint": "Archivos que ya están en el servidor. Haga doble clic en una carpeta para entrar, o haga clic en Agregar junto a un archivo.",
+    "uploadIntro": "Elija uno o más archivos de este equipo. Se subirán a la carpeta de medios del servidor.",
+    "uploading": "Subiendo…",
+    "chooseFiles": "Elegir archivos…",
+    "add": "Agregar",
+    "desktopOnly": "El selector de archivos nativo solo está disponible en la aplicación de escritorio.",
+    "uploadingProgress": "Subiendo {i}/{total}: {name}",
+    "uploadedCount": "Subidos {count} archivo(s). Haga clic en \"Agregar\" para importar.",
+    "uploadFailed": "Error al subir: {error}"
   }
 }

@@ -9,6 +9,9 @@ declare global {
       readFile: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       readAudioFile: (filePath: string) => Promise<{ success: boolean; data?: number[]; error?: string }>;
       writeFile: (filePath: string, data: string) => Promise<{ success: boolean; error?: string }>;
+      writeBinaryFile: (filePath: string, data: ArrayBuffer | Uint8Array | number[]) => Promise<{ success: boolean; error?: string }>;
+      showSaveArchiveDialog: (defaultName?: string) => Promise<string | null>;
+      showOpenArchiveDialog: () => Promise<string | null>;
       copyFile: (source: string, destination: string) => Promise<{ success: boolean; error?: string }>;
       ensureDirectory: (dirPath: string) => Promise<{ success: boolean; error?: string }>;
       generateWaveform: (audioPath: string, outputPath: string) => Promise<{ success: boolean; error?: string }>;

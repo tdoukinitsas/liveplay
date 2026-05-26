@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "プロジェクトをエクスポート中",
-    "message": "圧縮中"
+    "message": "圧縮中",
+    "downloading": "ダウンロード中"
   },
   "importProgress": {
     "title": "プロジェクトをインポート中",
@@ -310,7 +311,8 @@
   "common": {
     "default": "デフォルト",
     "loading": "読み込み中…",
-    "error": "エラー"
+    "error": "エラー",
+    "cancel": "キャンセル"
   },
   "repair": {
     "title": "破損したプロジェクトを検出",
@@ -318,5 +320,31 @@
     "dataLossWarning": "警告：修復中に一部のデータが失われた可能性があります。",
     "repairAndSave": "修復して保存",
     "openAnyway": "保存せずに開く"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "プロジェクトをエクスポート",
+    "chooseLocationMessage": "プロジェクトアーカイブをどこに保存しますか？サーバーに保存するか、このコンピューターにダウンロードできます。",
+    "saveOnServer": "サーバーに保存",
+    "downloadHere": "ここにダウンロード"
+  },
+  "importProject": {
+    "chooseSourceTitle": "プロジェクトをインポート",
+    "chooseSourceMessage": "プロジェクトアーカイブはどこにありますか？サーバー上のものを選択するか、このコンピューターからアップロードできます。",
+    "fromServer": "サーバーを参照",
+    "fromThisComputer": "このコンピューターから"
+  },
+  "importAudio": {
+    "title": "オーディオをインポート",
+    "tabServer": "サーバー上",
+    "tabUpload": "このコンピューターからアップロード",
+    "serverHint": "サーバー上に既にあるファイル。フォルダーをダブルクリックして下に移動するか、ファイルの横の追加をクリックします。",
+    "uploadIntro": "このコンピューターから1つ以上のファイルを選択してください。サーバーのメディアフォルダーにアップロードされます。",
+    "uploading": "アップロード中…",
+    "chooseFiles": "ファイルを選択…",
+    "add": "追加",
+    "desktopOnly": "ネイティブファイルピッカーはデスクトップアプリでのみ利用可能です。",
+    "uploadingProgress": "アップロード中 {i}/{total}: {name}",
+    "uploadedCount": "{count}個のファイルをアップロードしました。「追加」をクリックしてインポートします。",
+    "uploadFailed": "アップロードに失敗しました：{error}"
   }
 }

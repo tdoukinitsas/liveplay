@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "تصدير المشروع",
-    "message": "الضغط"
+    "message": "الضغط",
+    "downloading": "جاري التنزيل"
   },
   "importProgress": {
     "title": "استيراد المشروع",
@@ -310,7 +311,8 @@
   "common": {
     "default": "افتراضي",
     "loading": "جاري التحميل…",
-    "error": "خطأ"
+    "error": "خطأ",
+    "cancel": "إلغاء"
   },
   "repair": {
     "title": "تم اكتشاف مشروع تالف",
@@ -318,5 +320,31 @@
     "dataLossWarning": "تحذير: ربما ضاعت بعض البيانات خلال عملية الإصلاح.",
     "repairAndSave": "إصلاح وحفظ",
     "openAnyway": "فتح بدون حفظ"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "تصدير المشروع",
+    "chooseLocationMessage": "أين يجب حفظ أرشيف المشروع؟ يمكنك حفظه على الخادم، أو تنزيله إلى هذا الكمبيوتر.",
+    "saveOnServer": "حفظ على الخادم",
+    "downloadHere": "تنزيل هنا"
+  },
+  "importProject": {
+    "chooseSourceTitle": "استيراد المشروع",
+    "chooseSourceMessage": "أين أرشيف المشروع؟ يمكنك اختيار واحد موجود بالفعل على الخادم، أو تحميل واحد من هذا الكمبيوتر.",
+    "fromServer": "تصفح الخادم",
+    "fromThisComputer": "من هذا الكمبيوتر"
+  },
+  "importAudio": {
+    "title": "استيراد الصوت",
+    "tabServer": "على الخادم",
+    "tabUpload": "تحميل من هذا الكمبيوتر",
+    "serverHint": "الملفات الموجودة بالفعل على الخادم. انقر نقرًا مزدوجًا فوق مجلد للنزول، أو انقر فوق إضافة بجوار ملف.",
+    "uploadIntro": "اختر ملفًا واحدًا أو أكثر من هذا الكمبيوتر. سيتم تحميلها في مجلد الوسائط الخاص بالخادم.",
+    "uploading": "جاري التحميل…",
+    "chooseFiles": "اختر الملفات…",
+    "add": "إضافة",
+    "desktopOnly": "منتقي الملفات الأصلي متاح فقط في تطبيق سطح المكتب.",
+    "uploadingProgress": "جاري التحميل {i}/{total}: {name}",
+    "uploadedCount": "تم تحميل {count} ملف(ات). انقر فوق \"إضافة\" للاستيراد.",
+    "uploadFailed": "فشل التحميل: {error}"
   }
 }

@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "Exportando Projeto",
-    "message": "Comprimindo"
+    "message": "Comprimindo",
+    "downloading": "Baixando"
   },
   "importProgress": {
     "title": "Importando Projeto",
@@ -310,7 +311,8 @@
   "common": {
     "default": "padrão",
     "loading": "A carregar…",
-    "error": "Erro"
+    "error": "Erro",
+    "cancel": "Cancelar"
   },
   "repair": {
     "title": "Projeto corrompido detectado",
@@ -318,5 +320,31 @@
     "dataLossWarning": "Aviso: alguns dados podem ter sido perdidos durante a reparação.",
     "repairAndSave": "Reparar e Guardar",
     "openAnyway": "Abrir sem Guardar"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "Exportar projeto",
+    "chooseLocationMessage": "Onde o arquivo do projeto deve ser salvo? Você pode salvá-lo no servidor ou baixá-lo para este computador.",
+    "saveOnServer": "Salvar no servidor",
+    "downloadHere": "Baixar aqui"
+  },
+  "importProject": {
+    "chooseSourceTitle": "Importar projeto",
+    "chooseSourceMessage": "Onde está o arquivo do projeto? Você pode escolher um já no servidor ou enviar um deste computador.",
+    "fromServer": "Navegar no servidor",
+    "fromThisComputer": "Deste computador"
+  },
+  "importAudio": {
+    "title": "Importar áudio",
+    "tabServer": "No servidor",
+    "tabUpload": "Enviar deste computador",
+    "serverHint": "Arquivos já no servidor. Clique duas vezes em uma pasta para descer, ou clique em Adicionar ao lado de um arquivo.",
+    "uploadIntro": "Escolha um ou mais arquivos deste computador. Eles serão enviados para a pasta de mídia do servidor.",
+    "uploading": "Enviando…",
+    "chooseFiles": "Escolher arquivos…",
+    "add": "Adicionar",
+    "desktopOnly": "O seletor de arquivos nativo está disponível apenas no aplicativo de desktop.",
+    "uploadingProgress": "Enviando {i}/{total}: {name}",
+    "uploadedCount": "{count} arquivo(s) enviado(s). Clique em \"Adicionar\" para importar.",
+    "uploadFailed": "Falha no envio: {error}"
   }
 }

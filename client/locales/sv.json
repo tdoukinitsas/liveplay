@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "Exporterar Projekt",
-    "message": "Komprimerar"
+    "message": "Komprimerar",
+    "downloading": "Laddar ner"
   },
   "importProgress": {
     "title": "Importerar Projekt",
@@ -310,7 +311,8 @@
   "common": {
     "default": "standard",
     "loading": "Laddar…",
-    "error": "Fel"
+    "error": "Fel",
+    "cancel": "Avbryt"
   },
   "repair": {
     "title": "Skadat projekt upptäckt",
@@ -318,5 +320,31 @@
     "dataLossWarning": "Varning: viss data kan ha förlorats vid reparationen.",
     "repairAndSave": "Reparera och Spara",
     "openAnyway": "Öppna utan att Spara"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "Exportera projekt",
+    "chooseLocationMessage": "Var ska projektarkivet sparas? Du kan spara det på servern eller ladda ner det till den här datorn.",
+    "saveOnServer": "Spara på server",
+    "downloadHere": "Ladda ner här"
+  },
+  "importProject": {
+    "chooseSourceTitle": "Importera projekt",
+    "chooseSourceMessage": "Var finns projektarkivet? Du kan välja ett som redan finns på servern eller ladda upp ett från den här datorn.",
+    "fromServer": "Bläddra i server",
+    "fromThisComputer": "Från den här datorn"
+  },
+  "importAudio": {
+    "title": "Importera ljud",
+    "tabServer": "På servern",
+    "tabUpload": "Ladda upp från den här datorn",
+    "serverHint": "Filer som redan finns på servern. Dubbelklicka på en mapp för att gå ned, eller klicka på Lägg till bredvid en fil.",
+    "uploadIntro": "Välj en eller flera filer från den här datorn. De laddas upp till serverns mediamapp.",
+    "uploading": "Laddar upp…",
+    "chooseFiles": "Välj filer…",
+    "add": "Lägg till",
+    "desktopOnly": "Den inbyggda filväljaren är endast tillgänglig i skrivbordsappen.",
+    "uploadingProgress": "Laddar upp {i}/{total}: {name}",
+    "uploadedCount": "Laddade upp {count} fil(er). Klicka på \"Lägg till\" för att importera.",
+    "uploadFailed": "Uppladdning misslyckades: {error}"
   }
 }

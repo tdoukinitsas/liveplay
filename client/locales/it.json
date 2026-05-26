@@ -230,7 +230,8 @@
   },
   "exportProgress": {
     "title": "Esportazione Progetto",
-    "message": "Compressione"
+    "message": "Compressione",
+    "downloading": "Download in corso"
   },
   "importProgress": {
     "title": "Importazione Progetto",
@@ -310,7 +311,8 @@
   "common": {
     "default": "predefinito",
     "loading": "Caricamento…",
-    "error": "Errore"
+    "error": "Errore",
+    "cancel": "Annulla"
   },
   "repair": {
     "title": "Progetto danneggiato rilevato",
@@ -318,5 +320,31 @@
     "dataLossWarning": "Avviso: alcuni dati potrebbero essere andati persi durante la riparazione.",
     "repairAndSave": "Ripara e Salva",
     "openAnyway": "Apri senza Salvare"
+  },
+  "exportProject": {
+    "chooseLocationTitle": "Esporta progetto",
+    "chooseLocationMessage": "Dove deve essere salvato l'archivio del progetto? Puoi salvarlo sul server o scaricarlo su questo computer.",
+    "saveOnServer": "Salva sul server",
+    "downloadHere": "Scarica qui"
+  },
+  "importProject": {
+    "chooseSourceTitle": "Importa progetto",
+    "chooseSourceMessage": "Dov'è l'archivio del progetto? Puoi sceglierne uno già sul server o caricarne uno da questo computer.",
+    "fromServer": "Sfoglia server",
+    "fromThisComputer": "Da questo computer"
+  },
+  "importAudio": {
+    "title": "Importa audio",
+    "tabServer": "Sul server",
+    "tabUpload": "Carica da questo computer",
+    "serverHint": "File già sul server. Fai doppio clic su una cartella per scendere, o fai clic su Aggiungi accanto a un file.",
+    "uploadIntro": "Scegli uno o più file da questo computer. Verranno caricati nella cartella multimediale del server.",
+    "uploading": "Caricamento…",
+    "chooseFiles": "Scegli file…",
+    "add": "Aggiungi",
+    "desktopOnly": "Il selettore di file nativo è disponibile solo nell'app desktop.",
+    "uploadingProgress": "Caricamento {i}/{total}: {name}",
+    "uploadedCount": "Caricati {count} file. Fai clic su \"Aggiungi\" per importare.",
+    "uploadFailed": "Caricamento fallito: {error}"
   }
 }

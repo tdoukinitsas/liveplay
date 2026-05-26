@@ -20,21 +20,48 @@
     </div>
     
     <PropertiesPanel v-if="selectedItem" />
-    
+
     <ProgressModal
       :visible="progressModal.visible"
       :title="progressModal.title"
       :message="progressModal.message"
       :percentage="progressModal.percentage"
     />
+
+    <!-- Export: server vs client choice (only shown for remote servers). -->
+    <LocationChoiceModal
+      :visible="exportChoiceVisible"
+      :title="t('exportProject.chooseLocationTitle')"
+      :message="t('exportProject.chooseLocationMessage')"
+      :server-label="t('exportProject.saveOnServer')"
+      :client-label="t('exportProject.downloadHere')"
+      :cancel-label="t('common.cancel')"
+      @pick="onExportChoice"
+      @cancel="exportChoiceVisible = false"
+    />
+
+    <!-- Server file picker (directory mode) for "save on server" path. -->
+    <ServerFilePickerModal
+      :open="exportServerPickerOpen"
+      mode="directory"
+      filter="all"
+      :filter-options="['all']"
+      :start-path="currentProject?.folderPath ?? ''"
+      @pick="onExportServerPath"
+      @close="exportServerPickerOpen = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import LocationChoiceModal from './LocationChoiceModal.vue';
+import ServerFilePickerModal from './ServerFilePickerModal.vue';
+
 const { selectedItem, saveProject, closeProject, currentProject, findItemByUuid } = useProject();
 const { triggerByUuid, triggerByIndex, stopCue, stopAllCues, playCue } = useAudioEngine();
 const { getCartItem, cartOnlyItems, updateCartOnlyItem } = useCartItems();
 const { t } = useLocalization();
+const server = useLiveplayServer();
 
 // Progress modal state
 const progressModal = ref({
@@ -104,44 +131,27 @@ if (import.meta.client && window.electronAPI) {
     saveProject();
   });
 
-  window.electronAPI.onMenuExportProject(async () => {
-    if (!currentProject.value) return;
-    
-    try {
-      // Set up progress listener
-      const progressListener = (_event: any, data: { percentage: number; fileName: string }) => {
-        progressModal.value = {
-          visible: true,
-          title: t('exportProgress.title'),
-          message: `${t('exportProgress.message')} ${data.fileName}...`,
-          percentage: data.percentage
-        };
-      };
-      
-      window.electronAPI.onExportProgress(progressListener);
-      
-      const result = await window.electronAPI.exportProject(currentProject.value.folderPath, currentProject.value.name);
-      
-      // Clean up listener
-      window.electronAPI.removeExportProgressListener(progressListener);
-      
-      // Add small delay to ensure final progress (100%) is shown
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Hide modal
-      progressModal.value.visible = false;
-      
-      if (result.success) {
-        console.log('Project exported successfully:', result.path);
-      }
-    } catch (error) {
-      console.error('Export failed:', error);
-      progressModal.value.visible = false;
-    }
+  window.electronAPI.onMenuExportProject(() => {
+    startExportFlow();
   });
 
   window.electronAPI.onMenuCloseProject(() => {
-    closeProject();
+    void closeProject();
+  });
+
+  // File > New and File > Open while a project is already open: close the
+  // current project (locally + on the server) and stash the intent so the
+  // welcome screen pops the corresponding picker as soon as it mounts.
+  // Without this, these menu items were silent when something was open —
+  // only WelcomeScreen used to subscribe, and it isn't mounted right now.
+  window.electronAPI.onMenuNewProject(async () => {
+    try { sessionStorage.setItem('liveplay:welcomeIntent', 'new'); } catch {}
+    await closeProject();
+  });
+
+  window.electronAPI.onMenuOpenProject(async () => {
+    try { sessionStorage.setItem('liveplay:welcomeIntent', 'open'); } catch {}
+    await closeProject();
   });
 
   window.electronAPI.onMenuOpenProjectFolder(() => {
@@ -205,6 +215,92 @@ if (import.meta.client && window.electronAPI) {
     saveProject();
     window.electronAPI.sendApiResponse({ requestId, success: true, cart: { slot, item } });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Export project flow (dual-dialog when the server is on another machine).
+// ---------------------------------------------------------------------------
+// When server runs locally, jump straight to a server-side directory picker.
+// Otherwise, ask the user where to save: on the server, or back to this
+// computer (via a one-shot download token). This replaces the old purely-
+// Electron archiver path, which only worked when the project files were
+// reachable from this machine.
+const exportChoiceVisible   = ref(false);
+const exportServerPickerOpen = ref(false);
+
+async function startExportFlow() {
+  if (!currentProject.value) return;
+  if (server.isLocalServer.value) {
+    // Local: skip the choice modal and go straight to the server picker
+    // (the "server" here is this same computer, so this matches the user's
+    // expectation of a familiar OS-style directory chooser).
+    exportServerPickerOpen.value = true;
+  } else {
+    exportChoiceVisible.value = true;
+  }
+}
+
+async function onExportChoice(choice: 'server' | 'client') {
+  exportChoiceVisible.value = false;
+  if (!currentProject.value) return;
+
+  if (choice === 'server') {
+    exportServerPickerOpen.value = true;
+    return;
+  }
+
+  // client → server packages to its temp dir, returns a token, we download
+  // the blob and save it via Electron's native save dialog.
+  await exportToClientDownload();
+}
+
+async function onExportServerPath(serverDir: string) {
+  exportServerPickerOpen.value = false;
+  if (!serverDir || !currentProject.value) return;
+  const project = currentProject.value;
+  const outPath = `${serverDir.replace(/[\\/]+$/, '')}/${project.name}.lpa`;
+  await runExport({ outputPath: outPath });
+}
+
+async function exportToClientDownload() {
+  if (!currentProject.value) return;
+  const project = currentProject.value;
+  const defaultName = `${project.name}.lpa`;
+  // Pick the local destination FIRST so a cancelled save dialog doesn't
+  // leave a stray .lpa sitting in the server's temp dir.
+  const localDest = await window.electronAPI.showSaveArchiveDialog(defaultName);
+  if (!localDest) return;
+  await runExport({ outputPath: '', downloadTo: localDest });
+}
+
+async function runExport(opts: { outputPath: string; downloadTo?: string }) {
+  if (!currentProject.value) return;
+  const project = currentProject.value;
+  progressModal.value = {
+    visible: true,
+    title: t('exportProgress.title'),
+    message: `${t('exportProgress.message')} ${project.name}.lpa…`,
+    percentage: 30,
+  };
+  try {
+    const result = await server.exportProjectArchive(
+      project.folderPath, project.name, opts.outputPath);
+    progressModal.value.percentage = opts.downloadTo ? 60 : 100;
+
+    if (opts.downloadTo && result.downloadToken) {
+      progressModal.value.message =
+        `${t('exportProgress.downloading')} ${project.name}.lpa…`;
+      const blob = await server.downloadArchive(result.downloadToken);
+      const buf  = await blob.arrayBuffer();
+      const w = await window.electronAPI.writeBinaryFile(opts.downloadTo, buf);
+      if (!w.success) throw new Error(w.error || 'write failed');
+    }
+    progressModal.value.percentage = 100;
+  } catch (e) {
+    console.error('Export failed:', e);
+  } finally {
+    setTimeout(() => { progressModal.value.visible = false; }, 400);
+  }
 }
 
 // Keep the main process HTTP API server up-to-date with the full project state.

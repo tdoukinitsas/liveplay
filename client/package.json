@@ -114,6 +114,10 @@
         {
           "from": "../server/build/Release/z.dll",
           "to": "server-bin/z.dll"
+        },
+        {
+          "from": "../server/build/Release/miniz.dll",
+          "to": "server-bin/miniz.dll"
         }
       ]
     },
