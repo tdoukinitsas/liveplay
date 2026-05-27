@@ -57,7 +57,32 @@ try {
   fs.copyFileSync(serverBinaryPath, path.join(macOsPath, 'liveplay-server'));
   execSync(`chmod +x "${path.join(macOsPath, 'liveplay-server')}"`, { stdio: 'inherit' });
 
+  // Create the launcher shell script.
+  // When the user double-clicks the .app, macOS runs this script rather than
+  // the server binary directly. The script tells Terminal.app to open a new
+  // window and run the binary there, then exits immediately. This gives the
+  // user a visible, interactive terminal showing the startup banner, logs,
+  // and the Ctrl-C prompt — identical to the Electron-spawned experience.
+  console.log('[build-server-app-mac] Creating launcher script...');
+  const launcherScript = `#!/bin/bash
+# LivePlay Server launcher — opens a visible Terminal window running the server.
+BINARY_DIR="$(cd "$(dirname "$0")" && pwd)"
+BINARY="$BINARY_DIR/liveplay-server"
+# Shell-quote the path for AppleScript in case it contains spaces.
+QUOTED="'$(echo "$BINARY" | sed "s/'/'\\\\''/g")'"
+osascript \\
+  -e 'tell application "Terminal"' \\
+  -e "  do script $QUOTED" \\
+  -e '  activate' \\
+  -e 'end tell'
+`;
+  const launcherPath = path.join(macOsPath, 'launcher');
+  fs.writeFileSync(launcherPath, launcherScript, { mode: 0o755 });
+
   // Create Info.plist
+  // CFBundleExecutable points to the launcher script, not the binary.
+  // LSUIElement keeps the launcher itself out of the Dock — it exits in under
+  // a second after handing off to Terminal, so a Dock icon would just flicker.
   console.log('[build-server-app-mac] Creating Info.plist...');
   const infoPlist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -70,7 +95,7 @@ try {
   <key>CFBundleDisplayName</key>
   <string>LivePlay Server</string>
   <key>CFBundleExecutable</key>
-  <string>liveplay-server</string>
+  <string>launcher</string>
   <key>CFBundleIconFile</key>
   <string>liveplay-server</string>
   <key>CFBundlePackageType</key>

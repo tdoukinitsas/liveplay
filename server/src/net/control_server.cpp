@@ -405,26 +405,37 @@ void ControlServer::broadcast_loop() {
         }
         payload["master_channels"] = std::move(master_meters);
 
-        const std::string serialized = payload.dump();
+        std::string serialized;
+        try { serialized = payload.dump(); }
+        catch (const std::exception& e) {
+            Logger::error("broadcast_loop: failed to serialize meters: {}", e.what());
+            const auto used = clock::now() - start;
+            if (used < period) std::this_thread::sleep_for(period - used);
+            continue;
+        }
 
         // Detect transport changes and build cue_state edge events.
         std::vector<std::string> cue_state_events;
-        for (auto& cue : state_.list_cues()) {
-            auto* item = engine_.find_cue(cue.id);
-            const auto current = item
-                ? item->stats().transport
-                : audio::TransportState::Stopped;
-            auto& prev = prev_transports[cue.id.value]; // default → Stopped (0)
-            if (current != prev) {
-                prev = current;
-                json evt;
-                evt["type"]             = "cue_state";
-                evt["cue_id"]           = cue.id.value;
-                evt["transport"]        = static_cast<int>(current);
-                evt["playhead_seconds"] = item ? item->stats().playhead_seconds : 0.0;
-                if (auto uuid = state_.cue_to_item_uuid(cue.id)) evt["item_uuid"] = *uuid;
-                cue_state_events.push_back(evt.dump());
+        try {
+            for (auto& cue : state_.list_cues()) {
+                auto* item = engine_.find_cue(cue.id);
+                const auto current = item
+                    ? item->stats().transport
+                    : audio::TransportState::Stopped;
+                auto& prev = prev_transports[cue.id.value]; // default → Stopped (0)
+                if (current != prev) {
+                    prev = current;
+                    json evt;
+                    evt["type"]             = "cue_state";
+                    evt["cue_id"]           = cue.id.value;
+                    evt["transport"]        = static_cast<int>(current);
+                    evt["playhead_seconds"] = item ? item->stats().playhead_seconds : 0.0;
+                    if (auto uuid = state_.cue_to_item_uuid(cue.id)) evt["item_uuid"] = *uuid;
+                    cue_state_events.push_back(evt.dump());
+                }
             }
+        } catch (const std::exception& e) {
+            Logger::error("broadcast_loop: failed to build cue_state events: {}", e.what());
         }
 
         // Build any pending playback_snapshot payload WITHOUT holding ws_mutex.
@@ -475,7 +486,12 @@ void ControlServer::broadcast_loop() {
 // idempotent on its side (uuid lookup) and keeps the local diff-watcher
 // quiet because the client wraps the apply in its `isHydrating` flag.
 void ControlServer::broadcast_doc_patch(const json& payload) {
-    const std::string serialized = payload.dump();
+    std::string serialized;
+    try { serialized = payload.dump(); }
+    catch (const std::exception& e) {
+        Logger::error("broadcast_doc_patch: serialization failed: {}", e.what());
+        return;
+    }
     std::lock_guard lock{impl_->ws_mutex};
     for (auto* c : impl_->ws_clients) {
         try { c->send_text(serialized); }
@@ -677,7 +693,12 @@ static void handle_ws_message(crow::websocket::connection& conn,
         }
     } catch (const std::exception& e) {
         Logger::error("WS handler threw: {}", e.what());
-        conn.send_text(json({{"type", "error"}, {"message", e.what()}}).dump());
+        try { conn.send_text(json({{"type", "error"}, {"message", e.what()}}).dump()); }
+        catch (...) {}
+    } catch (...) {
+        Logger::error("WS handler caught unknown exception.");
+        try { conn.send_text(json({{"type", "error"}, {"message", "internal error"}}).dump()); }
+        catch (...) {}
     }
 }
 
@@ -700,7 +721,10 @@ void ControlServer::install_routes() {
 
     // ---- Health ----
     CROW_ROUTE(app, "/api/health").methods(crow::HTTPMethod::Get)
-        ([] { return json_ok(json({{"ok", true}, {"name", "liveplay-server"}})); });
+        ([] {
+            try { return json_ok(json({{"ok", true}, {"name", "liveplay-server"}})); }
+            catch (...) { return json_err(500, "internal error"); }
+        });
 
     // Returns the requesting client's IP as seen by the server, plus a
     // boolean `isLocal` that's true when the client lives on the same
@@ -724,9 +748,12 @@ void ControlServer::install_routes() {
     // ---- Devices ----
     CROW_ROUTE(app, "/api/devices").methods(crow::HTTPMethod::Get)
         ([this] {
-            json arr = json::array();
-            for (auto& d : engine_.enumerate_devices()) arr.push_back(device_info_to_json(d));
-            return json_ok(arr);
+            try {
+                json arr = json::array();
+                for (auto& d : engine_.enumerate_devices()) arr.push_back(device_info_to_json(d));
+                return json_ok(arr);
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
+            catch (...) { return json_err(500, "unknown error enumerating devices"); }
         });
 
     CROW_ROUTE(app, "/api/devices/open").methods(crow::HTTPMethod::Post)
@@ -1192,30 +1219,33 @@ void ControlServer::install_routes() {
 
     CROW_ROUTE(app, "/api/waveform/<string>").methods(crow::HTTPMethod::Get)
         ([this](const crow::request& req, std::string cue_id) {
-            const auto meta = state_.find_cue(audio::CueId{cue_id});
-            if (!meta) return json_err(404, "no such cue");
+            try {
+                const auto meta = state_.find_cue(audio::CueId{cue_id});
+                if (!meta) return json_err(404, "no such cue");
 
-            std::uint32_t buckets = 1000;
-            if (req.url_params.get("buckets")) {
-                try { buckets = static_cast<std::uint32_t>(std::stoi(req.url_params.get("buckets"))); }
-                catch (...) {}
-            }
+                std::uint32_t buckets = 1000;
+                if (req.url_params.get("buckets")) {
+                    try { buckets = static_cast<std::uint32_t>(std::stoi(req.url_params.get("buckets"))); }
+                    catch (...) {}
+                }
 
-            const auto wf = liveplay::meta::compute_waveform(meta->file_path, buckets);
-            if (!wf.ok) return json_err(500, "waveform decode failed");
+                const auto wf = liveplay::meta::compute_waveform(meta->file_path, buckets);
+                if (!wf.ok) return json_err(500, "waveform decode failed");
 
-            json channels = json::array();
-            for (const auto& ch : wf.channels) {
-                channels.push_back(json{{"peak", ch.peak}, {"rms", ch.rms}});
-            }
-            return json_ok(json{
-                {"cue_id",          cue_id},
-                {"bucket_count",    wf.bucket_count},
-                {"duration_ms",     wf.duration.count()},
-                {"sample_rate",     wf.sample_rate},
-                {"source_channels", wf.source_channels},
-                {"channels",        std::move(channels)},
-            });
+                json channels = json::array();
+                for (const auto& ch : wf.channels) {
+                    channels.push_back(json{{"peak", ch.peak}, {"rms", ch.rms}});
+                }
+                return json_ok(json{
+                    {"cue_id",          cue_id},
+                    {"bucket_count",    wf.bucket_count},
+                    {"duration_ms",     wf.duration.count()},
+                    {"sample_rate",     wf.sample_rate},
+                    {"source_channels", wf.source_channels},
+                    {"channels",        std::move(channels)},
+                });
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
+            catch (...) { return json_err(500, "unknown error computing waveform"); }
         });
 
     // ---- Project I/O ----
@@ -1931,7 +1961,13 @@ void ControlServer::install_routes() {
                         const std::string& data,
                         bool is_binary) {
           if (is_binary) return;
-          handle_ws_message(conn, data, engine_, state_);
+          try {
+              handle_ws_message(conn, data, engine_, state_);
+          } catch (const std::exception& e) {
+              Logger::error("WS onmessage threw past handler: {}", e.what());
+          } catch (...) {
+              Logger::error("WS onmessage caught unknown exception.");
+          }
           // After applying any state-mutating WS message, fan out the
           // relevant change to every other client so multi-client mirroring
           // stays consistent (the originating client gets the echo too —

@@ -782,56 +782,69 @@ void AudioEngine::render_loop() {
                                  static_cast<long long>(cfg_.mix_sample_rate)};
 
     while (running_.load(std::memory_order_acquire)) {
-        auto snap = snapshot_topology();
-        if (!snap) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            continue;
-        }
+        try {
+            auto snap = snapshot_topology();
+            if (!snap) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
+            }
 
-        // Production is gated by the SLOWEST consumer: we only render a block
-        // when every device has room for it. Gating on "any device has space"
-        // would let a fast device (higher SR, larger ring, or clock drift
-        // ahead) pull production above real-time, overflowing the slower
-        // devices' rings and making audio sound sped up.
-        bool can_render   = true;
-        bool has_devices  = false;
-        bool has_ring     = false;
-        {
-            std::lock_guard lock{mutex_};
-            has_devices = !devices_.empty();
-            if (has_devices) {
-                // Gate production on the primary device only, to prevent 
-                // clock drift on secondary devices from starving the primary.
-                auto& primary = devices_.front();
-                if (primary->ring) {
-                    has_ring = true;
-                    if (ma_pcm_rb_available_write(primary->ring.get()) < cfg_.render_block) {
-                        can_render = false;
+            // Production is gated by the SLOWEST consumer: we only render a block
+            // when every device has room for it. Gating on "any device has space"
+            // would let a fast device (higher SR, larger ring, or clock drift
+            // ahead) pull production above real-time, overflowing the slower
+            // devices' rings and making audio sound sped up.
+            bool can_render   = true;
+            bool has_devices  = false;
+            bool has_ring     = false;
+            {
+                std::lock_guard lock{mutex_};
+                has_devices = !devices_.empty();
+                if (has_devices) {
+                    // Gate production on the primary device only, to prevent
+                    // clock drift on secondary devices from starving the primary.
+                    auto& primary = devices_.front();
+                    if (primary->ring) {
+                        has_ring = true;
+                        if (ma_pcm_rb_available_write(primary->ring.get()) < cfg_.render_block) {
+                            can_render = false;
+                        }
                     }
                 }
+                if (!has_ring) can_render = false;
             }
-            if (!has_ring) can_render = false;
-        }
 
-        if (!has_devices) {
-            // Idle (no output). Coarse timer; consumption_counter_ will
-            // never fire without a device callback to bump it.
-            std::this_thread::sleep_for(block_duration);
-            continue;
-        }
+            if (!has_devices) {
+                // Idle (no output). Coarse timer; consumption_counter_ will
+                // never fire without a device callback to bump it.
+                std::this_thread::sleep_for(block_duration);
+                continue;
+            }
 
-        if (!can_render) {
-            // Block until a device callback notifies us. Use an atomic
-            // counter to avoid lost wakeups: we capture the current value
-            // before checking-then-waiting on it.
-            const std::uint32_t before = consumption_counter_.load(std::memory_order_acquire);
-            // Re-check under the lock just before waiting (defence against a
-            // device closing between the earlier check and now).
-            consumption_counter_.wait(before, std::memory_order_acquire);
-            continue;
-        }
+            if (!can_render) {
+                // Block until a device callback notifies us. Use an atomic
+                // counter to avoid lost wakeups: we capture the current value
+                // before checking-then-waiting on it.
+                const std::uint32_t before = consumption_counter_.load(std::memory_order_acquire);
+                // Re-check under the lock just before waiting (defence against a
+                // device closing between the earlier check and now).
+                consumption_counter_.wait(before, std::memory_order_acquire);
+                continue;
+            }
 
-        render_one_block(*snap);
+            render_one_block(*snap);
+        } catch (const std::bad_alloc&) {
+            // Memory pressure: skip this block and give the system a moment.
+            // Audio will glitch but the server survives.
+            Logger::error("Render thread: out of memory — skipping block.");
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        } catch (const std::exception& e) {
+            Logger::error("Render thread exception (audio may glitch): {}", e.what());
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } catch (...) {
+            Logger::error("Render thread caught unknown exception (audio may glitch).");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
     }
     Logger::debug("Render thread exiting.");
 }

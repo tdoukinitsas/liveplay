@@ -247,6 +247,89 @@ CliOptions parse_cli(int argc, char** argv) {
     return opts;
 }
 
+// ---------------------------------------------------------------------------
+// Port conflict helpers
+// ---------------------------------------------------------------------------
+
+// Returns true if the given address:port is already bound by another process.
+static bool is_port_in_use(const std::string& addr, uint16_t port) {
+#if defined(_WIN32)
+    SOCKET s = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s == INVALID_SOCKET) return false;
+    BOOL opt = TRUE;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&opt), sizeof(opt));
+    sockaddr_in sa{};
+    sa.sin_family = AF_INET;
+    sa.sin_port   = htons(port);
+    inet_pton(AF_INET, addr.c_str(), &sa.sin_addr);
+    bool in_use = (::bind(s, reinterpret_cast<sockaddr*>(&sa), sizeof(sa)) == SOCKET_ERROR);
+    ::closesocket(s);
+    return in_use;
+#else
+    int s = ::socket(AF_INET, SOCK_STREAM, 0);
+    if (s < 0) return false;
+    int opt = 1;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    sockaddr_in sa{};
+    sa.sin_family = AF_INET;
+    sa.sin_port   = htons(port);
+    inet_pton(AF_INET, addr.c_str(), &sa.sin_addr);
+    bool in_use = (::bind(s, reinterpret_cast<sockaddr*>(&sa), sizeof(sa)) != 0);
+    ::close(s);
+    return in_use;
+#endif
+}
+
+#if !defined(_WIN32)
+// Returns the PID string of the process holding tcp:PORT, or "" if unknown.
+static std::string find_pid_on_port(uint16_t port) {
+    char cmd[128];
+    std::snprintf(cmd, sizeof(cmd), "lsof -ti tcp:%u 2>/dev/null", static_cast<unsigned>(port));
+    FILE* fp = popen(cmd, "r");
+    if (!fp) return {};
+    char buf[64] = {};
+    const bool got = (fgets(buf, sizeof(buf) - 1, fp) != nullptr);
+    pclose(fp);
+    if (!got) return {};
+    std::string s(buf);
+    while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' '))
+        s.pop_back();
+    for (char c : s) if (!std::isdigit(static_cast<unsigned char>(c))) return {};
+    return s;
+}
+
+#  if defined(__APPLE__)
+// Shows a GUI dialog via osascript when no terminal is available (e.g. standalone
+// .app bundle with LSUIElement=true). Returns true if the user chose to kill the
+// existing process.
+static bool show_macos_port_conflict_dialog(int port, const std::string& pid) {
+    char cmd[1024];
+    // Use multiple -e flags to avoid embedded-newline quoting headaches.
+    // PID is validated as all-digits before this call, so no injection risk.
+    std::snprintf(cmd, sizeof(cmd),
+        "osascript"
+        " -e 'set msg to \"LivePlay Server: port %d is already in use (PID %s).\""
+              " & return & return & \"Kill the existing server and start a new one?\"'"
+        " -e 'tell application \"System Events\" to set r to button returned of"
+              " (display dialog msg buttons {\"Quit\", \"Kill & Restart\"}"
+              " default button \"Kill & Restart\")'"
+        " -e 'r'"
+        " 2>/dev/null",
+        port, pid.c_str());
+    FILE* fp = popen(cmd, "r");
+    if (!fp) return false;
+    char buf[64] = {};
+    const bool got = (fgets(buf, sizeof(buf) - 1, fp) != nullptr);
+    pclose(fp);
+    if (!got) return false;
+    std::string result(buf);
+    while (!result.empty() && (result.back() == '\n' || result.back() == '\r'))
+        result.pop_back();
+    return result == "Kill & Restart";
+}
+#  endif // __APPLE__
+#endif // !_WIN32
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -293,6 +376,57 @@ int main(int argc, char** argv) {
     }
 
     install_signal_handlers();
+
+    // ------------------------------------------------------------------
+    // Port conflict check — give a clear diagnostic before Crow tries to
+    // bind and emits a misleading "0.0.0.0:0" error.
+    // ------------------------------------------------------------------
+    if (is_port_in_use(opts.bind_addr, static_cast<uint16_t>(opts.port))) {
+        Logger::error("Port {} is already in use.", opts.port);
+#if !defined(_WIN32)
+        const std::string existing_pid = find_pid_on_port(static_cast<uint16_t>(opts.port));
+        if (!existing_pid.empty()) {
+            Logger::warn("Another process (PID {}) is already bound to port {}.",
+                         existing_pid, opts.port);
+            bool kill_existing = false;
+            if (isatty(STDIN_FILENO)) {
+                // Interactive terminal — prompt the user directly.
+                std::fprintf(stderr,
+                    "\n  Options:\n"
+                    "    [k] Kill the existing process and start this one\n"
+                    "    [q] Quit  (keep the existing server running)\n"
+                    "\n  Choice [k/q]: ");
+                std::fflush(stderr);
+                char choice = '\0';
+                kill_existing = (std::scanf(" %c", &choice) == 1 &&
+                                 (choice == 'k' || choice == 'K'));
+            }
+#  if defined(__APPLE__)
+            else {
+                // No terminal (e.g. standalone .app bundle) — use a GUI dialog.
+                kill_existing = show_macos_port_conflict_dialog(opts.port, existing_pid);
+            }
+#  endif
+            if (kill_existing) {
+                const int target = std::stoi(existing_pid);
+                ::kill(target, SIGTERM);
+                std::this_thread::sleep_for(std::chrono::milliseconds(800));
+                if (::kill(target, 0) == 0) ::kill(target, SIGKILL);
+                Logger::info("Terminated PID {}. Starting new instance...", target);
+            } else {
+                Logger::info("Keeping existing server. Exiting.");
+                return 0;
+            }
+        } else {
+            Logger::error("Use --port <port> to choose a different port.");
+            return 1;
+        }
+#else
+        Logger::error("Use --port <port> to choose a different port, "
+                      "or stop the existing server first.");
+        return 1;
+#endif
+    }
 
     print_banner(opts.bind_addr, opts.port);
 

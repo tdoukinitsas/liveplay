@@ -206,9 +206,18 @@ async function startLiveplayServer() {
       // because the AppleScript is one string — escape the path manually.
       const shellQuote = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
       const cmdLine = [exePath, ...serverArgs].map(shellQuote).join(' ');
+      // Multi-statement AppleScript: open the window then activate so
+      // Terminal comes to the foreground rather than opening silently
+      // behind the LivePlay window.
+      const appleScript = [
+        'tell application "Terminal"',
+        `  do script "${cmdLine.replace(/"/g, '\\"')}"`,
+        '  activate',
+        'end tell',
+      ].join('\n');
       liveplayServerProc = spawn(
         'osascript',
-        ['-e', `tell application "Terminal" to do script "${cmdLine.replace(/"/g, '\\"')}"`],
+        ['-e', appleScript],
         { stdio: 'ignore', detached: true },
       );
     } else {
