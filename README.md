@@ -1,454 +1,306 @@
 # LivePlay
 
-![Main liveplay user interface, with playlist editor, cue cart and properties panel](client/public/screenshots/liveplay_screenshot.jpg)
+![LivePlay main interface — playlist editor, cart grid and properties panel](client/public/screenshots/liveplay_screenshot.jpg)
 
-LivePlay is a free, open-source audio playback system for live sound operators who need reliable, flexible cue management. It ships as a **decoupled client/server** application:
+**LivePlay** is a free, open-source audio playback system for live sound operators who need reliable, flexible cue management. It is built around a **decoupled client/server architecture**: a headless C++ audio engine handles all sound, while a cross-platform Electron desktop app drives it as a remote control.
 
-- **`/server`** — a headless, cross-platform C++ application that owns the audio engine, project state, REST/WebSocket control plane, and metadata/waveform analysis.
-- **`/client`** — a Vue 3 / Nuxt 3 / Electron desktop application that acts as a remote control over WebSocket and REST. No audio is played in the renderer process.
-
-The decoupled architecture gives LivePlay direct access to WASAPI/Core Audio/ALSA, true multi-device output routing, native DSP (limiter, LTC, metering at audio-callback rate), and independent per-cue playback instances.
-
-**Available in 20 languages** with full RTL support.
+- 🎚 Multi-device output routing (FOH + monitors + comms + record bus, all at once)
+- 🎬 Per-cue SMPTE LTC generator
+- 🔊 Brick-wall master limiter on every output
+- 📊 Three-stage real-time metering (per-cue, mixer-channel, master)
+- 🌐 REST + WebSocket control surface — run the server on a stage-side machine and operate it remotely from the show laptop
+- 🌍 Localised in **20 languages** with full RTL support
+- 📦 Native installers for **Windows, macOS (Intel + Apple Silicon) and Linux**
 
 ---
 
-## Table of Contents
+## Table of contents
 
-- [Architecture](#architecture)
-  - [Topology](#topology)
-  - [The 3-Tier Internal Mixer](#the-3-tier-internal-mixer)
-  - [Multi-Device Routing Matrix](#multi-device-routing-matrix)
-  - [LTC Generation](#ltc-generation)
-  - [Manual-Stop Fade-Out Contract](#manual-stop-fade-out-contract)
-  - [Brick-Wall Master Limiter](#brick-wall-master-limiter)
-  - [Real-Time Metering (3 Stages)](#real-time-metering-3-stages)
-  - [Network Event Lifecycle](#network-event-lifecycle)
-  - [Project File Backwards Compatibility](#project-file-backwards-compatibility)
-- [Repository Layout](#repository-layout)
-- [Local Development](#local-development)
+- [What LivePlay does](#what-liveplay-does)
+- [Installing and using LivePlay](#installing-and-using-liveplay)
+- [Repository layout](#repository-layout)
+- [Building from source](#building-from-source)
   - [Prerequisites](#prerequisites)
-  - [Server (C++)](#server-c)
-  - [Client (Vue / Nuxt / Electron)](#client-vue--nuxt--electron)
-  - [Running both concurrently](#running-both-concurrently)
-- [Production Build & Packaging](#production-build--packaging)
-- [CI / GitHub Actions](#ci--github-actions)
+  - [Windows](#windows)
+  - [macOS](#macos)
+  - [Linux](#linux)
+- [Development workflow](#development-workflow)
+- [Releases & GitHub Actions](#releases--github-actions)
 - [Contributing](#contributing)
 - [License](#license)
 
 ---
 
-## Architecture
+## What LivePlay does
 
-### Topology
+LivePlay is a cue-playback application aimed at theatre, conferences, AV installs, and live performance. The operator builds a **project** (a `.liveplay` file plus a folder of media) containing:
 
-```
-+-----------------------------------+      WebSocket (ws://host:4480/ws)      +-----------------------------------+
-|  /client                          | <---------------- meters @ ~60 Hz ----> |  /server  (liveplay-server)       |
-|  Electron + Nuxt 3 + Vue 3        | <--- transport / route commands -----   |  C++20, miniaudio, Crow, TagLib   |
-|                                   |       REST  (http://host:4480/api/*)    |                                   |
-|  + UI, cart grid, properties,     | <--- list / load / upload / waveform -> |  + AudioEngine                    |
-|    routing matrix UI              |                                         |  + ProjectState                   |
-|  + WaveformCanvas (from /api/     |                                         |  + ControlServer (REST + WS)      |
-|    waveform/:cueId)               |                                         |  + Metadata / Waveform services   |
-|  + LiveMeterBar  (from /ws meter  |                                         |                                   |
-|    broadcasts)                    |                                         |  Native devices:                  |
-|                                   |                                         |    Win → WASAPI                   |
-|  No Howler. No WaveSurfer.        |                                         |    Mac → CoreAudio                |
-|  No Web Audio decoding.           |                                         |    Linux → ALSA / Pulse           |
-+-----------------------------------+                                         +-----------------------------------+
-```
+- **A playlist** of audio cues organised into nested groups, with per-cue volume, in/out trim, fade times, ducking behaviour, and start/end behaviours (play next, loop, jump to cue, …).
+- **A cart grid** of one-touch buttons mapped to cues for stings, SFX and walk-ons.
+- **A routing matrix** that maps cue source channels → mixer channels → master outputs → physical hardware outputs across one or more sound cards.
 
-Client and server can run on the **same machine** (a single-machine LivePlay install bundles both) or on **different machines** on the same network (e.g. show laptop runs the client, a stage-side mini-PC runs the server with audio interfaces plugged in).
+At showtime, the operator triggers cues via the UI, the cart grid, configured keyboard shortcuts, MIDI controllers, or HTTP/WebSocket calls from external automation. Each cue plays through its own decoder, runs through a three-tier mixer, and lands on a brick-wall limiter before hitting the DAC.
 
-### The 3-Tier Internal Mixer
-
-The C++ engine routes audio through three explicit tiers. Every cue's audio is processed through each tier in sequence:
+### Architecture in one diagram
 
 ```
-   Tier 1                Tier 2                  Tier 3
-   ──────                ──────                  ──────
- PlaybackItem  ─send─►  MixerChannel  ─send─►  Master Output Bus  ─hw─►  Device:HwCh
-   (one per                (group bus,            (per-channel
-   live cue,               gain/mute/             brick-wall
-   own decoder)            solo/fade)             limiter)
++--------------------------------+   WebSocket (ws://host:4480/ws)   +-----------------------------------+
+|  client/                       | <----- meters @ ~60 Hz ---------> |  server/  (liveplay-server)       |
+|  Electron + Nuxt 3 + Vue 3     | <----- transport / route cmds --- |  C++20, miniaudio, Crow, TagLib   |
+|                                |        REST  (http://host:4480)   |                                   |
+|  - Playlist / cart / routing UI| <----- list / load / waveform --> |  - AudioEngine (mixer + limiter)  |
+|  - WaveformCanvas              |                                   |  - ProjectState (.liveplay I/O)   |
+|  - LiveMeterBar                |                                   |  - ControlServer (REST + WS)      |
+|                                |                                   |  - Metadata + waveform services   |
+|  No audio plays in the         |                                   |                                   |
+|  renderer process.             |                                   |  Win → WASAPI · Mac → CoreAudio   |
+|                                |                                   |  Linux → ALSA / PulseAudio        |
++--------------------------------+                                   +-----------------------------------+
 ```
 
-- **Tier 1 — `PlaybackItem`** ([server/include/liveplay/audio/playback_item.hpp](server/include/liveplay/audio/playback_item.hpp))
-  Each cue gets its own `PlaybackItem` with its own `ma_decoder`, gain/fade state, LTC generator, and per-source-channel meter. Loading the same `.wav` into two cart slots yields **two independent instances** — attenuating one never affects the other.
-- **Tier 2 — `MixerChannel`** ([server/include/liveplay/audio/mixer_channel.hpp](server/include/liveplay/audio/mixer_channel.hpp))
-  A virtual mixer strip with gain, mute, solo, and a smooth-fade ramp. Multiple items can route into the same channel; multiple source channels of one item can route to different channels.
-- **Tier 3 — Master Output Bus** ([server/include/liveplay/audio/engine.hpp](server/include/liveplay/audio/engine.hpp))
-  Up to 64 logical master channels (configurable). Each carries a brick-wall limiter + meter and is assigned to exactly one `(Device, HardwareChannelIndex)` tuple.
+Client and server can run on **the same machine** (the desktop installer bundles both) or on **different machines** on a LAN — e.g. the show laptop driving a stage-side mini-PC that's wired to the actual sound interfaces.
 
-All three tiers run on the engine's render thread at a 256-frame block (≈ 5.3 ms at 48 kHz). Meters and limiter envelopes update once per block.
-
-### Multi-Device Routing Matrix
-
-LivePlay supports **multiple sound cards simultaneously** with full source-channel splitting. The matrix is sparse and serialisable; it round-trips through `/api/project`.
-
-The matrix entries are:
-
-| Stage | Mapping | Persisted as |
-|---|---|---|
-| Item → Mixer  | per-source-channel sends with linear gain | `item_routes` |
-| Mixer → Master | per-master-channel sends with linear gain | `mixer_routes` |
-| Master → Device | exactly one `(device_id, hw_channel)` per master | `master_assignments` |
-
-Example: a stereo MP3 (`L`, `R`) on a 4-channel cue can simultaneously feed FOH (Device A: ch 0+1) and a stage monitor mix (Device B: ch 2+3) **with different gains** by wiring `L → MixerA → Master0 → DevA:0` plus `L → MixerB → Master2 → DevB:2` and similarly for `R`.
-
-UI: see [`client/components/RoutingMatrixPanel.vue`](client/components/RoutingMatrixPanel.vue). Backed by REST routes `/api/routing/item_to_mixer`, `/api/routing/mixer_to_master`, `/api/routing/master_to_device`.
-
-### LTC Generation
-
-Per-cue procedural SMPTE Linear Timecode ([server/include/liveplay/audio/ltc_generator.hpp](server/include/liveplay/audio/ltc_generator.hpp)). When enabled on a cue, the engine adds a synthetic **extra source channel** appended after the file's real channels. That channel can be routed anywhere through the matrix — to one of FOH's outputs, to a dedicated 3.5 mm jack, to a different device entirely.
-
-Supported frame rates: 24, 25, 29.97 NDF, 29.97 DF, 30. Drop-frame handling is implemented in `LTCGenerator::timecode_for_frame`.
-
-Offset: any non-negative `chrono::nanoseconds`. So a cue can be set up to emit `01:00:00:00` at its first sample, sync-locked to the cue's playhead afterwards.
-
-### Manual-Stop Fade-Out Contract
-
-All three stop paths funnel through the same fade-out envelope:
-
-- `PlaybackItem::stop()` (user pressed Stop, or master Stop-All) — honours `fade_out_duration`.
-- `PlaybackItem::stop_now()` — emergency panic, no fade.
-- Natural end-of-file inside `render_block()` — honours `fade_out_duration`.
-
-The implementation enforces the contract: `stop()` calls `start_fade()` which feeds the same state machine the natural-end branch uses. See [server/src/audio/playback_item.cpp](server/src/audio/playback_item.cpp) (search for the `// Manual-stop fade contract:` comment).
-
-### Brick-Wall Master Limiter
-
-Each master channel carries a lookahead brick-wall limiter ([server/include/liveplay/audio/limiter.hpp](server/include/liveplay/audio/limiter.hpp)). Default settings:
-
-- Ceiling: **−0.3 dBFS**
-- Lookahead: **5 ms** (≈ 240 samples at 48 kHz)
-- Release: **50 ms**
-
-The detector runs a sliding-max peak window with O(1) amortised update; the gain envelope snaps down within the lookahead and one-pole-releases back to unity. Output is mathematically clamped to the ceiling so clipping is impossible for finite inputs.
-
-### Real-Time Metering (3 Stages)
-
-Every tier carries its own `Meter` ([server/include/liveplay/audio/meter.hpp](server/include/liveplay/audio/meter.hpp)) — VU-style ballistics with attack/release peak envelope plus a leaky-integrator RMS over ~300 ms. Audio thread pushes blocks via `push_block()`; the meter publishes lock-free atomics that the broadcast thread reads at 60 Hz.
-
-The WebSocket frame the client receives:
-
-```json
-{
-  "type": "meters",
-  "items": [
-    {
-      "cue_id": "…",
-      "transport": 1,
-      "playhead_seconds": 12.43,
-      "sources": [
-        { "peak_db": -3.1, "rms_db": -9.2 },
-        { "peak_db": -4.2, "rms_db": -9.5 }
-      ]
-    }
-  ],
-  "mixer_channels": [
-    { "mixer_id": "…", "peak_db": -6.0, "rms_db": -12.0 }
-  ],
-  "master_channels": [
-    { "index": 0, "peak_db": -0.3, "rms_db": -8.1, "gain_reduction_db": -1.4 }
-  ]
-}
-```
-
-Metering is driven directly from audio-callback amplitude data.
-
-### Network Event Lifecycle
-
-A typical cue trigger from the operator's point of view:
-
-```
-1. User presses Cart #3.
-2. CartSlot.vue → useLiveplayServer().play(cueId)
-3. WebSocket frame { "type": "play", "cue_id": "…" } sent to server.
-4. ControlServer::handle_ws_message → engine_.play(cueId) — O(1) atomic state flip.
-5. AudioEngine render thread, next block:
-     PlaybackItem.render_block() decodes + applies fade-in envelope.
-     Mixer summing through the matrix.
-     Master limiter + meter on per-device output buffers.
-     Buffers pushed into each device's ma_pcm_rb (ring buffer).
-6. Per-device miniaudio callback drains the ring → hardware DAC.
-7. Render thread also pushes amplitude into the 3-tier meters.
-8. Broadcast thread, ~16 ms later: snapshot all meters → JSON → fan out to every WS client.
-9. Client's LiveMeterBar.vue reflects the new levels in the next frame paint.
-```
-
-Total round-trip from keypress to first sample at the DAC is dominated by the chosen `render_block` size + the device's hardware buffer — typically well under 20 ms on Windows with default WASAPI settings.
-
-### Project File Backwards Compatibility
-
-The legacy 1.x `.liveplay` project file format is auto-upgraded on load by `ProjectState::upgrade_legacy_document` ([server/src/core/project_state.cpp](server/src/core/project_state.cpp)). The translator:
-
-- Walks legacy `carts` / `playlist` arrays and reconstructs the v2 `cues` list with the same names, file paths, gains, and fade durations.
-- Synthesises stereo master assignments: master channel 0 → default device hw ch 0, master channel 1 → default device hw ch 1.
-- Auto-creates one per-cue mixer channel so each cue still has independent gain/fade.
-
-The result: existing `.liveplay` projects open and play identically. Operators can then open the new Routing UI to split out source channels or send to additional devices.
+For the deep architectural docs (mixer tiers, routing matrix, LTC, limiter, metering, network event lifecycle, project-file backwards compatibility), see [`server/README.md`](server/README.md).
 
 ---
 
-## Repository Layout
+## Installing and using LivePlay
+
+### Download a release
+
+Pre-built installers for Windows, macOS and Linux are published on the [GitHub Releases page](https://github.com/tdoukinitsas/liveplay/releases) and from the [docs site](https://tdoukinitsas.github.io/liveplay/).
+
+| Platform | Files |
+|----------|-------|
+| Windows  | `LivePlay-Setup-x.y.z.exe` (NSIS installer, x64) |
+| macOS    | `LivePlay-x.y.z.dmg` (Intel + Apple Silicon, separate builds) |
+| Linux    | `LivePlay-x.y.z.AppImage`, `LivePlay_x.y.z_amd64.deb`, `LivePlay-x.y.z.x86_64.rpm` |
+
+The installer bundles **both** the Electron client and the `liveplay-server` binary. On first launch the client spawns the server as a child process listening on `127.0.0.1:4480`, so a single-machine install needs no configuration.
+
+LivePlay auto-checks for new releases on launch and offers in-app updates via `electron-updater`.
+
+### Quick start
+
+1. Install LivePlay and launch it.
+2. Choose **New Project** and pick a folder — LivePlay creates the project file and a `media/` sub-folder there.
+3. Drop audio files onto the playlist, or use **Import audio** to copy them in.
+4. Click a cue to load it into the Properties panel, set in/out points, fade times, and routing.
+5. Press a cart slot or hit the Play button to fire the cue. Live meters show signal at every stage.
+
+For routing a stage-side server, open **Server Settings** and point the client at `http://<server-host>:4480`.
+
+---
+
+## Repository layout
 
 ```
 liveplay/
-├── client/                          Vue 3 / Nuxt 3 / Electron desktop UI
-│   ├── components/                  Vue SFCs
-│   │   ├── WaveformCanvas.vue       canvas-rendered waveform
-│   │   ├── ServerFileBrowser.vue    /api/fs/list browser
-│   │   ├── RoutingMatrixPanel.vue   3-tier routing UI
-│   │   ├── LiveMeterBar.vue         live WS meter widget
-│   │   ├── ServerSettingsModal.vue  server URL / mode config
-│   │   └── …other components…
-│   ├── composables/
-│   │   ├── useLiveplayServer.ts     REST + WS client (singleton)
-│   │   ├── useLiveMeters.ts         meter-subscription helpers
-│   │   └── …other composables…
-│   ├── plugins/
-│   │   └── liveplay-server.client.ts  Nuxt plugin: auto-connect on boot
-│   ├── types/
-│   │   ├── server.ts                server DTOs
-│   │   └── project.ts               project model
-│   ├── electron/                    Electron main process + preload
-│   ├── nuxt.config.ts
-│   └── package.json
-│
-├── server/                          C++ audio engine + control server
-│   ├── CMakeLists.txt
-│   ├── CMakePresets.json
-│   ├── vcpkg.json
-│   ├── include/liveplay/
-│   │   ├── logger.hpp
-│   │   ├── audio/  (types, meter, limiter, ltc_generator, mixer_channel, playback_item, engine)
-│   │   ├── core/   (project_state)
-│   │   ├── meta/   (metadata, waveform)
-│   │   └── net/    (control_server)
-│   └── src/
-│       ├── main.cpp                 banner, CLI, signal handling
-│       ├── logger.cpp
-│       ├── audio/                   miniaudio_impl.c + all .cpp files
-│       ├── core/project_state.cpp
-│       ├── meta/                    metadata.cpp, waveform.cpp
-│       └── net/control_server.cpp
-│
+├── client/         Electron + Nuxt 3 + Vue 3 desktop UI — see client/README.md
+├── server/         C++20 audio engine + REST/WS control server — see server/README.md
+├── docs-site/      Public-facing Nuxt 3 site (GitHub Pages) — see docs-site/README.md
+├── scripts/        Cross-platform build orchestrator scripts — see scripts/README.md
+├── build/          Collected installer artefacts after `npm run build`
 ├── .github/workflows/
-│   ├── build-server.yml             C++ matrix (Win MSVC, macOS Clang, Linux GCC)
-│   └── build-release.yml            Client (electron-builder) — paths updated to /client
-│
-├── package.json                     workspaces root (orchestrator scripts)
-├── README.md                        this file
-├── LICENCE.txt                      AGPL-3.0
-├── docs-site/, guides/, openspec/   docs, guides, API spec
-└── .gitignore                       client + server build outputs
+│   ├── build-release.yml   Cuts releases on version bumps to package.json
+│   ├── build-server.yml    Standalone server matrix build (Win / macOS / Linux)
+│   └── deploy-docs.yml     Publishes the docs site to GitHub Pages
+├── package.json    Monorepo root — orchestrator scripts only
+├── LICENCE.txt     AGPL-3.0-only
+└── README.md       This file
 ```
+
+Each sub-package has its own README with developer documentation tailored to that area.
 
 ---
 
-## Local Development
+## Building from source
 
 ### Prerequisites
 
+All platforms need:
+
 | Tool | Minimum | Notes |
 |------|---------|-------|
-| Git  | any     | with submodule support |
-| Node.js | 20 LTS | for the client |
+| Git  | any     | |
+| Node.js | 20 LTS | for the client + orchestrator scripts |
 | CMake | 3.21   | for the server |
-| C++ toolchain | C++20 | MSVC 2022 / Clang 15+ / GCC 12+ |
-| vcpkg | any recent | `git clone https://github.com/microsoft/vcpkg && cd vcpkg && ./bootstrap-vcpkg.{sh,bat}` |
+| C++20 toolchain | — | MSVC 2022 / Clang 15+ / GCC 12+ |
+| [vcpkg](https://github.com/microsoft/vcpkg) | recent | `VCPKG_ROOT` env var must point at your checkout |
 | Ninja | latest | strongly recommended (`brew install ninja`, `choco install ninja`, `apt install ninja-build`) |
 
-Export `VCPKG_ROOT` to point at your vcpkg checkout — the server CMake reads it:
+Set the `VCPKG_ROOT` environment variable:
 
-```sh
-# Linux / macOS
-export VCPKG_ROOT="$HOME/dev/vcpkg"
-echo 'export VCPKG_ROOT="$HOME/dev/vcpkg"' >> ~/.zshrc
-
-# Windows (PowerShell)
+```pwsh
+# Windows (PowerShell, persistent)
 [Environment]::SetEnvironmentVariable("VCPKG_ROOT", "C:\dev\vcpkg", "User")
 ```
 
-Linux only — also install the system audio dev headers miniaudio links against:
-
-```sh
-sudo apt install libasound2-dev libpulse-dev libjack-jackd2-dev pkg-config
-```
-
-### Server (C++)
-
-```sh
-cd server
-cmake --preset default          # downloads deps via vcpkg; ~5 min first time
-cmake --build build --config Release -j
-./build/liveplay-server          # binary at build/liveplay-server[.exe]
-```
-
-Debug build (with assertions + symbols):
-
-```sh
-cd server
-cmake --preset debug
-cmake --build build-debug -j
-./build-debug/liveplay-server --verbose   # enables DBUG-level logging
-```
-
-Live-rebuild loop (uses `entr` on Linux/macOS or PowerShell `fswatch` on Windows):
-
 ```sh
 # macOS / Linux
-find server/src server/include -name '*.cpp' -o -name '*.hpp' -o -name '*.h' | entr -c sh -c 'cmake --build server/build -j && ./server/build/liveplay-server'
+export VCPKG_ROOT="$HOME/dev/vcpkg"
+echo 'export VCPKG_ROOT="$HOME/dev/vcpkg"' >> ~/.zshrc
 ```
 
-CLI flags:
-
-```
-liveplay-server [options]
-  -p, --port <port>     Port to listen on (default 4480)
-  -b, --bind <addr>     Interface to bind (default 0.0.0.0)
-  -v, --verbose         Enable debug-level logging
-  -h, --help            Show this help and exit
-
-Environment:
-  LIVEPLAY_PORT         Same as --port
-  NO_COLOR=1            Disable ANSI colour in logs (e.g. for log aggregators)
-  FORCE_COLOR=1         Force colour even when stdout is not a tty
-```
-
-The server prints a startup banner showing the LAN address to point the client at:
-
-```
-  Listening
-    REST       http://0.0.0.0:4480
-    WebSocket  ws://0.0.0.0:4480/ws
-    LAN reach  http://192.168.1.42:4480
-```
-
-### Client (Vue / Nuxt / Electron)
+Then from a clean checkout:
 
 ```sh
-cd client
-npm install
-npm run dev         # nuxt dev + electron-on-localhost:3000 (via concurrently)
+git clone https://github.com/tdoukinitsas/liveplay.git
+cd liveplay
+npm install                # installs client deps via npm workspaces
+npm run build              # builds server + client and collects installers into /build
 ```
 
-The client reads the server URL from `localStorage`'s `liveplay.serverUrl` key (default `http://127.0.0.1:4480`). Use the in-app **Server Settings** modal ([`ServerSettingsModal.vue`](client/components/ServerSettingsModal.vue)) to switch to a remote server.
+`npm run build` runs the unified pipeline in [scripts/build-all.js](scripts/build-all.js):
 
-The `useLiveplayServer` composable is a **singleton** — every component that calls it receives the same WebSocket and the same reactive state.
+1. Configures and builds the C++ server through CMake/vcpkg.
+2. On macOS, wraps the server binary into a `LivePlay Server.app` for DMG inclusion.
+3. Runs `nuxt generate` and `electron-builder` in `client/`.
+4. Copies the installer artefacts (`.exe`, `.dmg`, `.AppImage`, `.deb`, `.rpm`) into `build/`.
 
-### Running both concurrently
+Use `npm run build:clean` to wipe previous build outputs first (it preserves `vcpkg_installed/` so C++ deps don't get re-downloaded).
 
-From the **repository root**, the orchestrator `package.json` provides:
+#### Platform-specific notes
+
+##### Windows
+
+- Install **Visual Studio 2022** with the *Desktop development with C++* workload (includes MSVC + Windows SDK).
+- Install Node.js 20 LTS, CMake (≥ 3.21) and Ninja (e.g. `choco install nodejs cmake ninja`).
+- Clone and bootstrap vcpkg:
+  ```pwsh
+  git clone https://github.com/microsoft/vcpkg C:\dev\vcpkg
+  C:\dev\vcpkg\bootstrap-vcpkg.bat
+  ```
+- Set `VCPKG_ROOT` (see above), open a fresh PowerShell, `npm install`, then `npm run build`.
+- Output: `build/LivePlay-Setup-<version>.exe` (NSIS installer, x64).
+
+##### macOS
+
+- Install Xcode Command Line Tools (`xcode-select --install`).
+- Install Homebrew deps: `brew install node cmake ninja pkg-config`.
+- Bootstrap vcpkg:
+  ```sh
+  git clone https://github.com/microsoft/vcpkg "$HOME/dev/vcpkg"
+  "$HOME/dev/vcpkg"/bootstrap-vcpkg.sh
+  ```
+- Set `VCPKG_ROOT`, then `npm install && npm run build`.
+- Output: `build/LivePlay-<version>.dmg` for the current arch. To build the other arch, set `CMAKE_OSX_DEPLOYMENT_TARGET` and use the matching electron-builder flags; CI builds both x64 and arm64 separately.
+- Code signing is skipped by default (users will see a Gatekeeper warning on first launch — right-click → Open).
+
+##### Linux
+
+- Install build tools and audio dev headers:
+  ```sh
+  sudo apt update
+  sudo apt install -y build-essential cmake ninja-build pkg-config \
+                      libasound2-dev libpulse-dev libjack-jackd2-dev libx11-dev
+  ```
+  (use the equivalent `dnf` / `pacman` packages on Fedora / Arch).
+- Install Node.js 20 LTS via your distro or [nvm](https://github.com/nvm-sh/nvm).
+- Bootstrap vcpkg as on macOS, set `VCPKG_ROOT`, then `npm install && npm run build`.
+- Output: `build/LivePlay-<version>.AppImage`, `LivePlay_<version>_amd64.deb`, `LivePlay-<version>.x86_64.rpm`.
+
+---
+
+## Development workflow
+
+From the monorepo root:
 
 ```sh
+# One-time
 npm install                      # installs client deps via npm workspaces
+npm run server:configure         # CMake configure for the server (idempotent)
 
-# server lifecycle (requires VCPKG_ROOT to be set)
-npm run server:configure         # one-time CMake configure
-npm run server:build             # rebuild C++ after edits
-npm run server:run               # launch the compiled binary
+# Iterating on the server only
+npm run server:build             # rebuild the C++ server
+npm run server:run               # launch the compiled binary (forwards CLI args)
 
-# client lifecycle
-npm run dev:client               # nuxt + electron
-npm run build:client             # production nuxt generate
-npm run build:client:electron    # full electron-builder packaging
+# Iterating on the client only — ensures the server is built first, then runs
+# Nuxt + Electron in dev mode against it
+npm run dev
 
-# run both at once (server must already be built)
+# Running both in side-by-side terminals (the server in one pane, client dev in the other)
 npm run dev:all
 ```
 
----
+The default `npm run dev` calls [scripts/ensure-server.js](scripts/ensure-server.js), which is a no-op if the server binary already exists and otherwise configures + builds it. After that it launches `nuxt dev` + Electron in the `client/` workspace.
 
-## Production Build & Packaging
-
-LivePlay produces three artefacts per OS:
-
-1. **`liveplay-server`** — the headless C++ binary (`liveplay-server.exe` / `liveplay-server`). Cross-compiled by `build-server.yml` in CI; downloaded from the Actions artefact list.
-2. **Electron installer** — built by `build-release.yml` from `client/package.json`'s `build` block. Produces `.exe` (Windows), `.dmg`/`.zip` (macOS), `.AppImage`/`.deb`/`.rpm` (Linux).
-3. **Bundle** — the two combined. The client's electron-builder config copies the server binary into the installer's `resources/` folder; on first launch, the Electron main process spawns it as a child process.
-
-### Building the server binary for distribution
+Bumping versions across the monorepo:
 
 ```sh
-cd server
-cmake -S . -B build \
-  -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-cmake --build build --config Release -j
-cmake --install build --prefix dist
-# dist/bin/liveplay-server[.exe] is now ready to ship.
+npm run bump -- patch        # 2.0.0 → 2.0.1
+npm run bump -- minor        # 2.0.0 → 2.1.0
+npm run bump -- major        # 2.0.0 → 3.0.0
+npm run version -- 2.1.4     # set an explicit version
 ```
 
-Strip the binary on Linux/macOS (optional, halves the size):
+For deeper development notes:
 
-```sh
-strip dist/bin/liveplay-server
-```
-
-### Bundling the server inside the Electron installer
-
-The Electron installer bundles the server binary automatically. The recipe:
-
-1. Build `liveplay-server` for each target OS using `build-server.yml`.
-2. Place the per-OS binary at `client/electron/resources/server-bin/`.
-3. Reference it from `client/package.json`'s `build.extraResources`:
-
-```json
-"build": {
-  "extraResources": [
-    { "from": "electron/resources/server-bin", "to": "server-bin" }
-  ]
-}
-```
-
-4. The Electron main process (`client/electron/main.js`) resolves the bundled binary path via `resolveServerBinaryPath()` and spawns it as a detached child process on first launch. A lockfile records the PID so subsequent launches reattach to the running instance rather than spawning a duplicate.
-
-5. **Code signing** — sign the server binary alongside the Electron app: Windows via `signtool` (electron-builder does this automatically if the binary is in `extraResources`), macOS via the hardened runtime + the `entitlements` in the `build.mac` block (requires `com.apple.security.device.audio-input` for Core Audio).
-
-### Cross-platform notes
-
-| Platform | Backend | Build notes |
-|----------|---------|-------------|
-| Windows  | WASAPI (default), DirectSound, WinMM | MSVC 2022. `ws2_32` + `ole32` + `winmm` linked automatically by the CMake target. |
-| macOS    | Core Audio | Frameworks linked via CMake: CoreAudio, AudioToolbox, AudioUnit, CoreFoundation. Set `CMAKE_OSX_DEPLOYMENT_TARGET=12.0` for older macOS support. |
-| Linux    | ALSA + PulseAudio (both compiled in; runtime fallback) | `libasound2-dev`, `libpulse-dev`, `libjack-jackd2-dev` headers needed. JACK is optional. |
-
-ASIO support on Windows requires the **Steinberg ASIO SDK**, which has a redistribution licence incompatible with AGPL bundling. For now LivePlay uses WASAPI Exclusive Mode for low-latency Windows output. If you need ASIO, build miniaudio with `MA_ENABLE_ASIO` after locally placing the SDK at the expected path.
+- **Server internals** (mixer tiers, routing, LTC, project-file format, REST/WS surface): [`server/README.md`](server/README.md)
+- **Client internals** (composables, IPC, Electron main process, localisation, MIDI/hotkeys): [`client/README.md`](client/README.md)
+- **Build/utility scripts**: [`scripts/README.md`](scripts/README.md)
+- **Public docs site**: [`docs-site/README.md`](docs-site/README.md)
 
 ---
 
-## CI / GitHub Actions
+## Releases & GitHub Actions
 
-| Workflow | Triggers | What it does |
-|----------|----------|--------------|
-| [`build-server.yml`](.github/workflows/build-server.yml) | push/PR to `server/**`, manual | Matrix build (Win MSVC / macOS Clang / Linux GCC), smoke-tests `--help`, uploads `liveplay-server-{windows-x64,macos-arm64,linux-x64}` artefacts |
-| [`build-release.yml`](.github/workflows/build-release.yml) | push to `main` touching `client/package.json` with a bumped `version` | electron-builder matrix, produces installers, creates a GitHub Release with auto-generated changelog |
-| `deploy-docs.yml`   | docs-site/ changes | publishes the docs site |
+Releases are fully automated. The release pipeline lives in [`.github/workflows/build-release.yml`](.github/workflows/build-release.yml).
 
-GitHub's pre-installed vcpkg on the hosted runners is used (`VCPKG_INSTALLATION_ROOT` → `VCPKG_ROOT`) with the `x-gha,readwrite` binary cache backend so subsequent runs reuse compiled libraries.
+### Triggering a release
+
+1. Bump the version in the root `package.json` (use `npm run bump -- patch|minor|major`, which propagates to `client/package.json`).
+2. Commit and push to `main`.
+3. The `build-release` workflow detects the version change and runs the platform matrix:
+   - **Windows x64** (MSVC, WASAPI)
+   - **macOS Intel x64** (Clang, CoreAudio, deployment target 11.0)
+   - **macOS Apple Silicon arm64** (Clang, CoreAudio, deployment target 12.0)
+   - **Linux x64** (GCC, ALSA + PulseAudio + JACK)
+4. Each job builds the C++ server through CMake/vcpkg, then runs the client `electron-builder` step with `extraResources` picking up the freshly compiled server binary.
+5. All artefacts are uploaded, then a final `release` job downloads them, auto-generates a changelog from git commits since the last tag, and creates a GitHub Release tagged `v<version>` with every installer attached.
+
+The vcpkg binary cache (`x-gha,readwrite` backend) is reused across runs so compiled C++ dependencies don't have to be re-built from scratch every time.
+
+### Other workflows
+
+- **[`build-server.yml`](.github/workflows/build-server.yml)** — builds the server alone on PRs and pushes that touch `server/**`. Cross-platform matrix; uploads `liveplay-server-<platform>` artefacts for download from the Actions UI. Useful for vetting server-only PRs without running the full release pipeline.
+- **[`deploy-docs.yml`](.github/workflows/deploy-docs.yml)** — rebuilds [the docs site](https://tdoukinitsas.github.io/liveplay/) when `docs-site/`, the root `README.md`, or `package.json` changes.
 
 ---
 
 ## Contributing
 
-1. Fork & clone.
-2. Create a branch off `main` (`git checkout -b feat/something`).
-3. Server changes: build + run with `cmake --build server/build && ./server/build/liveplay-server --verbose`. Client changes: `npm run dev --workspace=client`.
-4. Open a PR. CI must pass.
+Contributions of all sizes are welcome — bug fixes, new features, translations, documentation, screenshots, you name it.
 
-Style:
+1. **Fork** the repo and `git checkout -b feat/something` off `main`.
+2. **Build it locally** following the steps above. For server changes, run `npm run server:build && npm run server:run --verbose`. For client changes, `npm run dev`.
+3. **Test your change**. There's no automated test suite yet — please verify the path you touched works end-to-end in the running app. Mention any platform you couldn't test on in the PR description so reviewers can cover it.
+4. **Open a PR** to `main`. CI must pass (server matrix build on the relevant platforms).
 
-- Server: C++20, `clang-format` (Google-ish), no exceptions in audio-callback code, atomics for hot params, RAII everywhere.
-- Client: Vue 3 Composition API + TypeScript. All components communicate with the server via `useLiveplayServer()`.
+### Style
 
-Ongoing work (component migrations, new REST endpoints, etc.) is tracked in [openspec/](openspec/). PRs welcome.
+- **Server** (C++20): atomics for hot params on the audio thread, no exceptions inside the audio callback, RAII everywhere, header-per-class.
+- **Client** (TypeScript): Vue 3 Composition API with `<script setup>`. All audio + project state goes through `useLiveplayServer()` — components don't talk to the server directly.
+- **Commits**: short, prefer present-tense imperatives ("fix routing-matrix off-by-one"). Changelogs are generated from commit messages, so make them readable.
+
+### Translations
+
+LivePlay ships with 20 locale files at [`client/locales/`](client/locales/). To add a new language or fix existing translations:
+
+1. Copy `en.json` to `<lang-code>.json` (e.g. `nl.json`).
+2. Update the `_metadata` block (`code`, `name`, `nativeName`, `direction`).
+3. Translate the values. Don't change keys; missing keys auto-fall-back to English at runtime.
+4. Run `node scripts/sync-locale-keys.js` to ensure your new file has every key `en.json` has.
+5. The locale is picked up automatically — no code changes needed.
+
+For right-to-left languages, set `"direction": "rtl"` in `_metadata` and verify the layout in-app.
+
+### Reporting bugs
+
+File issues at [github.com/tdoukinitsas/liveplay/issues](https://github.com/tdoukinitsas/liveplay/issues). Include OS, LivePlay version (visible in the About dialog), and a minimal repro.
 
 ---
 
 ## License
 
-[AGPL-3.0-only](LICENCE.txt). See the file header for the full text. Third-party dependencies retain their own licences (miniaudio: public domain / MIT-0; Crow: BSD-3; TagLib: LGPL-2.1+; nlohmann/json: MIT).
+[**AGPL-3.0-only**](LICENCE.txt). Third-party dependencies retain their own licences (miniaudio: public domain / MIT-0; Crow: BSD-3; TagLib: LGPL-2.1+; nlohmann/json: MIT).

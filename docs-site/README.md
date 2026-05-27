@@ -1,158 +1,142 @@
-# LivePlay Documentation Site
+# LivePlay Docs Site — developer guide
 
-This is the static documentation and download site for LivePlay, built with Nuxt 3.
+This is the public-facing static site at **<https://tdoukinitsas.github.io/liveplay/>**. It's a Nuxt 3 SPA that advertises the project, links to the latest release, and renders the project README in a few languages.
 
-## Features
+This document is the developer's guide to the docs site. For end-user docs, see the [root README](../README.md).
 
-- **Dynamic Version Detection**: Automatically fetches version from parent `package.json`
-- **Download Links**: Direct links to all platform installers (Windows, macOS, Linux)
-- **Feature Highlights**: Showcases key features with screenshots and descriptions
-- **Internationalization**: Supports multiple languages with auto-detection
-- **Language Switcher**: Easy language selection with dropdown menu
-- **Responsive Design**: Mobile-friendly layout that works on all devices
-- **Auto-deployment**: GitHub Actions automatically builds and deploys to GitHub Pages
+---
 
-## Components
+## Stack
 
-### FeatureHighlight.vue
-A reusable component for displaying application features:
-- Title and image props
-- Description via slot
-- Automatic alternating layout
-- Mobile-responsive
+- **Nuxt 3** (`ssr: false`, `nitro.preset: 'static'`) → generates a fully static SPA.
+- **Vue 3** Composition API + `<script setup>`.
+- **SCSS** for styles ([`assets/styles/main.scss`](assets/styles/main.scss)).
+- **GitHub Pages** for hosting, with a base URL of `/liveplay/`.
+- No backend, no API: the page fetches the project README and a few JSON manifests at runtime.
 
-**Usage:**
-```vue
-<FeatureHighlight
-  title="Feature Title"
-  image-src="/screenshots/feature.jpg"
->
-  <p>Feature description goes here.</p>
-</FeatureHighlight>
-```
+The site is deliberately tiny — two components, one composable, one Nuxt page. Anything more elaborate (component libraries, CMS, etc.) is out of scope.
 
-### LanguageSwitcher.vue
-Language selection dropdown:
-- Auto-detects browser language
-- Persists selection to localStorage
-- Mobile-optimized display
+---
 
-## Localization
-
-### Supported Languages
-- English (en)
-- Spanish (es)
-- French (fr)
-- German (de)
-
-### Adding a New Language
-
-1. Create a new JSON file in `public/locales/` (e.g., `it.json`)
-2. Follow the structure of existing locale files
-3. Add the language to `availableLocales` in `composables/useI18n.ts`
-
-### Using Translations
-
-```vue
-<script setup>
-import { useI18n } from './composables/useI18n';
-const { t } = useI18n();
-</script>
-
-<template>
-  <p>{{ t('header.tagline') }}</p>
-</template>
-```
-
-## Development
-
-```bash
-# Install dependencies
-cd docs-site
-npm install
-
-# Start development server
-npm run dev
-```
-
-Visit `http://localhost:3000`
-
-## Build
-
-```bash
-# Generate static site
-npm run generate
-```
-
-Output will be in `.output/public/`
-
-## Deployment
-
-The site is automatically deployed to GitHub Pages when:
-- Changes are pushed to `docs-site/` directory
-- `README.md` is updated
-- Parent `package.json` is updated (version change)
-
-The site will be available at: `https://tdoukinitsas.github.io/liveplay/`
-
-## How It Works
-
-1. **Version Detection**: Fetches `/liveplay/package.json` and reads the version
-2. **Download Links**: Constructs GitHub release URLs using the version
-3. **README Parsing**: Fetches `/liveplay/README.md` and converts markdown to HTML
-4. **Static Generation**: Nuxt generates a fully static site with no server required
-
-## GitHub Pages Setup
-
-To enable GitHub Pages for your repository:
-
-1. Go to repository **Settings** → **Pages**
-2. Under **Source**, select **GitHub Actions**
-3. The workflow will automatically deploy on the next push
-
-## File Structure
+## Layout
 
 ```
 docs-site/
-├── app.vue              # Main page component
-├── nuxt.config.ts       # Nuxt configuration
-├── package.json         # Dependencies
+├── app.vue                       The whole page lives here: header, downloads, features, README
+├── nuxt.config.ts                Nuxt config — base URL `/liveplay/`, OG/Twitter metadata
+├── package.json                  Nuxt 3 + Vue 3 + sass
+├── tsconfig.json
+├── components/
+│   ├── FeatureHighlight.vue      Reusable image-on-left/right feature card
+│   └── LanguageSwitcher.vue      Dropdown that flips the active locale
+├── composables/
+│   └── useI18n.ts                Auto-detect browser language; load JSON from /locales
 ├── assets/
-│   └── styles/
-│       └── main.scss    # Global styles
-└── public/              # Static assets (auto-copied from parent)
-    ├── package.json     # Version info
-    ├── README.md        # Documentation content
-    └── assets/
-        └── logo.svg     # LivePlay logo
+│   ├── fonts/                    Bundled web fonts
+│   └── styles/main.scss          Global styles
+└── public/                       Static assets — served from `/liveplay/...`
+    ├── README.md                 Copied from the repo root by CI before build
+    ├── package.json              Copied from the repo root — used to read the current version
+    ├── contributors.json         Generated by CI from the contributor list
+    ├── favicon.ico
+    ├── assets/                   logo.svg etc.
+    ├── fonts/
+    ├── locales/                  Site-specific locale JSON (separate from the client locales)
+    └── screenshots/              In-app screenshots used on the page
 ```
 
-## Customization
+`public/README.md` and `public/package.json` are **regenerated by CI on every deploy**. Don't edit them by hand — change the originals at the repo root.
 
-### Change Base URL
+---
 
-Edit `nuxt.config.ts`:
+## Development
 
-```typescript
-app: {
-  baseURL: '/your-repo-name/',  // Change this
-}
+```sh
+cd docs-site
+npm install
+npm run dev          # http://localhost:3000
 ```
 
-### Update Colors
+To preview the production output:
 
-Edit `app.vue` styles section to change the color scheme. Current primary color is `#DA1E28` (red).
-
-### Modify Download Links
-
-The download links are automatically constructed from the version number. They follow this pattern:
-
-```
-https://github.com/tdoukinitsas/liveplay/releases/download/v{version}/LivePlay-Setup-{version}.exe
+```sh
+npm run generate     # writes to .output/public
+npm run preview
 ```
 
-If your release asset names differ, update the `downloadLinks` computed property in `app.vue`.
+If you need the latest README / version while developing locally, copy them in manually (the CI workflow does this automatically before building):
 
-## License
+```sh
+# From the repo root
+cp README.md     docs-site/public/README.md
+cp package.json  docs-site/public/package.json
+```
 
-Part of the LivePlay project - AGPL-3.0-only
+---
+
+## How it works
+
+1. **Version detection** — at runtime, the page fetches `/liveplay/package.json` and reads the `version` field. All download links are constructed from this version.
+2. **Download links** — interpolated as `https://github.com/tdoukinitsas/liveplay/releases/download/v<version>/<asset>`:
+
+   | Platform | Asset pattern                          |
+   |----------|-----------------------------------------|
+   | Windows  | `LivePlay-Setup-<version>.exe`         |
+   | macOS    | `LivePlay-<version>.dmg`, `LivePlay-<version>-mac.zip` |
+   | Linux    | `LivePlay-<version>.AppImage`, `LivePlay_<version>_amd64.deb`, `LivePlay-<version>.x86_64.rpm` |
+
+   If you rename a release asset on the server side, update the URL builder in `app.vue`.
+3. **README rendering** — fetches `/liveplay/README.md` and runs a small client-side markdown parser to render it inline. Heavy markdown features (tables of contents, footnotes, custom syntax) are deliberately not supported — for those, link to GitHub.
+4. **Localisation** — `composables/useI18n.ts` detects the browser language and loads the matching JSON from `/liveplay/locales/<code>.json`. Falls back to English. The current locale is persisted in `localStorage`. `LanguageSwitcher.vue` is the UI.
+
+---
+
+## Editing
+
+| Task | Where |
+|------|-------|
+| Change layout / sections | `app.vue` (everything is here) |
+| Tweak the brand colour (currently `#DA1E28`) | `app.vue` SCSS block + `assets/styles/main.scss` |
+| Add a feature highlight section | Drop in a `<FeatureHighlight title="…" image-src="/screenshots/…">` block in `app.vue` |
+| Add a language | New file in `public/locales/<code>.json`, then add it to `availableLocales` in `composables/useI18n.ts` |
+| Replace the logo | `public/assets/logo.svg` |
+| Update OG / Twitter cards | `nuxt.config.ts` → `app.head.meta` |
+
+The site's locale files are **separate** from `client/locales/` — only a small subset of strings (header copy, download labels) needs translating for the site. Don't try to share them.
+
+---
+
+## Deployment
+
+[`.github/workflows/deploy-docs.yml`](../.github/workflows/deploy-docs.yml) deploys to GitHub Pages whenever any of the following change on `main`:
+
+- `docs-site/**`
+- the root `README.md`
+- the root `package.json`
+
+The workflow:
+
+1. Copies `README.md`, `package.json`, and a fresh contributor list into `docs-site/public/`.
+2. Runs `npm install && npm run generate`.
+3. Publishes `.output/public/` to GitHub Pages.
+
+The first time you set this up on a fork, enable Pages: **Settings → Pages → Source: GitHub Actions**.
+
+Manual deploys: run the **Deploy Docs Site** workflow via the Actions UI.
+
+---
+
+## Adding a section
+
+Edit `app.vue`. Sections are plain `<section class="…-section">` blocks inside the page; the SCSS is colocated at the bottom of the same file. There is no router and no other page — keep everything single-page.
+
+If a section needs reusable layout (image-on-left, image-on-right, alternating), use `<FeatureHighlight>` rather than reimplementing it.
+
+---
+
+## Troubleshooting
+
+- **Old version shows after a release** — GitHub Pages caches aggressively. Hard-refresh (Ctrl/Cmd+Shift+R). If it persists after ~5 minutes, check that the deploy workflow actually re-ran (Actions tab).
+- **404 on downloads** — the linked release must already exist on GitHub. Bumping the version in `package.json` deploys a new docs site **before** the matching release is built; that's expected for the few minutes between the two workflows finishing.
+- **404 on assets** — confirm the file is in `public/` (not just `assets/` — Nuxt's `assets/` is bundle-only). Check the `/liveplay/` base path is in the URL.
+- **Build fails** — reproduce locally with `npm run generate`. The most common cause is a missing file in `public/` that wasn't copied in (CI usually handles this — if running locally, copy manually as described above).
