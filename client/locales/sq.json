@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "sq",
     "name": "Albanian",
@@ -347,6 +347,7 @@
     "desktopOnly": "Zgjedhësi vendor i skedarëve është i disponueshëm vetëm në aplikacionin desktop.",
     "uploadingProgress": "Po ngarkohet {i}/{total}: {name}",
     "uploadedCount": "U ngarkua {count} skedar(ë). Klikoni \"Shto\" për të importuar.",
-    "uploadFailed": "Ngarkimi dështoi: {error}"
+    "uploadFailed": "Ngarkimi dështoi: {error}",
+    "orFromComputer": "Ose zgjidhni nga ky kompjuter"
   }
 }

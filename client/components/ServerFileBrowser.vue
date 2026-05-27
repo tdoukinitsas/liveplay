@@ -1,7 +1,10 @@
 <template>
   <div class="server-file-browser">
     <div class="server-file-browser__bar">
-      <button class="btn" :disabled="!parentPath" @click="goTo(parentPath)">⮤ Up</button>
+      <button class="btn" :disabled="!parentPath" @click="goTo(parentPath)" title="Up one level">
+        <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">arrow_upward</span>
+        Up
+      </button>
       <input
         v-model="pathInput"
         class="path-input"
@@ -15,12 +18,12 @@
     <div v-else-if="loading" class="status">Loading…</div>
 
     <ul v-else class="entries">
-      <li v-for="entry in listing?.entries ?? []"
+      <li v-for="entry in sortedEntries"
           :key="entry.full_path"
           class="entry"
           :class="entry.kind"
           @dblclick="onEntryActivate(entry)">
-        <span class="icon">{{ entry.kind === 'dir' ? '📁' : '🎵' }}</span>
+        <span class="icon material-symbols-rounded">{{ iconFor(entry) }}</span>
         <span class="name">{{ entry.name }}</span>
         <span v-if="entry.kind === 'file' && entry.size != null"
               class="size">{{ formatBytes(entry.size) }}</span>
@@ -71,6 +74,21 @@ const pathInput = ref<string>(props.startPath);
 
 const parentPath = computed(() => listing.value?.parent ?? '');
 
+const sortedEntries = computed(() => {
+  const entries = listing.value?.entries ?? [];
+  const rank: Record<string, number> = { drive: 0, dir: 1, file: 2 };
+  return [...entries].sort((a, b) => {
+    const r = (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9);
+    return r !== 0 ? r : a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  });
+});
+
+function iconFor(entry: ServerFsEntry): string {
+  if (entry.kind === 'drive') return 'storage';
+  if (entry.kind === 'dir')   return 'folder';
+  return 'audio_file';
+}
+
 async function goTo(path: string) {
   loading.value = true;
   error.value   = null;
@@ -85,7 +103,7 @@ async function goTo(path: string) {
 }
 
 function onEntryActivate(entry: ServerFsEntry) {
-  if (entry.kind === 'dir') goTo(entry.full_path);
+  if (entry.kind === 'dir' || entry.kind === 'drive') goTo(entry.full_path);
   else if (props.canSelect) emit('select', entry.full_path);
 }
 
@@ -130,9 +148,10 @@ watch(() => props.startPath, p => goTo(p));
     padding: 6px 12px;
     color: #ddd;
     cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
     &:hover:not(:disabled) { background: #353535; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
-    &.primary  { background: #2a5e9a; border-color: #2a5e9a; }
+    &.primary  { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
     &.small    { padding: 2px 8px; font-size: 12px; }
   }
 
@@ -148,7 +167,7 @@ watch(() => props.startPath, p => goTo(p));
 
     .entry {
       display: grid;
-      grid-template-columns: 24px 1fr auto auto;
+      grid-template-columns: 28px 1fr auto auto;
       align-items: center;
       gap: 8px;
       padding: 6px 10px;
@@ -158,7 +177,11 @@ watch(() => props.startPath, p => goTo(p));
       &:hover { background: #202020; }
       .size   { color: #888; font-size: 11px; font-family: monospace; }
       .name   { color: #eee; }
-      &.dir .name { color: #ffd58a; }
+      &.dir   .name   { color: #ffffff; }
+      &.drive .name   { color: #ffffff; font-weight: 600; }
+      .icon { font-size: 18px; text-align: center; color: #aaa; }
+      &.dir   .icon   { color: var(--color-accent); }
+      &.drive .icon   { color: var(--color-accent); }
     }
     .empty {
       padding: 12px;

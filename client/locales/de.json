@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "de",
     "name": "German",
@@ -347,6 +347,7 @@
     "desktopOnly": "Der native Dateiauswähler ist nur in der Desktop-App verfügbar.",
     "uploadingProgress": "Wird hochgeladen {i}/{total}: {name}",
     "uploadedCount": "{count} Datei(en) hochgeladen. Klicken Sie auf \"Hinzufügen\", um zu importieren.",
-    "uploadFailed": "Upload fehlgeschlagen: {error}"
+    "uploadFailed": "Upload fehlgeschlagen: {error}",
+    "orFromComputer": "Oder von diesem Computer auswählen"
   }
 }

@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "bn",
     "name": "Bengali",
@@ -347,6 +347,7 @@
     "desktopOnly": "নেটিভ ফাইল পিকার শুধুমাত্র ডেস্কটপ অ্যাপে উপলব্ধ।",
     "uploadingProgress": "আপলোড করা হচ্ছে {i}/{total}: {name}",
     "uploadedCount": "{count}টি ফাইল আপলোড হয়েছে। আমদানি করতে \"যোগ করুন\" ক্লিক করুন।",
-    "uploadFailed": "আপলোড ব্যর্থ: {error}"
+    "uploadFailed": "আপলোড ব্যর্থ: {error}",
+    "orFromComputer": "অথবা এই কম্পিউটার থেকে নির্বাচন করুন"
   }
 }

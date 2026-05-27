@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "ur",
     "name": "Urdu",
@@ -347,6 +347,7 @@
     "desktopOnly": "مقامی فائل پکر صرف ڈیسک ٹاپ ایپ میں دستیاب ہے۔",
     "uploadingProgress": "اپلوڈ ہو رہا ہے {i}/{total}: {name}",
     "uploadedCount": "{count} فائل(یں) اپلوڈ ہو گئیں۔ امپورٹ کے لیے \"شامل کریں\" پر کلک کریں۔",
-    "uploadFailed": "اپلوڈ ناکام: {error}"
+    "uploadFailed": "اپلوڈ ناکام: {error}",
+    "orFromComputer": "یا اس کمپیوٹر سے منتخب کریں"
   }
 }

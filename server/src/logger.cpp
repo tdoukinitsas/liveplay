@@ -89,9 +89,8 @@ bool tty_supports_color() {
 
 std::string timestamp_now() {
     using namespace std::chrono;
-    const auto now    = system_clock::now();
-    const auto t      = system_clock::to_time_t(now);
-    const auto millis = duration_cast<milliseconds>(now.time_since_epoch()) % 1000;
+    const auto now = system_clock::now();
+    const auto t   = system_clock::to_time_t(now);
 
     std::tm tm{};
 #if defined(_WIN32)
@@ -101,9 +100,9 @@ std::string timestamp_now() {
 #endif
     char buf[32];
     std::snprintf(buf, sizeof(buf),
-                  "%02d:%02d:%02d.%03lld",
-                  tm.tm_hour, tm.tm_min, tm.tm_sec,
-                  static_cast<long long>(millis.count()));
+                  "%04d-%02d-%02d %02d:%02d:%02d",
+                  tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+                  tm.tm_hour, tm.tm_min, tm.tm_sec);
     return std::string{buf};
 }
 
@@ -175,13 +174,12 @@ void Logger::log(LogLevel level, std::string_view msg) {
 
     std::lock_guard lock{mutex()};
     if (colored) {
-        stream << ansi::dim   << ts                  << ansi::reset << ' '
-               << style.color << ansi::bold          << '[' << style.tag << ']'
-               << ansi::reset << ' '
-               << msg
+        stream << style.color << ansi::dim << '[' << ts << ']' << ansi::reset << ' '
+               << style.color << ansi::bold << '[' << style.tag << ']' << ansi::reset << ' '
+               << style.color << msg << ansi::reset
                << '\n';
     } else {
-        stream << ts << " [" << style.tag << "] " << strip_ansi(msg) << '\n';
+        stream << '[' << ts << "] [" << style.tag << "] " << strip_ansi(msg) << '\n';
     }
     stream.flush();
 }

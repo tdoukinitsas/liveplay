@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "tr",
     "name": "Turkish",
@@ -347,6 +347,7 @@
     "desktopOnly": "Yerel dosya seçici yalnızca masaüstü uygulamasında kullanılabilir.",
     "uploadingProgress": "Yükleniyor {i}/{total}: {name}",
     "uploadedCount": "{count} dosya yüklendi. İçe aktarmak için \"Ekle\" düğmesine tıklayın.",
-    "uploadFailed": "Yükleme başarısız: {error}"
+    "uploadFailed": "Yükleme başarısız: {error}",
+    "orFromComputer": "Veya bu bilgisayardan seçin"
   }
 }

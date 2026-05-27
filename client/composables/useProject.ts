@@ -861,6 +861,25 @@ export const useProject = () => {
             }
             break;
           }
+          case 'waveform_ready': {
+            const target = findItemByUuid(patch.item_uuid);
+            if (target && target.type === 'audio') {
+              const peaks: number[] = patch.channels?.[0]?.peak ?? [];
+              const duration: number = (patch.duration_ms ?? 0) / 1000;
+              if (peaks.length > 0) {
+                (target as any).waveform = markRaw({ peaks, length: peaks.length, duration });
+                if (duration > 0) {
+                  (target as any).duration = duration;
+                  (target as any).outPoint  = duration;
+                }
+                triggerWaveformUpdate();
+              }
+            }
+            break;
+          }
+          case 'waveform_failed':
+            // Server couldn't decode the file — nothing to do on the client.
+            break;
           case 'next_item_set':
             // Handled in useAudioEngine.onDocPatch — server-authoritative.
             break;

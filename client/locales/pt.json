@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "pt",
     "name": "Portuguese",
@@ -347,6 +347,7 @@
     "desktopOnly": "O seletor de arquivos nativo está disponível apenas no aplicativo de desktop.",
     "uploadingProgress": "Enviando {i}/{total}: {name}",
     "uploadedCount": "{count} arquivo(s) enviado(s). Clique em \"Adicionar\" para importar.",
-    "uploadFailed": "Falha no envio: {error}"
+    "uploadFailed": "Falha no envio: {error}",
+    "orFromComputer": "Ou selecionar deste computador"
   }
 }

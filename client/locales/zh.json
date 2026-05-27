@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "zh",
     "name": "Chinese",
@@ -347,6 +347,7 @@
     "desktopOnly": "原生文件选择器仅在桌面应用中可用。",
     "uploadingProgress": "上传中 {i}/{total}：{name}",
     "uploadedCount": "已上传 {count} 个文件。点击\"添加\"以导入。",
-    "uploadFailed": "上传失败：{error}"
+    "uploadFailed": "上传失败：{error}",
+    "orFromComputer": "或从此电脑选择"
   }
 }

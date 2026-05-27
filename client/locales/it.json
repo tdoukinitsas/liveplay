@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "it",
     "name": "Italian",
@@ -347,6 +347,7 @@
     "desktopOnly": "Il selettore di file nativo è disponibile solo nell'app desktop.",
     "uploadingProgress": "Caricamento {i}/{total}: {name}",
     "uploadedCount": "Caricati {count} file. Fai clic su \"Aggiungi\" per importare.",
-    "uploadFailed": "Caricamento fallito: {error}"
+    "uploadFailed": "Caricamento fallito: {error}",
+    "orFromComputer": "Oppure seleziona da questo computer"
   }
 }

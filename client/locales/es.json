@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "es",
     "name": "Spanish",
@@ -347,6 +347,7 @@
     "desktopOnly": "El selector de archivos nativo solo está disponible en la aplicación de escritorio.",
     "uploadingProgress": "Subiendo {i}/{total}: {name}",
     "uploadedCount": "Subidos {count} archivo(s). Haga clic en \"Agregar\" para importar.",
-    "uploadFailed": "Error al subir: {error}"
+    "uploadFailed": "Error al subir: {error}",
+    "orFromComputer": "O seleccionar desde este ordenador"
   }
 }

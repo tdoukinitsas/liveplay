@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "hi",
     "name": "Hindi",
@@ -347,6 +347,7 @@
     "desktopOnly": "मूल फ़ाइल पिकर केवल डेस्कटॉप ऐप में उपलब्ध है।",
     "uploadingProgress": "अपलोड हो रहा है {i}/{total}: {name}",
     "uploadedCount": "{count} फ़ाइल(ें) अपलोड की गईं। आयात करने के लिए \"जोड़ें\" पर क्लिक करें।",
-    "uploadFailed": "अपलोड विफल: {error}"
+    "uploadFailed": "अपलोड विफल: {error}",
+    "orFromComputer": "या इस कंप्यूटर से चुनें"
   }
 }

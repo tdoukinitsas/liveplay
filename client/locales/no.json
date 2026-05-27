@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "no",
     "name": "Norwegian",
@@ -347,6 +347,7 @@
     "desktopOnly": "Den native filvelgeren er bare tilgjengelig i skrivebordsappen.",
     "uploadingProgress": "Laster opp {i}/{total}: {name}",
     "uploadedCount": "Lastet opp {count} fil(er). Klikk \"Legg til\" for å importere.",
-    "uploadFailed": "Opplasting mislyktes: {error}"
+    "uploadFailed": "Opplasting mislyktes: {error}",
+    "orFromComputer": "Eller velg fra denne datamaskinen"
   }
 }

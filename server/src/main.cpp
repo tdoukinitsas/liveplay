@@ -186,21 +186,21 @@ void print_banner(const std::string& bind_iface, int port) {
                 bind_iface + ":" + std::to_string(port) + std::string{C_RESET});
     Logger::raw("    WebSocket  " + std::string{C_BOLD} + "ws://" +
                 bind_iface + ":" + std::to_string(port) + "/ws" + std::string{C_RESET});
-    Logger::raw("    LAN reach  " + std::string{C_DIM} + "http://" + lan_ip +
+    Logger::raw("    LAN reach  " + std::string{C_BOLD} + "http://" + lan_ip +
                 ":" + std::to_string(port) + std::string{C_RESET});
     Logger::raw("");
-    Logger::raw(std::string{C_YEL} + std::string{C_BOLD} +
+    Logger::raw(std::string{C_RED} + std::string{C_BOLD} +
                 "  Connect a LivePlay client" + std::string{C_RESET});
-    Logger::raw(std::string{C_DIM} +
+    Logger::raw(std::string{C_RESET} +
                 "    1) Launch the LivePlay desktop client on this network." +
                 std::string{C_RESET});
-    Logger::raw(std::string{C_DIM} +
-                "    2) Settings -> Server -> point it at:" +
-                std::string{C_RESET});
-    Logger::raw("       " + std::string{C_BOLD} + "ws://" + lan_ip + ":" +
-                std::to_string(port) + "/ws" + std::string{C_RESET});
-    Logger::raw(std::string{C_DIM} +
-                "    3) Press Ctrl+C in this window to stop the server." +
+    Logger::raw(std::string{C_RESET} +
+                "    2) On the welcome screen, select Remote and either use auto discovery or enter the Server Address:" +
+                std::string{C_RED});
+    Logger::raw("       " + std::string{C_BOLD} + lan_ip + ":" +
+                std::to_string(port) + std::string{C_RESET});
+    Logger::raw(std::string{C_RESET} +
+                "    3) Close this window to stop the server." +
                 std::string{C_RESET});
     Logger::raw("");
     Logger::rule();

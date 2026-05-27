@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "ro",
     "name": "Romanian",
@@ -347,6 +347,7 @@
     "desktopOnly": "Selectorul nativ de fișiere este disponibil doar în aplicația desktop.",
     "uploadingProgress": "Se încarcă {i}/{total}: {name}",
     "uploadedCount": "{count} fișier(e) încărcat(e). Faceți clic pe \"Adaugă\" pentru a importa.",
-    "uploadFailed": "Încărcare eșuată: {error}"
+    "uploadFailed": "Încărcare eșuată: {error}",
+    "orFromComputer": "Sau selectați de pe acest computer"
   }
 }

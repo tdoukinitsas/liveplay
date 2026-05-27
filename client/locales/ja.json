@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "ja",
     "name": "Japanese",
@@ -347,6 +347,7 @@
     "desktopOnly": "ネイティブファイルピッカーはデスクトップアプリでのみ利用可能です。",
     "uploadingProgress": "アップロード中 {i}/{total}: {name}",
     "uploadedCount": "{count}個のファイルをアップロードしました。「追加」をクリックしてインポートします。",
-    "uploadFailed": "アップロードに失敗しました：{error}"
+    "uploadFailed": "アップロードに失敗しました：{error}",
+    "orFromComputer": "またはこのコンピューターから選択"
   }
 }

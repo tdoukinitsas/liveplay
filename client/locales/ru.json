@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "ru",
     "name": "Russian",
@@ -347,6 +347,7 @@
     "desktopOnly": "Нативный выбор файлов доступен только в настольном приложении.",
     "uploadingProgress": "Загрузка {i}/{total}: {name}",
     "uploadedCount": "Загружено файлов: {count}. Нажмите \"Добавить\" для импорта.",
-    "uploadFailed": "Ошибка загрузки: {error}"
+    "uploadFailed": "Ошибка загрузки: {error}",
+    "orFromComputer": "Или выбрать с этого компьютера"
   }
 }

@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "ar",
     "name": "Arabic",
@@ -347,6 +347,7 @@
     "desktopOnly": "منتقي الملفات الأصلي متاح فقط في تطبيق سطح المكتب.",
     "uploadingProgress": "جاري التحميل {i}/{total}: {name}",
     "uploadedCount": "تم تحميل {count} ملف(ات). انقر فوق \"إضافة\" للاستيراد.",
-    "uploadFailed": "فشل التحميل: {error}"
+    "uploadFailed": "فشل التحميل: {error}",
+    "orFromComputer": "أو اختر من هذا الكمبيوتر"
   }
 }

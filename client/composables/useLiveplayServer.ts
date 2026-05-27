@@ -837,6 +837,38 @@ function createClient() {
     return rest('/api/metadata?path=' + encodeURIComponent(path));
   }
 
+  // Compute a waveform for an arbitrary server-side file path. Used right
+  // after import so the client can show a waveform without the file needing
+  // to be a registered engine cue yet.
+  async function fetchWaveformByPath(
+    filePath: string,
+    buckets = 1000,
+  ): Promise<ServerWaveform> {
+    const params = new URLSearchParams({ path: filePath, buckets: String(buckets) });
+    return rest<ServerWaveform>(`/api/waveform_path?${params}`);
+  }
+
+  // Copy a server-side file into the project's media root. Returns the
+  // absolute path of the copy. A no-op (returns the same path) if the file
+  // is already inside the media root.
+  async function copyToMedia(sourcePath: string): Promise<string> {
+    const result = await rest<{ dest_path: string }>('/api/copy_to_media', {
+      method: 'POST',
+      body: JSON.stringify({ source_path: sourcePath }),
+    });
+    return result.dest_path;
+  }
+
+  // Queue an async waveform generation on the server. Returns immediately;
+  // the result arrives as a { op: 'waveform_ready', item_uuid, channels, ... }
+  // doc_patch over WebSocket once computation finishes.
+  async function requestWaveformGeneration(path: string, itemUuid: string): Promise<void> {
+    await rest('/api/waveform_generate', {
+      method: 'POST',
+      body: JSON.stringify({ path, item_uuid: itemUuid }),
+    });
+  }
+
   // ---- Cleanup ------------------------------------------------------
   function destroy() {
     disconnect();
@@ -899,6 +931,9 @@ function createClient() {
     createServerDirectory,
     uploadFile,
     fetchWaveform,
+    fetchWaveformByPath,
+    copyToMedia,
+    requestWaveformGeneration,
     invalidateWaveformCache,
     fetchMetadata,
 

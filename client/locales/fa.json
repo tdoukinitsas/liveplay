@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "fa",
     "name": "Farsi",
@@ -347,6 +347,7 @@
     "desktopOnly": "انتخابگر فایل بومی فقط در برنامه دسکتاپ در دسترس است.",
     "uploadingProgress": "در حال آپلود {i}/{total}: {name}",
     "uploadedCount": "{count} فایل آپلود شد. برای وارد کردن \"افزودن\" را کلیک کنید.",
-    "uploadFailed": "آپلود ناموفق: {error}"
+    "uploadFailed": "آپلود ناموفق: {error}",
+    "orFromComputer": "یا از این رایانه انتخاب کنید"
   }
 }

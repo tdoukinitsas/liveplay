@@ -111,7 +111,7 @@ export interface ServerWaveformChannel {
 }
 
 export interface ServerWaveform {
-  cue_id: CueId;
+  cue_id?: CueId;
   bucket_count: number;
   duration_ms: number;
   sample_rate: number;

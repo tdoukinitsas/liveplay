@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "fr",
     "name": "French",
@@ -347,6 +347,7 @@
     "desktopOnly": "Le sélecteur de fichiers natif n'est disponible que dans l'application de bureau.",
     "uploadingProgress": "Téléversement {i}/{total} : {name}",
     "uploadedCount": "{count} fichier(s) téléversé(s). Cliquez sur « Ajouter » pour importer.",
-    "uploadFailed": "Échec du téléversement : {error}"
+    "uploadFailed": "Échec du téléversement : {error}",
+    "orFromComputer": "Ou choisir depuis cet ordinateur"
   }
 }

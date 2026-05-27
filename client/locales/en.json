@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "en",
     "name": "English",
@@ -378,6 +378,7 @@
     "desktopOnly": "Native file picker is only available in the desktop app.",
     "uploadingProgress": "Uploading {i}/{total}: {name}",
     "uploadedCount": "Uploaded {count} file(s). Click \"Add\" to import.",
-    "uploadFailed": "Upload failed: {error}"
+    "uploadFailed": "Upload failed: {error}",
+    "orFromComputer": "Or pick from this computer"
   }
 }

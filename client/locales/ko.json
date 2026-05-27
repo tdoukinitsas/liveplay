@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "ko",
     "name": "Korean",
@@ -347,6 +347,7 @@
     "desktopOnly": "기본 파일 선택기는 데스크톱 앱에서만 사용할 수 있습니다.",
     "uploadingProgress": "업로드 중 {i}/{total}: {name}",
     "uploadedCount": "{count}개 파일 업로드됨. \"추가\"를 클릭하여 가져옵니다.",
-    "uploadFailed": "업로드 실패: {error}"
+    "uploadFailed": "업로드 실패: {error}",
+    "orFromComputer": "또는 이 컴퓨터에서 선택"
   }
 }

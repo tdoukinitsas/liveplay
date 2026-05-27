@@ -59,7 +59,7 @@ import { triggerRef } from 'vue';
 import type { AudioItem, GroupItem } from '~/types/project';
 import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM } from '~/types/project';
 
-const { currentProject, addItem, updateIndices, saveProject, triggerWaveformUpdate } = useProject();
+const { currentProject, addItem, updateIndices, saveProject, triggerWaveformUpdate, isLoading, getAllItemsFlat } = useProject();
 const { t } = useLocalization();
 
 const showYouTubeModal = ref(false);
@@ -113,6 +113,27 @@ onUnmounted(() => {
   if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
 });
 
+// When a project finishes loading (or is already loaded on mount), queue
+// waveform generation for every audio item that doesn't have waveform data.
+// { immediate: true } means it also fires on mount so items loaded before
+// this component mounted (e.g. via tryRejoinExistingProject) are covered.
+watch(isLoading, async (loading) => {
+  if (loading || !currentProject.value) return;
+  try {
+    const server = (await import('~/composables/useLiveplayServer')).useLiveplayServer();
+    for (const item of getAllItemsFlat()) {
+      if (item.type === 'audio') {
+        const ai = item as AudioItem;
+        if (ai.mediaServerPath && !ai.waveform) {
+          server.requestWaveformGeneration(ai.mediaServerPath, ai.uuid).catch(() => {});
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[waveform] project-load waveform generation failed:', e);
+  }
+}, { immediate: true });
+
 const handleImport = () => {
   if (!currentProject.value) return;
   showImportModal.value = true;
@@ -124,21 +145,31 @@ const onImportPick = async (serverPath: string) => {
   await importFromServerPath(serverPath);
 };
 
-// New flow: file is already on the server (either browsed there or uploaded).
-// We register it with the server, store the absolute server path on the
-// AudioItem, and let the engine open it directly.
+// Import a file that is already on (or accessible from) the server.
+// 1. Copy the source into the project's media root so the project owns the file.
+// 2. Fetch duration metadata.
+// 3. Add the AudioItem immediately (no waveform yet).
+// 4. Queue async waveform generation — result arrives via 'waveform_ready' WS.
 const importFromServerPath = async (serverPath: string) => {
   if (!currentProject.value) return;
   try {
-    const fileName = serverPath.split(/[\\/]/).pop() || 'audio';
+    const server = (await import('~/composables/useLiveplayServer')).useLiveplayServer();
+
+    // Copy file to the project's media root (no-op if already there).
+    let destPath = serverPath;
+    try {
+      destPath = await server.copyToMedia(serverPath);
+    } catch (e) {
+      console.warn('[import] copyToMedia failed, using original path:', e);
+    }
+
+    const fileName = destPath.split(/[\\/]/).pop() || 'audio';
     const uuid = uuidv4();
 
-    // Best-effort metadata from the server — gives us duration without
-    // forcing a separate decode pass on the client.
-    const server = (await import('~/composables/useLiveplayServer')).useLiveplayServer();
+    // Best-effort metadata — gives duration without a full decode on the client.
     let duration = 0;
     try {
-      const md: any = await server.fetchMetadata(serverPath);
+      const md: any = await server.fetchMetadata(destPath);
       if (md && typeof md.duration_ms === 'number') duration = md.duration_ms / 1000;
     } catch (e) {
       console.warn('[import] fetchMetadata failed, falling back to 0 duration:', e);
@@ -152,7 +183,7 @@ const importFromServerPath = async (serverPath: string) => {
       type: 'audio',
       mediaFileName: fileName,
       mediaPath: `media/${fileName}`,
-      mediaServerPath: serverPath,    // server-side absolute path (preferred at playback time)
+      mediaServerPath: destPath,
       waveformPath: `${currentProject.value.folderPath}/waveforms/${uuid}.json`,
       waveform: undefined,
       outPoint: duration,
@@ -160,7 +191,11 @@ const importFromServerPath = async (serverPath: string) => {
     } as AudioItem;
 
     addItem(audioItem);
-    generateWaveformAsync(audioItem);
+
+    // Queue waveform generation — server responds via 'waveform_ready' doc_patch.
+    server.requestWaveformGeneration(destPath, uuid).catch(e => {
+      console.warn(`[waveform] generation request failed for ${audioItem.displayName}:`, e);
+    });
   } catch (e) {
     console.error('Error importing from server path:', e);
   }
@@ -212,27 +247,50 @@ const importAudioFile = async (sourcePath: string) => {
 const generateWaveformAsync = async (item: AudioItem) => {
   try {
     if (!currentProject.value) return;
-    
+
+    // Non-Electron / server mode: skip the file-system checks and go straight
+    // to the server waveform endpoint.
+    if (!window.electronAPI) {
+      if (item.mediaServerPath) {
+        try {
+          const server = (await import('~/composables/useLiveplayServer')).useLiveplayServer();
+          const serverWf = await server.fetchWaveformByPath(item.mediaServerPath);
+          const peaks = serverWf.channels[0]?.peak ?? [];
+          const duration = serverWf.duration_ms / 1000;
+          if (peaks.length > 0) {
+            item.waveform = { peaks, length: peaks.length, duration };
+            if (duration > 0) { item.duration = duration; item.outPoint = duration; }
+            triggerWaveformUpdate();
+            console.log(`[waveform] server: ${item.displayName} — ${peaks.length} buckets, ${duration.toFixed(2)}s`);
+          }
+        } catch (e) {
+          console.warn(`[waveform] server fetch failed for ${item.displayName}:`, e);
+        }
+      }
+      return;
+    }
+
+    // Electron path: check for a cached waveform file first.
     // Ensure waveforms directory exists
     const waveformsDir = `${currentProject.value.folderPath}/waveforms`;
     await window.electronAPI.ensureDirectory(waveformsDir);
-    
+
     // Check if waveform file already exists and is valid
     const existingWaveform = await window.electronAPI.readFile(item.waveformPath);
     if (existingWaveform.success && existingWaveform.data) {
       try {
         const waveformData = JSON.parse(existingWaveform.data);
-        
+
         // Validate waveform format (duration field is optional now)
         if (waveformData.peaks && waveformData.peaks.length > 0) {
           item.waveform = waveformData;
-          
+
           // Update duration from waveform data if available (more accurate than Audio API)
           if (waveformData.duration && waveformData.duration > 0) {
             item.duration = waveformData.duration;
             item.outPoint = waveformData.duration;
           }
-          
+
           triggerWaveformUpdate();
           console.log(`Existing waveform loaded for ${item.displayName}`);
           return;
@@ -242,41 +300,63 @@ const generateWaveformAsync = async (item: AudioItem) => {
         console.warn('Failed to parse existing waveform, regenerating...');
       }
     }
-    
-    // Check if generateWaveform is available
-    if (!window.electronAPI.generateWaveform) {
-      console.warn('generateWaveform not implemented yet - waveform will not be generated');
-      console.info('Please implement the generateWaveform IPC handler in your Electron main process');
+
+    // Check if generateWaveform is available (Electron path)
+    if (!window.electronAPI?.generateWaveform) {
+      // Server fallback: use /api/waveform_path if this item has a server path.
+      // The fetch is async so the UI is never blocked; the waveform appears when ready.
+      if (item.mediaServerPath) {
+        try {
+          const server = (await import('~/composables/useLiveplayServer')).useLiveplayServer();
+          const serverWf = await server.fetchWaveformByPath(item.mediaServerPath);
+          // Flatten multi-channel peaks to a single array (use ch0, fall back to empty)
+          const peaks = serverWf.channels[0]?.peak ?? [];
+          const duration = serverWf.duration_ms / 1000;
+          if (peaks.length > 0) {
+            item.waveform = { peaks, length: peaks.length, duration };
+            if (duration > 0) {
+              item.duration = duration;
+              item.outPoint = duration;
+            }
+            triggerWaveformUpdate();
+            console.log(`[waveform] server: ${item.displayName} — ${peaks.length} buckets, ${duration.toFixed(2)}s`);
+          }
+        } catch (e) {
+          console.warn(`[waveform] server fetch failed for ${item.displayName}:`, e);
+        }
+      } else {
+        console.warn('[waveform] no Electron API and no mediaServerPath — skipping waveform generation');
+      }
       return;
     }
-    
+
     // Generate waveform using ffmpeg (non-blocking)
     const mediaPath = `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
     const result = await window.electronAPI.generateWaveform(mediaPath, item.waveformPath);
-    
+
     if (result.success) {
       console.log(`Started waveform generation for ${item.displayName}`);
-      
+
       // Start polling for waveform file (check every 2 seconds)
       const pollInterval = setInterval(async () => {
         try {
           const waveformFile = await window.electronAPI.readFile(item.waveformPath);
           if (waveformFile.success && waveformFile.data) {
             const waveformData = JSON.parse(waveformFile.data);
-            
+
             // Validate waveform format (duration field is optional)
             if (waveformData.peaks && waveformData.peaks.length > 0) {
               item.waveform = waveformData;
-              
+
               // Update duration from waveform data if available (more accurate than Audio API)
               if (waveformData.duration && waveformData.duration > 0) {
                 item.duration = waveformData.duration;
                 item.outPoint = waveformData.duration;
               }
-              
+
               // Force Vue reactivity update
               triggerWaveformUpdate();
-              
+
               // Stop polling once loaded
               clearInterval(pollInterval);
               console.log(`Waveform loaded for ${item.displayName} (${waveformData.peaks.length} peaks, ${waveformData.duration?.toFixed(2)}s)`);
@@ -286,7 +366,7 @@ const generateWaveformAsync = async (item: AudioItem) => {
           console.error('Error polling for waveform:', error);
         }
       }, 2000);
-      
+
       // Stop polling after 30 seconds to prevent infinite polling
       setTimeout(() => {
         clearInterval(pollInterval);

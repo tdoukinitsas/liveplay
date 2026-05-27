@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "sv",
     "name": "Swedish",
@@ -347,6 +347,7 @@
     "desktopOnly": "Den inbyggda filväljaren är endast tillgänglig i skrivbordsappen.",
     "uploadingProgress": "Laddar upp {i}/{total}: {name}",
     "uploadedCount": "Laddade upp {count} fil(er). Klicka på \"Lägg till\" för att importera.",
-    "uploadFailed": "Uppladdning misslyckades: {error}"
+    "uploadFailed": "Uppladdning misslyckades: {error}",
+    "orFromComputer": "Eller välj från den här datorn"
   }
 }

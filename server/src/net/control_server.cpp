@@ -32,7 +32,9 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstring>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -66,6 +68,7 @@ struct ControlServer::Impl {
     std::thread     app_thread;
     std::thread     broadcast_thread;
     std::mutex      ws_mutex;
+    std::string     server_addr;
     std::unordered_set<crow::websocket::connection*> ws_clients;
     // Clients that need an initial playback_snapshot push. Populated by
     // onopen, drained by broadcast_loop under ws_mutex — keeps all send_text
@@ -74,9 +77,38 @@ struct ControlServer::Impl {
     // send_text directly from onopen while broadcast_loop was concurrently
     // sending meters to the same conn caused the crash on connect).
     std::unordered_set<crow::websocket::connection*> ws_clients_pending_snapshot;
+
+    // Async waveform-generation queue. REST handler enqueues a task and
+    // returns immediately; waveform_worker() processes them one at a time and
+    // broadcasts a waveform_ready doc_patch when each finishes.
+    struct WaveformTask {
+        std::filesystem::path path;
+        std::string           item_uuid;
+    };
+    std::mutex              waveform_q_mutex;
+    std::condition_variable waveform_q_cv;
+    std::deque<WaveformTask> waveform_q;
+    std::thread             waveform_thread;
+    bool                    waveform_stop{false};
 };
 
 namespace {
+
+// Bridges Crow's internal logger into our Logger so all server output
+// shares the same format and color scheme. Crow INFO logs (verbose
+// request/response lines) are routed to debug and hidden by default;
+// warnings and errors surface normally.
+class CrowLogBridge final : public crow::ILogHandler {
+public:
+    void log(const std::string& message, crow::LogLevel level) override {
+        switch (level) {
+            case crow::LogLevel::Warning:  Logger::warn("[Crow] {}", message);  break;
+            case crow::LogLevel::Error:    Logger::error("[Crow] {}", message); break;
+            case crow::LogLevel::Critical: Logger::error("[Crow] {}", message); break;
+            default:                       Logger::debug("[Crow] {}", message); break;
+        }
+    }
+};
 
 // File extensions we accept as cue audio files.
 const std::set<std::string>& audio_extensions() {
@@ -106,6 +138,19 @@ crow::response json_err(int status, std::string_view message) {
     r.add_header("Content-Type", "application/json");
     r.add_header("Access-Control-Allow-Origin", "*");
     return r;
+}
+
+// Returns "Display Name (cue_id) (media/path)" for playback log lines.
+// Falls back gracefully when the item or cue metadata is not yet loaded.
+static std::string item_playback_info(const std::string& item_uuid, core::ProjectState& state) {
+    const auto cue_id = state.item_to_cue_id(item_uuid);
+    if (!cue_id) return std::format("? (uuid={})", item_uuid);
+    const auto meta = state.find_cue(*cue_id);
+    if (!meta) return std::format("? ({})", cue_id->value);
+    return std::format("{} ({}) ({})",
+                       meta->display_name,
+                       cue_id->value,
+                       liveplay::util::path_to_utf8(meta->file_path));
 }
 
 // ---------------------------------------------------------------------------
@@ -316,6 +361,7 @@ bool ControlServer::start() {
     });
 
     impl_->broadcast_thread = std::thread([this] { broadcast_loop(); });
+    impl_->waveform_thread  = std::thread([this] { waveform_worker(); });
     Logger::success("Control server listening on {}:{}", cfg_.bind_address, cfg_.port);
     return true;
 }
@@ -323,7 +369,13 @@ bool ControlServer::start() {
 void ControlServer::stop() {
     if (!running_.exchange(false)) return;
     impl_->app.stop();
+    {
+        std::lock_guard lock{impl_->waveform_q_mutex};
+        impl_->waveform_stop = true;
+    }
+    impl_->waveform_q_cv.notify_one();
     if (impl_->broadcast_thread.joinable()) impl_->broadcast_thread.join();
+    if (impl_->waveform_thread.joinable())  impl_->waveform_thread.join();
     if (impl_->app_thread.joinable())       impl_->app_thread.join();
     Logger::info("Control server stopped.");
 }
@@ -499,6 +551,52 @@ void ControlServer::broadcast_doc_patch(const json& payload) {
     }
 }
 
+// Drains the waveform generation queue. Each task runs compute_waveform()
+// (which can take a few seconds for long files) then broadcasts a
+// waveform_ready doc_patch so every connected client can update its UI.
+void ControlServer::waveform_worker() {
+    for (;;) {
+        Impl::WaveformTask task;
+        {
+            std::unique_lock lock{impl_->waveform_q_mutex};
+            impl_->waveform_q_cv.wait(lock, [this] {
+                return impl_->waveform_stop || !impl_->waveform_q.empty();
+            });
+            if (impl_->waveform_stop && impl_->waveform_q.empty()) return;
+            task = std::move(impl_->waveform_q.front());
+            impl_->waveform_q.pop_front();
+        }
+
+        Logger::info("waveform_worker: computing waveform for '{}'", liveplay::util::path_to_utf8(task.path));
+        const auto wf = liveplay::meta::compute_waveform(task.path);
+        if (!wf.ok) {
+            Logger::warn("waveform_worker: compute_waveform failed for '{}'", liveplay::util::path_to_utf8(task.path));
+            broadcast_doc_patch(json{
+                {"type",      "doc_patch"},
+                {"op",        "waveform_failed"},
+                {"item_uuid", task.item_uuid},
+            });
+            continue;
+        }
+
+        json channels = json::array();
+        for (const auto& ch : wf.channels) {
+            channels.push_back(json{{"peak", ch.peak}, {"rms", ch.rms}});
+        }
+        broadcast_doc_patch(json{
+            {"type",            "doc_patch"},
+            {"op",              "waveform_ready"},
+            {"item_uuid",       task.item_uuid},
+            {"bucket_count",    wf.bucket_count},
+            {"duration_ms",     wf.duration.count()},
+            {"sample_rate",     wf.sample_rate},
+            {"source_channels", wf.source_channels},
+            {"channels",        std::move(channels)},
+        });
+        Logger::info("waveform_worker: done for item_uuid '{}'", task.item_uuid);
+    }
+}
+
 // Build a snapshot of all currently-known playback state. Sent to each new
 // WS client on connect so a freshly-reconnected client immediately mirrors
 // what every other client already sees: which cues are playing, where the
@@ -543,8 +641,9 @@ static json build_playback_snapshot(audio::AudioEngine& engine,
 static void handle_ws_message(crow::websocket::connection& conn,
                                const std::string& msg,
                                audio::AudioEngine& engine,
-                               core::ProjectState& state) {
-    Logger::api_request("WS ← {}", msg);
+                               core::ProjectState& state,
+                               const std::string& server_addr) {
+    Logger::api_request("Client ({}) -> Server ({}) : {}", conn.get_remote_ip(), server_addr, msg);
 
     json j;
     try { j = json::parse(msg); }
@@ -571,7 +670,7 @@ static void handle_ws_message(crow::websocket::connection& conn,
         if (type == "play") {
             if (j.contains("item_uuid") && j["item_uuid"].is_string()) {
                 const auto uuid = j["item_uuid"].get<std::string>();
-                Logger::playback("PLAY item_uuid={}", uuid);
+                Logger::playback("PLAY: {}", item_playback_info(uuid, state));
                 // trigger_item dispatches by item type: audio → play_item,
                 // group → walks startBehavior. Without this, WS plays of
                 // group items were silently ignored.
@@ -585,11 +684,10 @@ static void handle_ws_message(crow::websocket::connection& conn,
                     // Only fall back to raw engine.play() for orphan cues
                     // (e.g. ad-hoc /api/cues registrations with no item).
                     if (auto uuid = state.cue_to_item_uuid(*cue)) {
-                        Logger::playback("PLAY cue_id={} → item_uuid={}",
-                                         cue->value, *uuid);
+                        Logger::playback("PLAY: {}", item_playback_info(*uuid, state));
                         state.play_item(*uuid);
                     } else {
-                        Logger::playback("PLAY cue_id={} (orphan)", cue->value);
+                        Logger::playback("PLAY: cue_id={} (orphan)", cue->value);
                         engine.play(*cue);
                     }
                 } else {
@@ -600,17 +698,16 @@ static void handle_ws_message(crow::websocket::connection& conn,
         else if (type == "stop") {
             if (j.contains("item_uuid") && j["item_uuid"].is_string()) {
                 const auto uuid = j["item_uuid"].get<std::string>();
-                Logger::playback("STOP item_uuid={}", uuid);
+                Logger::playback("STOP: {}", item_playback_info(uuid, state));
                 state.stop_item(uuid);
             } else {
                 auto cue = resolve_cue(j);
                 if (cue) {
                     if (auto uuid = state.cue_to_item_uuid(*cue)) {
-                        Logger::playback("STOP cue_id={} → item_uuid={}",
-                                         cue->value, *uuid);
+                        Logger::playback("STOP: {}", item_playback_info(*uuid, state));
                         state.stop_item(*uuid);
                     } else {
-                        Logger::playback("STOP cue_id={} (orphan)", cue->value);
+                        Logger::playback("STOP: cue_id={} (orphan)", cue->value);
                         engine.stop(*cue);
                     }
                 } else {
@@ -648,7 +745,8 @@ static void handle_ws_message(crow::websocket::connection& conn,
             auto cue = resolve_cue(j);
             if (cue) {
                 const float db = j.value("db", 0.0f);
-                Logger::api_request("WS gain cue_id={} db={:.1f}", cue->value, db);
+                Logger::api_request("Client ({}) -> Server ({}) : WS gain cue_id={} db={:.1f}",
+                                    conn.get_remote_ip(), server_addr, cue->value, db);
                 state.set_cue_gain_db(*cue, db);
             }
         }
@@ -657,8 +755,8 @@ static void handle_ws_message(crow::websocket::connection& conn,
             if (cue) {
                 const auto in_ms  = j.value("in_ms",  (long long)0);
                 const auto out_ms = j.value("out_ms", (long long)0);
-                Logger::api_request("WS fade cue_id={} in={}ms out={}ms",
-                                    cue->value, in_ms, out_ms);
+                Logger::api_request("Client ({}) -> Server ({}) : WS fade cue_id={} in={}ms out={}ms",
+                                    conn.get_remote_ip(), server_addr, cue->value, in_ms, out_ms);
                 state.set_cue_fade_in (*cue, std::chrono::milliseconds{in_ms});
                 state.set_cue_fade_out(*cue, std::chrono::milliseconds{out_ms});
             }
@@ -679,7 +777,10 @@ static void handle_ws_message(crow::websocket::connection& conn,
             if (j.contains("item_uuid") && j["item_uuid"].is_string()) {
                 uuid = j["item_uuid"].get<std::string>();
             }
-            Logger::playback("SET NEXT item_uuid={}", uuid.empty() ? "<clear>" : uuid);
+            if (uuid.empty())
+                Logger::playback("SET NEXT: <clear>");
+            else
+                Logger::playback("SET NEXT: {}", item_playback_info(uuid, state));
             state.set_next_item_override(uuid);
             // Fan-out to every client happens in the .onmessage wrapper
             // (which has access to the ControlServer for broadcast).
@@ -707,6 +808,13 @@ static void handle_ws_message(crow::websocket::connection& conn,
 // ---------------------------------------------------------------------------
 void ControlServer::install_routes() {
     auto& app = impl_->app;
+    impl_->server_addr = std::format("{}:{}", cfg_.bind_address, cfg_.port);
+
+    // Route Crow's internal logs through our Logger and silence the noisy
+    // per-request INFO lines (we log those ourselves via api_request/api_response).
+    static CrowLogBridge crow_log_bridge;
+    crow::logger::setHandler(&crow_log_bridge);
+    crow::logger::setLogLevel(crow::LogLevel::Warning);
 
     // Permissive CORS preflight for everything (the Electron client is on a
     // different origin).
@@ -1196,6 +1304,61 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // Copy an existing server-side file into the project's media root.
+    // Used by the client when the user picks a file from the server file
+    // browser — the file lives somewhere on disk but needs to land in the
+    // project media folder before the engine can own it.
+    // Body: { "source_path": "/absolute/path/to/file.ext" }
+    // Response: { "dest_path": "/absolute/path/to/media/file.ext" }
+    CROW_ROUTE(app, "/api/copy_to_media").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req) {
+            try {
+                const auto body = json::parse(req.body);
+                const std::string src_str = body.value("source_path", std::string{});
+                if (src_str.empty()) return json_err(400, "missing source_path");
+
+                const fs::path src  = liveplay::util::utf8_to_path(src_str);
+                if (!fs::exists(src)) return json_err(404, "source file not found");
+
+                const fs::path media = state_.media_root();
+                if (media.empty()) return json_err(500, "media root not configured");
+
+                fs::create_directories(media);
+                const fs::path dest = media / src.filename();
+
+                if (fs::canonical(src) != fs::canonical(dest)) {
+                    fs::copy_file(src, dest, fs::copy_options::overwrite_existing);
+                }
+
+                return json_ok(json{{"dest_path", liveplay::util::path_to_utf8(dest)}});
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
+    // Queue an async waveform computation for the given file. Returns
+    // immediately; the result arrives as a waveform_ready doc_patch over
+    // WebSocket once the worker thread finishes.
+    // Body: { "path": "/abs/path/to/file.ext", "item_uuid": "<uuid>" }
+    CROW_ROUTE(app, "/api/waveform_generate").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req) {
+            try {
+                const auto body = json::parse(req.body);
+                const std::string path_str  = body.value("path", std::string{});
+                const std::string item_uuid = body.value("item_uuid", std::string{});
+                if (path_str.empty() || item_uuid.empty())
+                    return json_err(400, "missing path or item_uuid");
+
+                {
+                    std::lock_guard lock{impl_->waveform_q_mutex};
+                    impl_->waveform_q.push_back({
+                        liveplay::util::utf8_to_path(path_str),
+                        item_uuid
+                    });
+                }
+                impl_->waveform_q_cv.notify_one();
+                return json_ok(json{{"ok", true}});
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
     // ---- Metadata + Waveform ----
     CROW_ROUTE(app, "/api/metadata").methods(crow::HTTPMethod::Get)
         ([](const crow::request& req) {
@@ -1248,6 +1411,42 @@ void ControlServer::install_routes() {
             catch (...) { return json_err(500, "unknown error computing waveform"); }
         });
 
+    // Compute waveform for an arbitrary file path (no cue registration needed).
+    // Used by the client immediately after import, before the cue is registered
+    // with the engine. Query params: path=<absolute-path>&buckets=<count>.
+    CROW_ROUTE(app, "/api/waveform_path").methods(crow::HTTPMethod::Get)
+        ([](const crow::request& req) {
+            try {
+                const auto* path_param = req.url_params.get("path");
+                if (!path_param) return json_err(400, "missing path parameter");
+
+                std::uint32_t buckets = 1000;
+                if (req.url_params.get("buckets")) {
+                    try { buckets = static_cast<std::uint32_t>(std::stoi(req.url_params.get("buckets"))); }
+                    catch (...) {}
+                }
+
+                const std::filesystem::path file_path =
+                    liveplay::util::utf8_to_path(std::string{path_param});
+
+                const auto wf = liveplay::meta::compute_waveform(file_path, buckets);
+                if (!wf.ok) return json_err(500, "waveform decode failed");
+
+                json channels = json::array();
+                for (const auto& ch : wf.channels) {
+                    channels.push_back(json{{"peak", ch.peak}, {"rms", ch.rms}});
+                }
+                return json_ok(json{
+                    {"bucket_count",    wf.bucket_count},
+                    {"duration_ms",     wf.duration.count()},
+                    {"sample_rate",     wf.sample_rate},
+                    {"source_channels", wf.source_channels},
+                    {"channels",        std::move(channels)},
+                });
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
+            catch (...) { return json_err(500, "unknown error computing waveform"); }
+        });
+
     // ---- Project I/O ----
     // Returns the *full* client-shaped project document (items, groups, cart,
     // theme, settings) plus a server-side decoration of engine cue ids. This
@@ -1260,10 +1459,12 @@ void ControlServer::install_routes() {
     // the (potentially large) items array has even started downloading.
     // Pair with /api/project/items?offset=&limit= to stream the playlist.
     CROW_ROUTE(app, "/api/project/header").methods(crow::HTTPMethod::Get)
-        ([this] {
-            Logger::api_request("GET /api/project/header");
+        ([this](const crow::request& req) {
+            Logger::api_request("Client ({}) -> Server ({}) : GET /api/project/header",
+                                req.remote_ip_address, impl_->server_addr);
             auto hdr = state_.header_document();
-            Logger::api_response("GET /api/project/header OK — '{}' ({} items)",
+            Logger::api_response("Client ({}) <- Server ({}) : GET /api/project/header OK — '{}' ({} items)",
+                                 req.remote_ip_address, impl_->server_addr,
                                  hdr.value("name", "?"),
                                  hdr.value("itemCount", (std::size_t)0));
             return json_ok(hdr);
@@ -1283,10 +1484,11 @@ void ControlServer::install_routes() {
                 try { limit = static_cast<std::size_t>(std::clamp(std::stoi(p), 1, 1000)); }
                 catch (...) {}
             }
-            Logger::api_request("GET /api/project/items offset={} limit={}", offset, limit);
+            Logger::api_request("Client ({}) -> Server ({}) : GET /api/project/items offset={} limit={}",
+                                req.remote_ip_address, impl_->server_addr, offset, limit);
             auto page = state_.items_page(offset, limit);
-            Logger::api_response("GET /api/project/items offset={} → {}/{} items",
-                                 offset,
+            Logger::api_response("Client ({}) <- Server ({}) : GET /api/project/items offset={} → {}/{} items",
+                                 req.remote_ip_address, impl_->server_addr, offset,
                                  page.value("items", json::array()).size(),
                                  page.value("total", (std::size_t)0));
             return json_ok(page);
@@ -1310,14 +1512,16 @@ void ControlServer::install_routes() {
                 auto j = json::parse(req.body);
                 if (j.contains("path")) {
                     const std::string path_str = j["path"].get<std::string>();
-                    Logger::api_request("POST /api/project/load path='{}'", path_str);
+                    Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/load path='{}'",
+                                        req.remote_ip_address, impl_->server_addr, path_str);
                     const fs::path p = liveplay::util::utf8_to_path(path_str);
                     if (!state_.load(p)) {
                         Logger::error("POST /api/project/load FAILED — load returned false for '{}'", path_str);
                         return json_err(400, "load failed");
                     }
                 } else if (j.contains("document")) {
-                    Logger::api_request("POST /api/project/load (from document)");
+                    Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/load (from document)",
+                                        req.remote_ip_address, impl_->server_addr);
                     if (!state_.load_from_json(j["document"])) {
                         Logger::error("POST /api/project/load FAILED — document rejected");
                         return json_err(400, "load failed");
@@ -1329,7 +1533,8 @@ void ControlServer::install_routes() {
                 auto repair = state_.consume_repair_info();
                 auto header = state_.header_document();
                 const std::size_t item_count = header.value("itemCount", (std::size_t)0);
-                Logger::api_response("POST /api/project/load OK — '{}' ({} items){}",
+                Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/load OK — '{}' ({} items){}",
+                                     req.remote_ip_address, impl_->server_addr,
                                      header.value("name", "?"), item_count,
                                      repair.repaired ? " [repaired]" : "");
                 // Attach repair metadata so the client can prompt the user.
@@ -1355,14 +1560,16 @@ void ControlServer::install_routes() {
     // broadcast a project_changed doc_patch so any other connected clients
     // also drop their local mirror.
     CROW_ROUTE(app, "/api/project/close").methods(crow::HTTPMethod::Post)
-        ([this]{
+        ([this](const crow::request& req){
             try {
-                Logger::api_request("POST /api/project/close");
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/close",
+                                    req.remote_ip_address, impl_->server_addr);
                 state_.reset();
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "project_changed"},
                 });
-                Logger::api_response("POST /api/project/close OK");
+                Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/close OK",
+                                     req.remote_ip_address, impl_->server_addr);
                 return json_ok(json{{"closed", true}});
             } catch (const std::exception& e) {
                 Logger::error("POST /api/project/close threw: {}", e.what());
@@ -1393,7 +1600,8 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/api/project/export").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
-                Logger::api_request("POST /api/project/export");
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/export",
+                                    req.remote_ip_address, impl_->server_addr);
                 auto j = json::parse(req.body);
                 if (!j.contains("folderPath") || !j["folderPath"].is_string()) {
                     return json_err(400, "expected 'folderPath'");
@@ -1436,7 +1644,8 @@ void ControlServer::install_routes() {
                     resp["downloadToken"] = token;
                     resp["downloadFilename"] = default_name;
                 }
-                Logger::api_response("POST /api/project/export OK — '{}' ({} bytes)",
+                Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/export OK — '{}' ({} bytes)",
+                                     req.remote_ip_address, impl_->server_addr,
                                      liveplay::util::path_to_utf8(out), size);
                 return json_ok(resp);
             } catch (const std::exception& e) {
@@ -1487,7 +1696,8 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/api/project/import").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
-                Logger::api_request("POST /api/project/import");
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/import",
+                                    req.remote_ip_address, impl_->server_addr);
                 fs::path archive_path;
                 fs::path extract_path;
                 bool delete_archive_after = false;
@@ -1559,7 +1769,8 @@ void ControlServer::install_routes() {
                     {"extractPath",  liveplay::util::path_to_utf8(extract_path)},
                     {"projectFiles", std::move(project_files)},
                 };
-                Logger::api_response("POST /api/project/import OK — extracted to '{}'",
+                Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/import OK — extracted to '{}'",
+                                     req.remote_ip_address, impl_->server_addr,
                                      liveplay::util::path_to_utf8(extract_path));
                 return json_ok(resp);
             } catch (const std::exception& e) {
@@ -1571,9 +1782,10 @@ void ControlServer::install_routes() {
     // Repair the currently-loaded project and save it to disk. Called by the
     // client after the user confirms the repair prompt.
     CROW_ROUTE(app, "/api/project/repair").methods(crow::HTTPMethod::Post)
-        ([this]{
+        ([this](const crow::request& req){
             try {
-                Logger::api_request("POST /api/project/repair");
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/repair",
+                                    req.remote_ip_address, impl_->server_addr);
                 // The document was already repaired on load (load_from_json
                 // ran detect_and_repair before storing it). Calling
                 // repair_project() here just re-validates — it is a no-op if
@@ -1594,7 +1806,8 @@ void ControlServer::install_routes() {
                 }
                 auto issues = json::array();
                 for (const auto& iss : repair.issues) issues.push_back(iss);
-                Logger::api_response("POST /api/project/repair OK — repaired={} saved={}",
+                Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/repair OK — repaired={} saved={}",
+                                     req.remote_ip_address, impl_->server_addr,
                                      repair.repaired, saved);
                 return json_ok(json{{"repaired", repair.repaired}, {"issues", std::move(issues)}, {"saved", saved}});
             } catch (const std::exception& e) {
@@ -1618,7 +1831,8 @@ void ControlServer::install_routes() {
                         return json_err(400, "no project file path set");
                     }
                 }
-                Logger::api_request("POST /api/project/save path='{}'",
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/save path='{}'",
+                                    req.remote_ip_address, impl_->server_addr,
                                     liveplay::util::path_to_utf8(p));
                 if (!state_.save(p)) {
                     Logger::error("POST /api/project/save FAILED for '{}'",
@@ -1626,7 +1840,8 @@ void ControlServer::install_routes() {
                     return json_err(500, "save failed");
                 }
                 const auto path_str = liveplay::util::path_to_utf8(p);
-                Logger::api_response("POST /api/project/save OK → '{}'", path_str);
+                Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/save OK → '{}'",
+                                     req.remote_ip_address, impl_->server_addr, path_str);
                 return json_ok(json({{"ok", true}, {"path", path_str}}));
             } catch (const std::exception& e) {
                 Logger::error("POST /api/project/save threw: {}", e.what());
@@ -1643,14 +1858,16 @@ void ControlServer::install_routes() {
             try {
                 auto doc = json::parse(req.body);
                 const std::string proj_name = doc.value("name", "?");
-                Logger::api_request("PUT /api/project/document name='{}'", proj_name);
+                Logger::api_request("Client ({}) -> Server ({}) : PUT /api/project/document name='{}'",
+                                    req.remote_ip_address, impl_->server_addr, proj_name);
                 if (!state_.replace_full_document(doc)) {
                     Logger::error("PUT /api/project/document — document not accepted");
                     return json_err(400, "document not accepted");
                 }
                 auto header = state_.header_document();
                 const std::size_t item_count = header.value("itemCount", (std::size_t)0);
-                Logger::api_response("PUT /api/project/document OK — '{}' ({} items)",
+                Logger::api_response("Client ({}) <- Server ({}) : PUT /api/project/document OK — '{}' ({} items)",
+                                     req.remote_ip_address, impl_->server_addr,
                                      proj_name, item_count);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "project_changed"},
@@ -1678,10 +1895,12 @@ void ControlServer::install_routes() {
                 const std::string item_uuid  = j["item"].value("uuid", std::string{});
                 const std::string item_name  = j["item"].value("displayName", std::string{});
                 const std::string parent_uuid = j.value("parentUuid", std::string{});
-                Logger::api_request("POST /api/project/items uuid='{}' name='{}'{}", item_uuid,
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items uuid='{}' name='{}'{}",
+                                    req.remote_ip_address, impl_->server_addr, item_uuid,
                                     item_name, parent_uuid.empty() ? "" : " parent='" + parent_uuid + "'");
                 const auto cue_id = state_.add_item(j["item"], parent_uuid);
-                Logger::api_response("POST /api/project/items OK — uuid='{}' cueId='{}'",
+                Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/items OK — uuid='{}' cueId='{}'",
+                                     req.remote_ip_address, impl_->server_addr,
                                      item_uuid, cue_id.value);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "item_added"},
@@ -1705,12 +1924,14 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req, std::string uuid){
             try {
                 auto patch = json::parse(req.body);
-                Logger::api_request("PATCH /api/project/items/{}", uuid);
+                Logger::api_request("Client ({}) -> Server ({}) : PATCH /api/project/items/{}",
+                                    req.remote_ip_address, impl_->server_addr, uuid);
                 if (!state_.update_item(uuid, patch)) {
                     Logger::warn("PATCH /api/project/items/{} — item not found", uuid);
                     return json_err(404, "item not found");
                 }
-                Logger::api_response("PATCH /api/project/items/{} OK", uuid);
+                Logger::api_response("Client ({}) <- Server ({}) : PATCH /api/project/items/{} OK",
+                                     req.remote_ip_address, impl_->server_addr, uuid);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "item_updated"},
                     {"uuid", uuid}, {"patch", patch},
@@ -1723,13 +1944,15 @@ void ControlServer::install_routes() {
         });
 
     CROW_ROUTE(app, "/api/project/items/<string>").methods(crow::HTTPMethod::Delete)
-        ([this](std::string uuid){
-            Logger::api_request("DELETE /api/project/items/{}", uuid);
+        ([this](const crow::request& req, std::string uuid){
+            Logger::api_request("Client ({}) -> Server ({}) : DELETE /api/project/items/{}",
+                                req.remote_ip_address, impl_->server_addr, uuid);
             if (!state_.remove_item(uuid)) {
                 Logger::warn("DELETE /api/project/items/{} — not found", uuid);
                 return json_err(404, "item not found");
             }
-            Logger::api_response("DELETE /api/project/items/{} OK", uuid);
+            Logger::api_response("Client ({}) <- Server ({}) : DELETE /api/project/items/{} OK",
+                                 req.remote_ip_address, impl_->server_addr, uuid);
             broadcast_doc_patch(json{
                 {"type", "doc_patch"}, {"op", "item_removed"}, {"uuid", uuid},
             });
@@ -1747,10 +1970,12 @@ void ControlServer::install_routes() {
                         if (u.is_string()) uuids.push_back(u.get<std::string>());
                     }
                 }
-                Logger::api_request("POST /api/project/items/reorder ({} items){}", uuids.size(),
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items/reorder ({} items){}",
+                                    req.remote_ip_address, impl_->server_addr, uuids.size(),
                                     parent_uuid.empty() ? "" : " parent='" + parent_uuid + "'");
                 state_.reorder_items(uuids, parent_uuid);
-                Logger::api_response("POST /api/project/items/reorder OK");
+                Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/items/reorder OK",
+                                     req.remote_ip_address, impl_->server_addr);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "items_reordered"},
                     {"parentUuid", parent_uuid}, {"uuids", uuids},
@@ -1765,23 +1990,29 @@ void ControlServer::install_routes() {
     // Item-by-uuid transport. Routed through ProjectState so duckingBehavior,
     // inPoint, and fade settings from the project document are honoured.
     CROW_ROUTE(app, "/api/project/items/<string>/play").methods(crow::HTTPMethod::Post)
-        ([this](std::string uuid){
-            Logger::playback("PLAY item_uuid={} (REST)", uuid);
+        ([this](const crow::request& req, std::string uuid){
+            Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items/{}/play",
+                                req.remote_ip_address, impl_->server_addr, uuid);
+            Logger::playback("PLAY: {}", item_playback_info(uuid, state_));
             if (!state_.play_item(uuid)) {
                 Logger::warn("PLAY item_uuid={} — item not loaded into engine", uuid);
                 return json_err(404, "item not loaded into engine");
             }
-            Logger::api_response("PLAY item_uuid={} OK", uuid);
+            Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/items/{}/play OK",
+                                 req.remote_ip_address, impl_->server_addr, uuid);
             return json_ok(json({{"ok", true}}));
         });
     CROW_ROUTE(app, "/api/project/items/<string>/stop").methods(crow::HTTPMethod::Post)
-        ([this](std::string uuid){
-            Logger::playback("STOP item_uuid={} (REST)", uuid);
+        ([this](const crow::request& req, std::string uuid){
+            Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items/{}/stop",
+                                req.remote_ip_address, impl_->server_addr, uuid);
+            Logger::playback("STOP: {}", item_playback_info(uuid, state_));
             if (!state_.stop_item(uuid)) {
                 Logger::warn("STOP item_uuid={} — item not loaded into engine", uuid);
                 return json_err(404, "item not loaded into engine");
             }
-            Logger::api_response("STOP item_uuid={} OK", uuid);
+            Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/items/{}/stop OK",
+                                 req.remote_ip_address, impl_->server_addr, uuid);
             return json_ok(json({{"ok", true}}));
         });
     CROW_ROUTE(app, "/api/project/items/<string>/seek").methods(crow::HTTPMethod::Post)
@@ -1789,7 +2020,9 @@ void ControlServer::install_routes() {
             try {
                 auto j = json::parse(req.body);
                 const double secs = j.value("seconds", 0.0);
-                Logger::playback("SEEK {:.2f}s → item_uuid={} (REST)", secs, uuid);
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items/{}/seek seconds={:.2f}",
+                                    req.remote_ip_address, impl_->server_addr, uuid, secs);
+                Logger::playback("SEEK: {} → {:.2f}s", item_playback_info(uuid, state_), secs);
                 const auto cue = state_.item_to_cue_id(uuid);
                 if (!cue) {
                     Logger::warn("SEEK item_uuid={} — not loaded into engine", uuid);
@@ -1816,9 +2049,11 @@ void ControlServer::install_routes() {
                     Logger::warn("POST /api/project/cart — slot and itemUuid required");
                     return json_err(400, "slot and itemUuid required");
                 }
-                Logger::api_request("POST /api/project/cart slot={} itemUuid='{}'", slot, uuid);
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/cart slot={} itemUuid='{}'",
+                                    req.remote_ip_address, impl_->server_addr, slot, uuid);
                 state_.set_cart_slot(slot, uuid);
-                Logger::api_response("POST /api/project/cart OK — slot={} uuid='{}'", slot, uuid);
+                Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/cart OK — slot={} uuid='{}'",
+                                     req.remote_ip_address, impl_->server_addr, slot, uuid);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "cart_slot_set"},
                     {"slot", slot}, {"itemUuid", uuid},
@@ -1830,10 +2065,12 @@ void ControlServer::install_routes() {
             }
         });
     CROW_ROUTE(app, "/api/project/cart/<int>").methods(crow::HTTPMethod::Delete)
-        ([this](int slot){
-            Logger::api_request("DELETE /api/project/cart/{}", slot);
+        ([this](const crow::request& req, int slot){
+            Logger::api_request("Client ({}) -> Server ({}) : DELETE /api/project/cart/{}",
+                                req.remote_ip_address, impl_->server_addr, slot);
             state_.clear_cart_slot(slot);
-            Logger::api_response("DELETE /api/project/cart/{} OK", slot);
+            Logger::api_response("Client ({}) <- Server ({}) : DELETE /api/project/cart/{} OK",
+                                 req.remote_ip_address, impl_->server_addr, slot);
             broadcast_doc_patch(json{
                 {"type", "doc_patch"}, {"op", "cart_slot_cleared"}, {"slot", slot},
             });
@@ -1860,14 +2097,17 @@ void ControlServer::install_routes() {
                     Logger::warn("POST /api/preview — itemUuid required");
                     return json_err(400, "itemUuid required");
                 }
-                Logger::playback("PREVIEW START item_uuid='{}'", uuid);
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/preview itemUuid='{}'",
+                                    req.remote_ip_address, impl_->server_addr, uuid);
+                Logger::playback("PREVIEW START: {}", item_playback_info(uuid, state_));
                 const bool ok = state_.start_preview(uuid);
                 if (!ok) {
                     Logger::warn("PREVIEW START failed for item_uuid='{}' — no device or item not found", uuid);
                     return json_err(400, "preview could not start (no device, or item not found)");
                 }
                 const auto cue_id = state_.current_preview_cue_id().value;
-                Logger::api_response("POST /api/preview OK — cueId='{}'", cue_id);
+                Logger::api_response("Client ({}) <- Server ({}) : POST /api/preview OK — cueId='{}'",
+                                     req.remote_ip_address, impl_->server_addr, cue_id);
                 // Mirror preview state to every other connected client so
                 // they can show the preview card / cue id in real time.
                 broadcast_doc_patch(json{
@@ -1887,10 +2127,13 @@ void ControlServer::install_routes() {
             }
         });
     CROW_ROUTE(app, "/api/preview").methods(crow::HTTPMethod::Delete)
-        ([this] {
+        ([this](const crow::request& req) {
+            Logger::api_request("Client ({}) -> Server ({}) : DELETE /api/preview",
+                                req.remote_ip_address, impl_->server_addr);
             Logger::playback("PREVIEW STOP");
             state_.stop_preview();
-            Logger::api_response("DELETE /api/preview OK");
+            Logger::api_response("Client ({}) <- Server ({}) : DELETE /api/preview OK",
+                                 req.remote_ip_address, impl_->server_addr);
             broadcast_doc_patch(json{
                 {"type", "doc_patch"},
                 {"op",   "preview_stopped"},
@@ -1903,10 +2146,12 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req){
             try {
                 auto patch = json::parse(req.body);
-                Logger::api_request("PATCH /api/project/theme");
+                Logger::api_request("Client ({}) -> Server ({}) : PATCH /api/project/theme",
+                                    req.remote_ip_address, impl_->server_addr);
                 state_.patch_theme(patch);
                 auto theme = state_.full_document()["theme"];
-                Logger::api_response("PATCH /api/project/theme OK");
+                Logger::api_response("Client ({}) <- Server ({}) : PATCH /api/project/theme OK",
+                                     req.remote_ip_address, impl_->server_addr);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "theme_patched"}, {"theme", theme},
                 });
@@ -1920,10 +2165,12 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req){
             try {
                 auto patch = json::parse(req.body);
-                Logger::api_request("PATCH /api/project/settings");
+                Logger::api_request("Client ({}) -> Server ({}) : PATCH /api/project/settings",
+                                    req.remote_ip_address, impl_->server_addr);
                 state_.patch_settings(patch);
                 auto settings = state_.full_document()["settings"];
-                Logger::api_response("PATCH /api/project/settings OK");
+                Logger::api_response("Client ({}) <- Server ({}) : PATCH /api/project/settings OK",
+                                     req.remote_ip_address, impl_->server_addr);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "settings_patched"}, {"settings", settings},
                 });
@@ -1962,7 +2209,7 @@ void ControlServer::install_routes() {
                         bool is_binary) {
           if (is_binary) return;
           try {
-              handle_ws_message(conn, data, engine_, state_);
+              handle_ws_message(conn, data, engine_, state_, impl_->server_addr);
           } catch (const std::exception& e) {
               Logger::error("WS onmessage threw past handler: {}", e.what());
           } catch (...) {
