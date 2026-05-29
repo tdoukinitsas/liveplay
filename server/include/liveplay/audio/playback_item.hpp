@@ -121,6 +121,13 @@ public:
     // disable (play to natural EOF). Safe to set while playing.
     void set_out_point_seconds(double seconds) noexcept;
 
+    // Enable/disable seamless looping. When enabled, reaching EOF / out-point
+    // seeks the decoder back to `in_seconds` and continues playing without
+    // transitioning to FadingOut/Stopped — so the broadcast loop never emits a
+    // transient "Stopped" cue_state edge mid-loop and the client UI keeps the
+    // cue visible the whole time. Safe to call while playing.
+    void set_loop(bool enabled, double in_seconds = 0.0) noexcept;
+
     // Returns true (and clears the flag) if this item finished playing
     // naturally (reached EOF or out-point, including any configured
     // fade-out). Returns false if the item was explicitly stopped or
@@ -197,6 +204,13 @@ private:
     // triggers the natural-EOF code path (fade-out then Stopped). 0 disables
     // (play to file end).
     std::atomic<std::uint64_t>  out_point_frames_{0};
+
+    // Seamless-loop state: when loop_enabled_ is true, hitting EOF / out-point
+    // inside render_block() seeks the decoder back to loop_in_frames_ and
+    // continues playing instead of fading out. Owned by the control thread for
+    // writes, read by the audio thread per block.
+    std::atomic<bool>           loop_enabled_{false};
+    std::atomic<std::uint64_t>  loop_in_frames_{0};
 
     // Set to true inside render_block() when the natural-end fade-out
     // starts (EOF or out-point triggered). Cleared on explicit stop().

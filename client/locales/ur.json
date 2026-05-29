@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "ur",
     "name": "Urdu",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "فریم ریٹ",
     "output": "آؤٹ پٹ",
     "deviceOverride": "آؤٹ پٹ ڈیوائس",
-    "deviceOverrideHelp": "اس سگنل کے لیے پروجیکٹ کی ڈیفالٹ آؤٹ پٹ کو اوور رائیڈ کریں۔ پروجیکٹ کی ترتیب پر عمل کرنے کے لیے 'پروجیکٹ ڈیفالٹ استعمال کریں' پر چھوڑیں۔"
+    "deviceOverrideHelp": "اس سگنل کے لیے پروجیکٹ کی ڈیفالٹ آؤٹ پٹ کو اوور رائیڈ کریں۔ پروجیکٹ کی ترتیب پر عمل کرنے کے لیے 'پروجیکٹ ڈیفالٹ استعمال کریں' پر چھوڑیں۔",
+    "waveform": "ویوفارم",
+    "regenerateWaveform": "ویوفارم دوبارہ بنائیں",
+    "regeneratingWaveform": "بن رہا ہے..."
   },
   "playback": {
     "panic": "تمام سگنلز روکیں",
@@ -180,7 +183,8 @@
     "setAsNext": "اگلے کے طور پر سیٹ کریں",
     "preview": "ہیڈ فون پر پیش نظارہ",
     "stopPreview": "پیش نظارہ روکیں",
-    "previewNoDevice": "کوئی پیش نظارہ ڈیوائس ترتیب نہیں — پروجیکٹ سیٹنگز کھولنے کے لیے کلک کریں"
+    "previewNoDevice": "کوئی پیش نظارہ ڈیوائس ترتیب نہیں — پروجیکٹ سیٹنگز کھولنے کے لیے کلک کریں",
+    "confirmDelete": "«{name}» حذف کریں؟"
   },
   "about": {
     "developedBy": "تیار کردہ",
@@ -349,5 +353,22 @@
     "uploadedCount": "{count} فائل(یں) اپلوڈ ہو گئیں۔ امپورٹ کے لیے \"شامل کریں\" پر کلک کریں۔",
     "uploadFailed": "اپلوڈ ناکام: {error}",
     "orFromComputer": "یا اس کمپیوٹر سے منتخب کریں"
+  },
+  "behaviors": {
+    "startPlayNext": "شروع: اگلا چلائیں",
+    "startPlayItem": "شروع: آئٹم چلائیں",
+    "startPlayIndex": "شروع: انڈیکس چلائیں",
+    "duckingOthers": "ڈکنگ: باقی کم کریں",
+    "endPlayNext": "اختتام: اگلا چلائیں",
+    "endGotoItem": "اختتام: آئٹم پر جائیں",
+    "endGotoIndex": "اختتام: انڈیکس پر جائیں",
+    "endLoop": "اختتام: لوپ"
+  },
+  "waveform": {
+    "decreaseBy": "{seconds}s کم کریں",
+    "increaseBy": "{seconds}s بڑھائیں",
+    "playFadeTitle": "فیڈ ان: {seconds}s",
+    "stopFadeTitle": "فیڈ آؤٹ: {seconds}s",
+    "crossFadeTitle": "کراس فیڈ: {seconds}s"
   }
 }

@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "sv",
     "name": "Swedish",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "Bildfrekvens",
     "output": "Utgång",
     "deviceOverride": "Utgångsenhet",
-    "deviceOverrideHelp": "Åsidosätt projektets standardutgång för det här signalet. Lämna på 'Använd projektstandard' för att följa projektinställningen."
+    "deviceOverrideHelp": "Åsidosätt projektets standardutgång för det här signalet. Lämna på 'Använd projektstandard' för att följa projektinställningen.",
+    "waveform": "Vågform",
+    "regenerateWaveform": "Återskapa vågform",
+    "regeneratingWaveform": "Återskapar..."
   },
   "playback": {
     "panic": "Stoppa alla signaler",
@@ -180,7 +183,8 @@
     "setAsNext": "Ange som nästa",
     "preview": "Förhandsgranska i hörlurar",
     "stopPreview": "Stoppa förhandsgranskning",
-    "previewNoDevice": "Ingen förhandsgranskningsenhet konfigurerad — klicka för att öppna Projektinställningar"
+    "previewNoDevice": "Ingen förhandsgranskningsenhet konfigurerad — klicka för att öppna Projektinställningar",
+    "confirmDelete": "Ta bort «{name}»?"
   },
   "about": {
     "developedBy": "Utvecklad av",
@@ -349,5 +353,22 @@
     "uploadedCount": "Laddade upp {count} fil(er). Klicka på \"Lägg till\" för att importera.",
     "uploadFailed": "Uppladdning misslyckades: {error}",
     "orFromComputer": "Eller välj från den här datorn"
+  },
+  "behaviors": {
+    "startPlayNext": "Start: Spela nästa",
+    "startPlayItem": "Start: Spela objekt",
+    "startPlayIndex": "Start: Spela index",
+    "duckingOthers": "Ducking: Sänk andra",
+    "endPlayNext": "Slut: Spela nästa",
+    "endGotoItem": "Slut: Gå till objekt",
+    "endGotoIndex": "Slut: Gå till index",
+    "endLoop": "Slut: Upprepa"
+  },
+  "waveform": {
+    "decreaseBy": "Minska med {seconds}s",
+    "increaseBy": "Öka med {seconds}s",
+    "playFadeTitle": "Infadning: {seconds}s",
+    "stopFadeTitle": "Utfadning: {seconds}s",
+    "crossFadeTitle": "Korstonande: {seconds}s"
   }
 }

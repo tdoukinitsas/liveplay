@@ -117,7 +117,7 @@
             class="fade-handle fade-handle-play"
             :style="{ left: playFadePosition + 'px' }"
             @mousedown.prevent="startDragFade('play', $event)"
-            :title="`Play Fade: ${playFade.toFixed(1)}s`"
+            :title="t('waveform.playFadeTitle', { seconds: playFade.toFixed(1) })"
           >
             <div class="fade-line fade-line-red"></div>
             <div class="fade-grip fade-grip-red">
@@ -131,7 +131,7 @@
             class="fade-handle fade-handle-stop"
             :style="{ left: stopFadePosition + 'px' }"
             @mousedown.prevent="startDragFade('stop', $event)"
-            :title="`Stop Fade: ${stopFade.toFixed(1)}s`"
+            :title="t('waveform.stopFadeTitle', { seconds: stopFade.toFixed(1) })"
           >
             <div class="fade-line fade-line-red"></div>
             <div class="fade-grip fade-grip-red">
@@ -145,7 +145,7 @@
             class="fade-handle fade-handle-cross"
             :style="{ left: crossFadePosition + 'px' }"
             @mousedown.prevent="startDragFade('cross', $event)"
-            :title="`Cross Fade: ${crossFade.toFixed(1)}s`"
+            :title="t('waveform.crossFadeTitle', { seconds: crossFade.toFixed(1) })"
           >
             <div class="fade-line fade-line-yellow"></div>
             <div class="fade-grip fade-grip-yellow">
@@ -173,7 +173,7 @@
       <div class="time-field">
         <label>{{ t('properties.inPoint') }}</label>
         <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustInPoint(-0.5)" title="Decrease by 0.5s">
+          <button class="time-decrement" @click="adjustInPoint(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">remove</span>
           </button>
           <input 
@@ -183,7 +183,7 @@
             @change="handleInPointTextChange"
             @focus="($event.target as HTMLInputElement).select()"
           />
-          <button class="time-increment" @click="adjustInPoint(0.5)" title="Increase by 0.5s">
+          <button class="time-increment" @click="adjustInPoint(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">add</span>
           </button>
         </div>
@@ -191,7 +191,7 @@
       <div class="time-field">
         <label>{{ t('properties.outPoint') }}</label>
         <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustOutPoint(-0.5)" title="Decrease by 0.5s">
+          <button class="time-decrement" @click="adjustOutPoint(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">remove</span>
           </button>
           <input 
@@ -201,7 +201,7 @@
             @change="handleOutPointTextChange"
             @focus="($event.target as HTMLInputElement).select()"
           />
-          <button class="time-increment" @click="adjustOutPoint(0.5)" title="Increase by 0.5s">
+          <button class="time-increment" @click="adjustOutPoint(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">add</span>
           </button>
         </div>
@@ -222,7 +222,7 @@
       <div class="fade-control-group">
         <label>{{ t('properties.playFade') }}</label>
         <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustPlayFade(-0.5)" title="Decrease by 0.5s">
+          <button class="time-decrement" @click="adjustPlayFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">remove</span>
           </button>
           <input 
@@ -232,7 +232,7 @@
             @change="handlePlayFadeTextChange"
             @focus="($event.target as HTMLInputElement).select()"
           />
-          <button class="time-increment" @click="adjustPlayFade(0.5)" title="Increase by 0.5s">
+          <button class="time-increment" @click="adjustPlayFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">add</span>
           </button>
         </div>
@@ -240,7 +240,7 @@
       <div class="fade-control-group">
         <label>{{ t('properties.stopFade') }}</label>
         <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustStopFade(-0.5)" title="Decrease by 0.5s">
+          <button class="time-decrement" @click="adjustStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">remove</span>
           </button>
           <input 
@@ -250,7 +250,7 @@
             @change="handleStopFadeTextChange"
             @focus="($event.target as HTMLInputElement).select()"
           />
-          <button class="time-increment" @click="adjustStopFade(0.5)" title="Increase by 0.5s">
+          <button class="time-increment" @click="adjustStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">add</span>
           </button>
         </div>
@@ -258,7 +258,7 @@
       <div class="fade-control-group">
         <label>{{ t('properties.crossFade') }}</label>
         <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustCrossFade(-0.5)" title="Decrease by 0.5s">
+          <button class="time-decrement" @click="adjustCrossFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">remove</span>
           </button>
           <input 
@@ -268,7 +268,7 @@
             @change="handleCrossFadeTextChange"
             @focus="($event.target as HTMLInputElement).select()"
           />
-          <button class="time-increment" @click="adjustCrossFade(0.5)" title="Increase by 0.5s">
+          <button class="time-increment" @click="adjustCrossFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">add</span>
           </button>
         </div>
@@ -796,22 +796,30 @@ const drawWaveform = () => {
         return match ? match.map(Number) : [128, 128, 128];
       };
 
+      // Gamma 2 expansion so loud songs don't render as a solid wall —
+      // matches PlaylistItem / CartSlot. dB-based clip detection below still
+      // uses the LINEAR amplitude so colour-coding stays meter-accurate.
+      const shape = (v: number) => {
+        const c = Math.min(1, Math.max(0, v));
+        return c * c;
+      };
+
       // Draw each bar with individual coloring
       visiblePeaksArray.forEach((value, i) => {
         const normalizedPeak = value; // Already normalized 0-1
-        
+
         // Base waveform bar height (use 80% of canvas height like PlaylistItem)
-        const baseBarHeight = normalizedPeak * canvasHeight * 0.8;
+        const baseBarHeight = shape(normalizedPeak) * canvasHeight * 0.8;
         const baseY = middleY - baseBarHeight / 2;
         const x = i * barWidth;
-        
+
         // Draw base waveform (subtle gray)
         ctx.fillStyle = 'rgba(128, 128, 128, 0.15)';
         ctx.fillRect(x, baseY, Math.max(barWidth, 1), baseBarHeight);
-        
+
         // Calculate bar height after volume multiplication
         const amplifiedPeak = Math.min(normalizedPeak * volumeMultiplier, 1); // Clamp to 1
-        const amplifiedBarHeight = amplifiedPeak * canvasHeight * 0.8;
+        const amplifiedBarHeight = shape(amplifiedPeak) * canvasHeight * 0.8;
         const amplifiedY = middleY - amplifiedBarHeight / 2;
         
         // Convert this bar's amplitude to dB for color selection

@@ -18,9 +18,15 @@
     @dragleave="handleDragLeave"
     @drop="handleDrop"
   >
-    <!-- Waveform background for audio items -->
-    <canvas 
-      v-if="item.type === 'audio' && item.waveform"
+    <!-- Waveform background for audio items. We render the canvas as soon as
+         the row is audio (not gated on item.waveform) so the IntersectionObserver
+         can attach at mount; drawWaveform() bails when there are no peaks yet
+         and the watcher on item.waveform.peaks redraws once data arrives. The
+         old `&& item.waveform` gate left the canvas missing at mount, so the
+         observer was never set up and waveforms that loaded asynchronously
+         never rendered. -->
+    <canvas
+      v-if="item.type === 'audio'"
       ref="waveformCanvas"
       class="waveform-canvas"
     ></canvas>
@@ -56,75 +62,94 @@
         <span v-if="isPreviewing" class="status-pill preview">{{ t('status.previewing') }}</span>
 
         <div class="item-actions">
-          <button
+          <ActionButton
             v-if="item.type === 'audio'"
-            class="item-btn preview"
-            :class="{ 'is-active': isPreviewing, 'no-device': !hasPreviewDevice }"
+            :icon="'headphones'"
+            :highlight-color="isPreviewing ? 'var(--color-accent)' : 'var(--color-success)'"
+            :is-active="isPreviewing"
+            :class="{ 'no-device': !hasPreviewDevice }"
+            context="Playlist"
             @click.stop="isPreviewing ? handleStopPreview() : handleStartPreview()"
             :title="isPreviewing ? t('actions.stopPreview') : (hasPreviewDevice ? t('actions.preview') : t('actions.previewNoDevice'))"
-          >
-            <span class="material-symbols-rounded">headphones</span>
-          </button>
-          <button
-            class="item-btn play"
-            :class="{ 'is-playing': isPlaying }"
+          />
+          <ActionButton
+            :icon="isPlaying ? 'stop' : 'play_arrow'"
+            :highlight-color="isPlaying ? 'var(--color-danger)' : 'var(--color-success)'"
+            context="Playlist"
             @click.stop="isPlaying ? handleStop() : handlePlay()"
             :title="isPlaying ? t('actions.stop') : t('actions.play')"
-          >
-            <span class="material-symbols-rounded">{{ isPlaying ? 'stop' : 'play_arrow' }}</span>
-          </button>
-          <button
-            class="item-btn set-next"
-            :class="{ 'is-queued': isManuallyQueued }"
+          />
+          <ActionButton
+            icon="fast_forward"
+            highlight-color="var(--color-warning)"
+            active-text-color="black"
+            :is-active="isManuallyQueued"
+            context="Playlist"
             @click.stop="handleSetAsNext"
             :title="t('actions.setAsNext')"
-          >
-            <span class="material-symbols-rounded">fast_forward</span>
-          </button>
-          <button class="item-btn edit" @click.stop="handleEdit" :title="t('actions.edit')">
-            <span class="material-symbols-rounded">settings</span>
-          </button>
-          <button class="item-btn delete" @click.stop="handleDelete" :title="t('actions.delete')">
-            <span class="material-symbols-rounded">delete</span>
-          </button>
+          />
+          <ActionButton
+            icon="settings"
+            highlight-color="var(--color-accent)"
+            context="Playlist"
+            @click.stop="handleEdit"
+            :title="t('actions.edit')"
+          />
+          <ActionButton
+            icon="delete"
+            highlight-color="var(--color-danger)"
+            context="Playlist"
+            @click.stop="handleDelete"
+            :title="t('actions.delete')"
+          />
         </div>
         
         <!-- Behavior indicators (for audio items) -->
         <div v-if="item.type === 'audio'" class="behavior-indicators">
           <!-- Start behavior -->
-          <span 
-            v-if="item.startBehavior?.action === 'play-next'" 
+          <span
+            v-if="item.startBehavior?.action === 'play-next'"
             class="material-symbols-rounded behavior-icon"
-            :title="`Start: Play Next`"
+            :title="t('behaviors.startPlayNext')"
           >skip_next</span>
-          <span 
-            v-else-if="item.startBehavior?.action === 'play-item' || item.startBehavior?.action === 'play-index'" 
+          <span
+            v-else-if="item.startBehavior?.action === 'play-item'"
             class="material-symbols-rounded behavior-icon"
-            :title="`Start: Play ${item.startBehavior?.action === 'play-item' ? 'Item' : 'Index'}`"
+            :title="t('behaviors.startPlayItem')"
           >arrow_forward</span>
-          
+          <span
+            v-else-if="item.startBehavior?.action === 'play-index'"
+            class="material-symbols-rounded behavior-icon"
+            :title="t('behaviors.startPlayIndex')"
+          >arrow_forward</span>
+
           <!-- Ducking behavior -->
-          <span 
-            v-if="item.duckingBehavior?.mode === 'duck-others'" 
+          <span
+            v-if="item.duckingBehavior?.mode === 'duck-others'"
             class="material-symbols-rounded behavior-icon"
-            :title="`Ducking: Duck Others`"
+            :title="t('behaviors.duckingOthers')"
           >volume_down</span>
-          
+
           <!-- End behavior -->
-          <span 
-            v-if="item.endBehavior?.action === 'next'" 
+          <span
+            v-if="item.endBehavior?.action === 'next'"
             class="material-symbols-rounded behavior-icon"
-            :title="`End: Play Next`"
+            :title="t('behaviors.endPlayNext')"
           >skip_next</span>
-          <span 
-            v-else-if="item.endBehavior?.action === 'goto-item' || item.endBehavior?.action === 'goto-index'" 
+          <span
+            v-else-if="item.endBehavior?.action === 'goto-item'"
             class="material-symbols-rounded behavior-icon"
-            :title="`End: Go To ${item.endBehavior?.action === 'goto-item' ? 'Item' : 'Index'}`"
+            :title="t('behaviors.endGotoItem')"
           >arrow_forward</span>
-          <span 
-            v-else-if="item.endBehavior?.action === 'loop'" 
+          <span
+            v-else-if="item.endBehavior?.action === 'goto-index'"
             class="material-symbols-rounded behavior-icon"
-            :title="`End: Loop`"
+            :title="t('behaviors.endGotoIndex')"
+          >arrow_forward</span>
+          <span
+            v-else-if="item.endBehavior?.action === 'loop'"
+            class="material-symbols-rounded behavior-icon"
+            :title="t('behaviors.endLoop')"
           >replay</span>
         </div>
         
@@ -147,6 +172,7 @@
 
 <script setup lang="ts">
 import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
+import ActionButton from './ActionButton.vue';
 
 const props = defineProps<{
   item: AudioItem | GroupItem;
@@ -265,11 +291,16 @@ const drawWaveform = () => {
   const volumeMultiplier = audioItem.volume || 1.0;
   
   trimmedPeaks.forEach((value, i) => {
-    // Values are already normalized 0-1, scale by volume
-    const barHeight = value * rect.height * 0.8 * volumeMultiplier; // Use 80% of height, scaled by volume
+    // Volume scales the linear amplitude first (so cutting volume in half
+    // shrinks the peaks, doubling can push them to clip), then gamma 2
+    // expansion makes the remaining dynamics visible. 0 and 1 stay fixed;
+    // 0.5 → 0.25, 0.8 → 0.64.
+    const scaled = Math.min(1, Math.max(0, value * volumeMultiplier));
+    const shaped = scaled * scaled;
+    const barHeight = shaped * rect.height * 0.8;
     const x = i * barWidth;
     const y = centerY - barHeight / 2;
-    
+
     ctx.fillRect(x, y, Math.max(barWidth, 1), barHeight);
   });
 };
@@ -358,77 +389,51 @@ watch(() => waveformUpdateKey.value, () => {
   if (isVisible && props.item.type === 'audio') nextTick(drawWaveform);
 });
 
-// Calculate playback progress
-const playbackProgress = ref(0);
-const currentPlaybackTime = ref(0);
-const playbackDuration = ref(0);
-let progressInterval: any = null;
+// Playback progress is derived directly from the reactive activeCues /
+// activeGroups maps so meter updates from the server propagate without an
+// interval. The previous design captured `cue` in a setInterval closure and
+// went stale the moment upsertActiveCue() replaced the entry (e.g. a second
+// cue_state edge during FadingIn→Playing, a playback_snapshot rebroadcast,
+// or any duck event), which is what caused the item-row progress to freeze
+// while the Active Cue panel — which always re-reads the map — kept ticking.
+const currentPlaybackTime = computed(() => {
+  if (props.item.type === 'audio') {
+    const cue = activeCues.value.get(props.item.uuid);
+    return cue ? cue.currentTime : 0;
+  }
+  if (props.item.type === 'group') {
+    const g = activeGroups.value.get(props.item.uuid);
+    return g ? g.currentTime : 0;
+  }
+  return 0;
+});
+const playbackDuration = computed(() => {
+  if (props.item.type === 'audio') {
+    const cue = activeCues.value.get(props.item.uuid);
+    return cue ? cue.duration : 0;
+  }
+  if (props.item.type === 'group') {
+    const g = activeGroups.value.get(props.item.uuid);
+    return g ? g.totalDuration : 0;
+  }
+  return 0;
+});
+const playbackProgress = computed(() => {
+  const d = playbackDuration.value;
+  if (d <= 0) return 0;
+  return Math.min((currentPlaybackTime.value / d) * 100, 100);
+});
 
 // Warning state based on time remaining
 const warningState = computed(() => {
   if (!isPlaying.value || props.item.type !== 'audio') return null;
-  
-  const cue = activeCues.value.get(props.item.uuid);
-  if (!cue) return null;
-  
-  const timeRemaining = cue.duration - cue.currentTime;
+  const d = playbackDuration.value;
+  if (d <= 0) return null;
+  const timeRemaining = d - currentPlaybackTime.value;
   if (timeRemaining <= 5) return 'red';
   if (timeRemaining <= 10) return 'orange';
   if (timeRemaining <= 30) return 'yellow';
   return null;
-});
-
-watch(isPlaying, (playing) => {
-  if (playing && props.item.type === 'audio') {
-    const cue = activeCues.value.get(props.item.uuid);
-    if (cue) {
-      progressInterval = setInterval(() => {
-        // Now we get currentTime directly from the cue state updated by IPC events
-        const current = cue.currentTime;
-        const duration = cue.duration;
-        currentPlaybackTime.value = current;
-        playbackDuration.value = duration;
-        playbackProgress.value = duration > 0 ? Math.min((current / duration) * 100, 100) : 0;
-      }, 100);
-    }
-  } else {
-    if (progressInterval) {
-      clearInterval(progressInterval);
-      progressInterval = null;
-    }
-    playbackProgress.value = 0;
-    currentPlaybackTime.value = 0;
-    playbackDuration.value = 0;
-  }
-});
-
-// Watch for group playing state
-watch(isGroupPlaying, (playing) => {
-  if (playing && props.item.type === 'group') {
-    const groupState = activeGroups.value.get(props.item.uuid);
-    if (groupState) {
-      progressInterval = setInterval(() => {
-        const state = activeGroups.value.get(props.item.uuid);
-        if (state) {
-          const current = state.currentTime;
-          const duration = state.totalDuration;
-          playbackProgress.value = duration > 0 ? Math.min((current / duration) * 100, 100) : 0;
-        }
-      }, 100);
-    }
-  } else if (!playing && props.item.type === 'group') {
-    if (progressInterval) {
-      clearInterval(progressInterval);
-      progressInterval = null;
-    }
-    playbackProgress.value = 0;
-  }
-});
-
-onUnmounted(() => {
-  if (progressInterval) {
-    clearInterval(progressInterval);
-  }
 });
 
 // Helper to convert hex to rgba
@@ -514,7 +519,7 @@ const handleSetAsNext = () => {
 };
 
 const handleDelete = () => {
-  if (confirm(`Delete "${props.item.displayName}"?`)) {
+  if (confirm(t('actions.confirmDelete', { name: props.item.displayName }))) {
     removeItem(props.item.uuid);
   }
 };
@@ -900,26 +905,6 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   }
 }
 
-/* Preview button — same general look as other item-btns but visually
-   distinguished when active (headphones lit up). */
-.item-btn.preview {
-  &.no-device {
-    opacity: 0.4;
-  }
-
-  &:not(.no-device):not(.is-active):hover {
-    background-color: var(--color-success);
-    border-color: var(--color-success);
-    color: white;
-  }
-
-  &.is-active {
-    background-color: var(--color-accent);
-    color: white;
-    border-color: var(--color-accent);
-  }
-}
-
 .item-actions {
   display: flex;
   gap: var(--spacing-xs);
@@ -927,68 +912,8 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   flex-shrink: 0;
 }
 
-.item-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--border-radius-sm);
-  background-color: var(--color-background);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-primary);
-  transition: all var(--transition-fast);
-  cursor: pointer;
-
-  .material-symbols-rounded {
-    font-size: 18px;
-  }
-
-  &.play {
-    &:hover {
-      background-color: var(--color-success);
-      border-color: var(--color-success);
-      color: white;
-    }
-
-    &.is-playing {
-      &:hover {
-        background-color: var(--color-danger);
-        border-color: var(--color-danger);
-        color: white;
-      }
-    }
-  }
-
-  &.set-next {
-    &:hover {
-      background-color: var(--color-warning);
-      border-color: var(--color-warning);
-      color: black;
-    }
-
-    &.is-queued {
-      background-color: var(--color-warning);
-      border-color: var(--color-warning);
-      color: black;
-    }
-  }
-
-  &.edit {
-    &:hover {
-      background-color: var(--color-accent);
-      border-color: var(--color-accent);
-      color: white;
-    }
-  }
-
-  &.delete {
-    &:hover {
-      background-color: var(--color-danger);
-      border-color: var(--color-danger);
-      color: white;
-    }
-  }
+.no-device {
+  opacity: 0.4;
 }
 
 .group-children {

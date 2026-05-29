@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "hi",
     "name": "Hindi",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "फ्रेम दर",
     "output": "आउटपुट",
     "deviceOverride": "आउटपुट डिवाइस",
-    "deviceOverrideHelp": "इस क्यू के लिए प्रोजेक्ट के डिफ़ॉल्ट आउटपुट को ओवरराइड करें। प्रोजेक्ट सेटिंग का पालन करने के लिए 'प्रोजेक्ट डिफ़ॉल्ट का उपयोग करें' पर छोड़ें।"
+    "deviceOverrideHelp": "इस क्यू के लिए प्रोजेक्ट के डिफ़ॉल्ट आउटपुट को ओवरराइड करें। प्रोजेक्ट सेटिंग का पालन करने के लिए 'प्रोजेक्ट डिफ़ॉल्ट का उपयोग करें' पर छोड़ें।",
+    "waveform": "वेवफॉर्म",
+    "regenerateWaveform": "वेवफॉर्म पुनर्जनन",
+    "regeneratingWaveform": "पुनर्जनन हो रहा है..."
   },
   "playback": {
     "panic": "सभी सिग्नल रोकें",
@@ -180,7 +183,8 @@
     "setAsNext": "अगले पर सेट करें",
     "preview": "हेडफोन पर पूर्वावलोकन",
     "stopPreview": "पूर्वावलोकन बंद करें",
-    "previewNoDevice": "कोई पूर्वावलोकन डिवाइस कॉन्फ़िगर नहीं — प्रोजेक्ट सेटिंग खोलने के लिए क्लिक करें"
+    "previewNoDevice": "कोई पूर्वावलोकन डिवाइस कॉन्फ़िगर नहीं — प्रोजेक्ट सेटिंग खोलने के लिए क्लिक करें",
+    "confirmDelete": "«{name}» हटाएं?"
   },
   "about": {
     "developedBy": "द्वारा विकसित",
@@ -349,5 +353,22 @@
     "uploadedCount": "{count} फ़ाइल(ें) अपलोड की गईं। आयात करने के लिए \"जोड़ें\" पर क्लिक करें।",
     "uploadFailed": "अपलोड विफल: {error}",
     "orFromComputer": "या इस कंप्यूटर से चुनें"
+  },
+  "behaviors": {
+    "startPlayNext": "शुरू: अगला चलाएं",
+    "startPlayItem": "शुरू: आइटम चलाएं",
+    "startPlayIndex": "शुरू: इंडेक्स चलाएं",
+    "duckingOthers": "डकिंग: बाकी कम करें",
+    "endPlayNext": "अंत: अगला चलाएं",
+    "endGotoItem": "अंत: आइटम पर जाएं",
+    "endGotoIndex": "अंत: इंडेक्स पर जाएं",
+    "endLoop": "अंत: लूप"
+  },
+  "waveform": {
+    "decreaseBy": "{seconds}s कम करें",
+    "increaseBy": "{seconds}s बढ़ाएं",
+    "playFadeTitle": "फेड इन: {seconds}s",
+    "stopFadeTitle": "फेड आउट: {seconds}s",
+    "crossFadeTitle": "क्रॉस फेड: {seconds}s"
   }
 }

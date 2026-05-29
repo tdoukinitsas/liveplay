@@ -3,18 +3,9 @@
     <div class="playlist-header">
       <h2>{{ t('playlist.title') }}</h2>
       <div class="playlist-actions">
-        <button class="action-btn" @click="handleImport" :disabled="!currentProject">
-          <span class="material-symbols-rounded">audio_file</span>
-          <span>{{ t('playlist.importAudio') }}</span>
-        </button>
-        <button class="action-btn youtube-btn" @click="showYouTubeModal = true" :disabled="!currentProject">
-          <span class="material-symbols-rounded">youtube_activity</span>
-          <span>{{ t('youtube.importFromYouTube') }}</span>
-        </button>
-        <button class="action-btn" @click="handleAddGroup" :disabled="!currentProject">
-          <span class="material-symbols-rounded">folder</span>
-          <span>{{ t('playlist.addGroup') }}</span>
-        </button>
+        <Btn icon="audio_file" :text="t('playlist.importAudio')" :disabled="!currentProject" @click="handleImport" />
+        <Btn icon="youtube_activity" :text="t('youtube.importFromYouTube')" bg-style="youtube" :disabled="!currentProject" @click="showYouTubeModal = true" />
+        <Btn icon="folder" :text="t('playlist.addGroup')" :disabled="!currentProject" @click="handleAddGroup" />
       </div>
     </div>
     
@@ -55,6 +46,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ref } from 'vue';
 import YouTubeImportModal from './YouTubeImportModal.vue';
 import AudioImportModal from './AudioImportModal.vue';
+import Btn from './Btn.vue';
 import { triggerRef } from 'vue';
 import type { AudioItem, GroupItem } from '~/types/project';
 import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM } from '~/types/project';
@@ -113,26 +105,74 @@ onUnmounted(() => {
   if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
 });
 
-// When a project finishes loading (or is already loaded on mount), queue
-// waveform generation for every audio item that doesn't have waveform data.
-// { immediate: true } means it also fires on mount so items loaded before
-// this component mounted (e.g. via tryRejoinExistingProject) are covered.
-watch(isLoading, async (loading) => {
-  if (loading || !currentProject.value) return;
+// Queue waveform generation for every audio item that lacks peaks.
+// We can't gate on isLoading flipping false — it flips before
+// streamItemPages() has pushed any pages, so the items array is still
+// empty at that moment. Instead we react to items actually appearing
+// (length change), debounced so each streamed page doesn't fire its
+// own request storm, and track which uuids we've already requested
+// so we don't re-queue on every change.
+const requestedWaveformUuids = new Set<string>();
+let waveformScanTimer: ReturnType<typeof setTimeout> | null = null;
+const scanForMissingWaveforms = async () => {
+  if (!currentProject.value) return;
   try {
     const server = (await import('~/composables/useLiveplayServer')).useLiveplayServer();
-    for (const item of getAllItemsFlat()) {
-      if (item.type === 'audio') {
-        const ai = item as AudioItem;
-        if (ai.mediaServerPath && !ai.waveform) {
-          server.requestWaveformGeneration(ai.mediaServerPath, ai.uuid).catch(() => {});
-        }
+    const folder = currentProject.value.folderPath || '';
+    // Include cart-only items too — they live in a separate array and the
+    // playlist flatten wouldn't otherwise reach them, so cart slots backed
+    // by cart-only audio would never get their waveforms generated.
+    const cartOnly = (currentProject.value.cartOnlyItems ?? []) as AudioItem[];
+    const all = [...getAllItemsFlat(), ...cartOnly];
+    for (const item of all) {
+      if (item.type !== 'audio') continue;
+      const ai = item as AudioItem;
+      if (ai.waveform) continue;
+      if (requestedWaveformUuids.has(ai.uuid)) continue;
+
+      // Prefer the explicit server-absolute path written by the new import
+      // flow. Fall back to project-folder + relative mediaPath for items
+      // saved before mediaServerPath was introduced, so legacy projects
+      // still get waveforms after a reopen.
+      let path = ai.mediaServerPath || '';
+      if (!path && ai.mediaPath && folder) {
+        const rel = ai.mediaPath.replace(/^[\\/]+/, '');
+        path = `${folder.replace(/[\\/]+$/, '')}/${rel}`;
       }
+      if (!path) continue;
+
+      requestedWaveformUuids.add(ai.uuid);
+      server.requestWaveformGeneration(path, ai.uuid).catch(() => {
+        requestedWaveformUuids.delete(ai.uuid);
+      });
     }
   } catch (e) {
     console.warn('[waveform] project-load waveform generation failed:', e);
   }
-}, { immediate: true });
+};
+watch(
+  () => [
+    currentProject.value?.folderPath ?? '',
+    currentProject.value?.name ?? '',
+    currentProject.value?.items?.length ?? 0,
+  ],
+  ([folder, name], [prevFolder, prevName] = ['', '', 0]) => {
+    // Reset the "already requested" tracker when the project changes.
+    if (folder !== prevFolder || name !== prevName) requestedWaveformUuids.clear();
+    if (waveformScanTimer) clearTimeout(waveformScanTimer);
+    waveformScanTimer = setTimeout(scanForMissingWaveforms, 150);
+  },
+);
+// Also watch cartOnlyItems separately — the scanner needs to re-run when
+// new cart items appear (cart hydration happens after the playlist).
+watch(
+  () => currentProject.value?.cartOnlyItems?.length ?? 0,
+  () => {
+    if (waveformScanTimer) clearTimeout(waveformScanTimer);
+    waveformScanTimer = setTimeout(scanForMissingWaveforms, 150);
+  },
+  { immediate: true },
+);
 
 const handleImport = () => {
   if (!currentProject.value) return;
@@ -463,44 +503,6 @@ const handleDrop = async (e: DragEvent) => {
   gap: var(--spacing-sm);
 }
 
-.action-btn {
-  padding: var(--spacing-sm) var(--spacing-md);
-  background-color: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  
-  &:hover:not(:disabled) {
-    background-color: var(--color-surface-hover);
-    border-color: var(--color-accent);
-  }
-  
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-.youtube-btn {
-  background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
-  color: white;
-  border-color: #FF0000;
-  
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #CC0000 0%, #990000 100%);
-    border-color: #CC0000;
-  }
-  
-  &:disabled {
-    background: linear-gradient(135deg, #666666 0%, #555555 100%);
-    border-color: #666666;
-  }
-}
 
 .playlist-content {
   flex: 1;

@@ -795,10 +795,22 @@ void ProjectState::mirror_items_to_engine_locked() {
                 cue->set_fade_in(std::chrono::milliseconds{
                     static_cast<long long>(item["playFade"].get<double>() * 1000.0)});
             }
-            if (item.contains("fadeOutDuration") &&
-                item["fadeOutDuration"].is_number()) {
+            // Manual-stop fade-out: the UI's "STOP FADE OUT" slider writes to
+            // `stopFade`, which is also used by the sequencer to begin fading
+            // before natural end. We expose the larger of the two as the
+            // PlaybackItem's fade_out_duration so the stop button (and global
+            // stop) honour whichever value the user actually configured —
+            // without breaking legacy projects that only set fadeOutDuration.
+            {
+                double stop_fade_sec = 0.0;
+                double fade_out_dur  = 0.0;
+                if (item.contains("stopFade") && item["stopFade"].is_number())
+                    stop_fade_sec = item["stopFade"].get<double>();
+                if (item.contains("fadeOutDuration") && item["fadeOutDuration"].is_number())
+                    fade_out_dur = item["fadeOutDuration"].get<double>();
+                const double effective = std::max(stop_fade_sec, fade_out_dur);
                 cue->set_fade_out(std::chrono::milliseconds{
-                    static_cast<long long>(item["fadeOutDuration"].get<double>() * 1000.0)});
+                    static_cast<long long>(effective * 1000.0)});
             }
             // outPoint: when set (> 0), engine fades out as the playhead reaches
             // that time instead of running to the file end.
@@ -1325,10 +1337,18 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                         cue->set_fade_in(std::chrono::milliseconds{
                             static_cast<long long>(it["playFade"].get<double>() * 1000.0)});
                     }
-                    if (it.contains("fadeOutDuration") &&
-                        it["fadeOutDuration"].is_number()) {
+                    // Same max(stopFade, fadeOutDuration) rule as
+                    // mirror_items_to_engine_locked() — keep them in sync.
+                    {
+                        double stop_fade_sec = 0.0;
+                        double fade_out_dur  = 0.0;
+                        if (it.contains("stopFade") && it["stopFade"].is_number())
+                            stop_fade_sec = it["stopFade"].get<double>();
+                        if (it.contains("fadeOutDuration") && it["fadeOutDuration"].is_number())
+                            fade_out_dur = it["fadeOutDuration"].get<double>();
+                        const double effective = std::max(stop_fade_sec, fade_out_dur);
                         cue->set_fade_out(std::chrono::milliseconds{
-                            static_cast<long long>(it["fadeOutDuration"].get<double>() * 1000.0)});
+                            static_cast<long long>(effective * 1000.0)});
                     }
                     if (it.contains("outPoint") && it["outPoint"].is_number()) {
                         cue->set_out_point_seconds(it["outPoint"].get<double>());
@@ -1587,6 +1607,7 @@ bool ProjectState::play_item(const std::string& uuid) {
     std::string  device_override;
     std::string  start_behavior_action;
     std::string  start_behavior_target_uuid;
+    std::string  end_behavior_action;
     audio::CueId target_cue;
     std::vector<audio::CueId> other_cues;
 
@@ -1635,6 +1656,11 @@ bool ProjectState::play_item(const std::string& uuid) {
                 const auto& sb = (*found)["startBehavior"];
                 start_behavior_action      = sb.value("action",     std::string{});
                 start_behavior_target_uuid = sb.value("targetUuid", std::string{});
+            }
+            if (found->contains("endBehavior") &&
+                (*found)["endBehavior"].is_object()) {
+                const auto& eb = (*found)["endBehavior"];
+                end_behavior_action = eb.value("action", std::string{});
             }
             // Snapshot custom actions for the sequencer to dispatch.
             if (found->contains("customActions") &&
@@ -1723,6 +1749,13 @@ bool ProjectState::play_item(const std::string& uuid) {
     // Prime the target around the configured in-point.
     if (auto* pi = engine_.find_cue(target_cue)) {
         pi->set_out_point_seconds(out_point > 0.0 ? out_point : 0.0);
+        // Configure engine-level seamless looping based on endBehavior. Doing
+        // the loop inside the audio thread (decoder seek + playhead reset on
+        // EOF/out-point) avoids the Stopped→Playing flap that the broadcast
+        // thread used to observe between the natural-end and the sequencer's
+        // re-trigger — that flap caused the client UI to drop the cue from
+        // "currently playing" and grey out its stop button mid-loop.
+        pi->set_loop(end_behavior_action == "loop", in_point);
         pi->prime(2.0, in_point);
     }
     engine_.play(target_cue);

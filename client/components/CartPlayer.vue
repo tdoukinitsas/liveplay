@@ -3,23 +3,19 @@
     <div class="cart-header">
       <h2>{{ t('cart.title') }}</h2>
       <div class="cart-header-actions">
-        <button
+        <Btn
           v-if="!isDetachedWindow"
-          class="action-btn"
+          icon="open_in_new"
+          :text="t('cart.detach')"
           :disabled="!currentProject"
           @click="handleDetach"
-        >
-          <span class="material-symbols-rounded">open_in_new</span>
-          <span>{{ t('cart.detach') }}</span>
-        </button>
-        <button
+        />
+        <Btn
           v-else
-          class="action-btn"
+          icon="picture_in_picture_alt"
+          :text="t('cart.attach')"
           @click="handleAttach"
-        >
-          <span class="material-symbols-rounded">picture_in_picture_alt</span>
-          <span>{{ t('cart.attach') }}</span>
-        </button>
+        />
       </div>
     </div>
 
@@ -38,6 +34,7 @@
 <script setup lang="ts">
 import type { AudioItem } from '~/types/project';
 import { formatKeyLabel } from '~/composables/useCartHotkeys';
+import Btn from './Btn.vue';
 
 defineProps<{
   isDetachedWindow?: boolean;
@@ -140,33 +137,6 @@ onMounted(() => {
   gap: var(--spacing-sm);
 }
 
-.action-btn {
-  padding: var(--spacing-sm) var(--spacing-md);
-  background-color: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  color: var(--color-text-primary);
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover:not(:disabled) {
-    background-color: var(--color-surface-hover);
-    border-color: var(--color-accent);
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .material-symbols-rounded {
-    font-size: 16px;
-  }
-}
 
 .cart-grid {
   flex: 1;

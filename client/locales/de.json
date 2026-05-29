@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "de",
     "name": "German",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "Bildrate",
     "output": "Ausgang",
     "deviceOverride": "Ausgabegerät",
-    "deviceOverrideHelp": "Überschreibe den Standard-Ausgang des Projekts für dieses Signal. Auf 'Projektstandard verwenden' lassen, um der Projekteinstellung zu folgen."
+    "deviceOverrideHelp": "Überschreibe den Standard-Ausgang des Projekts für dieses Signal. Auf 'Projektstandard verwenden' lassen, um der Projekteinstellung zu folgen.",
+    "waveform": "Wellenform",
+    "regenerateWaveform": "Wellenform neu generieren",
+    "regeneratingWaveform": "Wird generiert..."
   },
   "playback": {
     "panic": "Alle Signale stoppen",
@@ -180,7 +183,8 @@
     "setAsNext": "Als Nächstes festlegen",
     "preview": "Vorschau über Kopfhörer",
     "stopPreview": "Vorschau stoppen",
-    "previewNoDevice": "Kein Vorschaugerät konfiguriert — klicken, um Projekteinstellungen zu öffnen"
+    "previewNoDevice": "Kein Vorschaugerät konfiguriert — klicken, um Projekteinstellungen zu öffnen",
+    "confirmDelete": "«{name}» löschen?"
   },
   "about": {
     "developedBy": "Entwickelt von",
@@ -349,5 +353,22 @@
     "uploadedCount": "{count} Datei(en) hochgeladen. Klicken Sie auf \"Hinzufügen\", um zu importieren.",
     "uploadFailed": "Upload fehlgeschlagen: {error}",
     "orFromComputer": "Oder von diesem Computer auswählen"
+  },
+  "behaviors": {
+    "startPlayNext": "Start: Nächstes abspielen",
+    "startPlayItem": "Start: Element abspielen",
+    "startPlayIndex": "Start: Index abspielen",
+    "duckingOthers": "Ducking: Andere abdämpfen",
+    "endPlayNext": "Ende: Nächstes abspielen",
+    "endGotoItem": "Ende: Zu Element springen",
+    "endGotoIndex": "Ende: Zu Index springen",
+    "endLoop": "Ende: Schleife"
+  },
+  "waveform": {
+    "decreaseBy": "Um {seconds}s verringern",
+    "increaseBy": "Um {seconds}s erhöhen",
+    "playFadeTitle": "Einblenden: {seconds}s",
+    "stopFadeTitle": "Ausblenden: {seconds}s",
+    "crossFadeTitle": "Überblenden: {seconds}s"
   }
 }

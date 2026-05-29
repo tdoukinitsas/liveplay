@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "fr",
     "name": "French",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "Fréquence d'images",
     "output": "Sortie",
     "deviceOverride": "Périphérique de sortie",
-    "deviceOverrideHelp": "Remplacer la sortie par défaut du projet pour ce signal. Laisser sur 'Utiliser la valeur par défaut du projet' pour suivre le paramètre du projet."
+    "deviceOverrideHelp": "Remplacer la sortie par défaut du projet pour ce signal. Laisser sur 'Utiliser la valeur par défaut du projet' pour suivre le paramètre du projet.",
+    "waveform": "Forme d'onde",
+    "regenerateWaveform": "Regénérer la forme d'onde",
+    "regeneratingWaveform": "Regénération..."
   },
   "playback": {
     "panic": "Arrêter Tous les Signaux",
@@ -180,7 +183,8 @@
     "setAsNext": "Définir comme suivant",
     "preview": "Aperçu sur casque",
     "stopPreview": "Arrêter l'aperçu",
-    "previewNoDevice": "Aucun périphérique d'aperçu configuré — cliquez pour ouvrir les Paramètres du Projet"
+    "previewNoDevice": "Aucun périphérique d'aperçu configuré — cliquez pour ouvrir les Paramètres du Projet",
+    "confirmDelete": "Supprimer « {name} » ?"
   },
   "about": {
     "developedBy": "Développé par",
@@ -349,5 +353,22 @@
     "uploadedCount": "{count} fichier(s) téléversé(s). Cliquez sur « Ajouter » pour importer.",
     "uploadFailed": "Échec du téléversement : {error}",
     "orFromComputer": "Ou choisir depuis cet ordinateur"
+  },
+  "behaviors": {
+    "startPlayNext": "Début : Jouer le suivant",
+    "startPlayItem": "Début : Jouer l'élément",
+    "startPlayIndex": "Début : Jouer l'index",
+    "duckingOthers": "Atténuation : Atténuer les autres",
+    "endPlayNext": "Fin : Jouer le suivant",
+    "endGotoItem": "Fin : Aller à l'élément",
+    "endGotoIndex": "Fin : Aller à l'index",
+    "endLoop": "Fin : Boucler"
+  },
+  "waveform": {
+    "decreaseBy": "Diminuer de {seconds}s",
+    "increaseBy": "Augmenter de {seconds}s",
+    "playFadeTitle": "Fondu d'entrée : {seconds}s",
+    "stopFadeTitle": "Fondu de sortie : {seconds}s",
+    "crossFadeTitle": "Fondu enchaîné : {seconds}s"
   }
 }

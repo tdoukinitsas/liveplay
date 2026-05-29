@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "no",
     "name": "Norwegian",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "Bildehastighet",
     "output": "Utgang",
     "deviceOverride": "Utdataenhet",
-    "deviceOverrideHelp": "Overstyr prosjektets standardutgang for dette signalet. La stå på 'Bruk prosjektstandard' for å følge prosjektinnstillingen."
+    "deviceOverrideHelp": "Overstyr prosjektets standardutgang for dette signalet. La stå på 'Bruk prosjektstandard' for å følge prosjektinnstillingen.",
+    "waveform": "Bølgeform",
+    "regenerateWaveform": "Regenerer bølgeform",
+    "regeneratingWaveform": "Regenererer..."
   },
   "playback": {
     "panic": "Stopp alle signaler",
@@ -180,7 +183,8 @@
     "setAsNext": "Sett som neste",
     "preview": "Forhåndsvis i hodetelefoner",
     "stopPreview": "Stopp forhåndsvisning",
-    "previewNoDevice": "Ingen forhåndsvisningsenhet konfigurert — klikk for å åpne Prosjektinnstillinger"
+    "previewNoDevice": "Ingen forhåndsvisningsenhet konfigurert — klikk for å åpne Prosjektinnstillinger",
+    "confirmDelete": "Slett «{name}»?"
   },
   "about": {
     "developedBy": "Utviklet av",
@@ -349,5 +353,22 @@
     "uploadedCount": "Lastet opp {count} fil(er). Klikk \"Legg til\" for å importere.",
     "uploadFailed": "Opplasting mislyktes: {error}",
     "orFromComputer": "Eller velg fra denne datamaskinen"
+  },
+  "behaviors": {
+    "startPlayNext": "Start: Spill neste",
+    "startPlayItem": "Start: Spill element",
+    "startPlayIndex": "Start: Spill indeks",
+    "duckingOthers": "Ducking: Dempe andre",
+    "endPlayNext": "Slutt: Spill neste",
+    "endGotoItem": "Slutt: Gå til element",
+    "endGotoIndex": "Slutt: Gå til indeks",
+    "endLoop": "Slutt: Loop"
+  },
+  "waveform": {
+    "decreaseBy": "Reduser med {seconds}s",
+    "increaseBy": "Øk med {seconds}s",
+    "playFadeTitle": "Innfading: {seconds}s",
+    "stopFadeTitle": "Utfading: {seconds}s",
+    "crossFadeTitle": "Kryssfading: {seconds}s"
   }
 }

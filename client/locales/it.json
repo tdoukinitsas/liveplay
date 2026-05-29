@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "it",
     "name": "Italian",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "Frequenza fotogrammi",
     "output": "Uscita",
     "deviceOverride": "Dispositivo di uscita",
-    "deviceOverrideHelp": "Sostituisci l'uscita predefinita del progetto per questo segnale. Lascia su 'Usa predefinito del progetto' per seguire l'impostazione del progetto."
+    "deviceOverrideHelp": "Sostituisci l'uscita predefinita del progetto per questo segnale. Lascia su 'Usa predefinito del progetto' per seguire l'impostazione del progetto.",
+    "waveform": "Forma d'onda",
+    "regenerateWaveform": "Rigenera forma d'onda",
+    "regeneratingWaveform": "Rigenerazione..."
   },
   "playback": {
     "panic": "Ferma Tutti i Segnali",
@@ -180,7 +183,8 @@
     "setAsNext": "Imposta come prossimo",
     "preview": "Anteprima in cuffia",
     "stopPreview": "Ferma anteprima",
-    "previewNoDevice": "Nessun dispositivo di anteprima configurato — clicca per aprire le Impostazioni Progetto"
+    "previewNoDevice": "Nessun dispositivo di anteprima configurato — clicca per aprire le Impostazioni Progetto",
+    "confirmDelete": "Eliminare «{name}»?"
   },
   "about": {
     "developedBy": "Sviluppato da",
@@ -349,5 +353,22 @@
     "uploadedCount": "Caricati {count} file. Fai clic su \"Aggiungi\" per importare.",
     "uploadFailed": "Caricamento fallito: {error}",
     "orFromComputer": "Oppure seleziona da questo computer"
+  },
+  "behaviors": {
+    "startPlayNext": "Inizio: Riproduci successivo",
+    "startPlayItem": "Inizio: Riproduci elemento",
+    "startPlayIndex": "Inizio: Riproduci indice",
+    "duckingOthers": "Ducking: Abbassa gli altri",
+    "endPlayNext": "Fine: Riproduci successivo",
+    "endGotoItem": "Fine: Vai all'elemento",
+    "endGotoIndex": "Fine: Vai all'indice",
+    "endLoop": "Fine: Ripeti"
+  },
+  "waveform": {
+    "decreaseBy": "Diminuisci di {seconds}s",
+    "increaseBy": "Aumenta di {seconds}s",
+    "playFadeTitle": "Dissolvenza in entrata: {seconds}s",
+    "stopFadeTitle": "Dissolvenza in uscita: {seconds}s",
+    "crossFadeTitle": "Dissolvenza incrociata: {seconds}s"
   }
 }

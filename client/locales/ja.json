@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "ja",
     "name": "Japanese",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "フレームレート",
     "output": "出力",
     "deviceOverride": "出力デバイス",
-    "deviceOverrideHelp": "このキューのプロジェクトのデフォルト出力を上書きします。プロジェクト設定に従うには「プロジェクトデフォルトを使用」のままにしてください。"
+    "deviceOverrideHelp": "このキューのプロジェクトのデフォルト出力を上書きします。プロジェクト設定に従うには「プロジェクトデフォルトを使用」のままにしてください。",
+    "waveform": "波形",
+    "regenerateWaveform": "波形を再生成",
+    "regeneratingWaveform": "再生成中..."
   },
   "playback": {
     "panic": "すべての信号を停止",
@@ -180,7 +183,8 @@
     "setAsNext": "次に設定",
     "preview": "ヘッドフォンでプレビュー",
     "stopPreview": "プレビューを停止",
-    "previewNoDevice": "プレビューデバイスが未設定です — プロジェクト設定を開くにはクリック"
+    "previewNoDevice": "プレビューデバイスが未設定です — プロジェクト設定を開くにはクリック",
+    "confirmDelete": "「{name}」を削除しますか？"
   },
   "about": {
     "developedBy": "開発者",
@@ -349,5 +353,22 @@
     "uploadedCount": "{count}個のファイルをアップロードしました。「追加」をクリックしてインポートします。",
     "uploadFailed": "アップロードに失敗しました：{error}",
     "orFromComputer": "またはこのコンピューターから選択"
+  },
+  "behaviors": {
+    "startPlayNext": "開始：次を再生",
+    "startPlayItem": "開始：アイテムを再生",
+    "startPlayIndex": "開始：インデックスを再生",
+    "duckingOthers": "ダッキング：他を下げる",
+    "endPlayNext": "終了：次を再生",
+    "endGotoItem": "終了：アイテムへ移動",
+    "endGotoIndex": "終了：インデックスへ移動",
+    "endLoop": "終了：ループ"
+  },
+  "waveform": {
+    "decreaseBy": "{seconds}秒減らす",
+    "increaseBy": "{seconds}秒増やす",
+    "playFadeTitle": "フェードイン：{seconds}秒",
+    "stopFadeTitle": "フェードアウト：{seconds}秒",
+    "crossFadeTitle": "クロスフェード：{seconds}秒"
   }
 }

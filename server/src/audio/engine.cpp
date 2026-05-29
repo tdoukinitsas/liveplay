@@ -482,12 +482,17 @@ void AudioEngine::stop(const CueId& id) {
 void AudioEngine::stop_all(std::chrono::milliseconds fade) {
     std::lock_guard lock{mutex_};
     for (auto& [_, item] : items_) {
-        if (fade.count() > 0) {
-            // Temporarily set the item's fade-out so stop() honours it.
-            const auto prev = item->desc().fade_out_duration;
+        // Rule: each item's own fade_out_duration wins when non-zero; only when
+        // an item is configured for a hard stop (fade-out == 0) do we fall back
+        // to the caller-provided `fade`. This lets the global stop button honour
+        // the per-cue fade-out the user configured.
+        const auto item_fade = item->desc().fade_out_duration;
+        if (item_fade.count() > 0) {
+            item->stop();
+        } else if (fade.count() > 0) {
             item->set_fade_out(fade);
             item->stop();
-            item->set_fade_out(prev);
+            item->set_fade_out(std::chrono::milliseconds{0});
         } else {
             item->stop();
         }

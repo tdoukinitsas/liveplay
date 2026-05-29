@@ -18,14 +18,8 @@
     </div>
     
     <div class="header-right">
-      <button class="action-btn shortcuts-btn" @click="showProjectSettings = true" :title="t('settings.title')">
-        <span class="material-symbols-rounded">tune</span>
-        <span>{{ t('settings.title') }}</span>
-      </button>
-      <button class="action-btn shortcuts-btn" @click="showControlConfig = true">
-        <span class="material-symbols-rounded">keyboard</span>
-        <span>{{ t('controls.shortcutBtn') }}</span>
-      </button>
+      <Btn icon="tune" :text="t('settings.title')" @click="showProjectSettings = true" />
+      <Btn icon="keyboard" :text="t('controls.shortcutBtn')" @click="showControlConfig = true" />
       <div class="digital-clock">{{ currentTime }}</div>
     </div>
   </div>
@@ -42,6 +36,7 @@
 
 <script setup lang="ts">
 import ProjectSettingsModal from './ProjectSettingsModal.vue';
+import Btn from './Btn.vue';
 
 const { currentProject, findItemByUuid, findItemByIndex } = useProject();
 const { t } = useLocalization();
@@ -257,28 +252,6 @@ onMounted(() => {
   gap: var(--spacing-md);
 }
 
-.action-btn {
-  padding: var(--spacing-sm) var(--spacing-md);
-  background-color: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: var(--color-text-primary);
-
-  &:hover {
-    background-color: var(--color-surface-hover);
-    border-color: var(--color-accent);
-  }
-}
-
-.material-symbols-rounded {
-  font-size: 18px;
-}
 
 .digital-clock {
   font-size: 24px;

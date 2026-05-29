@@ -108,6 +108,23 @@
     "detach": "Detach",
     "attach": "Attach"
   },
+  "behaviors": {
+    "startPlayNext": "Start: Play Next",
+    "startPlayItem": "Start: Play Item",
+    "startPlayIndex": "Start: Play Index",
+    "duckingOthers": "Ducking: Duck Others",
+    "endPlayNext": "End: Play Next",
+    "endGotoItem": "End: Go To Item",
+    "endGotoIndex": "End: Go To Index",
+    "endLoop": "End: Loop"
+  },
+  "waveform": {
+    "decreaseBy": "Decrease by {seconds}s",
+    "increaseBy": "Increase by {seconds}s",
+    "playFadeTitle": "Play Fade: {seconds}s",
+    "stopFadeTitle": "Stop Fade: {seconds}s",
+    "crossFadeTitle": "Cross Fade: {seconds}s"
+  },
   "properties": {
     "title": "Properties",
     "noSelection": "Select an item to view properties",
@@ -156,7 +173,10 @@
     "ltcRequiresDevice": "Select an LTC output device in Project Settings to enable timecode output.",
     "ltcStartTimecode": "Starting Timecode",
     "ltcTimecodeFormat": "Use HH:MM:SS:FF format (e.g. 01:00:00:00)",
-    "ltcFrameRate": "Frame Rate"
+    "ltcFrameRate": "Frame Rate",
+    "waveform": "Waveform",
+    "regenerateWaveform": "Regenerate Waveform",
+    "regeneratingWaveform": "Regenerating..."
   },
   "playback": {
     "panic": "Stop All Cues",
@@ -202,7 +222,8 @@
     "preview": "Preview on headphones",
     "stopPreview": "Stop preview",
     "previewNoDevice": "No preview device configured — click to open Project Settings",
-    "clickToEdit": "Click to type a value"
+    "clickToEdit": "Click to type a value",
+    "confirmDelete": "Delete \"{name}\"?"
   },
   "about": {
     "developedBy": "Developed by",

@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "ko",
     "name": "Korean",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "프레임 속도",
     "output": "출력",
     "deviceOverride": "출력 장치",
-    "deviceOverrideHelp": "이 큐에 대한 프로젝트의 기본 출력을 재정의합니다. 프로젝트 설정을 따르려면 '프로젝트 기본값 사용'으로 두세요."
+    "deviceOverrideHelp": "이 큐에 대한 프로젝트의 기본 출력을 재정의합니다. 프로젝트 설정을 따르려면 '프로젝트 기본값 사용'으로 두세요.",
+    "waveform": "파형",
+    "regenerateWaveform": "파형 재생성",
+    "regeneratingWaveform": "재생성 중..."
   },
   "playback": {
     "panic": "모든 신호 중지",
@@ -180,7 +183,8 @@
     "setAsNext": "다음으로 설정",
     "preview": "헤드폰으로 미리 듣기",
     "stopPreview": "미리 듣기 중지",
-    "previewNoDevice": "미리 듣기 장치 미설정 — 프로젝트 설정을 열려면 클릭하세요"
+    "previewNoDevice": "미리 듣기 장치 미설정 — 프로젝트 설정을 열려면 클릭하세요",
+    "confirmDelete": "'{name}'을(를) 삭제하시겠습니까?"
   },
   "about": {
     "developedBy": "개발자",
@@ -349,5 +353,22 @@
     "uploadedCount": "{count}개 파일 업로드됨. \"추가\"를 클릭하여 가져옵니다.",
     "uploadFailed": "업로드 실패: {error}",
     "orFromComputer": "또는 이 컴퓨터에서 선택"
+  },
+  "behaviors": {
+    "startPlayNext": "시작: 다음 재생",
+    "startPlayItem": "시작: 항목 재생",
+    "startPlayIndex": "시작: 인덱스 재생",
+    "duckingOthers": "덕킹: 다른 항목 줄이기",
+    "endPlayNext": "종료: 다음 재생",
+    "endGotoItem": "종료: 항목으로 이동",
+    "endGotoIndex": "종료: 인덱스로 이동",
+    "endLoop": "종료: 반복"
+  },
+  "waveform": {
+    "decreaseBy": "{seconds}초 줄이기",
+    "increaseBy": "{seconds}초 늘리기",
+    "playFadeTitle": "페이드 인: {seconds}초",
+    "stopFadeTitle": "페이드 아웃: {seconds}초",
+    "crossFadeTitle": "크로스페이드: {seconds}초"
   }
 }

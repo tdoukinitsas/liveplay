@@ -439,10 +439,18 @@ function createClient() {
       body: JSON.stringify({ document }),
     }).then(p => { fetchCues(); fetchMixerChannels(); return p; });
   }
-  async function saveProjectTo(path?: string) {
+  async function saveProjectTo(path?: string, document?: any) {
+    // Authoritative-save: when the caller provides the latest document, send
+    // it along so the server replaces its in-memory copy (and re-mirrors per-
+    // cue properties to the audio engine) before writing to disk. Belt-and-
+    // suspenders against the granular item-diff watcher missing an edit and
+    // letting the file save with stale fades / volume / behaviour values.
+    const body: Record<string, any> = {};
+    if (path) body.path = path;
+    if (document) body.document = document;
     return rest<any>('/api/project/save', {
       method: 'POST',
-      body: JSON.stringify(path ? { path } : {}),
+      body: JSON.stringify(body),
     });
   }
   async function repairProject(): Promise<{ repaired: boolean; issues: string[] }> {

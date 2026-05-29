@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "bn",
     "name": "Bengali",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "ফ্রেম রেট",
     "output": "আউটপুট",
     "deviceOverride": "আউটপুট ডিভাইস",
-    "deviceOverrideHelp": "এই কিউর জন্য প্রকল্পের ডিফল্ট আউটপুট ওভাররাইড করুন। প্রকল্পের সেটিং অনুসরণ করতে 'প্রকল্পের ডিফল্ট ব্যবহার করুন' রাখুন।"
+    "deviceOverrideHelp": "এই কিউর জন্য প্রকল্পের ডিফল্ট আউটপুট ওভাররাইড করুন। প্রকল্পের সেটিং অনুসরণ করতে 'প্রকল্পের ডিফল্ট ব্যবহার করুন' রাখুন।",
+    "waveform": "ওয়েভফর্ম",
+    "regenerateWaveform": "ওয়েভফর্ম পুনর্জন্ম",
+    "regeneratingWaveform": "পুনর্জন্ম হচ্ছে..."
   },
   "playback": {
     "panic": "সমস্ত সংকেত বন্ধ করুন",
@@ -180,7 +183,8 @@
     "setAsNext": "পরবর্তী হিসেবে সেট করুন",
     "preview": "হেডফোনে পূর্বশ্রবণ",
     "stopPreview": "পূর্বশ্রবণ বন্ধ করুন",
-    "previewNoDevice": "কোনো পূর্বশ্রবণ ডিভাইস কনফিগার করা নেই — প্রকল্প সেটিংস খুলতে ক্লিক করুন"
+    "previewNoDevice": "কোনো পূর্বশ্রবণ ডিভাইস কনফিগার করা নেই — প্রকল্প সেটিংস খুলতে ক্লিক করুন",
+    "confirmDelete": "«{name}» মুছবেন?"
   },
   "about": {
     "developedBy": "দ্বারা উন্নত",
@@ -349,5 +353,22 @@
     "uploadedCount": "{count}টি ফাইল আপলোড হয়েছে। আমদানি করতে \"যোগ করুন\" ক্লিক করুন।",
     "uploadFailed": "আপলোড ব্যর্থ: {error}",
     "orFromComputer": "অথবা এই কম্পিউটার থেকে নির্বাচন করুন"
+  },
+  "behaviors": {
+    "startPlayNext": "শুরু: পরবর্তী বাজান",
+    "startPlayItem": "শুরু: আইটেম বাজান",
+    "startPlayIndex": "শুরু: সূচক বাজান",
+    "duckingOthers": "ডাকিং: অন্যগুলো কমান",
+    "endPlayNext": "শেষ: পরবর্তী বাজান",
+    "endGotoItem": "শেষ: আইটেমে যান",
+    "endGotoIndex": "শেষ: সূচকে যান",
+    "endLoop": "শেষ: লুপ"
+  },
+  "waveform": {
+    "decreaseBy": "{seconds}s কমান",
+    "increaseBy": "{seconds}s বাড়ান",
+    "playFadeTitle": "ফেড ইন: {seconds}s",
+    "stopFadeTitle": "ফেড আউট: {seconds}s",
+    "crossFadeTitle": "ক্রস ফেড: {seconds}s"
   }
 }

@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "sq",
     "name": "Albanian",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "Shkalla e kuadrove",
     "output": "Dalja",
     "deviceOverride": "Pajisja e daljes",
-    "deviceOverrideHelp": "Mbishkruaj daljen e paracaktuar të projektit për këtë sinjal. Lër në 'Përdor të paracaktuarën e projektit' për të ndjekur cilësimin e projektit."
+    "deviceOverrideHelp": "Mbishkruaj daljen e paracaktuar të projektit për këtë sinjal. Lër në 'Përdor të paracaktuarën e projektit' për të ndjekur cilësimin e projektit.",
+    "waveform": "Forma e valës",
+    "regenerateWaveform": "Rigjeneroj formën e valës",
+    "regeneratingWaveform": "Duke rigjeneruar..."
   },
   "playback": {
     "panic": "Ndalo të Gjitha Sinjalet",
@@ -180,7 +183,8 @@
     "setAsNext": "Vendos si tjetrin",
     "preview": "Paraparim me kufje",
     "stopPreview": "Ndalo paraparimin",
-    "previewNoDevice": "Asnjë pajisje paraparimi e konfiguruar — kliko për të hapur Cilësimet e Projektit"
+    "previewNoDevice": "Asnjë pajisje paraparimi e konfiguruar — kliko për të hapur Cilësimet e Projektit",
+    "confirmDelete": "Fshi «{name}»?"
   },
   "about": {
     "developedBy": "Zhvilluar nga",
@@ -349,5 +353,22 @@
     "uploadedCount": "U ngarkua {count} skedar(ë). Klikoni \"Shto\" për të importuar.",
     "uploadFailed": "Ngarkimi dështoi: {error}",
     "orFromComputer": "Ose zgjidhni nga ky kompjuter"
+  },
+  "behaviors": {
+    "startPlayNext": "Fillim: Luaj të ardhshmin",
+    "startPlayItem": "Fillim: Luaj artikullin",
+    "startPlayIndex": "Fillim: Luaj indeksin",
+    "duckingOthers": "Ducking: Ul të tjerët",
+    "endPlayNext": "Mbarim: Luaj të ardhshmin",
+    "endGotoItem": "Mbarim: Shko te artikulli",
+    "endGotoIndex": "Mbarim: Shko te indeksi",
+    "endLoop": "Mbarim: Përsërit"
+  },
+  "waveform": {
+    "decreaseBy": "Zvogëlo me {seconds}s",
+    "increaseBy": "Rrit me {seconds}s",
+    "playFadeTitle": "Fade-in: {seconds}s",
+    "stopFadeTitle": "Fade-out: {seconds}s",
+    "crossFadeTitle": "Cross-fade: {seconds}s"
   }
 }

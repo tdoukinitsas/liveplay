@@ -172,9 +172,10 @@ export const useProject = () => {
   };
 
   // Get all items as a flat array (for shift-select)
-  const getAllItemsFlat = (items: (AudioItem | GroupItem)[]): BaseItem[] => {
+  const getAllItemsFlat = (items?: (AudioItem | GroupItem)[]): BaseItem[] => {
+    const src = items ?? currentProject.value?.items ?? [];
     const result: BaseItem[] = [];
-    for (const item of items) {
+    for (const item of src) {
       result.push(item);
       if (item.type === 'group') {
         result.push(...getAllItemsFlat(item.children));
@@ -509,11 +510,28 @@ export const useProject = () => {
       currentProject.value.lastModified = new Date().toISOString();
 
       const server = useLiveplayServer();
-      // The server's in-memory document is already kept in sync via the
-      // granular watchers. We just ask it to write to disk.
+      // Build the authoritative document snapshot the server will persist.
+      // The granular per-property watchers SHOULD have kept the server's
+      // in-memory copy in sync — but we pass the document explicitly so a
+      // missed PATCH (race, debounce, hidden watcher gap) can never leave
+      // the file (or the engine) with stale property values.
+      const docSnapshot = {
+        name:          currentProject.value.name,
+        version:       currentProject.value.version,
+        folderPath:    currentProject.value.folderPath,
+        items:         itemsToJSON(currentProject.value.items) ?? [],
+        cartItems:     toJSON(currentProject.value.cartItems) ?? [],
+        cartSlotKeys:  toJSON((currentProject.value as any).cartSlotKeys),
+        playbackKeys:  toJSON((currentProject.value as any).playbackKeys),
+        cartOnlyItems: itemsToJSON(currentProject.value.cartOnlyItems) ?? [],
+        theme:         toJSON(currentProject.value.theme),
+        settings:      toJSON((currentProject.value as any).settings),
+        createdAt:     currentProject.value.createdAt,
+        lastModified:  currentProject.value.lastModified,
+      };
       const path = projectFilePathRef.value ||
                    `${currentProject.value.folderPath}/${currentProject.value.name}.liveplay`;
-      const res = await server.saveProjectTo(path);
+      const res = await server.saveProjectTo(path, docSnapshot);
       return !!res?.ok;
     } catch (error) {
       console.error('Error saving project:', error);

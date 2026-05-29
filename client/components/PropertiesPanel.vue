@@ -83,10 +83,18 @@
             </button>
           </div>
         </div>
-        
+
         <div class="property-field">
           <label>{{ t('properties.duration') }}</label>
           <input :value="formatTime(audioItem.duration)" readonly />
+        </div>
+
+        <div class="property-field">
+          <label>{{ t('properties.waveform') }}</label>
+          <button class="icon-btn regen-btn" :disabled="isRegenerating" @click="handleRegenerateWaveform">
+            <span class="material-symbols-rounded" :class="{ spinning: isRegenerating }">refresh</span>
+            <span>{{ isRegenerating ? t('properties.regeneratingWaveform') : t('properties.regenerateWaveform') }}</span>
+          </button>
         </div>
       </div>
       
@@ -755,6 +763,37 @@ const handleCrossFadeUpdate = (value: number) => {
   });
 };
 
+const isRegenerating = ref(false);
+
+const handleRegenerateWaveform = async () => {
+  if (isRegenerating.value) return;
+
+  let items = getSelectedItems().filter(i => i.type === 'audio') as AudioItem[];
+  if (items.length === 0 && selectedItem.value?.type === 'audio') {
+    items = [selectedItem.value as AudioItem];
+  }
+  if (items.length === 0) return;
+
+  isRegenerating.value = true;
+  try {
+    const folder = currentProject.value?.folderPath || '';
+    for (const item of items) {
+      let path = item.mediaServerPath || '';
+      if (!path && item.mediaPath && folder) {
+        const rel = item.mediaPath.replace(/^[\\/]+/, '');
+        path = `${folder.replace(/[\\/]+$/, '')}/${rel}`;
+      }
+      if (!path) continue;
+      item.waveform = undefined;
+      await _server.requestWaveformGeneration(path, item.uuid).catch((e: Error) => {
+        console.warn(`[waveform] regeneration failed for ${item.displayName}:`, e);
+      });
+    }
+  } finally {
+    isRegenerating.value = false;
+  }
+};
+
 const handleReplaceMedia = async () => {
   if (!import.meta.client || !window.electronAPI) return;
   
@@ -945,16 +984,31 @@ const formatTime = (seconds: number): string => {
   display: flex;
   align-items: center;
   justify-content: center;
-  
-  &:hover {
+
+  &:hover:not(:disabled) {
     background-color: var(--color-accent);
     border-color: var(--color-accent);
     color: white;
   }
-  
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   .material-symbols-rounded {
     font-size: 18px;
     color: inherit;
+  }
+}
+
+.regen-btn {
+  gap: var(--spacing-xs);
+  font-size: 13px;
+  padding: var(--spacing-sm) var(--spacing-md);
+
+  .spinning {
+    animation: spin 1s linear infinite;
   }
 }
 

@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "es",
     "name": "Spanish",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "Frecuencia de fotogramas",
     "output": "Salida",
     "deviceOverride": "Dispositivo de salida",
-    "deviceOverrideHelp": "Sobrescribir la salida predeterminada del proyecto para esta señal. Dejar en 'Usar predeterminado del proyecto' para seguir la configuración del proyecto."
+    "deviceOverrideHelp": "Sobrescribir la salida predeterminada del proyecto para esta señal. Dejar en 'Usar predeterminado del proyecto' para seguir la configuración del proyecto.",
+    "waveform": "Forma de onda",
+    "regenerateWaveform": "Regenerar forma de onda",
+    "regeneratingWaveform": "Regenerando..."
   },
   "playback": {
     "panic": "Detener Todas las Señales",
@@ -180,7 +183,8 @@
     "setAsNext": "Establecer como siguiente",
     "preview": "Vista previa en auriculares",
     "stopPreview": "Detener vista previa",
-    "previewNoDevice": "No hay dispositivo de vista previa configurado — haga clic para abrir Configuración del Proyecto"
+    "previewNoDevice": "No hay dispositivo de vista previa configurado — haga clic para abrir Configuración del Proyecto",
+    "confirmDelete": "¿Eliminar «{name}»?"
   },
   "about": {
     "developedBy": "Desarrollado por",
@@ -349,5 +353,22 @@
     "uploadedCount": "Subidos {count} archivo(s). Haga clic en \"Agregar\" para importar.",
     "uploadFailed": "Error al subir: {error}",
     "orFromComputer": "O seleccionar desde este ordenador"
+  },
+  "behaviors": {
+    "startPlayNext": "Inicio: Reproducir siguiente",
+    "startPlayItem": "Inicio: Reproducir elemento",
+    "startPlayIndex": "Inicio: Reproducir índice",
+    "duckingOthers": "Ducking: Reducir otros",
+    "endPlayNext": "Fin: Reproducir siguiente",
+    "endGotoItem": "Fin: Ir al elemento",
+    "endGotoIndex": "Fin: Ir al índice",
+    "endLoop": "Fin: Bucle"
+  },
+  "waveform": {
+    "decreaseBy": "Disminuir en {seconds}s",
+    "increaseBy": "Aumentar en {seconds}s",
+    "playFadeTitle": "Entrada: {seconds}s",
+    "stopFadeTitle": "Salida: {seconds}s",
+    "crossFadeTitle": "Fundido cruzado: {seconds}s"
   }
 }

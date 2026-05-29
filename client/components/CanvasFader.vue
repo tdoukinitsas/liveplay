@@ -137,16 +137,23 @@ function draw() {
 watch(() => [props.db, props.minDb, props.maxDb], () => draw());
 
 let resizeObserver: ResizeObserver | null = null;
+let themeObserver: MutationObserver | null = null;
 onMounted(() => {
   draw();
   if (hostRef.value) {
     resizeObserver = new ResizeObserver(() => draw());
     resizeObserver.observe(hostRef.value);
   }
+  // Redraw whenever the theme attribute changes on the root element so that
+  // CSS variable colours (accent, border, surface) are picked up immediately.
+  themeObserver = new MutationObserver(() => draw());
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 });
 onUnmounted(() => {
   if (resizeObserver) resizeObserver.disconnect();
   resizeObserver = null;
+  if (themeObserver) themeObserver.disconnect();
+  themeObserver = null;
 });
 
 // ---- Pointer interaction ---------------------------------------------------

@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "ar",
     "name": "Arabic",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "معدل الإطارات",
     "output": "المخرج",
     "deviceOverride": "جهاز المخرج",
-    "deviceOverrideHelp": "تجاوز المخرج الافتراضي للمشروع لهذا الإشارة. اتركه على 'استخدام إعداد المشروع' للاتباع إعداد المشروع."
+    "deviceOverrideHelp": "تجاوز المخرج الافتراضي للمشروع لهذا الإشارة. اتركه على 'استخدام إعداد المشروع' للاتباع إعداد المشروع.",
+    "waveform": "شكل الموجة",
+    "regenerateWaveform": "إعادة إنشاء شكل الموجة",
+    "regeneratingWaveform": "جارٍ الإنشاء..."
   },
   "playback": {
     "panic": "إيقاف جميع الإشارات",
@@ -180,7 +183,8 @@
     "setAsNext": "تعيين كالتالي",
     "preview": "معاينة على سماعات الرأس",
     "stopPreview": "إيقاف المعاينة",
-    "previewNoDevice": "لم يتم تكوين جهاز معاينة — انقر لفتح إعدادات المشروع"
+    "previewNoDevice": "لم يتم تكوين جهاز معاينة — انقر لفتح إعدادات المشروع",
+    "confirmDelete": "حذف «{name}»؟"
   },
   "about": {
     "developedBy": "تم التطوير بواسطة",
@@ -349,5 +353,22 @@
     "uploadedCount": "تم تحميل {count} ملف(ات). انقر فوق \"إضافة\" للاستيراد.",
     "uploadFailed": "فشل التحميل: {error}",
     "orFromComputer": "أو اختر من هذا الكمبيوتر"
+  },
+  "behaviors": {
+    "startPlayNext": "البداية: تشغيل التالي",
+    "startPlayItem": "البداية: تشغيل العنصر",
+    "startPlayIndex": "البداية: تشغيل الفهرس",
+    "duckingOthers": "الخفض: خفض الآخرين",
+    "endPlayNext": "النهاية: تشغيل التالي",
+    "endGotoItem": "النهاية: الانتقال إلى العنصر",
+    "endGotoIndex": "النهاية: الانتقال إلى الفهرس",
+    "endLoop": "النهاية: تكرار"
+  },
+  "waveform": {
+    "decreaseBy": "تقليل بمقدار {seconds}ث",
+    "increaseBy": "زيادة بمقدار {seconds}ث",
+    "playFadeTitle": "تلاشي الدخول: {seconds}ث",
+    "stopFadeTitle": "تلاشي الخروج: {seconds}ث",
+    "crossFadeTitle": "التلاشي المتقاطع: {seconds}ث"
   }
 }

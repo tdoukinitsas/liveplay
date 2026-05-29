@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "ro",
     "name": "Romanian",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "Rată de cadre",
     "output": "Ieșire",
     "deviceOverride": "Dispozitiv de ieșire",
-    "deviceOverrideHelp": "Suprascrie ieșirea implicită a proiectului pentru acest semnal. Lasă pe 'Folosește implicit proiect' pentru a urma setarea proiectului."
+    "deviceOverrideHelp": "Suprascrie ieșirea implicită a proiectului pentru acest semnal. Lasă pe 'Folosește implicit proiect' pentru a urma setarea proiectului.",
+    "waveform": "Formă de undă",
+    "regenerateWaveform": "Regenerează forma de undă",
+    "regeneratingWaveform": "Se regenerează..."
   },
   "playback": {
     "panic": "Oprește Toate Cues",
@@ -180,7 +183,8 @@
     "setAsNext": "Setează ca următor",
     "preview": "Previzualizare la căști",
     "stopPreview": "Oprire previzualizare",
-    "previewNoDevice": "Niciun dispozitiv de previzualizare configurat — clic pentru a deschide Setările Proiectului"
+    "previewNoDevice": "Niciun dispozitiv de previzualizare configurat — clic pentru a deschide Setările Proiectului",
+    "confirmDelete": "Șterge «{name}»?"
   },
   "about": {
     "developedBy": "Dezvoltat de",
@@ -349,5 +353,22 @@
     "uploadedCount": "{count} fișier(e) încărcat(e). Faceți clic pe \"Adaugă\" pentru a importa.",
     "uploadFailed": "Încărcare eșuată: {error}",
     "orFromComputer": "Sau selectați de pe acest computer"
+  },
+  "behaviors": {
+    "startPlayNext": "Start: Redă următorul",
+    "startPlayItem": "Start: Redă elementul",
+    "startPlayIndex": "Start: Redă indexul",
+    "duckingOthers": "Ducking: Reduce celelalte",
+    "endPlayNext": "Sfârșit: Redă următorul",
+    "endGotoItem": "Sfârșit: Mergi la element",
+    "endGotoIndex": "Sfârșit: Mergi la index",
+    "endLoop": "Sfârșit: Buclă"
+  },
+  "waveform": {
+    "decreaseBy": "Scade cu {seconds}s",
+    "increaseBy": "Crește cu {seconds}s",
+    "playFadeTitle": "Fade in: {seconds}s",
+    "stopFadeTitle": "Fade out: {seconds}s",
+    "crossFadeTitle": "Cross-fade: {seconds}s"
   }
 }

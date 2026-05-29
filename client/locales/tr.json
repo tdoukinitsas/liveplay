@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "tr",
     "name": "Turkish",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "Kare Hızı",
     "output": "Çıkış",
     "deviceOverride": "Çıkış cihazı",
-    "deviceOverrideHelp": "Bu sinyal için projenin varsayılan çıkışını geçersiz kıl. Proje ayarını takip etmek için 'Proje varsayılanını kullan' olarak bırakın."
+    "deviceOverrideHelp": "Bu sinyal için projenin varsayılan çıkışını geçersiz kıl. Proje ayarını takip etmek için 'Proje varsayılanını kullan' olarak bırakın.",
+    "waveform": "Dalga Formu",
+    "regenerateWaveform": "Dalga Formunu Yenile",
+    "regeneratingWaveform": "Yenileniyor..."
   },
   "playback": {
     "panic": "Tüm Sinyalleri Durdur",
@@ -180,7 +183,8 @@
     "setAsNext": "Sonraki olarak ayarla",
     "preview": "Kulaklıkta ön izleme",
     "stopPreview": "Ön izlemeyi durdur",
-    "previewNoDevice": "Ön izleme cihazı yapılandırılmamış — Proje Ayarlarını açmak için tıklayın"
+    "previewNoDevice": "Ön izleme cihazı yapılandırılmamış — Proje Ayarlarını açmak için tıklayın",
+    "confirmDelete": "«{name}» silinsin mi?"
   },
   "about": {
     "developedBy": "Geliştiren",
@@ -349,5 +353,22 @@
     "uploadedCount": "{count} dosya yüklendi. İçe aktarmak için \"Ekle\" düğmesine tıklayın.",
     "uploadFailed": "Yükleme başarısız: {error}",
     "orFromComputer": "Veya bu bilgisayardan seçin"
+  },
+  "behaviors": {
+    "startPlayNext": "Başlangıç: Sonrakini Oynat",
+    "startPlayItem": "Başlangıç: Öğeyi Oynat",
+    "startPlayIndex": "Başlangıç: Dizini Oynat",
+    "duckingOthers": "Ducking: Diğerlerini Kıs",
+    "endPlayNext": "Bitiş: Sonrakini Oynat",
+    "endGotoItem": "Bitiş: Öğeye Git",
+    "endGotoIndex": "Bitiş: Dizine Git",
+    "endLoop": "Bitiş: Döngü"
+  },
+  "waveform": {
+    "decreaseBy": "{seconds}sn Azalt",
+    "increaseBy": "{seconds}sn Artır",
+    "playFadeTitle": "Giriş Sönümü: {seconds}sn",
+    "stopFadeTitle": "Çıkış Sönümü: {seconds}sn",
+    "crossFadeTitle": "Çapraz Sönüm: {seconds}sn"
   }
 }

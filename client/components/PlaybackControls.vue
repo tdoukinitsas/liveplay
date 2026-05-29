@@ -76,33 +76,14 @@
           :label="pair.label"
           :show-peak-value="true"
         />
-        <div class="output-fader" :title="`${pair.label} output gain`">
-          <div class="output-fader__db-wrap">
-            <input
-              v-if="editingGainIndex === pair.leftIndex"
-              type="number"
-              class="output-fader__db-input"
-              v-model="editingGainValue"
-              @blur="commitGainEdit(pair.leftIndex, pair.rightIndex)"
-              @keyup.enter="commitGainEdit(pair.leftIndex, pair.rightIndex)"
-            />
-            <span
-              v-else
-              class="output-fader__db"
-              @click="startGainEdit(pair.leftIndex, getOutputGainDb(pair.leftIndex))"
-              :title="t('actions.clickToEdit') || 'Click to type a value'"
-            >
-              {{ formatGainLabel(getOutputGainDb(pair.leftIndex)) }}
-            </span>
-          </div>
-          <CanvasFader
-            :db="getOutputGainDb(pair.leftIndex)"
-            :min-db="-60"
-            :max-db="6"
-            @input="(db: number) => onOutputGainInput(pair.leftIndex, pair.rightIndex, db)"
-            @reset="resetOutputGain(pair.leftIndex, pair.rightIndex)"
-          />
-        </div>
+        <VolumeSlider
+          :db="getOutputGainDb(pair.leftIndex)"
+          :min-db="-60"
+          :max-db="6"
+          :title="pair.label"
+          @input="(db: number) => onOutputGainInput(pair.leftIndex, pair.rightIndex, db)"
+          @reset="resetOutputGain(pair.leftIndex, pair.rightIndex)"
+        />
       </div>
     </div>
   </div>
@@ -121,7 +102,7 @@ import { formatKeyLabel } from '~/composables/useCartHotkeys';
 import type { AudioItem } from '~/types/project';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
 import { useCueMeters } from '~/composables/useLiveMeters';
-import CanvasFader from './CanvasFader.vue';
+import VolumeSlider from './VolumeSlider.vue';
 
 const { activeCues, panicStop, nextItemOverrideUuid, autoNextItemUuid, setNextItem, playCue, triggerGroup } = useAudioEngine();
 const { findItemByUuid, previewItemUuid, previewCueId, stopPreview } = useProject();
@@ -224,42 +205,10 @@ function getOutputGainDb(leftIndex: number): number {
   return server.outputChannelGains[leftIndex] ?? 0;
 }
 
-function formatGainLabel(db: number): string {
-  if (db <= -60) return '−∞';
-  if (db === 0)  return '0';
-  return (db > 0 ? '+' : '') + db.toFixed(db % 1 === 0 ? 0 : 1);
-}
-
 function onOutputGainInput(leftIndex: number, rightIndex: number, db: number) {
   // Update both channels of the stereo pair together.
   server.setOutputChannelGainDb(leftIndex, db);
   server.setOutputChannelGainDb(rightIndex, db);
-}
-
-// ---- Per-output gain faders -----------------------------------------------
-const editingGainIndex = ref<number | null>(null);
-const editingGainValue = ref<number>(0);
-
-function startGainEdit(leftIndex: number, currentDb: number) {
-  editingGainIndex.value = leftIndex;
-  editingGainValue.value = Number(currentDb.toFixed(1));
-  nextTick(() => {
-    const el = document.querySelector('.output-fader__db-input') as HTMLInputElement;
-    if (el) {
-      el.focus();
-      el.select();
-    }
-  });
-}
-
-function commitGainEdit(leftIndex: number, rightIndex: number) {
-  if (editingGainIndex.value === leftIndex) {
-    let val = Number(editingGainValue.value);
-    if (isNaN(val)) val = 0;
-    val = Math.max(-60, Math.min(6, val));
-    onOutputGainInput(leftIndex, rightIndex, val);
-    editingGainIndex.value = null;
-  }
 }
 
 function resetOutputGain(leftIndex: number, rightIndex: number) {
@@ -470,59 +419,6 @@ const handlePlayNext = () => {
   gap: 4px;
 }
 
-/* Vertical gain fader — Carbon-flavoured */
-.output-fader {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2px;
-  padding: 2px 0;
-  width: 20px;
-
-
-  &__db {
-    font-family: var(--font-mono, monospace);
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--color-text-primary);
-    text-align: center;
-    line-height: 1;
-    flex-shrink: 0;
-    min-width: 28px;
-    cursor: text;
-    padding: 2px 4px;
-    background: rgba(128, 128, 128, 0.15);
-    border-radius: 4px;
-  }
-
-  &__db-input {
-    width: 34px;
-    height: 16px;
-    font-family: var(--font-mono, monospace);
-    font-size: 10px;
-    text-align: center;
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    border: 1px solid var(--color-accent);
-    border-radius: 2px;
-    outline: none;
-    padding: 0;
-  }
-  &__db-input::-webkit-inner-spin-button,
-  &__db-input::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  &__db-wrap {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 18px;
-  }
-
-}
 
 .preview-cue-meter {
   display: flex;

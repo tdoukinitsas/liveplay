@@ -60,28 +60,36 @@
       <div class="slot-footer">
         <!-- Action buttons (always visible) -->
         <div class="slot-actions">
-          <button
-            class="slot-btn play"
-            :class="{ 'is-playing': isPlaying }"
+          <ActionButton
+            :icon="isPlaying ? 'stop' : 'play_arrow'"
+            :highlight-color="isPlaying ? 'var(--color-danger)' : 'var(--color-success)'"
+            context="Cart"
             @click.stop="isPlaying ? handleStop() : handlePlay()"
             :title="isPlaying ? t('actions.stop') : t('actions.play')"
-          >
-            <span class="material-symbols-rounded">{{ isPlaying ? 'stop' : 'play_arrow' }}</span>
-          </button>
-          <button
-            class="slot-btn set-next"
-            :class="{ 'is-queued': isManuallyQueued }"
+          />
+          <ActionButton
+            icon="fast_forward"
+            highlight-color="var(--color-warning)"
+            active-text-color="black"
+            :is-active="isManuallyQueued"
+            context="Cart"
             @click.stop="handleSetAsNext"
             :title="t('actions.setAsNext')"
-          >
-            <span class="material-symbols-rounded">fast_forward</span>
-          </button>
-          <button class="slot-btn edit" @click.stop="handleEdit" :title="t('actions.edit')">
-            <span class="material-symbols-rounded">settings</span>
-          </button>
-          <button class="slot-btn delete" @click.stop="handleDelete" :title="t('actions.remove')">
-            <span class="material-symbols-rounded">delete</span>
-          </button>
+          />
+          <ActionButton
+            icon="settings"
+            highlight-color="var(--color-accent)"
+            context="Cart"
+            @click.stop="handleEdit"
+            :title="t('actions.edit')"
+          />
+          <ActionButton
+            icon="delete"
+            highlight-color="var(--color-danger)"
+            context="Cart"
+            @click.stop="handleDelete"
+            :title="t('actions.remove')"
+          />
         </div>
         
         <!-- Behavior indicators and duration -->
@@ -89,39 +97,49 @@
           <!-- Behavior indicators -->
           <div class="behavior-indicators">
             <!-- Start behavior -->
-            <span 
-              v-if="item.startBehavior?.action === 'play-next'" 
+            <span
+              v-if="item.startBehavior?.action === 'play-next'"
               class="material-symbols-rounded behavior-icon"
-              :title="`Start: Play Next`"
+              :title="t('behaviors.startPlayNext')"
             >skip_next</span>
-            <span 
-              v-else-if="item.startBehavior?.action === 'play-item' || item.startBehavior?.action === 'play-index'" 
+            <span
+              v-else-if="item.startBehavior?.action === 'play-item'"
               class="material-symbols-rounded behavior-icon"
-              :title="`Start: Play ${item.startBehavior?.action === 'play-item' ? 'Item' : 'Index'}`"
+              :title="t('behaviors.startPlayItem')"
             >arrow_forward</span>
-            
+            <span
+              v-else-if="item.startBehavior?.action === 'play-index'"
+              class="material-symbols-rounded behavior-icon"
+              :title="t('behaviors.startPlayIndex')"
+            >arrow_forward</span>
+
             <!-- Ducking behavior -->
-            <span 
-              v-if="item.duckingBehavior?.mode === 'duck-others'" 
+            <span
+              v-if="item.duckingBehavior?.mode === 'duck-others'"
               class="material-symbols-rounded behavior-icon"
-              :title="`Ducking: Duck Others`"
+              :title="t('behaviors.duckingOthers')"
             >volume_down</span>
-            
+
             <!-- End behavior -->
-            <span 
-              v-if="item.endBehavior?.action === 'next'" 
+            <span
+              v-if="item.endBehavior?.action === 'next'"
               class="material-symbols-rounded behavior-icon"
-              :title="`End: Play Next`"
+              :title="t('behaviors.endPlayNext')"
             >skip_next</span>
-            <span 
-              v-else-if="item.endBehavior?.action === 'goto-item' || item.endBehavior?.action === 'goto-index'" 
+            <span
+              v-else-if="item.endBehavior?.action === 'goto-item'"
               class="material-symbols-rounded behavior-icon"
-              :title="`End: Go To ${item.endBehavior?.action === 'goto-item' ? 'Item' : 'Index'}`"
+              :title="t('behaviors.endGotoItem')"
             >arrow_forward</span>
-            <span 
-              v-else-if="item.endBehavior?.action === 'loop'" 
+            <span
+              v-else-if="item.endBehavior?.action === 'goto-index'"
               class="material-symbols-rounded behavior-icon"
-              :title="`End: Loop`"
+              :title="t('behaviors.endGotoIndex')"
+            >arrow_forward</span>
+            <span
+              v-else-if="item.endBehavior?.action === 'loop'"
+              class="material-symbols-rounded behavior-icon"
+              :title="t('behaviors.endLoop')"
             >replay</span>
           </div>
           
@@ -136,6 +154,7 @@
 <script setup lang="ts">
 import { triggerRef } from 'vue';
 import type { AudioItem } from '~/types/project';
+import ActionButton from './ActionButton.vue';
 
 const props = defineProps<{
   slot: number;
@@ -510,11 +529,14 @@ const drawWaveform = () => {
   const volumeMultiplier = audioItem.volume || 1.0;
   
   trimmedPeaks.forEach((value, i) => {
-    // Values are already normalized 0-1, scale by volume
-    const barHeight = value * rect.height * 0.8 * volumeMultiplier;
+    // Volume scales linear amplitude first, then gamma 2 — see
+    // PlaylistItem.drawWaveform for rationale.
+    const scaled = Math.min(1, Math.max(0, value * volumeMultiplier));
+    const shaped = scaled * scaled;
+    const barHeight = shaped * rect.height * 0.8;
     const x = i * barWidth;
     const y = centerY - barHeight / 2;
-    
+
     ctx.fillRect(x, y, Math.max(barWidth, 1), barHeight);
   });
 };
@@ -732,23 +754,42 @@ const handleDrop = async (e: DragEvent) => {
   }
   
   // Otherwise, check if it's an item UUID from the playlist
-  const itemUuid = e.dataTransfer.getData('item-uuid');
-  if (!itemUuid) return;
-  
-  // Add or replace cart item
+  const sourceUuid = e.dataTransfer.getData('item-uuid');
+  if (!sourceUuid) return;
+
+  // Clone the source item into a cart-only item with its OWN uuid so the cart
+  // copy can carry independent name / attenuation / in-out points without
+  // mutating the playlist source (or any other cart copy of the same file).
+  const sourceItem = findItemByUuid(sourceUuid);
+  if (!sourceItem || sourceItem.type !== 'audio') return;
+
+  const { v4: uuidv4 } = await import('uuid');
+  const newUuid = uuidv4();
+  const cloned: AudioItem = {
+    ...(sourceItem as AudioItem),
+    uuid: newUuid,
+    index: [-1, props.slot],
+  };
+  addCartOnlyItem(cloned);
+
+  // Add or replace cart item — bind the slot to the freshly-cloned uuid.
   const existingIndex = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === props.slot);
-  
+
   if (existingIndex !== -1) {
-    currentProject.value.cartItems[existingIndex].itemUuid = itemUuid;
+    const prev = currentProject.value.cartItems[existingIndex];
+    // If the slot previously held a cart-only item, drop its backing entry to
+    // avoid leaking now-unreferenced cart-only items into the project file.
+    if (prev?.itemUuid) removeCartOnlyItem(prev.itemUuid);
+    currentProject.value.cartItems[existingIndex].itemUuid = newUuid;
     currentProject.value.cartItems[existingIndex].index = [-1, props.slot];
   } else {
     currentProject.value.cartItems.push({
       slot: props.slot,
-      itemUuid,
+      itemUuid: newUuid,
       index: [-1, props.slot]
     });
   }
-  
+
   // Save the project
   const { saveProject } = useProject();
   saveProject();
@@ -962,70 +1003,6 @@ const handleDrop = async (e: DragEvent) => {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
-
-  button.slot-btn {
-    width: 28px;
-    height: 28px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background-color: var(--color-background);
-    color: var(--color-text-primary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all var(--transition-fast);
-
-    .material-symbols-rounded {
-      font-size: 16px;
-    }
-
-    &.play {
-      &:hover {
-        background-color: var(--color-success);
-        border-color: var(--color-success);
-        color: white;
-      }
-
-      &.is-playing {
-        &:hover {
-          background-color: var(--color-danger);
-          border-color: var(--color-danger);
-          color: white;
-        }
-      }
-    }
-
-    &.set-next {
-      &:hover {
-        background-color: var(--color-warning);
-        border-color: var(--color-warning);
-        color: black;
-      }
-
-      &.is-queued {
-        background-color: var(--color-warning);
-        border-color: var(--color-warning);
-        color: black;
-      }
-    }
-
-    &.edit {
-      &:hover {
-        background-color: var(--color-accent);
-        border-color: var(--color-accent);
-        color: white;
-      }
-    }
-
-    &.delete {
-      &:hover {
-        background-color: var(--color-danger);
-        border-color: var(--color-danger);
-        color: white;
-      }
-    }
-  }
 }
 
 .slot-footer {

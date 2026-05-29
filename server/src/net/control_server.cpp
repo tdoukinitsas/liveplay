@@ -1831,6 +1831,21 @@ void ControlServer::install_routes() {
                         return json_err(400, "no project file path set");
                     }
                 }
+                // Authoritative-save path: if the client included the latest
+                // document in the body, replace the in-memory document AND
+                // re-mirror it to the audio engine before writing to disk.
+                // This guarantees per-cue property edits (fade-in / stop-fade
+                // / cross-fade / volume / ducking) take effect immediately even
+                // when the granular item-diff watcher on the client missed a
+                // change. Without this fallback the user can edit a slider and
+                // see the save call land while the engine still uses stale
+                // values from the previous play.
+                if (j.contains("document") && j["document"].is_object()) {
+                    if (!state_.replace_full_document(j["document"])) {
+                        Logger::warn("POST /api/project/save — embedded document "
+                                     "rejected, continuing with existing state");
+                    }
+                }
                 Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/save path='{}'",
                                     req.remote_ip_address, impl_->server_addr,
                                     liveplay::util::path_to_utf8(p));

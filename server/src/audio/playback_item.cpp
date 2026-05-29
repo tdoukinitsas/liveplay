@@ -302,6 +302,15 @@ void PlaybackItem::set_out_point_seconds(double seconds) noexcept {
     out_point_frames_.store(f, std::memory_order_release);
 }
 
+void PlaybackItem::set_loop(bool enabled, double in_seconds) noexcept {
+    const auto rate = static_cast<double>(desc_.mix_sample_rate);
+    const auto in_frames = (in_seconds <= 0.0)
+        ? std::uint64_t{0}
+        : static_cast<std::uint64_t>(in_seconds * rate);
+    loop_in_frames_.store(in_frames, std::memory_order_release);
+    loop_enabled_.store(enabled, std::memory_order_release);
+}
+
 bool PlaybackItem::prime(double seconds, double start_seconds) noexcept {
     std::lock_guard lock{decoder_mutex_};
     if (!decoder_ || !decoder_ready_) return false;
@@ -548,10 +557,20 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
     const bool hit_out_point = (out_point > 0) && (new_playhead >= out_point);
 
     if (rv == MA_AT_END || frames_read < frame_count || hit_out_point) {
-        // Natural end-of-file, soft out-point, or short read all route through
-        // the same fade-out logic so transport semantics are consistent
-        // regardless of how playback terminated.
-        if (transport_.load(std::memory_order_acquire) != TransportState::FadingOut) {
+        // Seamless loop: seek the decoder back to the in-point and reset the
+        // playhead counter. Transport stays Playing — so the broadcast thread
+        // never sees a transient Stopped edge mid-loop, which would otherwise
+        // cause the client UI to drop the cue from "currently playing" and grey
+        // out its stop button for the duration of the gap.
+        if (loop_enabled_.load(std::memory_order_acquire)) {
+            const auto in_frame = loop_in_frames_.load(std::memory_order_acquire);
+            ma_decoder_seek_to_pcm_frame(decoder_.get(), static_cast<ma_uint64>(in_frame));
+            playhead_frames_.store(in_frame, std::memory_order_release);
+            // Don't enter FadingOut; the cue is still playing.
+        } else if (transport_.load(std::memory_order_acquire) != TransportState::FadingOut) {
+            // Natural end-of-file, soft out-point, or short read all route through
+            // the same fade-out logic so transport semantics are consistent
+            // regardless of how playback terminated.
             fading_out_naturally_.store(true, std::memory_order_release);
             const auto fade = desc_.fade_out_duration;
             if (fade.count() > 0) {

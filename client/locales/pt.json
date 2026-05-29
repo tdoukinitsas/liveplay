@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "pt",
     "name": "Portuguese",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "Taxa de quadros",
     "output": "Saída",
     "deviceOverride": "Dispositivo de saída",
-    "deviceOverrideHelp": "Substitua a saída padrão do projeto para este sinal. Deixe em 'Usar padrão do projeto' para seguir a configuração do projeto."
+    "deviceOverrideHelp": "Substitua a saída padrão do projeto para este sinal. Deixe em 'Usar padrão do projeto' para seguir a configuração do projeto.",
+    "waveform": "Forma de onda",
+    "regenerateWaveform": "Regenerar forma de onda",
+    "regeneratingWaveform": "Regenerando..."
   },
   "playback": {
     "panic": "Parar Todos os Sinais",
@@ -180,7 +183,8 @@
     "setAsNext": "Definir como próximo",
     "preview": "Pré-visualizar nos auscultadores",
     "stopPreview": "Parar pré-visualização",
-    "previewNoDevice": "Nenhum dispositivo de pré-visualização configurado — clique para abrir as Definições do Projeto"
+    "previewNoDevice": "Nenhum dispositivo de pré-visualização configurado — clique para abrir as Definições do Projeto",
+    "confirmDelete": "Eliminar «{name}»?"
   },
   "about": {
     "developedBy": "Desenvolvido por",
@@ -349,5 +353,22 @@
     "uploadedCount": "{count} arquivo(s) enviado(s). Clique em \"Adicionar\" para importar.",
     "uploadFailed": "Falha no envio: {error}",
     "orFromComputer": "Ou selecionar deste computador"
+  },
+  "behaviors": {
+    "startPlayNext": "Início: Tocar próximo",
+    "startPlayItem": "Início: Tocar item",
+    "startPlayIndex": "Início: Tocar índice",
+    "duckingOthers": "Ducking: Reduzir outros",
+    "endPlayNext": "Fim: Tocar próximo",
+    "endGotoItem": "Fim: Ir para item",
+    "endGotoIndex": "Fim: Ir para índice",
+    "endLoop": "Fim: Repetir"
+  },
+  "waveform": {
+    "decreaseBy": "Diminuir em {seconds}s",
+    "increaseBy": "Aumentar em {seconds}s",
+    "playFadeTitle": "Fade de entrada: {seconds}s",
+    "stopFadeTitle": "Fade de saída: {seconds}s",
+    "crossFadeTitle": "Crossfade: {seconds}s"
   }
 }

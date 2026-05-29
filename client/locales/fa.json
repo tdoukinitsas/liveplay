@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "fa",
     "name": "Farsi",
@@ -135,7 +135,10 @@
     "ltcFrameRate": "نرخ فریم",
     "output": "خروجی",
     "deviceOverride": "دستگاه خروجی",
-    "deviceOverrideHelp": "خروجی پیش‌فرض پروژه را برای این سیگنال نادیده بگیرید. برای پیروی از تنظیم پروژه، روی 'استفاده از پیش‌فرض پروژه' بگذارید."
+    "deviceOverrideHelp": "خروجی پیش‌فرض پروژه را برای این سیگنال نادیده بگیرید. برای پیروی از تنظیم پروژه، روی 'استفاده از پیش‌فرض پروژه' بگذارید.",
+    "waveform": "شکل موج",
+    "regenerateWaveform": "بازسازی شکل موج",
+    "regeneratingWaveform": "در حال بازسازی..."
   },
   "playback": {
     "panic": "توقف همه سیگنال‌ها",
@@ -180,7 +183,8 @@
     "setAsNext": "تنظیم به عنوان بعدی",
     "preview": "پیش‌نمایش روی هدفون",
     "stopPreview": "توقف پیش‌نمایش",
-    "previewNoDevice": "دستگاه پیش‌نمایش تنظیم نشده — برای باز کردن تنظیمات پروژه کلیک کنید"
+    "previewNoDevice": "دستگاه پیش‌نمایش تنظیم نشده — برای باز کردن تنظیمات پروژه کلیک کنید",
+    "confirmDelete": "«{name}» حذف شود؟"
   },
   "about": {
     "developedBy": "توسعه یافته توسط",
@@ -349,5 +353,22 @@
     "uploadedCount": "{count} فایل آپلود شد. برای وارد کردن \"افزودن\" را کلیک کنید.",
     "uploadFailed": "آپلود ناموفق: {error}",
     "orFromComputer": "یا از این رایانه انتخاب کنید"
+  },
+  "behaviors": {
+    "startPlayNext": "شروع: پخش بعدی",
+    "startPlayItem": "شروع: پخش آیتم",
+    "startPlayIndex": "شروع: پخش شاخص",
+    "duckingOthers": "داکینگ: کاهش صدای دیگران",
+    "endPlayNext": "پایان: پخش بعدی",
+    "endGotoItem": "پایان: رفتن به آیتم",
+    "endGotoIndex": "پایان: رفتن به شاخص",
+    "endLoop": "پایان: حلقه"
+  },
+  "waveform": {
+    "decreaseBy": "کاهش {seconds} ثانیه",
+    "increaseBy": "افزایش {seconds} ثانیه",
+    "playFadeTitle": "فید ورودی: {seconds} ثانیه",
+    "stopFadeTitle": "فید خروجی: {seconds} ثانیه",
+    "crossFadeTitle": "کراس فید: {seconds} ثانیه"
   }
 }
