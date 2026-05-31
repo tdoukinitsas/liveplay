@@ -216,9 +216,9 @@ export const DEFAULT_CART_AUDIO_ITEM: Partial<AudioItem> = {
   endBehavior: { action: 'nothing' },
   startBehavior: { action: 'nothing' },
   customActions: [],
-  duckingBehavior: { 
-    mode: 'duck-others', // Default for cart items: duck to 0.2
-    duckLevel: 0.2,
+  duckingBehavior: {
+    mode: 'duck-others', // Default for cart items: duck to -20dB
+    duckLevel: 0.1,
     duckFadeIn: 0.25,
     duckFadeOut: 1.0
   },

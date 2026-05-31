@@ -147,6 +147,57 @@ RepairInfo detect_and_repair(json& doc) {
     return info;
 }
 
+// ---------------------------------------------------------------------------
+// Output Target loudness standards.
+// The server is the single authority on these numbers. The client reads them
+// back through settings["outputTargetLevels"] embedded in every full_document()
+// / header_document() response and in the settings_patched broadcast.
+// ---------------------------------------------------------------------------
+struct OutputTargetLevels {
+    float blue_below;            // meter reads blue below this value
+    float green_min;             // green zone start
+    float green_max;             // green zone end
+    float yellow_min;            // yellow zone start (== green_max)
+    float yellow_max;            // yellow zone end (== red threshold == hard limit)
+    float limiter_ceiling_db;    // brickwall limiter ceiling for this platform
+    float auto_volume_target_db; // target for the auto-volume normalise feature
+    const char* meter_unit;      // preferred unit: "LUFS" | "dBFS" | "dBTP" | "RMS"
+    const char* waveform_color;  // CSS hex color for the properties-panel waveform
+};
+
+// All zone boundaries are in the same unit as meter_unit for that platform.
+static const std::unordered_map<std::string, OutputTargetLevels> kOutputTargets {
+    // EBU R128 — integrated loudness target -23 LUFS, max TP -1 dBTP
+    {"ebu-r128",  {-28.0f, -28.0f, -20.0f, -20.0f, -1.0f,  -1.0f,  -23.0f, "LUFS", "#00e676"}},
+    // Streaming (Spotify, Apple Music, YouTube) — target ~ -14 LUFS
+    {"streaming", {-19.0f, -19.0f, -11.0f, -11.0f, -1.0f,  -1.0f,  -14.0f, "LUFS", "#00e676"}},
+    // Radio broadcast (EBU R128 S1 / ITU BS.1770-4 radio) — target -16 LUFS
+    {"radio",     {-21.0f, -21.0f, -13.0f, -13.0f, -1.0f,  -1.0f,  -16.0f, "LUFS", "#00e676"}},
+    // Netflix (OAPP — Operational Audio Practice for Post) — -27 LUFS, TP -2 dBTP
+    {"netflix",   {-32.0f, -32.0f, -24.0f, -24.0f, -2.0f,  -2.0f,  -27.0f, "LUFS", "#00e676"}},
+    // Live / Digital Console — dBFS peaks, green comfort at -9 dBFS peak (-18 RMS)
+    {"live",      {-24.0f, -24.0f, -9.0f,  -9.0f,  -0.1f,  -0.1f,  -18.0f, "dBFS", "#00e676"}},
+};
+
+static json compute_output_target_levels(const json& settings) {
+    const std::string target = settings.value("outputTarget", std::string{"ebu-r128"});
+    auto it = kOutputTargets.find(target);
+    if (it == kOutputTargets.end()) it = kOutputTargets.find("ebu-r128");
+    const auto& lv = it->second;
+    return json{
+        {"blueBelow",          lv.blue_below},
+        {"greenMin",           lv.green_min},
+        {"greenMax",           lv.green_max},
+        {"yellowMin",          lv.yellow_min},
+        {"yellowMax",          lv.yellow_max},
+        {"redAbove",           lv.yellow_max},
+        {"limiterCeilingDb",   lv.limiter_ceiling_db},
+        {"autoVolumeTargetDb", lv.auto_volume_target_db},
+        {"meterUnit",          lv.meter_unit},
+        {"waveformColor",      lv.waveform_color},
+    };
+}
+
 } // namespace
 
 // ADL-visible to_json overloads — must be in liveplay::core (not anonymous namespace)
@@ -525,6 +576,16 @@ void ProjectState::start_async_mirror() {
             }
         } catch (const std::exception& e) {
             Logger::error("async mirror threw: {}", e.what());
+        }
+        // Apply the output-target brickwall ceiling configured for this project.
+        {
+            json settings_snap;
+            {
+                std::lock_guard lock{mutex_};
+                settings_snap = document_.value("settings", json::object());
+            }
+            const auto levels = compute_output_target_levels(settings_snap);
+            engine_.set_master_ceiling_db(levels.value("limiterCeilingDb", -0.3f));
         }
         loading_audio_.store(false, std::memory_order_release);
     });
@@ -1040,6 +1101,69 @@ void ProjectState::apply_ltc_device_routing() {
 }
 
 // ---------------------------------------------------------------------------
+// Default output device routing — re-route all cues that have no per-item
+// deviceOverride to the newly selected defaultOutputDevice. Called from
+// patch_settings() whenever that key changes. Pattern mirrors
+// apply_ltc_device_routing(): gather data under lock, then do engine ops
+// outside the lock so ensure_device_routing() can safely acquire mutex_.
+// ---------------------------------------------------------------------------
+void ProjectState::apply_default_device_routing() {
+    std::string device_name;
+    std::vector<audio::CueId> non_override_cues;
+    {
+        std::lock_guard lock{mutex_};
+        if (document_.contains("settings") && document_["settings"].is_object()) {
+            const auto& s = document_["settings"];
+            if (s.contains("defaultOutputDevice") && s["defaultOutputDevice"].is_string())
+                device_name = s["defaultOutputDevice"].get<std::string>();
+        }
+        if (!device_name.empty()) {
+            for_each_item(document_,
+                [&](json& item, const std::string&) {
+                    const std::string uuid = item.value("uuid", std::string{});
+                    if (uuid.empty()) return;
+                    // Skip items with a per-item device override.
+                    if (item.contains("deviceOverride") &&
+                        item["deviceOverride"].is_string() &&
+                        !item["deviceOverride"].get<std::string>().empty()) return;
+                    auto it = item_uuid_to_cue_.find(uuid);
+                    if (it != item_uuid_to_cue_.end())
+                        non_override_cues.push_back(it->second);
+                });
+        }
+    }
+    if (device_name.empty() || non_override_cues.empty()) return;
+
+    const auto mixer = ensure_device_routing(device_name);
+    if (mixer.empty()) return;
+
+    for (const auto& cue_id : non_override_cues)
+        route_cue_to_mixer(cue_id, mixer);
+
+    Logger::info("apply_default_device_routing: routed {} cue(s) to '{}'",
+                 non_override_cues.size(), device_name);
+}
+
+// ---------------------------------------------------------------------------
+// Preview device change — tear down any active preview so the next call to
+// start_preview() opens a fresh connection to the newly selected device.
+// ---------------------------------------------------------------------------
+void ProjectState::apply_preview_device_change() {
+    audio::CueId prev_cue;
+    {
+        std::lock_guard lock{mutex_};
+        prev_cue = preview_cue_;
+        preview_cue_ = audio::CueId{};
+        preview_item_uuid_.clear();
+        preview_device_name_.clear();
+    }
+    if (!prev_cue.empty()) {
+        engine_.stop(prev_cue);
+        engine_.unload_cue(prev_cue);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Introspection
 // ---------------------------------------------------------------------------
 std::vector<CueMeta> ProjectState::list_cues() const {
@@ -1157,6 +1281,11 @@ json ProjectState::full_document() const {
     json out = document_;
     if (out.contains("items"))         annotate_items_with_cue_ids(out["items"],         item_uuid_to_cue_);
     if (out.contains("cartOnlyItems")) annotate_items_with_cue_ids(out["cartOnlyItems"], item_uuid_to_cue_);
+    // Inject computed output-target levels so the client never needs to
+    // hardcode platform loudness values.
+    if (!out.contains("settings") || !out["settings"].is_object())
+        out["settings"] = json::object();
+    out["settings"]["outputTargetLevels"] = compute_output_target_levels(out["settings"]);
 
     // Attach a minimal "server" block so the client can read project file
     // path, available engine cues, etc. without a separate fetch.
@@ -1182,6 +1311,11 @@ json ProjectState::header_document() const {
     const auto& items = document_.value("items", json::array());
     const std::size_t item_count = items.is_array() ? items.size() : 0;
 
+    // Inject computed output-target levels into the settings copy we send to the
+    // client so it never has to hardcode platform loudness standards.
+    json settings_out = document_.value("settings", json::object());
+    settings_out["outputTargetLevels"] = compute_output_target_levels(settings_out);
+
     return json{
         {"name",         document_.value("name", "")},
         {"version",      document_.value("version", "")},
@@ -1189,7 +1323,7 @@ json ProjectState::header_document() const {
         {"createdAt",    document_.value("createdAt", "")},
         {"lastModified", read_last_modified(document_)},
         {"theme",        document_.value("theme",         json::object())},
-        {"settings",     document_.value("settings",      json::object())},
+        {"settings",     std::move(settings_out)},
         {"cartItems",    document_.value("cartItems",     json::array())},
         {"cartSlotKeys", document_.value("cartSlotKeys",  json::object())},
         {"playbackKeys", document_.value("playbackKeys",  json::object())},
@@ -2275,22 +2409,38 @@ bool ProjectState::patch_theme(const json& patch) {
 
 bool ProjectState::patch_settings(const json& patch) {
     if (!patch.is_object()) return false;
-    bool ltc_device_changed = false;
+    bool ltc_device_changed      = false;
+    bool default_device_changed  = false;
+    bool preview_device_changed  = false;
+    bool output_target_changed   = false;
+    float new_ceiling_db         = -0.3f;
     {
         std::lock_guard lock{mutex_};
         if (!document_.contains("settings") || !document_["settings"].is_object()) {
             document_["settings"] = json::object();
         }
         for (auto& [k, v] : patch.items()) {
-            if (k == "ltcDevice") ltc_device_changed = true;
+            if (k == "ltcDevice")           ltc_device_changed     = true;
+            if (k == "defaultOutputDevice") default_device_changed = true;
+            if (k == "previewDevice")       preview_device_changed = true;
+            if (k == "outputTarget")        output_target_changed  = true;
             document_["settings"][k] = v;
         }
+        if (output_target_changed) {
+            const auto levels = compute_output_target_levels(document_["settings"]);
+            new_ceiling_db = levels.value("limiterCeilingDb", -0.3f);
+            // Keep the embedded outputTargetLevels in sync so every broadcast
+            // (settings_patched, full_document) carries the fresh zone colours
+            // and ceiling rather than the stale values from before the change.
+            document_["settings"]["outputTargetLevels"] = levels;
+        }
     }
-    // settings.ltcDevice toggled / changed: open the device, build its mixer,
-    // and route every LTC-enabled cue's synthetic channel into it. Without
-    // this, LTC was silent until the user replayed an item (which is when
-    // play_item happens to call apply_ltc_device_routing() too).
-    if (ltc_device_changed) apply_ltc_device_routing();
+    // Re-apply device routing when device selections change mid-playback.
+    if (ltc_device_changed)     apply_ltc_device_routing();
+    if (default_device_changed) apply_default_device_routing();
+    if (preview_device_changed) apply_preview_device_change();
+    // Apply brickwall limiter ceiling for the chosen output platform.
+    if (output_target_changed)  engine_.set_master_ceiling_db(new_ceiling_db);
     return true;
 }
 

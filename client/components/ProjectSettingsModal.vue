@@ -77,6 +77,45 @@
             </select>
             <p class="settings-help">{{ t('settings.ltcDeviceHelp') }}</p>
           </section>
+
+          <!-- Output Target (loudness platform standard) -->
+          <section class="settings-field">
+            <label class="settings-label">
+              <span class="material-symbols-rounded">tune</span>
+              {{ t('settings.outputTarget') }}
+            </label>
+            <select
+              class="settings-select"
+              :value="outputTarget"
+              @change="onOutputTargetChange"
+            >
+              <option value="ebu-r128">{{ t('settings.outputTargetEbuR128') }}</option>
+              <option value="streaming">{{ t('settings.outputTargetStreaming') }}</option>
+              <option value="radio">{{ t('settings.outputTargetRadio') }}</option>
+              <option value="netflix">{{ t('settings.outputTargetNetflix') }}</option>
+              <option value="live">{{ t('settings.outputTargetLive') }}</option>
+            </select>
+            <p class="settings-help">{{ t('settings.outputTargetHelp') }}</p>
+          </section>
+
+          <!-- Meter Display Mode -->
+          <section class="settings-field">
+            <label class="settings-label">
+              <span class="material-symbols-rounded">bar_chart</span>
+              {{ t('settings.meterMode') }}
+            </label>
+            <select
+              class="settings-select"
+              :value="meterMode"
+              @change="onMeterModeChange"
+            >
+              <option value="LUFS">{{ t('settings.meterModeLufs') }}</option>
+              <option value="dBFS">{{ t('settings.meterModeDbfs') }}</option>
+              <option value="dBTP">{{ t('settings.meterModeDbtp') }}</option>
+              <option value="RMS">{{ t('settings.meterModeRms') }}</option>
+            </select>
+            <p class="settings-help">{{ t('settings.meterModeHelp') }}</p>
+          </section>
         </div>
 
       <footer class="modal-footer">
@@ -87,6 +126,8 @@
 </template>
 
 <script setup lang="ts">
+import { useOutputTarget } from '~/composables/useOutputTarget';
+
 const props = defineProps<{ open: boolean }>();
 const emit  = defineEmits<{ (e: 'close'): void }>();
 
@@ -98,9 +139,12 @@ const devices = computed(() => server.devices ?? []);
 
 // The settings live on the project document; we read them from there and
 // patch via the server endpoint.
-const audioDeviceId   = computed(() => currentProject.value?.theme && (currentProject.value as any).settings?.defaultOutputDevice || '');
+const audioDeviceId   = computed(() => (currentProject.value as any)?.settings?.defaultOutputDevice || '');
 const previewDeviceId = computed(() => (currentProject.value as any)?.settings?.previewDevice || '');
 const ltcDeviceId     = computed(() => (currentProject.value as any)?.settings?.ltcDevice || '');
+const outputTarget    = computed(() => (currentProject.value as any)?.settings?.outputTarget || 'ebu-r128');
+const { meterMode: currentMeterMode } = useOutputTarget();
+const meterMode       = computed(() => (currentProject.value as any)?.settings?.meterMode || currentMeterMode.value);
 
 // Make sure devices are loaded when the modal opens.
 watch(() => props.open, async (v) => {
@@ -136,6 +180,14 @@ function onPreviewDeviceChange(e: Event) {
 function onLtcDeviceChange(e: Event) {
   const v = (e.target as HTMLSelectElement).value;
   applyPatch({ ltcDevice: v || null });
+}
+function onOutputTargetChange(e: Event) {
+  const v = (e.target as HTMLSelectElement).value;
+  applyPatch({ outputTarget: v });
+}
+function onMeterModeChange(e: Event) {
+  const v = (e.target as HTMLSelectElement).value;
+  applyPatch({ meterMode: v });
 }
 
 function close() {

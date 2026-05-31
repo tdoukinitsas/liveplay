@@ -59,7 +59,8 @@
     "importAudio": "Importer de l'Audio",
     "noProject": "Aucun Projet",
     "silenceWarning": "ATTENTION : SILENCE DANS",
-    "seconds": "SECONDES"
+    "seconds": "SECONDES",
+    "clock": "Horloge"
   },
   "playlist": {
     "title": "Liste de Lecture",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "Propriétés",
+    "multipleItemsSelected": "{count} éléments sélectionnés",
+    "peakWarning": "Cet élément a des niveaux sonores qui dépassent la limite brickwall pour la cible de sortie sélectionnée. Ajustez le volume dans le panneau Propriétés ou changez la cible de sortie.",
     "noSelection": "Sélectionnez un élément pour afficher les propriétés",
     "displayName": "Nom d'Affichage",
     "color": "Couleur",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "Périphérique utilisé lors de l'aperçu des signaux avec le bouton casque.",
     "ltcDevice": "Périphérique LTC",
     "ltcDeviceHelp": "Périphérique utilisé pour envoyer le timecode LTC (optionnel).",
+    "outputTarget": "Cible de sortie",
+    "outputTargetHelp": "Définit le niveau du limiteur brickwall, les couleurs des zones de mesure, les couleurs de forme d'onde et la cible de volume automatique pour ce projet.",
+    "outputTargetEbuR128": "EBU R128 (Diffusion / Post)",
+    "outputTargetStreaming": "Streaming (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "Diffusion radio",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "Live (Console numérique)",
+    "meterMode": "Affichage du niveau",
+    "meterModeHelp": "Unité affichée sur tous les mètres stéréo.",
+    "meterModeLufs": "LUFS (Sonie intégrée)",
+    "meterModeDbfs": "dBFS (Plein échelle numérique)",
+    "meterModeDbtp": "dBTP (Crête réelle)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "Utiliser la valeur par défaut du projet",
     "noneSelected": "Non sélectionné",
     "save": "Enregistrer",

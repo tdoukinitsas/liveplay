@@ -59,7 +59,8 @@
     "importAudio": "オーディオをインポート",
     "noProject": "プロジェクトなし",
     "silenceWarning": "警告：無音まで",
-    "seconds": "秒"
+    "seconds": "秒",
+    "clock": "時計"
   },
   "playlist": {
     "title": "プレイリスト",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "プロパティ",
+    "multipleItemsSelected": "{count}件選択中",
+    "peakWarning": "このアイテムの音量レベルが、選択した出力ターゲットのブリックウォールリミット値を超えています。プロパティパネルで音量を調整するか、出力ターゲットを変更してください。",
     "noSelection": "プロパティを表示するアイテムを選択してください",
     "displayName": "表示名",
     "color": "色",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "ヘッドフォンボタンでキューをプレビューする際に使用するデバイス。",
     "ltcDevice": "LTCデバイス",
     "ltcDeviceHelp": "LTCタイムコードの送信に使用するデバイス（オプション）。",
+    "outputTarget": "出力ターゲット",
+    "outputTargetHelp": "このプロジェクトのブリックウォールリミッターレベル、メーターゾーンの色、波形の色、自動音量ターゲットを設定します。",
+    "outputTargetEbuR128": "EBU R128（放送・ポスト）",
+    "outputTargetStreaming": "ストリーミング（Spotify / Apple / YouTube）",
+    "outputTargetRadio": "ラジオ放送",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "ライブ（デジタルコンソール）",
+    "meterMode": "メーター表示",
+    "meterModeHelp": "すべてのステレオメーターに表示される単位。",
+    "meterModeLufs": "LUFS（インテグレーテッドラウドネス）",
+    "meterModeDbfs": "dBFS（デジタルフルスケール）",
+    "meterModeDbtp": "dBTP（トゥルーピーク）",
+    "meterModeRms": "RMS",
     "useProjectDefault": "プロジェクトデフォルトを使用",
     "noneSelected": "未選択",
     "save": "保存",

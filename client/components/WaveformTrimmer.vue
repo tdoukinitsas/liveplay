@@ -15,7 +15,8 @@
           :max="10"
           step="0.1"
           :value="volumeDB"
-          @input="handleVolumeChange"
+          @input="handleVolumeInput"
+          @change="handleVolumeDragEnd"
           :style="{ '--volume-handle-color': volumeHandleColor }"
         />
         <div class="volume-markers">
@@ -281,6 +282,8 @@
 <script setup lang="ts">
 import type { AudioItem } from '~/types/project';
 import { calculatePerceivedLoudness, calculateNormalizationGain } from '~/utils/audio';
+import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
+import { useLiveplayServer } from '~/composables/useLiveplayServer';
 
 const props = defineProps<{
   audioItem: AudioItem;
@@ -300,6 +303,13 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useLocalization();
+const { colorForLevel } = useOutputTarget();
+
+// Parse a CSS hex color ("#rrggbb") into [r, g, b] without DOM tricks.
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+}
 
 // Get audio engine for playback position
 const { activeCues, seekCue } = useAudioEngine();
@@ -346,10 +356,8 @@ const volumeDB = computed({
     return 20 * Math.log10(linear);
   },
   set: (db: number) => {
-    // Convert dB to linear volume
     const linear = db <= -60 ? 0 : Math.pow(10, db / 20);
     emit('update:volume', linear);
-    emit('change');
   }
 });
 
@@ -367,7 +375,11 @@ const volumeHandleColor = computed(() => {
 // Time values
 const inPoint = computed(() => props.audioItem?.inPoint ?? 0);
 const outPoint = computed(() => props.audioItem?.outPoint ?? props.audioItem?.duration ?? 0);
-const duration = computed(() => props.audioItem?.duration ?? 0);
+// Use waveform's own duration as fallback — audioItem.duration can be 0 if
+// metadata hasn't arrived yet, but the waveform object always carries duration.
+const duration = computed(() =>
+  props.audioItem?.duration || props.audioItem?.waveform?.duration || 0
+);
 
 // Canvas dimensions - use reactive ref to ensure handle positions update on resize
 const containerWidth = ref(800);
@@ -537,10 +549,15 @@ const handleWheel = (event: WheelEvent) => {
   zoomLevel.value = Math.max(1, Math.min(20, zoomLevel.value + delta));
 };
 
-// Handle volume change
-const handleVolumeChange = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  volumeDB.value = parseFloat(target.value);
+// Real-time volume preview during drag — updates the value but does NOT save.
+const handleVolumeInput = (event: Event) => {
+  const db = parseFloat((event.target as HTMLInputElement).value);
+  if (!isNaN(db)) volumeDB.value = db;
+};
+
+// Fires once when the drag ends (mouseup/touchend) — this is when we save.
+const handleVolumeDragEnd = () => {
+  emit('change');
 };
 
 // Fade change handlers
@@ -775,26 +792,9 @@ const drawWaveform = () => {
       const barWidth = canvasWidth.value / visiblePeaksArray.length;
       const volumeMultiplier = props.audioItem?.volume ?? 1;
 
-      // Function to get color based on dB level
-      const getColorForDB = (db: number): string => {
-        if (db > 0) return '#991b1b';        // Dark red above 0 dB
-        if (db > -1) return '#dc2626';       // Red 0 to -1 dB
-        if (db > -6) return '#eab308';       // Yellow -1 to -6 dB
-        if (db > -18) return '#16a34a';      // Green -6 to -18 dB
-        if (db > -36) return '#22c55e';      // Dark green -18 to -36 dB
-        return '#1a4d2e';                    // Darker green under -36 dB
-      };
-      
-      // Parse color to get RGB values
-      const parseColor = (color: string) => {
-        const temp = document.createElement('div');
-        temp.style.color = color;
-        document.body.appendChild(temp);
-        const computed = getComputedStyle(temp).color;
-        document.body.removeChild(temp);
-        const match = computed.match(/\d+/g);
-        return match ? match.map(Number) : [128, 128, 128];
-      };
+      // Use server-reported output-target zone colours (same palette as the
+      // stereo meter) so the waveform and meter always agree visually.
+      const getColorForDB = (db: number): string => colorForLevel(db);
 
       // Gamma 2 expansion so loud songs don't render as a solid wall —
       // matches PlaylistItem / CartSlot. dB-based clip detection below still
@@ -827,8 +827,7 @@ const drawWaveform = () => {
         const barDB = linearAmplitude <= 0 ? -60 : 20 * Math.log10(linearAmplitude);
         
         // Get color for this specific bar's level
-        const barColor = getColorForDB(barDB);
-        const [r, g, b] = parseColor(barColor);
+        const [r, g, b] = hexToRgb(getColorForDB(barDB));
         
         // Draw colored bar with opacity based on whether it's clipping
         const alpha = linearAmplitude > 1 ? 0.8 : 0.5; // More opaque if clipping
@@ -885,72 +884,27 @@ const drawWaveform = () => {
   ctx.lineTo(canvasWidth.value, middleY);
   ctx.stroke();
 
-  // Draw playhead if item is currently playing
-  if (playbackPosition.value !== null && duration.value > 0) {
-    // Calculate position respecting zoom and scroll
-    const relativeTime = playbackPosition.value - visibleStart.value;
-    const playheadX = (relativeTime / visibleDuration.value) * canvasWidth.value;
-    
-    // Only draw if within visible range
-    if (playheadX >= 0 && playheadX <= canvasWidth.value) {
-      // Use item's color or default to accent color
-      const itemColor = props.audioItem.color || 'var(--color-accent)';
-      
-      // Draw vertical line
-      ctx.strokeStyle = itemColor;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(playheadX, 0);
-      ctx.lineTo(playheadX, canvasHeight);
-      ctx.stroke();
-      
-      // Draw triangle at top
-      ctx.fillStyle = itemColor;
-      ctx.beginPath();
-      ctx.moveTo(playheadX, 10);
-    ctx.lineTo(playheadX - 6, 0);
-    ctx.lineTo(playheadX + 6, 0);
-    ctx.closePath();
-    ctx.fill();
-    
-    // Draw triangle at bottom
-    ctx.beginPath();
-    ctx.moveTo(playheadX, canvasHeight - 10);
-    ctx.lineTo(playheadX - 6, canvasHeight);
-    ctx.lineTo(playheadX + 6, canvasHeight);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  // Draw fade visualizations if configured
+  // Draw fade visualizations (always, regardless of playback state)
   if (duration.value > 0) {
     const pixelsPerSecond = canvasWidth.value / visibleDuration.value;
-    
-    // Play Fade (fade in at start) - Red with diagonal line
+
+    // Play Fade (fade in at start) — red diagonal
     if (props.audioItem.playFade && props.audioItem.playFade > 0) {
       const fadeStartTime = inPoint.value;
       const fadeEndTime = inPoint.value + props.audioItem.playFade;
-      
-      // Only draw if visible in current view
       if (fadeEndTime >= visibleStart.value && fadeStartTime <= visibleEnd.value) {
         const fadeStartX = Math.max(0, (fadeStartTime - visibleStart.value) * pixelsPerSecond);
         const fadeEndX = Math.min(canvasWidth.value, (fadeEndTime - visibleStart.value) * pixelsPerSecond);
         const fadeWidth = fadeEndX - fadeStartX;
-        
         if (fadeWidth > 0) {
-          // Draw red rectangle with 20% opacity
           ctx.fillStyle = 'rgba(220, 38, 38, 0.2)';
           ctx.fillRect(fadeStartX, 0, fadeWidth, canvasHeight);
-          
-          // Draw diagonal line from bottom-left to top-right (fade in)
           ctx.strokeStyle = 'rgba(220, 38, 38, 0.8)';
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.moveTo(fadeStartX, canvasHeight);
           ctx.lineTo(fadeEndX, 0);
           ctx.stroke();
-          
-          // Draw red vertical line at fade end boundary
           ctx.beginPath();
           ctx.moveTo(fadeEndX, 0);
           ctx.lineTo(fadeEndX, canvasHeight);
@@ -958,32 +912,24 @@ const drawWaveform = () => {
         }
       }
     }
-    
-    // Stop Fade (fade out before end) - Red with diagonal line
+
+    // Stop Fade (fade out before end) — red diagonal
     if (props.audioItem.stopFade && props.audioItem.stopFade > 0) {
       const fadeStartTime = outPoint.value - props.audioItem.stopFade;
       const fadeEndTime = outPoint.value;
-      
-      // Only draw if visible in current view
       if (fadeStartTime <= visibleEnd.value && fadeEndTime >= visibleStart.value) {
         const fadeStartX = Math.max(0, (fadeStartTime - visibleStart.value) * pixelsPerSecond);
         const fadeEndX = Math.min(canvasWidth.value, (fadeEndTime - visibleStart.value) * pixelsPerSecond);
         const fadeWidth = fadeEndX - fadeStartX;
-        
         if (fadeWidth > 0) {
-          // Draw red rectangle with 20% opacity
           ctx.fillStyle = 'rgba(220, 38, 38, 0.2)';
           ctx.fillRect(fadeStartX, 0, fadeWidth, canvasHeight);
-          
-          // Draw diagonal line from top-left to bottom-right (fade out)
           ctx.strokeStyle = 'rgba(220, 38, 38, 0.8)';
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.moveTo(fadeStartX, 0);
           ctx.lineTo(fadeEndX, canvasHeight);
           ctx.stroke();
-          
-          // Draw red vertical line at fade start boundary
           ctx.beginPath();
           ctx.moveTo(fadeStartX, 0);
           ctx.lineTo(fadeStartX, canvasHeight);
@@ -991,55 +937,57 @@ const drawWaveform = () => {
         }
       }
     }
-    
-    // Cross Fade visualization - Yellow X with semi-transparent rectangle
+
+    // Cross Fade — yellow X
     if (props.audioItem.crossFade && props.audioItem.crossFade > 0) {
       const crossFadeStartTime = outPoint.value - props.audioItem.crossFade;
       const crossFadeEndTime = outPoint.value;
-      
-      // Only draw if visible in current view
       if (crossFadeStartTime <= visibleEnd.value && crossFadeEndTime >= visibleStart.value) {
         const crossStartX = Math.max(0, (crossFadeStartTime - visibleStart.value) * pixelsPerSecond);
         const crossEndX = Math.min(canvasWidth.value, (crossFadeEndTime - visibleStart.value) * pixelsPerSecond);
         const crossWidth = crossEndX - crossStartX;
-        
         if (crossWidth > 0) {
-          // Draw yellow rectangle with 20% opacity
           ctx.fillStyle = 'rgba(234, 179, 8, 0.2)';
           ctx.fillRect(crossStartX, 0, crossWidth, canvasHeight);
-          
-          // Draw yellow X pattern
           ctx.strokeStyle = 'rgba(234, 179, 8, 0.8)';
           ctx.lineWidth = 2;
-          
-          // Diagonal line from top-left to bottom-right
-          ctx.beginPath();
-          ctx.moveTo(crossStartX, 0);
-          ctx.lineTo(crossEndX, canvasHeight);
-          ctx.stroke();
-          
-          // Diagonal line from bottom-left to top-right
-          ctx.beginPath();
-          ctx.moveTo(crossStartX, canvasHeight);
-          ctx.lineTo(crossEndX, 0);
-          ctx.stroke();
-          
-          // Draw vertical lines at boundaries
-          ctx.beginPath();
-          ctx.moveTo(crossStartX, 0);
-          ctx.lineTo(crossStartX, canvasHeight);
-          ctx.stroke();
-          
-          ctx.beginPath();
-          ctx.moveTo(crossEndX, 0);
-          ctx.lineTo(crossEndX, canvasHeight);
-          ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(crossStartX, 0); ctx.lineTo(crossEndX, canvasHeight); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(crossStartX, canvasHeight); ctx.lineTo(crossEndX, 0); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(crossStartX, 0); ctx.lineTo(crossStartX, canvasHeight); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(crossEndX, 0); ctx.lineTo(crossEndX, canvasHeight); ctx.stroke();
         }
       }
     }
   }
+
+  // Draw playhead if item is currently playing
+  if (playbackPosition.value !== null && duration.value > 0) {
+    const relativeTime = playbackPosition.value - visibleStart.value;
+    const playheadX = (relativeTime / visibleDuration.value) * canvasWidth.value;
+    if (playheadX >= 0 && playheadX <= canvasWidth.value) {
+      const itemColor = props.audioItem.color || 'var(--color-accent)';
+      ctx.strokeStyle = itemColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(playheadX, 0);
+      ctx.lineTo(playheadX, canvasHeight);
+      ctx.stroke();
+      ctx.fillStyle = itemColor;
+      ctx.beginPath();
+      ctx.moveTo(playheadX, 10);
+      ctx.lineTo(playheadX - 6, 0);
+      ctx.lineTo(playheadX + 6, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(playheadX, canvasHeight - 10);
+      ctx.lineTo(playheadX - 6, canvasHeight);
+      ctx.lineTo(playheadX + 6, canvasHeight);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
 };
-}
 
 // Throttle drawWaveform to prevent excessive redraws
 let drawTimeout: NodeJS.Timeout | null = null;
@@ -1066,29 +1014,41 @@ watch([
   throttledDraw();
 });
 
-// Also watch for waveform changes directly (deep watch for reactivity)
+// Redraw whenever waveform data arrives or changes. `immediate` ensures we
+// schedule a draw on mount even if the data was already set (e.g. when the
+// panel is reopened for the same item). The canvas ref is null at that point
+// so drawWaveform returns early; the real draw comes from onMounted's rAF.
 watch(() => props.audioItem?.waveform, () => {
-  console.log('Waveform changed, redrawing...');
   throttledDraw();
-}, { deep: true });
+}, { immediate: true });
 
 // Watch for canvas width changes
 const resizeObserver = ref<ResizeObserver | null>(null);
 
 onMounted(() => {
-  // Set initial container width
-  if (waveformContainer.value) {
-    containerWidth.value = waveformContainer.value.clientWidth;
-  }
-  
-  // Initial draw
-  setTimeout(() => {
-    drawWaveform();
-  }, 100);
+  // Wait for layout to settle (nextTick ensures the DOM is painted; rAF
+  // ensures the browser has committed the layout pass so clientWidth is real).
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      if (waveformContainer.value) {
+        containerWidth.value = waveformContainer.value.clientWidth;
+      }
+      drawWaveform();
+
+      // If waveform data is missing (e.g. after a project reload that strips
+      // waveform from JSON), ask the server to regenerate it. The result
+      // arrives as a waveform_ready doc_patch which sets audioItem.waveform,
+      // triggering the watcher below to redraw automatically.
+      if (!waveformData.value && props.audioItem.mediaServerPath) {
+        const server = useLiveplayServer();
+        server.requestWaveformGeneration(props.audioItem.mediaServerPath, props.audioItem.uuid)
+          .catch(() => { /* silently ignore — waveform is best-effort */ });
+      }
+    });
+  });
 
   if (waveformContainer.value) {
     resizeObserver.value = new ResizeObserver(() => {
-      // Update the reactive container width
       if (waveformContainer.value) {
         containerWidth.value = waveformContainer.value.clientWidth;
       }

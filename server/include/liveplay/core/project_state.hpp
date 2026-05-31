@@ -239,6 +239,15 @@ public:
     // engine operations to independently-locked engine APIs.
     void apply_ltc_device_routing();
 
+    // Re-route all cues that have no per-item deviceOverride to the project's
+    // configured defaultOutputDevice mixer. Called when defaultOutputDevice
+    // changes in settings (including during playback).
+    void apply_default_device_routing();
+
+    // Stop any active preview and reset preview state so the next call to
+    // start_preview() picks up the updated previewDevice setting.
+    void apply_preview_device_change();
+
     // Cart slot binding (slot → item uuid). Slot < 0 clears.
     bool set_cart_slot(int slot, const std::string& item_uuid);
     bool clear_cart_slot(int slot);

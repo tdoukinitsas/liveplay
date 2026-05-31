@@ -168,6 +168,14 @@ export const useProject = () => {
     const item = findItemByUuid(uuid);
     if (item) {
       selectedItem.value = item;
+      // Ensure the item is in selectedItems so batch operations (normalize,
+      // trim silence, etc.) in PropertiesPanel target the correct item.
+      // Cart Edit buttons don't go through row/header selection, so the set
+      // may contain stale playlist UUIDs — clear and select only this item.
+      if (!selectedItems.value.has(uuid)) {
+        selectedItems.value.clear();
+        selectedItems.value.add(uuid);
+      }
     }
   };
 
@@ -1085,17 +1093,61 @@ export const useProject = () => {
       lastItems    = nextItems;
       lastCartOnly = nextCartOnly;
 
+      // 1. Cross-parent moves: same uuid but parentUuid changed.
+      //    Must remove-then-add so the server tracks the new parent.
+      //    (updateProjectItem only patches content, not parent placement.)
+      for (const [uuid, { item, parentUuid }] of curr) {
+        const before = prev.get(uuid);
+        if (!before || before.parentUuid === parentUuid) continue;
+        try { await srv.removeProjectItem(uuid); } catch {}
+        try { await srv.addProjectItem(item, parentUuid); } catch {}
+      }
+
+      // 2. Removes: items present in prev but gone from curr.
       for (const [uuid] of prev) {
         if (!curr.has(uuid)) { try { await srv.removeProjectItem(uuid); } catch {} }
       }
+
+      // 3. Adds: items in curr that weren't in prev (and aren't cross-parent moves).
       for (const [uuid, { item, parentUuid }] of curr) {
-        if (!prev.has(uuid)) { try { await srv.addProjectItem(item, parentUuid); } catch {} }
+        if (prev.has(uuid)) continue;
+        try { await srv.addProjectItem(item, parentUuid); } catch {}
       }
-      for (const [uuid, { item }] of curr) {
+
+      // 4. Updates: items whose content changed (not cross-parent, not new).
+      for (const [uuid, { item, parentUuid }] of curr) {
         const before = prev.get(uuid);
         if (!before) continue;
+        if (before.parentUuid !== parentUuid) continue; // handled in step 1
         if (stableJson(before.item) === stableJson(item)) continue;
         try { await srv.updateProjectItem(uuid, item); } catch {}
+      }
+
+      // 5. Reorder: for each parent level, if the item order changed call
+      //    reorderProjectItems so other clients see the correct list order.
+      //    The JavaScript Map preserves insertion order (= walk/array order),
+      //    so [...map.entries()] gives items in their array position order.
+      const parentUuidsInCurr = new Set<string>();
+      for (const [, { parentUuid }] of curr) parentUuidsInCurr.add(parentUuid);
+
+      for (const parentUuid of parentUuidsInCurr) {
+        const prevOrder = [...prev.entries()]
+          .filter(([, v]) => v.parentUuid === parentUuid)
+          .map(([u]) => u);
+        const currOrder = [...curr.entries()]
+          .filter(([, v]) => v.parentUuid === parentUuid)
+          .map(([u]) => u);
+
+        // Restrict comparison to items that exist in both snapshots so that
+        // add/remove operations (already handled above) don't falsely look
+        // like a reorder.
+        const prevCommon = prevOrder.filter(u => curr.has(u));
+        const currCommon = currOrder.filter(u => prev.has(u));
+
+        if (stableJson(prevCommon) !== stableJson(currCommon)) {
+          // Send the full current order for this parent (server ignores unknown uuids).
+          try { await srv.reorderProjectItems(currOrder, parentUuid); } catch {}
+        }
       }
     }
 

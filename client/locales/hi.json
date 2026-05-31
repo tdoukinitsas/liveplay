@@ -59,7 +59,8 @@
     "importAudio": "ऑडियो आयात करें",
     "noProject": "कोई प्रोजेक्ट नहीं",
     "silenceWarning": "चेतावनी: मौन में",
-    "seconds": "सेकंड"
+    "seconds": "सेकंड",
+    "clock": "घड़ी"
   },
   "playlist": {
     "title": "प्लेलिस्ट",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "गुण",
+    "multipleItemsSelected": "{count} आइटम चुने गए",
+    "peakWarning": "इस आइटम के वॉल्यूम स्तर चयनित आउटपुट लक्ष्य की brickwall सीमा से अधिक हैं। प्रॉपर्टीज़ पैनल में वॉल्यूम समायोजित करें या आउटपुट लक्ष्य बदलें।",
     "noSelection": "गुण देखने के लिए एक आइटम चुनें",
     "displayName": "प्रदर्शन नाम",
     "color": "रंग",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "हेडफोन बटन से क्यू पूर्वावलोकन करते समय उपयोग किया जाने वाला डिवाइस।",
     "ltcDevice": "LTC डिवाइस",
     "ltcDeviceHelp": "LTC टाइमकोड भेजने के लिए उपयोग किया जाने वाला डिवाइस (वैकल्पिक)।",
+    "outputTarget": "आउटपुट लक्ष्य",
+    "outputTargetHelp": "इस प्रोजेक्ट के लिए ब्रिकवॉल लिमिटर स्तर, मीटर ज़ोन रंग, वेवफॉर्म रंग और ऑटो-वॉल्यूम लक्ष्य सेट करता है।",
+    "outputTargetEbuR128": "EBU R128 (प्रसारण / पोस्ट)",
+    "outputTargetStreaming": "स्ट्रीमिंग (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "रेडियो प्रसारण",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "लाइव (डिजिटल कंसोल)",
+    "meterMode": "मीटर प्रदर्शन",
+    "meterModeHelp": "सभी स्टीरियो मीटर पर दिखाई जाने वाली इकाई।",
+    "meterModeLufs": "LUFS (एकीकृत लाउडनेस)",
+    "meterModeDbfs": "dBFS (डिजिटल पूर्ण स्केल)",
+    "meterModeDbtp": "dBTP (सच्ची चोटी)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "प्रोजेक्ट डिफ़ॉल्ट का उपयोग करें",
     "noneSelected": "चयनित नहीं",
     "save": "सहेजें",

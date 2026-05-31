@@ -59,7 +59,8 @@
     "importAudio": "অডিও আমদানি করুন",
     "noProject": "কোনো প্রকল্প নেই",
     "silenceWarning": "সতর্কতা: নীরবতা",
-    "seconds": "সেকেন্ড"
+    "seconds": "সেকেন্ড",
+    "clock": "ঘড়ি"
   },
   "playlist": {
     "title": "প্লেলিস্ট",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "বৈশিষ্ট্য",
+    "multipleItemsSelected": "{count}টি আইটেম নির্বাচিত",
+    "peakWarning": "এই আইটেমের ভলিউম স্তর নির্বাচিত আউটপুট লক্ষ্যের brickwall সীমা অতিক্রম করছে। বৈশিষ্ট্য প্যানেলে ভলিউম সামঞ্জস্য করুন বা আউটপুট লক্ষ্য পরিবর্তন করুন।",
     "noSelection": "বৈশিষ্ট্য দেখতে একটি আইটেম নির্বাচন করুন",
     "displayName": "প্রদর্শন নাম",
     "color": "রঙ",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "হেডফোন বোতাম দিয়ে কিউ পূর্বশ্রবণ করার সময় ব্যবহৃত ডিভাইস।",
     "ltcDevice": "LTC ডিভাইস",
     "ltcDeviceHelp": "LTC টাইমকোড পাঠাতে ব্যবহৃত ডিভাইস (ঐচ্ছিক)।",
+    "outputTarget": "আউটপুট লক্ষ্য",
+    "outputTargetHelp": "এই প্রকল্পের জন্য ব্রিকওয়াল লিমিটার স্তর, মিটার জোন রঙ, ওয়েভফর্ম রঙ এবং অটো-ভলিউম লক্ষ্য নির্ধারণ করে।",
+    "outputTargetEbuR128": "EBU R128 (সম্প্রচার / পোস্ট)",
+    "outputTargetStreaming": "স্ট্রিমিং (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "রেডিও সম্প্রচার",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "লাইভ (ডিজিটাল কনসোল)",
+    "meterMode": "মিটার প্রদর্শন",
+    "meterModeHelp": "সমস্ত স্টেরিও মিটারে দেখানো একক।",
+    "meterModeLufs": "LUFS (সমন্বিত লাউডনেস)",
+    "meterModeDbfs": "dBFS (ডিজিটাল ফুল স্কেল)",
+    "meterModeDbtp": "dBTP (সত্যিকার শীর্ষ)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "প্রকল্পের ডিফল্ট ব্যবহার করুন",
     "noneSelected": "নির্বাচিত নয়",
     "save": "সংরক্ষণ করুন",

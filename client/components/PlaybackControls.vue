@@ -105,7 +105,7 @@ import { useCueMeters } from '~/composables/useLiveMeters';
 import VolumeSlider from './VolumeSlider.vue';
 
 const { activeCues, panicStop, nextItemOverrideUuid, autoNextItemUuid, setNextItem, playCue, triggerGroup } = useAudioEngine();
-const { findItemByUuid, previewItemUuid, previewCueId, stopPreview } = useProject();
+const { findItemByUuid, previewItemUuid, previewCueId, stopPreview, currentProject } = useProject();
 const { playbackMappings } = useCartHotkeys();
 const { t } = useLocalization();
 const server = useLiveplayServer();
@@ -150,7 +150,10 @@ const outputPairs = computed(() => {
   const m = server.meters;
   const activeIdx = new Set((m?.master_channels ?? []).map((mc: any) => mc.index as number));
 
-  const mainLabel = server.devices.find((d: any) => d.is_default)?.display_name ?? 'Main';
+  const configuredId = (currentProject.value as any)?.settings?.defaultOutputDevice;
+  const mainLabel = configuredId
+    ? (server.devices.find((d: any) => d.id === configuredId)?.display_name ?? 'Main')
+    : (server.devices.find((d: any) => d.is_default)?.display_name ?? 'Main');
   const pairs: Array<{ key: string; leftIndex: number; rightIndex: number; label: string }> = [];
 
   // Main output — always visible

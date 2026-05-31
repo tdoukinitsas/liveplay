@@ -59,7 +59,8 @@
     "importAudio": "Εισαγωγή Ήχου",
     "noProject": "Κανένα Έργο",
     "silenceWarning": "ΠΡΟΕΙΔΟΠΟΙΗΣΗ: ΣΙΩΠΗ ΣΕ",
-    "seconds": "ΔΕΥΤΕΡΟΛΕΠΤΑ"
+    "seconds": "ΔΕΥΤΕΡΟΛΕΠΤΑ",
+    "clock": "Ρολόι"
   },
   "playlist": {
     "title": "Λίστα Αναπαραγωγής",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "Ιδιότητες",
+    "multipleItemsSelected": "{count} στοιχεία επιλεγμένα",
+    "peakWarning": "Αυτό το στοιχείο έχει επίπεδα έντασης που υπερβαίνουν το brickwall όριο για τον επιλεγμένο στόχο εξόδου. Ρυθμίστε την ένταση στον πίνακα Ιδιότητες ή αλλάξτε τον Στόχο Εξόδου.",
     "noSelection": "Επιλέξτε ένα στοιχείο για να δείτε τις ιδιότητες",
     "displayName": "Όνομα Εμφάνισης",
     "color": "Χρώμα",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "Συσκευή που χρησιμοποιείται κατά την προεπισκόπηση ενδείξεων με το κουμπί ακουστικών.",
     "ltcDevice": "Συσκευή LTC",
     "ltcDeviceHelp": "Συσκευή για αποστολή LTC timecode (προαιρετικό).",
+    "outputTarget": "Στόχος εξόδου",
+    "outputTargetHelp": "Ορίζει το επίπεδο brickwall limiter, τα χρώματα ζωνών μετρητή, τα χρώματα κυματομορφής και τον στόχο αυτόματης έντασης για αυτό το έργο.",
+    "outputTargetEbuR128": "EBU R128 (Εκπομπή / Τηλεόραση)",
+    "outputTargetStreaming": "Streaming (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "Ραδιοφωνική εκπομπή",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "Live (Ψηφιακή κονσόλα / Ζωντανή εκδήλωση)",
+    "meterMode": "Εμφάνιση μετρητή",
+    "meterModeHelp": "Μονάδα που εμφανίζεται σε όλους τους στερεοφωνικούς μετρητές.",
+    "meterModeLufs": "LUFS (Ολοκληρωμένη δυναμική)",
+    "meterModeDbfs": "dBFS (Ψηφιακή πλήρης κλίμακα)",
+    "meterModeDbtp": "dBTP (Αληθινή κορυφή)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "Χρήση προεπιλογής εκδήλωσης",
     "noneSelected": "Δεν επιλέχθηκε",
     "save": "Αποθήκευση",

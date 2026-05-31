@@ -59,7 +59,8 @@
     "importAudio": "오디오 가져오기",
     "noProject": "프로젝트 없음",
     "silenceWarning": "경고: 무음까지",
-    "seconds": "초"
+    "seconds": "초",
+    "clock": "시계"
   },
   "playlist": {
     "title": "재생 목록",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "속성",
+    "multipleItemsSelected": "{count}개 항목 선택됨",
+    "peakWarning": "이 항목의 볼륨 수준이 선택된 출력 대상의 브릭월 한도를 초과합니다. 속성 패널에서 볼륨을 조정하거나 출력 대상을 변경하세요.",
     "noSelection": "속성을 보려면 항목을 선택하세요",
     "displayName": "표시 이름",
     "color": "색상",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "헤드폰 버튼으로 큐를 미리 들을 때 사용하는 장치.",
     "ltcDevice": "LTC 장치",
     "ltcDeviceHelp": "LTC 타임코드 전송에 사용하는 장치 (선택 사항).",
+    "outputTarget": "출력 대상",
+    "outputTargetHelp": "이 프로젝트의 브릭월 리미터 레벨, 미터 존 색상, 파형 색상 및 자동 볼륨 대상을 설정합니다.",
+    "outputTargetEbuR128": "EBU R128 (방송 / 포스트)",
+    "outputTargetStreaming": "스트리밍 (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "라디오 방송",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "라이브 (디지털 콘솔)",
+    "meterMode": "미터 표시",
+    "meterModeHelp": "모든 스테레오 미터에 표시되는 단위.",
+    "meterModeLufs": "LUFS (통합 라우드니스)",
+    "meterModeDbfs": "dBFS (디지털 풀 스케일)",
+    "meterModeDbtp": "dBTP (트루 피크)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "프로젝트 기본값 사용",
     "noneSelected": "선택 안 됨",
     "save": "저장",

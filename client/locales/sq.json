@@ -59,7 +59,8 @@
     "importAudio": "Importo Audio",
     "noProject": "Asnjë Projekt",
     "silenceWarning": "PARALAJMËRIM: HESHTJE NË",
-    "seconds": "SEKONDA"
+    "seconds": "SEKONDA",
+    "clock": "Orë"
   },
   "playlist": {
     "title": "Lista e Luajtjes",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "Vetitë",
+    "multipleItemsSelected": "{count} artikuj të zgjedhur",
+    "peakWarning": "Ky artikull ka nivele volume që tejkalojnë limitin brickwall të objektivit të zgjedhur të daljes. Rregulloni volumin në panelin Vetitë ose ndryshoni Objektivin e Daljes.",
     "noSelection": "Zgjidh një artikull për të parë vetitë",
     "displayName": "Emri i Shfaqur",
     "color": "Ngjyra",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "Pajisja e përdorur gjatë paraparimit të sinjaleve me butonin e kufjeve.",
     "ltcDevice": "Pajisja LTC",
     "ltcDeviceHelp": "Pajisja e përdorur për dërgimin e kodit LTC të kohës (opsionale).",
+    "outputTarget": "Objektivi i daljes",
+    "outputTargetHelp": "Cakton nivelin e kufizuesit brickwall, ngjyrat e zonave të matësit, ngjyrat e formës së valës dhe objektivin e rregullimit automatik të volumit për këtë projekt.",
+    "outputTargetEbuR128": "EBU R128 (Transmetim / Post)",
+    "outputTargetStreaming": "Transmetim (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "Transmetim radio",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "Live (Konsol dixhital)",
+    "meterMode": "Shfaqja e matësit",
+    "meterModeHelp": "Njësia e shfaqur në të gjithë matësit stereo.",
+    "meterModeLufs": "LUFS (Zëri i integruar)",
+    "meterModeDbfs": "dBFS (Shkalla e plotë dixhitale)",
+    "meterModeDbtp": "dBTP (Majë e vërtetë)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "Përdor të paracaktuarën e projektit",
     "noneSelected": "Asnjë e zgjedhur",
     "save": "Ruaj",

@@ -59,7 +59,8 @@
     "importAudio": "وارد کردن صدا",
     "noProject": "بدون پروژه",
     "silenceWarning": "هشدار: سکوت در",
-    "seconds": "ثانیه"
+    "seconds": "ثانیه",
+    "clock": "ساعت"
   },
   "playlist": {
     "title": "لیست پخش",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "خصوصیات",
+    "multipleItemsSelected": "{count} مورد انتخاب شده",
+    "peakWarning": "این مورد دارای سطوح صوتی است که از محدودیت brickwall هدف خروجی انتخاب شده فراتر می‌رود. در پنل خصوصیات، صدا را تنظیم کنید یا هدف خروجی را تغییر دهید.",
     "noSelection": "برای مشاهده خصوصیات یک مورد را انتخاب کنید",
     "displayName": "نام نمایشی",
     "color": "رنگ",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "دستگاهی که هنگام پیش‌نمایش سیگنال با دکمه هدفون استفاده می‌شود.",
     "ltcDevice": "دستگاه LTC",
     "ltcDeviceHelp": "دستگاه مورد استفاده برای ارسال LTC timecode (اختیاری).",
+    "outputTarget": "هدف خروجی",
+    "outputTargetHelp": "سطح محدودکننده آجری، رنگ‌های ناحیه سنجش، رنگ‌های شکل موج و هدف تنظیم خودکار صدا را برای این پروژه تنظیم می‌کند.",
+    "outputTargetEbuR128": "EBU R128 (پخش / پست)",
+    "outputTargetStreaming": "پخش آنلاین (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "پخش رادیویی",
+    "outputTargetNetflix": "نتفلیکس / OTT",
+    "outputTargetLive": "زنده (کنسول دیجیتال)",
+    "meterMode": "نمایش سنجش",
+    "meterModeHelp": "واحد نمایش داده شده در همه سنجش‌های استریو.",
+    "meterModeLufs": "LUFS (بلندی یکپارچه)",
+    "meterModeDbfs": "dBFS (مقیاس کامل دیجیتال)",
+    "meterModeDbtp": "dBTP (قله واقعی)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "استفاده از پیش‌فرض پروژه",
     "noneSelected": "انتخاب نشده",
     "save": "ذخیره",

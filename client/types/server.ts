@@ -110,6 +110,26 @@ export interface ServerWaveformChannel {
   rms: number[];
 }
 
+// ---------------------------------------------------------------------------
+// Output Target — loudness platform standard levels reported by the server.
+// Never hardcoded in the client; always read from settings.outputTargetLevels.
+// ---------------------------------------------------------------------------
+export type OutputTargetId = 'ebu-r128' | 'streaming' | 'radio' | 'netflix' | 'live';
+export type MeterMode      = 'dBTP' | 'dBFS' | 'LUFS' | 'RMS';
+
+export interface OutputTargetLevels {
+  blueBelow:          number;  // meter reads blue below this value
+  greenMin:           number;  // green zone start
+  greenMax:           number;  // green zone end
+  yellowMin:          number;  // yellow zone start
+  yellowMax:          number;  // yellow zone end
+  redAbove:           number;  // same as yellowMax / hard limit
+  limiterCeilingDb:   number;  // brickwall ceiling for this platform
+  autoVolumeTargetDb: number;  // target for the auto-volume feature
+  meterUnit:          MeterMode;   // recommended meter display unit
+  waveformColor:      string;  // CSS hex color for the properties-panel waveform
+}
+
 export interface ServerWaveform {
   cue_id?: CueId;
   bucket_count: number;

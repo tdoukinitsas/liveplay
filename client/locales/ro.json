@@ -59,7 +59,8 @@
     "importAudio": "Importa Audio",
     "noProject": "Niciun Proiect",
     "silenceWarning": "ATENTIE: SILENCE IN",
-    "seconds": "SECUNDE"
+    "seconds": "SECUNDE",
+    "clock": "Ceas"
   },
   "playlist": {
     "title": "Lista de redare",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "Proprietati",
+    "multipleItemsSelected": "{count} elemente selectate",
+    "peakWarning": "Acest element are niveluri de volum care depășesc limita brickwall pentru destinația de ieșire selectată. Ajustați volumul în panoul Proprietăți sau schimbați destinația de ieșire.",
     "noSelection": "Selecteaza un fisier pentru a vedea proprietățile",
     "displayName": "Nume afisat",
     "color": "Culoare",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "Dispozitiv folosit la previzualizarea semnalelor cu butonul pentru căști.",
     "ltcDevice": "Dispozitiv LTC",
     "ltcDeviceHelp": "Dispozitiv folosit pentru a trimite codul de timp LTC (opțional).",
+    "outputTarget": "Destinație de ieșire",
+    "outputTargetHelp": "Setează nivelul limitatorului brickwall, culorile zonelor contoarelor, culorile formelor de undă și ținta ajustării automate a volumului pentru acest proiect.",
+    "outputTargetEbuR128": "EBU R128 (Difuzare / Post)",
+    "outputTargetStreaming": "Streaming (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "Difuzare radio",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "Live (Consolă digitală)",
+    "meterMode": "Afișaj contor",
+    "meterModeHelp": "Unitate afișată pe toate contoarele stereo.",
+    "meterModeLufs": "LUFS (Volum integrat)",
+    "meterModeDbfs": "dBFS (Scară digitală completă)",
+    "meterModeDbtp": "dBTP (Vârf real)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "Folosește implicit proiect",
     "noneSelected": "Neselectat",
     "save": "Salvează",

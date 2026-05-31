@@ -59,7 +59,8 @@
     "importAudio": "Importera ljud",
     "noProject": "Inget projekt",
     "silenceWarning": "VARNING: TYSTNAD OM",
-    "seconds": "SEKUNDER"
+    "seconds": "SEKUNDER",
+    "clock": "Klocka"
   },
   "playlist": {
     "title": "Spellista",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "Egenskaper",
+    "multipleItemsSelected": "{count} objekt valda",
+    "peakWarning": "Det här objektet har volymnivåer som överstiger brickwall-gränsen för det valda utgångsmålet. Justera volymen i egenskapspanelen eller byt utgångsmål.",
     "noSelection": "Välj ett objekt för att visa egenskaper",
     "displayName": "Visningsnamn",
     "color": "Färg",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "Enhet som används vid förhandsgranskning av signaler med hörlursknappen.",
     "ltcDevice": "LTC-enhet",
     "ltcDeviceHelp": "Enhet som används för att skicka LTC-tidkod (valfritt).",
+    "outputTarget": "Utgångsmål",
+    "outputTargetHelp": "Ställer in brickwall-begränsarnivå, mätarzonsfärger, vågformsfärger och mål för automatisk volymanpassning för projektet.",
+    "outputTargetEbuR128": "EBU R128 (sändning / post)",
+    "outputTargetStreaming": "Streaming (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "Radiosändning",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "Live (digital mixer)",
+    "meterMode": "Mätarvisning",
+    "meterModeHelp": "Enhet som visas på alla stereomätare.",
+    "meterModeLufs": "LUFS (integrerad loudness)",
+    "meterModeDbfs": "dBFS (digital fullskala)",
+    "meterModeDbtp": "dBTP (sant toppvärde)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "Använd projektstandard",
     "noneSelected": "Ej vald",
     "save": "Spara",

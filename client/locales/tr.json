@@ -59,7 +59,8 @@
     "importAudio": "Ses İçe Aktar",
     "noProject": "Proje Yok",
     "silenceWarning": "UYARI: SESSİZLİK",
-    "seconds": "SANİYE"
+    "seconds": "SANİYE",
+    "clock": "Saat"
   },
   "playlist": {
     "title": "Çalma Listesi",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "Özellikler",
+    "multipleItemsSelected": "{count} öğe seçildi",
+    "peakWarning": "Bu öğenin ses düzeyleri, seçilen çıkış hedefinin brickwall sınırını aşıyor. Özellikler panelinden ses düzeyini ayarlayın veya Çıkış Hedefini değiştirin.",
     "noSelection": "Özellikleri görüntülemek için bir öğe seçin",
     "displayName": "Görünen Ad",
     "color": "Renk",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "Kulaklık düğmesiyle sinyalleri ön izlerken kullanılan cihaz.",
     "ltcDevice": "LTC Cihazı",
     "ltcDeviceHelp": "LTC zaman kodu göndermek için kullanılan cihaz (isteğe bağlı).",
+    "outputTarget": "Çıkış Hedefi",
+    "outputTargetHelp": "Bu proje için brickwall sınırlayıcı seviyesini, metre bölge renklerini, dalga formu renklerini ve otomatik ses seviyesi hedefini ayarlar.",
+    "outputTargetEbuR128": "EBU R128 (Yayın / Post)",
+    "outputTargetStreaming": "Yayın Akışı (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "Radyo Yayını",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "Canlı (Dijital Konsol)",
+    "meterMode": "Metre Görünümü",
+    "meterModeHelp": "Tüm stereo metrelerde gösterilen birim.",
+    "meterModeLufs": "LUFS (Entegre Yükseklik)",
+    "meterModeDbfs": "dBFS (Dijital Tam Ölçek)",
+    "meterModeDbtp": "dBTP (Gerçek Tepe)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "Proje varsayılanını kullan",
     "noneSelected": "Seçilmedi",
     "save": "Kaydet",

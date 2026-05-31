@@ -11,6 +11,7 @@
 #include "liveplay/core/project_state.hpp"
 #include "liveplay/crash_handler.hpp"
 #include "liveplay/logger.hpp"
+#include "liveplay/util/unicode_path.hpp"
 #include "liveplay/net/control_server.hpp"
 #include "liveplay/net/discovery.hpp"
 
@@ -656,12 +657,13 @@ int main(int argc, char** argv) {
     if (crash_resume) {
         namespace fs = std::filesystem;
         std::error_code ec;
-        if (fs::exists(fs::path{crash_resume->project_file}, ec)) {
+        const auto resume_fspath = util::utf8_to_path(crash_resume->project_file);
+        if (fs::exists(resume_fspath, ec)) {
             Logger::info("Crash-resume: loading project '{}'", crash_resume->project_file);
-            if (project->load(fs::path{crash_resume->project_file})) {
+            if (project->load(resume_fspath)) {
                 // Update project dir for crash handler and logs.
                 set_crash_project_dir(
-                    fs::path{crash_resume->project_file}.parent_path().string());
+                    util::path_to_utf8(resume_fspath.parent_path()));
                 if (!crash_resume->item_uuid.empty()) {
                     pending_resume = PendingResume{
                         crash_resume->item_uuid,

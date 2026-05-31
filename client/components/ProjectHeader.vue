@@ -1,26 +1,37 @@
 <template>
   <div class="project-header">
     <div class="header-left">
-      <img 
+      <img
         :src="isDark ? './assets/icons/SVG/liveplay-icon-darkmode@web.svg' : './assets/icons/SVG/liveplay-icon-lightmode@web.svg'"
         alt="LivePlay"
         class="header-logo"
       />
       <h2 class="project-name">{{ currentProject?.name || t('project.noProject') }}</h2>
     </div>
-    
-    <div 
-      v-if="silenceWarning" 
+
+    <div
+      v-if="silenceWarning"
       class="silence-warning"
       :class="silenceWarningClass"
     >
       {{ t('project.silenceWarning') }} {{ Math.ceil(silenceWarning) }} {{ t('project.seconds') }}
     </div>
-    
+
     <div class="header-right">
       <Btn icon="tune" :text="t('settings.title')" @click="showProjectSettings = true" />
       <Btn icon="keyboard" :text="t('controls.shortcutBtn')" @click="showControlConfig = true" />
-      <div class="digital-clock">{{ currentTime }}</div>
+
+      <!-- Clock pair: wall clock + LTC timecode, always both visible -->
+      <div class="clock-pair">
+        <div class="digital-clock clock--active">
+          <span class="clock-label">{{ t('project.clock') }}</span>
+          <span class="clock-value">{{ currentTime }}</span>
+        </div>
+        <div class="digital-clock" :class="ltcTimecode ? 'clock--active' : 'clock--inactive'">
+          <span class="clock-label">LTC</span>
+          <span class="clock-value">{{ ltcTimecode ?? '--:--:--:--' }}</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -37,6 +48,7 @@
 <script setup lang="ts">
 import ProjectSettingsModal from './ProjectSettingsModal.vue';
 import Btn from './Btn.vue';
+import type { AudioItem } from '~/types/project';
 
 const { currentProject, findItemByUuid, findItemByIndex } = useProject();
 const { t } = useLocalization();
@@ -48,166 +60,147 @@ const showProjectSettings = useState('showProjectSettings', () => false);
 const isDark = computed(() => currentProject.value?.theme.mode === 'dark');
 const currentTime = ref('00:00:00');
 
-// Silence warning system
+// ---- Silence warning -------------------------------------------------------
+
 const silenceWarning = ref<number | null>(null);
 
 const silenceWarningClass = computed(() => {
   if (!silenceWarning.value) return '';
-  
   const seconds = silenceWarning.value;
-  if (seconds <= 5) return 'flash-fast'; // Fast red flash
-  if (seconds <= 10) return 'flash-medium'; // Medium red flash
-  if (seconds <= 30) return 'flash-slow'; // Slow orange flash
-  return 'warning-yellow'; // Yellow background
+  if (seconds <= 5) return 'flash-fast';
+  if (seconds <= 10) return 'flash-medium';
+  if (seconds <= 30) return 'flash-slow';
+  return 'warning-yellow';
 });
 
-// Check if we're approaching silence
 const checkForSilence = () => {
   if (!currentProject.value || activeCues.value.size === 0) {
     silenceWarning.value = null;
     return;
   }
-  
-  // Track when each cue will end
+
   const cueEndTimes = new Map<string, { time: number; hasValidBehavior: boolean }>();
-  
-  // Collect end times and behaviors for all cues
+
   for (const [uuid, cue] of activeCues.value) {
     const item = findItemByUuid(uuid);
     if (!item || item.type !== 'audio') continue;
-    
     const audioItem = item as any;
     const timeRemaining = cue.duration - cue.currentTime;
     const hasValidEndBehavior = validateEndBehavior(audioItem);
-    
-    cueEndTimes.set(uuid, {
-      time: timeRemaining,
-      hasValidBehavior: hasValidEndBehavior
-    });
+    cueEndTimes.set(uuid, { time: timeRemaining, hasValidBehavior: hasValidEndBehavior });
   }
-  
-  // Special case: only one cue playing
+
   if (cueEndTimes.size === 1) {
-    const [uuid, { time, hasValidBehavior }] = Array.from(cueEndTimes.entries())[0];
-    if (!hasValidBehavior && time <= 60) {
-      silenceWarning.value = time;
-      return;
-    }
-    silenceWarning.value = null;
+    const [, { time, hasValidBehavior }] = Array.from(cueEndTimes.entries())[0];
+    silenceWarning.value = (!hasValidBehavior && time <= 60) ? time : null;
     return;
   }
-  
-  // Multiple cues: find the minimum time until we have NO active cues
+
   let minTimeToActualSilence = Infinity;
-  
-  // Sort cues by end time
-  const sortedCues = Array.from(cueEndTimes.entries())
-    .sort((a, b) => a[1].time - b[1].time);
-  
-  // Check each point in time where a cue ends
+  const sortedCues = Array.from(cueEndTimes.entries()).sort((a, b) => a[1].time - b[1].time);
+
   for (let i = 0; i < sortedCues.length; i++) {
-    const [uuid, { time, hasValidBehavior }] = sortedCues[i];
-    
-    // Count how many cues will still be playing at this time
+    const [, { time, hasValidBehavior }] = sortedCues[i];
     let cuesStillPlaying = 0;
-    let willSpawnNewCue = hasValidBehavior;
-    
     for (let j = 0; j < sortedCues.length; j++) {
-      if (i === j) continue; // Skip the cue that's ending
-      const otherTime = sortedCues[j][1].time;
-      if (otherTime > time) {
-        cuesStillPlaying++;
-      }
+      if (i === j) continue;
+      if (sortedCues[j][1].time > time) cuesStillPlaying++;
     }
-    
-    // If this cue ends and there are no other cues playing and it won't spawn a new cue
-    // then we have silence
-    if (cuesStillPlaying === 0 && !willSpawnNewCue) {
+    if (cuesStillPlaying === 0 && !hasValidBehavior) {
       minTimeToActualSilence = Math.min(minTimeToActualSilence, time);
-      break; // Found the first point of silence
+      break;
     }
   }
-  
-  // Only show warning if we're within 60 seconds of actual silence
-  if (minTimeToActualSilence <= 60 && minTimeToActualSilence !== Infinity) {
-    silenceWarning.value = minTimeToActualSilence;
-  } else {
-    silenceWarning.value = null;
-  }
+
+  silenceWarning.value = (minTimeToActualSilence <= 60 && minTimeToActualSilence !== Infinity)
+    ? minTimeToActualSilence
+    : null;
 };
 
-// Validate if end behavior will actually trigger something (not lead to silence)
 const validateEndBehavior = (audioItem: any): boolean => {
-  if (!audioItem.endBehavior || audioItem.endBehavior.action === 'nothing') {
-    return false; // No end behavior = silence
-  }
-  
+  if (!audioItem.endBehavior || audioItem.endBehavior.action === 'nothing') return false;
   const action = audioItem.endBehavior.action;
-  
   if (action === 'next' || action === 'play-next') {
-    // Check if there's actually a next item
     const currentIndex = audioItem.index;
     if (!currentIndex || !currentProject.value) return false;
-    
-    // Find parent and check for next sibling
     const parentIndex = currentIndex.slice(0, -1);
     const currentPosition = currentIndex[currentIndex.length - 1];
-    
     if (parentIndex.length === 0) {
-      // Top level - check project items
-      const nextItem = currentProject.value.items[currentPosition + 1];
-      return !!nextItem; // Valid if next item exists
+      return !!currentProject.value.items[currentPosition + 1];
     } else {
-      // Inside a group - need to find parent group
       const parent = findItemByIndex(parentIndex);
-      if (parent && parent.type === 'group') {
-        const nextItem = (parent as any).children[currentPosition + 1];
-        return !!nextItem; // Valid if next sibling exists
-      }
-      return false;
+      return !!(parent && parent.type === 'group' && (parent as any).children[currentPosition + 1]);
     }
   }
-  
   if (action === 'goto-item') {
-    // Check if target UUID is valid
-    const targetUuid = audioItem.endBehavior.targetUuid;
-    if (!targetUuid) return false;
-    
-    const targetItem = findItemByUuid(targetUuid);
-    return !!targetItem; // Valid if target item exists
+    return !!(audioItem.endBehavior.targetUuid && findItemByUuid(audioItem.endBehavior.targetUuid));
   }
-  
   if (action === 'goto-index') {
-    // Check if target index is valid
-    const targetIndex = audioItem.endBehavior.targetIndex;
-    if (!targetIndex || !Array.isArray(targetIndex)) return false;
-    
-    const targetItem = findItemByIndex(targetIndex);
-    return !!targetItem; // Valid if target index resolves to an item
+    const ti = audioItem.endBehavior.targetIndex;
+    return !!(ti && Array.isArray(ti) && findItemByIndex(ti));
   }
-  
-  if (action === 'loop') {
-    return true; // Loop always continues
-  }
-  
-  return false; // Unknown action = assume silence
+  if (action === 'loop') return true;
+  return false;
 };
+
+// ---- Wall clock ------------------------------------------------------------
 
 const updateClock = () => {
   const now = new Date();
-  const hours = now.getHours().toString().padStart(2, '0');
-  const minutes = now.getMinutes().toString().padStart(2, '0');
-  const seconds = now.getSeconds().toString().padStart(2, '0');
-  currentTime.value = `${hours}:${minutes}:${seconds}`;
+  currentTime.value = [
+    now.getHours(),
+    now.getMinutes(),
+    now.getSeconds(),
+  ].map(n => String(n).padStart(2, '0')).join(':');
 };
+
+// ---- LTC timecode ----------------------------------------------------------
+
+// Frame-rate lookup: index matches the ltcFrameRateIndex values in project.ts
+const FPS_TABLE = [24, 25, 29.97, 29.97, 30] as const;
+
+function parseTcToFrames(tc: string, fps: number): number {
+  const parts = tc.replace(';', ':').split(':');
+  if (parts.length !== 4) return 0;
+  const [h, m, s, f] = parts.map(Number);
+  return ((h * 3600 + m * 60 + s) * Math.round(fps)) + f;
+}
+
+function framesToTc(totalFrames: number, fps: number): string {
+  const fpsInt = Math.round(fps);
+  const f = totalFrames % fpsInt;
+  const totalSecs = Math.floor(totalFrames / fpsInt);
+  const s = totalSecs % 60;
+  const m = Math.floor(totalSecs / 60) % 60;
+  const h = Math.floor(totalSecs / 3600);
+  return [h, m, s, f].map(n => String(n).padStart(2, '0')).join(':');
+}
+
+// Returns the current LTC timecode string if any active cue is outputting LTC
+// to a configured LTC device, otherwise null (→ box shown grey with dashes).
+const ltcTimecode = computed<string | null>(() => {
+  const ltcDevice = (currentProject.value as any)?.settings?.ltcDevice;
+  if (!ltcDevice) return null;
+
+  for (const [uuid, cue] of activeCues.value) {
+    const item = findItemByUuid(uuid);
+    if (!item || item.type !== 'audio') continue;
+    const ai = item as AudioItem & { ltcEnabled?: boolean; ltcFrameRateIndex?: number; ltcStartTimecode?: string };
+    if (!ai.ltcEnabled) continue;
+
+    const fps = FPS_TABLE[ai.ltcFrameRateIndex ?? 4] ?? 30;
+    const startTc = ai.ltcStartTimecode ?? '00:00:00:00';
+    const startFrames = parseTcToFrames(startTc, fps);
+    const elapsedFrames = Math.floor(cue.currentTime * fps);
+    return framesToTc(startFrames + elapsedFrames, fps);
+  }
+  return null;
+});
 
 onMounted(() => {
   updateClock();
   const clockInterval = setInterval(updateClock, 1000);
-  
-  // Check for silence every 100ms for accuracy
   const silenceInterval = setInterval(checkForSilence, 100);
-  
   onUnmounted(() => {
     clearInterval(clockInterval);
     clearInterval(silenceInterval);
@@ -217,7 +210,7 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .project-header {
-  position: relative; // For absolute positioning of warning
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -252,18 +245,51 @@ onMounted(() => {
   gap: var(--spacing-md);
 }
 
+/* Two clocks side-by-side, never re-arrange */
+.clock-pair {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: stretch;
+}
 
 .digital-clock {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-accent);
-  letter-spacing: 0.05em;
-  padding: var(--spacing-xs) var(--spacing-md);
-  border: 2px solid var(--color-accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px var(--spacing-md);
+  border: 2px solid currentColor;
   border-radius: var(--border-radius-md);
   background-color: var(--color-surface);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  transition: all var(--transition-base);
+  transition: color var(--transition-base), border-color var(--transition-base);
+  min-width: 110px;
+}
+
+.clock--active {
+  color: var(--color-accent);
+}
+
+.clock--inactive {
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+}
+
+.clock-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.clock-value {
+  font-family: var(--font-mono, monospace);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
 }
 
 .silence-warning {
@@ -279,38 +305,12 @@ onMounted(() => {
   z-index: 10;
 }
 
-.silence-warning.warning-yellow {
-  background-color: #fbbf24; /* Yellow */
-}
+.silence-warning.warning-yellow  { background-color: #fbbf24; }
+.silence-warning.flash-slow      { background-color: #fbbf24; animation: flash-slow   2s   ease-in-out infinite; }
+.silence-warning.flash-medium    { background-color: #f56d1f; animation: flash-medium 1s   ease-in-out infinite; }
+.silence-warning.flash-fast      { background-color: #dc2626; color: #fff; animation: flash-fast 0.5s ease-in-out infinite; }
 
-.silence-warning.flash-slow {
-  background-color: #fbbf24; /* Yellow with flash */
-  animation: flash-slow 2s ease-in-out infinite;
-}
-
-.silence-warning.flash-medium {
-  background-color: #f56d1f; /* Red */
-  animation: flash-medium 1s ease-in-out infinite;
-}
-
-.silence-warning.flash-fast {
-  background-color: #dc2626; /* Dark red */
-  color: #fff;
-  animation: flash-fast 0.5s ease-in-out infinite;
-}
-
-@keyframes flash-slow {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
-}
-
-@keyframes flash-medium {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
-}
-
-@keyframes flash-fast {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
-}
+@keyframes flash-slow   { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+@keyframes flash-medium { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+@keyframes flash-fast   { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
 </style>

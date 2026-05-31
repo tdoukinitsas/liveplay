@@ -59,6 +59,19 @@
     "previewDeviceHelp": "Device used when previewing cues with the headphones button.",
     "ltcDevice": "LTC Device",
     "ltcDeviceHelp": "Device used to send LTC timecode (optional).",
+    "outputTarget": "Output Target",
+    "outputTargetHelp": "Sets the brickwall limiter level, meter zone colours, waveform colours, and auto-volume target for this project.",
+    "outputTargetEbuR128": "EBU R128 (Broadcast / Post)",
+    "outputTargetStreaming": "Streaming (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "Radio Broadcast",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "Live (Digital Console)",
+    "meterMode": "Meter Display",
+    "meterModeHelp": "Unit shown on all stereo meters.",
+    "meterModeLufs": "LUFS (Integrated Loudness)",
+    "meterModeDbfs": "dBFS (Digital Full Scale)",
+    "meterModeDbtp": "dBTP (True Peak)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "Use project default",
     "noneSelected": "Not selected",
     "save": "Save",
@@ -79,7 +92,8 @@
     "importAudio": "Import Audio",
     "noProject": "No Project",
     "silenceWarning": "WARNING: SILENCE IN",
-    "seconds": "SECONDS"
+    "seconds": "SECONDS",
+    "clock": "Clock"
   },
   "playlist": {
     "title": "Playlist",
@@ -127,6 +141,8 @@
   },
   "properties": {
     "title": "Properties",
+    "multipleItemsSelected": "{count} items selected",
+    "peakWarning": "This item has volume levels that exceed the brickwall limit for your selected output target. Adjust the volume in the Properties panel or change the Output Target.",
     "noSelection": "Select an item to view properties",
     "displayName": "Display Name",
     "color": "Color",

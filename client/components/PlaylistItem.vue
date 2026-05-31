@@ -55,7 +55,14 @@
           <span class="material-symbols-rounded">folder</span>
         </span>
         
-        <span class="item-name">{{ item.displayName }}</span>
+        <span class="item-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
+        <span
+          v-if="isPeaking"
+          class="material-symbols-rounded peak-warning-icon"
+          :title="t('properties.peakWarning')"
+          draggable="false"
+          @click.stop
+        >bomb</span>
 
         <span v-if="isPlaying" class="status-pill playing">{{ t('status.playing') }}</span>
         <span v-else-if="isQueuedNext" class="status-pill up-next">{{ t('status.upNext') }}</span>
@@ -173,6 +180,7 @@
 <script setup lang="ts">
 import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
 import ActionButton from './ActionButton.vue';
+import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 
 const props = defineProps<{
   item: AudioItem | GroupItem;
@@ -180,6 +188,7 @@ const props = defineProps<{
 }>();
 
 const { selectedItem, selectedItems, toggleItemSelection, openItemProperties, removeItem, findItemByUuid, currentProject, waveformUpdateKey, triggerWaveformUpdate } = useProject();
+const { levels: outputTargetLevels } = useOutputTarget();
 const { playCue, stopCue, activeCues, activeGroups, triggerGroup, nextItemOverrideUuid, autoNextItemUuid, setNextItem } = useAudioEngine();
 const { t } = useLocalization();
 
@@ -200,6 +209,20 @@ const isGroupPlaying = computed(() => props.item.type === 'group' && activeGroup
 
 const indexDisplay = computed(() => {
   return props.item.index.join(',');
+});
+
+// True when the item's peak amplitude × volume would exceed the brickwall
+// ceiling for the active output target. Reactive: recomputes whenever the
+// output target or volume changes mid-session.
+const isPeaking = computed(() => {
+  if (props.item.type !== 'audio') return false;
+  const audio = props.item as AudioItem;
+  const peaks = audio.waveform?.peaks;
+  if (!peaks || peaks.length === 0) return false;
+  const maxPeak = peaks.reduce((m, v) => (v > m ? v : m), 0);
+  const volume = audio.volume ?? 1;
+  const linearCeiling = Math.pow(10, outputTargetLevels.value.limiterCeilingDb / 20);
+  return maxPeak * volume > linearCeiling;
 });
 
 const durationDisplay = computed(() => {
@@ -260,17 +283,11 @@ const drawWaveform = () => {
   
   // Clear canvas
   ctx.clearRect(0, 0, rect.width, rect.height);
-  
-  // Get computed text color for waveform
-  const computedStyle = getComputedStyle(canvas);
-  const textColor = computedStyle.getPropertyValue('color');
-  
-  // Parse RGB values - use full opacity, canvas element itself has opacity set via CSS
-  const rgb = textColor.match(/\d+/g);
-  if (!rgb) return;
-  
-  ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-  
+
+  // Use the item's own colour so the waveform tints to match the row.
+  // The canvas has opacity:0.1 applied in CSS, giving a naturally dark tint.
+  ctx.fillStyle = audioItem.color || '#ffffff';
+
   const peaks = audioItem.waveform.peaks;
   
   // Calculate trimmed region if in/out points are set
@@ -286,17 +303,11 @@ const drawWaveform = () => {
   
   const barWidth = rect.width / trimmedPeaks.length;
   const centerY = rect.height / 2;
-  
-  // Apply volume scaling to waveform display
-  const volumeMultiplier = audioItem.volume || 1.0;
-  
+
   trimmedPeaks.forEach((value, i) => {
-    // Volume scales the linear amplitude first (so cutting volume in half
-    // shrinks the peaks, doubling can push them to clip), then gamma 2
-    // expansion makes the remaining dynamics visible. 0 and 1 stay fixed;
-    // 0.5 → 0.25, 0.8 → 0.64.
-    const scaled = Math.min(1, Math.max(0, value * volumeMultiplier));
-    const shaped = scaled * scaled;
+    // Gamma 2 expansion: shows dynamics without blowing up loud tracks.
+    const clamped = Math.min(1, Math.max(0, value));
+    const shaped = clamped * clamped;
     const barHeight = shaped * rect.height * 0.8;
     const x = i * barWidth;
     const y = centerY - barHeight / 2;
@@ -375,7 +386,6 @@ onUnmounted(() => {
 // rendering, and skip drawing when the item is not visible.
 watch([
   () => (props.item as AudioItem | GroupItem).color,
-  () => (props.item as AudioItem).volume,
   () => (props.item as AudioItem).inPoint,
   () => (props.item as AudioItem).outPoint,
   () => (props.item as AudioItem).waveform?.peaks,
@@ -852,6 +862,18 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--color-text-primary);
+
+  &.is-peaking {
+    color: #ff3b5c;
+  }
+}
+
+.peak-warning-icon {
+  font-size: 18px;
+  color: #ff3b5c;
+  flex-shrink: 0;
+  cursor: help;
+  line-height: 1;
 }
 
 .item-duration {

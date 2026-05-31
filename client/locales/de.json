@@ -59,7 +59,8 @@
     "importAudio": "Audio importieren",
     "noProject": "Kein Projekt",
     "silenceWarning": "WARNUNG: STILLE IN",
-    "seconds": "SEKUNDEN"
+    "seconds": "SEKUNDEN",
+    "clock": "Uhr"
   },
   "playlist": {
     "title": "Wiedergabeliste",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "Eigenschaften",
+    "multipleItemsSelected": "{count} Elemente ausgewählt",
+    "peakWarning": "Dieses Element hat Lautstärkepegel, die das Brickwall-Limit für das gewählte Ausgabeziel überschreiten. Passen Sie die Lautstärke im Eigenschaftenfenster an oder ändern Sie das Ausgabeziel.",
     "noSelection": "Wählen Sie ein Element aus, um die Eigenschaften anzuzeigen",
     "displayName": "Anzeigename",
     "color": "Farbe",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "Gerät für die Signalvorschau über den Kopfhörer-Button.",
     "ltcDevice": "LTC-Gerät",
     "ltcDeviceHelp": "Gerät zum Senden von LTC-Timecode (optional).",
+    "outputTarget": "Ausgabeziel",
+    "outputTargetHelp": "Legt Brickwall-Limiter-Pegel, Messzonenfarben, Wellenformfarben und Auto-Lautstärke-Ziel für dieses Projekt fest.",
+    "outputTargetEbuR128": "EBU R128 (Rundfunk / Post)",
+    "outputTargetStreaming": "Streaming (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "Radioübertragung",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "Live (Digital-Mischpult)",
+    "meterMode": "Pegelanzeige",
+    "meterModeHelp": "Einheit auf allen Stereo-Pegelmessern.",
+    "meterModeLufs": "LUFS (Integrierte Lautheit)",
+    "meterModeDbfs": "dBFS (Digitaler Vollpegel)",
+    "meterModeDbtp": "dBTP (Wahrer Spitzenpegel)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "Projektstandard verwenden",
     "noneSelected": "Nicht ausgewählt",
     "save": "Speichern",

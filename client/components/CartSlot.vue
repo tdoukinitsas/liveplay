@@ -13,6 +13,11 @@
     }"
     :style="slotStyle"
   >
+    <!-- Audio Import Modal — server browse + upload, same as PlaylistView -->
+    <AudioImportModal :open="showImportModal"
+                      @pick="onImportPick"
+                      @close="showImportModal = false" />
+
     <div v-if="!hasItem" class="empty-slot" @click="handleImport">
       <span class="slot-number">{{ slot + 1 }}</span>
       <span v-if="keyLabel" class="key-label">{{ keyLabel }}</span>
@@ -39,7 +44,14 @@
       <!-- Item info section -->
       <div class="slot-header" @click="handleSelect">
         <span class="slot-number">{{ slot + 1 }}</span>
-        <span class="slot-name">{{ item.displayName }}</span>
+        <span class="slot-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
+        <span
+          v-if="isPeaking"
+          class="material-symbols-rounded peak-warning-icon"
+          :title="t('properties.peakWarning')"
+          draggable="false"
+          @click.stop
+        >bomb</span>
         <span v-if="isPlaying" class="status-pill playing">{{ t('status.playing') }}</span>
         <span v-else-if="isQueuedNext" class="status-pill up-next">{{ t('status.upNext') }}</span>
         <span v-if="keyLabel" class="key-label">{{ keyLabel }}</span>
@@ -153,8 +165,11 @@
 
 <script setup lang="ts">
 import { triggerRef } from 'vue';
+import { v4 as uuidv4 } from 'uuid';
 import type { AudioItem } from '~/types/project';
 import ActionButton from './ActionButton.vue';
+import AudioImportModal from './AudioImportModal.vue';
+import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 
 const props = defineProps<{
   slot: number;
@@ -163,8 +178,10 @@ const props = defineProps<{
 }>();
 
 const slotRef = ref<HTMLElement | null>(null);
+const showImportModal = ref(false);
 
 const { currentProject, selectedItems, findItemByUuid, triggerWaveformUpdate } = useProject();
+const { levels: outputTargetLevels } = useOutputTarget();
 const { playCue, stopCue, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem } = useAudioEngine();
 const { t } = useLocalization();
 const { addCartOnlyItem, updateCartOnlyItem, removeCartOnlyItem } = useCartItems();
@@ -177,6 +194,16 @@ const warningState = ref<'yellow' | 'orange' | 'red' | null>(null);
 const isDragOver = ref(false);
 
 const hasItem = computed(() => props.item !== null);
+
+const isPeaking = computed(() => {
+  if (!props.item || props.item.type !== 'audio') return false;
+  const peaks = props.item.waveform?.peaks;
+  if (!peaks || peaks.length === 0) return false;
+  const maxPeak = peaks.reduce((m, v) => (v > m ? v : m), 0);
+  const volume = props.item.volume ?? 1;
+  const linearCeiling = Math.pow(10, outputTargetLevels.value.limiterCeilingDb / 20);
+  return maxPeak * volume > linearCeiling;
+});
 const isPlaying = computed(() => props.item ? activeCues.value.has(props.item.uuid) : false);
 const isSelected = computed(() => props.item ? selectedItems.value.has(props.item.uuid) : false);
 const isManuallyQueued = computed(() => props.item ? nextItemOverrideUuid.value === props.item.uuid : false);
@@ -264,149 +291,81 @@ onUnmounted(() => {
   }
 });
 
-const handleImport = async () => {
-  if (!import.meta.client || !window.electronAPI || !currentProject.value) return;
-  
-  const filePaths = await window.electronAPI.selectAudioFiles();
-  if (!filePaths || filePaths.length === 0) return;
-  
-  // Import first file to this slot
-  const filePath = filePaths[0];
-  await importAudioFileToSlot(filePath);
+const handleImport = () => {
+  if (!currentProject.value) return;
+  showImportModal.value = true;
 };
 
-const importAudioFileToSlot = async (filePath: string) => {
+// Called by AudioImportModal when the user picks a file (server path).
+const onImportPick = async (serverPath: string) => {
+  await importFromServerPath(serverPath);
+};
+
+// Import a file already on (or uploaded to) the server into this cart slot.
+// Mirrors PlaylistView.importFromServerPath but stores the result as a
+// cart-only item bound to this slot instead of adding it to the playlist.
+const importFromServerPath = async (serverPath: string) => {
   if (!currentProject.value) return;
-  
   try {
-    // Extract filename from path
-    const fileName = filePath.split(/[/\\]/).pop() || 'audio.wav';
-    const mediaPath = `${currentProject.value.folderPath}/media/${fileName}`;
-    
-    // Copy file to project media folder
-    const copyResult = await window.electronAPI.copyFile(filePath, mediaPath);
-    if (!copyResult.success) {
-      console.error('Failed to copy file:', copyResult.error);
-      return;
+    const server = useLiveplayServer();
+
+    // Copy file into the project's media root (no-op if already there).
+    let destPath = serverPath;
+    try {
+      destPath = await server.copyToMedia(serverPath);
+    } catch (e) {
+      console.warn('[cart import] copyToMedia failed, using original path:', e);
     }
-    
-    // Get audio duration - use 60 seconds as temporary default
-    // The actual duration will be detected when waveform is generated
-    const duration = 60;
-    
-    // Create new audio item
-    const { v4: uuidv4 } = await import('uuid');
-    const { DEFAULT_CART_AUDIO_ITEM } = await import('~/types/project');
-    
+
+    const fileName = destPath.split(/[\\/]/).pop() || 'audio';
     const uuid = uuidv4();
-    const waveformPath = `${currentProject.value.folderPath}/waveforms/${uuid}.json`;
-    
+
+    let duration = 0;
+    try {
+      const md: any = await server.fetchMetadata(destPath);
+      if (md && typeof md.duration_ms === 'number') duration = md.duration_ms / 1000;
+    } catch (e) {
+      console.warn('[cart import] fetchMetadata failed, falling back to 0 duration:', e);
+    }
+
+    const { DEFAULT_CART_AUDIO_ITEM } = await import('~/types/project');
     const newItem: AudioItem = {
       ...DEFAULT_CART_AUDIO_ITEM,
       uuid,
       type: 'audio' as const,
       displayName: fileName.replace(/\.[^/.]+$/, ''),
       mediaFileName: fileName,
-      mediaPath: `media/${fileName}`, // Store relative path to project folder
-      waveformPath,
+      mediaPath: `media/${fileName}`,
+      mediaServerPath: destPath,
+      waveformPath: `${currentProject.value.folderPath}/waveforms/${uuid}.json`,
+      waveform: undefined,
       duration,
       outPoint: duration,
-      waveform: undefined, // Will be generated asynchronously
-      index: [-1, props.slot] // Cart items use [-1, slot] indexing
+      index: [-1, props.slot],
     } as AudioItem;
-    
-    // Store in cart-only items (NOT in project.items)
+
     addCartOnlyItem(newItem);
-    
-    // Assign to cart slot
+
     const existingIndex = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === props.slot);
-    
     if (existingIndex !== -1) {
       currentProject.value.cartItems[existingIndex].itemUuid = uuid;
       currentProject.value.cartItems[existingIndex].index = [-1, props.slot];
     } else {
-      currentProject.value.cartItems.push({
-        slot: props.slot,
-        itemUuid: uuid,
-        index: [-1, props.slot]
-      });
+      currentProject.value.cartItems.push({ slot: props.slot, itemUuid: uuid, index: [-1, props.slot] });
     }
-    
-    // Save project
+
     const { saveProject } = useProject();
     await saveProject();
-    
-    // Generate waveform asynchronously using ffmpeg (non-blocking)
-    // This will also get the correct duration
-    generateWaveformForItem(newItem);
+
+    // Queue async waveform generation — result arrives via 'waveform_ready' WS.
+    server.requestWaveformGeneration(destPath, uuid).catch(e => {
+      console.warn(`[cart waveform] generation failed for ${newItem.displayName}:`, e);
+    });
   } catch (error) {
     console.error('Error importing audio to cart:', error);
   }
 };
 
-const generateWaveformForItem = async (item: AudioItem) => {
-  try {
-    if (!currentProject.value) return;
-    
-    // Check if generateWaveform is available
-    if (!window.electronAPI.generateWaveform) {
-      console.warn('generateWaveform not implemented yet - waveform will not be generated');
-      return;
-    }
-    
-    const mediaPath = `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
-    
-    // Generate waveform using ffmpeg (non-blocking)
-    const result = await window.electronAPI.generateWaveform(mediaPath, item.waveformPath);
-    
-    if (result.success) {
-      console.log(`Started waveform generation for cart slot ${props.slot + 1}`);
-      
-      // Start polling for waveform file (check every 2 seconds)
-      const pollInterval = setInterval(async () => {
-        try {
-          const waveformFile = await window.electronAPI.readFile(item.waveformPath);
-          if (waveformFile.success && waveformFile.data) {
-            const waveformData = JSON.parse(waveformFile.data);
-            
-            // Validate waveform format (duration field is optional, not provided by backend)
-            if (waveformData.peaks && waveformData.peaks.length > 0) {
-              item.waveform = waveformData;
-              
-              // Update duration from waveform data if available
-              if (waveformData.duration && waveformData.duration > 0) {
-                item.duration = waveformData.duration;
-                item.outPoint = waveformData.duration;
-              }
-              
-              // Update the cart-only item with waveform data
-              updateCartOnlyItem(item.uuid, item);
-              
-              // Force Vue reactivity update
-              triggerWaveformUpdate();
-              nextTick(drawWaveform);
-              
-              // Stop polling once loaded
-              clearInterval(pollInterval);
-              console.log(`Waveform loaded for cart slot ${props.slot + 1} (${waveformData.peaks.length} peaks, ${waveformData.duration?.toFixed(2)}s)`);
-            }
-          }
-        } catch (error) {
-          console.error('Error polling for waveform:', error);
-        }
-      }, 2000);
-      
-      // Stop polling after 30 seconds to prevent infinite polling
-      setTimeout(() => {
-        clearInterval(pollInterval);
-      }, 30000);
-    } else {
-      console.error('Failed to generate waveform:', result.error);
-    }
-  } catch (error) {
-    console.error('Error generating waveform:', error);
-  }
-};
 
 const handleSelect = () => {
   if (!props.item) return;
@@ -500,15 +459,10 @@ const drawWaveform = () => {
   ctx.scale(dpr, dpr);
   
   ctx.clearRect(0, 0, rect.width, rect.height);
-  
-  // Use text color for waveform
-  const computedStyle = getComputedStyle(canvas);
-  const textColor = computedStyle.getPropertyValue('color');
-  const rgb = textColor.match(/\d+/g);
-  if (!rgb) return;
-  
-  ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-  
+
+  // Use the item's own colour; opacity:0.3 in CSS gives a natural dark tint.
+  ctx.fillStyle = audioItem.color || '#ffffff';
+
   const peaks = audioItem.waveform.peaks;
   
   // Calculate trimmed region if in/out points are set
@@ -524,15 +478,10 @@ const drawWaveform = () => {
   
   const barWidth = rect.width / trimmedPeaks.length;
   const centerY = rect.height / 2;
-  
-  // Apply volume scaling to waveform display
-  const volumeMultiplier = audioItem.volume || 1.0;
-  
+
   trimmedPeaks.forEach((value, i) => {
-    // Volume scales linear amplitude first, then gamma 2 — see
-    // PlaylistItem.drawWaveform for rationale.
-    const scaled = Math.min(1, Math.max(0, value * volumeMultiplier));
-    const shaped = scaled * scaled;
+    const clamped = Math.min(1, Math.max(0, value));
+    const shaped = clamped * clamped;
     const barHeight = shaped * rect.height * 0.8;
     const x = i * barWidth;
     const y = centerY - barHeight / 2;
@@ -742,11 +691,13 @@ const handleDrop = async (e: DragEvent) => {
     const file = e.dataTransfer.files[0];
     // Check if it's an audio file
     if (file.type.startsWith('audio/') || /\.(mp3|wav|flac|ogg|m4a|aac)$/i.test(file.name)) {
-      // In Electron, we can get the file path from the File object using webUtils
-      if (window.electronAPI && window.electronAPI.getFilePath) {
-        const filePath = window.electronAPI.getFilePath(file);
+      // In Electron, we can get the file path from the File object using webUtils.
+      // Pass it to importFromServerPath — in local mode the server has access to
+      // the same filesystem paths as the Electron host.
+      if (import.meta.client && (window as any).electronAPI?.getFilePath) {
+        const filePath = (window as any).electronAPI.getFilePath(file);
         if (filePath) {
-          await importAudioFileToSlot(filePath);
+          await importFromServerPath(filePath);
           return;
         }
       }
@@ -934,6 +885,20 @@ const handleDrop = async (e: DragEvent) => {
     -webkit-box-orient: vertical;
     line-height: 1.3;
     flex: 1;
+
+    &.is-peaking {
+      color: #ff3b5c;
+    }
+  }
+
+  .peak-warning-icon {
+    font-size: 16px;
+    color: #ff3b5c;
+    flex-shrink: 0;
+    cursor: help;
+    line-height: 1;
+    align-self: flex-start;
+    margin-top: 1px;
   }
 
   .key-label {

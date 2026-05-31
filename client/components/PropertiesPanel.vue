@@ -1,7 +1,7 @@
 <template>
   <div class="properties-panel">
     <div class="properties-header">
-      <h3>{{ t('properties.title') }}: {{ selectedItem?.displayName || '' }}</h3>
+      <h3>{{ selectedItems.size > 1 ? t('properties.multipleItemsSelected', { count: selectedItems.size }) : (t('properties.title') + ': ' + (selectedItem?.displayName || '')) }}</h3>
       <button class="close-btn" @click="handleClose">
         <span class="material-symbols-rounded">close</span>
       </button>

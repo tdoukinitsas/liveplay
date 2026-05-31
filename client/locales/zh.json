@@ -59,7 +59,8 @@
     "importAudio": "导入音频",
     "noProject": "无项目",
     "silenceWarning": "警告：静音倒计时",
-    "seconds": "秒"
+    "seconds": "秒",
+    "clock": "时钟"
   },
   "playlist": {
     "title": "播放列表",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "属性",
+    "multipleItemsSelected": "已选择 {count} 个项目",
+    "peakWarning": "此项目的音量超过了所选输出目标的砖墙限幅器上限。请在属性面板中调整音量，或更改输出目标。",
     "noSelection": "选择一个项目以查看属性",
     "displayName": "显示名称",
     "color": "颜色",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "使用耳机按钮预听信号时所用的设备。",
     "ltcDevice": "LTC设备",
     "ltcDeviceHelp": "用于发送LTC时间码的设备（可选）。",
+    "outputTarget": "输出目标",
+    "outputTargetHelp": "为此项目设置砖墙限幅器级别、电平表区域颜色、波形颜色和自动音量目标。",
+    "outputTargetEbuR128": "EBU R128（广播 / 后期制作）",
+    "outputTargetStreaming": "流媒体（Spotify / Apple / YouTube）",
+    "outputTargetRadio": "广播电台",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "现场（数字调音台）",
+    "meterMode": "电平表显示",
+    "meterModeHelp": "所有立体声电平表上显示的单位。",
+    "meterModeLufs": "LUFS（综合响度）",
+    "meterModeDbfs": "dBFS（数字满幅度）",
+    "meterModeDbtp": "dBTP（真峰值）",
+    "meterModeRms": "RMS",
     "useProjectDefault": "使用项目默认",
     "noneSelected": "未选择",
     "save": "保存",

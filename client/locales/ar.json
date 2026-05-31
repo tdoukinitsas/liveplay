@@ -59,7 +59,8 @@
     "importAudio": "استيراد صوت",
     "noProject": "لا يوجد مشروع",
     "silenceWarning": "تحذير: صمت في",
-    "seconds": "ثواني"
+    "seconds": "ثواني",
+    "clock": "ساعة"
   },
   "playlist": {
     "title": "قائمة التشغيل",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "الخصائص",
+    "multipleItemsSelected": "تم تحديد {count} عناصر",
+    "peakWarning": "مستويات صوت هذا العنصر تتجاوز حد الـ brickwall لهدف الإخراج المحدد. اضبط مستوى الصوت في لوحة الخصائص أو قم بتغيير هدف الإخراج.",
     "noSelection": "حدد عنصرًا لعرض الخصائص",
     "displayName": "اسم العرض",
     "color": "اللون",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "الجهاز المستخدم عند معاينة الإشارات بزر سماعات الرأس.",
     "ltcDevice": "جهاز LTC",
     "ltcDeviceHelp": "الجهاز المستخدم لإرسال رمز الوقت LTC (اختياري).",
+    "outputTarget": "هدف الإخراج",
+    "outputTargetHelp": "يضبط مستوى محدد الذروة وألوان مناطق القياس وألوان شكل الموجة وهدف ضبط الصوت التلقائي لهذا المشروع.",
+    "outputTargetEbuR128": "EBU R128 (البث / ما بعد الإنتاج)",
+    "outputTargetStreaming": "البث الرقمي (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "البث الإذاعي",
+    "outputTargetNetflix": "نتفليكس / OTT",
+    "outputTargetLive": "مباشر (طاولة خلط رقمية)",
+    "meterMode": "عرض القياس",
+    "meterModeHelp": "الوحدة المعروضة على جميع أجهزة القياس الاستريو.",
+    "meterModeLufs": "LUFS (الصوت المتكامل)",
+    "meterModeDbfs": "dBFS (المقياس الرقمي الكامل)",
+    "meterModeDbtp": "dBTP (الذروة الحقيقية)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "استخدام إعداد المشروع",
     "noneSelected": "غير محدد",
     "save": "حفظ",

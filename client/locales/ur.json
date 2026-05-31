@@ -59,7 +59,8 @@
     "importAudio": "آڈیو درآمد کریں",
     "noProject": "کوئی پروجیکٹ نہیں",
     "silenceWarning": "انتباہ: خاموشی میں",
-    "seconds": "سیکنڈ"
+    "seconds": "سیکنڈ",
+    "clock": "گھڑی"
   },
   "playlist": {
     "title": "پلے لسٹ",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "خصوصیات",
+    "multipleItemsSelected": "{count} آئٹمز منتخب",
+    "peakWarning": "اس آئٹم کے والیوم کی سطح منتخب آؤٹ پٹ ٹارگٹ کی brickwall حد سے تجاوز کرتی ہے۔ پراپرٹیز پینل میں والیوم کو ایڈجسٹ کریں یا آؤٹ پٹ ٹارگٹ کو تبدیل کریں۔",
     "noSelection": "خصوصیات دیکھنے کے لیے ایک آئٹم منتخب کریں",
     "displayName": "ڈسپلے نام",
     "color": "رنگ",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "ہیڈ فون بٹن سے سگنلز کا پیش نظارہ کرتے وقت استعمال ہونے والی ڈیوائس۔",
     "ltcDevice": "LTC ڈیوائس",
     "ltcDeviceHelp": "LTC ٹائم کوڈ بھیجنے کے لیے استعمال ہونے والی ڈیوائس (اختیاری)۔",
+    "outputTarget": "آؤٹ پٹ ہدف",
+    "outputTargetHelp": "اس پروجیکٹ کے لیے بریک وال لمیٹر کی سطح، میٹر زون کے رنگ، ویو فارم کے رنگ اور آٹو ولیوم ہدف مقرر کرتا ہے۔",
+    "outputTargetEbuR128": "EBU R128 (نشریات / پوسٹ)",
+    "outputTargetStreaming": "اسٹریمنگ (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "ریڈیو نشریات",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "لائیو (ڈیجیٹل کنسول)",
+    "meterMode": "میٹر ڈسپلے",
+    "meterModeHelp": "تمام سٹیریو میٹر پر دکھائی جانے والی اکائی۔",
+    "meterModeLufs": "LUFS (مربوط آواز)",
+    "meterModeDbfs": "dBFS (ڈیجیٹل مکمل اسکیل)",
+    "meterModeDbtp": "dBTP (حقیقی چوٹی)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "پروجیکٹ ڈیفالٹ استعمال کریں",
     "noneSelected": "منتخب نہیں",
     "save": "محفوظ کریں",

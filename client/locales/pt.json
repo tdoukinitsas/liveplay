@@ -59,7 +59,8 @@
     "importAudio": "Importar Áudio",
     "noProject": "Sem Projeto",
     "silenceWarning": "AVISO: SILÊNCIO EM",
-    "seconds": "SEGUNDOS"
+    "seconds": "SEGUNDOS",
+    "clock": "Relógio"
   },
   "playlist": {
     "title": "Lista de Reprodução",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "Propriedades",
+    "multipleItemsSelected": "{count} itens selecionados",
+    "peakWarning": "Este item tem níveis de volume que excedem o limite brickwall para o destino de saída selecionado. Ajuste o volume no painel Propriedades ou altere o destino de saída.",
     "noSelection": "Selecione um item para visualizar as propriedades",
     "displayName": "Nome de Exibição",
     "color": "Cor",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "Dispositivo usado ao pré-visualizar sinais com o botão dos auscultadores.",
     "ltcDevice": "Dispositivo LTC",
     "ltcDeviceHelp": "Dispositivo usado para enviar código de tempo LTC (opcional).",
+    "outputTarget": "Destino de saída",
+    "outputTargetHelp": "Define o nível do limitador brickwall, as cores das zonas do medidor, as cores da forma de onda e o alvo de ajuste automático de volume para este projeto.",
+    "outputTargetEbuR128": "EBU R128 (Difusão / Pós)",
+    "outputTargetStreaming": "Streaming (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "Difusão de rádio",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "Ao vivo (Console digital)",
+    "meterMode": "Exibição do medidor",
+    "meterModeHelp": "Unidade exibida em todos os medidores estéreo.",
+    "meterModeLufs": "LUFS (Sonoridade integrada)",
+    "meterModeDbfs": "dBFS (Escala digital completa)",
+    "meterModeDbtp": "dBTP (Pico verdadeiro)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "Usar padrão do projeto",
     "noneSelected": "Não selecionado",
     "save": "Guardar",

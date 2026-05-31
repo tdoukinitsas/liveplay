@@ -59,7 +59,8 @@
     "importAudio": "Importer lyd",
     "noProject": "Ingen prosjekt",
     "silenceWarning": "ADVARSEL: STILLHET OM",
-    "seconds": "SEKUNDER"
+    "seconds": "SEKUNDER",
+    "clock": "Klokke"
   },
   "playlist": {
     "title": "Spilleliste",
@@ -90,6 +91,8 @@
   },
   "properties": {
     "title": "Egenskaper",
+    "multipleItemsSelected": "{count} elementer valgt",
+    "peakWarning": "Dette elementet har lydnivåer som overstiger brickwall-grensen for det valgte utgangsmålet. Juster volumet i egenskapsruten eller endre utgangsmålet.",
     "noSelection": "Velg et element for å vise egenskaper",
     "displayName": "Visningsnavn",
     "color": "Farge",
@@ -337,6 +340,19 @@
     "previewDeviceHelp": "Enhet brukt ved forhåndsvisning av signaler med hodetelefonknappen.",
     "ltcDevice": "LTC-enhet",
     "ltcDeviceHelp": "Enhet brukt til å sende LTC-tidskode (valgfritt).",
+    "outputTarget": "Utgangsmål",
+    "outputTargetHelp": "Angir brickwall-begrensernivå, meteronefargene, bølgeformfargene og mål for automatisk volumjustering for dette prosjektet.",
+    "outputTargetEbuR128": "EBU R128 (kringkasting / post)",
+    "outputTargetStreaming": "Strømming (Spotify / Apple / YouTube)",
+    "outputTargetRadio": "Radiokringkasting",
+    "outputTargetNetflix": "Netflix / OTT",
+    "outputTargetLive": "Live (digital mikser)",
+    "meterMode": "Metervisning",
+    "meterModeHelp": "Enhet vist på alle stereometre.",
+    "meterModeLufs": "LUFS (integrert lydstyrke)",
+    "meterModeDbfs": "dBFS (digital fullskala)",
+    "meterModeDbtp": "dBTP (ekte topp)",
+    "meterModeRms": "RMS",
     "useProjectDefault": "Bruk prosjektstandard",
     "noneSelected": "Ikke valgt",
     "save": "Lagre",
