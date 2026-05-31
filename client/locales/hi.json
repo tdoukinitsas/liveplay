@@ -84,8 +84,8 @@
     "close": "बंद करें",
     "detach": "अलग करें",
     "attach": "जोड़ें",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "नियंत्रण कॉन्फ़िगर करें",
+    "tabKeyboard": "कीबोर्ड",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "द्वारा विकसित",
     "githubRepo": "GitHub रिपॉजिटरी",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "योगदानकर्ता"
+    "contributors": "योगदानकर्ता",
+    "license": "AGPL-3.0-only लाइसेंस"
+  },
+  "localServer": {
+    "restartServer": "सर्वर पुनः आरंभ करें",
+    "running": "स्थानीय सर्वर चल रहा है",
+    "stopped": "स्थानीय सर्वर रुका हुआ है",
+    "spawnHint": "नया शुरू करें या Remote पर जाएं",
+    "stopTitle": "स्थानीय सर्वर रोकें",
+    "startTitle": "स्थानीय सर्वर शुरू करें",
+    "restartTitle": "सर्वर पुनः आरंभ करें"
+  },
+  "serverSettings": {
+    "title": "LivePlay सर्वर",
+    "connected": "● कनेक्टेड",
+    "reconnecting": "● पुनः कनेक्ट हो रहा है…",
+    "disconnected": "● डिस्कनेक्टेड",
+    "localModeDesc": "ऐप अपना ऑडियो इंजन शुरू करता है। एकल ऑपरेटरों के लिए सर्वोत्तम।",
+    "remoteModeDesc": "किसी अन्य मशीन पर चल रहे LivePlay सर्वर से कनेक्ट करें।",
+    "localPort": "स्थानीय पोर्ट",
+    "remoteUrl": "रिमोट URL",
+    "engineRunning": "इंजन चल रहा है (pid {pid})",
+    "engineNotRunning": "इंजन नहीं चल रहा — शुरू करने के लिए लागू करें",
+    "externalHint": "बाहरी सर्वर को लक्ष्य कर रहे हैं। सुनिश्चित करें कि रिमोट URL पहुंचने योग्य हो।",
+    "apply": "लागू करें",
+    "retryConnect": "पुनः कनेक्ट करें",
+    "restartEngine": "इंजन पुनः आरंभ करें",
+    "outputDevices": "आउटपुट डिवाइस",
+    "open": "खोलें",
+    "noDevices": "(अभी तक कोई डिवाइस नहीं)"
   },
   "colors": {
     "chooseAccent": "एक्सेंट रंग चुनें"
@@ -224,7 +253,7 @@
     "installInfo": "अपडेट इंस्टॉल करने के लिए तैयार है। आप इसे अभी इंस्टॉल कर सकते हैं या ऐप बंद करने पर इसे इंस्टॉल किया जाएगा।",
     "later": "बाद में",
     "downloadAndInstall": "डाउनलोड और इंस्टॉल करें",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "डाउनलोड पृष्ठ पर जाएँ",
     "installNow": "अभी इंस्टॉल करें",
     "installOnExit": "बाहर निकलने पर इंस्टॉल करें",
     "downloadFailed": "अपडेट डाउनलोड विफल रहा"
@@ -250,16 +279,16 @@
     "open": "खोलें"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "MIDI कंट्रोलर कॉन्फ़िगरेशन",
+    "learn": "सीखें",
+    "cancel": "रद्द करें",
+    "clear": "साफ़ करें",
+    "resetAll": "सब रीसेट करें",
+    "close": "बंद करें",
+    "waitingForInput": "MIDI इनपुट की प्रतीक्षा...",
+    "noDevices": "कोई MIDI डिवाइस नहीं मिला",
+    "reassign": "पुनः असाइन करें",
+    "conflictMessage": "यह MIDI नियंत्रण पहले से \"{action}\" को असाइन किया गया है। पुनः असाइन करें?"
   },
   "controls": {
     "title": "नियंत्रण कॉन्फ़िगर करें",

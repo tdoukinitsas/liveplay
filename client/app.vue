@@ -18,7 +18,7 @@
     <!-- Accent Color Picker Modal -->
     <div v-if="showColorPicker" class="color-picker-overlay" @click="showColorPicker = false">
       <div class="color-picker-dialog" @click.stop>
-        <h3>Choose Accent Color</h3>
+        <h3>{{ t('colors.chooseAccent') }}</h3>
         <div class="color-grid">
           <button
             v-for="color in accentColors"
@@ -28,7 +28,7 @@
             @click="changeAccentColor(color)"
           ></button>
         </div>
-        <button class="close-dialog" @click="showColorPicker = false">Cancel</button>
+        <button class="close-dialog" @click="showColorPicker = false">{{ t('common.cancel') }}</button>
       </div>
     </div>
     

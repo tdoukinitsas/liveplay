@@ -2,10 +2,10 @@
   <div v-if="visible" class="local-server-status" :class="{ stopping }">
     <span class="lss-dot" :class="{ running: status.running, stopped: !status.running }"></span>
     <div class="lss-meta">
-      <div class="lss-title">{{ status.running ? 'Local server running' : 'Local server stopped' }}</div>
+      <div class="lss-title">{{ status.running ? t('localServer.running') : t('localServer.stopped') }}</div>
       <div class="lss-sub">
         <span v-if="status.running">PID {{ status.pid }} · :{{ status.config?.localPort ?? '?' }}</span>
-        <span v-else>Spawn a new one or switch to Remote</span>
+        <span v-else>{{ t('localServer.spawnHint') }}</span>
       </div>
     </div>
     <div class="lss-actions">
@@ -14,21 +14,21 @@
         class="lss-btn"
         :disabled="stopping"
         @click="onStop"
-        title="Stop the detached liveplay-server process"
+        :title="t('localServer.stopTitle')"
       >
         <span class="material-symbols-rounded">stop_circle</span>
-        Stop
+        {{ t('actions.stop') }}
       </button>
       <button
         v-else
         class="lss-btn"
         @click="onStart"
-        title="Start the local liveplay-server"
+        :title="t('localServer.startTitle')"
       >
         <span class="material-symbols-rounded">play_arrow</span>
-        Start
+        {{ t('actions.play') }}
       </button>
-      <button class="lss-btn-icon" @click="onRestart" title="Restart server">
+      <button class="lss-btn-icon" @click="onRestart" :title="t('localServer.restartServer')">
         <span class="material-symbols-rounded">restart_alt</span>
       </button>
     </div>
@@ -36,6 +36,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useLocalization();
 // Small corner pill that surfaces the detached liveplay-server so the user
 // can actually see (and quit) the process they spawned. In remote mode the
 // pill stays hidden — the server isn't owned by this client.

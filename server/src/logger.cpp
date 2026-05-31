@@ -33,6 +33,30 @@ struct LoggerState {
     std::atomic<LogLevel>  min_level{LogLevel::Info};
 };
 
+// Fixed-size circular buffer storing formatted (ANSI-stripped) log lines.
+// Protected by Logger::mutex(). Capacity tuned for ~8 h of busy logging.
+struct RingBuffer {
+    static constexpr std::size_t kCapacity = 16384;
+    std::string lines[kCapacity];
+    std::size_t head  = 0;   // index of the oldest entry
+    std::size_t count = 0;   // number of valid entries
+
+    void push(std::string line) noexcept {
+        if (count < kCapacity) {
+            lines[(head + count) % kCapacity] = std::move(line);
+            ++count;
+        } else {
+            lines[head] = std::move(line);
+            head = (head + 1) % kCapacity;
+        }
+    }
+};
+
+RingBuffer& ring_buffer() {
+    static RingBuffer rb;
+    return rb;
+}
+
 LoggerState& state() {
     static LoggerState s;
     return s;
@@ -172,16 +196,40 @@ void Logger::log(LogLevel level, std::string_view msg) {
                               ? std::cerr
                               : std::cout;
 
+    const std::string plain_line =
+        '[' + ts + "] [" + std::string{style.tag} + "] " + strip_ansi(msg);
+
     std::lock_guard lock{mutex()};
+    ring_buffer().push(plain_line);
     if (colored) {
         stream << style.color << ansi::dim << '[' << ts << ']' << ansi::reset << ' '
                << style.color << ansi::bold << '[' << style.tag << ']' << ansi::reset << ' '
                << style.color << msg << ansi::reset
                << '\n';
     } else {
-        stream << '[' << ts << "] [" << style.tag << "] " << strip_ansi(msg) << '\n';
+        stream << plain_line << '\n';
     }
     stream.flush();
+}
+
+std::string Logger::dump_history() {
+    // try_lock so a crash that happened while holding the Logger mutex doesn't
+    // deadlock the crash handler — we just return what we can.
+    auto& m = mutex();
+    const bool locked = m.try_lock();
+    std::string out;
+    if (locked) {
+        auto& rb = ring_buffer();
+        out.reserve(rb.count * 90);
+        for (std::size_t i = 0; i < rb.count; ++i) {
+            out += rb.lines[(rb.head + i) % RingBuffer::kCapacity];
+            out += '\n';
+        }
+        m.unlock();
+    } else {
+        out = "(log history unavailable — mutex held at crash time)\n";
+    }
+    return out;
 }
 
 void Logger::raw(std::string_view line) {

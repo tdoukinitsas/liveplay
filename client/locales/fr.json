@@ -84,8 +84,8 @@
     "close": "Fermer",
     "detach": "Détacher",
     "attach": "Rattacher",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "Configurer les contrôles",
+    "tabKeyboard": "Clavier",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "Développé par",
     "githubRepo": "Dépôt GitHub",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "Contributeurs"
+    "contributors": "Contributeurs",
+    "license": "Licence AGPL-3.0 uniquement"
+  },
+  "localServer": {
+    "restartServer": "Redémarrer le serveur",
+    "running": "Serveur local en cours d'exécution",
+    "stopped": "Serveur local arrêté",
+    "spawnHint": "Démarrer un nouveau ou passer en mode Distant",
+    "stopTitle": "Arrêter le serveur local",
+    "startTitle": "Démarrer le serveur local",
+    "restartTitle": "Redémarrer le serveur"
+  },
+  "serverSettings": {
+    "title": "Serveur LivePlay",
+    "connected": "● Connecté",
+    "reconnecting": "● Reconnexion…",
+    "disconnected": "● Déconnecté",
+    "localModeDesc": "L'application démarre son propre moteur audio. Idéal pour les opérateurs solo.",
+    "remoteModeDesc": "Se connecter à un serveur LivePlay sur une autre machine.",
+    "localPort": "Port local",
+    "remoteUrl": "URL distante",
+    "engineRunning": "Moteur en cours d'exécution (pid {pid})",
+    "engineNotRunning": "Moteur non démarré — Appliquer pour le démarrer",
+    "externalHint": "Ciblage d'un serveur externe. Vérifiez que l'URL distante est accessible.",
+    "apply": "Appliquer",
+    "retryConnect": "Réessayer la connexion",
+    "restartEngine": "Redémarrer le moteur",
+    "outputDevices": "Périphériques de sortie",
+    "open": "Ouvrir",
+    "noDevices": "(aucun périphérique pour l'instant)"
   },
   "colors": {
     "chooseAccent": "Choisir la Couleur d'Accentuation"
@@ -250,16 +279,16 @@
     "open": "Ouvrir"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "Configuration du contrôleur MIDI",
+    "learn": "Apprendre",
+    "cancel": "Annuler",
+    "clear": "Effacer",
+    "resetAll": "Tout réinitialiser",
+    "close": "Fermer",
+    "waitingForInput": "En attente d'entrée MIDI...",
+    "noDevices": "Aucun périphérique MIDI détecté",
+    "reassign": "Réassigner",
+    "conflictMessage": "Ce contrôle MIDI est déjà assigné à \"{action}\". Réassigner ?"
   },
   "controls": {
     "title": "Configurer les contrôles",

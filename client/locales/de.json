@@ -84,8 +84,8 @@
     "close": "Schließen",
     "detach": "Auslagern",
     "attach": "Einbetten",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "Steuerung konfigurieren",
+    "tabKeyboard": "Tastatur",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "Entwickelt von",
     "githubRepo": "GitHub-Repository",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "Mitwirkende"
+    "contributors": "Mitwirkende",
+    "license": "AGPL-3.0-only Lizenz"
+  },
+  "localServer": {
+    "restartServer": "Server neu starten",
+    "running": "Lokaler Server läuft",
+    "stopped": "Lokaler Server gestoppt",
+    "spawnHint": "Neuen starten oder zu Remote wechseln",
+    "stopTitle": "Lokalen Server stoppen",
+    "startTitle": "Lokalen Server starten",
+    "restartTitle": "Server neu starten"
+  },
+  "serverSettings": {
+    "title": "LivePlay Server",
+    "connected": "● Verbunden",
+    "reconnecting": "● Verbinde neu…",
+    "disconnected": "● Getrennt",
+    "localModeDesc": "Die App startet ihre eigene Audio-Engine. Ideal für Einzelbediener.",
+    "remoteModeDesc": "Mit einem LivePlay-Server auf einem anderen Gerät verbinden.",
+    "localPort": "Lokaler Port",
+    "remoteUrl": "Remote-URL",
+    "engineRunning": "Engine läuft (PID {pid})",
+    "engineNotRunning": "Engine läuft nicht — Anwenden zum Starten",
+    "externalHint": "Externer Server als Ziel. Stellen Sie sicher, dass die Remote-URL erreichbar ist.",
+    "apply": "Anwenden",
+    "retryConnect": "Erneut verbinden",
+    "restartEngine": "Engine neu starten",
+    "outputDevices": "Ausgabegeräte",
+    "open": "Öffnen",
+    "noDevices": "(noch keine Geräte)"
   },
   "colors": {
     "chooseAccent": "Akzentfarbe wählen"
@@ -224,7 +253,7 @@
     "installInfo": "Das Update ist zur Installation bereit. Sie können es jetzt installieren oder es wird beim Schließen der App installiert.",
     "later": "Später",
     "downloadAndInstall": "Herunterladen und installieren",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "Zur Download-Seite",
     "installNow": "Jetzt installieren",
     "installOnExit": "Beim Beenden installieren",
     "downloadFailed": "Update-Download fehlgeschlagen"
@@ -250,16 +279,16 @@
     "open": "Öffnen"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "MIDI-Controller Konfiguration",
+    "learn": "Lernen",
+    "cancel": "Abbrechen",
+    "clear": "Löschen",
+    "resetAll": "Alle zurücksetzen",
+    "close": "Schließen",
+    "waitingForInput": "Warte auf MIDI-Eingabe...",
+    "noDevices": "Keine MIDI-Geräte erkannt",
+    "reassign": "Neu zuweisen",
+    "conflictMessage": "Diese MIDI-Steuerung ist bereits \"{action}\" zugewiesen. Neu zuweisen?"
   },
   "controls": {
     "title": "Steuerung konfigurieren",

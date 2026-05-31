@@ -84,8 +84,8 @@
     "close": "Fechar",
     "detach": "Destacar",
     "attach": "Reintegrar",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "Configurar controles",
+    "tabKeyboard": "Teclado",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "Desenvolvido por",
     "githubRepo": "Repositório GitHub",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "Colaboradores"
+    "contributors": "Colaboradores",
+    "license": "Licença AGPL-3.0 exclusiva"
+  },
+  "localServer": {
+    "restartServer": "Reiniciar servidor",
+    "running": "Servidor local em execução",
+    "stopped": "Servidor local parado",
+    "spawnHint": "Inicie um novo ou mude para Remoto",
+    "stopTitle": "Parar o servidor local",
+    "startTitle": "Iniciar o servidor local",
+    "restartTitle": "Reiniciar servidor"
+  },
+  "serverSettings": {
+    "title": "Servidor LivePlay",
+    "connected": "● Conectado",
+    "reconnecting": "● Reconectando…",
+    "disconnected": "● Desconectado",
+    "localModeDesc": "O app inicia o seu próprio motor de áudio. Melhor para operadores individuais.",
+    "remoteModeDesc": "Conectar a um servidor LivePlay em execução noutra máquina.",
+    "localPort": "Porta local",
+    "remoteUrl": "URL remoto",
+    "engineRunning": "Motor em execução (pid {pid})",
+    "engineNotRunning": "Motor não em execução — Aplicar para iniciar",
+    "externalHint": "A apontar para servidor externo. Certifique-se de que o URL remoto é acessível.",
+    "apply": "Aplicar",
+    "retryConnect": "Tentar ligar novamente",
+    "restartEngine": "Reiniciar motor",
+    "outputDevices": "Dispositivos de saída",
+    "open": "Abrir",
+    "noDevices": "(sem dispositivos ainda)"
   },
   "colors": {
     "chooseAccent": "Escolher Cor de Destaque"
@@ -224,7 +253,7 @@
     "installInfo": "A atualização está pronta para instalação. Você pode instalá-la agora ou ela será instalada quando fechar o aplicativo.",
     "later": "Mais Tarde",
     "downloadAndInstall": "Baixar e Instalar",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "Ir para a página de download",
     "installNow": "Instalar Agora",
     "installOnExit": "Instalar ao Sair",
     "downloadFailed": "Falha ao baixar a atualização"
@@ -250,16 +279,16 @@
     "open": "Abrir"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "Configuração do controlador MIDI",
+    "learn": "Aprender",
+    "cancel": "Cancelar",
+    "clear": "Limpar",
+    "resetAll": "Redefinir tudo",
+    "close": "Fechar",
+    "waitingForInput": "Aguardando entrada MIDI...",
+    "noDevices": "Nenhum dispositivo MIDI detectado",
+    "reassign": "Reatribuir",
+    "conflictMessage": "Este controle MIDI já está atribuído a \"{action}\". Reatribuir?"
   },
   "controls": {
     "title": "Configurar controles",

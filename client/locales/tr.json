@@ -84,8 +84,8 @@
     "close": "Kapat",
     "detach": "Ayır",
     "attach": "Ekle",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "Kontrolleri yapılandır",
+    "tabKeyboard": "Klavye",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "Geliştiren",
     "githubRepo": "GitHub Deposu",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "Katkıda Bulunanlar"
+    "contributors": "Katkıda Bulunanlar",
+    "license": "AGPL-3.0-only Lisansı"
+  },
+  "localServer": {
+    "restartServer": "Sunucuyu yeniden başlat",
+    "running": "Yerel sunucu çalışıyor",
+    "stopped": "Yerel sunucu durdu",
+    "spawnHint": "Yeni bir tane başlatın veya Uzak'a geçin",
+    "stopTitle": "Yerel sunucuyu durdur",
+    "startTitle": "Yerel sunucuyu başlat",
+    "restartTitle": "Sunucuyu yeniden başlat"
+  },
+  "serverSettings": {
+    "title": "LivePlay Sunucusu",
+    "connected": "● Bağlandı",
+    "reconnecting": "● Yeniden bağlanıyor…",
+    "disconnected": "● Bağlantı kesildi",
+    "localModeDesc": "Uygulama kendi ses motorunu başlatır. Tek operatörler için en iyisi.",
+    "remoteModeDesc": "Başka bir makinede çalışan LivePlay sunucusuna bağlan.",
+    "localPort": "Yerel port",
+    "remoteUrl": "Uzak URL",
+    "engineRunning": "Motor çalışıyor (pid {pid})",
+    "engineNotRunning": "Motor çalışmıyor — Başlatmak için uygula",
+    "externalHint": "Harici sunucu hedefleniyor. Uzak URL'nin erişilebilir olduğundan emin olun.",
+    "apply": "Uygula",
+    "retryConnect": "Bağlanmayı yeniden dene",
+    "restartEngine": "Motoru yeniden başlat",
+    "outputDevices": "Çıkış cihazları",
+    "open": "Aç",
+    "noDevices": "(henüz cihaz yok)"
   },
   "colors": {
     "chooseAccent": "Vurgu Rengini Seç"
@@ -224,7 +253,7 @@
     "installInfo": "Güncelleme yüklemeye hazır. Şimdi yükleyebilir veya uygulamayı kapattığınızda yüklenecek.",
     "later": "Sonra",
     "downloadAndInstall": "İndir ve Yükle",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "İndirme Sayfasına Git",
     "installNow": "Şimdi Yükle",
     "installOnExit": "Çıkışta Yükle",
     "downloadFailed": "Güncelleme indirme başarısız oldu"
@@ -250,16 +279,16 @@
     "open": "Aç"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "MIDI Kontrolcü Yapılandırması",
+    "learn": "Öğren",
+    "cancel": "İptal",
+    "clear": "Temizle",
+    "resetAll": "Tümünü sıfırla",
+    "close": "Kapat",
+    "waitingForInput": "MIDI girişi bekleniyor...",
+    "noDevices": "MIDI cihazı algılanmadı",
+    "reassign": "Yeniden ata",
+    "conflictMessage": "Bu MIDI kontrolü zaten \"{action}\" için atanmış. Yeniden ata?"
   },
   "controls": {
     "title": "Kontrolleri yapılandır",

@@ -785,7 +785,7 @@ const handleRegenerateWaveform = async () => {
       }
       if (!path) continue;
       item.waveform = undefined;
-      await _server.requestWaveformGeneration(path, item.uuid).catch((e: Error) => {
+      await _server.requestWaveformGeneration(path, item.uuid, true).catch((e: Error) => {
         console.warn(`[waveform] regeneration failed for ${item.displayName}:`, e);
       });
     }

@@ -84,8 +84,8 @@
     "close": "Mbyll",
     "detach": "Shkëput",
     "attach": "Bashko",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "Konfiguro kontrollet",
+    "tabKeyboard": "Tastierë",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "Zhvilluar nga",
     "githubRepo": "Depot GitHub",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "Kontribuesit"
+    "contributors": "Kontribuesit",
+    "license": "Licencë AGPL-3.0 ekskluzive"
+  },
+  "localServer": {
+    "restartServer": "Rinicio serverin",
+    "running": "Serveri lokal duke funksionuar",
+    "stopped": "Serveri lokal i ndalur",
+    "spawnHint": "Hap një të ri ose kalo te Largëta",
+    "stopTitle": "Ndalo serverin lokal",
+    "startTitle": "Nis serverin lokal",
+    "restartTitle": "Rinicio serverin"
+  },
+  "serverSettings": {
+    "title": "Serveri LivePlay",
+    "connected": "● I lidhur",
+    "reconnecting": "● Duke u rilidhur…",
+    "disconnected": "● I shkëputur",
+    "localModeDesc": "Aplikacioni nis motorin e tij audio. Më i mirë për operatorë të vetëm.",
+    "remoteModeDesc": "Lidhu me një server LivePlay që funksionon në një makinë tjetër.",
+    "localPort": "Porti lokal",
+    "remoteUrl": "URL i largët",
+    "engineRunning": "Motori duke funksionuar (pid {pid})",
+    "engineNotRunning": "Motori nuk funksionon — Apliko për ta nisur",
+    "externalHint": "Duke synuar server të jashtëm. Sigurohuni që URL-ja e largët të jetë e arritshme.",
+    "apply": "Apliko",
+    "retryConnect": "Riprovo lidhjen",
+    "restartEngine": "Rinicio motorin",
+    "outputDevices": "Pajisjet e daljes",
+    "open": "Hap",
+    "noDevices": "(ende pa pajisje)"
   },
   "colors": {
     "chooseAccent": "Zgjidh Ngjyrën e Theksuar"
@@ -224,7 +253,7 @@
     "installInfo": "Përditësimi është gati për instalim. Mund ta instaloni tani ose do të instalohet kur të mbyllni aplikacionin.",
     "later": "Më vonë",
     "downloadAndInstall": "Shkarko dhe Instalo",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "Shko te faqja e shkarkimit",
     "installNow": "Instalo Tani",
     "installOnExit": "Instalo në Dalje",
     "downloadFailed": "Shkarkimi i përditësimit dështoi"
@@ -250,16 +279,16 @@
     "open": "Hap"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "Konfigurimi i kontrollerit MIDI",
+    "learn": "Mëso",
+    "cancel": "Anulo",
+    "clear": "Pastro",
+    "resetAll": "Rivendos të gjitha",
+    "close": "Mbyll",
+    "waitingForInput": "Duke pritur hyrjen MIDI...",
+    "noDevices": "Nuk u zbuluan pajisje MIDI",
+    "reassign": "Ricakto",
+    "conflictMessage": "Ky kontroll MIDI është tashmë caktuar për \"{action}\". Ricakto?"
   },
   "controls": {
     "title": "Konfiguro kontrollet",

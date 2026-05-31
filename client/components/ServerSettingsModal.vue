@@ -3,14 +3,14 @@
     <div v-if="open" class="modal-backdrop" @click.self="close">
       <div class="modal">
         <header>
-          <h2>LivePlay Server</h2>
+          <h2>{{ t('serverSettings.title') }}</h2>
           <button class="x" @click="close">✕</button>
         </header>
 
         <p class="status" :class="{ ok: server.connected, bad: !server.connected }">
-          <span v-if="server.connected">● Connected</span>
-          <span v-else-if="server.reconnecting">● Reconnecting…</span>
-          <span v-else>● Disconnected</span>
+          <span v-if="server.connected">{{ t('serverSettings.connected') }}</span>
+          <span v-else-if="server.reconnecting">{{ t('serverSettings.reconnecting') }}</span>
+          <span v-else>{{ t('serverSettings.disconnected') }}</span>
           <span v-if="server.lastError" class="err">  ({{ server.lastError }})</span>
         </p>
 
@@ -19,53 +19,53 @@
           <label class="mode-option">
             <input type="radio" value="local" v-model="draftMode" />
             <div>
-              <strong>Local</strong>
-              <small>App starts its own audio engine. Best for solo operators.</small>
+              <strong>{{ t('welcome.localMode') }}</strong>
+              <small>{{ t('serverSettings.localModeDesc') }}</small>
             </div>
           </label>
           <label class="mode-option">
             <input type="radio" value="remote" v-model="draftMode" />
             <div>
-              <strong>Remote</strong>
-              <small>Connect to a LivePlay server running on another machine.</small>
+              <strong>{{ t('welcome.remoteMode') }}</strong>
+              <small>{{ t('serverSettings.remoteModeDesc') }}</small>
             </div>
           </label>
         </div>
 
         <label v-if="draftMode === 'local'">
-          Local port
+          {{ t('serverSettings.localPort') }}
           <input v-model.number="draftLocalPort" type="number" min="1" max="65535" placeholder="4480" />
         </label>
         <label v-else>
-          Remote URL
+          {{ t('serverSettings.remoteUrl') }}
           <input v-model="draftRemoteUrl" placeholder="http://192.168.1.42:4480" />
         </label>
 
         <p v-if="serverStatus" class="server-pid">
           <template v-if="draftMode === 'local'">
-            <span v-if="serverStatus.running">Engine running (pid {{ serverStatus.pid }})</span>
-            <span v-else class="warn">Engine not running — Apply to start it</span>
+            <span v-if="serverStatus.running">{{ t('serverSettings.engineRunning', { pid: serverStatus.pid }) }}</span>
+            <span v-else class="warn">{{ t('serverSettings.engineNotRunning') }}</span>
           </template>
           <template v-else>
-            <span class="hint">Targeting external server. Make sure the remote URL is reachable.</span>
+            <span class="hint">{{ t('serverSettings.externalHint') }}</span>
           </template>
         </p>
 
         <div class="row">
-          <button class="btn primary" @click="apply">Apply</button>
-          <button class="btn" @click="server.connect">Retry connect</button>
-          <button v-if="draftMode === 'local' && hasElectron" class="btn" @click="restartLocal">Restart engine</button>
+          <button class="btn primary" @click="apply">{{ t('serverSettings.apply') }}</button>
+          <button class="btn" @click="server.connect">{{ t('serverSettings.retryConnect') }}</button>
+          <button v-if="draftMode === 'local' && hasElectron" class="btn" @click="restartLocal">{{ t('serverSettings.restartEngine') }}</button>
         </div>
 
         <section v-if="server.connected">
-          <h3>Output devices</h3>
+          <h3>{{ t('serverSettings.outputDevices') }}</h3>
           <ul class="devices">
             <li v-for="d in server.devices" :key="d.id">
               <span :class="{ default: d.is_default }">{{ d.display_name }}</span>
               <small>{{ d.channel_count }} ch @ {{ d.sample_rate }} Hz</small>
-              <button class="btn small" @click="server.openDevice(d.display_name, d.channel_count)">Open</button>
+              <button class="btn small" @click="server.openDevice(d.display_name, d.channel_count)">{{ t('serverSettings.open') }}</button>
             </li>
-            <li v-if="server.devices.length === 0" class="empty">(no devices yet)</li>
+            <li v-if="server.devices.length === 0" class="empty">{{ t('serverSettings.noDevices') }}</li>
           </ul>
         </section>
       </div>
@@ -82,6 +82,8 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
+
+const { t } = useLocalization();
 
 const props = defineProps<{ open: boolean }>();
 const emit  = defineEmits<{ (e: 'close'): void }>();

@@ -84,8 +84,8 @@
     "close": "إغلاق",
     "detach": "فصل",
     "attach": "إرفاق",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "تكوين الضوابط",
+    "tabKeyboard": "لوحة المفاتيح",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "تم التطوير بواسطة",
     "githubRepo": "مستودع GitHub",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "المساهمون"
+    "contributors": "المساهمون",
+    "license": "رخصة AGPL-3.0 الحصرية"
+  },
+  "localServer": {
+    "restartServer": "إعادة تشغيل الخادم",
+    "running": "الخادم المحلي يعمل",
+    "stopped": "الخادم المحلي متوقف",
+    "spawnHint": "أنشئ خادماً جديداً أو انتقل إلى البعيد",
+    "stopTitle": "إيقاف الخادم المحلي",
+    "startTitle": "تشغيل الخادم المحلي",
+    "restartTitle": "إعادة تشغيل الخادم"
+  },
+  "serverSettings": {
+    "title": "خادم LivePlay",
+    "connected": "● متصل",
+    "reconnecting": "● إعادة الاتصال…",
+    "disconnected": "● غير متصل",
+    "localModeDesc": "يبدأ التطبيق محرك الصوت الخاص به. الأفضل للمشغلين المنفردين.",
+    "remoteModeDesc": "الاتصال بخادم LivePlay يعمل على جهاز آخر.",
+    "localPort": "المنفذ المحلي",
+    "remoteUrl": "عنوان URL البعيد",
+    "engineRunning": "المحرك يعمل (pid {pid})",
+    "engineNotRunning": "المحرك لا يعمل — طبّق لتشغيله",
+    "externalHint": "يستهدف خادماً خارجياً. تأكد من إمكانية الوصول إلى عنوان URL البعيد.",
+    "apply": "تطبيق",
+    "retryConnect": "إعادة الاتصال",
+    "restartEngine": "إعادة تشغيل المحرك",
+    "outputDevices": "أجهزة الإخراج",
+    "open": "فتح",
+    "noDevices": "(لا توجد أجهزة بعد)"
   },
   "colors": {
     "chooseAccent": "اختيار لون التمييز"
@@ -224,7 +253,7 @@
     "installInfo": "التحديث جاهز للتثبيت. يمكنك تثبيته الآن أو سيتم تثبيته عند إغلاق التطبيق.",
     "later": "لاحقًا",
     "downloadAndInstall": "تنزيل وتثبيت",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "الذهاب إلى صفحة التنزيل",
     "installNow": "تثبيت الآن",
     "installOnExit": "تثبيت عند الخروج",
     "downloadFailed": "فشل تنزيل التحديث"
@@ -250,16 +279,16 @@
     "open": "فتح"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "تكوين متحكم MIDI",
+    "learn": "تعلم",
+    "cancel": "إلغاء",
+    "clear": "مسح",
+    "resetAll": "إعادة تعيين الكل",
+    "close": "إغلاق",
+    "waitingForInput": "في انتظار إدخال MIDI...",
+    "noDevices": "لم يتم اكتشاف أجهزة MIDI",
+    "reassign": "إعادة التعيين",
+    "conflictMessage": "عنصر تحكم MIDI هذا معين بالفعل لـ \"{action}\". إعادة التعيين؟"
   },
   "controls": {
     "title": "تكوين الضوابط",

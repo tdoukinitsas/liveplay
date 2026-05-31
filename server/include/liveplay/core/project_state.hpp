@@ -259,6 +259,15 @@ public:
 
     audio::AudioEngine& engine() noexcept { return engine_; }
 
+    // Snapshot of current playback state for crash-resume purposes.
+    struct PlaybackSnapshot {
+        std::string project_file;   // empty if no project is open
+        std::string item_uuid;      // empty if nothing is playing
+        double      position_sec = 0.0;
+    };
+    // Thread-safe; safe to call from the heartbeat loop every 200 ms.
+    PlaybackSnapshot current_playback_snapshot() const;
+
     // Audio-load progress accessors — the document JSON arrives instantly,
     // but the engine load can take seconds for big projects. The client
     // shows a progress bar based on these.

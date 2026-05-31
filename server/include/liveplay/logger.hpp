@@ -104,6 +104,10 @@ public:
     // Direct access if you want to query state in tests / startup banner.
     static bool color_enabled();
 
+    // Return the full session log (oldest first, plain text, ANSI stripped).
+    // Thread-safe; used by the crash handler to write the session history.
+    static std::string dump_history();
+
 private:
     static void log(LogLevel level, std::string_view msg);
     static std::mutex& mutex();

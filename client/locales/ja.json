@@ -84,8 +84,8 @@
     "close": "閉じる",
     "detach": "切り離す",
     "attach": "元に戻す",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "コントロール設定",
+    "tabKeyboard": "キーボード",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "開発者",
     "githubRepo": "GitHubリポジトリ",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "貢献者"
+    "contributors": "貢献者",
+    "license": "AGPL-3.0-only ライセンス"
+  },
+  "localServer": {
+    "restartServer": "サーバーを再起動",
+    "running": "ローカルサーバー起動中",
+    "stopped": "ローカルサーバー停止中",
+    "spawnHint": "新しく起動するかリモートに切り替える",
+    "stopTitle": "ローカルサーバーを停止",
+    "startTitle": "ローカルサーバーを起動",
+    "restartTitle": "サーバーを再起動"
+  },
+  "serverSettings": {
+    "title": "LivePlayサーバー",
+    "connected": "● 接続済み",
+    "reconnecting": "● 再接続中…",
+    "disconnected": "● 切断済み",
+    "localModeDesc": "アプリが独自のオーディオエンジンを起動します。ソロオペレーターに最適。",
+    "remoteModeDesc": "別のマシンで動作するLivePlayサーバーに接続します。",
+    "localPort": "ローカルポート",
+    "remoteUrl": "リモートURL",
+    "engineRunning": "エンジン起動中 (pid {pid})",
+    "engineNotRunning": "エンジン未起動 — 適用して起動",
+    "externalHint": "外部サーバーをターゲット中。リモートURLが到達可能か確認してください。",
+    "apply": "適用",
+    "retryConnect": "再接続",
+    "restartEngine": "エンジンを再起動",
+    "outputDevices": "出力デバイス",
+    "open": "開く",
+    "noDevices": "(まだデバイスなし)"
   },
   "colors": {
     "chooseAccent": "アクセントカラーを選択"
@@ -224,7 +253,7 @@
     "installInfo": "アップデートのインストール準備ができました。今すぐインストールするか、アプリを閉じたときにインストールされます。",
     "later": "後で",
     "downloadAndInstall": "ダウンロードしてインストール",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "ダウンロードページへ",
     "installNow": "今すぐインストール",
     "installOnExit": "終了時にインストール",
     "downloadFailed": "アップデートのダウンロードに失敗しました"
@@ -250,16 +279,16 @@
     "open": "開く"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "MIDIコントローラー設定",
+    "learn": "学習",
+    "cancel": "キャンセル",
+    "clear": "クリア",
+    "resetAll": "すべてリセット",
+    "close": "閉じる",
+    "waitingForInput": "MIDI入力待ち...",
+    "noDevices": "MIDIデバイスが検出されません",
+    "reassign": "再割り当て",
+    "conflictMessage": "このMIDIコントロールは既に「{action}」に割り当てられています。再割り当てしますか？"
   },
   "controls": {
     "title": "コントロール設定",

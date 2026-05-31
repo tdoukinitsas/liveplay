@@ -84,8 +84,8 @@
     "close": "Κλείσιμο",
     "detach": "Αποσύνδεση",
     "attach": "Επισύνδεση",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "Ρύθμιση ελέγχων",
+    "tabKeyboard": "Πληκτρολόγιο",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "Προγραμματισμός και σχεδίαση",
     "githubRepo": "Αποθετήριο GitHub",
     "developerName": "Θωμάς Δουκινίτσας",
-    "contributors": "Συνεισφέροντες"
+    "contributors": "Συνεισφέροντες",
+    "license": "Άδεια AGPL-3.0 αποκλειστικά"
+  },
+  "localServer": {
+    "restartServer": "Επανεκκίνηση διακομιστή",
+    "running": "Τοπικός διακομιστής σε λειτουργία",
+    "stopped": "Τοπικός διακομιστής σταματημένος",
+    "spawnHint": "Δημιουργήστε νέο ή μεταβείτε σε Απομακρυσμένο",
+    "stopTitle": "Διακοπή τοπικού διακομιστή",
+    "startTitle": "Εκκίνηση τοπικού διακομιστή",
+    "restartTitle": "Επανεκκίνηση διακομιστή"
+  },
+  "serverSettings": {
+    "title": "Διακομιστής LivePlay",
+    "connected": "● Συνδεδεμένος",
+    "reconnecting": "● Επανασύνδεση…",
+    "disconnected": "● Αποσυνδεδεμένος",
+    "localModeDesc": "Η εφαρμογή εκκινεί τον δικό της κινητήρα ήχου. Καλύτερο για μεμονωμένους χειριστές.",
+    "remoteModeDesc": "Σύνδεση σε διακομιστή LivePlay σε άλλο μηχάνημα.",
+    "localPort": "Τοπική θύρα",
+    "remoteUrl": "Απομακρυσμένο URL",
+    "engineRunning": "Κινητήρας σε λειτουργία (pid {pid})",
+    "engineNotRunning": "Κινητήρας εκτός λειτουργίας — Εφαρμογή για εκκίνηση",
+    "externalHint": "Στόχευση εξωτερικού διακομιστή. Βεβαιωθείτε ότι το απομακρυσμένο URL είναι προσβάσιμο.",
+    "apply": "Εφαρμογή",
+    "retryConnect": "Επανάληψη σύνδεσης",
+    "restartEngine": "Επανεκκίνηση κινητήρα",
+    "outputDevices": "Συσκευές εξόδου",
+    "open": "Άνοιγμα",
+    "noDevices": "(δεν υπάρχουν συσκευές ακόμα)"
   },
   "colors": {
     "chooseAccent": "Επιλέξτε Χρώμα Έμφασης"
@@ -224,7 +253,7 @@
     "installInfo": "Η ενημέρωση είναι έτοιμη για εγκατάσταση. Μπορείτε να την εγκαταστήσετε τώρα ή θα εγκατασταθεί όταν κλείσετε την εφαρμογή.",
     "later": "Αργότερα",
     "downloadAndInstall": "Λήψη και Εγκατάσταση",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "Μετάβαση στη σελίδα λήψης",
     "installNow": "Εγκατάσταση Τώρα",
     "installOnExit": "Εγκατάσταση Κατά την Έξοδο",
     "downloadFailed": "Η λήψη της ενημέρωσης απέτυχε"
@@ -250,16 +279,16 @@
     "open": "Άνοιγμα"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "Ρύθμιση ελεγκτή MIDI",
+    "learn": "Εκμάθηση",
+    "cancel": "Ακύρωση",
+    "clear": "Εκκαθάριση",
+    "resetAll": "Επαναφορά όλων",
+    "close": "Κλείσιμο",
+    "waitingForInput": "Αναμονή εισόδου MIDI...",
+    "noDevices": "Δεν ανιχνεύτηκαν συσκευές MIDI",
+    "reassign": "Νέα αντιστοίχιση",
+    "conflictMessage": "Αυτός ο ελεγκτής MIDI είναι ήδη αντιστοιχισμένος στο \"{action}\". Νέα αντιστοίχιση;"
   },
   "controls": {
     "title": "Ρύθμιση ελέγχων",

@@ -84,8 +84,8 @@
     "close": "关闭",
     "detach": "分离",
     "attach": "合并",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "配置控制",
+    "tabKeyboard": "键盘",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "开发者",
     "githubRepo": "GitHub仓库",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "贡献者"
+    "contributors": "贡献者",
+    "license": "AGPL-3.0-only 许可证"
+  },
+  "localServer": {
+    "restartServer": "重启服务器",
+    "running": "本地服务器运行中",
+    "stopped": "本地服务器已停止",
+    "spawnHint": "启动新实例或切换到远程",
+    "stopTitle": "停止本地服务器",
+    "startTitle": "启动本地服务器",
+    "restartTitle": "重启服务器"
+  },
+  "serverSettings": {
+    "title": "LivePlay服务器",
+    "connected": "● 已连接",
+    "reconnecting": "● 重新连接中…",
+    "disconnected": "● 已断开",
+    "localModeDesc": "应用启动自己的音频引擎。最适合独立操作员。",
+    "remoteModeDesc": "连接到另一台机器上运行的LivePlay服务器。",
+    "localPort": "本地端口",
+    "remoteUrl": "远程URL",
+    "engineRunning": "引擎运行中 (pid {pid})",
+    "engineNotRunning": "引擎未运行 — 应用以启动",
+    "externalHint": "正在连接外部服务器。请确保远程URL可访问。",
+    "apply": "应用",
+    "retryConnect": "重试连接",
+    "restartEngine": "重启引擎",
+    "outputDevices": "输出设备",
+    "open": "打开",
+    "noDevices": "（暂无设备）"
   },
   "colors": {
     "chooseAccent": "选择强调色"
@@ -224,7 +253,7 @@
     "installInfo": "更新已准备好安装。您可以现在安装，或在关闭应用时安装。",
     "later": "稍后",
     "downloadAndInstall": "下载并安装",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "前往下载页面",
     "installNow": "立即安装",
     "installOnExit": "退出时安装",
     "downloadFailed": "更新下载失败"
@@ -250,16 +279,16 @@
     "open": "打开"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "MIDI控制器配置",
+    "learn": "学习",
+    "cancel": "取消",
+    "clear": "清除",
+    "resetAll": "全部重置",
+    "close": "关闭",
+    "waitingForInput": "等待MIDI输入...",
+    "noDevices": "未检测到MIDI设备",
+    "reassign": "重新分配",
+    "conflictMessage": "此MIDI控制器已分配给\"{action}\"。重新分配？"
   },
   "controls": {
     "title": "配置控制",

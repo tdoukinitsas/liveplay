@@ -84,8 +84,8 @@
     "close": "Stäng",
     "detach": "Koppla loss",
     "attach": "Koppla in",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "Konfigurera kontroller",
+    "tabKeyboard": "Tangentbord",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "Utvecklad av",
     "githubRepo": "GitHub-arkiv",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "Bidragsgivare"
+    "contributors": "Bidragsgivare",
+    "license": "AGPL-3.0-only licens"
+  },
+  "localServer": {
+    "restartServer": "Starta om server",
+    "running": "Lokal server körs",
+    "stopped": "Lokal server stoppad",
+    "spawnHint": "Starta en ny eller byt till Fjärr",
+    "stopTitle": "Stoppa den lokala servern",
+    "startTitle": "Starta den lokala servern",
+    "restartTitle": "Starta om server"
+  },
+  "serverSettings": {
+    "title": "LivePlay Server",
+    "connected": "● Ansluten",
+    "reconnecting": "● Återansluter…",
+    "disconnected": "● Frånkopplad",
+    "localModeDesc": "Appen startar sin egen ljudmotor. Bäst för ensamma operatörer.",
+    "remoteModeDesc": "Anslut till en LivePlay-server som körs på en annan maskin.",
+    "localPort": "Lokal port",
+    "remoteUrl": "Fjärr-URL",
+    "engineRunning": "Motor körs (pid {pid})",
+    "engineNotRunning": "Motor körs inte — Tillämpa för att starta",
+    "externalHint": "Riktar mot extern server. Se till att fjärr-URL:en är nåbar.",
+    "apply": "Tillämpa",
+    "retryConnect": "Försök ansluta igen",
+    "restartEngine": "Starta om motor",
+    "outputDevices": "Utdataenheter",
+    "open": "Öppna",
+    "noDevices": "(inga enheter ännu)"
   },
   "colors": {
     "chooseAccent": "Välj accentfärg"
@@ -224,7 +253,7 @@
     "installInfo": "Uppdateringen är redo att installeras. Du kan installera den nu eller så installeras den när du stänger appen.",
     "later": "Senare",
     "downloadAndInstall": "Ladda ner och installera",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "Gå till nedladdningssidan",
     "installNow": "Installera nu",
     "installOnExit": "Installera vid avslut",
     "downloadFailed": "Uppdateringsnedladdningen misslyckades"
@@ -250,16 +279,16 @@
     "open": "Öppna"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "MIDI-kontrollerkonfiguration",
+    "learn": "Lär in",
+    "cancel": "Avbryt",
+    "clear": "Rensa",
+    "resetAll": "Återställ alla",
+    "close": "Stäng",
+    "waitingForInput": "Väntar på MIDI-inmatning...",
+    "noDevices": "Inga MIDI-enheter hittades",
+    "reassign": "Tilldela om",
+    "conflictMessage": "Denna MIDI-kontroll är redan tilldelad \"{action}\". Tilldela om?"
   },
   "controls": {
     "title": "Konfigurera kontroller",

@@ -4,34 +4,32 @@
       <div class="clm-dialog">
         <div class="clm-header">
           <span class="material-symbols-rounded clm-icon">cloud_off</span>
-          <h2>Connection lost</h2>
+          <h2>{{ t('connectionLost.title') }}</h2>
         </div>
         <p class="clm-body">
-          The connection to the LivePlay server at
-          <code>{{ server.serverUrl }}</code>
-          has been lost.
-          <span v-if="reconnecting">Attempting to reconnect…</span>
+          {{ t('connectionLost.message', { url: server.serverUrl }) }}
+          <span v-if="reconnecting">{{ t('connectionLost.attempting') }}</span>
         </p>
         <p v-if="server.lastError" class="clm-error">{{ server.lastError }}</p>
 
         <div class="clm-actions">
           <button class="clm-btn primary" :disabled="reconnecting" @click="onReconnect">
             <span class="material-symbols-rounded">sync</span>
-            <span>Reconnect</span>
+            <span>{{ t('connectionLost.reconnect') }}</span>
           </button>
           <button class="clm-btn" @click="onRestart">
             <span class="material-symbols-rounded">restart_alt</span>
-            <span>Restart</span>
+            <span>{{ t('connectionLost.restart') }}</span>
           </button>
           <button class="clm-btn" @click="onExit">
             <span class="material-symbols-rounded">logout</span>
-            <span>Exit</span>
+            <span>{{ t('connectionLost.exit') }}</span>
           </button>
         </div>
         <p class="clm-hint">
-          Reconnect tries the same server again.
-          Restart relaunches just the client (the audio server keeps running).
-          Exit quits the client.
+          {{ t('connectionLost.reconnectHint') }}
+          {{ t('connectionLost.restartHint') }}
+          {{ t('connectionLost.exitHint') }}
         </p>
       </div>
     </div>
@@ -39,6 +37,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useLocalization();
 const server = useLiveplayServer();
 const visible = computed(() => !!server.connectionLost);
 const reconnecting = computed(() => !!server.reconnecting);

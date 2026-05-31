@@ -84,8 +84,8 @@
     "close": "بستن",
     "detach": "جداسازی",
     "attach": "ضمیمه",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "پیکربندی کنترل‌ها",
+    "tabKeyboard": "صفحه‌کلید",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "توسعه یافته توسط",
     "githubRepo": "مخزن GitHub",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "مشارکت‌کنندگان"
+    "contributors": "مشارکت‌کنندگان",
+    "license": "مجوز AGPL-3.0 انحصاری"
+  },
+  "localServer": {
+    "restartServer": "راه‌اندازی مجدد سرور",
+    "running": "سرور محلی در حال اجرا",
+    "stopped": "سرور محلی متوقف شده",
+    "spawnHint": "یک سرور جدید راه‌اندازی کنید یا به حالت از راه دور تغییر دهید",
+    "stopTitle": "توقف سرور محلی",
+    "startTitle": "راه‌اندازی سرور محلی",
+    "restartTitle": "راه‌اندازی مجدد سرور"
+  },
+  "serverSettings": {
+    "title": "سرور LivePlay",
+    "connected": "● متصل",
+    "reconnecting": "● در حال اتصال مجدد…",
+    "disconnected": "● قطع ارتباط",
+    "localModeDesc": "برنامه موتور صوتی خود را راه‌اندازی می‌کند. بهترین گزینه برای اپراتورهای انفرادی.",
+    "remoteModeDesc": "اتصال به سرور LivePlay در حال اجرا روی دستگاه دیگر.",
+    "localPort": "پورت محلی",
+    "remoteUrl": "URL از راه دور",
+    "engineRunning": "موتور در حال اجرا (pid {pid})",
+    "engineNotRunning": "موتور در حال اجرا نیست — اعمال کنید تا شروع شود",
+    "externalHint": "هدف‌گیری سرور خارجی. مطمئن شوید که URL از راه دور قابل دسترسی است.",
+    "apply": "اعمال",
+    "retryConnect": "تلاش مجدد برای اتصال",
+    "restartEngine": "راه‌اندازی مجدد موتور",
+    "outputDevices": "دستگاه‌های خروجی",
+    "open": "باز کردن",
+    "noDevices": "(هنوز دستگاهی نیست)"
   },
   "colors": {
     "chooseAccent": "انتخاب رنگ برجسته"
@@ -224,7 +253,7 @@
     "installInfo": "به‌روزرسانی آماده نصب است. می‌توانید الان نصب کنید یا هنگام بستن برنامه نصب می‌شود.",
     "later": "بعداً",
     "downloadAndInstall": "دانلود و نصب",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "رفتن به صفحه دانلود",
     "installNow": "نصب الان",
     "installOnExit": "نصب هنگام خروج",
     "downloadFailed": "دانلود به‌روزرسانی ناموفق بود"
@@ -250,16 +279,16 @@
     "open": "باز کردن"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "پیکربندی کنترلر MIDI",
+    "learn": "آموزش",
+    "cancel": "لغو",
+    "clear": "پاک کردن",
+    "resetAll": "بازنشانی همه",
+    "close": "بستن",
+    "waitingForInput": "در انتظار ورودی MIDI...",
+    "noDevices": "هیچ دستگاه MIDI شناسایی نشد",
+    "reassign": "تخصیص مجدد",
+    "conflictMessage": "این کنترل MIDI قبلاً به \"{action}\" اختصاص داده شده است. تخصیص مجدد؟"
   },
   "controls": {
     "title": "پیکربندی کنترل‌ها",

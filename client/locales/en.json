@@ -254,11 +254,32 @@
     "uploadingProgress": "Uploading {current}/{total}: {filename}"
   },
   "localServer": {
-    "restartServer": "Restart server"
+    "restartServer": "Restart server",
+    "running": "Local server running",
+    "stopped": "Local server stopped",
+    "spawnHint": "Spawn a new one or switch to Remote",
+    "stopTitle": "Stop the local server",
+    "startTitle": "Start the local server",
+    "restartTitle": "Restart server"
   },
   "serverSettings": {
+    "title": "LivePlay Server",
+    "connected": "● Connected",
     "reconnecting": "● Reconnecting…",
-    "restartEngine": "Restart engine"
+    "disconnected": "● Disconnected",
+    "localModeDesc": "App starts its own audio engine. Best for solo operators.",
+    "remoteModeDesc": "Connect to a LivePlay server running on another machine.",
+    "localPort": "Local port",
+    "remoteUrl": "Remote URL",
+    "engineRunning": "Engine running (pid {pid})",
+    "engineNotRunning": "Engine not running — Apply to start it",
+    "externalHint": "Targeting external server. Make sure the remote URL is reachable.",
+    "apply": "Apply",
+    "retryConnect": "Retry connect",
+    "restartEngine": "Restart engine",
+    "outputDevices": "Output devices",
+    "open": "Open",
+    "noDevices": "(no devices yet)"
   },
   "colors": {
     "chooseAccent": "Choose Accent Color"

@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -44,6 +45,9 @@
     #include <sys/socket.h>
     #include <sys/types.h>
     #include <unistd.h>
+#  if defined(__APPLE__)
+#    include <mach-o/dyld.h>   // _NSGetExecutablePath
+#  endif
 #endif
 
 #ifndef LIVEPLAY_SERVER_VERSION
@@ -67,11 +71,40 @@ extern "C" void handle_signal(int sig) {
     g_running.store(false);
 }
 
+#if defined(_WIN32)
+// Handle CTRL_CLOSE_EVENT (user closes the console window) and CTRL_BREAK_EVENT
+// gracefully. Without this handler Windows hard-kills the process after 5 s with
+// no crash log and no auto-restart — the same symptom the user sees as "server
+// crashed with no logs". Must use WINAPI (__stdcall) calling convention.
+static BOOL WINAPI console_ctrl_handler(DWORD type) {
+    if (type == CTRL_CLOSE_EVENT || type == CTRL_BREAK_EVENT) {
+        g_running.store(false);
+        // Sleep just under Windows' 5-second kill window so the main loop has
+        // time to complete the clean-shutdown sequence before we return.
+        std::this_thread::sleep_for(std::chrono::milliseconds(4500));
+        return TRUE;
+    }
+    return FALSE; // pass CTRL_C through to the default SIGINT handler
+}
+#endif
+
 void install_signal_handlers() {
     std::signal(SIGINT,  handle_signal);
     std::signal(SIGTERM, handle_signal);
 #if defined(SIGHUP)
     std::signal(SIGHUP,  handle_signal);
+#endif
+#if defined(SIGPIPE)
+    // Ignore SIGPIPE so that writing to a closed socket returns EPIPE instead
+    // of killing the process.  Without this, the broadcast thread can be
+    // terminated silently (no crash handler, no restart) the moment a client
+    // disconnects while a write is in-flight — particularly likely on loopback
+    // where the TCP teardown and new-connection handshake arrive almost
+    // simultaneously.
+    std::signal(SIGPIPE, SIG_IGN);
+#endif
+#if defined(_WIN32)
+    SetConsoleCtrlHandler(&console_ctrl_handler, TRUE);
 #endif
 }
 
@@ -212,6 +245,14 @@ struct CliOptions {
     std::string bind_addr = "0.0.0.0";
     std::string pidfile;                   // optional; if set, write JSON {pid,port,startedAt}
     bool        verbose   = false;
+    int         start_delay_ms = 0;        // wait before binding (crash-restart uses this)
+};
+
+// Crash-resume state read from .crash-resume.json on startup.
+struct CrashResume {
+    std::string project_file;
+    std::string item_uuid;
+    double      position_sec = 0.0;
 };
 
 CliOptions parse_cli(int argc, char** argv) {
@@ -230,6 +271,8 @@ CliOptions parse_cli(int argc, char** argv) {
             if (i + 1 < argc) opts.bind_addr = argv[++i];
         } else if (a == "--pidfile") {
             if (i + 1 < argc) opts.pidfile = argv[++i];
+        } else if (a == "--start-delay-ms") {
+            next(opts.start_delay_ms);
         } else if (a == "--verbose" || a == "-v") {
             opts.verbose = true;
         } else if (a == "--help" || a == "-h") {
@@ -238,6 +281,7 @@ CliOptions parse_cli(int argc, char** argv) {
                 "  -p, --port <port>     Port to listen on (default %d)\n"
                 "  -b, --bind <addr>     Interface to bind (default 0.0.0.0)\n"
                 "      --pidfile <path>  Write JSON {pid,port,startedAt} after binding\n"
+                "      --start-delay-ms <n>  Wait <n> ms before binding (used by crash-restart)\n"
                 "  -v, --verbose         Enable debug-level logging\n"
                 "  -h, --help            Show this help and exit\n",
                 LIVEPLAY_SERVER_NAME, kDefaultPort);
@@ -361,21 +405,101 @@ int main(int argc, char** argv) {
     const CliOptions opts = parse_cli(argc, argv);
     if (opts.verbose) Logger::set_min_level(LogLevel::Debug);
 
-    // Drop crash reports next to the executable so the operator can find them
-    // even after the console window has closed.
+    // ------------------------------------------------------------------
+    // Locate our own executable; used by crash handler for auto-restart.
+    // ------------------------------------------------------------------
+    std::filesystem::path exe_dir;
+    std::string exe_path_str;
     {
         std::error_code ec;
-        std::filesystem::path exe_dir = std::filesystem::current_path(ec);
+        exe_dir = std::filesystem::current_path(ec);
 #if defined(_WIN32)
         wchar_t exe_path_w[MAX_PATH] = {};
         if (GetModuleFileNameW(nullptr, exe_path_w, MAX_PATH) > 0) {
-            exe_dir = std::filesystem::path{exe_path_w}.parent_path();
+            const std::filesystem::path p{exe_path_w};
+            exe_dir      = p.parent_path();
+            exe_path_str = p.string();
+        }
+#elif defined(__linux__)
+        char buf[4096] = {};
+        const ssize_t n = ::readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+        if (n > 0) {
+            exe_path_str = std::string{buf, static_cast<std::size_t>(n)};
+            exe_dir      = std::filesystem::path{exe_path_str}.parent_path();
+        }
+#elif defined(__APPLE__)
+        {
+            uint32_t sz = 4096;
+            std::string p(sz, '\0');
+            if (_NSGetExecutablePath(p.data(), &sz) == 0) {
+                p.resize(std::strlen(p.c_str()));
+                exe_path_str = p;
+                exe_dir      = std::filesystem::path{p}.parent_path();
+            }
         }
 #endif
-        install_crash_handlers((exe_dir / "crash-logs").string());
+        if (exe_path_str.empty() && argv && argv[0])
+            exe_path_str = argv[0];
+    }
+
+    // Rebuild the original arg string (argv[1..]) so a restarted instance
+    // inherits the same port / bind / verbose flags. Skip --pidfile (the new
+    // instance writes its own) but keep everything else.
+    std::string restart_args;
+    for (int i = 1; i < argc; ++i) {
+        const std::string_view a{argv[i]};
+        if ((a == "--pidfile") && i + 1 < argc) { ++i; continue; }
+        if (!restart_args.empty()) restart_args += ' ';
+        restart_args += argv[i];
+    }
+
+    // Crash logs go to exe_dir/crash-logs by default; set_crash_project_dir
+    // overrides this to <project_dir>/logs/ once a project is open.
+    install_crash_handlers((exe_dir / "crash-logs").string());
+    set_crash_exe_info(exe_path_str, restart_args);
+
+    // ------------------------------------------------------------------
+    // Check for a crash-resume file left by a previous crashed instance.
+    // ------------------------------------------------------------------
+    std::optional<CrashResume> crash_resume;
+    {
+        const std::filesystem::path resume_path = exe_dir / ".crash-resume.json";
+        std::error_code ec;
+        if (std::filesystem::exists(resume_path, ec)) {
+            try {
+                std::ifstream f{resume_path};
+                if (f) {
+                    nlohmann::json j = nlohmann::json::parse(f, nullptr, false);
+                    if (!j.is_discarded()) {
+                        CrashResume cr;
+                        cr.project_file  = j.value("projectFile",  std::string{});
+                        cr.item_uuid     = j.value("itemUuid",      std::string{});
+                        cr.position_sec  = j.value("positionSec",   0.0);
+                        if (!cr.project_file.empty()) {
+                            crash_resume = std::move(cr);
+                            Logger::warn("Crash-resume: reloading '{}' and resuming playback.",
+                                         crash_resume->project_file);
+                        }
+                    }
+                }
+            } catch (...) {}
+            std::filesystem::remove(resume_path, ec);  // consume it
+        }
     }
 
     install_signal_handlers();
+
+    // ------------------------------------------------------------------
+    // Crash-restart hand-off delay. A crashing instance spawns us immediately
+    // and then exits to release the listening port; we wait here so the port
+    // is free by the time we try to bind it (avoids a restart-vs-dying-parent
+    // race that would otherwise make us exit on "port in use").
+    // ------------------------------------------------------------------
+    if (opts.start_delay_ms > 0) {
+        Logger::info("Start delay: waiting {} ms before binding (crash-restart).",
+                     opts.start_delay_ms);
+        std::this_thread::sleep_for(std::chrono::milliseconds(opts.start_delay_ms));
+    }
 
     // ------------------------------------------------------------------
     // Port conflict check — give a clear diagnostic before Crow tries to
@@ -517,15 +641,102 @@ int main(int argc, char** argv) {
         Logger::warn("LAN discovery beacon disabled (clients must connect by IP).");
     }
 
+    // ------------------------------------------------------------------
+    // Crash-resume: if a previous instance crashed with an open project,
+    // reload it now. We wait for audio loading to finish before playing.
+    // ------------------------------------------------------------------
+    struct PendingResume {
+        std::string item_uuid;
+        double      position_sec = 0.0;
+        std::chrono::steady_clock::time_point retry_after;
+        int         attempts = 0;
+    };
+    std::optional<PendingResume> pending_resume;
+
+    if (crash_resume) {
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        if (fs::exists(fs::path{crash_resume->project_file}, ec)) {
+            Logger::info("Crash-resume: loading project '{}'", crash_resume->project_file);
+            if (project->load(fs::path{crash_resume->project_file})) {
+                // Update project dir for crash handler and logs.
+                set_crash_project_dir(
+                    fs::path{crash_resume->project_file}.parent_path().string());
+                if (!crash_resume->item_uuid.empty()) {
+                    pending_resume = PendingResume{
+                        crash_resume->item_uuid,
+                        crash_resume->position_sec,
+                        std::chrono::steady_clock::now() + std::chrono::seconds{3},
+                        0
+                    };
+                    Logger::info("Crash-resume: will play item '{}' at {:.1f}s once audio loads.",
+                                 crash_resume->item_uuid, crash_resume->position_sec);
+                }
+            } else {
+                Logger::warn("Crash-resume: failed to load '{}'", crash_resume->project_file);
+            }
+        } else {
+            Logger::warn("Crash-resume: project file no longer exists: '{}'",
+                         crash_resume->project_file);
+        }
+    }
+
     // Heartbeat loop. Every 30 s we tick a debug line so operators can confirm
     // the process is alive over long sessions. SIGINT/SIGTERM flips g_running.
     using clock = std::chrono::steady_clock;
-    auto last_heartbeat = clock::now();
+    auto last_heartbeat   = clock::now();
+    auto last_resume_snap = clock::now();
     while (g_running.load()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
         const auto now = clock::now();
-        if (std::chrono::duration_cast<std::chrono::seconds>(now - last_heartbeat).count() >= 30) {
-            Logger::debug("heartbeat — server idle, no engine running yet");
+
+        // ---- crash-resume: play item once audio has fully loaded ------------
+        if (pending_resume) {
+            const bool audio_ready = !project->audio_loading();
+            if (audio_ready && now >= pending_resume->retry_after) {
+                Logger::info("Crash-resume: playing item '{}'", pending_resume->item_uuid);
+                if (project->play_item(pending_resume->item_uuid)) {
+                    // Seek to the saved position (best-effort — item may be
+                    // shorter than the saved position if the file changed).
+                    if (auto cue_id = project->item_to_cue_id(pending_resume->item_uuid)) {
+                        if (auto* pi = engine->find_cue(*cue_id)) {
+                            if (pending_resume->position_sec > 1.0)
+                                pi->seek_seconds(pending_resume->position_sec);
+                        }
+                    }
+                }
+                pending_resume.reset();
+            } else if (!audio_ready) {
+                ++pending_resume->attempts;
+                if (pending_resume->attempts == 1)
+                    Logger::debug("Crash-resume: waiting for audio load...");
+                // Give up after 2 minutes (600 × 200 ms ticks) to avoid
+                // hanging forever if audio loading stalls.
+                if (pending_resume->attempts > 600) {
+                    Logger::warn("Crash-resume: audio load timed out, giving up.");
+                    pending_resume.reset();
+                }
+            }
+        }
+
+        // ---- update crash-handler resume state every ~2 s ------------------
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - last_resume_snap).count() >= 2000) {
+            const auto snap = project->current_playback_snapshot();
+            if (!snap.project_file.empty()) {
+                namespace fs = std::filesystem;
+                set_crash_project_dir(
+                    fs::path{snap.project_file}.parent_path().string());
+                update_crash_resume_state(snap.project_file,
+                                          snap.item_uuid,
+                                          snap.position_sec);
+            }
+            last_resume_snap = now;
+        }
+
+        if (std::chrono::duration_cast<std::chrono::seconds>(
+                now - last_heartbeat).count() >= 30) {
+            Logger::debug("heartbeat — server running");
             last_heartbeat = now;
         }
     }

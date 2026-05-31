@@ -870,10 +870,11 @@ function createClient() {
   // Queue an async waveform generation on the server. Returns immediately;
   // the result arrives as a { op: 'waveform_ready', item_uuid, channels, ... }
   // doc_patch over WebSocket once computation finishes.
-  async function requestWaveformGeneration(path: string, itemUuid: string): Promise<void> {
+  // Pass force=true to delete any cached waveform file and recompute from scratch.
+  async function requestWaveformGeneration(path: string, itemUuid: string, force = false): Promise<void> {
     await rest('/api/waveform_generate', {
       method: 'POST',
-      body: JSON.stringify({ path, item_uuid: itemUuid }),
+      body: JSON.stringify({ path, item_uuid: itemUuid, force }),
     });
   }
 

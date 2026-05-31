@@ -84,8 +84,8 @@
     "close": "Închide",
     "detach": "Separă",
     "attach": "Ataşează",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "Configurare controale",
+    "tabKeyboard": "Tastatură",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -151,10 +151,10 @@
   },
   "endBehavior": {
     "nothing": "Nimic",
-    "next": "Play Next",
-    "gotoItem": "Go to Item",
-    "gotoIndex": "Go to Index",
-    "loop": "Loop"
+    "next": "Redă Următorul",
+    "gotoItem": "Mergi la Element",
+    "gotoIndex": "Mergi la Index",
+    "loop": "Buclă"
   },
   "startBehavior": {
     "nothing": "Nimic",
@@ -190,7 +190,36 @@
     "developedBy": "Dezvoltat de",
     "githubRepo": "GitHub Repository",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "Contribuitori"
+    "contributors": "Contribuitori",
+    "license": "Licență AGPL-3.0 exclusivă"
+  },
+  "localServer": {
+    "restartServer": "Repornire server",
+    "running": "Server local pornit",
+    "stopped": "Server local oprit",
+    "spawnHint": "Pornește unul nou sau treci la Distant",
+    "stopTitle": "Oprește serverul local",
+    "startTitle": "Pornește serverul local",
+    "restartTitle": "Repornire server"
+  },
+  "serverSettings": {
+    "title": "Server LivePlay",
+    "connected": "● Conectat",
+    "reconnecting": "● Reconectare…",
+    "disconnected": "● Deconectat",
+    "localModeDesc": "Aplicația pornește propriul motor audio. Cel mai bun pentru operatori individuali.",
+    "remoteModeDesc": "Conectează-te la un server LivePlay care rulează pe altă mașină.",
+    "localPort": "Port local",
+    "remoteUrl": "URL distant",
+    "engineRunning": "Motor pornit (pid {pid})",
+    "engineNotRunning": "Motorul nu rulează — Aplică pentru a-l porni",
+    "externalHint": "Vizând server extern. Asigurați-vă că URL-ul distant este accesibil.",
+    "apply": "Aplică",
+    "retryConnect": "Reîncearcă conexiunea",
+    "restartEngine": "Repornire motor",
+    "outputDevices": "Dispozitive de ieșire",
+    "open": "Deschide",
+    "noDevices": "(niciun dispozitiv încă)"
   },
   "colors": {
     "chooseAccent": "Alege accentul de culoare"
@@ -250,16 +279,16 @@
     "open": "Deschide"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "Configurare controler MIDI",
+    "learn": "Învățare",
+    "cancel": "Anulare",
+    "clear": "Șterge",
+    "resetAll": "Resetare totală",
+    "close": "Închide",
+    "waitingForInput": "Așteptând intrare MIDI...",
+    "noDevices": "Nu s-au detectat dispozitive MIDI",
+    "reassign": "Reatribuire",
+    "conflictMessage": "Acest control MIDI este deja atribuit la \"{action}\". Reatribuiți?"
   },
   "controls": {
     "title": "Configurare controale",

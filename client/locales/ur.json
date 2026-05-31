@@ -84,8 +84,8 @@
     "close": "بند کریں",
     "detach": "الگ کریں",
     "attach": "منسلک کریں",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "کنٹرولز ترتیب دیں",
+    "tabKeyboard": "کی بورڈ",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "تیار کردہ",
     "githubRepo": "GitHub ریپوزٹری",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "تعاون کرنے والے"
+    "contributors": "تعاون کرنے والے",
+    "license": "AGPL-3.0-only لائسنس"
+  },
+  "localServer": {
+    "restartServer": "سرور دوبارہ شروع کریں",
+    "running": "مقامی سرور چل رہا ہے",
+    "stopped": "مقامی سرور رکا ہوا ہے",
+    "spawnHint": "نیا شروع کریں یا Remote پر جائیں",
+    "stopTitle": "مقامی سرور روکیں",
+    "startTitle": "مقامی سرور شروع کریں",
+    "restartTitle": "سرور دوبارہ شروع کریں"
+  },
+  "serverSettings": {
+    "title": "LivePlay سرور",
+    "connected": "● جڑا ہوا",
+    "reconnecting": "● دوبارہ جڑ رہا ہے…",
+    "disconnected": "● منقطع",
+    "localModeDesc": "ایپ اپنا آڈیو انجن شروع کرتی ہے۔ تنہا آپریٹرز کے لیے بہترین۔",
+    "remoteModeDesc": "کسی دوسری مشین پر چل رہے LivePlay سرور سے جڑیں۔",
+    "localPort": "مقامی پورٹ",
+    "remoteUrl": "ریموٹ URL",
+    "engineRunning": "انجن چل رہا ہے (pid {pid})",
+    "engineNotRunning": "انجن نہیں چل رہا — شروع کرنے کے لیے لاگو کریں",
+    "externalHint": "بیرونی سرور کو نشانہ بنا رہے ہیں۔ یقینی بنائیں کہ ریموٹ URL قابل رسائی ہو۔",
+    "apply": "لاگو کریں",
+    "retryConnect": "دوبارہ جڑنے کی کوشش کریں",
+    "restartEngine": "انجن دوبارہ شروع کریں",
+    "outputDevices": "آؤٹ پٹ آلات",
+    "open": "کھولیں",
+    "noDevices": "(ابھی تک کوئی آلہ نہیں)"
   },
   "colors": {
     "chooseAccent": "ایکسینٹ رنگ منتخب کریں"
@@ -224,7 +253,7 @@
     "installInfo": "اپ ڈیٹ انسٹال کرنے کے لیے تیار ہے۔ آپ اسے ابھی انسٹال کر سکتے ہیں یا ایپ بند کرتے وقت یہ انسٹال ہو جائے گا۔",
     "later": "بعد میں",
     "downloadAndInstall": "ڈاؤن لوڈ اور انسٹال کریں",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "ڈاؤن لوڈ صفحہ پر جائیں",
     "installNow": "ابھی انسٹال کریں",
     "installOnExit": "باہر نکلتے وقت انسٹال کریں",
     "downloadFailed": "اپ ڈیٹ ڈاؤن لوڈ ناکام ہو گیا"
@@ -250,16 +279,16 @@
     "open": "کھولیں"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "MIDI کنٹرولر ترتیب",
+    "learn": "سیکھیں",
+    "cancel": "منسوخ کریں",
+    "clear": "صاف کریں",
+    "resetAll": "سب ری سیٹ کریں",
+    "close": "بند کریں",
+    "waitingForInput": "MIDI ان پٹ کا انتظار...",
+    "noDevices": "کوئی MIDI آلہ نہیں ملا",
+    "reassign": "دوبارہ تفویض کریں",
+    "conflictMessage": "یہ MIDI کنٹرول پہلے سے \"{action}\" کو تفویض ہے۔ دوبارہ تفویض کریں؟"
   },
   "controls": {
     "title": "کنٹرولز ترتیب دیں",

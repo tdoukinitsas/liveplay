@@ -531,7 +531,46 @@ void ProjectState::start_async_mirror() {
 }
 
 void ProjectState::reset() {
+    // Quiesce any in-flight async mirror BEFORE taking mutex_. The mirror
+    // worker acquires mutex_ in its phases, so joining it while we held the
+    // lock would deadlock. mirror_mutex_ also serialises us against a
+    // concurrent start_async_mirror(). Without this, a half-finished mirror
+    // would repopulate cues_/item_uuid_to_cue_ right after we clear them and
+    // leave dangling engine cues — the source of the crash when the next
+    // project is opened.
+    {
+        std::lock_guard mirror_lock{mirror_mutex_};
+        if (load_thread_.joinable()) load_thread_.join();
+    }
+    loading_audio_.store(false, std::memory_order_release);
+    load_progress_loaded_.store(0, std::memory_order_release);
+    load_progress_total_.store(0, std::memory_order_release);
+
+    // Drop the sequencer's tracking list so its 50 ms loop stops dereferencing
+    // cues we're about to unload (auto-advance / crossfade against a project
+    // we've just closed).
+    {
+        std::lock_guard slock{sequencer_mutex_};
+        sequenced_items_.clear();
+    }
+    next_item_override_.clear();
+
     std::lock_guard lock{mutex_};
+
+    // Stop and unload every engine cue. Clearing the bookkeeping maps alone is
+    // not enough — the PlaybackItems live in the engine and keep playing until
+    // explicitly unloaded, which is why a closed project kept making sound.
+    engine_.stop_all();
+    for (auto& [_, id] : item_uuid_to_cue_) engine_.unload_cue(id);
+
+    // Tear down any active preview cue too (its decoder outlives the maps).
+    if (!preview_cue_.empty()) {
+        engine_.stop(preview_cue_);
+        engine_.unload_cue(preview_cue_);
+        preview_cue_ = {};
+    }
+    preview_item_uuid_.clear();
+
     cues_.clear();
     mixers_.clear();
     item_routes_.clear();
@@ -1229,6 +1268,24 @@ std::filesystem::path ProjectState::project_file_path() const {
 void ProjectState::set_project_file_path(std::filesystem::path p) {
     std::lock_guard lock{mutex_};
     project_file_path_ = std::move(p);
+}
+
+ProjectState::PlaybackSnapshot ProjectState::current_playback_snapshot() const {
+    PlaybackSnapshot snap;
+    std::lock_guard lock{mutex_};
+    snap.project_file = util::path_to_utf8(project_file_path_);
+    for (auto& [uuid, cue_id] : item_uuid_to_cue_) {
+        auto* pi = engine_.find_cue(cue_id);
+        if (!pi) continue;
+        const auto st = pi->stats();
+        if (st.transport == audio::TransportState::Playing ||
+            st.transport == audio::TransportState::FadingIn) {
+            snap.item_uuid    = uuid;
+            snap.position_sec = st.playhead_seconds;
+            break;
+        }
+    }
+    return snap;
 }
 
 // ---------------------------------------------------------------------------

@@ -84,8 +84,8 @@
     "close": "Закрыть",
     "detach": "Открепить",
     "attach": "Прикрепить",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "Настройка управления",
+    "tabKeyboard": "Клавиатура",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "Разработано",
     "githubRepo": "Репозиторий GitHub",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "Участники"
+    "contributors": "Участники",
+    "license": "Лицензия AGPL-3.0 (только)"
+  },
+  "localServer": {
+    "restartServer": "Перезапустить сервер",
+    "running": "Локальный сервер запущен",
+    "stopped": "Локальный сервер остановлен",
+    "spawnHint": "Запустите новый или переключитесь на удалённый",
+    "stopTitle": "Остановить локальный сервер",
+    "startTitle": "Запустить локальный сервер",
+    "restartTitle": "Перезапустить сервер"
+  },
+  "serverSettings": {
+    "title": "Сервер LivePlay",
+    "connected": "● Подключено",
+    "reconnecting": "● Переподключение…",
+    "disconnected": "● Отключено",
+    "localModeDesc": "Приложение запускает собственный аудиодвижок. Лучше всего для одиночных операторов.",
+    "remoteModeDesc": "Подключиться к серверу LivePlay на другом компьютере.",
+    "localPort": "Локальный порт",
+    "remoteUrl": "Удалённый URL",
+    "engineRunning": "Движок запущен (pid {pid})",
+    "engineNotRunning": "Движок не запущен — Применить для запуска",
+    "externalHint": "Подключение к внешнему серверу. Убедитесь, что удалённый URL доступен.",
+    "apply": "Применить",
+    "retryConnect": "Повторить подключение",
+    "restartEngine": "Перезапустить движок",
+    "outputDevices": "Устройства вывода",
+    "open": "Открыть",
+    "noDevices": "(устройства отсутствуют)"
   },
   "colors": {
     "chooseAccent": "Выбрать цвет акцента"
@@ -224,7 +253,7 @@
     "installInfo": "Обновление готово к установке. Вы можете установить его сейчас или оно будет установлено при закрытии приложения.",
     "later": "Позже",
     "downloadAndInstall": "Загрузить и установить",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "Перейти на страницу загрузки",
     "installNow": "Установить сейчас",
     "installOnExit": "Установить при выходе",
     "downloadFailed": "Не удалось загрузить обновление"
@@ -250,16 +279,16 @@
     "open": "Открыть"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "Настройка MIDI-контроллера",
+    "learn": "Обучить",
+    "cancel": "Отмена",
+    "clear": "Очистить",
+    "resetAll": "Сбросить всё",
+    "close": "Закрыть",
+    "waitingForInput": "Ожидание MIDI-сигнала...",
+    "noDevices": "MIDI-устройства не обнаружены",
+    "reassign": "Переназначить",
+    "conflictMessage": "Этот MIDI-контроллер уже назначен \"{action}\". Переназначить?"
   },
   "controls": {
     "title": "Настройка управления",

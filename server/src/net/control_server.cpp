@@ -84,6 +84,8 @@ struct ControlServer::Impl {
     struct WaveformTask {
         std::filesystem::path path;
         std::string           item_uuid;
+        std::filesystem::path waveforms_dir; // empty = no disk cache
+        bool                  force{false};  // delete cache and recompute
     };
     std::mutex              waveform_q_mutex;
     std::condition_variable waveform_q_cv;
@@ -567,6 +569,38 @@ void ControlServer::waveform_worker() {
             impl_->waveform_q.pop_front();
         }
 
+        const fs::path json_file = task.waveforms_dir.empty()
+            ? fs::path{}
+            : task.waveforms_dir / (task.item_uuid + ".json");
+
+        // Remove stale cache entry when a forced regeneration is requested.
+        if (task.force && !json_file.empty() && fs::exists(json_file)) {
+            std::error_code ec;
+            fs::remove(json_file, ec);
+        }
+
+        // Serve from disk cache when available (skips full audio decode).
+        if (!json_file.empty() && fs::exists(json_file)) {
+            try {
+                std::ifstream cache_f(json_file);
+                const auto cached = json::parse(cache_f);
+                broadcast_doc_patch(json{
+                    {"type",            "doc_patch"},
+                    {"op",              "waveform_ready"},
+                    {"item_uuid",       task.item_uuid},
+                    {"bucket_count",    cached.at("bucket_count")},
+                    {"duration_ms",     cached.at("duration_ms")},
+                    {"sample_rate",     cached.at("sample_rate")},
+                    {"source_channels", cached.at("source_channels")},
+                    {"channels",        cached.at("channels")},
+                });
+                Logger::info("waveform_worker: served cached waveform for '{}'", task.item_uuid);
+                continue;
+            } catch (const std::exception& e) {
+                Logger::warn("waveform_worker: cache read failed for '{}', recomputing: {}", task.item_uuid, e.what());
+            }
+        }
+
         Logger::info("waveform_worker: computing waveform for '{}'", liveplay::util::path_to_utf8(task.path));
         const auto wf = liveplay::meta::compute_waveform(task.path);
         if (!wf.ok) {
@@ -583,7 +617,9 @@ void ControlServer::waveform_worker() {
         for (const auto& ch : wf.channels) {
             channels.push_back(json{{"peak", ch.peak}, {"rms", ch.rms}});
         }
-        broadcast_doc_patch(json{
+
+        // Build the broadcast payload; also used as the on-disk cache format.
+        json patch{
             {"type",            "doc_patch"},
             {"op",              "waveform_ready"},
             {"item_uuid",       task.item_uuid},
@@ -592,7 +628,27 @@ void ControlServer::waveform_worker() {
             {"sample_rate",     wf.sample_rate},
             {"source_channels", wf.source_channels},
             {"channels",        std::move(channels)},
-        });
+        };
+
+        // Persist waveform so future project opens skip recomputation.
+        if (!json_file.empty()) {
+            try {
+                fs::create_directories(task.waveforms_dir);
+                std::ofstream out(json_file);
+                // Write only the waveform data fields (not WS envelope fields).
+                out << json{
+                    {"bucket_count",    patch["bucket_count"]},
+                    {"duration_ms",     patch["duration_ms"]},
+                    {"sample_rate",     patch["sample_rate"]},
+                    {"source_channels", patch["source_channels"]},
+                    {"channels",        patch["channels"]},
+                }.dump();
+            } catch (const std::exception& e) {
+                Logger::warn("waveform_worker: failed to save waveform cache for '{}': {}", task.item_uuid, e.what());
+            }
+        }
+
+        broadcast_doc_patch(std::move(patch));
         Logger::info("waveform_worker: done for item_uuid '{}'", task.item_uuid);
     }
 }
@@ -638,19 +694,21 @@ static json build_playback_snapshot(audio::AudioEngine& engine,
 }
 
 // ---------------------------------------------------------------------------
-static void handle_ws_message(crow::websocket::connection& conn,
-                               const std::string& msg,
-                               audio::AudioEngine& engine,
-                               core::ProjectState& state,
-                               const std::string& server_addr) {
+// Returns a non-empty string if a direct reply to this specific client is
+// needed (pong, error). The caller sends it under ws_mutex so it doesn't
+// race with broadcast_loop's concurrent send_text calls on the same conn.
+static std::string handle_ws_message(crow::websocket::connection& conn,
+                                     const std::string& msg,
+                                     audio::AudioEngine& engine,
+                                     core::ProjectState& state,
+                                     const std::string& server_addr) {
     Logger::api_request("Client ({}) -> Server ({}) : {}", conn.get_remote_ip(), server_addr, msg);
 
     json j;
     try { j = json::parse(msg); }
     catch (const std::exception& e) {
         Logger::warn("WS message parse failed: {}", e.what());
-        conn.send_text(json({{"type", "error"}, {"message", e.what()}}).dump());
-        return;
+        return json({{"type", "error"}, {"message", e.what()}}).dump();
     }
     const std::string type = j.value("type", "");
     // Resolve a transport target: prefer "item_uuid" (preserves duckingBehavior
@@ -786,21 +844,20 @@ static void handle_ws_message(crow::websocket::connection& conn,
             // (which has access to the ControlServer for broadcast).
         }
         else if (type == "ping") {
-            conn.send_text(json({{"type", "pong"}}).dump());
+            return json({{"type", "pong"}}).dump();
         }
         else {
             Logger::warn("WS unknown message type: {}", type);
-            conn.send_text(json({{"type", "error"}, {"message", "unknown type"}}).dump());
+            return json({{"type", "error"}, {"message", "unknown type"}}).dump();
         }
     } catch (const std::exception& e) {
         Logger::error("WS handler threw: {}", e.what());
-        try { conn.send_text(json({{"type", "error"}, {"message", e.what()}}).dump()); }
-        catch (...) {}
+        return json({{"type", "error"}, {"message", e.what()}}).dump();
     } catch (...) {
         Logger::error("WS handler caught unknown exception.");
-        try { conn.send_text(json({{"type", "error"}, {"message", "internal error"}}).dump()); }
-        catch (...) {}
+        return json({{"type", "error"}, {"message", "internal error"}}).dump();
     }
+    return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -1344,14 +1401,22 @@ void ControlServer::install_routes() {
                 const auto body = json::parse(req.body);
                 const std::string path_str  = body.value("path", std::string{});
                 const std::string item_uuid = body.value("item_uuid", std::string{});
+                const bool        force     = body.value("force", false);
                 if (path_str.empty() || item_uuid.empty())
                     return json_err(400, "missing path or item_uuid");
+
+                const auto proj_path = state_.project_file_path();
+                const auto wdir = proj_path.empty()
+                    ? fs::path{}
+                    : proj_path.parent_path() / "waveforms";
 
                 {
                     std::lock_guard lock{impl_->waveform_q_mutex};
                     impl_->waveform_q.push_back({
                         liveplay::util::utf8_to_path(path_str),
-                        item_uuid
+                        item_uuid,
+                        wdir,
+                        force
                     });
                 }
                 impl_->waveform_q_cv.notify_one();
@@ -2223,12 +2288,22 @@ void ControlServer::install_routes() {
                         const std::string& data,
                         bool is_binary) {
           if (is_binary) return;
+          std::string direct_reply;
           try {
-              handle_ws_message(conn, data, engine_, state_, impl_->server_addr);
+              direct_reply = handle_ws_message(conn, data, engine_, state_, impl_->server_addr);
           } catch (const std::exception& e) {
               Logger::error("WS onmessage threw past handler: {}", e.what());
           } catch (...) {
               Logger::error("WS onmessage caught unknown exception.");
+          }
+          // Send any direct reply (pong, error) under ws_mutex so it is
+          // serialised with broadcast_loop's concurrent send_text calls.
+          // Calling send_text from the ASIO thread without the mutex while
+          // broadcast_loop is also writing to the same conn causes the
+          // "not safe for concurrent writes" crash described in the Impl comment.
+          if (!direct_reply.empty()) {
+              std::lock_guard lock{impl_->ws_mutex};
+              try { conn.send_text(direct_reply); } catch (...) {}
           }
           // After applying any state-mutating WS message, fan out the
           // relevant change to every other client so multi-client mirroring

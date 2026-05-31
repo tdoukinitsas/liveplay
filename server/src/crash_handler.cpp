@@ -6,8 +6,10 @@
 
 #include <atomic>
 #include <chrono>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <exception>
 #include <filesystem>
@@ -16,6 +18,7 @@
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #if defined(_WIN32)
 #  ifndef WIN32_LEAN_AND_MEAN
@@ -25,22 +28,42 @@
 #  include <dbghelp.h>
 #  pragma comment(lib, "dbghelp.lib")
 #else
-#  include <csignal>
-#  include <cstring>
 #  if __has_include(<execinfo.h>)
 #    include <execinfo.h>
 #    define LIVEPLAY_HAVE_EXECINFO 1
 #  endif
 #  include <unistd.h>
+#  include <sys/types.h>
+#  include <sys/wait.h>
 #endif
 
 namespace liveplay {
 namespace {
 
-std::filesystem::path g_crash_log_dir;
+// ---------------------------------------------------------------------------
+// Crash-safe global state (fixed-size C arrays; no dynamic allocation in
+// handler paths). Written from normal threads, read from the crash handler.
+// ---------------------------------------------------------------------------
+std::filesystem::path g_crash_log_dir;   // fallback if no project dir is set
 std::once_flag        g_install_flag;
 std::atomic<bool>     g_in_handler{false};
 
+constexpr std::size_t kPathBuf = 4096;
+constexpr std::size_t kArgBuf  = 8192;
+constexpr std::size_t kUuidBuf = 256;
+
+char g_exe_path[kPathBuf]           = {};
+char g_restart_args[kArgBuf]        = {};
+char g_project_dir[kPathBuf]        = {};
+char g_resume_project_file[kPathBuf]= {};
+char g_resume_item_uuid[kUuidBuf]   = {};
+// Plain double is fine here; worst case: a torn read gives a slightly wrong
+// seek position — acceptable in a crash-resume scenario.
+double g_resume_position_sec        = 0.0;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 std::string timestamp_for_filename() {
     using clock = std::chrono::system_clock;
     const auto now = clock::to_time_t(clock::now());
@@ -50,28 +73,51 @@ std::string timestamp_for_filename() {
 #else
     localtime_r(&now, &tm);
 #endif
-    std::ostringstream os;
-    os << std::put_time(&tm, "%Y%m%d-%H%M%S");
-    return os.str();
+    char buf[32];
+    // Format: YYYY_MM_DD-HHMM  (as requested)
+    std::snprintf(buf, sizeof(buf), "%04d_%02d_%02d-%02d%02d",
+                  tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+                  tm.tm_hour, tm.tm_min);
+    return std::string{buf};
 }
 
 std::filesystem::path resolve_crash_log_path() {
     namespace fs = std::filesystem;
-    fs::path dir = g_crash_log_dir;
     std::error_code ec;
-    if (dir.empty()) {
+
+    fs::path dir;
+    if (g_project_dir[0] != '\0') {
+        // Preferred: <project_dir>/logs/
+        dir = fs::path{g_project_dir} / "logs";
+    } else if (!g_crash_log_dir.empty()) {
+        dir = g_crash_log_dir;
+    } else {
         dir = fs::current_path(ec);
         if (ec) dir = ".";
-    } else {
-        fs::create_directories(dir, ec);
     }
-    return dir / ("crash-" + timestamp_for_filename() + ".log");
+    fs::create_directories(dir, ec);
+    return dir / ("liveplay-crash-" + timestamp_for_filename() + ".log");
 }
 
+// Minimal JSON string escaper — safe to call from the crash handler.
+std::string json_escape(const char* s) {
+    std::string out;
+    for (; *s; ++s) {
+        switch (*s) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n";  break;
+            case '\r': out += "\\r";  break;
+            default:   out += *s;     break;
+        }
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// Stack-trace helpers
+// ---------------------------------------------------------------------------
 #if defined(_WIN32)
-// Capture and format a stack trace using DbgHelp. The CONTEXT* is the one
-// supplied by SetUnhandledExceptionFilter; for non-SEH paths we pass nullptr
-// and capture the current context inline.
 std::string format_stack_trace_windows(CONTEXT* context_in) {
     static std::mutex sym_mutex;
     std::lock_guard lock{sym_mutex};
@@ -124,16 +170,13 @@ std::string format_stack_trace_windows(CONTEXT* context_in) {
 
     for (int i = 0; i < kMaxFrames; ++i) {
         if (!StackWalk64(machine_type, process, thread, &frame, context, nullptr,
-                         SymFunctionTableAccess64, SymGetModuleBase64, nullptr)) {
-            break;
-        }
+                         SymFunctionTableAccess64, SymGetModuleBase64, nullptr)) break;
         if (frame.AddrPC.Offset == 0) break;
 
         DWORD64 displacement = 0;
         std::string name = "(unknown)";
-        if (SymFromAddr(process, frame.AddrPC.Offset, &displacement, sym)) {
+        if (SymFromAddr(process, frame.AddrPC.Offset, &displacement, sym))
             name = sym->Name;
-        }
 
         IMAGEHLP_LINE64 line{};
         line.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
@@ -162,9 +205,8 @@ std::string format_stack_trace_posix() {
     int n = backtrace(buf, 64);
     char** syms = backtrace_symbols(buf, n);
     std::ostringstream out;
-    for (int i = 0; i < n; ++i) {
+    for (int i = 0; i < n; ++i)
         out << "  #" << i << "  " << (syms ? syms[i] : "(?)") << "\n";
-    }
     if (syms) std::free(syms);
     return out.str();
 #else
@@ -173,43 +215,111 @@ std::string format_stack_trace_posix() {
 }
 #endif
 
-// Write `body` to stderr (via Logger) AND to a crash-<timestamp>.log file.
-// Best-effort; never throws.
+// ---------------------------------------------------------------------------
+// Core: write crash log + console output + restart after 5 s.
+// ---------------------------------------------------------------------------
 void emit_crash_report(const std::string& reason, const std::string& trace) {
+    // 1. Console output — visible to the operator while the window is up.
     try {
-        Logger::error("==================== CRASH ====================");
-        Logger::error("Reason: {}", reason);
+        Logger::error("==================== SERVER CRASH ====================");
+        Logger::error("Reason : {}", reason);
+        Logger::error("Restart: server will relaunch in 5 seconds.");
+        Logger::error("Log    : see liveplay-crash-*.log in the project /logs/ folder.");
         Logger::error("Stack trace:");
         std::istringstream is{trace};
         std::string line;
-        while (std::getline(is, line)) Logger::error("{}", line);
-        Logger::error("===============================================");
+        while (std::getline(is, line)) Logger::error("  {}", line);
+        Logger::error("======================================================");
     } catch (...) {
-        // Fall back to raw stderr — Logger may itself be broken mid-crash.
         std::fprintf(stderr, "CRASH: %s\n%s\n", reason.c_str(), trace.c_str());
     }
 
+    // 2. Crash log file: header + stack trace + full session history.
     try {
         const auto path = resolve_crash_log_path();
         std::ofstream f{path, std::ios::binary | std::ios::trunc};
         if (f) {
-            f << "LivePlay server crash report\n"
-              << "Time:   " << timestamp_for_filename() << "\n"
-              << "Reason: " << reason << "\n\n"
-              << "Stack trace:\n" << trace << std::flush;
-            try { Logger::error("Crash log written to: {}", path.string()); } catch (...) {}
+            f << "LivePlay Server — Crash Report\n"
+              << "================================\n"
+              << "Time   : " << timestamp_for_filename() << "\n"
+              << "Reason : " << reason << "\n\n"
+              << "Stack trace:\n" << trace << "\n"
+              << "================================\n"
+              << "Session log (oldest first):\n\n";
+            try { f << Logger::dump_history(); } catch (...) {}
+            f << std::flush;
+            try { Logger::error("Crash log written: {}", path.string()); } catch (...) {}
         }
-    } catch (...) { /* nothing more we can do */ }
+    } catch (...) {}
 
+    // 3. Persist resume state so the new instance can reopen the project and
+    //    resume playback from approximately where it stopped.
+    if (g_exe_path[0] != '\0' && g_resume_project_file[0] != '\0') {
+        try {
+            namespace fs = std::filesystem;
+
+            // Store next to the exe so the new instance finds it at startup.
+            const fs::path resume_path =
+                fs::path{g_exe_path}.parent_path() / ".crash-resume.json";
+            std::ofstream rf{resume_path, std::ios::binary | std::ios::trunc};
+            if (rf) {
+                char pos_buf[64];
+                std::snprintf(pos_buf, sizeof(pos_buf), "%.3f", g_resume_position_sec);
+                rf << "{\n"
+                   << "  \"projectFile\": \""  << json_escape(g_resume_project_file) << "\",\n"
+                   << "  \"itemUuid\": \""      << json_escape(g_resume_item_uuid)    << "\",\n"
+                   << "  \"positionSec\": "     << pos_buf                            << "\n"
+                   << "}\n";
+            }
+        } catch (...) {}
+    }
+
+    // 4. Relaunch the server, then exit so the OS releases our listening port.
+    //    Rather than sleeping here (which would hold the port for 5 s and race
+    //    the new instance for it), we spawn immediately and pass --start-delay-ms
+    //    so the *new* instance waits before binding — by which point we're gone.
 #if defined(_WIN32)
-    // Hold the console open so the operator can read it before the window
-    // closes. 30 seconds is long enough to screenshot, short enough that an
-    // unattended server will eventually exit.
-    try { Logger::error("Server will exit in 30 seconds — copy this log first."); } catch (...) {}
-    Sleep(30000);
+    if (g_exe_path[0] != '\0') {
+        std::string cmd = std::string{"\""} + g_exe_path + "\"";
+        if (g_restart_args[0] != '\0') { cmd += ' '; cmd += g_restart_args; }
+        cmd += " --start-delay-ms 5000";
+
+        STARTUPINFOA si{};
+        si.cb = sizeof(si);
+        PROCESS_INFORMATION pi{};
+        std::vector<char> cmdline(cmd.begin(), cmd.end());
+        cmdline.push_back('\0');
+        CreateProcessA(nullptr, cmdline.data(),
+                       nullptr, nullptr, FALSE,
+                       CREATE_NEW_CONSOLE,
+                       nullptr, nullptr, &si, &pi);
+        if (pi.hProcess) CloseHandle(pi.hProcess);
+        if (pi.hThread)  CloseHandle(pi.hThread);
+    }
+#else
+    // Fork a child that sleeps then execs the server; the crashing parent exits.
+    if (g_exe_path[0] != '\0') {
+        const pid_t pid = ::fork();
+        if (pid == 0) {
+            // Child: sleep 5 s then exec the original binary.
+            ::sleep(5);
+            if (g_restart_args[0] != '\0') {
+                // Use sh to re-parse the arg string.
+                std::string cmd = std::string{g_exe_path} + " " + g_restart_args;
+                ::execl("/bin/sh", "sh", "-c", cmd.c_str(), nullptr);
+            } else {
+                ::execl(g_exe_path, g_exe_path, nullptr);
+            }
+            ::_exit(1);
+        }
+        // Parent falls through and exits normally below.
+    }
 #endif
 }
 
+// ---------------------------------------------------------------------------
+// Platform handlers
+// ---------------------------------------------------------------------------
 #if defined(_WIN32)
 LONG WINAPI seh_filter(EXCEPTION_POINTERS* info) {
     if (g_in_handler.exchange(true)) return EXCEPTION_EXECUTE_HANDLER;
@@ -237,8 +347,9 @@ LONG WINAPI seh_filter(EXCEPTION_POINTERS* info) {
     std::ostringstream r;
     r << name << " (0x" << std::hex << code << std::dec
       << ") at 0x" << std::hex << reinterpret_cast<std::uintptr_t>(addr);
-    if (code == EXCEPTION_ACCESS_VIOLATION && info->ExceptionRecord->NumberParameters >= 2) {
-        const auto kind = info->ExceptionRecord->ExceptionInformation[0];
+    if (code == EXCEPTION_ACCESS_VIOLATION &&
+        info->ExceptionRecord->NumberParameters >= 2) {
+        const auto kind  = info->ExceptionRecord->ExceptionInformation[0];
         const auto addr2 = info->ExceptionRecord->ExceptionInformation[1];
         r << "  [" << (kind == 0 ? "read" : kind == 1 ? "write" : "execute")
           << " of 0x" << std::hex << addr2 << "]";
@@ -246,7 +357,15 @@ LONG WINAPI seh_filter(EXCEPTION_POINTERS* info) {
     emit_crash_report(r.str(), format_stack_trace_windows(info->ContextRecord));
     return EXCEPTION_EXECUTE_HANDLER;
 }
-#endif
+
+// CRT abort / invalid-parameter / pure-call all funnel here.
+void crt_abort_handler() {
+    if (g_in_handler.exchange(true)) { std::_Exit(1); return; }
+    emit_crash_report("CRT abort / invalid operation",
+                      format_stack_trace_windows(nullptr));
+    std::_Exit(1);
+}
+#endif // _WIN32
 
 void terminate_handler() {
     if (g_in_handler.exchange(true)) std::abort();
@@ -293,6 +412,9 @@ extern "C" void posix_fatal_signal(int sig) {
 
 } // namespace
 
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 void install_crash_handlers(const std::string& log_dir) {
     std::call_once(g_install_flag, [&]{
         g_crash_log_dir = log_dir;
@@ -301,9 +423,15 @@ void install_crash_handlers(const std::string& log_dir) {
 
 #if defined(_WIN32)
         SetUnhandledExceptionFilter(&seh_filter);
-        // Make CRT errors (e.g. heap corruption) call our terminate handler
-        // instead of popping a modal dialog that nobody is around to dismiss.
+
+        // Suppress CRT error dialogs so a headless/crashed server doesn't
+        // pop a modal nobody will click. Route CRT abort paths to our handler.
         _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+        std::signal(SIGABRT, [](int) { crt_abort_handler(); });
+        _set_purecall_handler([]() { crt_abort_handler(); });
+        _set_invalid_parameter_handler(
+            [](const wchar_t*, const wchar_t*, const wchar_t*,
+               unsigned int, uintptr_t) { crt_abort_handler(); });
 #else
         struct sigaction sa{};
         sa.sa_handler = &posix_fatal_signal;
@@ -318,6 +446,24 @@ void install_crash_handlers(const std::string& log_dir) {
 #  endif
 #endif
     });
+}
+
+void set_crash_exe_info(const std::string& exe_path,
+                        const std::string& restart_args) {
+    std::strncpy(g_exe_path,      exe_path.c_str(),     kPathBuf - 1);
+    std::strncpy(g_restart_args,  restart_args.c_str(), kArgBuf  - 1);
+}
+
+void set_crash_project_dir(const std::string& project_dir) {
+    std::strncpy(g_project_dir, project_dir.c_str(), kPathBuf - 1);
+}
+
+void update_crash_resume_state(const std::string& project_file,
+                                const std::string& playing_item_uuid,
+                                double             position_sec) {
+    std::strncpy(g_resume_project_file, project_file.c_str(),        kPathBuf - 1);
+    std::strncpy(g_resume_item_uuid,    playing_item_uuid.c_str(),   kUuidBuf - 1);
+    g_resume_position_sec = position_sec;
 }
 
 } // namespace liveplay

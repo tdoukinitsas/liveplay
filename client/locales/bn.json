@@ -84,8 +84,8 @@
     "close": "বন্ধ করুন",
     "detach": "আলাদা করুন",
     "attach": "সংযুক্ত করুন",
-    "configureControls": "Configure Controls",
-    "tabKeyboard": "Keyboard",
+    "configureControls": "নিয়ন্ত্রণ কনফিগার করুন",
+    "tabKeyboard": "কীবোর্ড",
     "tabMidi": "MIDI"
   },
   "properties": {
@@ -190,7 +190,36 @@
     "developedBy": "দ্বারা উন্নত",
     "githubRepo": "GitHub সংগ্রহস্থল",
     "developerName": "Thomas Doukinitsas",
-    "contributors": "অবদানকারীরা"
+    "contributors": "অবদানকারীরা",
+    "license": "AGPL-3.0-only লাইসেন্স"
+  },
+  "localServer": {
+    "restartServer": "সার্ভার পুনরায় চালু করুন",
+    "running": "স্থানীয় সার্ভার চলছে",
+    "stopped": "স্থানীয় সার্ভার বন্ধ",
+    "spawnHint": "নতুন একটি চালু করুন বা রিমোটে স্যুইচ করুন",
+    "stopTitle": "স্থানীয় সার্ভার বন্ধ করুন",
+    "startTitle": "স্থানীয় সার্ভার শুরু করুন",
+    "restartTitle": "সার্ভার পুনরায় চালু করুন"
+  },
+  "serverSettings": {
+    "title": "LivePlay সার্ভার",
+    "connected": "● সংযুক্ত",
+    "reconnecting": "● পুনরায় সংযুক্ত হচ্ছে…",
+    "disconnected": "● সংযোগ বিচ্ছিন্ন",
+    "localModeDesc": "অ্যাপ নিজের অডিও ইঞ্জিন শুরু করে। একক অপারেটরদের জন্য সেরা।",
+    "remoteModeDesc": "অন্য একটি মেশিনে চলমান LivePlay সার্ভারে সংযুক্ত হন।",
+    "localPort": "স্থানীয় পোর্ট",
+    "remoteUrl": "রিমোট URL",
+    "engineRunning": "ইঞ্জিন চলছে (pid {pid})",
+    "engineNotRunning": "ইঞ্জিন চলছে না — শুরু করতে প্রয়োগ করুন",
+    "externalHint": "বাহ্যিক সার্ভার লক্ষ্য করা হচ্ছে। নিশ্চিত করুন যে রিমোট URL পৌঁছানো যাচ্ছে।",
+    "apply": "প্রয়োগ করুন",
+    "retryConnect": "পুনরায় সংযুক্ত হওয়ার চেষ্টা করুন",
+    "restartEngine": "ইঞ্জিন পুনরায় চালু করুন",
+    "outputDevices": "আউটপুট ডিভাইস",
+    "open": "খুলুন",
+    "noDevices": "(এখনো কোনো ডিভাইস নেই)"
   },
   "colors": {
     "chooseAccent": "অ্যাক্সেন্ট রঙ নির্বাচন করুন"
@@ -224,7 +253,7 @@
     "installInfo": "আপডেট ইনস্টল করার জন্য প্রস্তুত। আপনি এখন এটি ইনস্টল করতে পারেন বা অ্যাপ বন্ধ করার সময় এটি ইনস্টল হবে।",
     "later": "পরে",
     "downloadAndInstall": "ডাউনলোড এবং ইনস্টল করুন",
-    "goToDownloadPage": "Go to Download Page",
+    "goToDownloadPage": "ডাউনলোড পৃষ্ঠায় যান",
     "installNow": "এখন ইনস্টল করুন",
     "installOnExit": "প্রস্থান করার সময় ইনস্টল করুন",
     "downloadFailed": "আপডেট ডাউনলোড ব্যর্থ হয়েছে"
@@ -250,16 +279,16 @@
     "open": "খুলুন"
   },
   "midi": {
-    "configTitle": "MIDI Controller Configuration",
-    "learn": "Learn",
-    "cancel": "Cancel",
-    "clear": "Clear",
-    "resetAll": "Reset All",
-    "close": "Close",
-    "waitingForInput": "Waiting for MIDI input...",
-    "noDevices": "No MIDI devices detected",
-    "reassign": "Reassign",
-    "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?"
+    "configTitle": "MIDI কন্ট্রোলার কনফিগারেশন",
+    "learn": "শিখুন",
+    "cancel": "বাতিল করুন",
+    "clear": "পরিষ্কার করুন",
+    "resetAll": "সব রিসেট করুন",
+    "close": "বন্ধ করুন",
+    "waitingForInput": "MIDI ইনপুটের জন্য অপেক্ষা...",
+    "noDevices": "কোনো MIDI ডিভাইস পাওয়া যায়নি",
+    "reassign": "পুনরায় নির্ধারণ করুন",
+    "conflictMessage": "এই MIDI নিয়ন্ত্রণ ইতিমধ্যে \"{action}\" এ নির্ধারিত। পুনরায় নির্ধারণ করুন?"
   },
   "controls": {
     "title": "নিয়ন্ত্রণ কনফিগার করুন",
