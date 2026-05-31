@@ -92,7 +92,7 @@
   "properties": {
     "title": "Egenskaper",
     "multipleItemsSelected": "{count} objekt valda",
-    "peakWarning": "Det här objektet har volymnivåer som överstiger brickwall-gränsen för det valda utgångsmålet. Justera volymen i egenskapspanelen eller byt utgångsmål.",
+    "peakWarning": "Det här objektets volymnivå är betydligt över målnivån för det valda utgångsmålet. Använd 'Justera volymen automatiskt' för att normalisera det, eller byt utgångsmål.",
     "noSelection": "Välj ett objekt för att visa egenskaper",
     "displayName": "Visningsnamn",
     "color": "Färg",
@@ -353,6 +353,7 @@
     "meterModeDbfs": "dBFS (digital fullskala)",
     "meterModeDbtp": "dBTP (sant toppvärde)",
     "meterModeRms": "RMS",
+    "disableAutoVolumeAndTrim": "Inaktivera automatisk volym- och trimjustering",
     "useProjectDefault": "Använd projektstandard",
     "noneSelected": "Ej vald",
     "save": "Spara",

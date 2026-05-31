@@ -1248,7 +1248,7 @@ function createStateViewerWindow() {
         }
         
         pre {
-          font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+          font-family: 'IBM Plex Mono', 'Consolas', monospace;
           font-size: 12px;
           line-height: 1.5;
           overflow-x: auto;

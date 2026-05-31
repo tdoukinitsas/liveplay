@@ -303,7 +303,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useLocalization();
-const { colorForLevel } = useOutputTarget();
+const { colorForLevel, levels: outputTargetLevels } = useOutputTarget();
 
 // Parse a CSS hex color ("#rrggbb") into [r, g, b] without DOM tricks.
 function hexToRgb(hex: string): [number, number, number] {
@@ -688,10 +688,13 @@ const trimSilence = () => {
     return;
   }
 
-  // Emit trimSilence event to trigger batch trimming in parent
-  // The parent will handle trimming all selected items individually
+  // Emit trimSilence event to trigger batch trimming in parent.
+  // The parent (handleTrimSilence) trims every selected item INDIVIDUALLY
+  // based on its own waveform and persists the result itself. We deliberately
+  // do NOT emit 'change' here: that would run the multi-select snapshot-diff
+  // in handleSave and overwrite each item's individually-computed in/out
+  // points with the anchor item's values.
   emit('trimSilence');
-  emit('change');
 };
 
 // Normalize audio to target loudness
@@ -701,10 +704,13 @@ const normalizeAudio = () => {
     return;
   }
 
-  // Emit normalize event to trigger batch normalization in parent
-  // The parent will handle normalizing all selected items individually
+  // Emit normalize event to trigger batch normalization in parent.
+  // The parent (handleNormalize) normalizes every selected item INDIVIDUALLY
+  // to the target loudness using each item's own intrinsic loudness, and
+  // persists itself. We deliberately do NOT emit 'change' here: that would run
+  // the multi-select snapshot-diff in handleSave and overwrite each item's
+  // individually-computed volume with the anchor item's volume.
   emit('normalize');
-  emit('change');
 };
 
 // Draw waveform on canvas
@@ -796,39 +802,43 @@ const drawWaveform = () => {
       // stereo meter) so the waveform and meter always agree visually.
       const getColorForDB = (db: number): string => colorForLevel(db);
 
-      // Gamma 2 expansion so loud songs don't render as a solid wall —
-      // matches PlaylistItem / CartSlot. dB-based clip detection below still
-      // uses the LINEAR amplitude so colour-coding stays meter-accurate.
-      const shape = (v: number) => {
-        const c = Math.min(1, Math.max(0, v));
-        return c * c;
-      };
+      // Loudness-referenced vertical scale.
+      // ------------------------------------
+      // The display is calibrated so that a signal sitting AT the project's
+      // target optimal loudness fills ~3/4 of the canvas height, leaving the
+      // top 1/4 as headroom for louder transient peaks. Without this, an
+      // auto-normalised track (whose volume is pulled down to hit the target)
+      // rendered as a tiny sliver. We map linear amplitude → height fraction
+      // with a fixed gain so the target maps to 0.75 and clamp at 1.0.
+      const targetDb = outputTargetLevels.value?.autoVolumeTargetDb ?? -23;
+      const targetLinear = Math.pow(10, targetDb / 20);
+      const HEIGHT_AT_TARGET = 0.75;
+      const loudnessScale = HEIGHT_AT_TARGET / Math.max(targetLinear, 1e-4);
+      const heightFraction = (linear: number) =>
+        Math.min(Math.max(linear, 0) * loudnessScale, 1);
 
       // Draw each bar with individual coloring
       visiblePeaksArray.forEach((value, i) => {
         const normalizedPeak = value; // Already normalized 0-1
-
-        // Base waveform bar height (use 80% of canvas height like PlaylistItem)
-        const baseBarHeight = shape(normalizedPeak) * canvasHeight * 0.8;
-        const baseY = middleY - baseBarHeight / 2;
         const x = i * barWidth;
 
-        // Draw base waveform (subtle gray)
+        // Base waveform bar height (pre-volume, subtle gray reference)
+        const baseBarHeight = heightFraction(normalizedPeak) * canvasHeight;
+        const baseY = middleY - baseBarHeight / 2;
         ctx.fillStyle = 'rgba(128, 128, 128, 0.15)';
         ctx.fillRect(x, baseY, Math.max(barWidth, 1), baseBarHeight);
 
-        // Calculate bar height after volume multiplication
-        const amplifiedPeak = Math.min(normalizedPeak * volumeMultiplier, 1); // Clamp to 1
-        const amplifiedBarHeight = shape(amplifiedPeak) * canvasHeight * 0.8;
-        const amplifiedY = middleY - amplifiedBarHeight / 2;
-        
-        // Convert this bar's amplitude to dB for color selection
+        // Bar height after volume multiplication (the audible level).
         const linearAmplitude = normalizedPeak * volumeMultiplier;
+        const amplifiedBarHeight = heightFraction(linearAmplitude) * canvasHeight;
+        const amplifiedY = middleY - amplifiedBarHeight / 2;
+
+        // Convert this bar's amplitude to dB for color selection
         const barDB = linearAmplitude <= 0 ? -60 : 20 * Math.log10(linearAmplitude);
-        
+
         // Get color for this specific bar's level
         const [r, g, b] = hexToRgb(getColorForDB(barDB));
-        
+
         // Draw colored bar with opacity based on whether it's clipping
         const alpha = linearAmplitude > 1 ? 0.8 : 0.5; // More opaque if clipping
         ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
@@ -840,10 +850,15 @@ const drawWaveform = () => {
         const perceivedLoudness = calculatePerceivedLoudness(visiblePeaksArray);
         const volumeMultiplier = props.audioItem?.volume ?? 1;
         
-        // Convert perceived loudness (dB) back to linear for display height
+        // Convert perceived loudness (dB) back to linear, then map through the
+        // same loudness-referenced scale as the bars so a track sitting at the
+        // target loudness draws this line right at the 3/4 mark.
+        const targetDb = outputTargetLevels.value?.autoVolumeTargetDb ?? -23;
+        const targetLinear = Math.pow(10, targetDb / 20);
+        const loudnessScale = 0.75 / Math.max(targetLinear, 1e-4);
         const rmsLinear = perceivedLoudness <= -60 ? 0 : Math.pow(10, perceivedLoudness / 20);
         const rmsAmplified = rmsLinear * volumeMultiplier;
-        const rmsHeight = rmsAmplified * canvasHeight * 0.8;
+        const rmsHeight = Math.min(rmsAmplified * loudnessScale, 1) * canvasHeight;
         
         // Draw horizontal line at RMS level (on both sides of center)
         ctx.strokeStyle = 'rgba(255, 165, 0, 0.5)'; // Orange with transparency
@@ -1008,8 +1023,9 @@ watch([
   () => props.audioItem?.playFade,
   () => props.audioItem?.stopFade,
   () => props.audioItem?.crossFade,
-  waveformData, 
-  playbackPosition
+  waveformData,
+  playbackPosition,
+  () => outputTargetLevels.value?.autoVolumeTargetDb,
 ], () => {
   throttledDraw();
 });

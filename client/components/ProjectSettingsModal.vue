@@ -98,6 +98,18 @@
             <p class="settings-help">{{ t('settings.outputTargetHelp') }}</p>
           </section>
 
+          <!-- Auto volume and trim -->
+          <section class="settings-field">
+            <label class="settings-label settings-label--checkbox">
+              <input
+                type="checkbox"
+                :checked="disableAutoVolumeAndTrim"
+                @change="onDisableAutoVolumeAndTrimChange"
+              />
+              {{ t('settings.disableAutoVolumeAndTrim') }}
+            </label>
+          </section>
+
           <!-- Meter Display Mode -->
           <section class="settings-field">
             <label class="settings-label">
@@ -139,12 +151,13 @@ const devices = computed(() => server.devices ?? []);
 
 // The settings live on the project document; we read them from there and
 // patch via the server endpoint.
-const audioDeviceId   = computed(() => (currentProject.value as any)?.settings?.defaultOutputDevice || '');
-const previewDeviceId = computed(() => (currentProject.value as any)?.settings?.previewDevice || '');
-const ltcDeviceId     = computed(() => (currentProject.value as any)?.settings?.ltcDevice || '');
-const outputTarget    = computed(() => (currentProject.value as any)?.settings?.outputTarget || 'ebu-r128');
+const audioDeviceId          = computed(() => (currentProject.value as any)?.settings?.defaultOutputDevice || '');
+const previewDeviceId        = computed(() => (currentProject.value as any)?.settings?.previewDevice || '');
+const ltcDeviceId            = computed(() => (currentProject.value as any)?.settings?.ltcDevice || '');
+const outputTarget           = computed(() => (currentProject.value as any)?.settings?.outputTarget || 'ebu-r128');
+const disableAutoVolumeAndTrim = computed(() => !!(currentProject.value as any)?.settings?.disableAutoVolumeAndTrim);
 const { meterMode: currentMeterMode } = useOutputTarget();
-const meterMode       = computed(() => (currentProject.value as any)?.settings?.meterMode || currentMeterMode.value);
+const meterMode              = computed(() => (currentProject.value as any)?.settings?.meterMode || currentMeterMode.value);
 
 // Make sure devices are loaded when the modal opens.
 watch(() => props.open, async (v) => {
@@ -188,6 +201,9 @@ function onOutputTargetChange(e: Event) {
 function onMeterModeChange(e: Event) {
   const v = (e.target as HTMLSelectElement).value;
   applyPatch({ meterMode: v });
+}
+function onDisableAutoVolumeAndTrimChange(e: Event) {
+  applyPatch({ disableAutoVolumeAndTrim: (e.target as HTMLInputElement).checked });
 }
 
 function close() {
@@ -278,6 +294,19 @@ function close() {
   margin: 0;
   font-size: 12px;
   color: var(--color-text-secondary);
+}
+.settings-label--checkbox {
+  flex-direction: row;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+.settings-label--checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--color-accent);
 }
 
 .modal-footer {

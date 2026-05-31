@@ -92,7 +92,7 @@
   "properties": {
     "title": "Egenskaper",
     "multipleItemsSelected": "{count} elementer valgt",
-    "peakWarning": "Dette elementet har lydnivåer som overstiger brickwall-grensen for det valgte utgangsmålet. Juster volumet i egenskapsruten eller endre utgangsmålet.",
+    "peakWarning": "Lydnivået til dette elementet er betydelig over målnivået for det valgte utgangsmålet. Bruk 'Juster volum automatisk' for å normalisere, eller endre utgangsmålet.",
     "noSelection": "Velg et element for å vise egenskaper",
     "displayName": "Visningsnavn",
     "color": "Farge",
@@ -353,6 +353,7 @@
     "meterModeDbfs": "dBFS (digital fullskala)",
     "meterModeDbtp": "dBTP (ekte topp)",
     "meterModeRms": "RMS",
+    "disableAutoVolumeAndTrim": "Deaktiver automatiske volum- og klippejusteringer",
     "useProjectDefault": "Bruk prosjektstandard",
     "noneSelected": "Ikke valgt",
     "save": "Lagre",

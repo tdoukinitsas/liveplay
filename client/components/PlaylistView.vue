@@ -50,9 +50,21 @@ import Btn from './Btn.vue';
 import { triggerRef } from 'vue';
 import type { AudioItem, GroupItem } from '~/types/project';
 import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM } from '~/types/project';
+import { applyAutoProcessing } from '~/utils/audio';
+import { useOutputTarget } from '~/composables/useOutputTarget';
 
-const { currentProject, addItem, updateIndices, saveProject, triggerWaveformUpdate, isLoading, getAllItemsFlat } = useProject();
+const { currentProject, addItem, consumePendingAutoProcess, updateIndices, saveProject, triggerWaveformUpdate, isLoading, getAllItemsFlat } = useProject();
 const { t } = useLocalization();
+const { levels: outputTargetLevels } = useOutputTarget();
+
+// Auto-process only items that were just imported this session (marked by
+// addItem). Consumes the mark so it never runs twice for the same item.
+function maybeAutoProcess(item: AudioItem) {
+  if (!consumePendingAutoProcess(item.uuid)) return;
+  const settings = (currentProject.value as any)?.settings;
+  if (settings?.disableAutoVolumeAndTrim) return;
+  applyAutoProcessing(item, outputTargetLevels.value.autoVolumeTargetDb);
+}
 
 const showYouTubeModal = ref(false);
 const showImportModal  = ref(false);
@@ -300,6 +312,7 @@ const generateWaveformAsync = async (item: AudioItem) => {
           if (peaks.length > 0) {
             item.waveform = { peaks, length: peaks.length, duration };
             if (duration > 0) { item.duration = duration; item.outPoint = duration; }
+            maybeAutoProcess(item);
             triggerWaveformUpdate();
             console.log(`[waveform] server: ${item.displayName} — ${peaks.length} buckets, ${duration.toFixed(2)}s`);
           }
@@ -331,6 +344,7 @@ const generateWaveformAsync = async (item: AudioItem) => {
             item.outPoint = waveformData.duration;
           }
 
+          maybeAutoProcess(item);
           triggerWaveformUpdate();
           console.log(`Existing waveform loaded for ${item.displayName}`);
           return;
@@ -358,6 +372,7 @@ const generateWaveformAsync = async (item: AudioItem) => {
               item.duration = duration;
               item.outPoint = duration;
             }
+            maybeAutoProcess(item);
             triggerWaveformUpdate();
             console.log(`[waveform] server: ${item.displayName} — ${peaks.length} buckets, ${duration.toFixed(2)}s`);
           }
@@ -394,6 +409,7 @@ const generateWaveformAsync = async (item: AudioItem) => {
                 item.outPoint = waveformData.duration;
               }
 
+              maybeAutoProcess(item);
               // Force Vue reactivity update
               triggerWaveformUpdate();
 

@@ -181,6 +181,7 @@
 import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
 import ActionButton from './ActionButton.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
+import { calculatePerceivedLoudness } from '~/utils/audio';
 
 const props = defineProps<{
   item: AudioItem | GroupItem;
@@ -211,18 +212,27 @@ const indexDisplay = computed(() => {
   return props.item.index.join(',');
 });
 
-// True when the item's peak amplitude × volume would exceed the brickwall
-// ceiling for the active output target. Reactive: recomputes whenever the
-// output target or volume changes mid-session.
+// True when the item's effective loudness is significantly above the
+// recommended target for the active output target. Reactive: recomputes
+// whenever the output target or volume changes mid-session.
 const isPeaking = computed(() => {
   if (props.item.type !== 'audio') return false;
   const audio = props.item as AudioItem;
   const peaks = audio.waveform?.peaks;
   if (!peaks || peaks.length === 0) return false;
-  const maxPeak = peaks.reduce((m, v) => (v > m ? v : m), 0);
+
+  const duration = audio.duration || 0;
+  const inPoint  = audio.inPoint  || 0;
+  const outPoint = audio.outPoint || duration;
+  const startIdx = duration > 0 ? Math.floor((inPoint  / duration) * peaks.length) : 0;
+  const endIdx   = duration > 0 ? Math.ceil ((outPoint / duration) * peaks.length) : peaks.length;
+
+  const intrinsicLoudness = calculatePerceivedLoudness(peaks, startIdx, endIdx);
   const volume = audio.volume ?? 1;
-  const linearCeiling = Math.pow(10, outputTargetLevels.value.limiterCeilingDb / 20);
-  return maxPeak * volume > linearCeiling;
+  const volumeDb = volume > 0 ? 20 * Math.log10(volume) : -60;
+  const effectiveLoudness = intrinsicLoudness + volumeDb;
+
+  return effectiveLoudness > outputTargetLevels.value.autoVolumeTargetDb + 3;
 });
 
 const durationDisplay = computed(() => {

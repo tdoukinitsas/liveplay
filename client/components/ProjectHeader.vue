@@ -275,7 +275,7 @@ onMounted(() => {
 }
 
 .clock-label {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -285,7 +285,7 @@ onMounted(() => {
 }
 
 .clock-value {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.05em;

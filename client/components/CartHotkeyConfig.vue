@@ -206,7 +206,7 @@ onUnmounted(() => {
 }
 
 .slot-binding {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text-primary);

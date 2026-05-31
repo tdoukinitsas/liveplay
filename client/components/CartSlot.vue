@@ -42,7 +42,7 @@
       <div v-if="isPlaying" class="cart-progress" :style="progressStyle"></div>
 
       <!-- Item info section -->
-      <div class="slot-header" @click="handleSelect">
+      <div class="slot-header" @click="handleSelect($event)">
         <span class="slot-number">{{ slot + 1 }}</span>
         <span class="slot-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
         <span
@@ -170,6 +170,7 @@ import type { AudioItem } from '~/types/project';
 import ActionButton from './ActionButton.vue';
 import AudioImportModal from './AudioImportModal.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
+import { calculatePerceivedLoudness } from '~/utils/audio';
 
 const props = defineProps<{
   slot: number;
@@ -180,7 +181,7 @@ const props = defineProps<{
 const slotRef = ref<HTMLElement | null>(null);
 const showImportModal = ref(false);
 
-const { currentProject, selectedItems, findItemByUuid, triggerWaveformUpdate } = useProject();
+const { currentProject, selectedItem, selectedItems, findItemByUuid, triggerWaveformUpdate, markPendingAutoProcess } = useProject();
 const { levels: outputTargetLevels } = useOutputTarget();
 const { playCue, stopCue, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem } = useAudioEngine();
 const { t } = useLocalization();
@@ -199,10 +200,19 @@ const isPeaking = computed(() => {
   if (!props.item || props.item.type !== 'audio') return false;
   const peaks = props.item.waveform?.peaks;
   if (!peaks || peaks.length === 0) return false;
-  const maxPeak = peaks.reduce((m, v) => (v > m ? v : m), 0);
+
+  const duration = props.item.duration || 0;
+  const inPoint  = props.item.inPoint  || 0;
+  const outPoint = props.item.outPoint || duration;
+  const startIdx = duration > 0 ? Math.floor((inPoint  / duration) * peaks.length) : 0;
+  const endIdx   = duration > 0 ? Math.ceil ((outPoint / duration) * peaks.length) : peaks.length;
+
+  const intrinsicLoudness = calculatePerceivedLoudness(peaks, startIdx, endIdx);
   const volume = props.item.volume ?? 1;
-  const linearCeiling = Math.pow(10, outputTargetLevels.value.limiterCeilingDb / 20);
-  return maxPeak * volume > linearCeiling;
+  const volumeDb = volume > 0 ? 20 * Math.log10(volume) : -60;
+  const effectiveLoudness = intrinsicLoudness + volumeDb;
+
+  return effectiveLoudness > outputTargetLevels.value.autoVolumeTargetDb + 3;
 });
 const isPlaying = computed(() => props.item ? activeCues.value.has(props.item.uuid) : false);
 const isSelected = computed(() => props.item ? selectedItems.value.has(props.item.uuid) : false);
@@ -345,6 +355,8 @@ const importFromServerPath = async (serverPath: string) => {
     } as AudioItem;
 
     addCartOnlyItem(newItem);
+    // Mark for one-shot auto-process when the waveform arrives.
+    markPendingAutoProcess(uuid);
 
     const existingIndex = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === props.slot);
     if (existingIndex !== -1) {
@@ -367,10 +379,44 @@ const importFromServerPath = async (serverPath: string) => {
 };
 
 
-const handleSelect = () => {
+const handleSelect = (event?: MouseEvent) => {
   if (!props.item) return;
-  selectedItems.value.clear();
-  selectedItems.value.add(props.item.uuid);
+  const ctrl = !!(event && (event.ctrlKey || event.metaKey));
+  const shift = !!(event && event.shiftKey);
+
+  if (shift && selectedItems.value.size > 0) {
+    // Shift-click: select the contiguous range of cart slots between the
+    // last selection and this one (ordered by slot number).
+    const ordered = [...(currentProject.value?.cartItems ?? [])]
+      .sort((a, b) => a.slot - b.slot)
+      .map(ci => ci.itemUuid);
+    const anchor = Array.from(selectedItems.value).pop();
+    const from = ordered.indexOf(anchor ?? '');
+    const to = ordered.indexOf(props.item.uuid);
+    if (from !== -1 && to !== -1) {
+      const [s, e] = from < to ? [from, to] : [to, from];
+      for (let i = s; i <= e; i++) selectedItems.value.add(ordered[i]);
+    } else {
+      selectedItems.value.add(props.item.uuid);
+    }
+  } else if (ctrl) {
+    // Ctrl-click: toggle this slot's item in/out of the selection.
+    if (selectedItems.value.has(props.item.uuid)) selectedItems.value.delete(props.item.uuid);
+    else selectedItems.value.add(props.item.uuid);
+  } else {
+    // Plain click: select only this item.
+    selectedItems.value.clear();
+    selectedItems.value.add(props.item.uuid);
+  }
+
+  // Keep the panel anchor in sync (so an open properties panel follows the
+  // cart selection), without forcing the panel open.
+  if (selectedItems.value.has(props.item.uuid)) {
+    selectedItem.value = props.item;
+  } else {
+    const remaining = Array.from(selectedItems.value).pop();
+    selectedItem.value = remaining ? (findItemByUuid(remaining) ?? null) : null;
+  }
 };
 
 const handlePlay = () => {
@@ -839,7 +885,7 @@ const handleDrop = async (e: DragEvent) => {
     border: 1px solid var(--color-border);
     border-radius: 3px;
     padding: 1px 5px;
-    font-family: monospace;
+    font-family: var(--font-mono);
   }
 }
 
@@ -909,7 +955,7 @@ const handleDrop = async (e: DragEvent) => {
     border: 1px solid var(--color-border);
     border-radius: 3px;
     padding: 0 4px;
-    font-family: monospace;
+    font-family: var(--font-mono);
     flex-shrink: 0;
     line-height: 1.6;
   }

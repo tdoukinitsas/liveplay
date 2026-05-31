@@ -98,9 +98,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useProject } from '~/composables/useProject';
+import { applyAutoProcessing } from '~/utils/audio';
+import { useOutputTarget } from '~/composables/useOutputTarget';
 
 const { t } = useLocalization();
-const { currentProject, addItem, triggerWaveformUpdate } = useProject();
+const { currentProject, addItem, consumePendingAutoProcess, triggerWaveformUpdate } = useProject();
+const { levels: outputTargetLevels } = useOutputTarget();
 
 interface YouTubeVideo {
   id: string;
@@ -283,6 +286,12 @@ const generateWaveformAsync = async (audioItem: any) => {
       const waveformFile = await window.electronAPI.readFile(audioItem.waveformPath);
       if (waveformFile.success && waveformFile.data) {
         audioItem.waveform = JSON.parse(waveformFile.data);
+        if (consumePendingAutoProcess(audioItem.uuid)) {
+          const settings = (currentProject.value as any)?.settings;
+          if (!settings?.disableAutoVolumeAndTrim) {
+            applyAutoProcessing(audioItem, outputTargetLevels.value.autoVolumeTargetDb);
+          }
+        }
         console.log('Waveform loaded and applied to item');
         triggerWaveformUpdate();
         

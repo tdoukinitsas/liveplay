@@ -92,7 +92,7 @@
   "properties": {
     "title": "Proprietati",
     "multipleItemsSelected": "{count} elemente selectate",
-    "peakWarning": "Acest element are niveluri de volum care depășesc limita brickwall pentru destinația de ieșire selectată. Ajustați volumul în panoul Proprietăți sau schimbați destinația de ieșire.",
+    "peakWarning": "Volumul acestui element este semnificativ deasupra nivelului țintă pentru destinația de ieșire selectată. Folosiți 'Ajustare automată a volumului' pentru a-l normaliza sau schimbați destinația de ieșire.",
     "noSelection": "Selecteaza un fisier pentru a vedea proprietățile",
     "displayName": "Nume afisat",
     "color": "Culoare",
@@ -353,6 +353,7 @@
     "meterModeDbfs": "dBFS (Scară digitală completă)",
     "meterModeDbtp": "dBTP (Vârf real)",
     "meterModeRms": "RMS",
+    "disableAutoVolumeAndTrim": "Dezactivează ajustările automate de volum și tăiere",
     "useProjectDefault": "Folosește implicit proiect",
     "noneSelected": "Neselectat",
     "save": "Salvează",

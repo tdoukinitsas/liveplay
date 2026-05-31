@@ -92,7 +92,7 @@
   "properties": {
     "title": "속성",
     "multipleItemsSelected": "{count}개 항목 선택됨",
-    "peakWarning": "이 항목의 볼륨 수준이 선택된 출력 대상의 브릭월 한도를 초과합니다. 속성 패널에서 볼륨을 조정하거나 출력 대상을 변경하세요.",
+    "peakWarning": "이 항목의 음량이 선택된 출력 대상의 목표 레벨보다 크게 높습니다. '음량 자동 조절'을 사용하여 정규화하거나 출력 대상을 변경하세요.",
     "noSelection": "속성을 보려면 항목을 선택하세요",
     "displayName": "표시 이름",
     "color": "색상",
@@ -353,6 +353,7 @@
     "meterModeDbfs": "dBFS (디지털 풀 스케일)",
     "meterModeDbtp": "dBTP (트루 피크)",
     "meterModeRms": "RMS",
+    "disableAutoVolumeAndTrim": "자동 볼륨 및 트림 조정 비활성화",
     "useProjectDefault": "프로젝트 기본값 사용",
     "noneSelected": "선택 안 됨",
     "save": "저장",

@@ -92,7 +92,7 @@
   "properties": {
     "title": "属性",
     "multipleItemsSelected": "已选择 {count} 个项目",
-    "peakWarning": "此项目的音量超过了所选输出目标的砖墙限幅器上限。请在属性面板中调整音量，或更改输出目标。",
+    "peakWarning": "此项目的音量明显高于所选输出目标的目标级别。使用"自动调整音量"进行规格化，或更改输出目标。",
     "noSelection": "选择一个项目以查看属性",
     "displayName": "显示名称",
     "color": "颜色",
@@ -353,6 +353,7 @@
     "meterModeDbfs": "dBFS（数字满幅度）",
     "meterModeDbtp": "dBTP（真峰值）",
     "meterModeRms": "RMS",
+    "disableAutoVolumeAndTrim": "禁用自动音量和修剪调整",
     "useProjectDefault": "使用项目默认",
     "noneSelected": "未选择",
     "save": "保存",

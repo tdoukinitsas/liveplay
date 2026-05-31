@@ -396,7 +396,7 @@ watch(() => props.open, (o) => {
     flex: 1;
     background: #1d1d1d; border: 1px solid #333;
     border-radius: 4px; padding: 4px 10px;
-    color: #eee; font-family: monospace; font-size: 12px;
+    color: #eee; font-family: var(--font-mono); font-size: 12px;
   }
 }
 .breadcrumb {
@@ -425,7 +425,7 @@ watch(() => props.open, (o) => {
   &.selected { background: var(--color-accent); color: #fff; }
   .icon { text-align: center; }
   .name { color: #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .size { color: #888; font-family: monospace; font-size: 11px; }
+  .size { color: #888; font-family: var(--font-mono); font-size: 11px; }
   &.dir   .name { color: #ffffff; }
   &.drive .name { color: #ffffff; font-weight: 600; }
 }

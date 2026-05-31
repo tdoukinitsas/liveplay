@@ -28,16 +28,27 @@
       <!-- L + R bars -->
       <div class="stereo-meter__bars">
         <div class="stereo-meter__chan">
-          <div class="stereo-meter__track">
-            <div class="stereo-meter__fill" :style="rmsStyleL" />
-            <div class="stereo-meter__fill" :style="peakStyleL" />
+          <div class="stereo-meter__bar-group">
+            <div class="stereo-meter__track">
+              <div class="stereo-meter__fill" :style="rmsStyleL" />
+              <div class="stereo-meter__fill" :style="peakStyleL" />
+            </div>
+            <!-- GR track: same rounded-rect shape, accent fill from top -->
+            <div v-if="props.leftIndex != null" class="stereo-meter__gr-track">
+              <div class="stereo-meter__gr-fill" :style="grStyleL" />
+            </div>
           </div>
           <div class="stereo-meter__chan-label">L</div>
         </div>
         <div class="stereo-meter__chan">
-          <div class="stereo-meter__track">
-            <div class="stereo-meter__fill" :style="rmsStyleR" />
-            <div class="stereo-meter__fill" :style="peakStyleR" />
+          <div class="stereo-meter__bar-group">
+            <div class="stereo-meter__track">
+              <div class="stereo-meter__fill" :style="rmsStyleR" />
+              <div class="stereo-meter__fill" :style="peakStyleR" />
+            </div>
+            <div v-if="props.rightIndex != null" class="stereo-meter__gr-track">
+              <div class="stereo-meter__gr-fill" :style="grStyleR" />
+            </div>
           </div>
           <div class="stereo-meter__chan-label">R</div>
         </div>
@@ -54,6 +65,7 @@
 import { computed } from 'vue';
 import { useMasterMeter, useCueMeters } from '~/composables/useLiveMeters';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
+import { useProject } from '~/composables/useProject';
 
 const props = withDefaults(defineProps<{
   leftIndex?: number | null;
@@ -83,6 +95,9 @@ const rightStream = useMasterMeter(() => props.rightIndex);
 
 // Server-reported output-target levels and meter mode.
 const { levels, meterMode, colorForLevel } = useOutputTarget();
+
+const { currentProject } = useProject();
+const accentColor = computed(() => currentProject.value?.theme?.accentColor ?? '#DA1E28');
 
 // Raw signal values from the server (always peak_db and rms_db).
 const rawPeakL = computed(() => props.cueId != null
@@ -133,6 +148,20 @@ const rmsStyleL  = computed(() => fillStyle(rawRmsL.value,  0.4));
 const peakStyleR = computed(() => fillStyle(displayR.value, 1));
 const rmsStyleR  = computed(() => fillStyle(rawRmsR.value,  0.4));
 
+// Gain-reduction fill: grows downward from the top of the GR track,
+// sized by how much the brickwall limiter is currently reducing the signal.
+function grStyle(grDb: number): Record<string, string> {
+  const range = props.maxDb - props.minDb;
+  const pct = range > 0 ? Math.min(100, (Math.abs(grDb) / range) * 100) : 0;
+  return {
+    background: accentColor.value,
+    clipPath: `inset(0 0 ${(100 - pct).toFixed(2)}% 0)`,
+  };
+}
+
+const grStyleL = computed(() => grStyle(leftStream.gainReduction.value));
+const grStyleR = computed(() => grStyle(rightStream.gainReduction.value));
+
 // Scale tick marks at key zone boundary levels from the server-reported
 // output target. Ticks use the zone colour for their position.
 const scaleMarks = computed(() => {
@@ -173,12 +202,13 @@ const peakLabel = computed(() => {
   border: 1px solid var(--color-border);
   border-radius: 6px;
   box-sizing: border-box;
-  min-width: 54px;
-  max-width: 120px;
+  // Width is determined by fixed bar widths: scale(24) + gap(3) + 2×chan(14) + gap(3) + padding(10)
+  width: 68px;
+  flex-shrink: 0;
   gap: 3px;
 
   &__label {
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
     font-size: 9px;
     color: var(--color-text-secondary);
     text-transform: uppercase;
@@ -212,12 +242,11 @@ const peakLabel = computed(() => {
     display: flex;
     align-items: center;
     gap: 2px;
-    // Center the mark text on the dB line
     transform: translateY(50%);
   }
 
   &__mark-text {
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
     font-size: 7px;
     color: var(--color-text-secondary);
     opacity: 0.7;
@@ -235,7 +264,7 @@ const peakLabel = computed(() => {
     flex-shrink: 0;
   }
 
-  // Stereo bar pair
+  // Stereo bar pair — fixed gap between L and R channels
   &__bars {
     display: flex;
     flex-direction: row;
@@ -249,37 +278,58 @@ const peakLabel = computed(() => {
     flex-direction: column;
     align-items: center;
     gap: 2px;
-    flex: 1;
-    min-width: 8px;
+    flex-shrink: 0;
   }
 
-  &__track {
+  // Row containing the 8px signal track + 4px GR track
+  &__bar-group {
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
     flex: 1;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  // 8 px signal level bar — transparent bg so it adapts to light and dark
+  &__track {
     width: 8px;
-    min-width: 8px;
-    background: var(--color-background);
+    flex-shrink: 0;
+    background: transparent;
     border: 1px solid var(--color-border);
     border-radius: 2px;
     position: relative;
     overflow: hidden;
   }
 
-  &__fill {
+  // 4 px gain-reduction bar — same rounded-rect shape as the signal track
+  &__gr-track {
+    width: 4px;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  // Fill shared by both signal fills and the GR fill
+  &__fill,
+  &__gr-fill {
     position: absolute;
     inset: 0;
-    // clip-path animation is set inline; transition smooths between frames
     transition: clip-path 110ms linear;
   }
 
   &__chan-label {
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
     font-size: 7px;
     color: var(--color-text-secondary);
     flex-shrink: 0;
   }
 
   &__peak-text {
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
     font-size: 9px;
     color: var(--color-text-secondary);
     text-align: center;

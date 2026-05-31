@@ -92,7 +92,7 @@
   "properties": {
     "title": "Eigenschaften",
     "multipleItemsSelected": "{count} Elemente ausgewählt",
-    "peakWarning": "Dieses Element hat Lautstärkepegel, die das Brickwall-Limit für das gewählte Ausgabeziel überschreiten. Passen Sie die Lautstärke im Eigenschaftenfenster an oder ändern Sie das Ausgabeziel.",
+    "peakWarning": "Die Lautheit dieses Elements liegt deutlich über dem Zielwert für das gewählte Ausgabeziel. Verwenden Sie 'Lautstärke automatisch anpassen' zur Normalisierung oder ändern Sie das Ausgabeziel.",
     "noSelection": "Wählen Sie ein Element aus, um die Eigenschaften anzuzeigen",
     "displayName": "Anzeigename",
     "color": "Farbe",
@@ -353,6 +353,7 @@
     "meterModeDbfs": "dBFS (Digitaler Vollpegel)",
     "meterModeDbtp": "dBTP (Wahrer Spitzenpegel)",
     "meterModeRms": "RMS",
+    "disableAutoVolumeAndTrim": "Automatische Lautstärke- und Schnittanpassungen deaktivieren",
     "useProjectDefault": "Projektstandard verwenden",
     "noneSelected": "Nicht ausgewählt",
     "save": "Speichern",

@@ -20,7 +20,7 @@
       </div>
     </div>
     
-    <PropertiesPanel v-if="selectedItem" />
+    <PropertiesPanel v-if="propertiesPanelOpen && selectedItem" />
 
     <ProgressModal
       :visible="progressModal.visible"
@@ -58,7 +58,19 @@
 import LocationChoiceModal from './LocationChoiceModal.vue';
 import ServerFilePickerModal from './ServerFilePickerModal.vue';
 
-const { selectedItem, saveProject, closeProject, currentProject, findItemByUuid } = useProject();
+const {
+  selectedItem,
+  selectedItems,
+  propertiesPanelOpen,
+  saveProject,
+  closeProject,
+  currentProject,
+  findItemByUuid,
+  selectAllItems,
+  duplicateItems,
+  copyItemsToClipboard,
+  pasteItemsFromClipboard,
+} = useProject();
 const { triggerByUuid, triggerByIndex, stopCue, stopAllCues, playCue } = useAudioEngine();
 const { getCartItem, cartOnlyItems, updateCartOnlyItem } = useCartItems();
 const { t } = useLocalization();
@@ -350,14 +362,49 @@ watch(currentProject, (project) => {
   window.electronAPI.syncProjectData(JSON.parse(JSON.stringify(data)));
 }, { deep: true, immediate: true });
 
-// Save on F1 key (alternative to big play button)
+// True when the user is typing in a text field — selection/clipboard
+// shortcuts must defer to native editing behaviour there.
+const isTextInputFocused = (): boolean => {
+  const el = document.activeElement as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName.toLowerCase();
+  return tag === 'input' || tag === 'textarea' || el.isContentEditable;
+};
+
 const handleKeydown = (e: KeyboardEvent) => {
+  // Save on F1 key (alternative to big play button)
   if (e.key === 'F1') {
     e.preventDefault();
     if (selectedItem.value && selectedItem.value.type === 'audio') {
       const { playCue } = useAudioEngine();
       playCue(selectedItem.value as any);
     }
+    return;
+  }
+
+  // Selection / clipboard shortcuts. These all require a project and must not
+  // fire while editing text (so native Ctrl+A/C/V keep working in inputs).
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (!ctrl || e.altKey || !currentProject.value || isTextInputFocused()) return;
+
+  const key = e.key.toLowerCase();
+
+  if (key === 'a') {
+    e.preventDefault();
+    selectAllItems();
+  } else if (key === 'd') {
+    e.preventDefault();
+    const uuids = Array.from(selectedItems.value);
+    if (uuids.length > 0) duplicateItems(uuids);
+  } else if (key === 'c') {
+    const uuids = Array.from(selectedItems.value);
+    if (uuids.length > 0) {
+      e.preventDefault();
+      void copyItemsToClipboard(uuids);
+    }
+  } else if (key === 'v') {
+    e.preventDefault();
+    void pasteItemsFromClipboard();
   }
 };
 

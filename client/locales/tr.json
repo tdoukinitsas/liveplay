@@ -92,7 +92,7 @@
   "properties": {
     "title": "Özellikler",
     "multipleItemsSelected": "{count} öğe seçildi",
-    "peakWarning": "Bu öğenin ses düzeyleri, seçilen çıkış hedefinin brickwall sınırını aşıyor. Özellikler panelinden ses düzeyini ayarlayın veya Çıkış Hedefini değiştirin.",
+    "peakWarning": "Bu öğenin ses yüksekliği, seçilen çıkış hedefine göre önerilen seviyenin önemli ölçüde üzerinde. Normalleştirmek için 'Sesi otomatik ayarla' seçeneğini kullanın ya da Çıkış Hedefini değiştirin.",
     "noSelection": "Özellikleri görüntülemek için bir öğe seçin",
     "displayName": "Görünen Ad",
     "color": "Renk",
@@ -353,6 +353,7 @@
     "meterModeDbfs": "dBFS (Dijital Tam Ölçek)",
     "meterModeDbtp": "dBTP (Gerçek Tepe)",
     "meterModeRms": "RMS",
+    "disableAutoVolumeAndTrim": "Otomatik ses ve kırpma ayarlarını devre dışı bırak",
     "useProjectDefault": "Proje varsayılanını kullan",
     "noneSelected": "Seçilmedi",
     "save": "Kaydet",

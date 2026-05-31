@@ -287,9 +287,11 @@
 import type { AudioItem, GroupItem } from '~/types/project';
 import { PRESET_COLORS } from '~/types/project';
 import { calculatePerceivedLoudness } from '~/utils/audio';
+import { useOutputTarget } from '~/composables/useOutputTarget';
 
-const { selectedItem, selectedItems, getSelectedItems, saveProject, currentProject } = useProject();
+const { selectedItem, selectedItems, propertiesPanelOpen, getSelectedItems, saveProject, currentProject } = useProject();
 const { t } = useLocalization();
+const { levels: outputTargetLevels } = useOutputTarget();
 
 const audioItem = computed(() => selectedItem.value as AudioItem);
 
@@ -544,8 +546,9 @@ watch(selectedItem, (newItem, oldItem) => {
 }, { immediate: true });
 
 const handleClose = () => {
-  selectedItem.value = null;
-  selectedItems.value.clear();
+  // Close the panel but leave the current selection intact so the highlighted
+  // rows stay highlighted. Only the panel's visibility is toggled here.
+  propertiesPanelOpen.value = false;
   originalSnapshot.value = null;
 };
 
@@ -603,10 +606,17 @@ const handleSave = async () => {
       }
     });
     
-    // Update the snapshot to the current state after saving
-    originalSnapshot.value = JSON.parse(JSON.stringify(current));
   }
-  
+
+  // Always refresh the diff baseline to the primary item's current state —
+  // for single AND multi selection. This is what prevents an earlier edit
+  // (e.g. a colour change made while only one item was selected) from later
+  // leaking onto the rest of a multi-selection: every save resets the
+  // baseline so the next diff only ever reflects the property just touched.
+  if (selectedItem.value) {
+    originalSnapshot.value = JSON.parse(JSON.stringify(selectedItem.value));
+  }
+
   await saveProject();
 };
 
@@ -619,7 +629,7 @@ const handleNormalize = () => {
     items = [selectedItem.value];
   }
   
-  const targetLoudness = -10; // Our "0dB" with headroom
+  const targetLoudness = outputTargetLevels.value.autoVolumeTargetDb;
   
   let normalizedCount = 0;
   

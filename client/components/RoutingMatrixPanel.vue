@@ -235,7 +235,7 @@ async function commitLtc() {
   header { display: flex; flex-direction: column; gap: 2px; }
   h3 { margin: 0; font-size: 16px; }
   h4 { margin: 0 0 4px; font-size: 13px; color: #9ec5ff; }
-  small.dim { color: #888; font-family: monospace; }
+  small.dim { color: #888; font-family: var(--font-mono); }
 
   section {
     background: #181818;
@@ -254,7 +254,7 @@ async function commitLtc() {
       font-size: 12px;
     }
     th { color: #888; font-weight: 500; }
-    code { font-family: monospace; color: #ffd58a; }
+    code { font-family: var(--font-mono); color: #ffd58a; }
     input, select {
       width: 100%;
       background: #1d1d1d;

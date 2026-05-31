@@ -72,6 +72,7 @@
     "meterModeDbfs": "dBFS (Digital Full Scale)",
     "meterModeDbtp": "dBTP (True Peak)",
     "meterModeRms": "RMS",
+    "disableAutoVolumeAndTrim": "Disable automatic volume and trim adjustments",
     "useProjectDefault": "Use project default",
     "noneSelected": "Not selected",
     "save": "Save",
@@ -142,7 +143,7 @@
   "properties": {
     "title": "Properties",
     "multipleItemsSelected": "{count} items selected",
-    "peakWarning": "This item has volume levels that exceed the brickwall limit for your selected output target. Adjust the volume in the Properties panel or change the Output Target.",
+    "peakWarning": "This item's loudness is significantly above the target level for your selected output target. Use 'Auto-adjust volume' to normalise it, or change the Output Target.",
     "noSelection": "Select an item to view properties",
     "displayName": "Display Name",
     "color": "Color",

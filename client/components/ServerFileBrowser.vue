@@ -137,7 +137,7 @@ watch(() => props.startPath, p => goTo(p));
       border: 1px solid #333;
       border-radius: 4px;
       color: #eee;
-      font-family: monospace;
+      font-family: var(--font-mono);
     }
   }
 
@@ -175,7 +175,7 @@ watch(() => props.startPath, p => goTo(p));
       border-bottom: 1px solid #222;
       &:last-child { border-bottom: none; }
       &:hover { background: #202020; }
-      .size   { color: #888; font-size: 11px; font-family: monospace; }
+      .size   { color: #888; font-size: 11px; font-family: var(--font-mono); }
       .name   { color: #eee; }
       &.dir   .name   { color: #ffffff; }
       &.drive .name   { color: #ffffff; font-weight: 600; }

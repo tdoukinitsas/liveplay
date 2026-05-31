@@ -122,7 +122,7 @@ const rmsStyle  = computed(() => fillStyle(rmsDb.value,  0.4));
   }
 
   &__label {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
     color: var(--color-text-secondary);
     display: flex;

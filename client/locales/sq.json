@@ -92,7 +92,7 @@
   "properties": {
     "title": "Vetitë",
     "multipleItemsSelected": "{count} artikuj të zgjedhur",
-    "peakWarning": "Ky artikull ka nivele volume që tejkalojnë limitin brickwall të objektivit të zgjedhur të daljes. Rregulloni volumin në panelin Vetitë ose ndryshoni Objektivin e Daljes.",
+    "peakWarning": "Vëllimi i këtij artikulli është ndjeshëm mbi nivelin e targetuar për objektivin e daljes të zgjedhur. Përdorni 'Rregullim automatik i volumit' për ta normalizuar, ose ndryshoni Objektivin e Daljes.",
     "noSelection": "Zgjidh një artikull për të parë vetitë",
     "displayName": "Emri i Shfaqur",
     "color": "Ngjyra",
@@ -353,6 +353,7 @@
     "meterModeDbfs": "dBFS (Shkalla e plotë dixhitale)",
     "meterModeDbtp": "dBTP (Majë e vërtetë)",
     "meterModeRms": "RMS",
+    "disableAutoVolumeAndTrim": "Çaktivizo rregullimet automatike të volumit dhe prerjes",
     "useProjectDefault": "Përdor të paracaktuarën e projektit",
     "noneSelected": "Asnjë e zgjedhur",
     "save": "Ruaj",

@@ -92,7 +92,7 @@
   "properties": {
     "title": "プロパティ",
     "multipleItemsSelected": "{count}件選択中",
-    "peakWarning": "このアイテムの音量レベルが、選択した出力ターゲットのブリックウォールリミット値を超えています。プロパティパネルで音量を調整するか、出力ターゲットを変更してください。",
+    "peakWarning": "このアイテムの音量レベルが、選択した出力ターゲットの目標レベルを大きく超えています。'音量を自動調整'を使用して正規化するか、出力ターゲットを変更してください。",
     "noSelection": "プロパティを表示するアイテムを選択してください",
     "displayName": "表示名",
     "color": "色",
@@ -353,6 +353,7 @@
     "meterModeDbfs": "dBFS（デジタルフルスケール）",
     "meterModeDbtp": "dBTP（トゥルーピーク）",
     "meterModeRms": "RMS",
+    "disableAutoVolumeAndTrim": "自動音量・トリム調整を無効にする",
     "useProjectDefault": "プロジェクトデフォルトを使用",
     "noneSelected": "未選択",
     "save": "保存",

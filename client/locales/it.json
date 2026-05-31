@@ -92,7 +92,7 @@
   "properties": {
     "title": "Proprietà",
     "multipleItemsSelected": "{count} elementi selezionati",
-    "peakWarning": "Questo elemento ha livelli di volume che superano il limite brickwall per il target di uscita selezionato. Regola il volume nel pannello Proprietà o cambia il target di uscita.",
+    "peakWarning": "Il volume di questo elemento è significativamente sopra il livello target per il target di uscita selezionato. Usa 'Regola volume automaticamente' per normalizzarlo o cambia il target di uscita.",
     "noSelection": "Seleziona un elemento per visualizzare le proprietà",
     "displayName": "Nome da Visualizzare",
     "color": "Colore",
@@ -353,6 +353,7 @@
     "meterModeDbfs": "dBFS (Scala digitale completa)",
     "meterModeDbtp": "dBTP (Picco vero)",
     "meterModeRms": "RMS",
+    "disableAutoVolumeAndTrim": "Disabilita le regolazioni automatiche di volume e taglio",
     "useProjectDefault": "Usa predefinito del progetto",
     "noneSelected": "Non selezionato",
     "save": "Salva",

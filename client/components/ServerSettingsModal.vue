@@ -178,7 +178,7 @@ function close() { emit('close'); }
   header { display: flex; justify-content: space-between; align-items: center; }
   h2 { margin: 0; font-size: 18px; }
   .x { background: transparent; border: none; color: #aaa; cursor: pointer; font-size: 18px; }
-  .status { font-family: monospace; font-size: 12px;
+  .status { font-family: var(--font-mono); font-size: 12px;
     &.ok  { color: #6ad48d; }
     &.bad { color: #ff8080; }
     .err { color: #ff8080; }
@@ -187,7 +187,7 @@ function close() { emit('close'); }
   input {
     background: #1d1d1d; border: 1px solid #333;
     color: #eee; padding: 6px 10px; border-radius: 4px;
-    font-family: monospace;
+    font-family: var(--font-mono);
   }
   .mode-group {
     display: grid; gap: 6px;

@@ -27,6 +27,7 @@ import type {
   CartItem
 } from '~/types/project';
 import { DEFAULT_THEME, DEFAULT_CART_SLOT_KEYS } from '~/types/project';
+import { applyAutoProcessing } from '~/utils/audio';
 
 // ---------------------------------------------------------------------------
 // MODULE-SCOPED state for cross-call coordination.
@@ -50,6 +51,19 @@ let _refreshItemsBaselineAfterHydrate: () => void = () => {};
 let _installItemsWatcherFn:   null | (() => void) = null;
 let _uninstallItemsWatcherFn: null | (() => void) = null;
 
+// UUIDs of items that were just added in this session and are waiting for
+// their first waveform so that auto-process (trim + normalise) can run.
+// Items loaded from the saved project file are NEVER added here — only
+// items created via addItem() with no pre-existing waveform. The set is
+// cleared on project close/open so stale entries don't accumulate.
+const _autoProcessPendingUuids = new Set<string>();
+
+// The "anchor" of the current selection — the item a shift-click range
+// extends FROM, and the item whose properties the panel shows. Module-scoped
+// because the selection state itself is shared across all useProject() calls
+// via useState. Not reactive: it's only ever read inside selection handlers.
+let selectionAnchorUuid: string | null = null;
+
 // ---- Repair dialog state (module-scoped so it works across all useProject() calls) ----
 const repairDialogVisible = ref(false);
 const repairDialogIssues  = ref<string[]>([]);
@@ -57,8 +71,29 @@ let _repairPromiseResolve: ((confirmed: boolean) => void) | null = null;
 
 export const useProject = () => {
   const currentProject = useState<Project | null>('currentProject', () => null);
-  const selectedItem = useState<BaseItem | null>('selectedItem', () => null);
+  // The active/anchor selection is stored as a UUID, not as an object
+  // reference. `selectedItem` is then a computed that re-resolves that UUID
+  // against the LIVE items tree on every read. This is critical for
+  // multi-client correctness: when the server echoes a change back, the items
+  // array (or individual item objects) can be rebuilt/replaced, which would
+  // leave a cached object reference "orphaned" — detached from the rendered
+  // tree. Editing an orphan silently does nothing (the playlist keeps showing
+  // the old object, the diff-watcher never sees the change), which is the
+  // "I can't change properties again until I reopen the panel" bug. Resolving
+  // by UUID means the panel always edits the object that is actually rendered
+  // and synced.
+  const selectedItemUuid = useState<string | null>('selectedItemUuid', () => null);
+  const selectedItem = computed<BaseItem | null>({
+    get: () => (selectedItemUuid.value ? findItemByUuid(selectedItemUuid.value) : null),
+    set: (item) => { selectedItemUuid.value = item ? (item as BaseItem).uuid : null; },
+  });
   const selectedItems = useState<Set<string>>('selectedItems', () => new Set()); // Track multiple selections by UUID
+  // Whether the properties panel is actually shown. Kept SEPARATE from
+  // selectedItem so that plain row/slot clicks can update the active
+  // selection (and the panel's contents, when it's open) WITHOUT forcing
+  // the panel open on every click. The panel is only opened explicitly via
+  // openItemProperties() (the gear button).
+  const propertiesPanelOpen = useState<boolean>('propertiesPanelOpen', () => false);
   // NB: activeCues is owned by useAudioEngine (it's the server projection).
   // useProject only clears it on closeProject; we re-use the same useState key.
   const activeCues = useState<Map<string, any>>('activeCues', () => new Map());
@@ -132,7 +167,7 @@ export const useProject = () => {
     if (isShiftKey && selectedItems.value.size > 0) {
       // Shift-click: select range
       const allItems = getAllItemsFlat(currentProject.value.items);
-      const lastSelectedUuid = Array.from(selectedItems.value).pop();
+      const lastSelectedUuid = selectionAnchorUuid ?? Array.from(selectedItems.value).pop();
       const lastIndex = allItems.findIndex(item => item.uuid === lastSelectedUuid);
       const currentIndex = allItems.findIndex(item => item.uuid === uuid);
 
@@ -157,9 +192,23 @@ export const useProject = () => {
       selectedItems.value.add(uuid);
     }
 
-    // Do not auto-open the properties panel on selection — use openItemProperties() explicitly
+    // Keep `selectedItem` (the panel anchor) in sync with the click so that
+    // an OPEN properties panel follows the current selection. The panel's
+    // visibility is governed by propertiesPanelOpen, not by selectedItem, so
+    // updating this here does NOT pop the panel open on a plain click.
     if (selectedItems.value.size === 0) {
       selectedItem.value = null;
+      selectionAnchorUuid = null;
+    } else if (selectedItems.value.has(uuid)) {
+      // The clicked item is now selected — make it the anchor.
+      selectedItem.value = findItemByUuid(uuid);
+      selectionAnchorUuid = uuid;
+    } else {
+      // Ctrl-click that DESELECTED the clicked item — fall back to any
+      // remaining selected item as the anchor.
+      const remaining = Array.from(selectedItems.value).pop()!;
+      selectedItem.value = findItemByUuid(remaining);
+      selectionAnchorUuid = remaining;
     }
   };
 
@@ -168,6 +217,7 @@ export const useProject = () => {
     const item = findItemByUuid(uuid);
     if (item) {
       selectedItem.value = item;
+      selectionAnchorUuid = uuid;
       // Ensure the item is in selectedItems so batch operations (normalize,
       // trim silence, etc.) in PropertiesPanel target the correct item.
       // Cart Edit buttons don't go through row/header selection, so the set
@@ -176,6 +226,21 @@ export const useProject = () => {
         selectedItems.value.clear();
         selectedItems.value.add(uuid);
       }
+      propertiesPanelOpen.value = true;
+    }
+  };
+
+  // Select every item in the playlist (Ctrl+A). The last item becomes the
+  // anchor so a subsequent shift-click extends sensibly.
+  const selectAllItems = () => {
+    if (!currentProject.value) return;
+    const all = getAllItemsFlat(currentProject.value.items);
+    selectedItems.value.clear();
+    for (const it of all) selectedItems.value.add(it.uuid);
+    if (all.length > 0) {
+      const last = all[all.length - 1];
+      selectedItem.value = last;
+      selectionAnchorUuid = last.uuid;
     }
   };
 
@@ -197,6 +262,134 @@ export const useProject = () => {
     return Array.from(selectedItems.value)
       .map(uuid => findItemByUuid(uuid))
       .filter(item => item !== null) as BaseItem[];
+  };
+
+  // ----------------------------------------------------------------------
+  // Clipboard / duplicate operations.
+  // ----------------------------------------------------------------------
+  // Deep-clone an item (and, for groups, its whole subtree) assigning fresh
+  // UUIDs throughout. The `waveform` blob is dropped — it's large read-only
+  // server data and will be regenerated from mediaServerPath after the clone
+  // is inserted (the playlist's missing-waveform scanner picks it up).
+  const cloneItemWithNewIds = (item: any): AudioItem | GroupItem => {
+    const clone = JSON.parse(JSON.stringify(_deepToRaw(item)));
+    const reassign = (it: any) => {
+      it.uuid = uuidv4();
+      delete it.waveform;
+      if (it.type === 'group' && Array.isArray(it.children)) it.children.forEach(reassign);
+    };
+    reassign(clone);
+    return clone as AudioItem | GroupItem;
+  };
+
+  // Locate the array (root items or a group's children) that directly
+  // contains the given uuid, plus its position within that array.
+  const findContainer = (
+    uuid: string,
+    arr?: (AudioItem | GroupItem)[],
+  ): { arr: (AudioItem | GroupItem)[]; i: number } | null => {
+    const list = arr ?? currentProject.value?.items ?? [];
+    const i = list.findIndex(x => x.uuid === uuid);
+    if (i !== -1) return { arr: list, i };
+    for (const it of list) {
+      if (it.type === 'group') {
+        const r = findContainer(uuid, it.children);
+        if (r) return r;
+      }
+    }
+    return null;
+  };
+
+  // Duplicate the given items in place (each clone inserted right after its
+  // original, in the same parent). New selection becomes the clones. Ctrl+D.
+  const duplicateItems = (uuids: string[]) => {
+    if (!currentProject.value || uuids.length === 0) return;
+    const newUuids: string[] = [];
+    // Insert after each original independently. Re-resolving the container for
+    // every uuid keeps positions correct even as earlier inserts shift things.
+    for (const uuid of uuids) {
+      const c = findContainer(uuid);
+      if (!c) continue;
+      const clone = cloneItemWithNewIds(c.arr[c.i]);
+      c.arr.splice(c.i + 1, 0, clone);
+      newUuids.push(clone.uuid);
+    }
+    if (newUuids.length === 0) return;
+    updateIndices(currentProject.value.items);
+    selectedItems.value.clear();
+    for (const u of newUuids) selectedItems.value.add(u);
+    const last = findItemByUuid(newUuids[newUuids.length - 1]);
+    if (last) { selectedItem.value = last; selectionAnchorUuid = last.uuid; }
+    saveProject();
+  };
+
+  // Copy the given items to the system clipboard as JSON. The payload is
+  // wrapped with a type/version marker so paste can recognise it, but it's
+  // also just a readable items array so it can be hand-edited / shared.
+  const copyItemsToClipboard = async (uuids: string[]): Promise<boolean> => {
+    if (!import.meta.client || uuids.length === 0) return false;
+    const items = uuids
+      .map(uuid => findItemByUuid(uuid))
+      .filter((it): it is AudioItem | GroupItem => it !== null)
+      .map(it => {
+        const raw = _deepToRaw(it);    // strips reactivity + waveform
+        return raw;
+      });
+    if (items.length === 0) return false;
+    const payload = { type: 'liveplay/items', version: '2.0.0', items };
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      return true;
+    } catch (e) {
+      console.warn('[useProject] copy to clipboard failed:', e);
+      return false;
+    }
+  };
+
+  // Parse clipboard text into an array of item-like objects. Accepts our
+  // wrapped { type:'liveplay/items', items } payload, a bare array of items,
+  // or a single item object. Returns [] when the text isn't valid items JSON.
+  const parseItemsFromText = (text: string): any[] => {
+    let data: any;
+    try { data = JSON.parse(text); } catch { return []; }
+    let candidates: any[];
+    if (data && data.type === 'liveplay/items' && Array.isArray(data.items)) candidates = data.items;
+    else if (Array.isArray(data)) candidates = data;
+    else if (data && typeof data === 'object') candidates = [data];
+    else return [];
+    // Keep only things that look like project items.
+    return candidates.filter(it =>
+      it && typeof it === 'object'
+      && (it.type === 'audio' || it.type === 'group')
+      && typeof it.displayName === 'string'
+    );
+  };
+
+  // Paste items from the clipboard into the playlist root (appended). Each
+  // pasted item gets fresh UUIDs so it can coexist with the source — even
+  // when pasting back into the same project / a different LivePlay instance.
+  const pasteItemsFromClipboard = async (): Promise<number> => {
+    if (!import.meta.client || !currentProject.value) return 0;
+    let text = '';
+    try { text = await navigator.clipboard.readText(); } catch (e) {
+      console.warn('[useProject] read clipboard failed:', e);
+      return 0;
+    }
+    const parsed = parseItemsFromText(text);
+    if (parsed.length === 0) return 0;
+    const newUuids: string[] = [];
+    for (const it of parsed) {
+      const clone = cloneItemWithNewIds(it);
+      currentProject.value.items.push(clone);
+      newUuids.push(clone.uuid);
+    }
+    updateIndices(currentProject.value.items);
+    selectedItems.value.clear();
+    for (const u of newUuids) selectedItems.value.add(u);
+    const last = findItemByUuid(newUuids[newUuids.length - 1]);
+    if (last) { selectedItem.value = last; selectionAnchorUuid = last.uuid; }
+    saveProject();
+    return newUuids.length;
   };
 
   // ----------------------------------------------------------------------
@@ -559,8 +752,12 @@ export const useProject = () => {
 
     currentProject.value = null;
     selectedItem.value = null;
+    selectedItems.value.clear();
+    selectionAnchorUuid = null;
+    propertiesPanelOpen.value = false;
     activeCues.value.clear();
     projectFilePathRef.value = '';
+    _autoProcessPendingUuids.clear();
 
     // Clear cart-only items from memory
     const { clearCartOnlyItems } = useCartItems();
@@ -604,6 +801,12 @@ export const useProject = () => {
   const addItem = (item: AudioItem | GroupItem, parentIndex?: number[]) => {
     if (!currentProject.value) return;
 
+    // If this is a brand-new audio item (no waveform yet), mark it so the
+    // waveform_ready handler knows it should run auto-process once.
+    if (item.type === 'audio' && !(item as AudioItem).waveform) {
+      _autoProcessPendingUuids.add(item.uuid);
+    }
+
     if (parentIndex && parentIndex.length > 0) {
       const parent = findItemByIndex(parentIndex);
       if (parent && parent.type === 'group') {
@@ -614,6 +817,22 @@ export const useProject = () => {
       currentProject.value.items.push(item);
       updateIndices(currentProject.value.items);
     }
+  };
+
+  // Allow external callers (e.g. CartSlot) to mark a UUID for one-shot
+  // auto-processing when its waveform arrives.
+  const markPendingAutoProcess = (uuid: string) => {
+    _autoProcessPendingUuids.add(uuid);
+  };
+
+  // Check whether a UUID is pending auto-process and consume the mark
+  // atomically. Returns true only when the item was marked AND removes it
+  // so it can never be processed twice (handles both the waveform_ready
+  // and generateWaveformAsync code paths).
+  const consumePendingAutoProcess = (uuid: string): boolean => {
+    if (!_autoProcessPendingUuids.has(uuid)) return false;
+    _autoProcessPendingUuids.delete(uuid);
+    return true;
   };
 
   // Remove an item
@@ -898,6 +1117,18 @@ export const useProject = () => {
                   (target as any).duration = duration;
                   (target as any).outPoint  = duration;
                 }
+                // Auto-process (trim silence + normalise) only for items that
+                // were just added in this session — never for items restored
+                // from the saved project file (which already have user-set
+                // trim points and volume).
+                if (_autoProcessPendingUuids.has(patch.item_uuid)) {
+                  _autoProcessPendingUuids.delete(patch.item_uuid);
+                  const settings = (currentProject.value as any)?.settings;
+                  if (!settings?.disableAutoVolumeAndTrim) {
+                    const targetDb: number = settings?.outputTargetLevels?.autoVolumeTargetDb ?? -23;
+                    applyAutoProcessing(target as AudioItem, targetDb);
+                  }
+                }
                 triggerWaveformUpdate();
               }
             }
@@ -1181,11 +1412,16 @@ export const useProject = () => {
     currentProject,
     selectedItem,
     selectedItems,
+    propertiesPanelOpen,
     activeCues,
     waveformUpdateKey,
     triggerWaveformUpdate,
     toggleItemSelection,
     openItemProperties,
+    selectAllItems,
+    duplicateItems,
+    copyItemsToClipboard,
+    pasteItemsFromClipboard,
     getSelectedItems,
     getAllItemsFlat,
     createNewProject,
@@ -1194,6 +1430,8 @@ export const useProject = () => {
     saveProject,
     closeProject,
     addItem,
+    markPendingAutoProcess,
+    consumePendingAutoProcess,
     removeItem,
     findItemByUuid,
     findItemByIndex,
