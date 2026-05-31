@@ -34,5 +34,10 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "optionalDependencies": {
+    "@oxc-parser/binding-darwin-x64": "0.94.0",
+    "@oxc-transform/binding-darwin-x64": "0.94.0",
+    "@oxc-minify/binding-darwin-x64": "0.94.0"
   }
 }
