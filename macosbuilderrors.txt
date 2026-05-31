@@ -1,0 +1,306 @@
+
+The default interactive shell is now zsh.
+To update your account to use zsh, please run `chsh -s /bin/zsh`.
+For more details, please visit https://support.apple.com/kb/HT208050.
+Thomass-2012-Mac-mini:liveplay tdoukinitsas$ npm run build:clean
+
+> liveplay-monorepo@2.0.0 build:clean
+> node scripts/build-clean.js
+
+[build-clean] Cleaned. Running full build...
+
+> node scripts/build-server.js
+> cmake --preset default
+CMake Error at /usr/local/share/cmake/Modules/CMakeDetermineSystem.cmake:159 (message):
+  Could not find toolchain file:
+
+   "/scripts/buildsystems/vcpkg.cmake"
+Call Stack (most recent call first):
+  CMakeLists.txt:14 (project)
+
+
+CMake Error: CMake was unable to find a build program corresponding to "Ninja".  CMAKE_MAKE_PROGRAM is not set.  You probably need to select a different build tool.
+CMake Error: CMAKE_C_COMPILER not set, after EnableLanguage
+CMake Error: CMAKE_CXX_COMPILER not set, after EnableLanguage
+-- Configuring incomplete, errors occurred!
+
+[build-all] Command failed: node scripts/build-server.js
+Thomass-2012-Mac-mini:liveplay tdoukinitsas$ export VCPKG_ROOT="$HOME/vcpkg"
+Thomass-2012-Mac-mini:liveplay tdoukinitsas$ npm run build:clean
+
+> liveplay-monorepo@2.0.0 build:clean
+> node scripts/build-clean.js
+
+[build-clean] Cleaned. Running full build...
+
+> node scripts/build-server.js
+> cmake --preset default
+-- Running vcpkg install
+Detecting compiler hash for triplet x64-osx...
+Compiler found: /usr/bin/c++
+The following packages are already installed:
+  * asio:x64-osx@1.32.0
+    crow:x64-osx@1.3.2
+    miniaudio:x64-osx@0.11.25
+    miniz:x64-osx@3.1.1
+    nlohmann-json:x64-osx@3.12.0#2
+    taglib:x64-osx@2.3
+  * utfcpp:x64-osx@4.1.0
+  * vcpkg-cmake:x64-osx@2024-04-23
+  * vcpkg-cmake-config:x64-osx@2024-05-23
+  * zlib:x64-osx@1.3.2
+crow provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(Crow CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE Crow::Crow)
+
+miniaudio is header-only and can be used from CMake via:
+
+  find_path(MINIAUDIO_INCLUDE_DIRS "miniaudio.h")
+  target_include_directories(main PRIVATE ${MINIAUDIO_INCLUDE_DIRS})
+
+miniz provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(miniz CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE miniz::miniz)
+
+miniz provides pkg-config modules:
+
+  # 
+  miniz
+
+The package nlohmann-json provides CMake targets:
+
+    find_package(nlohmann_json CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE nlohmann_json::nlohmann_json)
+
+The package nlohmann-json can be configured to not provide implicit conversions via a custom triplet file:
+
+    set(nlohmann-json_IMPLICIT_CONVERSIONS OFF)
+
+For more information, see the docs here:
+    
+    https://json.nlohmann.me/api/macros/json_use_implicit_conversions/
+
+taglib provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(taglib CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE TagLib::tag TagLib::tag_c TagLib::TagLib)
+
+taglib provides pkg-config modules:
+
+  # Audio meta-data library
+  taglib
+
+  # Audio meta-data library (C bindings)
+  taglib_c
+
+All requested installations completed successfully in: 653 us
+-- Running vcpkg install - done
+-- The C compiler identification is AppleClang 16.0.0.16000026
+-- The CXX compiler identification is AppleClang 16.0.0.16000026
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Found nlohmann_json: /Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/share/nlohmann_json/nlohmann_jsonConfig.cmake (found version "3.12.0")
+-- Found ZLIB: optimized;/Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/lib/libz.a;debug;/Users/tdoukinitsas/Documents/Github/liveplay/server/build/vcpkg_installed/x64-osx/debug/lib/libz.a (found version "1.3.2")
+-- Configuring done (7.6s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/tdoukinitsas/Documents/Github/liveplay/server/build
+> cmake --build /Users/tdoukinitsas/Documents/Github/liveplay/server/build --preset default
+[8/18] Building CXX object CMakeFiles/liveplay-server.dir/src/main.cpp.o
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/main.cpp:185:32: warning: unused variable 'C_YEL' [-Wunused-variable]
+  185 |     constexpr std::string_view C_YEL   = "\033[33m";
+      |                                ^~~~~
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/main.cpp:188:10: warning: unused variable 'clr' [-Wunused-variable]
+  188 |     auto clr = [](std::string_view code, std::string_view text) {
+      |          ^~~
+2 warnings generated.
+[16/18] Building CXX object CMakeFiles/liveplay-server.dir/src/core/project_state.cpp.o
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:2634:72: warning: missing field 'custom_action' initializer [-Wmissing-field-initializers]
+ 2634 |                     pending.push_back({si, PendingAction::Kind::Cleanup});
+      |                                                                        ^
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:2640:75: warning: missing field 'custom_action' initializer [-Wmissing-field-initializers]
+ 2640 |                     pending.push_back({si, PendingAction::Kind::NaturalEnd});
+      |                                                                           ^
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:2647:78: warning: missing field 'custom_action' initializer [-Wmissing-field-initializers]
+ 2647 |                     pending.push_back({si, PendingAction::Kind::StopFadeEnded});
+      |                                                                              ^
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:2671:74: warning: missing field 'custom_action' initializer [-Wmissing-field-initializers]
+ 2671 |                     pending.push_back({si, PendingAction::Kind::Crossfade});
+      |                                                                          ^
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:2676:78: warning: missing field 'custom_action' initializer [-Wmissing-field-initializers]
+ 2676 |                     pending.push_back({si, PendingAction::Kind::BeginStopFade});
+      |                                                                              ^
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:22:20: warning: unused function 'id_to_string' [-Wunused-function]
+   22 | inline std::string id_to_string(const audio::CueId& id)          { return id.value; }
+      |                    ^~~~~~~~~~~~
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:23:20: warning: unused function 'id_to_string' [-Wunused-function]
+   23 | inline std::string id_to_string(const audio::MixerChannelId& id) { return id.value; }
+      |                    ^~~~~~~~~~~~
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/core/project_state.cpp:24:20: warning: unused function 'id_to_string' [-Wunused-function]
+   24 | inline std::string id_to_string(const audio::DeviceId& id)       { return id.value; }
+      |                    ^~~~~~~~~~~~
+8 warnings generated.
+[17/18] Building CXX object CMakeFiles/liveplay-server.dir/src/net/control_server.cpp.o
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/net/control_server.cpp:1188:11: warning: lambda capture 'this' is not used [-Wunused-lambda-capture]
+ 1188 |         ([this](const crow::request& req){
+      |           ^~~~
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/net/control_server.cpp:1727:11: warning: lambda capture 'this' is not used [-Wunused-lambda-capture]
+ 1727 |         ([this](const crow::request& req){
+      |           ^~~~
+/Users/tdoukinitsas/Documents/Github/liveplay/server/src/net/control_server.cpp:124:6: warning: unused function 'is_audio_file' [-Wunused-function]
+  124 | bool is_audio_file(const fs::path& p) {
+      |      ^~~~~~~~~~~~~
+3 warnings generated.
+[18/18] Linking CXX executable liveplay-server
+
+> node scripts/build-server-app-mac.js
+[build-server-app-mac] Building LivePlay Server.app bundle...
+[build-server-app-mac] Source binary: /Users/tdoukinitsas/Documents/Github/liveplay/server/build/liveplay-server
+[build-server-app-mac] Target bundle: /Users/tdoukinitsas/Documents/Github/liveplay/server/build/LivePlay Server.app
+[build-server-app-mac] Creating directory structure...
+[build-server-app-mac] Copying server binary...
+[build-server-app-mac] Creating launcher script...
+[build-server-app-mac] Creating Info.plist...
+[build-server-app-mac] Converting icon to ICNS format...
+[build-server-app-mac] Creating 16x16 icon...
+/Users/tdoukinitsas/Documents/Github/liveplay/client/assets/icons/4092w/liveplay-server4092w.png
+  /Users/tdoukinitsas/Documents/Github/liveplay/server/build/liveplay-server.iconset/icon_16x16.png
+[build-server-app-mac] Creating 32x32 icon (retina)...
+/Users/tdoukinitsas/Documents/Github/liveplay/client/assets/icons/4092w/liveplay-server4092w.png
+  /Users/tdoukinitsas/Documents/Github/liveplay/server/build/liveplay-server.iconset/icon_16x16@2x.png
+[build-server-app-mac] Creating 32x32 icon...
+/Users/tdoukinitsas/Documents/Github/liveplay/client/assets/icons/4092w/liveplay-server4092w.png
+  /Users/tdoukinitsas/Documents/Github/liveplay/server/build/liveplay-server.iconset/icon_32x32.png
+[build-server-app-mac] Creating 64x64 icon (retina)...
+/Users/tdoukinitsas/Documents/Github/liveplay/client/assets/icons/4092w/liveplay-server4092w.png
+  /Users/tdoukinitsas/Documents/Github/liveplay/server/build/liveplay-server.iconset/icon_32x32@2x.png
+[build-server-app-mac] Creating 64x64 icon...
+/Users/tdoukinitsas/Documents/Github/liveplay/client/assets/icons/4092w/liveplay-server4092w.png
+  /Users/tdoukinitsas/Documents/Github/liveplay/server/build/liveplay-server.iconset/icon_64x64.png
+[build-server-app-mac] Creating 128x128 icon (retina)...
+/Users/tdoukinitsas/Documents/Github/liveplay/client/assets/icons/4092w/liveplay-server4092w.png
+  /Users/tdoukinitsas/Documents/Github/liveplay/server/build/liveplay-server.iconset/icon_64x64@2x.png
+[build-server-app-mac] Creating 128x128 icon...
+/Users/tdoukinitsas/Documents/Github/liveplay/client/assets/icons/4092w/liveplay-server4092w.png
+  /Users/tdoukinitsas/Documents/Github/liveplay/server/build/liveplay-server.iconset/icon_128x128.png
+[build-server-app-mac] Creating 256x256 icon (retina)...
+/Users/tdoukinitsas/Documents/Github/liveplay/client/assets/icons/4092w/liveplay-server4092w.png
+  /Users/tdoukinitsas/Documents/Github/liveplay/server/build/liveplay-server.iconset/icon_128x128@2x.png
+[build-server-app-mac] Creating 256x256 icon...
+/Users/tdoukinitsas/Documents/Github/liveplay/client/assets/icons/4092w/liveplay-server4092w.png
+  /Users/tdoukinitsas/Documents/Github/liveplay/server/build/liveplay-server.iconset/icon_256x256.png
+[build-server-app-mac] Creating 512x512 icon (retina)...
+/Users/tdoukinitsas/Documents/Github/liveplay/client/assets/icons/4092w/liveplay-server4092w.png
+  /Users/tdoukinitsas/Documents/Github/liveplay/server/build/liveplay-server.iconset/icon_256x256@2x.png
+[build-server-app-mac] Creating 512x512 icon...
+/Users/tdoukinitsas/Documents/Github/liveplay/client/assets/icons/4092w/liveplay-server4092w.png
+  /Users/tdoukinitsas/Documents/Github/liveplay/server/build/liveplay-server.iconset/icon_512x512.png
+[build-server-app-mac] Converting iconset to ICNS...
+[build-server-app-mac] ✓ LivePlay Server.app bundle created successfully
+[build-server-app-mac] Bundle location: /Users/tdoukinitsas/Documents/Github/liveplay/server/build/LivePlay Server.app
+
+> npm run build:electron --workspace=client
+
+> liveplay@2.0.0 build:electron
+> cross-env NODE_ENV=production nuxt generate && electron-builder
+
+┌  Building Nuxt for production...
+
+[12:39:25 PM]  ERROR  Cannot find native binding. npm has a bug related to optional dependencies (https://github.com/npm/cli/issues/4828). Please try npm i again after removing both package-lock.json and node_modules directory.
+
+    at /Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js:571:11
+    at ModuleJob.run (node:internal/modules/esm/module_job:222:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:316:24)
+    at async Module.loadNuxt (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/@nuxt/kit/dist/index.mjs:3010:37)
+    at async Object.run (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/@nuxt/cli/dist/build-DWst0L5A.mjs:46:17)
+    at async Object.run (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/@nuxt/cli/dist/generate-DJpMuzgA.mjs:25:3)
+    at async runCommand (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/citty/dist/index.mjs:228:47)
+    at async runCommand (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/citty/dist/index.mjs:217:5)
+    at async runMain (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/citty/dist/index.mjs:394:10)
+
+  [cause]: Cannot find module '@oxc-parser/binding-darwin-x64'
+Require stack:
+- /Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js
+
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1145:15)
+      at Module._load (node:internal/modules/cjs/loader:986:27)
+      at Module.require (node:internal/modules/cjs/loader:1233:19)
+      at require (node:internal/modules/helpers:179:18)
+      at requireNative (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js:203:25)
+      at /Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js:530:17
+      at ModuleJob.run (node:internal/modules/esm/module_job:222:25)
+      at async ModuleLoader.import (node:internal/modules/esm/loader:316:24)
+      at async Module.loadNuxt (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/@nuxt/kit/dist/index.mjs:3010:37)
+      at async Object.run (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/@nuxt/cli/dist/build-DWst0L5A.mjs:46:17)
+
+    [cause]: Cannot find module './parser.darwin-x64.node'
+Require stack:
+- /Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js
+
+        at Module._resolveFilename (node:internal/modules/cjs/loader:1145:15)
+        at Module._load (node:internal/modules/cjs/loader:986:27)
+        at Module.require (node:internal/modules/cjs/loader:1233:19)
+        at require (node:internal/modules/helpers:179:18)
+        at requireNative (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js:198:16)
+        at /Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js:530:17
+        at ModuleJob.run (node:internal/modules/esm/module_job:222:25)
+        at async ModuleLoader.import (node:internal/modules/esm/loader:316:24)
+        at async Module.loadNuxt (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/@nuxt/kit/dist/index.mjs:3010:37)
+        at async Object.run (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/@nuxt/cli/dist/build-DWst0L5A.mjs:46:17)
+
+      [cause]: Cannot find module '@oxc-parser/binding-darwin-universal'
+Require stack:
+- /Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js
+
+          at Module._resolveFilename (node:internal/modules/cjs/loader:1145:15)
+          at Module._load (node:internal/modules/cjs/loader:986:27)
+          at Module.require (node:internal/modules/cjs/loader:1233:19)
+          at require (node:internal/modules/helpers:179:18)
+          at requireNative (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js:187:23)
+          at /Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js:530:17
+          at ModuleJob.run (node:internal/modules/esm/module_job:222:25)
+          at async ModuleLoader.import (node:internal/modules/esm/loader:316:24)
+          at async Module.loadNuxt (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/@nuxt/kit/dist/index.mjs:3010:37)
+          at async Object.run (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/@nuxt/cli/dist/build-DWst0L5A.mjs:46:17)
+
+        [cause]: Cannot find module './parser.darwin-universal.node'
+Require stack:
+- /Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js
+
+            at Module._resolveFilename (node:internal/modules/cjs/loader:1145:15)
+            at Module._load (node:internal/modules/cjs/loader:986:27)
+            at Module.require (node:internal/modules/cjs/loader:1233:19)
+            at require (node:internal/modules/helpers:179:18)
+            at requireNative (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js:182:14)
+            at /Users/tdoukinitsas/Documents/Github/liveplay/node_modules/oxc-parser/src-js/bindings.js:530:17
+            at ModuleJob.run (node:internal/modules/esm/module_job:222:25)
+            at async ModuleLoader.import (node:internal/modules/esm/loader:316:24)
+            at async Module.loadNuxt (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/@nuxt/kit/dist/index.mjs:3010:37)
+            at async Object.run (/Users/tdoukinitsas/Documents/Github/liveplay/node_modules/@nuxt/cli/dist/build-DWst0L5A.mjs:46:17) 
+
+
+npm error Lifecycle script `build:electron` failed with error:
+npm error code 1
+npm error path /Users/tdoukinitsas/Documents/Github/liveplay/client
+npm error workspace liveplay@2.0.0
+npm error location /Users/tdoukinitsas/Documents/Github/liveplay/client
+npm error command failed
+npm error command sh -c cross-env NODE_ENV=production nuxt generate && electron-builder
+
+[build-all] Command failed: npm run build:electron --workspace=client
+Thomass-2012-Mac-mini:liveplay tdoukinitsas$ 
