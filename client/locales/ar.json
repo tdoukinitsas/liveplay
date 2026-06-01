@@ -60,7 +60,9 @@
     "noProject": "لا يوجد مشروع",
     "silenceWarning": "تحذير: صمت في",
     "seconds": "ثواني",
-    "clock": "ساعة"
+    "clock": "ساعة",
+    "autosave": "حفظ تلقائي",
+    "unsavedChanges": "تغييرات غير محفوظة"
   },
   "playlist": {
     "title": "قائمة التشغيل",
@@ -418,5 +420,12 @@
     "playFadeTitle": "تلاشي الدخول: {seconds}ث",
     "stopFadeTitle": "تلاشي الخروج: {seconds}ث",
     "crossFadeTitle": "التلاشي المتقاطع: {seconds}ث"
+  },
+  "unsavedModal": {
+    "title": "تغييرات غير محفوظة",
+    "message": "لديك تغييرات غير محفوظة. هل تريد حفظها قبل المتابعة؟",
+    "save": "حفظ",
+    "discard": "عدم الحفظ",
+    "cancel": "إلغاء"
   }
 }

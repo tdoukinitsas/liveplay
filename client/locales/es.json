@@ -60,7 +60,9 @@
     "noProject": "Sin Proyecto",
     "silenceWarning": "ADVERTENCIA: SILENCIO EN",
     "seconds": "SEGUNDOS",
-    "clock": "Reloj"
+    "clock": "Reloj",
+    "autosave": "Autoguardado",
+    "unsavedChanges": "Cambios sin guardar"
   },
   "playlist": {
     "title": "Lista de Reproducción",
@@ -418,5 +420,12 @@
     "playFadeTitle": "Entrada: {seconds}s",
     "stopFadeTitle": "Salida: {seconds}s",
     "crossFadeTitle": "Fundido cruzado: {seconds}s"
+  },
+  "unsavedModal": {
+    "title": "Cambios sin guardar",
+    "message": "Tiene cambios sin guardar. ¿Desea guardarlos antes de continuar?",
+    "save": "Guardar",
+    "discard": "No guardar",
+    "cancel": "Cancelar"
   }
 }

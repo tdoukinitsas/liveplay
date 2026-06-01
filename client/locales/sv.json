@@ -60,7 +60,9 @@
     "noProject": "Inget projekt",
     "silenceWarning": "VARNING: TYSTNAD OM",
     "seconds": "SEKUNDER",
-    "clock": "Klocka"
+    "clock": "Klocka",
+    "autosave": "Autospara",
+    "unsavedChanges": "Osparade ändringar"
   },
   "playlist": {
     "title": "Spellista",
@@ -418,5 +420,12 @@
     "playFadeTitle": "Infadning: {seconds}s",
     "stopFadeTitle": "Utfadning: {seconds}s",
     "crossFadeTitle": "Korstonande: {seconds}s"
+  },
+  "unsavedModal": {
+    "title": "Osparade ändringar",
+    "message": "Du har osparade ändringar. Vill du spara dem innan du fortsätter?",
+    "save": "Spara",
+    "discard": "Spara inte",
+    "cancel": "Avbryt"
   }
 }

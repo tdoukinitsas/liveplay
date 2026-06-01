@@ -74,6 +74,14 @@
       @cancel="cancelRepair"
     />
 
+    <!-- Unsaved-changes prompt (shown when leaving a project with autosave off) -->
+    <UnsavedChangesModal
+      :visible="unsavedDialogVisible"
+      @save="unsavedSave"
+      @discard="unsavedDiscard"
+      @cancel="unsavedCancel"
+    />
+
     <!-- Background audio-loading progress (when document already rendered) -->
     <AudioLoadProgress />
 
@@ -121,6 +129,7 @@ const {
   currentProject, saveProject, openProject,
   isLoading, loadingMessage,
   repairDialogVisible, repairDialogIssues, confirmRepair, cancelRepair,
+  unsavedDialogVisible, unsavedSave, unsavedDiscard, unsavedCancel,
 } = useProject();
 const { cartOnlyItems, clearCartOnlyItems, addCartOnlyItem } = useCartItems();
 import LoadingOverlay from './components/LoadingOverlay.vue';

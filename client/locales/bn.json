@@ -60,7 +60,9 @@
     "noProject": "কোনো প্রকল্প নেই",
     "silenceWarning": "সতর্কতা: নীরবতা",
     "seconds": "সেকেন্ড",
-    "clock": "ঘড়ি"
+    "clock": "ঘড়ি",
+    "autosave": "স্বয়ংক্রিয় সংরক্ষণ",
+    "unsavedChanges": "অসংরক্ষিত পরিবর্তন"
   },
   "playlist": {
     "title": "প্লেলিস্ট",
@@ -418,5 +420,12 @@
     "playFadeTitle": "ফেড ইন: {seconds}s",
     "stopFadeTitle": "ফেড আউট: {seconds}s",
     "crossFadeTitle": "ক্রস ফেড: {seconds}s"
+  },
+  "unsavedModal": {
+    "title": "অসংরক্ষিত পরিবর্তন",
+    "message": "আপনার অসংরক্ষিত পরিবর্তন রয়েছে। চালিয়ে যাওয়ার আগে কি সেগুলি সংরক্ষণ করতে চান?",
+    "save": "সংরক্ষণ",
+    "discard": "সংরক্ষণ করবেন না",
+    "cancel": "বাতিল"
   }
 }

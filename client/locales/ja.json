@@ -60,7 +60,9 @@
     "noProject": "プロジェクトなし",
     "silenceWarning": "警告：無音まで",
     "seconds": "秒",
-    "clock": "時計"
+    "clock": "時計",
+    "autosave": "自動保存",
+    "unsavedChanges": "未保存の変更"
   },
   "playlist": {
     "title": "プレイリスト",
@@ -418,5 +420,12 @@
     "playFadeTitle": "フェードイン：{seconds}秒",
     "stopFadeTitle": "フェードアウト：{seconds}秒",
     "crossFadeTitle": "クロスフェード：{seconds}秒"
+  },
+  "unsavedModal": {
+    "title": "未保存の変更",
+    "message": "保存されていない変更があります。続行する前に保存しますか？",
+    "save": "保存",
+    "discard": "保存しない",
+    "cancel": "キャンセル"
   }
 }

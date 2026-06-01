@@ -60,7 +60,9 @@
     "noProject": "کوئی پروجیکٹ نہیں",
     "silenceWarning": "انتباہ: خاموشی میں",
     "seconds": "سیکنڈ",
-    "clock": "گھڑی"
+    "clock": "گھڑی",
+    "autosave": "خودکار محفوظ",
+    "unsavedChanges": "غیر محفوظ شدہ تبدیلیاں"
   },
   "playlist": {
     "title": "پلے لسٹ",
@@ -418,5 +420,12 @@
     "playFadeTitle": "فیڈ ان: {seconds}s",
     "stopFadeTitle": "فیڈ آؤٹ: {seconds}s",
     "crossFadeTitle": "کراس فیڈ: {seconds}s"
+  },
+  "unsavedModal": {
+    "title": "غیر محفوظ شدہ تبدیلیاں",
+    "message": "آپ کے پاس غیر محفوظ شدہ تبدیلیاں ہیں۔ کیا آپ جاری رکھنے سے پہلے انہیں محفوظ کرنا چاہتے ہیں؟",
+    "save": "محفوظ کریں",
+    "discard": "محفوظ نہ کریں",
+    "cancel": "منسوخ کریں"
   }
 }

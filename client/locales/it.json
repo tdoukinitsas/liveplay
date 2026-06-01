@@ -60,7 +60,9 @@
     "noProject": "Nessun Progetto",
     "silenceWarning": "AVVISO: SILENZIO TRA",
     "seconds": "SECONDI",
-    "clock": "Orologio"
+    "clock": "Orologio",
+    "autosave": "Salvataggio automatico",
+    "unsavedChanges": "Modifiche non salvate"
   },
   "playlist": {
     "title": "Playlist",
@@ -418,5 +420,12 @@
     "playFadeTitle": "Dissolvenza in entrata: {seconds}s",
     "stopFadeTitle": "Dissolvenza in uscita: {seconds}s",
     "crossFadeTitle": "Dissolvenza incrociata: {seconds}s"
+  },
+  "unsavedModal": {
+    "title": "Modifiche non salvate",
+    "message": "Hai modifiche non salvate. Vuoi salvarle prima di continuare?",
+    "save": "Salva",
+    "discard": "Non salvare",
+    "cancel": "Annulla"
   }
 }

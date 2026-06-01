@@ -60,7 +60,9 @@
     "noProject": "कोई प्रोजेक्ट नहीं",
     "silenceWarning": "चेतावनी: मौन में",
     "seconds": "सेकंड",
-    "clock": "घड़ी"
+    "clock": "घड़ी",
+    "autosave": "स्वतः सहेजें",
+    "unsavedChanges": "असहेजे गए परिवर्तन"
   },
   "playlist": {
     "title": "प्लेलिस्ट",
@@ -418,5 +420,12 @@
     "playFadeTitle": "फेड इन: {seconds}s",
     "stopFadeTitle": "फेड आउट: {seconds}s",
     "crossFadeTitle": "क्रॉस फेड: {seconds}s"
+  },
+  "unsavedModal": {
+    "title": "असहेजे गए परिवर्तन",
+    "message": "आपके पास असहेजे गए परिवर्तन हैं। क्या आप जारी रखने से पहले उन्हें सहेजना चाहते हैं?",
+    "save": "सहेजें",
+    "discard": "न सहेजें",
+    "cancel": "रद्द करें"
   }
 }

@@ -60,7 +60,9 @@
     "noProject": "Κανένα Έργο",
     "silenceWarning": "ΠΡΟΕΙΔΟΠΟΙΗΣΗ: ΣΙΩΠΗ ΣΕ",
     "seconds": "ΔΕΥΤΕΡΟΛΕΠΤΑ",
-    "clock": "Ρολόι"
+    "clock": "Ρολόι",
+    "autosave": "Αυτόματη αποθήκευση",
+    "unsavedChanges": "Μη αποθηκευμένες αλλαγές"
   },
   "playlist": {
     "title": "Λίστα Αναπαραγωγής",
@@ -418,5 +420,12 @@
     "playFadeTitle": "Fade εισόδου: {seconds}δ",
     "stopFadeTitle": "Fade εξόδου: {seconds}δ",
     "crossFadeTitle": "Cross-fade: {seconds}δ"
+  },
+  "unsavedModal": {
+    "title": "Μη αποθηκευμένες αλλαγές",
+    "message": "Έχετε μη αποθηκευμένες αλλαγές. Θέλετε να τις αποθηκεύσετε πριν συνεχίσετε;",
+    "save": "Αποθήκευση",
+    "discard": "Να μην αποθηκευτεί",
+    "cancel": "Άκυρο"
   }
 }

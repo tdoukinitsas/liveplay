@@ -54,6 +54,7 @@
         >bomb</span>
         <span v-if="isPlaying" class="status-pill playing">{{ t('status.playing') }}</span>
         <span v-else-if="isQueuedNext" class="status-pill up-next">{{ t('status.upNext') }}</span>
+        <span v-if="isPreviewing" class="status-pill preview">{{ t('status.previewing') }}</span>
         <span v-if="keyLabel" class="key-label">{{ keyLabel }}</span>
       </div>
       
@@ -72,6 +73,16 @@
       <div class="slot-footer">
         <!-- Action buttons (always visible) -->
         <div class="slot-actions">
+          <ActionButton
+            v-if="item.type === 'audio'"
+            :icon="'headphones'"
+            :highlight-color="isPreviewing ? 'var(--color-accent)' : 'var(--color-success)'"
+            :is-active="isPreviewing"
+            :class="{ 'no-device': !hasPreviewDevice }"
+            context="Cart"
+            @click.stop="isPreviewing ? handleStopPreview() : handleStartPreview()"
+            :title="isPreviewing ? t('actions.stopPreview') : (hasPreviewDevice ? t('actions.preview') : t('actions.previewNoDevice'))"
+          />
           <ActionButton
             :icon="isPlaying ? 'stop' : 'play_arrow'"
             :highlight-color="isPlaying ? 'var(--color-danger)' : 'var(--color-success)'"
@@ -457,6 +468,29 @@ const handleEdit = () => {
   if (!props.item) return;
   const { openItemProperties } = useProject();
   openItemProperties(props.item.uuid);
+};
+
+// ---- Preview (pre-listen) handlers -------------------------------------
+// Preview routes the cue through the configured preview device (typically
+// headphones) without disturbing main project playback. The previewing
+// state is owned by the server (only one preview at a time); the client
+// reads it from useProject().previewItemUuid.
+const { previewItemUuid, startPreview, stopPreview } = useProject();
+const isPreviewing = computed(() =>
+  props.item ? previewItemUuid.value === props.item.uuid : false,
+);
+const hasPreviewDevice = computed(() => !!(currentProject.value as any)?.settings?.previewDevice);
+const showProjectSettings = useState('showProjectSettings', () => false);
+const handleStartPreview = () => {
+  if (!props.item || props.item.type !== 'audio') return;
+  if (!hasPreviewDevice.value) {
+    showProjectSettings.value = true;
+    return;
+  }
+  startPreview(props.item.uuid);
+};
+const handleStopPreview = () => {
+  stopPreview();
 };
 
 const formatTime = (seconds: number): string => {
@@ -1008,12 +1042,24 @@ const handleDrop = async (e: DragEvent) => {
     background-color: var(--color-warning);
     color: black;
   }
+
+  &.preview {
+    background-color: var(--color-success);
+    color: black;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
 }
 
 .slot-actions {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.no-device {
+  opacity: 0.4;
 }
 
 .slot-footer {

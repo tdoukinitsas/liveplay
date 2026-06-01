@@ -64,6 +64,7 @@ const {
   propertiesPanelOpen,
   saveProject,
   closeProject,
+  confirmUnsavedChanges,
   currentProject,
   findItemByUuid,
   selectAllItems,
@@ -142,14 +143,16 @@ const startResize = (e: MouseEvent) => {
 // Listen for menu events
 if (import.meta.client && window.electronAPI) {
   window.electronAPI.onMenuSaveProject(() => {
-    saveProject();
+    // File > Save always writes to disk, even when autosave is off.
+    saveProject({ force: true });
   });
 
   window.electronAPI.onMenuExportProject(() => {
     startExportFlow();
   });
 
-  window.electronAPI.onMenuCloseProject(() => {
+  window.electronAPI.onMenuCloseProject(async () => {
+    if (!(await confirmUnsavedChanges())) return;
     void closeProject();
   });
 
@@ -159,11 +162,13 @@ if (import.meta.client && window.electronAPI) {
   // Without this, these menu items were silent when something was open —
   // only WelcomeScreen used to subscribe, and it isn't mounted right now.
   window.electronAPI.onMenuNewProject(async () => {
+    if (!(await confirmUnsavedChanges())) return;
     try { sessionStorage.setItem('liveplay:welcomeIntent', 'new'); } catch {}
     await closeProject();
   });
 
   window.electronAPI.onMenuOpenProject(async () => {
+    if (!(await confirmUnsavedChanges())) return;
     try { sessionStorage.setItem('liveplay:welcomeIntent', 'open'); } catch {}
     await closeProject();
   });

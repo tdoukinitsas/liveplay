@@ -106,6 +106,13 @@ const repairDialogVisible = ref(false);
 const repairDialogIssues  = ref<string[]>([]);
 let _repairPromiseResolve: ((confirmed: boolean) => void) | null = null;
 
+// ---- Unsaved-changes dialog state (module-scoped, shared across calls) ----
+// Shown when the user tries to leave the current project (New / Open / Close)
+// while autosave is off and edits are pending. Resolves the in-flight guard
+// promise with the user's choice.
+const unsavedDialogVisible = ref(false);
+let _unsavedPromiseResolve: ((choice: 'save' | 'discard' | 'cancel') => void) | null = null;
+
 export const useProject = () => {
   const currentProject = useState<Project | null>('currentProject', () => null);
   // The active/anchor selection is stored as a UUID, not as an object
@@ -163,6 +170,21 @@ export const useProject = () => {
   // Engine cue ID for the active preview — needed to subscribe to its meter
   // stream and drive the seek bar / playhead time in the preview card.
   const previewCueId = useState<string>('useProject.previewCueId', () => '');
+
+  // ---- Autosave -----------------------------------------------------------
+  // By default the project auto-saves to disk on every edit (saveProject() is
+  // called all over the app after mutations). The user can turn that off via
+  // the header toggle; the preference lives in the project's settings so it
+  // persists across reopens. When autosave is off, edit-triggered saves only
+  // flag `hasUnsavedChanges` instead of writing the file — the server's
+  // in-memory document is still kept current by the granular sync watchers, so
+  // only the .liveplay file on disk lags until an explicit save flushes it.
+  const hasUnsavedChanges = useState<boolean>('useProject.hasUnsavedChanges', () => false);
+  // Autosave is on unless the project explicitly opted out (older projects
+  // without the key default to on).
+  const autoSaveEnabled = computed<boolean>(
+    () => (currentProject.value as any)?.settings?.autoSave !== false,
+  );
 
   // ---- Preview controls (delegate to server) ----------------------------
   async function startPreview(itemUuid: string) {
@@ -700,6 +722,8 @@ export const useProject = () => {
     if (header.settings) (project as any).settings = header.settings;
     currentProject.value = project;
     updateIndices(project.items);
+    // A freshly loaded/created project matches its on-disk file.
+    hasUnsavedChanges.value = false;
   };
 
   // Refer to the module-scoped install hooks so streamItemPages and
@@ -741,9 +765,18 @@ export const useProject = () => {
 
   // Save the current project — the server already has the document, it just
   // needs to write to disk.
-  const saveProject = async (): Promise<boolean> => {
+  const saveProject = async (opts?: { force?: boolean }): Promise<boolean> => {
     try {
       if (!currentProject.value) return false;
+
+      // Autosave gating: when the user has turned autosave off, an ordinary
+      // edit-triggered save doesn't touch the disk file — we only flag that
+      // there are unsaved changes. Explicit saves (File > Save, or toggling
+      // autosave) pass { force: true } to bypass this and always persist.
+      if (!opts?.force && !autoSaveEnabled.value) {
+        hasUnsavedChanges.value = true;
+        return true;
+      }
 
       // Mirror cart-only items from the client-side memory store back into
       // the project doc before pushing.
@@ -774,11 +807,23 @@ export const useProject = () => {
       const path = projectFilePathRef.value ||
                    `${currentProject.value.folderPath}/${currentProject.value.name}.liveplay`;
       const res = await server.saveProjectTo(path, docSnapshot);
+      if (res?.ok) hasUnsavedChanges.value = false;
       return !!res?.ok;
     } catch (error) {
       console.error('Error saving project:', error);
       return false;
     }
+  };
+
+  // Toggle autosave on/off. The preference lives in project settings (so it
+  // persists across reopens) and is force-saved to disk immediately: turning
+  // it OFF would otherwise never write `autoSave: false` to the file, and
+  // turning it ON should flush whatever edits accumulated while it was off.
+  const setAutoSave = (enabled: boolean) => {
+    if (!currentProject.value) return;
+    const settings = ((currentProject.value as any).settings ?? {});
+    (currentProject.value as any).settings = { ...settings, autoSave: enabled };
+    void saveProject({ force: true });
   };
 
   // Close the current project — clears local state AND tells the server to
@@ -1469,6 +1514,28 @@ export const useProject = () => {
   const confirmRepair = () => { _repairPromiseResolve?.(true);  _repairPromiseResolve = null; };
   const cancelRepair  = () => { _repairPromiseResolve?.(false); _repairPromiseResolve = null; };
 
+  // Guard a project-leaving action (New / Open / Close). Resolves true when
+  // it's safe to proceed, false when the user cancels. When autosave is on or
+  // nothing is pending, it's a no-op that proceeds immediately. Otherwise it
+  // pops the unsaved-changes modal and acts on the choice: "save" force-saves
+  // first, "discard" proceeds without saving, "cancel" aborts.
+  const confirmUnsavedChanges = (): Promise<boolean> => {
+    if (autoSaveEnabled.value || !hasUnsavedChanges.value) return Promise.resolve(true);
+    unsavedDialogVisible.value = true;
+    return new Promise<boolean>((resolve) => {
+      _unsavedPromiseResolve = async (choice) => {
+        unsavedDialogVisible.value = false;
+        _unsavedPromiseResolve = null;
+        if (choice === 'cancel') { resolve(false); return; }
+        if (choice === 'save') { await saveProject({ force: true }); }
+        resolve(true);
+      };
+    });
+  };
+  const unsavedSave    = () => _unsavedPromiseResolve?.('save');
+  const unsavedDiscard = () => _unsavedPromiseResolve?.('discard');
+  const unsavedCancel  = () => _unsavedPromiseResolve?.('cancel');
+
   return {
     currentProject,
     selectedItem,
@@ -1489,6 +1556,9 @@ export const useProject = () => {
     openProject,
     tryRejoinExistingProject,
     saveProject,
+    hasUnsavedChanges,
+    autoSaveEnabled,
+    setAutoSave,
     closeProject,
     addItem,
     markPendingAutoProcess,
@@ -1510,5 +1580,10 @@ export const useProject = () => {
     repairDialogIssues,
     confirmRepair,
     cancelRepair,
+    unsavedDialogVisible,
+    confirmUnsavedChanges,
+    unsavedSave,
+    unsavedDiscard,
+    unsavedCancel,
   };
 };

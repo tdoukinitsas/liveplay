@@ -60,7 +60,9 @@
     "noProject": "Ingen prosjekt",
     "silenceWarning": "ADVARSEL: STILLHET OM",
     "seconds": "SEKUNDER",
-    "clock": "Klokke"
+    "clock": "Klokke",
+    "autosave": "Autolagring",
+    "unsavedChanges": "Ulagrede endringer"
   },
   "playlist": {
     "title": "Spilleliste",
@@ -418,5 +420,12 @@
     "playFadeTitle": "Innfading: {seconds}s",
     "stopFadeTitle": "Utfading: {seconds}s",
     "crossFadeTitle": "Kryssfading: {seconds}s"
+  },
+  "unsavedModal": {
+    "title": "Ulagrede endringer",
+    "message": "Du har ulagrede endringer. Vil du lagre dem før du fortsetter?",
+    "save": "Lagre",
+    "discard": "Ikke lagre",
+    "cancel": "Avbryt"
   }
 }

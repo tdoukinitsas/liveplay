@@ -60,7 +60,9 @@
     "noProject": "Asnjë Projekt",
     "silenceWarning": "PARALAJMËRIM: HESHTJE NË",
     "seconds": "SEKONDA",
-    "clock": "Orë"
+    "clock": "Orë",
+    "autosave": "Ruajtje automatike",
+    "unsavedChanges": "Ndryshime të paruajtura"
   },
   "playlist": {
     "title": "Lista e Luajtjes",
@@ -418,5 +420,12 @@
     "playFadeTitle": "Fade-in: {seconds}s",
     "stopFadeTitle": "Fade-out: {seconds}s",
     "crossFadeTitle": "Cross-fade: {seconds}s"
+  },
+  "unsavedModal": {
+    "title": "Ndryshime të paruajtura",
+    "message": "Keni ndryshime të paruajtura. Doni t’i ruani para se të vazhdoni?",
+    "save": "Ruaj",
+    "discard": "Mos ruaj",
+    "cancel": "Anulo"
   }
 }

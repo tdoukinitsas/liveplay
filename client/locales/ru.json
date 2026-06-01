@@ -60,7 +60,9 @@
     "noProject": "Нет проекта",
     "silenceWarning": "ВНИМАНИЕ: ТИШИНА ЧЕРЕЗ",
     "seconds": "СЕКУНД",
-    "clock": "Часы"
+    "clock": "Часы",
+    "autosave": "Автосохранение",
+    "unsavedChanges": "Несохранённые изменения"
   },
   "playlist": {
     "title": "Плейлист",
@@ -418,5 +420,12 @@
     "playFadeTitle": "Нарастание: {seconds}с",
     "stopFadeTitle": "Затухание: {seconds}с",
     "crossFadeTitle": "Кроссфейд: {seconds}с"
+  },
+  "unsavedModal": {
+    "title": "Несохранённые изменения",
+    "message": "У вас есть несохранённые изменения. Сохранить их перед продолжением?",
+    "save": "Сохранить",
+    "discard": "Не сохранять",
+    "cancel": "Отмена"
   }
 }

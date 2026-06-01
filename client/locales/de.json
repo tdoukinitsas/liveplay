@@ -60,7 +60,9 @@
     "noProject": "Kein Projekt",
     "silenceWarning": "WARNUNG: STILLE IN",
     "seconds": "SEKUNDEN",
-    "clock": "Uhr"
+    "clock": "Uhr",
+    "autosave": "Automatisch speichern",
+    "unsavedChanges": "Ungespeicherte Änderungen"
   },
   "playlist": {
     "title": "Wiedergabeliste",
@@ -418,5 +420,12 @@
     "playFadeTitle": "Einblenden: {seconds}s",
     "stopFadeTitle": "Ausblenden: {seconds}s",
     "crossFadeTitle": "Überblenden: {seconds}s"
+  },
+  "unsavedModal": {
+    "title": "Ungespeicherte Änderungen",
+    "message": "Sie haben ungespeicherte Änderungen. Möchten Sie diese vor dem Fortfahren speichern?",
+    "save": "Speichern",
+    "discard": "Nicht speichern",
+    "cancel": "Abbrechen"
   }
 }

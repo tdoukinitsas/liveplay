@@ -60,7 +60,9 @@
     "noProject": "Proje Yok",
     "silenceWarning": "UYARI: SESSİZLİK",
     "seconds": "SANİYE",
-    "clock": "Saat"
+    "clock": "Saat",
+    "autosave": "Otomatik kaydet",
+    "unsavedChanges": "Kaydedilmemiş değişiklikler"
   },
   "playlist": {
     "title": "Çalma Listesi",
@@ -418,5 +420,12 @@
     "playFadeTitle": "Giriş Sönümü: {seconds}sn",
     "stopFadeTitle": "Çıkış Sönümü: {seconds}sn",
     "crossFadeTitle": "Çapraz Sönüm: {seconds}sn"
+  },
+  "unsavedModal": {
+    "title": "Kaydedilmemiş değişiklikler",
+    "message": "Kaydedilmemiş değişiklikleriniz var. Devam etmeden önce kaydetmek ister misiniz?",
+    "save": "Kaydet",
+    "discard": "Kaydetme",
+    "cancel": "İptal"
   }
 }

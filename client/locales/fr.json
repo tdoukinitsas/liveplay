@@ -60,7 +60,9 @@
     "noProject": "Aucun Projet",
     "silenceWarning": "ATTENTION : SILENCE DANS",
     "seconds": "SECONDES",
-    "clock": "Horloge"
+    "clock": "Horloge",
+    "autosave": "Sauvegarde auto",
+    "unsavedChanges": "Modifications non enregistrées"
   },
   "playlist": {
     "title": "Liste de Lecture",
@@ -418,5 +420,12 @@
     "playFadeTitle": "Fondu d'entrée : {seconds}s",
     "stopFadeTitle": "Fondu de sortie : {seconds}s",
     "crossFadeTitle": "Fondu enchaîné : {seconds}s"
+  },
+  "unsavedModal": {
+    "title": "Modifications non enregistrées",
+    "message": "Vous avez des modifications non enregistrées. Voulez-vous les enregistrer avant de continuer ?",
+    "save": "Enregistrer",
+    "discard": "Ne pas enregistrer",
+    "cancel": "Annuler"
   }
 }

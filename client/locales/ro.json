@@ -60,7 +60,9 @@
     "noProject": "Niciun Proiect",
     "silenceWarning": "ATENTIE: SILENCE IN",
     "seconds": "SECUNDE",
-    "clock": "Ceas"
+    "clock": "Ceas",
+    "autosave": "Salvare automată",
+    "unsavedChanges": "Modificări nesalvate"
   },
   "playlist": {
     "title": "Lista de redare",
@@ -418,5 +420,12 @@
     "playFadeTitle": "Fade in: {seconds}s",
     "stopFadeTitle": "Fade out: {seconds}s",
     "crossFadeTitle": "Cross-fade: {seconds}s"
+  },
+  "unsavedModal": {
+    "title": "Modificări nesalvate",
+    "message": "Aveți modificări nesalvate. Doriți să le salvați înainte de a continua?",
+    "save": "Salvați",
+    "discard": "Nu salvați",
+    "cancel": "Anulați"
   }
 }

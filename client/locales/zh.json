@@ -60,7 +60,9 @@
     "noProject": "无项目",
     "silenceWarning": "警告：静音倒计时",
     "seconds": "秒",
-    "clock": "时钟"
+    "clock": "时钟",
+    "autosave": "自动保存",
+    "unsavedChanges": "未保存的更改"
   },
   "playlist": {
     "title": "播放列表",
@@ -418,5 +420,12 @@
     "playFadeTitle": "淡入：{seconds}秒",
     "stopFadeTitle": "淡出：{seconds}秒",
     "crossFadeTitle": "交叉淡变：{seconds}秒"
+  },
+  "unsavedModal": {
+    "title": "未保存的更改",
+    "message": "您有未保存的更改。是否要在继续之前保存它们？",
+    "save": "保存",
+    "discard": "不保存",
+    "cancel": "取消"
   }
 }

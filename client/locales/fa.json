@@ -60,7 +60,9 @@
     "noProject": "بدون پروژه",
     "silenceWarning": "هشدار: سکوت در",
     "seconds": "ثانیه",
-    "clock": "ساعت"
+    "clock": "ساعت",
+    "autosave": "ذخیره خودکار",
+    "unsavedChanges": "تغییرات ذخیره‌نشده"
   },
   "playlist": {
     "title": "لیست پخش",
@@ -418,5 +420,12 @@
     "playFadeTitle": "فید ورودی: {seconds} ثانیه",
     "stopFadeTitle": "فید خروجی: {seconds} ثانیه",
     "crossFadeTitle": "کراس فید: {seconds} ثانیه"
+  },
+  "unsavedModal": {
+    "title": "تغییرات ذخیره‌نشده",
+    "message": "تغییرات ذخیره‌نشده دارید. آیا می‌خواهید قبل از ادامه آن‌ها را ذخیره کنید؟",
+    "save": "ذخیره",
+    "discard": "ذخیره نکن",
+    "cancel": "لغو"
   }
 }

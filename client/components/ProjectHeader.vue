@@ -8,6 +8,10 @@
         class="header-logo"
       />
       <h2 class="project-name" :class="{ 'project-name--hidden': hideTitle }">{{ currentProject?.name || t('project.noProject') }}</h2>
+      <span
+        v-if="currentProject && !autoSaveEnabled && hasUnsavedChanges"
+        class="unsaved-pill"
+      >{{ t('project.unsavedChanges') }}</span>
     </div>
 
     <div
@@ -23,6 +27,23 @@
     <div ref="rightRef" class="header-right">
       <Btn icon="tune" :text="t('settings.title')" @click="showProjectSettings = true" />
       <Btn icon="keyboard" :text="t('controls.shortcutBtn')" @click="showControlConfig = true" />
+
+      <!-- Autosave toggle: on by default; when off the project is only saved
+           via File > Save and an "Unsaved Changes" pill appears by the title. -->
+      <button
+        type="button"
+        class="autosave-toggle"
+        role="switch"
+        :aria-checked="autoSaveEnabled"
+        :aria-label="t('project.autosave')"
+        :disabled="!currentProject"
+        @click="setAutoSave(!autoSaveEnabled)"
+      >
+        <span class="autosave-toggle__label">{{ t('project.autosave') }}</span>
+        <span class="autosave-toggle__track" :class="{ 'autosave-toggle__track--on': autoSaveEnabled }">
+          <span class="autosave-toggle__thumb"></span>
+        </span>
+      </button>
 
       <!-- Clock pair: wall clock + LTC timecode, always both visible -->
       <div class="clock-pair">
@@ -53,7 +74,7 @@ import ProjectSettingsModal from './ProjectSettingsModal.vue';
 import Btn from './Btn.vue';
 import type { AudioItem } from '~/types/project';
 
-const { currentProject, findItemByUuid, findItemByIndex } = useProject();
+const { currentProject, findItemByUuid, findItemByIndex, autoSaveEnabled, hasUnsavedChanges, setAutoSave } = useProject();
 const { t } = useLocalization();
 const { activeCues } = useAudioEngine();
 
@@ -326,6 +347,75 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+}
+
+/* "Unsaved Changes" pill — styled like the playback status pills (yellow
+   warning, black text), shown next to the project title when autosave is off
+   and edits are pending. */
+.unsaved-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background-color: var(--color-warning);
+  color: black;
+}
+
+/* Autosave toggle switch */
+.autosave-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+.autosave-toggle__label {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.autosave-toggle__track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background-color: var(--color-border);
+  transition: background-color var(--transition-base);
+  flex-shrink: 0;
+}
+
+.autosave-toggle__track--on {
+  background-color: var(--color-accent);
+}
+
+.autosave-toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #fff;
+  transition: transform var(--transition-base);
+}
+
+.autosave-toggle__track--on .autosave-toggle__thumb {
+  transform: translateX(16px);
 }
 
 /* Two clocks side-by-side, never re-arrange */

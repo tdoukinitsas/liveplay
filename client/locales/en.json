@@ -101,7 +101,9 @@
     "noProject": "No Project",
     "silenceWarning": "WARNING: SILENCE IN",
     "seconds": "SECONDS",
-    "clock": "Clock"
+    "clock": "Clock",
+    "autosave": "Autosave",
+    "unsavedChanges": "Unsaved Changes"
   },
   "playlist": {
     "title": "Playlist",
@@ -446,5 +448,12 @@
     "uploadedCount": "Uploaded {count} file(s). Click \"Add\" to import.",
     "uploadFailed": "Upload failed: {error}",
     "orFromComputer": "Or pick from this computer"
+  },
+  "unsavedModal": {
+    "title": "Unsaved Changes",
+    "message": "You have unsaved changes. Do you want to save them before continuing?",
+    "save": "Save",
+    "discard": "Don't Save",
+    "cancel": "Cancel"
   }
 }

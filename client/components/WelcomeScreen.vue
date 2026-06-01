@@ -175,9 +175,13 @@
       @close="showPicker = false"
     />
 
-    <!-- New-project name dialog -->
+    <!-- New-project name dialog.
+         data-theme is mirrored onto the teleported root: <Teleport to="body">
+         hoists this OUT of #app (which carries the data-theme attribute), so
+         without it the [data-theme='…'] CSS variables resolve to nothing and
+         the dialog renders transparent. -->
     <Teleport to="body">
-      <div v-if="showNameDialog" class="name-dialog-backdrop" @click.self="cancelNameDialog">
+      <div v-if="showNameDialog" class="name-dialog-backdrop" :data-theme="theme" @click.self="cancelNameDialog">
         <div class="name-dialog">
           <h3 class="name-dialog__title">{{ t('project.enterName') }}</h3>
           <input
