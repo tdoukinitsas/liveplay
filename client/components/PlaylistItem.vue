@@ -613,11 +613,18 @@ const handleDrop = (e: DragEvent) => {
   const draggedUuid = e.dataTransfer.getData('item-uuid');
   if (!draggedUuid || draggedUuid === props.item.uuid) return;
   
-  // Check if we're dragging multiple items
+  // Check if we're dragging multiple items. Guard the parse: a foreign or
+  // corrupt drag payload would otherwise throw and abort the whole drop.
   const selectedItemsData = e.dataTransfer.getData('selected-items');
-  const itemsToMove: string[] = selectedItemsData 
-    ? JSON.parse(selectedItemsData) 
-    : [draggedUuid];
+  let itemsToMove: string[] = [draggedUuid];
+  if (selectedItemsData) {
+    try {
+      const parsed = JSON.parse(selectedItemsData);
+      if (Array.isArray(parsed) && parsed.length > 0) itemsToMove = parsed;
+    } catch {
+      // Keep the single-item fallback.
+    }
+  }
   
   // Don't drop onto one of the items being moved
   if (itemsToMove.includes(props.item.uuid)) return;

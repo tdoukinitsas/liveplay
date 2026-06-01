@@ -45,6 +45,7 @@
     "connect": "Connect",
     "connecting": "Connecting…",
     "connectionFailed": "Could not connect to the server",
+    "serverUnreachable": "Server found on the network but its connection port is unreachable — check the firewall on the server machine (allow TCP 4480)",
     "connectedLocal": "Using local server on this computer",
     "connectedTo": "Connected to {url}",
     "changeMode": "Change",

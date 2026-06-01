@@ -49,7 +49,13 @@
     "changeMode": "Ndrysho",
     "back": "Prapa",
     "startingLocalServer": "Fillimi i serverit lokal…",
-    "serversOnThisNetwork": "Serverët në këtë rrjet"
+    "serversOnThisNetwork": "Serverët në këtë rrjet",
+    "serverUnreachable": "Serveri u gjet në rrjet, por porta e tij e lidhjes është e paarritshme — kontrollo murin e zjarrit në makinën e serverit (lejo TCP 4480)",
+    "recentServers": "Serverët e fundit",
+    "rescan": "Riskano",
+    "scanning": "Po skanohet…",
+    "noServersFound": "Ende nuk u gjet asnjë server — sigurohu që një server po funksionon në këtë rrjet.",
+    "forget": "Harro"
   },
   "project": {
     "enterName": "Vendos Emrin e Projektit",
@@ -143,7 +149,8 @@
     "deviceOverrideHelp": "Mbishkruaj daljen e paracaktuar të projektit për këtë sinjal. Lër në 'Përdor të paracaktuarën e projektit' për të ndjekur cilësimin e projektit.",
     "waveform": "Forma e valës",
     "regenerateWaveform": "Rigjeneroj formën e valës",
-    "regeneratingWaveform": "Duke rigjeneruar..."
+    "regeneratingWaveform": "Duke rigjeneruar...",
+    "ltcRequiresDevice": "Zgjidh një pajisje dalëse LTC te Cilësimet e projektit për të aktivizuar daljen e timecode."
   },
   "playback": {
     "panic": "Ndalo të Gjitha Sinjalet",
@@ -189,7 +196,8 @@
     "preview": "Paraparim me kufje",
     "stopPreview": "Ndalo paraparimin",
     "previewNoDevice": "Asnjë pajisje paraparimi e konfiguruar — kliko për të hapur Cilësimet e Projektit",
-    "confirmDelete": "Fshi «{name}»?"
+    "confirmDelete": "Fshi «{name}»?",
+    "clickToEdit": "Kliko për të shkruar një vlerë"
   },
   "about": {
     "developedBy": "Zhvilluar nga",
@@ -427,5 +435,26 @@
     "save": "Ruaj",
     "discard": "Mos ruaj",
     "cancel": "Anulo"
+  },
+  "connectionLost": {
+    "title": "Lidhja u humb",
+    "message": "Lidhja me serverin LivePlay në {url} u humb.",
+    "attempting": "Po përpiqet të rilidhet…",
+    "reconnect": "Rilidhu",
+    "restart": "Rinis",
+    "exit": "Dil",
+    "reconnectHint": "Rilidhja provon përsëri të njëjtin server.",
+    "restartHint": "Rinisja rinis vetëm klientin (serveri audio vazhdon të funksionojë).",
+    "exitHint": "Dalja mbyll klientin."
+  },
+  "audioImport": {
+    "title": "Importo audio",
+    "tabServer": "Në server",
+    "tabUpload": "Ngarko nga ky kompjuter",
+    "serverHint": "Skedarë që janë tashmë në server. Kliko dy herë mbi një dosje për të hyrë, ose kliko Shto pranë një skedari.",
+    "uploadDescription": "Zgjidh një ose më shumë skedarë nga ky kompjuter. Do të ngarkohen në dosjen media të serverit.",
+    "chooseFiles": "Zgjidh skedarë…",
+    "uploading": "Po ngarkohet…",
+    "uploadingProgress": "Po ngarkohet {current}/{total}: {filename}"
   }
 }

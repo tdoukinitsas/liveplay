@@ -49,7 +49,13 @@
     "changeMode": "Endre",
     "back": "Tilbake",
     "startingLocalServer": "Starter lokal server…",
-    "serversOnThisNetwork": "Servere på dette nettverket"
+    "serversOnThisNetwork": "Servere på dette nettverket",
+    "serverUnreachable": "Server funnet på nettverket, men tilkoblingsporten er utilgjengelig — sjekk brannmuren på servermaskinen (tillat TCP 4480)",
+    "recentServers": "Nylige servere",
+    "rescan": "Skann på nytt",
+    "scanning": "Skanner…",
+    "noServersFound": "Ingen servere funnet ennå — kontroller at en server kjører på dette nettverket.",
+    "forget": "Glem"
   },
   "project": {
     "enterName": "Skriv inn prosjektnavn",
@@ -143,7 +149,8 @@
     "deviceOverrideHelp": "Overstyr prosjektets standardutgang for dette signalet. La stå på 'Bruk prosjektstandard' for å følge prosjektinnstillingen.",
     "waveform": "Bølgeform",
     "regenerateWaveform": "Regenerer bølgeform",
-    "regeneratingWaveform": "Regenererer..."
+    "regeneratingWaveform": "Regenererer...",
+    "ltcRequiresDevice": "Velg en LTC-utgangsenhet i Prosjektinnstillinger for å aktivere timecode-utgang."
   },
   "playback": {
     "panic": "Stopp alle signaler",
@@ -189,7 +196,8 @@
     "preview": "Forhåndsvis i hodetelefoner",
     "stopPreview": "Stopp forhåndsvisning",
     "previewNoDevice": "Ingen forhåndsvisningsenhet konfigurert — klikk for å åpne Prosjektinnstillinger",
-    "confirmDelete": "Slett «{name}»?"
+    "confirmDelete": "Slett «{name}»?",
+    "clickToEdit": "Klikk for å skrive inn en verdi"
   },
   "about": {
     "developedBy": "Utviklet av",
@@ -427,5 +435,26 @@
     "save": "Lagre",
     "discard": "Ikke lagre",
     "cancel": "Avbryt"
+  },
+  "connectionLost": {
+    "title": "Tilkobling mistet",
+    "message": "Tilkoblingen til LivePlay-serveren på {url} har gått tapt.",
+    "attempting": "Prøver å koble til på nytt…",
+    "reconnect": "Koble til på nytt",
+    "restart": "Start på nytt",
+    "exit": "Avslutt",
+    "reconnectHint": "Koble til på nytt prøver samme server igjen.",
+    "restartHint": "Start på nytt starter bare klienten på nytt (lydserveren fortsetter å kjøre).",
+    "exitHint": "Avslutt lukker klienten."
+  },
+  "audioImport": {
+    "title": "Importer lyd",
+    "tabServer": "På serveren",
+    "tabUpload": "Last opp fra denne datamaskinen",
+    "serverHint": "Filer som allerede er på serveren. Dobbeltklikk på en mappe for å åpne den, eller klikk Legg til ved siden av en fil.",
+    "uploadDescription": "Velg én eller flere filer fra denne datamaskinen. De lastes opp til serverens mediemappe.",
+    "chooseFiles": "Velg filer…",
+    "uploading": "Laster opp…",
+    "uploadingProgress": "Laster opp {current}/{total}: {filename}"
   }
 }

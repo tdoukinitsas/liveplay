@@ -49,7 +49,13 @@
     "changeMode": "Ändern",
     "back": "Zurück",
     "startingLocalServer": "Lokaler Server wird gestartet…",
-    "serversOnThisNetwork": "Server in diesem Netzwerk"
+    "serversOnThisNetwork": "Server in diesem Netzwerk",
+    "serverUnreachable": "Server im Netzwerk gefunden, aber sein Verbindungsport ist nicht erreichbar — prüfe die Firewall auf dem Servercomputer (TCP 4480 zulassen)",
+    "recentServers": "Zuletzt verwendete Server",
+    "rescan": "Erneut suchen",
+    "scanning": "Suche läuft…",
+    "noServersFound": "Noch keine Server gefunden — stellen Sie sicher, dass ein Server in diesem Netzwerk läuft.",
+    "forget": "Entfernen"
   },
   "project": {
     "enterName": "Projektnamen eingeben",
@@ -143,7 +149,8 @@
     "deviceOverrideHelp": "Überschreibe den Standard-Ausgang des Projekts für dieses Signal. Auf 'Projektstandard verwenden' lassen, um der Projekteinstellung zu folgen.",
     "waveform": "Wellenform",
     "regenerateWaveform": "Wellenform neu generieren",
-    "regeneratingWaveform": "Wird generiert..."
+    "regeneratingWaveform": "Wird generiert...",
+    "ltcRequiresDevice": "Wählen Sie in den Projekteinstellungen ein LTC-Ausgabegerät, um die Timecode-Ausgabe zu aktivieren."
   },
   "playback": {
     "panic": "Alle Signale stoppen",
@@ -189,7 +196,8 @@
     "preview": "Vorschau über Kopfhörer",
     "stopPreview": "Vorschau stoppen",
     "previewNoDevice": "Kein Vorschaugerät konfiguriert — klicken, um Projekteinstellungen zu öffnen",
-    "confirmDelete": "«{name}» löschen?"
+    "confirmDelete": "«{name}» löschen?",
+    "clickToEdit": "Klicken, um einen Wert einzugeben"
   },
   "about": {
     "developedBy": "Entwickelt von",
@@ -427,5 +435,26 @@
     "save": "Speichern",
     "discard": "Nicht speichern",
     "cancel": "Abbrechen"
+  },
+  "connectionLost": {
+    "title": "Verbindung verloren",
+    "message": "Die Verbindung zum LivePlay-Server unter {url} wurde unterbrochen.",
+    "attempting": "Verbindung wird wiederhergestellt…",
+    "reconnect": "Erneut verbinden",
+    "restart": "Neu starten",
+    "exit": "Beenden",
+    "reconnectHint": "Erneut verbinden versucht erneut, denselben Server zu erreichen.",
+    "restartHint": "Neu starten startet nur den Client neu (der Audioserver läuft weiter).",
+    "exitHint": "Beenden schließt den Client."
+  },
+  "audioImport": {
+    "title": "Audio importieren",
+    "tabServer": "Auf dem Server",
+    "tabUpload": "Von diesem Computer hochladen",
+    "serverHint": "Dateien, die bereits auf dem Server liegen. Doppelklicken Sie auf einen Ordner, um ihn zu öffnen, oder klicken Sie neben einer Datei auf Hinzufügen.",
+    "uploadDescription": "Wählen Sie eine oder mehrere Dateien von diesem Computer. Sie werden in den Medienordner des Servers hochgeladen.",
+    "chooseFiles": "Dateien auswählen…",
+    "uploading": "Wird hochgeladen…",
+    "uploadingProgress": "Hochladen {current}/{total}: {filename}"
   }
 }

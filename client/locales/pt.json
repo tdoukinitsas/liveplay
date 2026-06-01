@@ -49,7 +49,13 @@
     "changeMode": "Alterar",
     "back": "Voltar",
     "startingLocalServer": "Iniciando servidor local…",
-    "serversOnThisNetwork": "Servidores nesta rede"
+    "serversOnThisNetwork": "Servidores nesta rede",
+    "serverUnreachable": "Servidor encontrado na rede, mas a porta de conexão está inacessível — verifique o firewall na máquina do servidor (permita TCP 4480)",
+    "recentServers": "Servidores recentes",
+    "rescan": "Procurar novamente",
+    "scanning": "A procurar…",
+    "noServersFound": "Ainda não foram encontrados servidores — certifique-se de que existe um servidor em execução nesta rede.",
+    "forget": "Esquecer"
   },
   "project": {
     "enterName": "Digite o Nome do Projeto",
@@ -143,7 +149,8 @@
     "deviceOverrideHelp": "Substitua a saída padrão do projeto para este sinal. Deixe em 'Usar padrão do projeto' para seguir a configuração do projeto.",
     "waveform": "Forma de onda",
     "regenerateWaveform": "Regenerar forma de onda",
-    "regeneratingWaveform": "Regenerando..."
+    "regeneratingWaveform": "Regenerando...",
+    "ltcRequiresDevice": "Selecione um dispositivo de saída LTC nas Definições do projeto para ativar a saída de timecode."
   },
   "playback": {
     "panic": "Parar Todos os Sinais",
@@ -189,7 +196,8 @@
     "preview": "Pré-visualizar nos auscultadores",
     "stopPreview": "Parar pré-visualização",
     "previewNoDevice": "Nenhum dispositivo de pré-visualização configurado — clique para abrir as Definições do Projeto",
-    "confirmDelete": "Eliminar «{name}»?"
+    "confirmDelete": "Eliminar «{name}»?",
+    "clickToEdit": "Clique para escrever um valor"
   },
   "about": {
     "developedBy": "Desenvolvido por",
@@ -427,5 +435,26 @@
     "save": "Salvar",
     "discard": "Não salvar",
     "cancel": "Cancelar"
+  },
+  "connectionLost": {
+    "title": "Ligação perdida",
+    "message": "A ligação ao servidor LivePlay em {url} foi perdida.",
+    "attempting": "A tentar voltar a ligar…",
+    "reconnect": "Voltar a ligar",
+    "restart": "Reiniciar",
+    "exit": "Sair",
+    "reconnectHint": "Voltar a ligar tenta novamente o mesmo servidor.",
+    "restartHint": "Reiniciar reinicia apenas o cliente (o servidor de áudio continua a funcionar).",
+    "exitHint": "Sair fecha o cliente."
+  },
+  "audioImport": {
+    "title": "Importar áudio",
+    "tabServer": "No servidor",
+    "tabUpload": "Carregar a partir deste computador",
+    "serverHint": "Ficheiros que já estão no servidor. Faça duplo clique numa pasta para entrar, ou clique em Adicionar ao lado de um ficheiro.",
+    "uploadDescription": "Escolha um ou mais ficheiros deste computador. Serão carregados para a pasta de média do servidor.",
+    "chooseFiles": "Escolher ficheiros…",
+    "uploading": "A carregar…",
+    "uploadingProgress": "A carregar {current}/{total}: {filename}"
   }
 }

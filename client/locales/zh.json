@@ -49,7 +49,13 @@
     "changeMode": "更改",
     "back": "返回",
     "startingLocalServer": "正在启动本地服务器…",
-    "serversOnThisNetwork": "该网络上的服务器"
+    "serversOnThisNetwork": "该网络上的服务器",
+    "serverUnreachable": "已在网络中找到服务器，但其连接端口无法访问 — 请检查服务器计算机上的防火墙（允许 TCP 4480）",
+    "recentServers": "最近的服务器",
+    "rescan": "重新扫描",
+    "scanning": "正在扫描…",
+    "noServersFound": "尚未找到服务器 — 请确保该网络上有服务器正在运行。",
+    "forget": "忘记"
   },
   "project": {
     "enterName": "输入项目名称",
@@ -143,7 +149,8 @@
     "deviceOverrideHelp": "为此信号覆盖项目的默认输出。留在「使用项目默认」以遵循项目设置。",
     "waveform": "波形",
     "regenerateWaveform": "重新生成波形",
-    "regeneratingWaveform": "生成中..."
+    "regeneratingWaveform": "生成中...",
+    "ltcRequiresDevice": "在项目设置中选择一个 LTC 输出设备以启用时间码输出。"
   },
   "playback": {
     "panic": "停止所有信号",
@@ -189,7 +196,8 @@
     "preview": "在耳机中预听",
     "stopPreview": "停止预听",
     "previewNoDevice": "未配置预听设备 — 单击以打开项目设置",
-    "confirmDelete": "删除「{name}」？"
+    "confirmDelete": "删除「{name}」？",
+    "clickToEdit": "点击以输入数值"
   },
   "about": {
     "developedBy": "开发者",
@@ -427,5 +435,26 @@
     "save": "保存",
     "discard": "不保存",
     "cancel": "取消"
+  },
+  "connectionLost": {
+    "title": "连接已断开",
+    "message": "与 {url} 上的 LivePlay 服务器的连接已断开。",
+    "attempting": "正在尝试重新连接…",
+    "reconnect": "重新连接",
+    "restart": "重新启动",
+    "exit": "退出",
+    "reconnectHint": "重新连接会再次尝试同一台服务器。",
+    "restartHint": "重新启动仅重启客户端（音频服务器继续运行）。",
+    "exitHint": "退出将关闭客户端。"
+  },
+  "audioImport": {
+    "title": "导入音频",
+    "tabServer": "服务器上",
+    "tabUpload": "从本电脑上传",
+    "serverHint": "服务器上已有的文件。双击文件夹进入，或点击文件旁边的添加。",
+    "uploadDescription": "从本电脑选择一个或多个文件。它们将上传到服务器的媒体文件夹。",
+    "chooseFiles": "选择文件…",
+    "uploading": "正在上传…",
+    "uploadingProgress": "正在上传 {current}/{total}: {filename}"
   }
 }

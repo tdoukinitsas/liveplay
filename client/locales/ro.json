@@ -49,7 +49,13 @@
     "changeMode": "Schimbă",
     "back": "Înapoi",
     "startingLocalServer": "Se pornește serverul local…",
-    "serversOnThisNetwork": "Servere pe această rețea"
+    "serversOnThisNetwork": "Servere pe această rețea",
+    "serverUnreachable": "Server găsit în rețea, dar portul său de conexiune este inaccesibil — verifică firewallul de pe mașina server (permite TCP 4480)",
+    "recentServers": "Servere recente",
+    "rescan": "Rescanează",
+    "scanning": "Se scanează…",
+    "noServersFound": "Niciun server găsit încă — asigură-te că un server rulează în această rețea.",
+    "forget": "Uită"
   },
   "project": {
     "enterName": "Introduceti Nume Proiect",
@@ -143,7 +149,8 @@
     "deviceOverrideHelp": "Suprascrie ieșirea implicită a proiectului pentru acest semnal. Lasă pe 'Folosește implicit proiect' pentru a urma setarea proiectului.",
     "waveform": "Formă de undă",
     "regenerateWaveform": "Regenerează forma de undă",
-    "regeneratingWaveform": "Se regenerează..."
+    "regeneratingWaveform": "Se regenerează...",
+    "ltcRequiresDevice": "Selectează un dispozitiv de ieșire LTC în Setările proiectului pentru a activa ieșirea timecode."
   },
   "playback": {
     "panic": "Oprește Toate Cues",
@@ -189,7 +196,8 @@
     "preview": "Previzualizare la căști",
     "stopPreview": "Oprire previzualizare",
     "previewNoDevice": "Niciun dispozitiv de previzualizare configurat — clic pentru a deschide Setările Proiectului",
-    "confirmDelete": "Șterge «{name}»?"
+    "confirmDelete": "Șterge «{name}»?",
+    "clickToEdit": "Clic pentru a introduce o valoare"
   },
   "about": {
     "developedBy": "Dezvoltat de",
@@ -427,5 +435,26 @@
     "save": "Salvați",
     "discard": "Nu salvați",
     "cancel": "Anulați"
+  },
+  "connectionLost": {
+    "title": "Conexiune pierdută",
+    "message": "Conexiunea la serverul LivePlay de la {url} a fost pierdută.",
+    "attempting": "Se încearcă reconectarea…",
+    "reconnect": "Reconectează",
+    "restart": "Repornește",
+    "exit": "Ieșire",
+    "reconnectHint": "Reconectarea încearcă din nou același server.",
+    "restartHint": "Repornirea repornește doar clientul (serverul audio continuă să ruleze).",
+    "exitHint": "Ieșirea închide clientul."
+  },
+  "audioImport": {
+    "title": "Importă audio",
+    "tabServer": "Pe server",
+    "tabUpload": "Încarcă de pe acest computer",
+    "serverHint": "Fișiere deja prezente pe server. Fă dublu clic pe un folder pentru a intra, sau clic pe Adaugă lângă un fișier.",
+    "uploadDescription": "Alege unul sau mai multe fișiere de pe acest computer. Vor fi încărcate în folderul media al serverului.",
+    "chooseFiles": "Alege fișiere…",
+    "uploading": "Se încarcă…",
+    "uploadingProgress": "Se încarcă {current}/{total}: {filename}"
   }
 }

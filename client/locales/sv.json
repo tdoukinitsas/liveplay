@@ -49,7 +49,13 @@
     "changeMode": "Ändra",
     "back": "Tillbaka",
     "startingLocalServer": "Startar lokal server…",
-    "serversOnThisNetwork": "Servrar på detta nätverk"
+    "serversOnThisNetwork": "Servrar på detta nätverk",
+    "serverUnreachable": "Servern hittades på nätverket men dess anslutningsport är inte nåbar — kontrollera brandväggen på serverdatorn (tillåt TCP 4480)",
+    "recentServers": "Senaste servrar",
+    "rescan": "Sök igen",
+    "scanning": "Söker…",
+    "noServersFound": "Inga servrar hittades ännu — kontrollera att en server körs på det här nätverket.",
+    "forget": "Glöm"
   },
   "project": {
     "enterName": "Ange projektnamn",
@@ -143,7 +149,8 @@
     "deviceOverrideHelp": "Åsidosätt projektets standardutgång för det här signalet. Lämna på 'Använd projektstandard' för att följa projektinställningen.",
     "waveform": "Vågform",
     "regenerateWaveform": "Återskapa vågform",
-    "regeneratingWaveform": "Återskapar..."
+    "regeneratingWaveform": "Återskapar...",
+    "ltcRequiresDevice": "Välj en LTC-utgångsenhet i Projektinställningar för att aktivera timecode-utgång."
   },
   "playback": {
     "panic": "Stoppa alla signaler",
@@ -189,7 +196,8 @@
     "preview": "Förhandsgranska i hörlurar",
     "stopPreview": "Stoppa förhandsgranskning",
     "previewNoDevice": "Ingen förhandsgranskningsenhet konfigurerad — klicka för att öppna Projektinställningar",
-    "confirmDelete": "Ta bort «{name}»?"
+    "confirmDelete": "Ta bort «{name}»?",
+    "clickToEdit": "Klicka för att skriva ett värde"
   },
   "about": {
     "developedBy": "Utvecklad av",
@@ -427,5 +435,26 @@
     "save": "Spara",
     "discard": "Spara inte",
     "cancel": "Avbryt"
+  },
+  "connectionLost": {
+    "title": "Anslutning förlorad",
+    "message": "Anslutningen till LivePlay-servern på {url} har förlorats.",
+    "attempting": "Försöker återansluta…",
+    "reconnect": "Återanslut",
+    "restart": "Starta om",
+    "exit": "Avsluta",
+    "reconnectHint": "Återanslut försöker med samma server igen.",
+    "restartHint": "Starta om startar bara om klienten (ljudservern fortsätter att köra).",
+    "exitHint": "Avsluta stänger klienten."
+  },
+  "audioImport": {
+    "title": "Importera ljud",
+    "tabServer": "På servern",
+    "tabUpload": "Ladda upp från den här datorn",
+    "serverHint": "Filer som redan finns på servern. Dubbelklicka på en mapp för att öppna den, eller klicka på Lägg till bredvid en fil.",
+    "uploadDescription": "Välj en eller flera filer från den här datorn. De laddas upp till serverns mediemapp.",
+    "chooseFiles": "Välj filer…",
+    "uploading": "Laddar upp…",
+    "uploadingProgress": "Laddar upp {current}/{total}: {filename}"
   }
 }

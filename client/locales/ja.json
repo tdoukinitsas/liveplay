@@ -49,7 +49,13 @@
     "changeMode": "変更",
     "back": "戻る",
     "startingLocalServer": "ローカルサーバーを起動中…",
-    "serversOnThisNetwork": "このネットワーク上のサーバー"
+    "serversOnThisNetwork": "このネットワーク上のサーバー",
+    "serverUnreachable": "ネットワーク上にサーバーが見つかりましたが、接続ポートに到達できません — サーバー側のファイアウォールを確認してください（TCP 4480 を許可）",
+    "recentServers": "最近のサーバー",
+    "rescan": "再スキャン",
+    "scanning": "スキャン中…",
+    "noServersFound": "サーバーがまだ見つかりません — このネットワークでサーバーが実行されていることを確認してください。",
+    "forget": "削除"
   },
   "project": {
     "enterName": "プロジェクト名を入力",
@@ -143,7 +149,8 @@
     "deviceOverrideHelp": "このキューのプロジェクトのデフォルト出力を上書きします。プロジェクト設定に従うには「プロジェクトデフォルトを使用」のままにしてください。",
     "waveform": "波形",
     "regenerateWaveform": "波形を再生成",
-    "regeneratingWaveform": "再生成中..."
+    "regeneratingWaveform": "再生成中...",
+    "ltcRequiresDevice": "タイムコード出力を有効にするには、プロジェクト設定でLTC出力デバイスを選択してください。"
   },
   "playback": {
     "panic": "すべての信号を停止",
@@ -189,7 +196,8 @@
     "preview": "ヘッドフォンでプレビュー",
     "stopPreview": "プレビューを停止",
     "previewNoDevice": "プレビューデバイスが未設定です — プロジェクト設定を開くにはクリック",
-    "confirmDelete": "「{name}」を削除しますか？"
+    "confirmDelete": "「{name}」を削除しますか？",
+    "clickToEdit": "クリックして値を入力"
   },
   "about": {
     "developedBy": "開発者",
@@ -427,5 +435,26 @@
     "save": "保存",
     "discard": "保存しない",
     "cancel": "キャンセル"
+  },
+  "connectionLost": {
+    "title": "接続が切断されました",
+    "message": "{url} のLivePlayサーバーへの接続が失われました。",
+    "attempting": "再接続を試行中…",
+    "reconnect": "再接続",
+    "restart": "再起動",
+    "exit": "終了",
+    "reconnectHint": "再接続は同じサーバーに再度接続を試みます。",
+    "restartHint": "再起動はクライアントのみを再起動します（オーディオサーバーは動作を続けます）。",
+    "exitHint": "終了するとクライアントが閉じます。"
+  },
+  "audioImport": {
+    "title": "オーディオをインポート",
+    "tabServer": "サーバー上",
+    "tabUpload": "このコンピューターからアップロード",
+    "serverHint": "すでにサーバー上にあるファイル。フォルダーをダブルクリックして開くか、ファイルの横の追加をクリックします。",
+    "uploadDescription": "このコンピューターから1つ以上のファイルを選択してください。サーバーのメディアフォルダーにアップロードされます。",
+    "chooseFiles": "ファイルを選択…",
+    "uploading": "アップロード中…",
+    "uploadingProgress": "アップロード中 {current}/{total}: {filename}"
   }
 }

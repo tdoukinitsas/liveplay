@@ -49,7 +49,13 @@
     "changeMode": "Changer",
     "back": "Retour",
     "startingLocalServer": "Démarrage du serveur local…",
-    "serversOnThisNetwork": "Serveurs sur ce réseau"
+    "serversOnThisNetwork": "Serveurs sur ce réseau",
+    "serverUnreachable": "Serveur trouvé sur le réseau mais son port de connexion est inaccessible — vérifiez le pare-feu sur la machine serveur (autorisez le TCP 4480)",
+    "recentServers": "Serveurs récents",
+    "rescan": "Rechercher à nouveau",
+    "scanning": "Recherche…",
+    "noServersFound": "Aucun serveur trouvé pour l'instant — assurez-vous qu'un serveur est en cours d'exécution sur ce réseau.",
+    "forget": "Oublier"
   },
   "project": {
     "enterName": "Entrez le Nom du Projet",
@@ -143,7 +149,8 @@
     "deviceOverrideHelp": "Remplacer la sortie par défaut du projet pour ce signal. Laisser sur 'Utiliser la valeur par défaut du projet' pour suivre le paramètre du projet.",
     "waveform": "Forme d'onde",
     "regenerateWaveform": "Regénérer la forme d'onde",
-    "regeneratingWaveform": "Regénération..."
+    "regeneratingWaveform": "Regénération...",
+    "ltcRequiresDevice": "Sélectionnez un périphérique de sortie LTC dans les Paramètres du projet pour activer la sortie timecode."
   },
   "playback": {
     "panic": "Arrêter Tous les Signaux",
@@ -189,7 +196,8 @@
     "preview": "Aperçu sur casque",
     "stopPreview": "Arrêter l'aperçu",
     "previewNoDevice": "Aucun périphérique d'aperçu configuré — cliquez pour ouvrir les Paramètres du Projet",
-    "confirmDelete": "Supprimer « {name} » ?"
+    "confirmDelete": "Supprimer « {name} » ?",
+    "clickToEdit": "Cliquez pour saisir une valeur"
   },
   "about": {
     "developedBy": "Développé par",
@@ -427,5 +435,26 @@
     "save": "Enregistrer",
     "discard": "Ne pas enregistrer",
     "cancel": "Annuler"
+  },
+  "connectionLost": {
+    "title": "Connexion perdue",
+    "message": "La connexion au serveur LivePlay à {url} a été perdue.",
+    "attempting": "Tentative de reconnexion…",
+    "reconnect": "Reconnecter",
+    "restart": "Redémarrer",
+    "exit": "Quitter",
+    "reconnectHint": "Reconnecter tente de joindre à nouveau le même serveur.",
+    "restartHint": "Redémarrer relance uniquement le client (le serveur audio continue de fonctionner).",
+    "exitHint": "Quitter ferme le client."
+  },
+  "audioImport": {
+    "title": "Importer de l'audio",
+    "tabServer": "Sur le serveur",
+    "tabUpload": "Téléverser depuis cet ordinateur",
+    "serverHint": "Fichiers déjà présents sur le serveur. Double-cliquez sur un dossier pour y accéder, ou cliquez sur Ajouter à côté d'un fichier.",
+    "uploadDescription": "Choisissez un ou plusieurs fichiers sur cet ordinateur. Ils seront téléversés dans le dossier multimédia du serveur.",
+    "chooseFiles": "Choisir des fichiers…",
+    "uploading": "Téléversement…",
+    "uploadingProgress": "Téléversement {current}/{total} : {filename}"
   }
 }

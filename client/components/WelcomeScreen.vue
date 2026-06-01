@@ -403,6 +403,32 @@ function normaliseRemoteUrl(input: string): string {
   }
 }
 
+// Probe a server's HTTP control port before we commit to it. LAN discovery
+// runs over UDP, so a server can be visible in the list while its TCP control
+// port (REST + WebSocket) is unreachable — e.g. a firewall that allows the
+// discovery beacon but blocks 4480. Without this check we'd set the URL,
+// fail every request silently, and still land the user on New/Open as if
+// connected. A short timeout keeps a dropped SYN from hanging the UI.
+async function probeServerReachable(url: string): Promise<void> {
+  const ctrl = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, 5000);
+  try {
+    const r = await fetch(url + '/api/health', { method: 'GET', signal: ctrl.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+  } catch (e: any) {
+    // A dropped TCP SYN (firewall) surfaces as our timeout-driven abort; a
+    // refused connection as a TypeError. Both mean "port unreachable" — give
+    // a clearer message than the raw AbortError/TypeError text.
+    if (timedOut || e?.name === 'AbortError') {
+      throw new Error(t('welcome.serverUnreachable'));
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Configure local mode, set the server URL, and spawn (or reattach to) the
 // local server, waiting until /api/health answers so a follow-up WS connect
 // doesn't race the bind. Returns false (and sets connectionError) on failure.
@@ -487,8 +513,7 @@ async function connectToRemote() {
   connectionError.value = '';
   try {
     // Probe the server's /api/health before committing.
-    const r = await fetch(url + '/api/health', { method: 'GET' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    await probeServerReachable(url);
 
     server.setServerUrl(url);
     if (import.meta.client && (window as any).electronAPI?.liveplayServer?.setConfig) {
@@ -521,6 +546,10 @@ async function connectToDiscovered(srv: DiscoveredServer) {
   connectionError.value = '';
   try {
     const url = srv.url;
+    // The beacon proves the server is up on UDP, but the TCP control port may
+    // still be unreachable (firewall, different subnet). Probe before we
+    // commit so a blocked port shows an error instead of a fake welcome screen.
+    await probeServerReachable(url);
     remoteAddress.value = stripScheme(url);
     server.setServerUrl(url);
     if (import.meta.client && (window as any).electronAPI?.liveplayServer?.setConfig) {

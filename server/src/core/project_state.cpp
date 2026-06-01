@@ -60,6 +60,103 @@ inline std::string read_last_modified(const json& doc) {
 }
 
 // ---------------------------------------------------------------------------
+// Media path resolution
+// ---------------------------------------------------------------------------
+// An audio item can carry two file references:
+//   • mediaPath       — RELATIVE to the project folder, e.g. "media/foo.mp3".
+//                       Portable: it stays valid even after the whole project
+//                       (the .liveplay file plus its media/ folder) is moved,
+//                       because folderPath is rewritten to the file's real
+//                       location on load.
+//   • mediaServerPath — an ABSOLUTE path captured at import time. Handy while
+//                       the project hasn't moved, but goes stale the instant
+//                       the project is relocated.
+//
+// We therefore prefer the relative form whenever it actually points at a file
+// on disk, and only fall back to the absolute mediaServerPath when the relative
+// form is absent or missing. That makes moved projects — and legacy v1 projects
+// (relative mediaPath, but a folderPath baked to the old location) — resolve
+// correctly, while still honouring genuine out-of-folder references.
+inline std::filesystem::path resolve_media_path(const json& item,
+                                                const std::string& folder) {
+    std::string relative;
+    if (item.contains("mediaPath") && item["mediaPath"].is_string()) {
+        const std::string media_path = item["mediaPath"].get<std::string>();
+        if (!media_path.empty()) {
+            if (!folder.empty()) {
+                relative = folder;
+                if (relative.back() != '/' && relative.back() != '\\')
+                    relative += '/';
+            }
+            relative += media_path;
+        }
+    }
+    std::string server;
+    if (item.contains("mediaServerPath") && item["mediaServerPath"].is_string())
+        server = item["mediaServerPath"].get<std::string>();
+
+    std::error_code ec;
+    if (!relative.empty()) {
+        const auto rel_path = util::utf8_to_path(relative);
+        if (std::filesystem::exists(rel_path, ec)) return rel_path;
+    }
+    if (!server.empty()) {
+        const auto srv_path = util::utf8_to_path(server);
+        if (std::filesystem::exists(srv_path, ec)) return srv_path;
+    }
+    // Neither file exists. Return the portable relative form when we have one
+    // (so the item still carries a sensible path to relocate later); otherwise
+    // the absolute one.
+    if (!relative.empty()) return util::utf8_to_path(relative);
+    return server.empty() ? std::filesystem::path{} : util::utf8_to_path(server);
+}
+
+// Rewrite every audio item to reference its media RELATIVE to the project
+// folder whenever the file actually lives inside that folder. The portable
+// "media/<file>" mediaPath becomes the canonical reference and the absolute,
+// import-time mediaServerPath is dropped, so a saved project never strands its
+// media when moved. Genuine out-of-folder references (media that doesn't live
+// under the project folder) are left untouched, absolute path and all.
+inline void relativize_media_paths(json& doc) {
+    const std::string folder = doc.value("folderPath", std::string{});
+    if (folder.empty()) return;
+    std::error_code ec;
+    const auto folder_base =
+        std::filesystem::weakly_canonical(util::utf8_to_path(folder), ec);
+    const std::filesystem::path base = ec ? util::utf8_to_path(folder) : folder_base;
+
+    const std::function<void(json&)> visit = [&](json& item) {
+        if (!item.is_object()) return;
+        if (item.value("type", std::string{}) == "audio") {
+            const auto resolved = resolve_media_path(item, folder);
+            if (!resolved.empty()) {
+                std::error_code ec2;
+                const auto resolved_canon = std::filesystem::weakly_canonical(resolved, ec2);
+                const auto abs = ec2 ? resolved : resolved_canon;
+                std::error_code ec3;
+                const auto rel = std::filesystem::relative(abs, base, ec3);
+                // Inside the project folder iff the relative path exists and its
+                // first component isn't ".." (i.e. it doesn't climb back out).
+                if (!ec3 && !rel.empty() && *rel.begin() != std::filesystem::path("..")) {
+                    std::string rel_utf8 = util::path_to_utf8(rel);
+                    std::replace(rel_utf8.begin(), rel_utf8.end(), '\\', '/');
+                    item["mediaPath"] = rel_utf8;
+                    item.erase("mediaServerPath");
+                }
+            }
+        }
+        if (item.value("type", std::string{}) == "group" &&
+            item.contains("children") && item["children"].is_array()) {
+            for (auto& ch : item["children"]) visit(ch);
+        }
+    };
+    if (doc.contains("items") && doc["items"].is_array())
+        for (auto& it : doc["items"]) visit(it);
+    if (doc.contains("cartOnlyItems") && doc["cartOnlyItems"].is_array())
+        for (auto& it : doc["cartOnlyItems"]) visit(it);
+}
+
+// ---------------------------------------------------------------------------
 // Project document validation + repair
 // ---------------------------------------------------------------------------
 
@@ -359,22 +456,10 @@ void ProjectState::start_async_mirror() {
                     if (item.value("type", std::string{}) != "audio") return;
                     const std::string uuid = item.value("uuid", std::string{});
                     if (uuid.empty()) return;
-                    std::string path_str;
-                    if (item.contains("mediaServerPath") && item["mediaServerPath"].is_string()) {
-                        path_str = item["mediaServerPath"].get<std::string>();
-                    }
-                    if (path_str.empty() && item.contains("mediaPath") &&
-                        item["mediaPath"].is_string()) {
-                        const std::string folder = doc.value("folderPath", std::string{});
-                        if (!folder.empty()) {
-                            path_str = folder;
-                            if (!path_str.empty() && path_str.back() != '/' &&
-                                path_str.back() != '\\') path_str += '/';
-                        }
-                        path_str += item["mediaPath"].get<std::string>();
-                    }
-                    if (!path_str.empty()) {
-                        wanted.emplace(uuid, util::utf8_to_path(path_str));
+                    auto path = resolve_media_path(
+                        item, doc.value("folderPath", std::string{}));
+                    if (!path.empty()) {
+                        wanted.emplace(uuid, std::move(path));
                     }
                     // Snapshot LTC settings for this item.
                     ltc_snaps[uuid] = LtcItemSnap{
@@ -735,27 +820,12 @@ void ProjectState::mirror_items_to_engine_locked() {
             const std::string uuid = item.value("uuid", std::string{});
             if (uuid.empty()) return;
 
-            // Resolve file path: prefer mediaServerPath, else folderPath/mediaPath.
-            std::string path_str;
-            if (item.contains("mediaServerPath") && item["mediaServerPath"].is_string()) {
-                path_str = item["mediaServerPath"].get<std::string>();
-            }
-            if (path_str.empty() && item.contains("mediaPath") &&
-                item["mediaPath"].is_string()) {
-                const std::string media_path = item["mediaPath"].get<std::string>();
-                const std::string folder     = document_.value("folderPath", std::string{});
-                if (!folder.empty()) {
-                    path_str = folder;
-                    if (!path_str.empty() && path_str.back() != '/' && path_str.back() != '\\') {
-                        path_str += '/';
-                    }
-                    path_str += media_path;
-                } else {
-                    path_str = media_path;
-                }
-            }
-            if (path_str.empty()) return;
-            wanted.emplace(uuid, util::utf8_to_path(path_str));
+            // Resolve file path: prefer relative folderPath/mediaPath (portable),
+            // fall back to the absolute mediaServerPath. See resolve_media_path().
+            auto path = resolve_media_path(
+                item, document_.value("folderPath", std::string{}));
+            if (path.empty()) return;
+            wanted.emplace(uuid, std::move(path));
         });
 
     // Unload any engine cues whose item is gone.
@@ -1243,6 +1313,10 @@ bool ProjectState::save(const std::filesystem::path& path) const {
             doc = document_;
             doc["lastModified"] = now_iso();
         }
+        // Persist media as relative paths whenever it lives in the project
+        // folder, so the saved file stays portable across moves. Covers items
+        // imported this session (which carry an absolute mediaServerPath).
+        relativize_media_paths(doc);
         f << doc.dump(2);
         return true;
     } catch (const std::exception& ex) {
@@ -1676,23 +1750,9 @@ ProjectState::resolve_item_path(const std::string& uuid) const {
         [&](json& item, const std::string& /*parent*/) {
             if (out) return;
             if (item.value("uuid", std::string{}) != uuid) return;
-            std::string path_str;
-            if (item.contains("mediaServerPath") &&
-                item["mediaServerPath"].is_string()) {
-                path_str = item["mediaServerPath"].get<std::string>();
-            }
-            if (path_str.empty() && item.contains("mediaPath") &&
-                item["mediaPath"].is_string()) {
-                const std::string folder =
-                    doc_ref.value("folderPath", std::string{});
-                if (!folder.empty()) {
-                    path_str = folder;
-                    if (!path_str.empty() && path_str.back() != '/' &&
-                        path_str.back() != '\\') path_str += '/';
-                }
-                path_str += item["mediaPath"].get<std::string>();
-            }
-            if (!path_str.empty()) out = util::utf8_to_path(path_str);
+            auto path = resolve_media_path(
+                item, doc_ref.value("folderPath", std::string{}));
+            if (!path.empty()) out = std::move(path);
         });
     return out;
 }
@@ -2210,19 +2270,9 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
         for_each_item(document_,
             [&](json& it, const std::string&) {
                 if (it.value("uuid", std::string{}) != item_uuid) return;
-                std::string s;
-                if (it.contains("mediaServerPath") && it["mediaServerPath"].is_string()) {
-                    s = it["mediaServerPath"].get<std::string>();
-                }
-                if (s.empty() && it.contains("mediaPath") && it["mediaPath"].is_string()) {
-                    const std::string folder = document_.value("folderPath", std::string{});
-                    if (!folder.empty()) {
-                        s = folder;
-                        if (s.back() != '/' && s.back() != '\\') s += '/';
-                    }
-                    s += it["mediaPath"].get<std::string>();
-                }
-                if (!s.empty()) file_path = util::utf8_to_path(s);
+                auto p = resolve_media_path(
+                    it, document_.value("folderPath", std::string{}));
+                if (!p.empty()) file_path = std::move(p);
                 in_point = it.value("inPoint", 0.0);
             });
         // settings.previewDevice
@@ -2665,15 +2715,30 @@ bool ProjectState::load(const std::filesystem::path& path) {
         }
         json doc;
         f >> doc;
+        // The media/ folder always lives next to the .liveplay file, so the
+        // project folder is authoritatively the directory the file sits in —
+        // regardless of any (possibly stale) folderPath baked into the document
+        // the last time it was saved somewhere else. We rewrite it BEFORE
+        // load_from_json() because that call kicks off the async engine mirror,
+        // which resolves each item's media against folderPath; injecting the
+        // real location first is what lets a moved project — or a legacy v1
+        // project whose folderPath still points at its original home — resolve
+        // its relative "media/..." paths and actually load/play.
+        if (path.has_parent_path() && doc.is_object()) {
+            doc["folderPath"] = util::path_to_utf8(path.parent_path());
+        }
         const bool ok = load_from_json(doc);
         if (ok) {
             set_project_file_path(path);
-            // Default the folderPath in the document to the directory the file
-            // sits in (clients use this to resolve mediaPath).
+            // Normalise media references to the portable relative form now that
+            // folderPath points at the file's real location: drops stale
+            // absolute mediaServerPaths so the document served to clients (and
+            // written on the next save) stays portable across moves.
             std::lock_guard lock{mutex_};
-            if (document_.value("folderPath", std::string{}).empty() && path.has_parent_path()) {
+            if (path.has_parent_path()) {
                 document_["folderPath"] = util::path_to_utf8(path.parent_path());
             }
+            relativize_media_paths(document_);
         }
         return ok;
     } catch (const std::exception& ex) {

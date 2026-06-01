@@ -182,31 +182,42 @@ function removeRecentServer(url) {
 // ---------------------------------------------------------------------------
 function ensureFirewallRules() {
   if (process.platform !== 'win32') return;
-  const markerPath = path.join(app.getPath('userData'), '.firewall-configured');
+  // Marker is versioned: bumping the suffix forces a one-time re-run so
+  // existing installs that only got the old UDP-only pass pick up the new
+  // server TCP rule.
+  const markerPath = path.join(app.getPath('userData'), '.firewall-configured-v2');
   try { if (fs.existsSync(markerPath)) return; } catch {}
 
   const exe = process.execPath;
   const serverExe = resolveServerBinaryPath();
+  // protocols per program:
+  //  * UDP — discovery beacon/solicitation (both client and server listen).
+  //  * TCP — the server's REST + WebSocket control port (4480). Without this,
+  //    LAN discovery (UDP) still finds the server but every actual connection
+  //    is silently dropped, so the client appears to connect yet nothing works.
+  //    The client never accepts inbound TCP, so it only needs UDP.
   const rules = [
-    ['LivePlay Client', exe],
-    ['LivePlay Server', serverExe],
+    ['LivePlay Client', exe,       ['UDP']],
+    ['LivePlay Server', serverExe, ['UDP', 'TCP']],
   ];
   let attempted = false;
-  for (const [name, program] of rules) {
+  for (const [name, program, protocols] of rules) {
     if (!program || !fs.existsSync(program)) continue;
     attempted = true;
-    // Program-scoped inbound allow for UDP — covers discovery on all ports.
-    const cmd = `netsh advfirewall firewall add rule name="${name} (UDP-In)" ` +
-                `dir=in action=allow protocol=UDP program="${program}" enable=yes profile=any`;
-    exec(cmd, (err) => {
-      if (err) {
-        // Almost always "requires elevation" — expected for non-admin runs.
-        console.warn('[liveplay-firewall] could not add rule for', name,
-                     '(needs admin / handled by installer):', err.message);
-      } else {
-        console.log('[liveplay-firewall] inbound UDP rule ensured for', name);
-      }
-    });
+    for (const proto of protocols) {
+      // Program-scoped inbound allow — covers discovery / control on all ports.
+      const cmd = `netsh advfirewall firewall add rule name="${name} (${proto}-In)" ` +
+                  `dir=in action=allow protocol=${proto} program="${program}" enable=yes profile=any`;
+      exec(cmd, (err) => {
+        if (err) {
+          // Almost always "requires elevation" — expected for non-admin runs.
+          console.warn('[liveplay-firewall] could not add', proto, 'rule for', name,
+                       '(needs admin / handled by installer):', err.message);
+        } else {
+          console.log('[liveplay-firewall] inbound', proto, 'rule ensured for', name);
+        }
+      });
+    }
   }
   // Write the marker regardless so we don't re-spawn netsh every launch; the
   // installer is the authoritative path for users who declined elevation.

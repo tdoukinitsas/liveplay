@@ -49,7 +49,13 @@
     "changeMode": "Değiştir",
     "back": "Geri",
     "startingLocalServer": "Yerel sunucu başlatılıyor…",
-    "serversOnThisNetwork": "Bu ağdaki sunucular"
+    "serversOnThisNetwork": "Bu ağdaki sunucular",
+    "serverUnreachable": "Sunucu ağda bulundu ancak bağlantı bağlantı noktasına erişilemiyor — sunucu makinesindeki güvenlik duvarını kontrol edin (TCP 4480 izni verin)",
+    "recentServers": "Son sunucular",
+    "rescan": "Yeniden tara",
+    "scanning": "Taranıyor…",
+    "noServersFound": "Henüz sunucu bulunamadı — bu ağda bir sunucunun çalıştığından emin olun.",
+    "forget": "Unut"
   },
   "project": {
     "enterName": "Proje Adını Girin",
@@ -143,7 +149,8 @@
     "deviceOverrideHelp": "Bu sinyal için projenin varsayılan çıkışını geçersiz kıl. Proje ayarını takip etmek için 'Proje varsayılanını kullan' olarak bırakın.",
     "waveform": "Dalga Formu",
     "regenerateWaveform": "Dalga Formunu Yenile",
-    "regeneratingWaveform": "Yenileniyor..."
+    "regeneratingWaveform": "Yenileniyor...",
+    "ltcRequiresDevice": "Zaman kodu çıkışını etkinleştirmek için Proje Ayarları'nda bir LTC çıkış cihazı seçin."
   },
   "playback": {
     "panic": "Tüm Sinyalleri Durdur",
@@ -189,7 +196,8 @@
     "preview": "Kulaklıkta ön izleme",
     "stopPreview": "Ön izlemeyi durdur",
     "previewNoDevice": "Ön izleme cihazı yapılandırılmamış — Proje Ayarlarını açmak için tıklayın",
-    "confirmDelete": "«{name}» silinsin mi?"
+    "confirmDelete": "«{name}» silinsin mi?",
+    "clickToEdit": "Bir değer yazmak için tıklayın"
   },
   "about": {
     "developedBy": "Geliştiren",
@@ -427,5 +435,26 @@
     "save": "Kaydet",
     "discard": "Kaydetme",
     "cancel": "İptal"
+  },
+  "connectionLost": {
+    "title": "Bağlantı kesildi",
+    "message": "{url} adresindeki LivePlay sunucusuyla bağlantı kesildi.",
+    "attempting": "Yeniden bağlanmaya çalışılıyor…",
+    "reconnect": "Yeniden bağlan",
+    "restart": "Yeniden başlat",
+    "exit": "Çıkış",
+    "reconnectHint": "Yeniden bağlan aynı sunucuyu tekrar dener.",
+    "restartHint": "Yeniden başlat yalnızca istemciyi yeniden başlatır (ses sunucusu çalışmaya devam eder).",
+    "exitHint": "Çıkış istemciyi kapatır."
+  },
+  "audioImport": {
+    "title": "Ses içe aktar",
+    "tabServer": "Sunucuda",
+    "tabUpload": "Bu bilgisayardan yükle",
+    "serverHint": "Sunucuda zaten bulunan dosyalar. Bir klasöre girmek için çift tıklayın veya bir dosyanın yanındaki Ekle'ye tıklayın.",
+    "uploadDescription": "Bu bilgisayardan bir veya daha fazla dosya seçin. Sunucunun medya klasörüne yüklenecekler.",
+    "chooseFiles": "Dosya seç…",
+    "uploading": "Yükleniyor…",
+    "uploadingProgress": "Yükleniyor {current}/{total}: {filename}"
   }
 }
