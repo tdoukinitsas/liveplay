@@ -121,7 +121,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: var(--spacing-md) var(--spacing-lg);
-  min-height: 75px;
+  min-height: 68px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--color-border);
   background-color: var(--color-surface);
