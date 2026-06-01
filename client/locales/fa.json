@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (قله واقعی)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "غیرفعال کردن تنظیمات خودکار صدا و برش",
+    "disableLimiter": "غیرفعال کردن لیمیتر brickwall",
+    "disableLimiterHelp": "لیمیتر brickwall را خاموش می‌کند و اجازه می‌دهد پیک‌ها از سقف فراتر روند. در حین پخش قابل تغییر است.",
     "useProjectDefault": "استفاده از پیش‌فرض پروژه",
     "noneSelected": "انتخاب نشده",
     "save": "ذخیره",

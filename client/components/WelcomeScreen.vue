@@ -54,11 +54,16 @@
         <h2 class="stage-title">{{ t('welcome.remoteConnect') }}</h2>
         <p class="stage-subtitle">{{ t('welcome.remoteAddressHint') }}</p>
 
-        <!-- Auto-discovered servers on this LAN. Populated by the UDP beacon. -->
-        <div v-if="discoveredServers.length > 0" class="discovered-servers">
+        <!-- Auto-discovered servers on this LAN. Populated by the UDP beacon
+             and active solicitation. Header always shown so the user can
+             rescan even when nothing has been found yet. -->
+        <div class="discovered-servers">
           <div class="discovered-header">
-            <span class="material-symbols-rounded">radar</span>
+            <span class="material-symbols-rounded" :class="{ spin: scanning }">radar</span>
             <span>{{ t('welcome.serversOnThisNetwork') }}</span>
+            <button class="discovered-rescan" :disabled="scanning" @click="rescan" :title="t('welcome.rescan')">
+              <span class="material-symbols-rounded">refresh</span>
+            </button>
           </div>
           <button
             v-for="srv in discoveredServers"
@@ -78,6 +83,32 @@
               </span>
             </span>
             <span class="material-symbols-rounded discovered-arrow">arrow_forward</span>
+          </button>
+          <p v-if="discoveredServers.length === 0" class="discovered-empty">
+            {{ scanning ? t('welcome.scanning') : t('welcome.noServersFound') }}
+          </p>
+        </div>
+
+        <!-- Recently-connected servers. The robust fallback when discovery
+             can't reach a server (different subnet, VPN, locked-down WiFi). -->
+        <div v-if="recentServers.length > 0" class="discovered-servers">
+          <div class="discovered-header">
+            <span class="material-symbols-rounded">history</span>
+            <span>{{ t('welcome.recentServers') }}</span>
+          </div>
+          <button
+            v-for="srv in recentServers"
+            :key="srv.url"
+            class="discovered-row"
+            @click="connectToRecent(srv)"
+            :disabled="connecting"
+          >
+            <span class="material-symbols-rounded discovered-icon">lan</span>
+            <span class="discovered-main">
+              <span class="discovered-name">{{ srv.name || srv.host || srv.url }}</span>
+              <span class="discovered-meta">{{ srv.host }}:{{ srv.port }}</span>
+            </span>
+            <span class="material-symbols-rounded discovered-remove" @click.stop="forgetRecent(srv)" :title="t('welcome.forget')">close</span>
           </button>
         </div>
 
@@ -198,6 +229,11 @@ type DiscoveredServer = {
 const discoveredServers = ref<DiscoveredServer[]>([]);
 let stopDiscoverySub: (() => void) | null = null;
 
+// Recently-connected servers (persisted by the Electron main process).
+type RecentServer = { url: string; name: string; host: string; port: number; lastSeen: number };
+const recentServers = ref<RecentServer[]>([]);
+const scanning = ref(false);
+
 // Computed reflection of the currently-configured server URL.
 const serverUrlDisplay = computed(() => server.serverUrl ?? 'http://127.0.0.1:4480');
 
@@ -269,11 +305,43 @@ onMounted(async () => {
       stopDiscoverySub = disc.onServers((list: DiscoveredServer[]) => {
         discoveredServers.value = list ?? [];
       });
+      // Load the persisted recent-servers list for the fallback picker.
+      try {
+        const recent = await disc.recentList?.();
+        if (Array.isArray(recent)) recentServers.value = recent;
+      } catch {}
     }
   } catch (e) {
     console.warn('[welcome] discovery start failed:', e);
   }
+
+  // Auto-reconnect: if we last used a remote server, silently probe it and
+  // drop straight into the session when it's reachable. Skip while a File
+  // New/Open intent is pending (we're mid-flow) — those handle their own.
+  if (mode.value === 'remote' && remoteAddress.value && stage.value === 'mode') {
+    void attemptAutoReconnect();
+  }
 });
+
+// Probe the remembered remote server; on success, connect without making the
+// user click. Stays quiet on failure so the mode picker remains usable.
+async function attemptAutoReconnect() {
+  const url = normaliseRemoteUrl(remoteAddress.value);
+  if (!url) return;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 1500);
+    const r = await fetch(url + '/api/health', { method: 'GET', signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!r.ok) return;
+    server.setServerUrl(url);
+    void rememberServer(url);
+    if (await tryRejoinExistingProject()) return;
+    stage.value = 'project';
+  } catch {
+    // Unreachable — leave the user on the mode picker.
+  }
+}
 
 onUnmounted(() => {
   if (stopDiscoverySub) { try { stopDiscoverySub(); } catch {} stopDiscoverySub = null; }
@@ -375,6 +443,7 @@ async function connectToRemote() {
         remoteUrl: url,
       });
     }
+    void rememberServer(url);
     // Multi-client: if the remote server is already running a project,
     // join the live session directly instead of showing New/Open.
     if (await tryRejoinExistingProject()) return;
@@ -404,6 +473,7 @@ async function connectToDiscovered(srv: DiscoveredServer) {
         remoteUrl: url,
       });
     }
+    void rememberServer(url, { name: srv.name });
     if (await tryRejoinExistingProject()) return;
     stage.value = 'project';
   } catch (e: any) {
@@ -412,6 +482,44 @@ async function connectToDiscovered(srv: DiscoveredServer) {
   } finally {
     connecting.value = false;
   }
+}
+
+// ---- Discovery + recent-server helpers -------------------------------------
+
+// Persist a freshly-connected server to the recent list, and refresh the ref.
+async function rememberServer(url: string, meta?: { name?: string }) {
+  try {
+    const disc = (window as any).electronAPI?.liveplayDiscovery;
+    if (!disc?.recentAdd) return;
+    let host = '', port = 4480;
+    try { const u = new URL(url); host = u.hostname; port = Number(u.port) || 4480; } catch {}
+    const updated = await disc.recentAdd({ url, host, port, name: meta?.name ?? host });
+    if (Array.isArray(updated)) recentServers.value = updated;
+  } catch {}
+}
+
+// Fire a fresh solicitation burst and show a brief scanning spinner.
+async function rescan() {
+  if (scanning.value) return;
+  scanning.value = true;
+  try {
+    await (window as any).electronAPI?.liveplayDiscovery?.solicit?.();
+  } catch {}
+  setTimeout(() => { scanning.value = false; }, 1500);
+}
+
+// Connect to a remembered server. Like the manual path but pre-filled.
+async function connectToRecent(srv: RecentServer) {
+  remoteAddress.value = stripScheme(srv.url);
+  await connectToRemote();
+}
+
+async function forgetRecent(srv: RecentServer) {
+  try {
+    const disc = (window as any).electronAPI?.liveplayDiscovery;
+    const updated = await disc?.recentRemove?.(srv.url);
+    if (Array.isArray(updated)) recentServers.value = updated;
+  } catch {}
 }
 
 // ---- Project pickers -------------------------------------------------------
@@ -772,6 +880,34 @@ if (import.meta.client && (window as any).electronAPI) {
 }
 .discovered-project { color: var(--color-accent); }
 .discovered-arrow { color: var(--color-text-secondary); }
+.discovered-rescan {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+}
+.discovered-rescan:hover:not(:disabled) { color: var(--color-accent); background: var(--color-surface-hover); }
+.discovered-rescan:disabled { opacity: 0.5; cursor: default; }
+.discovered-rescan .material-symbols-rounded { font-size: 18px; }
+.discovered-empty {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  padding: 4px 2px;
+  margin: 0;
+}
+.discovered-remove {
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  border-radius: 4px;
+  padding: 2px;
+}
+.discovered-remove:hover { color: var(--color-danger, #e5534b); background: var(--color-surface-hover); }
 
 @keyframes lp-spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: lp-spin 0.85s linear infinite; }

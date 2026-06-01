@@ -108,6 +108,113 @@ function writeLiveplayConfig(cfg) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Recent-servers history (separate file so it survives config rewrites).
+// Stored newest-first, capped, keyed by normalised URL.
+// ---------------------------------------------------------------------------
+const LIVEPLAY_RECENT_FILENAME = 'liveplay-recent-servers.json';
+const LIVEPLAY_RECENT_MAX      = 8;
+
+function liveplayRecentPath() {
+  return path.join(app.getPath('userData'), LIVEPLAY_RECENT_FILENAME);
+}
+
+function readRecentServers() {
+  try {
+    const raw = fs.readFileSync(liveplayRecentPath(), 'utf-8');
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter(e => e && typeof e.url === 'string')
+      .map(e => ({
+        url:         e.url,
+        name:        typeof e.name === 'string' ? e.name : '',
+        host:        typeof e.host === 'string' ? e.host : '',
+        port:        Number.isInteger(e.port) ? e.port : LIVEPLAY_DEFAULT_PORT,
+        lastSeen:    Number.isInteger(e.lastSeen) ? e.lastSeen : 0,
+      }))
+      .slice(0, LIVEPLAY_RECENT_MAX);
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentServers(list) {
+  try {
+    fs.writeFileSync(liveplayRecentPath(), JSON.stringify(list, null, 2));
+  } catch (e) {
+    console.warn('[liveplay-discovery] could not persist recent servers:', e);
+  }
+}
+
+function addRecentServer(entry) {
+  if (!entry || typeof entry.url !== 'string' || !entry.url) return readRecentServers();
+  // Strip trailing slash so the same server doesn't appear twice.
+  const url = entry.url.replace(/\/+$/, '');
+  const next = readRecentServers().filter(e => e.url !== url);
+  next.unshift({
+    url,
+    name:     typeof entry.name === 'string' ? entry.name : '',
+    host:     typeof entry.host === 'string' ? entry.host : '',
+    port:     Number.isInteger(entry.port) ? entry.port : LIVEPLAY_DEFAULT_PORT,
+    lastSeen: Date.now(),
+  });
+  const capped = next.slice(0, LIVEPLAY_RECENT_MAX);
+  writeRecentServers(capped);
+  return capped;
+}
+
+function removeRecentServer(url) {
+  if (typeof url !== 'string') return readRecentServers();
+  const clean = url.replace(/\/+$/, '');
+  const next = readRecentServers().filter(e => e.url !== clean);
+  writeRecentServers(next);
+  return next;
+}
+
+// ---------------------------------------------------------------------------
+// Best-effort Windows Firewall rules. Discovery relies on inbound UDP (the
+// server receiving solicitations, the client receiving beacons/unicast
+// replies). The NSIS installer adds proper program rules at install time
+// (elevated); this runtime pass is a fallback for portable/dev runs. It is
+// skipped unless we're elevated — netsh silently fails otherwise — and it
+// only runs once per machine (a marker file guards repeat work).
+// ---------------------------------------------------------------------------
+function ensureFirewallRules() {
+  if (process.platform !== 'win32') return;
+  const markerPath = path.join(app.getPath('userData'), '.firewall-configured');
+  try { if (fs.existsSync(markerPath)) return; } catch {}
+
+  const exe = process.execPath;
+  const serverExe = resolveServerBinaryPath();
+  const rules = [
+    ['LivePlay Client', exe],
+    ['LivePlay Server', serverExe],
+  ];
+  let attempted = false;
+  for (const [name, program] of rules) {
+    if (!program || !fs.existsSync(program)) continue;
+    attempted = true;
+    // Program-scoped inbound allow for UDP — covers discovery on all ports.
+    const cmd = `netsh advfirewall firewall add rule name="${name} (UDP-In)" ` +
+                `dir=in action=allow protocol=UDP program="${program}" enable=yes profile=any`;
+    exec(cmd, (err) => {
+      if (err) {
+        // Almost always "requires elevation" — expected for non-admin runs.
+        console.warn('[liveplay-firewall] could not add rule for', name,
+                     '(needs admin / handled by installer):', err.message);
+      } else {
+        console.log('[liveplay-firewall] inbound UDP rule ensured for', name);
+      }
+    });
+  }
+  // Write the marker regardless so we don't re-spawn netsh every launch; the
+  // installer is the authoritative path for users who declined elevation.
+  if (attempted) {
+    try { fs.writeFileSync(markerPath, new Date().toISOString()); } catch {}
+  }
+}
+
 function resolveServerBinaryPath() {
   const exeName = process.platform === 'win32' ? 'liveplay-server.exe' : 'liveplay-server';
 
@@ -406,9 +513,27 @@ ipcMain.handle('liveplay-server:ensure-running', async () => {
 const dgram = require('dgram');
 const DISCOVERY_PORT     = 4481;
 const DISCOVERY_TIMEOUT  = 12000;
+const DISCOVERY_GROUP    = '239.255.69.80';   // must match server DiscoveryConfig
+const SOLICIT_PACKET     = Buffer.from(JSON.stringify({ type: 'liveplay-solicit' }), 'utf-8');
 let discoverySocket  = null;
 let discoveryStarted = false;
+let solicitTimer     = null;
 const discoveredServers = new Map(); // key: instanceId, value: {entry, lastSeen}
+
+// Send an active "who's there" probe. Servers reply with a UNICAST beacon
+// straight back to us — which traverses WiFi client-isolation and stateful
+// firewalls that silently drop inbound broadcast/multicast. We fan it out to
+// the limited broadcast and the multicast group; the unicast reply is what
+// actually gets discovery working across awkward networks.
+function sendSolicitation() {
+  if (!discoverySocket) return;
+  const targets = ['255.255.255.255', DISCOVERY_GROUP];
+  for (const addr of targets) {
+    try {
+      discoverySocket.send(SOLICIT_PACKET, 0, SOLICIT_PACKET.length, DISCOVERY_PORT, addr);
+    } catch {}
+  }
+}
 
 function startDiscoveryListener() {
   if (discoveryStarted) return;
@@ -426,6 +551,7 @@ function startDiscoveryListener() {
   discoverySocket.on('message', (buf, rinfo) => {
     let msg;
     try { msg = JSON.parse(buf.toString('utf-8')); } catch { return; }
+    // Ignore our own solicitations (and anything that isn't a beacon).
     if (!msg || msg.type !== 'liveplay-beacon') return;
     const id = String(msg.instanceId || `${rinfo.address}:${msg.port}`);
     const entry = {
@@ -447,11 +573,37 @@ function startDiscoveryListener() {
     // multiple LivePlay clients on the same machine coexist.
     discoverySocket.bind(DISCOVERY_PORT, () => {
       try { discoverySocket.setBroadcast(true); } catch {}
+      // Join the multicast group on all interfaces (no iface arg = default
+      // chosen by the OS; we also try each known interface below). Some
+      // networks pass multicast where broadcast is filtered.
+      try { discoverySocket.addMembership(DISCOVERY_GROUP); } catch {}
+      try {
+        const os = require('os');
+        const ifaces = os.networkInterfaces();
+        for (const name of Object.keys(ifaces)) {
+          for (const ni of ifaces[name] || []) {
+            if (ni.family === 'IPv4' && !ni.internal) {
+              try { discoverySocket.addMembership(DISCOVERY_GROUP, ni.address); } catch {}
+            }
+          }
+        }
+      } catch {}
       console.log('[liveplay-discovery] listening on UDP/' + DISCOVERY_PORT);
+      // Kick off discovery immediately with a short burst so the picker
+      // populates within a second instead of waiting for a passive beacon.
+      sendSolicitation();
+      setTimeout(sendSolicitation, 250);
+      setTimeout(sendSolicitation, 750);
     });
   } catch (e) {
     console.warn('[liveplay-discovery] bind failed:', e);
   }
+
+  // Keep soliciting on an interval — cheap, and means servers that come up
+  // later (or clients that just opened the picker) are found promptly even
+  // if their broadcasts aren't reaching us.
+  solicitTimer = setInterval(sendSolicitation, 3000);
+  solicitTimer.unref?.();
 
   // Periodically prune stale entries.
   setInterval(() => {
@@ -475,12 +627,34 @@ function broadcastDiscovered() {
 
 ipcMain.handle('liveplay-discovery:start', () => {
   startDiscoveryListener();
+  sendSolicitation();             // fresh probe whenever the picker opens
   broadcastDiscovered();          // immediate refresh for the new subscriber
   return true;
 });
 
 ipcMain.handle('liveplay-discovery:list', () => {
   return Array.from(discoveredServers.values()).map(v => v.entry);
+});
+
+// Fire an on-demand solicitation (e.g. user hit a "rescan" button).
+ipcMain.handle('liveplay-discovery:solicit', () => {
+  startDiscoveryListener();
+  sendSolicitation();
+  return true;
+});
+
+// Recent-servers history — the robust fallback when discovery can't reach a
+// server (different subnet, VPN, locked-down WiFi). The renderer records a
+// server here whenever it successfully connects, and reads the list to offer
+// one-tap reconnect + auto-reconnect on launch.
+ipcMain.handle('liveplay-discovery:recent-list', () => readRecentServers());
+
+ipcMain.handle('liveplay-discovery:recent-add', (_e, entry) => {
+  return addRecentServer(entry);
+});
+
+ipcMain.handle('liveplay-discovery:recent-remove', (_e, url) => {
+  return removeRecentServer(url);
 });
 
 // Setup bundled ffmpeg - always use the bundled version to avoid
@@ -2533,6 +2707,14 @@ if (!gotTheLock) {
     // Local mode in the welcome screen — otherwise we'd briefly spawn a
     // server even for users who only ever use Remote mode.
     void tryReattachLiveplayServer();
+
+    // Best-effort firewall rules so LAN discovery's inbound UDP isn't dropped
+    // (no-op on non-Windows / non-elevated; the installer is authoritative).
+    try { ensureFirewallRules(); } catch (e) { console.warn('[liveplay-firewall]', e); }
+
+    // Start listening for discovery beacons early so the welcome screen's
+    // picker is already populated by the time the user reaches it.
+    try { startDiscoveryListener(); } catch (e) { console.warn('[liveplay-discovery]', e); }
 
     createWindow();
     

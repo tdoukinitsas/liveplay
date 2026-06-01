@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (Wahrer Spitzenpegel)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "Automatische Lautstärke- und Schnittanpassungen deaktivieren",
+    "disableLimiter": "Brickwall-Limiter deaktivieren",
+    "disableLimiterHelp": "Schaltet den Brickwall-Limiter aus und lässt Pegelspitzen über der Obergrenze zu. Kann während der Wiedergabe geändert werden.",
     "useProjectDefault": "Projektstandard verwenden",
     "noneSelected": "Nicht ausgewählt",
     "save": "Speichern",

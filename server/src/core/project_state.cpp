@@ -586,6 +586,8 @@ void ProjectState::start_async_mirror() {
             }
             const auto levels = compute_output_target_levels(settings_snap);
             engine_.set_master_ceiling_db(levels.value("limiterCeilingDb", -0.3f));
+            // Honour the per-project "disable limiter" toggle.
+            engine_.set_limiter_enabled(!settings_snap.value("disableLimiter", false));
         }
         loading_audio_.store(false, std::memory_order_release);
     });
@@ -2413,6 +2415,8 @@ bool ProjectState::patch_settings(const json& patch) {
     bool default_device_changed  = false;
     bool preview_device_changed  = false;
     bool output_target_changed   = false;
+    bool limiter_toggle_changed  = false;
+    bool limiter_disabled        = false;
     float new_ceiling_db         = -0.3f;
     {
         std::lock_guard lock{mutex_};
@@ -2424,6 +2428,10 @@ bool ProjectState::patch_settings(const json& patch) {
             if (k == "defaultOutputDevice") default_device_changed = true;
             if (k == "previewDevice")       preview_device_changed = true;
             if (k == "outputTarget")        output_target_changed  = true;
+            if (k == "disableLimiter") {
+                limiter_toggle_changed = true;
+                limiter_disabled       = v.is_boolean() ? v.get<bool>() : false;
+            }
             document_["settings"][k] = v;
         }
         if (output_target_changed) {
@@ -2441,6 +2449,8 @@ bool ProjectState::patch_settings(const json& patch) {
     if (preview_device_changed) apply_preview_device_change();
     // Apply brickwall limiter ceiling for the chosen output platform.
     if (output_target_changed)  engine_.set_master_ceiling_db(new_ceiling_db);
+    // Enable/disable the limiter live so the change is heard immediately.
+    if (limiter_toggle_changed) engine_.set_limiter_enabled(!limiter_disabled);
     return true;
 }
 

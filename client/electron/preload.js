@@ -175,12 +175,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // LAN auto-discovery of other LivePlay servers (UDP beacons on the LAN).
   liveplayDiscovery: {
-    start: () => ipcRenderer.invoke('liveplay-discovery:start'),
-    list:  () => ipcRenderer.invoke('liveplay-discovery:list'),
+    start:   () => ipcRenderer.invoke('liveplay-discovery:start'),
+    list:    () => ipcRenderer.invoke('liveplay-discovery:list'),
+    solicit: () => ipcRenderer.invoke('liveplay-discovery:solicit'),
     onServers: (callback) => {
       const listener = (_e, servers) => callback(servers);
       ipcRenderer.on('liveplay-discovery:servers', listener);
       return () => ipcRenderer.removeListener('liveplay-discovery:servers', listener);
     },
+    // Recent-servers history (persisted) — robust reconnect fallback.
+    recentList:   ()    => ipcRenderer.invoke('liveplay-discovery:recent-list'),
+    recentAdd:    (e)   => ipcRenderer.invoke('liveplay-discovery:recent-add', e),
+    recentRemove: (url) => ipcRenderer.invoke('liveplay-discovery:recent-remove', url),
   },
 });

@@ -5,12 +5,24 @@
 #include <chrono>
 #include <filesystem>
 #include <format>
+#include <string>
 #include <system_error>
 #include <vector>
 
 namespace liveplay::core {
 
 namespace fs = std::filesystem;
+
+namespace {
+// path::string() converts to the active code page and THROWS std::system_error
+// when a character (e.g. non-Latin project names) cannot be represented. Logging
+// must never crash the backup thread, so convert through UTF-8, which can always
+// represent any path and never throws.
+std::string path_to_utf8(const fs::path& p) {
+    const std::u8string s = p.u8string();
+    return std::string(s.begin(), s.end());
+}
+} // namespace
 
 BackupManager::BackupManager(ProjectState& project)
     : project_(project) {}
@@ -40,7 +52,16 @@ void BackupManager::loop() {
         std::this_thread::sleep_for(tick);
         if (!running_.load()) break;
         if (std::chrono::steady_clock::now() >= next_backup) {
-            do_backup();
+            // A backup failure must never take down the server: this runs on a
+            // detached worker thread, so any escaping exception would terminate
+            // the whole process.
+            try {
+                do_backup();
+            } catch (const std::exception& e) {
+                Logger::warn("Backup: skipped (exception: {})", e.what());
+            } catch (...) {
+                Logger::warn("Backup: skipped (unknown exception)");
+            }
             next_backup = std::chrono::steady_clock::now() + interval;
         }
     }
@@ -55,7 +76,7 @@ void BackupManager::do_backup() {
     fs::create_directories(backup_dir, ec);
     if (ec) {
         Logger::warn("Backup: could not create backups directory '{}': {}",
-                     backup_dir.string(), ec.message());
+                     path_to_utf8(backup_dir), ec.message());
         return;
     }
 
@@ -68,14 +89,17 @@ void BackupManager::do_backup() {
 #else
     localtime_r(&t, &tm_buf);
 #endif
-    const std::string stem      = src.stem().string();
     const std::string timestamp = std::format("{:04d}-{:02d}-{:02d}_{:02d}-{:02d}",
                                               tm_buf.tm_year + 1900,
                                               tm_buf.tm_mon  + 1,
                                               tm_buf.tm_mday,
                                               tm_buf.tm_hour,
                                               tm_buf.tm_min);
-    const fs::path dst = backup_dir / (stem + "_backup_" + timestamp + ".liveplay");
+    // Build the destination via path concatenation so the (possibly non-ASCII)
+    // project name keeps its native encoding. Going through a narrow std::string
+    // here would throw std::system_error for names outside the active code page.
+    fs::path dst = backup_dir / src.stem();
+    dst += "_backup_" + timestamp + ".liveplay";
 
     // Prune oldest backups if we're at the cap.
     {
@@ -91,7 +115,7 @@ void BackupManager::do_backup() {
             fs::remove(existing.front(), ec);
             if (ec) {
                 Logger::warn("Backup: could not remove old backup '{}': {}",
-                             existing.front().string(), ec.message());
+                             path_to_utf8(existing.front()), ec.message());
             }
             existing.erase(existing.begin());
         }
@@ -99,9 +123,9 @@ void BackupManager::do_backup() {
 
     fs::copy_file(src, dst, fs::copy_options::overwrite_existing, ec);
     if (ec) {
-        Logger::warn("Backup: failed to write '{}': {}", dst.string(), ec.message());
+        Logger::warn("Backup: failed to write '{}': {}", path_to_utf8(dst), ec.message());
     } else {
-        Logger::info("Backup saved: {}", dst.filename().string());
+        Logger::info("Backup saved: {}", path_to_utf8(dst.filename()));
     }
 }
 

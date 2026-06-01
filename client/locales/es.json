@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (Pico verdadero)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "Deshabilitar ajustes automáticos de volumen y recorte",
+    "disableLimiter": "Desactivar el limitador brickwall",
+    "disableLimiterHelp": "Desactiva el limitador brickwall, permitiendo picos por encima del techo. Se puede cambiar durante la reproducción.",
     "useProjectDefault": "Usar predeterminado del proyecto",
     "noneSelected": "No seleccionado",
     "save": "Guardar",

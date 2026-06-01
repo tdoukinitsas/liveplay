@@ -719,6 +719,10 @@ void AudioEngine::set_master_ceiling_db(float db) {
     }
 }
 
+void AudioEngine::set_limiter_enabled(bool enabled) noexcept {
+    limiter_enabled_.store(enabled, std::memory_order_release);
+}
+
 void AudioEngine::set_master_gain_db(float db) {
     const float clamped = std::clamp(db, -120.0f, 12.0f);
     const float lin = (clamped <= -120.0f) ? 0.0f
@@ -733,7 +737,10 @@ float AudioEngine::master_gain_db() const noexcept {
 }
 
 void AudioEngine::set_output_channel_gain_db(MasterChannelIndex ch, float db) {
-    const float clamped = std::clamp(db, -120.0f, 12.0f);
+    // Pre-limiter output trim. Allows substantial boost (up to +40 dB) so the
+    // operator can drive quiet material hard; the master limiter (when enabled)
+    // still catches the resulting peaks.
+    const float clamped = std::clamp(db, -120.0f, 40.0f);
     const float lin = (clamped <= -120.0f) ? 0.0f
                                            : std::pow(10.0f, clamped / 20.0f);
     std::lock_guard lock{mutex_};
@@ -757,6 +764,8 @@ MeterSnapshot AudioEngine::read_master_meter(MasterChannelIndex master) const {
 
 float AudioEngine::read_master_gain_reduction_db(MasterChannelIndex master) const {
     if (master >= master_state_.size()) return 0.0f;
+    // No gain reduction is happening while the limiter is bypassed.
+    if (!limiter_enabled_.load(std::memory_order_acquire)) return 0.0f;
     return master_state_[master].limiter->gain_reduction_db();
 }
 
@@ -958,7 +967,11 @@ void AudioEngine::render_one_block(const Topology& topo) {
                 for (std::size_t s = 0; s < block; ++s) buf[s] *= og;
             }
         }
-        master_state_[mc].limiter->process(buf, block);
+        // Brick-wall limiter (bypassed when the operator has disabled it, so
+        // peaks above the ceiling pass through unmodified).
+        if (limiter_enabled_.load(std::memory_order_acquire)) {
+            master_state_[mc].limiter->process(buf, block);
+        }
         master_state_[mc].meter->push_block(buf, block);
     }
 

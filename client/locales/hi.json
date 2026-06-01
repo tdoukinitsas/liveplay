@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (सच्ची चोटी)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "स्वचालित वॉल्यूम और ट्रिम समायोजन अक्षम करें",
+    "disableLimiter": "ब्रिकवॉल लिमिटर अक्षम करें",
+    "disableLimiterHelp": "ब्रिकवॉल लिमिटर को बंद कर देता है, जिससे सीमा से ऊपर की चोटियों की अनुमति मिलती है। प्लेबैक के दौरान बदला जा सकता है।",
     "useProjectDefault": "प्रोजेक्ट डिफ़ॉल्ट का उपयोग करें",
     "noneSelected": "चयनित नहीं",
     "save": "सहेजें",

@@ -411,7 +411,7 @@ Mutating routes return `{ ok: true, ... }` only — the full document is **not**
 | `PATCH /api/project/items/<uuid>`      | partial item JSON (sparse update) | `{ "ok": true, "uuid": "…" }` · `404` if missing | `item_updated` |
 | `DELETE /api/project/items/<uuid>`     | — | `{ "ok": true, "uuid": "…" }` · `404` if missing | `item_removed` |
 | `POST /api/project/items/reorder`      | `{ "parentUuid": "" or "<group>", "uuids": [string, …] }` | `{ "ok": true }` | `items_reordered` |
-| `POST /api/project/items/<uuid>/play`  | — | `{ "ok": true }` · `404` if not loaded | — (transport edge fires `cue_state` instead) |
+| `POST` or `GET /api/project/items/<uuid>/play` | — | `{ "ok": true }` · `404` if not loaded | — (transport edge fires `cue_state` instead) |
 | `POST /api/project/items/<uuid>/stop`  | — | `{ "ok": true }` · `404` if not loaded | — |
 | `POST /api/project/items/<uuid>/seek`  | `{ "seconds": float }` | `{ "ok": true }` · `404` if not loaded | — |
 

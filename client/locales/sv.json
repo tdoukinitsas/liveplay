@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (sant toppvärde)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "Inaktivera automatisk volym- och trimjustering",
+    "disableLimiter": "Inaktivera brickwall-limiter",
+    "disableLimiterHelp": "Stänger av brickwall-limitern och tillåter toppar över taket. Kan ändras under uppspelning.",
     "useProjectDefault": "Använd projektstandard",
     "noneSelected": "Ej vald",
     "save": "Spara",

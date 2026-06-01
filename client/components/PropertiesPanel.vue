@@ -64,8 +64,8 @@
         <div class="property-field" v-if="selectedItem.type === 'audio'">
           <label>{{ t('properties.apiTriggerUrl') }}</label>
           <div class="input-with-btn">
-            <input :value="`http://localhost:8080/api/trigger/uuid/${selectedItem.uuid}`" readonly />
-            <button class="icon-btn" @click="copyToClipboard(`http://localhost:8080/api/trigger/uuid/${selectedItem.uuid}`)">
+            <input :value="apiTriggerUrl" readonly />
+            <button class="icon-btn" @click="copyToClipboard(apiTriggerUrl)">
               <span class="material-symbols-rounded">content_copy</span>
             </button>
           </div>
@@ -308,6 +308,14 @@ const ltcDeviceConfigured = computed(() => {
 // shared server state — populated once on connect.
 const _server = useLiveplayServer();
 const devicesList = computed(() => _server.devices ?? []);
+
+// API endpoint that triggers playback of the selected item. Points at the
+// audio server's transport route (routed through ProjectState so ducking,
+// in-point, and fades are honoured) — not the client's local trigger proxy.
+const apiTriggerUrl = computed(() => {
+  const base = (_server.serverUrl ?? 'http://127.0.0.1:4480').replace(/\/+$/, '');
+  return `${base}/api/project/items/${selectedItem.value?.uuid}/play`;
+});
 const onDeviceOverrideChange = (e: Event) => {
   const v = (e.target as HTMLSelectElement).value;
   const it = audioItem.value as any;

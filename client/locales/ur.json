@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (حقیقی چوٹی)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "خودکار والیوم اور ٹرم ایڈجسٹمنٹ غیر فعال کریں",
+    "disableLimiter": "بریک وال لمیٹر غیر فعال کریں",
+    "disableLimiterHelp": "بریک وال لمیٹر کو بند کر دیتا ہے، جس سے حد سے اوپر کی چوٹیوں کی اجازت ملتی ہے۔ پلے بیک کے دوران تبدیل کیا جا سکتا ہے۔",
     "useProjectDefault": "پروجیکٹ ڈیفالٹ استعمال کریں",
     "noneSelected": "منتخب نہیں",
     "save": "محفوظ کریں",

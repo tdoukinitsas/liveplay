@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (Picco vero)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "Disabilita le regolazioni automatiche di volume e taglio",
+    "disableLimiter": "Disattiva il limiter brickwall",
+    "disableLimiterHelp": "Disattiva il limiter brickwall, consentendo picchi oltre il tetto. Modificabile durante la riproduzione.",
     "useProjectDefault": "Usa predefinito del progetto",
     "noneSelected": "Non selezionato",
     "save": "Salva",

@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (Gerçek Tepe)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "Otomatik ses ve kırpma ayarlarını devre dışı bırak",
+    "disableLimiter": "Brickwall limiter'ı devre dışı bırak",
+    "disableLimiterHelp": "Brickwall limiter'ı kapatır ve tavanın üzerindeki tepe değerlerine izin verir. Oynatma sırasında değiştirilebilir.",
     "useProjectDefault": "Proje varsayılanını kullan",
     "noneSelected": "Seçilmedi",
     "save": "Kaydet",

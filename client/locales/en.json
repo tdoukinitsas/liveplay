@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "en",
     "name": "English",
@@ -49,7 +49,12 @@
     "connectedTo": "Connected to {url}",
     "changeMode": "Change",
     "back": "Back",
-    "serversOnThisNetwork": "Servers on this network"
+    "serversOnThisNetwork": "Servers on this network",
+    "recentServers": "Recent servers",
+    "rescan": "Rescan",
+    "scanning": "Scanning…",
+    "noServersFound": "No servers found yet — make sure a server is running on this network.",
+    "forget": "Forget"
   },
   "settings": {
     "title": "Project Settings",
@@ -73,6 +78,8 @@
     "meterModeDbtp": "dBTP (True Peak)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "Disable automatic volume and trim adjustments",
+    "disableLimiter": "Disable brickwall limiter",
+    "disableLimiterHelp": "Turns off the brickwall limiter, allowing peaks above the output ceiling. Can be changed during playback.",
     "useProjectDefault": "Use project default",
     "noneSelected": "Not selected",
     "save": "Save",

@@ -110,6 +110,19 @@
             </label>
           </section>
 
+          <!-- Disable brickwall limiter -->
+          <section class="settings-field">
+            <label class="settings-label settings-label--checkbox">
+              <input
+                type="checkbox"
+                :checked="disableLimiter"
+                @change="onDisableLimiterChange"
+              />
+              {{ t('settings.disableLimiter') }}
+            </label>
+            <p class="settings-help">{{ t('settings.disableLimiterHelp') }}</p>
+          </section>
+
           <!-- Meter Display Mode -->
           <section class="settings-field">
             <label class="settings-label">
@@ -156,6 +169,7 @@ const previewDeviceId        = computed(() => (currentProject.value as any)?.set
 const ltcDeviceId            = computed(() => (currentProject.value as any)?.settings?.ltcDevice || '');
 const outputTarget           = computed(() => (currentProject.value as any)?.settings?.outputTarget || 'ebu-r128');
 const disableAutoVolumeAndTrim = computed(() => !!(currentProject.value as any)?.settings?.disableAutoVolumeAndTrim);
+const disableLimiter           = computed(() => !!(currentProject.value as any)?.settings?.disableLimiter);
 const { meterMode: currentMeterMode } = useOutputTarget();
 const meterMode              = computed(() => (currentProject.value as any)?.settings?.meterMode || currentMeterMode.value);
 
@@ -204,6 +218,9 @@ function onMeterModeChange(e: Event) {
 }
 function onDisableAutoVolumeAndTrimChange(e: Event) {
   applyPatch({ disableAutoVolumeAndTrim: (e.target as HTMLInputElement).checked });
+}
+function onDisableLimiterChange(e: Event) {
+  applyPatch({ disableLimiter: (e.target as HTMLInputElement).checked });
 }
 
 function close() {

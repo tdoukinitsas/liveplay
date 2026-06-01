@@ -263,39 +263,28 @@ The cart provides 16 slots for instant playback:
 
 ### Remote Control API
 
-Trigger cues from other applications using simple HTTP requests:
+Trigger cues from other applications using simple HTTP requests against the
+audio server (default `http://127.0.0.1:4480`). Playback is routed through the
+project so ducking behaviour, in-point, and fades are honoured.
 
 #### Trigger by UUID
 
 ```bash
-curl http://localhost:8080/api/trigger/uuid/YOUR-UUID-HERE- 
-```
-
-
-#### Trigger by Index## Audio Item Features
-
-```bash
-
-curl http://localhost:8080/api/trigger/index/0### Ducking Behavior
-
-curl http://localhost:8080/api/trigger/index/1,0  # Second item in first group
-
+# POST is the canonical method; GET is accepted too so the URL works in a browser
+curl -X POST http://127.0.0.1:4480/api/project/items/YOUR-UUID-HERE/play
+curl http://127.0.0.1:4480/api/project/items/YOUR-UUID-HERE/play
 ```
 
 #### Stop by UUID
 
 ```bash
-
-curl http://localhost:8080/api/stop/uuid/YOUR-UUID-HERE
-
+curl -X POST http://127.0.0.1:4480/api/project/items/YOUR-UUID-HERE/stop
 ```
 
 #### Get Project Info
 
 ```bash
-
-curl http://localhost:8080/api/project/info
-
+curl http://127.0.0.1:4480/api/project
 ```
 
 **Tip**: Copy the API trigger URL from any cue's Properties Panel.

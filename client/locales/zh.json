@@ -92,7 +92,7 @@
   "properties": {
     "title": "属性",
     "multipleItemsSelected": "已选择 {count} 个项目",
-    "peakWarning": "此项目的音量明显高于所选输出目标的目标级别。使用"自动调整音量"进行规格化，或更改输出目标。",
+    "peakWarning": "此项目的音量明显高于所选输出目标的目标级别。使用“自动调整音量”进行规格化，或更改输出目标。",
     "noSelection": "选择一个项目以查看属性",
     "displayName": "显示名称",
     "color": "颜色",
@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP（真峰值）",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "禁用自动音量和修剪调整",
+    "disableLimiter": "禁用砖墙限制器",
+    "disableLimiterHelp": "关闭砖墙限制器，允许峰值超过上限。可在播放过程中更改。",
     "useProjectDefault": "使用项目默认",
     "noneSelected": "未选择",
     "save": "保存",

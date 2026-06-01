@@ -1,23 +1,26 @@
 <template>
-  <div class="project-header">
-    <div class="header-left">
+  <div ref="headerRef" class="project-header">
+    <div ref="leftRef" class="header-left">
       <img
+        ref="logoRef"
         :src="isDark ? './assets/icons/SVG/liveplay-icon-darkmode@web.svg' : './assets/icons/SVG/liveplay-icon-lightmode@web.svg'"
         alt="LivePlay"
         class="header-logo"
       />
-      <h2 class="project-name">{{ currentProject?.name || t('project.noProject') }}</h2>
+      <h2 class="project-name" :class="{ 'project-name--hidden': hideTitle }">{{ currentProject?.name || t('project.noProject') }}</h2>
     </div>
 
     <div
       v-if="silenceWarning"
+      ref="warningRef"
       class="silence-warning"
-      :class="silenceWarningClass"
+      :class="[silenceWarningClass, { 'silence-warning--left': warningMode === 'left' }]"
+      :style="warningStyle"
     >
       {{ t('project.silenceWarning') }} {{ Math.ceil(silenceWarning) }} {{ t('project.seconds') }}
     </div>
 
-    <div class="header-right">
+    <div ref="rightRef" class="header-right">
       <Btn icon="tune" :text="t('settings.title')" @click="showProjectSettings = true" />
       <Btn icon="keyboard" :text="t('controls.shortcutBtn')" @click="showControlConfig = true" />
 
@@ -71,6 +74,76 @@ const silenceWarningClass = computed(() => {
   if (seconds <= 10) return 'flash-medium';
   if (seconds <= 30) return 'flash-slow';
   return 'warning-yellow';
+});
+
+// ---- Silence-warning placement --------------------------------------------
+// The warning sits centred over the header, but the header's right side now
+// carries buttons + clocks. We adapt:
+//   1. center : enough room → keep it centred over the whole header.
+//   2. gap    : centred banner would overlap the left/right blocks → centre it
+//               in the free gap between the title area and the buttons/clocks.
+//   3. left   : it still won't fit in the gap → align it left and let it take
+//               the project title's place (the logo stays put).
+const headerRef  = ref<HTMLElement | null>(null);
+const leftRef    = ref<HTMLElement | null>(null);
+const logoRef    = ref<HTMLElement | null>(null);
+const rightRef   = ref<HTMLElement | null>(null);
+const warningRef = ref<HTMLElement | null>(null);
+
+const warningMode = ref<'center' | 'gap' | 'left'>('center');
+const warningLeftPx = ref(0);
+const hideTitle = computed(() => !!silenceWarning.value && warningMode.value === 'left');
+
+const warningStyle = computed(() => ({
+  left: `${warningLeftPx.value}px`,
+  transform: warningMode.value === 'left' ? 'translateX(0)' : 'translateX(-50%)',
+}));
+
+const PLACEMENT_MARGIN = 12; // breathing room kept from neighbouring blocks
+
+function recomputeWarningPlacement() {
+  const header = headerRef.value;
+  const warning = warningRef.value;
+  const left = leftRef.value;
+  const logo = logoRef.value;
+  const right = rightRef.value;
+  if (!header || !warning || !left || !logo || !right) return;
+
+  const headerRect = header.getBoundingClientRect();
+  // Geometry is measured with the title always occupying space, so the chosen
+  // mode never oscillates: in "left" mode the title is only made invisible, it
+  // keeps its layout box.
+  const leftEdge  = left.getBoundingClientRect().right - headerRect.left;
+  const rightEdge = right.getBoundingClientRect().left - headerRect.left;
+  const logoEdge  = logo.getBoundingClientRect().right - headerRect.left;
+  const w = warning.offsetWidth;
+  const center = headerRect.width / 2;
+
+  // 1. Centred over the whole header without touching either block?
+  if (center - w / 2 >= leftEdge + PLACEMENT_MARGIN &&
+      center + w / 2 <= rightEdge - PLACEMENT_MARGIN) {
+    warningMode.value = 'center';
+    warningLeftPx.value = center;
+    return;
+  }
+
+  // 2. Centred within the free gap between the two blocks?
+  const gapAvail = (rightEdge - leftEdge) - 2 * PLACEMENT_MARGIN;
+  if (w <= gapAvail) {
+    warningMode.value = 'gap';
+    warningLeftPx.value = (leftEdge + rightEdge) / 2;
+    return;
+  }
+
+  // 3. Fall back to left-aligned, taking the title's place (logo stays).
+  warningMode.value = 'left';
+  warningLeftPx.value = logoEdge + PLACEMENT_MARGIN;
+}
+
+// Recompute whenever the displayed text changes (digit count shifts width) or
+// the header is resized.
+watch(() => [silenceWarning.value, isDark.value], () => {
+  nextTick(recomputeWarningPlacement);
 });
 
 const checkForSilence = () => {
@@ -201,9 +274,19 @@ onMounted(() => {
   updateClock();
   const clockInterval = setInterval(updateClock, 1000);
   const silenceInterval = setInterval(checkForSilence, 100);
+
+  // Re-place the silence banner whenever the header geometry changes
+  // (window resize, sidebar toggles, clock width shifts, …).
+  let resizeObserver: ResizeObserver | null = null;
+  if (headerRef.value && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => recomputeWarningPlacement());
+    resizeObserver.observe(headerRef.value);
+  }
+
   onUnmounted(() => {
     clearInterval(clockInterval);
     clearInterval(silenceInterval);
+    if (resizeObserver) resizeObserver.disconnect();
   });
 });
 </script>
@@ -294,15 +377,29 @@ onMounted(() => {
 
 .silence-warning {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  /* left + transform are set inline (adaptive placement, see script).
+     Vertical centring comes from the flex container's static position. */
   padding: var(--spacing-xs) var(--spacing-lg);
   border-radius: var(--border-radius-md);
   font-weight: 700;
   font-size: 16px;
   color: #000;
+  white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   z-index: 10;
+}
+
+/* Left-aligned fallback sits in the title's place — tighten the horizontal
+   padding so it reads like a header label rather than a centred banner. */
+.silence-warning--left {
+  padding-left: var(--spacing-md);
+  padding-right: var(--spacing-md);
+}
+
+/* In the left-aligned fallback the project title is hidden but keeps its
+   layout box, so placement geometry stays stable (no flip-flopping). */
+.project-name--hidden {
+  visibility: hidden;
 }
 
 .silence-warning.warning-yellow  { background-color: #fbbf24; }

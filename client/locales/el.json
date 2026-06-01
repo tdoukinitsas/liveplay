@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (Αληθινή κορυφή)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "Απενεργοποίηση αυτόματων ρυθμίσεων έντασης και κοπής",
+    "disableLimiter": "Απενεργοποίηση brickwall limiter",
+    "disableLimiterHelp": "Απενεργοποιεί τον brickwall limiter, επιτρέποντας κορυφές πάνω από το όριο. Μπορεί να αλλάξει κατά την αναπαραγωγή.",
     "useProjectDefault": "Χρήση προεπιλογής εκδήλωσης",
     "noneSelected": "Δεν επιλέχθηκε",
     "save": "Αποθήκευση",

@@ -2069,17 +2069,21 @@ void ControlServer::install_routes() {
 
     // Item-by-uuid transport. Routed through ProjectState so duckingBehavior,
     // inPoint, and fade settings from the project document are honoured.
-    CROW_ROUTE(app, "/api/project/items/<string>/play").methods(crow::HTTPMethod::Post)
+    // GET is accepted as well as POST so the trigger URL shown in the client's
+    // Properties Panel can be fired from a browser or a plain `curl`.
+    CROW_ROUTE(app, "/api/project/items/<string>/play")
+        .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
         ([this](const crow::request& req, std::string uuid){
-            Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items/{}/play",
-                                req.remote_ip_address, impl_->server_addr, uuid);
+            const std::string m = crow::method_name(req.method);
+            Logger::api_request("Client ({}) -> Server ({}) : {} /api/project/items/{}/play",
+                                req.remote_ip_address, impl_->server_addr, m, uuid);
             Logger::playback("PLAY: {}", item_playback_info(uuid, state_));
             if (!state_.play_item(uuid)) {
                 Logger::warn("PLAY item_uuid={} — item not loaded into engine", uuid);
                 return json_err(404, "item not loaded into engine");
             }
-            Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/items/{}/play OK",
-                                 req.remote_ip_address, impl_->server_addr, uuid);
+            Logger::api_response("Client ({}) <- Server ({}) : {} /api/project/items/{}/play OK",
+                                 req.remote_ip_address, impl_->server_addr, m, uuid);
             return json_ok(json({{"ok", true}}));
         });
     CROW_ROUTE(app, "/api/project/items/<string>/stop").methods(crow::HTTPMethod::Post)

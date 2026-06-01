@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (Crête réelle)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "Désactiver les ajustements automatiques de volume et de découpe",
+    "disableLimiter": "Désactiver le limiteur brickwall",
+    "disableLimiterHelp": "Désactive le limiteur brickwall, autorisant les crêtes au-dessus du plafond. Modifiable pendant la lecture.",
     "useProjectDefault": "Utiliser la valeur par défaut du projet",
     "noneSelected": "Non sélectionné",
     "save": "Enregistrer",

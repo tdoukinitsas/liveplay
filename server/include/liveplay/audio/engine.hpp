@@ -239,6 +239,14 @@ public:
 
     // ---- Master ----------------------------------------------------------
     void set_master_ceiling_db(float db);
+    // Enable/disable the per-master brickwall limiter. When disabled, master
+    // buffers bypass the limiter entirely so peaks above the ceiling pass
+    // through unmodified. Audio-thread safe via an atomic flag; can be toggled
+    // mid-playback and is reflected on the next rendered block.
+    void set_limiter_enabled(bool enabled) noexcept;
+    bool limiter_enabled() const noexcept {
+        return limiter_enabled_.load(std::memory_order_acquire);
+    }
     // Master gain in dB. Applied to every master accumulator before the
     // limiter, so a value of 0 dB is unity. Range is clamped at -120..+12.
     void set_master_gain_db(float db);
@@ -274,6 +282,9 @@ private:
     // Master gain in linear amplitude. Audio thread reads via load-acquire;
     // set_master_gain_db is the only writer. 1.0 = unity (0 dB).
     std::atomic<float>                           master_gain_linear_{1.0f};
+    // When false, the master limiter is bypassed (peaks pass through). Read by
+    // the render thread each block; only set_limiter_enabled writes it.
+    std::atomic<bool>                            limiter_enabled_{true};
     // Per-output-channel gains (index matches master channel index).
     // Allocated to cfg_.master_channels entries in start(); all default 1.0f.
     // Protected by mutex_; audio thread reads with lock.

@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (Majë e vërtetë)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "Çaktivizo rregullimet automatike të volumit dhe prerjes",
+    "disableLimiter": "Çaktivizo limituesin brickwall",
+    "disableLimiterHelp": "Çaktivizon limituesin brickwall, duke lejuar kulmet mbi tavanin. Mund të ndryshohet gjatë luajtjes.",
     "useProjectDefault": "Përdor të paracaktuarën e projektit",
     "noneSelected": "Asnjë e zgjedhur",
     "save": "Ruaj",

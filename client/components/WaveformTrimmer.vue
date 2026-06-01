@@ -347,6 +347,47 @@ const playbackPosition = computed(() => {
 const waveformData = computed(() => props.audioItem?.waveform?.peaks ?? null);
 const hasWaveform = computed(() => waveformData.value && waveformData.value.length > 0);
 
+// ---- Self-healing waveform regeneration -------------------------------------
+// Occasionally an item ends up with no waveform (e.g. a server re-sync that
+// stripped peaks before the client cache had seen them). Rather than make the
+// user press "Regenerate waveform", request it from the server automatically
+// whenever the panel shows an item with no peaks. The result arrives as a
+// waveform_ready doc_patch which sets audioItem.waveform and redraws.
+const { currentProject } = useProject();
+
+// Resolve the server-side absolute media path, falling back to project folder +
+// relative mediaPath for legacy items (mirrors the manual regenerate button).
+const resolveMediaPath = (): string => {
+  const it = props.audioItem;
+  if (!it) return '';
+  if (it.mediaServerPath) return it.mediaServerPath;
+  const folder = currentProject.value?.folderPath || '';
+  if (it.mediaPath && folder) {
+    const rel = it.mediaPath.replace(/^[\\/]+/, '');
+    return `${folder.replace(/[\\/]+$/, '')}/${rel}`;
+  }
+  return '';
+};
+
+// Guard so we don't spam the server while a generation is in flight. Reset
+// when the item changes or once a waveform actually arrives.
+let waveformRequestedFor: string | null = null;
+const ensureWaveform = () => {
+  const it = props.audioItem;
+  if (!it || it.type !== 'audio') return;
+  if (hasWaveform.value) { waveformRequestedFor = null; return; }
+  if (waveformRequestedFor === it.uuid) return;
+  const path = resolveMediaPath();
+  if (!path) return;
+  waveformRequestedFor = it.uuid;
+  useLiveplayServer().requestWaveformGeneration(path, it.uuid, true)
+    .catch(() => { /* best-effort — the manual button remains as a fallback */ });
+};
+
+// React to the panel switching items, or a waveform appearing/disappearing.
+watch(() => props.audioItem?.uuid, () => { waveformRequestedFor = null; ensureWaveform(); });
+watch(hasWaveform, (has) => { if (!has) ensureWaveform(); else waveformRequestedFor = null; });
+
 // Volume in dB
 const volumeDB = computed({
   get: () => {
@@ -1051,15 +1092,8 @@ onMounted(() => {
       }
       drawWaveform();
 
-      // If waveform data is missing (e.g. after a project reload that strips
-      // waveform from JSON), ask the server to regenerate it. The result
-      // arrives as a waveform_ready doc_patch which sets audioItem.waveform,
-      // triggering the watcher below to redraw automatically.
-      if (!waveformData.value && props.audioItem.mediaServerPath) {
-        const server = useLiveplayServer();
-        server.requestWaveformGeneration(props.audioItem.mediaServerPath, props.audioItem.uuid)
-          .catch(() => { /* silently ignore — waveform is best-effort */ });
-      }
+      // If waveform data is missing, ask the server to (re)generate it.
+      ensureWaveform();
     });
   });
 

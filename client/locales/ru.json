@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (истинный пик)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "Отключить автоматическую нормализацию громкости и обрезку тишины",
+    "disableLimiter": "Отключить лимитер brickwall",
+    "disableLimiterHelp": "Отключает лимитер brickwall, позволяя пикам превышать потолок. Можно менять во время воспроизведения.",
     "useProjectDefault": "Использовать стандарт проекта",
     "noneSelected": "Не выбрано",
     "save": "Сохранить",

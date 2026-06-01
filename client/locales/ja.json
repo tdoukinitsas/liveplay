@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP（トゥルーピーク）",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "自動音量・トリム調整を無効にする",
+    "disableLimiter": "ブリックウォールリミッターを無効にする",
+    "disableLimiterHelp": "ブリックウォールリミッターをオフにし、上限を超えるピークを許可します。再生中に変更できます。",
     "useProjectDefault": "プロジェクトデフォルトを使用",
     "noneSelected": "未選択",
     "save": "保存",

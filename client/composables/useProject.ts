@@ -58,6 +58,43 @@ let _uninstallItemsWatcherFn: null | (() => void) = null;
 // cleared on project close/open so stale entries don't accumulate.
 const _autoProcessPendingUuids = new Set<string>();
 
+// ---------------------------------------------------------------------------
+// Client-side waveform cache (uuid -> WaveformData).
+// ---------------------------------------------------------------------------
+// Waveform peaks are CLIENT/worker-owned: they're generated locally and
+// deliberately stripped from every sync payload to the server (the server has
+// no peaks). That means any time the server re-broadcasts project state for
+// multi-client sync — an item_updated echo, a remove+re-add reorder, or a
+// full project_changed restream — the item objects come back WITHOUT a
+// waveform. Re-rendering from those would blank every waveform on, e.g., an
+// "auto-adjust volume" press.
+//
+// The fix is to treat the client as the source of truth for waveforms: cache
+// each waveform by uuid as it arrives, and re-attach it to any item that
+// reappears from the server missing one. The peaks never change unless the
+// underlying media is re-imported (a new uuid), so a uuid-keyed cache is
+// always valid for the session. Cleared on project close.
+const _waveformCache = new Map<string, any>();
+
+const cacheWaveform = (uuid: string, wf: any): void => {
+  if (uuid && wf && Array.isArray(wf.peaks) && wf.peaks.length > 0) {
+    _waveformCache.set(uuid, markRaw(wf));
+  }
+};
+
+// Ensure an audio item carries its waveform: if it already has peaks, make
+// sure they're cached; if it's missing them but we've seen them this session,
+// re-attach from the cache. No-op for non-audio items.
+const restoreWaveform = (item: any): void => {
+  if (!item || item.type !== 'audio') return;
+  if (item.waveform && Array.isArray(item.waveform.peaks) && item.waveform.peaks.length > 0) {
+    cacheWaveform(item.uuid, item.waveform);
+    return;
+  }
+  const cached = _waveformCache.get(item.uuid);
+  if (cached) item.waveform = cached;
+};
+
 // The "anchor" of the current selection — the item a shift-click range
 // extends FROM, and the item whose properties the panel shows. Module-scoped
 // because the selection state itself is shared across all useProject() calls
@@ -593,8 +630,12 @@ export const useProject = () => {
           // Prevent Vue from deeply tracking waveform peaks arrays — they are
           // read-only server data (thousands of floats per item) and making
           // them reactive freezes the UI when the deep watcher is installed.
+          // Pages from the server are waveform-less; re-attach any waveform we
+          // already cached this session so a project_changed restream (another
+          // client reloaded) doesn't blank waveforms we already have.
           for (const it of page.items) {
             if (it?.waveform) it.waveform = markRaw(it.waveform);
+            restoreWaveform(it);
           }
           currentProject.value.items.push(...page.items);
           updateIndices(currentProject.value.items);
@@ -758,6 +799,7 @@ export const useProject = () => {
     activeCues.value.clear();
     projectFilePathRef.value = '';
     _autoProcessPendingUuids.clear();
+    _waveformCache.clear();
 
     // Clear cart-only items from memory
     const { clearCartOnlyItems } = useCartItems();
@@ -1030,6 +1072,10 @@ export const useProject = () => {
             if (existing) return;
             const parentUuid = patch.parentUuid || '';
             if (patch.item?.waveform) patch.item.waveform = markRaw(patch.item.waveform);
+            // The item may have arrived without peaks (server strips them, and
+            // a reorder is a remove+re-add). Re-attach the cached waveform so a
+            // moved/re-synced item doesn't render blank.
+            restoreWaveform(patch.item);
             if (!parentUuid) {
               p.items.push(patch.item);
               updateIndices(p.items);
@@ -1045,7 +1091,19 @@ export const useProject = () => {
           case 'item_updated': {
             const hit = findItemAndParent(patch.uuid);
             if (!hit) return;
-            Object.assign(hit.item, patch.patch ?? {});
+            // The waveform is client/worker-owned: its peaks are generated
+            // locally and deliberately stripped from every sync payload, so
+            // the server's echo of an item carries `waveform: null`. Applying
+            // that here would wipe the locally-loaded waveform on EVERY
+            // property edit (the diff-watcher PATCHes the item → the server
+            // broadcasts item_updated right back). Never let a server patch
+            // touch the local waveform — keep whatever we already have.
+            const incoming = { ...(patch.patch ?? {}) };
+            if ('waveform' in incoming) delete incoming.waveform;
+            Object.assign(hit.item, incoming);
+            // Defensive: if this item somehow has no peaks anymore, restore
+            // them from the session cache.
+            restoreWaveform(hit.item);
             break;
           }
           case 'item_removed': {
@@ -1113,6 +1171,9 @@ export const useProject = () => {
               const duration: number = (patch.duration_ms ?? 0) / 1000;
               if (peaks.length > 0) {
                 (target as any).waveform = markRaw({ peaks, length: peaks.length, duration });
+                // Seed the session cache so this waveform survives later
+                // server re-syncs that strip it.
+                cacheWaveform(patch.item_uuid, (target as any).waveform);
                 if (duration > 0) {
                   (target as any).duration = duration;
                   (target as any).outPoint  = duration;

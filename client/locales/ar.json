@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (الذروة الحقيقية)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "تعطيل ضبط الصوت والقص التلقائي",
+    "disableLimiter": "تعطيل محدد الجدار الصلب",
+    "disableLimiterHelp": "يوقف محدد الجدار الصلب، مما يسمح بالقمم فوق السقف. يمكن تغييره أثناء التشغيل.",
     "useProjectDefault": "استخدام إعداد المشروع",
     "noneSelected": "غير محدد",
     "save": "حفظ",

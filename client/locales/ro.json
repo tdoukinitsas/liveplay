@@ -354,6 +354,8 @@
     "meterModeDbtp": "dBTP (Vârf real)",
     "meterModeRms": "RMS",
     "disableAutoVolumeAndTrim": "Dezactivează ajustările automate de volum și tăiere",
+    "disableLimiter": "Dezactivează limitatorul brickwall",
+    "disableLimiterHelp": "Dezactivează limitatorul brickwall, permițând vârfuri peste plafon. Poate fi modificat în timpul redării.",
     "useProjectDefault": "Folosește implicit proiect",
     "noneSelected": "Neselectat",
     "save": "Salvează",
