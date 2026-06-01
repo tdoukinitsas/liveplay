@@ -218,6 +218,18 @@ const remoteAddress   = ref('');
 const connecting      = ref(false);
 const connectionError = ref<string>('');
 
+// File-association open. `pendingFileOpen` is set by app.vue when a .liveplay
+// or .lpa is double-clicked; this screen owns the server-connection flow.
+//  * .liveplay → force local, start the server, open directly (no UI).
+//  * .lpa      → ask local/remote, then (after connect) hand the path back to
+//                app.vue's import destination-picker via pendingLpaImportReady.
+const pendingFileOpen = useState<{ path: string; kind: 'liveplay' | 'lpa' } | null>(
+  'liveplay:pendingFileOpen', () => null);
+const pendingLpaImportReady = useState<string | null>(
+  'liveplay:pendingLpaImportReady', () => null);
+const importAfterConnect = ref(false);
+const pendingLpaPath     = ref('');
+
 // LAN-discovered servers (populated from the UDP beacon via Electron IPC).
 type DiscoveredServer = {
   instanceId: string;
@@ -275,27 +287,34 @@ onMounted(async () => {
     console.warn('[welcome] could not read liveplay-server config:', e);
   }
 
-  // If the user just hit File > New / Open while a project was open, we
-  // closed that project to land them here — skip the mode picker (their
-  // server is still configured) and pop the appropriate picker straight
-  // away. Without this, File > New would dump them at the mode picker
-  // instead of the new-project flow they actually asked for.
-  let welcomeIntent: string | null = null;
-  try { welcomeIntent = sessionStorage.getItem('liveplay:welcomeIntent'); } catch {}
-  if (welcomeIntent === 'new' || welcomeIntent === 'open') {
-    try { sessionStorage.removeItem('liveplay:welcomeIntent'); } catch {}
-    stage.value = 'project';
-    // Defer to next tick so the project-stage UI is mounted before we
-    // ask it to open its modal.
-    nextTick(() => {
-      if (welcomeIntent === 'new') handleNewProject();
-      else                          handleOpenProject();
-    });
+  // A double-clicked .liveplay/.lpa takes precedence over everything below:
+  // it drives its own server-connection + open/import flow.
+  const pending = pendingFileOpen.value;
+  if (pending) {
+    await handlePendingFileOpen(pending);
   } else {
-    // Always go through the mode-picker so the user is in control of the
-    // current session's server target. We could skip if connected, but the
-    // first-impression UI value of a deliberate choice outweighs the click.
-    stage.value = 'mode';
+    // If the user just hit File > New / Open while a project was open, we
+    // closed that project to land them here — skip the mode picker (their
+    // server is still configured) and pop the appropriate picker straight
+    // away. Without this, File > New would dump them at the mode picker
+    // instead of the new-project flow they actually asked for.
+    let welcomeIntent: string | null = null;
+    try { welcomeIntent = sessionStorage.getItem('liveplay:welcomeIntent'); } catch {}
+    if (welcomeIntent === 'new' || welcomeIntent === 'open') {
+      try { sessionStorage.removeItem('liveplay:welcomeIntent'); } catch {}
+      stage.value = 'project';
+      // Defer to next tick so the project-stage UI is mounted before we
+      // ask it to open its modal.
+      nextTick(() => {
+        if (welcomeIntent === 'new') handleNewProject();
+        else                          handleOpenProject();
+      });
+    } else {
+      // Always go through the mode-picker so the user is in control of the
+      // current session's server target. We could skip if connected, but the
+      // first-impression UI value of a deliberate choice outweighs the click.
+      stage.value = 'mode';
+    }
   }
 
   // Start LAN discovery so the remote-mode stage immediately shows any
@@ -318,34 +337,44 @@ onMounted(async () => {
   } catch (e) {
     console.warn('[welcome] discovery start failed:', e);
   }
-
-  // Auto-reconnect: if we last used a remote server, silently probe it and
-  // drop straight into the session when it's reachable. Skip while a File
-  // New/Open intent is pending (we're mid-flow) — those handle their own.
-  if (mode.value === 'remote' && remoteAddress.value && stage.value === 'mode') {
-    void attemptAutoReconnect();
-  }
 });
 
-// Probe the remembered remote server; on success, connect without making the
-// user click. Stays quiet on failure so the mode picker remains usable.
-async function attemptAutoReconnect() {
-  const url = normaliseRemoteUrl(remoteAddress.value);
-  if (!url) return;
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 1500);
-    const r = await fetch(url + '/api/health', { method: 'GET', signal: ctrl.signal });
-    clearTimeout(timer);
-    if (!r.ok) return;
-    server.setServerUrl(url);
-    void rememberServer(url);
-    if (await tryRejoinExistingProject()) return;
-    stage.value = 'project';
-  } catch {
-    // Unreachable — leave the user on the mode picker.
+// Drive a double-clicked file. For .liveplay: force local, start the server,
+// open directly. For .lpa: stash the path and show the mode picker so the
+// user chooses local/remote; the import resumes once connected.
+async function handlePendingFileOpen(p: { path: string; kind: 'liveplay' | 'lpa' }) {
+  pendingFileOpen.value = null; // consume so re-entry / the watcher no-ops
+  if (p.kind === 'liveplay') {
+    mode.value = 'local';
+    connectionError.value = '';
+    connecting.value = true;
+    try {
+      if (!(await ensureLocalServer())) { stage.value = 'mode'; return; }
+      const ok = await openProject(p.path);
+      if (!ok) {
+        connectionError.value = t('welcome.connectionFailed');
+        stage.value = 'mode';
+      }
+      // On success openProject sets currentProject and this screen unmounts.
+    } catch (e: any) {
+      connectionError.value = e?.message ?? String(e);
+      stage.value = 'mode';
+    } finally {
+      connecting.value = false;
+    }
+  } else {
+    pendingLpaPath.value = p.path;
+    importAfterConnect.value = true;
+    stage.value = 'mode';
   }
 }
+
+// Late-arrival case: a file double-clicked while this screen is already
+// mounted (e.g. sitting on the welcome screen with no project open). onMounted
+// won't re-run, so react to the shared state changing.
+watch(pendingFileOpen, (p) => {
+  if (p) void handlePendingFileOpen(p);
+});
 
 onUnmounted(() => {
   if (stopDiscoverySub) { try { stopDiscoverySub(); } catch {} stopDiscoverySub = null; }
@@ -374,30 +403,39 @@ function normaliseRemoteUrl(input: string): string {
   }
 }
 
+// Configure local mode, set the server URL, and spawn (or reattach to) the
+// local server, waiting until /api/health answers so a follow-up WS connect
+// doesn't race the bind. Returns false (and sets connectionError) on failure.
+// Shared by the Local button and the .liveplay file-association path.
+async function ensureLocalServer(): Promise<boolean> {
+  const api = (window as any).electronAPI?.liveplayServer;
+  if (import.meta.client && api?.setConfig) {
+    const cfg = await api.setConfig({ mode: 'local' });
+    const url = `http://127.0.0.1:${cfg.localPort ?? 4480}`;
+    server.setServerUrl(url);
+    if (api.ensureRunning) {
+      const res = await api.ensureRunning();
+      if (!res?.ok) {
+        connectionError.value = res?.error
+          ? `Local server failed to start: ${res.error}`
+          : 'Local server failed to start';
+        return false;
+      }
+    }
+  } else {
+    server.setServerUrl('http://127.0.0.1:4480');
+  }
+  return true;
+}
+
 async function chooseLocal() {
   mode.value = 'local';
   connectionError.value = '';
   connecting.value = true;
   try {
-    const api = (window as any).electronAPI?.liveplayServer;
-    if (import.meta.client && api?.setConfig) {
-      const cfg = await api.setConfig({ mode: 'local' });
-      const url = `http://127.0.0.1:${cfg.localPort ?? 4480}`;
-      server.setServerUrl(url);
-      // Spawn (or reattach to) the server, then wait until /api/health
-      // answers so the WS connect below doesn't race the bind.
-      if (api.ensureRunning) {
-        const res = await api.ensureRunning();
-        if (!res?.ok) {
-          connectionError.value = res?.error
-            ? `Local server failed to start: ${res.error}`
-            : 'Local server failed to start';
-          return;
-        }
-      }
-    } else {
-      server.setServerUrl('http://127.0.0.1:4480');
-    }
+    if (!(await ensureLocalServer())) return;
+    // .lpa double-click: skip the project picker, go straight to extraction.
+    if (importAfterConnect.value) { beginImportDestination(); return; }
     // If a project is already open server-side (e.g. the user kept the
     // detached server running between renderer reloads), drop straight
     // into the workspace.
@@ -408,6 +446,18 @@ async function chooseLocal() {
   } finally {
     connecting.value = false;
   }
+}
+
+// Called once a server is connected (local or remote) while a .lpa import is
+// pending. Hands the local .lpa path to app.vue, which owns the destination
+// picker + upload + extract + open (with progress). We land on the project
+// stage so cancelling the import leaves the user in a usable state.
+function beginImportDestination() {
+  importAfterConnect.value = false;
+  const lpa = pendingLpaPath.value;
+  pendingLpaPath.value = '';
+  stage.value = 'project';
+  if (lpa) pendingLpaImportReady.value = lpa;
 }
 
 function chooseRemote() {
@@ -448,6 +498,8 @@ async function connectToRemote() {
       });
     }
     void rememberServer(url);
+    // .lpa double-click: skip the project picker, go straight to extraction.
+    if (importAfterConnect.value) { beginImportDestination(); return; }
     // Multi-client: if the remote server is already running a project,
     // join the live session directly instead of showing New/Open.
     if (await tryRejoinExistingProject()) return;
@@ -478,6 +530,7 @@ async function connectToDiscovered(srv: DiscoveredServer) {
       });
     }
     void rememberServer(url, { name: srv.name });
+    if (importAfterConnect.value) { beginImportDestination(); return; }
     if (await tryRejoinExistingProject()) return;
     stage.value = 'project';
   } catch (e: any) {

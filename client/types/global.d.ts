@@ -88,8 +88,8 @@ declare global {
       sendApiResponse: (data: any) => void;
       onApiUpdateItem: (callback: (event: any, data: { requestId: string; id: string; updates: Record<string, any> }) => void) => void;
       onApiUpdateCartItem: (callback: (event: any, data: { requestId: string; slot: number; updates: Record<string, any> }) => void) => void;
-      onOpenProjectFile: (callback: (event: any, data: { filePath: string; projectData: any }) => void) => void;
-      onOpenLpaFile: (callback: (event: any, data: { lpaPath: string }) => void) => void;
+      onOpenFileAssociation: (callback: (event: any, data: { filePath: string; kind: 'liveplay' | 'lpa' }) => void) => void;
+      getPendingOpenFile: () => Promise<{ filePath: string; kind: 'liveplay' | 'lpa' } | null>;
       readMidiConfig: () => Promise<Record<string, any>>;
       writeMidiConfig: (config: Record<string, any>) => Promise<{ success: boolean }>;
       // Cart player window

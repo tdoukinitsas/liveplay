@@ -30,7 +30,16 @@
       ref="waveformCanvas"
       class="waveform-canvas"
     ></canvas>
-    
+
+    <!-- End-of-cue warning border. Rendered as an inset overlay so the thick
+         border is drawn entirely within the item's own box and is never
+         clipped by the scroll container's overflow: hidden. -->
+    <div
+      v-if="warningState"
+      class="warning-border"
+      :class="`warning-border--${warningState}`"
+    ></div>
+
     <div 
       class="item-content"
       @click="handleSelect"
@@ -723,18 +732,6 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
     box-shadow: 0 0 0 2px var(--color-accent);
   }
   
-  &.warning-yellow {
-    animation: flash-yellow 2s ease-in-out infinite;
-  }
-  
-  &.warning-orange {
-    animation: flash-orange 1s ease-in-out infinite;
-  }
-  
-  &.warning-red {
-    animation: flash-red 0.5s ease-in-out infinite;
-  }
-  
   &.drag-over-top::before {
     content: '';
     position: absolute;
@@ -762,31 +759,38 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   }
 }
 
-@keyframes flash-yellow {
-  0%, 100% { 
-    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4);
+/* Solid 4px end-of-cue warning border. Inset overlay sitting above the
+   waveform/progress layers (z-index 10) and pinned inside the item box so it
+   cannot be clipped by the scroll container. */
+.warning-border {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  border: 4px solid transparent;
+  border-radius: var(--border-radius-sm);
+
+  /* Blink rates mirror the ProjectHeader silence-warning banner so the border
+     and banner pulse in sync (yellow ≤30s, orange ≤10s, red ≤5s). */
+  &.warning-border--yellow {
+    border-color: rgb(255, 193, 7);
+    animation: warning-border-flash 2s ease-in-out infinite;
   }
-  50% { 
-    box-shadow: 0 0 8px 4px rgba(255, 193, 7, 0.6);
+
+  &.warning-border--orange {
+    border-color: rgb(255, 152, 0);
+    animation: warning-border-flash 1s ease-in-out infinite;
+  }
+
+  &.warning-border--red {
+    border-color: rgb(244, 67, 54);
+    animation: warning-border-flash 0.5s ease-in-out infinite;
   }
 }
 
-@keyframes flash-orange {
-  0%, 100% { 
-    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.4);
-  }
-  50% { 
-    box-shadow: 0 0 12px 6px rgba(255, 152, 0, 0.7);
-  }
-}
-
-@keyframes flash-red {
-  0%, 100% { 
-    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.5);
-  }
-  50% { 
-    box-shadow: 0 0 16px 8px rgba(244, 67, 54, 0.8);
-  }
+@keyframes warning-border-flash {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
 }
 
 .waveform-canvas {

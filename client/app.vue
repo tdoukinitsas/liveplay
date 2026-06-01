@@ -126,11 +126,29 @@ import 'material-symbols';
 import CartPlayer from './components/CartPlayer.vue';
 
 const {
-  currentProject, saveProject, openProject,
+  currentProject, saveProject, openProject, closeProject, confirmUnsavedChanges,
   isLoading, loadingMessage,
   repairDialogVisible, repairDialogIssues, confirmRepair, cancelRepair,
   unsavedDialogVisible, unsavedSave, unsavedDiscard, unsavedCancel,
 } = useProject();
+
+// Shared pending file-open state (set here when a .liveplay/.lpa is double-
+// clicked, consumed by WelcomeScreen which owns the server-connection flow).
+const pendingFileOpen = useState<{ path: string; kind: 'liveplay' | 'lpa' } | null>(
+  'liveplay:pendingFileOpen', () => null);
+
+// Route a double-clicked file to the welcome-screen flow. If a project is
+// already open we close it first (after the unsaved-changes prompt) so
+// WelcomeScreen re-mounts and picks up the pending file.
+async function routePendingFile(data: { filePath: string; kind: 'liveplay' | 'lpa' }) {
+  if (!data?.filePath) return;
+  pendingFileOpen.value = { path: data.filePath, kind: data.kind };
+  if (currentProject.value) {
+    const ok = await confirmUnsavedChanges();
+    if (!ok) { pendingFileOpen.value = null; return; }
+    await closeProject();
+  }
+}
 const { cartOnlyItems, clearCartOnlyItems, addCartOnlyItem } = useCartItems();
 import LoadingOverlay from './components/LoadingOverlay.vue';
 import AudioLoadProgress from './components/AudioLoadProgress.vue';
@@ -270,37 +288,15 @@ onMounted(() => {
       showUpdateModal.value = true;
     });
     
-    // Listen for project file opening (from file association)
-    window.electronAPI.onOpenProjectFile((event: any, data: { filePath: string, projectData: any }) => {
-      try {
-        currentProject.value = data.projectData;
-        console.log('Opened project from file association:', data.filePath);
-      } catch (error) {
-        console.error('Failed to open project file:', error);
-      }
+    // File association (.liveplay / .lpa double-click). Both the warm-start
+    // push and the cold-start pull funnel into routePendingFile, which hands
+    // off to WelcomeScreen for the server-connection + open/import flow.
+    window.electronAPI.onOpenFileAssociation((_event: any, data: { filePath: string; kind: 'liveplay' | 'lpa' }) => {
+      void routePendingFile(data);
     });
-    
-    // Listen for .lpa file opening (from double-click file association).
-    // The path is always a local-machine path. We buffer the file in memory
-    // and reuse the standard import flow's destination-picker so the server
-    // owns the extraction in all cases (local OR remote server).
-    window.electronAPI.onOpenLpaFile(async (event: any, data: { lpaPath: string }) => {
-      try {
-        const result = await (window as any).electronAPI.readAudioFile(data.lpaPath);
-        if (!result?.success || !result.data) {
-          console.error('Failed to read .lpa:', result?.error);
-          return;
-        }
-        const bytes = new Uint8Array(result.data);
-        const name  = data.lpaPath.split(/[\\/]/).pop() || 'import.lpa';
-        pendingArchiveBlob.value     = new File([bytes], name);
-        pendingArchiveBlobName.value = name;
-        importServerPickerStage.value = 'destination';
-        importServerPickerOpen.value  = true;
-      } catch (error) {
-        console.error('Failed to open .lpa file:', error);
-      }
-    });
+    window.electronAPI.getPendingOpenFile?.().then((pending) => {
+      if (pending?.filePath) void routePendingFile(pending);
+    }).catch(() => { /* no pending file */ });
 
     // Sync menu with current UI language on startup
     window.electronAPI.updateMenuLanguage(currentLocale.value);
@@ -327,6 +323,30 @@ const importServerPickerStage   = ref<'archive' | 'destination'>('archive');
 const pendingArchiveOnServer    = ref<string>('');           // server-side .lpa path
 const pendingArchiveBlob        = ref<File | null>(null);    // client-side .lpa
 const pendingArchiveBlobName    = ref<string>('');
+
+// When a .lpa is double-clicked, WelcomeScreen handles the local/remote
+// connection then publishes the local .lpa path here. We buffer the file and
+// reuse the standard import destination-picker (server owns the extraction).
+const pendingLpaImportReady = useState<string | null>('liveplay:pendingLpaImportReady', () => null);
+watch(pendingLpaImportReady, async (lpaPath) => {
+  if (!lpaPath) return;
+  pendingLpaImportReady.value = null; // consume
+  try {
+    const result = await (window as any).electronAPI.readAudioFile(lpaPath);
+    if (!result?.success || !result.data) {
+      console.error('Failed to read .lpa:', result?.error);
+      return;
+    }
+    const bytes = new Uint8Array(result.data);
+    const name  = lpaPath.split(/[\\/]/).pop() || 'import.lpa';
+    pendingArchiveBlob.value      = new File([bytes], name);
+    pendingArchiveBlobName.value  = name;
+    importServerPickerStage.value = 'destination';
+    importServerPickerOpen.value  = true;
+  } catch (error) {
+    console.error('Failed to open .lpa file:', error);
+  }
+});
 
 function startImportFlow() {
   const server = useLiveplayServer();

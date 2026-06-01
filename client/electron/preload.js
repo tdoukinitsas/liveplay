@@ -130,9 +130,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onApiUpdateItem: (callback) => ipcRenderer.on('api-update-item', callback),
   onApiUpdateCartItem: (callback) => ipcRenderer.on('api-update-cart-item', callback),
   
-  // File association - opening project files
-  onOpenProjectFile: (callback) => ipcRenderer.on('open-project-file', callback),
-  onOpenLpaFile: (callback) => ipcRenderer.on('open-lpa-file', callback),
+  // File association - opening project files (.liveplay / .lpa).
+  // Push: main → renderer for warm-start / macOS open-file events.
+  onOpenFileAssociation: (callback) => ipcRenderer.on('open-file-association', callback),
+  // Pull: renderer asks on mount for any file queued before it was ready
+  // (cold start). Returns { filePath, kind } | null.
+  getPendingOpenFile: () => ipcRenderer.invoke('get-pending-open-file'),
   
   // Cart player window — detach/attach
   openCartPlayerWindow: (projectFolderPath) => ipcRenderer.invoke('open-cart-player-window', projectFolderPath),

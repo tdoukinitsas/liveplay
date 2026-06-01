@@ -2693,6 +2693,17 @@ if (!gotTheLock) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
     }
+    // On Windows/Linux a double-clicked file while we're already running
+    // arrives as an argument on the second instance's command line. Pick it
+    // up and open it (or stash it if the window isn't ready yet).
+    const f = getOpenableFileFromArgv(commandLine);
+    if (f) {
+      if (mainWindow && mainWindow.webContents) {
+        openFile(f);
+      } else {
+        fileToOpen = f;
+      }
+    }
   });
 
   app.whenReady().then(async () => {
@@ -2717,74 +2728,71 @@ if (!gotTheLock) {
     try { startDiscoveryListener(); } catch (e) { console.warn('[liveplay-discovery]', e); }
 
     createWindow();
-    
-    // If a file was opened before the app was ready, open it now
-    if (fileToOpen && mainWindow) {
-      mainWindow.once('ready-to-show', () => {
-        openFile(fileToOpen);
-        fileToOpen = null;
-      });
-    }
+
+    // NOTE: a file opened before the app was ready (cold start) is delivered
+    // via the pull path — the renderer calls `get-pending-open-file` on mount
+    // and drives the open itself. We intentionally do NOT push here so a cold
+    // start can't double-open (push + pull) the same file.
   });
 }
 
-// Handle file opening on Windows/Linux (when file is double-clicked)
+// Handle file opening on macOS (the only platform that fires 'open-file';
+// Windows/Linux deliver the path via argv / second-instance instead).
 app.on('open-file', (event, filePath) => {
   event.preventDefault();
-  
+
   if (mainWindow && mainWindow.webContents) {
-    // Window is ready, open the file immediately
+    // Window is ready, push the file to the renderer immediately.
     openFile(filePath);
   } else {
-    // Window not ready yet, store the file path
+    // Window not ready yet (cold start) — queue for the renderer's pull.
     fileToOpen = filePath;
   }
 });
 
+// Find the first openable project file (.liveplay / .lpa) in a command-line
+// argument vector. Used for cold start (process.argv) and Windows/Linux
+// warm start (second-instance commandLine).
+function getOpenableFileFromArgv(argv) {
+  if (!Array.isArray(argv)) return null;
+  return argv.find(arg => typeof arg === 'string' &&
+    (/\.liveplay$/i.test(arg) || /\.lpa$/i.test(arg))) || null;
+}
+
+// Classify a path by extension into the kind the renderer expects.
+function fileKindFor(filePath) {
+  return /\.lpa$/i.test(filePath) ? 'lpa' : 'liveplay';
+}
+
 // Handle command line arguments (Windows/Linux)
 if (process.platform === 'win32' || process.platform === 'linux') {
   // Check if a file was passed as argument
-  const fileArg = process.argv.find(arg => arg.endsWith('.liveplay') || arg.endsWith('.lpa'));
+  const fileArg = getOpenableFileFromArgv(process.argv);
   if (fileArg) {
     fileToOpen = fileArg;
   }
 }
 
-// Helper function to open a project file
+// Pull path for cold start: the renderer asks for any file that was queued
+// before it was ready, then drives the open/import flow itself. Returns null
+// when nothing is pending. Clears the queue so it's delivered exactly once.
+ipcMain.handle('get-pending-open-file', async () => {
+  if (!fileToOpen) return null;
+  const filePath = fileToOpen;
+  fileToOpen = null;
+  return { filePath, kind: fileKindFor(filePath) };
+});
+
+// Push a queued/warm-start file to the renderer. The renderer (WelcomeScreen)
+// owns the actual work: starting/connecting a server and opening or importing
+// the project. The main process only hands over the path + kind.
 function openFile(filePath) {
-  if (!mainWindow) return;
-  
-  try {
-    // Check if it's an .lpa archive file
-    if (filePath.endsWith('.lpa')) {
-      // Trigger import process for .lpa files
-      mainWindow.webContents.send('open-lpa-file', { lpaPath: filePath });
-      console.log('Triggering import for .lpa file:', filePath);
-      return;
-    }
-    
-    // Handle .liveplay project files
-    // Read the file
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
-    const projectData = JSON.parse(fileContent);
-    
-    // Send the project data to the renderer
-    mainWindow.webContents.send('open-project-file', {
-      filePath: filePath,
-      projectData: projectData
-    });
-    
-    console.log('Opened project file:', filePath);
-  } catch (error) {
-    console.error('Failed to open project file:', error);
-    
-    if (mainWindow) {
-      dialog.showErrorBox(
-        'Failed to Open Project',
-        `Could not open the project file:\n${error.message}`
-      );
-    }
-  }
+  if (!mainWindow || !mainWindow.webContents) return;
+  mainWindow.webContents.send('open-file-association', {
+    filePath,
+    kind: fileKindFor(filePath),
+  });
+  console.log('Dispatched file association to renderer:', filePath);
 }
 
 // MIDI Config Handlers

@@ -860,30 +860,37 @@ const handleDrop = async (e: DragEvent) => {
     border-color: var(--color-accent);
   }
   
+  /* End-of-cue warning border. Reuses the slot's own border (never clipped),
+     bumped to 8px so it reads clearly over the slot's existing 4px border, and
+     blinks at the same rate as the ProjectHeader silence-warning banner
+     (yellow ≤30s, orange ≤10s, red ≤5s). */
   &.warning-yellow {
-    animation: flash-yellow 2s ease-in-out infinite;
+    border-width: 8px;
+    animation: cart-warning-flash-yellow 2s ease-in-out infinite;
   }
-  
+
   &.warning-orange {
-    animation: flash-orange 1s ease-in-out infinite;
+    border-width: 8px;
+    animation: cart-warning-flash-orange 1s ease-in-out infinite;
   }
-  
+
   &.warning-red {
-    animation: flash-red 0.5s ease-in-out infinite;
+    border-width: 8px;
+    animation: cart-warning-flash-red 0.5s ease-in-out infinite;
   }
 }
 
-@keyframes flash-yellow {
+@keyframes cart-warning-flash-yellow {
   0%, 100% { border-color: var(--color-border); }
   50% { border-color: #FFC107; }
 }
 
-@keyframes flash-orange {
+@keyframes cart-warning-flash-orange {
   0%, 100% { border-color: var(--color-border); }
   50% { border-color: #FF9800; }
 }
 
-@keyframes flash-red {
+@keyframes cart-warning-flash-red {
   0%, 100% { border-color: var(--color-border); }
   50% { border-color: #F44336; }
 }
