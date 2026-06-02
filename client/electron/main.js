@@ -751,9 +751,70 @@ async function checkAndSetupFfmpeg() {
   }
 }
 
-// Initialize yt-dlp wrapper
+// ===========================================================================
+// yt-dlp + deno (JS runtime) management
+// ---------------------------------------------------------------------------
+// YouTube changes its player/signature scheme frequently, so the bundled
+// yt-dlp binary goes stale fast. Rather than the old "re-download if the file
+// is >7 days old" heuristic (which both updated needlessly and could keep a
+// stale binary for up to a week), we compare the installed --version against
+// the latest GitHub release on every launch and update whenever they differ.
+//
+// Modern yt-dlp also requires a JavaScript runtime to solve YouTube's nsig
+// challenge ("No supported JavaScript runtime could be found" warning).
+// Electron's own Node (18 in Electron 28) is too old for yt-dlp's JS provider,
+// so we download deno — yt-dlp's recommended runtime — alongside yt-dlp and
+// pass it via --js-runtimes. Both downloads are best-effort and degrade
+// gracefully: network failures fall back to whatever binary is already on disk.
+// ===========================================================================
 let ytDlpPath;
 let ytDlpReady = false;
+let denoPath = null;
+let denoReady = false;
+
+// Fetch the latest release tag for a GitHub repo (e.g. "yt-dlp/yt-dlp").
+// Best-effort: rejects on network error / non-200 so callers can fall back.
+function getLatestReleaseTag(repo) {
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.github.com',
+      path: `/repos/${repo}/releases/latest`,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'LivePlay',
+        'Accept': 'application/vnd.github+json'
+      },
+      timeout: 10000
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          reject(new Error(`GitHub API returned ${res.statusCode} for ${repo}`));
+          return;
+        }
+        try {
+          resolve(JSON.parse(data).tag_name);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(new Error('GitHub API request timed out')); });
+    req.end();
+  });
+}
+
+// Run `<binary> --version` and return the trimmed stdout, or null on failure.
+async function getBinaryVersion(binaryPath) {
+  try {
+    const { stdout } = await execPromise(`"${binaryPath}" --version`);
+    return stdout.trim();
+  } catch (e) {
+    return null;
+  }
+}
 
 async function initializeYtDlp() {
   try {
@@ -762,43 +823,48 @@ async function initializeYtDlp() {
     if (!fs.existsSync(binDir)) {
       fs.mkdirSync(binDir, { recursive: true });
     }
-    
+
     const exeName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
     const binaryPath = path.join(binDir, exeName);
-    
+    const exists = fs.existsSync(binaryPath);
+
     console.log('Initializing yt-dlp...');
-    console.log('Binary directory:', binDir);
     console.log('Binary path:', binaryPath);
-    
-    // Check if binary needs updating
-    // Re-download if: binary doesn't exist, or it's older than 7 days
-    let needsDownload = !fs.existsSync(binaryPath);
-    
-    if (!needsDownload) {
-      try {
-        const stats = fs.statSync(binaryPath);
-        const ageInDays = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24);
-        if (ageInDays > 7) {
-          console.log(`yt-dlp binary is ${Math.round(ageInDays)} days old, will update...`);
-          needsDownload = true;
-        } else {
-          console.log(`yt-dlp binary is ${Math.round(ageInDays)} days old, using existing`);
-        }
-      } catch (e) {
+
+    // Determine the latest available version (best-effort; non-fatal on failure).
+    let latestVersion = null;
+    try {
+      latestVersion = await getLatestReleaseTag('yt-dlp/yt-dlp');
+    } catch (e) {
+      console.warn('Could not check latest yt-dlp version:', e.message);
+    }
+
+    // Determine the currently installed version (yt-dlp prints e.g. "2026.03.17").
+    const installedVersion = exists ? await getBinaryVersion(binaryPath) : null;
+
+    // Update when the binary is missing, or we know the latest and it differs
+    // from what's installed (including when we can't read the installed version).
+    let needsDownload = !exists;
+    if (!needsDownload && latestVersion) {
+      if (installedVersion !== latestVersion) {
+        console.log(`yt-dlp update: installed=${installedVersion || 'unknown'} latest=${latestVersion}`);
         needsDownload = true;
+      } else {
+        console.log(`yt-dlp is up to date (${installedVersion})`);
       }
     }
-    
+
     if (needsDownload) {
       console.log('Downloading latest yt-dlp binary...');
       // Back up old binary in case download fails
       const backupPath = binaryPath + '.bak';
       try {
-        if (fs.existsSync(binaryPath)) {
+        if (exists) {
           fs.copyFileSync(binaryPath, backupPath);
           fs.unlinkSync(binaryPath);
         }
-        ytDlpPath = await YTDlpWrap.downloadFromGithub(binaryPath);
+        // Pass the resolved tag when we have it; otherwise yt-dlp-wrap fetches latest.
+        await YTDlpWrap.downloadFromGithub(binaryPath, latestVersion || undefined);
         // Clean up backup on success
         if (fs.existsSync(backupPath)) {
           fs.unlinkSync(backupPath);
@@ -815,20 +881,12 @@ async function initializeYtDlp() {
         }
       }
     }
-    
+
     // Verify the binary exists and is usable
     if (fs.existsSync(binaryPath)) {
       ytDlpPath = binaryPath;
       ytDlpReady = true;
-      
-      // Log version for debugging
-      try {
-        const { stdout } = await execPromise(`"${binaryPath}" --version`);
-        console.log('yt-dlp version:', stdout.trim());
-      } catch (e) {
-        console.log('Could not determine yt-dlp version');
-      }
-      
+      console.log('yt-dlp version:', (await getBinaryVersion(binaryPath)) || 'unknown');
       return true;
     } else {
       throw new Error('yt-dlp binary not found after initialization');
@@ -840,8 +898,115 @@ async function initializeYtDlp() {
   }
 }
 
-// Start initialization immediately
+// Map the current platform/arch to deno's release asset filename.
+function getDenoAssetName() {
+  const arch = process.arch === 'arm64' ? 'aarch64' : 'x86_64';
+  switch (process.platform) {
+    case 'win32': return `deno-${arch}-pc-windows-msvc.zip`;
+    case 'darwin': return `deno-${arch}-apple-darwin.zip`;
+    case 'linux': return `deno-${arch}-unknown-linux-gnu.zip`;
+    default: return null;
+  }
+}
+
+// Download/update deno, the JS runtime yt-dlp uses to solve YouTube's nsig
+// challenge. Same version-comparison + backup/restore strategy as yt-dlp.
+async function initializeDeno() {
+  try {
+    const assetName = getDenoAssetName();
+    if (!assetName) {
+      console.warn(`deno is not available for ${process.platform}/${process.arch}; YouTube extraction may be degraded.`);
+      return false;
+    }
+
+    const binDir = path.join(app.getPath('userData'), 'bin');
+    if (!fs.existsSync(binDir)) {
+      fs.mkdirSync(binDir, { recursive: true });
+    }
+
+    const exeName = process.platform === 'win32' ? 'deno.exe' : 'deno';
+    const binaryPath = path.join(binDir, exeName);
+    const exists = fs.existsSync(binaryPath);
+
+    console.log('Initializing deno (JS runtime for yt-dlp)...');
+    console.log('Binary path:', binaryPath);
+
+    // Latest deno tag looks like "v2.8.1"; normalise to "2.8.1" for comparison.
+    let latestTag = null;
+    try {
+      latestTag = await getLatestReleaseTag('denoland/deno');
+    } catch (e) {
+      console.warn('Could not check latest deno version:', e.message);
+    }
+    const latestVersion = latestTag ? latestTag.replace(/^v/, '') : null;
+
+    // `deno --version` prints e.g. "deno 2.8.1 (stable, release, ...)".
+    let installedVersion = null;
+    if (exists) {
+      const out = await getBinaryVersion(binaryPath);
+      const m = out && out.match(/deno\s+(\d+\.\d+\.\d+)/i);
+      installedVersion = m ? m[1] : null;
+    }
+
+    let needsDownload = !exists;
+    if (!needsDownload && latestVersion && installedVersion !== latestVersion) {
+      console.log(`deno update: installed=${installedVersion || 'unknown'} latest=${latestVersion}`);
+      needsDownload = true;
+    } else if (!needsDownload) {
+      console.log(`deno is up to date (${installedVersion || 'unknown'})`);
+    }
+
+    if (needsDownload) {
+      const url = latestTag
+        ? `https://github.com/denoland/deno/releases/download/${latestTag}/${assetName}`
+        : `https://github.com/denoland/deno/releases/latest/download/${assetName}`;
+      const zipPath = path.join(binDir, assetName);
+      const backupPath = binaryPath + '.bak';
+      try {
+        if (exists) {
+          fs.copyFileSync(binaryPath, backupPath);
+          fs.unlinkSync(binaryPath);
+        }
+        console.log('Downloading deno from', url);
+        await YTDlpWrap.downloadFile(url, zipPath);
+        const extractZip = require('extract-zip');
+        await extractZip(zipPath, { dir: binDir });
+        if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+        // The zip should preserve the exec bit, but ensure it on unix.
+        if (process.platform !== 'win32' && fs.existsSync(binaryPath)) {
+          fs.chmodSync(binaryPath, 0o755);
+        }
+        if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
+      } catch (err) {
+        console.error('Failed to download/extract deno:', err);
+        if (fs.existsSync(backupPath)) {
+          fs.copyFileSync(backupPath, binaryPath);
+          fs.unlinkSync(backupPath);
+          console.log('Restored previous deno binary as fallback');
+        }
+      }
+    }
+
+    if (fs.existsSync(binaryPath)) {
+      denoPath = binaryPath;
+      denoReady = true;
+      const out = await getBinaryVersion(binaryPath);
+      console.log('deno version:', out ? out.split('\n')[0].trim() : 'unknown');
+      return true;
+    }
+
+    console.warn('deno binary not available; YouTube extraction will run without a JS runtime.');
+    return false;
+  } catch (error) {
+    console.error('Failed to initialize deno:', error);
+    denoReady = false;
+    return false;
+  }
+}
+
+// Start initialization immediately (concurrently; both are independent).
 initializeYtDlp();
+initializeDeno();
 
 let mainWindow = null;
 let apiServer = null;
@@ -2546,7 +2711,24 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
       if (ffmpegPath) {
         args.push('--ffmpeg-location', ffmpegPath);
       }
-      
+
+      // Give deno a brief chance to finish initialising on first launch (the
+      // ~40MB download may still be in flight), then enable it as yt-dlp's JS
+      // runtime so YouTube's nsig challenge can be solved. Non-fatal: if deno
+      // isn't ready we fall back to JS-runtime-free extraction.
+      if (!denoReady) {
+        let denoAttempts = 0;
+        while (!denoReady && denoAttempts < 15) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          denoAttempts++;
+        }
+      }
+      if (denoReady && denoPath) {
+        args.push('--js-runtimes', `deno:${denoPath}`);
+      } else {
+        console.warn('Proceeding without a JS runtime; some videos may fail to extract.');
+      }
+
       console.log('Running yt-dlp with args:', args);
       console.log('yt-dlp path:', ytDlpPath);
       
@@ -2560,7 +2742,8 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
       }
       
       let lastProgress = 0;
-      
+      let stderrBuffer = '';
+
       // Track progress by parsing stdout
       downloadProcess.stdout.on('data', (data) => {
         const output = data.toString();
@@ -2591,7 +2774,12 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
       
       downloadProcess.stderr.on('data', (data) => {
         const errorOutput = data.toString();
-        // yt-dlp uses stderr for normal output, only log actual errors
+        // yt-dlp uses stderr for normal output as well as errors. Keep the
+        // tail of everything so we can report the real cause on failure.
+        stderrBuffer += errorOutput;
+        if (stderrBuffer.length > 8000) {
+          stderrBuffer = stderrBuffer.slice(-8000);
+        }
         if (errorOutput.includes('ERROR')) {
           console.error('yt-dlp error:', errorOutput);
         }
@@ -2606,7 +2794,29 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
         console.log(`yt-dlp process closed with code: ${code}`);
         
         if (code !== 0) {
-          reject(new Error(`yt-dlp exited with code ${code}`));
+          // Surface the real reason from yt-dlp's stderr instead of just the code.
+          const errorLines = stderrBuffer
+            .split('\n')
+            .filter(line => line.includes('ERROR') || line.includes('error:'))
+            .map(line => line.trim());
+          const detail = errorLines.length > 0
+            ? errorLines.join('\n')
+            : stderrBuffer.trim().split('\n').slice(-5).join('\n');
+
+          console.error('yt-dlp failed. Full stderr:\n', stderrBuffer);
+
+          let hint = '';
+          if (/Sign in to confirm|not a bot|cookies/i.test(stderrBuffer)) {
+            hint = ' (YouTube is requiring sign-in/bot verification for this video.)';
+          } else if (/Video unavailable|Private video|members-only|age/i.test(stderrBuffer)) {
+            hint = ' (This video is unavailable, private, age-restricted, or members-only.)';
+          } else if (/Requested format is not available/i.test(stderrBuffer)) {
+            hint = ' (No downloadable audio format was found for this video.)';
+          } else if (/Unable to extract|nsig|player|update.*yt-dlp/i.test(stderrBuffer)) {
+            hint = ' (yt-dlp may be out of date — YouTube changed something. Restart the app to fetch the latest yt-dlp.)';
+          }
+
+          reject(new Error(`yt-dlp exited with code ${code}.${hint}${detail ? '\n\n' + detail : ''}`));
           return;
         }
         
