@@ -1,6 +1,6 @@
 {
   "name": "liveplay",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Audio cue playback application for live events",
   "main": "electron/main.js",
   "type": "commonjs",
@@ -12,8 +12,7 @@
     "build:electron": "cross-env NODE_ENV=production nuxt generate && electron-builder",
     "electron:build": "electron-builder",
     "generate": "cross-env NODE_ENV=production nuxt generate",
-    "preview": "nuxt preview",
-    "postinstall": "electron-builder install-app-deps"
+    "preview": "nuxt preview"
   },
   "keywords": [
     "electron",
