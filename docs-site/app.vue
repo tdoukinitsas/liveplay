@@ -313,7 +313,7 @@ const { t, direction, initLocale, isLocaleLoaded } = useI18n();
 // at build time, which fails for anything not physically present in public/.
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`;
 
-const version = ref('2.0.5');
+const version = ref('2.0.6');
 const contributors = ref<{ name: string; link: string }[]>([]);
 
 // Platform download cards. When we can detect the visitor's OS we surface only

@@ -234,6 +234,10 @@ export const useAudioEngine = () => {
           if (nextItem) return nextItem.uuid;
           break;
         }
+        case 'loop':
+          // A looping cue replays itself — surface it as its own "up next"
+          // so the UI reflects the end behaviour instead of showing nothing.
+          return audioItem.uuid;
         case 'goto-item':
           if (audioItem.endBehavior.targetUuid) return audioItem.endBehavior.targetUuid;
           break;

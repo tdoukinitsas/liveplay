@@ -452,9 +452,25 @@ const endBehaviorTargetIndex = computed(() => {
   return undefined;
 });
 
+// Parse a user-typed index path into a clean number[] path.
+// Accepts both "1,10" and "1.10" (in case the user mixes up comma and full
+// stop) and normalises to a comma-separated path. Empty/garbage segments are
+// dropped so a stray separator can't inject NaN into the path.
+const parseIndexPath = (raw: string): number[] => {
+  return raw
+    .split(/[.,]/)            // treat "." and "," as the same separator
+    .map(s => s.trim())
+    .filter(s => s.length > 0)
+    .map(s => parseInt(s, 10))  // explicit radix — `.map(parseInt)` passes the
+    .filter(n => Number.isFinite(n)); // array index as radix and corrupts entries
+};
+
 const handleEndBehaviorIndexChange = (e: Event) => {
-  const value = (e.target as HTMLInputElement).value;
-  const parsed = value.split(',').map(i => parseInt(i));
+  const input = e.target as HTMLInputElement;
+  const parsed = parseIndexPath(input.value);
+  // Reflect the normalised path back into the field so the user sees the
+  // canonical comma form (e.g. typing "1.10" shows "1,10").
+  input.value = parsed.join(',');
   if (selectedItem.value?.type === 'audio') {
     audioItem.value.endBehavior.targetIndex = parsed;
   } else if (selectedItem.value?.type === 'group') {
@@ -503,8 +519,9 @@ const startBehaviorTargetIndex = computed(() => {
 });
 
 const handleStartBehaviorIndexChange = (e: Event) => {
-  const value = (e.target as HTMLInputElement).value;
-  const parsed = value.split(',').map(i => parseInt(i));
+  const input = e.target as HTMLInputElement;
+  const parsed = parseIndexPath(input.value);
+  input.value = parsed.join(',');
   if (selectedItem.value?.type === 'audio') {
     audioItem.value.startBehavior.targetIndex = parsed;
   }

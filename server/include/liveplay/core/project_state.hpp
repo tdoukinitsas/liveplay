@@ -430,6 +430,12 @@ private:
     // hold mutex_.
     std::string resolve_next_item_locked(const std::string& current_uuid) const;
 
+    // Resolve an index *path* (array of child indices, as produced by the
+    // client's endBehavior.targetIndex / findItemByIndex) to the uuid of the
+    // item it points at. Descends into group `children` at each level. Empty
+    // string if the path is out of range. Caller must hold mutex_.
+    std::string resolve_index_path_locked(const std::vector<int>& path) const;
+
     // Re-apply the in-memory state to the AudioEngine (post-load or reset).
     void apply_to_engine_locked();
 };

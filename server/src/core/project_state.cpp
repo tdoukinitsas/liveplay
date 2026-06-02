@@ -1844,6 +1844,30 @@ std::string ProjectState::resolve_next_item_locked(const std::string& current_uu
     return result;
 }
 
+// Resolve an index path (array of child indices) to a uuid. Mirrors the
+// client's findItemByIndex: start at the top-level `items`, and at each level
+// descend into the selected item's `children` when it is a group.
+std::string ProjectState::resolve_index_path_locked(const std::vector<int>& path) const {
+    if (path.empty()) return {};
+    if (!document_.contains("items") || !document_["items"].is_array()) return {};
+
+    const json* arr     = &document_["items"];
+    const json* current = nullptr;
+    for (int idx : path) {
+        if (!arr || !arr->is_array()) return {};
+        if (idx < 0 || idx >= static_cast<int>(arr->size())) return {};
+        current = &(*arr)[static_cast<std::size_t>(idx)];
+        if (!current->is_object()) return {};
+        if (current->value("type", std::string{}) == "group" &&
+            current->contains("children") && (*current)["children"].is_array()) {
+            arr = &(*current)["children"];
+        } else {
+            arr = nullptr;   // leaf — any remaining path components are invalid
+        }
+    }
+    return current ? current->value("uuid", std::string{}) : std::string{};
+}
+
 // ---------------------------------------------------------------------------
 // Item-level transport with ducking + in/out point semantics.
 // ---------------------------------------------------------------------------
@@ -2016,12 +2040,22 @@ bool ProjectState::play_item(const std::string& uuid) {
     // Register with the sequencer so it can handle end-behaviour, crossfade,
     // and stop-fade autonomously — even when the client is disconnected.
     {
-        const double effective_end = (out_point > 0.0) ? out_point : file_duration;
+        const bool looping = (end_behavior_action == "loop");
+        // A looping cue plays forever (the audio thread seeks back to the
+        // in-point on EOF/out-point). It must NOT arm the timing-based
+        // auto-advance: otherwise, as the playhead nears effective_end, the
+        // sequencer's crossfade/stop-fade triggers would fire and start the
+        // *next* item — which is exactly the "loop behaves like play-next" bug.
+        // effective_end = 0 disables all timing triggers while still letting
+        // custom actions fire (they're checked before the effective_end gate).
+        const double effective_end = looping
+            ? 0.0
+            : ((out_point > 0.0) ? out_point : file_duration);
         SequencedItem si;
         si.uuid          = uuid;
         si.cue_id        = target_cue;
-        si.crossfade_sec = crossfade_sec;
-        si.stop_fade_sec = stop_fade_sec;
+        si.crossfade_sec = looping ? 0.0 : crossfade_sec;
+        si.stop_fade_sec = looping ? 0.0 : stop_fade_sec;
         si.effective_end = effective_end;
         si.ducked        = std::move(ducks_made);
         si.custom_actions = std::move(custom_actions_snapshot);
@@ -2919,8 +2953,12 @@ void ProjectState::sequencer_loop() {
             }
         }
 
-        // Execute pending actions with the sequencer lock released.
+        // Execute pending actions with the sequencer lock released. Each action
+        // is wrapped so a single failure (e.g. malformed end-behaviour data)
+        // can never escape and tear down the sequencer thread — that would
+        // silently disable all future end behaviours / auto-advance.
         for (const auto& p : pending) {
+          try {
             switch (p.kind) {
             case PendingAction::Kind::NaturalEnd:
             case PendingAction::Kind::StopFadeEnded:
@@ -2972,6 +3010,9 @@ void ProjectState::sequencer_loop() {
                 execute_custom_action(p.custom_action);
                 break;
             }
+          } catch (const std::exception& e) {
+            Logger::warn("sequencer action (item '{}') threw: {}", p.item.uuid, e.what());
+          }
         }
     }
 }
@@ -3060,9 +3101,9 @@ void ProjectState::handle_item_ended(const SequencedItem& item) {
     }
 
     // Read end-behaviour from the document.
-    std::string end_action;
-    std::string target_uuid;
-    int         target_index = -1;
+    std::string      end_action;
+    std::string      target_uuid;
+    std::vector<int> target_index;   // index *path* through the item tree
     {
         std::lock_guard lock{mutex_};
         json* found = nullptr;
@@ -3087,11 +3128,27 @@ void ProjectState::handle_item_ended(const SequencedItem& item) {
             const auto& eb = (*found)["endBehavior"];
             end_action   = eb.value("action",      std::string{});
             target_uuid  = eb.value("targetUuid",  std::string{});
-            target_index = eb.value("targetIndex", -1);
+            // targetIndex is an index *path* (array of ints) — see the client's
+            // findItemByIndex. Read it element-by-element: eb.value<int>(...)
+            // would throw type_error.302 because the stored value is an array,
+            // which previously propagated out of the sequencer thread and
+            // crashed the server whenever an item carrying a targetIndex ended.
+            if (eb.contains("targetIndex") && eb["targetIndex"].is_array()) {
+                for (const auto& v : eb["targetIndex"]) {
+                    if (v.is_number_integer()) target_index.push_back(v.get<int>());
+                }
+            }
         }
     }
 
+    Logger::playback("END BEHAVIOUR: item '{}' action='{}' targetUuid='{}' targetIndexLen={}",
+                     item.uuid, end_action, target_uuid, target_index.size());
+
     if (end_action == "loop") {
+        // Normally a looping cue never reaches here (the audio thread seeks
+        // back to the in-point on EOF). This is the fallback path for when the
+        // engine couldn't loop (e.g. a decoder that can't seek) — re-trigger
+        // the same item so "loop" still loops, just with a gap.
         play_item(item.uuid);
     } else if (end_action == "next") {
         std::string next_uuid;
@@ -3108,17 +3165,18 @@ void ProjectState::handle_item_ended(const SequencedItem& item) {
         if (!next_uuid.empty()) trigger_item(next_uuid);
     } else if (end_action == "goto-item" && !target_uuid.empty()) {
         trigger_item(target_uuid);
-    } else if (end_action == "goto-index" && target_index >= 0) {
+    } else if (end_action == "goto-index" && !target_index.empty()) {
         std::string idx_uuid;
         {
             std::lock_guard lock{mutex_};
-            if (document_.contains("items") && document_["items"].is_array()) {
-                const auto& arr = document_["items"];
-                if (target_index < static_cast<int>(arr.size()))
-                    idx_uuid = arr[target_index].value("uuid", std::string{});
-            }
+            idx_uuid = resolve_index_path_locked(target_index);
         }
-        if (!idx_uuid.empty()) trigger_item(idx_uuid);
+        if (idx_uuid.empty()) {
+            Logger::warn("END BEHAVIOUR goto-index: index path did not resolve "
+                         "to any item (item '{}')", item.uuid);
+        } else {
+            trigger_item(idx_uuid);
+        }
     }
     // "nothing" or unrecognized → do nothing.
 }
