@@ -42,6 +42,22 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
+# macOS: std::format vs. deployment target
+# ---------------------------------------------------------------------------
+# Instantiating std::format for *any* argument pulls in libc++'s floating-point
+# formatter, which calls std::to_chars(float/double). Apple marks that overload
+# "unavailable" below macOS 13.3, so the build fails even for string-only calls
+# (e.g. Logger::error("Reason : {}", reason)) whenever the deployment target is
+# older than 13.3 — which it is for our 11.0 (x64) / 12.0 (arm64) artifacts.
+#
+# The implementation is header-only in modern libc++ (no dylib symbol), so it
+# runs correctly on those older systems; only the availability annotation is
+# conservative. Disable the annotations so we can keep the older targets.
+if(APPLE)
+    add_compile_definitions(_LIBCPP_DISABLE_AVAILABILITY)
+endif()
+
+# ---------------------------------------------------------------------------
 # Dependencies (resolved via vcpkg manifest — see vcpkg.json)
 # ---------------------------------------------------------------------------
 find_package(Threads REQUIRED)

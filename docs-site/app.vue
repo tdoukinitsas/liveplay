@@ -25,7 +25,7 @@
       <div class="container">
         <div class="screenshot-wrapper">
           <img
-            src="/screenshots/liveplay_screenshot.jpg"
+            src="/liveplay/screenshots/liveplay_screenshot.jpg"
             :alt="t('header.screenshotAlt')"
             class="app-screenshot"
             @error="handleImageError"
@@ -305,7 +305,7 @@ import { useI18n } from './composables/useI18n';
 
 const { t, direction, initLocale, isLocaleLoaded } = useI18n();
 
-const version = ref('2.0.0');
+const version = ref('2.0.1');
 const contributors = ref<{ name: string; link: string }[]>([]);
 
 // Platform download cards. When we can detect the visitor's OS we surface only
