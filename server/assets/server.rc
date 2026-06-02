@@ -1,0 +1,35 @@
+// Windows resource script — embeds the application icon into the server binary.
+// The icon file is generated from client/assets/icons by the CMake configure step.
+#include <winresrc.h>
+
+IDI_APPICON ICON "app.ico"
+
+// Version information block shown in Explorer > Properties > Details.
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION    0,1,0,0
+ PRODUCTVERSION 0,1,0,0
+ FILEFLAGSMASK  0x3fL
+ FILEFLAGS      0x0L
+ FILEOS         VOS__WINDOWS32
+ FILETYPE       VFT_APP
+ FILESUBTYPE    0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName",      "Thomas Doukinitsas\0"
+            VALUE "FileDescription",  "LivePlay Audio Engine Server\0"
+            VALUE "FileVersion",      "0.1.0.0\0"
+            VALUE "InternalName",     "liveplay-server\0"
+            VALUE "LegalCopyright",   "AGPL-3.0-only\0"
+            VALUE "OriginalFilename", "liveplay-server.exe\0"
+            VALUE "ProductName",      "LivePlay\0"
+            VALUE "ProductVersion",   "0.1.0.0\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

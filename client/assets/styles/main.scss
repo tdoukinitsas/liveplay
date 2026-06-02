@@ -1,0 +1,354 @@
+// Fonts
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url(/fonts/IBM_Plex_Sans/IBMPlexSans-Variable.ttf) format('truetype');
+  font-weight: 100 900;
+  font-stretch: 75% 125%;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url(/fonts/IBM_Plex_Mono/IBMPlexMono-Regular.ttf) format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url(/fonts/IBM_Plex_Mono/IBMPlexMono-Medium.ttf) format('truetype');
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url(/fonts/IBM_Plex_Mono/IBMPlexMono-SemiBold.ttf) format('truetype');
+  font-weight: 600;
+  font-display: swap;
+}
+
+// Material Symbols (rounded) for consistent UI icons
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+
+// CSS Variables for theming
+:root {
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  // Spacing
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+
+  // Border radius
+  --border-radius-sm: 2px;
+  --border-radius-md: 4px;
+  --border-radius-lg: 8px;
+
+  // Transitions
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 350ms ease;
+
+  // Z-index
+  --z-dropdown: 1000;
+  --z-modal: 2000;
+  --z-tooltip: 3000;
+
+  // Layout
+  --playback-controls-height: 120px;
+  --properties-panel-height: 300px;
+  --cart-player-width: 33.333%;
+  /* Default accent colors so components without an explicit data-theme inherit a usable value */
+  --color-accent: #da1e28;
+  --color-accent-hover: #b71c22;
+}
+
+// Light theme
+[data-theme='light'] {
+  --color-background: #ebebeb;
+  --color-surface: #f3f3f3;
+  --color-surface-hover: #ffffff;
+  --color-border: #d0d0d0;
+  --color-text-primary: #161616;
+  --color-text-secondary: #525252;
+  --color-text-disabled: #8d8d8d;
+  --color-accent: var(--color-accent-custom, #da1e28);
+  --color-accent-hover: var(--color-accent-hover-custom, #da1e28);
+  --color-danger: #da1e28;
+  --color-success: #24a148;
+  --color-warning: #f1c21b;
+}
+
+// Dark theme
+[data-theme='dark'] {
+  --color-background: #161616;
+  --color-surface: #262626;
+  --color-surface-hover: #333333;
+  --color-border: #525252;
+  --color-text-primary: #f4f4f4;
+  --color-text-secondary: #c6c6c6;
+  --color-text-disabled: #6f6f6f;
+  --color-accent: var(--color-accent-custom, #da1e28);
+  --color-accent-hover: var(--color-accent-hover-custom, #da1e28);
+  --color-danger: #fa4d56;
+  --color-success: #42be65;
+  --color-warning: #f1c21b;
+}
+
+// Base styles
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#__nuxt {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  background-color: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  // The app is a desktop-style workspace where dragging reorders cues — it
+  // should never accidentally select UI text. Text selection is re-enabled
+  // for genuine text-entry surfaces below.
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+// Re-enable text selection where it actually makes sense: editable fields
+// and anything explicitly opted-in with .selectable.
+input,
+textarea,
+[contenteditable='true'],
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+// Typography
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  margin: 0;
+}
+
+p {
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+span {
+  color: inherit;
+}
+
+// Scrollbar styling
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--border-radius-sm);
+
+  &:hover {
+    background: var(--color-text-secondary);
+  }
+}
+
+// Selection
+::selection {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+// Focus styles
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+// Buttons
+button {
+  font-family: inherit;
+  font-size: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  transition: all var(--transition-fast);
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+// Inputs
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  transition: all var(--transition-fast);
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// Utility classes
+.text-primary {
+  color: var(--color-text-primary);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-disabled {
+  color: var(--color-text-disabled);
+}
+
+.bg-surface {
+  background-color: var(--color-surface);
+}
+
+.bg-background {
+  background-color: var(--color-background);
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-sm {
+  gap: var(--spacing-sm);
+}
+
+.gap-md {
+  gap: var(--spacing-md);
+}
+
+.gap-lg {
+  gap: var(--spacing-lg);
+}
+
+// RTL Support
+[dir="rtl"] {
+  // Reverse text alignment
+  text-align: right;
+  
+  // Reverse flex direction for row layouts
+  .flex-row {
+    flex-direction: row-reverse;
+  }
+  
+  // Mirror margins and paddings
+  .ml-auto {
+    margin-left: 0;
+    margin-right: auto;
+  }
+  
+  .mr-auto {
+    margin-right: 0;
+    margin-left: auto;
+  }
+  
+  // Reverse floating
+  .float-left {
+    float: right;
+  }
+  
+  .float-right {
+    float: left;
+  }
+  
+  // Reverse border radius
+  .border-radius-left {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: var(--border-radius-md);
+    border-bottom-right-radius: var(--border-radius-md);
+  }
+  
+  .border-radius-right {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-top-left-radius: var(--border-radius-md);
+    border-bottom-left-radius: var(--border-radius-md);
+  }
+  
+  // Reverse transform for icons
+  .icon-arrow-right {
+    transform: scaleX(-1);
+  }
+  
+  .icon-arrow-left {
+    transform: scaleX(-1);
+  }
+}

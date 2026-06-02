@@ -6,7 +6,10 @@
     "direction": "ltr"
   },
   "header": {
-    "tagline": "Ljuduppspelning för Live-evenemang"
+    "tagline": "Ljuduppspelning för Live-evenemang",
+    "version": "Version",
+    "logoAlt": "LivePlay-logotyp",
+    "screenshotAlt": "LivePlays huvudgränssnitt med spellisteredigerare, cue-cart och egenskapspanel"
   },
   "download": {
     "title": "Ladda ner LivePlay",
@@ -17,12 +20,6 @@
       "buttonText": "Ladda ner .exe",
       "size": "~150 MB"
     },
-    "mac": {
-      "title": "macOS",
-      "description": "macOS 10.15+ (Universal)",
-      "buttonText": "Ladda ner .dmg",
-      "size": "~140 MB"
-    },
     "linux": {
       "title": "Linux",
       "description": "AppImage (Universal)",
@@ -32,14 +29,38 @@
     "otherFormats": "Andra tillgängliga format:",
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "macZip": ".zip (macOS)",
-    "viewReleases": "Se alla versioner på GitHub →"
+    "viewReleases": "Se alla versioner på GitHub →",
+    "macArm": {
+      "title": "macOS — Apple Silicon",
+      "description": "M1/M2/M3 och nyare (arm64)",
+      "buttonText": "Ladda ner .dmg",
+      "size": "~140 MB"
+    },
+    "macIntel": {
+      "title": "macOS — Intel",
+      "description": "Intel-Macar (x64), macOS 11+",
+      "buttonText": "Ladda ner .dmg",
+      "size": "~145 MB"
+    },
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "recommended": "Rekommenderas för ditt system",
+    "showOtherOS": "Ladda ner för ett annat operativsystem",
+    "hideOtherOS": "Dölj andra operativsystem"
   },
   "features": {
     "title": "Huvudfunktioner",
     "interface": {
       "title": "Intuitivt gränssnitt",
       "description": "LivePlay har ett rent, enkelt och modernt gränssnitt designat specifikt för live-ljudoperatörer. Organisera dina huvudljudfiler i spellistor och lägg till ljud i en vagnspelare för snabb åtkomst eller meddelanden. Ljudfiler som läggs till i vagnen kommer automatiskt att bete sig som meddelanden och sänka bakgrundsljud under uppspelning."
+    },
+    "audioEngine": {
+      "title": "Robust C++-ljudmotor",
+      "description": "I hjärtat av LivePlay finns en dedikerad, högpresterande ljudmotor skriven i C++ som kommunicerar direkt med din ljudhårdvara — WASAPI på Windows, Core Audio på macOS och ALSA på Linux. Varje cue körs som en helt oberoende uppspelningsinstans med egen avkodare och fade-kurva, så att spela samma fil två gånger vid olika volym beter sig alltid exakt som förväntat. Motorn körs som en fristående serverprocess: den kan ligga inuti skrivbordsappen eller köras utan gränssnitt på en dedikerad backstage-dator kopplad till dina ljudgränssnitt."
+    },
+    "routing": {
+      "title": "Ljudrouting för flera enheter",
+      "description": "Routa ljud från valfri cue till valfri kombination av utgångskanaler på flera ljudkort samtidigt, med oberoende utgångstilldelning per objekt. Routningsmatrisen låter dig dela upp en stereofil i enskilda kanaler och skicka var och en till en egen enhet med egen förstärkning — perfekt för att mata front-of-house, en monitormix och en inspelningsutgång från en enda cue, allt på en gång."
     },
     "waveform": {
       "title": "Vågformsredigerare",
@@ -57,9 +78,29 @@
       "title": "Automatisk ducking",
       "description": "Konfigurera automatisk ducking för att sänka volymen på bakgrundsmusik när meddelanden eller dialog spelas. Perfekt för smidiga övergångar i live-produktioner."
     },
+    "remoteOperation": {
+      "title": "Lokal eller fjärrstyrd drift",
+      "description": "LivePlays ljudserver startar automatiskt tillsammans med applikationen, eller kan köras på en dedikerad backstage-dator med dina ljudgränssnitt anslutna. Anslut från valfri dator i samma nätverk och ta full kontroll — transport, egenskaper, routing och realtidsmätning fungerar alla på distans, vilket ger dig flexibiliteten att skilja din kontrollposition från ljudhårdvaran."
+    },
     "firstLaunch": {
       "title": "Snabb installation",
       "description": "Kom igång på sekunder med LivePlays strömlinjeformade installationsprocess. Välj en mapp, skapa ett projekt och börja importera filer! All din media samlas automatiskt på ett ställe så att du enkelt kan flytta ditt projekt mellan datorer."
+    },
+    "limiter": {
+      "title": "Brickwall-limiter och ljudnivåmål",
+      "description": "En äkta brickwall-limiter sitter på varje utgångskanal, håller dina nivåer jämna och skyddar hårdvaran och publiken från okontrollerade toppar. Välj bland inbyggda utgångsmål som följer professionella ljudnivåstandarder — EBU R128, streaming, radio, Netflix och live — och LivePlay tillämpar automatiskt rätt tak, mätzoner och vågformskalibrering."
+    },
+    "meters": {
+      "title": "Mätning i sändningskvalitet",
+      "description": "Lita på det du hör med realtidsmätning i sändningskvalitet i varje steg av signalvägen — per cue, per mixerkanal och på masterutgången. Färgkodade mätzoner följer det ljudnivåmål du har valt, så att du med en blick ser om du ligger bekvämt inom specifikationen eller går in i rött."
+    },
+    "previewLtc": {
+      "title": "Dedikerad förlyssning och LTC-tidkod",
+      "description": "Förlyssna cues ljudlöst på en dedikerad förlyssningsenhet — hörlurar eller en cue-buss — utan att någonsin röra dina huvudutgångar, så att du kan ställa i ordning nästa cue medan föreställningen pågår. En separat SMPTE LTC-tidkodsgenerator skickar en kontinuerlig linjär tidkodssignal på sin egen kanal, vilket låter dig synkronisera ljusbord, videouppspelning och andra externa enheter med LivePlay."
+    },
+    "discovery": {
+      "title": "Automatisk upptäckt och bergfast tillförlitlighet",
+      "description": "LivePlay-servrar annonserar sig själva i ditt lokala nätverk, så att klienter hittar dem automatiskt — inga IP-adresser att skriva in. Om ljudmotorn någonsin stannar oväntat startar den om sig själv omedelbart och återupptar uppspelningen exakt där den slutade, så att din föreställning fortsätter. Och eftersom motorn är en äkta server kan flera klienter ansluta till samma instans samtidigt — idealiskt för en huvudoperatör och en backup, eller en scenmästare som övervakar uppspelningen vid sidan av ljudteknikern."
     }
   },
   "footer": {
@@ -68,5 +109,34 @@
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Visa på GitHub",
     "contributors": "Bidragsgivare"
+  },
+  "common": {
+    "changeLanguage": "Byt språk"
+  },
+  "ports": {
+    "title": "Nätverksportar",
+    "subtitle": "Om du kör server och klient på olika maskiner, se till att dessa portar är öppna i ditt nätverk och din brandvägg.",
+    "control": {
+      "port": "TCP 4480",
+      "title": "Kontrollyta",
+      "description": "REST API- och WebSocket-anslutning som bär transportkommandon, projektdata, routing och realtidsmätare mellan klient och server."
+    },
+    "discovery": {
+      "port": "UDP 4481",
+      "title": "Automatisk upptäckt",
+      "description": "Broadcast- och multicast-beacon (grupp 239.255.69.80) som låter klienter hitta LivePlay-servrar i det lokala nätverket automatiskt."
+    },
+    "note": "En installation på en enda maskin behöver ingen konfiguration — klient och server pratar över 127.0.0.1 och Windows-installationsprogrammet lägger till brandväggsreglerna åt dig. Dessa portar spelar bara roll när du skiljer kontrollpositionen från ljudhårdvaran över ett LAN."
+  },
+  "contribute": {
+    "title": "Bidra",
+    "subtitle": "LivePlay är gratis och öppen källkod — och kommer alltid att vara det.",
+    "freeTitle": "Gratis för alltid",
+    "freeText": "LivePlay är helt gratis att ladda ner och använda — inga licensavgifter, inga prenumerationer, inga betalväggar. Alla funktioner är tillgängliga för alla, utan premiumnivåer.",
+    "licenseTitle": "Licens med öppen källkod",
+    "licenseText": "LivePlay släpps under GNU AGPL-3.0-licensen. Enkelt uttryckt: du är fri att använda, studera, dela och ändra det. Om du delar en ändrad version — eller kör den som en nätverkstjänst — måste du göra din källkod tillgänglig under samma licens, så att hela gemenskapen fortsätter att dra nytta av den.",
+    "contributeTitle": "Så kan du hjälpa till",
+    "contributeText": "Vem som helst kan bidra. Rapportera buggar, föreslå funktioner, förbättra översättningar eller skicka in kod — alla bidrag är välkomna. Gå till GitHub-förvaret för att öppna en issue eller en pull request.",
+    "githubButton": "Bidra på GitHub →"
   }
 }

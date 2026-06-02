@@ -1,11 +1,16 @@
 name: Build and Release
 
+# Cuts a release whenever the monorepo root version (package.json) changes on
+# main. Builds the C++ server and the Electron client together on each
+# platform — Windows x64, macOS Intel (x64), macOS Apple Silicon (arm64), and
+# Linux x64 — and publishes a single GitHub Release with all installers.
 on:
   push:
     branches:
       - main
     paths:
       - 'package.json'
+  workflow_dispatch:
 
 jobs:
   check-version:
@@ -24,9 +29,15 @@ jobs:
         run: |
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "version=v${CURRENT_VERSION}" >> $GITHUB_OUTPUT
-          
+
+          # workflow_dispatch always runs.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Manual dispatch — building ${CURRENT_VERSION}"
+            exit 0
+          fi
+
           git diff HEAD^ HEAD -- package.json > package_diff.txt
-          
           if grep -q '"version"' package_diff.txt; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "Version changed to ${CURRENT_VERSION}"
@@ -38,84 +49,167 @@ jobs:
   build:
     needs: check-version
     if: needs.check-version.outputs.version-changed == 'true'
-    timeout-minutes: 45
+    timeout-minutes: 90
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            label: Windows x64
+            triplet: x64-windows
+            artifact_name: windows-build
+            electron_args: --win --x64 --publish never
+            cmake_args: ""
+          - os: ubuntu-latest
+            label: Linux x64
+            triplet: x64-linux
+            artifact_name: linux-build
+            electron_args: --linux --x64 --publish never
+            cmake_args: ""
+          - os: macos-13
+            label: macOS Intel (x64)
+            triplet: x64-osx
+            artifact_name: macos-x64-build
+            electron_args: --mac --x64 --publish never
+            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"
+          - os: macos-latest
+            label: macOS Apple Silicon (arm64)
+            triplet: arm64-osx
+            artifact_name: macos-arm64-build
+            electron_args: --mac --arm64 --publish never
+            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0"
     runs-on: ${{ matrix.os }}
-    
+    name: ${{ matrix.label }}
+
+    env:
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # -------------------------------------------------------------------
+      # C++ server toolchain — must build before the client so
+      # electron-builder's extraResources can pick up the binary.
+      # -------------------------------------------------------------------
+      - name: Export VCPKG_ROOT
+        shell: bash
+        run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
+
+      - name: Configure vcpkg GHA cache
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Install Linux audio dev packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build pkg-config \
+            libasound2-dev libpulse-dev libjack-jackd2-dev libx11-dev
+
+      - name: Install macOS build tools
+        if: runner.os == 'macOS'
+        run: brew install ninja pkg-config
+
+      - name: Install Windows build tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install ninja -y
+
+      - name: Configure MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build C++ server
+        shell: bash
+        run: |
+          cmake -S server -B server/build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
+            ${{ matrix.cmake_args }}
+          cmake --build server/build --config Release -j
+
+      - name: Stage server binary for electron-builder (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Ninja produces a single-config build; electron-builder expects
+          # the Release sub-directory layout used by the multi-config preset.
+          New-Item -ItemType Directory -Force "server/build/Release" | Out-Null
+          if (Test-Path "server/build/liveplay-server.exe") {
+            Copy-Item "server/build/liveplay-server.exe" "server/build/Release/" -Force
+          }
+          Get-ChildItem "server/build" -Filter "*.dll" -ErrorAction SilentlyContinue |
+            ForEach-Object { Copy-Item $_.FullName "server/build/Release/" -Force }
+
+      - name: Build macOS server .app bundle
+        if: runner.os == 'macOS'
+        run: node scripts/build-server-app-mac.js
+
+      # -------------------------------------------------------------------
+      # Client (Nuxt + Electron)
+      # -------------------------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: client/package-lock.json
 
       - name: Clean install dependencies
         shell: bash
+        working-directory: client
         run: |
           rm -rf node_modules package-lock.json
           npm install --include=optional
         env:
           CI: true
 
-      - name: Build application
+      - name: Build Nuxt application
+        working-directory: client
         run: npm run build
 
-      - name: Build Electron app (Windows)
-        if: matrix.os == 'windows-latest'
-        run: npm run electron:build -- --win --x64 --publish never
+      - name: Build Electron app
+        working-directory: client
+        run: npm run electron:build -- ${{ matrix.electron_args }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI: true
 
-      - name: Build Electron app (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run electron:build -- --linux --x64 --publish never
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI: true
+      - name: Collect installers into /build/
+        shell: bash
+        run: |
+          mkdir -p build
+          shopt -s nullglob
+          # Copy installer artefacts only (skip unpacked dirs / debug yaml).
+          for f in client/dist-electron/*.exe \
+                   client/dist-electron/*.exe.blockmap \
+                   client/dist-electron/*.dmg \
+                   client/dist-electron/*.dmg.blockmap \
+                   client/dist-electron/*.zip \
+                   client/dist-electron/*.zip.blockmap \
+                   client/dist-electron/*.AppImage \
+                   client/dist-electron/*.deb \
+                   client/dist-electron/*.rpm \
+                   client/dist-electron/latest*.yml; do
+            [ -e "$f" ] && cp "$f" build/
+          done
+          ls -la build/ || true
 
-      - name: Build Electron app (macOS)
-        if: matrix.os == 'macos-latest'
-        run: npm run electron:build -- --mac --x64 --arm64 --publish never
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI: true
-
-      - name: Upload artifacts (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build
-          path: |
-            dist-electron/*.exe
-            dist-electron/*.exe.blockmap
-          retention-days: 5
-
-      - name: Upload artifacts (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-build
-          path: |
-            dist-electron/*.AppImage
-            dist-electron/*.deb
-            dist-electron/*.rpm
-          retention-days: 5
-
-      - name: Upload artifacts (macOS)
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-build
-          path: |
-            dist-electron/*.dmg
-            dist-electron/*.dmg.blockmap
-            dist-electron/*.zip
+          name: ${{ matrix.artifact_name }}
+          path: build/*
           retention-days: 5
 
   release:
@@ -123,7 +217,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -142,11 +236,63 @@ jobs:
           name: linux-build
           path: ./artifacts
 
-      - name: Download macOS artifacts
+      # macOS artifacts go to per-arch directories so their two latest-mac.yml
+      # files don't clobber each other — they are merged below.
+      - name: Download macOS Intel artifacts
         uses: actions/download-artifact@v4
         with:
-          name: macos-build
-          path: ./artifacts
+          name: macos-x64-build
+          path: ./artifacts-mac-x64
+
+      - name: Download macOS Apple Silicon artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-arm64-build
+          path: ./artifacts-mac-arm64
+
+      # The Intel and Apple-Silicon jobs each emit their own latest-mac.yml
+      # listing only that arch's files. electron-updater's MacUpdater filters
+      # the yml's `files` list by the running architecture (keeping arm64-named
+      # files on Apple Silicon, dropping them on Intel), so a release must ship
+      # ONE latest-mac.yml whose `files` array contains BOTH arches. Otherwise
+      # whichever yml is published last wins and the other arch's auto-update
+      # fails with ERR_UPDATER_ZIP_FILE_NOT_FOUND. Merge the two here.
+      - name: Merge macOS artifacts and update metadata
+        run: |
+          set -euo pipefail
+          # python3-yaml gives us PyYAML without tripping PEP 668 on the runner.
+          sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml
+          # Installer files (.dmg/.zip + blockmaps) have distinct per-arch names
+          # and never collide, so copy them all into ./artifacts.
+          for d in artifacts-mac-x64 artifacts-mac-arm64; do
+            [ -d "$d" ] || continue
+            find "$d" -maxdepth 1 -type f ! -name 'latest-mac.yml' -exec cp -f {} artifacts/ \;
+          done
+          python3 - <<'PY'
+          import os, yaml
+          srcs = [p for p in ("artifacts-mac-x64/latest-mac.yml",
+                              "artifacts-mac-arm64/latest-mac.yml") if os.path.exists(p)]
+          docs = []
+          for p in srcs:
+              with open(p) as fh:
+                  docs.append(yaml.safe_load(fh))
+          if not docs:
+              raise SystemExit("No latest-mac.yml found to merge")
+          # Base on the first doc; union the `files` arrays (by url) so both the
+          # x64 and arm64 zips/dmgs are advertised in one manifest.
+          merged = docs[0]
+          seen = {f["url"] for f in merged.get("files", [])}
+          for extra in docs[1:]:
+              for fi in extra.get("files", []):
+                  if fi["url"] not in seen:
+                      merged.setdefault("files", []).append(fi)
+                      seen.add(fi["url"])
+          with open("artifacts/latest-mac.yml", "w") as fh:
+              yaml.safe_dump(merged, fh, default_flow_style=False, sort_keys=False)
+          print("Merged latest-mac.yml advertises:")
+          for fi in merged.get("files", []):
+              print("  -", fi["url"])
+          PY
 
       - name: List downloaded artifacts
         run: |
@@ -157,34 +303,28 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
-          
-          # Get the previous tag
+
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          
           if [ -z "$PREVIOUS_TAG" ]; then
             COMMIT_RANGE="HEAD"
           else
             COMMIT_RANGE="${PREVIOUS_TAG}..HEAD"
           fi
-          
-          # Generate changelog
-          echo "## What's Changed" > CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          
-          # Get commits since last tag
-          git log ${COMMIT_RANGE} --pretty=format:"- %s (%an)" --no-merges >> CHANGELOG.md
-          
-          echo "" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "## Statistics" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "- **Commits**: $(git rev-list --count ${COMMIT_RANGE})" >> CHANGELOG.md
-          echo "- **Contributors**: $(git log ${COMMIT_RANGE} --format='%an' --no-merges | sort -u | wc -l)" >> CHANGELOG.md
-          
-          # Add language support info
-          LANG_COUNT=$(find locales -name "*.json" -type f | wc -l)
-          echo "- **Supported Languages**: ${LANG_COUNT}" >> CHANGELOG.md
-          
+
+          {
+            echo "## What's Changed"
+            echo ""
+            git log ${COMMIT_RANGE} --pretty=format:"- %s (%an)" --no-merges
+            echo ""
+            echo ""
+            echo "## Statistics"
+            echo ""
+            echo "- **Commits**: $(git rev-list --count ${COMMIT_RANGE})"
+            echo "- **Contributors**: $(git log ${COMMIT_RANGE} --format='%an' --no-merges | sort -u | wc -l)"
+            LANG_COUNT=$(find client/locales -name "*.json" -type f | wc -l)
+            echo "- **Supported Languages**: ${LANG_COUNT}"
+          } > CHANGELOG.md
+
           cat CHANGELOG.md
 
       - name: Create Release

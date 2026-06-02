@@ -38,6 +38,9 @@ const availableLocales: Record<string, string> = {
 
 const currentLocale = ref<string>('en');
 const localeData = ref<LocaleData | null>(null);
+// English data kept loaded as a fallback so untranslated/new keys in other
+// locales render real text instead of the raw key path.
+const fallbackData = ref<LocaleData | null>(null);
 
 export const useI18n = () => {
   // Get URL parameter
@@ -65,7 +68,17 @@ export const useI18n = () => {
       const data = await response.json();
       localeData.value = data;
       currentLocale.value = locale;
-      
+
+      // Keep English loaded as the fallback for any keys missing in `locale`.
+      if (locale === 'en') {
+        fallbackData.value = data;
+      } else if (!fallbackData.value) {
+        try {
+          const enResponse = await fetch('/liveplay/locales/en.json');
+          fallbackData.value = await enResponse.json();
+        } catch { /* fallback is best-effort */ }
+      }
+
       // Save to localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem('docs-locale', locale);
@@ -79,22 +92,26 @@ export const useI18n = () => {
     }
   };
 
-  // Get translation by path (e.g., 'header.tagline')
-  const t = (path: string): string => {
-    if (!localeData.value) return path;
-
-    const keys = path.split('.');
-    let value: any = localeData.value;
-
-    for (const key of keys) {
+  // Resolve a dotted path against a locale object, or return null if absent.
+  const resolve = (source: LocaleData | null, path: string): string | null => {
+    if (!source) return null;
+    let value: any = source;
+    for (const key of path.split('.')) {
       if (value && typeof value === 'object' && key in value) {
         value = value[key];
       } else {
-        return path; // Return path if not found
+        return null;
       }
     }
+    return typeof value === 'string' ? value : null;
+  };
 
-    return typeof value === 'string' ? value : path;
+  // Get translation by path (e.g., 'header.tagline'). Falls back to English,
+  // then to the raw path if even English is missing the key.
+  const t = (path: string): string => {
+    return resolve(localeData.value, path)
+      ?? resolve(fallbackData.value, path)
+      ?? path;
   };
 
   // Initialize locale

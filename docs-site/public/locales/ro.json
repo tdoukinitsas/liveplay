@@ -6,7 +6,10 @@
     "direction": "ltr"
   },
   "header": {
-    "tagline": "Redare Audio pentru Evenimente Live"
+    "tagline": "Redare Audio pentru Evenimente Live",
+    "version": "Versiune",
+    "logoAlt": "Logo LivePlay",
+    "screenshotAlt": "Interfața principală LivePlay cu editorul de playlist, cart-ul de cue-uri și panoul de proprietăți"
   },
   "download": {
     "title": "Descarcă LivePlay",
@@ -17,12 +20,6 @@
       "buttonText": "Descarcă .exe",
       "size": "~150 MB"
     },
-    "mac": {
-      "title": "macOS",
-      "description": "macOS 10.15+ (Universal)",
-      "buttonText": "Descarcă .dmg",
-      "size": "~140 MB"
-    },
     "linux": {
       "title": "Linux",
       "description": "AppImage (Universal)",
@@ -32,14 +29,38 @@
     "otherFormats": "Alte formate disponibile:",
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "macZip": ".zip (macOS)",
-    "viewReleases": "Vezi toate versiunile pe GitHub →"
+    "viewReleases": "Vezi toate versiunile pe GitHub →",
+    "macArm": {
+      "title": "macOS — Apple Silicon",
+      "description": "M1/M2/M3 și mai noi (arm64)",
+      "buttonText": "Descarcă .dmg",
+      "size": "~140 MB"
+    },
+    "macIntel": {
+      "title": "macOS — Intel",
+      "description": "Mac-uri Intel (x64), macOS 11+",
+      "buttonText": "Descarcă .dmg",
+      "size": "~145 MB"
+    },
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "recommended": "Recomandat pentru sistemul tău",
+    "showOtherOS": "Descarcă pentru alt sistem de operare",
+    "hideOtherOS": "Ascunde celelalte sisteme de operare"
   },
   "features": {
     "title": "Caracteristici principale",
     "interface": {
       "title": "Interfață intuitivă",
       "description": "LivePlay are o interfață curată, simplă și modernă, concepută special pentru operatorii de sunet live. Organizați fișierele audio principale în liste de redare și adăugați sunete la playerul de cărucior pentru acces rapid sau anunțuri. Fișierele audio adăugate la cărucior se vor comporta automat ca anunțuri, reducând orice audio de fundal în timpul redării."
+    },
+    "audioEngine": {
+      "title": "Motor audio robust în C++",
+      "description": "În inima LivePlay se află un motor audio dedicat și performant scris în C++ care comunică direct cu hardware-ul tău audio — WASAPI pe Windows, Core Audio pe macOS și ALSA pe Linux. Fiecare cue rulează ca o instanță de redare complet independentă, cu propriul decodor și propria anvelopă de fade, astfel încât redarea aceluiași fișier de două ori la volume diferite se comportă întotdeauna exact cum te aștepți. Motorul rulează ca un proces server de sine stătător: poate funcționa în interiorul aplicației desktop sau fără interfață pe o mașină dedicată din culise, conectată la interfețele tale audio."
+    },
+    "routing": {
+      "title": "Rutare audio pe mai multe dispozitive",
+      "description": "Rutează audio de la orice cue către orice combinație de canale de ieșire pe mai multe plăci de sunet simultan, cu atribuire independentă a ieșirii pentru fiecare element. Matricea de rutare îți permite să împarți un fișier stereo în canale individuale și să trimiți fiecare către un dispozitiv diferit cu propriul gain — perfect pentru a alimenta front-of-house, un mix de monitoare și o ieșire de înregistrare dintr-un singur cue, totul deodată."
     },
     "waveform": {
       "title": "Editor de formă de undă",
@@ -57,9 +78,29 @@
       "title": "Reducere automată",
       "description": "Configurați reducerea automată pentru a reduce volumul muzicii de fundal când sunt redate anunțuri sau dialoguri. Perfect pentru tranziții line în producțiile live."
     },
+    "remoteOperation": {
+      "title": "Operare locală sau la distanță",
+      "description": "Serverul audio LivePlay pornește automat împreună cu aplicația sau poate rula pe o mașină dedicată din culise, cu interfețele tale audio conectate. Conectează-te de la orice computer din aceeași rețea și preia controlul total — transport, proprietăți, rutare și măsurare în timp real funcționează toate la distanță, oferindu-ți flexibilitatea de a separa poziția de control de hardware-ul audio."
+    },
     "firstLaunch": {
       "title": "Configurare rapidă",
       "description": "Începeți în câteva secunde cu procesul de configurare simplificat al LivePlay. Selectați un folder, creați un proiect și începeți să importați fișiere! Toate materialele media sunt colectate automat într-un singur loc, astfel încât să puteți muta proiectul între calculatoare cu ușurință."
+    },
+    "limiter": {
+      "title": "Limitator brickwall și ținte de loudness",
+      "description": "Un limitator brickwall veritabil acționează pe fiecare canal de ieșire, menținându-ți nivelurile constante și protejând hardware-ul și publicul de vârfuri necontrolate. Alege dintre țintele de ieșire integrate care respectă standardele profesionale de loudness — EBU R128, streaming, radio, Netflix și live — iar LivePlay aplică automat plafonul, zonele de măsurare și calibrarea formei de undă corecte."
+    },
+    "meters": {
+      "title": "Măsurare la calitate broadcast",
+      "description": "Ai încredere în ceea ce auzi datorită măsurării în timp real, la calitate broadcast, în fiecare etapă a traseului semnalului — pe cue, pe canal de mixaj și pe ieșirea master. Zonele de măsurare codate pe culori urmează ținta de loudness pe care ai selectat-o, ca să vezi dintr-o privire dacă te încadrezi confortabil în specificații sau intri în roșu."
+    },
+    "previewLtc": {
+      "title": "Pre-ascultare dedicată și timecode LTC",
+      "description": "Pre-ascultă cue-urile în liniște pe un dispozitiv de pre-ascultare dedicat — căști sau o magistrală de cue — fără să atingi vreodată ieșirile principale, ca să pregătești următorul cue în timp ce spectacolul continuă. Un generator separat de timecode SMPTE LTC emite un semnal de timecode liniar continuu pe propriul canal, permițându-ți să sincronizezi pupitre de lumini, redare video și alte dispozitive externe cu LivePlay."
+    },
+    "discovery": {
+      "title": "Descoperire automată și fiabilitate de neclintit",
+      "description": "Serverele LivePlay se anunță în rețeaua ta locală, astfel încât clienții le găsesc automat — fără adrese IP de tastat. Dacă motorul audio se oprește vreodată neașteptat, se repornește instantaneu și reia redarea exact de unde a rămas, astfel încât spectacolul tău să continue. Și pentru că motorul este un server adevărat, mai mulți clienți se pot conecta la aceeași instanță în același timp — ideal pentru un operator principal și unul de rezervă sau un regizor de scenă care monitorizează redarea alături de tehnicianul de sunet."
     }
   },
   "footer": {
@@ -68,5 +109,34 @@
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Vezi pe GitHub",
     "contributors": "Contribuitori"
+  },
+  "common": {
+    "changeLanguage": "Schimbă limba"
+  },
+  "ports": {
+    "title": "Porturi de rețea",
+    "subtitle": "Dacă rulezi serverul și clientul pe mașini diferite, asigură-te că aceste porturi sunt deschise în rețeaua și firewall-ul tău.",
+    "control": {
+      "port": "TCP 4480",
+      "title": "Suprafață de control",
+      "description": "Conexiune REST API și WebSocket care transportă comenzi de transport, date de proiect, rutare și măsurători în timp real între client și server."
+    },
+    "discovery": {
+      "port": "UDP 4481",
+      "title": "Descoperire automată",
+      "description": "Beacon broadcast și multicast (grupul 239.255.69.80) care permite clienților să găsească automat serverele LivePlay în rețeaua locală."
+    },
+    "note": "O instalare pe o singură mașină nu necesită configurare — clientul și serverul comunică prin 127.0.0.1, iar programul de instalare Windows adaugă regulile de firewall pentru tine. Aceste porturi contează doar când separi poziția de control de hardware-ul audio printr-un LAN."
+  },
+  "contribute": {
+    "title": "Contribuie",
+    "subtitle": "LivePlay este gratuit și open-source — și va fi întotdeauna.",
+    "freeTitle": "Gratuit pentru totdeauna",
+    "freeText": "LivePlay este complet gratuit de descărcat și utilizat — fără taxe de licență, fără abonamente, fără paywall. Fiecare funcție este disponibilă tuturor, fără niveluri premium.",
+    "licenseTitle": "Licență open-source",
+    "licenseText": "LivePlay este lansat sub licența GNU AGPL-3.0. Pe scurt: ești liber să îl folosești, să îl studiezi, să îl distribui și să îl modifici. Dacă distribui o versiune modificată — sau o rulezi ca serviciu de rețea — trebuie să pui codul sursă la dispoziție sub aceeași licență, astfel încât întreaga comunitate să continue să beneficieze.",
+    "contributeTitle": "Cum poți ajuta",
+    "contributeText": "Oricine poate contribui. Raportează erori, sugerează funcții, îmbunătățește traducerile sau trimite cod — orice contribuție este binevenită. Accesează depozitul GitHub pentru a deschide un issue sau un pull request.",
+    "githubButton": "Contribuie pe GitHub →"
   }
 }

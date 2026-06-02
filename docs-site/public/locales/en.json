@@ -6,7 +6,13 @@
     "direction": "ltr"
   },
   "header": {
-    "tagline": "Audio Cue Playback for Live Events"
+    "tagline": "Audio Cue Playback for Live Events",
+    "version": "Version",
+    "logoAlt": "LivePlay logo",
+    "screenshotAlt": "LivePlay main interface showing the playlist editor, cue cart, and properties panel"
+  },
+  "common": {
+    "changeLanguage": "Change language"
   },
   "download": {
     "title": "Download LivePlay",
@@ -17,29 +23,70 @@
       "buttonText": "Download .exe",
       "size": "~150 MB"
     },
-    "mac": {
-      "title": "macOS",
-      "description": "macOS 10.15+ (Universal)",
+    "macArm": {
+      "title": "macOS — Apple Silicon",
+      "description": "M1/M2/M3 and newer (arm64)",
       "buttonText": "Download .dmg",
       "size": "~140 MB"
     },
+    "macIntel": {
+      "title": "macOS — Intel",
+      "description": "Intel Macs (x64), macOS 11+",
+      "buttonText": "Download .dmg",
+      "size": "~145 MB"
+    },
     "linux": {
       "title": "Linux",
-      "description": "AppImage (Universal)",
+      "description": "AppImage (x64)",
       "buttonText": "Download .AppImage",
       "size": "~155 MB"
     },
+    "recommended": "Recommended for your system",
+    "showOtherOS": "Download for another operating system",
+    "hideOtherOS": "Hide other operating systems",
     "otherFormats": "Other formats available:",
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "macZip": ".zip (macOS)",
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
     "viewReleases": "View all releases on GitHub →"
+  },
+  "contribute": {
+    "title": "Contribute",
+    "subtitle": "LivePlay is free and open-source — and always will be.",
+    "freeTitle": "Free forever",
+    "freeText": "LivePlay is completely free to download and use — no licence fees, no subscriptions, no paywalls. Every feature is available to everyone, with no premium tiers.",
+    "licenseTitle": "Open-source licence",
+    "licenseText": "LivePlay is released under the GNU AGPL-3.0 licence. In plain terms: you are free to use, study, share and modify it. If you share a modified version — or run it as a network service — you must make your source code available under the same licence, so the whole community keeps benefiting.",
+    "contributeTitle": "How to help",
+    "contributeText": "Anyone can contribute. Report bugs, suggest features, improve translations or submit code — every contribution is welcome. Head to the GitHub repository to open an issue or a pull request.",
+    "githubButton": "Contribute on GitHub →"
   },
   "features": {
     "title": "Key Features",
     "interface": {
       "title": "Intuitive Interface",
       "description": "LivePlay features a clean, simple and modern interface designed specifically for live sound operators. Organize your main sound files in playlists, and add sounds to a cart player for quick access or announcements. Audio files added to the cart will automatically behave as announcements, ducking any background audio when played."
+    },
+    "audioEngine": {
+      "title": "Robust C++ Audio Engine",
+      "description": "At the heart of LivePlay is a dedicated, high-performance audio engine written in C++ that talks directly to your sound hardware — WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Every cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always behaves exactly as expected. The engine runs as a standalone server process: it can live inside the desktop app, or run headless on a dedicated backstage machine wired to your audio interfaces."
+    },
+    "limiter": {
+      "title": "Brick-Wall Limiter & Loudness Targets",
+      "description": "A true brick-wall limiter sits on every output channel, keeping your levels consistent and protecting your hardware and audience from runaway peaks. Choose from built-in output targets that match professional loudness standards — EBU R128, streaming, radio, Netflix and live — and LivePlay applies the right ceiling, metering zones and waveform calibration automatically."
+    },
+    "meters": {
+      "title": "Broadcast-Grade Metering",
+      "description": "Trust what you hear with real-time, broadcast-quality metering at every stage of the signal path — per-cue, per mixer channel, and on the master output. Colour-coded meter zones follow the loudness target you've selected, so you can see at a glance whether you're sitting comfortably within spec or pushing into the red."
+    },
+    "routing": {
+      "title": "Multi-Device Audio Routing",
+      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously, with independent output assignment per item. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+    },
+    "previewLtc": {
+      "title": "Dedicated Preview & LTC Timecode",
+      "description": "Audition cues silently on a dedicated preview device — headphones or a cue bus — without ever touching your main outputs, so you can line up the next cue while the show rolls on. A separate SMPTE LTC timecode generator outputs a continuous linear timecode signal on its own channel, letting you synchronise lighting desks, video playback and other external devices to LivePlay."
     },
     "waveform": {
       "title": "Waveform Trimmer",
@@ -57,10 +104,33 @@
       "title": "Automatic Ducking",
       "description": "Configure automatic ducking to lower the volume of background music when announcements or dialogue play. Perfect for smooth transitions in live productions."
     },
+    "discovery": {
+      "title": "Automatic Discovery & Rock-Solid Reliability",
+      "description": "LivePlay servers announce themselves on your local network, so clients find them automatically — no IP addresses to type in. If the audio engine ever stops unexpectedly, it relaunches itself instantly and resumes playback right where it left off, so your show keeps running. And because the engine is a true server, multiple clients can connect to the same instance at once — ideal for a primary operator and a backup, or a stage manager monitoring playback alongside the sound op."
+    },
+    "remoteOperation": {
+      "title": "Local or Remote Operation",
+      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
+    },
     "firstLaunch": {
       "title": "Quick Setup",
       "description": "Get started in seconds with LivePlay's streamlined setup process. Select a folder, create a project and start importing files! All your media gets automatically collected into one place so you can move your project between computers with ease."
     }
+  },
+  "ports": {
+    "title": "Network Ports",
+    "subtitle": "If you're running the server and client on different machines, make sure these ports are open on your network and firewall.",
+    "control": {
+      "port": "TCP 4480",
+      "title": "Control Surface",
+      "description": "REST API and WebSocket connection carrying transport commands, project data, routing and live meters between the client and server."
+    },
+    "discovery": {
+      "port": "UDP 4481",
+      "title": "Automatic Discovery",
+      "description": "Broadcast and multicast beacon (group 239.255.69.80) that lets clients find LivePlay servers on the local network automatically."
+    },
+    "note": "A single-machine install needs no configuration — the client and server talk over 127.0.0.1 and the Windows installer adds the firewall rules for you. These ports only matter when separating the control position from the audio hardware across a LAN."
   },
   "footer": {
     "license": "is licensed under the",

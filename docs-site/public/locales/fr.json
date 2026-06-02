@@ -6,7 +6,10 @@
     "direction": "ltr"
   },
   "header": {
-    "tagline": "Lecture Audio pour Événements en Direct"
+    "tagline": "Lecture Audio pour Événements en Direct",
+    "version": "Version",
+    "logoAlt": "Logo LivePlay",
+    "screenshotAlt": "Interface principale de LivePlay montrant l'éditeur de playlist, le cart de cues et le panneau de propriétés"
   },
   "download": {
     "title": "Télécharger LivePlay",
@@ -17,12 +20,6 @@
       "buttonText": "Télécharger .exe",
       "size": "~150 MB"
     },
-    "mac": {
-      "title": "macOS",
-      "description": "macOS 10.15+ (Universal)",
-      "buttonText": "Télécharger .dmg",
-      "size": "~140 MB"
-    },
     "linux": {
       "title": "Linux",
       "description": "AppImage (Universal)",
@@ -32,14 +29,38 @@
     "otherFormats": "Autres formats disponibles :",
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "macZip": ".zip (macOS)",
-    "viewReleases": "Voir toutes les versions sur GitHub →"
+    "viewReleases": "Voir toutes les versions sur GitHub →",
+    "macArm": {
+      "title": "macOS — Apple Silicon",
+      "description": "M1/M2/M3 et plus récents (arm64)",
+      "buttonText": "Télécharger .dmg",
+      "size": "~140 MB"
+    },
+    "macIntel": {
+      "title": "macOS — Intel",
+      "description": "Mac Intel (x64), macOS 11+",
+      "buttonText": "Télécharger .dmg",
+      "size": "~145 MB"
+    },
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "recommended": "Recommandé pour votre système",
+    "showOtherOS": "Télécharger pour un autre système d’exploitation",
+    "hideOtherOS": "Masquer les autres systèmes d’exploitation"
   },
   "features": {
     "title": "Fonctionnalités Principales",
     "interface": {
       "title": "Interface Intuitive",
       "description": "LivePlay dispose d'une interface propre, simple et moderne conçue spécifiquement pour les opérateurs son en direct. Organisez vos fichiers son principaux dans des listes de lecture et ajoutez des sons à un lecteur de chariot pour un accès rapide ou des annonces. Les fichiers audio ajoutés au chariot se comporteront automatiquement comme des annonces, réduisant tout audio d'arrière-plan lors de la lecture."
+    },
+    "audioEngine": {
+      "title": "Moteur audio C++ robuste",
+      "description": "Au cœur de LivePlay se trouve un moteur audio dédié et performant écrit en C++ qui communique directement avec votre matériel audio — WASAPI sous Windows, Core Audio sous macOS et ALSA sous Linux. Chaque cue s'exécute comme une instance de lecture entièrement indépendante avec son propre décodeur et sa propre enveloppe de fondu, de sorte que lire deux fois le même fichier à des volumes différents se comporte toujours exactement comme prévu. Le moteur fonctionne comme un processus serveur autonome : il peut résider dans l'application de bureau ou s'exécuter sans interface sur une machine dédiée en coulisses reliée à vos interfaces audio."
+    },
+    "routing": {
+      "title": "Routage audio multi-périphériques",
+      "description": "Acheminez l'audio de n'importe quel cue vers n'importe quelle combinaison de canaux de sortie sur plusieurs cartes son simultanément, avec une affectation de sortie indépendante par élément. La matrice de routage vous permet de diviser un fichier stéréo en canaux individuels et d'envoyer chacun vers un appareil différent avec son propre gain — parfait pour alimenter la façade, un mix de retours et une sortie d'enregistrement à partir d'un seul cue, le tout en même temps."
     },
     "waveform": {
       "title": "Éditeur de Forme d'Onde",
@@ -57,9 +78,29 @@
       "title": "Ducking Automatique",
       "description": "Configurez le ducking automatique pour réduire le volume de la musique de fond lorsque des annonces ou des dialogues sont lus. Parfait pour des transitions fluides dans les productions en direct."
     },
+    "remoteOperation": {
+      "title": "Fonctionnement local ou distant",
+      "description": "Le serveur audio de LivePlay se lance automatiquement avec l'application, ou peut tourner sur une machine dédiée en coulisses avec vos interfaces audio connectées. Connectez-vous depuis n'importe quel ordinateur du même réseau et prenez le contrôle total — transport, propriétés, routage et mesure en direct fonctionnent tous à distance, vous offrant la flexibilité de séparer votre position de contrôle de votre matériel audio."
+    },
     "firstLaunch": {
       "title": "Configuration Rapide",
       "description": "Démarrez en quelques secondes avec le processus de configuration simplifié de LivePlay. Sélectionnez un dossier, créez un projet et commencez à importer des fichiers ! Tous vos médias sont automatiquement collectés en un seul endroit pour que vous puissiez déplacer votre projet entre ordinateurs facilement."
+    },
+    "limiter": {
+      "title": "Limiteur brickwall et cibles de sonie",
+      "description": "Un véritable limiteur brickwall agit sur chaque canal de sortie, gardant vos niveaux constants et protégeant votre matériel et votre public des crêtes incontrôlées. Choisissez parmi des cibles de sortie intégrées conformes aux normes professionnelles de sonie — EBU R128, streaming, radio, Netflix et live — et LivePlay applique automatiquement le plafond, les zones de mesure et l'étalonnage de forme d'onde appropriés."
+    },
+    "meters": {
+      "title": "Mesure de qualité broadcast",
+      "description": "Fiez-vous à ce que vous entendez grâce à une mesure en temps réel de qualité broadcast à chaque étape du trajet du signal — par cue, par canal de mixage et sur la sortie master. Les zones de mesure à code couleur suivent la cible de sonie que vous avez choisie, pour voir d'un coup d'œil si vous restez confortablement dans les spécifications ou si vous passez dans le rouge."
+    },
+    "previewLtc": {
+      "title": "Pré-écoute dédiée et timecode LTC",
+      "description": "Pré-écoutez les cues en silence sur un périphérique de pré-écoute dédié — casque ou bus de cue — sans jamais toucher à vos sorties principales, afin de préparer le cue suivant pendant que le spectacle se déroule. Un générateur de timecode SMPTE LTC séparé émet un signal de timecode linéaire continu sur son propre canal, vous permettant de synchroniser pupitres lumière, lecture vidéo et autres appareils externes avec LivePlay."
+    },
+    "discovery": {
+      "title": "Découverte automatique et fiabilité à toute épreuve",
+      "description": "Les serveurs LivePlay s'annoncent sur votre réseau local, de sorte que les clients les trouvent automatiquement — aucune adresse IP à saisir. Si le moteur audio s'arrête de façon inattendue, il redémarre instantanément et reprend la lecture exactement là où elle s'était arrêtée, pour que votre spectacle continue. Et comme le moteur est un véritable serveur, plusieurs clients peuvent se connecter à la même instance en même temps — idéal pour un opérateur principal et une sauvegarde, ou un régisseur qui surveille la lecture aux côtés du technicien son."
     }
   },
   "footer": {
@@ -68,5 +109,34 @@
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Voir sur GitHub",
     "contributors": "Contributeurs"
+  },
+  "common": {
+    "changeLanguage": "Changer de langue"
+  },
+  "ports": {
+    "title": "Ports réseau",
+    "subtitle": "Si vous exécutez le serveur et le client sur des machines différentes, assurez-vous que ces ports sont ouverts sur votre réseau et votre pare-feu.",
+    "control": {
+      "port": "TCP 4480",
+      "title": "Surface de contrôle",
+      "description": "Connexion REST API et WebSocket transportant les commandes de transport, les données du projet, le routage et les mesures en direct entre le client et le serveur."
+    },
+    "discovery": {
+      "port": "UDP 4481",
+      "title": "Découverte automatique",
+      "description": "Balise broadcast et multicast (groupe 239.255.69.80) qui permet aux clients de trouver automatiquement les serveurs LivePlay sur le réseau local."
+    },
+    "note": "Une installation sur une seule machine ne nécessite aucune configuration — le client et le serveur communiquent via 127.0.0.1 et l'installateur Windows ajoute les règles de pare-feu pour vous. Ces ports ne comptent que lorsque vous séparez la position de contrôle du matériel audio à travers un LAN."
+  },
+  "contribute": {
+    "title": "Contribuer",
+    "subtitle": "LivePlay est gratuit et open source — et le restera toujours.",
+    "freeTitle": "Gratuit pour toujours",
+    "freeText": "LivePlay est entièrement gratuit à télécharger et à utiliser — aucuns frais de licence, aucun abonnement, aucun paywall. Toutes les fonctionnalités sont accessibles à tous, sans niveaux premium.",
+    "licenseTitle": "Licence open source",
+    "licenseText": "LivePlay est publié sous la licence GNU AGPL-3.0. En termes simples : vous êtes libre de l’utiliser, de l’étudier, de le partager et de le modifier. Si vous partagez une version modifiée — ou l’exécutez en tant que service réseau — vous devez rendre votre code source disponible sous la même licence, afin que toute la communauté continue d’en bénéficier.",
+    "contributeTitle": "Comment aider",
+    "contributeText": "Tout le monde peut contribuer. Signalez des bugs, proposez des fonctionnalités, améliorez les traductions ou soumettez du code — toute contribution est la bienvenue. Rendez-vous sur le dépôt GitHub pour ouvrir une issue ou une pull request.",
+    "githubButton": "Contribuer sur GitHub →"
   }
 }

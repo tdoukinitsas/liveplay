@@ -1,9 +1,9 @@
 <template>
   <div class="language-switcher">
-    <button 
+    <button
       class="language-button"
       @click="toggleDropdown"
-      :aria-label="'Change language'"
+      :aria-label="t('common.changeLanguage')"
     >
       <span class="material-symbols-rounded">language</span>
       <span class="current-locale">{{ locale }}</span>
@@ -27,7 +27,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useI18n } from '../composables/useI18n';
 
-const { locale, locales, setLocale } = useI18n();
+const { t, locale, locales, setLocale } = useI18n();
 const isOpen = ref(false);
 
 const toggleDropdown = () => {
