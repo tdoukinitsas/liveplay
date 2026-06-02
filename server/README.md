@@ -132,16 +132,32 @@ npm run server:run -- --verbose  # launch with debug logs
 
 ```
 liveplay-server [options]
-  -p, --port <port>     Port to listen on (default 4480)
-  -b, --bind <addr>     Interface to bind (default 0.0.0.0)
-  -v, --verbose         Enable debug-level logging
-  -h, --help            Show this help and exit
+  -p, --port <port>         Port to listen on (default 4480)
+  -b, --bind <addr>         Interface to bind (default 0.0.0.0)
+      --pidfile <path>      Write JSON {pid,port,startedAt} after binding
+      --start-delay-ms <n>  Wait <n> ms before binding (used by crash-restart)
+  -v, --verbose             Enable debug-level logging
+  -h, --help                Show this help and exit
 
 Environment:
   LIVEPLAY_PORT         Same as --port
   NO_COLOR=1            Disable ANSI colour in logs
   FORCE_COLOR=1         Force colour even when stdout isn't a tty
 ```
+
+The control surface listens on **TCP 4480** (REST + WebSocket). Alongside it, the
+[discovery beacon](include/liveplay/net/discovery.hpp) announces the server on
+**UDP 4481** via subnet broadcast and multicast (group `239.255.69.80`), and answers
+client solicitations with a unicast reply — so clients on the LAN can find the server
+without a hand-typed address. Open both ports through any firewall when running the
+server on a separate machine from the client.
+
+If the server crashes, its crash handler spawns a fresh copy of itself with the same
+flags plus `--start-delay-ms` (so the old listening socket drains before the new
+instance binds) and leaves a `.crash-resume.json` behind. The restarted instance reads
+that file, reloads the open project and resumes playback from where it left off — so a
+crash doesn't take the show down. The desktop client tracks the live server via the
+`--pidfile` it passes on launch.
 
 On boot it prints a banner showing the LAN-reachable URL:
 

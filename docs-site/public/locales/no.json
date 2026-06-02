@@ -6,7 +6,10 @@
     "direction": "ltr"
   },
   "header": {
-    "tagline": "Lydavspilling for Live-arrangementer"
+    "tagline": "Lydavspilling for Live-arrangementer",
+    "version": "Versjon",
+    "logoAlt": "LivePlay-logo",
+    "screenshotAlt": "LivePlays hovedgrensesnitt med spillelisteredigerer, cue-cart og egenskapspanel"
   },
   "download": {
     "title": "Last ned LivePlay",
@@ -17,12 +20,6 @@
       "buttonText": "Last ned .exe",
       "size": "~150 MB"
     },
-    "mac": {
-      "title": "macOS",
-      "description": "macOS 10.15+ (Universal)",
-      "buttonText": "Last ned .dmg",
-      "size": "~140 MB"
-    },
     "linux": {
       "title": "Linux",
       "description": "AppImage (Universal)",
@@ -32,8 +29,24 @@
     "otherFormats": "Andre tilgjengelige formater:",
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "macZip": ".zip (macOS)",
-    "viewReleases": "Se alle utgivelser på GitHub →"
+    "viewReleases": "Se alle utgivelser på GitHub →",
+    "macArm": {
+      "title": "macOS — Apple Silicon",
+      "description": "M1/M2/M3 og nyere (arm64)",
+      "buttonText": "Last ned .dmg",
+      "size": "~140 MB"
+    },
+    "macIntel": {
+      "title": "macOS — Intel",
+      "description": "Intel-Mac-er (x64), macOS 11+",
+      "buttonText": "Last ned .dmg",
+      "size": "~145 MB"
+    },
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "recommended": "Anbefalt for systemet ditt",
+    "showOtherOS": "Last ned for et annet operativsystem",
+    "hideOtherOS": "Skjul andre operativsystemer"
   },
   "features": {
     "title": "Hovedfunksjoner",
@@ -42,12 +55,12 @@
       "description": "LivePlay har et rent, enkelt og moderne grensesnitt designet spesifikt for live-lydoperatører. Organiser hovedlydfiler i spillelister og legg til lyder i en vogn-spiller for rask tilgang eller kunngjøringer. Lydfiler lagt til vognen vil automatisk oppføre seg som kunngjøringer og senke bakgrunnslyden under avspilling."
     },
     "audioEngine": {
-      "title": "Professional Audio Engine",
-      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+      "title": "Robust C++-lydmotor",
+      "description": "I hjertet av LivePlay ligger en dedikert, høytytende lydmotor skrevet i C++ som kommuniserer direkte med lydmaskinvaren din — WASAPI på Windows, Core Audio på macOS og ALSA på Linux. Hver cue kjører som en helt uavhengig avspillingsinstans med egen dekoder og fade-kurve, slik at å spille av samme fil to ganger med ulikt volum alltid oppfører seg nøyaktig som forventet. Motoren kjører som en frittstående serverprosess: den kan ligge inne i skrivebordsappen, eller kjøre uten grensesnitt på en dedikert backstage-maskin koblet til lydgrensesnittene dine."
     },
     "routing": {
-      "title": "Multi-Device Audio Routing",
-      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+      "title": "Lydruting for flere enheter",
+      "description": "Rut lyd fra hvilken som helst cue til hvilken som helst kombinasjon av utgangskanaler på flere lydkort samtidig, med uavhengig utgangstildeling per element. Rutematrisen lar deg dele en stereofil opp i enkeltkanaler og sende hver til en egen enhet med eget nivå — perfekt for å mate front-of-house, en monitormiks og en opptaksutgang fra én enkelt cue, alt samtidig."
     },
     "waveform": {
       "title": "Bølgeform-trimmer",
@@ -66,12 +79,28 @@
       "description": "Konfigurer automatisk ducking for å senke volumet på bakgrunnsmusikk når kunngjøringer eller dialog spilles. Perfekt for jevne overganger i live-produksjoner."
     },
     "remoteOperation": {
-      "title": "Local or Remote Operation",
-      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
+      "title": "Lokal eller ekstern drift",
+      "description": "LivePlays lydserver starter automatisk sammen med applikasjonen, eller kan kjøres på en dedikert backstage-maskin med lydgrensesnittene dine tilkoblet. Koble til fra hvilken som helst datamaskin på samme nettverk og ta full kontroll — transport, egenskaper, ruting og sanntidsmåling fungerer alle eksternt, slik at du fleksibelt kan skille kontrollposisjonen fra lydmaskinvaren."
     },
     "firstLaunch": {
       "title": "Rask oppsett",
       "description": "Kom i gang på sekunder med LivePlays strømlinjeformede oppsettsprosess. Velg en mappe, opprett et prosjekt og begynn å importere filer! All mediene dine blir automatisk samlet på ett sted slik at du enkelt kan flytte prosjektet mellom datamaskiner."
+    },
+    "limiter": {
+      "title": "Brickwall-limiter og lydstyrkemål",
+      "description": "En ekte brickwall-limiter sitter på hver utgangskanal og holder nivåene dine jevne og beskytter maskinvaren og publikum mot ukontrollerte topper. Velg blant innebygde utgangsmål som følger profesjonelle lydstyrkestandarder — EBU R128, strømming, radio, Netflix og live — og LivePlay bruker automatisk riktig tak, målesoner og bølgeformkalibrering."
+    },
+    "meters": {
+      "title": "Måling i kringkastingskvalitet",
+      "description": "Stol på det du hører med sanntidsmåling i kringkastingskvalitet i hvert ledd av signalkjeden — per cue, per mikserkanal og på masterutgangen. Fargekodede målesoner følger lydstyrkemålet du har valgt, slik at du med et blikk ser om du ligger komfortabelt innenfor spesifikasjonen eller går i rødt."
+    },
+    "previewLtc": {
+      "title": "Dedikert forhåndslytting og LTC-tidskode",
+      "description": "Forhåndslytt cues lydløst på en dedikert forhåndslyttingsenhet — hodetelefoner eller en cue-buss — uten å berøre hovedutgangene, slik at du kan stille opp neste cue mens forestillingen går. En egen SMPTE LTC-tidskodegenerator sender et kontinuerlig lineært tidskodesignal på sin egen kanal, slik at du kan synkronisere lyspulter, videoavspilling og andre eksterne enheter med LivePlay."
+    },
+    "discovery": {
+      "title": "Automatisk oppdagelse og bunnsolid pålitelighet",
+      "description": "LivePlay-servere kunngjør seg selv på det lokale nettverket, slik at klienter finner dem automatisk — ingen IP-adresser å taste inn. Hvis lydmotoren skulle stoppe uventet, starter den seg selv på nytt umiddelbart og fortsetter avspillingen akkurat der den slapp, slik at forestillingen din går videre. Og fordi motoren er en ekte server, kan flere klienter koble seg til samme instans samtidig — ideelt for en hovedoperatør og en reserve, eller en inspisient som overvåker avspillingen ved siden av lydteknikeren."
     }
   },
   "footer": {
@@ -80,5 +109,34 @@
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Se på GitHub",
     "contributors": "Bidragsytere"
+  },
+  "common": {
+    "changeLanguage": "Bytt språk"
+  },
+  "ports": {
+    "title": "Nettverksporter",
+    "subtitle": "Hvis du kjører server og klient på ulike maskiner, må du sørge for at disse portene er åpne i nettverket og brannmuren din.",
+    "control": {
+      "port": "TCP 4480",
+      "title": "Kontrollflate",
+      "description": "REST API- og WebSocket-tilkobling som bærer transportkommandoer, prosjektdata, ruting og sanntidsmålere mellom klient og server."
+    },
+    "discovery": {
+      "port": "UDP 4481",
+      "title": "Automatisk oppdagelse",
+      "description": "Broadcast- og multicast-beacon (gruppe 239.255.69.80) som lar klienter finne LivePlay-servere på det lokale nettverket automatisk."
+    },
+    "note": "En installasjon på én maskin trenger ingen konfigurasjon — klient og server snakker over 127.0.0.1, og Windows-installasjonsprogrammet legger til brannmurreglene for deg. Disse portene betyr bare noe når du skiller kontrollposisjonen fra lydmaskinvaren over et LAN."
+  },
+  "contribute": {
+    "title": "Bidra",
+    "subtitle": "LivePlay er gratis og åpen kildekode — og vil alltid være det.",
+    "freeTitle": "Gratis for alltid",
+    "freeText": "LivePlay er helt gratis å laste ned og bruke — ingen lisensavgifter, ingen abonnementer, ingen betalingsmurer. Alle funksjoner er tilgjengelige for alle, uten premiumnivåer.",
+    "licenseTitle": "Åpen kildekode-lisens",
+    "licenseText": "LivePlay utgis under GNU AGPL-3.0-lisensen. Enkelt sagt: du står fritt til å bruke, studere, dele og endre det. Hvis du deler en endret versjon — eller kjører den som en nettverkstjeneste — må du gjøre kildekoden din tilgjengelig under samme lisens, slik at hele fellesskapet fortsetter å dra nytte av den.",
+    "contributeTitle": "Slik kan du hjelpe",
+    "contributeText": "Alle kan bidra. Rapporter feil, foreslå funksjoner, forbedre oversettelser eller send inn kode — alle bidrag er velkomne. Gå til GitHub-repositoriet for å åpne en issue eller en pull request.",
+    "githubButton": "Bidra på GitHub →"
   }
 }

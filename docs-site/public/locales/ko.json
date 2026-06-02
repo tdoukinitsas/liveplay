@@ -6,7 +6,10 @@
     "direction": "ltr"
   },
   "header": {
-    "tagline": "라이브 이벤트용 오디오 큐 재생"
+    "tagline": "라이브 이벤트용 오디오 큐 재생",
+    "version": "버전",
+    "logoAlt": "LivePlay 로고",
+    "screenshotAlt": "플레이리스트 편집기, 큐 카트, 속성 패널을 보여주는 LivePlay 메인 화면"
   },
   "download": {
     "title": "LivePlay 다운로드",
@@ -17,12 +20,6 @@
       "buttonText": ".exe 다운로드",
       "size": "~150 MB"
     },
-    "mac": {
-      "title": "macOS",
-      "description": "macOS 10.15+ (Universal)",
-      "buttonText": ".dmg 다운로드",
-      "size": "~140 MB"
-    },
     "linux": {
       "title": "Linux",
       "description": "AppImage (Universal)",
@@ -32,8 +29,24 @@
     "otherFormats": "사용 가능한 다른 형식:",
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "macZip": ".zip (macOS)",
-    "viewReleases": "GitHub에서 모든 릴리스 보기 →"
+    "viewReleases": "GitHub에서 모든 릴리스 보기 →",
+    "macArm": {
+      "title": "macOS — Apple Silicon",
+      "description": "M1/M2/M3 이상 (arm64)",
+      "buttonText": ".dmg 다운로드",
+      "size": "~140 MB"
+    },
+    "macIntel": {
+      "title": "macOS — Intel",
+      "description": "Intel Mac (x64), macOS 11 이상",
+      "buttonText": ".dmg 다운로드",
+      "size": "~145 MB"
+    },
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "recommended": "사용 중인 시스템에 권장",
+    "showOtherOS": "다른 운영 체제용 다운로드",
+    "hideOtherOS": "다른 운영 체제 숨기기"
   },
   "features": {
     "title": "주요 기능",
@@ -42,12 +55,12 @@
       "description": "LivePlay는 라이브 사운드 오퍼레이터를 위해 특별히 설계된 깔끔하고 간단하며 현대적인 인터페이스를 갖추고 있습니다. 주요 사운드 파일을 재생 목록으로 구성하고 빠른 액세스 또는 공지를 위해 카트 플레이어에 사운드를 추가하세요. 카트에 추가된 오디오 파일은 자동으로 공지로 동작하며 재생 시 배경 오디오를 덕킹합니다."
     },
     "audioEngine": {
-      "title": "Professional Audio Engine",
-      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+      "title": "견고한 C++ 오디오 엔진",
+      "description": "LivePlay의 핵심에는 C++로 작성된 전용 고성능 오디오 엔진이 있어 사운드 하드웨어와 직접 통신합니다 — Windows에서는 WASAPI, macOS에서는 Core Audio, Linux에서는 ALSA. 각 큐는 자체 디코더와 페이드 엔벨로프를 갖춘 완전히 독립적인 재생 인스턴스로 실행되므로, 같은 파일을 다른 볼륨으로 두 번 재생해도 항상 예상한 대로 정확히 동작합니다. 엔진은 독립 실행형 서버 프로세스로 작동하며, 데스크톱 앱 안에서 실행하거나 오디오 인터페이스가 연결된 전용 백스테이지 머신에서 헤드리스로 실행할 수 있습니다."
     },
     "routing": {
-      "title": "Multi-Device Audio Routing",
-      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+      "title": "다중 장치 오디오 라우팅",
+      "description": "여러 사운드카드에 걸친 출력 채널의 어떤 조합으로든 임의의 큐 오디오를 동시에 라우팅할 수 있으며, 항목마다 독립적으로 출력을 할당할 수 있습니다. 라우팅 매트릭스를 사용하면 스테레오 파일을 개별 채널로 분할하고 각 채널을 고유한 게인으로 서로 다른 장치에 보낼 수 있습니다 — 하나의 큐에서 프런트 오브 하우스, 모니터 믹스, 녹음 출력을 동시에 공급하기에 완벽합니다."
     },
     "waveform": {
       "title": "파형 트리머",
@@ -66,12 +79,28 @@
       "description": "공지 또는 대화가 재생될 때 배경 음악의 볼륨을 낮추도록 자동 덕킹을 구성하세요. 라이브 프로덕션에서 부드러운 전환에 완벽합니다."
     },
     "remoteOperation": {
-      "title": "Local or Remote Operation",
-      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
+      "title": "로컬 또는 원격 운영",
+      "description": "LivePlay 오디오 서버는 애플리케이션과 함께 자동으로 실행되거나, 오디오 인터페이스가 연결된 전용 백스테이지 머신에서 실행할 수 있습니다. 같은 네트워크의 어느 컴퓨터에서나 연결하여 완전한 제어권을 가지세요 — 트랜스포트, 속성, 라우팅, 실시간 미터링이 모두 원격으로 작동하여 제어 위치를 오디오 하드웨어와 분리할 수 있는 유연성을 제공합니다."
     },
     "firstLaunch": {
       "title": "빠른 설정",
       "description": "LivePlay의 간소화된 설정 프로세스로 몇 초 만에 시작하세요. 폴더를 선택하고 프로젝트를 만들고 파일 가져오기를 시작하세요! 모든 미디어가 자동으로 한 곳에 수집되므로 컴퓨터 간에 프로젝트를 쉽게 이동할 수 있습니다."
+    },
+    "limiter": {
+      "title": "브릭월 리미터 및 라우드니스 타깃",
+      "description": "모든 출력 채널에 진정한 브릭월 리미터가 적용되어 레벨을 일정하게 유지하고 하드웨어와 청중을 통제 불능의 피크로부터 보호합니다. 전문 라우드니스 표준 — EBU R128, 스트리밍, 라디오, Netflix, 라이브 — 에 맞는 내장 출력 타깃 중에서 선택하면 LivePlay가 적절한 한계치, 미터링 영역, 파형 보정을 자동으로 적용합니다."
+    },
+    "meters": {
+      "title": "방송 등급 미터링",
+      "description": "신호 경로의 모든 단계 — 큐별, 믹서 채널별, 마스터 출력 — 에서 실시간 방송 품질 미터링으로 들리는 소리를 신뢰하세요. 색상으로 구분된 미터 영역은 선택한 라우드니스 타깃을 따르므로 규격 안에 여유 있게 있는지 아니면 레드로 들어가는지 한눈에 알 수 있습니다."
+    },
+    "previewLtc": {
+      "title": "전용 미리듣기 및 LTC 타임코드",
+      "description": "전용 미리듣기 장치 — 헤드폰이나 큐 버스 — 에서 큐를 무음으로 미리 들을 수 있으며 메인 출력에는 전혀 영향을 주지 않으므로 공연이 진행되는 동안 다음 큐를 준비할 수 있습니다. 별도의 SMPTE LTC 타임코드 생성기가 자체 채널에서 연속적인 선형 타임코드 신호를 출력하여 조명 콘솔, 비디오 재생, 기타 외부 장치를 LivePlay와 동기화할 수 있습니다."
+    },
+    "discovery": {
+      "title": "자동 검색 및 견고한 안정성",
+      "description": "LivePlay 서버는 로컬 네트워크에서 자신을 알리므로 클라이언트가 자동으로 찾습니다 — IP 주소를 입력할 필요가 없습니다. 오디오 엔진이 예기치 않게 멈추더라도 즉시 스스로 재시작하여 멈춘 지점에서 정확히 재생을 재개하므로 공연이 계속됩니다. 그리고 엔진이 진정한 서버이기 때문에 여러 클라이언트가 동시에 같은 인스턴스에 연결할 수 있습니다 — 메인 오퍼레이터와 백업, 또는 음향 오퍼레이터 옆에서 재생을 모니터링하는 무대 감독에게 이상적입니다."
     }
   },
   "footer": {
@@ -80,5 +109,34 @@
     "developerName": "토마스 두키니차스",
     "viewOnGitHub": "GitHub에서 보기",
     "contributors": "기여자"
+  },
+  "common": {
+    "changeLanguage": "언어 변경"
+  },
+  "ports": {
+    "title": "네트워크 포트",
+    "subtitle": "서버와 클라이언트를 서로 다른 머신에서 실행하는 경우 이 포트들이 네트워크와 방화벽에서 열려 있는지 확인하세요.",
+    "control": {
+      "port": "TCP 4480",
+      "title": "컨트롤 서피스",
+      "description": "클라이언트와 서버 사이에서 트랜스포트 명령, 프로젝트 데이터, 라우팅, 실시간 미터를 전달하는 REST API 및 WebSocket 연결."
+    },
+    "discovery": {
+      "port": "UDP 4481",
+      "title": "자동 검색",
+      "description": "클라이언트가 로컬 네트워크에서 LivePlay 서버를 자동으로 찾을 수 있게 해주는 브로드캐스트 및 멀티캐스트 비콘(그룹 239.255.69.80)."
+    },
+    "note": "단일 머신 설치는 구성이 필요 없습니다 — 클라이언트와 서버는 127.0.0.1을 통해 통신하며 Windows 설치 프로그램이 방화벽 규칙을 추가해 줍니다. 이 포트들은 LAN을 통해 제어 위치를 오디오 하드웨어와 분리할 때만 중요합니다."
+  },
+  "contribute": {
+    "title": "기여하기",
+    "subtitle": "LivePlay는 무료이자 오픈 소스이며, 앞으로도 항상 그럴 것입니다.",
+    "freeTitle": "영원히 무료",
+    "freeText": "LivePlay는 다운로드와 사용이 완전히 무료입니다. 라이선스 비용, 구독, 결제 장벽이 전혀 없습니다. 모든 기능을 누구나 사용할 수 있으며, 프리미엄 등급도 없습니다.",
+    "licenseTitle": "오픈 소스 라이선스",
+    "licenseText": "LivePlay는 GNU AGPL-3.0 라이선스로 배포됩니다. 간단히 말해, 자유롭게 사용, 연구, 공유, 수정할 수 있습니다. 수정된 버전을 공유하거나 네트워크 서비스로 운영하는 경우, 동일한 라이선스로 소스 코드를 공개해야 하며, 이를 통해 커뮤니티 전체가 계속 혜택을 받습니다.",
+    "contributeTitle": "돕는 방법",
+    "contributeText": "누구나 기여할 수 있습니다. 버그 신고, 기능 제안, 번역 개선, 코드 제출 등 모든 기여를 환영합니다. GitHub 저장소를 방문하여 issue나 pull request를 열어 주세요.",
+    "githubButton": "GitHub에서 기여하기 →"
   }
 }

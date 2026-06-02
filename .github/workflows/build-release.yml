@@ -196,6 +196,7 @@ jobs:
                    client/dist-electron/*.dmg \
                    client/dist-electron/*.dmg.blockmap \
                    client/dist-electron/*.zip \
+                   client/dist-electron/*.zip.blockmap \
                    client/dist-electron/*.AppImage \
                    client/dist-electron/*.deb \
                    client/dist-electron/*.rpm \
@@ -235,17 +236,63 @@ jobs:
           name: linux-build
           path: ./artifacts
 
+      # macOS artifacts go to per-arch directories so their two latest-mac.yml
+      # files don't clobber each other — they are merged below.
       - name: Download macOS Intel artifacts
         uses: actions/download-artifact@v4
         with:
           name: macos-x64-build
-          path: ./artifacts
+          path: ./artifacts-mac-x64
 
       - name: Download macOS Apple Silicon artifacts
         uses: actions/download-artifact@v4
         with:
           name: macos-arm64-build
-          path: ./artifacts
+          path: ./artifacts-mac-arm64
+
+      # The Intel and Apple-Silicon jobs each emit their own latest-mac.yml
+      # listing only that arch's files. electron-updater's MacUpdater filters
+      # the yml's `files` list by the running architecture (keeping arm64-named
+      # files on Apple Silicon, dropping them on Intel), so a release must ship
+      # ONE latest-mac.yml whose `files` array contains BOTH arches. Otherwise
+      # whichever yml is published last wins and the other arch's auto-update
+      # fails with ERR_UPDATER_ZIP_FILE_NOT_FOUND. Merge the two here.
+      - name: Merge macOS artifacts and update metadata
+        run: |
+          set -euo pipefail
+          # python3-yaml gives us PyYAML without tripping PEP 668 on the runner.
+          sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml
+          # Installer files (.dmg/.zip + blockmaps) have distinct per-arch names
+          # and never collide, so copy them all into ./artifacts.
+          for d in artifacts-mac-x64 artifacts-mac-arm64; do
+            [ -d "$d" ] || continue
+            find "$d" -maxdepth 1 -type f ! -name 'latest-mac.yml' -exec cp -f {} artifacts/ \;
+          done
+          python3 - <<'PY'
+          import os, yaml
+          srcs = [p for p in ("artifacts-mac-x64/latest-mac.yml",
+                              "artifacts-mac-arm64/latest-mac.yml") if os.path.exists(p)]
+          docs = []
+          for p in srcs:
+              with open(p) as fh:
+                  docs.append(yaml.safe_load(fh))
+          if not docs:
+              raise SystemExit("No latest-mac.yml found to merge")
+          # Base on the first doc; union the `files` arrays (by url) so both the
+          # x64 and arm64 zips/dmgs are advertised in one manifest.
+          merged = docs[0]
+          seen = {f["url"] for f in merged.get("files", [])}
+          for extra in docs[1:]:
+              for fi in extra.get("files", []):
+                  if fi["url"] not in seen:
+                      merged.setdefault("files", []).append(fi)
+                      seen.add(fi["url"])
+          with open("artifacts/latest-mac.yml", "w") as fh:
+              yaml.safe_dump(merged, fh, default_flow_style=False, sort_keys=False)
+          print("Merged latest-mac.yml advertises:")
+          for fi in merged.get("files", []):
+              print("  -", fi["url"])
+          PY
 
       - name: List downloaded artifacts
         run: |

@@ -6,7 +6,10 @@
     "direction": "ltr"
   },
   "header": {
-    "tagline": "Reproducción de Audio para Eventos en Vivo"
+    "tagline": "Reproducción de Audio para Eventos en Vivo",
+    "version": "Versión",
+    "logoAlt": "Logotipo de LivePlay",
+    "screenshotAlt": "Interfaz principal de LivePlay con el editor de listas de reproducción, el cart de cues y el panel de propiedades"
   },
   "download": {
     "title": "Descargar LivePlay",
@@ -17,12 +20,6 @@
       "buttonText": "Descargar .exe",
       "size": "~150 MB"
     },
-    "mac": {
-      "title": "macOS",
-      "description": "macOS 10.15+ (Universal)",
-      "buttonText": "Descargar .dmg",
-      "size": "~140 MB"
-    },
     "linux": {
       "title": "Linux",
       "description": "AppImage (Universal)",
@@ -32,8 +29,24 @@
     "otherFormats": "Otros formatos disponibles:",
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "macZip": ".zip (macOS)",
-    "viewReleases": "Ver todas las versiones en GitHub →"
+    "viewReleases": "Ver todas las versiones en GitHub →",
+    "macArm": {
+      "title": "macOS — Apple Silicon",
+      "description": "M1/M2/M3 y posteriores (arm64)",
+      "buttonText": "Descargar .dmg",
+      "size": "~140 MB"
+    },
+    "macIntel": {
+      "title": "macOS — Intel",
+      "description": "Macs Intel (x64), macOS 11+",
+      "buttonText": "Descargar .dmg",
+      "size": "~145 MB"
+    },
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "recommended": "Recomendado para tu sistema",
+    "showOtherOS": "Descargar para otro sistema operativo",
+    "hideOtherOS": "Ocultar otros sistemas operativos"
   },
   "features": {
     "title": "Características Principales",
@@ -42,12 +55,12 @@
       "description": "LivePlay presenta una interfaz limpia, simple y moderna diseñada específicamente para operadores de sonido en vivo. Organiza tus archivos de sonido principales en listas de reproducción y agrega sonidos a un reproductor de carrito para acceso rápido o anuncios. Los archivos de audio agregados al carrito automáticamente se comportarán como anuncios, reduciendo el audio de fondo cuando se reproducen."
     },
     "audioEngine": {
-      "title": "Professional Audio Engine",
-      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+      "title": "Robusto motor de audio en C++",
+      "description": "En el corazón de LivePlay hay un motor de audio dedicado y de alto rendimiento escrito en C++ que se comunica directamente con tu hardware de sonido — WASAPI en Windows, Core Audio en macOS y ALSA en Linux. Cada cue se ejecuta como una instancia de reproducción totalmente independiente con su propio decodificador y envolvente de fundido, de modo que reproducir el mismo archivo dos veces a volúmenes distintos siempre se comporta exactamente como se espera. El motor funciona como un proceso de servidor independiente: puede vivir dentro de la aplicación de escritorio o ejecutarse sin interfaz en una máquina dedicada entre bastidores conectada a tus interfaces de audio."
     },
     "routing": {
-      "title": "Multi-Device Audio Routing",
-      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+      "title": "Enrutamiento de audio multidispositivo",
+      "description": "Envía el audio de cualquier cue a cualquier combinación de canales de salida en varias tarjetas de sonido simultáneamente, con asignación de salida independiente por elemento. La matriz de enrutamiento te permite dividir un archivo estéreo en canales individuales y enviar cada uno a un dispositivo distinto con su propia ganancia — perfecto para alimentar el front-of-house, una mezcla de monitores y una salida de grabación desde un solo cue, todo a la vez."
     },
     "waveform": {
       "title": "Editor de Forma de Onda",
@@ -66,12 +79,28 @@
       "description": "Configura la reducción automática para bajar el volumen de la música de fondo cuando se reproducen anuncios o diálogos. Perfecto para transiciones suaves en producciones en vivo."
     },
     "remoteOperation": {
-      "title": "Local or Remote Operation",
-      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
+      "title": "Funcionamiento local o remoto",
+      "description": "El servidor de audio de LivePlay se inicia automáticamente junto con la aplicación, o puede ejecutarse en una máquina dedicada entre bastidores con tus interfaces de audio conectadas. Conéctate desde cualquier ordenador de la misma red y toma el control total — transporte, propiedades, enrutamiento y medición en vivo funcionan de forma remota, dándote la flexibilidad de separar tu posición de control del hardware de audio."
     },
     "firstLaunch": {
       "title": "Configuración Rápida",
       "description": "Comienza en segundos con el proceso de configuración simplificado de LivePlay. ¡Selecciona una carpeta, crea un proyecto y comienza a importar archivos! Todos tus medios se recopilan automáticamente en un solo lugar para que puedas mover tu proyecto entre computadoras con facilidad."
+    },
+    "limiter": {
+      "title": "Limitador brickwall y objetivos de sonoridad",
+      "description": "Un verdadero limitador brickwall actúa en cada canal de salida, manteniendo tus niveles constantes y protegiendo tu hardware y a tu público de picos descontrolados. Elige entre objetivos de salida integrados que cumplen estándares profesionales de sonoridad — EBU R128, streaming, radio, Netflix y directo — y LivePlay aplica automáticamente el techo, las zonas de medición y la calibración de forma de onda adecuados."
+    },
+    "meters": {
+      "title": "Medición de calidad de difusión",
+      "description": "Confía en lo que oyes con medición en tiempo real y calidad de difusión en cada etapa de la cadena de señal — por cue, por canal de mezcla y en la salida master. Las zonas de medición codificadas por color siguen el objetivo de sonoridad que has seleccionado, para que veas de un vistazo si te mantienes cómodamente dentro de la norma o entras en rojo."
+    },
+    "previewLtc": {
+      "title": "Pre-escucha dedicada y timecode LTC",
+      "description": "Pre-escucha los cues en silencio en un dispositivo de pre-escucha dedicado — auriculares o un bus de cue — sin tocar nunca tus salidas principales, para que puedas preparar el siguiente cue mientras el espectáculo continúa. Un generador de timecode SMPTE LTC independiente emite una señal de timecode lineal continua en su propio canal, permitiéndote sincronizar mesas de luces, reproducción de vídeo y otros dispositivos externos con LivePlay."
+    },
+    "discovery": {
+      "title": "Descubrimiento automático y fiabilidad a prueba de todo",
+      "description": "Los servidores de LivePlay se anuncian en tu red local, de modo que los clientes los encuentran automáticamente — sin direcciones IP que teclear. Si el motor de audio se detiene inesperadamente, se reinicia al instante y reanuda la reproducción justo donde la dejó, para que tu espectáculo siga adelante. Y como el motor es un verdadero servidor, varios clientes pueden conectarse a la misma instancia a la vez — ideal para un operador principal y uno de respaldo, o un regidor que supervisa la reproducción junto al técnico de sonido."
     }
   },
   "footer": {
@@ -80,5 +109,34 @@
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Ver en GitHub",
     "contributors": "Colaboradores"
+  },
+  "common": {
+    "changeLanguage": "Cambiar idioma"
+  },
+  "ports": {
+    "title": "Puertos de red",
+    "subtitle": "Si ejecutas el servidor y el cliente en máquinas distintas, asegúrate de que estos puertos estén abiertos en tu red y tu firewall.",
+    "control": {
+      "port": "TCP 4480",
+      "title": "Superficie de control",
+      "description": "Conexión REST API y WebSocket que transporta comandos de transporte, datos del proyecto, enrutamiento y medidores en vivo entre el cliente y el servidor."
+    },
+    "discovery": {
+      "port": "UDP 4481",
+      "title": "Descubrimiento automático",
+      "description": "Baliza de difusión y multidifusión (grupo 239.255.69.80) que permite a los clientes encontrar servidores de LivePlay en la red local automáticamente."
+    },
+    "note": "Una instalación en una sola máquina no necesita configuración — el cliente y el servidor se comunican por 127.0.0.1 y el instalador de Windows añade las reglas de firewall por ti. Estos puertos solo importan cuando separas la posición de control del hardware de audio a través de una LAN."
+  },
+  "contribute": {
+    "title": "Contribuir",
+    "subtitle": "LivePlay es gratuito y de código abierto, y siempre lo será.",
+    "freeTitle": "Gratis para siempre",
+    "freeText": "LivePlay es totalmente gratuito para descargar y usar: sin tarifas de licencia, sin suscripciones, sin muros de pago. Todas las funciones están disponibles para todos, sin niveles premium.",
+    "licenseTitle": "Licencia de código abierto",
+    "licenseText": "LivePlay se publica bajo la licencia GNU AGPL-3.0. En pocas palabras: eres libre de usarlo, estudiarlo, compartirlo y modificarlo. Si compartes una versión modificada —o la ejecutas como un servicio de red— debes poner tu código fuente a disposición bajo la misma licencia, para que toda la comunidad siga beneficiándose.",
+    "contributeTitle": "Cómo ayudar",
+    "contributeText": "Cualquiera puede contribuir. Informa de errores, sugiere funciones, mejora las traducciones o envía código: toda contribución es bienvenida. Visita el repositorio de GitHub para abrir una incidencia o una pull request.",
+    "githubButton": "Contribuir en GitHub →"
   }
 }

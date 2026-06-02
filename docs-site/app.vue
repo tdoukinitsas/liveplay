@@ -4,15 +4,15 @@
       <div class="container">
         <div class="header-content">
           <div class="logo-section">
-            <img 
-              src="/assets/logo.svg" 
-              alt="LivePlay Logo" 
+            <img
+              src="/assets/logo.svg"
+              :alt="t('header.logoAlt')"
               class="logo"
               @error="handleImageError"
             />
             <div class="title-section">
               <h1>LivePlay</h1>
-              <p class="version">Version {{ version }}</p>
+              <p class="version">{{ t('header.version') }} {{ version }}</p>
             </div>
           </div>
           <LanguageSwitcher />
@@ -24,9 +24,9 @@
     <section class="screenshot-section">
       <div class="container">
         <div class="screenshot-wrapper">
-          <img 
-            src="/screenshots/liveplay_screenshot.jpg" 
-            alt="LivePlay main interface showing playlist editor, cue cart, and properties panel" 
+          <img
+            src="/screenshots/liveplay_screenshot.jpg"
+            :alt="t('header.screenshotAlt')"
             class="app-screenshot"
             @error="handleImageError"
           />
@@ -38,49 +38,57 @@
       <div class="container">
         <h2>{{ t('download.title') }}</h2>
         <p class="download-subtitle">{{ t('download.subtitle') }}</p>
-        
-        <div class="download-grid">
-          <a 
-            :href="downloadLinks.windows" 
-            class="download-card"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <h3>{{ t('download.windows.title') }}</h3>
-            <p>{{ t('download.windows.description') }}</p>
-            <div class="download-button">
-              <span>{{ t('download.windows.buttonText') }}</span>
-              <span class="file-size">{{ t('download.windows.size') }}</span>
-            </div>
-          </a>
 
-          <a 
-            :href="downloadLinks.mac" 
-            class="download-card"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <h3>{{ t('download.mac.title') }}</h3>
-            <p>{{ t('download.mac.description') }}</p>
-            <div class="download-button">
-              <span>{{ t('download.mac.buttonText') }}</span>
-              <span class="file-size">{{ t('download.mac.size') }}</span>
-            </div>
-          </a>
+        <p v-if="detectedOS" class="download-recommended">{{ t('download.recommended') }}</p>
 
-          <a 
-            :href="downloadLinks.linux" 
+        <div class="download-grid" :class="`count-${prominentKeys.length}`">
+          <a
+            v-for="key in prominentKeys"
+            :key="key"
+            :href="downloadLinks[key]"
             class="download-card"
             target="_blank"
             rel="noopener noreferrer"
           >
-            <h3>{{ t('download.linux.title') }}</h3>
-            <p>{{ t('download.linux.description') }}</p>
+            <h3>{{ t(`download.${key}.title`) }}</h3>
+            <p>{{ t(`download.${key}.description`) }}</p>
             <div class="download-button">
-              <span>{{ t('download.linux.buttonText') }}</span>
-              <span class="file-size">{{ t('download.linux.size') }}</span>
+              <span>{{ t(`download.${key}.buttonText`) }}</span>
+              <span class="file-size">{{ t(`download.${key}.size`) }}</span>
             </div>
           </a>
+        </div>
+
+        <div v-if="otherKeys.length" class="other-os">
+          <button
+            type="button"
+            class="other-os-toggle"
+            @click="showAllPlatforms = !showAllPlatforms"
+          >
+            {{ showAllPlatforms ? t('download.hideOtherOS') : t('download.showOtherOS') }}
+          </button>
+
+          <div
+            v-if="showAllPlatforms"
+            class="download-grid"
+            :class="`count-${otherKeys.length}`"
+          >
+            <a
+              v-for="key in otherKeys"
+              :key="key"
+              :href="downloadLinks[key]"
+              class="download-card"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <h3>{{ t(`download.${key}.title`) }}</h3>
+              <p>{{ t(`download.${key}.description`) }}</p>
+              <div class="download-button">
+                <span>{{ t(`download.${key}.buttonText`) }}</span>
+                <span class="file-size">{{ t(`download.${key}.size`) }}</span>
+              </div>
+            </a>
+          </div>
         </div>
 
         <div class="other-formats">
@@ -92,8 +100,11 @@
             <a :href="downloadLinks.rpm" target="_blank" rel="noopener noreferrer">
               {{ t('download.fedoraRHEL') }}
             </a>
-            <a :href="downloadLinks.macZip" target="_blank" rel="noopener noreferrer">
-              {{ t('download.macZip') }}
+            <a :href="downloadLinks.macArmZip" target="_blank" rel="noopener noreferrer">
+              {{ t('download.macArmZip') }}
+            </a>
+            <a :href="downloadLinks.macIntelZip" target="_blank" rel="noopener noreferrer">
+              {{ t('download.macIntelZip') }}
             </a>
           </div>
         </div>
@@ -129,10 +140,31 @@
         </FeatureHighlight>
 
         <FeatureHighlight
+          :title="t('features.limiter.title')"
+          image-src="/liveplay/screenshots/liveplay_screenshot_limiter.jpg"
+        >
+          <p>{{ t('features.limiter.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.meters.title')"
+          image-src="/liveplay/screenshots/liveplay_screenshot.jpg"
+        >
+          <p>{{ t('features.meters.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
           :title="t('features.routing.title')"
           image-src="/liveplay/screenshots/liveplay_screenshot_routing.jpg"
         >
           <p>{{ t('features.routing.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.previewLtc.title')"
+          image-src="/liveplay/screenshots/liveplay_screenshot_preview.jpg"
+        >
+          <p>{{ t('features.previewLtc.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
@@ -164,18 +196,76 @@
         </FeatureHighlight>
 
         <FeatureHighlight
-          :title="t('features.remoteOperation.title')"
+          :title="t('features.discovery.title')"
           image-src="/liveplay/screenshots/liveplay_screenshot_server_settings.jpg"
+        >
+          <p>{{ t('features.discovery.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.remoteOperation.title')"
+          image-src="/liveplay/screenshots/liveplay_screenshot_decoupled.jpg"
         >
           <p>{{ t('features.remoteOperation.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.firstLaunch.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot_welcomescreen.jpg"
+          image-src="/liveplay/screenshots/liveplay_screenshot_nameproject.jpg"
         >
           <p>{{ t('features.firstLaunch.description') }}</p>
         </FeatureHighlight>
+      </div>
+    </section>
+
+    <section class="ports-section">
+      <div class="container">
+        <div class="ports-disclaimer">
+          <h3 class="ports-title">{{ t('ports.title') }}</h3>
+          <p class="ports-subtitle">{{ t('ports.subtitle') }}</p>
+          <ul class="ports-list">
+            <li>
+              <code class="port-number">{{ t('ports.control.port') }}</code>
+              <span><strong>{{ t('ports.control.title') }}</strong> — {{ t('ports.control.description') }}</span>
+            </li>
+            <li>
+              <code class="port-number">{{ t('ports.discovery.port') }}</code>
+              <span><strong>{{ t('ports.discovery.title') }}</strong> — {{ t('ports.discovery.description') }}</span>
+            </li>
+          </ul>
+          <p class="ports-note">{{ t('ports.note') }}</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="contribute-section">
+      <div class="container">
+        <h2>{{ t('contribute.title') }}</h2>
+        <p class="contribute-subtitle">{{ t('contribute.subtitle') }}</p>
+        <div class="contribute-grid">
+          <div class="contribute-card">
+            <h3>{{ t('contribute.freeTitle') }}</h3>
+            <p>{{ t('contribute.freeText') }}</p>
+          </div>
+          <div class="contribute-card">
+            <h3>{{ t('contribute.licenseTitle') }}</h3>
+            <p>{{ t('contribute.licenseText') }}</p>
+          </div>
+          <div class="contribute-card">
+            <h3>{{ t('contribute.contributeTitle') }}</h3>
+            <p>{{ t('contribute.contributeText') }}</p>
+          </div>
+        </div>
+        <div class="contribute-cta">
+          <a
+            href="https://github.com/tdoukinitsas/liveplay"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="contribute-button"
+          >
+            {{ t('contribute.githubButton') }}
+          </a>
+        </div>
       </div>
     </section>
 
@@ -218,15 +308,61 @@ const { t, direction, initLocale, isLocaleLoaded } = useI18n();
 const version = ref('2.0.0');
 const contributors = ref<{ name: string; link: string }[]>([]);
 
+// Platform download cards. When we can detect the visitor's OS we surface only
+// the matching build(s) prominently and tuck the rest behind a toggle; when we
+// can't, all four are shown and the flex grid keeps them centred and aligned.
+type PlatformKey = 'windows' | 'macArm' | 'macIntel' | 'linux';
+const allPlatformKeys: PlatformKey[] = ['windows', 'macArm', 'macIntel', 'linux'];
+const osPlatformMap: Record<string, PlatformKey[]> = {
+  windows: ['windows'],
+  mac: ['macArm', 'macIntel'],
+  linux: ['linux']
+};
+
+const detectedOS = ref<string | null>(null);
+const showAllPlatforms = ref(false);
+
+const prominentKeys = computed<PlatformKey[]>(() => {
+  if (!detectedOS.value) return [...allPlatformKeys];
+  return osPlatformMap[detectedOS.value] ?? [...allPlatformKeys];
+});
+const otherKeys = computed<PlatformKey[]>(() =>
+  allPlatformKeys.filter((k) => !prominentKeys.value.includes(k))
+);
+
+const detectOS = (): string | null => {
+  if (typeof navigator === 'undefined') return null;
+  const uaData = (navigator as any).userAgentData;
+  if (uaData?.platform) {
+    const p = String(uaData.platform).toLowerCase();
+    if (p.includes('win')) return 'windows';
+    if (p.includes('mac')) return 'mac';
+    if (p.includes('linux') || p.includes('android') || p.includes('chrome os')) return 'linux';
+  }
+  const ua = (navigator.userAgent || '').toLowerCase();
+  const platform = ((navigator as any).platform || '').toLowerCase();
+  if (ua.includes('windows') || platform.includes('win')) return 'windows';
+  if (ua.includes('mac') || platform.includes('mac')) return 'mac';
+  if (ua.includes('linux') || ua.includes('x11') || ua.includes('android') || platform.includes('linux')) return 'linux';
+  return null;
+};
+
 const downloadLinks = computed(() => {
-  const baseUrl = `https://github.com/tdoukinitsas/liveplay/releases/download/v${version.value}`;
+  const v = version.value;
+  const baseUrl = `https://github.com/tdoukinitsas/liveplay/releases/download/v${v}`;
   return {
-    windows: `${baseUrl}/LivePlay.Setup.${version.value}.exe`,
-    mac: `${baseUrl}/LivePlay-${version.value}.dmg`,
-    linux: `${baseUrl}/LivePlay-${version.value}.AppImage`,
-    deb: `${baseUrl}/liveplay_${version.value}_amd64.deb`,
-    rpm: `${baseUrl}/liveplay-${version.value}.x86_64.rpm`,
-    macZip: `${baseUrl}/LivePlay-${version.value}-mac.zip`
+    // Windows (GitHub rewrites the spaces in "LivePlay Setup x.y.z.exe" to dots)
+    windows: `${baseUrl}/LivePlay.Setup.${v}.exe`,
+    // macOS — two separate, per-architecture builds
+    macArm: `${baseUrl}/LivePlay-${v}-arm64.dmg`,
+    macIntel: `${baseUrl}/LivePlay-${v}.dmg`,
+    // Linux
+    linux: `${baseUrl}/LivePlay-${v}.AppImage`,
+    deb: `${baseUrl}/liveplay_${v}_amd64.deb`,
+    rpm: `${baseUrl}/liveplay-${v}.x86_64.rpm`,
+    // macOS .zip variants (for auto-update / manual installs)
+    macArmZip: `${baseUrl}/LivePlay-${v}-arm64-mac.zip`,
+    macIntelZip: `${baseUrl}/LivePlay-${v}-mac.zip`
   };
 });
 
@@ -269,6 +405,9 @@ const updateSeoMeta = () => {
 };
 
 onMounted(async () => {
+  // Detect the visitor's operating system for the download section
+  detectedOS.value = detectOS();
+
   // Initialize locale
   await initLocale();
   
@@ -437,11 +576,50 @@ useSeoMeta({
     margin-bottom: 3rem;
   }
 
+  .download-recommended {
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    margin-bottom: 1.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
   .download-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .other-os {
+    text-align: center;
     margin-bottom: 3rem;
+
+    .other-os-toggle {
+      background: transparent;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.85);
+      padding: 0.75rem 1.75rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+
+      &:hover {
+        border-color: #DA1E28;
+        color: #ffffff;
+      }
+    }
+
+    .download-grid {
+      margin-top: 2rem;
+      margin-bottom: 0;
+    }
   }
 
   .download-card {
@@ -453,6 +631,8 @@ useSeoMeta({
     transition: all 0.3s ease;
     text-decoration: none;
     color: inherit;
+    flex: 0 1 300px;
+    max-width: 340px;
     display: block;
 
     &:hover {
@@ -550,6 +730,141 @@ useSeoMeta({
     font-size: 2.5rem;
     margin-bottom: 3rem;
     color: #DA1E28;
+  }
+}
+
+.ports-section {
+  padding: 3rem 0;
+
+  .ports-disclaimer {
+    max-width: 820px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid rgba(218, 30, 40, 0.5);
+    border-radius: 8px;
+    padding: 1.5rem 2rem;
+  }
+
+  .ports-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0 0 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .ports-subtitle {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0 0 1.25rem;
+  }
+
+  .ports-list {
+    list-style: none;
+    margin: 0 0 1.25rem;
+    padding: 0;
+
+    li {
+      display: flex;
+      align-items: baseline;
+      gap: 0.85rem;
+      margin: 0.75rem 0;
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .port-number {
+      flex-shrink: 0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #DA1E28;
+      background: rgba(218, 30, 40, 0.1);
+      padding: 0.25rem 0.6rem;
+      border-radius: 5px;
+    }
+
+    strong {
+      color: rgba(255, 255, 255, 0.85);
+      font-weight: 600;
+    }
+  }
+
+  .ports-note {
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+}
+
+.contribute-section {
+  padding: 4rem 0;
+  background: rgba(0, 0, 0, 0.2);
+
+  h2 {
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: #DA1E28;
+  }
+
+  .contribute-subtitle {
+    text-align: center;
+    font-size: 1.25rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 3rem;
+  }
+
+  .contribute-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 2rem;
+    max-width: 1000px;
+    margin: 0 auto 3rem;
+  }
+
+  .contribute-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 2rem;
+
+    h3 {
+      font-size: 1.35rem;
+      margin: 0 0 0.75rem;
+      color: #ffffff;
+    }
+
+    p {
+      color: rgba(255, 255, 255, 0.65);
+      margin: 0;
+      line-height: 1.7;
+    }
+  }
+
+  .contribute-cta {
+    text-align: center;
+
+    .contribute-button {
+      display: inline-block;
+      background: #DA1E28;
+      color: #ffffff;
+      padding: 1rem 2.5rem;
+      border-radius: 8px;
+      font-size: 1.125rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(218, 30, 40, 0.4);
+      }
+    }
   }
 }
 

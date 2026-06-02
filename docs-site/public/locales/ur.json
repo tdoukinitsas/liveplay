@@ -6,7 +6,10 @@
     "direction": "rtl"
   },
   "header": {
-    "tagline": "لائیو ایونٹس کے لیے آڈیو کیو پلے بیک"
+    "tagline": "لائیو ایونٹس کے لیے آڈیو کیو پلے بیک",
+    "version": "ورژن",
+    "logoAlt": "LivePlay لوگو",
+    "screenshotAlt": "LivePlay کا مرکزی انٹرفیس جس میں پلے لسٹ ایڈیٹر، کیو کارٹ اور پراپرٹیز پینل دکھائی دے رہے ہیں"
   },
   "download": {
     "title": "LivePlay ڈاؤن لوڈ کریں",
@@ -17,12 +20,6 @@
       "buttonText": ".exe ڈاؤن لوڈ کریں",
       "size": "~150 MB"
     },
-    "mac": {
-      "title": "macOS",
-      "description": "macOS 10.15+ (Universal)",
-      "buttonText": ".dmg ڈاؤن لوڈ کریں",
-      "size": "~140 MB"
-    },
     "linux": {
       "title": "Linux",
       "description": "AppImage (Universal)",
@@ -32,8 +29,24 @@
     "otherFormats": "دیگر دستیاب فارمیٹس:",
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "macZip": ".zip (macOS)",
-    "viewReleases": "GitHub پر تمام ریلیزز دیکھیں ←"
+    "viewReleases": "GitHub پر تمام ریلیزز دیکھیں ←",
+    "macArm": {
+      "title": "macOS — Apple Silicon",
+      "description": "M1/M2/M3 اور نئے (arm64)",
+      "buttonText": ".dmg ڈاؤن لوڈ کریں",
+      "size": "~140 MB"
+    },
+    "macIntel": {
+      "title": "macOS — Intel",
+      "description": "Intel Mac ‏(x64)، ‏macOS 11+",
+      "buttonText": ".dmg ڈاؤن لوڈ کریں",
+      "size": "~145 MB"
+    },
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "recommended": "آپ کے سسٹم کے لیے تجویز کردہ",
+    "showOtherOS": "کسی اور آپریٹنگ سسٹم کے لیے ڈاؤن لوڈ کریں",
+    "hideOtherOS": "دیگر آپریٹنگ سسٹم چھپائیں"
   },
   "features": {
     "title": "اہم خصوصیات",
@@ -42,12 +55,12 @@
       "description": "LivePlay ایک صاف، سادہ اور جدید انٹرفیس رکھتا ہے جو خاص طور پر لائیو ساؤنڈ آپریٹرز کے لیے ڈیزائن کیا گیا ہے۔ اپنی مین ساؤنڈ فائلوں کو پلے لسٹس میں ترتیب دیں اور فوری رسائی یا اعلانات کے لیے کارٹ پلیئر میں آوازیں شامل کریں۔ کارٹ میں شامل کی گئی آڈیو فائلیں خودکار طور پر اعلانات کی طرح کام کریں گی، پلے بیک کے دوران کسی بھی پس منظر کی آڈیو کو کم کرتے ہوئے۔"
     },
     "audioEngine": {
-      "title": "Professional Audio Engine",
-      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+      "title": "مضبوط C++ آڈیو انجن",
+      "description": "LivePlay کے مرکز میں C++ میں لکھا گیا ایک وقف اور اعلیٰ کارکردگی والا آڈیو انجن ہے جو براہِ راست آپ کے ساؤنڈ ہارڈویئر سے بات کرتا ہے — Windows پر WASAPI، macOS پر Core Audio اور Linux پر ALSA۔ ہر کیو اپنے ڈیکوڈر اور فیڈ اینویلپ کے ساتھ مکمل طور پر آزاد پلے بیک انسٹینس کے طور پر چلتا ہے، چنانچہ ایک ہی فائل کو مختلف والیوم پر دو بار چلانا ہمیشہ بالکل توقع کے مطابق برتاؤ کرتا ہے۔ انجن ایک خودمختار سرور پراسیس کے طور پر چلتا ہے: یہ ڈیسک ٹاپ ایپ کے اندر رہ سکتا ہے، یا آپ کے آڈیو انٹرفیسز سے منسلک ایک وقف بیک اسٹیج مشین پر بغیر انٹرفیس کے چل سکتا ہے۔"
     },
     "routing": {
-      "title": "Multi-Device Audio Routing",
-      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+      "title": "ملٹی ڈیوائس آڈیو روٹنگ",
+      "description": "کسی بھی کیو کے آڈیو کو ایک ساتھ کئی ساؤنڈ کارڈز کے آؤٹ پٹ چینلز کے کسی بھی امتزاج میں روٹ کریں، ہر آئٹم کے لیے آزاد آؤٹ پٹ تفویض کے ساتھ۔ روٹنگ میٹرکس آپ کو ایک اسٹیریو فائل کو الگ الگ چینلز میں تقسیم کرنے اور ہر ایک کو اپنے گین کے ساتھ مختلف ڈیوائس پر بھیجنے دیتا ہے — ایک ہی کیو سے front-of-house، ایک مانیٹر مکس اور ایک ریکارڈنگ آؤٹ پٹ کو بیک وقت فیڈ کرنے کے لیے بہترین۔"
     },
     "waveform": {
       "title": "ویو فارم ٹرمر",
@@ -66,12 +79,28 @@
       "description": "اعلانات یا مکالمے چلنے پر پس منظر کی موسیقی کے والیوم کو کم کرنے کے لیے خودکار ڈکنگ کو ترتیب دیں۔ لائیو پروڈکشنز میں ہموار منتقلی کے لیے بہترین۔"
     },
     "remoteOperation": {
-      "title": "Local or Remote Operation",
-      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
+      "title": "مقامی یا دور دراز آپریشن",
+      "description": "LivePlay آڈیو سرور ایپلیکیشن کے ساتھ خودبخود شروع ہو جاتا ہے، یا آپ کے آڈیو انٹرفیسز منسلک ہونے کی صورت میں ایک وقف بیک اسٹیج مشین پر چلایا جا سکتا ہے۔ اسی نیٹ ورک کے کسی بھی کمپیوٹر سے جُڑیں اور مکمل کنٹرول حاصل کریں — ٹرانسپورٹ، پراپرٹیز، روٹنگ اور لائیو میٹرنگ سب دور سے کام کرتے ہیں، جو آپ کو کنٹرول کی جگہ کو آڈیو ہارڈویئر سے الگ کرنے کی لچک دیتے ہیں۔"
     },
     "firstLaunch": {
       "title": "فوری سیٹ اپ",
       "description": "LivePlay کے ہموار سیٹ اپ عمل کے ساتھ سیکنڈوں میں شروع کریں۔ ایک فولڈر منتخب کریں، ایک پروجیکٹ بنائیں اور فائلیں درآمد کرنا شروع کریں! آپ کا تمام میڈیا خودکار طور پر ایک جگہ جمع ہو جاتا ہے تاکہ آپ اپنے پروجیکٹ کو کمپیوٹرز کے درمیان آسانی سے منتقل کر سکیں۔"
+    },
+    "limiter": {
+      "title": "بِرک وال لیمیٹر اور لاؤڈنیس اہداف",
+      "description": "ہر آؤٹ پٹ چینل پر ایک حقیقی بِرک وال لیمیٹر موجود ہے، جو آپ کی سطحوں کو یکساں رکھتا ہے اور آپ کے ہارڈویئر اور سامعین کو بے قابو چوٹیوں سے بچاتا ہے۔ پیشہ ورانہ لاؤڈنیس معیارات سے مطابقت رکھنے والے بلٹ اِن آؤٹ پٹ اہداف میں سے چنیں — EBU R128، اسٹریمنگ، ریڈیو، Netflix اور لائیو — اور LivePlay خودبخود درست سیلنگ، میٹرنگ زونز اور ویوفارم کیلیبریشن لاگو کرتا ہے۔"
+    },
+    "meters": {
+      "title": "براڈکاسٹ معیار کی میٹرنگ",
+      "description": "سگنل کے راستے کے ہر مرحلے پر — فی کیو، فی مکسر چینل اور ماسٹر آؤٹ پٹ پر — حقیقی وقت کی، براڈکاسٹ معیار کی میٹرنگ کے ساتھ جو آپ سنتے ہیں اس پر بھروسہ کریں۔ رنگوں سے کوڈ شدہ میٹر زونز آپ کے منتخب کردہ لاؤڈنیس ہدف کی پیروی کرتے ہیں، تاکہ آپ ایک نظر میں دیکھ سکیں کہ آیا آپ تصریحات کے اندر آرام سے ہیں یا سرخ علاقے میں جا رہے ہیں۔"
+    },
+    "previewLtc": {
+      "title": "وقف پیش سماعت اور LTC ٹائم کوڈ",
+      "description": "کیوز کو ایک وقف پیش سماعت ڈیوائس — ہیڈ فون یا ایک کیو بس — پر خاموشی سے سنیں، اپنے مرکزی آؤٹ پٹس کو کبھی چھوئے بغیر، تاکہ شو جاری رہنے کے دوران آپ اگلا کیو تیار کر سکیں۔ ایک علیحدہ SMPTE LTC ٹائم کوڈ جنریٹر اپنے چینل پر ایک مسلسل لکیری ٹائم کوڈ سگنل خارج کرتا ہے، جس سے آپ لائٹنگ ڈیسک، ویڈیو پلے بیک اور دیگر بیرونی آلات کو LivePlay کے ساتھ ہم وقت کر سکتے ہیں۔"
+    },
+    "discovery": {
+      "title": "خودکار دریافت اور چٹان جیسی قابلِ اعتماد کارکردگی",
+      "description": "LivePlay سرورز آپ کے مقامی نیٹ ورک پر اپنا اعلان کرتے ہیں، لہٰذا کلائنٹس انہیں خودبخود ڈھونڈ لیتے ہیں — کوئی IP پتہ ٹائپ کرنے کی ضرورت نہیں۔ اگر آڈیو انجن کبھی غیر متوقع طور پر رُک جائے، تو یہ فوراً خود کو دوبارہ شروع کرتا ہے اور پلے بیک بالکل وہیں سے دوبارہ شروع کرتا ہے جہاں رُکا تھا، تاکہ آپ کا شو جاری رہے۔ اور چونکہ انجن ایک حقیقی سرور ہے، متعدد کلائنٹس بیک وقت ایک ہی انسٹینس سے جُڑ سکتے ہیں — ایک مرکزی آپریٹر اور ایک بیک اپ کے لیے، یا ساؤنڈ آپریٹر کے ساتھ پلے بیک کی نگرانی کرنے والے اسٹیج مینیجر کے لیے مثالی۔"
     }
   },
   "footer": {
@@ -80,5 +109,34 @@
     "developerName": "تھامس ڈوکینٹساس",
     "viewOnGitHub": "GitHub پر دیکھیں",
     "contributors": "تعاون کرنے والے"
+  },
+  "common": {
+    "changeLanguage": "زبان تبدیل کریں"
+  },
+  "ports": {
+    "title": "نیٹ ورک پورٹس",
+    "subtitle": "اگر آپ سرور اور کلائنٹ کو مختلف مشینوں پر چلا رہے ہیں، تو یقینی بنائیں کہ یہ پورٹس آپ کے نیٹ ورک اور فائر وال میں کھلے ہوں۔",
+    "control": {
+      "port": "TCP 4480",
+      "title": "کنٹرول سرفیس",
+      "description": "REST API اور WebSocket کنکشن جو کلائنٹ اور سرور کے درمیان ٹرانسپورٹ کمانڈز، پروجیکٹ ڈیٹا، روٹنگ اور لائیو میٹرز منتقل کرتا ہے۔"
+    },
+    "discovery": {
+      "port": "UDP 4481",
+      "title": "خودکار دریافت",
+      "description": "براڈکاسٹ اور ملٹی کاسٹ بیکن (گروپ 239.255.69.80) جو کلائنٹس کو مقامی نیٹ ورک پر LivePlay سرورز خودبخود ڈھونڈنے دیتا ہے۔"
+    },
+    "note": "سنگل مشین انسٹال کو کسی کنفیگریشن کی ضرورت نہیں — کلائنٹ اور سرور 127.0.0.1 پر بات کرتے ہیں اور Windows انسٹالر آپ کے لیے فائر وال قواعد شامل کر دیتا ہے۔ یہ پورٹس صرف اس وقت اہمیت رکھتے ہیں جب آپ کنٹرول کی جگہ کو LAN کے ذریعے آڈیو ہارڈویئر سے الگ کرتے ہیں۔"
+  },
+  "contribute": {
+    "title": "تعاون کریں",
+    "subtitle": "LivePlay مفت اور اوپن سورس ہے — اور ہمیشہ رہے گا۔",
+    "freeTitle": "ہمیشہ کے لیے مفت",
+    "freeText": "LivePlay ڈاؤن لوڈ اور استعمال کے لیے بالکل مفت ہے — کوئی لائسنس فیس نہیں، کوئی سبسکرپشن نہیں، کوئی پے وال نہیں۔ ہر خصوصیت سب کے لیے دستیاب ہے، کسی پریمیم درجے کے بغیر۔",
+    "licenseTitle": "اوپن سورس لائسنس",
+    "licenseText": "LivePlay کو GNU AGPL-3.0 لائسنس کے تحت جاری کیا گیا ہے۔ سادہ الفاظ میں: آپ اسے آزادانہ طور پر استعمال، مطالعہ، شیئر اور تبدیل کر سکتے ہیں۔ اگر آپ کوئی ترمیم شدہ ورژن شیئر کرتے ہیں — یا اسے نیٹ ورک سروس کے طور پر چلاتے ہیں — تو آپ کو اپنا سورس کوڈ اسی لائسنس کے تحت دستیاب کرنا ہوگا، تاکہ پوری کمیونٹی فائدہ اٹھاتی رہے۔",
+    "contributeTitle": "کیسے مدد کریں",
+    "contributeText": "کوئی بھی تعاون کر سکتا ہے۔ بگ رپورٹ کریں، خصوصیات تجویز کریں، ترجمے بہتر بنائیں یا کوڈ جمع کرائیں — ہر تعاون خوش آئند ہے۔ issue یا pull request کھولنے کے لیے GitHub ریپوزٹری پر جائیں۔",
+    "githubButton": "GitHub پر تعاون کریں ←"
   }
 }

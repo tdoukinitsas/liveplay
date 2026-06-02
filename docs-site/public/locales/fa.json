@@ -6,7 +6,10 @@
     "direction": "rtl"
   },
   "header": {
-    "tagline": "پخش سیگنال صوتی برای رویدادهای زنده"
+    "tagline": "پخش سیگنال صوتی برای رویدادهای زنده",
+    "version": "نسخه",
+    "logoAlt": "لوگوی LivePlay",
+    "screenshotAlt": "رابط اصلی LivePlay شامل ویرایشگر فهرست پخش، کارت کیو و پنل ویژگی‌ها"
   },
   "download": {
     "title": "دانلود LivePlay",
@@ -17,12 +20,6 @@
       "buttonText": "دانلود .exe",
       "size": "~150 MB"
     },
-    "mac": {
-      "title": "macOS",
-      "description": "macOS 10.15+ (Universal)",
-      "buttonText": "دانلود .dmg",
-      "size": "~140 MB"
-    },
     "linux": {
       "title": "Linux",
       "description": "AppImage (Universal)",
@@ -32,8 +29,24 @@
     "otherFormats": "فرمت‌های دیگر موجود:",
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "macZip": ".zip (macOS)",
-    "viewReleases": "مشاهده همه نسخه‌ها در GitHub ←"
+    "viewReleases": "مشاهده همه نسخه‌ها در GitHub ←",
+    "macArm": {
+      "title": "macOS — Apple Silicon",
+      "description": "M1/M2/M3 و جدیدتر (arm64)",
+      "buttonText": "دانلود .dmg",
+      "size": "~140 MB"
+    },
+    "macIntel": {
+      "title": "macOS — Intel",
+      "description": "مک‌های Intel ‏(x64)، ‏macOS 11+",
+      "buttonText": "دانلود .dmg",
+      "size": "~145 MB"
+    },
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "recommended": "پیشنهادشده برای سیستم شما",
+    "showOtherOS": "دانلود برای سیستم‌عامل دیگر",
+    "hideOtherOS": "پنهان کردن سیستم‌عامل‌های دیگر"
   },
   "features": {
     "title": "ویژگی‌های کلیدی",
@@ -42,12 +55,12 @@
       "description": "LivePlay دارای یک رابط کاربری تمیز، ساده و مدرن است که به طور خاص برای اپراتورهای صدای زنده طراحی شده است. فایل‌های صوتی اصلی خود را در لیست‌های پخش سازماندهی کنید و صداها را به پخش‌کننده سبد خرید برای دسترسی سریع یا اعلان‌ها اضافه کنید. فایل‌های صوتی اضافه شده به سبد خرید به طور خودکار مانند اعلان‌ها عمل می‌کنند و هر صدای پس‌زمینه را در حین پخش کاهش می‌دهند."
     },
     "audioEngine": {
-      "title": "Professional Audio Engine",
-      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+      "title": "موتور صوتی قدرتمند C++",
+      "description": "در قلب LivePlay یک موتور صوتی اختصاصی و پرکارایی نوشته‌شده با C++ قرار دارد که مستقیماً با سخت‌افزار صوتی شما ارتباط برقرار می‌کند — WASAPI در ویندوز، Core Audio در macOS و ALSA در لینوکس. هر کیو به‌صورت یک نمونهٔ پخش کاملاً مستقل با رمزگشا و پوش‌فید مخصوص خود اجرا می‌شود، بنابراین پخش دو بارهٔ یک فایل با صداهای متفاوت همیشه دقیقاً مطابق انتظار رفتار می‌کند. این موتور به‌عنوان یک فرایند سرور مستقل اجرا می‌شود: می‌تواند درون برنامهٔ دسکتاپ زندگی کند یا بدون رابط کاربری روی یک ماشین اختصاصی پشت‌صحنه که به رابط‌های صوتی شما متصل است اجرا شود."
     },
     "routing": {
-      "title": "Multi-Device Audio Routing",
-      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+      "title": "مسیریابی صوت چنددستگاهی",
+      "description": "صدای هر کیو را به هر ترکیبی از کانال‌های خروجی روی چند کارت صدا به‌طور هم‌زمان مسیریابی کنید، با تخصیص خروجی مستقل برای هر آیتم. ماتریس مسیریابی به شما امکان می‌دهد یک فایل استریو را به کانال‌های مجزا تقسیم کنید و هرکدام را با بهرهٔ مخصوص خود به دستگاهی متفاوت بفرستید — عالی برای تغذیهٔ front-of-house، یک میکس مانیتور و یک خروجی ضبط از یک کیو واحد، همه با هم."
     },
     "waveform": {
       "title": "ویرایشگر شکل موج",
@@ -66,12 +79,28 @@
       "description": "کاهش خودکار را پیکربندی کنید تا حجم موسیقی پس‌زمینه را هنگام پخش اعلان‌ها یا گفتگو کاهش دهید. عالی برای انتقال‌های روان در تولیدات زنده."
     },
     "remoteOperation": {
-      "title": "Local or Remote Operation",
-      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
+      "title": "کارکرد محلی یا از راه دور",
+      "description": "سرور صوتی LivePlay به‌طور خودکار همراه با برنامه راه‌اندازی می‌شود یا می‌تواند روی یک ماشین اختصاصی پشت‌صحنه با رابط‌های صوتی متصل شما اجرا شود. از هر رایانه‌ای در همان شبکه متصل شوید و کنترل کامل را به‌دست بگیرید — ترنسپورت، ویژگی‌ها، مسیریابی و اندازه‌گیری زنده همگی از راه دور کار می‌کنند و به شما انعطاف می‌دهند تا موقعیت کنترل را از سخت‌افزار صوتی جدا کنید."
     },
     "firstLaunch": {
       "title": "راه‌اندازی سریع",
       "description": "با فرآیند راه‌اندازی ساده LivePlay در چند ثانیه شروع کنید. یک پوشه انتخاب کنید، یک پروژه ایجاد کنید و شروع به وارد کردن فایل‌ها کنید! تمام رسانه‌های شما به طور خودکار در یک مکان جمع‌آوری می‌شوند تا بتوانید پروژه خود را بین رایانه‌ها به راحتی جابه‌جا کنید."
+    },
+    "limiter": {
+      "title": "لیمیتر brickwall و اهداف بلندی صدا",
+      "description": "یک لیمیتر brickwall واقعی روی هر کانال خروجی قرار دارد که سطوح شما را ثابت نگه می‌دارد و سخت‌افزار و مخاطبان شما را از پیک‌های مهارنشده محافظت می‌کند. از میان اهداف خروجی داخلی که با استانداردهای حرفه‌ای بلندی صدا مطابقت دارند — EBU R128، استریمینگ، رادیو، Netflix و زنده — انتخاب کنید و LivePlay به‌طور خودکار سقف، نواحی اندازه‌گیری و کالیبراسیون موج‌شکل مناسب را اعمال می‌کند."
+    },
+    "meters": {
+      "title": "اندازه‌گیری در سطح پخش",
+      "description": "به آنچه می‌شنوید با اندازه‌گیری بی‌درنگ و در سطح پخش در هر مرحله از مسیر سیگنال اعتماد کنید — برای هر کیو، هر کانال میکسر و روی خروجی مستر. نواحی اندازه‌گیری رنگی از هدف بلندی صدایی که انتخاب کرده‌اید پیروی می‌کنند، بنابراین در یک نگاه می‌بینید که آیا با خیال راحت در محدودهٔ مشخصات هستید یا وارد ناحیهٔ قرمز شده‌اید."
+    },
+    "previewLtc": {
+      "title": "پیش‌گوش اختصاصی و تایم‌کد LTC",
+      "description": "کیوها را بی‌صدا روی یک دستگاه پیش‌گوش اختصاصی — هدفون یا یک باس کیو — پیش‌گوش کنید، بدون اینکه هرگز خروجی‌های اصلی شما را لمس کند، تا بتوانید کیو بعدی را در حالی که نمایش ادامه دارد آماده کنید. یک مولد تایم‌کد SMPTE LTC جداگانه یک سیگنال تایم‌کد خطی پیوسته روی کانال مخصوص خود ارسال می‌کند و به شما امکان می‌دهد میزهای نور، پخش ویدئو و سایر دستگاه‌های خارجی را با LivePlay همگام کنید."
+    },
+    "discovery": {
+      "title": "کشف خودکار و قابلیت اطمینان بسیار بالا",
+      "description": "سرورهای LivePlay خود را در شبکهٔ محلی شما اعلام می‌کنند، بنابراین کلاینت‌ها آن‌ها را به‌طور خودکار پیدا می‌کنند — بدون نیاز به تایپ نشانی IP. اگر موتور صوتی به‌طور غیرمنتظره متوقف شود، بلافاصله خود را دوباره راه‌اندازی می‌کند و پخش را دقیقاً از همان‌جا که متوقف شده بود از سر می‌گیرد، تا نمایش شما ادامه یابد. و چون موتور یک سرور واقعی است، چند کلاینت می‌توانند هم‌زمان به یک نمونهٔ یکسان متصل شوند — ایده‌آل برای یک اپراتور اصلی و یک پشتیبان، یا یک مدیر صحنه که پخش را در کنار صدابردار پایش می‌کند."
     }
   },
   "footer": {
@@ -80,5 +109,34 @@
     "developerName": "توماس دوکینیتساس",
     "viewOnGitHub": "مشاهده در GitHub",
     "contributors": "مشارکت‌کنندگان"
+  },
+  "common": {
+    "changeLanguage": "تغییر زبان"
+  },
+  "ports": {
+    "title": "پورت‌های شبکه",
+    "subtitle": "اگر سرور و کلاینت را روی ماشین‌های متفاوت اجرا می‌کنید، مطمئن شوید که این پورت‌ها در شبکه و فایروال شما باز هستند.",
+    "control": {
+      "port": "TCP 4480",
+      "title": "سطح کنترل",
+      "description": "اتصال REST API و WebSocket که فرمان‌های ترنسپورت، داده‌های پروژه، مسیریابی و میترهای زنده را بین کلاینت و سرور منتقل می‌کند."
+    },
+    "discovery": {
+      "port": "UDP 4481",
+      "title": "کشف خودکار",
+      "description": "بیکن پخش و چندپخشی (گروه 239.255.69.80) که به کلاینت‌ها امکان می‌دهد سرورهای LivePlay را در شبکهٔ محلی به‌طور خودکار پیدا کنند."
+    },
+    "note": "نصب روی یک ماشین به هیچ پیکربندی‌ای نیاز ندارد — کلاینت و سرور از طریق 127.0.0.1 با هم صحبت می‌کنند و نصب‌کنندهٔ ویندوز قوانین فایروال را برای شما اضافه می‌کند. این پورت‌ها فقط زمانی اهمیت دارند که موقعیت کنترل را از طریق یک LAN از سخت‌افزار صوتی جدا کنید."
+  },
+  "contribute": {
+    "title": "مشارکت",
+    "subtitle": "LivePlay رایگان و متن‌باز است — و همیشه چنین خواهد ماند.",
+    "freeTitle": "همیشه رایگان",
+    "freeText": "LivePlay برای دانلود و استفاده کاملاً رایگان است — بدون هزینه مجوز، بدون اشتراک و بدون دیوار پرداخت. همه امکانات برای همه در دسترس است، بدون سطوح ویژه.",
+    "licenseTitle": "مجوز متن‌باز",
+    "licenseText": "LivePlay تحت مجوز GNU AGPL-3.0 منتشر می‌شود. به زبان ساده: شما آزادید آن را استفاده، مطالعه، به اشتراک‌گذاری و تغییر دهید. اگر نسخه‌ای تغییریافته را به اشتراک بگذارید — یا آن را به‌عنوان یک سرویس شبکه‌ای اجرا کنید — باید کد منبع خود را تحت همان مجوز در دسترس قرار دهید تا کل جامعه همچنان بهره‌مند شود.",
+    "contributeTitle": "چگونه کمک کنیم",
+    "contributeText": "هر کسی می‌تواند مشارکت کند. اشکالات را گزارش دهید، امکانات پیشنهاد دهید، ترجمه‌ها را بهبود بخشید یا کد ارسال کنید — هر مشارکتی پذیرفته می‌شود. به مخزن GitHub بروید تا یک issue یا pull request باز کنید.",
+    "githubButton": "مشارکت در GitHub ←"
   }
 }

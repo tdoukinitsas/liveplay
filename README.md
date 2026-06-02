@@ -4,6 +4,8 @@
 
 **LivePlay** is a free, open-source audio playback system for live sound operators who need reliable, flexible cue management. It is built around a **decoupled client/server architecture**: a headless C++ audio engine handles all sound, while a cross-platform Electron desktop app drives it as a remote control.
 
+Made with some help from Claude Sonnet 4.5, Claude Sonnet 4.6 and Claude Opus 4.8
+
 - 🎚 Multi-device output routing (FOH + monitors + comms + record bus, all at once)
 - 🎬 Per-cue SMPTE LTC generator
 - 🔊 Brick-wall master limiter on every output
@@ -72,13 +74,27 @@ Pre-built installers for Windows, macOS and Linux are published on the [GitHub R
 
 | Platform | Files |
 |----------|-------|
-| Windows  | `LivePlay-Setup-x.y.z.exe` (NSIS installer, x64) |
-| macOS    | `LivePlay-x.y.z.dmg` (Intel + Apple Silicon, separate builds) |
-| Linux    | `LivePlay-x.y.z.AppImage`, `LivePlay_x.y.z_amd64.deb`, `LivePlay-x.y.z.x86_64.rpm` |
+| Windows  | `LivePlay.Setup.x.y.z.exe` (NSIS installer, x64) |
+| macOS (Apple Silicon) | `LivePlay-x.y.z-arm64.dmg` (also `-arm64-mac.zip`) |
+| macOS (Intel) | `LivePlay-x.y.z.dmg` (also `-mac.zip`) |
+| Linux    | `LivePlay-x.y.z.AppImage`, `liveplay_x.y.z_amd64.deb`, `liveplay-x.y.z.x86_64.rpm` |
+
+macOS ships as **two separate per-architecture builds** — pick the Apple Silicon (`arm64`) build for M1/M2/M3 (and newer) Macs, and the Intel build for older Intel Macs.
 
 The installer bundles **both** the Electron client and the `liveplay-server` binary. On first launch the client spawns the server as a child process listening on `127.0.0.1:4480`, so a single-machine install needs no configuration.
 
 LivePlay auto-checks for new releases on launch and offers in-app updates via `electron-updater`.
+
+### Network ports
+
+A single-machine install talks to itself over `127.0.0.1` and needs nothing opened. When the client and server run on **different machines** on a LAN, make sure these ports are reachable through any firewalls in between:
+
+| Port | Protocol | Used for |
+|------|----------|----------|
+| `4480` | TCP | Control surface — REST API + WebSocket (transport, project data, routing, live meters). |
+| `4481` | UDP | LAN auto-discovery beacon (broadcast + multicast group `239.255.69.80`). Lets clients find servers without typing an IP. |
+
+On Windows the NSIS installer adds the necessary inbound firewall rules at install time; the app also makes a best-effort runtime pass if run elevated. On macOS/Linux, allow the `liveplay-server` binary through your firewall if you operate it remotely.
 
 ### Quick start
 
@@ -172,7 +188,7 @@ Use `npm run build:clean` to wipe previous build outputs first (it preserves `vc
   C:\dev\vcpkg\bootstrap-vcpkg.bat
   ```
 - Set `VCPKG_ROOT` (see above), open a fresh PowerShell, `npm install`, then `npm run build`.
-- Output: `build/LivePlay-Setup-<version>.exe` (NSIS installer, x64).
+- Output: `build/LivePlay Setup <version>.exe` (NSIS installer, x64). GitHub rewrites the spaces to dots on the release asset (`LivePlay.Setup.<version>.exe`).
 
 ##### macOS
 
@@ -184,7 +200,7 @@ Use `npm run build:clean` to wipe previous build outputs first (it preserves `vc
   "$HOME/dev/vcpkg"/bootstrap-vcpkg.sh
   ```
 - Set `VCPKG_ROOT`, then `npm install && npm run build`.
-- Output: `build/LivePlay-<version>.dmg` for the current arch. To build the other arch, set `CMAKE_OSX_DEPLOYMENT_TARGET` and use the matching electron-builder flags; CI builds both x64 and arm64 separately.
+- Output: `build/LivePlay-<version>.dmg` on Intel, or `build/LivePlay-<version>-arm64.dmg` on Apple Silicon (each with a matching `.zip`). CI builds both x64 and arm64 separately — to build the other arch locally, set `CMAKE_OSX_DEPLOYMENT_TARGET` and pass the matching electron-builder flags.
 - Code signing is skipped by default (users will see a Gatekeeper warning on first launch — right-click → Open).
 
 ##### Linux
@@ -198,7 +214,7 @@ Use `npm run build:clean` to wipe previous build outputs first (it preserves `vc
   (use the equivalent `dnf` / `pacman` packages on Fedora / Arch).
 - Install Node.js 20 LTS via your distro or [nvm](https://github.com/nvm-sh/nvm).
 - Bootstrap vcpkg as on macOS, set `VCPKG_ROOT`, then `npm install && npm run build`.
-- Output: `build/LivePlay-<version>.AppImage`, `LivePlay_<version>_amd64.deb`, `LivePlay-<version>.x86_64.rpm`.
+- Output: `build/LivePlay-<version>.AppImage`, `liveplay_<version>_amd64.deb`, `liveplay-<version>.x86_64.rpm`.
 
 ---
 

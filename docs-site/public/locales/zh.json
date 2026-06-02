@@ -6,7 +6,10 @@
     "direction": "ltr"
   },
   "header": {
-    "tagline": "现场活动音频提示播放"
+    "tagline": "现场活动音频提示播放",
+    "version": "版本",
+    "logoAlt": "LivePlay 标志",
+    "screenshotAlt": "LivePlay 主界面，显示播放列表编辑器、提示音卡片和属性面板"
   },
   "download": {
     "title": "下载 LivePlay",
@@ -17,12 +20,6 @@
       "buttonText": "下载 .exe",
       "size": "~150 MB"
     },
-    "mac": {
-      "title": "macOS",
-      "description": "macOS 10.15+ (Universal)",
-      "buttonText": "下载 .dmg",
-      "size": "~140 MB"
-    },
     "linux": {
       "title": "Linux",
       "description": "AppImage (Universal)",
@@ -32,8 +29,24 @@
     "otherFormats": "其他可用格式：",
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "macZip": ".zip (macOS)",
-    "viewReleases": "在 GitHub 上查看所有版本 →"
+    "viewReleases": "在 GitHub 上查看所有版本 →",
+    "macArm": {
+      "title": "macOS — Apple Silicon",
+      "description": "M1/M2/M3 及更新机型（arm64）",
+      "buttonText": "下载 .dmg",
+      "size": "~140 MB"
+    },
+    "macIntel": {
+      "title": "macOS — Intel",
+      "description": "Intel Mac（x64），macOS 11+",
+      "buttonText": "下载 .dmg",
+      "size": "~145 MB"
+    },
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "recommended": "推荐用于您的系统",
+    "showOtherOS": "下载其他操作系统版本",
+    "hideOtherOS": "隐藏其他操作系统"
   },
   "features": {
     "title": "主要功能",
@@ -42,12 +55,12 @@
       "description": "LivePlay 具有专为现场音响操作员设计的简洁、简单和现代的界面。在播放列表中组织您的主要声音文件，并将声音添加到购物车播放器以快速访问或播报。添加到购物车的音频文件将自动表现为播报，在播放时降低任何背景音频。"
     },
     "audioEngine": {
-      "title": "Professional Audio Engine",
-      "description": "LivePlay includes a dedicated audio server that talks directly to your sound hardware — using WASAPI on Windows, Core Audio on macOS, and ALSA on Linux. Each cue runs as a fully independent playback instance with its own decoder and fade envelope, so playing the same file twice at different volumes always works exactly as expected. A built-in brick-wall limiter on every output channel keeps your levels consistent and protects your hardware."
+      "title": "稳健的 C++ 音频引擎",
+      "description": "LivePlay 的核心是一个用 C++ 编写的专用高性能音频引擎，可直接与你的声音硬件通信——Windows 上使用 WASAPI，macOS 上使用 Core Audio，Linux 上使用 ALSA。每个提示音都作为完全独立的播放实例运行，拥有自己的解码器和淡入淡出包络，因此以不同音量两次播放同一文件始终表现得完全符合预期。该引擎作为独立的服务器进程运行：它可以运行在桌面应用内，也可以无界面地运行在连接你音频接口的专用后台机器上。"
     },
     "routing": {
-      "title": "Multi-Device Audio Routing",
-      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+      "title": "多设备音频路由",
+      "description": "可将任意提示音的音频同时路由到多块声卡上的任意输出通道组合，并为每个项目独立分配输出。路由矩阵让你把一个立体声文件拆分为单独的通道，并将每个通道以各自的增益发送到不同的设备——非常适合从单个提示音同时馈送主扩声、监听混音和录音输出。"
     },
     "waveform": {
       "title": "波形修剪器",
@@ -66,12 +79,28 @@
       "description": "配置自动闪避以在播放播报或对话时降低背景音乐的音量。非常适合现场制作中的平滑过渡。"
     },
     "remoteOperation": {
-      "title": "Local or Remote Operation",
-      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect the interface from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
+      "title": "本地或远程操作",
+      "description": "LivePlay 音频服务器会随应用程序自动启动，也可以运行在连接了你音频接口的专用后台机器上。从同一网络中的任意电脑连接即可获得完全控制——走带、属性、路由和实时电平表都可远程工作，让你能够灵活地将控制位置与音频硬件分开。"
     },
     "firstLaunch": {
       "title": "快速设置",
       "description": "使用 LivePlay 简化的设置过程在几秒钟内开始。选择一个文件夹，创建一个项目并开始导入文件！您的所有媒体都会自动收集到一个地方，以便您可以轻松地在计算机之间移动项目。"
+    },
+    "limiter": {
+      "title": "砖墙限制器与响度目标",
+      "description": "每个输出通道上都有一个真正的砖墙限制器，保持电平一致并保护你的硬件和观众免受失控的峰值影响。可从内置的输出目标中选择，它们符合专业响度标准——EBU R128、流媒体、广播、Netflix 和现场——LivePlay 会自动应用正确的上限、电平表区域和波形校准。"
+    },
+    "meters": {
+      "title": "广播级电平监测",
+      "description": "凭借在信号链每个环节的实时广播级电平监测，相信你所听到的——按提示音、按调音台通道以及主输出。彩色编码的电平表区域跟随你所选的响度目标，让你一眼就能看出自己是否舒适地处于规范之内，还是已经进入红区。"
+    },
+    "previewLtc": {
+      "title": "专用试听与 LTC 时间码",
+      "description": "在专用试听设备上无声试听提示音——耳机或一条提示总线——完全不影响你的主输出，让你在演出进行时就能准备下一个提示音。独立的 SMPTE LTC 时间码发生器在自己的通道上输出连续的线性时间码信号，让你能够将灯光台、视频播放和其他外部设备与 LivePlay 同步。"
+    },
+    "discovery": {
+      "title": "自动发现与坚如磐石的可靠性",
+      "description": "LivePlay 服务器会在你的本地网络中自我通告，客户端可自动找到它们——无需输入 IP 地址。如果音频引擎意外停止，它会立即自动重启并从中断处恢复播放，让你的演出继续进行。而且由于该引擎是真正的服务器，多个客户端可同时连接到同一实例——非常适合主操作员加备份，或舞台监督在音响师旁边监看播放。"
     }
   },
   "footer": {
@@ -80,5 +109,34 @@
     "developerName": "托马斯·杜基尼察斯",
     "viewOnGitHub": "在 GitHub 上查看",
     "contributors": "贡献者"
+  },
+  "common": {
+    "changeLanguage": "更改语言"
+  },
+  "ports": {
+    "title": "网络端口",
+    "subtitle": "如果你在不同的机器上运行服务器和客户端，请确保在你的网络和防火墙中开放这些端口。",
+    "control": {
+      "port": "TCP 4480",
+      "title": "控制面",
+      "description": "REST API 和 WebSocket 连接，在客户端与服务器之间传输走带命令、项目数据、路由和实时电平表。"
+    },
+    "discovery": {
+      "port": "UDP 4481",
+      "title": "自动发现",
+      "description": "广播和组播信标（组 239.255.69.80），让客户端自动在本地网络中找到 LivePlay 服务器。"
+    },
+    "note": "单机安装无需任何配置——客户端和服务器通过 127.0.0.1 通信，Windows 安装程序会为你添加防火墙规则。只有当你通过局域网将控制位置与音频硬件分开时，这些端口才有意义。"
+  },
+  "contribute": {
+    "title": "参与贡献",
+    "subtitle": "LivePlay 免费且开源——并将永远如此。",
+    "freeTitle": "永久免费",
+    "freeText": "LivePlay 完全免费下载和使用——没有许可费、没有订阅、没有付费墙。所有功能对每个人开放，没有高级套餐。",
+    "licenseTitle": "开源许可证",
+    "licenseText": "LivePlay 基于 GNU AGPL-3.0 许可证发布。简单来说：您可以自由地使用、研究、分享和修改它。如果您分享修改后的版本——或将其作为网络服务运行——您必须以相同的许可证公开您的源代码，让整个社区持续受益。",
+    "contributeTitle": "如何参与",
+    "contributeText": "人人都能贡献。报告错误、建议功能、改进翻译或提交代码——欢迎任何形式的贡献。前往 GitHub 仓库提交 issue 或 pull request。",
+    "githubButton": "在 GitHub 上贡献 →"
   }
 }
