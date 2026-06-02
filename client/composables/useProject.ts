@@ -769,19 +769,25 @@ export const useProject = () => {
     try {
       if (!currentProject.value) return false;
 
+      // Mirror cart-only items from the client-side memory store back into the
+      // project doc. This MUST run even when autosave is off: the doc's
+      // cartOnlyItems array is what the items diff-watcher pushes to the server
+      // (the playback source of truth), so skipping it leaves a freshly
+      // dragged-in cart item unregistered — the engine has no cue for it and
+      // play logs "PLAY: ?" until the next manual save mirrors + syncs it.
+      const { cartOnlyItems } = useCartItems();
+      currentProject.value.cartOnlyItems = Array.from(cartOnlyItems.value.values());
+
       // Autosave gating: when the user has turned autosave off, an ordinary
       // edit-triggered save doesn't touch the disk file — we only flag that
       // there are unsaved changes. Explicit saves (File > Save, or toggling
       // autosave) pass { force: true } to bypass this and always persist.
+      // The in-memory server sync still happens via the diff-watcher above.
       if (!opts?.force && !autoSaveEnabled.value) {
         hasUnsavedChanges.value = true;
         return true;
       }
 
-      // Mirror cart-only items from the client-side memory store back into
-      // the project doc before pushing.
-      const { cartOnlyItems } = useCartItems();
-      currentProject.value.cartOnlyItems = Array.from(cartOnlyItems.value.values());
       currentProject.value.lastModified = new Date().toISOString();
 
       const server = useLiveplayServer();

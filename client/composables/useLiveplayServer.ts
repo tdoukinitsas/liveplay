@@ -867,6 +867,34 @@ function createClient() {
     return result.dest_path;
   }
 
+  // Land a file dropped from the OS into the server's media root and return
+  // the absolute server path it now lives at (or null on failure).
+  //
+  // Two transports, picked automatically so this works regardless of where the
+  // server runs:
+  //   * Local server — when Electron can give us the dropped file's OS path and
+  //     the server shares this filesystem, ask the server to copy it in place
+  //     (no byte transfer over the wire).
+  //   * Remote server / browser / no path — upload the bytes via multipart.
+  // copyToMedia failing (e.g. a remote server that can't see the path) falls
+  // back to upload, so a misdetected "local" server still works.
+  async function resolveDroppedFileToMedia(file: File): Promise<string | null> {
+    const osPath = (import.meta.client && (window as any).electronAPI?.getFilePath)
+      ? (window as any).electronAPI.getFilePath(file)
+      : null;
+    if (osPath) {
+      try { return await copyToMedia(osPath); }
+      catch (e) { console.warn('[import] copyToMedia failed, uploading bytes instead:', e); }
+    }
+    try {
+      const res = await uploadFile(file, file.name);
+      return res?.saved?.[0] ?? null;
+    } catch (e) {
+      console.error('[import] upload failed:', e);
+      return null;
+    }
+  }
+
   // Queue an async waveform generation on the server. Returns immediately;
   // the result arrives as a { op: 'waveform_ready', item_uuid, channels, ... }
   // doc_patch over WebSocket once computation finishes.
@@ -942,6 +970,7 @@ function createClient() {
     fetchWaveform,
     fetchWaveformByPath,
     copyToMedia,
+    resolveDroppedFileToMedia,
     requestWaveformGeneration,
     invalidateWaveformCache,
     fetchMetadata,

@@ -469,22 +469,24 @@ const handleAddGroup = () => {
 
 const handleDrop = async (e: DragEvent) => {
   e.preventDefault();
-  
+
   if (!e.dataTransfer) return;
-  
+
   const files = Array.from(e.dataTransfer.files);
-  const audioFiles = files.filter(file => 
+  const audioFiles = files.filter(file =>
     /\.(mp3|wav|ogg|flac|m4a|aac)$/i.test(file.name)
   );
+  if (audioFiles.length === 0) return;
 
+  // Files dropped from the OS must be uploaded to (or copied into) the
+  // server's media root and registered with the project — the server owns
+  // playback and addresses media by its own paths. The old local-copy path
+  // (importAudioFile) left the item with no server-resolvable media, so the
+  // engine could never create a cue for it ("PLAY: ?" in the server log).
+  const server = (await import('~/composables/useLiveplayServer')).useLiveplayServer();
   for (const file of audioFiles) {
-    // Get the file path using webUtils in Electron
-    if (window.electronAPI && window.electronAPI.getFilePath) {
-      const filePath = window.electronAPI.getFilePath(file);
-      if (filePath) {
-        await importAudioFile(filePath);
-      }
-    }
+    const serverPath = await server.resolveDroppedFileToMedia(file);
+    if (serverPath) await importFromServerPath(serverPath);
   }
 };
 </script>

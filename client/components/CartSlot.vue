@@ -771,16 +771,13 @@ const handleDrop = async (e: DragEvent) => {
     const file = e.dataTransfer.files[0];
     // Check if it's an audio file
     if (file.type.startsWith('audio/') || /\.(mp3|wav|flac|ogg|m4a|aac)$/i.test(file.name)) {
-      // In Electron, we can get the file path from the File object using webUtils.
-      // Pass it to importFromServerPath — in local mode the server has access to
-      // the same filesystem paths as the Electron host.
-      if (import.meta.client && (window as any).electronAPI?.getFilePath) {
-        const filePath = (window as any).electronAPI.getFilePath(file);
-        if (filePath) {
-          await importFromServerPath(filePath);
-          return;
-        }
-      }
+      // Upload to (local mode: copy into) the server's media root, then import
+      // the resulting server path. Works whether or not Electron can hand us an
+      // OS path and whether the server is local or remote.
+      const server = useLiveplayServer();
+      const serverPath = await server.resolveDroppedFileToMedia(file);
+      if (serverPath) await importFromServerPath(serverPath);
+      return;
     }
   }
   
