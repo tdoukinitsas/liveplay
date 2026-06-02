@@ -15,6 +15,9 @@ lerna-debug.log*
 .nuxt
 dist
 
+# Screenshots copied in from client/public/screenshots at build time
+public/screenshots
+
 # Misc
 .DS_Store
 *.local

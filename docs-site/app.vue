@@ -5,7 +5,7 @@
         <div class="header-content">
           <div class="logo-section">
             <img
-              src="/assets/logo.svg"
+              :src="asset('assets/logo.svg')"
               :alt="t('header.logoAlt')"
               class="logo"
               @error="handleImageError"
@@ -25,7 +25,7 @@
       <div class="container">
         <div class="screenshot-wrapper">
           <img
-            src="/liveplay/screenshots/liveplay_screenshot.jpg"
+            :src="asset('screenshots/liveplay_screenshot.jpg')"
             :alt="t('header.screenshotAlt')"
             class="app-screenshot"
             @error="handleImageError"
@@ -127,91 +127,91 @@
         
         <FeatureHighlight
           :title="t('features.interface.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot.jpg')"
         >
           <p>{{ t('features.interface.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.audioEngine.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot_audio_engine.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot_audio_engine.jpg')"
         >
           <p>{{ t('features.audioEngine.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.limiter.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot_limiter.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot_limiter.jpg')"
         >
           <p>{{ t('features.limiter.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.meters.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot.jpg')"
         >
           <p>{{ t('features.meters.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.routing.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot_routing.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot_routing.jpg')"
         >
           <p>{{ t('features.routing.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.previewLtc.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot_preview.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot_preview.jpg')"
         >
           <p>{{ t('features.previewLtc.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.waveform.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot_waveformtrimmer.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot_waveformtrimmer.jpg')"
         >
           <p>{{ t('features.waveform.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.youtube.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot_youtube.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot_youtube.jpg')"
         >
           <p>{{ t('features.youtube.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.properties.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot_properties.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot_properties.jpg')"
         >
           <p>{{ t('features.properties.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.ducking.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot_ducking.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot_ducking.jpg')"
         >
           <p>{{ t('features.ducking.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.discovery.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot_server_settings.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot_server_settings.jpg')"
         >
           <p>{{ t('features.discovery.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.remoteOperation.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot_decoupled.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot_decoupled.jpg')"
         >
           <p>{{ t('features.remoteOperation.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.firstLaunch.title')"
-          image-src="/liveplay/screenshots/liveplay_screenshot_nameproject.jpg"
+          :image-src="asset('screenshots/liveplay_screenshot_nameproject.jpg')"
         >
           <p>{{ t('features.firstLaunch.description') }}</p>
         </FeatureHighlight>
@@ -305,7 +305,15 @@ import { useI18n } from './composables/useI18n';
 
 const { t, direction, initLocale, isLocaleLoaded } = useI18n();
 
-const version = ref('2.0.1');
+// Build URLs for files served from the site's public/ folder. The app is hosted
+// under a base path (e.g. "/liveplay/"), so we prepend import.meta.env.BASE_URL —
+// which Vite replaces with that base at build time — rather than hardcoding it.
+// Crucially, these URLs must be bound dynamically (`:src`, not `src="..."`): a
+// static literal makes Vite/Rollup try to *import* the file from the source tree
+// at build time, which fails for anything not physically present in public/.
+const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`;
+
+const version = ref('2.0.2');
 const contributors = ref<{ name: string; link: string }[]>([]);
 
 // Platform download cards. When we can detect the visitor's OS we surface only
@@ -416,7 +424,7 @@ onMounted(async () => {
 
   // Fetch version from package.json
   try {
-    const packageRes = await fetch('/liveplay/package.json');
+    const packageRes = await fetch(asset('package.json'));
     const packageData = await packageRes.json();
     version.value = packageData.version;
   } catch (error) {
@@ -425,7 +433,7 @@ onMounted(async () => {
 
   // Fetch contributors
   try {
-    const contributorsRes = await fetch('/liveplay/contributors.json');
+    const contributorsRes = await fetch(asset('contributors.json'));
     const contributorsData = await contributorsRes.json();
     contributors.value = Object.values(contributorsData.contributors) as { name: string; link: string }[];
   } catch (error) {

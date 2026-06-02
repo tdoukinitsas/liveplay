@@ -1,12 +1,12 @@
 {
   "name": "liveplay-docs",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxt dev",
-    "build": "nuxt generate",
-    "generate": "nuxt generate",
+    "dev": "node scripts/copy-screenshots.mjs && nuxt dev",
+    "build": "node scripts/copy-screenshots.mjs && nuxt generate",
+    "generate": "node scripts/copy-screenshots.mjs && nuxt generate",
     "preview": "nuxt preview"
   },
   "dependencies": {
