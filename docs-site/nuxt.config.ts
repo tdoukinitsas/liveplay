@@ -3,8 +3,7 @@ export default defineNuxtConfig({
   
   // Ensure we don't inherit from parent project
   rootDir: './',
-  srcDir: './',
-  
+
   app: {
     baseURL: '/liveplay/',
     buildAssetsDir: 'assets',

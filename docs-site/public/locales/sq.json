@@ -30,6 +30,19 @@
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
     "viewReleases": "Shiko të gjitha versionet në GitHub →",
+    "macGatekeeper": {
+      "title": "macOS: «LivePlay është i dëmtuar dhe nuk mund të hapet»?",
+      "intro": "LivePlay ende nuk është nënshkruar me një certifikatë zhvilluesi të Apple, prandaj macOS e vendos në karantinë gjatë shkarkimit. Aplikacioni është i sigurt — kjo do të thotë vetëm se Apple nuk është paguar për ta noterizuar. Për ta hapur, hiqni një herë shenjën e karantinës pasi ta instaloni në /Applications:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "Vendosni fjalëkalimin tuaj kur t'ju kërkohet, pastaj hapni LivePlay normalisht. Këtë duhet ta bëni vetëm një herë për çdo instalim."
+    },
+    "winSmartScreen": {
+      "title": "Windows: «Windows mbrojti kompjuterin tuaj»?",
+      "intro": "LivePlay ende nuk është nënshkruar me një certifikatë që Microsoft SmartScreen e njeh, prandaj Windows mund të shfaqë paralajmërimin blu «Windows mbrojti kompjuterin tuaj» kur ekzekutoni instaluesin. Aplikacioni është i sigurt — thjesht ende nuk ka grumbulluar reputacion shkarkimi (nënshkrimi i kodit është rrugës).",
+      "step1": "Klikoni «Më shumë informacion» në dritaren e paralajmërimit.",
+      "step2": "Klikoni butonin «Ekzekuto gjithsesi» që shfaqet, pastaj vazhdoni instalimin normalisht.",
+      "outro": "Nëse përkundrazi shfletuesi e bllokoi shkarkimin, zgjidhni më parë «Mbaje» për të ruajtur skedarin."
+    },
     "macArm": {
       "title": "macOS — Apple Silicon",
       "description": "M1/M2/M3 e më të reja (arm64)",

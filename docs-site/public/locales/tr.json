@@ -30,6 +30,19 @@
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
     "viewReleases": "GitHub'da tüm sürümleri görüntüle →",
+    "macGatekeeper": {
+      "title": "macOS: \"LivePlay zarar görmüş ve açılamıyor\" mu?",
+      "intro": "LivePlay henüz bir Apple Geliştirici sertifikasıyla imzalanmadığından macOS, indirme sırasında onu karantinaya alır. Uygulama güvenlidir — bu yalnızca onaylatma (notarize) için Apple'a ödeme yapılmadığı anlamına gelir. Açmak için /Applications klasörüne kurduktan sonra karantina işaretini bir kez kaldırın:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "İstendiğinde parolanızı girin, ardından LivePlay'i normal şekilde başlatın. Bunu her kurulum için yalnızca bir kez yapmanız gerekir."
+    },
+    "winSmartScreen": {
+      "title": "Windows: \"Windows bilgisayarınızı korudu\" mu?",
+      "intro": "LivePlay henüz Microsoft SmartScreen'in tanıdığı bir sertifikayla imzalanmadığından, yükleyiciyi çalıştırdığınızda Windows mavi \"Windows bilgisayarınızı korudu\" uyarısını gösterebilir. Uygulama güvenlidir — yalnızca henüz indirme itibarı oluşmamıştır (kod imzalama yolda).",
+      "step1": "Uyarı iletişim kutusunda \"Ek bilgi\"ye tıklayın.",
+      "step2": "Görünen \"Yine de çalıştır\" düğmesine tıklayın, ardından kuruluma normal şekilde devam edin.",
+      "outro": "Bunun yerine indirmeyi tarayıcınız engellediyse, yükleyiciyi kaydetmek için önce \"Sakla\"yı seçin."
+    },
     "macArm": {
       "title": "macOS — Apple Silicon",
       "description": "M1/M2/M3 ve daha yenisi (arm64)",

@@ -1,6 +1,6 @@
 {
   "name": "liveplay",
-  "version": "2.0.8",
+  "version": "2.0.9",
   "description": "Audio cue playback application for live events",
   "homepage": "https://github.com/tdoukinitsas/liveplay",
   "main": "electron/main.js",
@@ -28,17 +28,16 @@
   },
   "license": "AGPL-3.0-only",
   "devDependencies": {
-    "@nuxt/types": "^2.17.3",
     "@types/node": "^20.10.5",
     "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
-    "electron": "28.0.0",
-    "electron-builder": "^24.9.1",
-    "nuxt": "~3.20.0",
+    "electron": "42.3.2",
+    "electron-builder": "^26.8.1",
+    "nuxt": "^4.4.7",
     "sass": "^1.69.5",
     "typescript": "^5.3.3",
-    "vue": "^3.4.3",
-    "vue-router": "^4.2.5",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0",
     "wait-on": "^7.2.0"
   },
   "dependencies": {
@@ -101,7 +100,9 @@
         }
       ],
       "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
-      "publisherName": "Thomas Doukinitsas",
+      "signtoolOptions": {
+        "publisherName": "Thomas Doukinitsas"
+      },
       "extraResources": [
         {
           "from": "../server/build/Release/liveplay-server.exe",
@@ -125,6 +126,7 @@
       "include": "build/installer.nsh"
     },
     "mac": {
+      "identity": null,
       "target": [
         {
           "target": "dmg",

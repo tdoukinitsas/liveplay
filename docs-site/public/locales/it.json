@@ -30,6 +30,19 @@
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
     "viewReleases": "Vedi tutte le versioni su GitHub →",
+    "macGatekeeper": {
+      "title": "macOS: «LivePlay è danneggiato e non può essere aperto»?",
+      "intro": "LivePlay non è ancora firmato con un certificato sviluppatore Apple, quindi macOS lo mette in quarantena al download. L'app è sicura: significa solo che Apple non è stata pagata per autenticarla. Per aprirla, rimuovi una volta il contrassegno di quarantena dopo averla installata in /Applications:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "Inserisci la password quando richiesto, poi avvia LivePlay normalmente. Devi farlo una sola volta per installazione."
+    },
+    "winSmartScreen": {
+      "title": "Windows: «Windows ha protetto il PC»?",
+      "intro": "LivePlay non è ancora firmato con un certificato riconosciuto da Microsoft SmartScreen, quindi Windows potrebbe mostrare l'avviso blu «Windows ha protetto il PC» quando esegui il programma di installazione. L'app è sicura: semplicemente non ha ancora maturato una reputazione di download (la firma del codice è in arrivo).",
+      "step1": "Fai clic su «Ulteriori informazioni» nella finestra di avviso.",
+      "step2": "Fai clic sul pulsante «Esegui comunque» che compare, quindi continua l’installazione normalmente.",
+      "outro": "Se invece è stato il browser a bloccare il download, scegli prima «Mantieni» per salvare il file."
+    },
     "macArm": {
       "title": "macOS — Apple Silicon",
       "description": "M1/M2/M3 e successivi (arm64)",

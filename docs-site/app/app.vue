@@ -59,6 +59,23 @@
           </a>
         </div>
 
+        <div v-if="detectedOS === 'mac'" class="platform-note mac-gatekeeper-note">
+          <h3>{{ t('download.macGatekeeper.title') }}</h3>
+          <p>{{ t('download.macGatekeeper.intro') }}</p>
+          <code class="gatekeeper-command">{{ t('download.macGatekeeper.command') }}</code>
+          <p>{{ t('download.macGatekeeper.outro') }}</p>
+        </div>
+
+        <div v-if="detectedOS === 'windows'" class="platform-note win-smartscreen-note">
+          <h3>{{ t('download.winSmartScreen.title') }}</h3>
+          <p>{{ t('download.winSmartScreen.intro') }}</p>
+          <ol class="smartscreen-steps">
+            <li>{{ t('download.winSmartScreen.step1') }}</li>
+            <li>{{ t('download.winSmartScreen.step2') }}</li>
+          </ol>
+          <p>{{ t('download.winSmartScreen.outro') }}</p>
+        </div>
+
         <div v-if="otherKeys.length" class="other-os">
           <button
             type="button"
@@ -306,14 +323,18 @@ import { useI18n } from './composables/useI18n';
 const { t, direction, initLocale, isLocaleLoaded } = useI18n();
 
 // Build URLs for files served from the site's public/ folder. The app is hosted
-// under a base path (e.g. "/liveplay/"), so we prepend import.meta.env.BASE_URL —
-// which Vite replaces with that base at build time — rather than hardcoding it.
+// under a base path (e.g. "/liveplay/"), so we prepend Nuxt's resolved app
+// baseURL rather than hardcoding it. (We previously used import.meta.env.BASE_URL,
+// but under Nuxt 4 that compiles to a relative "./" — which breaks these images
+// whenever the page URL lacks a trailing slash. app.baseURL is always the
+// absolute "/liveplay/", matching how Nuxt emits the build asset URLs.)
 // Crucially, these URLs must be bound dynamically (`:src`, not `src="..."`): a
 // static literal makes Vite/Rollup try to *import* the file from the source tree
 // at build time, which fails for anything not physically present in public/.
-const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`;
+const baseURL = useRuntimeConfig().app.baseURL;
+const asset = (path: string) => `${baseURL}${path.replace(/^\/+/, '')}`;
 
-const version = ref('2.0.8');
+const version = ref('2.0.9');
 const contributors = ref<{ name: string; link: string }[]>([]);
 
 // Platform download cards. When we can detect the visitor's OS we surface only
@@ -600,6 +621,53 @@ useSeoMeta({
     justify-content: center;
     gap: 2rem;
     margin-bottom: 2rem;
+  }
+
+  .platform-note {
+    max-width: 720px;
+    margin: 0 auto 2.5rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    text-align: left;
+
+    h3 {
+      font-size: 1.05rem;
+      margin: 0 0 0.75rem;
+      color: #ffffff;
+    }
+
+    p {
+      font-size: 0.95rem;
+      color: rgba(255, 255, 255, 0.8);
+      margin: 0.5rem 0;
+    }
+
+    .gatekeeper-command {
+      display: block;
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.9rem;
+      background: rgba(0, 0, 0, 0.4);
+      color: #f0f0f0;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      margin: 0.75rem 0;
+      overflow-x: auto;
+      white-space: nowrap;
+      user-select: all;
+    }
+
+    .smartscreen-steps {
+      margin: 0.75rem 0;
+      padding-inline-start: 1.5rem;
+
+      li {
+        font-size: 0.95rem;
+        color: rgba(255, 255, 255, 0.8);
+        margin: 0.4rem 0;
+      }
+    }
   }
 
   .other-os {

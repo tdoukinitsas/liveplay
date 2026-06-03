@@ -30,6 +30,19 @@
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
     "viewReleases": "GitHubですべてのリリースを表示 →",
+    "macGatekeeper": {
+      "title": "macOS:「\"LivePlay\"は壊れているため開けません」と表示される？",
+      "intro": "LivePlay はまだ Apple Developer 証明書で署名されていないため、ダウンロード時に macOS によって隔離されます。アプリは安全です。これは公証（notarize）の費用が Apple に支払われていないことを意味するだけです。開くには、/Applications にインストールした後、一度だけ隔離フラグを削除してください:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "求められたらパスワードを入力し、通常どおり LivePlay を起動してください。これはインストールごとに一度だけ行えば済みます。"
+    },
+    "winSmartScreen": {
+      "title": "Windows:「Windows によって PC が保護されました」と表示される？",
+      "intro": "LivePlay はまだ Microsoft SmartScreen が認識する証明書で署名されていないため、インストーラーを実行すると Windows が青い「Windows によって PC が保護されました」という警告を表示することがあります。アプリは安全です。単にまだダウンロードの評価が蓄積されていないだけです（コード署名は準備中です）。",
+      "step1": "警告ダイアログで「詳細情報」をクリックします。",
+      "step2": "表示される「実行」ボタンをクリックし、通常どおりインストールを続行します。",
+      "outro": "代わりにブラウザーがダウンロードをブロックした場合は、まず「保持する」を選んでインストーラーを保存してください。"
+    },
     "macArm": {
       "title": "macOS — Apple Silicon",
       "description": "M1/M2/M3 以降（arm64）",

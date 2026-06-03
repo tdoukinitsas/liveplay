@@ -1,32 +1,12 @@
 {
-  "extends": "./.nuxt/tsconfig.json",
-  "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "strict": false,
-    "jsx": "preserve",
-    "esModuleInterop": true,
-    "sourceMap": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "skipLibCheck": true,
-    "types": ["node"],
-    "paths": {
-      "~/*": ["./*"],
-      "@/*": ["./*"]
-    }
-  },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "**/*.vue",
-    ".nuxt/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "dist-electron",
-    ".output"
+  // Nuxt 4 generates per-context tsconfigs into node_modules/.cache/nuxt/.nuxt.
+  // This root config just references them so the editor and `vue-tsc` resolve
+  // each context (app / server / shared / node) correctly.
+  "files": [],
+  "references": [
+    { "path": "./node_modules/.cache/nuxt/.nuxt/tsconfig.app.json" },
+    { "path": "./node_modules/.cache/nuxt/.nuxt/tsconfig.server.json" },
+    { "path": "./node_modules/.cache/nuxt/.nuxt/tsconfig.shared.json" },
+    { "path": "./node_modules/.cache/nuxt/.nuxt/tsconfig.node.json" }
   ]
 }

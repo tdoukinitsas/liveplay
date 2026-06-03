@@ -1,6 +1,6 @@
 {
   "name": "liveplay-docs",
-  "version": "2.0.8",
+  "version": "2.0.9",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,11 +10,10 @@
     "preview": "nuxt preview"
   },
   "dependencies": {
-    "nuxt": "^3.9.0",
-    "vue": "^3.4.3"
+    "nuxt": "^4.4.7",
+    "vue": "^3.5.13"
   },
   "devDependencies": {
-    "@nuxt/types": "^2.17.3",
     "sass": "^1.69.5"
   }
 }

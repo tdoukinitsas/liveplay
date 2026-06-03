@@ -30,20 +30,28 @@ export default defineNuxtConfig({
   },
 
   css: [
-    '~/assets/styles/main.scss'
+    // assets/ lives at the project root (shared with Electron), so use the
+    // rootDir alias (~~) rather than the srcDir alias (~), which now points
+    // at app/ under Nuxt 4.
+    '~~/assets/styles/main.scss'
   ],
 
   vite: {
     css: {
       preprocessorOptions: {
         scss: {
-          additionalData: '@use "~/assets/styles/variables.scss" as *;'
+          additionalData: '@use "~~/assets/styles/variables.scss" as *;'
         }
       }
     }
   },
 
   modules: [],
+
+  // Preserve the pre-Nuxt-4 non-strict TypeScript behaviour for this project.
+  typescript: {
+    strict: false
+  },
 
   compatibilityDate: '2025-10-31'
 })

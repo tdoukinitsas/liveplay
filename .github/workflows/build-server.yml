@@ -43,11 +43,15 @@ jobs:
             artifact_name: liveplay-server-macos-arm64
             binary_glob: |
               server/build/liveplay-server
-          - os: macos-13
+          # Cross-compiled x86_64 on an Apple Silicon runner (GitHub is retiring
+          # the Intel macos-13 runner). Rosetta 2 is installed below so the
+          # --help smoke test can still execute the x64 binary.
+          - os: macos-latest
             label: macOS Intel (Clang)
             triplet: x64-osx
-            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"
+            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_OSX_ARCHITECTURES=x86_64"
             artifact_name: liveplay-server-macos-x64
+            rosetta: true
             binary_glob: |
               server/build/liveplay-server
           - os: ubuntu-latest
@@ -100,6 +104,12 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install ninja pkg-config
+
+      # The x64 slice is cross-compiled on an arm64 runner; Rosetta 2 lets the
+      # smoke test below actually run the resulting x86_64 binary.
+      - name: Install Rosetta 2 (cross-compiled x64)
+        if: matrix.rosetta
+        run: softwareupdate --install-rosetta --agree-to-license
 
       - name: Install Windows build tools
         if: runner.os == 'Windows'

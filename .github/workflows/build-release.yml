@@ -66,12 +66,18 @@ jobs:
             artifact_name: linux-build
             electron_args: --linux --x64 --publish never
             cmake_args: ""
-          - os: macos-15-intel
+          # Cross-compiled for x86_64 on an Apple Silicon runner. GitHub is
+          # retiring the Intel macOS runners (macos-15-intel), so instead of a
+          # native Intel host we build the x64 slice on arm64: Apple clang is a
+          # cross-compiler (CMAKE_OSX_ARCHITECTURES=x86_64), vcpkg builds the
+          # x64-osx triplet on the arm64 host, and electron-builder --x64 pulls
+          # the prebuilt x64 Electron. Output artifact names are unchanged.
+          - os: macos-latest
             label: macOS Intel (x64)
             triplet: x64-osx
             artifact_name: macos-x64-build
             electron_args: --mac --x64 --publish never
-            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"
+            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_OSX_ARCHITECTURES=x86_64"
           - os: macos-latest
             label: macOS Apple Silicon (arm64)
             triplet: arm64-osx

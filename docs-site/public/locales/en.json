@@ -49,7 +49,20 @@
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
     "macArmZip": ".zip (macOS Apple Silicon)",
     "macIntelZip": ".zip (macOS Intel)",
-    "viewReleases": "View all releases on GitHub →"
+    "viewReleases": "View all releases on GitHub →",
+    "macGatekeeper": {
+      "title": "macOS: \"LivePlay is damaged and can't be opened\"?",
+      "intro": "LivePlay is not yet signed with an Apple Developer certificate, so macOS quarantines it on download. The app is safe — this just means Apple hasn't been paid to notarize it. To open it, remove the quarantine flag once after installing to /Applications:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "Enter your password when prompted, then launch LivePlay normally. You only need to do this once per install."
+    },
+    "winSmartScreen": {
+      "title": "Windows: \"Windows protected your PC\"?",
+      "intro": "LivePlay isn't yet signed with a certificate Microsoft SmartScreen recognises, so Windows may show a blue \"Windows protected your PC\" warning when you run the installer. The app is safe — it simply hasn't built up download reputation yet (code signing is on the way).",
+      "step1": "Click \"More info\" on the warning dialog.",
+      "step2": "Click the \"Run anyway\" button that appears, then continue the installation normally.",
+      "outro": "If your browser blocked the download instead, choose \"Keep\" to save the installer first."
+    }
   },
   "contribute": {
     "title": "Contribute",

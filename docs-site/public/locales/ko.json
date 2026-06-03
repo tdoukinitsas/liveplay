@@ -30,6 +30,19 @@
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
     "viewReleases": "GitHub에서 모든 릴리스 보기 →",
+    "macGatekeeper": {
+      "title": "macOS: \"LivePlay이(가) 손상되어 열 수 없습니다\"라고 표시되나요?",
+      "intro": "LivePlay는 아직 Apple 개발자 인증서로 서명되지 않았기 때문에 macOS가 다운로드 시 격리합니다. 앱은 안전합니다. 이는 단지 공증(notarize) 비용을 Apple에 지불하지 않았다는 의미일 뿐입니다. 열려면 /Applications에 설치한 후 한 번만 격리 플래그를 제거하세요:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "메시지가 표시되면 암호를 입력한 다음 LivePlay를 정상적으로 실행하세요. 설치할 때마다 한 번만 수행하면 됩니다."
+    },
+    "winSmartScreen": {
+      "title": "Windows: \"Windows의 PC 보호\"가 표시되나요?",
+      "intro": "LivePlay는 아직 Microsoft SmartScreen이 인식하는 인증서로 서명되지 않았기 때문에 설치 관리자를 실행할 때 Windows가 파란색 \"Windows의 PC 보호\" 경고를 표시할 수 있습니다. 앱은 안전합니다. 단지 아직 다운로드 평판이 쌓이지 않았을 뿐입니다(코드 서명을 준비 중입니다).",
+      "step1": "경고 대화 상자에서 \"추가 정보\"를 클릭합니다.",
+      "step2": "나타나는 \"실행\" 버튼을 클릭한 다음 평소처럼 설치를 계속합니다.",
+      "outro": "대신 브라우저가 다운로드를 차단한 경우 먼저 \"유지\"를 선택하여 설치 파일을 저장하세요."
+    },
     "macArm": {
       "title": "macOS — Apple Silicon",
       "description": "M1/M2/M3 이상 (arm64)",

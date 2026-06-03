@@ -85,6 +85,29 @@ The installer bundles **both** the Electron client and the `liveplay-server` bin
 
 LivePlay auto-checks for new releases on launch and offers in-app updates via `electron-updater`.
 
+### First launch on macOS ("LivePlay is damaged and can't be opened")
+
+LivePlay's macOS builds are **not yet signed with an Apple Developer ID certificate or notarized** (Apple charges for this — it's on the roadmap). Because of that, macOS quarantines the app on download and Gatekeeper refuses to open it, usually with *"LivePlay is damaged and can't be opened."* The app is not actually damaged — macOS just won't run an unsigned, quarantined binary.
+
+After dragging **LivePlay.app** into `/Applications`, remove the quarantine flag once from Terminal:
+
+```sh
+sudo xattr -rd com.apple.quarantine "/Applications/LivePlay.app"
+```
+
+Enter your password when prompted, then launch LivePlay normally. You only need to do this once per install (repeat it after each update). This applies to both the Apple Silicon and Intel builds.
+
+### First launch on Windows ("Windows protected your PC")
+
+LivePlay's Windows installer isn't yet signed with a certificate that Microsoft SmartScreen recognises (code signing via [SignPath](SIGNING.md) is in progress). Until then, Windows may show a blue **"Windows protected your PC"** dialog the first time you run the installer. The app is safe — it just hasn't accumulated SmartScreen download reputation yet.
+
+To run it:
+
+1. Click **More info** on the warning dialog.
+2. Click the **Run anyway** button that appears, then continue the installation normally.
+
+If your browser blocked the download instead, choose **Keep** to save the installer first.
+
 ### Network ports
 
 A single-machine install talks to itself over `127.0.0.1` and needs nothing opened. When the client and server run on **different machines** on a LAN, make sure these ports are reachable through any firewalls in between:
@@ -200,8 +223,8 @@ Use `npm run build:clean` to wipe previous build outputs first (it preserves `vc
   "$HOME/dev/vcpkg"/bootstrap-vcpkg.sh
   ```
 - Set `VCPKG_ROOT`, then `npm install && npm run build`.
-- Output: `build/LivePlay-<version>.dmg` on Intel, or `build/LivePlay-<version>-arm64.dmg` on Apple Silicon (each with a matching `.zip`). CI builds both x64 and arm64 separately — to build the other arch locally, set `CMAKE_OSX_DEPLOYMENT_TARGET` and pass the matching electron-builder flags.
-- Code signing is skipped by default (users will see a Gatekeeper warning on first launch — right-click → Open).
+- Output: `build/LivePlay-<version>.dmg` on Intel, or `build/LivePlay-<version>-arm64.dmg` on Apple Silicon (each with a matching `.zip`). CI builds both x64 and arm64 **on Apple Silicon runners** — the Intel slice is cross-compiled with `-DCMAKE_OSX_ARCHITECTURES=x86_64` (Apple clang cross-compiles, vcpkg builds the `x64-osx` triplet, and `electron-builder --x64` fetches the prebuilt x64 Electron). To cross-build the Intel slice locally on an Apple Silicon Mac, configure the server with `-DCMAKE_OSX_ARCHITECTURES=x86_64` and run `electron-builder --mac --x64`.
+- Code signing is skipped by default. Users will see a Gatekeeper warning on first launch — see [First launch on macOS](#first-launch-on-macos-liveplay-is-damaged-and-cant-be-opened).
 
 ##### Linux
 
@@ -269,7 +292,7 @@ Releases are fully automated. The release pipeline lives in [`.github/workflows/
 2. Commit and push to `main`.
 3. The `build-release` workflow detects the version change and runs the platform matrix:
    - **Windows x64** (MSVC, WASAPI)
-   - **macOS Intel x64** (Clang, CoreAudio, deployment target 11.0)
+   - **macOS Intel x64** (Clang, CoreAudio, deployment target 11.0 — cross-compiled `x86_64` on an Apple Silicon runner)
    - **macOS Apple Silicon arm64** (Clang, CoreAudio, deployment target 12.0)
    - **Linux x64** (GCC, ALSA + PulseAudio + JACK)
 4. Each job builds the C++ server through CMake/vcpkg, then runs the client `electron-builder` step with `extraResources` picking up the freshly compiled server binary.

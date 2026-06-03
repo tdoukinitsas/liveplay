@@ -30,6 +30,19 @@
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
     "viewReleases": "Ver todas as versões no GitHub →",
+    "macGatekeeper": {
+      "title": "macOS: \"O LivePlay está danificado e não pode ser aberto\"?",
+      "intro": "O LivePlay ainda não está assinado com um certificado de programador da Apple, por isso o macOS coloca-o em quarentena ao transferir. A aplicação é segura — significa apenas que a Apple não foi paga para a autenticar. Para a abrir, remova uma vez a marca de quarentena depois de a instalar em /Applications:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "Introduza a sua palavra-passe quando solicitado e, em seguida, abra o LivePlay normalmente. Só precisa de fazer isto uma vez por instalação."
+    },
+    "winSmartScreen": {
+      "title": "Windows: \"O Windows protegeu o seu PC\"?",
+      "intro": "O LivePlay ainda não está assinado com um certificado reconhecido pelo Microsoft SmartScreen, por isso o Windows pode mostrar o aviso azul \"O Windows protegeu o seu PC\" ao executar o instalador. A aplicação é segura — apenas ainda não acumulou reputação de transferência (a assinatura de código está a caminho).",
+      "step1": "Clique em \"Mais informações\" na caixa de aviso.",
+      "step2": "Clique no botão \"Executar mesmo assim\" que aparece e continue a instalação normalmente.",
+      "outro": "Se foi o navegador a bloquear a transferência, escolha primeiro \"Manter\" para guardar o instalador."
+    },
     "macArm": {
       "title": "macOS — Apple Silicon",
       "description": "M1/M2/M3 e mais recentes (arm64)",

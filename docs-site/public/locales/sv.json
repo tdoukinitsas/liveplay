@@ -30,6 +30,19 @@
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
     "viewReleases": "Se alla versioner på GitHub →",
+    "macGatekeeper": {
+      "title": "macOS: ”LivePlay är skadat och kan inte öppnas”?",
+      "intro": "LivePlay är ännu inte signerat med ett Apple-utvecklarcertifikat, så macOS sätter det i karantän vid nedladdning. Appen är säker – det betyder bara att Apple inte har betalats för att notarisera den. För att öppna den, ta bort karantänmarkeringen en gång efter att du installerat den i /Applications:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "Ange ditt lösenord när du uppmanas och starta sedan LivePlay som vanligt. Du behöver bara göra detta en gång per installation."
+    },
+    "winSmartScreen": {
+      "title": "Windows: ”Windows skyddade din dator”?",
+      "intro": "LivePlay är ännu inte signerat med ett certifikat som Microsoft SmartScreen känner igen, så Windows kan visa den blå varningen ”Windows skyddade din dator” när du kör installationsprogrammet. Appen är säker – den har bara inte byggt upp något nedladdningsrykte än (kodsignering är på väg).",
+      "step1": "Klicka på ”Mer information” i varningsdialogen.",
+      "step2": "Klicka på knappen ”Kör ändå” som visas och fortsätt sedan installationen som vanligt.",
+      "outro": "Om det i stället var webbläsaren som blockerade nedladdningen väljer du först ”Behåll” för att spara filen."
+    },
     "macArm": {
       "title": "macOS — Apple Silicon",
       "description": "M1/M2/M3 och nyare (arm64)",

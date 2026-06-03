@@ -30,6 +30,19 @@
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
     "viewReleases": "Voir toutes les versions sur GitHub →",
+    "macGatekeeper": {
+      "title": "macOS : « LivePlay est endommagé et ne peut pas être ouvert » ?",
+      "intro": "LivePlay n'est pas encore signé avec un certificat de développeur Apple, donc macOS le met en quarantaine au téléchargement. L'application est sûre — cela signifie simplement qu'Apple n'a pas été payé pour la notariser. Pour l'ouvrir, supprimez une fois l'indicateur de quarantaine après l'avoir installée dans /Applications :",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "Saisissez votre mot de passe lorsqu'il vous est demandé, puis lancez LivePlay normalement. Vous n'avez à le faire qu'une seule fois par installation."
+    },
+    "winSmartScreen": {
+      "title": "Windows : « Windows a protégé votre ordinateur » ?",
+      "intro": "LivePlay n'est pas encore signé avec un certificat reconnu par Microsoft SmartScreen ; Windows peut donc afficher l'avertissement bleu « Windows a protégé votre ordinateur » lorsque vous lancez le programme d'installation. L'application est sûre — elle n'a tout simplement pas encore acquis de réputation de téléchargement (la signature de code est en préparation).",
+      "step1": "Cliquez sur « Informations complémentaires » dans la boîte de dialogue d’avertissement.",
+      "step2": "Cliquez sur le bouton « Exécuter quand même » qui apparaît, puis poursuivez l’installation normalement.",
+      "outro": "Si c'est votre navigateur qui a bloqué le téléchargement, choisissez d'abord « Conserver » pour enregistrer le fichier."
+    },
     "macArm": {
       "title": "macOS — Apple Silicon",
       "description": "M1/M2/M3 et plus récents (arm64)",

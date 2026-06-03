@@ -30,6 +30,19 @@
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
     "viewReleases": "Vezi toate versiunile pe GitHub →",
+    "macGatekeeper": {
+      "title": "macOS: „LivePlay este deteriorat și nu poate fi deschis”?",
+      "intro": "LivePlay nu este încă semnat cu un certificat de dezvoltator Apple, așa că macOS îl pune în carantină la descărcare. Aplicația este sigură — înseamnă doar că Apple nu a fost plătit pentru a o autentifica. Pentru a o deschide, eliminați o singură dată indicatorul de carantină după instalarea în /Applications:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "Introduceți parola când vi se solicită, apoi lansați LivePlay normal. Trebuie să faceți acest lucru o singură dată pentru fiecare instalare."
+    },
+    "winSmartScreen": {
+      "title": "Windows: „Windows v-a protejat PC-ul”?",
+      "intro": "LivePlay nu este încă semnat cu un certificat recunoscut de Microsoft SmartScreen, așa că Windows poate afișa avertismentul albastru „Windows v-a protejat PC-ul” când rulați programul de instalare. Aplicația este sigură — pur și simplu nu și-a creat încă o reputație de descărcare (semnarea codului este pe drum).",
+      "step1": "Faceți clic pe „Informații suplimentare” în caseta de avertizare.",
+      "step2": "Faceți clic pe butonul „Executați oricum” care apare, apoi continuați instalarea normal.",
+      "outro": "Dacă în schimb browserul a blocat descărcarea, alegeți mai întâi „Păstrați” pentru a salva fișierul."
+    },
     "macArm": {
       "title": "macOS — Apple Silicon",
       "description": "M1/M2/M3 și mai noi (arm64)",

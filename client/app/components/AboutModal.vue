@@ -72,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import contributorsJson from '~/assets/json/contributors.json';
+import contributorsJson from '~~/assets/json/contributors.json';
 
 const emit = defineEmits<{
   close: []

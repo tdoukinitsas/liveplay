@@ -16,7 +16,7 @@ const FILES_TO_UPDATE = [
   { path: 'client/package.json', key: 'version', type: 'json' },
   { path: 'docs-site/package.json', key: 'version', type: 'json' },
   { path: 'server/vcpkg.json', key: 'version-string', type: 'json' },
-  { path: 'docs-site/app.vue', key: null, type: 'vue' }
+  { path: 'docs-site/app/app.vue', key: null, type: 'vue' }
 ];
 
 function readVersion() {
