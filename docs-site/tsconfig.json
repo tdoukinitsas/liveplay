@@ -1,11 +1,7 @@
 {
-  // Nuxt 4 generates per-context tsconfigs into node_modules/.cache/nuxt/.nuxt.
-  // This root config just references them so the editor resolves each context.
-  "files": [],
-  "references": [
-    { "path": "./node_modules/.cache/nuxt/.nuxt/tsconfig.app.json" },
-    { "path": "./node_modules/.cache/nuxt/.nuxt/tsconfig.server.json" },
-    { "path": "./node_modules/.cache/nuxt/.nuxt/tsconfig.shared.json" },
-    { "path": "./node_modules/.cache/nuxt/.nuxt/tsconfig.node.json" }
-  ]
+  // Extend the flat, reference-free tsconfig Nuxt writes into the build dir on
+  // every `nuxt prepare`/`nuxt generate`. See client/tsconfig.json for why we
+  // avoid TS project `references` to the split-context configs (they break the
+  // Vite/esbuild transform in fresh CI checkouts with ENOENT).
+  "extends": "./.nuxt/tsconfig.json"
 }
