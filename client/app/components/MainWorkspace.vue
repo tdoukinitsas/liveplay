@@ -71,6 +71,7 @@ const {
   duplicateItems,
   copyItemsToClipboard,
   pasteItemsFromClipboard,
+  requestDeleteFromKeyboard,
 } = useProject();
 const { triggerByUuid, triggerByIndex, stopCue, stopAllCues, playCue } = useAudioEngine();
 const { getCartItem, cartOnlyItems, updateCartOnlyItem } = useCartItems();
@@ -384,6 +385,15 @@ const handleKeydown = (e: KeyboardEvent) => {
       const { playCue } = useAudioEngine();
       playCue(selectedItem.value as any);
     }
+    return;
+  }
+
+  // Delete / Backspace removes the current selection. A multi-selection opens
+  // the confirm dialog; a single item is removed outright. Must defer to
+  // native editing inside text fields.
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (isTextInputFocused() || !currentProject.value) return;
+    if (requestDeleteFromKeyboard()) e.preventDefault();
     return;
   }
 

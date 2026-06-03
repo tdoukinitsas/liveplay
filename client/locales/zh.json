@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "zh",
     "name": "Chinese",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "禁用自动音量和修剪调整",
     "disableLimiter": "禁用砖墙限制器",
     "disableLimiterHelp": "关闭砖墙限制器，允许峰值超过上限。可在播放过程中更改。",
+    "disableSilenceWarning": "禁用静音警告",
+    "disableSilenceWarningHelp": "阻止静音警告横幅出现在标题栏中。",
     "useProjectDefault": "使用项目默认",
     "noneSelected": "未选择",
     "save": "保存",
@@ -401,14 +403,16 @@
     "title": "导入音频",
     "tabServer": "在服务器上",
     "tabUpload": "从此计算机上传",
-    "serverHint": "服务器上已有的文件。双击文件夹进入,或点击文件旁边的添加。",
+    "serverHint": "已在服务器上的文件。双击文件夹将其打开；单击文件进行选择（按住 Shift 或 Ctrl/Cmd 单击可多选），然后点击“导入所选”。",
+    "importSelected": "导入所选",
+    "selectedCount": "已选择 {count} 个",
     "uploadIntro": "从此计算机选择一个或多个文件。它们将上传到服务器的媒体文件夹。",
     "uploading": "上传中…",
     "chooseFiles": "选择文件…",
     "add": "添加",
     "desktopOnly": "原生文件选择器仅在桌面应用中可用。",
     "uploadingProgress": "上传中 {i}/{total}：{name}",
-    "uploadedCount": "已上传 {count} 个文件。点击\"添加\"以导入。",
+    "uploadedCount": "已上传 {count} 个文件。",
     "uploadFailed": "上传失败：{error}",
     "orFromComputer": "或从此电脑选择"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "选择文件…",
     "uploading": "正在上传…",
     "uploadingProgress": "正在上传 {current}/{total}: {filename}"
+  },
+  "deleteSelection": {
+    "title": "删除项目",
+    "message": "已选择 {count} 个项目。您要删除什么？",
+    "deleteAll": "删除选中的 {count} 个项目",
+    "deleteOnly": "仅删除\"{name}\"",
+    "cancel": "取消"
   }
 }

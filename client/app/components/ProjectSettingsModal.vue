@@ -123,6 +123,19 @@
             <p class="settings-help">{{ t('settings.disableLimiterHelp') }}</p>
           </section>
 
+          <!-- Disable silence warning -->
+          <section class="settings-field">
+            <label class="settings-label settings-label--checkbox">
+              <input
+                type="checkbox"
+                :checked="disableSilenceWarning"
+                @change="onDisableSilenceWarningChange"
+              />
+              {{ t('settings.disableSilenceWarning') }}
+            </label>
+            <p class="settings-help">{{ t('settings.disableSilenceWarningHelp') }}</p>
+          </section>
+
           <!-- Meter Display Mode -->
           <section class="settings-field">
             <label class="settings-label">
@@ -170,6 +183,7 @@ const ltcDeviceId            = computed(() => (currentProject.value as any)?.set
 const outputTarget           = computed(() => (currentProject.value as any)?.settings?.outputTarget || 'ebu-r128');
 const disableAutoVolumeAndTrim = computed(() => !!(currentProject.value as any)?.settings?.disableAutoVolumeAndTrim);
 const disableLimiter           = computed(() => !!(currentProject.value as any)?.settings?.disableLimiter);
+const disableSilenceWarning    = computed(() => !!(currentProject.value as any)?.settings?.disableSilenceWarning);
 const { meterMode: currentMeterMode } = useOutputTarget();
 const meterMode              = computed(() => (currentProject.value as any)?.settings?.meterMode || currentMeterMode.value);
 
@@ -221,6 +235,9 @@ function onDisableAutoVolumeAndTrimChange(e: Event) {
 }
 function onDisableLimiterChange(e: Event) {
   applyPatch({ disableLimiter: (e.target as HTMLInputElement).checked });
+}
+function onDisableSilenceWarningChange(e: Event) {
+  applyPatch({ disableSilenceWarning: (e.target as HTMLInputElement).checked });
 }
 
 function close() {

@@ -193,8 +193,14 @@ const handleImport = () => {
 
 // Called once per file the user selected in the modal (server browse or upload).
 // The path is always a server-side absolute path at this point.
-const onImportPick = async (serverPath: string) => {
-  await importFromServerPath(serverPath);
+const onImportPick = async (serverPaths: string | string[]) => {
+  // The modal now batches selections; accept either a single path (legacy) or
+  // an array. Import sequentially so each item gets a stable, ordered index.
+  const paths = Array.isArray(serverPaths) ? serverPaths : [serverPaths];
+  for (const p of paths) {
+    await importFromServerPath(p);
+  }
+  showImportModal.value = false;
 };
 
 // Import a file that is already on (or accessible from) the server.

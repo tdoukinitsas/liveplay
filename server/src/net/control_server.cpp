@@ -1383,7 +1383,14 @@ void ControlServer::install_routes() {
                 fs::create_directories(media);
                 const fs::path dest = media / src.filename();
 
-                if (fs::canonical(src) != fs::canonical(dest)) {
+                // Skip the copy only when src and dest are the same file. Use
+                // weakly_canonical, NOT canonical: canonical() throws when the
+                // path doesn't exist, and dest normally does NOT exist yet on a
+                // first import — that threw, returned 500, and the client fell
+                // back to the original out-of-folder path, so the media never
+                // landed in the project folder (the import bug).
+                std::error_code ec;
+                if (fs::weakly_canonical(src, ec) != fs::weakly_canonical(dest, ec)) {
                     fs::copy_file(src, dest, fs::copy_options::overwrite_existing);
                 }
 

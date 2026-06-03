@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "fr",
     "name": "French",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "Désactiver les ajustements automatiques de volume et de découpe",
     "disableLimiter": "Désactiver le limiteur brickwall",
     "disableLimiterHelp": "Désactive le limiteur brickwall, autorisant les crêtes au-dessus du plafond. Modifiable pendant la lecture.",
+    "disableSilenceWarning": "Désactiver l'avertissement de silence",
+    "disableSilenceWarningHelp": "Empêche l'avertissement de silence d'apparaître dans l'en-tête.",
     "useProjectDefault": "Utiliser la valeur par défaut du projet",
     "noneSelected": "Non sélectionné",
     "save": "Enregistrer",
@@ -401,14 +403,16 @@
     "title": "Importer de l'audio",
     "tabServer": "Sur le serveur",
     "tabUpload": "Téléverser depuis cet ordinateur",
-    "serverHint": "Fichiers déjà sur le serveur. Double-cliquez sur un dossier pour y descendre, ou cliquez sur Ajouter à côté d'un fichier.",
+    "serverHint": "Fichiers déjà sur le serveur. Double-cliquez sur un dossier pour l'ouvrir ; cliquez sur les fichiers pour les sélectionner (Maj ou Ctrl/Cmd-clic pour en sélectionner plusieurs), puis sur « Importer la sélection ».",
+    "importSelected": "Importer la sélection",
+    "selectedCount": "{count} sélectionné(s)",
     "uploadIntro": "Choisissez un ou plusieurs fichiers depuis cet ordinateur. Ils seront téléversés dans le dossier média du serveur.",
     "uploading": "Téléversement…",
     "chooseFiles": "Choisir des fichiers…",
     "add": "Ajouter",
     "desktopOnly": "Le sélecteur de fichiers natif n'est disponible que dans l'application de bureau.",
     "uploadingProgress": "Téléversement {i}/{total} : {name}",
-    "uploadedCount": "{count} fichier(s) téléversé(s). Cliquez sur « Ajouter » pour importer.",
+    "uploadedCount": "{count} fichier(s) téléversé(s).",
     "uploadFailed": "Échec du téléversement : {error}",
     "orFromComputer": "Ou choisir depuis cet ordinateur"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "Choisir des fichiers…",
     "uploading": "Téléversement…",
     "uploadingProgress": "Téléversement {current}/{total} : {filename}"
+  },
+  "deleteSelection": {
+    "title": "Supprimer les éléments",
+    "message": "{count} éléments sont sélectionnés. Que voulez-vous supprimer ?",
+    "deleteAll": "Supprimer {count} éléments sélectionnés",
+    "deleteOnly": "Supprimer uniquement « {name} »",
+    "cancel": "Annuler"
   }
 }

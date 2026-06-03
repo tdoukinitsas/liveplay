@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "en",
     "name": "English",
@@ -81,6 +81,8 @@
     "disableAutoVolumeAndTrim": "Disable automatic volume and trim adjustments",
     "disableLimiter": "Disable brickwall limiter",
     "disableLimiterHelp": "Turns off the brickwall limiter, allowing peaks above the output ceiling. Can be changed during playback.",
+    "disableSilenceWarning": "Disable silence warning",
+    "disableSilenceWarningHelp": "Stops the silence warning banner from appearing in the header.",
     "useProjectDefault": "Use project default",
     "noneSelected": "Not selected",
     "save": "Save",
@@ -439,14 +441,16 @@
     "title": "Import audio",
     "tabServer": "On server",
     "tabUpload": "Upload from this computer",
-    "serverHint": "Files already on the server. Double-click a folder to descend, or click Add next to a file.",
+    "serverHint": "Files already on the server. Double-click a folder to open it; click files to select (Shift or Ctrl/Cmd-click for multiple), then Import selected.",
+    "importSelected": "Import selected",
+    "selectedCount": "{count} selected",
     "uploadIntro": "Pick one or more files from this computer. They will be uploaded into the server's media folder.",
     "uploading": "Uploading…",
     "chooseFiles": "Choose files…",
     "add": "Add",
     "desktopOnly": "Native file picker is only available in the desktop app.",
     "uploadingProgress": "Uploading {i}/{total}: {name}",
-    "uploadedCount": "Uploaded {count} file(s). Click \"Add\" to import.",
+    "uploadedCount": "Uploaded {count} file(s).",
     "uploadFailed": "Upload failed: {error}",
     "orFromComputer": "Or pick from this computer"
   },
@@ -455,6 +459,13 @@
     "message": "You have unsaved changes. Do you want to save them before continuing?",
     "save": "Save",
     "discard": "Don't Save",
+    "cancel": "Cancel"
+  },
+  "deleteSelection": {
+    "title": "Delete Items",
+    "message": "{count} items are selected. What would you like to delete?",
+    "deleteAll": "Delete {count} Selected Items",
+    "deleteOnly": "Delete Only \"{name}\"",
     "cancel": "Cancel"
   }
 }

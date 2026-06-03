@@ -168,7 +168,10 @@ watch(() => [silenceWarning.value, isDark.value], () => {
 });
 
 const checkForSilence = () => {
-  if (!currentProject.value || activeCues.value.size === 0) {
+  // The user can opt out of the silence warning entirely in project settings.
+  if (!currentProject.value
+      || activeCues.value.size === 0
+      || (currentProject.value as any).settings?.disableSilenceWarning) {
     silenceWarning.value = null;
     return;
   }

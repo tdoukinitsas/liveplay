@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "tr",
     "name": "Turkish",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "Otomatik ses ve kırpma ayarlarını devre dışı bırak",
     "disableLimiter": "Brickwall limiter'ı devre dışı bırak",
     "disableLimiterHelp": "Brickwall limiter'ı kapatır ve tavanın üzerindeki tepe değerlerine izin verir. Oynatma sırasında değiştirilebilir.",
+    "disableSilenceWarning": "Sessizlik uyarısını devre dışı bırak",
+    "disableSilenceWarningHelp": "Sessizlik uyarısının başlıkta görünmesini engeller.",
     "useProjectDefault": "Proje varsayılanını kullan",
     "noneSelected": "Seçilmedi",
     "save": "Kaydet",
@@ -401,14 +403,16 @@
     "title": "Ses içe aktar",
     "tabServer": "Sunucuda",
     "tabUpload": "Bu bilgisayardan yükle",
-    "serverHint": "Sunucuda zaten bulunan dosyalar. İnmek için bir klasöre çift tıklayın veya bir dosyanın yanındaki Ekle düğmesine tıklayın.",
+    "serverHint": "Sunucuda zaten bulunan dosyalar. Açmak için bir klasöre çift tıklayın; seçmek için dosyalara tıklayın (birden fazlası için Shift veya Ctrl/Cmd tıklama), ardından \"Seçilenleri içe aktar\".",
+    "importSelected": "Seçilenleri içe aktar",
+    "selectedCount": "{count} seçili",
     "uploadIntro": "Bu bilgisayardan bir veya daha fazla dosya seçin. Sunucunun medya klasörüne yüklenecekler.",
     "uploading": "Yükleniyor…",
     "chooseFiles": "Dosyaları seç…",
     "add": "Ekle",
     "desktopOnly": "Yerel dosya seçici yalnızca masaüstü uygulamasında kullanılabilir.",
     "uploadingProgress": "Yükleniyor {i}/{total}: {name}",
-    "uploadedCount": "{count} dosya yüklendi. İçe aktarmak için \"Ekle\" düğmesine tıklayın.",
+    "uploadedCount": "{count} dosya yüklendi.",
     "uploadFailed": "Yükleme başarısız: {error}",
     "orFromComputer": "Veya bu bilgisayardan seçin"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "Dosya seç…",
     "uploading": "Yükleniyor…",
     "uploadingProgress": "Yükleniyor {current}/{total}: {filename}"
+  },
+  "deleteSelection": {
+    "title": "Öğeleri sil",
+    "message": "{count} öğe seçili. Neyi silmek istiyorsunuz?",
+    "deleteAll": "Seçili {count} öğeyi sil",
+    "deleteOnly": "Yalnızca \"{name}\" öğesini sil",
+    "cancel": "İptal"
   }
 }

@@ -422,12 +422,16 @@ watch(() => props.open, (o) => {
   gap: 8px; align-items: center; padding: 6px 14px;
   cursor: pointer; border-bottom: 1px solid #1d1d1d;
   &:hover { background: #1f1f1f; }
-  &.selected { background: var(--color-accent); color: #fff; }
-  .icon { text-align: center; }
-  .name { color: #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  // Drives & folders: white icons. Selectable files: accent icon, white name.
+  .icon { text-align: center; color: #ffffff; }
+  &.file .icon { color: var(--color-accent); }
+  .name { color: #ffffff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .size { color: #888; font-family: var(--font-mono); font-size: 11px; }
-  &.dir   .name { color: #ffffff; }
-  &.drive .name { color: #ffffff; font-weight: 600; }
+  &.drive .name { font-weight: 600; }
+  &.selected {
+    background: var(--color-accent);
+    .name, .icon, .size { color: #fff; }
+  }
 }
 .empty {
   padding: 18px; text-align: center; color: #777; font-style: italic;

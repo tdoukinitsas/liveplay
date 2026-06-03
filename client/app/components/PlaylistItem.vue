@@ -197,7 +197,7 @@ const props = defineProps<{
   depth: number;
 }>();
 
-const { selectedItem, selectedItems, toggleItemSelection, openItemProperties, removeItem, findItemByUuid, currentProject, waveformUpdateKey, triggerWaveformUpdate } = useProject();
+const { selectedItem, selectedItems, toggleItemSelection, openItemProperties, removeItem, requestDeleteFromButton, findItemByUuid, currentProject, waveformUpdateKey, triggerWaveformUpdate } = useProject();
 const { levels: outputTargetLevels } = useOutputTarget();
 const { playCue, stopCue, activeCues, activeGroups, triggerGroup, nextItemOverrideUuid, autoNextItemUuid, setNextItem } = useAudioEngine();
 const { t } = useLocalization();
@@ -548,6 +548,10 @@ const handleSetAsNext = () => {
 };
 
 const handleDelete = () => {
+  // When this item is part of a multi-selection, defer to the confirm dialog
+  // (Delete N Selected / Delete Only this / Cancel). Otherwise fall back to
+  // the simple single-item confirmation.
+  if (requestDeleteFromButton(props.item.uuid)) return;
   if (confirm(t('actions.confirmDelete', { name: props.item.displayName }))) {
     removeItem(props.item.uuid);
   }

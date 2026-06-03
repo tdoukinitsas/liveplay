@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "no",
     "name": "Norwegian",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "Deaktiver automatiske volum- og klippejusteringer",
     "disableLimiter": "Deaktiver brickwall-limiter",
     "disableLimiterHelp": "Slår av brickwall-limiteren og tillater topper over taket. Kan endres under avspilling.",
+    "disableSilenceWarning": "Deaktiver stillhetsvarsel",
+    "disableSilenceWarningHelp": "Hindrer at stillhetsvarselet vises i toppteksten.",
     "useProjectDefault": "Bruk prosjektstandard",
     "noneSelected": "Ikke valgt",
     "save": "Lagre",
@@ -401,14 +403,16 @@
     "title": "Importer lyd",
     "tabServer": "På serveren",
     "tabUpload": "Last opp fra denne datamaskinen",
-    "serverHint": "Filer som allerede ligger på serveren. Dobbeltklikk på en mappe for å gå inn, eller klikk Legg til ved siden av en fil.",
+    "serverHint": "Filer som allerede ligger på serveren. Dobbeltklikk på en mappe for å åpne den; klikk på filer for å velge dem (Shift eller Ctrl/Cmd-klikk for flere), og deretter «Importer valgte».",
+    "importSelected": "Importer valgte",
+    "selectedCount": "{count} valgt",
     "uploadIntro": "Velg én eller flere filer fra denne datamaskinen. De blir lastet opp til serverens mediemappe.",
     "uploading": "Laster opp…",
     "chooseFiles": "Velg filer…",
     "add": "Legg til",
     "desktopOnly": "Den native filvelgeren er bare tilgjengelig i skrivebordsappen.",
     "uploadingProgress": "Laster opp {i}/{total}: {name}",
-    "uploadedCount": "Lastet opp {count} fil(er). Klikk \"Legg til\" for å importere.",
+    "uploadedCount": "Lastet opp {count} fil(er).",
     "uploadFailed": "Opplasting mislyktes: {error}",
     "orFromComputer": "Eller velg fra denne datamaskinen"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "Velg filer…",
     "uploading": "Laster opp…",
     "uploadingProgress": "Laster opp {current}/{total}: {filename}"
+  },
+  "deleteSelection": {
+    "title": "Slett elementer",
+    "message": "{count} elementer er valgt. Hva vil du slette?",
+    "deleteAll": "Slett {count} valgte elementer",
+    "deleteOnly": "Slett bare «{name}»",
+    "cancel": "Avbryt"
   }
 }

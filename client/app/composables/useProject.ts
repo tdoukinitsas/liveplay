@@ -113,6 +113,21 @@ let _repairPromiseResolve: ((confirmed: boolean) => void) | null = null;
 const unsavedDialogVisible = ref(false);
 let _unsavedPromiseResolve: ((choice: 'save' | 'discard' | 'cancel') => void) | null = null;
 
+// ---- Delete-selection dialog state (module-scoped, shared across calls) ----
+// Shown when a delete is triggered while more than one item is selected, so a
+// single trash-button click can't silently wipe the whole selection. The
+// keyboard DEL variant omits the "Delete Only" choice (firmer intent).
+const deleteDialogVisible = ref(false);
+const deleteDialogCount = ref(0);
+const deleteDialogName = ref('');
+const deleteDialogAllowOnly = ref(true);
+// When opened from a specific item's trash button, the UUID "Delete Only"
+// should target.
+let _deleteOnlyUuid: string | null = null;
+// Which delete path the dialog's buttons should take, captured when the dialog
+// opens so it can't drift if the selection changes underneath it.
+let _deleteContext: 'playlist' | 'cart' = 'playlist';
+
 export const useProject = () => {
   const currentProject = useState<Project | null>('currentProject', () => null);
   // The active/anchor selection is stored as a UUID, not as an object
@@ -132,6 +147,12 @@ export const useProject = () => {
     set: (item) => { selectedItemUuid.value = item ? (item as BaseItem).uuid : null; },
   });
   const selectedItems = useState<Set<string>>('selectedItems', () => new Set()); // Track multiple selections by UUID
+  // Which panel the current selection belongs to. The playlist and cart share
+  // `selectedItems` but delete differently (the cart unassigns slots / drops
+  // cart-only items rather than removing playlist items), and an item can live
+  // in both with the same UUID. The selection handlers stamp this so a global
+  // keyboard DEL knows which delete path to take.
+  const selectionContext = useState<'playlist' | 'cart'>('selectionContext', () => 'playlist');
   // Whether the properties panel is actually shown. Kept SEPARATE from
   // selectedItem so that plain row/slot clicks can update the active
   // selection (and the panel's contents, when it's open) WITHOUT forcing
@@ -222,6 +243,7 @@ export const useProject = () => {
   // Multi-select helpers
   const toggleItemSelection = (uuid: string, isCtrlKey: boolean, isShiftKey: boolean) => {
     if (!currentProject.value) return;
+    selectionContext.value = 'playlist';
 
     if (isShiftKey && selectedItems.value.size > 0) {
       // Shift-click: select range
@@ -293,6 +315,7 @@ export const useProject = () => {
   // anchor so a subsequent shift-click extends sensibly.
   const selectAllItems = () => {
     if (!currentProject.value) return;
+    selectionContext.value = 'playlist';
     const all = getAllItemsFlat(currentProject.value.items);
     selectedItems.value.clear();
     for (const it of all) selectedItems.value.add(it.uuid);
@@ -375,6 +398,7 @@ export const useProject = () => {
     }
     if (newUuids.length === 0) return;
     updateIndices(currentProject.value.items);
+    selectionContext.value = 'playlist';
     selectedItems.value.clear();
     for (const u of newUuids) selectedItems.value.add(u);
     const last = findItemByUuid(newUuids[newUuids.length - 1]);
@@ -443,6 +467,7 @@ export const useProject = () => {
       newUuids.push(clone.uuid);
     }
     updateIndices(currentProject.value.items);
+    selectionContext.value = 'playlist';
     selectedItems.value.clear();
     for (const u of newUuids) selectedItems.value.add(u);
     const last = findItemByUuid(newUuids[newUuids.length - 1]);
@@ -952,9 +977,95 @@ export const useProject = () => {
     };
 
     removeFromArray(currentProject.value.items);
+    selectedItems.value.delete(uuid);
     if (selectedItem.value?.uuid === uuid) {
       selectedItem.value = null;
     }
+  };
+
+  // Remove the given items from the CART: drop any cart-only entry and unassign
+  // every slot that references them. This does NOT touch the playlist (an item
+  // can be in both); it mirrors CartSlot's single-slot delete for a batch.
+  const deleteCartItems = (uuids: string[]) => {
+    if (!currentProject.value || uuids.length === 0) return;
+    const { removeCartOnlyItem } = useCartItems();
+    const targets = new Set(uuids);
+    for (const u of uuids) {
+      removeCartOnlyItem(u);
+      selectedItems.value.delete(u);
+    }
+    currentProject.value.cartItems = currentProject.value.cartItems
+      .filter((ci: any) => !targets.has(ci.itemUuid));
+    if (selectedItem.value && targets.has(selectedItem.value.uuid)) selectedItem.value = null;
+    saveProject();
+  };
+
+  // Remove every selected item via the path appropriate to where the selection
+  // lives. Playlist deletes pull items from the tree; cart deletes only
+  // unassign slots. The set is snapshotted first because both paths mutate it.
+  const deleteSelection = (context: 'playlist' | 'cart' = selectionContext.value) => {
+    const uuids = Array.from(selectedItems.value);
+    if (context === 'cart') {
+      deleteCartItems(uuids);
+    } else {
+      for (const u of uuids) removeItem(u);
+    }
+    selectedItems.value.clear();
+    selectedItem.value = null;
+  };
+
+  // Entry point from an item's trash button. When the clicked item is part of
+  // a multi-selection, open the confirm dialog and return true so the caller
+  // leaves the deletion to the dialog. Returns false for the simple
+  // single-item case, which the caller handles itself. `context` reflects which
+  // panel the button lives in (cart vs playlist).
+  const requestDeleteFromButton = (uuid: string, context: 'playlist' | 'cart' = 'playlist'): boolean => {
+    if (selectedItems.value.has(uuid) && selectedItems.value.size > 1) {
+      _deleteOnlyUuid = uuid;
+      _deleteContext = context;
+      deleteDialogName.value = findItemByUuid(uuid)?.displayName ?? '';
+      deleteDialogCount.value = selectedItems.value.size;
+      deleteDialogAllowOnly.value = true;
+      deleteDialogVisible.value = true;
+      return true;
+    }
+    return false;
+  };
+
+  // Entry point from the keyboard DEL key. A single selected item is removed
+  // outright; a multi-selection opens the confirm dialog without the "Delete
+  // Only" choice. The active selectionContext decides playlist vs cart.
+  const requestDeleteFromKeyboard = (): boolean => {
+    const size = selectedItems.value.size;
+    if (size === 0) return false;
+    if (size === 1) {
+      deleteSelection(selectionContext.value);
+      return true;
+    }
+    _deleteOnlyUuid = null;
+    _deleteContext = selectionContext.value;
+    deleteDialogName.value = '';
+    deleteDialogCount.value = size;
+    deleteDialogAllowOnly.value = false;
+    deleteDialogVisible.value = true;
+    return true;
+  };
+
+  const deleteDialogConfirmAll = () => {
+    deleteDialogVisible.value = false;
+    deleteSelection(_deleteContext);
+  };
+  const deleteDialogConfirmOnly = () => {
+    deleteDialogVisible.value = false;
+    if (_deleteOnlyUuid) {
+      if (_deleteContext === 'cart') deleteCartItems([_deleteOnlyUuid]);
+      else removeItem(_deleteOnlyUuid);
+    }
+    _deleteOnlyUuid = null;
+  };
+  const deleteDialogCancel = () => {
+    deleteDialogVisible.value = false;
+    _deleteOnlyUuid = null;
   };
 
   // Find item by UUID
@@ -1591,5 +1702,17 @@ export const useProject = () => {
     unsavedSave,
     unsavedDiscard,
     unsavedCancel,
+    selectionContext,
+    deleteSelection,
+    deleteCartItems,
+    requestDeleteFromButton,
+    requestDeleteFromKeyboard,
+    deleteDialogVisible,
+    deleteDialogCount,
+    deleteDialogName,
+    deleteDialogAllowOnly,
+    deleteDialogConfirmAll,
+    deleteDialogConfirmOnly,
+    deleteDialogCancel,
   };
 };

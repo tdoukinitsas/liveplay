@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "ja",
     "name": "Japanese",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "自動音量・トリム調整を無効にする",
     "disableLimiter": "ブリックウォールリミッターを無効にする",
     "disableLimiterHelp": "ブリックウォールリミッターをオフにし、上限を超えるピークを許可します。再生中に変更できます。",
+    "disableSilenceWarning": "無音警告を無効にする",
+    "disableSilenceWarningHelp": "無音警告がヘッダーに表示されないようにします。",
     "useProjectDefault": "プロジェクトデフォルトを使用",
     "noneSelected": "未選択",
     "save": "保存",
@@ -401,14 +403,16 @@
     "title": "オーディオをインポート",
     "tabServer": "サーバー上",
     "tabUpload": "このコンピューターからアップロード",
-    "serverHint": "サーバー上に既にあるファイル。フォルダーをダブルクリックして下に移動するか、ファイルの横の追加をクリックします。",
+    "serverHint": "すでにサーバー上にあるファイルです。フォルダーをダブルクリックして開き、ファイルをクリックして選択し（複数選択は Shift または Ctrl/Cmd クリック）、「選択した項目をインポート」を押します。",
+    "importSelected": "選択した項目をインポート",
+    "selectedCount": "{count} 件選択中",
     "uploadIntro": "このコンピューターから1つ以上のファイルを選択してください。サーバーのメディアフォルダーにアップロードされます。",
     "uploading": "アップロード中…",
     "chooseFiles": "ファイルを選択…",
     "add": "追加",
     "desktopOnly": "ネイティブファイルピッカーはデスクトップアプリでのみ利用可能です。",
     "uploadingProgress": "アップロード中 {i}/{total}: {name}",
-    "uploadedCount": "{count}個のファイルをアップロードしました。「追加」をクリックしてインポートします。",
+    "uploadedCount": "{count} 件のファイルをアップロードしました。",
     "uploadFailed": "アップロードに失敗しました：{error}",
     "orFromComputer": "またはこのコンピューターから選択"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "ファイルを選択…",
     "uploading": "アップロード中…",
     "uploadingProgress": "アップロード中 {current}/{total}: {filename}"
+  },
+  "deleteSelection": {
+    "title": "アイテムを削除",
+    "message": "{count}個のアイテムが選択されています。何を削除しますか？",
+    "deleteAll": "選択した{count}個のアイテムを削除",
+    "deleteOnly": "\"{name}\"のみ削除",
+    "cancel": "キャンセル"
   }
 }

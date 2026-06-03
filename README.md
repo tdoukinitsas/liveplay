@@ -74,7 +74,7 @@ Pre-built installers for Windows, macOS and Linux are published on the [GitHub R
 
 | Platform | Files |
 |----------|-------|
-| Windows  | `LivePlay.Setup.x.y.z.exe` (NSIS installer, x64) |
+| Windows  | `LivePlay-Setup-x.y.z.exe` (NSIS installer, x64) |
 | macOS (Apple Silicon) | `LivePlay-x.y.z-arm64.dmg` (also `-arm64-mac.zip`) |
 | macOS (Intel) | `LivePlay-x.y.z.dmg` (also `-mac.zip`) |
 | Linux    | `LivePlay-x.y.z.AppImage`, `liveplay_x.y.z_amd64.deb`, `liveplay-x.y.z.x86_64.rpm` |
@@ -211,7 +211,7 @@ Use `npm run build:clean` to wipe previous build outputs first (it preserves `vc
   C:\dev\vcpkg\bootstrap-vcpkg.bat
   ```
 - Set `VCPKG_ROOT` (see above), open a fresh PowerShell, `npm install`, then `npm run build`.
-- Output: `build/LivePlay Setup <version>.exe` (NSIS installer, x64). GitHub rewrites the spaces to dots on the release asset (`LivePlay.Setup.<version>.exe`).
+- Output: `dist-electron/LivePlay-Setup-<version>.exe` (NSIS installer, x64). The `artifactName` uses hyphens (no spaces) so the local file, the GitHub release asset and the `latest.yml` auto-update manifest all reference the same name.
 
 ##### macOS
 

@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "sq",
     "name": "Albanian",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "Çaktivizo rregullimet automatike të volumit dhe prerjes",
     "disableLimiter": "Çaktivizo limituesin brickwall",
     "disableLimiterHelp": "Çaktivizon limituesin brickwall, duke lejuar kulmet mbi tavanin. Mund të ndryshohet gjatë luajtjes.",
+    "disableSilenceWarning": "Çaktivizo paralajmërimin e heshtjes",
+    "disableSilenceWarningHelp": "Pengon shfaqjen e paralajmërimit të heshtjes në kokë.",
     "useProjectDefault": "Përdor të paracaktuarën e projektit",
     "noneSelected": "Asnjë e zgjedhur",
     "save": "Ruaj",
@@ -401,14 +403,16 @@
     "title": "Importo audio",
     "tabServer": "Në server",
     "tabUpload": "Ngarko nga ky kompjuter",
-    "serverHint": "Skedarë tashmë në server. Klikoni dy herë mbi një dosje për të zbritur, ose klikoni Shto pranë një skedari.",
+    "serverHint": "Skedarë tashmë në server. Klikoni dy herë mbi një dosje për ta hapur; klikoni mbi skedarët për t'i zgjedhur (Shift ose Ctrl/Cmd-klik për disa), pastaj «Importo të zgjedhurat».",
+    "importSelected": "Importo të zgjedhurat",
+    "selectedCount": "{count} të zgjedhur",
     "uploadIntro": "Zgjidhni një ose më shumë skedarë nga ky kompjuter. Ato do të ngarkohen në dosjen e medias së serverit.",
     "uploading": "Po ngarkohet…",
     "chooseFiles": "Zgjidhni skedarë…",
     "add": "Shto",
     "desktopOnly": "Zgjedhësi vendor i skedarëve është i disponueshëm vetëm në aplikacionin desktop.",
     "uploadingProgress": "Po ngarkohet {i}/{total}: {name}",
-    "uploadedCount": "U ngarkua {count} skedar(ë). Klikoni \"Shto\" për të importuar.",
+    "uploadedCount": "U ngarkua {count} skedar(ë).",
     "uploadFailed": "Ngarkimi dështoi: {error}",
     "orFromComputer": "Ose zgjidhni nga ky kompjuter"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "Zgjidh skedarë…",
     "uploading": "Po ngarkohet…",
     "uploadingProgress": "Po ngarkohet {current}/{total}: {filename}"
+  },
+  "deleteSelection": {
+    "title": "Fshi elementet",
+    "message": "Janë zgjedhur {count} elemente. Çfarë doni të fshini?",
+    "deleteAll": "Fshi {count} elemente të zgjedhura",
+    "deleteOnly": "Fshi vetëm \"{name}\"",
+    "cancel": "Anulo"
   }
 }

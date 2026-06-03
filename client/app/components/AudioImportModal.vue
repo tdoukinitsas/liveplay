@@ -34,14 +34,19 @@
               </button>
             </div>
             <ul v-if="localPicked.length" class="uploaded">
-              <li v-for="p in localPicked" :key="p">
+              <li v-for="(p, i) in localPicked"
+                  :key="p"
+                  :class="{ selected: selectedLocal.includes(p) }"
+                  @click="toggleLocal(p, i, $event)">
                 <span class="icon material-symbols-rounded">audio_file</span>
                 <span class="name">{{ basename(p) }}</span>
-                <button class="btn small primary" @click="emitPick(p)">
-                  {{ t('importAudio.add') }}
-                </button>
               </li>
             </ul>
+            <div v-if="localPicked.length" class="list-footer">
+              <button class="btn primary" :disabled="!selectedLocal.length" @click="importLocalSelected">
+                {{ t('importAudio.importSelected') }}<span v-if="selectedLocal.length"> ({{ selectedLocal.length }})</span>
+              </button>
+            </div>
           </template>
         </section>
 
@@ -58,14 +63,19 @@
           </div>
 
           <ul v-if="uploadedThisSession.length" class="uploaded">
-            <li v-for="p in uploadedThisSession" :key="p">
+            <li v-for="(p, i) in uploadedThisSession"
+                :key="p"
+                :class="{ selected: selectedUploaded.includes(p) }"
+                @click="toggleUploaded(p, i, $event)">
               <span class="icon material-symbols-rounded">audio_file</span>
               <span class="name">{{ basename(p) }}</span>
-              <button class="btn small primary" @click="emitPick(p)">
-                {{ t('importAudio.add') }}
-              </button>
             </li>
           </ul>
+          <div v-if="uploadedThisSession.length" class="list-footer">
+            <button class="btn primary" :disabled="!selectedUploaded.length" @click="importUploadedSelected">
+              {{ t('importAudio.importSelected') }}<span v-if="selectedUploaded.length"> ({{ selectedUploaded.length }})</span>
+            </button>
+          </div>
         </section>
       </div>
     </div>
@@ -81,9 +91,9 @@
                     stream them to the server via /api/upload (multipart).
 
   Emits:
-    pick(serverPath: string)  — caller proceeds to create an AudioItem
-                                using this server-side path.
-    close                     — user dismissed the modal.
+    pick(serverPaths: string[]) — caller proceeds to create AudioItems for
+                                  each selected server-side path (batched).
+    close                       — user dismissed the modal.
 
   Notes:
     The user explicitly chose 'Upload to server's media_root' so that
@@ -96,7 +106,7 @@ import ServerFileBrowser from '~/components/ServerFileBrowser.vue';
 
 const props = defineProps<{ open: boolean }>();
 const emit  = defineEmits<{
-  (e: 'pick', serverPath: string): void;
+  (e: 'pick', serverPaths: string[]): void;
   (e: 'close'): void;
 }>();
 
@@ -109,18 +119,63 @@ const tab    = ref<'server' | 'upload'>('server');
 const uploading           = ref(false);
 const uploadStatus        = ref<string>('');
 const uploadedThisSession = ref<string[]>([]);
+const selectedUploaded    = ref<string[]>([]);
+const uploadedAnchor      = { i: -1 };
 
 // Local file picker (used when server is local — same machine, so local paths = server paths)
 const hasElectron = !!(globalThis as any).electronAPI?.selectAudioFiles;
-const localPicked = ref<string[]>([]);
+const localPicked  = ref<string[]>([]);
+const selectedLocal = ref<string[]>([]);
+const localAnchor   = { i: -1 };
 const pickingLocal = ref(false);
 
 function close()       { emit('close'); }
-function emitPick(p: string) { emit('pick', p); }
 function basename(p: string): string { return p.split(/[\\/]/).pop() || p; }
 
-function onServerPick(serverPath: string) {
-  emit('pick', serverPath);
+// Server file browser emits a batch of already-on-server paths.
+function onServerPick(serverPaths: string[]) {
+  if (serverPaths.length) emit('pick', serverPaths);
+}
+
+function importLocalSelected() {
+  if (selectedLocal.value.length) emit('pick', [...selectedLocal.value]);
+}
+
+function importUploadedSelected() {
+  if (selectedUploaded.value.length) emit('pick', [...selectedUploaded.value]);
+}
+
+// Shared click-selection for the staging lists (local picks / uploaded files).
+// Plain click toggles membership so a batch is easy to build without modifiers;
+// Ctrl/Cmd also toggles, Shift extends a range from the last anchor. Returns
+// the new selection array.
+function clickSelect(
+  items: string[],
+  current: string[],
+  anchor: { i: number },
+  item: string,
+  index: number,
+  e: MouseEvent,
+): string[] {
+  if (e.shiftKey && anchor.i >= 0) {
+    const [lo, hi] = anchor.i < index ? [anchor.i, index] : [index, anchor.i];
+    const slice = items.slice(lo, hi + 1);
+    return (e.ctrlKey || e.metaKey)
+      ? Array.from(new Set([...current, ...slice]))
+      : slice;
+  }
+  anchor.i = index;
+  return current.includes(item)
+    ? current.filter(p => p !== item)
+    : [...current, item];
+}
+
+function toggleLocal(item: string, index: number, e: MouseEvent) {
+  selectedLocal.value = clickSelect(localPicked.value, selectedLocal.value, localAnchor, item, index, e);
+}
+
+function toggleUploaded(item: string, index: number, e: MouseEvent) {
+  selectedUploaded.value = clickSelect(uploadedThisSession.value, selectedUploaded.value, uploadedAnchor, item, index, e);
 }
 
 async function pickLocal() {
@@ -131,7 +186,10 @@ async function pickLocal() {
     const paths: string[] | null = await api.selectAudioFiles();
     if (paths?.length) {
       for (const p of paths) {
-        if (!localPicked.value.includes(p)) localPicked.value.push(p);
+        if (!localPicked.value.includes(p)) {
+          localPicked.value.push(p);
+          selectedLocal.value.push(p);   // pre-select newly picked files
+        }
       }
     }
   } finally {
@@ -174,6 +232,7 @@ async function pickAndUpload() {
       if (out?.saved?.length) {
         for (const savedPath of out.saved) {
           uploadedThisSession.value.push(savedPath);
+          selectedUploaded.value.push(savedPath);   // pre-select for one-click import
         }
       }
     }
@@ -215,7 +274,7 @@ async function pickAndUpload() {
     padding: 8px 12px; color: #888; font-size: 13px;
     border-bottom: 2px solid transparent;
     &:hover  { color: #ccc; }
-    &.active { color: #fff; border-bottom-color: #2a5e9a; }
+    &.active { color: #fff; border-bottom-color: var(--color-accent); }
   }
 
   .pane { display: flex; flex-direction: column; gap: 10px; }
@@ -243,13 +302,23 @@ async function pickAndUpload() {
     border: 1px solid #2a2a2a; border-radius: 4px; background: #161616;
     max-height: 200px; overflow: auto;
     li {
-      display: grid; grid-template-columns: 28px 1fr auto; gap: 8px;
+      display: grid; grid-template-columns: 28px 1fr; gap: 8px;
       align-items: center; padding: 6px 10px;
       border-bottom: 1px solid #222;
+      cursor: pointer; user-select: none;
       &:last-child { border-bottom: none; }
-      .icon { font-size: 18px; color: #888; text-align: center; }
-      .name { color: #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      &:hover { background: #1f1f1f; }
+      // Files are selectable here, so their icon takes the accent colour.
+      .icon { font-size: 18px; color: var(--color-accent); text-align: center; }
+      .name { color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      &.selected {
+        background: var(--color-accent);
+        .icon, .name { color: #fff; }
+      }
     }
+  }
+  .list-footer {
+    display: flex; justify-content: flex-end;
   }
 }
 </style>

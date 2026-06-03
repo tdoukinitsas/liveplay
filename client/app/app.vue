@@ -8,6 +8,17 @@
           <span class="material-symbols-rounded">queue_music</span>
         </div>
       </div>
+
+      <!-- Multi-item delete confirm, also needed in the detached cart window -->
+      <DeleteSelectionModal
+        :visible="deleteDialogVisible"
+        :count="deleteDialogCount"
+        :name="deleteDialogName"
+        :allow-only="deleteDialogAllowOnly"
+        @delete-all="deleteDialogConfirmAll"
+        @delete-only="deleteDialogConfirmOnly"
+        @cancel="deleteDialogCancel"
+      />
     </template>
 
     <!-- Normal mode -->
@@ -82,6 +93,17 @@
       @cancel="unsavedCancel"
     />
 
+    <!-- Confirm prompt shown when deleting a multi-item selection -->
+    <DeleteSelectionModal
+      :visible="deleteDialogVisible"
+      :count="deleteDialogCount"
+      :name="deleteDialogName"
+      :allow-only="deleteDialogAllowOnly"
+      @delete-all="deleteDialogConfirmAll"
+      @delete-only="deleteDialogConfirmOnly"
+      @cancel="deleteDialogCancel"
+    />
+
     <!-- Background audio-loading progress (when document already rendered) -->
     <AudioLoadProgress />
 
@@ -130,6 +152,8 @@ const {
   isLoading, loadingMessage,
   repairDialogVisible, repairDialogIssues, confirmRepair, cancelRepair,
   unsavedDialogVisible, unsavedSave, unsavedDiscard, unsavedCancel,
+  deleteDialogVisible, deleteDialogCount, deleteDialogName, deleteDialogAllowOnly,
+  deleteDialogConfirmAll, deleteDialogConfirmOnly, deleteDialogCancel,
 } = useProject();
 
 // Shared pending file-open state (set here when a .liveplay/.lpa is double-

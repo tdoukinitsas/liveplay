@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "ar",
     "name": "Arabic",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "تعطيل ضبط الصوت والقص التلقائي",
     "disableLimiter": "تعطيل محدد الجدار الصلب",
     "disableLimiterHelp": "يوقف محدد الجدار الصلب، مما يسمح بالقمم فوق السقف. يمكن تغييره أثناء التشغيل.",
+    "disableSilenceWarning": "تعطيل تحذير الصمت",
+    "disableSilenceWarningHelp": "يمنع ظهور تحذير الصمت في الترويسة.",
     "useProjectDefault": "استخدام إعداد المشروع",
     "noneSelected": "غير محدد",
     "save": "حفظ",
@@ -401,14 +403,16 @@
     "title": "استيراد الصوت",
     "tabServer": "على الخادم",
     "tabUpload": "تحميل من هذا الكمبيوتر",
-    "serverHint": "الملفات الموجودة بالفعل على الخادم. انقر نقرًا مزدوجًا فوق مجلد للنزول، أو انقر فوق إضافة بجوار ملف.",
+    "serverHint": "ملفات موجودة بالفعل على الخادم. انقر نقرًا مزدوجًا فوق مجلد لفتحه؛ انقر فوق الملفات لتحديدها (مع Shift أو Ctrl/Cmd للتحديد المتعدد)، ثم انقر فوق \"استيراد المحدد\".",
+    "importSelected": "استيراد المحدد",
+    "selectedCount": "{count} محدد",
     "uploadIntro": "اختر ملفًا واحدًا أو أكثر من هذا الكمبيوتر. سيتم تحميلها في مجلد الوسائط الخاص بالخادم.",
     "uploading": "جاري التحميل…",
     "chooseFiles": "اختر الملفات…",
     "add": "إضافة",
     "desktopOnly": "منتقي الملفات الأصلي متاح فقط في تطبيق سطح المكتب.",
     "uploadingProgress": "جاري التحميل {i}/{total}: {name}",
-    "uploadedCount": "تم تحميل {count} ملف(ات). انقر فوق \"إضافة\" للاستيراد.",
+    "uploadedCount": "تم تحميل {count} ملف.",
     "uploadFailed": "فشل التحميل: {error}",
     "orFromComputer": "أو اختر من هذا الكمبيوتر"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "اختر الملفات…",
     "uploading": "جاري التحميل…",
     "uploadingProgress": "جاري تحميل {current}/{total}: {filename}"
+  },
+  "deleteSelection": {
+    "title": "حذف العناصر",
+    "message": "تم تحديد {count} عنصرًا. ماذا تريد أن تحذف؟",
+    "deleteAll": "حذف {count} عنصرًا محددًا",
+    "deleteOnly": "حذف \"{name}\" فقط",
+    "cancel": "إلغاء"
   }
 }

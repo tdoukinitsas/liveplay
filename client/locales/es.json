@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "es",
     "name": "Spanish",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "Deshabilitar ajustes automáticos de volumen y recorte",
     "disableLimiter": "Desactivar el limitador brickwall",
     "disableLimiterHelp": "Desactiva el limitador brickwall, permitiendo picos por encima del techo. Se puede cambiar durante la reproducción.",
+    "disableSilenceWarning": "Desactivar el aviso de silencio",
+    "disableSilenceWarningHelp": "Evita que el aviso de silencio aparezca en el encabezado.",
     "useProjectDefault": "Usar predeterminado del proyecto",
     "noneSelected": "No seleccionado",
     "save": "Guardar",
@@ -401,14 +403,16 @@
     "title": "Importar audio",
     "tabServer": "En el servidor",
     "tabUpload": "Subir desde este equipo",
-    "serverHint": "Archivos que ya están en el servidor. Haga doble clic en una carpeta para entrar, o haga clic en Agregar junto a un archivo.",
+    "serverHint": "Archivos que ya están en el servidor. Haga doble clic en una carpeta para abrirla; haga clic en los archivos para seleccionarlos (Mayús o Ctrl/Cmd-clic para varios) y luego en «Importar selección».",
+    "importSelected": "Importar selección",
+    "selectedCount": "{count} seleccionados",
     "uploadIntro": "Elija uno o más archivos de este equipo. Se subirán a la carpeta de medios del servidor.",
     "uploading": "Subiendo…",
     "chooseFiles": "Elegir archivos…",
     "add": "Agregar",
     "desktopOnly": "El selector de archivos nativo solo está disponible en la aplicación de escritorio.",
     "uploadingProgress": "Subiendo {i}/{total}: {name}",
-    "uploadedCount": "Subidos {count} archivo(s). Haga clic en \"Agregar\" para importar.",
+    "uploadedCount": "Subidos {count} archivo(s).",
     "uploadFailed": "Error al subir: {error}",
     "orFromComputer": "O seleccionar desde este ordenador"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "Elegir archivos…",
     "uploading": "Subiendo…",
     "uploadingProgress": "Subiendo {current}/{total}: {filename}"
+  },
+  "deleteSelection": {
+    "title": "Eliminar elementos",
+    "message": "Hay {count} elementos seleccionados. ¿Qué quieres eliminar?",
+    "deleteAll": "Eliminar {count} elementos seleccionados",
+    "deleteOnly": "Eliminar solo «{name}»",
+    "cancel": "Cancelar"
   }
 }

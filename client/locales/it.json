@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "it",
     "name": "Italian",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "Disabilita le regolazioni automatiche di volume e taglio",
     "disableLimiter": "Disattiva il limiter brickwall",
     "disableLimiterHelp": "Disattiva il limiter brickwall, consentendo picchi oltre il tetto. Modificabile durante la riproduzione.",
+    "disableSilenceWarning": "Disattiva l'avviso di silenzio",
+    "disableSilenceWarningHelp": "Impedisce che l'avviso di silenzio appaia nell'intestazione.",
     "useProjectDefault": "Usa predefinito del progetto",
     "noneSelected": "Non selezionato",
     "save": "Salva",
@@ -401,14 +403,16 @@
     "title": "Importa audio",
     "tabServer": "Sul server",
     "tabUpload": "Carica da questo computer",
-    "serverHint": "File già sul server. Fai doppio clic su una cartella per scendere, o fai clic su Aggiungi accanto a un file.",
+    "serverHint": "File già sul server. Fai doppio clic su una cartella per aprirla; fai clic sui file per selezionarli (Maiusc o Ctrl/Cmd-clic per selezionarne più di uno), quindi su «Importa selezione».",
+    "importSelected": "Importa selezione",
+    "selectedCount": "{count} selezionati",
     "uploadIntro": "Scegli uno o più file da questo computer. Verranno caricati nella cartella multimediale del server.",
     "uploading": "Caricamento…",
     "chooseFiles": "Scegli file…",
     "add": "Aggiungi",
     "desktopOnly": "Il selettore di file nativo è disponibile solo nell'app desktop.",
     "uploadingProgress": "Caricamento {i}/{total}: {name}",
-    "uploadedCount": "Caricati {count} file. Fai clic su \"Aggiungi\" per importare.",
+    "uploadedCount": "Caricati {count} file.",
     "uploadFailed": "Caricamento fallito: {error}",
     "orFromComputer": "Oppure seleziona da questo computer"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "Scegli file…",
     "uploading": "Caricamento…",
     "uploadingProgress": "Caricamento {current}/{total}: {filename}"
+  },
+  "deleteSelection": {
+    "title": "Elimina elementi",
+    "message": "Sono selezionati {count} elementi. Cosa vuoi eliminare?",
+    "deleteAll": "Elimina {count} elementi selezionati",
+    "deleteOnly": "Elimina solo \"{name}\"",
+    "cancel": "Annulla"
   }
 }

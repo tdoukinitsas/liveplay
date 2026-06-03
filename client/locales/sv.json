@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "sv",
     "name": "Swedish",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "Inaktivera automatisk volym- och trimjustering",
     "disableLimiter": "Inaktivera brickwall-limiter",
     "disableLimiterHelp": "Stänger av brickwall-limitern och tillåter toppar över taket. Kan ändras under uppspelning.",
+    "disableSilenceWarning": "Inaktivera tystnadsvarning",
+    "disableSilenceWarningHelp": "Hindrar att tystnadsvarningen visas i sidhuvudet.",
     "useProjectDefault": "Använd projektstandard",
     "noneSelected": "Ej vald",
     "save": "Spara",
@@ -401,14 +403,16 @@
     "title": "Importera ljud",
     "tabServer": "På servern",
     "tabUpload": "Ladda upp från den här datorn",
-    "serverHint": "Filer som redan finns på servern. Dubbelklicka på en mapp för att gå ned, eller klicka på Lägg till bredvid en fil.",
+    "serverHint": "Filer som redan finns på servern. Dubbelklicka på en mapp för att öppna den; klicka på filer för att markera dem (Skift eller Ctrl/Cmd-klick för flera) och klicka sedan på ”Importera markerade”.",
+    "importSelected": "Importera markerade",
+    "selectedCount": "{count} markerade",
     "uploadIntro": "Välj en eller flera filer från den här datorn. De laddas upp till serverns mediamapp.",
     "uploading": "Laddar upp…",
     "chooseFiles": "Välj filer…",
     "add": "Lägg till",
     "desktopOnly": "Den inbyggda filväljaren är endast tillgänglig i skrivbordsappen.",
     "uploadingProgress": "Laddar upp {i}/{total}: {name}",
-    "uploadedCount": "Laddade upp {count} fil(er). Klicka på \"Lägg till\" för att importera.",
+    "uploadedCount": "Laddade upp {count} fil(er).",
     "uploadFailed": "Uppladdning misslyckades: {error}",
     "orFromComputer": "Eller välj från den här datorn"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "Välj filer…",
     "uploading": "Laddar upp…",
     "uploadingProgress": "Laddar upp {current}/{total}: {filename}"
+  },
+  "deleteSelection": {
+    "title": "Ta bort objekt",
+    "message": "{count} objekt är markerade. Vad vill du ta bort?",
+    "deleteAll": "Ta bort {count} markerade objekt",
+    "deleteOnly": "Ta bort endast ”{name}”",
+    "cancel": "Avbryt"
   }
 }

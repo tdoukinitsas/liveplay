@@ -334,7 +334,7 @@ const { t, direction, initLocale, isLocaleLoaded } = useI18n();
 const baseURL = useRuntimeConfig().app.baseURL;
 const asset = (path: string) => `${baseURL}${path.replace(/^\/+/, '')}`;
 
-const version = ref('2.0.10');
+const version = ref('2.1.0');
 const contributors = ref<{ name: string; link: string }[]>([]);
 
 // Platform download cards. When we can detect the visitor's OS we surface only
@@ -380,8 +380,8 @@ const downloadLinks = computed(() => {
   const v = version.value;
   const baseUrl = `https://github.com/tdoukinitsas/liveplay/releases/download/v${v}`;
   return {
-    // Windows (GitHub rewrites the spaces in "LivePlay Setup x.y.z.exe" to dots)
-    windows: `${baseUrl}/LivePlay.Setup.${v}.exe`,
+    // Windows (artifactName uses hyphens so the file, GitHub asset and latest.yml all match)
+    windows: `${baseUrl}/LivePlay-Setup-${v}.exe`,
     // macOS — two separate, per-architecture builds
     macArm: `${baseUrl}/LivePlay-${v}-arm64.dmg`,
     macIntel: `${baseUrl}/LivePlay-${v}.dmg`,

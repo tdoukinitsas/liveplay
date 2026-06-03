@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "pt",
     "name": "Portuguese",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "Desabilitar ajustes automáticos de volume e aparagem",
     "disableLimiter": "Desativar o limitador brickwall",
     "disableLimiterHelp": "Desativa o limitador brickwall, permitindo picos acima do teto. Pode ser alterado durante a reprodução.",
+    "disableSilenceWarning": "Desativar o aviso de silêncio",
+    "disableSilenceWarningHelp": "Impede que o aviso de silêncio apareça no cabeçalho.",
     "useProjectDefault": "Usar padrão do projeto",
     "noneSelected": "Não selecionado",
     "save": "Guardar",
@@ -401,14 +403,16 @@
     "title": "Importar áudio",
     "tabServer": "No servidor",
     "tabUpload": "Enviar deste computador",
-    "serverHint": "Arquivos já no servidor. Clique duas vezes em uma pasta para descer, ou clique em Adicionar ao lado de um arquivo.",
+    "serverHint": "Arquivos já no servidor. Clique duas vezes em uma pasta para abri-la; clique nos arquivos para selecioná-los (Shift ou Ctrl/Cmd-clique para vários) e depois em «Importar selecionados».",
+    "importSelected": "Importar selecionados",
+    "selectedCount": "{count} selecionado(s)",
     "uploadIntro": "Escolha um ou mais arquivos deste computador. Eles serão enviados para a pasta de mídia do servidor.",
     "uploading": "Enviando…",
     "chooseFiles": "Escolher arquivos…",
     "add": "Adicionar",
     "desktopOnly": "O seletor de arquivos nativo está disponível apenas no aplicativo de desktop.",
     "uploadingProgress": "Enviando {i}/{total}: {name}",
-    "uploadedCount": "{count} arquivo(s) enviado(s). Clique em \"Adicionar\" para importar.",
+    "uploadedCount": "{count} arquivo(s) enviado(s).",
     "uploadFailed": "Falha no envio: {error}",
     "orFromComputer": "Ou selecionar deste computador"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "Escolher ficheiros…",
     "uploading": "A carregar…",
     "uploadingProgress": "A carregar {current}/{total}: {filename}"
+  },
+  "deleteSelection": {
+    "title": "Eliminar itens",
+    "message": "{count} itens estão selecionados. O que pretende eliminar?",
+    "deleteAll": "Eliminar {count} itens selecionados",
+    "deleteOnly": "Eliminar apenas \"{name}\"",
+    "cancel": "Cancelar"
   }
 }

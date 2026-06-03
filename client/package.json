@@ -1,6 +1,6 @@
 {
   "name": "liveplay",
-  "version": "2.0.10",
+  "version": "2.1.0",
   "description": "Audio cue playback application for live events",
   "homepage": "https://github.com/tdoukinitsas/liveplay",
   "main": "electron/main.js",
@@ -44,6 +44,7 @@
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@ffprobe-installer/ffprobe": "^2.1.2",
     "archiver": "^7.0.1",
+    "dompurify": "^3.4.8",
     "electron-updater": "^6.6.2",
     "express": "^4.18.2",
     "extract-zip": "^2.0.1",
@@ -123,7 +124,8 @@
       ]
     },
     "nsis": {
-      "include": "build/installer.nsh"
+      "include": "build/installer.nsh",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "mac": {
       "identity": null,

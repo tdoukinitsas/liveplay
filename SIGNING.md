@@ -41,7 +41,7 @@ The unsigned NSIS installer is already uploaded by the Windows matrix job as the
 1. Once the OSS certificate is approved, create a **Project** in SignPath (slug,
    e.g. `liveplay`).
 2. Add an **Artifact configuration** that matches the NSIS installer
-   (`LivePlay Setup *.exe`).
+   (`LivePlay-Setup-*.exe`).
 3. Create a **Signing policy** (e.g. `release-signing`) bound to the
    Authenticode certificate.
 4. Register GitHub as a **Trusted Build System** and link this repository so

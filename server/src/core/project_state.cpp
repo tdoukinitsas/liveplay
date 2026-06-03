@@ -1271,6 +1271,17 @@ void ProjectState::set_media_root(std::filesystem::path p) {
     media_root_ = std::move(p);
 }
 
+void ProjectState::update_media_root_from_folder_locked() {
+    // The project folder is the single source of truth for where media lives.
+    // Anchoring media_root_ to "<folderPath>/media" is what makes uploads and
+    // server-side copies land inside the project folder (portable) instead of
+    // the server's working directory — the old default that left imports
+    // stranded where playback couldn't find them (PLAY: ?).
+    const std::string folder = document_.value("folderPath", std::string{});
+    if (folder.empty()) return;
+    media_root_ = util::utf8_to_path(folder) / "media";
+}
+
 // ---------------------------------------------------------------------------
 // Persistence
 // ---------------------------------------------------------------------------
@@ -1460,6 +1471,7 @@ bool ProjectState::replace_full_document(const json& doc) {
             document_["theme"] = json{{"mode", "dark"}, {"accentColor", "#DA1E28"}};
         }
         project_name_ = document_.value("name", std::string{"Untitled"});
+        update_media_root_from_folder_locked();
     }
     // Kick off the engine mirror asynchronously — matches load_from_json's
     // path so the PUT /api/project/document handler doesn't block on cue
@@ -2646,6 +2658,7 @@ bool ProjectState::load_from_json(const json& doc_in) {
                 document_["theme"] = json{{"mode", "dark"}, {"accentColor", "#DA1E28"}};
             }
             project_name_ = document_.value("name", std::string{"Untitled"});
+            update_media_root_from_folder_locked();
             pending_repair_info_ = std::move(repair);
         }
 
@@ -2677,6 +2690,14 @@ bool ProjectState::load_from_json(const json& doc_in) {
     project_name_ = doc.value("project_name", std::string{"Untitled"});
     if (doc.contains("media_root") && doc["media_root"].is_string()) {
         media_root_ = util::utf8_to_path(doc["media_root"].get<std::string>());
+    }
+    // The project folder always wins: media must live inside it so the project
+    // stays portable and we never read media from outside the folder. load()
+    // injects the authoritative folderPath (the directory the .liveplay sits
+    // in) before calling us, so this overrides any stale stored media_root.
+    if (doc.contains("folderPath") && doc["folderPath"].is_string()) {
+        const std::string folder = doc["folderPath"].get<std::string>();
+        if (!folder.empty()) media_root_ = util::utf8_to_path(folder) / "media";
     }
 
     if (doc.contains("cues") && doc["cues"].is_array()) {

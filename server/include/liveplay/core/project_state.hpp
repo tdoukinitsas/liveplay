@@ -438,6 +438,13 @@ private:
 
     // Re-apply the in-memory state to the AudioEngine (post-load or reset).
     void apply_to_engine_locked();
+
+    // Point media_root_ at the current project's "media" subfolder, derived
+    // from document_["folderPath"]. This keeps every uploaded / copied media
+    // file inside the project folder so the project stays fully portable, and
+    // guarantees the server never reads or writes media outside that folder.
+    // No-op when folderPath is empty (unsaved project). Caller must hold mutex_.
+    void update_media_root_from_folder_locked();
 };
 
 } // namespace liveplay::core

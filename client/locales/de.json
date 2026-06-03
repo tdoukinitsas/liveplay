@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "de",
     "name": "German",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "Automatische Lautstärke- und Schnittanpassungen deaktivieren",
     "disableLimiter": "Brickwall-Limiter deaktivieren",
     "disableLimiterHelp": "Schaltet den Brickwall-Limiter aus und lässt Pegelspitzen über der Obergrenze zu. Kann während der Wiedergabe geändert werden.",
+    "disableSilenceWarning": "Stille-Warnung deaktivieren",
+    "disableSilenceWarningHelp": "Verhindert, dass die Stille-Warnung in der Kopfzeile angezeigt wird.",
     "useProjectDefault": "Projektstandard verwenden",
     "noneSelected": "Nicht ausgewählt",
     "save": "Speichern",
@@ -401,14 +403,16 @@
     "title": "Audio importieren",
     "tabServer": "Auf Server",
     "tabUpload": "Von diesem Computer hochladen",
-    "serverHint": "Dateien, die bereits auf dem Server liegen. Doppelklicken Sie auf einen Ordner, um darin zu navigieren, oder klicken Sie auf Hinzufügen neben einer Datei.",
+    "serverHint": "Dateien, die bereits auf dem Server liegen. Doppelklicken Sie auf einen Ordner, um ihn zu öffnen; klicken Sie auf Dateien, um sie auszuwählen (Umschalt- oder Strg/Cmd-Klick für mehrere), und dann auf „Auswahl importieren“.",
+    "importSelected": "Auswahl importieren",
+    "selectedCount": "{count} ausgewählt",
     "uploadIntro": "Wählen Sie eine oder mehrere Dateien von diesem Computer aus. Sie werden in den Medienordner des Servers hochgeladen.",
     "uploading": "Wird hochgeladen…",
     "chooseFiles": "Dateien auswählen…",
     "add": "Hinzufügen",
     "desktopOnly": "Der native Dateiauswähler ist nur in der Desktop-App verfügbar.",
     "uploadingProgress": "Wird hochgeladen {i}/{total}: {name}",
-    "uploadedCount": "{count} Datei(en) hochgeladen. Klicken Sie auf \"Hinzufügen\", um zu importieren.",
+    "uploadedCount": "{count} Datei(en) hochgeladen.",
     "uploadFailed": "Upload fehlgeschlagen: {error}",
     "orFromComputer": "Oder von diesem Computer auswählen"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "Dateien auswählen…",
     "uploading": "Wird hochgeladen…",
     "uploadingProgress": "Hochladen {current}/{total}: {filename}"
+  },
+  "deleteSelection": {
+    "title": "Elemente löschen",
+    "message": "{count} Elemente sind ausgewählt. Was möchten Sie löschen?",
+    "deleteAll": "{count} ausgewählte Elemente löschen",
+    "deleteOnly": "Nur „{name}\" löschen",
+    "cancel": "Abbrechen"
   }
 }

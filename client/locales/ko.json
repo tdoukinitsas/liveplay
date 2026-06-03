@@ -1,4 +1,4 @@
-{
+﻿{
   "_metadata": {
     "code": "ko",
     "name": "Korean",
@@ -366,6 +366,8 @@
     "disableAutoVolumeAndTrim": "자동 볼륨 및 트림 조정 비활성화",
     "disableLimiter": "브릭월 리미터 비활성화",
     "disableLimiterHelp": "브릭월 리미터를 꺼서 한계치를 초과하는 피크를 허용합니다. 재생 중에 변경할 수 있습니다.",
+    "disableSilenceWarning": "무음 경고 비활성화",
+    "disableSilenceWarningHelp": "헤더에 무음 경고가 표시되지 않도록 합니다.",
     "useProjectDefault": "프로젝트 기본값 사용",
     "noneSelected": "선택 안 됨",
     "save": "저장",
@@ -401,14 +403,16 @@
     "title": "오디오 가져오기",
     "tabServer": "서버에서",
     "tabUpload": "이 컴퓨터에서 업로드",
-    "serverHint": "서버에 이미 있는 파일. 폴더를 두 번 클릭하여 내려가거나 파일 옆의 추가를 클릭합니다.",
+    "serverHint": "이미 서버에 있는 파일입니다. 폴더를 더블클릭하여 열고, 파일을 클릭하여 선택한 후(여러 개는 Shift 또는 Ctrl/Cmd 클릭) \"선택 항목 가져오기\"를 누르세요.",
+    "importSelected": "선택 항목 가져오기",
+    "selectedCount": "{count}개 선택됨",
     "uploadIntro": "이 컴퓨터에서 하나 이상의 파일을 선택하세요. 서버의 미디어 폴더에 업로드됩니다.",
     "uploading": "업로드 중…",
     "chooseFiles": "파일 선택…",
     "add": "추가",
     "desktopOnly": "기본 파일 선택기는 데스크톱 앱에서만 사용할 수 있습니다.",
     "uploadingProgress": "업로드 중 {i}/{total}: {name}",
-    "uploadedCount": "{count}개 파일 업로드됨. \"추가\"를 클릭하여 가져옵니다.",
+    "uploadedCount": "{count}개 파일을 업로드했습니다.",
     "uploadFailed": "업로드 실패: {error}",
     "orFromComputer": "또는 이 컴퓨터에서 선택"
   },
@@ -456,5 +460,12 @@
     "chooseFiles": "파일 선택…",
     "uploading": "업로드 중…",
     "uploadingProgress": "업로드 중 {current}/{total}: {filename}"
+  },
+  "deleteSelection": {
+    "title": "항목 삭제",
+    "message": "{count}개 항목이 선택되었습니다. 무엇을 삭제하시겠습니까?",
+    "deleteAll": "선택한 {count}개 항목 삭제",
+    "deleteOnly": "\"{name}\"만 삭제",
+    "cancel": "취소"
   }
 }

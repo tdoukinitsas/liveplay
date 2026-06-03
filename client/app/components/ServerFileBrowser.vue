@@ -1,7 +1,7 @@
 <template>
   <div class="server-file-browser">
     <div class="server-file-browser__bar">
-      <button class="btn" :disabled="!parentPath" @click="goTo(parentPath)" title="Up one level">
+      <button class="btn" :disabled="!canGoUp" @click="goUp" title="Up one level">
         <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">arrow_upward</span>
         Up
       </button>
@@ -18,23 +18,28 @@
     <div v-else-if="loading" class="status">Loading…</div>
 
     <ul v-else class="entries">
-      <li v-for="entry in sortedEntries"
+      <li v-for="(entry, idx) in sortedEntries"
           :key="entry.full_path"
           class="entry"
-          :class="entry.kind"
+          :class="[entry.kind, { selected: isSelected(entry.full_path) }]"
+          @click="onEntryClick(entry, idx, $event)"
           @dblclick="onEntryActivate(entry)">
         <span class="icon material-symbols-rounded">{{ iconFor(entry) }}</span>
         <span class="name">{{ entry.name }}</span>
         <span v-if="entry.kind === 'file' && entry.size != null"
               class="size">{{ formatBytes(entry.size) }}</span>
-        <button v-if="entry.kind === 'file' && canSelect"
-                class="btn small primary"
-                @click="emit('select', entry.full_path)">Add</button>
       </li>
       <li v-if="(listing?.entries?.length ?? 0) === 0" class="empty">
         (no audio files or subdirectories)
       </li>
     </ul>
+
+    <div v-if="canSelect" class="server-file-browser__footer">
+      <span class="sel-count">{{ selectedCountLabel }}</span>
+      <button class="btn primary" :disabled="selected.length === 0" @click="importSelected">
+        {{ t('importAudio.importSelected') }}<span v-if="selected.length"> ({{ selected.length }})</span>
+      </button>
+    </div>
   </div>
 </template>
 
@@ -46,8 +51,14 @@
   server. The 1.x client used Electron's dialog.showOpenDialog which only
   worked when client and audio engine ran on the same machine.
 
+  Selection model:
+    Files can be multi-selected (plain click = single, Ctrl/Cmd-click =
+    toggle, Shift-click = range). A single "Import selected" button at the
+    bottom emits the whole batch. Double-clicking a file imports it directly;
+    double-clicking a folder/drive descends into it.
+
   Emits:
-    select(fullPath: string) — user picked an audio file to add as a cue.
+    select(fullPaths: string[]) — user picked one or more audio files.
 -->
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
@@ -63,16 +74,23 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-  (e: 'select', fullPath: string): void;
+  (e: 'select', fullPaths: string[]): void;
 }>();
 
 const server = useLiveplayServer();
+const { t }  = useLocalization();
 const listing = ref<ServerFsListing | null>(null);
 const loading = ref(false);
 const error   = ref<string | null>(null);
 const pathInput = ref<string>(props.startPath);
 
-const parentPath = computed(() => listing.value?.parent ?? '');
+// Multi-selection of file paths. `anchorIndex` is the last plain/Ctrl click,
+// used as the pivot for Shift-range selection.
+const selected   = ref<string[]>([]);
+let   anchorIndex = -1;
+
+const canGoUp = computed(() =>
+  !!listing.value && (!!listing.value.parent || !listing.value.is_root));
 
 const sortedEntries = computed(() => {
   const entries = listing.value?.entries ?? [];
@@ -82,6 +100,11 @@ const sortedEntries = computed(() => {
     return r !== 0 ? r : a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
   });
 });
+
+const selectedCountLabel = computed(() =>
+  selected.value.length ? t('importAudio.selectedCount', { count: selected.value.length }) : '');
+
+function isSelected(p: string): boolean { return selected.value.includes(p); }
 
 function iconFor(entry: ServerFsEntry): string {
   if (entry.kind === 'drive') return 'storage';
@@ -95,6 +118,8 @@ async function goTo(path: string) {
   try {
     listing.value   = await server.listServerPath(path);
     pathInput.value = listing.value.path;
+    selected.value  = [];
+    anchorIndex     = -1;
   } catch (e: any) {
     error.value = String(e.message || e);
   } finally {
@@ -102,9 +127,45 @@ async function goTo(path: string) {
   }
 }
 
+function goUp() {
+  if (!listing.value) return;
+  if (listing.value.parent) goTo(listing.value.parent);
+  else if (!listing.value.is_root) goTo('');   // at a drive root → drive menu
+}
+
+function onEntryClick(entry: ServerFsEntry, index: number, e: MouseEvent) {
+  if (!props.canSelect || entry.kind !== 'file') return;
+  const multi = e.ctrlKey || e.metaKey;
+  const range = e.shiftKey;
+
+  if (range && anchorIndex >= 0) {
+    const [lo, hi] = anchorIndex < index ? [anchorIndex, index] : [index, anchorIndex];
+    const inRange = sortedEntries.value
+      .slice(lo, hi + 1)
+      .filter(en => en.kind === 'file')
+      .map(en => en.full_path);
+    selected.value = multi
+      ? Array.from(new Set([...selected.value, ...inRange]))
+      : inRange;
+  } else if (multi) {
+    selected.value = isSelected(entry.full_path)
+      ? selected.value.filter(p => p !== entry.full_path)
+      : [...selected.value, entry.full_path];
+    anchorIndex = index;
+  } else {
+    selected.value = [entry.full_path];
+    anchorIndex = index;
+  }
+}
+
 function onEntryActivate(entry: ServerFsEntry) {
   if (entry.kind === 'dir' || entry.kind === 'drive') goTo(entry.full_path);
-  else if (props.canSelect) emit('select', entry.full_path);
+  else if (props.canSelect) emit('select', [entry.full_path]);
+}
+
+function importSelected() {
+  if (selected.value.length === 0) return;
+  emit('select', [...selected.value]);
 }
 
 function formatBytes(n: number): string {
@@ -141,6 +202,15 @@ watch(() => props.startPath, p => goTo(p));
     }
   }
 
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+
+    .sel-count { color: #aaa; font-size: 12px; }
+  }
+
   .btn {
     background: #2a2a2a;
     border: 1px solid #3a3a3a;
@@ -167,21 +237,27 @@ watch(() => props.startPath, p => goTo(p));
 
     .entry {
       display: grid;
-      grid-template-columns: 28px 1fr auto auto;
+      grid-template-columns: 28px 1fr auto;
       align-items: center;
       gap: 8px;
       padding: 6px 10px;
       cursor: pointer;
       border-bottom: 1px solid #222;
+      user-select: none;
       &:last-child { border-bottom: none; }
       &:hover { background: #202020; }
       .size   { color: #888; font-size: 11px; font-family: var(--font-mono); }
-      .name   { color: #eee; }
-      &.dir   .name   { color: #ffffff; }
-      &.drive .name   { color: #ffffff; font-weight: 600; }
-      .icon { font-size: 18px; text-align: center; color: #aaa; }
-      &.dir   .icon   { color: var(--color-accent); }
-      &.drive .icon   { color: var(--color-accent); }
+      // Names stay white for legibility; drives are emphasised.
+      .name   { color: #ffffff; }
+      &.drive .name { font-weight: 600; }
+      // Drives & folders: white icons. Selectable files: accent icon.
+      .icon { font-size: 18px; text-align: center; color: #ffffff; }
+      &.file .icon { color: var(--color-accent); }
+      // Selected file rows: accent fill, white glyphs for contrast.
+      &.selected {
+        background: var(--color-accent);
+        .name, .icon, .size { color: #fff; }
+      }
     }
     .empty {
       padding: 12px;

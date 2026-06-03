@@ -192,7 +192,7 @@ const props = defineProps<{
 const slotRef = ref<HTMLElement | null>(null);
 const showImportModal = ref(false);
 
-const { currentProject, selectedItem, selectedItems, findItemByUuid, triggerWaveformUpdate, markPendingAutoProcess } = useProject();
+const { currentProject, selectedItem, selectedItems, selectionContext, requestDeleteFromButton, findItemByUuid, triggerWaveformUpdate, markPendingAutoProcess } = useProject();
 const { levels: outputTargetLevels } = useOutputTarget();
 const { playCue, stopCue, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem } = useAudioEngine();
 const { t } = useLocalization();
@@ -317,9 +317,13 @@ const handleImport = () => {
   showImportModal.value = true;
 };
 
-// Called by AudioImportModal when the user picks a file (server path).
-const onImportPick = async (serverPath: string) => {
-  await importFromServerPath(serverPath);
+// Called by AudioImportModal when the user picks file(s) (server paths).
+// A cart slot holds a single item, so only the first selection is used.
+const onImportPick = async (serverPaths: string | string[]) => {
+  const first = Array.isArray(serverPaths) ? serverPaths[0] : serverPaths;
+  if (!first) return;
+  await importFromServerPath(first);
+  showImportModal.value = false;
 };
 
 // Import a file already on (or uploaded to) the server into this cart slot.
@@ -392,6 +396,9 @@ const importFromServerPath = async (serverPath: string) => {
 
 const handleSelect = (event?: MouseEvent) => {
   if (!props.item) return;
+  // Stamp the selection as cart-owned so a global keyboard DEL clears cart
+  // slots (rather than deleting the underlying playlist items).
+  selectionContext.value = 'cart';
   const ctrl = !!(event && (event.ctrlKey || event.metaKey));
   const shift = !!(event && event.shiftKey);
 
@@ -451,10 +458,16 @@ const handleSetAsNext = () => {
 
 const handleDelete = () => {
   if (!currentProject.value || !props.item) return;
-  
+
+  // When this slot's item is part of a multi-selection, defer to the confirm
+  // dialog (Delete N Selected / Delete Only this / Cancel), deleting on the
+  // cart path so selected slots are unassigned rather than removed from the
+  // playlist.
+  if (requestDeleteFromButton(props.item.uuid, 'cart')) return;
+
   // Remove from cart-only items
   removeCartOnlyItem(props.item.uuid);
-  
+
   // Remove from cart
   const index = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === props.slot);
   if (index !== -1) {

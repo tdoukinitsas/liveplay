@@ -36,11 +36,11 @@ import type { AudioItem } from '~/types/project';
 import { formatKeyLabel } from '~/composables/useCartHotkeys';
 import Btn from './Btn.vue';
 
-defineProps<{
+const props = defineProps<{
   isDetachedWindow?: boolean;
 }>();
 
-const { currentProject } = useProject();
+const { currentProject, requestDeleteFromKeyboard } = useProject();
 const { getCartItem } = useCartItems();
 const { keyMappings, mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
 const { mount: mountMidi, unmount: unmountMidi } = useMidiController();
@@ -82,12 +82,28 @@ const getKeyLabel = (slotIndex: number): string => {
   return binding ? formatKeyLabel(binding) : '';
 };
 
+// In the detached cart window there's no MainWorkspace to own the global
+// DEL key, so handle it here. (In the attached layout MainWorkspace already
+// does — adding it there too would double-fire.)
+const isTextInputFocused = (): boolean => {
+  const el = document.activeElement as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName.toLowerCase();
+  return tag === 'input' || tag === 'textarea' || el.isContentEditable;
+};
+const handleCartKeydown = (e: KeyboardEvent) => {
+  if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+  if (isTextInputFocused() || !currentProject.value) return;
+  if (requestDeleteFromKeyboard()) e.preventDefault();
+};
+
 onMounted(() => {
   if (import.meta.client) {
     mountHotkeys();
     mountMidi();
     // Initial setup
     updateGridColumns();
+    if (props.isDetachedWindow) window.addEventListener('keydown', handleCartKeydown);
 
     // Watch for resize
     const resizeObserver = new ResizeObserver(() => {
@@ -101,6 +117,7 @@ onMounted(() => {
     onUnmounted(() => {
       unmountHotkeys();
       unmountMidi();
+      if (props.isDetachedWindow) window.removeEventListener('keydown', handleCartKeydown);
       resizeObserver.disconnect();
     });
   }

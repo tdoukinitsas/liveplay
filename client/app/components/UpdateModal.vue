@@ -15,9 +15,12 @@
             {{ t('update.newVersion') }}: <strong class="new-version">{{ newVersion }}</strong>
           </p>
           
-          <div v-if="releaseNotes" class="release-notes">
+          <div v-if="sanitizedReleaseNotes" class="release-notes">
             <h3>{{ t('update.whatsNew') }}</h3>
-            <div class="notes-content">{{ releaseNotes }}</div>
+            <!-- Release notes are sanitised with DOMPurify before rendering so
+                 markdown-style HTML styling survives but scripts / event
+                 handlers / arbitrary embeds are stripped. -->
+            <div class="notes-content" @click="handleNotesClick" v-html="sanitizedReleaseNotes"></div>
           </div>
 
           <p class="update-prompt">
@@ -90,6 +93,8 @@
 </template>
 
 <script setup lang="ts">
+import DOMPurify from 'dompurify';
+
 const props = defineProps<{
   currentVersion: string;
   newVersion: string;
@@ -111,6 +116,37 @@ const downloading = ref(false);
 const downloaded = ref(false);
 const downloadPercent = ref(0);
 const error = ref('');
+
+// Release notes arrive as an HTML string (GitHub renders the release body to
+// HTML). Render it as HTML so styling shows instead of literal tags, but run it
+// through DOMPurify first to strip anything executable. DOMPurify needs the DOM,
+// so it only runs on the client; during SSR/generate this yields ''.
+const sanitizedReleaseNotes = computed(() => {
+  const notes = props.releaseNotes;
+  if (!notes || !import.meta.client) return '';
+  return DOMPurify.sanitize(notes, {
+    ALLOWED_TAGS: [
+      'a', 'b', 'blockquote', 'br', 'code', 'del', 'em', 'h1', 'h2', 'h3',
+      'h4', 'h5', 'h6', 'hr', 'i', 'li', 'ol', 'p', 'pre', 's', 'span',
+      'strong', 'sub', 'sup', 'table', 'tbody', 'td', 'th', 'thead', 'tr', 'ul',
+    ],
+    ALLOWED_ATTR: ['href', 'title'],
+    // Drop protocols other than http(s)/mailto on links.
+    ALLOWED_URI_REGEXP: /^(?:https?:|mailto:)/i,
+  });
+});
+
+// Anchor clicks inside the notes would navigate the renderer away from the app;
+// route them through the OS browser instead.
+const handleNotesClick = (event: MouseEvent) => {
+  const anchor = (event.target as HTMLElement)?.closest('a');
+  if (!anchor) return;
+  event.preventDefault();
+  const href = anchor.getAttribute('href');
+  if (href && import.meta.client && window.electronAPI) {
+    window.electronAPI.openExternal(href);
+  }
+};
 
 onMounted(() => {
   if (import.meta.client && window.electronAPI) {
@@ -245,9 +281,72 @@ const handleCancel = () => {
     .notes-content {
       color: var(--color-text-secondary);
       line-height: 1.6;
-      white-space: pre-wrap;
       max-height: 200px;
       overflow-y: auto;
+      word-break: break-word;
+
+      :deep(h1),
+      :deep(h2),
+      :deep(h3),
+      :deep(h4),
+      :deep(h5),
+      :deep(h6) {
+        margin: 12px 0 6px;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--color-text);
+
+        &:first-child {
+          margin-top: 0;
+        }
+      }
+
+      :deep(p) {
+        margin: 6px 0;
+      }
+
+      :deep(ul),
+      :deep(ol) {
+        margin: 6px 0;
+        padding-left: 20px;
+      }
+
+      :deep(li) {
+        margin: 2px 0;
+      }
+
+      :deep(a) {
+        color: var(--color-accent-custom);
+        text-decoration: underline;
+        cursor: pointer;
+      }
+
+      :deep(code) {
+        font-family: monospace;
+        font-size: 0.9em;
+        background: var(--color-surface);
+        padding: 1px 4px;
+        border-radius: 4px;
+      }
+
+      :deep(pre) {
+        background: var(--color-surface);
+        padding: 8px 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+
+        code {
+          background: none;
+          padding: 0;
+        }
+      }
+
+      :deep(blockquote) {
+        margin: 6px 0;
+        padding-left: 12px;
+        border-left: 3px solid var(--color-border);
+        color: var(--color-text-secondary);
+      }
     }
   }
 
