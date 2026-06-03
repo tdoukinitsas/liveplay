@@ -207,6 +207,21 @@ export const useProject = () => {
     () => (currentProject.value as any)?.settings?.autoSave !== false,
   );
 
+  // True for Windows drive paths (C:\…), POSIX roots (/…) and UNC (\\…).
+  const isAbsolutePath = (p: string): boolean =>
+    /^[a-zA-Z]:[\\/]/.test(p) || /^[\\/]/.test(p);
+
+  // Resolve a path that we WANT stored relative to the project folder (media/…,
+  // waveforms/…) into the absolute path Electron's fs helpers require. Paths
+  // are stored relative so the project folder stays fully portable; legacy
+  // projects that still hold an absolute path are passed through untouched.
+  const resolveProjectPath = (p: string | undefined | null): string => {
+    if (!p) return p ?? '';
+    if (isAbsolutePath(p)) return p;
+    const folder = currentProject.value?.folderPath ?? '';
+    return folder ? `${folder}/${p}` : p;
+  };
+
   // ---- Preview controls (delegate to server) ----------------------------
   async function startPreview(itemUuid: string) {
     if (!itemUuid) return;
@@ -520,6 +535,16 @@ export const useProject = () => {
         await nextTick();
         isHydrating.value = false;
       }
+
+      // Install the items diff-watcher (and seed its baseline) so subsequent
+      // edits — crucially, audio imports — get pushed to the server live via
+      // addProjectItem. The open-project path does this inside streamItemPages,
+      // but a freshly created project never streams pages, so without this the
+      // watcher was never installed: imported items stayed client-only, the
+      // engine never got a cue, and playback logged `PLAY: ?` until a manual
+      // save shipped the whole document. See refreshItemsBaselineAfterHydrate.
+      refreshItemsBaselineAfterHydrate();
+      installItemsWatcherFn();
 
       // Ask the server to write the file. It joins folderPath/name.liveplay
       // and the server has the document already, so we just say "save here".
@@ -1669,6 +1694,7 @@ export const useProject = () => {
     pasteItemsFromClipboard,
     getSelectedItems,
     getAllItemsFlat,
+    resolveProjectPath,
     createNewProject,
     openProject,
     tryRejoinExistingProject,

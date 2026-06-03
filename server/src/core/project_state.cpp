@@ -125,6 +125,24 @@ inline void relativize_media_paths(json& doc) {
         std::filesystem::weakly_canonical(util::utf8_to_path(folder), ec);
     const std::filesystem::path base = ec ? util::utf8_to_path(folder) : folder_base;
 
+    // Rewrite a single absolute path that lives inside the project folder to
+    // its portable "subdir/file" relative form. Returns nullopt when the path
+    // is empty or genuinely outside the folder (left untouched by the caller).
+    const auto relativize_inside = [&](const std::string& p)
+            -> std::optional<std::string> {
+        if (p.empty()) return std::nullopt;
+        std::error_code ecc;
+        const auto abs = std::filesystem::weakly_canonical(util::utf8_to_path(p), ecc);
+        const auto target = ecc ? util::utf8_to_path(p) : abs;
+        std::error_code ecr;
+        const auto rel = std::filesystem::relative(target, base, ecr);
+        if (ecr || rel.empty() || *rel.begin() == std::filesystem::path(".."))
+            return std::nullopt;
+        std::string rel_utf8 = util::path_to_utf8(rel);
+        std::replace(rel_utf8.begin(), rel_utf8.end(), '\\', '/');
+        return rel_utf8;
+    };
+
     const std::function<void(json&)> visit = [&](json& item) {
         if (!item.is_object()) return;
         if (item.value("type", std::string{}) == "audio") {
@@ -143,6 +161,14 @@ inline void relativize_media_paths(json& doc) {
                     item["mediaPath"] = rel_utf8;
                     item.erase("mediaServerPath");
                 }
+            }
+            // Normalise the waveform sidecar path to the portable relative form
+            // too, so a project moved to a new folder keeps resolving its
+            // waveforms. Absolute paths that point outside the folder are left
+            // as-is (genuine external reference).
+            if (item.contains("waveformPath") && item["waveformPath"].is_string()) {
+                if (auto relwf = relativize_inside(item["waveformPath"].get<std::string>()))
+                    item["waveformPath"] = *relwf;
             }
         }
         if (item.value("type", std::string{}) == "group" &&

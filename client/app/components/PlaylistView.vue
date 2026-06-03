@@ -53,7 +53,7 @@ import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM } from '~/types/project';
 import { applyAutoProcessing } from '~/utils/audio';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 
-const { currentProject, addItem, consumePendingAutoProcess, updateIndices, saveProject, triggerWaveformUpdate, isLoading, getAllItemsFlat } = useProject();
+const { currentProject, addItem, consumePendingAutoProcess, updateIndices, saveProject, triggerWaveformUpdate, isLoading, getAllItemsFlat, resolveProjectPath } = useProject();
 const { t } = useLocalization();
 const { levels: outputTargetLevels } = useOutputTarget();
 
@@ -242,13 +242,21 @@ const importFromServerPath = async (serverPath: string) => {
       mediaFileName: fileName,
       mediaPath: `media/${fileName}`,
       mediaServerPath: destPath,
-      waveformPath: `${currentProject.value.folderPath}/waveforms/${uuid}.json`,
+      // Stored relative to the project folder so the project stays portable.
+      waveformPath: `waveforms/${uuid}.json`,
       waveform: undefined,
       outPoint: duration,
       duration,
     } as AudioItem;
 
     addItem(audioItem);
+
+    // Persist the import right away: when autosave is on this writes the file
+    // AND ships the full document (mirroring the new cue into the engine); when
+    // autosave is off it flags unsaved changes while the items diff-watcher
+    // still syncs the cue live. Either way the engine gets a cue immediately so
+    // the item is playable without waiting for a later manual save.
+    await saveProject();
 
     // Queue waveform generation — server responds via 'waveform_ready' doc_patch.
     server.requestWaveformGeneration(destPath, uuid).catch(e => {
@@ -286,7 +294,7 @@ const importAudioFile = async (sourcePath: string) => {
       type: 'audio',
       mediaFileName: fileName,
       mediaPath: `media/${fileName}`, // Store relative path to project folder
-      waveformPath: `${currentProject.value.folderPath}/waveforms/${uuid}.json`,
+      waveformPath: `waveforms/${uuid}.json`, // Relative — keeps the project portable
       waveform: undefined, // Will be generated asynchronously
       outPoint: duration,
       duration
@@ -335,7 +343,7 @@ const generateWaveformAsync = async (item: AudioItem) => {
     await window.electronAPI.ensureDirectory(waveformsDir);
 
     // Check if waveform file already exists and is valid
-    const existingWaveform = await window.electronAPI.readFile(item.waveformPath);
+    const existingWaveform = await window.electronAPI.readFile(resolveProjectPath(item.waveformPath));
     if (existingWaveform.success && existingWaveform.data) {
       try {
         const waveformData = JSON.parse(existingWaveform.data);
@@ -393,7 +401,7 @@ const generateWaveformAsync = async (item: AudioItem) => {
 
     // Generate waveform using ffmpeg (non-blocking)
     const mediaPath = `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
-    const result = await window.electronAPI.generateWaveform(mediaPath, item.waveformPath);
+    const result = await window.electronAPI.generateWaveform(mediaPath, resolveProjectPath(item.waveformPath));
 
     if (result.success) {
       console.log(`Started waveform generation for ${item.displayName}`);
@@ -401,7 +409,7 @@ const generateWaveformAsync = async (item: AudioItem) => {
       // Start polling for waveform file (check every 2 seconds)
       const pollInterval = setInterval(async () => {
         try {
-          const waveformFile = await window.electronAPI.readFile(item.waveformPath);
+          const waveformFile = await window.electronAPI.readFile(resolveProjectPath(item.waveformPath));
           if (waveformFile.success && waveformFile.data) {
             const waveformData = JSON.parse(waveformFile.data);
 

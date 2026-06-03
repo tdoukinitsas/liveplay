@@ -102,7 +102,7 @@ import { applyAutoProcessing } from '~/utils/audio';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 
 const { t } = useLocalization();
-const { currentProject, addItem, consumePendingAutoProcess, triggerWaveformUpdate } = useProject();
+const { currentProject, addItem, consumePendingAutoProcess, triggerWaveformUpdate, resolveProjectPath } = useProject();
 const { levels: outputTargetLevels } = useOutputTarget();
 
 interface YouTubeVideo {
@@ -246,7 +246,7 @@ const importDownloadedFile = async (fileName: string, filePath: string) => {
       type: 'audio',
       mediaFileName: fileName,
       mediaPath: `media/${fileName}`, // Relative path
-      waveformPath: `${currentProject.value.folderPath}/waveforms/${uuid}.json`,
+      waveformPath: `waveforms/${uuid}.json`, // Relative — keeps the project portable
       waveform: undefined,
       outPoint: duration,
       duration
@@ -280,10 +280,10 @@ const generateWaveformAsync = async (audioItem: any) => {
   
   try {
     const mediaPath = `${currentProject.value.folderPath}/media/${audioItem.mediaFileName}`;
-    const result = await window.electronAPI.generateWaveform(mediaPath, audioItem.waveformPath);
-    
+    const result = await window.electronAPI.generateWaveform(mediaPath, resolveProjectPath(audioItem.waveformPath));
+
     if (result.success) {
-      const waveformFile = await window.electronAPI.readFile(audioItem.waveformPath);
+      const waveformFile = await window.electronAPI.readFile(resolveProjectPath(audioItem.waveformPath));
       if (waveformFile.success && waveformFile.data) {
         audioItem.waveform = JSON.parse(waveformFile.data);
         if (consumePendingAutoProcess(audioItem.uuid)) {

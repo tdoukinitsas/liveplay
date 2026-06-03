@@ -192,7 +192,7 @@ const props = defineProps<{
 const slotRef = ref<HTMLElement | null>(null);
 const showImportModal = ref(false);
 
-const { currentProject, selectedItem, selectedItems, selectionContext, requestDeleteFromButton, findItemByUuid, triggerWaveformUpdate, markPendingAutoProcess } = useProject();
+const { currentProject, selectedItem, selectedItems, selectionContext, requestDeleteFromButton, findItemByUuid, triggerWaveformUpdate, markPendingAutoProcess, resolveProjectPath } = useProject();
 const { levels: outputTargetLevels } = useOutputTarget();
 const { playCue, stopCue, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem } = useAudioEngine();
 const { t } = useLocalization();
@@ -362,7 +362,8 @@ const importFromServerPath = async (serverPath: string) => {
       mediaFileName: fileName,
       mediaPath: `media/${fileName}`,
       mediaServerPath: destPath,
-      waveformPath: `${currentProject.value.folderPath}/waveforms/${uuid}.json`,
+      // Relative to the project folder so the project stays portable.
+      waveformPath: `waveforms/${uuid}.json`,
       waveform: undefined,
       duration,
       outPoint: duration,
@@ -661,7 +662,7 @@ const startWaveformPolling = () => {
     // Try to load waveform from file
     if (window.electronAPI && audioItem.waveformPath) {
       try {
-        const result = await window.electronAPI.readFile(audioItem.waveformPath);
+        const result = await window.electronAPI.readFile(resolveProjectPath(audioItem.waveformPath));
         if (result.success && result.data) {
           const waveformData = JSON.parse(result.data);
           if (waveformData.peaks && waveformData.peaks.length > 0) {
