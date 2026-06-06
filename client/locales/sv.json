@@ -12,6 +12,9 @@
     "file": "Arkiv",
     "newProject": "Nytt Projekt",
     "openProject": "Öppna Projekt",
+    "openRecent": "Öppna senaste",
+    "clearRecentProjects": "Rensa nyligen öppnade",
+    "noRecentProjects": "Inga senaste projekt",
     "saveProject": "Spara Projekt",
     "exportProject": "Exportera Projekt",
     "importProject": "Importera Projekt",
@@ -150,6 +153,9 @@
     "waveform": "Vågform",
     "regenerateWaveform": "Återskapa vågform",
     "regeneratingWaveform": "Återskapar...",
+    "multiSelectWaveform": "Flera objekt valda – välj ett enskilt objekt för att visa dess vågform.",
+    "multiSelectOutPointDisabled": "Inaktiverad vid flerval (utpunkten beror på varje objekts längd).",
+    "noWaveformData": "Inga vågformsdata tillgängliga",
     "ltcRequiresDevice": "Välj en LTC-utgångsenhet i Projektinställningar för att aktivera timecode-utgång."
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "Inga MIDI-enheter hittades",
     "reassign": "Tilldela om",
     "conflictMessage": "Denna MIDI-kontroll är redan tilldelad \"{action}\". Tilldela om?",
-    "playNext": "Spela nästa"
+    "playNext": "Spela nästa",
+    "volumeMultiplier": "Volymmultiplikator",
+    "volumeMultiplierHint": "dB som ändras per MIDI-steg. Öka för hjul som rör sig långsamt."
   },
   "status": {
     "playing": "Spelas",
@@ -460,6 +468,17 @@
     "chooseFiles": "Välj filer…",
     "uploading": "Laddar upp…",
     "uploadingProgress": "Laddar upp {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "Osparade ändringar",
+    "unsavedMessage": "Du har osparade ändringar. Om du avslutar nu går de förlorade. Vill du spara projektet först, eller stänga och förkasta ändringarna?",
+    "unsavedDiscard": "Stäng och förkasta ändringar",
+    "unsavedSaveClose": "Spara projektet och stäng",
+    "serverTitle": "Stänga ljudservern?",
+    "serverMessage": "Ljudservern körs lokalt på den här datorn. Om du stänger den stoppas all uppspelning och alla andra anslutna klienter kopplas från. Låt den fortsätta köra för att endast stänga den här klienten.",
+    "serverCloseServer": "Stäng server",
+    "serverCloseClient": "Stäng endast klienten",
+    "return": "Tillbaka till projektet"
   },
   "deleteSelection": {
     "title": "Ta bort objekt",

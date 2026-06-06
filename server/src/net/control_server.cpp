@@ -1982,10 +1982,12 @@ void ControlServer::install_routes() {
                 const std::string item_uuid  = j["item"].value("uuid", std::string{});
                 const std::string item_name  = j["item"].value("displayName", std::string{});
                 const std::string parent_uuid = j.value("parentUuid", std::string{});
-                Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items uuid='{}' name='{}'{}",
+                const bool cart_only = j.value("cartOnly", false);
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items uuid='{}' name='{}'{}{}",
                                     req.remote_ip_address, impl_->server_addr, item_uuid,
-                                    item_name, parent_uuid.empty() ? "" : " parent='" + parent_uuid + "'");
-                const auto cue_id = state_.add_item(j["item"], parent_uuid);
+                                    item_name, parent_uuid.empty() ? "" : " parent='" + parent_uuid + "'",
+                                    cart_only ? " [cartOnly]" : "");
+                const auto cue_id = state_.add_item(j["item"], parent_uuid, cart_only);
                 Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/items OK — uuid='{}' cueId='{}'",
                                      req.remote_ip_address, impl_->server_addr,
                                      item_uuid, cue_id.value);
@@ -1993,6 +1995,7 @@ void ControlServer::install_routes() {
                     {"type", "doc_patch"}, {"op", "item_added"},
                     {"uuid", item_uuid},
                     {"parentUuid", parent_uuid},
+                    {"cartOnly", cart_only},
                     {"item", j["item"]},
                     {"cueId", cue_id.value},
                 });
@@ -2093,6 +2096,61 @@ void ControlServer::install_routes() {
                                  req.remote_ip_address, impl_->server_addr, m, uuid);
             return json_ok(json({{"ok", true}}));
         });
+
+    // Item-by-index transport. The index is an index *path* — a list of child
+    // indices that descends into groups at each level, mirroring the client's
+    // findItemByIndex / endBehavior.targetIndex semantics. For example "1,11"
+    // means top-level item 1 (the 2nd item, a group) then its child 11 (the
+    // 12th item inside it). Both comma- and slash-separated forms are accepted
+    // ("1,11" and "1/11" are equivalent), so the URL can be written either way
+    // — even mixed ("1,2/0"). Routed through trigger_item so audio items play
+    // and group items dispatch per their startBehavior. GET is accepted as well
+    // as POST so the URL can be fired from a browser or a plain `curl`.
+    CROW_ROUTE(app, "/api/project/items/by-index/<path>")
+        .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
+        ([this](const crow::request& req, std::string index_path){
+            const std::string m = crow::method_name(req.method);
+            Logger::api_request("Client ({}) -> Server ({}) : {} /api/project/items/by-index/{}",
+                                req.remote_ip_address, impl_->server_addr, m, index_path);
+            // Split on both ',' and '/' so "1,11", "1/11" and "1,2/0" all work.
+            std::vector<int> path;
+            std::string token;
+            bool parse_error = false;
+            auto flush = [&]{
+                if (token.empty()) return;
+                try {
+                    std::size_t consumed = 0;
+                    const int v = std::stoi(token, &consumed);
+                    if (consumed != token.size() || v < 0) parse_error = true;
+                    else path.push_back(v);
+                } catch (...) { parse_error = true; }
+                token.clear();
+            };
+            for (char c : index_path) {
+                if (c == ',' || c == '/') flush();
+                else                      token.push_back(c);
+            }
+            flush();
+            if (parse_error || path.empty()) {
+                Logger::warn("TRIGGER by-index '{}' — invalid index path", index_path);
+                return json_err(400, "invalid index path");
+            }
+            const std::string uuid = state_.item_uuid_by_index(path);
+            if (uuid.empty()) {
+                Logger::warn("TRIGGER by-index '{}' — no item at that index", index_path);
+                return json_err(404, "no item at that index");
+            }
+            Logger::playback("TRIGGER: {}", item_playback_info(uuid, state_));
+            if (!state_.trigger_item(uuid)) {
+                Logger::warn("TRIGGER by-index '{}' uuid={} — item not loaded into engine",
+                             index_path, uuid);
+                return json_err(404, "item not loaded into engine");
+            }
+            Logger::api_response("Client ({}) <- Server ({}) : {} /api/project/items/by-index/{} OK -> uuid={}",
+                                 req.remote_ip_address, impl_->server_addr, m, index_path, uuid);
+            return json_ok(json({{"ok", true}, {"uuid", uuid}, {"index", path}}));
+        });
+
     CROW_ROUTE(app, "/api/project/items/<string>/stop").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req, std::string uuid){
             Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items/{}/stop",

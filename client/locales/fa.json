@@ -12,6 +12,9 @@
     "file": "فایل",
     "newProject": "پروژه جدید",
     "openProject": "باز کردن پروژه",
+    "openRecent": "باز کردن موارد اخیر",
+    "clearRecentProjects": "پاک کردن موارد اخیر",
+    "noRecentProjects": "هیچ پروژه‌ی اخیری وجود ندارد",
     "saveProject": "ذخیره پروژه",
     "exportProject": "صادرات پروژه",
     "importProject": "واردات پروژه",
@@ -150,6 +153,9 @@
     "waveform": "شکل موج",
     "regenerateWaveform": "بازسازی شکل موج",
     "regeneratingWaveform": "در حال بازسازی...",
+    "multiSelectWaveform": "چند مورد انتخاب شده است — برای نمایش شکل موج، یک مورد را انتخاب کنید.",
+    "multiSelectOutPointDisabled": "برای انتخاب چندتایی غیرفعال است (نقطه پایان به مدت‌زمان هر مورد بستگی دارد).",
+    "noWaveformData": "داده‌ای برای شکل موج موجود نیست",
     "ltcRequiresDevice": "برای فعال‌سازی خروجی تایم‌کد، یک دستگاه خروجی LTC را در تنظیمات پروژه انتخاب کنید."
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "هیچ دستگاه MIDI شناسایی نشد",
     "reassign": "تخصیص مجدد",
     "conflictMessage": "این کنترل MIDI قبلاً به \"{action}\" اختصاص داده شده است. تخصیص مجدد؟",
-    "playNext": "پخش بعدی"
+    "playNext": "پخش بعدی",
+    "volumeMultiplier": "ضریب صدا",
+    "volumeMultiplierHint": "تغییر dB در هر گام MIDI. برای چرخ‌هایی که آهسته حرکت می‌کنند افزایش دهید."
   },
   "status": {
     "playing": "در حال پخش",
@@ -460,6 +468,17 @@
     "chooseFiles": "انتخاب فایل‌ها…",
     "uploading": "در حال بارگذاری…",
     "uploadingProgress": "در حال بارگذاری {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "تغییرات ذخیره‌نشده",
+    "unsavedMessage": "تغییرات ذخیره‌نشده‌ای دارید. اگر اکنون خارج شوید از بین می‌روند. می‌خواهید ابتدا پروژه را ذخیره کنید یا ببندید و تغییرات را نادیده بگیرید؟",
+    "unsavedDiscard": "بستن و نادیده‌گرفتن تغییرات",
+    "unsavedSaveClose": "ذخیره پروژه و سپس بستن",
+    "serverTitle": "بستن سرور صدا؟",
+    "serverMessage": "سرور صدا به‌صورت محلی روی این رایانه در حال اجراست. بستن آن تمام پخش را متوقف می‌کند و همه کلاینت‌های متصل دیگر را قطع می‌کند. برای بستن فقط همین کلاینت، آن را در حال اجرا رها کنید.",
+    "serverCloseServer": "بستن سرور",
+    "serverCloseClient": "بستن فقط کلاینت",
+    "return": "بازگشت به پروژه"
   },
   "deleteSelection": {
     "title": "حذف موارد",

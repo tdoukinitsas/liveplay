@@ -572,10 +572,13 @@ function createClient() {
   }
 
   // ---- Item CRUD (server is the source of truth for project state) ----
-  async function addProjectItem(item: any, parentUuid: string = '') {
+  // `cartOnly` routes the item into the server document's separate
+  // cartOnlyItems array (cart slots), not the playlist tree — keeping the two
+  // lists distinct while still registering the cue with the engine.
+  async function addProjectItem(item: any, parentUuid: string = '', cartOnly: boolean = false) {
     return rest<any>('/api/project/items', {
       method: 'POST',
-      body: JSON.stringify({ item, parentUuid }),
+      body: JSON.stringify({ item, parentUuid, cartOnly }),
     }).then(p => { fetchCues(); return p; });
   }
   async function updateProjectItem(uuid: string, patch: any) {

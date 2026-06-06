@@ -1540,7 +1540,8 @@ ProjectState::PlaybackSnapshot ProjectState::current_playback_snapshot() const {
 // Item CRUD — operates on the document_ tree and mirrors audio items to
 // the engine.
 // ---------------------------------------------------------------------------
-audio::CueId ProjectState::add_item(const json& item, const std::string& parent_uuid) {
+audio::CueId ProjectState::add_item(const json& item, const std::string& parent_uuid,
+                                    bool cart_only) {
     if (!item.is_object()) return {};
     const std::string uuid = item.value("uuid", std::string{});
     if (uuid.empty()) return {};
@@ -1560,7 +1561,16 @@ audio::CueId ProjectState::add_item(const json& item, const std::string& parent_
             return it != item_uuid_to_cue_.end() ? it->second : audio::CueId{};
         }
 
-        if (parent_uuid.empty()) {
+        if (cart_only) {
+            // Cart-bound cue: lives in the separate cartOnlyItems array so it
+            // is mirrored to the engine (cart hotkeys can trigger it) without
+            // ever appearing in the playlist tree.
+            if (!document_.contains("cartOnlyItems") ||
+                !document_["cartOnlyItems"].is_array()) {
+                document_["cartOnlyItems"] = json::array();
+            }
+            document_["cartOnlyItems"].push_back(item);
+        } else if (parent_uuid.empty()) {
             if (!document_.contains("items") || !document_["items"].is_array()) {
                 document_["items"] = json::array();
             }
@@ -1601,6 +1611,19 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     bool media_path_changed = false;
     bool ltc_changed        = false;
     json* updated_item = nullptr;
+
+    // Captured under mutex_, applied to the engine loop state and the sequencer
+    // snapshot AFTER the lock is released — so out point / crossfade / stop-fade /
+    // end-behaviour edits take effect on an already-playing cue without a replay,
+    // mirroring how the engine's raw out-point already updates live.
+    bool         have_seq_cue     = false;
+    audio::CueId seq_cue;
+    double       seq_in_point     = 0.0;
+    double       seq_out_point    = 0.0;
+    double       seq_crossfade    = 0.0;
+    double       seq_stop_fade    = 0.0;
+    double       seq_file_duration = 0.0;
+    std::string  seq_end_action;
     {
         std::lock_guard lock{mutex_};
         for_each_item(document_,
@@ -1685,7 +1708,52 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                 }
             }
         }
+
+        // Snapshot the sequencing-relevant fields so the playing cue's
+        // auto-advance/crossfade/stop-fade/loop timing can be refreshed live
+        // (done below, after releasing mutex_, to keep the existing lock order).
+        if (touched && updated_item) {
+            auto cit = item_uuid_to_cue_.find(uuid);
+            if (cit != item_uuid_to_cue_.end()) {
+                have_seq_cue  = true;
+                seq_cue       = cit->second;
+                const json& it = *updated_item;
+                seq_in_point  = it.value("inPoint",  0.0);
+                seq_out_point = it.value("outPoint", 0.0);
+                seq_crossfade = it.value("crossFade", 0.0);
+                seq_stop_fade = it.value("stopFade",  0.0);
+                if (it.contains("endBehavior") && it["endBehavior"].is_object())
+                    seq_end_action = it["endBehavior"].value("action", std::string{});
+                auto cm_it = cues_.find(cit->second.value);
+                if (cm_it != cues_.end())
+                    seq_file_duration = cm_it->second.duration_seconds;
+            }
+        }
     }
+
+    // Live-apply loop + sequencer timing for an already-playing cue. The engine
+    // out-point / fades were updated under the lock above; here we keep the
+    // audio-thread loop state and the sequencer snapshot in sync so changes to
+    // out point / crossfade / stop-fade / end-behaviour take effect immediately
+    // (the sequencer loop only updates a matching entry, so this is a no-op when
+    // the item isn't currently sequenced).
+    if (have_seq_cue) {
+        const bool looping = (seq_end_action == "loop");
+        if (auto* pi = engine_.find_cue(seq_cue))
+            pi->set_loop(looping, seq_in_point);
+        const double effective_end = looping
+            ? 0.0
+            : ((seq_out_point > 0.0) ? seq_out_point : seq_file_duration);
+        std::lock_guard slock{sequencer_mutex_};
+        for (auto& si : sequenced_items_) {
+            if (si.uuid != uuid) continue;
+            si.crossfade_sec = looping ? 0.0 : seq_crossfade;
+            si.stop_fade_sec = looping ? 0.0 : seq_stop_fade;
+            si.effective_end = effective_end;
+            break;
+        }
+    }
+
     // Route (or re-route) the LTC channel after releasing mutex_ so
     // ensure_device_routing() can safely acquire it.
     if (touched && ltc_changed)
@@ -1906,10 +1974,18 @@ std::string ProjectState::resolve_index_path_locked(const std::vector<int>& path
     return current ? current->value("uuid", std::string{}) : std::string{};
 }
 
+// Public thread-safe wrapper: resolve an index path to an item uuid.
+std::string ProjectState::item_uuid_by_index(const std::vector<int>& path) const {
+    std::lock_guard lock{mutex_};
+    return resolve_index_path_locked(path);
+}
+
 // ---------------------------------------------------------------------------
 // Item-level transport with ducking + in/out point semantics.
 // ---------------------------------------------------------------------------
-bool ProjectState::play_item(const std::string& uuid) {
+bool ProjectState::play_item(const std::string& uuid,
+                             double fade_in_override_sec,
+                             const audio::CueId& exclude_from_ducking) {
     // Snapshot everything we need under the lock, then release before
     // touching the engine (engine calls take their own locks).
     std::string  ducking_mode  = "stop-all";
@@ -2005,6 +2081,10 @@ bool ProjectState::play_item(const std::string& uuid) {
         const auto fade_ms = std::chrono::milliseconds{
             static_cast<long long>(std::max(fade_out_dur, 0.0) * 1000.0)};
         for (auto& cid : other_cues) {
+            // Crossfade: don't touch the outgoing cue — the sequencer already
+            // started its engine-owned fade-out. Stopping it here would (since
+            // it's FadingOut) route through stop_now() and hard-cut it.
+            if (!exclude_from_ducking.empty() && cid == exclude_from_ducking) continue;
             if (auto* pi = engine_.find_cue(cid)) {
                 const auto prev_fade = pi->desc().fade_out_duration;
                 pi->set_fade_out(fade_ms);
@@ -2016,6 +2096,7 @@ bool ProjectState::play_item(const std::string& uuid) {
         const float lin = std::clamp(duck_level, 0.0f, 1.0f);
         const float db  = (lin <= 0.0001f) ? -120.0f : 20.0f * std::log10(lin);
         for (auto& cid : other_cues) {
+            if (!exclude_from_ducking.empty() && cid == exclude_from_ducking) continue;
             if (auto* pi = engine_.find_cue(cid)) {
                 ducks_made.push_back({cid, pi->gain_db()});
                 pi->set_gain_db(db);
@@ -2072,8 +2153,22 @@ bool ProjectState::play_item(const std::string& uuid) {
         // "currently playing" and grey out its stop button mid-loop.
         pi->set_loop(end_behavior_action == "loop", in_point);
         pi->prime(2.0, in_point);
+
+        // Crossfade-in: fade the incoming cue up over the crossfade window
+        // instead of using its own play-fade. play() captures the fade
+        // duration synchronously inside start_fade(), so restoring the stored
+        // value immediately after doesn't disturb the in-flight fade.
+        const bool override_fade = fade_in_override_sec >= 0.0;
+        const auto saved_fade_in = pi->desc().fade_in_duration;
+        if (override_fade) {
+            pi->set_fade_in(std::chrono::milliseconds{
+                static_cast<long long>(fade_in_override_sec * 1000.0)});
+        }
+        pi->play();
+        if (override_fade) pi->set_fade_in(saved_fade_in);
+    } else {
+        engine_.play(target_cue);  // logs the "no cue" warning path
     }
-    engine_.play(target_cue);
 
     // Register with the sequencer so it can handle end-behaviour, crossfade,
     // and stop-fade autonomously — even when the client is disconnected.
@@ -2178,7 +2273,9 @@ std::string ProjectState::next_item_override() const {
 // (play-first plays the first child recursively; play-all triggers every
 // child). Mirrors the client's triggerGroup() so auto-next / Up Next
 // override / goto-item behave consistently when the target is a group.
-bool ProjectState::trigger_item(const std::string& uuid) {
+bool ProjectState::trigger_item(const std::string& uuid,
+                                double fade_in_override_sec,
+                                const audio::CueId& exclude_from_ducking) {
     // Look up the item's type and (for groups) startBehavior + children.
     std::string type;
     std::string start_action;
@@ -2223,19 +2320,19 @@ bool ProjectState::trigger_item(const std::string& uuid) {
     }
 
     if (type == "audio") {
-        return play_item(uuid);
+        return play_item(uuid, fade_in_override_sec, exclude_from_ducking);
     }
     if (type == "group") {
         if (child_uuids.empty()) return false;
         if (start_action == "play-all") {
             bool any = false;
             for (const auto& cu : child_uuids) {
-                if (trigger_item(cu)) any = true;
+                if (trigger_item(cu, fade_in_override_sec, exclude_from_ducking)) any = true;
             }
             return any;
         }
         // Default / "play-first": trigger only the first child.
-        return trigger_item(child_uuids.front());
+        return trigger_item(child_uuids.front(), fade_in_override_sec, exclude_from_ducking);
     }
     return false;
 }
@@ -3035,7 +3132,11 @@ void ProjectState::sequencer_loop() {
                         next_uuid = resolve_next_item_locked(p.item.uuid);
                     }
                 }
-                if (!next_uuid.empty()) trigger_item(next_uuid);
+                // Fade the incoming cue IN over the crossfade window, and
+                // exclude the outgoing cue from the incoming item's ducking so
+                // its engine-owned fade-out (started just above) isn't hard-cut.
+                if (!next_uuid.empty())
+                    trigger_item(next_uuid, p.item.crossfade_sec, p.item.cue_id);
                 break;
             }
 

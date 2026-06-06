@@ -35,7 +35,7 @@
     <div class="waveform-section">
       <!-- Zoom Controls -->
       <div class="waveform-controls">
-        <div class="zoom-control">
+        <div class="zoom-control" v-if="!multiSelect">
           <span class="material-symbols-rounded">zoom_out</span>
           <input
             type="range"
@@ -47,8 +47,8 @@
           />
           <span class="material-symbols-rounded">zoom_in</span>
         </div>
-        <span class="zoom-level-text">{{ Math.round(zoomLevel * 100) }}%</span>
-        
+        <span class="zoom-level-text" v-if="!multiSelect">{{ Math.round(zoomLevel * 100) }}%</span>
+
         <!-- Audio Tools -->
         <div class="audio-tools">
           <!-- Trim Silence Button -->
@@ -65,20 +65,29 @@
         </div>
       </div>
 
-      <!-- Waveform Canvas Container -->
-      <div 
-        class="waveform-container" 
+      <!-- Waveform Canvas Container. Kept mounted in ALL modes so the
+           ResizeObserver target is stable; only its contents swap between the
+           single-item canvas and the multi-selection message. -->
+      <div
+        class="waveform-container"
         ref="waveformContainer"
         @wheel.prevent="handleWheel"
       >
-        <canvas 
+        <!-- Multi-selection: the single-item canvas can't represent many items. -->
+        <div v-if="multiSelect" class="waveform-multi-message">
+          <span class="material-symbols-rounded">layers</span>
+          <p>{{ t('properties.multiSelectWaveform') }}</p>
+        </div>
+
+        <template v-else>
+        <canvas
           ref="waveformCanvas"
           class="waveform-canvas"
           @mousedown="handleCanvasMouseDown"
         ></canvas>
-        
+
         <!-- Trim Handles -->
-        <div 
+        <div
           class="trim-handle trim-handle-in"
           :style="{ left: inPointPosition + 'px' }"
           @mousedown.prevent="startDragHandle('in', $event)"
@@ -154,10 +163,11 @@
             </div>
           </div>
         </template>
+        </template>
       </div>
 
       <!-- Horizontal Scrollbar -->
-      <div class="waveform-scrollbar">
+      <div class="waveform-scrollbar" v-if="!multiSelect">
         <input
           type="range"
           class="scroll-slider"
@@ -189,20 +199,26 @@
           </button>
         </div>
       </div>
-      <div class="time-field">
+      <div
+        class="time-field"
+        :class="{ 'time-field-disabled': multiSelect }"
+        :title="multiSelect ? t('properties.multiSelectOutPointDisabled') : undefined"
+      >
         <label>{{ t('properties.outPoint') }}</label>
         <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustOutPoint(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+          <button class="time-decrement" @click="adjustOutPoint(-0.5)" :disabled="multiSelect" :title="multiSelect ? t('properties.multiSelectOutPointDisabled') : t('waveform.decreaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">remove</span>
           </button>
-          <input 
+          <input
             type="text"
             class="time-input"
-            :value="formatTimeDetailed(outPoint)"
+            :value="multiSelect ? '—' : formatTimeDetailed(outPoint)"
+            :disabled="multiSelect"
+            :title="multiSelect ? t('properties.multiSelectOutPointDisabled') : undefined"
             @change="handleOutPointTextChange"
             @focus="($event.target as HTMLInputElement).select()"
           />
-          <button class="time-increment" @click="adjustOutPoint(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+          <button class="time-increment" @click="adjustOutPoint(0.5)" :disabled="multiSelect" :title="multiSelect ? t('properties.multiSelectOutPointDisabled') : t('waveform.increaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">add</span>
           </button>
         </div>
@@ -287,6 +303,13 @@ import { useLiveplayServer } from '~/composables/useLiveplayServer';
 
 const props = defineProps<{
   audioItem: AudioItem;
+  // True when more than one item is selected. The single-item waveform canvas
+  // and the out-point control are meaningless across a heterogeneous selection
+  // (each item has its own duration), so they're replaced/disabled. Crucially
+  // this ALSO suppresses the self-healing waveform re-request below: with many
+  // items selected that re-request fires per displayed anchor and races the
+  // batch edit, which is what made auto-trim / auto-volume revert.
+  multiSelect?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -337,8 +360,12 @@ const scrollPosition = ref(0);
 const playbackPosition = computed(() => {
   const cue = activeCues.value.get(props.audioItem.uuid);
   if (!cue) return null;
-  
-  // currentTime is relative to inPoint, we need absolute position in file
+
+  // Prefer the absolute file playhead reported by the server — it's independent
+  // of the in point, so dragging in/out while playing doesn't shift the line.
+  if (typeof cue.playheadSeconds === 'number') return cue.playheadSeconds;
+
+  // Fallback: currentTime is relative to inPoint, so add it back for absolute.
   const inPoint = props.audioItem.inPoint || 0;
   return cue.currentTime + inPoint;
 });
@@ -372,9 +399,19 @@ const resolveMediaPath = (): string => {
 // Guard so we don't spam the server while a generation is in flight. Reset
 // when the item changes or once a waveform actually arrives.
 let waveformRequestedFor: string | null = null;
-const ensureWaveform = () => {
+// A property edit briefly round-trips the item through the server (PATCH →
+// item_updated echo), during which the local waveform can momentarily read as
+// absent before `restoreWaveform` re-attaches it from the session cache. Firing
+// a forced server regen in that window is wasteful (and used to cause the
+// values to snap back). So we DEFER the self-heal and only act if the waveform
+// is still genuinely missing after the echo has had time to land.
+let ensureWaveformTimer: ReturnType<typeof setTimeout> | null = null;
+const SELF_HEAL_DELAY_MS = 600;
+
+const requestWaveformNow = () => {
   const it = props.audioItem;
   if (!it || it.type !== 'audio') return;
+  if (props.multiSelect) return;
   if (hasWaveform.value) { waveformRequestedFor = null; return; }
   if (waveformRequestedFor === it.uuid) return;
   const path = resolveMediaPath();
@@ -384,9 +421,35 @@ const ensureWaveform = () => {
     .catch(() => { /* best-effort — the manual button remains as a fallback */ });
 };
 
+const ensureWaveform = () => {
+  const it = props.audioItem;
+  if (!it || it.type !== 'audio') return;
+  // Don't self-heal while multiple items are selected — the canvas isn't shown,
+  // and a forced regen here echoes back a waveform_ready that can clobber the
+  // values a multi-item auto-trim / auto-volume just applied.
+  if (props.multiSelect) return;
+  if (hasWaveform.value) { waveformRequestedFor = null; return; }
+  // Debounce: re-check after the echo window. A transient drop heals itself and
+  // this becomes a no-op; only a real, persistent gap reaches the server.
+  if (ensureWaveformTimer) clearTimeout(ensureWaveformTimer);
+  ensureWaveformTimer = setTimeout(() => { ensureWaveformTimer = null; requestWaveformNow(); }, SELF_HEAL_DELAY_MS);
+};
+
 // React to the panel switching items, or a waveform appearing/disappearing.
-watch(() => props.audioItem?.uuid, () => { waveformRequestedFor = null; ensureWaveform(); });
-watch(hasWaveform, (has) => { if (!has) ensureWaveform(); else waveformRequestedFor = null; });
+// A new item is missing immediately and persistently, so request it without the
+// settle delay; a disappearance goes through the debounced ensureWaveform.
+watch(() => props.audioItem?.uuid, () => {
+  if (ensureWaveformTimer) { clearTimeout(ensureWaveformTimer); ensureWaveformTimer = null; }
+  waveformRequestedFor = null;
+  if (!hasWaveform.value) ensureWaveform();
+});
+watch(hasWaveform, (has) => {
+  if (!has) ensureWaveform();
+  else {
+    waveformRequestedFor = null;
+    if (ensureWaveformTimer) { clearTimeout(ensureWaveformTimer); ensureWaveformTimer = null; }
+  }
+});
 
 // Volume in dB
 const volumeDB = computed({
@@ -586,6 +649,7 @@ const handleCanvasMouseDown = (event: MouseEvent) => {
 
 // Handle wheel zoom
 const handleWheel = (event: WheelEvent) => {
+  if (props.multiSelect) return; // no canvas to zoom in multi-selection
   const delta = event.deltaY > 0 ? -0.5 : 0.5;
   zoomLevel.value = Math.max(1, Math.min(20, zoomLevel.value + delta));
 };
@@ -928,7 +992,7 @@ const drawWaveform = () => {
     ctx.font = '14px sans-serif';
     ctx.fillStyle = 'rgba(128, 128, 128, 0.5)';
     ctx.textAlign = 'center';
-    ctx.fillText('No waveform data available', canvasWidth.value / 2, middleY);
+    ctx.fillText(t('properties.noWaveformData'), canvasWidth.value / 2, middleY);
     ctx.textAlign = 'left';
   }
 
@@ -1079,6 +1143,18 @@ watch(() => props.audioItem?.waveform, () => {
   throttledDraw();
 }, { immediate: true });
 
+// Leaving multi-selection re-creates the canvas element (it's only rendered in
+// single-item mode). Re-measure the container and draw once it's back, and run
+// the self-heal that was suppressed while multiple items were selected.
+watch(() => props.multiSelect, (multi) => {
+  if (multi) return;
+  nextTick(() => requestAnimationFrame(() => {
+    if (waveformContainer.value) containerWidth.value = waveformContainer.value.clientWidth;
+    drawWaveform();
+    ensureWaveform();
+  }));
+});
+
 // Watch for canvas width changes
 const resizeObserver = ref<ResizeObserver | null>(null);
 
@@ -1109,8 +1185,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  // Clear any pending draw operations
+  // Clear any pending draw / self-heal operations
   if (drawTimeout) clearTimeout(drawTimeout);
+  if (ensureWaveformTimer) clearTimeout(ensureWaveformTimer);
   
   // Clean up resize observer
   if (resizeObserver.value && waveformContainer.value) {
@@ -1437,6 +1514,35 @@ onUnmounted(() => {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* Multi-selection placeholder shown in place of the single-item canvas.
+   Fills the (already-bordered) waveform container. */
+.waveform-multi-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: 0 var(--spacing-lg);
+}
+
+.waveform-multi-message .material-symbols-rounded {
+  font-size: 28px;
+  opacity: 0.7;
+}
+
+.waveform-multi-message p {
+  font-size: 12px;
+  max-width: 320px;
+}
+
+.time-field-disabled {
+  opacity: 0.55;
 }
 
 /* Trim Handles */

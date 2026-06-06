@@ -12,6 +12,9 @@
     "file": "Fișier",
     "newProject": "Proiect Nou",
     "openProject": "Deschide Proiect",
+    "openRecent": "Deschide recente",
+    "clearRecentProjects": "Șterge deschise recent",
+    "noRecentProjects": "Niciun proiect recent",
     "saveProject": "Salvează Proiect",
     "exportProject": "Exportă Proiect",
     "importProject": "Importă Proiect",
@@ -150,6 +153,9 @@
     "waveform": "Formă de undă",
     "regenerateWaveform": "Regenerează forma de undă",
     "regeneratingWaveform": "Se regenerează...",
+    "multiSelectWaveform": "Mai multe elemente selectate — alegeți un singur element pentru a afișa forma de undă.",
+    "multiSelectOutPointDisabled": "Dezactivat pentru selecție multiplă (punctul de ieșire depinde de durata fiecărui element).",
+    "noWaveformData": "Nu există date despre forma de undă",
     "ltcRequiresDevice": "Selectează un dispozitiv de ieșire LTC în Setările proiectului pentru a activa ieșirea timecode."
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "Nu s-au detectat dispozitive MIDI",
     "reassign": "Reatribuire",
     "conflictMessage": "Acest control MIDI este deja atribuit la \"{action}\". Reatribuiți?",
-    "playNext": "Redare următorul"
+    "playNext": "Redare următorul",
+    "volumeMultiplier": "Multiplicator volum",
+    "volumeMultiplierHint": "dB modificați per pas MIDI. Măriți pentru rotițe care se mișcă lent."
   },
   "status": {
     "playing": "Se redă",
@@ -460,6 +468,17 @@
     "chooseFiles": "Alege fișiere…",
     "uploading": "Se încarcă…",
     "uploadingProgress": "Se încarcă {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "Modificări nesalvate",
+    "unsavedMessage": "Aveți modificări nesalvate. Dacă ieșiți acum, acestea se vor pierde. Doriți să salvați mai întâi proiectul sau să închideți și să renunțați la modificări?",
+    "unsavedDiscard": "Închide și renunță la modificări",
+    "unsavedSaveClose": "Salvează proiectul, apoi închide",
+    "serverTitle": "Închideți serverul audio?",
+    "serverMessage": "Serverul audio rulează local pe acest computer. Închiderea lui va opri toată redarea și va deconecta toți ceilalți clienți conectați. Lăsați-l să ruleze pentru a închide doar acest client.",
+    "serverCloseServer": "Închide serverul",
+    "serverCloseClient": "Închide doar clientul",
+    "return": "Înapoi la proiect"
   },
   "deleteSelection": {
     "title": "Șterge elementele",

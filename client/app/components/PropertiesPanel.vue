@@ -103,12 +103,13 @@
         <WaveformTrimmer
           v-if="audioItem && audioItem.mediaPath && audioItem.duration > 0"
           :audio-item="audioItem"
-          @update:volume="(v) => { audioItem.volume = v; }"
-          @update:in-point="(v) => { audioItem.inPoint = v; }"
-          @update:out-point="(v) => { audioItem.outPoint = v; }"
-          @update:play-fade="handlePlayFadeUpdate"
-          @update:stop-fade="handleStopFadeUpdate"
-          @update:cross-fade="handleCrossFadeUpdate"
+          :multi-select="selectedItems.size > 1"
+          @update:volume="(v) => { beginItemBatch(); audioItem.volume = v; }"
+          @update:in-point="(v) => { beginItemBatch(); audioItem.inPoint = v; }"
+          @update:out-point="(v) => { beginItemBatch(); audioItem.outPoint = v; }"
+          @update:play-fade="(v) => { beginItemBatch(); handlePlayFadeUpdate(v); }"
+          @update:stop-fade="(v) => { beginItemBatch(); handleStopFadeUpdate(v); }"
+          @update:cross-fade="(v) => { beginItemBatch(); handleCrossFadeUpdate(v); }"
           @change="handleSave"
           @normalize="handleNormalize"
           @trim-silence="handleTrimSilence"
@@ -289,7 +290,7 @@ import { PRESET_COLORS } from '~/types/project';
 import { calculatePerceivedLoudness } from '~/utils/audio';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 
-const { selectedItem, selectedItems, propertiesPanelOpen, getSelectedItems, saveProject, currentProject } = useProject();
+const { selectedItem, selectedItems, propertiesPanelOpen, getSelectedItems, saveProject, currentProject, beginItemBatch, endItemBatch } = useProject();
 const { t } = useLocalization();
 const { levels: outputTargetLevels } = useOutputTarget();
 
@@ -578,6 +579,9 @@ const handleClose = () => {
 };
 
 const handleSave = async () => {
+  // End any active drag batch so stale intermediate values are never
+  // PATCHed to the server and echoed back as item_updated reversions.
+  endItemBatch();
   // If multiple items are selected, update all of them with ONLY changed properties
   const items = getSelectedItems();
   if (items.length > 1 && originalSnapshot.value && selectedItem.value) {

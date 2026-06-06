@@ -335,6 +335,55 @@ jobs:
           echo "Downloaded artifacts:"
           ls -lR ./artifacts
 
+      # Make the update manifests authoritative. electron-updater downloads the
+      # installer, hashes it, and aborts with a checksum error if it disagrees
+      # with latest*.yml. We've seen the published mac .zips drift from the hash
+      # electron-builder recorded (a constant byte offset applied after hashing),
+      # which breaks Mac auto-update outright. Rather than trust whatever hashes
+      # the build wrote, recompute every sha512/size/blockMapSize here from the
+      # exact bytes we're about to publish — so the manifest can never disagree
+      # with the binaries, on any platform.
+      - name: Rewrite latest*.yml checksums from published files
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml
+          python3 - <<'PY'
+          import os, glob, hashlib, base64, yaml
+
+          ART = "artifacts"
+
+          def sha512_b64(path):
+              h = hashlib.sha512()
+              with open(path, "rb") as fh:
+                  for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                      h.update(chunk)
+              return base64.b64encode(h.digest()).decode()
+
+          for yml in sorted(glob.glob(os.path.join(ART, "latest*.yml"))):
+              with open(yml) as fh:
+                  doc = yaml.safe_load(fh)
+              files = doc.get("files", [])
+              for fi in files:
+                  fp = os.path.join(ART, fi["url"])
+                  if not os.path.exists(fp):
+                      raise SystemExit(f"{yml}: referenced file missing: {fi['url']}")
+                  fi["sha512"] = sha512_b64(fp)
+                  fi["size"] = os.path.getsize(fp)
+                  # Differential downloads read blockMapSize; keep it truthful too.
+                  if "blockMapSize" in fi and os.path.exists(fp + ".blockmap"):
+                      fi["blockMapSize"] = os.path.getsize(fp + ".blockmap")
+              # The top-level path/sha512 must mirror its files[] entry.
+              top = doc.get("path")
+              match = next((f for f in files if f["url"] == top), None) if top else None
+              if match:
+                  doc["sha512"] = match["sha512"]
+              with open(yml, "w") as fh:
+                  yaml.safe_dump(doc, fh, default_flow_style=False, sort_keys=False)
+              print(f"Rewrote {os.path.basename(yml)}:")
+              for fi in files:
+                  print(f"  {fi['url']}  size={fi['size']}  sha512={fi['sha512'][:16]}...")
+          PY
+
       - name: Generate changelog
         id: changelog
         run: |

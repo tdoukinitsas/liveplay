@@ -12,6 +12,9 @@
     "file": "ملف",
     "newProject": "مشروع جديد",
     "openProject": "فتح مشروع",
+    "openRecent": "فتح ملف حديث",
+    "clearRecentProjects": "مسح المفتوحة مؤخرًا",
+    "noRecentProjects": "لا توجد مشاريع حديثة",
     "saveProject": "حفظ المشروع",
     "exportProject": "تصدير المشروع",
     "importProject": "استيراد مشروع",
@@ -150,6 +153,9 @@
     "waveform": "شكل الموجة",
     "regenerateWaveform": "إعادة إنشاء شكل الموجة",
     "regeneratingWaveform": "جارٍ الإنشاء...",
+    "multiSelectWaveform": "تم تحديد عناصر متعددة — اختر عنصرًا واحدًا لعرض شكله الموجي.",
+    "multiSelectOutPointDisabled": "معطّل عند تحديد عناصر متعددة (تعتمد نقطة النهاية على مدة كل عنصر).",
+    "noWaveformData": "لا تتوفر بيانات الشكل الموجي",
     "ltcRequiresDevice": "اختر جهاز إخراج LTC في إعدادات المشروع لتمكين إخراج الكود الزمني."
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "لم يتم اكتشاف أجهزة MIDI",
     "reassign": "إعادة التعيين",
     "conflictMessage": "عنصر تحكم MIDI هذا معين بالفعل لـ \"{action}\". إعادة التعيين؟",
-    "playNext": "تشغيل التالي"
+    "playNext": "تشغيل التالي",
+    "volumeMultiplier": "مضاعف الصوت",
+    "volumeMultiplierHint": "تغيّر dB لكل خطوة MIDI. زِد القيمة لعجلات التحكم البطيئة."
   },
   "status": {
     "playing": "قيد التشغيل",
@@ -460,6 +468,17 @@
     "chooseFiles": "اختر الملفات…",
     "uploading": "جاري التحميل…",
     "uploadingProgress": "جاري تحميل {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "تغييرات غير محفوظة",
+    "unsavedMessage": "لديك تغييرات غير محفوظة. إذا خرجت الآن فسوف تُفقد. هل تريد حفظ المشروع أولاً، أم الإغلاق وتجاهل التغييرات؟",
+    "unsavedDiscard": "إغلاق وتجاهل التغييرات",
+    "unsavedSaveClose": "حفظ المشروع ثم الإغلاق",
+    "serverTitle": "إغلاق خادم الصوت؟",
+    "serverMessage": "يعمل خادم الصوت محليًا على هذا الكمبيوتر. سيؤدي إغلاقه إلى إيقاف كل التشغيل وقطع الاتصال بجميع العملاء الآخرين المتصلين. اتركه قيد التشغيل لإغلاق هذا العميل فقط.",
+    "serverCloseServer": "إغلاق الخادم",
+    "serverCloseClient": "إغلاق العميل فقط",
+    "return": "العودة إلى المشروع"
   },
   "deleteSelection": {
     "title": "حذف العناصر",

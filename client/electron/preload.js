@@ -88,6 +88,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuExportProject: (callback) => ipcRenderer.on('menu-export-project', callback),
   onMenuImportProject: (callback) => ipcRenderer.on('menu-import-project', callback),
   onMenuCloseProject: (callback) => ipcRenderer.on('menu-close-project', callback),
+  onMenuOpenRecentProject: (callback) => ipcRenderer.on('menu-open-recent-project', callback),
   onMenuOpenProjectFolder: (callback) => ipcRenderer.on('menu-open-project-folder', callback),
   onMenuToggleDarkMode: (callback) => ipcRenderer.on('menu-toggle-dark-mode', callback),
   onMenuChangeAccentColor: (callback) => ipcRenderer.on('menu-change-accent-color', callback),
@@ -170,10 +171,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
   },
 
-  // Top-level app lifecycle (used by the connection-lost modal).
+  // Top-level app lifecycle (used by the connection-lost modal and the
+  // quit-confirmation flow).
   app: {
     relaunch: () => ipcRenderer.invoke('app:relaunch'),
     exit:     () => ipcRenderer.invoke('app:exit'),
+    // Quit confirmation: main vetoes the window close and pushes
+    // `app:request-quit`; the renderer shows its dialogs then calls
+    // confirmQuit({ stopServer }) to actually quit (optionally shutting
+    // the local audio server down first).
+    confirmQuit: (opts) => ipcRenderer.invoke('app:confirm-quit', opts),
+    onRequestQuit: (callback) => {
+      const listener = () => callback();
+      ipcRenderer.on('app:request-quit', listener);
+      return () => ipcRenderer.removeListener('app:request-quit', listener);
+    },
   },
 
   // LAN auto-discovery of other LivePlay servers (UDP beacons on the LAN).
@@ -190,5 +202,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     recentList:   ()    => ipcRenderer.invoke('liveplay-discovery:recent-list'),
     recentAdd:    (e)   => ipcRenderer.invoke('liveplay-discovery:recent-add', e),
     recentRemove: (url) => ipcRenderer.invoke('liveplay-discovery:recent-remove', url),
+  },
+
+  // Recent-projects history (persisted) — last 10 .liveplay files opened on
+  // this client. Surfaced in the File > Open Recent menu.
+  liveplayProjects: {
+    recentList:   ()     => ipcRenderer.invoke('liveplay-projects:recent-list'),
+    recentAdd:    (e)    => ipcRenderer.invoke('liveplay-projects:recent-add', e),
+    recentRemove: (path) => ipcRenderer.invoke('liveplay-projects:recent-remove', path),
+    recentClear:  ()     => ipcRenderer.invoke('liveplay-projects:recent-clear'),
   },
 });

@@ -486,6 +486,24 @@ const handleDrop = async (e: DragEvent) => {
 
   if (!e.dataTransfer) return;
 
+  // Cart slot dropped onto empty playlist space → promote it to a standalone
+  // playlist item (fresh uuid) appended at the end, and free the cart slot.
+  // (Drops landing on an existing row are handled by PlaylistItem.)
+  if (e.dataTransfer.getData('cart-slot') && currentProject.value) {
+    const cartUuid = e.dataTransfer.getData('item-uuid');
+    const { findItemByUuid, deleteCartItems } = useProject();
+    const cartSrc = findItemByUuid(cartUuid);
+    if (!cartSrc || cartSrc.type !== 'audio') return;
+    const clone: AudioItem = {
+      ...(cartSrc as AudioItem),
+      uuid: uuidv4(),
+      index: [currentProject.value.items.length],
+    } as AudioItem;
+    addItem(clone);
+    deleteCartItems([cartUuid]);
+    return;
+  }
+
   const files = Array.from(e.dataTransfer.files);
   const audioFiles = files.filter(file =>
     /\.(mp3|wav|ogg|flac|m4a|aac)$/i.test(file.name)

@@ -12,6 +12,9 @@
     "file": "File",
     "newProject": "Nuovo Progetto",
     "openProject": "Apri Progetto",
+    "openRecent": "Apri recenti",
+    "clearRecentProjects": "Cancella aperti di recente",
+    "noRecentProjects": "Nessun progetto recente",
     "saveProject": "Salva Progetto",
     "exportProject": "Esporta Progetto",
     "importProject": "Importa Progetto",
@@ -150,6 +153,9 @@
     "waveform": "Forma d'onda",
     "regenerateWaveform": "Rigenera forma d'onda",
     "regeneratingWaveform": "Rigenerazione...",
+    "multiSelectWaveform": "Più elementi selezionati: scegli un singolo elemento per visualizzarne la forma d'onda.",
+    "multiSelectOutPointDisabled": "Disabilitato per la selezione multipla (il punto di uscita dipende dalla durata di ciascun elemento).",
+    "noWaveformData": "Nessun dato della forma d'onda disponibile",
     "ltcRequiresDevice": "Seleziona un dispositivo di uscita LTC nelle Impostazioni del progetto per abilitare l'uscita timecode."
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "Nessun dispositivo MIDI rilevato",
     "reassign": "Riassegna",
     "conflictMessage": "Questo controllo MIDI è già assegnato a \"{action}\". Riassegnare?",
-    "playNext": "Riproduci successivo"
+    "playNext": "Riproduci successivo",
+    "volumeMultiplier": "Moltiplicatore volume",
+    "volumeMultiplierHint": "dB modificati per passo MIDI. Aumenta per le rotelle lente."
   },
   "status": {
     "playing": "In riproduzione",
@@ -460,6 +468,17 @@
     "chooseFiles": "Scegli file…",
     "uploading": "Caricamento…",
     "uploadingProgress": "Caricamento {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "Modifiche non salvate",
+    "unsavedMessage": "Hai modifiche non salvate. Se esci ora andranno perse. Vuoi salvare prima il progetto oppure chiudere e ignorare le modifiche?",
+    "unsavedDiscard": "Chiudi e ignora le modifiche",
+    "unsavedSaveClose": "Salva il progetto e chiudi",
+    "serverTitle": "Chiudere il server audio?",
+    "serverMessage": "Il server audio è in esecuzione localmente su questo computer. Chiudendolo si interromperà tutta la riproduzione e verranno disconnessi gli altri client collegati. Lascialo in esecuzione per chiudere solo questo client.",
+    "serverCloseServer": "Chiudi server",
+    "serverCloseClient": "Chiudi solo il client",
+    "return": "Torna al progetto"
   },
   "deleteSelection": {
     "title": "Elimina elementi",

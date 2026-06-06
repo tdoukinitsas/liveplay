@@ -12,6 +12,9 @@
     "file": "File",
     "newProject": "New Project",
     "openProject": "Open Project",
+    "openRecent": "Open Recent",
+    "clearRecentProjects": "Clear Recently Opened",
+    "noRecentProjects": "No Recent Projects",
     "saveProject": "Save Project",
     "exportProject": "Export Project",
     "importProject": "Import Project",
@@ -205,7 +208,10 @@
     "ltcFrameRate": "Frame Rate",
     "waveform": "Waveform",
     "regenerateWaveform": "Regenerate Waveform",
-    "regeneratingWaveform": "Regenerating..."
+    "regeneratingWaveform": "Regenerating...",
+    "noWaveformData": "No waveform data available",
+    "multiSelectWaveform": "Multiple items selected — choose a single item to display its waveform.",
+    "multiSelectOutPointDisabled": "Disabled for multiple selection (out point depends on each item's duration)."
   },
   "playback": {
     "panic": "Stop All Cues",
@@ -405,7 +411,9 @@
     "noDevices": "No MIDI devices detected",
     "reassign": "Reassign",
     "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?",
-    "playNext": "Play Next"
+    "playNext": "Play Next",
+    "volumeMultiplier": "Volume Multiplier",
+    "volumeMultiplierHint": "dB changed per MIDI step. Increase for wheels that move slowly."
   },
   "selectProject": {
     "title": "Select Project",
@@ -460,6 +468,17 @@
     "save": "Save",
     "discard": "Don't Save",
     "cancel": "Cancel"
+  },
+  "quitModal": {
+    "unsavedTitle": "Unsaved changes",
+    "unsavedMessage": "You have unsaved changes. If you quit now they will be lost. Save your project first, or close and discard them?",
+    "unsavedDiscard": "Close and disregard changes",
+    "unsavedSaveClose": "Save project, then close",
+    "serverTitle": "Close the audio server?",
+    "serverMessage": "The audio server is running locally on this computer. Closing it will stop all playback and disconnect any other connected clients. Leave it running to close only this client.",
+    "serverCloseServer": "Close Server",
+    "serverCloseClient": "Close Client Only",
+    "return": "Return to Project"
   },
   "deleteSelection": {
     "title": "Delete Items",

@@ -12,6 +12,9 @@
     "file": "Dosya",
     "newProject": "Yeni Proje",
     "openProject": "Proje Aç",
+    "openRecent": "Son Kullanılanı Aç",
+    "clearRecentProjects": "Son Açılanları Temizle",
+    "noRecentProjects": "Son Proje Yok",
     "saveProject": "Projeyi Kaydet",
     "exportProject": "Projeyi Dışa Aktar",
     "importProject": "Proje İçe Aktar",
@@ -150,6 +153,9 @@
     "waveform": "Dalga Formu",
     "regenerateWaveform": "Dalga Formunu Yenile",
     "regeneratingWaveform": "Yenileniyor...",
+    "multiSelectWaveform": "Birden çok öğe seçildi — dalga biçimini görüntülemek için tek bir öğe seçin.",
+    "multiSelectOutPointDisabled": "Çoklu seçimde devre dışı (çıkış noktası her öğenin süresine bağlıdır).",
+    "noWaveformData": "Dalga biçimi verisi yok",
     "ltcRequiresDevice": "Zaman kodu çıkışını etkinleştirmek için Proje Ayarları'nda bir LTC çıkış cihazı seçin."
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "MIDI cihazı algılanmadı",
     "reassign": "Yeniden ata",
     "conflictMessage": "Bu MIDI kontrolü zaten \"{action}\" için atanmış. Yeniden ata?",
-    "playNext": "Sonrakini oynat"
+    "playNext": "Sonrakini oynat",
+    "volumeMultiplier": "Ses çarpanı",
+    "volumeMultiplierHint": "Her MIDI adımında değişen dB. Yavaş hareket eden tekerlekler için artırın."
   },
   "status": {
     "playing": "Çalıyor",
@@ -460,6 +468,17 @@
     "chooseFiles": "Dosya seç…",
     "uploading": "Yükleniyor…",
     "uploadingProgress": "Yükleniyor {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "Kaydedilmemiş değişiklikler",
+    "unsavedMessage": "Kaydedilmemiş değişiklikleriniz var. Şimdi çıkarsanız kaybolacaklar. Önce projeyi kaydetmek mi, yoksa kapatıp değişiklikleri yok saymak mı istiyorsunuz?",
+    "unsavedDiscard": "Kapat ve değişiklikleri yok say",
+    "unsavedSaveClose": "Projeyi kaydet ve kapat",
+    "serverTitle": "Ses sunucusu kapatılsın mı?",
+    "serverMessage": "Ses sunucusu bu bilgisayarda yerel olarak çalışıyor. Kapatmak tüm oynatmayı durdurur ve bağlı diğer tüm istemcilerin bağlantısını keser. Yalnızca bu istemciyi kapatmak için çalışır durumda bırakın.",
+    "serverCloseServer": "Sunucuyu kapat",
+    "serverCloseClient": "Yalnızca istemciyi kapat",
+    "return": "Projeye dön"
   },
   "deleteSelection": {
     "title": "Öğeleri sil",

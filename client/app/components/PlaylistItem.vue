@@ -187,6 +187,7 @@
 </template>
 
 <script setup lang="ts">
+import { v4 as uuidv4 } from 'uuid';
 import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
 import ActionButton from './ActionButton.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
@@ -613,7 +614,49 @@ const handleDrop = (e: DragEvent) => {
   dragPosition.value = null;
   
   if (!e.dataTransfer || !currentProject.value) return;
-  
+
+  // A cart slot dragged onto the playlist → promote it to an independent
+  // playlist item (fresh uuid) and free the cart slot. A cart cue is a
+  // self-contained copy, so this mirrors the playlist→cart clone in reverse
+  // (rather than sharing one identity across both lists). Detected via the
+  // 'cart-slot' payload that only CartSlot sets.
+  if (e.dataTransfer.getData('cart-slot')) {
+    const cartUuid = e.dataTransfer.getData('item-uuid');
+    const cartSrc = findItemByUuid(cartUuid);
+    if (!cartSrc || cartSrc.type !== 'audio') return;
+
+    const clone: AudioItem = { ...(cartSrc as AudioItem), uuid: uuidv4() } as AudioItem;
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const height = rect.height;
+    const { updateIndices, deleteCartItems } = useProject();
+
+    if (props.item.type === 'group' && y > height * 0.3 && y < height * 0.7) {
+      const groupItem = props.item as GroupItem;
+      groupItem.children.push(clone);
+      updateIndices(groupItem.children, groupItem.index);
+    } else {
+      const insertAfter = y >= height / 2;
+      let parentArray = currentProject.value.items;
+      let parentIndex: number[] = [];
+      if (props.item.index.length > 1) {
+        const parentGroup = findItemByIndex(props.item.index.slice(0, -1));
+        if (parentGroup && parentGroup.type === 'group') {
+          parentArray = (parentGroup as GroupItem).children;
+          parentIndex = (parentGroup as GroupItem).index;
+        }
+      }
+      const pos = parentArray.findIndex(i => i.uuid === props.item.uuid);
+      parentArray.splice(insertAfter ? pos + 1 : pos, 0, clone);
+      updateIndices(parentArray, parentIndex);
+    }
+
+    // Unassign the originating cart slot (also persists via saveProject).
+    deleteCartItems([cartUuid]);
+    return;
+  }
+
   const draggedUuid = e.dataTransfer.getData('item-uuid');
   if (!draggedUuid || draggedUuid === props.item.uuid) return;
   

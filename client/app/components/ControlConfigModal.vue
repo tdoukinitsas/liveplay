@@ -139,6 +139,23 @@
               </button>
             </div>
           </div>
+
+          <!-- Master-volume step multiplier (incremental control) -->
+          <template v-if="category === 'Volume'">
+            <div class="action-row">
+              <span class="action-label">{{ t('controls.volumeMultiplier') }}</span>
+              <input
+                class="multiplier-input"
+                type="number"
+                min="0.1"
+                max="60"
+                step="0.1"
+                :value="masterVolumeMultiplier"
+                @change="onMultiplierChange"
+              />
+            </div>
+            <p class="multiplier-hint">{{ t('controls.volumeMultiplierHint') }}</p>
+          </template>
         </template>
       </div>
 
@@ -168,6 +185,7 @@ import { formatKeyLabel, eventToBinding, isReservedCombo } from '~/composables/u
 import {
   MIDI_ACTIONS,
   formatMidiBinding,
+  DEFAULT_MASTER_VOLUME_MULTIPLIER,
   type MidiBinding,
   type MidiActionId,
 } from '~/composables/useMidiController';
@@ -220,7 +238,18 @@ const {
   clearBinding: clearMidiBinding,
   clearAllBindings,
   setPreferredDevice,
+  setMasterVolumeMultiplier,
 } = useMidiController();
+
+const masterVolumeMultiplier = computed(
+  () => midiConfig.value.masterVolumeMultiplier ?? DEFAULT_MASTER_VOLUME_MULTIPLIER,
+);
+
+const onMultiplierChange = (e: Event) => {
+  const raw = parseFloat((e.target as HTMLInputElement).value);
+  if (Number.isNaN(raw)) return;
+  setMasterVolumeMultiplier(raw);
+};
 
 const midiConflictInfo = ref<{ actionId: MidiActionId; binding: MidiBinding; conflictAction: string } | null>(null);
 const activeTab = ref<'keyboard' | 'midi'>('keyboard');
@@ -635,6 +664,24 @@ onUnmounted(() => {
   background: var(--color-accent, #3b82f6);
   color: white;
   border-color: transparent;
+}
+
+/* Master-volume multiplier input */
+.multiplier-input {
+  width: 80px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+.multiplier-hint {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  padding: 0 20px 8px;
+  margin: 0;
 }
 
 /* Device selector row */

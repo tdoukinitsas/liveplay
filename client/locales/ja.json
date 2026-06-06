@@ -12,6 +12,9 @@
     "file": "ファイル",
     "newProject": "新規プロジェクト",
     "openProject": "プロジェクトを開く",
+    "openRecent": "最近開いた項目を開く",
+    "clearRecentProjects": "最近開いた項目をクリア",
+    "noRecentProjects": "最近のプロジェクトはありません",
     "saveProject": "プロジェクトを保存",
     "exportProject": "プロジェクトをエクスポート",
     "importProject": "プロジェクトをインポート",
@@ -150,6 +153,9 @@
     "waveform": "波形",
     "regenerateWaveform": "波形を再生成",
     "regeneratingWaveform": "再生成中...",
+    "multiSelectWaveform": "複数の項目が選択されています — 波形を表示するには単一の項目を選択してください。",
+    "multiSelectOutPointDisabled": "複数選択では無効です（アウトポイントは各項目の長さに依存します）。",
+    "noWaveformData": "波形データがありません",
     "ltcRequiresDevice": "タイムコード出力を有効にするには、プロジェクト設定でLTC出力デバイスを選択してください。"
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "MIDIデバイスが検出されません",
     "reassign": "再割り当て",
     "conflictMessage": "このMIDIコントロールは既に「{action}」に割り当てられています。再割り当てしますか？",
-    "playNext": "次を再生"
+    "playNext": "次を再生",
+    "volumeMultiplier": "音量倍率",
+    "volumeMultiplierHint": "MIDIステップごとに変化するdB。ゆっくり動くホイールでは値を上げてください。"
   },
   "status": {
     "playing": "再生中",
@@ -460,6 +468,17 @@
     "chooseFiles": "ファイルを選択…",
     "uploading": "アップロード中…",
     "uploadingProgress": "アップロード中 {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "保存されていない変更",
+    "unsavedMessage": "保存されていない変更があります。今終了すると失われます。先にプロジェクトを保存しますか、それとも閉じて変更を破棄しますか？",
+    "unsavedDiscard": "閉じて変更を破棄",
+    "unsavedSaveClose": "プロジェクトを保存して閉じる",
+    "serverTitle": "オーディオサーバーを終了しますか？",
+    "serverMessage": "オーディオサーバーはこのコンピューター上でローカルに実行されています。終了するとすべての再生が停止し、接続中の他のクライアントもすべて切断されます。このクライアントのみを閉じるには、サーバーは実行したままにしてください。",
+    "serverCloseServer": "サーバーを終了",
+    "serverCloseClient": "クライアントのみ終了",
+    "return": "プロジェクトに戻る"
   },
   "deleteSelection": {
     "title": "アイテムを削除",

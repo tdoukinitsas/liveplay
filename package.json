@@ -1,6 +1,6 @@
 {
   "name": "liveplay-monorepo",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "private": true,
   "description": "LivePlay — open-source audio playback for live sound operators. Monorepo root: client (Vue/Electron) + server (C++ audio engine).",
   "license": "AGPL-3.0-only",
