@@ -12,6 +12,9 @@
     "file": "파일",
     "newProject": "새 프로젝트",
     "openProject": "프로젝트 열기",
+    "openRecent": "최근 항목 열기",
+    "clearRecentProjects": "최근 항목 지우기",
+    "noRecentProjects": "최근 프로젝트 없음",
     "saveProject": "프로젝트 저장",
     "exportProject": "프로젝트 내보내기",
     "importProject": "프로젝트 가져오기",
@@ -150,6 +153,9 @@
     "waveform": "파형",
     "regenerateWaveform": "파형 재생성",
     "regeneratingWaveform": "재생성 중...",
+    "multiSelectWaveform": "여러 항목이 선택됨 — 파형을 표시하려면 단일 항목을 선택하세요.",
+    "multiSelectOutPointDisabled": "다중 선택에서는 비활성화됩니다 (아웃 포인트는 각 항목의 길이에 따라 달라집니다).",
+    "noWaveformData": "파형 데이터가 없습니다",
     "ltcRequiresDevice": "타임코드 출력을 활성화하려면 프로젝트 설정에서 LTC 출력 장치를 선택하세요."
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "MIDI 장치가 감지되지 않음",
     "reassign": "재할당",
     "conflictMessage": "이 MIDI 컨트롤은 이미 \"{action}\"에 할당되어 있습니다. 재할당하시겠습니까?",
-    "playNext": "다음 재생"
+    "playNext": "다음 재생",
+    "volumeMultiplier": "볼륨 배율",
+    "volumeMultiplierHint": "MIDI 단계당 변경되는 dB. 느리게 움직이는 휠은 값을 높이세요."
   },
   "status": {
     "playing": "재생 중",
@@ -460,6 +468,17 @@
     "chooseFiles": "파일 선택…",
     "uploading": "업로드 중…",
     "uploadingProgress": "업로드 중 {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "저장되지 않은 변경 사항",
+    "unsavedMessage": "저장되지 않은 변경 사항이 있습니다. 지금 종료하면 변경 사항이 사라집니다. 프로젝트를 먼저 저장하시겠습니까, 아니면 닫고 변경 사항을 무시하시겠습니까?",
+    "unsavedDiscard": "닫고 변경 사항 무시",
+    "unsavedSaveClose": "프로젝트 저장 후 닫기",
+    "serverTitle": "오디오 서버를 종료하시겠습니까?",
+    "serverMessage": "오디오 서버가 이 컴퓨터에서 로컬로 실행 중입니다. 종료하면 모든 재생이 중지되고 연결된 다른 클라이언트가 모두 연결 해제됩니다. 이 클라이언트만 닫으려면 서버를 계속 실행하세요.",
+    "serverCloseServer": "서버 종료",
+    "serverCloseClient": "클라이언트만 종료",
+    "return": "프로젝트로 돌아가기"
   },
   "deleteSelection": {
     "title": "항목 삭제",

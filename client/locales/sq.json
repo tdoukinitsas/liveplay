@@ -12,6 +12,9 @@
     "file": "Dosje",
     "newProject": "Projekt i Ri",
     "openProject": "Hap Projektin",
+    "openRecent": "Hap të fundit",
+    "clearRecentProjects": "Pastro të hapurat së fundi",
+    "noRecentProjects": "Asnjë projekt i fundit",
     "saveProject": "Ruaj Projektin",
     "exportProject": "Eksporto Projektin",
     "importProject": "Importo Projektin",
@@ -150,6 +153,9 @@
     "waveform": "Forma e valës",
     "regenerateWaveform": "Rigjeneroj formën e valës",
     "regeneratingWaveform": "Duke rigjeneruar...",
+    "multiSelectWaveform": "Janë zgjedhur disa artikuj — zgjidhni një artikull të vetëm për të shfaqur formën e valës.",
+    "multiSelectOutPointDisabled": "E çaktivizuar për përzgjedhje të shumëfishtë (pika e daljes varet nga kohëzgjatja e secilit artikull).",
+    "noWaveformData": "Nuk ka të dhëna të formës së valës",
     "ltcRequiresDevice": "Zgjidh një pajisje dalëse LTC te Cilësimet e projektit për të aktivizuar daljen e timecode."
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "Nuk u zbuluan pajisje MIDI",
     "reassign": "Ricakto",
     "conflictMessage": "Ky kontroll MIDI është tashmë caktuar për \"{action}\". Ricakto?",
-    "playNext": "Luaj të ardhshmen"
+    "playNext": "Luaj të ardhshmen",
+    "volumeMultiplier": "Shumëzuesi i volumit",
+    "volumeMultiplierHint": "dB të ndryshuar për hap MIDI. Rriteni për rrota që lëvizin ngadalë."
   },
   "status": {
     "playing": "Duke luajtur",
@@ -460,6 +468,17 @@
     "chooseFiles": "Zgjidh skedarë…",
     "uploading": "Po ngarkohet…",
     "uploadingProgress": "Po ngarkohet {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "Ndryshime të paruajtura",
+    "unsavedMessage": "Keni ndryshime të paruajtura. Nëse dilni tani, ato do të humbasin. Doni ta ruani fillimisht projektin, apo ta mbyllni dhe t’i shpërfillni ndryshimet?",
+    "unsavedDiscard": "Mbyll dhe shpërfill ndryshimet",
+    "unsavedSaveClose": "Ruaj projektin, pastaj mbyll",
+    "serverTitle": "Të mbyllet serveri i audios?",
+    "serverMessage": "Serveri i audios po ekzekutohet lokalisht në këtë kompjuter. Mbyllja e tij do të ndalojë çdo riprodhim dhe do të shkëpusë të gjithë klientët e tjerë të lidhur. Lëreni të ekzekutohet për të mbyllur vetëm këtë klient.",
+    "serverCloseServer": "Mbyll serverin",
+    "serverCloseClient": "Mbyll vetëm klientin",
+    "return": "Kthehu te projekti"
   },
   "deleteSelection": {
     "title": "Fshi elementet",

@@ -61,6 +61,7 @@ declare global {
       onMenuExportProject: (callback: () => void) => void;
       onMenuImportProject: (callback: () => void) => void;
       onMenuCloseProject: (callback: () => void) => void;
+      onMenuOpenRecentProject: (callback: (event: any, projectPath: string) => void) => void;
       onMenuOpenProjectFolder: (callback: () => void) => void;
       onMenuToggleDarkMode: (callback: () => void) => void;
       onMenuChangeAccentColor: (callback: () => void) => void;
@@ -99,6 +100,13 @@ declare global {
       onCartPlayerWindowOpened: (callback: () => void) => void;
       onCartPlayerWindowClosed: (callback: () => void) => void;
       onCartWindowProjectUpdate: (callback: (event: any, projectData: any) => void) => void;
+      // Recent-projects history (last 10 .liveplay files opened on this client).
+      liveplayProjects?: {
+        recentList: () => Promise<Array<{ path: string; name: string; folderPath: string; lastOpened: number }>>;
+        recentAdd: (entry: { path: string; name?: string; folderPath?: string }) => Promise<Array<{ path: string; name: string; folderPath: string; lastOpened: number }>>;
+        recentRemove: (path: string) => Promise<Array<{ path: string; name: string; folderPath: string; lastOpened: number }>>;
+        recentClear: () => Promise<Array<never>>;
+      };
     };
   }
 

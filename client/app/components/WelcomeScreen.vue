@@ -298,9 +298,21 @@ onMounted(async () => {
     // server is still configured) and pop the appropriate picker straight
     // away. Without this, File > New would dump them at the mode picker
     // instead of the new-project flow they actually asked for.
+    let welcomeOpenPath: string | null = null;
+    try { welcomeOpenPath = sessionStorage.getItem('liveplay:welcomeOpenPath'); } catch {}
     let welcomeIntent: string | null = null;
     try { welcomeIntent = sessionStorage.getItem('liveplay:welcomeIntent'); } catch {}
-    if (welcomeIntent === 'new' || welcomeIntent === 'open') {
+    if (welcomeOpenPath) {
+      // File > Open Recent closed the previous project to land us here with an
+      // exact path to load — open it directly, no picker. The server is still
+      // connected (close only dropped the project doc, not the connection).
+      try { sessionStorage.removeItem('liveplay:welcomeOpenPath'); } catch {}
+      stage.value = 'project';
+      nextTick(async () => {
+        const ok = await openProject(welcomeOpenPath!);
+        if (!ok) alert('Failed to open project');
+      });
+    } else if (welcomeIntent === 'new' || welcomeIntent === 'open') {
       try { sessionStorage.removeItem('liveplay:welcomeIntent'); } catch {}
       stage.value = 'project';
       // Defer to next tick so the project-stage UI is mounted before we
@@ -678,6 +690,14 @@ if (import.meta.client && (window as any).electronAPI) {
 
   (window as any).electronAPI.onMenuOpenProject(() => {
     if (stage.value === 'project') handleOpenProject();
+  });
+
+  // File > Open Recent while no project is open (we're already on the project
+  // stage, connected to a server) — open the chosen path directly.
+  (window as any).electronAPI.onMenuOpenRecentProject(async (_e: any, projectPath: string) => {
+    if (stage.value !== 'project' || !projectPath) return;
+    const ok = await openProject(projectPath);
+    if (!ok) alert('Failed to open project');
   });
 }
 </script>

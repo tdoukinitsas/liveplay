@@ -173,6 +173,86 @@ function removeRecentServer(url) {
 }
 
 // ---------------------------------------------------------------------------
+// Recent-projects history — the last N .liveplay files this client opened.
+// Stored newest-first, capped, keyed by the project file path. Per-client
+// (lives in userData), so it follows the machine rather than the project.
+// Surfaced as a File > Open Recent submenu and rebuilt whenever the list
+// changes. Paths are server-filesystem paths (the same value openProject
+// loads), so they resolve correctly as long as the same server is connected.
+// ---------------------------------------------------------------------------
+const LIVEPLAY_RECENT_PROJECTS_FILENAME = 'liveplay-recent-projects.json';
+const LIVEPLAY_RECENT_PROJECTS_MAX      = 10;
+
+function liveplayRecentProjectsPath() {
+  return path.join(app.getPath('userData'), LIVEPLAY_RECENT_PROJECTS_FILENAME);
+}
+
+function readRecentProjects() {
+  try {
+    const raw = fs.readFileSync(liveplayRecentProjectsPath(), 'utf-8');
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter(e => e && typeof e.path === 'string' && e.path)
+      .map(e => ({
+        path:       e.path,
+        name:       typeof e.name === 'string' ? e.name : '',
+        folderPath: typeof e.folderPath === 'string' ? e.folderPath : '',
+        lastOpened: Number.isInteger(e.lastOpened) ? e.lastOpened : 0,
+      }))
+      .slice(0, LIVEPLAY_RECENT_PROJECTS_MAX);
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentProjects(list) {
+  try {
+    fs.writeFileSync(liveplayRecentProjectsPath(), JSON.stringify(list, null, 2));
+  } catch (e) {
+    console.warn('[liveplay-projects] could not persist recent projects:', e);
+  }
+}
+
+function addRecentProject(entry) {
+  if (!entry || typeof entry.path !== 'string' || !entry.path) return readRecentProjects();
+  // Normalise separators so the same file doesn't appear twice (e.g. when one
+  // open used "/" and another "\"). Compare case-insensitively on Windows.
+  const norm = (p) => {
+    const s = p.replace(/[\\/]+/g, '/').replace(/\/+$/, '');
+    return process.platform === 'win32' ? s.toLowerCase() : s;
+  };
+  const key = norm(entry.path);
+  const next = readRecentProjects().filter(e => norm(e.path) !== key);
+  next.unshift({
+    path:       entry.path,
+    name:       typeof entry.name === 'string' ? entry.name : '',
+    folderPath: typeof entry.folderPath === 'string' ? entry.folderPath : '',
+    lastOpened: Date.now(),
+  });
+  const capped = next.slice(0, LIVEPLAY_RECENT_PROJECTS_MAX);
+  writeRecentProjects(capped);
+  return capped;
+}
+
+function removeRecentProject(projectPath) {
+  if (typeof projectPath !== 'string') return readRecentProjects();
+  const norm = (p) => {
+    const s = p.replace(/[\\/]+/g, '/').replace(/\/+$/, '');
+    return process.platform === 'win32' ? s.toLowerCase() : s;
+  };
+  const key = norm(projectPath);
+  const next = readRecentProjects().filter(e => norm(e.path) !== key);
+  writeRecentProjects(next);
+  return next;
+}
+
+function clearRecentProjects() {
+  writeRecentProjects([]);
+  return [];
+}
+
+// ---------------------------------------------------------------------------
 // Best-effort Windows Firewall rules. Discovery relies on inbound UDP (the
 // server receiving solicitations, the client receiving beacons/unicast
 // replies). The NSIS installer adds proper program rules at install time
@@ -472,6 +552,18 @@ ipcMain.handle('app:exit', () => {
   return true;
 });
 
+// Two-step quit confirmation. The renderer drives the dialogs (unsaved
+// changes → optionally shut the local audio server down); once the user
+// has decided it calls `app:confirm-quit`. We stop the local server only
+// when asked, flip quitConfirmed so the next `close` is allowed through,
+// then quit for real.
+ipcMain.handle('app:confirm-quit', (_e, opts) => {
+  if (opts && opts.stopServer) stopLiveplayServer();
+  quitConfirmed = true;
+  app.quit();
+  return true;
+});
+
 ipcMain.handle('liveplay-server:restart', () => {
   stopLiveplayServer();
   // Defer the restart to let the kill complete.
@@ -666,6 +758,29 @@ ipcMain.handle('liveplay-discovery:recent-add', (_e, entry) => {
 
 ipcMain.handle('liveplay-discovery:recent-remove', (_e, url) => {
   return removeRecentServer(url);
+});
+
+// Recent-projects history — last N .liveplay files opened on this client.
+// Every mutation rebuilds the menu so the File > Open Recent submenu stays
+// in sync without the renderer having to poke the menu directly.
+ipcMain.handle('liveplay-projects:recent-list', () => readRecentProjects());
+
+ipcMain.handle('liveplay-projects:recent-add', (_e, entry) => {
+  const list = addRecentProject(entry);
+  createMenu(currentLocale, isDevMode);
+  return list;
+});
+
+ipcMain.handle('liveplay-projects:recent-remove', (_e, projectPath) => {
+  const list = removeRecentProject(projectPath);
+  createMenu(currentLocale, isDevMode);
+  return list;
+});
+
+ipcMain.handle('liveplay-projects:recent-clear', () => {
+  const list = clearRecentProjects();
+  createMenu(currentLocale, isDevMode);
+  return list;
 });
 
 // Setup bundled ffmpeg - always use the bundled version to avoid
@@ -1009,6 +1124,10 @@ initializeYtDlp();
 initializeDeno();
 
 let mainWindow = null;
+// Set once the renderer-driven quit confirmation has resolved, so the
+// next main-window `close` is allowed through instead of being vetoed
+// to re-show the dialogs. See the `close` handler in createWindow().
+let quitConfirmed = false;
 let apiServer = null;
 let currentProject = null;
 let currentProjectData = null; // Full project data synced from renderer for HTTP API
@@ -1435,6 +1554,18 @@ function createWindow() {
     }
   });
 
+  // Veto the first close so the renderer can run its quit-confirmation
+  // flow (unsaved changes → optionally shut the local audio server down).
+  // The renderer responds via `app:confirm-quit`, which sets quitConfirmed
+  // and calls app.quit() — re-entering here with the veto lifted. If the
+  // renderer is gone (crash / already destroyed) we let the close proceed.
+  mainWindow.on('close', (e) => {
+    if (quitConfirmed) return;
+    if (!mainWindow || mainWindow.webContents.isDestroyed()) return;
+    e.preventDefault();
+    mainWindow.webContents.send('app:request-quit');
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -1819,6 +1950,9 @@ const menuTranslations = Object.entries(localeFiles).reduce((acc, [code, data]) 
     file: data.menu.file,
     newProject: data.menu.newProject,
     openProject: data.menu.openProject,
+    openRecent: data.menu.openRecent || 'Open Recent',
+    clearRecentProjects: data.menu.clearRecentProjects || 'Clear Recently Opened',
+    noRecentProjects: data.menu.noRecentProjects || 'No Recent Projects',
     saveProject: data.menu.saveProject,
     exportProject: data.menu.exportProject,
     importProject: data.menu.importProject,
@@ -1837,6 +1971,33 @@ const menuTranslations = Object.entries(localeFiles).reduce((acc, [code, data]) 
 }, {});
 
 let currentLocale = 'en';
+
+// Build the File > Open Recent submenu from the persisted recent-projects
+// list. Each entry sends its server-filesystem path to the renderer, which
+// closes any open project (with an unsaved-changes guard) before loading it.
+// A disabled placeholder is shown when the list is empty.
+function buildRecentProjectsSubmenu(t) {
+  const recent = readRecentProjects();
+  if (recent.length === 0) {
+    return [{ label: t.noRecentProjects, enabled: false }];
+  }
+  const items = recent.map((entry) => ({
+    label: entry.name ? `${entry.name}  —  ${entry.path}` : entry.path,
+    click: () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('menu-open-recent-project', entry.path);
+      }
+    },
+  }));
+  items.push(
+    { type: 'separator' },
+    {
+      label: t.clearRecentProjects,
+      click: () => { clearRecentProjects(); createMenu(currentLocale, isDevMode); },
+    },
+  );
+  return items;
+}
 
 function createMenu(locale = 'en', isDev = false) {
   currentLocale = locale;
@@ -1859,6 +2020,10 @@ function createMenu(locale = 'en', isDev = false) {
           click: () => {
             mainWindow.webContents.send('menu-open-project');
           }
+        },
+        {
+          label: t.openRecent,
+          submenu: buildRecentProjectsSubmenu(t),
         },
         {
           label: t.saveProject,
@@ -2178,6 +2343,9 @@ ipcMain.handle('download-update', async () => {
 });
 
 ipcMain.handle('install-update', () => {
+  // The user already opted into the update, so bypass the close veto /
+  // quit-confirmation dialog and let electron-updater quit + relaunch.
+  quitConfirmed = true;
   autoUpdater.quitAndInstall(false, true);
 });
 

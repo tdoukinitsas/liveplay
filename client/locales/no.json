@@ -12,6 +12,9 @@
     "file": "Fil",
     "newProject": "Nytt Prosjekt",
     "openProject": "Åpne Prosjekt",
+    "openRecent": "Åpne nylig",
+    "clearRecentProjects": "Tøm nylig åpnede",
+    "noRecentProjects": "Ingen nylige prosjekter",
     "saveProject": "Lagre Prosjekt",
     "exportProject": "Eksporter Prosjekt",
     "importProject": "Importer Prosjekt",
@@ -150,6 +153,9 @@
     "waveform": "Bølgeform",
     "regenerateWaveform": "Regenerer bølgeform",
     "regeneratingWaveform": "Regenererer...",
+    "multiSelectWaveform": "Flere elementer valgt – velg ett enkelt element for å vise bølgeformen.",
+    "multiSelectOutPointDisabled": "Deaktivert ved flervalg (utpunktet avhenger av hvert elements varighet).",
+    "noWaveformData": "Ingen bølgeformdata tilgjengelig",
     "ltcRequiresDevice": "Velg en LTC-utgangsenhet i Prosjektinnstillinger for å aktivere timecode-utgang."
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "Ingen MIDI-enheter funnet",
     "reassign": "Tilordne på nytt",
     "conflictMessage": "Denne MIDI-kontrollen er allerede tilordnet \"{action}\". Tilordne på nytt?",
-    "playNext": "Spill neste"
+    "playNext": "Spill neste",
+    "volumeMultiplier": "Volummultiplikator",
+    "volumeMultiplierHint": "dB endret per MIDI-trinn. Øk for hjul som beveger seg sakte."
   },
   "status": {
     "playing": "Spiller av",
@@ -460,6 +468,17 @@
     "chooseFiles": "Velg filer…",
     "uploading": "Laster opp…",
     "uploadingProgress": "Laster opp {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "Ulagrede endringer",
+    "unsavedMessage": "Du har ulagrede endringer. Hvis du avslutter nå, går de tapt. Vil du lagre prosjektet først, eller lukke og forkaste endringene?",
+    "unsavedDiscard": "Lukk og forkast endringer",
+    "unsavedSaveClose": "Lagre prosjektet og lukk",
+    "serverTitle": "Lukke lydserveren?",
+    "serverMessage": "Lydserveren kjører lokalt på denne datamaskinen. Hvis du lukker den, stopper all avspilling og alle andre tilkoblede klienter kobles fra. La den fortsette å kjøre for å lukke bare denne klienten.",
+    "serverCloseServer": "Lukk server",
+    "serverCloseClient": "Lukk bare klienten",
+    "return": "Tilbake til prosjektet"
   },
   "deleteSelection": {
     "title": "Slett elementer",

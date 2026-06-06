@@ -189,6 +189,10 @@ const props = defineProps<{
   keyLabel?: string;
 }>();
 
+// Highest valid cart slot index. The grid renders 16 slots (CartPlayer:
+// v-for="slot in 16"), so indices run 0..15.
+const CART_SLOT_MAX = 15;
+
 const slotRef = ref<HTMLElement | null>(null);
 const showImportModal = ref(false);
 
@@ -738,42 +742,48 @@ const handleDrop = async (e: DragEvent) => {
   if (sourceSlotStr) {
     const sourceSlot = parseInt(sourceSlotStr);
     const targetSlot = props.slot;
-    
+
     if (sourceSlot === targetSlot) return; // Same slot, do nothing
-    
-    // Get the source cart item
-    const sourceIndex = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === sourceSlot);
-    if (sourceIndex === -1) return;
-    
-    const sourceCartItem = currentProject.value.cartItems[sourceIndex];
-    
-    // Check if target slot is occupied
-    const targetIndex = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === targetSlot);
-    
-    if (targetIndex === -1) {
-      // Target slot is empty - simple move
-      currentProject.value.cartItems[sourceIndex].slot = targetSlot;
+
+    const cartItems = currentProject.value.cartItems;
+    const sourceCartItem = cartItems.find((ci: any) => ci.slot === sourceSlot);
+    if (!sourceCartItem) return;
+
+    // Cart slots are an addressable grid (the user may have bound hotkeys to
+    // specific slots), so reordering must be conservative — only disturb what
+    // it has to:
+    //   • Dropping on an EMPTY slot just relocates the source; every other
+    //     slot stays put and the source's old slot is left blank.
+    //   • Dropping on an OCCUPIED slot pushes only the *contiguous* run of
+    //     occupied slots starting at the target forward by one to open a gap.
+    //     Slots past the first blank are untouched.
+    // The source's own slot counts as free for this cascade (it's vacating),
+    // which also stops the run early when the source sits within it.
+    const occupied = new Set<number>(cartItems.map((ci: any) => ci.slot));
+    occupied.delete(sourceSlot);
+
+    if (!occupied.has(targetSlot)) {
+      // Target empty → drop straight in; nothing else moves.
+      sourceCartItem.slot = targetSlot;
+      sourceCartItem.index = [-1, targetSlot];
     } else {
-      // Target slot is occupied - push/insert behavior
-      // Remove source item first
-      currentProject.value.cartItems.splice(sourceIndex, 1);
-      
-      // Shift all items at target slot and beyond forward by 1
-      for (const cartItem of currentProject.value.cartItems) {
-        if (cartItem.slot >= targetSlot) {
-          cartItem.slot += 1;
-          cartItem.index = [-1, cartItem.slot];
-        }
+      // Find the first blank slot at or after the target — the contiguous
+      // occupied run is [targetSlot, firstFree - 1].
+      let firstFree = targetSlot;
+      while (occupied.has(firstFree)) firstFree += 1;
+
+      // No blank slot remains before the end of the grid → no room to push.
+      if (firstFree > CART_SLOT_MAX) return;
+
+      // Shift the run up by one, highest slot first to avoid collisions.
+      for (let s = firstFree - 1; s >= targetSlot; s--) {
+        const ci = cartItems.find((c: any) => c.slot === s);
+        if (ci) { ci.slot = s + 1; ci.index = [-1, s + 1]; }
       }
-      
-      // Insert source item at target slot
-      currentProject.value.cartItems.push({
-        slot: targetSlot,
-        itemUuid: sourceCartItem.itemUuid,
-        index: [-1, targetSlot]
-      });
+      sourceCartItem.slot = targetSlot;
+      sourceCartItem.index = [-1, targetSlot];
     }
-    
+
     // Save the project
     const { saveProject } = useProject();
     await saveProject();

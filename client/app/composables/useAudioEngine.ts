@@ -38,6 +38,7 @@ export interface ActiveCueView {
   displayName: string;
   duration: number;       // trimmed (outPoint - inPoint)
   currentTime: number;    // playhead relative to inPoint
+  playheadSeconds?: number; // absolute playhead in the file (independent of inPoint)
   isPaused: boolean;
   color?: string;
   inPoint?: number;
@@ -158,6 +159,7 @@ export const useAudioEngine = () => {
     view.outPoint    = item.outPoint;
     if (cueId) view.serverCueId = cueId;
     view.currentTime = Math.max(0, Math.min(view.duration, playheadSeconds - inPoint));
+    view.playheadSeconds = playheadSeconds;
     view.isPaused    = (transport === TRANSPORT_PAUSED);
     // Map mutation: explicit set keeps reactivity in a Map<>.
     activeCues.value.set(item.uuid, view);
@@ -258,10 +260,21 @@ export const useAudioEngine = () => {
   // its trailing seconds.
   server.onCueState(({ cue_id, transport, playhead_seconds, item_uuid }: any) => {
     if (transport === TRANSPORT_STOPPED) {
-      for (const [uuid, cue] of activeCues.value) {
-        if (cue.serverCueId === cue_id) {
-          removeActiveCue(uuid);
-          break;
+      // Remove by item_uuid first (activeCues is keyed by item uuid and the
+      // server now includes it) — mirroring the upsert path below. Matching
+      // only on serverCueId is fragile: when a cue's serverCueId doesn't line
+      // up with the event's cue_id (e.g. cart items, or a cue re-keyed across
+      // a crossfade) the scan finds nothing and the entry lingers — which left
+      // the outgoing item highlighted after a crossfade completed. Fall back to
+      // the serverCueId scan for events that carry no item_uuid.
+      if (item_uuid && activeCues.value.has(item_uuid)) {
+        removeActiveCue(item_uuid);
+      } else {
+        for (const [uuid, cue] of activeCues.value) {
+          if (cue.serverCueId === cue_id) {
+            removeActiveCue(uuid);
+            break;
+          }
         }
       }
       recomputeActiveGroups();
@@ -316,6 +329,7 @@ export const useAudioEngine = () => {
           const inP = cue.inPoint || 0;
           cue.currentTime = Math.max(0,
             Math.min(meter.playhead_seconds - inP, cue.duration));
+          cue.playheadSeconds = meter.playhead_seconds;
           break;
         }
       }

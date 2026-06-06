@@ -428,8 +428,11 @@ Mutating routes return `{ ok: true, ... }` only — the full document is **not**
 | `DELETE /api/project/items/<uuid>`     | — | `{ "ok": true, "uuid": "…" }` · `404` if missing | `item_removed` |
 | `POST /api/project/items/reorder`      | `{ "parentUuid": "" or "<group>", "uuids": [string, …] }` | `{ "ok": true }` | `items_reordered` |
 | `POST` or `GET /api/project/items/<uuid>/play` | — | `{ "ok": true }` · `404` if not loaded | — (transport edge fires `cue_state` instead) |
+| `POST` or `GET /api/project/items/by-index/<path>` | — | `{ "ok": true, "uuid": "…", "index": [int, …] }` · `400` invalid path · `404` no item / not loaded | — (transport edge fires `cue_state` instead) |
 | `POST /api/project/items/<uuid>/stop`  | — | `{ "ok": true }` · `404` if not loaded | — |
 | `POST /api/project/items/<uuid>/seek`  | `{ "seconds": float }` | `{ "ok": true }` · `404` if not loaded | — |
+
+**Triggering by index** — `…/by-index/<path>` triggers an item by its position instead of its uuid. The `<path>` is an **index path**: a zero-based list of child indices that descends into groups at each level, mirroring the client's `findItemByIndex` / `endBehavior.targetIndex`. A single number (`5`) targets the 6th top-level item; multiple components descend into groups — `1,11` means top-level item `1` (the 2nd item, a group) then its child `11` (the 12th item inside it). Both **comma- and slash-separated** forms are accepted and equivalent, so the same target can be written `…/by-index/1,11` or `…/by-index/1/11` (mixed forms like `1,2/0` work too). Like `/play`, it accepts `GET` so it can be fired from a browser or `curl`, and it routes through `trigger_item` — audio items play, group items dispatch per their `startBehavior`. Returns `400` for a malformed path, `404` when no item exists at that index or the resolved item isn't loaded into the engine.
 
 #### Cart slots
 

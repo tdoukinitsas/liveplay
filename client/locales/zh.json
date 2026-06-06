@@ -12,6 +12,9 @@
     "file": "文件",
     "newProject": "新建项目",
     "openProject": "打开项目",
+    "openRecent": "打开最近的项目",
+    "clearRecentProjects": "清除最近打开的",
+    "noRecentProjects": "没有最近的项目",
     "saveProject": "保存项目",
     "exportProject": "导出项目",
     "importProject": "导入项目",
@@ -150,6 +153,9 @@
     "waveform": "波形",
     "regenerateWaveform": "重新生成波形",
     "regeneratingWaveform": "生成中...",
+    "multiSelectWaveform": "已选择多个项目 — 请选择单个项目以显示其波形。",
+    "multiSelectOutPointDisabled": "多选时禁用（出点取决于每个项目的时长）。",
+    "noWaveformData": "无可用波形数据",
     "ltcRequiresDevice": "在项目设置中选择一个 LTC 输出设备以启用时间码输出。"
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "未检测到MIDI设备",
     "reassign": "重新分配",
     "conflictMessage": "此MIDI控制器已分配给\"{action}\"。重新分配？",
-    "playNext": "播放下一首"
+    "playNext": "播放下一首",
+    "volumeMultiplier": "音量倍数",
+    "volumeMultiplierHint": "每个MIDI步进改变的dB。对于移动缓慢的滚轮请调高。"
   },
   "status": {
     "playing": "正在播放",
@@ -460,6 +468,17 @@
     "chooseFiles": "选择文件…",
     "uploading": "正在上传…",
     "uploadingProgress": "正在上传 {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "未保存的更改",
+    "unsavedMessage": "您有未保存的更改。如果现在退出，这些更改将会丢失。是否先保存项目，或者关闭并放弃这些更改？",
+    "unsavedDiscard": "关闭并放弃更改",
+    "unsavedSaveClose": "保存项目后关闭",
+    "serverTitle": "关闭音频服务器？",
+    "serverMessage": "音频服务器正在本机本地运行。关闭它将停止所有播放，并断开所有其他已连接的客户端。让其继续运行可仅关闭此客户端。",
+    "serverCloseServer": "关闭服务器",
+    "serverCloseClient": "仅关闭客户端",
+    "return": "返回项目"
   },
   "deleteSelection": {
     "title": "删除项目",

@@ -12,6 +12,9 @@
     "file": "Fichier",
     "newProject": "Nouveau Projet",
     "openProject": "Ouvrir Projet",
+    "openRecent": "Ouvrir un projet récent",
+    "clearRecentProjects": "Effacer les projets récents",
+    "noRecentProjects": "Aucun projet récent",
     "saveProject": "Enregistrer Projet",
     "exportProject": "Exporter Projet",
     "importProject": "Importer Projet",
@@ -150,6 +153,9 @@
     "waveform": "Forme d'onde",
     "regenerateWaveform": "Regénérer la forme d'onde",
     "regeneratingWaveform": "Regénération...",
+    "multiSelectWaveform": "Plusieurs éléments sélectionnés — choisissez un seul élément pour afficher sa forme d'onde.",
+    "multiSelectOutPointDisabled": "Désactivé pour la sélection multiple (le point de sortie dépend de la durée de chaque élément).",
+    "noWaveformData": "Aucune donnée de forme d'onde disponible",
     "ltcRequiresDevice": "Sélectionnez un périphérique de sortie LTC dans les Paramètres du projet pour activer la sortie timecode."
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "Aucun périphérique MIDI détecté",
     "reassign": "Réassigner",
     "conflictMessage": "Ce contrôle MIDI est déjà assigné à \"{action}\". Réassigner?",
-    "playNext": "Lire le suivant"
+    "playNext": "Lire le suivant",
+    "volumeMultiplier": "Multiplicateur de volume",
+    "volumeMultiplierHint": "dB modifiés par pas MIDI. Augmentez pour les molettes lentes."
   },
   "status": {
     "playing": "En lecture",
@@ -460,6 +468,17 @@
     "chooseFiles": "Choisir des fichiers…",
     "uploading": "Téléversement…",
     "uploadingProgress": "Téléversement {current}/{total} : {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "Modifications non enregistrées",
+    "unsavedMessage": "Vous avez des modifications non enregistrées. Si vous quittez maintenant, elles seront perdues. Voulez-vous d'abord enregistrer votre projet, ou fermer et abandonner les modifications ?",
+    "unsavedDiscard": "Fermer et abandonner les modifications",
+    "unsavedSaveClose": "Enregistrer le projet, puis fermer",
+    "serverTitle": "Fermer le serveur audio ?",
+    "serverMessage": "Le serveur audio s'exécute localement sur cet ordinateur. Le fermer arrêtera toute la lecture et déconnectera tous les autres clients connectés. Laissez-le en marche pour fermer uniquement ce client.",
+    "serverCloseServer": "Fermer le serveur",
+    "serverCloseClient": "Fermer uniquement le client",
+    "return": "Retourner au projet"
   },
   "deleteSelection": {
     "title": "Supprimer les éléments",

@@ -12,6 +12,9 @@
     "file": "Archivo",
     "newProject": "Nuevo Proyecto",
     "openProject": "Abrir Proyecto",
+    "openRecent": "Abrir reciente",
+    "clearRecentProjects": "Borrar abiertos recientemente",
+    "noRecentProjects": "No hay proyectos recientes",
     "saveProject": "Guardar Proyecto",
     "exportProject": "Exportar Proyecto",
     "importProject": "Importar Proyecto",
@@ -150,6 +153,9 @@
     "waveform": "Forma de onda",
     "regenerateWaveform": "Regenerar forma de onda",
     "regeneratingWaveform": "Regenerando...",
+    "multiSelectWaveform": "Varios elementos seleccionados: elija un solo elemento para mostrar su forma de onda.",
+    "multiSelectOutPointDisabled": "Deshabilitado para selección múltiple (el punto de salida depende de la duración de cada elemento).",
+    "noWaveformData": "No hay datos de forma de onda disponibles",
     "ltcRequiresDevice": "Seleccione un dispositivo de salida LTC en la Configuración del proyecto para habilitar la salida de timecode."
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "No se detectaron dispositivos MIDI",
     "reassign": "Reasignar",
     "conflictMessage": "Este control MIDI ya está asignado a \"{action}\". ¿Reasignar?",
-    "playNext": "Reproducir siguiente"
+    "playNext": "Reproducir siguiente",
+    "volumeMultiplier": "Multiplicador de volumen",
+    "volumeMultiplierHint": "dB modificados por paso MIDI. Auméntelo para ruedas lentas."
   },
   "status": {
     "playing": "Reproduciendo",
@@ -460,6 +468,17 @@
     "chooseFiles": "Elegir archivos…",
     "uploading": "Subiendo…",
     "uploadingProgress": "Subiendo {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "Cambios sin guardar",
+    "unsavedMessage": "Tiene cambios sin guardar. Si sale ahora, se perderán. ¿Desea guardar el proyecto primero, o cerrar y descartar los cambios?",
+    "unsavedDiscard": "Cerrar y descartar los cambios",
+    "unsavedSaveClose": "Guardar el proyecto y cerrar",
+    "serverTitle": "¿Cerrar el servidor de audio?",
+    "serverMessage": "El servidor de audio se está ejecutando localmente en este equipo. Si lo cierra, se detendrá toda la reproducción y se desconectarán los demás clientes conectados. Déjelo en ejecución para cerrar solo este cliente.",
+    "serverCloseServer": "Cerrar servidor",
+    "serverCloseClient": "Cerrar solo el cliente",
+    "return": "Volver al proyecto"
   },
   "deleteSelection": {
     "title": "Eliminar elementos",

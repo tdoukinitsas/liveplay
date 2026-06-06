@@ -174,6 +174,16 @@ if (import.meta.client && window.electronAPI) {
     await closeProject();
   });
 
+  // File > Open Recent > <project> while a project is already open. Same
+  // shape as onMenuOpenProject, but we stash the exact path so the welcome
+  // screen opens it directly instead of popping the file picker.
+  window.electronAPI.onMenuOpenRecentProject(async (_e, projectPath) => {
+    if (!projectPath) return;
+    if (!(await confirmUnsavedChanges())) return;
+    try { sessionStorage.setItem('liveplay:welcomeOpenPath', projectPath); } catch {}
+    await closeProject();
+  });
+
   window.electronAPI.onMenuOpenProjectFolder(() => {
     if (currentProject.value) {
       window.electronAPI.openFolder(currentProject.value.folderPath);

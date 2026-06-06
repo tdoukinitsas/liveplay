@@ -12,6 +12,9 @@
     "file": "Datei",
     "newProject": "Neues Projekt",
     "openProject": "Projekt Öffnen",
+    "openRecent": "Zuletzt geöffnet",
+    "clearRecentProjects": "Zuletzt geöffnete löschen",
+    "noRecentProjects": "Keine zuletzt geöffneten Projekte",
     "saveProject": "Projekt Speichern",
     "exportProject": "Projekt Exportieren",
     "importProject": "Projekt Importieren",
@@ -150,6 +153,9 @@
     "waveform": "Wellenform",
     "regenerateWaveform": "Wellenform neu generieren",
     "regeneratingWaveform": "Wird generiert...",
+    "multiSelectWaveform": "Mehrere Elemente ausgewählt – wählen Sie ein einzelnes Element, um seine Wellenform anzuzeigen.",
+    "multiSelectOutPointDisabled": "Bei Mehrfachauswahl deaktiviert (der Endpunkt hängt von der Dauer des jeweiligen Elements ab).",
+    "noWaveformData": "Keine Wellenformdaten verfügbar",
     "ltcRequiresDevice": "Wählen Sie in den Projekteinstellungen ein LTC-Ausgabegerät, um die Timecode-Ausgabe zu aktivieren."
   },
   "playback": {
@@ -335,7 +341,9 @@
     "noDevices": "Keine MIDI-Geräte erkannt",
     "reassign": "Neu zuweisen",
     "conflictMessage": "Diese MIDI-Steuerung ist bereits \"{action}\" zugewiesen. Neu zuweisen?",
-    "playNext": "Nächstes abspielen"
+    "playNext": "Nächstes abspielen",
+    "volumeMultiplier": "Lautstärke-Multiplikator",
+    "volumeMultiplierHint": "dB-Änderung pro MIDI-Schritt. Für langsame Regler erhöhen."
   },
   "status": {
     "playing": "Wird gespielt",
@@ -460,6 +468,17 @@
     "chooseFiles": "Dateien auswählen…",
     "uploading": "Wird hochgeladen…",
     "uploadingProgress": "Hochladen {current}/{total}: {filename}"
+  },
+  "quitModal": {
+    "unsavedTitle": "Ungespeicherte Änderungen",
+    "unsavedMessage": "Sie haben ungespeicherte Änderungen. Wenn Sie jetzt beenden, gehen sie verloren. Möchten Sie Ihr Projekt zuerst speichern oder schließen und die Änderungen verwerfen?",
+    "unsavedDiscard": "Schließen und Änderungen verwerfen",
+    "unsavedSaveClose": "Projekt speichern und schließen",
+    "serverTitle": "Audioserver schließen?",
+    "serverMessage": "Der Audioserver läuft lokal auf diesem Computer. Wenn Sie ihn schließen, wird die gesamte Wiedergabe gestoppt und alle anderen verbundenen Clients werden getrennt. Lassen Sie ihn laufen, um nur diesen Client zu schließen.",
+    "serverCloseServer": "Server schließen",
+    "serverCloseClient": "Nur Client schließen",
+    "return": "Zurück zum Projekt"
   },
   "deleteSelection": {
     "title": "Elemente löschen",

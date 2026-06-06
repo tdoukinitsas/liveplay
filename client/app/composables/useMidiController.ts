@@ -20,7 +20,11 @@ export type MidiActionId =
 export interface MidiConfig {
   bindings: Record<string, MidiBinding>; // actionId → binding
   preferredDevice?: string;              // preferred MIDI input device name
+  masterVolumeMultiplier?: number;       // dB applied per master-volume MIDI step (default 1)
 }
+
+// Default dB step applied per master-volume MIDI message (before multiplier).
+export const DEFAULT_MASTER_VOLUME_MULTIPLIER = 1;
 
 // All available actions with display metadata
 export const MIDI_ACTIONS: { id: MidiActionId; labelKey: string; category: string; continuous: boolean; n?: number }[] = [
@@ -99,12 +103,14 @@ const learning = ref<MidiActionId | null>(null);
 const lastMidiMessage = ref<MidiBinding | null>(null);
 let onLearnCapture: ((binding: MidiBinding) => void) | null = null;
 let mounted = false;
+// Last raw master-volume value seen, used to derive movement direction.
+let lastMasterVolumeRaw: number | null = null;
 
 const preferredDevice = computed(() => config.value.preferredDevice ?? null);
 
 export const useMidiController = () => {
   const { getCartItem } = useCartItems();
-  const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, setMasterGain, nextItemOverrideUuid, autoNextItemUuid, setNextItem, triggerGroup } = useAudioEngine();
+  const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, setMasterGain, masterGainDb, nextItemOverrideUuid, autoNextItemUuid, setNextItem, triggerGroup } = useAudioEngine();
   const { selectedItem, selectedItems, saveProject, currentProject, getAllItemsFlat, toggleItemSelection, findItemByUuid: findProjectItem } = useProject();
 
   /**
@@ -238,9 +244,21 @@ export const useMidiController = () => {
    */
   const dispatchContinuous = (actionId: MidiActionId, value: number) => {
     if (actionId === 'master-volume') {
-      // Map CC 0-127 to -60dB to 0dB (linear in dB)
-      const db = -60 + (value / 127) * 60;
-      setMasterGain(db);
+      // Incremental master volume: each MIDI message nudges the gain up or down
+      // by `multiplier` dB, derived from the direction of movement vs the last
+      // value. This works for both endless wheels (slow ticks) and absolute
+      // faders, and lets slow wheels move faster via a larger multiplier.
+      if (lastMasterVolumeRaw === null) {
+        // First message only establishes a reference point — don't jump.
+        lastMasterVolumeRaw = value;
+        return;
+      }
+      const delta = value - lastMasterVolumeRaw;
+      lastMasterVolumeRaw = value;
+      if (delta === 0) return;
+      const multiplier = config.value.masterVolumeMultiplier ?? DEFAULT_MASTER_VOLUME_MULTIPLIER;
+      const stepDb = delta > 0 ? multiplier : -multiplier;
+      setMasterGain(masterGainDb.value + stepDb);
     }
   };
 
@@ -372,6 +390,16 @@ export const useMidiController = () => {
   };
 
   /**
+   * Set the master-volume step multiplier (dB applied per MIDI message).
+   * Clamped to a sane positive range.
+   */
+  const setMasterVolumeMultiplier = (value: number) => {
+    const clamped = Math.max(0.1, Math.min(60, value));
+    config.value.masterVolumeMultiplier = clamped;
+    saveConfig();
+  };
+
+  /**
    * Save config to main process.
    */
   const saveConfig = async () => {
@@ -464,5 +492,6 @@ export const useMidiController = () => {
     clearBinding,
     clearAllBindings,
     setPreferredDevice,
+    setMasterVolumeMultiplier,
   };
 };

@@ -162,9 +162,12 @@ public:
     // ---- Item-level operations (mirror the client's Project model) -------
     // Insert/update/remove an item in the document, and keep the engine in
     // sync for audio items. `parent_uuid` empty = top level; non-empty =
-    // child of that group. Returns the cue_id of the newly engine-loaded
-    // audio item, or empty for groups / on failure.
-    audio::CueId add_item(const json& item, const std::string& parent_uuid = "");
+    // child of that group. `cart_only` routes the item into the document's
+    // separate `cartOnlyItems` array (cart slots, not the playlist) so a
+    // cart-bound cue never leaks into the playlist tree. Returns the cue_id
+    // of the newly engine-loaded audio item, or empty for groups / on failure.
+    audio::CueId add_item(const json& item, const std::string& parent_uuid = "",
+                          bool cart_only = false);
     bool         update_item(const std::string& uuid, const json& patch);
     bool         remove_item(const std::string& uuid);
 
@@ -189,13 +192,35 @@ public:
     //   * no-ducking → leave other cues alone
     // Also honours inPoint (seeks before play) and outPoint (engine returns to
     // the same fade-out path when the playhead reaches it).
-    bool play_item(const std::string& uuid);
+    //
+    // `fade_in_override_sec` (>= 0) replaces the item's own play-fade for this
+    // play only — used by the crossfade path so the incoming cue fades in over
+    // the crossfade window regardless of its configured playFade. The override
+    // is transient (play() captures the fade duration synchronously, so the
+    // stored value is restored immediately afterward).
+    // `exclude_from_ducking`, when non-empty, is a cue that this play's ducking
+    // must leave untouched — used by the crossfade so the outgoing cue keeps the
+    // engine-owned fade the sequencer already started instead of being hard-cut.
+    bool play_item(const std::string& uuid,
+                   double fade_in_override_sec = -1.0,
+                   const audio::CueId& exclude_from_ducking = audio::CueId{});
     bool stop_item(const std::string& uuid);
 
     // Trigger an item by uuid: audio items go through play_item; group items
     // are dispatched per their startBehavior (play-first / play-all),
-    // mirroring the client's triggerGroup() logic.
-    bool trigger_item(const std::string& uuid);
+    // mirroring the client's triggerGroup() logic. The crossfade args are
+    // forwarded to play_item (and to recursive group triggers).
+    bool trigger_item(const std::string& uuid,
+                      double fade_in_override_sec = -1.0,
+                      const audio::CueId& exclude_from_ducking = audio::CueId{});
+
+    // Resolve an index path (array of child indices) to an item uuid,
+    // descending into group `children` at each level. Mirrors the client's
+    // findItemByIndex / endBehavior.targetIndex semantics: e.g. {1, 11} means
+    // top-level item 1 (the 2nd item — a group), then its child 11 (the 12th).
+    // Returns an empty string if the path is empty or out of range.
+    // Thread-safe wrapper around the internal resolver.
+    std::string item_uuid_by_index(const std::vector<int>& path) const;
 
     // User-set "Up Next" override. When the currently-playing item ends with
     // endBehavior.action == "next", this uuid is consumed (and cleared)

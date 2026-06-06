@@ -48,6 +48,7 @@ import { applyAutoProcessing } from '~/utils/audio';
 // ---------------------------------------------------------------------------
 let _syncWatchersInstalled = false;
 let _refreshItemsBaselineAfterHydrate: () => void = () => {};
+let _captureBaselinesFn: () => void = () => {};
 let _installItemsWatcherFn:   null | (() => void) = null;
 let _uninstallItemsWatcherFn: null | (() => void) = null;
 
@@ -168,6 +169,12 @@ export const useProject = () => {
   // We keep a flag so the watcher can ignore reactivity bursts triggered by
   // hydration from the server (otherwise we'd ping-pong updates).
   const isHydrating = useState<boolean>('useProject.isHydrating', () => false);
+  // Counter incremented during continuous drag operations (WaveformTrimmer handle
+  // moves, volume slider input). While > 0 the diff-watcher is suppressed so
+  // intermediate values are never PATCHed to the server and echoed back as stale
+  // item_updated events. Reset to 0 and baselines synced on the first handleSave
+  // call after the drag ends.
+  const _suppressItemSyncCount = useState<number>('useProject._suppressItemSyncCount', () => 0);
   // Path the server should write to on save. Populated by openProject /
   // createNewProject. Persisted in the document under `server.projectFilePath`
   // by the server itself, so we can read it back on subsequent fetches.
@@ -491,6 +498,21 @@ export const useProject = () => {
     return newUuids.length;
   };
 
+  // Record a project in the per-client recent-projects history (Electron
+  // userData), which backs the File > Open Recent menu. Best-effort and
+  // client-only: no-op in the browser / cart window or if the bridge is
+  // missing. `projectPath` is the server-filesystem path openProject loads.
+  const recordRecentProject = (projectPath: string) => {
+    if (!import.meta.client || !projectPath) return;
+    try {
+      (window as any).electronAPI?.liveplayProjects?.recentAdd?.({
+        path:       projectPath,
+        name:       currentProject.value?.name ?? '',
+        folderPath: currentProject.value?.folderPath ?? '',
+      });
+    } catch { /* non-fatal */ }
+  };
+
   // ----------------------------------------------------------------------
   // Server-backed project I/O.
   // ----------------------------------------------------------------------
@@ -551,6 +573,7 @@ export const useProject = () => {
       const projectFilePath = `${folderPath}/${name}.liveplay`;
       await server.saveProjectTo(projectFilePath);
       projectFilePathRef.value = projectFilePath;
+      recordRecentProject(projectFilePath);
       return true;
     } catch (error) {
       console.error('Error creating project:', error);
@@ -664,6 +687,9 @@ export const useProject = () => {
 
       // (4) Surface the audio-loading progress as a corner indicator.
       void pollLoadingProgress(server);
+
+      // Record in the per-client recent-projects history (File > Open Recent).
+      recordRecentProject(projectFilePath);
       return true;
     } catch (error) {
       console.error('Error opening project:', error);
@@ -733,6 +759,33 @@ export const useProject = () => {
           }
         });
       }
+      // One-time repair for projects corrupted by an earlier bug where a
+      // cart-only item leaked into the playlist tree (the same uuid ended up
+      // in BOTH `cartOnlyItems` and the root `items`, so it rendered twice —
+      // once as a cart slot, once as a playlist row). Drop any top-level
+      // playlist row whose uuid is a known cart-only item. Done locally and
+      // under isHydrating (no granular remove call) so the cart copy is
+      // untouched and no item_removed broadcast wipes the cart slot; the next
+      // save snapshot persists the cleaned playlist. New projects are
+      // unaffected — a cart-only uuid never appears in `items` anymore.
+      try {
+        const { cartOnlyItems } = useCartItems();
+        if (cartOnlyItems.value.size && currentProject.value) {
+          const cleaned = currentProject.value.items.filter(
+            (it: any) => !cartOnlyItems.value.has(it.uuid),
+          );
+          if (cleaned.length !== currentProject.value.items.length) {
+            isHydrating.value = true;
+            currentProject.value.items = cleaned;
+            updateIndices(currentProject.value.items);
+            await nextTick();
+            isHydrating.value = false;
+          }
+        }
+      } catch (e) {
+        console.warn('[useProject] cart/playlist dedupe cleanup failed:', e);
+      }
+
       // After streaming completes, refresh the items-diff baseline so the
       // next user edit doesn't get diffed against the empty array we
       // started with (which would push the entire playlist back to the
@@ -1221,6 +1274,7 @@ export const useProject = () => {
     // against the empty array we started with and re-push the whole
     // playlist as "client adds".
     _refreshItemsBaselineAfterHydrate = captureBaselines;
+    _captureBaselinesFn = captureBaselines;
 
     const server = () => useLiveplayServer();
 
@@ -1254,15 +1308,29 @@ export const useProject = () => {
       try {
         switch (op) {
           case 'item_added': {
-            // Skip if we already have this uuid (originating client).
-            const existing = findItemAndParent(patch.uuid);
-            if (existing) return;
-            const parentUuid = patch.parentUuid || '';
             if (patch.item?.waveform) patch.item.waveform = markRaw(patch.item.waveform);
             // The item may have arrived without peaks (server strips them, and
             // a reorder is a remove+re-add). Re-attach the cached waveform so a
             // moved/re-synced item doesn't render blank.
             restoreWaveform(patch.item);
+            // Cart-only items belong to the cart store, never the playlist —
+            // routing them here keeps the two lists separate (a cart-only add
+            // must not surface as a duplicate playlist row on any client,
+            // including the originating one).
+            if (patch.cartOnly) {
+              const { getCartOnlyItem, addCartOnlyItem } = useCartItems();
+              if (getCartOnlyItem(patch.uuid)) return; // already have it (originating client / dup)
+              addCartOnlyItem(patch.item);
+              if (!Array.isArray(p.cartOnlyItems)) p.cartOnlyItems = [];
+              if (!p.cartOnlyItems.some((i: any) => i.uuid === patch.uuid)) {
+                p.cartOnlyItems.push(patch.item);
+              }
+              return;
+            }
+            // Skip if we already have this uuid (originating client).
+            const existing = findItemAndParent(patch.uuid);
+            if (existing) return;
+            const parentUuid = patch.parentUuid || '';
             if (!parentUuid) {
               p.items.push(patch.item);
               updateIndices(p.items);
@@ -1295,6 +1363,16 @@ export const useProject = () => {
           }
           case 'item_removed': {
             server().invalidateWaveformCache(patch.uuid);
+            // Drop any cart-only copy too (an item removed on another client
+            // must also vanish from this client's cart store / array).
+            const { getCartOnlyItem, removeCartOnlyItem } = useCartItems();
+            if (getCartOnlyItem(patch.uuid)) {
+              removeCartOnlyItem(patch.uuid);
+              if (Array.isArray(p.cartOnlyItems)) {
+                const ci = p.cartOnlyItems.findIndex((x: any) => x.uuid === patch.uuid);
+                if (ci >= 0) p.cartOnlyItems.splice(ci, 1);
+              }
+            }
             const hit = findItemAndParent(patch.uuid);
             if (!hit || !hit.parent) return;
             const idx = hit.parent.findIndex((x: any) => x.uuid === patch.uuid);
@@ -1357,24 +1435,45 @@ export const useProject = () => {
               const peaks: number[] = patch.channels?.[0]?.peak ?? [];
               const duration: number = (patch.duration_ms ?? 0) / 1000;
               if (peaks.length > 0) {
+                // Distinguish a brand-new item's FIRST waveform from a
+                // REGENERATION of an item we've already seen peaks for this
+                // session. A regen fires whenever something re-requests the
+                // waveform (e.g. a re-sync that transiently dropped the local
+                // peaks — which is exactly what auto-trim / auto-volume trigger).
+                // On a regen we must ONLY refresh the peak data — never touch the
+                // user's duration / in-out points / volume — otherwise the edit
+                // snaps back the instant the waveform returns (the "~1s revert"
+                // bug). We key off the session waveform cache rather than the
+                // live item, because the live item's `waveform` may have just
+                // been transiently dropped (which is what caused the re-request);
+                // the cache is only cleared on item removal / project change.
+                const hadWaveform = _waveformCache.has(patch.item_uuid);
+
                 (target as any).waveform = markRaw({ peaks, length: peaks.length, duration });
                 // Seed the session cache so this waveform survives later
                 // server re-syncs that strip it.
                 cacheWaveform(patch.item_uuid, (target as any).waveform);
-                if (duration > 0) {
+
+                if (!hadWaveform && duration > 0) {
+                  // First waveform for this item: initialise duration + out point.
                   (target as any).duration = duration;
                   (target as any).outPoint  = duration;
                 }
+
                 // Auto-process (trim silence + normalise) only for items that
-                // were just added in this session — never for items restored
-                // from the saved project file (which already have user-set
-                // trim points and volume).
+                // were just added in this session AND are receiving their first
+                // waveform — never for items restored from the saved project
+                // file, and never on a regeneration (which would overwrite the
+                // user's just-applied trim/volume). The pending mark is consumed
+                // either way so a lingering flag can't fire on a later regen.
                 if (_autoProcessPendingUuids.has(patch.item_uuid)) {
                   _autoProcessPendingUuids.delete(patch.item_uuid);
-                  const settings = (currentProject.value as any)?.settings;
-                  if (!settings?.disableAutoVolumeAndTrim) {
-                    const targetDb: number = settings?.outputTargetLevels?.autoVolumeTargetDb ?? -23;
-                    applyAutoProcessing(target as AudioItem, targetDb);
+                  if (!hadWaveform) {
+                    const settings = (currentProject.value as any)?.settings;
+                    if (!settings?.disableAutoVolumeAndTrim) {
+                      const targetDb: number = settings?.outputTargetLevels?.autoVolumeTargetDb ?? -23;
+                      applyAutoProcessing(target as AudioItem, targetDb);
+                    }
                   }
                 }
                 triggerWaveformUpdate();
@@ -1511,7 +1610,7 @@ export const useProject = () => {
     // from `refreshItemsBaselineAfterHydrate` (the hook fired after
     // streamItemPages finishes), and torn down in closeProject.
     const scheduleItemsDiff = () => {
-      if (isHydrating.value || !currentProject.value) return;
+      if (isHydrating.value || _suppressItemSyncCount.value > 0 || !currentProject.value) return;
       if (itemsTimer) clearTimeout(itemsTimer);
       itemsTimer = setTimeout(() => syncItemsDiff().catch(e =>
         console.warn('[useProject] items diff failed:', e)
@@ -1536,19 +1635,19 @@ export const useProject = () => {
 
     const flatten = (items: any[] | null | undefined,
                      cartOnly: any[] | null | undefined) => {
-      const m = new Map<string, { item: any; parentUuid: string }>();
-      const walk = (arr: any[] | null | undefined, parentUuid: string) => {
+      const m = new Map<string, { item: any; parentUuid: string; cartOnly: boolean }>();
+      const walk = (arr: any[] | null | undefined, parentUuid: string, isCartOnly: boolean) => {
         if (!Array.isArray(arr)) return;
         for (const it of arr) {
           if (!it || typeof it !== 'object') continue;
           const u = it.uuid;
           if (!u) continue;
-          m.set(u, { item: it, parentUuid });
-          if (it.type === 'group' && Array.isArray(it.children)) walk(it.children, u);
+          m.set(u, { item: it, parentUuid, cartOnly: isCartOnly });
+          if (it.type === 'group' && Array.isArray(it.children)) walk(it.children, u, isCartOnly);
         }
       };
-      walk(items, '');
-      walk(cartOnly, '');
+      walk(items, '', false);
+      walk(cartOnly, '', true);
       return m;
     };
 
@@ -1572,14 +1671,16 @@ export const useProject = () => {
       lastItems    = nextItems;
       lastCartOnly = nextCartOnly;
 
-      // 1. Cross-parent moves: same uuid but parentUuid changed.
-      //    Must remove-then-add so the server tracks the new parent.
-      //    (updateProjectItem only patches content, not parent placement.)
-      for (const [uuid, { item, parentUuid }] of curr) {
+      // 1. Cross-parent moves: same uuid but its location changed — either a
+      //    new parent group, or a transition between the playlist and the
+      //    cart-only list. Must remove-then-add so the server re-files it in
+      //    the right array/parent. (updateProjectItem only patches content.)
+      for (const [uuid, { item, parentUuid, cartOnly }] of curr) {
         const before = prev.get(uuid);
-        if (!before || before.parentUuid === parentUuid) continue;
+        if (!before) continue;
+        if (before.parentUuid === parentUuid && before.cartOnly === cartOnly) continue;
         try { await srv.removeProjectItem(uuid); } catch {}
-        try { await srv.addProjectItem(item, parentUuid); } catch {}
+        try { await srv.addProjectItem(item, parentUuid, cartOnly); } catch {}
       }
 
       // 2. Removes: items present in prev but gone from curr.
@@ -1588,16 +1689,16 @@ export const useProject = () => {
       }
 
       // 3. Adds: items in curr that weren't in prev (and aren't cross-parent moves).
-      for (const [uuid, { item, parentUuid }] of curr) {
+      for (const [uuid, { item, parentUuid, cartOnly }] of curr) {
         if (prev.has(uuid)) continue;
-        try { await srv.addProjectItem(item, parentUuid); } catch {}
+        try { await srv.addProjectItem(item, parentUuid, cartOnly); } catch {}
       }
 
       // 4. Updates: items whose content changed (not cross-parent, not new).
-      for (const [uuid, { item, parentUuid }] of curr) {
+      for (const [uuid, { item, parentUuid, cartOnly }] of curr) {
         const before = prev.get(uuid);
         if (!before) continue;
-        if (before.parentUuid !== parentUuid) continue; // handled in step 1
+        if (before.parentUuid !== parentUuid || before.cartOnly !== cartOnly) continue; // handled in step 1
         if (stableJson(before.item) === stableJson(item)) continue;
         try { await srv.updateProjectItem(uuid, item); } catch {}
       }
@@ -1606,15 +1707,21 @@ export const useProject = () => {
       //    reorderProjectItems so other clients see the correct list order.
       //    The JavaScript Map preserves insertion order (= walk/array order),
       //    so [...map.entries()] gives items in their array position order.
+      //    Cart-only items are addressed by slot, not list order, and the
+      //    server reorder endpoint only touches the playlist — so exclude them
+      //    here (they share parentUuid '' with playlist roots but must not be
+      //    folded into the playlist's order).
       const parentUuidsInCurr = new Set<string>();
-      for (const [, { parentUuid }] of curr) parentUuidsInCurr.add(parentUuid);
+      for (const [, { parentUuid, cartOnly }] of curr) {
+        if (!cartOnly) parentUuidsInCurr.add(parentUuid);
+      }
 
       for (const parentUuid of parentUuidsInCurr) {
         const prevOrder = [...prev.entries()]
-          .filter(([, v]) => v.parentUuid === parentUuid)
+          .filter(([, v]) => !v.cartOnly && v.parentUuid === parentUuid)
           .map(([u]) => u);
         const currOrder = [...curr.entries()]
-          .filter(([, v]) => v.parentUuid === parentUuid)
+          .filter(([, v]) => !v.cartOnly && v.parentUuid === parentUuid)
           .map(([u]) => u);
 
         // Restrict comparison to items that exist in both snapshots so that
@@ -1678,6 +1785,11 @@ export const useProject = () => {
   const unsavedDiscard = () => _unsavedPromiseResolve?.('discard');
   const unsavedCancel  = () => _unsavedPromiseResolve?.('cancel');
 
+  // Drag-batch helpers — defined at composable scope so they're always
+  // accessible from the return object regardless of the init-block latch.
+  const beginItemBatch = () => { _suppressItemSyncCount.value++; };
+  const endItemBatch   = () => { _suppressItemSyncCount.value = 0; _captureBaselinesFn(); };
+
   return {
     currentProject,
     selectedItem,
@@ -1740,5 +1852,7 @@ export const useProject = () => {
     deleteDialogConfirmAll,
     deleteDialogConfirmOnly,
     deleteDialogCancel,
+    beginItemBatch,
+    endItemBatch,
   };
 };

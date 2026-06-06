@@ -567,19 +567,34 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
             ma_decoder_seek_to_pcm_frame(decoder_.get(), static_cast<ma_uint64>(in_frame));
             playhead_frames_.store(in_frame, std::memory_order_release);
             // Don't enter FadingOut; the cue is still playing.
-        } else if (transport_.load(std::memory_order_acquire) != TransportState::FadingOut) {
+        } else {
             // Natural end-of-file, soft out-point, or short read all route through
             // the same fade-out logic so transport semantics are consistent
             // regardless of how playback terminated.
-            fading_out_naturally_.store(true, std::memory_order_release);
-            const auto fade = desc_.fade_out_duration;
-            if (fade.count() > 0) {
-                start_fade(gain_current_linear_.load(), 0.0f, fade,
-                           TransportState::FadingOut, TransportState::Stopped);
-            } else {
-                fading_out_naturally_.store(false, std::memory_order_release);
-                stopped_naturally_.store(true, std::memory_order_release);
-                transport_.store(TransportState::Stopped, std::memory_order_release);
+            //
+            // Arm this ONLY from an actively-playing state. Re-entering from
+            // FadingOut would restart an in-flight fade; re-entering from Stopped
+            // is the real hazard: when a crossfade (or stop-fade) completes the
+            // fade envelope sets transport=Stopped, and if the playhead is already
+            // at/past a soft out-point that sits *before* end-of-file,
+            // hit_out_point stays true on every subsequent block — so we would
+            // restart the fade-out immediately, producing an endless
+            // FadingOut⇄Stopped oscillation. A crossfaded-out cue is no longer
+            // tracked by the sequencer, so nothing calls engine stop() to reset
+            // the playhead and break it; the cue never settles to Stopped and the
+            // client keeps showing it as playing.
+            const auto cur = transport_.load(std::memory_order_acquire);
+            if (cur == TransportState::Playing || cur == TransportState::FadingIn) {
+                fading_out_naturally_.store(true, std::memory_order_release);
+                const auto fade = desc_.fade_out_duration;
+                if (fade.count() > 0) {
+                    start_fade(gain_current_linear_.load(), 0.0f, fade,
+                               TransportState::FadingOut, TransportState::Stopped);
+                } else {
+                    fading_out_naturally_.store(false, std::memory_order_release);
+                    stopped_naturally_.store(true, std::memory_order_release);
+                    transport_.store(TransportState::Stopped, std::memory_order_release);
+                }
             }
         }
     }

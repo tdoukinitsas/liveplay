@@ -116,6 +116,23 @@
     <!-- Persistent disconnect → ask the user how to recover -->
     <ConnectionLostModal />
 
+    <!-- App-quit confirmation: unsaved changes, then (in local mode) whether
+         to also shut the local audio server down. -->
+    <QuitConfirmModal
+      :visible="quitUnsavedVisible"
+      :title="t('quitModal.unsavedTitle')"
+      :message="t('quitModal.unsavedMessage')"
+      :buttons="quitUnsavedButtons"
+      @pick="onQuitUnsavedPick"
+    />
+    <QuitConfirmModal
+      :visible="quitServerVisible"
+      :title="t('quitModal.serverTitle')"
+      :message="t('quitModal.serverMessage')"
+      :buttons="quitServerButtons"
+      @pick="onQuitServerPick"
+    />
+
     <!-- Import: server vs client choice (only for remote servers). -->
     <LocationChoiceModal
       :visible="importChoiceVisible"
@@ -149,6 +166,7 @@ import CartPlayer from './components/CartPlayer.vue';
 
 const {
   currentProject, saveProject, openProject, closeProject, confirmUnsavedChanges,
+  hasUnsavedChanges,
   isLoading, loadingMessage,
   repairDialogVisible, repairDialogIssues, confirmRepair, cancelRepair,
   unsavedDialogVisible, unsavedSave, unsavedDiscard, unsavedCancel,
@@ -268,6 +286,10 @@ onMounted(() => {
       return; // skip main-window-only event listeners below
     }
 
+    // Main pushes this when the window is about to close; we run the
+    // quit-confirmation dialogs then call confirmQuit to actually quit.
+    (window as any).electronAPI.app?.onRequestQuit?.(() => { void runQuitFlow(); });
+
     window.electronAPI.onMenuToggleDarkMode(() => {
       theme.value = theme.value === 'dark' ? 'light' : 'dark';
       if (currentProject.value) {
@@ -326,6 +348,100 @@ onMounted(() => {
     window.electronAPI.updateMenuLanguage(currentLocale.value);
   }
 });
+
+// ---------------------------------------------------------------------------
+// App-quit confirmation flow.
+// Main vetoes the window close and pushes `app:request-quit`; we run a
+// two-step dialog sequence then call confirmQuit (which actually quits):
+//   1. Unsaved-changes prompt — only when there are pending edits. The user
+//      can save-then-close, close & discard, or return to the project.
+//   2. Local-server prompt — only when the audio server is running locally
+//      on this machine (we manage it). The user can close the server too
+//      (stops playback + disconnects other clients), close just the client,
+//      or return to the project.
+// Either prompt's "return" aborts the quit entirely.
+// ---------------------------------------------------------------------------
+const quitUnsavedVisible = ref(false);
+const quitServerVisible  = ref(false);
+let _quitUnsavedResolve: ((choice: 'discard' | 'save' | 'cancel') => void) | null = null;
+let _quitServerResolve:  ((choice: 'server'  | 'client' | 'cancel') => void) | null = null;
+let quitFlowActive = false;
+
+const quitUnsavedButtons = computed(() => [
+  { key: 'cancel',  label: t('quitModal.return'),           variant: 'ghost'   as const },
+  { key: 'discard', label: t('quitModal.unsavedDiscard'),   variant: 'danger'  as const },
+  { key: 'save',    label: t('quitModal.unsavedSaveClose'), variant: 'primary' as const, icon: 'save' },
+]);
+const quitServerButtons = computed(() => [
+  { key: 'cancel', label: t('quitModal.return'),            variant: 'ghost'  as const },
+  { key: 'client', label: t('quitModal.serverCloseClient'), variant: undefined },
+  { key: 'server', label: t('quitModal.serverCloseServer'), variant: 'danger' as const, icon: 'power_settings_new' },
+]);
+
+function onQuitUnsavedPick(choice: string) { _quitUnsavedResolve?.(choice as 'discard' | 'save' | 'cancel'); }
+function onQuitServerPick(choice: string)  { _quitServerResolve?.(choice as 'server' | 'client' | 'cancel'); }
+
+function askQuitUnsaved(): Promise<'discard' | 'save' | 'cancel'> {
+  quitUnsavedVisible.value = true;
+  return new Promise((resolve) => {
+    _quitUnsavedResolve = (choice) => {
+      quitUnsavedVisible.value = false;
+      _quitUnsavedResolve = null;
+      resolve(choice);
+    };
+  });
+}
+
+function askQuitServer(): Promise<'server' | 'client' | 'cancel'> {
+  quitServerVisible.value = true;
+  return new Promise((resolve) => {
+    _quitServerResolve = (choice) => {
+      quitServerVisible.value = false;
+      _quitServerResolve = null;
+      resolve(choice);
+    };
+  });
+}
+
+async function runQuitFlow() {
+  if (quitFlowActive) return;
+  quitFlowActive = true;
+  const api = (window as any).electronAPI;
+  try {
+    // Step 1 — unsaved changes (pending edits with autosave off).
+    if (hasUnsavedChanges.value) {
+      const choice = await askQuitUnsaved();
+      if (choice === 'cancel') return;
+      if (choice === 'save') {
+        try {
+          await saveProject({ force: true });
+        } catch (e) {
+          console.error('[quit] save failed, aborting quit:', e);
+          return;
+        }
+      }
+    }
+
+    // Step 2 — local audio server (only when we manage one that's running).
+    let serverIsLocal = false;
+    try {
+      const status = await api?.liveplayServer?.getStatus?.();
+      serverIsLocal = !!status && status.config?.mode === 'local' && !!status.running;
+    } catch (e) {
+      console.warn('[quit] could not read server status:', e);
+    }
+
+    if (serverIsLocal) {
+      const choice = await askQuitServer();
+      if (choice === 'cancel') return;
+      await api?.app?.confirmQuit?.({ stopServer: choice === 'server' });
+    } else {
+      await api?.app?.confirmQuit?.({ stopServer: false });
+    }
+  } finally {
+    quitFlowActive = false;
+  }
+}
 
 const changeAccentColor = (color: string) => {
   if (currentProject.value) {
