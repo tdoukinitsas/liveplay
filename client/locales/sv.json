@@ -168,7 +168,8 @@
     "stop": "Stoppa",
     "delete": "Ta bort",
     "edit": "Redigera",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Ingenting",
@@ -435,7 +436,8 @@
     "endPlayNext": "Slut: Spela nästa",
     "endGotoItem": "Slut: Gå till objekt",
     "endGotoIndex": "Slut: Gå till index",
-    "endLoop": "Slut: Upprepa"
+    "endLoop": "Slut: Upprepa",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Minska med {seconds}s",

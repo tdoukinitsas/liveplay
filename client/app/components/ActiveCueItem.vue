@@ -37,14 +37,30 @@
       <div class="cue-progress">
         <div class="time-info">
           <span>{{ formatTime(cue.currentTime) }}</span>
+          <!-- Segue countdown: time until the Start Next marker fires -->
+          <span
+            v-if="segueCountdown !== null"
+            class="segue-countdown"
+            :class="{ 'segue-countdown--imminent': segueCountdown <= 5 }"
+            :title="t('playback.startNextCountdown')"
+          >
+            <span class="material-symbols-rounded">skip_next</span>
+            {{ segueCountdown.toFixed(1) }}s
+          </span>
           <span>-{{ formatTime(cue.duration - cue.currentTime) }}</span>
         </div>
-        
+
         <div class="progress-bar" @click="handleSeek">
           <div class="progress-fill" :style="progressStyle"></div>
-          <div 
-            class="progress-handle" 
-            :style="{ 
+          <!-- Start Next marker tick on the progress bar -->
+          <div
+            v-if="seguePercent !== null"
+            class="segue-tick"
+            :style="{ left: `${seguePercent}%` }"
+          ></div>
+          <div
+            class="progress-handle"
+            :style="{
               left: `${progress}%`,
               borderColor: cue.color || 'var(--color-accent)'
             }"
@@ -97,6 +113,32 @@ const props = defineProps<{
 
 const { stopCue, pauseCue, resumeCue, seekCue } = useAudioEngine();
 const { t } = useLocalization();
+const { findItemByUuid } = useProject();
+
+// Start Next marker (absolute file time) from the project item, if armed.
+const startNextTime = computed<number | null>(() => {
+  const item = findItemByUuid(props.cue.uuid) as any;
+  if (!item || item.type !== 'audio') return null;
+  if (!item.startNextEnabled || !(item.startNextTime > 0)) return null;
+  return item.startNextTime as number;
+});
+
+// Seconds until the marker fires; null once passed (or when not armed).
+// currentTime is relative to the in point, the marker is absolute file time.
+const segueCountdown = computed<number | null>(() => {
+  if (startNextTime.value === null) return null;
+  const absolutePos = props.cue.currentTime + (props.cue.inPoint || 0);
+  const remaining = startNextTime.value - absolutePos;
+  return remaining > 0 ? remaining : null;
+});
+
+// Marker position on the (trimmed) progress bar, 0–100.
+const seguePercent = computed<number | null>(() => {
+  if (startNextTime.value === null || !props.cue.duration) return null;
+  const rel = (startNextTime.value - (props.cue.inPoint || 0)) / props.cue.duration;
+  if (rel <= 0 || rel >= 1) return null;
+  return rel * 100;
+});
 
 // Server engine cue ID — populated in onload once the server registers the
 // cue and returns its ID. Used by StereoMeter to subscribe to the right
@@ -305,6 +347,36 @@ const formatTime = (seconds: number): string => {
   justify-content: space-between;
   font-size: 12px;
   color: var(--color-text-secondary);
+}
+
+.segue-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: rgb(22, 163, 74);
+  font-weight: 600;
+
+  .material-symbols-rounded {
+    font-size: 14px;
+  }
+
+  &.segue-countdown--imminent {
+    animation: segue-pulse 1s ease-in-out infinite;
+  }
+}
+
+@keyframes segue-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.segue-tick {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: rgb(22, 163, 74);
+  pointer-events: none;
 }
 
 .progress-bar {

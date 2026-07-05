@@ -168,7 +168,8 @@
     "stop": "روکیں",
     "delete": "حذف کریں",
     "edit": "ترمیم کریں",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "کچھ نہیں",
@@ -435,7 +436,8 @@
     "endPlayNext": "اختتام: اگلا چلائیں",
     "endGotoItem": "اختتام: آئٹم پر جائیں",
     "endGotoIndex": "اختتام: انڈیکس پر جائیں",
-    "endLoop": "اختتام: لوپ"
+    "endLoop": "اختتام: لوپ",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "{seconds}s کم کریں",

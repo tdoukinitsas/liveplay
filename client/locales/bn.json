@@ -168,7 +168,8 @@
     "stop": "থামান",
     "delete": "মুছুন",
     "edit": "সম্পাদনা করুন",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "কিছুই না",
@@ -435,7 +436,8 @@
     "endPlayNext": "শেষ: পরবর্তী বাজান",
     "endGotoItem": "শেষ: আইটেমে যান",
     "endGotoIndex": "শেষ: সূচকে যান",
-    "endLoop": "শেষ: লুপ"
+    "endLoop": "শেষ: লুপ",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "{seconds}s কমান",

@@ -168,7 +168,8 @@
     "stop": "Ndalo",
     "delete": "Fshi",
     "edit": "Redakto",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Asgjë",
@@ -435,7 +436,8 @@
     "endPlayNext": "Mbarim: Luaj të ardhshmin",
     "endGotoItem": "Mbarim: Shko te artikulli",
     "endGotoIndex": "Mbarim: Shko te indeksi",
-    "endLoop": "Mbarim: Përsërit"
+    "endLoop": "Mbarim: Përsërit",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Zvogëlo me {seconds}s",

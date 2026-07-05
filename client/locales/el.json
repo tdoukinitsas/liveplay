@@ -168,7 +168,8 @@
     "stop": "Σταμάτημα",
     "delete": "Διαγραφή",
     "edit": "Επεξεργασία",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Τίποτα",
@@ -435,7 +436,8 @@
     "endPlayNext": "Τέλος: Αναπαραγωγή επόμενου",
     "endGotoItem": "Τέλος: Μετάβαση σε στοιχείο",
     "endGotoIndex": "Τέλος: Μετάβαση σε ευρετήριο",
-    "endLoop": "Τέλος: Επανάληψη"
+    "endLoop": "Τέλος: Επανάληψη",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Μείωση κατά {seconds}δ",

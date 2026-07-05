@@ -168,7 +168,8 @@
     "stop": "إيقاف",
     "delete": "حذف",
     "edit": "تحرير",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "لا شيء",
@@ -435,7 +436,8 @@
     "endPlayNext": "النهاية: تشغيل التالي",
     "endGotoItem": "النهاية: الانتقال إلى العنصر",
     "endGotoIndex": "النهاية: الانتقال إلى الفهرس",
-    "endLoop": "النهاية: تكرار"
+    "endLoop": "النهاية: تكرار",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "تقليل بمقدار {seconds}ث",

@@ -168,7 +168,8 @@
     "stop": "Durdur",
     "delete": "Sil",
     "edit": "Düzenle",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Hiçbir şey",
@@ -435,7 +436,8 @@
     "endPlayNext": "Bitiş: Sonrakini Oynat",
     "endGotoItem": "Bitiş: Öğeye Git",
     "endGotoIndex": "Bitiş: Dizine Git",
-    "endLoop": "Bitiş: Döngü"
+    "endLoop": "Bitiş: Döngü",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "{seconds}sn Azalt",

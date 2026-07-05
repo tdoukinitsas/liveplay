@@ -168,7 +168,8 @@
     "stop": "توقف",
     "delete": "حذف",
     "edit": "ویرایش",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "هیچ",
@@ -435,7 +436,8 @@
     "endPlayNext": "پایان: پخش بعدی",
     "endGotoItem": "پایان: رفتن به آیتم",
     "endGotoIndex": "پایان: رفتن به شاخص",
-    "endLoop": "پایان: حلقه"
+    "endLoop": "پایان: حلقه",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "کاهش {seconds} ثانیه",

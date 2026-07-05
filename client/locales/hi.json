@@ -168,7 +168,8 @@
     "stop": "रोकें",
     "delete": "हटाएँ",
     "edit": "संपादित करें",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "कुछ नहीं",
@@ -435,7 +436,8 @@
     "endPlayNext": "अंत: अगला चलाएं",
     "endGotoItem": "अंत: आइटम पर जाएं",
     "endGotoIndex": "अंत: इंडेक्स पर जाएं",
-    "endLoop": "अंत: लूप"
+    "endLoop": "अंत: लूप",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "{seconds}s कम करें",

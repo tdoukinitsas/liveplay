@@ -146,7 +146,8 @@
     "endPlayNext": "End: Play Next",
     "endGotoItem": "End: Go To Item",
     "endGotoIndex": "End: Go To Index",
-    "endLoop": "End: Loop"
+    "endLoop": "End: Loop",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Decrease by {seconds}s",
@@ -224,7 +225,8 @@
     "stop": "Stop",
     "delete": "Delete",
     "edit": "Edit",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Nothing",

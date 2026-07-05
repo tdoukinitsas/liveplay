@@ -168,7 +168,8 @@
     "stop": "Parar",
     "delete": "Excluir",
     "edit": "Editar",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Nada",
@@ -435,7 +436,8 @@
     "endPlayNext": "Fim: Tocar próximo",
     "endGotoItem": "Fim: Ir para item",
     "endGotoIndex": "Fim: Ir para índice",
-    "endLoop": "Fim: Repetir"
+    "endLoop": "Fim: Repetir",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Diminuir em {seconds}s",

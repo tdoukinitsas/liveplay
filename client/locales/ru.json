@@ -168,7 +168,8 @@
     "stop": "Остановить",
     "delete": "Удалить",
     "edit": "Редактировать",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Ничего",
@@ -435,7 +436,8 @@
     "endPlayNext": "Конец: воспроизвести следующий",
     "endGotoItem": "Конец: перейти к элементу",
     "endGotoIndex": "Конец: перейти к индексу",
-    "endLoop": "Конец: повтор"
+    "endLoop": "Конец: повтор",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Уменьшить на {seconds}с",

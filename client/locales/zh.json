@@ -168,7 +168,8 @@
     "stop": "停止",
     "delete": "删除",
     "edit": "编辑",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "无",
@@ -435,7 +436,8 @@
     "endPlayNext": "结束：播放下一个",
     "endGotoItem": "结束：转到项目",
     "endGotoIndex": "结束：转到索引",
-    "endLoop": "结束：循环"
+    "endLoop": "结束：循环",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "减少 {seconds} 秒",
