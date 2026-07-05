@@ -396,6 +396,16 @@ private:
         double                   effective_end       = 0.0;
         bool                     crossfade_triggered = false;
         bool                     stop_fade_triggered = false;
+        // "Start Next" segue marker: when the playhead crosses
+        // start_next_time (absolute seconds within the file, same convention
+        // as ScheduledCustomAction::time_point), the next item starts at its
+        // own volume/fades while this cue keeps playing. 0 = disabled.
+        // start_next_fade_sec > 0 additionally begins this cue's fade-out at
+        // the marker. Once triggered, the item's own end-behaviour advance is
+        // suppressed (the playlist already moved on).
+        double                   start_next_time      = 0.0;
+        double                   start_next_fade_sec  = 0.0;
+        bool                     start_next_triggered = false;
         std::vector<DuckedEntry> ducked;
         std::vector<ScheduledCustomAction> custom_actions;
     };

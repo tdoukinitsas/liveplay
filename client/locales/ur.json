@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "ur",
     "name": "Urdu",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "متعدد آئٹمز منتخب ہیں — اس کی ویوفارم دکھانے کے لیے ایک آئٹم منتخب کریں۔",
     "multiSelectOutPointDisabled": "متعدد انتخاب کے لیے غیر فعال (آؤٹ پوائنٹ ہر آئٹم کی مدت پر منحصر ہے)۔",
     "noWaveformData": "کوئی ویوفارم ڈیٹا دستیاب نہیں",
-    "ltcRequiresDevice": "ٹائم کوڈ آؤٹ پٹ فعال کرنے کے لیے پروجیکٹ سیٹنگز میں ایک LTC آؤٹ پٹ ڈیوائس منتخب کریں۔"
+    "ltcRequiresDevice": "ٹائم کوڈ آؤٹ پٹ فعال کرنے کے لیے پروجیکٹ سیٹنگز میں ایک LTC آؤٹ پٹ ڈیوائس منتخب کریں۔",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "تمام سگنلز روکیں",
@@ -439,7 +442,8 @@
     "increaseBy": "{seconds}s بڑھائیں",
     "playFadeTitle": "فیڈ ان: {seconds}s",
     "stopFadeTitle": "فیڈ آؤٹ: {seconds}s",
-    "crossFadeTitle": "کراس فیڈ: {seconds}s"
+    "crossFadeTitle": "کراس فیڈ: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "غیر محفوظ شدہ تبدیلیاں",

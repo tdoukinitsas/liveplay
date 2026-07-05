@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "bn",
     "name": "Bengali",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "একাধিক আইটেম নির্বাচিত — এর ওয়েভফর্ম দেখাতে একটি আইটেম বেছে নিন।",
     "multiSelectOutPointDisabled": "একাধিক নির্বাচনের জন্য নিষ্ক্রিয় (আউট পয়েন্ট প্রতিটি আইটেমের সময়কালের উপর নির্ভর করে)।",
     "noWaveformData": "কোনো ওয়েভফর্ম ডেটা উপলব্ধ নেই",
-    "ltcRequiresDevice": "টাইমকোড আউটপুট সক্ষম করতে প্রকল্প সেটিংসে একটি LTC আউটপুট ডিভাইস নির্বাচন করুন।"
+    "ltcRequiresDevice": "টাইমকোড আউটপুট সক্ষম করতে প্রকল্প সেটিংসে একটি LTC আউটপুট ডিভাইস নির্বাচন করুন।",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "সমস্ত সংকেত বন্ধ করুন",
@@ -439,7 +442,8 @@
     "increaseBy": "{seconds}s বাড়ান",
     "playFadeTitle": "ফেড ইন: {seconds}s",
     "stopFadeTitle": "ফেড আউট: {seconds}s",
-    "crossFadeTitle": "ক্রস ফেড: {seconds}s"
+    "crossFadeTitle": "ক্রস ফেড: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "অসংরক্ষিত পরিবর্তন",

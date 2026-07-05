@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "fr",
     "name": "French",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Plusieurs éléments sélectionnés — choisissez un seul élément pour afficher sa forme d'onde.",
     "multiSelectOutPointDisabled": "Désactivé pour la sélection multiple (le point de sortie dépend de la durée de chaque élément).",
     "noWaveformData": "Aucune donnée de forme d'onde disponible",
-    "ltcRequiresDevice": "Sélectionnez un périphérique de sortie LTC dans les Paramètres du projet pour activer la sortie timecode."
+    "ltcRequiresDevice": "Sélectionnez un périphérique de sortie LTC dans les Paramètres du projet pour activer la sortie timecode.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Arrêter Tous les Signaux",
@@ -439,7 +442,8 @@
     "increaseBy": "Augmenter de {seconds}s",
     "playFadeTitle": "Fondu d'entrée : {seconds}s",
     "stopFadeTitle": "Fondu de sortie : {seconds}s",
-    "crossFadeTitle": "Fondu enchaîné : {seconds}s"
+    "crossFadeTitle": "Fondu enchaîné : {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Modifications non enregistrées",

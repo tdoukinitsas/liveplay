@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "el",
     "name": "Greek",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Επιλέχθηκαν πολλά στοιχεία — επιλέξτε ένα μεμονωμένο στοιχείο για να εμφανιστεί η κυματομορφή του.",
     "multiSelectOutPointDisabled": "Απενεργοποιημένο για πολλαπλή επιλογή (το σημείο λήξης εξαρτάται από τη διάρκεια κάθε στοιχείου).",
     "noWaveformData": "Δεν υπάρχουν διαθέσιμα δεδομένα κυματομορφής",
-    "ltcRequiresDevice": "Επιλέξτε μια συσκευή εξόδου LTC στις Ρυθμίσεις έργου για να ενεργοποιήσετε την έξοδο timecode."
+    "ltcRequiresDevice": "Επιλέξτε μια συσκευή εξόδου LTC στις Ρυθμίσεις έργου για να ενεργοποιήσετε την έξοδο timecode.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Σταματημα Όλων",
@@ -439,7 +442,8 @@
     "increaseBy": "Αύξηση κατά {seconds}δ",
     "playFadeTitle": "Fade εισόδου: {seconds}δ",
     "stopFadeTitle": "Fade εξόδου: {seconds}δ",
-    "crossFadeTitle": "Cross-fade: {seconds}δ"
+    "crossFadeTitle": "Cross-fade: {seconds}δ",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Μη αποθηκευμένες αλλαγές",

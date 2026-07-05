@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "ru",
     "name": "Russian",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Выбрано несколько элементов — выберите один элемент, чтобы показать его форму волны.",
     "multiSelectOutPointDisabled": "Отключено при множественном выборе (точка выхода зависит от длительности каждого элемента).",
     "noWaveformData": "Данные формы волны недоступны",
-    "ltcRequiresDevice": "Выберите устройство вывода LTC в настройках проекта, чтобы включить вывод таймкода."
+    "ltcRequiresDevice": "Выберите устройство вывода LTC в настройках проекта, чтобы включить вывод таймкода.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Остановить все сигналы",
@@ -439,7 +442,8 @@
     "increaseBy": "Увеличить на {seconds}с",
     "playFadeTitle": "Нарастание: {seconds}с",
     "stopFadeTitle": "Затухание: {seconds}с",
-    "crossFadeTitle": "Кроссфейд: {seconds}с"
+    "crossFadeTitle": "Кроссфейд: {seconds}с",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Несохранённые изменения",

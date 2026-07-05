@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "ar",
     "name": "Arabic",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "تم تحديد عناصر متعددة — اختر عنصرًا واحدًا لعرض شكله الموجي.",
     "multiSelectOutPointDisabled": "معطّل عند تحديد عناصر متعددة (تعتمد نقطة النهاية على مدة كل عنصر).",
     "noWaveformData": "لا تتوفر بيانات الشكل الموجي",
-    "ltcRequiresDevice": "اختر جهاز إخراج LTC في إعدادات المشروع لتمكين إخراج الكود الزمني."
+    "ltcRequiresDevice": "اختر جهاز إخراج LTC في إعدادات المشروع لتمكين إخراج الكود الزمني.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "إيقاف جميع الإشارات",
@@ -439,7 +442,8 @@
     "increaseBy": "زيادة بمقدار {seconds}ث",
     "playFadeTitle": "تلاشي الدخول: {seconds}ث",
     "stopFadeTitle": "تلاشي الخروج: {seconds}ث",
-    "crossFadeTitle": "التلاشي المتقاطع: {seconds}ث"
+    "crossFadeTitle": "التلاشي المتقاطع: {seconds}ث",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "تغييرات غير محفوظة",

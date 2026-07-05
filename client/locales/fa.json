@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "fa",
     "name": "Farsi",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "چند مورد انتخاب شده است — برای نمایش شکل موج، یک مورد را انتخاب کنید.",
     "multiSelectOutPointDisabled": "برای انتخاب چندتایی غیرفعال است (نقطه پایان به مدت‌زمان هر مورد بستگی دارد).",
     "noWaveformData": "داده‌ای برای شکل موج موجود نیست",
-    "ltcRequiresDevice": "برای فعال‌سازی خروجی تایم‌کد، یک دستگاه خروجی LTC را در تنظیمات پروژه انتخاب کنید."
+    "ltcRequiresDevice": "برای فعال‌سازی خروجی تایم‌کد، یک دستگاه خروجی LTC را در تنظیمات پروژه انتخاب کنید.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "توقف همه سیگنال‌ها",
@@ -439,7 +442,8 @@
     "increaseBy": "افزایش {seconds} ثانیه",
     "playFadeTitle": "فید ورودی: {seconds} ثانیه",
     "stopFadeTitle": "فید خروجی: {seconds} ثانیه",
-    "crossFadeTitle": "کراس فید: {seconds} ثانیه"
+    "crossFadeTitle": "کراس فید: {seconds} ثانیه",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "تغییرات ذخیره‌نشده",

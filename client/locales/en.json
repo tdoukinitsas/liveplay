@@ -153,7 +153,8 @@
     "increaseBy": "Increase by {seconds}s",
     "playFadeTitle": "Play Fade: {seconds}s",
     "stopFadeTitle": "Stop Fade: {seconds}s",
-    "crossFadeTitle": "Cross Fade: {seconds}s"
+    "crossFadeTitle": "Cross Fade: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "properties": {
     "title": "Properties",
@@ -200,6 +201,9 @@
     "pauseFade": "Pause/Resume Fade",
     "crossFade": "Cross-fade to Next",
     "fadeSettings": "Fade Settings",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker",
     "ltcOutputTimecode": "Output LTC Timecode",
     "ltcOutputTimecodeHelp": "Send SMPTE Linear Timecode to the project's LTC device while this cue plays.",
     "ltcRequiresDevice": "Select an LTC output device in Project Settings to enable timecode output.",

@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "ja",
     "name": "Japanese",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "複数の項目が選択されています — 波形を表示するには単一の項目を選択してください。",
     "multiSelectOutPointDisabled": "複数選択では無効です（アウトポイントは各項目の長さに依存します）。",
     "noWaveformData": "波形データがありません",
-    "ltcRequiresDevice": "タイムコード出力を有効にするには、プロジェクト設定でLTC出力デバイスを選択してください。"
+    "ltcRequiresDevice": "タイムコード出力を有効にするには、プロジェクト設定でLTC出力デバイスを選択してください。",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "すべての信号を停止",
@@ -439,7 +442,8 @@
     "increaseBy": "{seconds}秒増やす",
     "playFadeTitle": "フェードイン：{seconds}秒",
     "stopFadeTitle": "フェードアウト：{seconds}秒",
-    "crossFadeTitle": "クロスフェード：{seconds}秒"
+    "crossFadeTitle": "クロスフェード：{seconds}秒",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "未保存の変更",

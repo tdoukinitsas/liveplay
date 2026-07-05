@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "hi",
     "name": "Hindi",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "कई आइटम चयनित — इसकी वेवफ़ॉर्म दिखाने के लिए एक आइटम चुनें।",
     "multiSelectOutPointDisabled": "एकाधिक चयन के लिए अक्षम (आउट पॉइंट प्रत्येक आइटम की अवधि पर निर्भर करता है)।",
     "noWaveformData": "कोई वेवफ़ॉर्म डेटा उपलब्ध नहीं",
-    "ltcRequiresDevice": "टाइमकोड आउटपुट सक्षम करने के लिए प्रोजेक्ट सेटिंग्स में एक LTC आउटपुट डिवाइस चुनें।"
+    "ltcRequiresDevice": "टाइमकोड आउटपुट सक्षम करने के लिए प्रोजेक्ट सेटिंग्स में एक LTC आउटपुट डिवाइस चुनें।",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "सभी सिग्नल रोकें",
@@ -439,7 +442,8 @@
     "increaseBy": "{seconds}s बढ़ाएं",
     "playFadeTitle": "फेड इन: {seconds}s",
     "stopFadeTitle": "फेड आउट: {seconds}s",
-    "crossFadeTitle": "क्रॉस फेड: {seconds}s"
+    "crossFadeTitle": "क्रॉस फेड: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "असहेजे गए परिवर्तन",

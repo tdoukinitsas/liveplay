@@ -32,6 +32,12 @@ export interface AudioItem extends BaseItem {
   playFade: number; // fade in duration when playing (default: 0)
   stopFade: number; // fade out duration before end (default: 0)
   crossFade: number; // cross-fade duration to next track (default: 0)
+  // "Start Next" segue marker (radio-style transition): when the playhead
+  // crosses startNextTime, the next item starts at its own volume/fades
+  // while this one keeps playing. Independent of the fade-out markers.
+  startNextEnabled?: boolean;
+  startNextTime?: number;     // absolute seconds within the file
+  startNextFadeOut?: boolean; // also begin this item's fade-out at the marker
   // LTC (SMPTE Linear Timecode) output for this cue.
   ltcEnabled?: boolean;         // output LTC on the project's ltcDevice when playing
   ltcStartTimecode?: string;    // starting timecode "HH:MM:SS:FF" (default "00:00:00:00")
@@ -203,6 +209,9 @@ export const DEFAULT_AUDIO_ITEM: Partial<AudioItem> = {
   playFade: 0,
   stopFade: 0,
   crossFade: 0,
+  startNextEnabled: false,
+  startNextTime: 0,
+  startNextFadeOut: false,
   ltcEnabled: false,
   ltcStartTimecode: '00:00:00:00',
   ltcFrameRate: 4,
@@ -225,7 +234,10 @@ export const DEFAULT_CART_AUDIO_ITEM: Partial<AudioItem> = {
   fadeOutDuration: 1.0,
   playFade: 0,
   stopFade: 0,
-  crossFade: 0
+  crossFade: 0,
+  startNextEnabled: false,
+  startNextTime: 0,
+  startNextFadeOut: false
 };
 
 export const DEFAULT_GROUP_ITEM: Partial<GroupItem> = {

@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "sq",
     "name": "Albanian",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Janë zgjedhur disa artikuj — zgjidhni një artikull të vetëm për të shfaqur formën e valës.",
     "multiSelectOutPointDisabled": "E çaktivizuar për përzgjedhje të shumëfishtë (pika e daljes varet nga kohëzgjatja e secilit artikull).",
     "noWaveformData": "Nuk ka të dhëna të formës së valës",
-    "ltcRequiresDevice": "Zgjidh një pajisje dalëse LTC te Cilësimet e projektit për të aktivizuar daljen e timecode."
+    "ltcRequiresDevice": "Zgjidh një pajisje dalëse LTC te Cilësimet e projektit për të aktivizuar daljen e timecode.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Ndalo të Gjitha Sinjalet",
@@ -439,7 +442,8 @@
     "increaseBy": "Rrit me {seconds}s",
     "playFadeTitle": "Fade-in: {seconds}s",
     "stopFadeTitle": "Fade-out: {seconds}s",
-    "crossFadeTitle": "Cross-fade: {seconds}s"
+    "crossFadeTitle": "Cross-fade: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Ndryshime të paruajtura",

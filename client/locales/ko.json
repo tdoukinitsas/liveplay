@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "ko",
     "name": "Korean",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "여러 항목이 선택됨 — 파형을 표시하려면 단일 항목을 선택하세요.",
     "multiSelectOutPointDisabled": "다중 선택에서는 비활성화됩니다 (아웃 포인트는 각 항목의 길이에 따라 달라집니다).",
     "noWaveformData": "파형 데이터가 없습니다",
-    "ltcRequiresDevice": "타임코드 출력을 활성화하려면 프로젝트 설정에서 LTC 출력 장치를 선택하세요."
+    "ltcRequiresDevice": "타임코드 출력을 활성화하려면 프로젝트 설정에서 LTC 출력 장치를 선택하세요.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "모든 신호 중지",
@@ -439,7 +442,8 @@
     "increaseBy": "{seconds}초 늘리기",
     "playFadeTitle": "페이드 인: {seconds}초",
     "stopFadeTitle": "페이드 아웃: {seconds}초",
-    "crossFadeTitle": "크로스페이드: {seconds}초"
+    "crossFadeTitle": "크로스페이드: {seconds}초",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "저장되지 않은 변경 사항",

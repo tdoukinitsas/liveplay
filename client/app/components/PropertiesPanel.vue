@@ -110,6 +110,9 @@
           @update:play-fade="(v) => { beginItemBatch(); handlePlayFadeUpdate(v); }"
           @update:stop-fade="(v) => { beginItemBatch(); handleStopFadeUpdate(v); }"
           @update:cross-fade="(v) => { beginItemBatch(); handleCrossFadeUpdate(v); }"
+          @update:start-next-enabled="(v) => { beginItemBatch(); handleStartNextEnabledUpdate(v); }"
+          @update:start-next-time="(v) => { beginItemBatch(); handleStartNextTimeUpdate(v); }"
+          @update:start-next-fade-out="(v) => { beginItemBatch(); handleStartNextFadeOutUpdate(v); }"
           @change="handleSave"
           @normalize="handleNormalize"
           @trim-silence="handleTrimSilence"
@@ -798,6 +801,33 @@ const handleCrossFadeUpdate = (value: number) => {
   items.forEach(item => {
     if (item.type === 'audio') {
       (item as AudioItem).crossFade = value;
+    }
+  });
+};
+
+const handleStartNextEnabledUpdate = (value: boolean) => {
+  const items = getSelectedItems();
+  items.forEach(item => {
+    if (item.type === 'audio') {
+      (item as AudioItem).startNextEnabled = value;
+    }
+  });
+};
+
+const handleStartNextTimeUpdate = (value: number) => {
+  const items = getSelectedItems();
+  items.forEach(item => {
+    if (item.type === 'audio') {
+      (item as AudioItem).startNextTime = value;
+    }
+  });
+};
+
+const handleStartNextFadeOutUpdate = (value: boolean) => {
+  const items = getSelectedItems();
+  items.forEach(item => {
+    if (item.type === 'audio') {
+      (item as AudioItem).startNextFadeOut = value;
     }
   });
 };

@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "de",
     "name": "German",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Mehrere Elemente ausgewählt – wählen Sie ein einzelnes Element, um seine Wellenform anzuzeigen.",
     "multiSelectOutPointDisabled": "Bei Mehrfachauswahl deaktiviert (der Endpunkt hängt von der Dauer des jeweiligen Elements ab).",
     "noWaveformData": "Keine Wellenformdaten verfügbar",
-    "ltcRequiresDevice": "Wählen Sie in den Projekteinstellungen ein LTC-Ausgabegerät, um die Timecode-Ausgabe zu aktivieren."
+    "ltcRequiresDevice": "Wählen Sie in den Projekteinstellungen ein LTC-Ausgabegerät, um die Timecode-Ausgabe zu aktivieren.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Alle Signale stoppen",
@@ -439,7 +442,8 @@
     "increaseBy": "Um {seconds}s erhöhen",
     "playFadeTitle": "Einblenden: {seconds}s",
     "stopFadeTitle": "Ausblenden: {seconds}s",
-    "crossFadeTitle": "Überblenden: {seconds}s"
+    "crossFadeTitle": "Überblenden: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Ungespeicherte Änderungen",

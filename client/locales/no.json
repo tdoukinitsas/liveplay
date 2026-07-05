@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "no",
     "name": "Norwegian",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Flere elementer valgt – velg ett enkelt element for å vise bølgeformen.",
     "multiSelectOutPointDisabled": "Deaktivert ved flervalg (utpunktet avhenger av hvert elements varighet).",
     "noWaveformData": "Ingen bølgeformdata tilgjengelig",
-    "ltcRequiresDevice": "Velg en LTC-utgangsenhet i Prosjektinnstillinger for å aktivere timecode-utgang."
+    "ltcRequiresDevice": "Velg en LTC-utgangsenhet i Prosjektinnstillinger for å aktivere timecode-utgang.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Stopp alle signaler",
@@ -439,7 +442,8 @@
     "increaseBy": "Øk med {seconds}s",
     "playFadeTitle": "Innfading: {seconds}s",
     "stopFadeTitle": "Utfading: {seconds}s",
-    "crossFadeTitle": "Kryssfading: {seconds}s"
+    "crossFadeTitle": "Kryssfading: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Ulagrede endringer",

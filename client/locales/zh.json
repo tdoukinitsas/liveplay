@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "zh",
     "name": "Chinese",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "已选择多个项目 — 请选择单个项目以显示其波形。",
     "multiSelectOutPointDisabled": "多选时禁用（出点取决于每个项目的时长）。",
     "noWaveformData": "无可用波形数据",
-    "ltcRequiresDevice": "在项目设置中选择一个 LTC 输出设备以启用时间码输出。"
+    "ltcRequiresDevice": "在项目设置中选择一个 LTC 输出设备以启用时间码输出。",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "停止所有信号",
@@ -439,7 +442,8 @@
     "increaseBy": "增加 {seconds} 秒",
     "playFadeTitle": "淡入：{seconds}秒",
     "stopFadeTitle": "淡出：{seconds}秒",
-    "crossFadeTitle": "交叉淡变：{seconds}秒"
+    "crossFadeTitle": "交叉淡变：{seconds}秒",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "未保存的更改",

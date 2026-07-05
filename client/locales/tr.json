@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "tr",
     "name": "Turkish",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Birden çok öğe seçildi — dalga biçimini görüntülemek için tek bir öğe seçin.",
     "multiSelectOutPointDisabled": "Çoklu seçimde devre dışı (çıkış noktası her öğenin süresine bağlıdır).",
     "noWaveformData": "Dalga biçimi verisi yok",
-    "ltcRequiresDevice": "Zaman kodu çıkışını etkinleştirmek için Proje Ayarları'nda bir LTC çıkış cihazı seçin."
+    "ltcRequiresDevice": "Zaman kodu çıkışını etkinleştirmek için Proje Ayarları'nda bir LTC çıkış cihazı seçin.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Tüm Sinyalleri Durdur",
@@ -439,7 +442,8 @@
     "increaseBy": "{seconds}sn Artır",
     "playFadeTitle": "Giriş Sönümü: {seconds}sn",
     "stopFadeTitle": "Çıkış Sönümü: {seconds}sn",
-    "crossFadeTitle": "Çapraz Sönüm: {seconds}sn"
+    "crossFadeTitle": "Çapraz Sönüm: {seconds}sn",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Kaydedilmemiş değişiklikler",
