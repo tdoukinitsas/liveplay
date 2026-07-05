@@ -248,102 +248,102 @@
       </div>
     </div>
 
-    <!-- Fade Controls (hidden for cart items) -->
+    <!-- Fade & Transition Controls (hidden for cart items) -->
     <div v-if="!isCartItem" class="fade-controls-section">
-      <div class="fade-control-group">
-        <label>{{ t('properties.playFade') }}</label>
-        <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustPlayFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">remove</span>
-          </button>
-          <input 
-            type="text"
-            class="time-input fade-input"
-            :value="formatTimeDetailed(playFade)"
-            @change="handlePlayFadeTextChange"
-            @focus="($event.target as HTMLInputElement).select()"
-          />
-          <button class="time-increment" @click="adjustPlayFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">add</span>
-          </button>
+      <div class="fade-column">
+        <div class="fade-control-group">
+          <label>{{ t('properties.playFade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" @click="adjustPlayFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(playFade)"
+              @change="handlePlayFadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" @click="adjustPlayFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
+        </div>
+        <div class="fade-control-group">
+          <label>{{ t('properties.crossFade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" @click="adjustCrossFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(crossFade)"
+              @change="handleCrossFadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" @click="adjustCrossFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
         </div>
       </div>
-      <div class="fade-control-group">
-        <label>{{ t('properties.stopFade') }}</label>
-        <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">remove</span>
-          </button>
-          <input 
-            type="text"
-            class="time-input fade-input"
-            :value="formatTimeDetailed(stopFade)"
-            @change="handleStopFadeTextChange"
-            @focus="($event.target as HTMLInputElement).select()"
-          />
-          <button class="time-increment" @click="adjustStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">add</span>
-          </button>
+      <div class="fade-column">
+        <div class="fade-control-group">
+          <label>{{ t('properties.stopFade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" @click="adjustStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(stopFade)"
+              @change="handleStopFadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" @click="adjustStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
         </div>
-      </div>
-      <div class="fade-control-group">
-        <label>{{ t('properties.crossFade') }}</label>
-        <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustCrossFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">remove</span>
-          </button>
-          <input 
-            type="text"
-            class="time-input fade-input"
-            :value="formatTimeDetailed(crossFade)"
-            @change="handleCrossFadeTextChange"
-            @focus="($event.target as HTMLInputElement).select()"
-          />
-          <button class="time-increment" @click="adjustCrossFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">add</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Start Next Marker Controls (hidden for cart items) -->
-    <div v-if="!isCartItem" class="start-next-section">
-      <label class="start-next-toggle">
-        <input
-          type="checkbox"
-          :checked="startNextEnabled"
-          @change="handleStartNextEnabledChange"
-        />
-        <span>{{ t('properties.startNextEnable') }}</span>
-      </label>
-      <div class="fade-control-group" :class="{ 'start-next-disabled': !startNextEnabled }">
-        <label>{{ t('properties.startNextTime') }}</label>
-        <div class="time-input-with-buttons">
-          <button class="time-decrement" :disabled="!startNextEnabled" @click="adjustStartNextTime(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">remove</span>
-          </button>
+        <label class="start-next-toggle">
           <input
-            type="text"
-            class="time-input fade-input"
-            :value="formatTimeDetailed(startNextTime)"
-            :disabled="!startNextEnabled"
-            @change="handleStartNextTimeTextChange"
-            @focus="($event.target as HTMLInputElement).select()"
+            type="checkbox"
+            :checked="startNextEnabled"
+            @change="handleStartNextEnabledChange"
           />
-          <button class="time-increment" :disabled="!startNextEnabled" @click="adjustStartNextTime(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">add</span>
-          </button>
+          <span>{{ t('properties.startNextEnable') }}</span>
+        </label>
+        <div class="fade-control-group" :class="{ 'start-next-disabled': !startNextEnabled }">
+          <label>{{ t('properties.startNextTime') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" :disabled="!startNextEnabled" @click="adjustStartNextTime(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(startNextTime)"
+              :disabled="!startNextEnabled"
+              @change="handleStartNextTimeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" :disabled="!startNextEnabled" @click="adjustStartNextTime(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
         </div>
+        <label class="start-next-toggle" :class="{ 'start-next-disabled': !startNextEnabled }">
+          <input
+            type="checkbox"
+            :checked="startNextFadeOut"
+            :disabled="!startNextEnabled"
+            @change="handleStartNextFadeOutChange"
+          />
+          <span>{{ t('properties.startNextFadeOut') }}</span>
+        </label>
       </div>
-      <label class="start-next-toggle" :class="{ 'start-next-disabled': !startNextEnabled }">
-        <input
-          type="checkbox"
-          :checked="startNextFadeOut"
-          :disabled="!startNextEnabled"
-          @change="handleStartNextFadeOutChange"
-        />
-        <span>{{ t('properties.startNextFadeOut') }}</span>
-      </label>
     </div>
 
   </div>
@@ -1472,10 +1472,11 @@ onUnmounted(() => {
   color: var(--color-text-secondary);
 }
 
-/* Fade Controls Section */
+/* Fade & Transition Controls Section */
 .fade-controls-section {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
+  align-items: start;
   gap: var(--spacing-xs);
   padding: var(--spacing-xs);
   background: var(--color-surface);
@@ -1483,20 +1484,17 @@ onUnmounted(() => {
   width: 300px;
 }
 
+.fade-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  min-width: 0;
+}
+
 .fade-control-group {
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.start-next-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs);
-  background: var(--color-surface);
-  border-radius: var(--border-radius-sm);
-  width: 160px;
 }
 
 .start-next-toggle {
@@ -1529,8 +1527,7 @@ onUnmounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100px;
-  text-wrap: wrap;
+  max-width: 100%;
 }
 
 .fade-input {

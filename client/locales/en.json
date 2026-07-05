@@ -200,7 +200,7 @@
     "playFade": "Play Fade In",
     "stopFade": "Stop Fade Out",
     "pauseFade": "Pause/Resume Fade",
-    "crossFade": "Cross-fade to Next",
+    "crossFade": "Cross-fade",
     "fadeSettings": "Fade Settings",
     "startNextEnable": "Start Next at Marker",
     "startNextTime": "Start Next At",
