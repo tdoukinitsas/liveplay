@@ -152,6 +152,39 @@ export interface Theme {
   accentColor: string;
 }
 
+// Which track-to-track transition newly imported tracks default to. Stored in
+// project settings as `defaultTransitionMode`; every track can still be
+// switched individually in its properties.
+export type TransitionMode = 'crossfade' | 'start-next';
+
+// Transition defaults for a freshly imported audio item, derived from the
+// project's `settings.defaultTransitionMode`. Spread these over
+// DEFAULT_AUDIO_ITEM when creating the item.
+export function transitionDefaultsForImport(
+  mode: TransitionMode | string | undefined,
+  duration: number
+): Partial<AudioItem> {
+  if (mode === 'start-next') {
+    return {
+      startNextEnabled: true,
+      // Same default as the per-track toggle: 5s before the end. The engine
+      // ignores the marker while it is <= 0 (e.g. duration still unknown).
+      startNextTime: Math.max(0, duration - 5),
+      startNextFadeOut: false,
+    };
+  }
+  return {};
+}
+
+// Re-anchor a freshly imported item's default start-next marker once its real
+// trim window is known — waveform arrival and auto-trim can both move the out
+// point after import. Only call this for items imported this session, before
+// the user has had a chance to edit the marker.
+export function anchorStartNextMarker(item: AudioItem): void {
+  if (!item.startNextEnabled) return;
+  item.startNextTime = Math.max(item.inPoint, item.outPoint - 5);
+}
+
 // Active playback state
 export interface ActiveCue {
   uuid: string;

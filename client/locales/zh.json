@@ -384,7 +384,11 @@
     "noneSelected": "未选择",
     "save": "保存",
     "close": "关闭",
-    "preview": "预听"
+    "preview": "预听",
+    "transitionMode": "Default Transition Mode",
+    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
+    "transitionModeCrossfade": "Cross-fade to next",
+    "transitionModeStartNext": "Start next at marker"
   },
   "common": {
     "default": "默认",

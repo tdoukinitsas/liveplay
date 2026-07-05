@@ -384,7 +384,11 @@
     "noneSelected": "Asnjë e zgjedhur",
     "save": "Ruaj",
     "close": "Mbyll",
-    "preview": "Paraparim"
+    "preview": "Paraparim",
+    "transitionMode": "Default Transition Mode",
+    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
+    "transitionModeCrossfade": "Cross-fade to next",
+    "transitionModeStartNext": "Start next at marker"
   },
   "common": {
     "default": "e paracaktuar",

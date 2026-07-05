@@ -384,7 +384,11 @@
     "noneSelected": "Neselectat",
     "save": "Salvează",
     "close": "Închide",
-    "preview": "Previzualizare"
+    "preview": "Previzualizare",
+    "transitionMode": "Default Transition Mode",
+    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
+    "transitionModeCrossfade": "Cross-fade to next",
+    "transitionModeStartNext": "Start next at marker"
   },
   "common": {
     "default": "implicit",

@@ -384,7 +384,11 @@
     "noneSelected": "Não selecionado",
     "save": "Guardar",
     "close": "Fechar",
-    "preview": "Pré-visualização"
+    "preview": "Pré-visualização",
+    "transitionMode": "Default Transition Mode",
+    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
+    "transitionModeCrossfade": "Cross-fade to next",
+    "transitionModeStartNext": "Start next at marker"
   },
   "common": {
     "default": "padrão",

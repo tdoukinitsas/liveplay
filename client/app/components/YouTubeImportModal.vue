@@ -231,8 +231,8 @@ const importDownloadedFile = async (fileName: string, filePath: string) => {
 
   try {
     const { v4: uuidv4 } = await import('uuid');
-    const { DEFAULT_AUDIO_ITEM } = await import('~/types/project');
-    
+    const { DEFAULT_AUDIO_ITEM, transitionDefaultsForImport } = await import('~/types/project');
+
     // Get audio duration
     const duration = await getAudioDuration(filePath);
 
@@ -240,6 +240,7 @@ const importDownloadedFile = async (fileName: string, filePath: string) => {
     const uuid = uuidv4();
     const audioItem: any = {
       ...DEFAULT_AUDIO_ITEM,
+      ...transitionDefaultsForImport((currentProject.value as any)?.settings?.defaultTransitionMode, duration),
       uuid,
       index: [currentProject.value.items.length],
       displayName: fileName.replace(/\.[^/.]+$/, ''), // Remove extension
