@@ -17,8 +17,13 @@ const path = require('node:path');
 const LOCALES_DIR = path.resolve(__dirname, '..', 'client', 'locales');
 const SOURCE_LOCALE = 'en.json';
 
+// The locale files are stored with a UTF-8 BOM, which JSON.parse rejects.
+function readJson(p) {
+  return JSON.parse(fs.readFileSync(p, 'utf8').replace(/^﻿/, ''));
+}
+
 const sourcePath = path.join(LOCALES_DIR, SOURCE_LOCALE);
-const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+const source = readJson(sourcePath);
 
 // Recursively merge `src` into `dst`: for any key missing in `dst`, copy from
 // `src`. Skip `_metadata` since that's locale-specific.
@@ -52,7 +57,7 @@ const files = fs.readdirSync(LOCALES_DIR).filter(f => f.endsWith('.json') && f !
 let totalAdded = 0;
 for (const file of files) {
   const fullPath = path.join(LOCALES_DIR, file);
-  const data = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+  const data = readJson(fullPath);
   console.log(`-- ${file} --`);
   const added = mergeMissing(source, data);
   if (added > 0) {
