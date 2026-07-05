@@ -3180,8 +3180,16 @@ void ProjectState::sequencer_loop() {
                 // Fade the incoming cue IN over the crossfade window, and
                 // exclude the outgoing cue from the incoming item's ducking so
                 // its engine-owned fade-out (started just above) isn't hard-cut.
-                if (!next_uuid.empty())
-                    trigger_item(next_uuid, p.item.crossfade_sec, p.item.cue_id);
+                // Skip if the operator already started the next item manually —
+                // restarting it mid-play is never what a crossfade means.
+                if (!next_uuid.empty()) {
+                    if (item_on_air(next_uuid)) {
+                        Logger::playback("CROSSFADE: next item '{}' already "
+                                         "on air — not restarting", next_uuid);
+                    } else {
+                        trigger_item(next_uuid, p.item.crossfade_sec, p.item.cue_id);
+                    }
+                }
                 break;
             }
 
@@ -3217,8 +3225,15 @@ void ProjectState::sequencer_loop() {
                 // Exclude the outgoing cue from the incoming item's ducking
                 // so it keeps playing (or finishes its marker fade) underneath
                 // instead of being hard-cut by a stop-all ducking mode.
-                if (!next_uuid.empty())
-                    trigger_item(next_uuid, -1.0, p.item.cue_id);
+                // Skip if the operator already started the next item manually.
+                if (!next_uuid.empty()) {
+                    if (item_on_air(next_uuid)) {
+                        Logger::playback("START NEXT: next item '{}' already "
+                                         "on air — not restarting", next_uuid);
+                    } else {
+                        trigger_item(next_uuid, -1.0, p.item.cue_id);
+                    }
+                }
                 break;
             }
 
@@ -3319,6 +3334,23 @@ void ProjectState::set_external_action_handler(std::function<void(const json&)> 
     external_action_handler_ = std::move(h);
 }
 
+bool ProjectState::item_on_air(const std::string& uuid) {
+    audio::CueId cue;
+    {
+        std::lock_guard lock{mutex_};
+        auto it = item_uuid_to_cue_.find(uuid);
+        if (it == item_uuid_to_cue_.end()) return false;
+        cue = it->second;
+    }
+    if (auto* pi = engine_.find_cue(cue)) {
+        const auto ts = pi->stats().transport;
+        return ts == audio::TransportState::Playing  ||
+               ts == audio::TransportState::FadingIn ||
+               ts == audio::TransportState::Paused;
+    }
+    return false;
+}
+
 void ProjectState::handle_item_ended(const SequencedItem& item) {
     // Ensure the engine explicitly transitions the transport state and 
     // triggers a cue_state broadcast so the client UI updates.
@@ -3401,7 +3433,16 @@ void ProjectState::handle_item_ended(const SequencedItem& item) {
                 next_uuid = resolve_next_item_locked(item.uuid);
             }
         }
-        if (!next_uuid.empty()) trigger_item(next_uuid);
+        // Don't restart a next item that's already on air (the operator
+        // started it manually, or a Start Next / crossfade beat us to it).
+        if (!next_uuid.empty()) {
+            if (item_on_air(next_uuid)) {
+                Logger::playback("END BEHAVIOUR next: item '{}' already "
+                                 "on air — not restarting", next_uuid);
+            } else {
+                trigger_item(next_uuid);
+            }
+        }
     } else if (end_action == "goto-item" && !target_uuid.empty()) {
         trigger_item(target_uuid);
     } else if (end_action == "goto-index" && !target_index.empty()) {

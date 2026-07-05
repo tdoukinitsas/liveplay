@@ -420,6 +420,12 @@ private:
     void handle_item_ended(const SequencedItem& item);
     void execute_custom_action(const json& action);
 
+    // True when the item's cue is currently on air (Playing, FadingIn or
+    // Paused). The automatic advance paths (Start Next, crossfade,
+    // end-behaviour "next") use this to avoid restarting a next item the
+    // operator already started manually. Groups have no cue → false.
+    bool item_on_air(const std::string& uuid);
+
 public:
     // Subscribe to "external" custom actions the server can't perform on its
     // own — currently just http-request. The control server installs a
