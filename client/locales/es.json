@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "es",
     "name": "Spanish",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Varios elementos seleccionados: elija un solo elemento para mostrar su forma de onda.",
     "multiSelectOutPointDisabled": "Deshabilitado para selección múltiple (el punto de salida depende de la duración de cada elemento).",
     "noWaveformData": "No hay datos de forma de onda disponibles",
-    "ltcRequiresDevice": "Seleccione un dispositivo de salida LTC en la Configuración del proyecto para habilitar la salida de timecode."
+    "ltcRequiresDevice": "Seleccione un dispositivo de salida LTC en la Configuración del proyecto para habilitar la salida de timecode.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Detener Todas las Señales",
@@ -165,7 +168,8 @@
     "stop": "Detener",
     "delete": "Eliminar",
     "edit": "Editar",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Nada",
@@ -380,7 +384,11 @@
     "noneSelected": "No seleccionado",
     "save": "Guardar",
     "close": "Cerrar",
-    "preview": "Vista previa"
+    "preview": "Vista previa",
+    "transitionMode": "Default Transition Mode",
+    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
+    "transitionModeCrossfade": "Cross-fade to next",
+    "transitionModeStartNext": "Start next at marker"
   },
   "common": {
     "default": "predeterminado",
@@ -432,14 +440,16 @@
     "endPlayNext": "Fin: Reproducir siguiente",
     "endGotoItem": "Fin: Ir al elemento",
     "endGotoIndex": "Fin: Ir al índice",
-    "endLoop": "Fin: Bucle"
+    "endLoop": "Fin: Bucle",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Disminuir en {seconds}s",
     "increaseBy": "Aumentar en {seconds}s",
     "playFadeTitle": "Entrada: {seconds}s",
     "stopFadeTitle": "Salida: {seconds}s",
-    "crossFadeTitle": "Fundido cruzado: {seconds}s"
+    "crossFadeTitle": "Fundido cruzado: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Cambios sin guardar",

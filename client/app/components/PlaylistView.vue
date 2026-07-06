@@ -49,7 +49,7 @@ import AudioImportModal from './AudioImportModal.vue';
 import Btn from './Btn.vue';
 import { triggerRef } from 'vue';
 import type { AudioItem, GroupItem } from '~/types/project';
-import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM } from '~/types/project';
+import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM, transitionDefaultsForImport, anchorStartNextMarker } from '~/types/project';
 import { applyAutoProcessing } from '~/utils/audio';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 
@@ -62,8 +62,12 @@ const { levels: outputTargetLevels } = useOutputTarget();
 function maybeAutoProcess(item: AudioItem) {
   if (!consumePendingAutoProcess(item.uuid)) return;
   const settings = (currentProject.value as any)?.settings;
-  if (settings?.disableAutoVolumeAndTrim) return;
-  applyAutoProcessing(item, outputTargetLevels.value.autoVolumeTargetDb);
+  if (!settings?.disableAutoVolumeAndTrim) {
+    applyAutoProcessing(item, outputTargetLevels.value.autoVolumeTargetDb);
+  }
+  // The default start-next marker was placed relative to the import-time
+  // duration; re-anchor it to the final (possibly auto-trimmed) out point.
+  anchorStartNextMarker(item);
 }
 
 const showYouTubeModal = ref(false);
@@ -235,6 +239,7 @@ const importFromServerPath = async (serverPath: string) => {
 
     const audioItem: AudioItem = {
       ...DEFAULT_AUDIO_ITEM,
+      ...transitionDefaultsForImport((currentProject.value as any)?.settings?.defaultTransitionMode, duration),
       uuid,
       index: [currentProject.value.items.length],
       displayName: fileName.replace(/\.[^/.]+$/, ''),
@@ -288,6 +293,7 @@ const importAudioFile = async (sourcePath: string) => {
     // Create audio item WITHOUT waveform (will be generated async via ffmpeg)
     const audioItem: AudioItem = {
       ...DEFAULT_AUDIO_ITEM,
+      ...transitionDefaultsForImport((currentProject.value as any)?.settings?.defaultTransitionMode, duration),
       uuid,
       index: [currentProject.value.items.length],
       displayName: fileName.replace(/\.[^/.]+$/, ''), // Remove extension

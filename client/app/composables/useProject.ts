@@ -26,7 +26,7 @@ import type {
   Theme,
   CartItem
 } from '~/types/project';
-import { DEFAULT_THEME, DEFAULT_CART_SLOT_KEYS } from '~/types/project';
+import { DEFAULT_THEME, DEFAULT_CART_SLOT_KEYS, anchorStartNextMarker } from '~/types/project';
 import { applyAutoProcessing } from '~/utils/audio';
 
 // ---------------------------------------------------------------------------
@@ -1474,6 +1474,9 @@ export const useProject = () => {
                       const targetDb: number = settings?.outputTargetLevels?.autoVolumeTargetDb ?? -23;
                       applyAutoProcessing(target as AudioItem, targetDb);
                     }
+                    // Re-anchor the import-default start-next marker to the
+                    // final (possibly auto-trimmed) out point.
+                    anchorStartNextMarker(target as AudioItem);
                   }
                 }
                 triggerWaveformUpdate();

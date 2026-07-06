@@ -150,7 +150,7 @@
           </div>
           
           <!-- Cross Fade Handle (crossfade start) -->
-          <div 
+          <div
             v-if="crossFade > 0"
             class="fade-handle fade-handle-cross"
             :style="{ left: crossFadePosition + 'px' }"
@@ -160,6 +160,20 @@
             <div class="fade-line fade-line-yellow"></div>
             <div class="fade-grip fade-grip-yellow">
               <span class="material-symbols-rounded">swap_horiz</span>
+            </div>
+          </div>
+
+          <!-- Start Next Marker (radio-style segue point) -->
+          <div
+            v-if="startNextEnabled"
+            class="fade-handle fade-handle-startnext"
+            :style="{ left: startNextPosition + 'px' }"
+            @mousedown.prevent="startDragFade('startNext', $event)"
+            :title="t('waveform.startNextTitle', { time: formatTimeDetailed(startNextTime) })"
+          >
+            <div class="fade-line fade-line-green"></div>
+            <div class="fade-grip fade-grip-green">
+              <span class="material-symbols-rounded">skip_next</span>
             </div>
           </div>
         </template>
@@ -234,61 +248,101 @@
       </div>
     </div>
 
-    <!-- Fade Controls (hidden for cart items) -->
+    <!-- Fade & Transition Controls (hidden for cart items) -->
     <div v-if="!isCartItem" class="fade-controls-section">
-      <div class="fade-control-group">
-        <label>{{ t('properties.playFade') }}</label>
-        <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustPlayFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">remove</span>
-          </button>
-          <input 
-            type="text"
-            class="time-input fade-input"
-            :value="formatTimeDetailed(playFade)"
-            @change="handlePlayFadeTextChange"
-            @focus="($event.target as HTMLInputElement).select()"
-          />
-          <button class="time-increment" @click="adjustPlayFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">add</span>
-          </button>
+      <div class="fade-column">
+        <div class="fade-control-group">
+          <label>{{ t('properties.playFade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" @click="adjustPlayFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(playFade)"
+              @change="handlePlayFadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" @click="adjustPlayFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
+        </div>
+        <div class="fade-control-group">
+          <label>{{ t('properties.crossFade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" @click="adjustCrossFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(crossFade)"
+              @change="handleCrossFadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" @click="adjustCrossFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
         </div>
       </div>
-      <div class="fade-control-group">
-        <label>{{ t('properties.stopFade') }}</label>
-        <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">remove</span>
-          </button>
-          <input 
-            type="text"
-            class="time-input fade-input"
-            :value="formatTimeDetailed(stopFade)"
-            @change="handleStopFadeTextChange"
-            @focus="($event.target as HTMLInputElement).select()"
-          />
-          <button class="time-increment" @click="adjustStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">add</span>
-          </button>
+      <div class="fade-column">
+        <div class="fade-control-group">
+          <label>{{ t('properties.stopFade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" @click="adjustStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(stopFade)"
+              @change="handleStopFadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" @click="adjustStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
         </div>
-      </div>
-      <div class="fade-control-group">
-        <label>{{ t('properties.crossFade') }}</label>
-        <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustCrossFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">remove</span>
-          </button>
-          <input 
-            type="text"
-            class="time-input fade-input"
-            :value="formatTimeDetailed(crossFade)"
-            @change="handleCrossFadeTextChange"
-            @focus="($event.target as HTMLInputElement).select()"
+        <label class="start-next-toggle">
+          <input
+            type="checkbox"
+            :checked="startNextEnabled"
+            @change="handleStartNextEnabledChange"
           />
-          <button class="time-increment" @click="adjustCrossFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">add</span>
-          </button>
+          <span>{{ t('properties.startNextEnable') }}</span>
+        </label>
+        <div class="fade-control-group" :class="{ 'start-next-disabled': !startNextEnabled }">
+          <label>{{ t('properties.startNextTime') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" :disabled="!startNextEnabled" @click="adjustStartNextTime(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(startNextTime)"
+              :disabled="!startNextEnabled"
+              @change="handleStartNextTimeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" :disabled="!startNextEnabled" @click="adjustStartNextTime(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
         </div>
+        <label class="start-next-toggle" :class="{ 'start-next-disabled': !startNextEnabled }">
+          <input
+            type="checkbox"
+            :checked="startNextFadeOut"
+            :disabled="!startNextEnabled"
+            @change="handleStartNextFadeOutChange"
+          />
+          <span>{{ t('properties.startNextFadeOut') }}</span>
+        </label>
       </div>
     </div>
 
@@ -320,6 +374,9 @@ const emit = defineEmits<{
   'update:stopFade': [value: number];
   'update:pauseFade': [value: number];
   'update:crossFade': [value: number];
+  'update:startNextEnabled': [value: boolean];
+  'update:startNextTime': [value: number];
+  'update:startNextFadeOut': [value: boolean];
   'change': [];
   'normalize': [];
   'trimSilence': [];
@@ -346,6 +403,11 @@ const isCartItem = computed(() => {
 const playFade = computed(() => props.audioItem.playFade || 0);
 const stopFade = computed(() => props.audioItem.stopFade || 0);
 const crossFade = computed(() => props.audioItem.crossFade || 0);
+
+// Start Next marker (absolute seconds within the file)
+const startNextEnabled = computed(() => !!props.audioItem.startNextEnabled);
+const startNextTime = computed(() => props.audioItem.startNextTime || 0);
+const startNextFadeOut = computed(() => !!props.audioItem.startNextFadeOut);
 
 // Refs
 const waveformCanvas = ref<HTMLCanvasElement | null>(null);
@@ -532,6 +594,11 @@ const crossFadePosition = computed(() => {
   return (relativeTime / visibleDuration.value) * canvasWidth.value;
 });
 
+const startNextPosition = computed(() => {
+  const relativeTime = startNextTime.value - visibleStart.value;
+  return (relativeTime / visibleDuration.value) * canvasWidth.value;
+});
+
 // Seek to position (when clicking waveform)
 const seekToPosition = (absoluteTime: number) => {
   const cue = activeCues.value.get(props.audioItem.uuid);
@@ -549,7 +616,7 @@ const seekToPosition = (absoluteTime: number) => {
 };
 
 // Handle dragging
-const dragState = ref<{ handle: 'in' | 'out' | 'play' | 'stop' | 'cross' | null; startX: number; startValue: number }>({
+const dragState = ref<{ handle: 'in' | 'out' | 'play' | 'stop' | 'cross' | 'startNext' | null; startX: number; startValue: number }>({
   handle: null,
   startX: 0,
   startValue: 0
@@ -590,8 +657,11 @@ const startDragHandle = (handle: 'in' | 'out', event: MouseEvent) => {
 };
 
 // Handle fade dragging
-const startDragFade = (fadeType: 'play' | 'stop' | 'cross', event: MouseEvent) => {
-  const currentValue = fadeType === 'play' ? playFade.value : fadeType === 'stop' ? stopFade.value : crossFade.value;
+const startDragFade = (fadeType: 'play' | 'stop' | 'cross' | 'startNext', event: MouseEvent) => {
+  const currentValue = fadeType === 'play' ? playFade.value
+    : fadeType === 'stop' ? stopFade.value
+    : fadeType === 'cross' ? crossFade.value
+    : startNextTime.value;
   
   dragState.value = {
     handle: fadeType,
@@ -617,6 +687,10 @@ const startDragFade = (fadeType: 'play' | 'stop' | 'cross', event: MouseEvent) =
       // Cross fade: drag left increases fade duration (moving the start point earlier)
       const newValue = Math.max(0, Math.min(10, dragState.value.startValue - deltaTime));
       emit('update:crossFade', newValue);
+    } else if (dragState.value.handle === 'startNext') {
+      // Start Next marker: absolute position, clamped to the trimmed region.
+      const newValue = Math.max(inPoint.value, Math.min(outPoint.value, dragState.value.startValue + deltaTime));
+      emit('update:startNextTime', newValue);
     }
   };
 
@@ -783,6 +857,36 @@ const handleCrossFadeTextChange = (event: Event) => {
   const value = (event.target as HTMLInputElement).value;
   const parsed = parseTimeDetailed(value);
   emit('update:crossFade', Math.max(0, Math.min(parsed, 10)));
+  emit('change');
+};
+
+// Start Next marker handlers
+const handleStartNextEnabledChange = (event: Event) => {
+  const enabled = (event.target as HTMLInputElement).checked;
+  emit('update:startNextEnabled', enabled);
+  // First enable: default the marker near the end of the trimmed region so
+  // it's immediately visible and roughly where a segue point usually lives.
+  if (enabled && startNextTime.value <= 0) {
+    emit('update:startNextTime', Math.max(inPoint.value, outPoint.value - 5));
+  }
+  emit('change');
+};
+
+const handleStartNextFadeOutChange = (event: Event) => {
+  emit('update:startNextFadeOut', (event.target as HTMLInputElement).checked);
+  emit('change');
+};
+
+const adjustStartNextTime = (delta: number) => {
+  const newValue = Math.max(inPoint.value, Math.min(startNextTime.value + delta, outPoint.value));
+  emit('update:startNextTime', newValue);
+  emit('change');
+};
+
+const handleStartNextTimeTextChange = (event: Event) => {
+  const value = (event.target as HTMLInputElement).value;
+  const parsed = parseTimeDetailed(value);
+  emit('update:startNextTime', Math.max(inPoint.value, Math.min(parsed, outPoint.value)));
   emit('change');
 };
 
@@ -1078,6 +1182,33 @@ const drawWaveform = () => {
         }
       }
     }
+
+    // Start Next marker — green segue line, plus the optional marker fade-out
+    if (props.audioItem.startNextEnabled && startNextTime.value > 0) {
+      const markerTime = startNextTime.value;
+      if (markerTime >= visibleStart.value && markerTime <= visibleEnd.value) {
+        const markerX = (markerTime - visibleStart.value) * pixelsPerSecond;
+        ctx.strokeStyle = 'rgba(22, 163, 74, 0.9)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(markerX, 0); ctx.lineTo(markerX, canvasHeight); ctx.stroke();
+      }
+      if (props.audioItem.startNextFadeOut) {
+        const fadeDur = props.audioItem.fadeOutDuration || 1;
+        const fadeEndTime = Math.min(markerTime + fadeDur, outPoint.value);
+        if (markerTime <= visibleEnd.value && fadeEndTime >= visibleStart.value) {
+          const fadeStartX = Math.max(0, (markerTime - visibleStart.value) * pixelsPerSecond);
+          const fadeEndX = Math.min(canvasWidth.value, (fadeEndTime - visibleStart.value) * pixelsPerSecond);
+          const fadeWidth = fadeEndX - fadeStartX;
+          if (fadeWidth > 0) {
+            ctx.fillStyle = 'rgba(22, 163, 74, 0.15)';
+            ctx.fillRect(fadeStartX, 0, fadeWidth, canvasHeight);
+            ctx.strokeStyle = 'rgba(22, 163, 74, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(fadeStartX, 0); ctx.lineTo(fadeEndX, canvasHeight); ctx.stroke();
+          }
+        }
+      }
+    }
   }
 
   // Draw playhead if item is currently playing
@@ -1128,6 +1259,9 @@ watch([
   () => props.audioItem?.playFade,
   () => props.audioItem?.stopFade,
   () => props.audioItem?.crossFade,
+  () => props.audioItem?.startNextEnabled,
+  () => props.audioItem?.startNextTime,
+  () => props.audioItem?.startNextFadeOut,
   waveformData,
   playbackPosition,
   () => outputTargetLevels.value?.autoVolumeTargetDb,
@@ -1338,10 +1472,11 @@ onUnmounted(() => {
   color: var(--color-text-secondary);
 }
 
-/* Fade Controls Section */
+/* Fade & Transition Controls Section */
 .fade-controls-section {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
+  align-items: start;
   gap: var(--spacing-xs);
   padding: var(--spacing-xs);
   background: var(--color-surface);
@@ -1349,10 +1484,39 @@ onUnmounted(() => {
   width: 300px;
 }
 
+.fade-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  min-width: 0;
+}
+
 .fade-control-group {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.start-next-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  font-weight: 500;
+  cursor: pointer;
+  text-wrap: wrap;
+}
+
+.start-next-toggle input[type='checkbox'] {
+  accent-color: rgb(22, 163, 74);
+  cursor: pointer;
+}
+
+.start-next-disabled {
+  opacity: 0.45;
+  pointer-events: auto;
 }
 
 .fade-control-group label {
@@ -1363,8 +1527,7 @@ onUnmounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100px;
-  text-wrap: wrap;
+  max-width: 100%;
 }
 
 .fade-input {
@@ -1636,6 +1799,10 @@ onUnmounted(() => {
   background: rgba(234, 179, 8, 0.8);
 }
 
+.fade-line-green {
+  background: rgba(22, 163, 74, 0.8);
+}
+
 .fade-grip {
   position: absolute;
   top: 50%;
@@ -1667,6 +1834,11 @@ onUnmounted(() => {
   border-color: rgb(234, 179, 8);
 }
 
+.fade-grip-green {
+  color: rgb(22, 163, 74);
+  border-color: rgb(22, 163, 74);
+}
+
 .fade-handle-play .fade-grip {
   left: 50%;
   transform: translate(-50%, -50%);
@@ -1677,13 +1849,15 @@ onUnmounted(() => {
 }
 
 .fade-handle-stop .fade-grip,
-.fade-handle-cross .fade-grip {
+.fade-handle-cross .fade-grip,
+.fade-handle-startnext .fade-grip {
   left: 50%;
   transform: translate(-50%, -50%);
 }
 
 .fade-handle-stop:hover .fade-grip,
-.fade-handle-cross:hover .fade-grip {
+.fade-handle-cross:hover .fade-grip,
+.fade-handle-startnext:hover .fade-grip {
   transform: translate(-50%, -50%) scale(1.15);
 }
 

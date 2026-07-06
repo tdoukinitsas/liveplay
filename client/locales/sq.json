@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "sq",
     "name": "Albanian",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Janë zgjedhur disa artikuj — zgjidhni një artikull të vetëm për të shfaqur formën e valës.",
     "multiSelectOutPointDisabled": "E çaktivizuar për përzgjedhje të shumëfishtë (pika e daljes varet nga kohëzgjatja e secilit artikull).",
     "noWaveformData": "Nuk ka të dhëna të formës së valës",
-    "ltcRequiresDevice": "Zgjidh një pajisje dalëse LTC te Cilësimet e projektit për të aktivizuar daljen e timecode."
+    "ltcRequiresDevice": "Zgjidh një pajisje dalëse LTC te Cilësimet e projektit për të aktivizuar daljen e timecode.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Ndalo të Gjitha Sinjalet",
@@ -165,7 +168,8 @@
     "stop": "Ndalo",
     "delete": "Fshi",
     "edit": "Redakto",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Asgjë",
@@ -380,7 +384,11 @@
     "noneSelected": "Asnjë e zgjedhur",
     "save": "Ruaj",
     "close": "Mbyll",
-    "preview": "Paraparim"
+    "preview": "Paraparim",
+    "transitionMode": "Default Transition Mode",
+    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
+    "transitionModeCrossfade": "Cross-fade to next",
+    "transitionModeStartNext": "Start next at marker"
   },
   "common": {
     "default": "e paracaktuar",
@@ -432,14 +440,16 @@
     "endPlayNext": "Mbarim: Luaj të ardhshmin",
     "endGotoItem": "Mbarim: Shko te artikulli",
     "endGotoIndex": "Mbarim: Shko te indeksi",
-    "endLoop": "Mbarim: Përsërit"
+    "endLoop": "Mbarim: Përsërit",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Zvogëlo me {seconds}s",
     "increaseBy": "Rrit me {seconds}s",
     "playFadeTitle": "Fade-in: {seconds}s",
     "stopFadeTitle": "Fade-out: {seconds}s",
-    "crossFadeTitle": "Cross-fade: {seconds}s"
+    "crossFadeTitle": "Cross-fade: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Ndryshime të paruajtura",

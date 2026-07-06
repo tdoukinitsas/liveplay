@@ -98,6 +98,23 @@
             <p class="settings-help">{{ t('settings.outputTargetHelp') }}</p>
           </section>
 
+          <!-- Default transition mode -->
+          <section class="settings-field">
+            <label class="settings-label">
+              <span class="material-symbols-rounded">swap_horiz</span>
+              {{ t('settings.transitionMode') }}
+            </label>
+            <select
+              class="settings-select"
+              :value="defaultTransitionMode"
+              @change="onDefaultTransitionModeChange"
+            >
+              <option value="crossfade">{{ t('settings.transitionModeCrossfade') }}</option>
+              <option value="start-next">{{ t('settings.transitionModeStartNext') }}</option>
+            </select>
+            <p class="settings-help">{{ t('settings.transitionModeHelp') }}</p>
+          </section>
+
           <!-- Auto volume and trim -->
           <section class="settings-field">
             <label class="settings-label settings-label--checkbox">
@@ -184,6 +201,7 @@ const outputTarget           = computed(() => (currentProject.value as any)?.set
 const disableAutoVolumeAndTrim = computed(() => !!(currentProject.value as any)?.settings?.disableAutoVolumeAndTrim);
 const disableLimiter           = computed(() => !!(currentProject.value as any)?.settings?.disableLimiter);
 const disableSilenceWarning    = computed(() => !!(currentProject.value as any)?.settings?.disableSilenceWarning);
+const defaultTransitionMode    = computed(() => (currentProject.value as any)?.settings?.defaultTransitionMode || 'crossfade');
 const { meterMode: currentMeterMode } = useOutputTarget();
 const meterMode              = computed(() => (currentProject.value as any)?.settings?.meterMode || currentMeterMode.value);
 
@@ -238,6 +256,9 @@ function onDisableLimiterChange(e: Event) {
 }
 function onDisableSilenceWarningChange(e: Event) {
   applyPatch({ disableSilenceWarning: (e.target as HTMLInputElement).checked });
+}
+function onDefaultTransitionModeChange(e: Event) {
+  applyPatch({ defaultTransitionMode: (e.target as HTMLSelectElement).value });
 }
 
 function close() {

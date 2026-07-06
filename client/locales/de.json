@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "de",
     "name": "German",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Mehrere Elemente ausgewählt – wählen Sie ein einzelnes Element, um seine Wellenform anzuzeigen.",
     "multiSelectOutPointDisabled": "Bei Mehrfachauswahl deaktiviert (der Endpunkt hängt von der Dauer des jeweiligen Elements ab).",
     "noWaveformData": "Keine Wellenformdaten verfügbar",
-    "ltcRequiresDevice": "Wählen Sie in den Projekteinstellungen ein LTC-Ausgabegerät, um die Timecode-Ausgabe zu aktivieren."
+    "ltcRequiresDevice": "Wählen Sie in den Projekteinstellungen ein LTC-Ausgabegerät, um die Timecode-Ausgabe zu aktivieren.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Alle Signale stoppen",
@@ -165,7 +168,8 @@
     "stop": "Stoppen",
     "delete": "Löschen",
     "edit": "Bearbeiten",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Nichts",
@@ -380,7 +384,11 @@
     "noneSelected": "Nicht ausgewählt",
     "save": "Speichern",
     "close": "Schließen",
-    "preview": "Vorschau"
+    "preview": "Vorschau",
+    "transitionMode": "Default Transition Mode",
+    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
+    "transitionModeCrossfade": "Cross-fade to next",
+    "transitionModeStartNext": "Start next at marker"
   },
   "common": {
     "default": "Standard",
@@ -432,14 +440,16 @@
     "endPlayNext": "Ende: Nächstes abspielen",
     "endGotoItem": "Ende: Zu Element springen",
     "endGotoIndex": "Ende: Zu Index springen",
-    "endLoop": "Ende: Schleife"
+    "endLoop": "Ende: Schleife",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Um {seconds}s verringern",
     "increaseBy": "Um {seconds}s erhöhen",
     "playFadeTitle": "Einblenden: {seconds}s",
     "stopFadeTitle": "Ausblenden: {seconds}s",
-    "crossFadeTitle": "Überblenden: {seconds}s"
+    "crossFadeTitle": "Überblenden: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Ungespeicherte Änderungen",

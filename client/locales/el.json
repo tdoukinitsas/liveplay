@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "el",
     "name": "Greek",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Επιλέχθηκαν πολλά στοιχεία — επιλέξτε ένα μεμονωμένο στοιχείο για να εμφανιστεί η κυματομορφή του.",
     "multiSelectOutPointDisabled": "Απενεργοποιημένο για πολλαπλή επιλογή (το σημείο λήξης εξαρτάται από τη διάρκεια κάθε στοιχείου).",
     "noWaveformData": "Δεν υπάρχουν διαθέσιμα δεδομένα κυματομορφής",
-    "ltcRequiresDevice": "Επιλέξτε μια συσκευή εξόδου LTC στις Ρυθμίσεις έργου για να ενεργοποιήσετε την έξοδο timecode."
+    "ltcRequiresDevice": "Επιλέξτε μια συσκευή εξόδου LTC στις Ρυθμίσεις έργου για να ενεργοποιήσετε την έξοδο timecode.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Σταματημα Όλων",
@@ -165,7 +168,8 @@
     "stop": "Σταμάτημα",
     "delete": "Διαγραφή",
     "edit": "Επεξεργασία",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Τίποτα",
@@ -380,7 +384,11 @@
     "noneSelected": "Δεν επιλέχθηκε",
     "save": "Αποθήκευση",
     "close": "Κλείσιμο",
-    "preview": "Προεπισκόπηση"
+    "preview": "Προεπισκόπηση",
+    "transitionMode": "Default Transition Mode",
+    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
+    "transitionModeCrossfade": "Cross-fade to next",
+    "transitionModeStartNext": "Start next at marker"
   },
   "common": {
     "default": "προεπιλογή",
@@ -432,14 +440,16 @@
     "endPlayNext": "Τέλος: Αναπαραγωγή επόμενου",
     "endGotoItem": "Τέλος: Μετάβαση σε στοιχείο",
     "endGotoIndex": "Τέλος: Μετάβαση σε ευρετήριο",
-    "endLoop": "Τέλος: Επανάληψη"
+    "endLoop": "Τέλος: Επανάληψη",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Μείωση κατά {seconds}δ",
     "increaseBy": "Αύξηση κατά {seconds}δ",
     "playFadeTitle": "Fade εισόδου: {seconds}δ",
     "stopFadeTitle": "Fade εξόδου: {seconds}δ",
-    "crossFadeTitle": "Cross-fade: {seconds}δ"
+    "crossFadeTitle": "Cross-fade: {seconds}δ",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Μη αποθηκευμένες αλλαγές",

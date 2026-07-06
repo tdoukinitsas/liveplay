@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "no",
     "name": "Norwegian",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Flere elementer valgt – velg ett enkelt element for å vise bølgeformen.",
     "multiSelectOutPointDisabled": "Deaktivert ved flervalg (utpunktet avhenger av hvert elements varighet).",
     "noWaveformData": "Ingen bølgeformdata tilgjengelig",
-    "ltcRequiresDevice": "Velg en LTC-utgangsenhet i Prosjektinnstillinger for å aktivere timecode-utgang."
+    "ltcRequiresDevice": "Velg en LTC-utgangsenhet i Prosjektinnstillinger for å aktivere timecode-utgang.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Stopp alle signaler",
@@ -165,7 +168,8 @@
     "stop": "Stopp",
     "delete": "Slett",
     "edit": "Rediger",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Ingenting",
@@ -380,7 +384,11 @@
     "noneSelected": "Ikke valgt",
     "save": "Lagre",
     "close": "Lukk",
-    "preview": "Forhåndsvisning"
+    "preview": "Forhåndsvisning",
+    "transitionMode": "Default Transition Mode",
+    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
+    "transitionModeCrossfade": "Cross-fade to next",
+    "transitionModeStartNext": "Start next at marker"
   },
   "common": {
     "default": "standard",
@@ -432,14 +440,16 @@
     "endPlayNext": "Slutt: Spill neste",
     "endGotoItem": "Slutt: Gå til element",
     "endGotoIndex": "Slutt: Gå til indeks",
-    "endLoop": "Slutt: Loop"
+    "endLoop": "Slutt: Loop",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Reduser med {seconds}s",
     "increaseBy": "Øk med {seconds}s",
     "playFadeTitle": "Innfading: {seconds}s",
     "stopFadeTitle": "Utfading: {seconds}s",
-    "crossFadeTitle": "Kryssfading: {seconds}s"
+    "crossFadeTitle": "Kryssfading: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Ulagrede endringer",

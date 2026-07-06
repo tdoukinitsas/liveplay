@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "pt",
     "name": "Portuguese",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Vários itens selecionados — escolha um único item para exibir sua forma de onda.",
     "multiSelectOutPointDisabled": "Desativado para seleção múltipla (o ponto de saída depende da duração de cada item).",
     "noWaveformData": "Nenhum dado de forma de onda disponível",
-    "ltcRequiresDevice": "Selecione um dispositivo de saída LTC nas Definições do projeto para ativar a saída de timecode."
+    "ltcRequiresDevice": "Selecione um dispositivo de saída LTC nas Definições do projeto para ativar a saída de timecode.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Parar Todos os Sinais",
@@ -165,7 +168,8 @@
     "stop": "Parar",
     "delete": "Excluir",
     "edit": "Editar",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Nada",
@@ -380,7 +384,11 @@
     "noneSelected": "Não selecionado",
     "save": "Guardar",
     "close": "Fechar",
-    "preview": "Pré-visualização"
+    "preview": "Pré-visualização",
+    "transitionMode": "Default Transition Mode",
+    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
+    "transitionModeCrossfade": "Cross-fade to next",
+    "transitionModeStartNext": "Start next at marker"
   },
   "common": {
     "default": "padrão",
@@ -432,14 +440,16 @@
     "endPlayNext": "Fim: Tocar próximo",
     "endGotoItem": "Fim: Ir para item",
     "endGotoIndex": "Fim: Ir para índice",
-    "endLoop": "Fim: Repetir"
+    "endLoop": "Fim: Repetir",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Diminuir em {seconds}s",
     "increaseBy": "Aumentar em {seconds}s",
     "playFadeTitle": "Fade de entrada: {seconds}s",
     "stopFadeTitle": "Fade de saída: {seconds}s",
-    "crossFadeTitle": "Crossfade: {seconds}s"
+    "crossFadeTitle": "Crossfade: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Alterações não salvas",

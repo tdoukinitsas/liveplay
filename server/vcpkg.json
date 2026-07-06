@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "liveplay-server",
-  "version-string": "2.1.2",
+  "version-string": "2.2.0",
   "description": "LivePlay headless audio engine and control server.",
   "homepage": "https://github.com/tdoukinitsas/liveplay",
   "license": "AGPL-3.0-only",

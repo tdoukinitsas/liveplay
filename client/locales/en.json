@@ -86,6 +86,10 @@
     "disableLimiterHelp": "Turns off the brickwall limiter, allowing peaks above the output ceiling. Can be changed during playback.",
     "disableSilenceWarning": "Disable silence warning",
     "disableSilenceWarningHelp": "Stops the silence warning banner from appearing in the header.",
+    "transitionMode": "Default Transition Mode",
+    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
+    "transitionModeCrossfade": "Cross-fade to next",
+    "transitionModeStartNext": "Start next at marker",
     "useProjectDefault": "Use project default",
     "noneSelected": "Not selected",
     "save": "Save",
@@ -146,14 +150,16 @@
     "endPlayNext": "End: Play Next",
     "endGotoItem": "End: Go To Item",
     "endGotoIndex": "End: Go To Index",
-    "endLoop": "End: Loop"
+    "endLoop": "End: Loop",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Decrease by {seconds}s",
     "increaseBy": "Increase by {seconds}s",
     "playFadeTitle": "Play Fade: {seconds}s",
     "stopFadeTitle": "Stop Fade: {seconds}s",
-    "crossFadeTitle": "Cross Fade: {seconds}s"
+    "crossFadeTitle": "Cross Fade: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "properties": {
     "title": "Properties",
@@ -198,8 +204,11 @@
     "playFade": "Play Fade In",
     "stopFade": "Stop Fade Out",
     "pauseFade": "Pause/Resume Fade",
-    "crossFade": "Cross-fade to Next",
+    "crossFade": "Cross-fade",
     "fadeSettings": "Fade Settings",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker",
     "ltcOutputTimecode": "Output LTC Timecode",
     "ltcOutputTimecodeHelp": "Send SMPTE Linear Timecode to the project's LTC device while this cue plays.",
     "ltcRequiresDevice": "Select an LTC output device in Project Settings to enable timecode output.",
@@ -220,7 +229,8 @@
     "stop": "Stop",
     "delete": "Delete",
     "edit": "Edit",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Nothing",

@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "ro",
     "name": "Romanian",
@@ -156,7 +156,10 @@
     "multiSelectWaveform": "Mai multe elemente selectate — alegeți un singur element pentru a afișa forma de undă.",
     "multiSelectOutPointDisabled": "Dezactivat pentru selecție multiplă (punctul de ieșire depinde de durata fiecărui element).",
     "noWaveformData": "Nu există date despre forma de undă",
-    "ltcRequiresDevice": "Selectează un dispozitiv de ieșire LTC în Setările proiectului pentru a activa ieșirea timecode."
+    "ltcRequiresDevice": "Selectează un dispozitiv de ieșire LTC în Setările proiectului pentru a activa ieșirea timecode.",
+    "startNextEnable": "Start Next at Marker",
+    "startNextTime": "Start Next At",
+    "startNextFadeOut": "Fade Out at Marker"
   },
   "playback": {
     "panic": "Oprește Toate Cues",
@@ -165,7 +168,8 @@
     "stop": "Stop",
     "delete": "Sterge",
     "edit": "Editeaza",
-    "masterMix": "Master"
+    "masterMix": "Master",
+    "startNextCountdown": "Time until the next track starts"
   },
   "endBehavior": {
     "nothing": "Nimic",
@@ -380,7 +384,11 @@
     "noneSelected": "Neselectat",
     "save": "Salvează",
     "close": "Închide",
-    "preview": "Previzualizare"
+    "preview": "Previzualizare",
+    "transitionMode": "Default Transition Mode",
+    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
+    "transitionModeCrossfade": "Cross-fade to next",
+    "transitionModeStartNext": "Start next at marker"
   },
   "common": {
     "default": "implicit",
@@ -432,14 +440,16 @@
     "endPlayNext": "Sfârșit: Redă următorul",
     "endGotoItem": "Sfârșit: Mergi la element",
     "endGotoIndex": "Sfârșit: Mergi la index",
-    "endLoop": "Sfârșit: Buclă"
+    "endLoop": "Sfârșit: Buclă",
+    "startNextMarker": "Starts next track at {time}"
   },
   "waveform": {
     "decreaseBy": "Scade cu {seconds}s",
     "increaseBy": "Crește cu {seconds}s",
     "playFadeTitle": "Fade in: {seconds}s",
     "stopFadeTitle": "Fade out: {seconds}s",
-    "crossFadeTitle": "Cross-fade: {seconds}s"
+    "crossFadeTitle": "Cross-fade: {seconds}s",
+    "startNextTitle": "Start Next: {time}"
   },
   "unsavedModal": {
     "title": "Modificări nesalvate",

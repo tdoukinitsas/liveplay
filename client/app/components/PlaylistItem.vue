@@ -146,6 +146,13 @@
             :title="t('behaviors.duckingOthers')"
           >volume_down</span>
 
+          <!-- Start Next segue marker -->
+          <span
+            v-if="item.startNextEnabled && (item.startNextTime ?? 0) > 0"
+            class="material-symbols-rounded behavior-icon behavior-icon-segue"
+            :title="t('behaviors.startNextMarker', { time: formatMarkerTime(item.startNextTime ?? 0) })"
+          >flag</span>
+
           <!-- End behavior -->
           <span
             v-if="item.endBehavior?.action === 'next'"
@@ -199,6 +206,13 @@ const props = defineProps<{
 }>();
 
 const { selectedItem, selectedItems, toggleItemSelection, openItemProperties, removeItem, requestDeleteFromButton, findItemByUuid, currentProject, waveformUpdateKey, triggerWaveformUpdate } = useProject();
+
+// mm:ss position of the Start Next marker, for the badge tooltip.
+const formatMarkerTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
 const { levels: outputTargetLevels } = useOutputTarget();
 const { playCue, stopCue, activeCues, activeGroups, triggerGroup, nextItemOverrideUuid, autoNextItemUuid, setNextItem } = useAudioEngine();
 const { t } = useLocalization();
@@ -962,6 +976,11 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
     font-size: 14px;
     color: var(--color-text-secondary);
     opacity: 0.7;
+  }
+
+  .behavior-icon-segue {
+    color: rgb(22, 163, 74);
+    opacity: 0.9;
   }
 }
 

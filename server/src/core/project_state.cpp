@@ -1623,6 +1623,10 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     double       seq_crossfade    = 0.0;
     double       seq_stop_fade    = 0.0;
     double       seq_file_duration = 0.0;
+    bool         seq_sn_enabled   = false;
+    double       seq_sn_time      = 0.0;
+    bool         seq_sn_fade_out  = false;
+    double       seq_fade_out_dur = 1.0;
     std::string  seq_end_action;
     {
         std::lock_guard lock{mutex_};
@@ -1722,6 +1726,10 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                 seq_out_point = it.value("outPoint", 0.0);
                 seq_crossfade = it.value("crossFade", 0.0);
                 seq_stop_fade = it.value("stopFade",  0.0);
+                seq_sn_enabled   = it.value("startNextEnabled", false);
+                seq_sn_time      = it.value("startNextTime",    0.0);
+                seq_sn_fade_out  = it.value("startNextFadeOut", false);
+                seq_fade_out_dur = it.value("fadeOutDuration",  1.0);
                 if (it.contains("endBehavior") && it["endBehavior"].is_object())
                     seq_end_action = it["endBehavior"].value("action", std::string{});
                 auto cm_it = cues_.find(cit->second.value);
@@ -1744,11 +1752,17 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
         const double effective_end = looping
             ? 0.0
             : ((seq_out_point > 0.0) ? seq_out_point : seq_file_duration);
+        // Same arming rules as play_item: Start Next supersedes crossfade,
+        // and neither applies to a looping cue.
+        const bool sn_on = !looping && seq_sn_enabled && seq_sn_time > 0.0;
         std::lock_guard slock{sequencer_mutex_};
         for (auto& si : sequenced_items_) {
             if (si.uuid != uuid) continue;
-            si.crossfade_sec = looping ? 0.0 : seq_crossfade;
+            si.crossfade_sec = (looping || sn_on) ? 0.0 : seq_crossfade;
             si.stop_fade_sec = looping ? 0.0 : seq_stop_fade;
+            si.start_next_time     = sn_on ? seq_sn_time : 0.0;
+            si.start_next_fade_sec = (sn_on && seq_sn_fade_out)
+                                         ? seq_fade_out_dur : 0.0;
             si.effective_end = effective_end;
             break;
         }
@@ -1995,6 +2009,9 @@ bool ProjectState::play_item(const std::string& uuid,
     double       fade_out_dur  = 1.0;
     double       crossfade_sec = 0.0;
     double       stop_fade_sec = 0.0;
+    bool         start_next_enabled  = false;
+    double       start_next_time     = 0.0;
+    bool         start_next_fade_out = false;
     std::string  device_override;
     std::string  start_behavior_action;
     std::string  start_behavior_target_uuid;
@@ -2032,6 +2049,9 @@ bool ProjectState::play_item(const std::string& uuid,
             fade_out_dur  = found->value("fadeOutDuration",  1.0);
             crossfade_sec = found->value("crossFade",        0.0);
             stop_fade_sec = found->value("stopFade",         0.0);
+            start_next_enabled  = found->value("startNextEnabled",  false);
+            start_next_time     = found->value("startNextTime",     0.0);
+            start_next_fade_out = found->value("startNextFadeOut",  false);
             if (found->contains("duckingBehavior") &&
                 (*found)["duckingBehavior"].is_object()) {
                 const auto& dk = (*found)["duckingBehavior"];
@@ -2184,11 +2204,18 @@ bool ProjectState::play_item(const std::string& uuid,
         const double effective_end = looping
             ? 0.0
             : ((out_point > 0.0) ? out_point : file_duration);
+        // Start Next supersedes crossfade — both would start the next item,
+        // so arming them together would double-trigger it.
+        const bool start_next_on =
+            !looping && start_next_enabled && start_next_time > 0.0;
         SequencedItem si;
         si.uuid          = uuid;
         si.cue_id        = target_cue;
-        si.crossfade_sec = looping ? 0.0 : crossfade_sec;
+        si.crossfade_sec = (looping || start_next_on) ? 0.0 : crossfade_sec;
         si.stop_fade_sec = looping ? 0.0 : stop_fade_sec;
+        si.start_next_time     = start_next_on ? start_next_time : 0.0;
+        si.start_next_fade_sec = (start_next_on && start_next_fade_out)
+                                     ? fade_out_dur : 0.0;
         si.effective_end = effective_end;
         si.ducked        = std::move(ducks_made);
         si.custom_actions = std::move(custom_actions_snapshot);
@@ -3022,6 +3049,8 @@ void ProjectState::sequencer_loop() {
                 Crossfade,     // start next + fade out current
                 BeginStopFade, // begin fading out (item stays until Stopped)
                 StopFadeEnded, // stop-fade complete → fire end behavior
+                StartNext,     // Start Next marker crossed: start next item,
+                               // current keeps playing (or begins marker fade)
                 Cleanup,       // cue gone; restore ducking, no end behavior
                 CustomAction,  // fire one of the item's customActions
             } kind;
@@ -3062,6 +3091,22 @@ void ProjectState::sequencer_loop() {
                     sca.triggered = true;
                     pending.push_back({si, PendingAction::Kind::CustomAction,
                                        sca.action});
+                }
+
+                // Start Next marker: fires once when the playhead crosses it,
+                // independent of effective_end (it needs no known duration).
+                if (!si.start_next_triggered && si.start_next_time > 0.0 &&
+                    pos >= si.start_next_time) {
+                    si.start_next_triggered = true;
+                    pending.push_back({si, PendingAction::Kind::StartNext});
+                    // The pending copy owns the duck-restore now; clear so a
+                    // later Cleanup/end can't restore stale gains a second time.
+                    si.ducked.clear();
+                    // A marker fade behaves like a begun stop-fade: when the
+                    // transport settles to Stopped, the StopFadeEnded path
+                    // removes the item (its advance is suppressed below).
+                    if (si.start_next_fade_sec > 0.0)
+                        si.stop_fade_triggered = true;
                 }
 
                 // Timing-based triggers only apply when we know the duration.
@@ -3135,8 +3180,60 @@ void ProjectState::sequencer_loop() {
                 // Fade the incoming cue IN over the crossfade window, and
                 // exclude the outgoing cue from the incoming item's ducking so
                 // its engine-owned fade-out (started just above) isn't hard-cut.
-                if (!next_uuid.empty())
-                    trigger_item(next_uuid, p.item.crossfade_sec, p.item.cue_id);
+                // Skip if the operator already started the next item manually —
+                // restarting it mid-play is never what a crossfade means.
+                if (!next_uuid.empty()) {
+                    if (item_on_air(next_uuid)) {
+                        Logger::playback("CROSSFADE: next item '{}' already "
+                                         "on air — not restarting", next_uuid);
+                    } else {
+                        trigger_item(next_uuid, p.item.crossfade_sec, p.item.cue_id);
+                    }
+                }
+                break;
+            }
+
+            case PendingAction::Kind::StartNext: {
+                // Restore gains this cue ducked so the incoming cue's own
+                // ducking applies fresh (mirrors the Crossfade path).
+                for (const auto& dk : p.item.ducked) {
+                    if (auto* pi = engine_.find_cue(dk.cue_id))
+                        pi->set_gain_db(dk.original_gain_db);
+                }
+                // Optional radio-style tail: begin fading this cue out at
+                // the marker (over its fadeOutDuration). Without it the cue
+                // simply plays on to its natural end underneath the next one.
+                if (p.item.start_next_fade_sec > 0.0) {
+                    if (auto* pi = engine_.find_cue(p.item.cue_id)) {
+                        pi->stop_with_fade(std::chrono::milliseconds{
+                            static_cast<long long>(
+                                p.item.start_next_fade_sec * 1000.0)});
+                    }
+                }
+                // Start the next cue at its own volume and fades. Honour a
+                // user-set Up Next override, same as handle_item_ended.
+                std::string next_uuid;
+                {
+                    std::lock_guard lock{mutex_};
+                    if (!next_item_override_.empty()) {
+                        next_uuid = std::move(next_item_override_);
+                        next_item_override_.clear();
+                    } else {
+                        next_uuid = resolve_next_item_locked(p.item.uuid);
+                    }
+                }
+                // Exclude the outgoing cue from the incoming item's ducking
+                // so it keeps playing (or finishes its marker fade) underneath
+                // instead of being hard-cut by a stop-all ducking mode.
+                // Skip if the operator already started the next item manually.
+                if (!next_uuid.empty()) {
+                    if (item_on_air(next_uuid)) {
+                        Logger::playback("START NEXT: next item '{}' already "
+                                         "on air — not restarting", next_uuid);
+                    } else {
+                        trigger_item(next_uuid, -1.0, p.item.cue_id);
+                    }
+                }
                 break;
             }
 
@@ -3237,6 +3334,23 @@ void ProjectState::set_external_action_handler(std::function<void(const json&)> 
     external_action_handler_ = std::move(h);
 }
 
+bool ProjectState::item_on_air(const std::string& uuid) {
+    audio::CueId cue;
+    {
+        std::lock_guard lock{mutex_};
+        auto it = item_uuid_to_cue_.find(uuid);
+        if (it == item_uuid_to_cue_.end()) return false;
+        cue = it->second;
+    }
+    if (auto* pi = engine_.find_cue(cue)) {
+        const auto ts = pi->stats().transport;
+        return ts == audio::TransportState::Playing  ||
+               ts == audio::TransportState::FadingIn ||
+               ts == audio::TransportState::Paused;
+    }
+    return false;
+}
+
 void ProjectState::handle_item_ended(const SequencedItem& item) {
     // Ensure the engine explicitly transitions the transport state and 
     // triggers a cue_state broadcast so the client UI updates.
@@ -3246,6 +3360,15 @@ void ProjectState::handle_item_ended(const SequencedItem& item) {
     for (const auto& dk : item.ducked) {
         if (auto* pi = engine_.find_cue(dk.cue_id))
             pi->set_gain_db(dk.original_gain_db);
+    }
+
+    // The Start Next marker already advanced the playlist while this cue was
+    // still playing — firing the end behaviour now would trigger the next
+    // item a second time.
+    if (item.start_next_triggered) {
+        Logger::playback("END BEHAVIOUR suppressed for '{}' "
+                         "(Start Next marker already fired)", item.uuid);
+        return;
     }
 
     // Read end-behaviour from the document.
@@ -3310,7 +3433,16 @@ void ProjectState::handle_item_ended(const SequencedItem& item) {
                 next_uuid = resolve_next_item_locked(item.uuid);
             }
         }
-        if (!next_uuid.empty()) trigger_item(next_uuid);
+        // Don't restart a next item that's already on air (the operator
+        // started it manually, or a Start Next / crossfade beat us to it).
+        if (!next_uuid.empty()) {
+            if (item_on_air(next_uuid)) {
+                Logger::playback("END BEHAVIOUR next: item '{}' already "
+                                 "on air — not restarting", next_uuid);
+            } else {
+                trigger_item(next_uuid);
+            }
+        }
     } else if (end_action == "goto-item" && !target_uuid.empty()) {
         trigger_item(target_uuid);
     } else if (end_action == "goto-index" && !target_index.empty()) {
