@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "Désactivé pour la sélection multiple (le point de sortie dépend de la durée de chaque élément).",
     "noWaveformData": "Aucune donnée de forme d'onde disponible",
     "ltcRequiresDevice": "Sélectionnez un périphérique de sortie LTC dans les Paramètres du projet pour activer la sortie timecode.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "Démarrer le suivant au marqueur",
+    "startNextTime": "Démarrer le suivant à",
+    "startNextFadeOut": "Fondu de sortie au marqueur"
   },
   "playback": {
     "panic": "Arrêter Tous les Signaux",
@@ -169,7 +169,7 @@
     "delete": "Supprimer",
     "edit": "Modifier",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Temps avant le démarrage de la piste suivante"
   },
   "endBehavior": {
     "nothing": "Rien",
@@ -385,10 +385,12 @@
     "save": "Enregistrer",
     "close": "Fermer",
     "preview": "Aperçu",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "Mode de transition par défaut",
+    "transitionModeHelp": "Transition appliquée aux pistes nouvellement importées. Chaque piste peut toujours basculer entre fondu enchaîné et démarrage du suivant dans ses propriétés.",
+    "transitionModeCrossfade": "Fondu enchaîné vers le suivant",
+    "transitionModeStartNext": "Démarrer le suivant au marqueur",
+    "autoCueNext": "Préparer automatiquement l’élément suivant même sans comportement de fin",
+    "autoCueNextHelp": "Prépare l’élément suivant comme « À suivre » même lorsque l’élément en cours n’a pas de comportement de fin, afin de parcourir la liste de lecture avec un seul bouton GO. La lecture ne démarre pas automatiquement."
   },
   "common": {
     "default": "défaut",
@@ -441,7 +443,7 @@
     "endGotoItem": "Fin : Aller à l'élément",
     "endGotoIndex": "Fin : Aller à l'index",
     "endLoop": "Fin : Boucler",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "Démarre la piste suivante à {time}"
   },
   "waveform": {
     "decreaseBy": "Diminuer de {seconds}s",
@@ -449,7 +451,7 @@
     "playFadeTitle": "Fondu d'entrée : {seconds}s",
     "stopFadeTitle": "Fondu de sortie : {seconds}s",
     "crossFadeTitle": "Fondu enchaîné : {seconds}s",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Démarrer le suivant : {time}"
   },
   "unsavedModal": {
     "title": "Modifications non enregistrées",

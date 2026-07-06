@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "Inaktiverad vid flerval (utpunkten beror på varje objekts längd).",
     "noWaveformData": "Inga vågformsdata tillgängliga",
     "ltcRequiresDevice": "Välj en LTC-utgångsenhet i Projektinställningar för att aktivera timecode-utgång.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "Starta nästa vid markör",
+    "startNextTime": "Starta nästa vid",
+    "startNextFadeOut": "Tona ut vid markör"
   },
   "playback": {
     "panic": "Stoppa alla signaler",
@@ -169,7 +169,7 @@
     "delete": "Ta bort",
     "edit": "Redigera",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Tid tills nästa spår börjar"
   },
   "endBehavior": {
     "nothing": "Ingenting",
@@ -385,10 +385,12 @@
     "save": "Spara",
     "close": "Stäng",
     "preview": "Förhandsgranskning",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "Standardövergångsläge",
+    "transitionModeHelp": "Övergång som tillämpas på nyligen importerade spår. Varje spår kan fortfarande växla mellan övertoning och starta nästa i sina egenskaper.",
+    "transitionModeCrossfade": "Övertona till nästa",
+    "transitionModeStartNext": "Starta nästa vid markör",
+    "autoCueNext": "Förbered nästa objekt automatiskt även utan slutbeteende",
+    "autoCueNextHelp": "Förbereder nästa objekt som «Nästa» även när objektet som spelas inte har något slutbeteende, så att du kan stega genom spellistan med en enda GO-knapp. Det startar inte uppspelning automatiskt."
   },
   "common": {
     "default": "standard",
@@ -441,7 +443,7 @@
     "endGotoItem": "Slut: Gå till objekt",
     "endGotoIndex": "Slut: Gå till index",
     "endLoop": "Slut: Upprepa",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "Startar nästa spår vid {time}"
   },
   "waveform": {
     "decreaseBy": "Minska med {seconds}s",
@@ -449,7 +451,7 @@
     "playFadeTitle": "Infadning: {seconds}s",
     "stopFadeTitle": "Utfadning: {seconds}s",
     "crossFadeTitle": "Korstonande: {seconds}s",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Starta nästa: {time}"
   },
   "unsavedModal": {
     "title": "Osparade ändringar",

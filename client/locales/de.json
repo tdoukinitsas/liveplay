@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "Bei Mehrfachauswahl deaktiviert (der Endpunkt hängt von der Dauer des jeweiligen Elements ab).",
     "noWaveformData": "Keine Wellenformdaten verfügbar",
     "ltcRequiresDevice": "Wählen Sie in den Projekteinstellungen ein LTC-Ausgabegerät, um die Timecode-Ausgabe zu aktivieren.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "Nächsten am Marker starten",
+    "startNextTime": "Nächsten starten bei",
+    "startNextFadeOut": "Am Marker ausblenden"
   },
   "playback": {
     "panic": "Alle Signale stoppen",
@@ -169,7 +169,7 @@
     "delete": "Löschen",
     "edit": "Bearbeiten",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Zeit bis zum Start des nächsten Titels"
   },
   "endBehavior": {
     "nothing": "Nichts",
@@ -385,10 +385,12 @@
     "save": "Speichern",
     "close": "Schließen",
     "preview": "Vorschau",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "Standard-Übergangsmodus",
+    "transitionModeHelp": "Übergang für neu importierte Titel. Jeder Titel kann in seinen Eigenschaften weiterhin zwischen Überblendung und Nächsten-Start umgeschaltet werden.",
+    "transitionModeCrossfade": "Zum nächsten überblenden",
+    "transitionModeStartNext": "Nächsten am Marker starten",
+    "autoCueNext": "Nächstes Element automatisch vormerken, auch ohne Endverhalten",
+    "autoCueNextHelp": "Merkt das nächste Element als „Als Nächstes“ vor, auch wenn das laufende Element kein Endverhalten hat, sodass Sie die Wiedergabeliste mit einer einzigen GO-Taste durchschalten können. Die Wiedergabe wird nicht automatisch gestartet."
   },
   "common": {
     "default": "Standard",
@@ -441,7 +443,7 @@
     "endGotoItem": "Ende: Zu Element springen",
     "endGotoIndex": "Ende: Zu Index springen",
     "endLoop": "Ende: Schleife",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "Startet den nächsten Titel bei {time}"
   },
   "waveform": {
     "decreaseBy": "Um {seconds}s verringern",
@@ -449,7 +451,7 @@
     "playFadeTitle": "Einblenden: {seconds}s",
     "stopFadeTitle": "Ausblenden: {seconds}s",
     "crossFadeTitle": "Überblenden: {seconds}s",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Nächsten starten: {time}"
   },
   "unsavedModal": {
     "title": "Ungespeicherte Änderungen",

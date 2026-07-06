@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "Dezactivat pentru selecție multiplă (punctul de ieșire depinde de durata fiecărui element).",
     "noWaveformData": "Nu există date despre forma de undă",
     "ltcRequiresDevice": "Selectează un dispozitiv de ieșire LTC în Setările proiectului pentru a activa ieșirea timecode.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "Pornește următorul la marcaj",
+    "startNextTime": "Pornește următorul la",
+    "startNextFadeOut": "Estompare la marcaj"
   },
   "playback": {
     "panic": "Oprește Toate Cues",
@@ -169,7 +169,7 @@
     "delete": "Sterge",
     "edit": "Editeaza",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Timp până la pornirea piesei următoare"
   },
   "endBehavior": {
     "nothing": "Nimic",
@@ -385,10 +385,12 @@
     "save": "Salvează",
     "close": "Închide",
     "preview": "Previzualizare",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "Mod de tranziție implicit",
+    "transitionModeHelp": "Tranziția aplicată pieselor nou importate. Fiecare piesă poate comuta între estompare încrucișată și pornire următorul în proprietățile sale.",
+    "transitionModeCrossfade": "Estompare încrucișată către următorul",
+    "transitionModeStartNext": "Pornește următorul la marcaj",
+    "autoCueNext": "Pregătește automat elementul următor chiar și fără comportament de final",
+    "autoCueNextHelp": "Pregătește elementul următor ca «Următorul» chiar și când elementul redat nu are un comportament de final, ca să parcurgi lista cu un singur buton GO. Nu pornește automat redarea."
   },
   "common": {
     "default": "implicit",
@@ -441,7 +443,7 @@
     "endGotoItem": "Sfârșit: Mergi la element",
     "endGotoIndex": "Sfârșit: Mergi la index",
     "endLoop": "Sfârșit: Buclă",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "Pornește piesa următoare la {time}"
   },
   "waveform": {
     "decreaseBy": "Scade cu {seconds}s",
@@ -449,7 +451,7 @@
     "playFadeTitle": "Fade in: {seconds}s",
     "stopFadeTitle": "Fade out: {seconds}s",
     "crossFadeTitle": "Cross-fade: {seconds}s",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Pornește următorul: {time}"
   },
   "unsavedModal": {
     "title": "Modificări nesalvate",

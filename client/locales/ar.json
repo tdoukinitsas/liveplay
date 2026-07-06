@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "معطّل عند تحديد عناصر متعددة (تعتمد نقطة النهاية على مدة كل عنصر).",
     "noWaveformData": "لا تتوفر بيانات الشكل الموجي",
     "ltcRequiresDevice": "اختر جهاز إخراج LTC في إعدادات المشروع لتمكين إخراج الكود الزمني.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "بدء التالي عند العلامة",
+    "startNextTime": "بدء التالي عند",
+    "startNextFadeOut": "تلاشٍ خارجي عند العلامة"
   },
   "playback": {
     "panic": "إيقاف جميع الإشارات",
@@ -169,7 +169,7 @@
     "delete": "حذف",
     "edit": "تحرير",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "الوقت حتى بدء المقطع التالي"
   },
   "endBehavior": {
     "nothing": "لا شيء",
@@ -385,10 +385,12 @@
     "save": "حفظ",
     "close": "إغلاق",
     "preview": "معاينة",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "وضع الانتقال الافتراضي",
+    "transitionModeHelp": "الانتقال المطبَّق على المقاطع المستوردة حديثًا. لا يزال بإمكان كل مقطع التبديل بين التلاشي المتقاطع وبدء التالي في خصائصه.",
+    "transitionModeCrossfade": "تلاشٍ متقاطع إلى التالي",
+    "transitionModeStartNext": "بدء التالي عند العلامة",
+    "autoCueNext": "تحضير العنصر التالي تلقائيًا حتى بدون سلوك نهاية",
+    "autoCueNextHelp": "يجهّز العنصر التالي بوصفه «التالي» حتى عندما لا يكون للعنصر قيد التشغيل سلوك نهاية، لتتمكن من التنقل في قائمة التشغيل بزر GO واحد. لا يبدأ التشغيل تلقائيًا."
   },
   "common": {
     "default": "افتراضي",
@@ -441,7 +443,7 @@
     "endGotoItem": "النهاية: الانتقال إلى العنصر",
     "endGotoIndex": "النهاية: الانتقال إلى الفهرس",
     "endLoop": "النهاية: تكرار",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "يبدأ المقطع التالي عند {time}"
   },
   "waveform": {
     "decreaseBy": "تقليل بمقدار {seconds}ث",
@@ -449,7 +451,7 @@
     "playFadeTitle": "تلاشي الدخول: {seconds}ث",
     "stopFadeTitle": "تلاشي الخروج: {seconds}ث",
     "crossFadeTitle": "التلاشي المتقاطع: {seconds}ث",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "بدء التالي: {time}"
   },
   "unsavedModal": {
     "title": "تغييرات غير محفوظة",

@@ -115,6 +115,19 @@
             <p class="settings-help">{{ t('settings.transitionModeHelp') }}</p>
           </section>
 
+          <!-- Auto-cue next item without end behaviour (#28) -->
+          <section class="settings-field">
+            <label class="settings-label settings-label--checkbox">
+              <input
+                type="checkbox"
+                :checked="autoCueNextWithoutEndBehavior"
+                @change="onAutoCueNextChange"
+              />
+              {{ t('settings.autoCueNext') }}
+            </label>
+            <p class="settings-help">{{ t('settings.autoCueNextHelp') }}</p>
+          </section>
+
           <!-- Auto volume and trim -->
           <section class="settings-field">
             <label class="settings-label settings-label--checkbox">
@@ -202,6 +215,9 @@ const disableAutoVolumeAndTrim = computed(() => !!(currentProject.value as any)?
 const disableLimiter           = computed(() => !!(currentProject.value as any)?.settings?.disableLimiter);
 const disableSilenceWarning    = computed(() => !!(currentProject.value as any)?.settings?.disableSilenceWarning);
 const defaultTransitionMode    = computed(() => (currentProject.value as any)?.settings?.defaultTransitionMode || 'crossfade');
+// Defaults ON (undefined → true) so legacy projects and new projects both
+// arm the next item as "Up Next" for cues without an end behaviour. (#28)
+const autoCueNextWithoutEndBehavior = computed(() => (currentProject.value as any)?.settings?.autoCueNextWithoutEndBehavior !== false);
 const { meterMode: currentMeterMode } = useOutputTarget();
 const meterMode              = computed(() => (currentProject.value as any)?.settings?.meterMode || currentMeterMode.value);
 
@@ -259,6 +275,9 @@ function onDisableSilenceWarningChange(e: Event) {
 }
 function onDefaultTransitionModeChange(e: Event) {
   applyPatch({ defaultTransitionMode: (e.target as HTMLSelectElement).value });
+}
+function onAutoCueNextChange(e: Event) {
+  applyPatch({ autoCueNextWithoutEndBehavior: (e.target as HTMLInputElement).checked });
 }
 
 function close() {

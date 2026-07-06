@@ -665,6 +665,17 @@ void AudioEngine::unroute_item_source_from_mixer(const CueId& cue,
     rebuild_topology_locked();
 }
 
+void AudioEngine::unroute_item_from_all_mixers(const CueId& cue) {
+    std::lock_guard lock{mutex_};
+    auto it = pending_.item_sources.find(cue.value);
+    if (it == pending_.item_sources.end()) return;
+    bool changed = false;
+    for (auto& sends : it->second.by_source_channel) {
+        if (!sends.empty()) { sends.clear(); changed = true; }
+    }
+    if (changed) rebuild_topology_locked();
+}
+
 void AudioEngine::route_mixer_to_master(const MixerChannelId& mixer,
                                         MasterChannelIndex master,
                                         float gain_db) {

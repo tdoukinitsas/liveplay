@@ -169,7 +169,7 @@ elseif(TARGET unofficial::taglib::tag)
 endif()
 
 if(WIN32)
-    target_link_libraries(liveplay-server PRIVATE ws2_32 mswsock dbghelp)
+    target_link_libraries(liveplay-server PRIVATE ws2_32 mswsock dbghelp mpr)
     # Modern Windows console: opt in to UTF-8 + VT for the banner.
     target_compile_definitions(liveplay-server PRIVATE UNICODE _UNICODE)
 endif()

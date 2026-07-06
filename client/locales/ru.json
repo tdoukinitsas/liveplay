@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "Отключено при множественном выборе (точка выхода зависит от длительности каждого элемента).",
     "noWaveformData": "Данные формы волны недоступны",
     "ltcRequiresDevice": "Выберите устройство вывода LTC в настройках проекта, чтобы включить вывод таймкода.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "Запустить следующий по метке",
+    "startNextTime": "Запустить следующий в",
+    "startNextFadeOut": "Затухание по метке"
   },
   "playback": {
     "panic": "Остановить все сигналы",
@@ -169,7 +169,7 @@
     "delete": "Удалить",
     "edit": "Редактировать",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Время до запуска следующего трека"
   },
   "endBehavior": {
     "nothing": "Ничего",
@@ -385,10 +385,12 @@
     "save": "Сохранить",
     "close": "Закрыть",
     "preview": "Предпросмотр",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "Режим перехода по умолчанию",
+    "transitionModeHelp": "Переход, применяемый к новым импортированным трекам. Каждый трек можно переключать между кроссфейдом и запуском следующего в его свойствах.",
+    "transitionModeCrossfade": "Кроссфейд к следующему",
+    "transitionModeStartNext": "Запустить следующий по метке",
+    "autoCueNext": "Автоматически готовить следующий элемент даже без действия в конце",
+    "autoCueNextHelp": "Готовит следующий элемент как «Следующий», даже если у воспроизводимого элемента нет действия в конце, чтобы можно было перелистывать плейлист одной кнопкой GO. Воспроизведение не запускается автоматически."
   },
   "common": {
     "default": "по умолчанию",
@@ -441,7 +443,7 @@
     "endGotoItem": "Конец: перейти к элементу",
     "endGotoIndex": "Конец: перейти к индексу",
     "endLoop": "Конец: повтор",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "Запускает следующий трек в {time}"
   },
   "waveform": {
     "decreaseBy": "Уменьшить на {seconds}с",
@@ -449,7 +451,7 @@
     "playFadeTitle": "Нарастание: {seconds}с",
     "stopFadeTitle": "Затухание: {seconds}с",
     "crossFadeTitle": "Кроссфейд: {seconds}с",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Запуск следующего: {time}"
   },
   "unsavedModal": {
     "title": "Несохранённые изменения",

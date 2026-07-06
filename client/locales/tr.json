@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "Çoklu seçimde devre dışı (çıkış noktası her öğenin süresine bağlıdır).",
     "noWaveformData": "Dalga biçimi verisi yok",
     "ltcRequiresDevice": "Zaman kodu çıkışını etkinleştirmek için Proje Ayarları'nda bir LTC çıkış cihazı seçin.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "İşaretçide sonrakini başlat",
+    "startNextTime": "Sonrakini başlatma",
+    "startNextFadeOut": "İşaretçide kıs"
   },
   "playback": {
     "panic": "Tüm Sinyalleri Durdur",
@@ -169,7 +169,7 @@
     "delete": "Sil",
     "edit": "Düzenle",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Sonraki parçanın başlamasına kalan süre"
   },
   "endBehavior": {
     "nothing": "Hiçbir şey",
@@ -385,10 +385,12 @@
     "save": "Kaydet",
     "close": "Kapat",
     "preview": "Ön İzleme",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "Varsayılan geçiş modu",
+    "transitionModeHelp": "Yeni içe aktarılan parçalara uygulanan geçiş. Her parça özelliklerinde çapraz geçiş ile sonrakini başlatma arasında değiştirilebilir.",
+    "transitionModeCrossfade": "Sonrakine çapraz geçiş",
+    "transitionModeStartNext": "İşaretçide sonrakini başlat",
+    "autoCueNext": "Bitiş davranışı olmasa bile sonraki öğeyi otomatik olarak hazırla",
+    "autoCueNextHelp": "Çalan öğenin bitiş davranışı olmasa bile sonraki öğeyi «Sıradaki» olarak hazırlar; böylece çalma listesinde tek bir GO düğmesiyle ilerleyebilirsiniz. Oynatmayı otomatik olarak başlatmaz."
   },
   "common": {
     "default": "varsayılan",
@@ -441,7 +443,7 @@
     "endGotoItem": "Bitiş: Öğeye Git",
     "endGotoIndex": "Bitiş: Dizine Git",
     "endLoop": "Bitiş: Döngü",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "Sonraki parçayı {time} anında başlatır"
   },
   "waveform": {
     "decreaseBy": "{seconds}sn Azalt",
@@ -449,7 +451,7 @@
     "playFadeTitle": "Giriş Sönümü: {seconds}sn",
     "stopFadeTitle": "Çıkış Sönümü: {seconds}sn",
     "crossFadeTitle": "Çapraz Sönüm: {seconds}sn",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Sonrakini başlat: {time}"
   },
   "unsavedModal": {
     "title": "Kaydedilmemiş değişiklikler",

@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "複数選択では無効です（アウトポイントは各項目の長さに依存します）。",
     "noWaveformData": "波形データがありません",
     "ltcRequiresDevice": "タイムコード出力を有効にするには、プロジェクト設定でLTC出力デバイスを選択してください。",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "マーカーで次を開始",
+    "startNextTime": "次を開始する位置",
+    "startNextFadeOut": "マーカーでフェードアウト"
   },
   "playback": {
     "panic": "すべての信号を停止",
@@ -169,7 +169,7 @@
     "delete": "削除",
     "edit": "編集",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "次のトラックが始まるまでの時間"
   },
   "endBehavior": {
     "nothing": "何もしない",
@@ -385,10 +385,12 @@
     "save": "保存",
     "close": "閉じる",
     "preview": "プレビュー",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "既定のトランジションモード",
+    "transitionModeHelp": "新しくインポートしたトラックに適用されるトランジション。各トラックはプロパティでクロスフェードと次を開始を切り替えられます。",
+    "transitionModeCrossfade": "次へクロスフェード",
+    "transitionModeStartNext": "マーカーで次を開始",
+    "autoCueNext": "終了動作がなくても次の項目を自動的に準備する",
+    "autoCueNextHelp": "再生中の項目に終了動作がなくても次の項目を「次へ」として準備し、GO ボタン一つでプレイリストを順に進められます。再生は自動的には開始されません。"
   },
   "common": {
     "default": "デフォルト",
@@ -441,7 +443,7 @@
     "endGotoItem": "終了：アイテムへ移動",
     "endGotoIndex": "終了：インデックスへ移動",
     "endLoop": "終了：ループ",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "{time} に次のトラックを開始"
   },
   "waveform": {
     "decreaseBy": "{seconds}秒減らす",
@@ -449,7 +451,7 @@
     "playFadeTitle": "フェードイン：{seconds}秒",
     "stopFadeTitle": "フェードアウト：{seconds}秒",
     "crossFadeTitle": "クロスフェード：{seconds}秒",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "次を開始：{time}"
   },
   "unsavedModal": {
     "title": "未保存の変更",

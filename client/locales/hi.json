@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "एकाधिक चयन के लिए अक्षम (आउट पॉइंट प्रत्येक आइटम की अवधि पर निर्भर करता है)।",
     "noWaveformData": "कोई वेवफ़ॉर्म डेटा उपलब्ध नहीं",
     "ltcRequiresDevice": "टाइमकोड आउटपुट सक्षम करने के लिए प्रोजेक्ट सेटिंग्स में एक LTC आउटपुट डिवाइस चुनें।",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "मार्कर पर अगला शुरू करें",
+    "startNextTime": "अगला शुरू करें",
+    "startNextFadeOut": "मार्कर पर फ़ेड आउट"
   },
   "playback": {
     "panic": "सभी सिग्नल रोकें",
@@ -169,7 +169,7 @@
     "delete": "हटाएँ",
     "edit": "संपादित करें",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "अगला ट्रैक शुरू होने में शेष समय"
   },
   "endBehavior": {
     "nothing": "कुछ नहीं",
@@ -385,10 +385,12 @@
     "save": "सहेजें",
     "close": "बंद करें",
     "preview": "पूर्वावलोकन",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "डिफ़ॉल्ट ट्रांज़िशन मोड",
+    "transitionModeHelp": "नए आयात किए गए ट्रैक पर लागू ट्रांज़िशन। हर ट्रैक को उसकी विशेषताओं में क्रॉस-फ़ेड और अगला शुरू करने के बीच बदला जा सकता है।",
+    "transitionModeCrossfade": "अगले में क्रॉस-फ़ेड",
+    "transitionModeStartNext": "मार्कर पर अगला शुरू करें",
+    "autoCueNext": "अंत व्यवहार न होने पर भी अगला आइटम स्वतः तैयार करें",
+    "autoCueNextHelp": "चल रहे आइटम में अंत व्यवहार न होने पर भी अगले आइटम को «अगला» के रूप में तैयार करता है, ताकि आप एक ही GO बटन से प्लेलिस्ट में आगे बढ़ सकें। यह स्वतः प्लेबैक शुरू नहीं करता।"
   },
   "common": {
     "default": "डिफ़ॉल्ट",
@@ -441,7 +443,7 @@
     "endGotoItem": "अंत: आइटम पर जाएं",
     "endGotoIndex": "अंत: इंडेक्स पर जाएं",
     "endLoop": "अंत: लूप",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "{time} पर अगला ट्रैक शुरू करता है"
   },
   "waveform": {
     "decreaseBy": "{seconds}s कम करें",
@@ -449,7 +451,7 @@
     "playFadeTitle": "फेड इन: {seconds}s",
     "stopFadeTitle": "फेड आउट: {seconds}s",
     "crossFadeTitle": "क्रॉस फेड: {seconds}s",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "अगला शुरू: {time}"
   },
   "unsavedModal": {
     "title": "असहेजे गए परिवर्तन",

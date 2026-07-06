@@ -250,6 +250,20 @@ export const useAudioEngine = () => {
           }
           break;
       }
+
+      // Issue #28: an item WITHOUT an end behaviour still arms the next
+      // playlist item as "Up Next" when the project setting is enabled
+      // (default on, incl. legacy projects). This only arms the manual GO
+      // target — the server never auto-advances a 'nothing' cue, so playback
+      // still waits for the operator to press GO / spacebar. Lets an operator
+      // step through a pre-ordered playlist with a single button.
+      if (audioItem.endBehavior.action === 'nothing' &&
+          (currentProject.value as any)?.settings?.autoCueNextWithoutEndBehavior !== false) {
+        const nextIndex = [...audioItem.index];
+        nextIndex[nextIndex.length - 1]++;
+        const nextItem = findItemByIndex(nextIndex);
+        if (nextItem) return nextItem.uuid;
+      }
     }
     return null;
   });

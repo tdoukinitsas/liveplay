@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "Disabilitato per la selezione multipla (il punto di uscita dipende dalla durata di ciascun elemento).",
     "noWaveformData": "Nessun dato della forma d'onda disponibile",
     "ltcRequiresDevice": "Seleziona un dispositivo di uscita LTC nelle Impostazioni del progetto per abilitare l'uscita timecode.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "Avvia successivo al marcatore",
+    "startNextTime": "Avvia successivo a",
+    "startNextFadeOut": "Dissolvenza in uscita al marcatore"
   },
   "playback": {
     "panic": "Ferma Tutti i Segnali",
@@ -169,7 +169,7 @@
     "delete": "Elimina",
     "edit": "Modifica",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Tempo prima dell’avvio della traccia successiva"
   },
   "endBehavior": {
     "nothing": "Niente",
@@ -385,10 +385,12 @@
     "save": "Salva",
     "close": "Chiudi",
     "preview": "Anteprima",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "Modalità di transizione predefinita",
+    "transitionModeHelp": "Transizione applicata alle tracce appena importate. Ogni traccia può comunque passare tra dissolvenza incrociata e avvio del successivo nelle sue proprietà.",
+    "transitionModeCrossfade": "Dissolvenza incrociata al successivo",
+    "transitionModeStartNext": "Avvia successivo al marcatore",
+    "autoCueNext": "Prepara automaticamente l’elemento successivo anche senza comportamento di fine",
+    "autoCueNextHelp": "Prepara l’elemento successivo come «Prossimo» anche quando l’elemento in riproduzione non ha un comportamento di fine, così puoi scorrere la playlist con un solo pulsante GO. Non avvia automaticamente la riproduzione."
   },
   "common": {
     "default": "predefinito",
@@ -441,7 +443,7 @@
     "endGotoItem": "Fine: Vai all'elemento",
     "endGotoIndex": "Fine: Vai all'indice",
     "endLoop": "Fine: Ripeti",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "Avvia la traccia successiva a {time}"
   },
   "waveform": {
     "decreaseBy": "Diminuisci di {seconds}s",
@@ -449,7 +451,7 @@
     "playFadeTitle": "Dissolvenza in entrata: {seconds}s",
     "stopFadeTitle": "Dissolvenza in uscita: {seconds}s",
     "crossFadeTitle": "Dissolvenza incrociata: {seconds}s",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Avvia successivo: {time}"
   },
   "unsavedModal": {
     "title": "Modifiche non salvate",

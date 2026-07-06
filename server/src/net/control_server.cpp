@@ -22,7 +22,8 @@
 #include "liveplay/util/unicode_path.hpp"
 
 #if defined(_WIN32)
-#  include <windows.h>      // GetLogicalDrives()
+#  include <windows.h>      // GetLogicalDrives(), GetVolumeInformationW(), ...
+#  include <winnetwk.h>     // WNetGetConnectionW() — mapped-network-drive UNC
 #endif
 
 #include <crow.h>
@@ -33,6 +34,7 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
 #include <cstring>
 #include <deque>
 #include <filesystem>
@@ -1202,24 +1204,129 @@ void ControlServer::install_routes() {
                     out["parent"]  = "";
                     out["is_root"] = true;
                     out["entries"] = json::array();
+
+                    auto add_entry = [&](const std::string& name,
+                                         const std::string& full,
+                                         const char* kind) {
+                        if (full.empty()) return;
+                        json e;
+                        e["name"]      = name;
+                        e["full_path"] = full;
+                        e["kind"]      = kind;
+                        out["entries"].push_back(std::move(e));
+                    };
+
+                    // Home shortcut on every platform. The dialog used to open
+                    // at "/" with no way to reach $HOME or a mounted USB stick,
+                    // which made opening a project off removable media painful
+                    // on Linux especially. (#31)
 #if defined(_WIN32)
+                    if (const char* up = std::getenv("USERPROFILE"))
+                        add_entry("Home", up, "home");
+#else
+                    if (const char* hp = std::getenv("HOME"))
+                        add_entry("Home", hp, "home");
+#endif
+
+#if defined(_WIN32)
+                    // Enumerate logical drives WITH volume label + drive type,
+                    // e.g. "Local Disk (C:)" / "MoviesAndTV (P:)" rather than a
+                    // bare "C:". Mapped network drives also resolve their UNC
+                    // target for display. (#31)
+                    auto wide_to_utf8 = [](const std::wstring& w) -> std::string {
+                        if (w.empty()) return {};
+                        const int len = WideCharToMultiByte(CP_UTF8, 0, w.data(),
+                            static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+                        if (len <= 0) return {};
+                        std::string s(static_cast<std::size_t>(len), '\0');
+                        WideCharToMultiByte(CP_UTF8, 0, w.data(),
+                            static_cast<int>(w.size()), s.data(), len, nullptr, nullptr);
+                        return s;
+                    };
                     DWORD mask = GetLogicalDrives();
                     for (char letter = 'A'; letter <= 'Z'; ++letter, mask >>= 1) {
                         if (!(mask & 1)) continue;
-                        char drive[4] = { letter, ':', '\\', 0 };
-                        json e;
-                        e["name"]      = std::string{letter} + ":";
-                        e["full_path"] = drive;
-                        e["kind"]      = "drive";
-                        out["entries"].push_back(std::move(e));
+                        const std::wstring wroot =
+                            std::wstring{} + static_cast<wchar_t>(letter) + L":\\";
+                        const std::string  root = std::string{letter} + ":\\";
+                        const UINT dtype = GetDriveTypeW(wroot.c_str());
+                        wchar_t vol[MAX_PATH + 1] = {0};
+                        std::string label;
+                        if (GetVolumeInformationW(wroot.c_str(), vol, MAX_PATH,
+                                nullptr, nullptr, nullptr, nullptr, 0)) {
+                            label = wide_to_utf8(vol);
+                        }
+                        if (dtype == DRIVE_REMOTE) {
+                            wchar_t remote[512];
+                            DWORD rlen = 512;
+                            const std::wstring dev =
+                                std::wstring{} + static_cast<wchar_t>(letter) + L":";
+                            if (WNetGetConnectionW(dev.c_str(), remote, &rlen) == NO_ERROR) {
+                                const std::string unc = wide_to_utf8(remote);
+                                if (!unc.empty())
+                                    label = label.empty()
+                                        ? unc : label + " (" + unc + ")";
+                            }
+                        }
+                        if (label.empty()) {
+                            switch (dtype) {
+                                case DRIVE_REMOVABLE: label = "Removable Disk"; break;
+                                case DRIVE_REMOTE:    label = "Network Drive";  break;
+                                case DRIVE_CDROM:     label = "CD Drive";       break;
+                                case DRIVE_RAMDISK:   label = "RAM Disk";       break;
+                                default:              label = "Local Disk";     break;
+                            }
+                        }
+                        add_entry(label + " (" + std::string{letter} + ":)",
+                                  root, "drive");
+                    }
+#elif defined(__APPLE__)
+                    // On macOS every mounted volume — the startup disk, external
+                    // and USB drives, and network shares — lives under /Volumes.
+                    add_entry("Computer", "/", "drive");
+                    std::error_code vol_ec;
+                    if (fs::is_directory("/Volumes", vol_ec)) {
+                        for (auto& ent : fs::directory_iterator("/Volumes",
+                                 fs::directory_options::skip_permission_denied, vol_ec)) {
+                            std::error_code d_ec;
+                            if (!ent.is_directory(d_ec)) continue;
+                            add_entry(liveplay::util::path_to_utf8(ent.path().filename()),
+                                      liveplay::util::path_to_utf8(ent.path()), "drive");
+                        }
                     }
 #else
-                    // On POSIX, root is just '/'; surface it as a single drive.
-                    json e;
-                    e["name"]      = "/";
-                    e["full_path"] = "/";
-                    e["kind"]      = "drive";
-                    out["entries"].push_back(std::move(e));
+                    // Linux/other POSIX: filesystem root plus auto-mounted media
+                    // (USB sticks, network shares). udisks2/desktop environments
+                    // mount removable media under /media/<user> or
+                    // /run/media/<user>; fall back to a bare /media on
+                    // single-user setups, and always include /mnt. (#31)
+                    add_entry("File System", "/", "drive");
+                    std::vector<std::string> mount_parents;
+                    const char* user = std::getenv("USER");
+                    bool have_user_media = false;
+                    if (user) {
+                        std::error_code u_ec;
+                        const std::string um  = std::string("/media/") + user;
+                        const std::string urm = std::string("/run/media/") + user;
+                        if (fs::is_directory(um, u_ec))  { mount_parents.push_back(um);  have_user_media = true; }
+                        if (fs::is_directory(urm, u_ec)) { mount_parents.push_back(urm); have_user_media = true; }
+                    }
+                    if (!have_user_media) mount_parents.push_back("/media");
+                    mount_parents.push_back("/mnt");
+                    std::set<std::string> seen;
+                    for (const auto& parent : mount_parents) {
+                        std::error_code m_ec;
+                        if (!fs::is_directory(parent, m_ec)) continue;
+                        for (auto& ent : fs::directory_iterator(parent,
+                                 fs::directory_options::skip_permission_denied, m_ec)) {
+                            std::error_code d_ec;
+                            if (!ent.is_directory(d_ec)) continue;
+                            const std::string full = liveplay::util::path_to_utf8(ent.path());
+                            if (!seen.insert(full).second) continue;
+                            add_entry(liveplay::util::path_to_utf8(ent.path().filename()),
+                                      full, "drive");
+                        }
+                    }
 #endif
                     return json_ok(out);
                 }

@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "Deshabilitado para selección múltiple (el punto de salida depende de la duración de cada elemento).",
     "noWaveformData": "No hay datos de forma de onda disponibles",
     "ltcRequiresDevice": "Seleccione un dispositivo de salida LTC en la Configuración del proyecto para habilitar la salida de timecode.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "Iniciar siguiente en el marcador",
+    "startNextTime": "Iniciar siguiente en",
+    "startNextFadeOut": "Atenuar en el marcador"
   },
   "playback": {
     "panic": "Detener Todas las Señales",
@@ -169,7 +169,7 @@
     "delete": "Eliminar",
     "edit": "Editar",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Tiempo hasta que empiece la siguiente pista"
   },
   "endBehavior": {
     "nothing": "Nada",
@@ -385,10 +385,12 @@
     "save": "Guardar",
     "close": "Cerrar",
     "preview": "Vista previa",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "Modo de transición predeterminado",
+    "transitionModeHelp": "Transición aplicada a las pistas recién importadas. Cada pista puede seguir cambiando entre fundido cruzado e iniciar siguiente en sus propiedades.",
+    "transitionModeCrossfade": "Fundido cruzado al siguiente",
+    "transitionModeStartNext": "Iniciar siguiente en el marcador",
+    "autoCueNext": "Preparar automáticamente el siguiente elemento aunque no tenga comportamiento final",
+    "autoCueNextHelp": "Prepara el siguiente elemento como «A continuación» aunque el elemento en reproducción no tenga comportamiento final, para que puedas avanzar por la lista con un solo botón GO. No inicia la reproducción automáticamente."
   },
   "common": {
     "default": "predeterminado",
@@ -441,7 +443,7 @@
     "endGotoItem": "Fin: Ir al elemento",
     "endGotoIndex": "Fin: Ir al índice",
     "endLoop": "Fin: Bucle",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "Inicia la siguiente pista en {time}"
   },
   "waveform": {
     "decreaseBy": "Disminuir en {seconds}s",
@@ -449,7 +451,7 @@
     "playFadeTitle": "Entrada: {seconds}s",
     "stopFadeTitle": "Salida: {seconds}s",
     "crossFadeTitle": "Fundido cruzado: {seconds}s",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Iniciar siguiente: {time}"
   },
   "unsavedModal": {
     "title": "Cambios sin guardar",

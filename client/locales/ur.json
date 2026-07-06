@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "متعدد انتخاب کے لیے غیر فعال (آؤٹ پوائنٹ ہر آئٹم کی مدت پر منحصر ہے)۔",
     "noWaveformData": "کوئی ویوفارم ڈیٹا دستیاب نہیں",
     "ltcRequiresDevice": "ٹائم کوڈ آؤٹ پٹ فعال کرنے کے لیے پروجیکٹ سیٹنگز میں ایک LTC آؤٹ پٹ ڈیوائس منتخب کریں۔",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "مارکر پر اگلا شروع کریں",
+    "startNextTime": "اگلا شروع کریں بمقام",
+    "startNextFadeOut": "مارکر پر فیڈ آؤٹ"
   },
   "playback": {
     "panic": "تمام سگنلز روکیں",
@@ -169,7 +169,7 @@
     "delete": "حذف کریں",
     "edit": "ترمیم کریں",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "اگلی ٹریک شروع ہونے تک کا وقت"
   },
   "endBehavior": {
     "nothing": "کچھ نہیں",
@@ -385,10 +385,12 @@
     "save": "محفوظ کریں",
     "close": "بند کریں",
     "preview": "پیش نظارہ",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "طے شدہ منتقلی وضع",
+    "transitionModeHelp": "نئی درآمد شدہ ٹریکس پر لاگو ہونے والی منتقلی۔ ہر ٹریک اپنی خصوصیات میں کراس فیڈ اور اگلا شروع کرنے کے درمیان تبدیل ہو سکتی ہے۔",
+    "transitionModeCrossfade": "اگلے کی طرف کراس فیڈ",
+    "transitionModeStartNext": "مارکر پر اگلا شروع کریں",
+    "autoCueNext": "اختتامی رویے کے بغیر بھی اگلی آئٹم خودکار طور پر تیار کریں",
+    "autoCueNextHelp": "چلنے والی آئٹم کا اختتامی رویہ نہ ہونے پر بھی اگلی آئٹم کو «اگلا» کے طور پر تیار کرتا ہے، تاکہ آپ ایک ہی GO بٹن سے پلے لسٹ میں آگے بڑھ سکیں۔ یہ خودکار طور پر پلے بیک شروع نہیں کرتا۔"
   },
   "common": {
     "default": "پہلے سے طے شدہ",
@@ -441,7 +443,7 @@
     "endGotoItem": "اختتام: آئٹم پر جائیں",
     "endGotoIndex": "اختتام: انڈیکس پر جائیں",
     "endLoop": "اختتام: لوپ",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "اگلی ٹریک {time} پر شروع کرتا ہے"
   },
   "waveform": {
     "decreaseBy": "{seconds}s کم کریں",
@@ -449,7 +451,7 @@
     "playFadeTitle": "فیڈ ان: {seconds}s",
     "stopFadeTitle": "فیڈ آؤٹ: {seconds}s",
     "crossFadeTitle": "کراس فیڈ: {seconds}s",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "اگلا شروع: {time}"
   },
   "unsavedModal": {
     "title": "غیر محفوظ شدہ تبدیلیاں",

@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "다중 선택에서는 비활성화됩니다 (아웃 포인트는 각 항목의 길이에 따라 달라집니다).",
     "noWaveformData": "파형 데이터가 없습니다",
     "ltcRequiresDevice": "타임코드 출력을 활성화하려면 프로젝트 설정에서 LTC 출력 장치를 선택하세요.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "마커에서 다음 시작",
+    "startNextTime": "다음 시작 위치",
+    "startNextFadeOut": "마커에서 페이드 아웃"
   },
   "playback": {
     "panic": "모든 신호 중지",
@@ -169,7 +169,7 @@
     "delete": "삭제",
     "edit": "편집",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "다음 트랙이 시작되기까지의 시간"
   },
   "endBehavior": {
     "nothing": "없음",
@@ -385,10 +385,12 @@
     "save": "저장",
     "close": "닫기",
     "preview": "미리 듣기",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "기본 전환 모드",
+    "transitionModeHelp": "새로 가져온 트랙에 적용되는 전환입니다. 각 트랙은 속성에서 크로스페이드와 다음 시작 사이를 계속 전환할 수 있습니다.",
+    "transitionModeCrossfade": "다음으로 크로스페이드",
+    "transitionModeStartNext": "마커에서 다음 시작",
+    "autoCueNext": "종료 동작이 없어도 다음 항목을 자동으로 대기시키기",
+    "autoCueNextHelp": "재생 중인 항목에 종료 동작이 없어도 다음 항목을 ‘다음’으로 대기시켜 GO 버튼 하나로 재생 목록을 넘길 수 있습니다. 재생을 자동으로 시작하지는 않습니다."
   },
   "common": {
     "default": "기본값",
@@ -441,7 +443,7 @@
     "endGotoItem": "종료: 항목으로 이동",
     "endGotoIndex": "종료: 인덱스로 이동",
     "endLoop": "종료: 반복",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "{time}에 다음 트랙 시작"
   },
   "waveform": {
     "decreaseBy": "{seconds}초 줄이기",
@@ -449,7 +451,7 @@
     "playFadeTitle": "페이드 인: {seconds}초",
     "stopFadeTitle": "페이드 아웃: {seconds}초",
     "crossFadeTitle": "크로스페이드: {seconds}초",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "다음 시작: {time}"
   },
   "unsavedModal": {
     "title": "저장되지 않은 변경 사항",

@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "Απενεργοποιημένο για πολλαπλή επιλογή (το σημείο λήξης εξαρτάται από τη διάρκεια κάθε στοιχείου).",
     "noWaveformData": "Δεν υπάρχουν διαθέσιμα δεδομένα κυματομορφής",
     "ltcRequiresDevice": "Επιλέξτε μια συσκευή εξόδου LTC στις Ρυθμίσεις έργου για να ενεργοποιήσετε την έξοδο timecode.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "Έναρξη επόμενου στον δείκτη",
+    "startNextTime": "Έναρξη επόμενου στο",
+    "startNextFadeOut": "Σβήσιμο στον δείκτη"
   },
   "playback": {
     "panic": "Σταματημα Όλων",
@@ -169,7 +169,7 @@
     "delete": "Διαγραφή",
     "edit": "Επεξεργασία",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Χρόνος έως την έναρξη του επόμενου κομματιού"
   },
   "endBehavior": {
     "nothing": "Τίποτα",
@@ -385,10 +385,12 @@
     "save": "Αποθήκευση",
     "close": "Κλείσιμο",
     "preview": "Προεπισκόπηση",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "Προεπιλεγμένη λειτουργία μετάβασης",
+    "transitionModeHelp": "Μετάβαση που εφαρμόζεται στα νέα εισαγόμενα κομμάτια. Κάθε κομμάτι μπορεί να εναλλάσσεται μεταξύ σταυρωτού σβησίματος και έναρξης επόμενου στις ιδιότητές του.",
+    "transitionModeCrossfade": "Σταυρωτό σβήσιμο στο επόμενο",
+    "transitionModeStartNext": "Έναρξη επόμενου στον δείκτη",
+    "autoCueNext": "Αυτόματη προετοιμασία επόμενου στοιχείου ακόμη και χωρίς συμπεριφορά λήξης",
+    "autoCueNextHelp": "Προετοιμάζει το επόμενο στοιχείο ως «Επόμενο» ακόμη κι όταν το στοιχείο που παίζει δεν έχει συμπεριφορά λήξης, ώστε να προχωράτε στη λίστα με ένα μόνο κουμπί GO. Δεν ξεκινά αυτόματα την αναπαραγωγή."
   },
   "common": {
     "default": "προεπιλογή",
@@ -441,7 +443,7 @@
     "endGotoItem": "Τέλος: Μετάβαση σε στοιχείο",
     "endGotoIndex": "Τέλος: Μετάβαση σε ευρετήριο",
     "endLoop": "Τέλος: Επανάληψη",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "Ξεκινά το επόμενο κομμάτι στο {time}"
   },
   "waveform": {
     "decreaseBy": "Μείωση κατά {seconds}δ",
@@ -449,7 +451,7 @@
     "playFadeTitle": "Fade εισόδου: {seconds}δ",
     "stopFadeTitle": "Fade εξόδου: {seconds}δ",
     "crossFadeTitle": "Cross-fade: {seconds}δ",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Έναρξη επόμενου: {time}"
   },
   "unsavedModal": {
     "title": "Μη αποθηκευμένες αλλαγές",

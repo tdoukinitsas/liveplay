@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "E çaktivizuar për përzgjedhje të shumëfishtë (pika e daljes varet nga kohëzgjatja e secilit artikull).",
     "noWaveformData": "Nuk ka të dhëna të formës së valës",
     "ltcRequiresDevice": "Zgjidh një pajisje dalëse LTC te Cilësimet e projektit për të aktivizuar daljen e timecode.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "Nis tjetrin te shënuesi",
+    "startNextTime": "Nis tjetrin në",
+    "startNextFadeOut": "Zbehje në dalje te shënuesi"
   },
   "playback": {
     "panic": "Ndalo të Gjitha Sinjalet",
@@ -169,7 +169,7 @@
     "delete": "Fshi",
     "edit": "Redakto",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Koha deri sa të nisë pjesa tjetër"
   },
   "endBehavior": {
     "nothing": "Asgjë",
@@ -385,10 +385,12 @@
     "save": "Ruaj",
     "close": "Mbyll",
     "preview": "Paraparim",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "Mënyra e parazgjedhur e kalimit",
+    "transitionModeHelp": "Kalimi që zbatohet për pjesët e sapoimportuara. Çdo pjesë mund të ndërrohet mes kalimit të kryqëzuar dhe nisjes së tjetrit te vetitë e saj.",
+    "transitionModeCrossfade": "Kalim i kryqëzuar te tjetri",
+    "transitionModeStartNext": "Nis tjetrin te shënuesi",
+    "autoCueNext": "Përgatit automatikisht artikullin tjetër edhe pa sjellje fundi",
+    "autoCueNextHelp": "Përgatit artikullin tjetër si «Tjetri» edhe kur artikulli që po luhet s’ka sjellje fundi, që të kalosh nëpër listë me një buton të vetëm GO. Nuk e nis luajtjen automatikisht."
   },
   "common": {
     "default": "e paracaktuar",
@@ -441,7 +443,7 @@
     "endGotoItem": "Mbarim: Shko te artikulli",
     "endGotoIndex": "Mbarim: Shko te indeksi",
     "endLoop": "Mbarim: Përsërit",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "Nis pjesën tjetër te {time}"
   },
   "waveform": {
     "decreaseBy": "Zvogëlo me {seconds}s",
@@ -449,7 +451,7 @@
     "playFadeTitle": "Fade-in: {seconds}s",
     "stopFadeTitle": "Fade-out: {seconds}s",
     "crossFadeTitle": "Cross-fade: {seconds}s",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Nis tjetrin: {time}"
   },
   "unsavedModal": {
     "title": "Ndryshime të paruajtura",

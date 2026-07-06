@@ -94,7 +94,7 @@ const canGoUp = computed(() =>
 
 const sortedEntries = computed(() => {
   const entries = listing.value?.entries ?? [];
-  const rank: Record<string, number> = { drive: 0, dir: 1, file: 2 };
+  const rank: Record<string, number> = { home: 0, drive: 1, dir: 2, file: 3 };
   return [...entries].sort((a, b) => {
     const r = (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9);
     return r !== 0 ? r : a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
@@ -107,6 +107,7 @@ const selectedCountLabel = computed(() =>
 function isSelected(p: string): boolean { return selected.value.includes(p); }
 
 function iconFor(entry: ServerFsEntry): string {
+  if (entry.kind === 'home')  return 'home';
   if (entry.kind === 'drive') return 'storage';
   if (entry.kind === 'dir')   return 'folder';
   return 'audio_file';
@@ -159,7 +160,7 @@ function onEntryClick(entry: ServerFsEntry, index: number, e: MouseEvent) {
 }
 
 function onEntryActivate(entry: ServerFsEntry) {
-  if (entry.kind === 'dir' || entry.kind === 'drive') goTo(entry.full_path);
+  if (entry.kind === 'dir' || entry.kind === 'drive' || entry.kind === 'home') goTo(entry.full_path);
   else if (props.canSelect) emit('select', [entry.full_path]);
 }
 
@@ -247,9 +248,10 @@ watch(() => props.startPath, p => goTo(p));
       &:last-child { border-bottom: none; }
       &:hover { background: #202020; }
       .size   { color: #888; font-size: 11px; font-family: var(--font-mono); }
-      // Names stay white for legibility; drives are emphasised.
+      // Names stay white for legibility; drives & home are emphasised.
       .name   { color: #ffffff; }
-      &.drive .name { font-weight: 600; }
+      &.drive .name,
+      &.home .name { font-weight: 600; }
       // Drives & folders: white icons. Selectable files: accent icon.
       .icon { font-size: 18px; text-align: center; color: #ffffff; }
       &.file .icon { color: var(--color-accent); }

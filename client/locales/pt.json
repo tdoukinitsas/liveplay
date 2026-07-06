@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "Desativado para seleção múltipla (o ponto de saída depende da duração de cada item).",
     "noWaveformData": "Nenhum dado de forma de onda disponível",
     "ltcRequiresDevice": "Selecione um dispositivo de saída LTC nas Definições do projeto para ativar a saída de timecode.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "Iniciar próximo no marcador",
+    "startNextTime": "Iniciar próximo em",
+    "startNextFadeOut": "Esmaecer no marcador"
   },
   "playback": {
     "panic": "Parar Todos os Sinais",
@@ -169,7 +169,7 @@
     "delete": "Excluir",
     "edit": "Editar",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Tempo até a próxima faixa começar"
   },
   "endBehavior": {
     "nothing": "Nada",
@@ -385,10 +385,12 @@
     "save": "Guardar",
     "close": "Fechar",
     "preview": "Pré-visualização",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "Modo de transição padrão",
+    "transitionModeHelp": "Transição aplicada às faixas recém-importadas. Cada faixa ainda pode alternar entre fusão cruzada e iniciar próximo nas suas propriedades.",
+    "transitionModeCrossfade": "Fusão cruzada para o próximo",
+    "transitionModeStartNext": "Iniciar próximo no marcador",
+    "autoCueNext": "Preparar automaticamente o próximo item mesmo sem comportamento de fim",
+    "autoCueNextHelp": "Prepara o próximo item como «A seguir» mesmo quando o item em reprodução não tem comportamento de fim, para percorrer a lista com um único botão GO. Não inicia a reprodução automaticamente."
   },
   "common": {
     "default": "padrão",
@@ -441,7 +443,7 @@
     "endGotoItem": "Fim: Ir para item",
     "endGotoIndex": "Fim: Ir para índice",
     "endLoop": "Fim: Repetir",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "Inicia a próxima faixa em {time}"
   },
   "waveform": {
     "decreaseBy": "Diminuir em {seconds}s",
@@ -449,7 +451,7 @@
     "playFadeTitle": "Fade de entrada: {seconds}s",
     "stopFadeTitle": "Fade de saída: {seconds}s",
     "crossFadeTitle": "Crossfade: {seconds}s",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Iniciar próximo: {time}"
   },
   "unsavedModal": {
     "title": "Alterações não salvas",

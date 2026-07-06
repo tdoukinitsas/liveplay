@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "Deaktivert ved flervalg (utpunktet avhenger av hvert elements varighet).",
     "noWaveformData": "Ingen bølgeformdata tilgjengelig",
     "ltcRequiresDevice": "Velg en LTC-utgangsenhet i Prosjektinnstillinger for å aktivere timecode-utgang.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "Start neste ved markør",
+    "startNextTime": "Start neste ved",
+    "startNextFadeOut": "Ton ut ved markør"
   },
   "playback": {
     "panic": "Stopp alle signaler",
@@ -169,7 +169,7 @@
     "delete": "Slett",
     "edit": "Rediger",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Tid til neste spor starter"
   },
   "endBehavior": {
     "nothing": "Ingenting",
@@ -385,10 +385,12 @@
     "save": "Lagre",
     "close": "Lukk",
     "preview": "Forhåndsvisning",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "Standard overgangsmodus",
+    "transitionModeHelp": "Overgang som brukes på nylig importerte spor. Hvert spor kan fortsatt veksle mellom krysstoning og start neste i egenskapene sine.",
+    "transitionModeCrossfade": "Krysston til neste",
+    "transitionModeStartNext": "Start neste ved markør",
+    "autoCueNext": "Klargjør neste element automatisk selv uten sluttoppførsel",
+    "autoCueNextHelp": "Klargjør neste element som «Neste» selv når elementet som spilles ikke har noen sluttoppførsel, slik at du kan bla gjennom spillelisten med én GO-knapp. Det starter ikke avspilling automatisk."
   },
   "common": {
     "default": "standard",
@@ -441,7 +443,7 @@
     "endGotoItem": "Slutt: Gå til element",
     "endGotoIndex": "Slutt: Gå til indeks",
     "endLoop": "Slutt: Loop",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "Starter neste spor ved {time}"
   },
   "waveform": {
     "decreaseBy": "Reduser med {seconds}s",
@@ -449,7 +451,7 @@
     "playFadeTitle": "Innfading: {seconds}s",
     "stopFadeTitle": "Utfading: {seconds}s",
     "crossFadeTitle": "Kryssfading: {seconds}s",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Start neste: {time}"
   },
   "unsavedModal": {
     "title": "Ulagrede endringer",

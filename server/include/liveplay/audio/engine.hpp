@@ -224,6 +224,13 @@ public:
                                         ChannelIndex source_channel,
                                         const MixerChannelId& mixer);
 
+    // Remove every source-channel route this cue has to any mixer, including
+    // the engine's auto-created "Main" mixer (which the ProjectState routing
+    // layer doesn't track by id). Used when re-pinning a cue exclusively to a
+    // specific output device so it can't keep bleeding onto Main → the default
+    // device. No-op if the cue has no routes.
+    void unroute_item_from_all_mixers(const CueId& cue);
+
     void route_mixer_to_master(const MixerChannelId& mixer,
                                MasterChannelIndex master,
                                float gain_db = 0.0f);

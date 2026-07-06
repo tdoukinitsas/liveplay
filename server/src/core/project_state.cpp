@@ -700,6 +700,12 @@ void ProjectState::start_async_mirror() {
             // Honour the per-project "disable limiter" toggle.
             engine_.set_limiter_enabled(!settings_snap.value("disableLimiter", false));
         }
+        // Honour the project's default output device: re-pin every non-override
+        // cue from Main (the OS default device, where ensure_default_routing()
+        // above parked them) to the selected device. Previously this ran only
+        // when the user changed the setting, so on load the project's chosen
+        // device was ignored until re-selected. (#30)
+        apply_default_device_routing();
         loading_audio_.store(false, std::memory_order_release);
     });
 }
@@ -1237,6 +1243,11 @@ void ProjectState::apply_default_device_routing() {
 
     for (const auto& cue_id : non_override_cues)
         route_cue_to_mixer(cue_id, mixer);
+
+    // route_cue_to_mixer() clears every source route (incl. the LTC synthetic
+    // channel), so re-establish LTC device routing for any LTC-enabled cues we
+    // just re-pinned to the default device.
+    apply_ltc_device_routing();
 
     Logger::info("apply_default_device_routing: routed {} cue(s) to '{}'",
                  non_override_cues.size(), device_name);
@@ -2134,20 +2145,31 @@ bool ProjectState::play_item(const std::string& uuid,
             engine_.ensure_default_routing();
         }
     } else {
-        std::vector<audio::MixerChannelId> override_mixers;
+        // No per-item override: honour the project's default output device if
+        // one is set, otherwise fall back to the engine's Main → platform-
+        // default routing. Without this, a project that selected a non-default
+        // output device was ignored at play time, because ensure_default_-
+        // routing() re-pinned the cue to Main (the OS default device). (#30)
+        std::string default_device;
         {
             std::lock_guard lock{mutex_};
-            for (auto& [_, r] : device_routings_) override_mixers.push_back(r.mixer);
-        }
-        if (auto* pi = engine_.find_cue(target_cue)) {
-            const auto src_count = pi->source_channel_count();
-            for (auto& m : override_mixers) {
-                for (audio::ChannelIndex c = 0; c < src_count; ++c) {
-                    engine_.unroute_item_source_from_mixer(target_cue, c, m);
-                }
+            if (document_.contains("settings") && document_["settings"].is_object()) {
+                const auto& s = document_["settings"];
+                if (s.contains("defaultOutputDevice") && s["defaultOutputDevice"].is_string())
+                    default_device = s["defaultOutputDevice"].get<std::string>();
             }
         }
-        engine_.ensure_default_routing();
+        audio::MixerChannelId default_mixer;
+        if (!default_device.empty()) default_mixer = ensure_device_routing(default_device);
+        if (!default_mixer.empty()) {
+            // route_cue_to_mixer() clears every prior route (incl. Main) first,
+            // so the cue plays ONLY on the selected device.
+            route_cue_to_mixer(target_cue, default_mixer);
+        } else {
+            // Drop any stale per-device override routes, then Main-route.
+            engine_.unroute_item_from_all_mixers(target_cue);
+            engine_.ensure_default_routing();
+        }
     }
 
     // Re-establish LTC device routing after any audio routing changes above
@@ -2420,21 +2442,15 @@ void ProjectState::route_cue_to_mixer(const audio::CueId& cue,
     if (!pi) return;
     const auto src_count = pi->source_channel_count();
 
-    // Drop any prior item-to-mixer routes (incl. Main) by walking every
-    // known mixer — the engine doesn't have a "list routes for cue" API, so
-    // we unroute against each mixer we know about. Cheap because the
-    // unroute is a no-op when no route exists.
-    std::vector<audio::MixerChannelId> known_mixers;
-    {
-        std::lock_guard lock{mutex_};
-        for (auto& [_, m] : mixers_) known_mixers.push_back(m.id);
-        for (auto& [_, r] : device_routings_) known_mixers.push_back(r.mixer);
-    }
-    for (const auto& m : known_mixers) {
-        for (audio::ChannelIndex c = 0; c < src_count; ++c) {
-            engine_.unroute_item_source_from_mixer(cue, c, m);
-        }
-    }
+    // Drop ALL prior item-to-mixer routes for this cue — including the engine's
+    // auto-created "Main" mixer, which ProjectState does NOT track by id. The
+    // previous implementation only unrouted from mixers we knew about (mixers_
+    // + device_routings_), so a cue pinned to a specific output device stayed
+    // routed to Main → the platform-default device as well and played out of
+    // both. (The LTC synthetic channel is re-established by the
+    // apply_ltc_device_routing() call that follows routing in play_item.)
+    engine_.unroute_item_from_all_mixers(cue);
+
     for (audio::ChannelIndex c = 0; c < std::min<audio::ChannelCount>(2, src_count); ++c) {
         engine_.route_item_source_to_mixer(cue, c, mixer);
     }

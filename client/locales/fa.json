@@ -157,9 +157,9 @@
     "multiSelectOutPointDisabled": "برای انتخاب چندتایی غیرفعال است (نقطه پایان به مدت‌زمان هر مورد بستگی دارد).",
     "noWaveformData": "داده‌ای برای شکل موج موجود نیست",
     "ltcRequiresDevice": "برای فعال‌سازی خروجی تایم‌کد، یک دستگاه خروجی LTC را در تنظیمات پروژه انتخاب کنید.",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker"
+    "startNextEnable": "شروع بعدی در نشانگر",
+    "startNextTime": "شروع بعدی در",
+    "startNextFadeOut": "محو شدن در نشانگر"
   },
   "playback": {
     "panic": "توقف همه سیگنال‌ها",
@@ -169,7 +169,7 @@
     "delete": "حذف",
     "edit": "ویرایش",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "زمان تا شروع قطعه بعدی"
   },
   "endBehavior": {
     "nothing": "هیچ",
@@ -385,10 +385,12 @@
     "save": "ذخیره",
     "close": "بستن",
     "preview": "پیش‌نمایش",
-    "transitionMode": "Default Transition Mode",
-    "transitionModeHelp": "Transition applied to newly imported tracks. Each track can still be switched between cross-fade and start-next in its properties.",
-    "transitionModeCrossfade": "Cross-fade to next",
-    "transitionModeStartNext": "Start next at marker"
+    "transitionMode": "حالت گذار پیش‌فرض",
+    "transitionModeHelp": "گذاری که برای قطعات تازه‌واردشده اعمال می‌شود. هر قطعه همچنان می‌تواند در ویژگی‌هایش بین محو متقاطع و شروع بعدی جابه‌جا شود.",
+    "transitionModeCrossfade": "محو متقاطع به بعدی",
+    "transitionModeStartNext": "شروع بعدی در نشانگر",
+    "autoCueNext": "آماده‌سازی خودکار مورد بعدی حتی بدون رفتار پایان",
+    "autoCueNextHelp": "مورد بعدی را به‌عنوان «بعدی» آماده می‌کند حتی وقتی مورد در حال پخش رفتار پایانی ندارد، تا بتوانید با یک دکمه GO در فهرست پخش حرکت کنید. پخش را به‌صورت خودکار آغاز نمی‌کند."
   },
   "common": {
     "default": "پیش‌فرض",
@@ -441,7 +443,7 @@
     "endGotoItem": "پایان: رفتن به آیتم",
     "endGotoIndex": "پایان: رفتن به شاخص",
     "endLoop": "پایان: حلقه",
-    "startNextMarker": "Starts next track at {time}"
+    "startNextMarker": "قطعه بعدی را در {time} آغاز می‌کند"
   },
   "waveform": {
     "decreaseBy": "کاهش {seconds} ثانیه",
@@ -449,7 +451,7 @@
     "playFadeTitle": "فید ورودی: {seconds} ثانیه",
     "stopFadeTitle": "فید خروجی: {seconds} ثانیه",
     "crossFadeTitle": "کراس فید: {seconds} ثانیه",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "شروع بعدی: {time}"
   },
   "unsavedModal": {
     "title": "تغییرات ذخیره‌نشده",

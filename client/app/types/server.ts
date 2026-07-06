@@ -62,7 +62,7 @@ export interface ServerMixerChannel {
 export interface ServerFsEntry {
   name: string;
   full_path: string;
-  kind: 'dir' | 'file' | 'drive';   // drive == top-level volume (Windows C:, D:, ...)
+  kind: 'dir' | 'file' | 'drive' | 'home';   // drive == top-level volume (Windows C:, D:, ...); home == $HOME shortcut
   size?: number;
 }
 
