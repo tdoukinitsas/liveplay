@@ -77,49 +77,6 @@
         <span v-else-if="isQueuedNext" class="status-pill up-next">{{ t('status.upNext') }}</span>
         <span v-if="isPreviewing" class="status-pill preview">{{ t('status.previewing') }}</span>
 
-        <div class="item-actions">
-          <ActionButton
-            v-if="item.type === 'audio'"
-            :icon="'headphones'"
-            :highlight-color="isPreviewing ? 'var(--color-accent)' : 'var(--color-success)'"
-            :is-active="isPreviewing"
-            :class="{ 'no-device': !hasPreviewDevice }"
-            context="Playlist"
-            @click.stop="isPreviewing ? handleStopPreview() : handleStartPreview()"
-            :title="isPreviewing ? t('actions.stopPreview') : (hasPreviewDevice ? t('actions.preview') : t('actions.previewNoDevice'))"
-          />
-          <ActionButton
-            :icon="isPlaying ? 'stop' : 'play_arrow'"
-            :highlight-color="isPlaying ? 'var(--color-danger)' : 'var(--color-success)'"
-            context="Playlist"
-            @click.stop="isPlaying ? handleStop() : handlePlay()"
-            :title="isPlaying ? t('actions.stop') : t('actions.play')"
-          />
-          <ActionButton
-            icon="fast_forward"
-            highlight-color="var(--color-warning)"
-            active-text-color="black"
-            :is-active="isManuallyQueued"
-            context="Playlist"
-            @click.stop="handleSetAsNext"
-            :title="t('actions.setAsNext')"
-          />
-          <ActionButton
-            icon="settings"
-            highlight-color="var(--color-accent)"
-            context="Playlist"
-            @click.stop="handleEdit"
-            :title="t('actions.edit')"
-          />
-          <ActionButton
-            icon="delete"
-            highlight-color="var(--color-danger)"
-            context="Playlist"
-            @click.stop="handleDelete"
-            :title="t('actions.delete')"
-          />
-        </div>
-        
         <!-- Behavior indicators (for audio items) -->
         <div v-if="item.type === 'audio'" class="behavior-indicators">
           <!-- Start behavior -->
@@ -177,6 +134,49 @@
         </div>
         
         <span v-if="item.type === 'audio'" class="item-duration">{{ durationDisplay }}</span>
+
+        <div class="item-actions">
+          <ActionButton
+            v-if="item.type === 'audio'"
+            :icon="'headphones'"
+            :highlight-color="isPreviewing ? 'var(--color-accent)' : 'var(--color-success)'"
+            :is-active="isPreviewing"
+            :class="{ 'no-device': !hasPreviewDevice }"
+            context="Playlist"
+            @click.stop="isPreviewing ? handleStopPreview() : handleStartPreview()"
+            :title="isPreviewing ? t('actions.stopPreview') : (hasPreviewDevice ? t('actions.preview') : t('actions.previewNoDevice'))"
+          />
+          <ActionButton
+            :icon="isPlaying ? 'stop' : 'play_arrow'"
+            :highlight-color="isPlaying ? 'var(--color-danger)' : 'var(--color-success)'"
+            context="Playlist"
+            @click.stop="isPlaying ? handleStop() : handlePlay()"
+            :title="isPlaying ? t('actions.stop') : t('actions.play')"
+          />
+          <ActionButton
+            icon="fast_forward"
+            highlight-color="var(--color-warning)"
+            active-text-color="black"
+            :is-active="isManuallyQueued"
+            context="Playlist"
+            @click.stop="handleSetAsNext"
+            :title="t('actions.setAsNext')"
+          />
+          <ActionButton
+            icon="settings"
+            highlight-color="var(--color-accent)"
+            context="Playlist"
+            @click.stop="handleEdit"
+            :title="t('actions.edit')"
+          />
+          <ActionButton
+            icon="delete"
+            highlight-color="var(--color-danger)"
+            context="Playlist"
+            @click.stop="handleDelete"
+            :title="t('actions.delete')"
+          />
+        </div>
       </div>
       
       
@@ -959,19 +959,24 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .item-duration {
-  font-size: 12px;
   font-size: 1.5em;
   color: var(--color-text-secondary);
-  margin-left: var(--spacing-xs);
+  margin: 0 var(--spacing-sm);
   white-space: nowrap;
+  /* Fixed-width, right-aligned column so the leading "-" shown during the
+     playing countdown widens the text without shoving the flags around, and
+     so the duration lines up vertically from row to row. */
+  min-width: 3.5em;
+  text-align: right;
+  flex-shrink: 0;
 }
 
 .behavior-indicators {
   display: flex;
   gap: 2px;
   align-items: center;
-  margin-left: auto;
-  
+  flex-shrink: 0;
+
   .behavior-icon {
     font-size: 14px;
     color: var(--color-text-secondary);
