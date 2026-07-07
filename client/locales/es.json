@@ -390,7 +390,14 @@
     "transitionModeCrossfade": "Fundido cruzado al siguiente",
     "transitionModeStartNext": "Iniciar siguiente en el marcador",
     "autoCueNext": "Preparar automáticamente el siguiente elemento aunque no tenga comportamiento final",
-    "autoCueNextHelp": "Prepara el siguiente elemento como «A continuación» aunque el elemento en reproducción no tenga comportamiento final, para que puedas avanzar por la lista con un solo botón GO. No inicia la reproducción automáticamente."
+    "autoCueNextHelp": "Prepara el siguiente elemento como «A continuación» aunque el elemento en reproducción no tenga comportamiento final, para que puedas avanzar por la lista con un solo botón GO. No inicia la reproducción automáticamente.",
+    "tabAudioRouting": "Enrutamiento de audio",
+    "tabPlaybackBehaviour": "Comportamiento de reproducción",
+    "tabUserInterface": "Interfaz de usuario",
+    "stopAllFade": "Fundido de «Detener todo» (segundos)",
+    "stopAllFadeHelp": "Tiempo que tardan todas las señales en desvanecerse al pulsar «Detener todo». Ponlo a 0 para una parada instantánea.",
+    "scrollToPlaying": "Desplazar al elemento en reproducción",
+    "scrollToPlayingHelp": "Mantener automáticamente centrado en la lista el elemento que se está reproduciendo."
   },
   "common": {
     "default": "predeterminado",

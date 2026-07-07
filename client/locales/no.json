@@ -390,7 +390,14 @@
     "transitionModeCrossfade": "Krysston til neste",
     "transitionModeStartNext": "Start neste ved markør",
     "autoCueNext": "Klargjør neste element automatisk selv uten sluttoppførsel",
-    "autoCueNextHelp": "Klargjør neste element som «Neste» selv når elementet som spilles ikke har noen sluttoppførsel, slik at du kan bla gjennom spillelisten med én GO-knapp. Det starter ikke avspilling automatisk."
+    "autoCueNextHelp": "Klargjør neste element som «Neste» selv når elementet som spilles ikke har noen sluttoppførsel, slik at du kan bla gjennom spillelisten med én GO-knapp. Det starter ikke avspilling automatisk.",
+    "tabAudioRouting": "Lydruting",
+    "tabPlaybackBehaviour": "Avspillingsatferd",
+    "tabUserInterface": "Brukergrensesnitt",
+    "stopAllFade": "Uttoning for «Stopp alle» (sekunder)",
+    "stopAllFadeHelp": "Hvor lang tid alle klipp bruker på å tone ut når du trykker «Stopp alle». Sett til 0 for umiddelbar stopp.",
+    "scrollToPlaying": "Rull til elementet som spilles av",
+    "scrollToPlayingHelp": "Hold elementet som spilles av automatisk sentrert i listen."
   },
   "common": {
     "default": "standard",

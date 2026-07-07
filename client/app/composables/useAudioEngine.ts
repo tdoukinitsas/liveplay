@@ -53,11 +53,6 @@ export interface ActiveGroupView {
   currentTime: number;
 }
 
-// Installed-once guard for the "cue first item on project open" watcher.
-// useAudioEngine() is called from many components; without this the watcher
-// would be registered once per consumer and arm the first item several times.
-let firstCueWatcherInstalled = false;
-
 // Server's TransportState enum (mirrors C++).
 const TRANSPORT_STOPPED   = 0;
 const TRANSPORT_PLAYING   = 1;
@@ -85,15 +80,12 @@ export const useAudioEngine = () => {
   const masterGainDb = useState<number>('masterGainDb', () => 0);
 
   // Server-authoritative "Up Next" override. setNextItem writes via WS,
-  // server fans out as next_item_set doc_patch.
+  // server fans out as next_item_set doc_patch. All auto-cue arming decisions
+  // (#28: advance-on-stop, first-item-on-open, end-of-list wrap) now live on
+  // the authoritative server (ProjectState::arm_next_after_stop /
+  // arm_first_item_on_open) so every connected client mirrors one decision
+  // instead of each computing its own. The client only reflects this value.
   const nextItemOverrideUuid = useState<string | null>('nextItemOverrideUuid', () => null);
-
-  // Item uuids the operator explicitly stopped (stopCue / stop-all / panic).
-  // The server's cue_state STOPPED edge is derived by diffing transport state
-  // and carries no reason, so we record intent here: consulted + cleared when
-  // the matching STOPPED edge arrives, letting maybeArmNextAfterStop tell a
-  // manual stop from a natural end (#28 wrap-around rule).
-  const manuallyStoppedUuids = useState<Set<string>>('manuallyStoppedUuids', () => new Set());
 
   // ---- Helpers -------------------------------------------------------
   const findItemByServerCueId = (cueId: string): AudioItem | null => {
@@ -181,105 +173,11 @@ export const useAudioEngine = () => {
     activeCues.value.delete(uuid);
   };
 
-  // Issue #28 follow-up: the derived `autoNextItemUuid` only reflects the
-  // CURRENTLY playing item, so once a 'nothing'-end cue finishes the "Up
-  // Next" arming vanished and the operator's single-GO stepping broke after
-  // the very first track. When the auto-cue setting is on, persist the
-  // arming as a server-authoritative next-item override the moment the cue
-  // stops, so "Up Next" survives past the end of the track. Guarded so we
-  // never clobber a manual cue and never fire while other cues are still
-  // playing (e.g. crossfades). Only 'nothing' items are handled here —
-  // 'next'/'loop'/'goto' behaviours are auto-advanced by the server itself.
-  //
-  // `wasManual` distinguishes an operator stop from a natural end (see the
-  // end-of-playlist wrap below): the two only differ once we fall off the end.
-  const maybeArmNextAfterStop = (stoppedUuid: string | null, wasManual: boolean) => {
-    if (!stoppedUuid) return;
-    if (nextItemOverrideUuid.value) return;   // a manual / existing arming wins
-    if (activeCues.value.size > 0) return;     // still playing something else
-    if ((currentProject.value as any)?.settings?.autoCueNextWithoutEndBehavior === false) return;
-    const item = findItemByUuid(stoppedUuid);
-    if (!item || item.type !== 'audio') return;
-    const audioItem = item as AudioItem;
-    if (audioItem.endBehavior.action !== 'nothing') return;
-    const nextIndex = [...audioItem.index];
-    nextIndex[nextIndex.length - 1]++;
-    const nextItem = findItemByIndex(nextIndex);
-    if (nextItem) {
-      // A following item exists → arm it. For a natural end this advances the
-      // playlist; for a manual stop this is exactly the item that was already
-      // showing as "Up Next" (autoNextItemUuid of the stopped cue), so the
-      // arming is simply preserved across the stop.
-      setNextItem(nextItem.uuid);
-      return;
-    }
-    // No following item → we fell off the end of the playlist.
-    //  - Natural end → wrap the arming back to the first item so a single GO
-    //    restarts the show from the top. This ONLY arms it; playback still
-    //    waits for the operator. A real auto-loop must be set intentionally
-    //    via the last item's end behaviour (goto first) — never implied here.
-    //  - Manual stop → leave "Up Next" as-is (there's nothing to keep), so
-    //    stopping the last track to hold the show doesn't silently re-arm the
-    //    top of the list under the operator.
-    if (!wasManual) {
-      const first = firstPlayableItem();
-      if (first) setNextItem(first.uuid);
-    }
-  };
-
-  // First audio item in document order (depth-first through groups). Used to
-  // arm the very first GO target when a project opens.
-  const firstPlayableItem = (): AudioItem | null => {
-    const walk = (arr: (AudioItem | GroupItem)[]): AudioItem | null => {
-      for (const it of arr) {
-        if (it.type === 'audio') return it as AudioItem;
-        if (it.type === 'group') {
-          const hit = walk((it as GroupItem).children);
-          if (hit) return hit;
-        }
-      }
-      return null;
-    };
-    return currentProject.value ? walk(currentProject.value.items) : null;
-  };
-
-  // Issue #28 follow-up: cue the first playlist item when a project opens, so
-  // the operator's very first GO fires without touching the mouse. Runs once
-  // per project *open* (object-identity change), only after items have
-  // streamed in, and only when nothing is already armed/playing — so it never
-  // clobbers a manual cue, never fights a rejoined running session, and never
-  // re-arms when items are added mid-show. Installed once (module guard) even
-  // though useAudioEngine() has many callers.
-  if (!firstCueWatcherInstalled) {
-    firstCueWatcherInstalled = true;
-    // Detached scope so the watcher lives for the app's lifetime rather than
-    // being torn down when the first component that called useAudioEngine()
-    // unmounts (which would leave the install-once flag stuck true).
-    const scope = effectScope(true);
-    scope.run(() => {
-      let lastRef: unknown = null;
-      let pendingFor: unknown = null;
-      watch(
-        () => [currentProject.value, currentProject.value?.items.length ?? 0] as const,
-        ([proj, len]) => {
-          if (proj !== lastRef) {
-            // A different project object => a fresh open/create (or close→null).
-            lastRef = proj;
-            pendingFor = proj ?? null;
-          }
-          if (!proj || proj !== pendingFor) return;
-          if (len === 0) return;          // wait for the first page of items
-          pendingFor = null;              // only attempt once per open
-          if ((proj as any)?.settings?.autoCueNextWithoutEndBehavior === false) return;
-          if (nextItemOverrideUuid.value) return;   // already armed (manual / server)
-          if (activeCues.value.size > 0) return;     // rejoined a running session
-          const first = firstPlayableItem();
-          if (first) setNextItem(first.uuid);
-        },
-        { immediate: true },
-      );
-    });
-  }
+  // Note: the auto-cue "Up Next" arming that used to live here (advance on
+  // stop, first-item on open, end-of-list wrap) is now owned entirely by the
+  // server so multiple clients share one authoritative decision. The client
+  // only reflects `nextItemOverrideUuid` (pushed via next_item_set / snapshot)
+  // and the deterministic `autoNextItemUuid` display below.
 
   // ---- activeGroups projection --------------------------------------
   // A group is "playing" if any of its descendant audio items is in
@@ -393,24 +291,20 @@ export const useAudioEngine = () => {
       // a crossfade) the scan finds nothing and the entry lingers — which left
       // the outgoing item highlighted after a crossfade completed. Fall back to
       // the serverCueId scan for events that carry no item_uuid.
-      let stoppedUuid: string | null = null;
       if (item_uuid && activeCues.value.has(item_uuid)) {
-        stoppedUuid = item_uuid;
         removeActiveCue(item_uuid);
       } else {
         for (const [uuid, cue] of activeCues.value) {
           if (cue.serverCueId === cue_id) {
-            stoppedUuid = uuid;
             removeActiveCue(uuid);
             break;
           }
         }
       }
       recomputeActiveGroups();
-      // Set.delete returns true iff the uuid was queued by an operator stop —
-      // that's our manual-vs-natural signal (and it clears the flag in one go).
-      const wasManual = stoppedUuid ? manuallyStoppedUuids.value.delete(stoppedUuid) : false;
-      maybeArmNextAfterStop(stoppedUuid, wasManual);
+      // "Up Next" arming after a stop is decided by the server (it distinguishes
+      // manual stops from natural ends and owns the end-of-list wrap), then
+      // mirrored back to us via a next_item_set doc_patch.
       return;
     }
     // Prefer item_uuid (server now includes it) so cart items without a
@@ -550,18 +444,17 @@ export const useAudioEngine = () => {
 
   const stopCue = async (uuid: string) => {
     if (!uuid) return;
-    // Flag the operator's intent so the incoming STOPPED edge is treated as a
-    // manual stop (keep "Up Next" as-is) rather than a natural end.
-    manuallyStoppedUuids.value.add(uuid);
+    // The server treats a single-cue stop as a manual stop for Up-Next arming.
     server.stopItem(uuid);
   };
+  // Global Stop All — omit the fade so the server applies the project-wide
+  // Stop All fade (settings.stopAllFadeMs, default 1 s). Set that to 0 in
+  // Project Settings for an instant panic.
   const stopAllCues = async () => {
-    for (const uuid of activeCues.value.keys()) manuallyStoppedUuids.value.add(uuid);
-    server.stopAll(0);
+    server.stopAll();
   };
   const panicStop   = async () => {
-    for (const uuid of activeCues.value.keys()) manuallyStoppedUuids.value.add(uuid);
-    server.stopAll(0);
+    server.stopAll();
   };
 
   const pauseCue = async (uuid: string) => {

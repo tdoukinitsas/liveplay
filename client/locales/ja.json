@@ -390,7 +390,14 @@
     "transitionModeCrossfade": "次へクロスフェード",
     "transitionModeStartNext": "マーカーで次を開始",
     "autoCueNext": "終了動作がなくても次の項目を自動的に準備する",
-    "autoCueNextHelp": "再生中の項目に終了動作がなくても次の項目を「次へ」として準備し、GO ボタン一つでプレイリストを順に進められます。再生は自動的には開始されません。"
+    "autoCueNextHelp": "再生中の項目に終了動作がなくても次の項目を「次へ」として準備し、GO ボタン一つでプレイリストを順に進められます。再生は自動的には開始されません。",
+    "tabAudioRouting": "オーディオルーティング",
+    "tabPlaybackBehaviour": "再生動作",
+    "tabUserInterface": "ユーザーインターフェース",
+    "stopAllFade": "「すべて停止」フェードアウト（秒）",
+    "stopAllFadeHelp": "「すべて停止」を押したときにすべてのキューがフェードアウトする時間。0 で即時停止します。",
+    "scrollToPlaying": "再生中の項目までスクロール",
+    "scrollToPlayingHelp": "再生中の項目をリストの中央に自動的に表示します。"
   },
   "common": {
     "default": "デフォルト",

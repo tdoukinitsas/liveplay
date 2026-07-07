@@ -339,7 +339,14 @@ function createClient() {
   // ---- Transport (WS — low-latency) ---------------------------------
   function play(cue: CueId)             { wsSend({ type: 'play',     cue_id: cue }); }
   function stop(cue: CueId)             { wsSend({ type: 'stop',     cue_id: cue }); }
-  function stopAll(fadeMs = 0)          { wsSend({ type: 'stop_all', fade_ms: fadeMs }); }
+  // Omit fadeMs to let the server apply the project-wide Stop All fade
+  // (settings.stopAllFadeMs, default 1000 ms). Pass a number (incl. 0 for an
+  // instant panic) to override it for this call.
+  function stopAll(fadeMs?: number) {
+    wsSend(fadeMs === undefined
+      ? { type: 'stop_all' }
+      : { type: 'stop_all', fade_ms: fadeMs });
+  }
   function setGainDb(cue: CueId, db: number)
                                         { wsSend({ type: 'gain', cue_id: cue, db }); }
   function setFade(cue: CueId, inMs: number, outMs: number)

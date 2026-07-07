@@ -390,7 +390,14 @@
     "transitionModeCrossfade": "Övertona till nästa",
     "transitionModeStartNext": "Starta nästa vid markör",
     "autoCueNext": "Förbered nästa objekt automatiskt även utan slutbeteende",
-    "autoCueNextHelp": "Förbereder nästa objekt som «Nästa» även när objektet som spelas inte har något slutbeteende, så att du kan stega genom spellistan med en enda GO-knapp. Det startar inte uppspelning automatiskt."
+    "autoCueNextHelp": "Förbereder nästa objekt som «Nästa» även när objektet som spelas inte har något slutbeteende, så att du kan stega genom spellistan med en enda GO-knapp. Det startar inte uppspelning automatiskt.",
+    "tabAudioRouting": "Ljudrutt",
+    "tabPlaybackBehaviour": "Uppspelningsbeteende",
+    "tabUserInterface": "Användargränssnitt",
+    "stopAllFade": "Uttoning för ”Stoppa alla” (sekunder)",
+    "stopAllFadeHelp": "Hur lång tid alla ljudklipp tar på sig att tona ut när du trycker på ”Stoppa alla”. Ställ in 0 för omedelbart stopp.",
+    "scrollToPlaying": "Rulla till det som spelas upp",
+    "scrollToPlayingHelp": "Håll automatiskt det uppspelade objektet centrerat i listan."
   },
   "common": {
     "default": "standard",

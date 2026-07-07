@@ -390,7 +390,14 @@
     "transitionModeCrossfade": "Zum nächsten überblenden",
     "transitionModeStartNext": "Nächsten am Marker starten",
     "autoCueNext": "Nächstes Element automatisch vormerken, auch ohne Endverhalten",
-    "autoCueNextHelp": "Merkt das nächste Element als „Als Nächstes“ vor, auch wenn das laufende Element kein Endverhalten hat, sodass Sie die Wiedergabeliste mit einer einzigen GO-Taste durchschalten können. Die Wiedergabe wird nicht automatisch gestartet."
+    "autoCueNextHelp": "Merkt das nächste Element als „Als Nächstes“ vor, auch wenn das laufende Element kein Endverhalten hat, sodass Sie die Wiedergabeliste mit einer einzigen GO-Taste durchschalten können. Die Wiedergabe wird nicht automatisch gestartet.",
+    "tabAudioRouting": "Audio-Routing",
+    "tabPlaybackBehaviour": "Wiedergabeverhalten",
+    "tabUserInterface": "Benutzeroberfläche",
+    "stopAllFade": "Ausblendzeit für „Alle stoppen“ (Sekunden)",
+    "stopAllFadeHelp": "Wie lange alle Cues beim Drücken von „Alle stoppen“ ausgeblendet werden. 0 = sofortiger Stopp.",
+    "scrollToPlaying": "Zum aktuell abgespielten Element scrollen",
+    "scrollToPlayingHelp": "Das aktuell abgespielte Element automatisch in der Liste zentrieren."
   },
   "common": {
     "default": "Standard",

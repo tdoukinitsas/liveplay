@@ -390,7 +390,14 @@
     "transitionModeCrossfade": "Dissolvenza incrociata al successivo",
     "transitionModeStartNext": "Avvia successivo al marcatore",
     "autoCueNext": "Prepara automaticamente l’elemento successivo anche senza comportamento di fine",
-    "autoCueNextHelp": "Prepara l’elemento successivo come «Prossimo» anche quando l’elemento in riproduzione non ha un comportamento di fine, così puoi scorrere la playlist con un solo pulsante GO. Non avvia automaticamente la riproduzione."
+    "autoCueNextHelp": "Prepara l’elemento successivo come «Prossimo» anche quando l’elemento in riproduzione non ha un comportamento di fine, così puoi scorrere la playlist con un solo pulsante GO. Non avvia automaticamente la riproduzione.",
+    "tabAudioRouting": "Instradamento audio",
+    "tabPlaybackBehaviour": "Comportamento di riproduzione",
+    "tabUserInterface": "Interfaccia utente",
+    "stopAllFade": "Dissolvenza di «Ferma tutto» (secondi)",
+    "stopAllFadeHelp": "Durata della dissolvenza in uscita di tutte le tracce quando premi «Ferma tutto». Imposta 0 per un arresto immediato.",
+    "scrollToPlaying": "Scorri all’elemento in riproduzione",
+    "scrollToPlayingHelp": "Mantieni automaticamente centrato nell’elenco l’elemento in riproduzione."
   },
   "common": {
     "default": "predefinito",

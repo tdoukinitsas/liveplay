@@ -390,7 +390,14 @@
     "transitionModeCrossfade": "Sonrakine çapraz geçiş",
     "transitionModeStartNext": "İşaretçide sonrakini başlat",
     "autoCueNext": "Bitiş davranışı olmasa bile sonraki öğeyi otomatik olarak hazırla",
-    "autoCueNextHelp": "Çalan öğenin bitiş davranışı olmasa bile sonraki öğeyi «Sıradaki» olarak hazırlar; böylece çalma listesinde tek bir GO düğmesiyle ilerleyebilirsiniz. Oynatmayı otomatik olarak başlatmaz."
+    "autoCueNextHelp": "Çalan öğenin bitiş davranışı olmasa bile sonraki öğeyi «Sıradaki» olarak hazırlar; böylece çalma listesinde tek bir GO düğmesiyle ilerleyebilirsiniz. Oynatmayı otomatik olarak başlatmaz.",
+    "tabAudioRouting": "Ses Yönlendirme",
+    "tabPlaybackBehaviour": "Oynatma Davranışı",
+    "tabUserInterface": "Kullanıcı Arayüzü",
+    "stopAllFade": "«Tümünü Durdur» kararması (saniye)",
+    "stopAllFadeHelp": "«Tümünü Durdur»a bastığınızda tüm ipuçlarının kararma süresi. Anında durdurmak için 0 yapın.",
+    "scrollToPlaying": "Çalınmakta olana kaydır",
+    "scrollToPlayingHelp": "Çalınmakta olan öğeyi listede otomatik olarak ortada tut."
   },
   "common": {
     "default": "varsayılan",

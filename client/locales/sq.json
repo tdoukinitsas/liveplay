@@ -390,7 +390,14 @@
     "transitionModeCrossfade": "Kalim i kryqëzuar te tjetri",
     "transitionModeStartNext": "Nis tjetrin te shënuesi",
     "autoCueNext": "Përgatit automatikisht artikullin tjetër edhe pa sjellje fundi",
-    "autoCueNextHelp": "Përgatit artikullin tjetër si «Tjetri» edhe kur artikulli që po luhet s’ka sjellje fundi, që të kalosh nëpër listë me një buton të vetëm GO. Nuk e nis luajtjen automatikisht."
+    "autoCueNextHelp": "Përgatit artikullin tjetër si «Tjetri» edhe kur artikulli që po luhet s’ka sjellje fundi, që të kalosh nëpër listë me një buton të vetëm GO. Nuk e nis luajtjen automatikisht.",
+    "tabAudioRouting": "Rrugëtimi i audios",
+    "tabPlaybackBehaviour": "Sjellja e luajtjes",
+    "tabUserInterface": "Ndërfaqja e përdoruesit",
+    "stopAllFade": "Zbehja e «Ndalo të gjitha» (sekonda)",
+    "stopAllFadeHelp": "Sa zgjat zbehja e të gjitha sinjaleve kur shtypni «Ndalo të gjitha». Vendoseni në 0 për ndalim të menjëhershëm.",
+    "scrollToPlaying": "Rrëshqit te elementi që po luhet",
+    "scrollToPlayingHelp": "Mbaje automatikisht elementin që po luhet në qendër të listës."
   },
   "common": {
     "default": "e paracaktuar",

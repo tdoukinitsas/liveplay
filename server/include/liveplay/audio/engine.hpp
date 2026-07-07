@@ -198,7 +198,13 @@ public:
 
     void play(const CueId& id);
     void stop(const CueId& id);
-    void stop_all(std::chrono::milliseconds fade = std::chrono::milliseconds{0});
+    // Stop every loaded cue. By default each item's own fade_out_duration
+    // wins when non-zero (falling back to `fade` only for hard-stop items).
+    // When `force_fade` is true, `fade` is applied to EVERY item regardless
+    // of its per-item fade-out — used by the project-wide "Stop All" button so
+    // the operator's global fade always wins (fade == 0 → hard stop for all).
+    void stop_all(std::chrono::milliseconds fade = std::chrono::milliseconds{0},
+                  bool force_fade = false);
 
     // ---- Sensible-default routing ---------------------------------------
     // Brings the engine into a usable state without explicit routing

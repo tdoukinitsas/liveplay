@@ -390,7 +390,14 @@
     "transitionModeCrossfade": "Estompare încrucișată către următorul",
     "transitionModeStartNext": "Pornește următorul la marcaj",
     "autoCueNext": "Pregătește automat elementul următor chiar și fără comportament de final",
-    "autoCueNextHelp": "Pregătește elementul următor ca «Următorul» chiar și când elementul redat nu are un comportament de final, ca să parcurgi lista cu un singur buton GO. Nu pornește automat redarea."
+    "autoCueNextHelp": "Pregătește elementul următor ca «Următorul» chiar și când elementul redat nu are un comportament de final, ca să parcurgi lista cu un singur buton GO. Nu pornește automat redarea.",
+    "tabAudioRouting": "Rutare audio",
+    "tabPlaybackBehaviour": "Comportament redare",
+    "tabUserInterface": "Interfață utilizator",
+    "stopAllFade": "Estompare „Oprește tot” (secunde)",
+    "stopAllFadeHelp": "Cât durează estomparea tuturor pistelor când apeși „Oprește tot”. Setează 0 pentru oprire instantanee.",
+    "scrollToPlaying": "Derulează la elementul redat",
+    "scrollToPlayingHelp": "Menține automat elementul redat centrat în listă."
   },
   "common": {
     "default": "implicit",

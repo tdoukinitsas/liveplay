@@ -355,6 +355,17 @@ bool ControlServer::start() {
         });
     });
 
+    // Fan out every "Up Next" change — whether requested by a client or armed
+    // by the server itself (#28 auto-cue / first-item / end-of-list wrap) — so
+    // all clients mirror the authoritative override instead of each deciding.
+    state_.set_next_item_broadcaster([this](const std::string& uuid) {
+        broadcast_doc_patch(json{
+            {"type", "doc_patch"},
+            {"op",   "next_item_set"},
+            {"itemUuid", uuid},
+        });
+    });
+
     // Crow's SimpleApp::run() blocks; we shove it on a worker thread.
     impl_->app_thread = std::thread([this] {
         try {
@@ -797,9 +808,15 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
             }
         }
         else if (type == "stop_all") {
-            const auto fade_ms = j.value("fade_ms", (long long)0);
-            Logger::playback("STOP ALL (fade {}ms)", fade_ms);
-            engine.stop_all(std::chrono::milliseconds{fade_ms});
+            // Omitted fade_ms → server applies the project-wide default
+            // (settings.stopAllFadeMs, default 1000 ms). An explicit fade_ms
+            // (incl. 0 for an instant panic) is used verbatim. Global fade wins.
+            std::optional<long long> fade;
+            if (j.contains("fade_ms") && j["fade_ms"].is_number())
+                fade = j["fade_ms"].get<long long>();
+            Logger::playback("STOP ALL (fade {})",
+                             fade ? std::to_string(*fade) + "ms" : "project default");
+            state.stop_all_cues(fade);
         }
         else if (type == "gain") {
             auto cue = resolve_cue(j);
@@ -1050,7 +1067,12 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body.empty() ? std::string{"{}"} : req.body);
-                engine_.stop_all(std::chrono::milliseconds{j.value("fade_ms", (long long)0)});
+                // Omitted fade_ms → project-wide default; explicit value used
+                // verbatim (0 = instant). Global fade wins over per-track fades.
+                std::optional<long long> fade;
+                if (j.contains("fade_ms") && j["fade_ms"].is_number())
+                    fade = j["fade_ms"].get<long long>();
+                state_.stop_all_cues(fade);
                 return json_ok(json({{"ok", true}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
@@ -2485,20 +2507,10 @@ void ControlServer::install_routes() {
           // relevant change to every other client so multi-client mirroring
           // stays consistent (the originating client gets the echo too —
           // its local state already matches so the apply is a no-op).
-          try {
-              const auto j = json::parse(data);
-              const std::string type = j.value("type", "");
-              if (type == "set_next_item") {
-                  std::string uuid;
-                  if (j.contains("item_uuid") && j["item_uuid"].is_string())
-                      uuid = j["item_uuid"].get<std::string>();
-                  broadcast_doc_patch(json{
-                      {"type", "doc_patch"},
-                      {"op",   "next_item_set"},
-                      {"itemUuid", uuid},
-                  });
-              }
-          } catch (...) { /* malformed already logged in handle_ws_message */ }
+          // Note: set_next_item fan-out is handled centrally by the
+          // next_item_broadcaster installed on ProjectState (it fires for both
+          // client-requested and server-armed changes), so we don't broadcast
+          // it again here.
       });
 }
 

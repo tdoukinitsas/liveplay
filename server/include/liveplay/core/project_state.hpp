@@ -206,6 +206,13 @@ public:
                    const audio::CueId& exclude_from_ducking = audio::CueId{});
     bool stop_item(const std::string& uuid);
 
+    // Stop every cue for the global "Stop All" command. When `fade_ms` is
+    // provided it is used directly; when omitted the project-wide
+    // settings.stopAllFadeMs (default 1000 ms) applies. The resolved fade wins
+    // over every per-track fade-out (global fade always wins); a resolved fade
+    // of 0 is an instant panic stop.
+    void stop_all_cues(std::optional<long long> fade_ms = std::nullopt);
+
     // Trigger an item by uuid: audio items go through play_item; group items
     // are dispatched per their startBehavior (play-first / play-all),
     // mirroring the client's triggerGroup() logic. The crossfade args are
@@ -406,6 +413,14 @@ private:
         double                   start_next_time      = 0.0;
         double                   start_next_fade_sec  = 0.0;
         bool                     start_next_triggered = false;
+        // End-behaviour snapshot, used by the seamless-advance pre-roll so the
+        // next cue can be started a hair before this one's out-point (no
+        // audible gap) for auto-advancing behaviours with no crossfade / stop-
+        // fade / start-next marker. Populated at play_item() time.
+        std::string              end_action;            // next / goto-item / goto-index / loop / nothing
+        std::string              goto_target_uuid;      // goto-item target
+        std::vector<int>         goto_target_index;     // goto-index path
+        bool                     advance_triggered    = false;
         std::vector<DuckedEntry> ducked;
         std::vector<ScheduledCustomAction> custom_actions;
     };
@@ -419,6 +434,26 @@ private:
     void sequencer_loop();
     void handle_item_ended(const SequencedItem& item);
     void execute_custom_action(const json& action);
+
+    // Resolve the uuid the given item should auto-advance to, for its
+    // endBehavior (next / goto-item / goto-index only; empty for loop /
+    // nothing / no target). For "next" this consumes the user-set "Up Next"
+    // override exactly once, mirroring handle_item_ended. Takes its own locks —
+    // call with no lock held. Used by the sequencer's seamless-advance pre-roll.
+    std::string resolve_advance_target(const SequencedItem& item);
+
+    // Server-authoritative "Up Next" arming for cues with no end behaviour
+    // (endBehavior.action == "nothing") when settings.autoCueNextWithoutEnd-
+    // Behavior is enabled. Advances the arming to the next document item; at
+    // the end of the list a natural end wraps to the first item while a manual
+    // stop leaves the arming untouched. Broadcasts via next_item_set doc_patch.
+    // Owns all locking — call with no lock held.
+    void arm_next_after_stop(const std::string& stopped_uuid, bool was_manual);
+
+    // Arm the very first playable item when a project opens and nothing is
+    // armed or playing, so the operator's first GO fires without a click.
+    // Gated on settings.autoCueNextWithoutEndBehavior. Call with no lock held.
+    void arm_first_item_on_open();
 
     // True when the item's cue is currently on air (Playing, FadingIn or
     // Paused). The automatic advance paths (Start Next, crossfade,
@@ -434,8 +469,17 @@ public:
     // out of the server.
     void set_external_action_handler(std::function<void(const json&)> handler);
 
+    // Install a callback invoked whenever the "Up Next" override changes for
+    // ANY reason (client request or server-side arming). The control server
+    // installs this to fan the change out to every client as a next_item_set
+    // doc_patch, so server-initiated arming (#28 auto-cue, first-item, wrap) is
+    // mirrored by all clients instead of being decided per-client. Called with
+    // no ProjectState lock held.
+    void set_next_item_broadcaster(std::function<void(const std::string&)> cb);
+
 private:
     std::function<void(const json&)> external_action_handler_;
+    std::function<void(const std::string&)> next_item_broadcaster_;
 
     // Backward-compat translator: takes a legacy 1.x project document and
     // produces a v2-flavoured one with the equivalent routing matrix.
@@ -476,6 +520,11 @@ private:
     // item it points at. Descends into group `children` at each level. Empty
     // string if the path is out of range. Caller must hold mutex_.
     std::string resolve_index_path_locked(const std::vector<int>& path) const;
+
+    // Uuid of the first audio item in document order (depth-first through
+    // groups), or empty if the playlist has no audio items. Caller must hold
+    // mutex_. Used by the server-side "Up Next" arming.
+    std::string first_playable_item_uuid_locked() const;
 
     // Re-apply the in-memory state to the AudioEngine (post-load or reset).
     void apply_to_engine_locked();

@@ -390,7 +390,14 @@
     "transitionModeCrossfade": "交叉淡化到下一个",
     "transitionModeStartNext": "在标记处开始下一个",
     "autoCueNext": "即使没有结束行为也自动预备下一项",
-    "autoCueNextHelp": "即使正在播放的项目没有结束行为，也会将下一项预备为“下一个”，这样您只需一个 GO 按钮即可逐项播放列表。它不会自动开始播放。"
+    "autoCueNextHelp": "即使正在播放的项目没有结束行为，也会将下一项预备为“下一个”，这样您只需一个 GO 按钮即可逐项播放列表。它不会自动开始播放。",
+    "tabAudioRouting": "音频路由",
+    "tabPlaybackBehaviour": "播放行为",
+    "tabUserInterface": "用户界面",
+    "stopAllFade": "「停止全部」淡出（秒）",
+    "stopAllFadeHelp": "按下「停止全部」时所有提示淡出所需的时间。设为 0 可立即停止。",
+    "scrollToPlaying": "滚动到正在播放的项目",
+    "scrollToPlayingHelp": "自动将正在播放的项目保持在列表中央。"
   },
   "common": {
     "default": "默认",

@@ -1,8 +1,9 @@
 <template>
-  <div 
+  <div
     class="playlist-item"
-    :class="{ 
-      'is-selected': isSelected, 
+    :data-item-uuid="item.uuid"
+    :class="{
+      'is-selected': isSelected,
       'is-group': item.type === 'group',
       'is-audio': item.type === 'audio',
       'is-playing': isPlaying,

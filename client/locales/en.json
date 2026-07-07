@@ -96,7 +96,14 @@
     "noneSelected": "Not selected",
     "save": "Save",
     "close": "Close",
-    "preview": "Preview"
+    "preview": "Preview",
+    "tabAudioRouting": "Audio Routing",
+    "tabPlaybackBehaviour": "Playback Behaviour",
+    "tabUserInterface": "User Interface",
+    "stopAllFade": "Stop All fade-out (seconds)",
+    "stopAllFadeHelp": "How long all cues take to fade out when you press Stop All. Set to 0 for an instant stop.",
+    "scrollToPlaying": "Scroll to currently playing",
+    "scrollToPlayingHelp": "Automatically keep the currently-playing item centred in the list."
   },
   "common": {
     "default": "default",

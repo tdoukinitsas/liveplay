@@ -1999,6 +1999,26 @@ std::string ProjectState::resolve_index_path_locked(const std::vector<int>& path
     return current ? current->value("uuid", std::string{}) : std::string{};
 }
 
+std::string ProjectState::first_playable_item_uuid_locked() const {
+    if (!document_.contains("items") || !document_["items"].is_array()) return {};
+    std::string result;
+    std::function<void(const json&)> walk = [&](const json& arr) {
+        if (!result.empty() || !arr.is_array()) return;
+        for (const auto& it : arr) {
+            if (!result.empty()) return;
+            if (!it.is_object()) continue;
+            if (it.value("type", std::string{}) == "audio") {
+                result = it.value("uuid", std::string{});
+                return;
+            }
+            if (it.value("type", std::string{}) == "group" && it.contains("children"))
+                walk(it["children"]);
+        }
+    };
+    walk(document_["items"]);
+    return result;
+}
+
 // Public thread-safe wrapper: resolve an index path to an item uuid.
 std::string ProjectState::item_uuid_by_index(const std::vector<int>& path) const {
     std::lock_guard lock{mutex_};
@@ -2027,6 +2047,8 @@ bool ProjectState::play_item(const std::string& uuid,
     std::string  start_behavior_action;
     std::string  start_behavior_target_uuid;
     std::string  end_behavior_action;
+    std::string  end_behavior_target_uuid;
+    std::vector<int> end_behavior_target_index;
     audio::CueId target_cue;
     std::vector<audio::CueId> other_cues;
 
@@ -2082,7 +2104,14 @@ bool ProjectState::play_item(const std::string& uuid,
             if (found->contains("endBehavior") &&
                 (*found)["endBehavior"].is_object()) {
                 const auto& eb = (*found)["endBehavior"];
-                end_behavior_action = eb.value("action", std::string{});
+                end_behavior_action      = eb.value("action",     std::string{});
+                end_behavior_target_uuid = eb.value("targetUuid", std::string{});
+                if (eb.contains("targetIndex") && eb["targetIndex"].is_array()) {
+                    for (const auto& v : eb["targetIndex"]) {
+                        if (v.is_number_integer())
+                            end_behavior_target_index.push_back(v.get<int>());
+                    }
+                }
             }
             // Snapshot custom actions for the sequencer to dispatch.
             if (found->contains("customActions") &&
@@ -2239,6 +2268,9 @@ bool ProjectState::play_item(const std::string& uuid,
         si.start_next_fade_sec = (start_next_on && start_next_fade_out)
                                      ? fade_out_dur : 0.0;
         si.effective_end = effective_end;
+        si.end_action        = end_behavior_action;
+        si.goto_target_uuid  = end_behavior_target_uuid;
+        si.goto_target_index = end_behavior_target_index;
         si.ducked        = std::move(ducks_made);
         si.custom_actions = std::move(custom_actions_snapshot);
 
@@ -2305,12 +2337,51 @@ bool ProjectState::stop_item(const std::string& uuid) {
     }
 
     engine_.stop(cue);
+
+    // Server-authoritative "Up Next" arming: a manual stop of a cue with no end
+    // behaviour advances the arming to the next sibling (but never wraps at the
+    // end of the list — the operator is holding the show). (#28)
+    arm_next_after_stop(uuid, /*was_manual=*/true);
     return true;
 }
 
+void ProjectState::stop_all_cues(std::optional<long long> fade_ms) {
+    long long resolved_ms;
+    if (fade_ms.has_value()) {
+        resolved_ms = std::max<long long>(0, *fade_ms);
+    } else {
+        // Project-wide default fade for the Stop All button (default 1000 ms).
+        long long setting_ms = 1000;
+        {
+            std::lock_guard lock{mutex_};
+            if (document_.contains("settings") && document_["settings"].is_object()) {
+                const auto& s = document_["settings"];
+                if (s.contains("stopAllFadeMs") && s["stopAllFadeMs"].is_number())
+                    setting_ms = static_cast<long long>(s["stopAllFadeMs"].get<double>());
+            }
+        }
+        resolved_ms = std::max<long long>(0, setting_ms);
+    }
+    // Global fade always wins over any per-track fade-out (force_fade = true).
+    engine_.stop_all(std::chrono::milliseconds{resolved_ms}, /*force_fade=*/true);
+}
+
 void ProjectState::set_next_item_override(const std::string& uuid) {
+    std::function<void(const std::string&)> cb;
+    {
+        std::lock_guard lock{mutex_};
+        if (next_item_override_ == uuid) return;   // no-op: don't re-broadcast
+        next_item_override_ = uuid;
+        cb = next_item_broadcaster_;
+    }
+    // Fan the change out to every connected client (server- or client-
+    // initiated), outside the lock so the broadcast can't deadlock on mutex_.
+    if (cb) cb(uuid);
+}
+
+void ProjectState::set_next_item_broadcaster(std::function<void(const std::string&)> cb) {
     std::lock_guard lock{mutex_};
-    next_item_override_ = uuid;
+    next_item_broadcaster_ = std::move(cb);
 }
 
 std::string ProjectState::next_item_override() const {
@@ -2833,6 +2904,12 @@ bool ProjectState::load_from_json(const json& doc_in) {
         // simply fail play() until ready (rare in practice — by the time the
         // user clicks anything, the first batch is usually done).
         start_async_mirror();
+        // Arm the first playable item as "Up Next" so the operator's very first
+        // GO fires without a click (#28). Reads the document (available now) and
+        // is a no-op if something is already armed / playing. Runs after the
+        // async mirror kickoff — cues_ is empty at this instant, so the "nothing
+        // on air" guard passes on a fresh open.
+        arm_first_item_on_open();
         return true;
     }
 
@@ -3054,6 +3131,13 @@ void ProjectState::stop_sequencer() {
 void ProjectState::sequencer_loop() {
     using namespace std::chrono_literals;
 
+    // How far before an item's out-point to start the next cue for a seamless
+    // (gapless) auto-advance. Must exceed the sequencer poll interval (50 ms)
+    // plus a little device/ring slack so the incoming cue is already sounding
+    // by the time the outgoing reaches its out-point. The resulting overlap of
+    // program tails (~0.1 s) is inaudible and replaces the previous silent gap.
+    constexpr double kSeamlessLeadSec = 0.10;
+
     while (sequencer_running_.load(std::memory_order_acquire)) {
         std::this_thread::sleep_for(50ms);
         if (!sequencer_running_.load(std::memory_order_acquire)) break;
@@ -3067,6 +3151,9 @@ void ProjectState::sequencer_loop() {
                 StopFadeEnded, // stop-fade complete → fire end behavior
                 StartNext,     // Start Next marker crossed: start next item,
                                // current keeps playing (or begins marker fade)
+                SeamlessAdvance, // auto-advance end behaviour with no crossfade:
+                                 // start next item a hair before out-point so
+                                 // there's no audible gap; current plays its tail
                 Cleanup,       // cue gone; restore ducking, no end behavior
                 CustomAction,  // fire one of the item's customActions
             } kind;
@@ -3138,6 +3225,23 @@ void ProjectState::sequencer_loop() {
                            remaining <= si.stop_fade_sec && remaining > 0.0) {
                     si.stop_fade_triggered = true;
                     pending.push_back({si, PendingAction::Kind::BeginStopFade});
+                } else if (!si.advance_triggered && !si.start_next_triggered &&
+                           si.crossfade_sec <= 0.0 && si.stop_fade_sec <= 0.0 &&
+                           si.start_next_time <= 0.0 &&
+                           (si.end_action == "next" ||
+                            si.end_action == "goto-item" ||
+                            si.end_action == "goto-index") &&
+                           remaining <= kSeamlessLeadSec && remaining > 0.0) {
+                    // Seamless auto-advance: start the next cue a hair before this
+                    // one's out-point so there's no audible gap. Mark the item so
+                    // its natural end doesn't advance a second time (reuse the
+                    // start_next suppression path in handle_item_ended), and take
+                    // ownership of the duck-restore here so Cleanup/NaturalEnd
+                    // can't double-restore stale gains.
+                    si.advance_triggered   = true;
+                    si.start_next_triggered = true;
+                    pending.push_back({si, PendingAction::Kind::SeamlessAdvance});
+                    si.ducked.clear();
                 }
             }
 
@@ -3245,6 +3349,30 @@ void ProjectState::sequencer_loop() {
                 if (!next_uuid.empty()) {
                     if (item_on_air(next_uuid)) {
                         Logger::playback("START NEXT: next item '{}' already "
+                                         "on air — not restarting", next_uuid);
+                    } else {
+                        trigger_item(next_uuid, -1.0, p.item.cue_id);
+                    }
+                }
+                break;
+            }
+
+            case PendingAction::Kind::SeamlessAdvance: {
+                // Restore gains this cue ducked so the incoming cue's own
+                // ducking applies fresh (mirrors Crossfade / StartNext).
+                for (const auto& dk : p.item.ducked) {
+                    if (auto* pi = engine_.find_cue(dk.cue_id))
+                        pi->set_gain_db(dk.original_gain_db);
+                }
+                // Resolve the advance target (consumes an Up-Next override for
+                // the "next" case) and start it now. The outgoing cue keeps
+                // playing its short tail to its natural end, where it stops
+                // itself; excluding it from the incoming cue's ducking prevents
+                // a hard cut, so the boundary has no gap.
+                const std::string next_uuid = resolve_advance_target(p.item);
+                if (!next_uuid.empty()) {
+                    if (item_on_air(next_uuid)) {
+                        Logger::playback("SEAMLESS ADVANCE: next item '{}' already "
                                          "on air — not restarting", next_uuid);
                     } else {
                         trigger_item(next_uuid, -1.0, p.item.cue_id);
@@ -3367,6 +3495,144 @@ bool ProjectState::item_on_air(const std::string& uuid) {
     return false;
 }
 
+std::string ProjectState::resolve_advance_target(const SequencedItem& item) {
+    if (item.end_action == "next") {
+        std::lock_guard lock{mutex_};
+        if (!next_item_override_.empty()) {
+            std::string u = std::move(next_item_override_);
+            next_item_override_.clear();
+            return u;
+        }
+        return resolve_next_item_locked(item.uuid);
+    }
+    if (item.end_action == "goto-item") {
+        return item.goto_target_uuid;
+    }
+    if (item.end_action == "goto-index" && !item.goto_target_index.empty()) {
+        std::lock_guard lock{mutex_};
+        return resolve_index_path_locked(item.goto_target_index);
+    }
+    return {};
+}
+
+// ---------------------------------------------------------------------------
+// Server-authoritative "Up Next" arming for cues with no end behaviour (#28).
+// Mirrors the logic that used to live in the client's useAudioEngine so that,
+// with multiple clients connected, the next-item arming is decided once by the
+// authoritative server and fanned out to every client via next_item_set.
+// ---------------------------------------------------------------------------
+void ProjectState::arm_next_after_stop(const std::string& stopped_uuid,
+                                       bool was_manual) {
+    if (stopped_uuid.empty()) return;
+
+    std::string next_to_arm;
+    {
+        std::lock_guard lock{mutex_};
+
+        // Setting gate (default ON — undefined/true both enable).
+        if (document_.contains("settings") && document_["settings"].is_object()) {
+            const auto& s = document_["settings"];
+            if (s.contains("autoCueNextWithoutEndBehavior") &&
+                s["autoCueNextWithoutEndBehavior"].is_boolean() &&
+                !s["autoCueNextWithoutEndBehavior"].get<bool>()) return;
+        }
+
+        // A manual / existing arming wins — never clobber it.
+        if (!next_item_override_.empty()) return;
+
+        // Only arm once nothing else is on air (e.g. don't fire mid-crossfade).
+        // The just-stopped cue is ignored: on a manual stop it may still be
+        // fading out, and arming is only a pointer (no playback), so its tail
+        // must not block the advance.
+        audio::CueId stopped_cue;
+        {
+            auto it = item_uuid_to_cue_.find(stopped_uuid);
+            if (it != item_uuid_to_cue_.end()) stopped_cue = it->second;
+        }
+        for (auto& [_, c] : cues_) {
+            if (c.id == stopped_cue) continue;
+            if (auto* pi = engine_.find_cue(c.id)) {
+                const auto ts = pi->stats().transport;
+                if (ts == audio::TransportState::Playing  ||
+                    ts == audio::TransportState::FadingIn ||
+                    ts == audio::TransportState::FadingOut||
+                    ts == audio::TransportState::Paused) return;
+            }
+        }
+
+        // Locate the stopped item and confirm it has no end behaviour.
+        json* found = nullptr;
+        std::vector<int> stopped_path;
+        std::function<void(json&, std::vector<int>&)> walk;
+        walk = [&](json& arr, std::vector<int>& path) {
+            if (found || !arr.is_array()) return;
+            for (std::size_t i = 0; i < arr.size(); ++i) {
+                if (found) return;
+                json& it = arr[i];
+                if (!it.is_object()) continue;
+                path.push_back(static_cast<int>(i));
+                if (it.value("uuid", std::string{}) == stopped_uuid) {
+                    found = &it; stopped_path = path; path.pop_back(); return;
+                }
+                if (it.value("type", std::string{}) == "group" &&
+                    it.contains("children")) walk(it["children"], path);
+                path.pop_back();
+            }
+        };
+        if (document_.contains("items")) {
+            std::vector<int> p;
+            walk(document_["items"], p);
+        }
+        if (!found) return;
+        // Only the "nothing" end behaviour is armed here — every other action
+        // is auto-advanced by the sequencer itself.
+        std::string action = "nothing";
+        if (found->contains("endBehavior") && (*found)["endBehavior"].is_object())
+            action = (*found)["endBehavior"].value("action", std::string{"nothing"});
+        if (action != "nothing") return;
+
+        // Advance to the next sibling in document order.
+        std::vector<int> next_path = stopped_path;
+        if (!next_path.empty()) {
+            next_path.back()++;
+            const std::string nxt = resolve_index_path_locked(next_path);
+            if (!nxt.empty()) {
+                next_to_arm = nxt;
+            } else if (!was_manual) {
+                // Fell off the end on a natural end → wrap to the first playable
+                // item so a single GO restarts the show. A manual stop leaves
+                // the arming empty (operator is holding the show).
+                next_to_arm = first_playable_item_uuid_locked();
+            }
+        }
+    }
+
+    if (!next_to_arm.empty()) set_next_item_override(next_to_arm);
+}
+
+void ProjectState::arm_first_item_on_open() {
+    std::string first;
+    {
+        std::lock_guard lock{mutex_};
+        if (document_.contains("settings") && document_["settings"].is_object()) {
+            const auto& s = document_["settings"];
+            if (s.contains("autoCueNextWithoutEndBehavior") &&
+                s["autoCueNextWithoutEndBehavior"].is_boolean() &&
+                !s["autoCueNextWithoutEndBehavior"].get<bool>()) return;
+        }
+        if (!next_item_override_.empty()) return;  // already armed
+        // Don't clobber a rejoined running session.
+        for (auto& [_, c] : cues_) {
+            if (auto* pi = engine_.find_cue(c.id)) {
+                const auto ts = pi->stats().transport;
+                if (ts != audio::TransportState::Stopped) return;
+            }
+        }
+        first = first_playable_item_uuid_locked();
+    }
+    if (!first.empty()) set_next_item_override(first);
+}
+
 void ProjectState::handle_item_ended(const SequencedItem& item) {
     // Ensure the engine explicitly transitions the transport state and 
     // triggers a cue_state broadcast so the client UI updates.
@@ -3473,8 +3739,13 @@ void ProjectState::handle_item_ended(const SequencedItem& item) {
         } else {
             trigger_item(idx_uuid);
         }
+    } else {
+        // "nothing" (or unrecognized) end behaviour: no auto-advance, but the
+        // server may still arm the next item as "Up Next" so the operator can
+        // step through the list with a single GO (#28). A natural end wraps to
+        // the top of the playlist at the end of the list.
+        arm_next_after_stop(item.uuid, /*was_manual=*/false);
     }
-    // "nothing" or unrecognized → do nothing.
 }
 
 } // namespace liveplay::core

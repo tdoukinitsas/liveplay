@@ -390,7 +390,14 @@
     "transitionModeCrossfade": "Fusão cruzada para o próximo",
     "transitionModeStartNext": "Iniciar próximo no marcador",
     "autoCueNext": "Preparar automaticamente o próximo item mesmo sem comportamento de fim",
-    "autoCueNextHelp": "Prepara o próximo item como «A seguir» mesmo quando o item em reprodução não tem comportamento de fim, para percorrer a lista com um único botão GO. Não inicia a reprodução automaticamente."
+    "autoCueNextHelp": "Prepara o próximo item como «A seguir» mesmo quando o item em reprodução não tem comportamento de fim, para percorrer a lista com um único botão GO. Não inicia a reprodução automaticamente.",
+    "tabAudioRouting": "Encaminhamento de áudio",
+    "tabPlaybackBehaviour": "Comportamento de reprodução",
+    "tabUserInterface": "Interface do utilizador",
+    "stopAllFade": "Fade de «Parar tudo» (segundos)",
+    "stopAllFadeHelp": "Tempo que todas as deixas levam a desvanecer ao premir «Parar tudo». Defina 0 para paragem instantânea.",
+    "scrollToPlaying": "Deslocar para o item em reprodução",
+    "scrollToPlayingHelp": "Manter automaticamente o item em reprodução centrado na lista."
   },
   "common": {
     "default": "padrão",

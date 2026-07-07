@@ -390,7 +390,14 @@
     "transitionModeCrossfade": "Fondu enchaîné vers le suivant",
     "transitionModeStartNext": "Démarrer le suivant au marqueur",
     "autoCueNext": "Préparer automatiquement l’élément suivant même sans comportement de fin",
-    "autoCueNextHelp": "Prépare l’élément suivant comme « À suivre » même lorsque l’élément en cours n’a pas de comportement de fin, afin de parcourir la liste de lecture avec un seul bouton GO. La lecture ne démarre pas automatiquement."
+    "autoCueNextHelp": "Prépare l’élément suivant comme « À suivre » même lorsque l’élément en cours n’a pas de comportement de fin, afin de parcourir la liste de lecture avec un seul bouton GO. La lecture ne démarre pas automatiquement.",
+    "tabAudioRouting": "Routage audio",
+    "tabPlaybackBehaviour": "Comportement de lecture",
+    "tabUserInterface": "Interface utilisateur",
+    "stopAllFade": "Fondu de « Tout arrêter » (secondes)",
+    "stopAllFadeHelp": "Durée du fondu de sortie de toutes les séquences lorsque vous appuyez sur « Tout arrêter ». Réglez sur 0 pour un arrêt instantané.",
+    "scrollToPlaying": "Faire défiler jusqu’à l’élément en cours de lecture",
+    "scrollToPlayingHelp": "Garder automatiquement l’élément en cours de lecture centré dans la liste."
   },
   "common": {
     "default": "défaut",

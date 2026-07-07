@@ -9,7 +9,7 @@
       </div>
     </div>
     
-    <div class="playlist-content" @drop="handleDrop" @dragover.prevent>
+    <div ref="scrollContainer" class="playlist-content" @drop="handleDrop" @dragover.prevent>
       <div v-if="currentProject?.items.length === 0" class="empty-state">
         <p>{{ t('playlist.noItems') }}</p>
         <p class="hint">{{ t('playlist.importHint') }}</p>
@@ -53,9 +53,11 @@ import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM, transitionDefaultsForImport, an
 import { applyAutoProcessing } from '~/utils/audio';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 
-const { currentProject, addItem, consumePendingAutoProcess, updateIndices, saveProject, triggerWaveformUpdate, isLoading, getAllItemsFlat, resolveProjectPath } = useProject();
+const { currentProject, addItem, consumePendingAutoProcess, updateIndices, saveProject, triggerWaveformUpdate, isLoading, getAllItemsFlat, resolveProjectPath, findItemByUuid } = useProject();
 const { t } = useLocalization();
 const { levels: outputTargetLevels } = useOutputTarget();
+const { activeCues } = useAudioEngine();
+const scrollContainer = ref<HTMLElement | null>(null);
 
 // Auto-process only items that were just imported this session (marked by
 // addItem). Consumes the mark so it never runs twice for the same item.
@@ -115,6 +117,48 @@ watch(
     if (renderLimit.value < total) scheduleMoreItems();
   },
   { immediate: true },
+);
+
+// ---------------------------------------------------------------------------
+// "UI scrolls to currently playing" (project setting, default off).
+// Keep the currently-playing row centred so long lists follow playback. The
+// server owns playback; this only mirrors it — we watch which item is playing
+// and, when enabled, scroll its row into the middle of the list container.
+// ---------------------------------------------------------------------------
+const scrollToPlayingEnabled = computed(
+  () => !!(currentProject.value as any)?.settings?.uiScrollToPlaying,
+);
+// Follow the most-recently-started active cue (during a seamless advance the
+// incoming cue is the newer entry, which is the one worth centring on).
+const primaryPlayingUuid = computed<string | null>(() => {
+  const keys = [...activeCues.value.keys()];
+  return keys.length ? keys[keys.length - 1]! : null;
+});
+
+function scrollItemIntoView(uuid: string) {
+  const container = scrollContainer.value;
+  if (!container) return;
+  const el = container.querySelector<HTMLElement>(`[data-item-uuid="${uuid}"]`);
+  if (el) {
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    return;
+  }
+  // Row not mounted yet (progressive mount window / nested group): bump the
+  // render window to include the item's top-level ancestor, then retry.
+  const item = findItemByUuid(uuid);
+  const topIndex = item?.index?.[0];
+  if (typeof topIndex === 'number' && topIndex >= renderLimit.value) {
+    renderLimit.value = topIndex + 1;
+    nextTick(() => scrollItemIntoView(uuid));
+  }
+}
+
+watch(
+  [primaryPlayingUuid, scrollToPlayingEnabled],
+  ([uuid, enabled]) => {
+    if (!enabled || !uuid) return;
+    nextTick(() => scrollItemIntoView(uuid));
+  },
 );
 
 onUnmounted(() => {
