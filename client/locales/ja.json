@@ -397,7 +397,9 @@
     "stopAllFade": "「すべて停止」フェードアウト（秒）",
     "stopAllFadeHelp": "「すべて停止」を押したときにすべてのキューがフェードアウトする時間。0 で即時停止します。",
     "scrollToPlaying": "再生中の項目までスクロール",
-    "scrollToPlayingHelp": "再生中の項目をリストの中央に自動的に表示します。"
+    "scrollToPlayingHelp": "再生中の項目をリストの中央に自動的に表示します。",
+    "indexDisplayStart": "プレイリスト項目の番号開始値",
+    "indexDisplayStartHelp": "最初のプレイリスト項目に表示する番号を制御します。内部インデックスと API のインデックスパスは引き続き 0 始まりです。"
   },
   "common": {
     "default": "デフォルト",

@@ -64,7 +64,7 @@ client/
 ├── plugins/                      Nuxt plugins (client.ts: auto-connect on boot)
 ├── locales/                      JSON locale files (21 files — en + 20 translations)
 ├── types/                        TypeScript DTOs (server.ts, project.ts, global.d.ts)
-├── utils/                        Pure helpers (audio.ts: dB/RMS math)
+├── utils/                        Pure helpers (audio.ts: dB/RMS math, indexDisplay.ts: playlist index formatting)
 ├── public/                       Static assets — screenshots, fonts, icons
 ├── assets/                       Bundled styles (main.scss, variables.scss)
 ├── scripts/                      Workspace-local utilities (locale sync, etc.)

@@ -58,7 +58,7 @@
         
         <div class="property-field">
           <label>{{ t('properties.index') }}</label>
-          <input :value="selectedItem.index.join(',')" readonly />
+          <input :value="formatItemIndex(selectedItem.index)" readonly />
         </div>
         
         <div class="property-field" v-if="selectedItem.type === 'audio'">
@@ -244,7 +244,7 @@
         <div class="property-field" v-if="endBehaviorAction === 'goto-index'">
           <label>{{ t('properties.targetIndex') }}</label>
           <input 
-            :value="endBehaviorTargetIndex?.join(',') || ''"
+            :value="formatItemIndex(endBehaviorTargetIndex)"
             @change="handleEndBehaviorIndexChange"
             type="text"
           />
@@ -277,7 +277,7 @@
         <div class="property-field" v-if="startBehaviorAction === 'play-index'">
           <label>{{ t('properties.targetIndex') }}</label>
           <input 
-            :value="startBehaviorTargetIndex?.join(',') || ''"
+            :value="formatItemIndex(startBehaviorTargetIndex)"
             @change="handleStartBehaviorIndexChange"
             type="text"
           />
@@ -293,7 +293,18 @@ import { PRESET_COLORS } from '~/types/project';
 import { calculatePerceivedLoudness } from '~/utils/audio';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 
-const { selectedItem, selectedItems, propertiesPanelOpen, getSelectedItems, saveProject, currentProject, beginItemBatch, endItemBatch } = useProject();
+const {
+  selectedItem,
+  selectedItems,
+  propertiesPanelOpen,
+  getSelectedItems,
+  saveProject,
+  currentProject,
+  beginItemBatch,
+  endItemBatch,
+  formatItemIndex,
+  parseItemIndexInput,
+} = useProject();
 const { t } = useLocalization();
 const { levels: outputTargetLevels } = useOutputTarget();
 
@@ -456,29 +467,18 @@ const endBehaviorTargetIndex = computed(() => {
   return undefined;
 });
 
-// Parse a user-typed index path into a clean number[] path.
-// Accepts both "1,10" and "1.10" (in case the user mixes up comma and full
-// stop) and normalises to a comma-separated path. Empty/garbage segments are
-// dropped so a stray separator can't inject NaN into the path.
-const parseIndexPath = (raw: string): number[] => {
-  return raw
-    .split(/[.,]/)            // treat "." and "," as the same separator
-    .map(s => s.trim())
-    .filter(s => s.length > 0)
-    .map(s => parseInt(s, 10))  // explicit radix — `.map(parseInt)` passes the
-    .filter(n => Number.isFinite(n)); // array index as radix and corrupts entries
-};
-
 const handleEndBehaviorIndexChange = (e: Event) => {
   const input = e.target as HTMLInputElement;
-  const parsed = parseIndexPath(input.value);
+  const parsed = parseItemIndexInput(input.value);
   // Reflect the normalised path back into the field so the user sees the
   // canonical comma form (e.g. typing "1.10" shows "1,10").
-  input.value = parsed.join(',');
+  input.value = formatItemIndex(parsed);
   if (selectedItem.value?.type === 'audio') {
-    audioItem.value.endBehavior.targetIndex = parsed;
+    if (parsed.length > 0) audioItem.value.endBehavior.targetIndex = parsed;
+    else delete audioItem.value.endBehavior.targetIndex;
   } else if (selectedItem.value?.type === 'group') {
-    groupItem.value.endBehavior.targetIndex = parsed;
+    if (parsed.length > 0) groupItem.value.endBehavior.targetIndex = parsed;
+    else delete groupItem.value.endBehavior.targetIndex;
   }
   handleSave();
 };
@@ -524,10 +524,11 @@ const startBehaviorTargetIndex = computed(() => {
 
 const handleStartBehaviorIndexChange = (e: Event) => {
   const input = e.target as HTMLInputElement;
-  const parsed = parseIndexPath(input.value);
-  input.value = parsed.join(',');
+  const parsed = parseItemIndexInput(input.value);
+  input.value = formatItemIndex(parsed);
   if (selectedItem.value?.type === 'audio') {
-    audioItem.value.startBehavior.targetIndex = parsed;
+    if (parsed.length > 0) audioItem.value.startBehavior.targetIndex = parsed;
+    else delete audioItem.value.startBehavior.targetIndex;
   }
   handleSave();
 };

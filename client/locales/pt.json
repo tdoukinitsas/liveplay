@@ -397,7 +397,9 @@
     "stopAllFade": "Fade de «Parar tudo» (segundos)",
     "stopAllFadeHelp": "Tempo que todas as deixas levam a desvanecer ao premir «Parar tudo». Defina 0 para paragem instantânea.",
     "scrollToPlaying": "Deslocar para o item em reprodução",
-    "scrollToPlayingHelp": "Manter automaticamente o item em reprodução centrado na lista."
+    "scrollToPlayingHelp": "Manter automaticamente o item em reprodução centrado na lista.",
+    "indexDisplayStart": "Numerar itens da lista a partir de",
+    "indexDisplayStartHelp": "Controla o número mostrado para o primeiro item da lista. Os índices internos e os caminhos de índice da API continuam baseados em zero."
   },
   "common": {
     "default": "padrão",

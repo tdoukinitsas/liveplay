@@ -397,7 +397,9 @@
     "stopAllFade": "Estompare „Oprește tot” (secunde)",
     "stopAllFadeHelp": "Cât durează estomparea tuturor pistelor când apeși „Oprește tot”. Setează 0 pentru oprire instantanee.",
     "scrollToPlaying": "Derulează la elementul redat",
-    "scrollToPlayingHelp": "Menține automat elementul redat centrat în listă."
+    "scrollToPlayingHelp": "Menține automat elementul redat centrat în listă.",
+    "indexDisplayStart": "Numerotează elementele listei de la",
+    "indexDisplayStartHelp": "Controlează numărul afișat pentru primul element din listă. Indicii interni și căile de index ale API-ului rămân bazate pe zero."
   },
   "common": {
     "default": "implicit",

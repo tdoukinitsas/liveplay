@@ -397,7 +397,9 @@
     "stopAllFade": "Zbehja e «Ndalo të gjitha» (sekonda)",
     "stopAllFadeHelp": "Sa zgjat zbehja e të gjitha sinjaleve kur shtypni «Ndalo të gjitha». Vendoseni në 0 për ndalim të menjëhershëm.",
     "scrollToPlaying": "Rrëshqit te elementi që po luhet",
-    "scrollToPlayingHelp": "Mbaje automatikisht elementin që po luhet në qendër të listës."
+    "scrollToPlayingHelp": "Mbaje automatikisht elementin që po luhet në qendër të listës.",
+    "indexDisplayStart": "Numëro artikujt e listës duke filluar nga",
+    "indexDisplayStartHelp": "Kontrollon numrin që shfaqet për artikullin e parë të listës. Indekset e brendshme dhe shtigjet e indeksit të API-së mbeten me bazë zero."
   },
   "common": {
     "default": "e paracaktuar",

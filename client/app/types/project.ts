@@ -131,6 +131,33 @@ export interface CartItem {
   index: number[]; // [-1, slot] for API triggering
 }
 
+export interface ProjectSettings {
+  defaultOutputDevice?: string | null;
+  previewDevice?: string | null;
+  ltcDevice?: string | null;
+  outputTarget?: string;
+  outputTargetLevels?: Record<string, unknown>;
+  meterMode?: string;
+  defaultTransitionMode?: TransitionMode;
+  autoCueNextWithoutEndBehavior?: boolean;
+  stopAllFadeMs?: number;
+  uiScrollToPlaying?: boolean;
+  disableAutoVolumeAndTrim?: boolean;
+  disableLimiter?: boolean;
+  disableSilenceWarning?: boolean;
+  autoSave?: boolean;
+
+  /**
+   * Number shown for the first playlist item.
+   *
+   * This affects UI display and user-entered index paths only.
+   * Internal item.index values, stored targetIndex values, and REST by-index
+   * paths remain zero-based for backwards compatibility.
+   */
+  indexDisplayStart?: number;
+}
+
+
 // Project structure
 export interface Project {
   name: string;
@@ -142,6 +169,7 @@ export interface Project {
   playbackKeys?: Record<string, CartSlotKeyBinding | null>;
   cartOnlyItems: AudioItem[]; // Items that exist only in cart (not in playlist)
   theme: Theme;
+  settings?: ProjectSettings;
   createdAt: string;
   lastModified: string;
 }

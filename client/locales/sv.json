@@ -397,7 +397,9 @@
     "stopAllFade": "Uttoning för ”Stoppa alla” (sekunder)",
     "stopAllFadeHelp": "Hur lång tid alla ljudklipp tar på sig att tona ut när du trycker på ”Stoppa alla”. Ställ in 0 för omedelbart stopp.",
     "scrollToPlaying": "Rulla till det som spelas upp",
-    "scrollToPlayingHelp": "Håll automatiskt det uppspelade objektet centrerat i listan."
+    "scrollToPlayingHelp": "Håll automatiskt det uppspelade objektet centrerat i listan.",
+    "indexDisplayStart": "Numrera spellisteobjekt från",
+    "indexDisplayStartHelp": "Styr numret som visas för det första objektet i spellistan. Interna index och API-indexsökvägar förblir nollbaserade."
   },
   "common": {
     "default": "standard",

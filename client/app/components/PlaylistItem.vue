@@ -206,7 +206,19 @@ const props = defineProps<{
   depth: number;
 }>();
 
-const { selectedItem, selectedItems, toggleItemSelection, openItemProperties, removeItem, requestDeleteFromButton, findItemByUuid, currentProject, waveformUpdateKey, triggerWaveformUpdate } = useProject();
+const {
+  selectedItem,
+  selectedItems,
+  toggleItemSelection,
+  openItemProperties,
+  removeItem,
+  requestDeleteFromButton,
+  findItemByUuid,
+  currentProject,
+  waveformUpdateKey,
+  triggerWaveformUpdate,
+  formatItemIndex,
+} = useProject();
 
 // mm:ss position of the Start Next marker, for the badge tooltip.
 const formatMarkerTime = (seconds: number): string => {
@@ -234,7 +246,7 @@ const isQueuedNext = computed(() => {
 const isGroupPlaying = computed(() => props.item.type === 'group' && activeGroups.value.has(props.item.uuid));
 
 const indexDisplay = computed(() => {
-  return props.item.index.join(',');
+  return formatItemIndex(props.item.index);
 });
 
 // True when the item's effective loudness is significantly above the

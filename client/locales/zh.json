@@ -397,7 +397,9 @@
     "stopAllFade": "「停止全部」淡出（秒）",
     "stopAllFadeHelp": "按下「停止全部」时所有提示淡出所需的时间。设为 0 可立即停止。",
     "scrollToPlaying": "滚动到正在播放的项目",
-    "scrollToPlayingHelp": "自动将正在播放的项目保持在列表中央。"
+    "scrollToPlayingHelp": "自动将正在播放的项目保持在列表中央。",
+    "indexDisplayStart": "播放列表项目编号起始值",
+    "indexDisplayStartHelp": "控制第一个播放列表项目显示的编号。内部索引和 API 索引路径仍从零开始。"
   },
   "common": {
     "default": "默认",

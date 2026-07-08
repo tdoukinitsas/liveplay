@@ -397,7 +397,9 @@
     "stopAllFade": "「모두 정지」 페이드아웃(초)",
     "stopAllFadeHelp": "「모두 정지」를 누를 때 모든 큐가 페이드아웃되는 시간입니다. 즉시 정지하려면 0으로 설정하세요.",
     "scrollToPlaying": "재생 중인 항목으로 스크롤",
-    "scrollToPlayingHelp": "재생 중인 항목을 목록 가운데에 자동으로 유지합니다."
+    "scrollToPlayingHelp": "재생 중인 항목을 목록 가운데에 자동으로 유지합니다.",
+    "indexDisplayStart": "재생 목록 항목 번호 시작값",
+    "indexDisplayStartHelp": "첫 번째 재생 목록 항목에 표시되는 번호를 제어합니다. 내부 인덱스와 API 인덱스 경로는 계속 0부터 시작합니다."
   },
   "common": {
     "default": "기본값",

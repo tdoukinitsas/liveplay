@@ -397,7 +397,9 @@
     "stopAllFade": "«Tümünü Durdur» kararması (saniye)",
     "stopAllFadeHelp": "«Tümünü Durdur»a bastığınızda tüm ipuçlarının kararma süresi. Anında durdurmak için 0 yapın.",
     "scrollToPlaying": "Çalınmakta olana kaydır",
-    "scrollToPlayingHelp": "Çalınmakta olan öğeyi listede otomatik olarak ortada tut."
+    "scrollToPlayingHelp": "Çalınmakta olan öğeyi listede otomatik olarak ortada tut.",
+    "indexDisplayStart": "Çalma listesi öğelerini numaralandırmaya şuradan başla",
+    "indexDisplayStartHelp": "İlk çalma listesi öğesi için gösterilen numarayı belirler. Dahili indeksler ve API indeks yolları sıfır tabanlı kalır."
   },
   "common": {
     "default": "varsayılan",

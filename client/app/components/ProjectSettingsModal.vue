@@ -192,6 +192,24 @@
 
           <!-- ================= User Interface ================= -->
           <template v-else-if="activeTab === 'ui'">
+
+            <!-- Playlist numbering -->
+            <section class="settings-field">
+              <label class="settings-label">
+                <span class="material-symbols-rounded">format_list_numbered</span>
+                {{ t('settings.indexDisplayStart') }}
+              </label>
+              <input
+                type="number"
+                class="settings-input"
+                min="0"
+                step="1"
+                :value="indexDisplayStart"
+                @change="onIndexDisplayStartChange"
+              />
+              <p class="settings-help">{{ t('settings.indexDisplayStartHelp') }}</p>
+            </section>
+            
             <!-- Meter Display Mode -->
             <section class="settings-field">
               <label class="settings-label">
@@ -235,6 +253,7 @@
 
 <script setup lang="ts">
 import { useOutputTarget } from '~/composables/useOutputTarget';
+import { normalizeIndexDisplayStart } from '~/utils/indexDisplay';
 
 const props = defineProps<{ open: boolean }>();
 const emit  = defineEmits<{ (e: 'close'): void }>();
@@ -266,6 +285,7 @@ const disableAutoVolumeAndTrim = computed(() => !!(currentProject.value as any)?
 const disableLimiter           = computed(() => !!(currentProject.value as any)?.settings?.disableLimiter);
 const disableSilenceWarning    = computed(() => !!(currentProject.value as any)?.settings?.disableSilenceWarning);
 const defaultTransitionMode    = computed(() => (currentProject.value as any)?.settings?.defaultTransitionMode || 'crossfade');
+const indexDisplayStart        = computed(() => normalizeIndexDisplayStart((currentProject.value as any)?.settings?.indexDisplayStart));
 // Defaults ON (undefined → true) so legacy projects and new projects both
 // arm the next item as "Up Next" for cues without an end behaviour. (#28)
 const autoCueNextWithoutEndBehavior = computed(() => (currentProject.value as any)?.settings?.autoCueNextWithoutEndBehavior !== false);
@@ -333,6 +353,12 @@ function onDisableSilenceWarningChange(e: Event) {
 }
 function onDefaultTransitionModeChange(e: Event) {
   applyPatch({ defaultTransitionMode: (e.target as HTMLSelectElement).value });
+}
+function onIndexDisplayStartChange(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const value = normalizeIndexDisplayStart(input.value);
+  input.value = String(value);
+  applyPatch({ indexDisplayStart: value });
 }
 function onAutoCueNextChange(e: Event) {
   applyPatch({ autoCueNextWithoutEndBehavior: (e.target as HTMLInputElement).checked });
