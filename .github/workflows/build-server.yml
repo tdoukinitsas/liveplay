@@ -91,6 +91,13 @@ jobs:
       - name: Install Linux audio dev packages
         if: runner.os == 'Linux'
         run: |
+          # The GitHub-hosted runners ship extra Microsoft apt repos
+          # (azure-cli, packages.microsoft.com/prod) that we don't use and that
+          # intermittently serve a broken/unsigned InRelease file, which makes
+          # `apt-get update` fail with exit code 100. Drop them first.
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list \
+                     /etc/apt/sources.list.d/azure-cli.list \
+                     /etc/apt/sources.list.d/azure-cli.sources
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             ninja-build \
