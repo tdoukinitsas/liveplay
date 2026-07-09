@@ -507,5 +507,14 @@
     "deleteAll": "Fshi {count} elemente të zgjedhura",
     "deleteOnly": "Fshi vetëm \"{name}\"",
     "cancel": "Anulo"
+  },
+  "showMode": {
+    "toggle": "Modaliteti Shfaqje",
+    "toggleHint": "Kalo në një pamje riprodhimi të thjeshtuar dhe të përshtatshme për prekje gjatë shfaqjeve.",
+    "exit": "Dil",
+    "exitHint": "Mbaje shtypur për të dalë nga Modaliteti Shfaqje",
+    "noItems": "Nuk ka asnjë artikull në këtë projekt",
+    "holdToStop": "Mbaje shtypur për të ndaluar",
+    "holdToStopAll": "Mbaje shtypur për të ndaluar gjithçka"
   }
 }

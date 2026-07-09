@@ -237,7 +237,11 @@ const handleCancel = () => {
   align-items: center;
   gap: 16px;
   padding: 24px;
-  background: linear-gradient(135deg, var(--color-accent-custom), var(--color-accent-dark));
+  background: linear-gradient(
+    135deg,
+    var(--color-accent),
+    color-mix(in srgb, var(--color-accent) 78%, black)
+  );
   color: white;
 
   .icon-large {
@@ -261,7 +265,7 @@ const handleCancel = () => {
     font-size: 16px;
 
     .new-version {
-      color: var(--color-accent-custom);
+      color: var(--color-accent);
     }
   }
 
@@ -316,7 +320,7 @@ const handleCancel = () => {
       }
 
       :deep(a) {
-        color: var(--color-accent-custom);
+        color: var(--color-accent);
         text-decoration: underline;
         cursor: pointer;
       }
@@ -370,7 +374,10 @@ const handleCancel = () => {
 
     .spinning {
       font-size: 32px;
-      color: var(--color-accent-custom);
+      // Use --color-accent (has a baked-in fallback) rather than
+      // --color-accent-custom, which is only set once a project loads and is
+      // undefined when the update modal appears at startup.
+      color: var(--color-accent);
       animation: spin 1s linear infinite;
     }
 
@@ -391,7 +398,14 @@ const handleCancel = () => {
 
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--color-accent-custom), var(--color-accent-dark));
+      // --color-accent-dark was never defined anywhere, which made this
+      // gradient invalid and rendered no fill at all. Derive the darker stop
+      // from --color-accent instead.
+      background: linear-gradient(
+        90deg,
+        var(--color-accent),
+        color-mix(in srgb, var(--color-accent) 78%, black)
+      );
       transition: width 0.3s ease;
     }
   }
@@ -458,11 +472,11 @@ const handleCancel = () => {
   transition: all 0.2s ease;
 
   &.button-primary {
-    background: var(--color-accent-custom);
+    background: var(--color-accent);
     color: white;
 
     &:hover {
-      background: var(--color-accent-dark);
+      background: color-mix(in srgb, var(--color-accent) 78%, black);
       transform: translateY(-1px);
     }
   }

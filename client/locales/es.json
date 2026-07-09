@@ -507,5 +507,14 @@
     "deleteAll": "Eliminar {count} elementos seleccionados",
     "deleteOnly": "Eliminar solo «{name}»",
     "cancel": "Cancelar"
+  },
+  "showMode": {
+    "toggle": "Modo Espectáculo",
+    "toggleHint": "Cambiar a una vista de reproducción simplificada y táctil para espectáculos.",
+    "exit": "Salir",
+    "exitHint": "Mantén pulsado para salir del Modo Espectáculo",
+    "noItems": "No hay elementos en este proyecto",
+    "holdToStop": "Mantén pulsado para detener",
+    "holdToStopAll": "Mantén pulsado para detener todo"
   }
 }

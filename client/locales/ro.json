@@ -507,5 +507,14 @@
     "deleteAll": "Șterge {count} elemente selectate",
     "deleteOnly": "Șterge doar „{name}”",
     "cancel": "Anulează"
+  },
+  "showMode": {
+    "toggle": "Mod Spectacol",
+    "toggleHint": "Comută la o vizualizare de redare simplificată, potrivită pentru ecrane tactile, pentru spectacole.",
+    "exit": "Ieșire",
+    "exitHint": "Țineți apăsat pentru a ieși din Modul Spectacol",
+    "noItems": "Niciun element în acest proiect",
+    "holdToStop": "Țineți apăsat pentru a opri",
+    "holdToStopAll": "Țineți apăsat pentru a opri tot"
   }
 }

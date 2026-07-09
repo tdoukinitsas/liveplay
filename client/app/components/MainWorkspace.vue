@@ -1,8 +1,13 @@
 <template>
-  <div class="main-workspace">
+  <div class="main-workspace" :class="{ 'show-mode': uiMode === 'playback' }">
+    <!-- Show Mode reuses the full editor layout (header, transport, resizable/
+         detachable playlist⇄cart split). It is not a separate view: the child
+         components read useUiMode() and hide their edit affordances + enlarge
+         touch targets, so waveforms, colours, durations, behaviour flags and
+         warnings all render exactly as in edit mode. -->
     <ProjectHeader />
     <PlaybackControls />
-    
+
     <div class="workspace-content">
       <div v-if="!cartFullscreen" class="playlist-section" :style="{ width: (cartClosed || cartDetached) ? '100%' : `calc(100% - ${cartWidth}px)` }">
         <PlaylistView />
@@ -19,8 +24,9 @@
         <CartPlayer />
       </div>
     </div>
-    
-    <PropertiesPanel v-if="propertiesPanelOpen && selectedItem" />
+
+    <!-- Properties panel is an edit affordance — never surfaced in Show Mode. -->
+    <PropertiesPanel v-if="uiMode !== 'playback' && propertiesPanelOpen && selectedItem" />
 
     <ProgressModal
       :visible="progressModal.visible"
@@ -77,6 +83,7 @@ const { triggerByUuid, triggerByIndex, stopCue, stopAllCues, playCue } = useAudi
 const { getCartItem, cartOnlyItems, updateCartOnlyItem } = useCartItems();
 const { t } = useLocalization();
 const server = useLiveplayServer();
+const { uiMode } = useUiMode();
 
 // Progress modal state
 const progressModal = ref({

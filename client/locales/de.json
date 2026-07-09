@@ -507,5 +507,14 @@
     "deleteAll": "{count} ausgewählte Elemente löschen",
     "deleteOnly": "Nur „{name}\" löschen",
     "cancel": "Abbrechen"
+  },
+  "showMode": {
+    "toggle": "Show-Modus",
+    "toggleHint": "Zu einer vereinfachten, touch-freundlichen Wiedergabeansicht für Shows wechseln.",
+    "exit": "Beenden",
+    "exitHint": "Gedrückt halten, um den Show-Modus zu verlassen",
+    "noItems": "Keine Elemente in diesem Projekt",
+    "holdToStop": "Gedrückt halten zum Stoppen",
+    "holdToStopAll": "Gedrückt halten, um alles zu stoppen"
   }
 }

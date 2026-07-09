@@ -7,6 +7,7 @@
       'is-group': item.type === 'group',
       'is-audio': item.type === 'audio',
       'is-playing': isPlaying,
+      'show-mode': showMode,
       'drag-over-top': dragPosition === 'top',
       'drag-over-bottom': dragPosition === 'bottom',
       'drag-over-group': dragPosition === 'group',
@@ -41,10 +42,10 @@
       :class="`warning-border--${warningState}`"
     ></div>
 
-    <div 
+    <div
       class="item-content"
       @click="handleSelect"
-      :draggable="true"
+      :draggable="!showMode"
       @dragstart="handleDragStart"
     >
       <!-- Progress bar for playing items (audio and groups) - only in header -->
@@ -136,9 +137,12 @@
         
         <span v-if="item.type === 'audio'" class="item-duration">{{ durationDisplay }}</span>
 
+        <!-- In Show Mode only the live-playback actions remain (play/stop and
+             set-as-next); preview, edit and delete are edit affordances and are
+             hidden so the row is a big, safe touch target. -->
         <div class="item-actions">
           <ActionButton
-            v-if="item.type === 'audio'"
+            v-if="!showMode && item.type === 'audio'"
             :icon="'headphones'"
             :highlight-color="isPreviewing ? 'var(--color-accent)' : 'var(--color-success)'"
             :is-active="isPreviewing"
@@ -164,6 +168,7 @@
             :title="t('actions.setAsNext')"
           />
           <ActionButton
+            v-if="!showMode"
             icon="settings"
             highlight-color="var(--color-accent)"
             context="Playlist"
@@ -171,6 +176,7 @@
             :title="t('actions.edit')"
           />
           <ActionButton
+            v-if="!showMode"
             icon="delete"
             highlight-color="var(--color-danger)"
             context="Playlist"
@@ -229,6 +235,12 @@ const formatMarkerTime = (seconds: number): string => {
 const { levels: outputTargetLevels } = useOutputTarget();
 const { playCue, stopCue, activeCues, activeGroups, triggerGroup, nextItemOverrideUuid, autoNextItemUuid, setNextItem } = useAudioEngine();
 const { t } = useLocalization();
+const { uiMode } = useUiMode();
+
+// Show Mode strips edit affordances (preview/edit/delete + drag) and scales the
+// row up for touch, while keeping waveform, colour, duration, behaviour flags
+// and warnings identical to edit mode.
+const showMode = computed(() => uiMode.value === 'playback');
 
 const isExpanded = ref(props.item.type === 'group' ? props.item.isExpanded : false);
 const waveformCanvas = ref<HTMLCanvasElement | null>(null);
@@ -637,9 +649,11 @@ const handleDragLeave = () => {
 const handleDrop = (e: DragEvent) => {
   e.preventDefault();
   e.stopPropagation();
-  
+
   dragPosition.value = null;
-  
+
+  // Rows are read-only in Show Mode — no reordering or import drops.
+  if (showMode.value) return;
   if (!e.dataTransfer || !currentProject.value) return;
 
   // A cart slot dragged onto the playlist → promote it to an independent
@@ -1045,5 +1059,51 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 
 .group-children {
   padding-left: var(--spacing-md);
+}
+
+/* ------------------------------------------------------------------ */
+/* Show Mode — larger, touch-friendly rows. Same content, bigger hit  */
+/* areas: taller rows, bigger name/duration text, and chunky play/    */
+/* stop / set-next buttons. Waveform, colour tint, flags and warnings  */
+/* are untouched so the row still reads exactly like the editor.       */
+/* ------------------------------------------------------------------ */
+.playlist-item.show-mode {
+  .item-content {
+    min-height: 68px;
+    padding: var(--spacing-md) var(--spacing-lg);
+  }
+
+  .item-name {
+    font-size: 1.7em;
+  }
+
+  .item-duration {
+    font-size: 1.7em;
+  }
+
+  .status-pill {
+    font-size: 15px;
+    height: 34px;
+    padding: 2px 12px;
+  }
+
+  .behavior-icon {
+    font-size: 20px !important;
+  }
+
+  /* Enlarge the remaining action buttons (play/stop, set-next) for touch.
+     :deep() reaches into the ActionButton child component's root. */
+  :deep(.action-btn--playlist) {
+    width: 56px;
+    height: 56px;
+
+    .material-symbols-rounded {
+      font-size: 28px;
+    }
+  }
+
+  .item-actions {
+    gap: var(--spacing-sm);
+  }
 }
 </style>

@@ -2,7 +2,8 @@
   <div class="playlist-view">
     <div class="playlist-header">
       <h2>{{ t('playlist.title') }}</h2>
-      <div class="playlist-actions">
+      <!-- Import / add-group are edit actions — hidden in Show Mode. -->
+      <div v-if="!showMode" class="playlist-actions">
         <Btn icon="audio_file" :text="t('playlist.importAudio')" :disabled="!currentProject" @click="handleImport" />
         <Btn icon="youtube_activity" :text="t('youtube.importFromYouTube')" bg-style="youtube" :disabled="!currentProject" @click="showYouTubeModal = true" />
         <Btn icon="folder" :text="t('playlist.addGroup')" :disabled="!currentProject" @click="handleAddGroup" />
@@ -57,6 +58,8 @@ const { currentProject, addItem, consumePendingAutoProcess, updateIndices, saveP
 const { t } = useLocalization();
 const { levels: outputTargetLevels } = useOutputTarget();
 const { activeCues } = useAudioEngine();
+const { uiMode } = useUiMode();
+const showMode = computed(() => uiMode.value === 'playback');
 const scrollContainer = ref<HTMLElement | null>(null);
 
 // Auto-process only items that were just imported this session (marked by
@@ -534,6 +537,8 @@ const handleAddGroup = () => {
 const handleDrop = async (e: DragEvent) => {
   e.preventDefault();
 
+  // Playlist is read-only in Show Mode — ignore drops (incl. OS file drops).
+  if (showMode.value) return;
   if (!e.dataTransfer) return;
 
   // Cart slot dropped onto empty playlist space → promote it to a standalone

@@ -507,5 +507,14 @@
     "deleteAll": "Supprimer {count} éléments sélectionnés",
     "deleteOnly": "Supprimer uniquement « {name} »",
     "cancel": "Annuler"
+  },
+  "showMode": {
+    "toggle": "Mode Spectacle",
+    "toggleHint": "Passer à une vue de lecture simplifiée et tactile pour les spectacles.",
+    "exit": "Quitter",
+    "exitHint": "Maintenez appuyé pour quitter le Mode Spectacle",
+    "noItems": "Aucun élément dans ce projet",
+    "holdToStop": "Maintenez appuyé pour arrêter",
+    "holdToStopAll": "Maintenez appuyé pour tout arrêter"
   }
 }

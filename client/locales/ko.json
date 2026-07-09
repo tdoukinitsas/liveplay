@@ -507,5 +507,14 @@
     "deleteAll": "선택한 {count}개 항목 삭제",
     "deleteOnly": "\"{name}\"만 삭제",
     "cancel": "취소"
+  },
+  "showMode": {
+    "toggle": "쇼 모드",
+    "toggleHint": "공연을 위한 단순하고 터치에 최적화된 재생 화면으로 전환합니다.",
+    "exit": "종료",
+    "exitHint": "길게 눌러 쇼 모드 종료",
+    "noItems": "이 프로젝트에 항목이 없습니다",
+    "holdToStop": "길게 눌러 정지",
+    "holdToStopAll": "길게 눌러 모두 정지"
   }
 }
