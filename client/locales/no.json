@@ -505,5 +505,14 @@
     "deleteAll": "Slett {count} valgte elementer",
     "deleteOnly": "Slett bare «{name}»",
     "cancel": "Avbryt"
+  },
+  "showMode": {
+    "toggle": "Show-modus",
+    "toggleHint": "Bytt til en forenklet, touch-vennlig avspillingsvisning for show.",
+    "exit": "Avslutt",
+    "exitHint": "Hold inne for å avslutte Show-modus",
+    "noItems": "Ingen elementer i dette prosjektet",
+    "holdToStop": "Hold inne for å stoppe",
+    "holdToStopAll": "Hold inne for å stoppe alt"
   }
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="cart-player" ref="cartPlayerRef">
+  <div class="cart-player" ref="cartPlayerRef" :class="{ 'show-mode': showMode }">
     <div class="cart-header">
       <h2>{{ t('cart.title') }}</h2>
       <div class="cart-header-actions">
@@ -45,6 +45,8 @@ const { getCartItem } = useCartItems();
 const { keyMappings, mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
 const { mount: mountMidi, unmount: unmountMidi } = useMidiController();
 const { t } = useLocalization();
+const { uiMode } = useUiMode();
+const showMode = computed(() => uiMode.value === 'playback');
 
 const handleDetach = () => {
   if (!currentProject.value || !import.meta.client || !window.electronAPI) return;
@@ -175,5 +177,11 @@ onMounted(() => {
   &.grid-cols-4 {
     grid-template-columns: repeat(4, 1fr);
   }
+}
+
+/* Show Mode — taller cart tiles so the enlarged play/stop controls and
+   3-line names have room to breathe on a touch screen. */
+.cart-player.show-mode .cart-grid {
+  grid-auto-rows: minmax(150px, 1fr);
 }
 </style>

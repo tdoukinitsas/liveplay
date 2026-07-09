@@ -45,13 +45,34 @@
         </span>
       </button>
 
-      <!-- Clock pair: wall clock + LTC timecode, always both visible -->
+      <!-- Show Mode toggle: flips the whole workspace into the touch-friendly
+           playback layout (edit buttons hidden, larger touch targets) and back.
+           Persisted per-device, not in the project. -->
+      <button
+        type="button"
+        class="autosave-toggle showmode-toggle"
+        role="switch"
+        :aria-checked="uiMode === 'playback'"
+        :aria-label="t('showMode.toggle')"
+        :disabled="!currentProject"
+        :title="t('showMode.toggleHint')"
+        @click="toggleUiMode"
+      >
+        <span class="autosave-toggle__label">{{ t('showMode.toggle') }}</span>
+        <span class="autosave-toggle__track" :class="{ 'autosave-toggle__track--on': uiMode === 'playback' }">
+          <span class="autosave-toggle__thumb"></span>
+        </span>
+      </button>
+
+      <!-- Clock pair: wall clock always shown; LTC box only appears once an
+           LTC output device is configured in Project Settings — otherwise
+           it's permanent header clutter that never does anything. -->
       <div class="clock-pair">
         <div class="digital-clock clock--active">
           <span class="clock-label">{{ t('project.clock') }}</span>
           <span class="clock-value">{{ currentTime }}</span>
         </div>
-        <div class="digital-clock" :class="ltcTimecode ? 'clock--active' : 'clock--inactive'">
+        <div v-if="hasLtcDevice" class="digital-clock" :class="ltcTimecode ? 'clock--active' : 'clock--inactive'">
           <span class="clock-label">LTC</span>
           <span class="clock-value">{{ ltcTimecode ?? '--:--:--:--' }}</span>
         </div>
@@ -77,6 +98,7 @@ import type { AudioItem } from '~/types/project';
 const { currentProject, findItemByUuid, findItemByIndex, autoSaveEnabled, hasUnsavedChanges, setAutoSave } = useProject();
 const { t } = useLocalization();
 const { activeCues } = useAudioEngine();
+const { uiMode, toggleUiMode } = useUiMode();
 
 const showControlConfig = ref(false);
 const showProjectSettings = useState('showProjectSettings', () => false);
@@ -272,6 +294,12 @@ function framesToTc(totalFrames: number, fps: number): string {
   const h = Math.floor(totalSecs / 3600);
   return [h, m, s, f].map(n => String(n).padStart(2, '0')).join(':');
 }
+
+// Whether the project has an LTC output device configured at all — the LTC
+// clock box is only rendered when this is true, so it doesn't sit in the
+// (increasingly crowded) header as permanent dead weight for projects that
+// never use timecode.
+const hasLtcDevice = computed(() => !!(currentProject.value as any)?.settings?.ltcDevice);
 
 // Returns the current LTC timecode string if any active cue is outputting LTC
 // to a configured LTC device, otherwise null (→ box shown grey with dashes).

@@ -505,5 +505,14 @@
     "deleteAll": "Ta bort {count} markerade objekt",
     "deleteOnly": "Ta bort endast ”{name}”",
     "cancel": "Avbryt"
+  },
+  "showMode": {
+    "toggle": "Föreställningsläge",
+    "toggleHint": "Växla till en förenklad, pekvänlig uppspelningsvy för föreställningar.",
+    "exit": "Avsluta",
+    "exitHint": "Håll intryckt för att avsluta föreställningsläget",
+    "noItems": "Inga objekt i det här projektet",
+    "holdToStop": "Håll intryckt för att stoppa",
+    "holdToStopAll": "Håll intryckt för att stoppa allt"
   }
 }

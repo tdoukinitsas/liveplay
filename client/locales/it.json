@@ -505,5 +505,14 @@
     "deleteAll": "Elimina {count} elementi selezionati",
     "deleteOnly": "Elimina solo \"{name}\"",
     "cancel": "Annulla"
+  },
+  "showMode": {
+    "toggle": "Modalità Show",
+    "toggleHint": "Passa a una vista di riproduzione semplificata e ottimizzata per il tocco, pensata per gli show.",
+    "exit": "Esci",
+    "exitHint": "Tieni premuto per uscire dalla Modalità Show",
+    "noItems": "Nessun elemento in questo progetto",
+    "holdToStop": "Tieni premuto per fermare",
+    "holdToStopAll": "Tieni premuto per fermare tutto"
   }
 }

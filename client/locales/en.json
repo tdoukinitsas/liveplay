@@ -1,4 +1,4 @@
-﻿{
+{
   "_metadata": {
     "code": "en",
     "name": "English",
@@ -505,5 +505,14 @@
     "deleteAll": "Delete {count} Selected Items",
     "deleteOnly": "Delete Only \"{name}\"",
     "cancel": "Cancel"
+  },
+  "showMode": {
+    "toggle": "Show Mode",
+    "toggleHint": "Switch to a simplified, touch-friendly playback view for shows.",
+    "exit": "Exit",
+    "exitHint": "Hold to exit Show Mode",
+    "noItems": "No items in this project",
+    "holdToStop": "Hold to stop",
+    "holdToStopAll": "Hold to stop all"
   }
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="playback-controls">
+  <div class="playback-controls" :class="{ 'show-mode': showMode }">
     <div class="controls-left">
       <button
         class="control-btn play-next-btn"
@@ -109,6 +109,10 @@ const { findItemByUuid, previewItemUuid, previewCueId, stopPreview, currentProje
 const { playbackMappings } = useCartHotkeys();
 const { t } = useLocalization();
 const server = useLiveplayServer();
+const { uiMode } = useUiMode();
+// Show Mode enlarges the GO / Stop-All buttons for touch; the active-cue cards
+// and meters are already the right size and stay as-is.
+const showMode = computed(() => uiMode.value === 'playback');
 
 // ---- Preview seek / time --------------------------------------------------
 // Subscribe to the preview cue's per-item meter stream so we can display an
@@ -260,6 +264,38 @@ const handlePlayNext = () => {
 .controls-left {
   display: flex;
   gap: var(--spacing-sm);
+}
+
+/* Show Mode — bigger GO / Stop-All buttons. The controls bar grows a little
+   taller to fit them; preview card and stop button are also enlarged. */
+.playback-controls.show-mode {
+  min-height: calc(var(--playback-controls-height) + 20px);
+
+  .control-btn {
+    padding: var(--spacing-lg) var(--spacing-xl);
+    font-size: 17px;
+
+    .material-symbols-rounded,
+    .icon {
+      font-size: 26px;
+    }
+  }
+
+  .preview-cue-card {
+    min-width: 500px;
+    max-width: 500px;
+    padding: var(--spacing-md);
+  }
+
+  .preview-cue-header {
+    font-size: 16px;
+  }
+
+  .preview-stop-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 24px;
+  }
 }
 
 .control-btn {

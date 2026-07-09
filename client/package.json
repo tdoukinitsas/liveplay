@@ -1,6 +1,6 @@
 {
   "name": "liveplay",
-  "version": "2.2.4",
+  "version": "2.3.0",
   "description": "Audio cue playback application for live events",
   "homepage": "https://github.com/tdoukinitsas/liveplay",
   "main": "electron/main.js",
@@ -101,9 +101,6 @@
         }
       ],
       "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
-      "signtoolOptions": {
-        "publisherName": "Thomas Doukinitsas"
-      },
       "extraResources": [
         {
           "from": "../server/build/Release/liveplay-server.exe",

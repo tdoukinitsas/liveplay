@@ -505,5 +505,14 @@
     "deleteAll": "選択した{count}個のアイテムを削除",
     "deleteOnly": "\"{name}\"のみ削除",
     "cancel": "キャンセル"
+  },
+  "showMode": {
+    "toggle": "ショーモード",
+    "toggleHint": "本番向けの、タッチ操作に適したシンプルな再生画面に切り替えます。",
+    "exit": "終了",
+    "exitHint": "長押しでショーモードを終了",
+    "noItems": "このプロジェクトには項目がありません",
+    "holdToStop": "長押しで停止",
+    "holdToStopAll": "長押しですべて停止"
   }
 }

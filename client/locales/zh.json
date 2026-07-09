@@ -505,5 +505,14 @@
     "deleteAll": "删除选中的 {count} 个项目",
     "deleteOnly": "仅删除\"{name}\"",
     "cancel": "取消"
+  },
+  "showMode": {
+    "toggle": "演出模式",
+    "toggleHint": "切换到简化的触屏友好播放界面，适用于演出。",
+    "exit": "退出",
+    "exitHint": "长按以退出演出模式",
+    "noItems": "此项目中没有项目",
+    "holdToStop": "长按以停止",
+    "holdToStopAll": "长按以停止全部"
   }
 }

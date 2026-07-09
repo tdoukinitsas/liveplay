@@ -505,5 +505,14 @@
     "deleteAll": "Seçili {count} öğeyi sil",
     "deleteOnly": "Yalnızca \"{name}\" öğesini sil",
     "cancel": "İptal"
+  },
+  "showMode": {
+    "toggle": "Gösteri Modu",
+    "toggleHint": "Gösteriler için basitleştirilmiş, dokunmatik uyumlu bir oynatma görünümüne geçin.",
+    "exit": "Çıkış",
+    "exitHint": "Gösteri Modundan çıkmak için basılı tutun",
+    "noItems": "Bu projede öğe yok",
+    "holdToStop": "Durdurmak için basılı tutun",
+    "holdToStopAll": "Tümünü durdurmak için basılı tutun"
   }
 }
