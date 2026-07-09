@@ -146,6 +146,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onCartPlayerWindowClosed: (callback) => ipcRenderer.on('cart-player-window-closed', callback),
   onCartWindowProjectUpdate: (callback) => ipcRenderer.on('cart-window-project-update', callback),
 
+  // UI mode ("show mode") sync across windows
+  broadcastUiMode: (mode) => ipcRenderer.send('ui-mode-changed', mode),
+  onUiModeSet: (callback) => ipcRenderer.on('ui-mode-set', callback),
+
   // State viewer - send state updates to main process
   updateAppState: (state) => ipcRenderer.send('update-app-state', state),
   

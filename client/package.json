@@ -1,6 +1,6 @@
 {
   "name": "liveplay",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "description": "Audio cue playback application for live events",
   "homepage": "https://github.com/tdoukinitsas/liveplay",
   "main": "electron/main.js",

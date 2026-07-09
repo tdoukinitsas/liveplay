@@ -100,6 +100,9 @@ declare global {
       onCartPlayerWindowOpened: (callback: () => void) => void;
       onCartPlayerWindowClosed: (callback: () => void) => void;
       onCartWindowProjectUpdate: (callback: (event: any, projectData: any) => void) => void;
+      // UI mode ("show mode") sync across windows
+      broadcastUiMode: (mode: 'edit' | 'playback') => void;
+      onUiModeSet: (callback: (event: any, mode: 'edit' | 'playback') => void) => void;
       // Recent-projects history (last 10 .liveplay files opened on this client).
       liveplayProjects?: {
         recentList: () => Promise<Array<{ path: string; name: string; folderPath: string; lastOpened: number }>>;

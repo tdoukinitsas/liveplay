@@ -2661,6 +2661,18 @@ ipcMain.on('cart-player-window-attach', () => {
   }
 });
 
+// UI mode (edit / "show mode") sync across windows. Each renderer owns its
+// own state, so broadcast a change from any window to every other window so
+// the detached cart player stays in lockstep with the main window.
+ipcMain.on('ui-mode-changed', (event, mode) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.webContents.id === event.sender.id) continue;
+    if (win.webContents && !win.webContents.isDestroyed()) {
+      win.webContents.send('ui-mode-set', mode);
+    }
+  }
+});
+
 ipcMain.handle('get-cart-window-project-data', () => {
   return currentProjectData || null;
 });

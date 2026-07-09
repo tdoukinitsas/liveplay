@@ -28,12 +28,39 @@ export const useUiMode = () => {
     } catch {
       // localStorage unavailable (e.g. private browsing) — fall back to 'edit'.
     }
+
+    // Keep separate windows (e.g. the detached cart player) in sync. Each
+    // window is its own renderer with its own useState, so a mode change in
+    // one window would otherwise not reach the others. The `storage` event
+    // fires in every *other* same-origin window when localStorage changes.
+    try {
+      window.addEventListener('storage', (e) => {
+        if (e.key !== STORAGE_KEY) return;
+        const next = e.newValue;
+        if (next === 'edit' || next === 'playback') uiMode.value = next;
+      });
+    } catch {
+      // window/addEventListener unavailable — sync simply won't happen.
+    }
+
+    // The `storage` event is unreliable across separate Electron
+    // BrowserWindows (especially file:// origins), so also sync over IPC.
+    try {
+      window.electronAPI?.onUiModeSet?.((_event, mode) => {
+        if (mode === 'edit' || mode === 'playback') uiMode.value = mode;
+      });
+    } catch {
+      // electronAPI unavailable (browser context) — IPC sync won't happen.
+    }
   }
 
   const setUiMode = (mode: UiMode) => {
     uiMode.value = mode;
     if (import.meta.client) {
       try { localStorage.setItem(STORAGE_KEY, mode); } catch {}
+      // Broadcast to other windows (detached cart player) so they follow the
+      // overall application show-mode state rather than the mode they launched in.
+      try { window.electronAPI?.broadcastUiMode?.(mode); } catch {}
     }
   };
 
