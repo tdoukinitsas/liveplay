@@ -434,6 +434,8 @@ Mutating routes return `{ ok: true, ... }` only — the full document is **not**
 
 **Triggering by index** — `…/by-index/<path>` triggers an item by its position instead of its uuid. The `<path>` is an **index path**: a zero-based list of child indices that descends into groups at each level, mirroring the client's `findItemByIndex` / `endBehavior.targetIndex`. A single number (`5`) targets the 6th top-level item; multiple components descend into groups — `1,11` means top-level item `1` (the 2nd item, a group) then its child `11` (the 12th item inside it). Both **comma- and slash-separated** forms are accepted and equivalent, so the same target can be written `…/by-index/1,11` or `…/by-index/1/11` (mixed forms like `1,2/0` work too). Like `/play`, it accepts `GET` so it can be fired from a browser or `curl`, and it routes through `trigger_item` — audio items play, group items dispatch per their `startBehavior`. Returns `400` for a malformed path, `404` when no item exists at that index or the resolved item isn't loaded into the engine.
 
+Project UI settings such as `settings.indexDisplayStart` only change the numbers shown and entered in the client. REST by-index paths stay zero-based for backwards compatibility.
+
 #### Cart slots
 
 | Method · Path | Body | Response | Broadcast op |

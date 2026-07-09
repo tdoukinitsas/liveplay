@@ -397,7 +397,9 @@
     "stopAllFade": "Fundido de «Detener todo» (segundos)",
     "stopAllFadeHelp": "Tiempo que tardan todas las señales en desvanecerse al pulsar «Detener todo». Ponlo a 0 para una parada instantánea.",
     "scrollToPlaying": "Desplazar al elemento en reproducción",
-    "scrollToPlayingHelp": "Mantener automáticamente centrado en la lista el elemento que se está reproduciendo."
+    "scrollToPlayingHelp": "Mantener automáticamente centrado en la lista el elemento que se está reproduciendo.",
+    "indexDisplayStart": "Numerar elementos de la lista desde",
+    "indexDisplayStartHelp": "Controla el número que se muestra para el primer elemento de la lista. Los índices internos y las rutas de índice de la API siguen empezando en cero."
   },
   "common": {
     "default": "predeterminado",

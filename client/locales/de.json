@@ -397,7 +397,9 @@
     "stopAllFade": "Ausblendzeit für „Alle stoppen“ (Sekunden)",
     "stopAllFadeHelp": "Wie lange alle Cues beim Drücken von „Alle stoppen“ ausgeblendet werden. 0 = sofortiger Stopp.",
     "scrollToPlaying": "Zum aktuell abgespielten Element scrollen",
-    "scrollToPlayingHelp": "Das aktuell abgespielte Element automatisch in der Liste zentrieren."
+    "scrollToPlayingHelp": "Das aktuell abgespielte Element automatisch in der Liste zentrieren.",
+    "indexDisplayStart": "Playlist-Nummerierung beginnt bei",
+    "indexDisplayStartHelp": "Legt die angezeigte Nummer des ersten Playlist-Elements fest. Interne Indizes und API-Indexpfade bleiben nullbasiert."
   },
   "common": {
     "default": "Standard",

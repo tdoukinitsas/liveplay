@@ -397,7 +397,9 @@
     "stopAllFade": "Fondu de « Tout arrêter » (secondes)",
     "stopAllFadeHelp": "Durée du fondu de sortie de toutes les séquences lorsque vous appuyez sur « Tout arrêter ». Réglez sur 0 pour un arrêt instantané.",
     "scrollToPlaying": "Faire défiler jusqu’à l’élément en cours de lecture",
-    "scrollToPlayingHelp": "Garder automatiquement l’élément en cours de lecture centré dans la liste."
+    "scrollToPlayingHelp": "Garder automatiquement l’élément en cours de lecture centré dans la liste.",
+    "indexDisplayStart": "Numéroter les éléments de la liste à partir de",
+    "indexDisplayStartHelp": "Définit le numéro affiché pour le premier élément de la liste. Les index internes et les chemins d’index de l’API restent basés sur zéro."
   },
   "common": {
     "default": "défaut",

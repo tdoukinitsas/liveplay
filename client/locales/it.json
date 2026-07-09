@@ -397,7 +397,9 @@
     "stopAllFade": "Dissolvenza di «Ferma tutto» (secondi)",
     "stopAllFadeHelp": "Durata della dissolvenza in uscita di tutte le tracce quando premi «Ferma tutto». Imposta 0 per un arresto immediato.",
     "scrollToPlaying": "Scorri all’elemento in riproduzione",
-    "scrollToPlayingHelp": "Mantieni automaticamente centrato nell’elenco l’elemento in riproduzione."
+    "scrollToPlayingHelp": "Mantieni automaticamente centrato nell’elenco l’elemento in riproduzione.",
+    "indexDisplayStart": "Numerare gli elementi della playlist da",
+    "indexDisplayStartHelp": "Controlla il numero mostrato per il primo elemento della playlist. Gli indici interni e i percorsi indice dell’API restano basati su zero."
   },
   "common": {
     "default": "predefinito",

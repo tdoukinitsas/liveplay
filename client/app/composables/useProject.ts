@@ -28,6 +28,11 @@ import type {
 } from '~/types/project';
 import { DEFAULT_THEME, DEFAULT_CART_SLOT_KEYS, anchorStartNextMarker } from '~/types/project';
 import { applyAutoProcessing } from '~/utils/audio';
+import {
+  formatDisplayIndexPath,
+  normalizeIndexDisplayStart,
+  parseDisplayIndexPath,
+} from '~/utils/indexDisplay';
 
 // ---------------------------------------------------------------------------
 // MODULE-SCOPED state for cross-call coordination.
@@ -213,6 +218,13 @@ export const useProject = () => {
   const autoSaveEnabled = computed<boolean>(
     () => (currentProject.value as any)?.settings?.autoSave !== false,
   );
+  const indexDisplayStart = computed<number>(() =>
+    normalizeIndexDisplayStart((currentProject.value as any)?.settings?.indexDisplayStart),
+  );
+  const formatItemIndex = (index?: number[] | null): string =>
+    formatDisplayIndexPath(index, indexDisplayStart.value);
+  const parseItemIndexInput = (raw: string): number[] =>
+    parseDisplayIndexPath(raw, indexDisplayStart.value);
 
   // True for Windows drive paths (C:\…), POSIX roots (/…) and UNC (\\…).
   const isAbsolutePath = (p: string): boolean =>
@@ -1816,6 +1828,9 @@ export const useProject = () => {
     saveProject,
     hasUnsavedChanges,
     autoSaveEnabled,
+    indexDisplayStart,
+    formatItemIndex,
+    parseItemIndexInput,
     setAutoSave,
     closeProject,
     addItem,
