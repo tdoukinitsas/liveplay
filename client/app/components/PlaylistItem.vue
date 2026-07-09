@@ -137,12 +137,13 @@
         
         <span v-if="item.type === 'audio'" class="item-duration">{{ durationDisplay }}</span>
 
-        <!-- In Show Mode only the live-playback actions remain (play/stop and
-             set-as-next); preview, edit and delete are edit affordances and are
-             hidden so the row is a big, safe touch target. -->
+        <!-- In Show Mode the live-playback actions (play/stop, set-as-next)
+             and preview remain — preview is useful pre-show too; edit and
+             delete are edit affordances and stay hidden so the row is a big,
+             safe touch target. -->
         <div class="item-actions">
           <ActionButton
-            v-if="!showMode && item.type === 'audio'"
+            v-if="item.type === 'audio'"
             :icon="'headphones'"
             :highlight-color="isPreviewing ? 'var(--color-accent)' : 'var(--color-success)'"
             :is-active="isPreviewing"
@@ -537,6 +538,10 @@ const progressStyle = computed(() => {
 });
 
 const handleSelect = (event: MouseEvent) => {
+  // Rows are not selectable in Show Mode — it's a playback surface, not an
+  // editing list, and selection drives edit-only affordances (properties
+  // panel, delete) that are already hidden here.
+  if (showMode.value) return;
   toggleItemSelection(props.item.uuid, event.ctrlKey || event.metaKey, event.shiftKey);
 };
 
@@ -1091,10 +1096,12 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
     font-size: 20px !important;
   }
 
-  /* Enlarge the remaining action buttons (play/stop, set-next) for touch.
-     :deep() reaches into the ActionButton child component's root. */
+  /* Enlarge the remaining action buttons (preview, play/stop, set-next) for
+     touch — double width vs. height so they're easier to hit without
+     misjudging horizontal position. :deep() reaches into the ActionButton
+     child component's root. */
   :deep(.action-btn--playlist) {
-    width: 56px;
+    width: 112px;
     height: 56px;
 
     .material-symbols-rounded {
@@ -1104,6 +1111,11 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 
   .item-actions {
     gap: var(--spacing-sm);
+  }
+
+  /* Not selectable — row is a playback surface, not a list to click into. */
+  .item-content {
+    cursor: default;
   }
 }
 </style>

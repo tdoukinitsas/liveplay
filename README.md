@@ -2,92 +2,51 @@
 
 ![LivePlay main interface — playlist editor, cart grid and properties panel](client/public/screenshots/liveplay_screenshot.jpg)
 
-**LivePlay** is a free, open-source audio playback system for live sound operators who need reliable, flexible cue management. It is built around a **decoupled client/server architecture**: a headless C++ audio engine handles all sound, while a cross-platform Electron desktop app drives it as a remote control.
+**LivePlay is a free, open-source app for playing back audio in live shows.** If you run sound for theatre, conferences, houses of worship, AV installs, or any live event, LivePlay lets you line up your music, sound effects and stings ahead of time and fire them off reliably on the night — from a laptop, a touchscreen, or even a separate stage-side machine you control over the network.
 
-Made with some help from Claude Sonnet 4.5, Claude Sonnet 4.6 and Claude Opus 4.8
+You build a **show** as a list of cues plus a grid of one-touch buttons, then trigger them with a click, a tap, a keyboard shortcut, or a MIDI controller. LivePlay handles the fades, the transitions between tracks, and keeps a close eye on your levels so nothing clips or distorts.
 
-- 🎚 Multi-device output routing (FOH + monitors + comms + record bus, all at once)
-- 🎬 Per-cue SMPTE LTC generator
-- 🔊 Brick-wall master limiter on every output
-- 📊 Three-stage real-time metering (per-cue, mixer-channel, master)
-- 🌐 REST + WebSocket control surface — run the server on a stage-side machine and operate it remotely from the show laptop
-- 🌍 Localised in **20 languages** with full RTL support
-- 📦 Native installers for **Windows, macOS (Intel + Apple Silicon) and Linux**
+It runs on **Windows, macOS and Linux**, and it's completely free.
+
+> 📥 **[Download the latest version →](https://github.com/tdoukinitsas/liveplay/releases)** &nbsp;·&nbsp; 🌐 **[Website & docs](https://tdoukinitsas.github.io/liveplay/)**
 
 ---
 
-## Table of contents
+## What you can do with it
 
-- [What LivePlay does](#what-liveplay-does)
-- [Installing and using LivePlay](#installing-and-using-liveplay)
-- [Repository layout](#repository-layout)
-- [Building from source](#building-from-source)
-  - [Prerequisites](#prerequisites)
-  - [Windows](#windows)
-  - [macOS](#macos)
-  - [Linux](#linux)
-- [Development workflow](#development-workflow)
-- [Releases & GitHub Actions](#releases--github-actions)
-- [Contributing](#contributing)
-- [License](#license)
-
----
-
-## What LivePlay does
-
-LivePlay is a cue-playback application aimed at theatre, conferences, AV installs, and live performance. The operator builds a **project** (a `.liveplay` file plus a folder of media) containing:
-
-- **A playlist** of audio cues organised into nested groups, with per-cue volume, in/out trim, fade times, ducking behaviour, and start/end behaviours (play next, loop, jump to cue, …).
-- **A cart grid** of one-touch buttons mapped to cues for stings, SFX and walk-ons.
-- **A routing matrix** that maps cue source channels → mixer channels → master outputs → physical hardware outputs across one or more sound cards.
-
-At showtime, the operator triggers cues via the UI, the cart grid, configured keyboard shortcuts, MIDI controllers, or HTTP/WebSocket calls from external automation. Each cue plays through its own decoder, runs through a three-tier mixer, and lands on a brick-wall limiter before hitting the DAC.
-
-### Architecture in one diagram
-
-```
-+--------------------------------+   WebSocket (ws://host:4480/ws)   +-----------------------------------+
-|  client/                       | <----- meters @ ~60 Hz ---------> |  server/  (liveplay-server)       |
-|  Electron + Nuxt 3 + Vue 3     | <----- transport / route cmds --- |  C++20, miniaudio, Crow, TagLib   |
-|                                |        REST  (http://host:4480)   |                                   |
-|  - Playlist / cart / routing UI| <----- list / load / waveform --> |  - AudioEngine (mixer + limiter)  |
-|  - WaveformCanvas              |                                   |  - ProjectState (.liveplay I/O)   |
-|  - LiveMeterBar                |                                   |  - ControlServer (REST + WS)      |
-|                                |                                   |  - Metadata + waveform services   |
-|  No audio plays in the         |                                   |                                   |
-|  renderer process.             |                                   |  Win → WASAPI · Mac → CoreAudio   |
-|                                |                                   |  Linux → ALSA / PulseAudio        |
-+--------------------------------+                                   +-----------------------------------+
-```
-
-Client and server can run on **the same machine** (the desktop installer bundles both) or on **different machines** on a LAN — e.g. the show laptop driving a stage-side mini-PC that's wired to the actual sound interfaces.
-
-For the deep architectural docs (mixer tiers, routing matrix, LTC, limiter, metering, network event lifecycle, project-file backwards compatibility), see [`server/README.md`](server/README.md).
+- **🎵 Build a cue list** — arrange audio into a playlist with nested groups. Set a volume, trim the start and end, add fade-ins and fade-outs, and choose what happens when a track finishes: stop, play the next cue, loop, or jump to another cue.
+- **🎛 Fire off carts** — a grid of one-touch buttons for stings, SFX, walk-on music and beds. Great for touchscreens; the cart grid can even pop out into its own window.
+- **📺 Show Mode** — switch to a simplified, touch-friendly playback view for the actual performance, so operators can trigger cues without the editing clutter. Each device remembers its own preference.
+- **⏭ Smooth transitions** — automatic advance, crossfades, and radio-style "Start Next" segue markers with an on-screen countdown for seamless back-to-back playback.
+- **🔊 Sounds great, stays safe** — pick an **Output Target** for your show (Broadcast / EBU R128, Streaming, Radio, Netflix / OTT, or Live console) and LivePlay sets an appropriate loudness target, a brick-wall limiter to stop clipping, and matching meter and waveform colours automatically.
+- **📊 See your levels** — real-time metering at every stage (per-cue, per-channel and master), shown in LUFS, dBFS, true-peak or RMS.
+- **🎚 Route anywhere** — send audio to multiple outputs at once (front-of-house, monitors, comms, a record bus…) across one or more sound cards.
+- **🎬 Timecode** — send SMPTE LTC timecode from a cue to keep lighting, video or other systems in sync.
+- **📥 Bring in audio easily** — drag and drop files (or import several at once), or pull audio straight from YouTube.
+- **🎹 Trigger it your way** — click, tap, keyboard hotkeys, MIDI controllers, or automation over the network (HTTP / WebSocket).
+- **🌍 Speak your language** — available in **20+ languages**, including full right-to-left support.
+- **🖥 Run it remotely** — operate a stage-side machine wired to your sound gear from a separate show laptop over the local network, with automatic discovery so you don't have to type in IP addresses.
 
 ---
 
-## Installing and using LivePlay
+## Download and install
 
-### Download a release
+Pre-built installers for **Windows, macOS and Linux** are on the **[GitHub Releases page](https://github.com/tdoukinitsas/liveplay/releases)** and the **[docs site](https://tdoukinitsas.github.io/liveplay/)**.
 
-Pre-built installers for Windows, macOS and Linux are published on the [GitHub Releases page](https://github.com/tdoukinitsas/liveplay/releases) and from the [docs site](https://tdoukinitsas.github.io/liveplay/).
+| Platform | What to download |
+|----------|------------------|
+| **Windows** | `LivePlay-Setup-x.y.z.exe` (installer, 64-bit) |
+| **macOS — Apple Silicon** (M1/M2/M3 and newer) | `LivePlay-x.y.z-arm64.dmg` |
+| **macOS — Intel** (older Macs) | `LivePlay-x.y.z.dmg` |
+| **Linux** | `LivePlay-x.y.z.AppImage`, `liveplay_x.y.z_amd64.deb`, or `liveplay-x.y.z.x86_64.rpm` |
 
-| Platform | Files |
-|----------|-------|
-| Windows  | `LivePlay-Setup-x.y.z.exe` (NSIS installer, x64) |
-| macOS (Apple Silicon) | `LivePlay-x.y.z-arm64.dmg` (also `-arm64-mac.zip`) |
-| macOS (Intel) | `LivePlay-x.y.z.dmg` (also `-mac.zip`) |
-| Linux    | `LivePlay-x.y.z.AppImage`, `liveplay_x.y.z_amd64.deb`, `liveplay-x.y.z.x86_64.rpm` |
+On macOS, pick the build that matches your Mac — Apple Silicon for M1/M2/M3 (and newer), Intel for older machines.
 
-macOS ships as **two separate per-architecture builds** — pick the Apple Silicon (`arm64`) build for M1/M2/M3 (and newer) Macs, and the Intel build for older Intel Macs.
-
-The installer bundles **both** the Electron client and the `liveplay-server` binary. On first launch the client spawns the server as a child process listening on `127.0.0.1:4480`, so a single-machine install needs no configuration.
-
-LivePlay auto-checks for new releases on launch and offers in-app updates via `electron-updater`.
+You only need the one installer. Everything is bundled inside it, so a normal single-machine install works with **no setup or configuration** — install, launch, and start building a show. LivePlay also checks for updates on launch and can update itself.
 
 ### First launch on macOS ("LivePlay is damaged and can't be opened")
 
-LivePlay's macOS builds are **not yet signed with an Apple Developer ID certificate or notarized** (Apple charges for this — it's on the roadmap). Because of that, macOS quarantines the app on download and Gatekeeper refuses to open it, usually with *"LivePlay is damaged and can't be opened."* The app is not actually damaged — macOS just won't run an unsigned, quarantined binary.
+LivePlay's macOS builds are **not yet signed with an Apple Developer ID certificate or notarized** (Apple charges for this — it's on the roadmap). Because of that, macOS quarantines the app on download and refuses to open it, usually with *"LivePlay is damaged and can't be opened."* The app is not actually damaged — macOS just won't run an unsigned, quarantined binary.
 
 After dragging **LivePlay.app** into `/Applications`, remove the quarantine flag once from Terminal:
 
@@ -108,6 +67,53 @@ To run it:
 
 If your browser blocked the download instead, choose **Keep** to save the installer first.
 
+---
+
+## Getting started
+
+1. Install LivePlay and launch it.
+2. Choose **New Project** and pick a folder — LivePlay creates the project file and a `media/` sub-folder there.
+3. Drop audio files onto the playlist, or use **Import audio** to copy them in (you can also import from YouTube).
+4. Click a cue to open its properties, then set in/out points, fade times, volume and what happens when it ends.
+5. Assign your most-used cues to cart buttons for one-touch playback.
+6. Fire cues by clicking, tapping a cart, or pressing a keyboard shortcut. Live meters show your signal at every stage.
+7. Heading into a show? Switch on **Show Mode** for a clean, touch-friendly playback view.
+
+**Running on a separate machine?** LivePlay can run the audio engine on a stage-side computer wired to your sound gear and be controlled from a different laptop over your local network. Open **Server Settings** and either pick a discovered server or point the client at `http://<server-host>:4480`. See [Network ports](#network-ports) below for the firewall details.
+
+---
+
+## For developers
+
+Everything below is for people who want to build LivePlay from source, contribute, or understand how it works under the hood. If you just want to use the app, you're all set — grab a [release](https://github.com/tdoukinitsas/liveplay/releases) above.
+
+### How it's built
+
+LivePlay uses a **decoupled client/server architecture**: a headless C++ audio engine (`liveplay-server`) handles all sound, while a cross-platform Electron desktop app drives it as a remote control. No audio ever plays in the desktop UI — it sends commands to the server and receives meters and state back.
+
+Made with some help from Claude Sonnet 4.5, Claude Sonnet 4.6 and Claude Opus 4.8.
+
+### Architecture in one diagram
+
+```
++--------------------------------+   WebSocket (ws://host:4480/ws)   +-----------------------------------+
+|  client/                       | <----- meters @ ~60 Hz ---------> |  server/  (liveplay-server)       |
+|  Electron + Nuxt 3 + Vue 3     | <----- transport / route cmds --- |  C++20, miniaudio, Crow, TagLib   |
+|                                |        REST  (http://host:4480)   |                                   |
+|  - Playlist / cart / routing UI| <----- list / load / waveform --> |  - AudioEngine (mixer + limiter)  |
+|  - WaveformCanvas              |                                   |  - ProjectState (.liveplay I/O)   |
+|  - LiveMeterBar                |                                   |  - ControlServer (REST + WS)      |
+|                                |                                   |  - Metadata + waveform services   |
+|  No audio plays in the         |                                   |                                   |
+|  renderer process.             |                                   |  Win → WASAPI · Mac → CoreAudio   |
+|                                |                                   |  Linux → ALSA / PulseAudio        |
++--------------------------------+                                   +-----------------------------------+
+```
+
+Client and server can run on **the same machine** (the desktop installer bundles both, and the client spawns the server as a child process on `127.0.0.1:4480`) or on **different machines** on a LAN — e.g. the show laptop driving a stage-side mini-PC that's wired to the actual sound interfaces.
+
+For the deep architectural docs (mixer tiers, routing matrix, LTC, limiter, metering, network event lifecycle, project-file backwards compatibility), see [`server/README.md`](server/README.md).
+
 ### Network ports
 
 A single-machine install talks to itself over `127.0.0.1` and needs nothing opened. When the client and server run on **different machines** on a LAN, make sure these ports are reachable through any firewalls in between:
@@ -118,18 +124,6 @@ A single-machine install talks to itself over `127.0.0.1` and needs nothing open
 | `4481` | UDP | LAN auto-discovery beacon (broadcast + multicast group `239.255.69.80`). Lets clients find servers without typing an IP. |
 
 On Windows the NSIS installer adds the necessary inbound firewall rules at install time; the app also makes a best-effort runtime pass if run elevated. On macOS/Linux, allow the `liveplay-server` binary through your firewall if you operate it remotely.
-
-### Quick start
-
-1. Install LivePlay and launch it.
-2. Choose **New Project** and pick a folder — LivePlay creates the project file and a `media/` sub-folder there.
-3. Drop audio files onto the playlist, or use **Import audio** to copy them in.
-4. Click a cue to load it into the Properties panel, set in/out points, fade times, and routing.
-5. Press a cart slot or hit the Play button to fire the cue. Live meters show signal at every stage.
-
-For routing a stage-side server, open **Server Settings** and point the client at `http://<server-host>:4480`.
-
----
 
 ## Repository layout
 

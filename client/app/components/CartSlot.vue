@@ -33,6 +33,7 @@
       :draggable="!showMode"
       @dragstart="handleDragStart"
       @dragend="handleDragEnd"
+      @click="showMode ? handleSlotClick() : undefined"
     >
       <!-- Waveform canvas -->
       <canvas
@@ -74,12 +75,14 @@
       
       <!-- Bottom info bar with action buttons, behavior icons, and duration -->
       <div class="slot-footer">
-        <!-- Action buttons (always visible) -->
-        <!-- Show Mode keeps only the live-playback actions (play/stop and
-             set-as-next); preview, edit and delete are hidden. -->
-        <div class="slot-actions">
+        <!-- Action buttons -->
+        <!-- Show Mode removes the play and set-as-next buttons entirely — the
+             whole slot surface triggers playback instead (see @click on
+             .slot-content) — along with the preview/edit/delete edit
+             affordances. -->
+        <div v-if="!showMode" class="slot-actions">
           <ActionButton
-            v-if="!showMode && item.type === 'audio'"
+            v-if="item.type === 'audio'"
             :icon="'headphones'"
             :highlight-color="isPreviewing ? 'var(--color-accent)' : 'var(--color-success)'"
             :is-active="isPreviewing"
@@ -105,7 +108,6 @@
             :title="t('actions.setAsNext')"
           />
           <ActionButton
-            v-if="!showMode"
             icon="settings"
             highlight-color="var(--color-accent)"
             context="Cart"
@@ -113,7 +115,6 @@
             :title="t('actions.edit')"
           />
           <ActionButton
-            v-if="!showMode"
             icon="delete"
             highlight-color="var(--color-danger)"
             context="Cart"
@@ -411,8 +412,17 @@ const importFromServerPath = async (serverPath: string) => {
 };
 
 
+// Show Mode: the whole slot surface is the trigger — click to play, click
+// again to stop. Selection and drag-reorder are edit-only affordances and
+// stay disabled here.
+const handleSlotClick = () => {
+  if (!props.item) return;
+  isPlaying.value ? handleStop() : handlePlay();
+};
+
 const handleSelect = (event?: MouseEvent) => {
   if (!props.item) return;
+  if (showMode.value) return;
   // Stamp the selection as cart-owned so a global keyboard DEL clears cart
   // slots (rather than deleting the underlying playlist items).
   selectionContext.value = 'cart';
@@ -1247,10 +1257,16 @@ const handleDrop = async (e: DragEvent) => {
     gap: var(--spacing-sm);
   }
 
-  /* The footer holds the enlarged buttons — give it more headroom so the
-     bigger controls clear the waveform area. */
+  /* No buttons in Show Mode — the whole slot is the play/stop trigger, and
+     it's not draggable, so drop the "move" cursor and shrink the footer
+     padding back down (no buttons to clear). */
   .slot-content {
-    padding-bottom: 56px;
+    cursor: pointer;
+    padding-bottom: var(--spacing-sm);
+
+    &:active {
+      cursor: pointer;
+    }
   }
 }
 </style>
