@@ -159,6 +159,31 @@
             <span>{{ t('welcome.openProject') }}</span>
           </button>
         </div>
+
+        <div v-if="recentProjects.length > 0" class="discovered-servers recent-projects">
+          <div class="discovered-header">
+            <span class="material-symbols-rounded">history</span>
+            <span>{{ t('menu.openRecent') }}</span>
+          </div>
+          <button
+            v-for="project in recentProjects"
+            :key="project.path"
+            class="discovered-row recent-project-row"
+            @click="openRecentProject(project)"
+          >
+            <span class="material-symbols-rounded discovered-icon">description</span>
+            <span class="discovered-main">
+              <span class="discovered-name">{{ project.name || projectBasename(project.path) }}</span>
+              <span class="discovered-meta">{{ project.folderPath || projectFolder(project.path) }}</span>
+            </span>
+            <span
+              class="material-symbols-rounded discovered-remove"
+              @click.stop="removeRecentProject(project)"
+              :title="t('welcome.forget')"
+            >close</span>
+          </button>
+        </div>
+        <p v-else class="discovered-empty recent-projects-empty">{{ t('menu.noRecentProjects') }}</p>
       </div>
     </div>
 
@@ -250,6 +275,14 @@ type RecentServer = { url: string; name: string; host: string; port: number; las
 const recentServers = ref<RecentServer[]>([]);
 const scanning = ref(false);
 
+type RecentProject = {
+  path: string;
+  name?: string;
+  folderPath?: string;
+  lastOpened?: number;
+};
+const recentProjects = ref<RecentProject[]>([]);
+
 // Computed reflection of the currently-configured server URL.
 const serverUrlDisplay = computed(() => server.serverUrl ?? 'http://127.0.0.1:4480');
 
@@ -286,6 +319,8 @@ onMounted(async () => {
   } catch (e) {
     console.warn('[welcome] could not read liveplay-server config:', e);
   }
+
+  await loadRecentProjects();
 
   // A double-clicked .liveplay/.lpa takes precedence over everything below:
   // it drives its own server-connection + open/import flow.
@@ -349,6 +384,10 @@ onMounted(async () => {
   } catch (e) {
     console.warn('[welcome] discovery start failed:', e);
   }
+});
+
+watch(stage, (s) => {
+  if (s === 'project') void loadRecentProjects();
 });
 
 // Drive a double-clicked file. For .liveplay: force local, start the server,
@@ -620,13 +659,67 @@ async function forgetRecent(srv: RecentServer) {
   } catch {}
 }
 
+// ---- Recent project helpers ------------------------------------------------
+
+async function loadRecentProjects() {
+  if (!import.meta.client) return;
+  try {
+    const api = (window as any).electronAPI?.liveplayProjects;
+    const list = await api?.recentList?.();
+    recentProjects.value = Array.isArray(list) ? list : [];
+  } catch (e) {
+    console.warn('[welcome] could not load recent projects:', e);
+    recentProjects.value = [];
+  }
+}
+
+function projectBasename(path: string): string {
+  return path.split(/[\\/]/).pop() || path;
+}
+
+function projectFolder(path: string): string {
+  return path.replace(/[\\/][^\\/]*$/, '');
+}
+
+function recentProjectStartPath(): string {
+  const first = recentProjects.value[0];
+  return first?.folderPath || (first?.path ? projectFolder(first.path) : '');
+}
+
+async function openRecentProject(project: RecentProject) {
+  if (!project.path) return;
+
+  const ok = await openProject(project.path);
+
+  if (!ok) {
+    console.warn('[welcome] failed to open recent project:', project.path);
+    alert(
+      `Failed to open project.\n\n` +
+      `LivePlay could not load this recent project from the current server. ` +
+      `The file may exist, but it may be unavailable, locked, not fully synced, or not readable by the server.\n\n` +
+      `Recent entry:\n${project.path}\n\n` +
+      `The entry was not removed. You can remove it manually with the X button.`
+    );
+  }
+}
+
+async function removeRecentProject(project: RecentProject) {
+  if (!project.path) return;
+  try {
+    const api = (window as any).electronAPI?.liveplayProjects;
+    const updated = await api?.recentRemove?.(project.path);
+    if (Array.isArray(updated)) recentProjects.value = updated;
+    else await loadRecentProjects();
+  } catch {}
+}
+
 // ---- Project pickers -------------------------------------------------------
 const handleNewProject = () => {
   pickerIntent.value        = 'new';
   pickerMode.value          = 'directory';
   pickerFilter.value        = 'all';
   pickerFilterOptions.value = ['all'];
-  pickerStart.value         = '';
+  pickerStart.value         = recentProjectStartPath();
   showPicker.value          = true;
 };
 
@@ -635,7 +728,7 @@ const handleOpenProject = () => {
   pickerMode.value          = 'file';
   pickerFilter.value        = '.liveplay';
   pickerFilterOptions.value = ['.liveplay', 'all'];
-  pickerStart.value         = '';
+  pickerStart.value         = recentProjectStartPath();
   showPicker.value          = true;
 };
 
@@ -732,9 +825,7 @@ if (import.meta.client && (window as any).electronAPI) {
   object-fit: contain;
 }
 
-.welcome-text {
-  text-align: left;
-}
+.welcome-text { text-align: left; }
 
 .welcome-title {
   font-size: 64px;
@@ -760,48 +851,6 @@ if (import.meta.client && (window as any).electronAPI) {
   font-size: 20px;
   color: var(--color-text-secondary);
   margin: 0;
-}
-
-.welcome-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-}
-
-.welcome-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-lg) var(--spacing-xl);
-  font-size: 18px;
-  font-weight: 500;
-  background-color: var(--color-surface);
-  border: 2px solid var(--color-border);
-  border-radius: var(--border-radius-lg);
-  transition: all var(--transition-base);
-
-  &:hover {
-    background-color: var(--color-surface-hover);
-    border-color: var(--color-accent);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-
-  &.primary {
-    background-color: var(--color-accent);
-    border-color: var(--color-accent);
-    color: white;
-
-    &:hover {
-      background-color: var(--color-accent-hover);
-      border-color: var(--color-accent-hover);
-    }
-  }
-}
-
-.button-icon {
-  font-size: 24px;
 }
 
 .welcome-stage {
@@ -874,9 +923,7 @@ if (import.meta.client && (window as any).electronAPI) {
   color: white;
   border-color: var(--color-accent);
 }
-.welcome-button.primary:hover {
-  filter: brightness(1.08);
-}
+.welcome-button.primary:hover { filter: brightness(1.08); }
 .welcome-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -893,9 +940,7 @@ if (import.meta.client && (window as any).electronAPI) {
   flex-direction: column;
   align-items: flex-start;
 }
-.button-label-line {
-  font-weight: 600;
-}
+.button-label-line { font-weight: 600; }
 .button-label-sub {
   font-size: 12px;
   opacity: 0.8;
@@ -1015,6 +1060,10 @@ if (import.meta.client && (window as any).electronAPI) {
 }
 .discovered-remove:hover { color: var(--color-danger, #e5534b); background: var(--color-surface-hover); }
 
+.recent-projects { margin-top: 14px; }
+.recent-project-row .discovered-meta { max-width: 430px; }
+.recent-projects-empty { margin-top: 12px; }
+
 @keyframes lp-spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: lp-spin 0.85s linear infinite; }
 </style>
@@ -1063,9 +1112,7 @@ if (import.meta.client && (window as any).electronAPI) {
   transition: border-color var(--transition-fast);
 }
 
-.name-dialog__input:focus {
-  border-color: var(--color-accent);
-}
+.name-dialog__input:focus { border-color: var(--color-accent); }
 
 .name-dialog__actions {
   display: flex;
