@@ -21,7 +21,7 @@
 
         <!-- "On server" tab — browses the server's filesystem via /api/fs/list -->
         <section v-if="tab === 'server'" class="pane">
-          <ServerFileBrowser :start-path="server.serverUrl ? '' : ''" @select="onServerPick" />
+          <ServerFileBrowser :start-path="projectStartPath" @select="onServerPick" />
           <p class="hint">{{ t('importAudio.serverHint') }}</p>
 
           <!-- Local file picker: only shown on local server (Electron only) -->
@@ -100,21 +100,24 @@
     both local and remote-server modes behave identically downstream.
 -->
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
 import ServerFileBrowser from '~/components/ServerFileBrowser.vue';
 
-const props = defineProps<{ open: boolean }>();
+defineProps<{ open: boolean }>();
 const emit  = defineEmits<{
   (e: 'pick', serverPaths: string[]): void;
   (e: 'close'): void;
 }>();
 
 const server = useLiveplayServer();
+const { currentProject } = useProject();
 const { t }  = useLocalization();
 // When the server is on this same machine, "Upload from this computer" is
 // meaningless — we just want the server file browser.
 const tab    = ref<'server' | 'upload'>('server');
+
+const projectStartPath = computed(() => currentProject.value?.folderPath || '');
 
 const uploading           = ref(false);
 const uploadStatus        = ref<string>('');
@@ -302,23 +305,14 @@ async function pickAndUpload() {
     border: 1px solid #2a2a2a; border-radius: 4px; background: #161616;
     max-height: 200px; overflow: auto;
     li {
-      display: grid; grid-template-columns: 28px 1fr; gap: 8px;
-      align-items: center; padding: 6px 10px;
-      border-bottom: 1px solid #222;
-      cursor: pointer; user-select: none;
-      &:last-child { border-bottom: none; }
-      &:hover { background: #1f1f1f; }
-      // Files are selectable here, so their icon takes the accent colour.
-      .icon { font-size: 18px; color: var(--color-accent); text-align: center; }
-      .name { color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      &.selected {
-        background: var(--color-accent);
-        .icon, .name { color: #fff; }
-      }
+      display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: center;
+      padding: 6px 10px; border-bottom: 1px solid #222; cursor: pointer;
+      &:hover { background: #202020; }
+      &.selected { background: var(--color-accent); .name, .icon { color: #fff; } }
+      .icon { font-size: 18px; color: var(--color-accent); }
+      .name { color: #fff; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     }
   }
-  .list-footer {
-    display: flex; justify-content: flex-end;
-  }
+  .list-footer { display: flex; justify-content: flex-end; }
 }
 </style>

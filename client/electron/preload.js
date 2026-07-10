@@ -8,6 +8,12 @@ try {
   console.warn('webUtils not available:', e);
 }
 
+function replaceIpcListener(channel, callback) {
+  ipcRenderer.removeAllListeners(channel);
+  ipcRenderer.on(channel, callback);
+  return () => ipcRenderer.removeListener(channel, callback);
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   // File dialogs
   selectProjectFolder: () => ipcRenderer.invoke('select-project-folder'),
@@ -81,19 +87,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
       });
   },
 
-  // Menu events
-  onMenuNewProject: (callback) => ipcRenderer.on('menu-new-project', callback),
-  onMenuOpenProject: (callback) => ipcRenderer.on('menu-open-project', callback),
-  onMenuSaveProject: (callback) => ipcRenderer.on('menu-save-project', callback),
-  onMenuExportProject: (callback) => ipcRenderer.on('menu-export-project', callback),
-  onMenuImportProject: (callback) => ipcRenderer.on('menu-import-project', callback),
-  onMenuCloseProject: (callback) => ipcRenderer.on('menu-close-project', callback),
-  onMenuOpenRecentProject: (callback) => ipcRenderer.on('menu-open-recent-project', callback),
-  onMenuOpenProjectFolder: (callback) => ipcRenderer.on('menu-open-project-folder', callback),
-  onMenuToggleDarkMode: (callback) => ipcRenderer.on('menu-toggle-dark-mode', callback),
-  onMenuChangeAccentColor: (callback) => ipcRenderer.on('menu-change-accent-color', callback),
-  onMenuChangeLanguage: (callback) => ipcRenderer.on('menu-change-language', callback),
-  onMenuShowAbout: (callback) => ipcRenderer.on('menu-show-about', callback),
+  // Menu events. These are mounted by Vue components that can be replaced when
+  // projects are opened/closed; keep one live renderer listener per channel so
+  // menu actions do not fire once for every previous component instance.
+  onMenuNewProject: (callback) => replaceIpcListener('menu-new-project', callback),
+  onMenuOpenProject: (callback) => replaceIpcListener('menu-open-project', callback),
+  onMenuSaveProject: (callback) => replaceIpcListener('menu-save-project', callback),
+  onMenuExportProject: (callback) => replaceIpcListener('menu-export-project', callback),
+  onMenuImportProject: (callback) => replaceIpcListener('menu-import-project', callback),
+  onMenuCloseProject: (callback) => replaceIpcListener('menu-close-project', callback),
+  onMenuOpenRecentProject: (callback) => replaceIpcListener('menu-open-recent-project', callback),
+  onMenuOpenProjectFolder: (callback) => replaceIpcListener('menu-open-project-folder', callback),
+  onMenuToggleDarkMode: (callback) => replaceIpcListener('menu-toggle-dark-mode', callback),
+  onMenuChangeAccentColor: (callback) => replaceIpcListener('menu-change-accent-color', callback),
+  onMenuChangeLanguage: (callback) => replaceIpcListener('menu-change-language', callback),
+  onMenuShowAbout: (callback) => replaceIpcListener('menu-show-about', callback),
 
   // External links
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
@@ -120,16 +128,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onManualUpdateAvailable: (callback) => ipcRenderer.on('manual-update-available', callback),
 
   // API triggers
-  onTriggerItem: (callback) => ipcRenderer.on('trigger-item', callback),
-  onStopItem: (callback) => ipcRenderer.on('stop-item', callback),
-  onTriggerCartSlot: (callback) => ipcRenderer.on('trigger-cart-slot', callback),
-  onStopAllCues: (callback) => ipcRenderer.on('stop-all-cues', callback),
+  onTriggerItem: (callback) => replaceIpcListener('trigger-item', callback),
+  onStopItem: (callback) => replaceIpcListener('stop-item', callback),
+  onTriggerCartSlot: (callback) => replaceIpcListener('trigger-cart-slot', callback),
+  onStopAllCues: (callback) => replaceIpcListener('stop-all-cues', callback),
 
   // HTTP API — project data sync and PATCH round-trips
   syncProjectData: (data) => ipcRenderer.send('sync-project-data', data),
   sendApiResponse: (data) => ipcRenderer.send('api-response', data),
-  onApiUpdateItem: (callback) => ipcRenderer.on('api-update-item', callback),
-  onApiUpdateCartItem: (callback) => ipcRenderer.on('api-update-cart-item', callback),
+  onApiUpdateItem: (callback) => replaceIpcListener('api-update-item', callback),
+  onApiUpdateCartItem: (callback) => replaceIpcListener('api-update-cart-item', callback),
   
   // File association - opening project files (.liveplay / .lpa).
   // Push: main → renderer for warm-start / macOS open-file events.
@@ -142,8 +150,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openCartPlayerWindow: (projectFolderPath) => ipcRenderer.invoke('open-cart-player-window', projectFolderPath),
   attachCartPlayerWindow: () => ipcRenderer.send('cart-player-window-attach'),
   getCartWindowProjectData: () => ipcRenderer.invoke('get-cart-window-project-data'),
-  onCartPlayerWindowOpened: (callback) => ipcRenderer.on('cart-player-window-opened', callback),
-  onCartPlayerWindowClosed: (callback) => ipcRenderer.on('cart-player-window-closed', callback),
+  onCartPlayerWindowOpened: (callback) => replaceIpcListener('cart-player-window-opened', callback),
+  onCartPlayerWindowClosed: (callback) => replaceIpcListener('cart-player-window-closed', callback),
   onCartWindowProjectUpdate: (callback) => ipcRenderer.on('cart-window-project-update', callback),
 
   // UI mode ("show mode") sync across windows
