@@ -80,6 +80,10 @@ export interface MeterSnapshot {
   // Lossless — transients between frames are never missed. Drives
   // peak-hold and clip detection.
   peak_max_db: number;
+  // True peak (dBTP, 4× oversampled per BS.1770). Mirrors peak values when
+  // true-peak metering is disabled (project not in dBTP mode).
+  true_peak_db: number;
+  true_peak_max_db: number;
 }
 
 export interface ItemMeterFrame {
@@ -94,6 +98,8 @@ export interface MixerMeterFrame {
   peak_db: number;
   rms_db: number;
   peak_max_db: number;
+  true_peak_db: number;
+  true_peak_max_db: number;
 }
 
 export interface MasterMeterFrame {
@@ -101,6 +107,8 @@ export interface MasterMeterFrame {
   peak_db: number;
   rms_db: number;
   peak_max_db: number;
+  true_peak_db: number;
+  true_peak_max_db: number;
   gain_reduction_db: number;
 }
 

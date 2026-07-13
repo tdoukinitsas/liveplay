@@ -301,6 +301,11 @@ public:
     // later inherit the setting. Safe mid-playback.
     void set_meter_ballistics(const MeterBallistics& b);
 
+    // Toggle 4× oversampled true-peak detection on every meter (same
+    // fan-out + remember semantics). Gated by the project's meter mode —
+    // the extra DSP only runs when the operator is looking at dBTP.
+    void set_true_peak_metering(bool enabled);
+
     // ---- Metering reads --------------------------------------------------
     MeterSnapshot read_master_meter(MasterChannelIndex master) const;
     // Consuming read (resets the master's max-since-read). Broadcaster only.
@@ -378,9 +383,10 @@ private:
     };
     std::vector<MasterChannelState>  master_state_;
 
-    // Current meter ballistics (project setting). Guarded by mutex_; applied
-    // to meters created after a set_meter_ballistics() call.
+    // Current meter ballistics + feature flags (project settings). Guarded by
+    // mutex_; applied to meters created after the corresponding setter ran.
     MeterBallistics meter_ballistics_{};
+    bool            meter_true_peak_ = false;
 
     // Render thread plumbing.
     std::atomic<bool>                running_{false};

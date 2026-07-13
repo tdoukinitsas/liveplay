@@ -439,7 +439,9 @@ void ControlServer::broadcast_loop() {
                 auto snap = item->source_meter_consume(c);
                 srcs.push_back(json{{"peak_db", snap.peak_db},
                                     {"rms_db", snap.rms_db},
-                                    {"peak_max_db", snap.peak_max_db}});
+                                    {"peak_max_db", snap.peak_max_db},
+                                    {"true_peak_db", snap.true_peak_db},
+                                    {"true_peak_max_db", snap.true_peak_max_db}});
             }
             m["sources"] = std::move(srcs);
             item_meters.push_back(std::move(m));
@@ -457,10 +459,12 @@ void ControlServer::broadcast_loop() {
             if (auto* m = engine_.find_mixer_channel(mch.id)) {
                 auto s = m->meter_snapshot_consume();
                 mixer_meters.push_back(json{
-                    {"mixer_id",    mch.id.value},
-                    {"peak_db",     s.peak_db},
-                    {"rms_db",      s.rms_db},
-                    {"peak_max_db", s.peak_max_db},
+                    {"mixer_id",         mch.id.value},
+                    {"peak_db",          s.peak_db},
+                    {"rms_db",           s.rms_db},
+                    {"peak_max_db",      s.peak_max_db},
+                    {"true_peak_db",     s.true_peak_db},
+                    {"true_peak_max_db", s.true_peak_max_db},
                 });
             }
         }
@@ -475,10 +479,12 @@ void ControlServer::broadcast_loop() {
             // otherwise-silent frame still gets reported.)
             if (s.peak_db > -119.0f || s.peak_max_db > -119.0f || gr < -0.05f) {
                 master_meters.push_back(json{
-                    {"index",       i},
-                    {"peak_db",     s.peak_db},
-                    {"rms_db",      s.rms_db},
-                    {"peak_max_db", s.peak_max_db},
+                    {"index",            i},
+                    {"peak_db",          s.peak_db},
+                    {"rms_db",           s.rms_db},
+                    {"peak_max_db",      s.peak_max_db},
+                    {"true_peak_db",     s.true_peak_db},
+                    {"true_peak_max_db", s.true_peak_max_db},
                     {"gain_reduction_db", gr},
                 });
             }

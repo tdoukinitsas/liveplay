@@ -13,6 +13,7 @@
 
 #include "liveplay/audio/types.hpp"
 
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <optional>
@@ -48,6 +49,12 @@ struct MeterSnapshot {
     // reported at full amplitude, so no peak can ever be missed regardless
     // of how slowly the reader polls.
     float peak_max_db = -120.0f;
+    // True peak (dBTP): 4× oversampled per ITU-R BS.1770-4, catching
+    // intersample peaks the raw sample values miss. When true-peak metering
+    // is disabled these mirror peak_db / peak_max_db so a client left in
+    // dBTP display mode still shows sensible values.
+    float true_peak_db     = -120.0f;   // ballistic envelope of the TP stream
+    float true_peak_max_db = -120.0f;   // raw TP max since last consuming read
 };
 
 class Meter {
@@ -76,6 +83,16 @@ public:
                           ChannelCount channel_stride,
                           ChannelIndex channel_index) noexcept;
 
+    // Enable/disable 4× oversampled true-peak detection (≈48 extra mults per
+    // sample when on — gated to projects whose meter mode is dBTP). Control
+    // thread; takes effect on the next block.
+    void set_true_peak_enabled(bool enabled) noexcept {
+        true_peak_enabled_.store(enabled, std::memory_order_relaxed);
+    }
+    bool true_peak_enabled() const noexcept {
+        return true_peak_enabled_.load(std::memory_order_relaxed);
+    }
+
     // Control-thread read. Lock-free; values are eventually-consistent.
     // peak_max_db is reported but NOT reset.
     MeterSnapshot snapshot() const noexcept;
@@ -85,7 +102,8 @@ public:
     // readers would steal each other's peaks.
     MeterSnapshot snapshot_consume_max() noexcept;
 
-    // Reset to silence. Audio thread or control thread (atomic).
+    // Reset to silence. Touches audio-thread envelope/history state — call
+    // from the audio thread, or while it is not pushing blocks.
     void reset() noexcept;
 
 private:
@@ -99,6 +117,19 @@ private:
     float peak_env_         = 0.0f;
     float rms_sq_           = 0.0f;
 
+    // True-peak state (audio-thread-only except the enable flag + published
+    // atomics). 12-sample history ring feeding the 4-phase interpolator.
+    static constexpr std::size_t kTpTapsPerPhase = 12;
+    static constexpr std::size_t kTpPhases       = 4;
+    std::atomic<bool>                  true_peak_enabled_{false};
+    std::array<float, kTpTapsPerPhase> tp_hist_{};
+    std::size_t                        tp_hist_pos_ = 0;
+    float                              tp_env_      = 0.0f;
+
+    // Run the oversampler on one input sample; returns the max |value| of
+    // the 4 interpolated output samples.
+    float tp_process_sample(float s) noexcept;
+
     // Published values (atomic for the control-thread reader).
     std::atomic<float> peak_db_published_{-120.0f};
     std::atomic<float> rms_db_published_{-120.0f};
@@ -106,10 +137,13 @@ private:
     // maximum in via a CAS fetch-max loop; snapshot_consume_max() exchanges
     // it back to silence.
     std::atomic<float> peak_max_since_read_db_{-120.0f};
+    // True-peak published values (same pattern as the sample-peak pair).
+    std::atomic<float> tp_db_published_{-120.0f};
+    std::atomic<float> tp_max_since_read_db_{-120.0f};
 
-    // Fold `db` into peak_max_since_read_db_ (CAS fetch-max — safe against a
-    // concurrent consuming reader).
-    void fold_peak_max(float db) noexcept;
+    // Fold `db` into a max-since-read accumulator (CAS fetch-max — safe
+    // against a concurrent consuming reader).
+    static void fold_max(std::atomic<float>& acc, float db) noexcept;
 };
 
 } // namespace liveplay::audio

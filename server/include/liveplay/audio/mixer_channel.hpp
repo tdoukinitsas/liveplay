@@ -61,6 +61,11 @@ public:
         for (auto& m : meters_) m.configure(sample_rate_, b);
     }
 
+    // Toggle 4× oversampled true-peak detection on every lane meter.
+    void set_true_peak_enabled(bool enabled) noexcept {
+        for (auto& m : meters_) m.set_true_peak_enabled(enabled);
+    }
+
     // Combined strip reading: element-wise max across lanes (what a single
     // strip meter widget should show).
     MeterSnapshot meter_snapshot() const noexcept;

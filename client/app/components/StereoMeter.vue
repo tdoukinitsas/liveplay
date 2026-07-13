@@ -130,32 +130,51 @@ const rawRmsR = computed(() => props.cueId != null
   : rightStream.rms.value);
 
 // Lossless raw max since the previous frame — drives peak hold + clip latch.
-const rawMaxL = computed(() => props.cueId != null
-  ? (cueStream.sources.value[0]?.peak_max_db ?? -120)
-  : leftStream.peakMax.value);
-const rawMaxR = computed(() => props.cueId != null
-  ? (cueStream.sources.value[1]?.peak_max_db ?? cueStream.sources.value[0]?.peak_max_db ?? -120)
-  : rightStream.peakMax.value);
+// In dBTP mode the true-peak max is used, so intersample overs latch clip.
+const rawMaxL = computed(() => {
+  if (props.cueId != null) {
+    const s = cueStream.sources.value[0];
+    return (meterMode.value === 'dBTP' ? s?.true_peak_max_db : s?.peak_max_db) ?? -120;
+  }
+  return meterMode.value === 'dBTP' ? leftStream.truePeakMax.value : leftStream.peakMax.value;
+});
+const rawMaxR = computed(() => {
+  if (props.cueId != null) {
+    const s = cueStream.sources.value[1] ?? cueStream.sources.value[0];
+    return (meterMode.value === 'dBTP' ? s?.true_peak_max_db : s?.peak_max_db) ?? -120;
+  }
+  return meterMode.value === 'dBTP' ? rightStream.truePeakMax.value : rightStream.peakMax.value;
+});
 
 const holdL = usePeakHold(() => rawMaxL.value);
 const holdR = usePeakHold(() => rawMaxR.value);
 const resetClips = () => { holdL.resetClip(); holdR.resetClip(); };
 
+// True-peak stream (4× oversampled server-side when the project's meter
+// mode is dBTP; mirrors sample peak otherwise).
+const rawTpL = computed(() => props.cueId != null
+  ? (cueStream.sources.value[0]?.true_peak_db ?? -120)
+  : leftStream.truePeak.value);
+const rawTpR = computed(() => props.cueId != null
+  ? (cueStream.sources.value[1]?.true_peak_db ?? cueStream.sources.value[0]?.true_peak_db ?? -120)
+  : rightStream.truePeak.value);
+
 // Display value selected by the active meter mode.
-// dBTP / dBFS ≈ peak_db; RMS ≈ rms_db; LUFS ≈ rms_db (integrated loudness
-// requires ITU BS.1770 — until the server implements it we use RMS as a
-// reasonable approximation that at least gives a different display than TP).
+// dBTP → oversampled true peak; dBFS → sample peak; RMS → rms.
+// LUFS ≈ rms_db until the server's K-weighted loudness lands.
 const displayL = computed(() => {
   switch (meterMode.value) {
     case 'RMS':  return rawRmsL.value;
     case 'LUFS': return rawRmsL.value;
-    default:     return rawPeakL.value; // dBFS / dBTP
+    case 'dBTP': return rawTpL.value;
+    default:     return rawPeakL.value; // dBFS
   }
 });
 const displayR = computed(() => {
   switch (meterMode.value) {
     case 'RMS':  return rawRmsR.value;
     case 'LUFS': return rawRmsR.value;
+    case 'dBTP': return rawTpR.value;
     default:     return rawPeakR.value;
   }
 });

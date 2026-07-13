@@ -20,7 +20,10 @@ import type {
   MeterSnapshot,
 } from '~/types/server';
 
-const SILENT: MeterSnapshot = { peak_db: -120, rms_db: -120, peak_max_db: -120 };
+const SILENT: MeterSnapshot = {
+  peak_db: -120, rms_db: -120, peak_max_db: -120,
+  true_peak_db: -120, true_peak_max_db: -120,
+};
 
 export function useCueMeters(cueId: () => CueId | null | undefined) {
   const server = useLiveplayServer();
@@ -108,22 +111,32 @@ export function usePeakHold(
 
 export function useMasterMeter(index: () => MasterChannelIndex | null | undefined) {
   const server = useLiveplayServer();
-  const peak    = ref(SILENT.peak_db);
-  const rms     = ref(SILENT.rms_db);
-  const peakMax = ref(SILENT.peak_max_db);
+  const peak     = ref(SILENT.peak_db);
+  const rms      = ref(SILENT.rms_db);
+  const peakMax  = ref(SILENT.peak_max_db);
+  const truePeak    = ref(SILENT.true_peak_db);
+  const truePeakMax = ref(SILENT.true_peak_max_db);
   const gainReduction = ref(0);
 
   const unsubscribe = server.onMeters((m) => {
     const i = index();
-    if (i == null) { peak.value = SILENT.peak_db; rms.value = SILENT.rms_db; peakMax.value = SILENT.peak_max_db; gainReduction.value = 0; return; }
+    if (i == null) {
+      peak.value = SILENT.peak_db; rms.value = SILENT.rms_db;
+      peakMax.value = SILENT.peak_max_db;
+      truePeak.value = SILENT.true_peak_db; truePeakMax.value = SILENT.true_peak_max_db;
+      gainReduction.value = 0;
+      return;
+    }
     const frame: MasterMeterFrame | undefined =
       m.master_channels.find(x => x.index === i);
-    peak.value    = frame?.peak_db     ?? SILENT.peak_db;
-    rms.value     = frame?.rms_db      ?? SILENT.rms_db;
-    peakMax.value = frame?.peak_max_db ?? SILENT.peak_max_db;
+    peak.value        = frame?.peak_db          ?? SILENT.peak_db;
+    rms.value         = frame?.rms_db           ?? SILENT.rms_db;
+    peakMax.value     = frame?.peak_max_db      ?? SILENT.peak_max_db;
+    truePeak.value    = frame?.true_peak_db     ?? frame?.peak_db     ?? SILENT.true_peak_db;
+    truePeakMax.value = frame?.true_peak_max_db ?? frame?.peak_max_db ?? SILENT.true_peak_max_db;
     gainReduction.value = frame?.gain_reduction_db ?? 0;
   });
   onScopeDispose(() => unsubscribe());
 
-  return { peak, rms, peakMax, gainReduction };
+  return { peak, rms, peakMax, truePeak, truePeakMax, gainReduction };
 }

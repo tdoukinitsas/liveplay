@@ -342,6 +342,17 @@ static audio::MeterBallistics meter_ballistics_from_settings(const json& setting
         .value_or(audio::MeterBallistics{});
 }
 
+// Effective meter display mode: explicit settings.meterMode wins, otherwise
+// the output target's recommended unit (mirrors the client's useOutputTarget
+// logic). Drives the CPU gating of true-peak / loudness metering.
+static std::string effective_meter_mode(const json& settings) {
+    if (settings.contains("meterMode") && settings["meterMode"].is_string()) {
+        return settings["meterMode"].get<std::string>();
+    }
+    return compute_output_target_levels(settings)
+        .value("meterUnit", std::string{"LUFS"});
+}
+
 } // namespace
 
 // ADL-visible to_json overloads — must be in liveplay::core (not anonymous namespace)
@@ -724,6 +735,9 @@ void ProjectState::start_async_mirror() {
             engine_.set_limiter_enabled(!settings_snap.value("disableLimiter", false));
             // Apply the project's meter ballistics to every engine meter.
             engine_.set_meter_ballistics(meter_ballistics_from_settings(settings_snap));
+            // Enable the true-peak oversampler if the project displays dBTP.
+            engine_.set_true_peak_metering(
+                effective_meter_mode(settings_snap) == "dBTP");
         }
         // Honour the project's default output device: re-pin every non-override
         // cue from Main (the OS default device, where ensure_default_routing()
@@ -2794,6 +2808,8 @@ bool ProjectState::patch_settings(const json& patch) {
     bool limiter_toggle_changed  = false;
     bool limiter_disabled        = false;
     bool ballistics_changed      = false;
+    bool meter_mode_changed      = false;
+    bool meter_true_peak         = false;
     float new_ceiling_db         = -0.3f;
     audio::MeterBallistics new_ballistics{};
     {
@@ -2813,6 +2829,11 @@ bool ProjectState::patch_settings(const json& patch) {
             if (k == "meterBallistics" || k == "meterBallisticsCustom") {
                 ballistics_changed = true;
             }
+            // meterMode selects the display unit; outputTarget changes the
+            // default unit, so both can flip the effective mode.
+            if (k == "meterMode" || k == "outputTarget") {
+                meter_mode_changed = true;
+            }
             document_["settings"][k] = v;
         }
         if (output_target_changed) {
@@ -2826,6 +2847,10 @@ bool ProjectState::patch_settings(const json& patch) {
         if (ballistics_changed) {
             new_ballistics = meter_ballistics_from_settings(document_["settings"]);
         }
+        if (meter_mode_changed) {
+            meter_true_peak =
+                effective_meter_mode(document_["settings"]) == "dBTP";
+        }
     }
     // Re-apply device routing when device selections change mid-playback.
     if (ltc_device_changed)     apply_ltc_device_routing();
@@ -2837,6 +2862,8 @@ bool ProjectState::patch_settings(const json& patch) {
     if (limiter_toggle_changed) engine_.set_limiter_enabled(!limiter_disabled);
     // Retune every meter live so the operator sees the new feel immediately.
     if (ballistics_changed)     engine_.set_meter_ballistics(new_ballistics);
+    // Gate the true-peak oversampler on the effective display mode.
+    if (meter_mode_changed)     engine_.set_true_peak_metering(meter_true_peak);
     return true;
 }
 
