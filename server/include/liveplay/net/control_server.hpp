@@ -51,7 +51,10 @@ namespace liveplay::net {
 struct ControlServerConfig {
     std::string   bind_address       = "0.0.0.0";
     std::uint16_t port               = 4480;
-    std::size_t   meter_broadcast_hz = 10;   // 100 ms / frame. Client interpolates between frames.
+    // Meter frame rate. Peaks between frames are never lost — the broadcaster
+    // uses consuming max-since-read meter reads — so this only sets how
+    // fluid the meters look, not what they catch.
+    std::size_t   meter_broadcast_hz = 30;
     std::size_t   max_upload_bytes   = 256ull * 1024 * 1024;   // 256 MiB
 };
 

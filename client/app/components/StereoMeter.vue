@@ -318,7 +318,9 @@ const peakLabel = computed(() => {
   &__gr-fill {
     position: absolute;
     inset: 0;
-    transition: clip-path 110ms linear;
+    // ~One broadcast frame (30 Hz): just enough to hide frame jitter.
+    // Meter feel comes from the engine's ballistics, not CSS smoothing.
+    transition: clip-path 35ms linear;
   }
 
   &__chan-label {

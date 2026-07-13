@@ -76,6 +76,10 @@ export interface ServerFsListing {
 export interface MeterSnapshot {
   peak_db: number;
   rms_db: number;
+  // Raw sample maximum since the previous meter frame (no ballistics).
+  // Lossless — transients between frames are never missed. Drives
+  // peak-hold and clip detection.
+  peak_max_db: number;
 }
 
 export interface ItemMeterFrame {
@@ -89,12 +93,14 @@ export interface MixerMeterFrame {
   mixer_id: MixerChannelId;
   peak_db: number;
   rms_db: number;
+  peak_max_db: number;
 }
 
 export interface MasterMeterFrame {
   index: MasterChannelIndex;
   peak_db: number;
   rms_db: number;
+  peak_max_db: number;
   gain_reduction_db: number;
 }
 

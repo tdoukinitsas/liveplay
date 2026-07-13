@@ -56,11 +56,13 @@ void Meter::push_block(const Sample* samples, std::size_t frame_count) noexcept 
 
     float peak = peak_env_;
     float rms  = rms_sq_;
+    float blk_max = 0.0f;
     const float rms_alpha = 1.0f - rms_one_minus_a_;
 
     for (std::size_t i = 0; i < frame_count; ++i) {
         const float s   = samples[i];
         const float abs = std::fabs(s);
+        if (abs > blk_max) blk_max = abs;
 
         // Peak envelope with attack/release ballistics.
         if (abs > peak) {
@@ -78,6 +80,7 @@ void Meter::push_block(const Sample* samples, std::size_t frame_count) noexcept 
 
     peak_db_published_.store(clamp_db(lin_to_db(peak)), std::memory_order_relaxed);
     rms_db_published_ .store(clamp_db(lin_to_db(std::sqrt(rms))), std::memory_order_relaxed);
+    fold_peak_max(clamp_db(lin_to_db(blk_max)));
 }
 
 void Meter::push_interleaved(const Sample* interleaved,
@@ -88,6 +91,7 @@ void Meter::push_interleaved(const Sample* interleaved,
 
     float peak = peak_env_;
     float rms  = rms_sq_;
+    float blk_max = 0.0f;
     const float rms_alpha = 1.0f - rms_one_minus_a_;
 
     const Sample* p = interleaved + channel_index;
@@ -95,6 +99,7 @@ void Meter::push_interleaved(const Sample* interleaved,
         const float s   = *p;
         p += channel_stride;
         const float abs = std::fabs(s);
+        if (abs > blk_max) blk_max = abs;
 
         if (abs > peak) {
             peak = attack_coef_ * peak + (1.0f - attack_coef_) * abs;
@@ -109,12 +114,31 @@ void Meter::push_interleaved(const Sample* interleaved,
 
     peak_db_published_.store(clamp_db(lin_to_db(peak)), std::memory_order_relaxed);
     rms_db_published_ .store(clamp_db(lin_to_db(std::sqrt(rms))), std::memory_order_relaxed);
+    fold_peak_max(clamp_db(lin_to_db(blk_max)));
+}
+
+void Meter::fold_peak_max(float db) noexcept {
+    float cur = peak_max_since_read_db_.load(std::memory_order_relaxed);
+    while (db > cur &&
+           !peak_max_since_read_db_.compare_exchange_weak(
+               cur, db, std::memory_order_relaxed)) {
+        // cur reloaded by compare_exchange_weak on failure.
+    }
 }
 
 MeterSnapshot Meter::snapshot() const noexcept {
     return {
         peak_db_published_.load(std::memory_order_relaxed),
         rms_db_published_ .load(std::memory_order_relaxed),
+        peak_max_since_read_db_.load(std::memory_order_relaxed),
+    };
+}
+
+MeterSnapshot Meter::snapshot_consume_max() noexcept {
+    return {
+        peak_db_published_.load(std::memory_order_relaxed),
+        rms_db_published_ .load(std::memory_order_relaxed),
+        peak_max_since_read_db_.exchange(-120.0f, std::memory_order_relaxed),
     };
 }
 
@@ -123,6 +147,7 @@ void Meter::reset() noexcept {
     rms_sq_   = 0.0f;
     peak_db_published_.store(-120.0f, std::memory_order_relaxed);
     rms_db_published_ .store(-120.0f, std::memory_order_relaxed);
+    peak_max_since_read_db_.store(-120.0f, std::memory_order_relaxed);
 }
 
 } // namespace liveplay::audio

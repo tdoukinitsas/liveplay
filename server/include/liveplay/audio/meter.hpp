@@ -20,8 +20,13 @@ namespace liveplay::audio {
 
 // Plain-old-data snapshot. dBFS values; -120 dB == silence.
 struct MeterSnapshot {
-    float peak_db = -120.0f;   // instantaneous peak, ballistically-released
-    float rms_db  = -120.0f;   // ~300 ms RMS window
+    float peak_db     = -120.0f;   // instantaneous peak, ballistically-released
+    float rms_db      = -120.0f;   // ~300 ms RMS window
+    // Raw sample maximum since the last *consuming* read. Unlike peak_db it
+    // has no ballistics — a single-sample transient between two reads is
+    // reported at full amplitude, so no peak can ever be missed regardless
+    // of how slowly the reader polls.
+    float peak_max_db = -120.0f;
 };
 
 class Meter {
@@ -49,7 +54,13 @@ public:
                           ChannelIndex channel_index) noexcept;
 
     // Control-thread read. Lock-free; values are eventually-consistent.
+    // peak_max_db is reported but NOT reset.
     MeterSnapshot snapshot() const noexcept;
+
+    // Control-thread read that also RESETS the max-since-read accumulator.
+    // Exactly one reader may use this (the meter broadcaster) — two consuming
+    // readers would steal each other's peaks.
+    MeterSnapshot snapshot_consume_max() noexcept;
 
     // Reset to silence. Audio thread or control thread (atomic).
     void reset() noexcept;
@@ -67,6 +78,14 @@ private:
     // Published values (atomic for the control-thread reader).
     std::atomic<float> peak_db_published_{-120.0f};
     std::atomic<float> rms_db_published_{-120.0f};
+    // Raw max since the last consuming read. Audio thread folds each block's
+    // maximum in via a CAS fetch-max loop; snapshot_consume_max() exchanges
+    // it back to silence.
+    std::atomic<float> peak_max_since_read_db_{-120.0f};
+
+    // Fold `db` into peak_max_since_read_db_ (CAS fetch-max — safe against a
+    // concurrent consuming reader).
+    void fold_peak_max(float db) noexcept;
 };
 
 } // namespace liveplay::audio

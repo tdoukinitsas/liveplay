@@ -297,6 +297,8 @@ public:
 
     // ---- Metering reads --------------------------------------------------
     MeterSnapshot read_master_meter(MasterChannelIndex master) const;
+    // Consuming read (resets the master's max-since-read). Broadcaster only.
+    MeterSnapshot read_master_meter_consume(MasterChannelIndex master);
     float         read_master_gain_reduction_db(MasterChannelIndex master) const;
 
     // ---- Introspection ---------------------------------------------------

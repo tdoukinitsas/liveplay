@@ -152,6 +152,11 @@ MeterSnapshot PlaybackItem::source_meter(ChannelIndex ch) const noexcept {
     return source_meters_[ch]->snapshot();
 }
 
+MeterSnapshot PlaybackItem::source_meter_consume(ChannelIndex ch) noexcept {
+    if (ch >= source_meters_.size() || !source_meters_[ch]) return {};
+    return source_meters_[ch]->snapshot_consume_max();
+}
+
 void PlaybackItem::play() {
     if (!decoder_ready_) {
         Logger::warn("PlaybackItem[{}] play() ignored — decoder not ready", desc_.id.value);

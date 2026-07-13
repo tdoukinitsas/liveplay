@@ -813,6 +813,11 @@ MeterSnapshot AudioEngine::read_master_meter(MasterChannelIndex master) const {
     return master_state_[master].meter->snapshot();
 }
 
+MeterSnapshot AudioEngine::read_master_meter_consume(MasterChannelIndex master) {
+    if (master >= master_state_.size()) return {};
+    return master_state_[master].meter->snapshot_consume_max();
+}
+
 float AudioEngine::read_master_gain_reduction_db(MasterChannelIndex master) const {
     if (master >= master_state_.size()) return 0.0f;
     // No gain reduction is happening while the limiter is bypassed.

@@ -60,6 +60,9 @@ public:
     MeterSnapshot meter_snapshot() const noexcept;
     // Per-lane reading (L = 0, R = 1) for stereo strip meters.
     MeterSnapshot meter_snapshot(ChannelIndex lane) const noexcept;
+    // Combined consuming read (resets every lane's max-since-read).
+    // Broadcaster only.
+    MeterSnapshot meter_snapshot_consume() noexcept;
 
 private:
     MixerChannelId id_;

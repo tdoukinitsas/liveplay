@@ -161,6 +161,8 @@ public:
     PlaybackItemStats stats() const noexcept;
 
     MeterSnapshot source_meter(ChannelIndex ch) const noexcept;
+    // Consuming read (resets the channel's max-since-read). Broadcaster only.
+    MeterSnapshot source_meter_consume(ChannelIndex ch) noexcept;
 
     // ---- Audio thread ----------------------------------------------------
     // Render `frame_count` frames into `out` (deinterleaved per source channel).
