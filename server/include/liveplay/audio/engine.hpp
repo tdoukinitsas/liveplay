@@ -295,6 +295,12 @@ public:
     void  set_output_channel_gain_db(MasterChannelIndex ch, float db);
     float output_channel_gain_db(MasterChannelIndex ch) const noexcept;
 
+    // ---- Metering config ---------------------------------------------------
+    // Retune the ballistics of EVERY meter in the engine (per-item source
+    // meters, mixer strip lanes, masters) and remember them so meters created
+    // later inherit the setting. Safe mid-playback.
+    void set_meter_ballistics(const MeterBallistics& b);
+
     // ---- Metering reads --------------------------------------------------
     MeterSnapshot read_master_meter(MasterChannelIndex master) const;
     // Consuming read (resets the master's max-since-read). Broadcaster only.
@@ -371,6 +377,10 @@ private:
         std::unique_ptr<Meter>   meter;
     };
     std::vector<MasterChannelState>  master_state_;
+
+    // Current meter ballistics (project setting). Guarded by mutex_; applied
+    // to meters created after a set_meter_ballistics() call.
+    MeterBallistics meter_ballistics_{};
 
     // Render thread plumbing.
     std::atomic<bool>                running_{false};

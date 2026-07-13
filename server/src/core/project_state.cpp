@@ -321,6 +321,27 @@ static json compute_output_target_levels(const json& settings) {
     };
 }
 
+// Resolve the project's meter ballistics from settings.meterBallistics
+// (preset id) / settings.meterBallisticsCustom ({attackMs, releaseMs,
+// rmsWindowMs}, used when the preset id is "custom"). Unknown or absent
+// values fall back to the engine default (digital-ppm feel).
+static audio::MeterBallistics meter_ballistics_from_settings(const json& settings) {
+    const std::string preset =
+        settings.value("meterBallistics", std::string{"digital-ppm"});
+    if (preset == "custom" &&
+        settings.contains("meterBallisticsCustom") &&
+        settings["meterBallisticsCustom"].is_object()) {
+        const auto& c = settings["meterBallisticsCustom"];
+        audio::MeterBallistics b;
+        b.attack_ms     = std::clamp(c.value("attackMs",    1.0f),   0.0f, 5000.0f);
+        b.release_ms    = std::clamp(c.value("releaseMs",   300.0f), 0.0f, 10000.0f);
+        b.rms_window_ms = std::clamp(c.value("rmsWindowMs", 300.0f), 1.0f, 10000.0f);
+        return b;
+    }
+    return audio::meter_ballistics_from_preset(preset)
+        .value_or(audio::MeterBallistics{});
+}
+
 } // namespace
 
 // ADL-visible to_json overloads — must be in liveplay::core (not anonymous namespace)
@@ -701,6 +722,8 @@ void ProjectState::start_async_mirror() {
             engine_.set_master_ceiling_db(levels.value("limiterCeilingDb", -0.3f));
             // Honour the per-project "disable limiter" toggle.
             engine_.set_limiter_enabled(!settings_snap.value("disableLimiter", false));
+            // Apply the project's meter ballistics to every engine meter.
+            engine_.set_meter_ballistics(meter_ballistics_from_settings(settings_snap));
         }
         // Honour the project's default output device: re-pin every non-override
         // cue from Main (the OS default device, where ensure_default_routing()
@@ -2770,7 +2793,9 @@ bool ProjectState::patch_settings(const json& patch) {
     bool output_target_changed   = false;
     bool limiter_toggle_changed  = false;
     bool limiter_disabled        = false;
+    bool ballistics_changed      = false;
     float new_ceiling_db         = -0.3f;
+    audio::MeterBallistics new_ballistics{};
     {
         std::lock_guard lock{mutex_};
         if (!document_.contains("settings") || !document_["settings"].is_object()) {
@@ -2785,6 +2810,9 @@ bool ProjectState::patch_settings(const json& patch) {
                 limiter_toggle_changed = true;
                 limiter_disabled       = v.is_boolean() ? v.get<bool>() : false;
             }
+            if (k == "meterBallistics" || k == "meterBallisticsCustom") {
+                ballistics_changed = true;
+            }
             document_["settings"][k] = v;
         }
         if (output_target_changed) {
@@ -2795,6 +2823,9 @@ bool ProjectState::patch_settings(const json& patch) {
             // and ceiling rather than the stale values from before the change.
             document_["settings"]["outputTargetLevels"] = levels;
         }
+        if (ballistics_changed) {
+            new_ballistics = meter_ballistics_from_settings(document_["settings"]);
+        }
     }
     // Re-apply device routing when device selections change mid-playback.
     if (ltc_device_changed)     apply_ltc_device_routing();
@@ -2804,6 +2835,8 @@ bool ProjectState::patch_settings(const json& patch) {
     if (output_target_changed)  engine_.set_master_ceiling_db(new_ceiling_db);
     // Enable/disable the limiter live so the change is heard immediately.
     if (limiter_toggle_changed) engine_.set_limiter_enabled(!limiter_disabled);
+    // Retune every meter live so the operator sees the new feel immediately.
+    if (ballistics_changed)     engine_.set_meter_ballistics(new_ballistics);
     return true;
 }
 

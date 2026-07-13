@@ -115,6 +115,11 @@ public:
     void set_ltc_frame_rate(LTCFrameRate fr);
     void set_ltc_offset(std::chrono::nanoseconds offset) noexcept;
 
+    // Retune source-meter ballistics (applies to existing meters immediately
+    // and to any meters created later, e.g. after an LTC channel-count
+    // change). Safe mid-playback.
+    void set_meter_ballistics(const MeterBallistics& b) noexcept;
+
     // Configure a soft end-of-playback point in seconds (the item's "out
     // point"). When the playhead reaches this frame, the same code path as
     // natural EOF runs — stop() honours fade_out_duration. Pass <= 0 to
@@ -232,6 +237,9 @@ private:
 
     // Per-source-channel meters (including LTC if enabled). Sized at load().
     std::vector<std::unique_ptr<Meter>> source_meters_;
+    // Current ballistics — applied by resize_meters() so meters created
+    // after a channel-count change inherit the project setting.
+    MeterBallistics meter_ballistics_{};
 
     // Helpers ----------------------------------------------------------
     void start_fade(float from_lin, float to_lin, std::chrono::milliseconds dur,

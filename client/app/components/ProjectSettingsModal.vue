@@ -229,6 +229,26 @@
               <p class="settings-help">{{ t('settings.meterModeHelp') }}</p>
             </section>
 
+            <!-- Meter Ballistics -->
+            <section class="settings-field">
+              <label class="settings-label">
+                <span class="material-symbols-rounded">speed</span>
+                {{ t('settings.meterBallistics') }}
+              </label>
+              <select
+                class="settings-select"
+                :value="meterBallistics"
+                @change="onMeterBallisticsChange"
+              >
+                <option value="digital-ppm">{{ t('settings.meterBallisticsDigitalPpm') }}</option>
+                <option value="ppm-i">{{ t('settings.meterBallisticsPpmI') }}</option>
+                <option value="ppm-ii">{{ t('settings.meterBallisticsPpmII') }}</option>
+                <option value="vu">{{ t('settings.meterBallisticsVu') }}</option>
+                <option value="instant">{{ t('settings.meterBallisticsInstant') }}</option>
+              </select>
+              <p class="settings-help">{{ t('settings.meterBallisticsHelp') }}</p>
+            </section>
+
             <!-- Keep the currently-playing item centred in the list -->
             <section class="settings-field">
               <label class="settings-label settings-label--checkbox">
@@ -298,6 +318,7 @@ const stopAllFadeSeconds = computed(() => {
 const scrollToPlaying = computed(() => !!(currentProject.value as any)?.settings?.uiScrollToPlaying);
 const { meterMode: currentMeterMode } = useOutputTarget();
 const meterMode              = computed(() => (currentProject.value as any)?.settings?.meterMode || currentMeterMode.value);
+const meterBallistics        = computed(() => (currentProject.value as any)?.settings?.meterBallistics || 'digital-ppm');
 
 // Make sure devices are loaded when the modal opens.
 watch(() => props.open, async (v) => {
@@ -341,6 +362,10 @@ function onOutputTargetChange(e: Event) {
 function onMeterModeChange(e: Event) {
   const v = (e.target as HTMLSelectElement).value;
   applyPatch({ meterMode: v });
+}
+function onMeterBallisticsChange(e: Event) {
+  const v = (e.target as HTMLSelectElement).value;
+  applyPatch({ meterBallistics: v });
 }
 function onDisableAutoVolumeAndTrimChange(e: Event) {
   applyPatch({ disableAutoVolumeAndTrim: (e.target as HTMLInputElement).checked });

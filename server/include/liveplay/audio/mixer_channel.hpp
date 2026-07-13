@@ -55,6 +55,12 @@ public:
     // Initialise audio-thread state (call from engine setup).
     void configure(SampleRate sample_rate, FrameCount render_block) noexcept;
 
+    // Retune every lane meter's ballistics. Safe mid-playback (Meter
+    // coefficients are atomic).
+    void configure_meters(const MeterBallistics& b) noexcept {
+        for (auto& m : meters_) m.configure(sample_rate_, b);
+    }
+
     // Combined strip reading: element-wise max across lanes (what a single
     // strip meter widget should show).
     MeterSnapshot meter_snapshot() const noexcept;

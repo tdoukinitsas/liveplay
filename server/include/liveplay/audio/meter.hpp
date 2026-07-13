@@ -15,8 +15,29 @@
 
 #include <atomic>
 #include <cstddef>
+#include <optional>
+#include <string_view>
 
 namespace liveplay::audio {
+
+// ---------------------------------------------------------------------------
+// Ballistics — how fast the peak envelope rises/falls and how long the RMS
+// window is. User-selectable per project via settings.meterBallistics.
+// ---------------------------------------------------------------------------
+struct MeterBallistics {
+    float attack_ms     = 1.0f;     // peak attack time constant (0 = instant)
+    float release_ms    = 300.0f;   // peak release ("fall back") time constant
+    float rms_window_ms = 300.0f;   // RMS averaging window
+};
+
+// Resolve a ballistics preset id. Known ids:
+//   "digital-ppm" (default) — instant attack, ~350 ms release
+//   "ppm-i"                 — DIN PPM Type I approximation
+//   "ppm-ii"                — BBC PPM Type II approximation
+//   "vu"                    — classic VU (slow symmetric ~300 ms)
+//   "instant"               — near-raw; relies on peak_max_db for transients
+// Returns nullopt for unknown ids (callers fall back to the default).
+std::optional<MeterBallistics> meter_ballistics_from_preset(std::string_view id) noexcept;
 
 // Plain-old-data snapshot. dBFS values; -120 dB == silence.
 struct MeterSnapshot {
@@ -33,15 +54,17 @@ class Meter {
 public:
     Meter() noexcept;
 
-    // Configure ballistics + window. Must be called from the control thread
-    // before the audio thread starts pushing blocks (or while it's paused).
-    //   attack_ms  : peak attack time constant (default 0 → instantaneous)
-    //   release_ms : peak release ("fall back to noise") time constant
-    //   rms_window_ms : RMS averaging window
+    // Configure ballistics + window. Coefficients are atomics, so this is
+    // safe to call from the control thread at ANY time — including while the
+    // audio thread is pushing blocks (the new ballistics take effect on the
+    // next block).
     void configure(SampleRate sample_rate,
                    float attack_ms     = 1.0f,
                    float release_ms    = 300.0f,
                    float rms_window_ms = 300.0f) noexcept;
+    void configure(SampleRate sample_rate, const MeterBallistics& b) noexcept {
+        configure(sample_rate, b.attack_ms, b.release_ms, b.rms_window_ms);
+    }
 
     // Audio-thread entrypoint. Pushes one mono channel's worth of samples.
     // For multi-channel streams call push_block() per channel into separate
@@ -66,10 +89,11 @@ public:
     void reset() noexcept;
 
 private:
-    // Coefficients (set by configure(); read by audio thread).
-    float attack_coef_      = 0.0f;
-    float release_coef_     = 0.0f;
-    float rms_one_minus_a_  = 0.0f;   // 1 - alpha for the RMS leaky integrator
+    // Coefficients (set by configure() on the control thread; loaded once per
+    // block by the audio thread — atomics make live reconfiguration safe).
+    std::atomic<float> attack_coef_      {0.0f};
+    std::atomic<float> release_coef_     {0.0f};
+    std::atomic<float> rms_one_minus_a_  {0.0f};   // 1 - alpha for the RMS leaky integrator
 
     // Audio-thread-only state.
     float peak_env_         = 0.0f;

@@ -399,7 +399,14 @@ void PlaybackItem::resize_meters(ChannelCount n) {
     source_meters_.resize(n);
     for (ChannelCount i = 0; i < n; ++i) {
         if (!source_meters_[i]) source_meters_[i] = std::make_unique<Meter>();
-        source_meters_[i]->configure(desc_.mix_sample_rate);
+        source_meters_[i]->configure(desc_.mix_sample_rate, meter_ballistics_);
+    }
+}
+
+void PlaybackItem::set_meter_ballistics(const MeterBallistics& b) noexcept {
+    meter_ballistics_ = b;
+    for (auto& m : source_meters_) {
+        if (m) m->configure(desc_.mix_sample_rate, b);
     }
 }
 
