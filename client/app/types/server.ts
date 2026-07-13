@@ -84,6 +84,11 @@ export interface MeterSnapshot {
   // true-peak metering is disabled (project not in dBTP mode).
   true_peak_db: number;
   true_peak_max_db: number;
+  // K-weighted mean square over the 400 ms momentary window (BS.1770),
+  // LINEAR power. Loudness of a channel group:
+  //   LUFS = -0.691 + 10·log10(Σ kw_ms) — see lufsFromKwMs().
+  // 0 when loudness metering is disabled (project not in LUFS mode).
+  kw_ms: number;
 }
 
 export interface ItemMeterFrame {
@@ -100,6 +105,7 @@ export interface MixerMeterFrame {
   peak_max_db: number;
   true_peak_db: number;
   true_peak_max_db: number;
+  kw_ms: number;
 }
 
 export interface MasterMeterFrame {
@@ -109,6 +115,7 @@ export interface MasterMeterFrame {
   peak_max_db: number;
   true_peak_db: number;
   true_peak_max_db: number;
+  kw_ms: number;
   gain_reduction_db: number;
 }
 

@@ -735,9 +735,10 @@ void ProjectState::start_async_mirror() {
             engine_.set_limiter_enabled(!settings_snap.value("disableLimiter", false));
             // Apply the project's meter ballistics to every engine meter.
             engine_.set_meter_ballistics(meter_ballistics_from_settings(settings_snap));
-            // Enable the true-peak oversampler if the project displays dBTP.
-            engine_.set_true_peak_metering(
-                effective_meter_mode(settings_snap) == "dBTP");
+            // Enable the true-peak / loudness DSP per the display mode.
+            const auto mode = effective_meter_mode(settings_snap);
+            engine_.set_true_peak_metering(mode == "dBTP");
+            engine_.set_loudness_metering(mode == "LUFS");
         }
         // Honour the project's default output device: re-pin every non-override
         // cue from Main (the OS default device, where ensure_default_routing()
@@ -2810,6 +2811,7 @@ bool ProjectState::patch_settings(const json& patch) {
     bool ballistics_changed      = false;
     bool meter_mode_changed      = false;
     bool meter_true_peak         = false;
+    bool meter_loudness          = false;
     float new_ceiling_db         = -0.3f;
     audio::MeterBallistics new_ballistics{};
     {
@@ -2848,8 +2850,9 @@ bool ProjectState::patch_settings(const json& patch) {
             new_ballistics = meter_ballistics_from_settings(document_["settings"]);
         }
         if (meter_mode_changed) {
-            meter_true_peak =
-                effective_meter_mode(document_["settings"]) == "dBTP";
+            const auto mode = effective_meter_mode(document_["settings"]);
+            meter_true_peak = mode == "dBTP";
+            meter_loudness  = mode == "LUFS";
         }
     }
     // Re-apply device routing when device selections change mid-playback.
@@ -2862,8 +2865,11 @@ bool ProjectState::patch_settings(const json& patch) {
     if (limiter_toggle_changed) engine_.set_limiter_enabled(!limiter_disabled);
     // Retune every meter live so the operator sees the new feel immediately.
     if (ballistics_changed)     engine_.set_meter_ballistics(new_ballistics);
-    // Gate the true-peak oversampler on the effective display mode.
-    if (meter_mode_changed)     engine_.set_true_peak_metering(meter_true_peak);
+    // Gate the true-peak / loudness DSP on the effective display mode.
+    if (meter_mode_changed) {
+        engine_.set_true_peak_metering(meter_true_peak);
+        engine_.set_loudness_metering(meter_loudness);
+    }
     return true;
 }
 

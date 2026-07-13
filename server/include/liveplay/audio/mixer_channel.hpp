@@ -66,6 +66,11 @@ public:
         for (auto& m : meters_) m.set_true_peak_enabled(enabled);
     }
 
+    // Toggle K-weighted loudness on every lane meter.
+    void set_loudness_enabled(bool enabled) noexcept {
+        for (auto& m : meters_) m.set_loudness_enabled(enabled);
+    }
+
     // Combined strip reading: element-wise max across lanes (what a single
     // strip meter widget should show).
     MeterSnapshot meter_snapshot() const noexcept;

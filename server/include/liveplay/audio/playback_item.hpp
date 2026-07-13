@@ -124,6 +124,9 @@ public:
     // apply-now-and-to-future-meters semantics as set_meter_ballistics).
     void set_true_peak_metering(bool enabled) noexcept;
 
+    // Toggle K-weighted loudness on the source meters (same semantics).
+    void set_loudness_metering(bool enabled) noexcept;
+
     // Configure a soft end-of-playback point in seconds (the item's "out
     // point"). When the playhead reaches this frame, the same code path as
     // natural EOF runs — stop() honours fade_out_duration. Pass <= 0 to
@@ -246,6 +249,7 @@ private:
     // settings.
     MeterBallistics meter_ballistics_{};
     bool            meter_true_peak_ = false;
+    bool            meter_loudness_  = false;
 
     // Helpers ----------------------------------------------------------
     void start_fade(float from_lin, float to_lin, std::chrono::milliseconds dur,

@@ -432,6 +432,7 @@ CueId AudioEngine::load_cue(const std::filesystem::path& file_path,
         std::lock_guard lock{mutex_};
         item->set_meter_ballistics(meter_ballistics_);
         item->set_true_peak_metering(meter_true_peak_);
+        item->set_loudness_metering(meter_loudness_);
         items_[item->id().value] = item;
         pending_.item_sources[item->id().value]
             .by_source_channel
@@ -461,6 +462,7 @@ CueId AudioEngine::load_cue_no_route(const std::filesystem::path& file_path,
     std::lock_guard lock{mutex_};
     item->set_meter_ballistics(meter_ballistics_);
     item->set_true_peak_metering(meter_true_peak_);
+    item->set_loudness_metering(meter_loudness_);
     items_[item->id().value] = item;
     pending_.item_sources[item->id().value]
         .by_source_channel
@@ -640,6 +642,7 @@ MixerChannelId AudioEngine::create_mixer_channel(std::string display_name) {
     std::lock_guard lock{mutex_};
     ch->configure_meters(meter_ballistics_);        // inherit project settings
     ch->set_true_peak_enabled(meter_true_peak_);
+    ch->set_loudness_enabled(meter_loudness_);
     mixers_[id.value] = ch;
     rebuild_topology_locked();
     return id;
@@ -832,6 +835,16 @@ void AudioEngine::set_true_peak_metering(bool enabled) {
     }
     for (auto& [_, m] : mixers_) m->set_true_peak_enabled(enabled);
     for (auto& [_, item] : items_) item->set_true_peak_metering(enabled);
+}
+
+void AudioEngine::set_loudness_metering(bool enabled) {
+    std::lock_guard lock{mutex_};
+    meter_loudness_ = enabled;
+    for (auto& ms : master_state_) {
+        if (ms.meter) ms.meter->set_loudness_enabled(enabled);
+    }
+    for (auto& [_, m] : mixers_) m->set_loudness_enabled(enabled);
+    for (auto& [_, item] : items_) item->set_loudness_metering(enabled);
 }
 
 MeterSnapshot AudioEngine::read_master_meter(MasterChannelIndex master) const {

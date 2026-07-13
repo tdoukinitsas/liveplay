@@ -23,7 +23,18 @@ import type {
 const SILENT: MeterSnapshot = {
   peak_db: -120, rms_db: -120, peak_max_db: -120,
   true_peak_db: -120, true_peak_max_db: -120,
+  kw_ms: 0,
 };
+
+// BS.1770 loudness of a channel group from per-channel K-weighted mean
+// squares: LUFS = -0.691 + 10·log10(Σ kw_ms). Returns -120 for silence /
+// disabled loudness metering.
+export function lufsFromKwMs(values: Array<number | undefined>): number {
+  let sum = 0;
+  for (const v of values) sum += v ?? 0;
+  if (sum <= 1e-12) return -120;
+  return -0.691 + 10 * Math.log10(sum);
+}
 
 export function useCueMeters(cueId: () => CueId | null | undefined) {
   const server = useLiveplayServer();
@@ -116,6 +127,7 @@ export function useMasterMeter(index: () => MasterChannelIndex | null | undefine
   const peakMax  = ref(SILENT.peak_max_db);
   const truePeak    = ref(SILENT.true_peak_db);
   const truePeakMax = ref(SILENT.true_peak_max_db);
+  const kwMs     = ref(0);
   const gainReduction = ref(0);
 
   const unsubscribe = server.onMeters((m) => {
@@ -124,6 +136,7 @@ export function useMasterMeter(index: () => MasterChannelIndex | null | undefine
       peak.value = SILENT.peak_db; rms.value = SILENT.rms_db;
       peakMax.value = SILENT.peak_max_db;
       truePeak.value = SILENT.true_peak_db; truePeakMax.value = SILENT.true_peak_max_db;
+      kwMs.value = 0;
       gainReduction.value = 0;
       return;
     }
@@ -134,9 +147,10 @@ export function useMasterMeter(index: () => MasterChannelIndex | null | undefine
     peakMax.value     = frame?.peak_max_db      ?? SILENT.peak_max_db;
     truePeak.value    = frame?.true_peak_db     ?? frame?.peak_db     ?? SILENT.true_peak_db;
     truePeakMax.value = frame?.true_peak_max_db ?? frame?.peak_max_db ?? SILENT.true_peak_max_db;
+    kwMs.value        = frame?.kw_ms            ?? 0;
     gainReduction.value = frame?.gain_reduction_db ?? 0;
   });
   onScopeDispose(() => unsubscribe());
 
-  return { peak, rms, peakMax, truePeak, truePeakMax, gainReduction };
+  return { peak, rms, peakMax, truePeak, truePeakMax, kwMs, gainReduction };
 }

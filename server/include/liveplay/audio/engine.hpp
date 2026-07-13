@@ -306,6 +306,10 @@ public:
     // the extra DSP only runs when the operator is looking at dBTP.
     void set_true_peak_metering(bool enabled);
 
+    // Toggle K-weighted loudness (BS.1770 momentary) on every meter (same
+    // fan-out + remember semantics). Gated on meter mode == LUFS.
+    void set_loudness_metering(bool enabled);
+
     // ---- Metering reads --------------------------------------------------
     MeterSnapshot read_master_meter(MasterChannelIndex master) const;
     // Consuming read (resets the master's max-since-read). Broadcaster only.
@@ -387,6 +391,7 @@ private:
     // mutex_; applied to meters created after the corresponding setter ran.
     MeterBallistics meter_ballistics_{};
     bool            meter_true_peak_ = false;
+    bool            meter_loudness_  = false;
 
     // Render thread plumbing.
     std::atomic<bool>                running_{false};

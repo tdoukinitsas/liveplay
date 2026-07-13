@@ -95,9 +95,13 @@ MeterSnapshot MixerChannel::meter_snapshot() const noexcept {
     MeterSnapshot out;
     for (const auto& m : meters_) {
         const auto s = m.snapshot();
-        out.peak_db     = std::max(out.peak_db,     s.peak_db);
-        out.rms_db      = std::max(out.rms_db,      s.rms_db);
-        out.peak_max_db = std::max(out.peak_max_db, s.peak_max_db);
+        out.peak_db          = std::max(out.peak_db,          s.peak_db);
+        out.rms_db           = std::max(out.rms_db,           s.rms_db);
+        out.peak_max_db      = std::max(out.peak_max_db,      s.peak_max_db);
+        out.true_peak_db     = std::max(out.true_peak_db,     s.true_peak_db);
+        out.true_peak_max_db = std::max(out.true_peak_max_db, s.true_peak_max_db);
+        // Loudness sums across the channel group (BS.1770), it doesn't max.
+        out.kw_ms += s.kw_ms;
     }
     return out;
 }
@@ -111,9 +115,13 @@ MeterSnapshot MixerChannel::meter_snapshot_consume() noexcept {
     MeterSnapshot out;
     for (auto& m : meters_) {
         const auto s = m.snapshot_consume_max();
-        out.peak_db     = std::max(out.peak_db,     s.peak_db);
-        out.rms_db      = std::max(out.rms_db,      s.rms_db);
-        out.peak_max_db = std::max(out.peak_max_db, s.peak_max_db);
+        out.peak_db          = std::max(out.peak_db,          s.peak_db);
+        out.rms_db           = std::max(out.rms_db,           s.rms_db);
+        out.peak_max_db      = std::max(out.peak_max_db,      s.peak_max_db);
+        out.true_peak_db     = std::max(out.true_peak_db,     s.true_peak_db);
+        out.true_peak_max_db = std::max(out.true_peak_max_db, s.true_peak_max_db);
+        // Loudness sums across the channel group (BS.1770), it doesn't max.
+        out.kw_ms += s.kw_ms;
     }
     return out;
 }

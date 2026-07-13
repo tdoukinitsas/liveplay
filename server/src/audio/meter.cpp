@@ -96,22 +96,65 @@ void Meter::configure(SampleRate sample_rate,
                            std::memory_order_relaxed);
     // Deliberately NOT reset() here: live ballistics changes (project setting
     // flipped mid-playback) should re-shape the envelope, not blank the meter.
+
+    // (Re)design the K-weighting biquads only when the sample rate actually
+    // changes — ballistics retunes hit this function live, and skipping the
+    // rewrite avoids racing the audio thread over coefficients that would
+    // not change anyway.
+    if (kw_designed_rate_ != sample_rate) {
+        kw_designed_rate_ = sample_rate;
+        const double fs = static_cast<double>(sample_rate);
+        constexpr double PI = 3.14159265358979323846;
+
+        // Stage 1 — high-shelf (analog prototype per ITU-R BS.1770-4 /
+        // pyloudnorm's design equations, valid at any sample rate).
+        {
+            const double f0 = 1681.9744509555319;
+            const double G  = 3.99984385397;
+            const double Q  = 0.7071752369554196;
+            const double K  = std::tan(PI * f0 / fs);
+            const double Vh = std::pow(10.0, G / 20.0);
+            const double Vb = std::pow(Vh, 0.4996667741545416);
+            const double a0 = 1.0 + K / Q + K * K;
+            kw_shelf_.b0 = static_cast<float>((Vh + Vb * K / Q + K * K) / a0);
+            kw_shelf_.b1 = static_cast<float>(2.0 * (K * K - Vh) / a0);
+            kw_shelf_.b2 = static_cast<float>((Vh - Vb * K / Q + K * K) / a0);
+            kw_shelf_.a1 = static_cast<float>(2.0 * (K * K - 1.0) / a0);
+            kw_shelf_.a2 = static_cast<float>((1.0 - K / Q + K * K) / a0);
+        }
+        // Stage 2 — RLB high-pass.
+        {
+            const double f0 = 38.13547087602444;
+            const double Q  = 0.5003270373238773;
+            const double K  = std::tan(PI * f0 / fs);
+            const double a0 = 1.0 + K / Q + K * K;
+            kw_hp_.b0 = 1.0f;
+            kw_hp_.b1 = -2.0f;
+            kw_hp_.b2 = 1.0f;
+            kw_hp_.a1 = static_cast<float>(2.0 * (K * K - 1.0) / a0);
+            kw_hp_.a2 = static_cast<float>((1.0 - K / Q + K * K) / a0);
+        }
+        loud_window_samples_ =
+            static_cast<std::uint64_t>(0.4 * fs + 0.5);   // 400 ms momentary
+    }
 }
 
 void Meter::push_block(const Sample* samples, std::size_t frame_count) noexcept {
     if (!samples || frame_count == 0) return;
 
     // Load coefficients once per block (control thread may retune them live).
-    const float atk   = attack_coef_.load(std::memory_order_relaxed);
-    const float rel   = release_coef_.load(std::memory_order_relaxed);
-    const float roma  = rms_one_minus_a_.load(std::memory_order_relaxed);
-    const bool  tp_on = true_peak_enabled_.load(std::memory_order_relaxed);
+    const float atk     = attack_coef_.load(std::memory_order_relaxed);
+    const float rel     = release_coef_.load(std::memory_order_relaxed);
+    const float roma    = rms_one_minus_a_.load(std::memory_order_relaxed);
+    const bool  tp_on   = true_peak_enabled_.load(std::memory_order_relaxed);
+    const bool  loud_on = loudness_enabled_.load(std::memory_order_relaxed);
 
     float peak = peak_env_;
     float rms  = rms_sq_;
     float blk_max = 0.0f;
     float tp_env = tp_env_;
     float tp_blk_max = 0.0f;
+    float kw_sum = 0.0f;
     const float rms_alpha = 1.0f - roma;
 
     for (std::size_t i = 0; i < frame_count; ++i) {
@@ -136,6 +179,12 @@ void Meter::push_block(const Sample* samples, std::size_t frame_count) noexcept 
             if (tp > tp_env) tp_env = atk * tp_env + (1.0f - atk) * tp;
             else             tp_env = rel * tp_env + (1.0f - rel) * tp;
         }
+
+        // Loudness: K-weight, accumulate mean-square for the 400 ms window.
+        if (loud_on) {
+            const float k = kw_process_sample(s);
+            kw_sum += k * k;
+        }
     }
 
     peak_env_ = peak;
@@ -149,6 +198,9 @@ void Meter::push_block(const Sample* samples, std::size_t frame_count) noexcept 
         tp_db_published_.store(clamp_db(lin_to_db(tp_env)), std::memory_order_relaxed);
         fold_max(tp_max_since_read_db_, clamp_db(lin_to_db(tp_blk_max)));
     }
+    if (loud_on) {
+        kw_push_block_sum(kw_sum, static_cast<std::uint32_t>(frame_count));
+    }
 }
 
 void Meter::push_interleaved(const Sample* interleaved,
@@ -157,16 +209,18 @@ void Meter::push_interleaved(const Sample* interleaved,
                              ChannelIndex channel_index) noexcept {
     if (!interleaved || frame_count == 0 || channel_stride == 0) return;
 
-    const float atk   = attack_coef_.load(std::memory_order_relaxed);
-    const float rel   = release_coef_.load(std::memory_order_relaxed);
-    const float roma  = rms_one_minus_a_.load(std::memory_order_relaxed);
-    const bool  tp_on = true_peak_enabled_.load(std::memory_order_relaxed);
+    const float atk     = attack_coef_.load(std::memory_order_relaxed);
+    const float rel     = release_coef_.load(std::memory_order_relaxed);
+    const float roma    = rms_one_minus_a_.load(std::memory_order_relaxed);
+    const bool  tp_on   = true_peak_enabled_.load(std::memory_order_relaxed);
+    const bool  loud_on = loudness_enabled_.load(std::memory_order_relaxed);
 
     float peak = peak_env_;
     float rms  = rms_sq_;
     float blk_max = 0.0f;
     float tp_env = tp_env_;
     float tp_blk_max = 0.0f;
+    float kw_sum = 0.0f;
     const float rms_alpha = 1.0f - roma;
 
     const Sample* p = interleaved + channel_index;
@@ -189,6 +243,10 @@ void Meter::push_interleaved(const Sample* interleaved,
             if (tp > tp_env) tp_env = atk * tp_env + (1.0f - atk) * tp;
             else             tp_env = rel * tp_env + (1.0f - rel) * tp;
         }
+        if (loud_on) {
+            const float k = kw_process_sample(s);
+            kw_sum += k * k;
+        }
     }
 
     peak_env_ = peak;
@@ -202,6 +260,9 @@ void Meter::push_interleaved(const Sample* interleaved,
         tp_db_published_.store(clamp_db(lin_to_db(tp_env)), std::memory_order_relaxed);
         fold_max(tp_max_since_read_db_, clamp_db(lin_to_db(tp_blk_max)));
     }
+    if (loud_on) {
+        kw_push_block_sum(kw_sum, static_cast<std::uint32_t>(frame_count));
+    }
 }
 
 void Meter::fold_max(std::atomic<float>& acc, float db) noexcept {
@@ -210,6 +271,52 @@ void Meter::fold_max(std::atomic<float>& acc, float db) noexcept {
            !acc.compare_exchange_weak(cur, db, std::memory_order_relaxed)) {
         // cur reloaded by compare_exchange_weak on failure.
     }
+}
+
+float Meter::kw_process_sample(float s) noexcept {
+    // Two cascaded DF2T biquads: shelf then RLB high-pass.
+    float y = kw_shelf_.b0 * s + kw1_z1_;
+    kw1_z1_ = kw_shelf_.b1 * s - kw_shelf_.a1 * y + kw1_z2_;
+    kw1_z2_ = kw_shelf_.b2 * s - kw_shelf_.a2 * y;
+
+    const float x2 = y;
+    y = kw_hp_.b0 * x2 + kw2_z1_;
+    kw2_z1_ = kw_hp_.b1 * x2 - kw_hp_.a1 * y + kw2_z2_;
+    kw2_z2_ = kw_hp_.b2 * x2 - kw_hp_.a2 * y;
+    return y;
+}
+
+void Meter::kw_push_block_sum(float sum_sq, std::uint32_t n) noexcept {
+    if (n == 0) return;
+    // Append; if the ring is physically full, drop the oldest entry first.
+    if (loud_count_ == kLoudBlocks) {
+        const std::size_t tail = loud_head_;   // head == tail when full
+        loud_total_sum_ -= loud_sum_[tail];
+        loud_total_n_   -= loud_n_[tail];
+        --loud_count_;
+    }
+    loud_sum_[loud_head_] = sum_sq;
+    loud_n_[loud_head_]   = n;
+    loud_head_ = (loud_head_ + 1) % kLoudBlocks;
+    ++loud_count_;
+    loud_total_sum_ += sum_sq;
+    loud_total_n_   += n;
+
+    // Evict from the tail until we're inside the 400 ms window.
+    while (loud_count_ > 1 && loud_total_n_ > loud_window_samples_) {
+        const std::size_t tail =
+            (loud_head_ + kLoudBlocks - loud_count_) % kLoudBlocks;
+        // Only evict if removing the tail keeps at least a full window.
+        if (loud_total_n_ - loud_n_[tail] < loud_window_samples_) break;
+        loud_total_sum_ -= loud_sum_[tail];
+        loud_total_n_   -= loud_n_[tail];
+        --loud_count_;
+    }
+
+    const double ms = loud_total_n_ > 0
+        ? std::max(0.0, loud_total_sum_) / static_cast<double>(loud_total_n_)
+        : 0.0;
+    kw_ms_published_.store(static_cast<float>(ms), std::memory_order_relaxed);
 }
 
 float Meter::tp_process_sample(float s) noexcept {
@@ -243,6 +350,9 @@ MeterSnapshot Meter::snapshot() const noexcept {
         s.true_peak_db     = s.peak_db;
         s.true_peak_max_db = s.peak_max_db;
     }
+    if (loudness_enabled_.load(std::memory_order_relaxed)) {
+        s.kw_ms = kw_ms_published_.load(std::memory_order_relaxed);
+    }
     return s;
 }
 
@@ -258,6 +368,9 @@ MeterSnapshot Meter::snapshot_consume_max() noexcept {
         s.true_peak_db     = s.peak_db;
         s.true_peak_max_db = s.peak_max_db;
     }
+    if (loudness_enabled_.load(std::memory_order_relaxed)) {
+        s.kw_ms = kw_ms_published_.load(std::memory_order_relaxed);
+    }
     return s;
 }
 
@@ -267,11 +380,16 @@ void Meter::reset() noexcept {
     tp_env_   = 0.0f;
     tp_hist_.fill(0.0f);
     tp_hist_pos_ = 0;
+    kw1_z1_ = kw1_z2_ = kw2_z1_ = kw2_z2_ = 0.0f;
+    loud_head_ = loud_count_ = 0;
+    loud_total_sum_ = 0.0;
+    loud_total_n_   = 0;
     peak_db_published_.store(-120.0f, std::memory_order_relaxed);
     rms_db_published_ .store(-120.0f, std::memory_order_relaxed);
     peak_max_since_read_db_.store(-120.0f, std::memory_order_relaxed);
     tp_db_published_.store(-120.0f, std::memory_order_relaxed);
     tp_max_since_read_db_.store(-120.0f, std::memory_order_relaxed);
+    kw_ms_published_.store(0.0f, std::memory_order_relaxed);
 }
 
 } // namespace liveplay::audio

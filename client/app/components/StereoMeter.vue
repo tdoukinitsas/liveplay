@@ -79,7 +79,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useMasterMeter, useCueMeters, usePeakHold } from '~/composables/useLiveMeters';
+import { useMasterMeter, useCueMeters, usePeakHold, lufsFromKwMs } from '~/composables/useLiveMeters';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { useProject } from '~/composables/useProject';
 
@@ -159,13 +159,23 @@ const rawTpR = computed(() => props.cueId != null
   ? (cueStream.sources.value[1]?.true_peak_db ?? cueStream.sources.value[0]?.true_peak_db ?? -120)
   : rightStream.truePeak.value);
 
+// Momentary loudness (BS.1770) of the metered pair: sum of the channels'
+// K-weighted mean squares. One value for the pair — loudness has no L/R.
+const lufsMomentary = computed(() => {
+  if (props.cueId != null) {
+    return lufsFromKwMs(cueStream.sources.value.map(s => s.kw_ms));
+  }
+  return lufsFromKwMs([leftStream.kwMs.value, rightStream.kwMs.value]);
+});
+
 // Display value selected by the active meter mode.
-// dBTP → oversampled true peak; dBFS → sample peak; RMS → rms.
-// LUFS ≈ rms_db until the server's K-weighted loudness lands.
+// dBTP → oversampled true peak; dBFS → sample peak; RMS → rms;
+// LUFS → K-weighted momentary loudness (same value on both bars — loudness
+// is a property of the pair, not of a channel).
 const displayL = computed(() => {
   switch (meterMode.value) {
     case 'RMS':  return rawRmsL.value;
-    case 'LUFS': return rawRmsL.value;
+    case 'LUFS': return lufsMomentary.value;
     case 'dBTP': return rawTpL.value;
     default:     return rawPeakL.value; // dBFS
   }
@@ -173,7 +183,7 @@ const displayL = computed(() => {
 const displayR = computed(() => {
   switch (meterMode.value) {
     case 'RMS':  return rawRmsR.value;
-    case 'LUFS': return rawRmsR.value;
+    case 'LUFS': return lufsMomentary.value;
     case 'dBTP': return rawTpR.value;
     default:     return rawPeakR.value;
   }
