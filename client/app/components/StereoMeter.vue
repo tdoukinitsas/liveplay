@@ -28,10 +28,19 @@
       <!-- L + R bars -->
       <div class="stereo-meter__bars">
         <div class="stereo-meter__chan">
+          <!-- Clip latch — lights on any raw sample ≥ clip threshold since
+               the last click (click either indicator to reset both). -->
+          <div
+            class="stereo-meter__clip"
+            :class="{ 'is-clipped': holdL.clipped.value || holdR.clipped.value }"
+            :title="'Clip (click to reset)'"
+            @click="resetClips"
+          />
           <div class="stereo-meter__bar-group">
             <div class="stereo-meter__track">
               <div class="stereo-meter__fill" :style="rmsStyleL" />
               <div class="stereo-meter__fill" :style="peakStyleL" />
+              <div v-if="holdVisibleL" class="stereo-meter__hold" :style="holdStyleL" />
             </div>
             <!-- GR track: same rounded-rect shape, accent fill from top -->
             <div v-if="props.leftIndex != null" class="stereo-meter__gr-track">
@@ -41,10 +50,17 @@
           <div class="stereo-meter__chan-label">L</div>
         </div>
         <div class="stereo-meter__chan">
+          <div
+            class="stereo-meter__clip"
+            :class="{ 'is-clipped': holdL.clipped.value || holdR.clipped.value }"
+            :title="'Clip (click to reset)'"
+            @click="resetClips"
+          />
           <div class="stereo-meter__bar-group">
             <div class="stereo-meter__track">
               <div class="stereo-meter__fill" :style="rmsStyleR" />
               <div class="stereo-meter__fill" :style="peakStyleR" />
+              <div v-if="holdVisibleR" class="stereo-meter__hold" :style="holdStyleR" />
             </div>
             <div v-if="props.rightIndex != null" class="stereo-meter__gr-track">
               <div class="stereo-meter__gr-fill" :style="grStyleR" />
@@ -63,7 +79,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useMasterMeter, useCueMeters } from '~/composables/useLiveMeters';
+import { useMasterMeter, useCueMeters, usePeakHold } from '~/composables/useLiveMeters';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { useProject } from '~/composables/useProject';
 
@@ -113,6 +129,18 @@ const rawRmsR = computed(() => props.cueId != null
   ? (cueStream.sources.value[1]?.rms_db ?? cueStream.sources.value[0]?.rms_db ?? -120)
   : rightStream.rms.value);
 
+// Lossless raw max since the previous frame — drives peak hold + clip latch.
+const rawMaxL = computed(() => props.cueId != null
+  ? (cueStream.sources.value[0]?.peak_max_db ?? -120)
+  : leftStream.peakMax.value);
+const rawMaxR = computed(() => props.cueId != null
+  ? (cueStream.sources.value[1]?.peak_max_db ?? cueStream.sources.value[0]?.peak_max_db ?? -120)
+  : rightStream.peakMax.value);
+
+const holdL = usePeakHold(() => rawMaxL.value);
+const holdR = usePeakHold(() => rawMaxR.value);
+const resetClips = () => { holdL.resetClip(); holdR.resetClip(); };
+
 // Display value selected by the active meter mode.
 // dBTP / dBFS ≈ peak_db; RMS ≈ rms_db; LUFS ≈ rms_db (integrated loudness
 // requires ITU BS.1770 — until the server implements it we use RMS as a
@@ -161,6 +189,17 @@ function grStyle(grDb: number): Record<string, string> {
 
 const grStyleL = computed(() => grStyle(leftStream.gainReduction.value));
 const grStyleR = computed(() => grStyle(rightStream.gainReduction.value));
+
+// Peak-hold line: thin marker at the held level, coloured by zone.
+function holdStyle(db: number): Record<string, string> {
+  const pct = Math.min(100, Math.max(0,
+    ((db - props.minDb) / (props.maxDb - props.minDb)) * 100));
+  return { bottom: `${pct.toFixed(2)}%`, background: colorForLevel(db) };
+}
+const holdVisibleL = computed(() => holdL.held.value > props.minDb);
+const holdVisibleR = computed(() => holdR.held.value > props.minDb);
+const holdStyleL = computed(() => holdStyle(holdL.held.value));
+const holdStyleR = computed(() => holdStyle(holdR.held.value));
 
 // Scale tick marks at key zone boundary levels from the server-reported
 // output target. Ticks use the zone colour for their position.
@@ -281,6 +320,22 @@ const peakLabel = computed(() => {
     flex-shrink: 0;
   }
 
+  // Clip latch dot above each bar. Dim until a raw sample crosses the clip
+  // threshold; click to acknowledge/reset.
+  &__clip {
+    width: 8px;
+    height: 4px;
+    border-radius: 1px;
+    background: var(--color-border);
+    cursor: pointer;
+    flex-shrink: 0;
+
+    &.is-clipped {
+      background: #ff1744;
+      box-shadow: 0 0 4px rgba(255, 23, 68, 0.8);
+    }
+  }
+
   // Row containing the 8px signal track + 4px GR track
   &__bar-group {
     display: flex;
@@ -321,6 +376,16 @@ const peakLabel = computed(() => {
     // ~One broadcast frame (30 Hz): just enough to hide frame jitter.
     // Meter feel comes from the engine's ballistics, not CSS smoothing.
     transition: clip-path 35ms linear;
+  }
+
+  // Peak-hold line — no transition: it snaps to new peaks and drops on
+  // release, like a hardware meter's hold segment.
+  &__hold {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    pointer-events: none;
   }
 
   &__chan-label {

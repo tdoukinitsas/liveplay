@@ -8,7 +8,7 @@
 // silent values when the server is disconnected so meter widgets render
 // at -∞ dB instead of stale data.
 // =====================================================================
-import { onScopeDispose, ref } from 'vue';
+import { computed, onScopeDispose, ref, watch } from 'vue';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
 import type {
   CueId,
@@ -60,6 +60,50 @@ export function useMixerMeter(mixerId: () => MixerChannelId | null | undefined) 
   onScopeDispose(() => unsubscribe());
 
   return { peak, rms, peakMax };
+}
+
+// ---------------------------------------------------------------------
+// Peak hold + clip latch, derived from the lossless peak_max_db stream.
+// `source` should return the latest peak_max_db (already reactive).
+//  - `held`: the peak line — holds the highest recent value for `holdMs`,
+//    then releases to the current value.
+//  - `clipped`: latches true once the raw max crosses `clipThresholdDb`;
+//    stays latched until resetClip() (operator acknowledges).
+// ---------------------------------------------------------------------
+export function usePeakHold(
+  source: () => number,
+  opts?: { holdMs?: number; clipThresholdDb?: number },
+) {
+  const holdMs  = opts?.holdMs ?? 1500;
+  const clipDb  = opts?.clipThresholdDb ?? -0.1;
+  const held    = ref(-120);
+  const clipped = ref(false);
+  let heldAt = 0;
+  let latest = -120;
+
+  watch(computed(source), (v) => {
+    latest = v;
+    const now = performance.now();
+    if (v >= held.value || now - heldAt >= holdMs) {
+      held.value = v;
+      heldAt = now;
+    }
+    if (v >= clipDb) clipped.value = true;
+  });
+
+  // Watch only fires on value *changes*; a signal that goes silent stops
+  // producing changes, which would freeze the hold line forever. This timer
+  // enforces expiry regardless.
+  const timer = setInterval(() => {
+    if (performance.now() - heldAt >= holdMs && held.value !== latest) {
+      held.value = latest;
+      heldAt = performance.now();
+    }
+  }, 250);
+  onScopeDispose(() => clearInterval(timer));
+
+  const resetClip = () => { clipped.value = false; };
+  return { held, clipped, resetClip };
 }
 
 export function useMasterMeter(index: () => MasterChannelIndex | null | undefined) {
