@@ -15,7 +15,7 @@ MixerChannel::MixerChannel(MixerChannelId id, std::string display_name)
 void MixerChannel::configure(SampleRate sample_rate, FrameCount render_block) noexcept {
     sample_rate_  = sample_rate;
     render_block_ = render_block;
-    meter_.configure(sample_rate);
+    for (auto& m : meters_) m.configure(sample_rate);
 }
 
 void MixerChannel::set_gain_db(float db) noexcept {
@@ -85,8 +85,25 @@ float MixerChannel::current_gain_linear() noexcept {
     return start + (target - start) * curve;
 }
 
-void MixerChannel::update_meter(const Sample* samples, std::size_t frame_count) noexcept {
-    meter_.push_block(samples, frame_count);
+void MixerChannel::update_meter(ChannelIndex lane,
+                                const Sample* samples, std::size_t frame_count) noexcept {
+    if (lane >= meters_.size()) return;
+    meters_[lane].push_block(samples, frame_count);
+}
+
+MeterSnapshot MixerChannel::meter_snapshot() const noexcept {
+    MeterSnapshot out;
+    for (const auto& m : meters_) {
+        const auto s = m.snapshot();
+        out.peak_db = std::max(out.peak_db, s.peak_db);
+        out.rms_db  = std::max(out.rms_db,  s.rms_db);
+    }
+    return out;
+}
+
+MeterSnapshot MixerChannel::meter_snapshot(ChannelIndex lane) const noexcept {
+    if (lane >= meters_.size()) return {};
+    return meters_[lane].snapshot();
 }
 
 } // namespace liveplay::audio

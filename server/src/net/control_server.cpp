@@ -1167,11 +1167,14 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
+                // "lane": destination strip lane (0 = L, 1 = R). Omitted →
+                // every lane (legacy mono-bus behaviour / mono sources).
                 engine_.route_item_source_to_mixer(
                     audio::CueId{j.at("cue").get<std::string>()},
                     j.value("source_channel", (audio::ChannelIndex)0),
                     audio::MixerChannelId{j.at("mixer").get<std::string>()},
-                    j.value("gain_db", 0.0f));
+                    j.value("gain_db", 0.0f),
+                    j.value("lane", audio::kAllMixerLanes));
                 return json_ok(json({{"ok", true}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
@@ -1180,10 +1183,13 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
+                // "lane": source strip lane feeding this master (0 = L,
+                // 1 = R). Omitted → sum of every lane (mono downmix; legacy).
                 engine_.route_mixer_to_master(
                     audio::MixerChannelId{j.at("mixer").get<std::string>()},
                     j.value("master_channel", (audio::MasterChannelIndex)0),
-                    j.value("gain_db", 0.0f));
+                    j.value("gain_db", 0.0f),
+                    j.value("lane", audio::kAllMixerLanes));
                 return json_ok(json({{"ok", true}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });

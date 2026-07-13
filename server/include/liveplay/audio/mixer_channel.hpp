@@ -2,8 +2,10 @@
 // liveplay/audio/mixer_channel.hpp
 // ----------------------------------------------------------------------------
 // A virtual mixer strip — Tier 2 of the engine's routing tree. Items send into
-// it; it sums, applies its own gain/fade/mute/solo, then sends to one or more
-// Master output channels.
+// it; it sums per lane (kMixerLanes parallel lanes, stereo L/R), applies its
+// own gain/fade/mute/solo across all lanes, then each lane sends to one or
+// more Master output channels. The lane buffers themselves are owned by the
+// engine; the strip owns control state and per-lane meters.
 //
 // State lives in atomics so the control thread can adjust gain etc. without
 // stalling the render thread. The per-block contribution buffer is owned by
@@ -15,6 +17,7 @@
 #include "liveplay/audio/meter.hpp"
 #include "liveplay/audio/types.hpp"
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <string>
@@ -44,14 +47,19 @@ public:
     bool  is_muted() const noexcept           { return muted_.load(std::memory_order_relaxed); }
     bool  is_soloed() const noexcept          { return soloed_.load(std::memory_order_relaxed); }
 
-    // Push a block of mono samples (already mixed contribution from items
-    // routed to this channel) into the meter.
-    void update_meter(const Sample* samples, std::size_t frame_count) noexcept;
+    // Push one lane's block of samples (already mixed contribution from items
+    // routed to this strip) into that lane's meter.
+    void update_meter(ChannelIndex lane,
+                      const Sample* samples, std::size_t frame_count) noexcept;
 
     // Initialise audio-thread state (call from engine setup).
     void configure(SampleRate sample_rate, FrameCount render_block) noexcept;
 
-    MeterSnapshot meter_snapshot() const noexcept { return meter_.snapshot(); }
+    // Combined strip reading: element-wise max across lanes (what a single
+    // strip meter widget should show).
+    MeterSnapshot meter_snapshot() const noexcept;
+    // Per-lane reading (L = 0, R = 1) for stereo strip meters.
+    MeterSnapshot meter_snapshot(ChannelIndex lane) const noexcept;
 
 private:
     MixerChannelId id_;
@@ -72,7 +80,7 @@ private:
     SampleRate  sample_rate_  = kDefaultMixSampleRate;
     FrameCount  render_block_ = kDefaultRenderBlock;
 
-    Meter meter_;
+    std::array<Meter, kMixerLanes> meters_;   // one per strip lane (L/R)
 };
 
 } // namespace liveplay::audio

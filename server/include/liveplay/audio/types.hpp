@@ -29,6 +29,13 @@ inline constexpr SampleRate   kDefaultMixSampleRate  = 48'000;
 inline constexpr FrameCount   kDefaultRenderBlock    = 256;   // ~5.3 ms @ 48k
 inline constexpr ChannelCount kDefaultMasterChannels = 64;    // sparse; usually only a handful are wired
 
+// Mixer strips carry this many parallel audio lanes (stereo: L=0, R=1).
+// Item→mixer and mixer→master sends address a specific lane; kAllMixerLanes
+// fans the send across every lane — used for mono sources (centre image) and
+// as the backwards-compatible default for API callers that predate lanes.
+inline constexpr ChannelCount kMixerLanes    = 2;
+inline constexpr ChannelIndex kAllMixerLanes = static_cast<ChannelIndex>(-1);
+
 // ---------------------------------------------------------------------------
 // Strong-typed identifiers. Implemented as a CRTP-free template so each ID
 // type is distinct in the type system but uses the same machinery.
