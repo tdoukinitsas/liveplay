@@ -101,7 +101,8 @@ MeterSnapshot MixerChannel::meter_snapshot() const noexcept {
         out.true_peak_db     = std::max(out.true_peak_db,     s.true_peak_db);
         out.true_peak_max_db = std::max(out.true_peak_max_db, s.true_peak_max_db);
         // Loudness sums across the channel group (BS.1770), it doesn't max.
-        out.kw_ms += s.kw_ms;
+        out.kw_ms   += s.kw_ms;
+        out.kw_ms_s += s.kw_ms_s;
     }
     return out;
 }
@@ -121,7 +122,8 @@ MeterSnapshot MixerChannel::meter_snapshot_consume() noexcept {
         out.true_peak_db     = std::max(out.true_peak_db,     s.true_peak_db);
         out.true_peak_max_db = std::max(out.true_peak_max_db, s.true_peak_max_db);
         // Loudness sums across the channel group (BS.1770), it doesn't max.
-        out.kw_ms += s.kw_ms;
+        out.kw_ms   += s.kw_ms;
+        out.kw_ms_s += s.kw_ms_s;
     }
     return out;
 }

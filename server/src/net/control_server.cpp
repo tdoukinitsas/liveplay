@@ -442,7 +442,8 @@ void ControlServer::broadcast_loop() {
                                     {"peak_max_db", snap.peak_max_db},
                                     {"true_peak_db", snap.true_peak_db},
                                     {"true_peak_max_db", snap.true_peak_max_db},
-                                    {"kw_ms", snap.kw_ms}});
+                                    {"kw_ms", snap.kw_ms},
+                                    {"kw_ms_s", snap.kw_ms_s}});
             }
             m["sources"] = std::move(srcs);
             item_meters.push_back(std::move(m));
@@ -467,6 +468,7 @@ void ControlServer::broadcast_loop() {
                     {"true_peak_db",     s.true_peak_db},
                     {"true_peak_max_db", s.true_peak_max_db},
                     {"kw_ms",            s.kw_ms},
+                    {"kw_ms_s",          s.kw_ms_s},
                 });
             }
         }
@@ -488,6 +490,7 @@ void ControlServer::broadcast_loop() {
                     {"true_peak_db",     s.true_peak_db},
                     {"true_peak_max_db", s.true_peak_max_db},
                     {"kw_ms",            s.kw_ms},
+                    {"kw_ms_s",          s.kw_ms_s},
                     {"gain_reduction_db", gr},
                 });
             }

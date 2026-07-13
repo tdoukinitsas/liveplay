@@ -74,6 +74,11 @@
     <div v-if="showPeakValue" class="stereo-meter__peak-text">
       {{ peakLabel }}
     </div>
+    <!-- Short-term loudness readout (LUFS mode only): momentary drives the
+         bars + main label; this second line shows the 3 s EBU "S" value. -->
+    <div v-if="showPeakValue && meterMode === 'LUFS'" class="stereo-meter__peak-text">
+      {{ shortTermLabel }}
+    </div>
   </div>
 </template>
 
@@ -159,13 +164,21 @@ const rawTpR = computed(() => props.cueId != null
   ? (cueStream.sources.value[1]?.true_peak_db ?? cueStream.sources.value[0]?.true_peak_db ?? -120)
   : rightStream.truePeak.value);
 
-// Momentary loudness (BS.1770) of the metered pair: sum of the channels'
-// K-weighted mean squares. One value for the pair — loudness has no L/R.
+// Loudness (BS.1770) of the metered pair: sum of the channels' K-weighted
+// mean squares. One value for the pair — loudness has no L/R.
+// Momentary (400 ms, EBU "M") drives the bars; short-term (3 s, EBU "S")
+// is shown as a second readout.
 const lufsMomentary = computed(() => {
   if (props.cueId != null) {
     return lufsFromKwMs(cueStream.sources.value.map(s => s.kw_ms));
   }
   return lufsFromKwMs([leftStream.kwMs.value, rightStream.kwMs.value]);
+});
+const lufsShortTerm = computed(() => {
+  if (props.cueId != null) {
+    return lufsFromKwMs(cueStream.sources.value.map(s => s.kw_ms_s));
+  }
+  return lufsFromKwMs([leftStream.kwMsS.value, rightStream.kwMsS.value]);
 });
 
 // Display value selected by the active meter mode.
@@ -256,7 +269,15 @@ const modeLabel = computed(() => meterMode.value);
 
 const peakLabel = computed(() => {
   const m = Math.max(displayL.value, displayR.value);
-  return m <= -119 ? '−∞' : `${Math.round(m)} ${modeLabel.value}`;
+  if (m <= -119) return '−∞';
+  // LUFS mode: label the momentary value "M"; the S line follows below.
+  if (meterMode.value === 'LUFS') return `M ${m.toFixed(1)}`;
+  return `${Math.round(m)} ${modeLabel.value}`;
+});
+
+const shortTermLabel = computed(() => {
+  const s = lufsShortTerm.value;
+  return s <= -119 ? 'S −∞' : `S ${s.toFixed(1)}`;
 });
 </script>
 

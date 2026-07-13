@@ -23,7 +23,7 @@ import type {
 const SILENT: MeterSnapshot = {
   peak_db: -120, rms_db: -120, peak_max_db: -120,
   true_peak_db: -120, true_peak_max_db: -120,
-  kw_ms: 0,
+  kw_ms: 0, kw_ms_s: 0,
 };
 
 // BS.1770 loudness of a channel group from per-channel K-weighted mean
@@ -128,6 +128,7 @@ export function useMasterMeter(index: () => MasterChannelIndex | null | undefine
   const truePeak    = ref(SILENT.true_peak_db);
   const truePeakMax = ref(SILENT.true_peak_max_db);
   const kwMs     = ref(0);
+  const kwMsS    = ref(0);
   const gainReduction = ref(0);
 
   const unsubscribe = server.onMeters((m) => {
@@ -136,7 +137,7 @@ export function useMasterMeter(index: () => MasterChannelIndex | null | undefine
       peak.value = SILENT.peak_db; rms.value = SILENT.rms_db;
       peakMax.value = SILENT.peak_max_db;
       truePeak.value = SILENT.true_peak_db; truePeakMax.value = SILENT.true_peak_max_db;
-      kwMs.value = 0;
+      kwMs.value = 0; kwMsS.value = 0;
       gainReduction.value = 0;
       return;
     }
@@ -148,9 +149,10 @@ export function useMasterMeter(index: () => MasterChannelIndex | null | undefine
     truePeak.value    = frame?.true_peak_db     ?? frame?.peak_db     ?? SILENT.true_peak_db;
     truePeakMax.value = frame?.true_peak_max_db ?? frame?.peak_max_db ?? SILENT.true_peak_max_db;
     kwMs.value        = frame?.kw_ms            ?? 0;
+    kwMsS.value       = frame?.kw_ms_s          ?? 0;
     gainReduction.value = frame?.gain_reduction_db ?? 0;
   });
   onScopeDispose(() => unsubscribe());
 
-  return { peak, rms, peakMax, truePeak, truePeakMax, kwMs, gainReduction };
+  return { peak, rms, peakMax, truePeak, truePeakMax, kwMs, kwMsS, gainReduction };
 }

@@ -134,8 +134,10 @@ void Meter::configure(SampleRate sample_rate,
             kw_hp_.a1 = static_cast<float>(2.0 * (K * K - 1.0) / a0);
             kw_hp_.a2 = static_cast<float>((1.0 - K / Q + K * K) / a0);
         }
-        loud_window_samples_ =
+        loud_m_.window_samples =
             static_cast<std::uint64_t>(0.4 * fs + 0.5);   // 400 ms momentary
+        loud_s_.window_samples =
+            static_cast<std::uint64_t>(3.0 * fs + 0.5);   // 3 s short-term
     }
 }
 
@@ -286,37 +288,38 @@ float Meter::kw_process_sample(float s) noexcept {
     return y;
 }
 
-void Meter::kw_push_block_sum(float sum_sq, std::uint32_t n) noexcept {
-    if (n == 0) return;
+void Meter::LoudnessWindow::push(float sum_sq, std::uint32_t n_samples) noexcept {
+    if (n_samples == 0) return;
     // Append; if the ring is physically full, drop the oldest entry first.
-    if (loud_count_ == kLoudBlocks) {
-        const std::size_t tail = loud_head_;   // head == tail when full
-        loud_total_sum_ -= loud_sum_[tail];
-        loud_total_n_   -= loud_n_[tail];
-        --loud_count_;
+    if (count == kCap) {
+        const std::size_t tail = head;   // head == tail when full
+        total_sum -= sum[tail];
+        total_n   -= n[tail];
+        --count;
     }
-    loud_sum_[loud_head_] = sum_sq;
-    loud_n_[loud_head_]   = n;
-    loud_head_ = (loud_head_ + 1) % kLoudBlocks;
-    ++loud_count_;
-    loud_total_sum_ += sum_sq;
-    loud_total_n_   += n;
+    sum[head] = sum_sq;
+    n[head]   = n_samples;
+    head = (head + 1) % kCap;
+    ++count;
+    total_sum += sum_sq;
+    total_n   += n_samples;
 
-    // Evict from the tail until we're inside the 400 ms window.
-    while (loud_count_ > 1 && loud_total_n_ > loud_window_samples_) {
-        const std::size_t tail =
-            (loud_head_ + kLoudBlocks - loud_count_) % kLoudBlocks;
+    // Evict from the tail until we're inside the window.
+    while (count > 1 && total_n > window_samples) {
+        const std::size_t tail = (head + kCap - count) % kCap;
         // Only evict if removing the tail keeps at least a full window.
-        if (loud_total_n_ - loud_n_[tail] < loud_window_samples_) break;
-        loud_total_sum_ -= loud_sum_[tail];
-        loud_total_n_   -= loud_n_[tail];
-        --loud_count_;
+        if (total_n - n[tail] < window_samples) break;
+        total_sum -= sum[tail];
+        total_n   -= n[tail];
+        --count;
     }
+}
 
-    const double ms = loud_total_n_ > 0
-        ? std::max(0.0, loud_total_sum_) / static_cast<double>(loud_total_n_)
-        : 0.0;
-    kw_ms_published_.store(static_cast<float>(ms), std::memory_order_relaxed);
+void Meter::kw_push_block_sum(float sum_sq, std::uint32_t n) noexcept {
+    loud_m_.push(sum_sq, n);
+    loud_s_.push(sum_sq, n);
+    kw_ms_published_  .store(loud_m_.mean(), std::memory_order_relaxed);
+    kw_ms_s_published_.store(loud_s_.mean(), std::memory_order_relaxed);
 }
 
 float Meter::tp_process_sample(float s) noexcept {
@@ -351,7 +354,8 @@ MeterSnapshot Meter::snapshot() const noexcept {
         s.true_peak_max_db = s.peak_max_db;
     }
     if (loudness_enabled_.load(std::memory_order_relaxed)) {
-        s.kw_ms = kw_ms_published_.load(std::memory_order_relaxed);
+        s.kw_ms   = kw_ms_published_  .load(std::memory_order_relaxed);
+        s.kw_ms_s = kw_ms_s_published_.load(std::memory_order_relaxed);
     }
     return s;
 }
@@ -369,7 +373,8 @@ MeterSnapshot Meter::snapshot_consume_max() noexcept {
         s.true_peak_max_db = s.peak_max_db;
     }
     if (loudness_enabled_.load(std::memory_order_relaxed)) {
-        s.kw_ms = kw_ms_published_.load(std::memory_order_relaxed);
+        s.kw_ms   = kw_ms_published_  .load(std::memory_order_relaxed);
+        s.kw_ms_s = kw_ms_s_published_.load(std::memory_order_relaxed);
     }
     return s;
 }
@@ -381,15 +386,17 @@ void Meter::reset() noexcept {
     tp_hist_.fill(0.0f);
     tp_hist_pos_ = 0;
     kw1_z1_ = kw1_z2_ = kw2_z1_ = kw2_z2_ = 0.0f;
-    loud_head_ = loud_count_ = 0;
-    loud_total_sum_ = 0.0;
-    loud_total_n_   = 0;
+    loud_m_.head = loud_m_.count = 0;
+    loud_m_.total_sum = 0.0; loud_m_.total_n = 0;
+    loud_s_.head = loud_s_.count = 0;
+    loud_s_.total_sum = 0.0; loud_s_.total_n = 0;
     peak_db_published_.store(-120.0f, std::memory_order_relaxed);
     rms_db_published_ .store(-120.0f, std::memory_order_relaxed);
     peak_max_since_read_db_.store(-120.0f, std::memory_order_relaxed);
     tp_db_published_.store(-120.0f, std::memory_order_relaxed);
     tp_max_since_read_db_.store(-120.0f, std::memory_order_relaxed);
-    kw_ms_published_.store(0.0f, std::memory_order_relaxed);
+    kw_ms_published_  .store(0.0f, std::memory_order_relaxed);
+    kw_ms_s_published_.store(0.0f, std::memory_order_relaxed);
 }
 
 } // namespace liveplay::audio

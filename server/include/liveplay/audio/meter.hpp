@@ -13,6 +13,7 @@
 
 #include "liveplay/audio/types.hpp"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstddef>
@@ -56,13 +57,14 @@ struct MeterSnapshot {
     // dBTP display mode still shows sensible values.
     float true_peak_db     = -120.0f;   // ballistic envelope of the TP stream
     float true_peak_max_db = -120.0f;   // raw TP max since last consuming read
-    // K-weighted mean square over the 400 ms momentary window (BS.1770),
-    // LINEAR power — not dB. Loudness of a channel group is
+    // K-weighted mean square (BS.1770), LINEAR power — not dB. Loudness of a
+    // channel group is
     //   LUFS = -0.691 + 10·log10(Σ kw_ms_i)
     // summed over the group's channels (the reader does the pairing, so the
     // engine never needs to know which mono buses form a stereo pair).
-    // 0.0 when loudness metering is disabled.
-    float kw_ms = 0.0f;
+    // Both 0.0 when loudness metering is disabled.
+    float kw_ms   = 0.0f;   // momentary  — 400 ms window (EBU "M")
+    float kw_ms_s = 0.0f;   // short-term — 3 s window   (EBU "S")
 };
 
 class Meter {
@@ -148,7 +150,7 @@ private:
     // the 4 interpolated output samples.
     float tp_process_sample(float s) noexcept;
 
-    // ---- Loudness (K-weighted momentary mean square, BS.1770) -------------
+    // ---- Loudness (K-weighted mean square, BS.1770) -----------------------
     struct Biquad { float b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0; };
     std::atomic<bool> loudness_enabled_{false};
     SampleRate kw_designed_rate_ = 0;    // rate the biquads were designed for
@@ -156,22 +158,35 @@ private:
     Biquad kw_hp_{};                     // stage 2: RLB high-pass
     // Biquad states (DF2T, audio-thread-only).
     float kw1_z1_ = 0, kw1_z2_ = 0, kw2_z1_ = 0, kw2_z2_ = 0;
-    // 400 ms rectangular window as a ring of per-block mean-square sums —
-    // fixed size, allocation-free on the audio thread. At the default
-    // 256-frame block ~75 entries are live.
-    static constexpr std::size_t kLoudBlocks = 512;
-    std::array<float, kLoudBlocks>         loud_sum_{};
-    std::array<std::uint32_t, kLoudBlocks> loud_n_{};
-    std::size_t   loud_head_ = 0;        // next write slot
-    std::size_t   loud_count_ = 0;       // live entries
-    double        loud_total_sum_ = 0.0;
-    std::uint64_t loud_total_n_   = 0;
-    std::uint64_t loud_window_samples_ = 19200;   // 400 ms at the mix rate
+
+    // Rectangular mean-square window as a ring of per-block sums — fixed
+    // size, allocation-free on the audio thread. At the default 256-frame
+    // block the 3 s short-term window occupies ~563 entries; if callers push
+    // unusually tiny blocks the ring capacity bounds the effective window.
+    struct LoudnessWindow {
+        static constexpr std::size_t kCap = 1024;
+        std::array<float, kCap>         sum{};
+        std::array<std::uint32_t, kCap> n{};
+        std::size_t   head = 0, count = 0;
+        double        total_sum = 0.0;
+        std::uint64_t total_n = 0;
+        std::uint64_t window_samples = 0;
+
+        void  push(float sum_sq, std::uint32_t n_samples) noexcept;
+        float mean() const noexcept {
+            return total_n == 0 ? 0.0f
+                : static_cast<float>(std::max(0.0, total_sum) /
+                                     static_cast<double>(total_n));
+        }
+    };
+    LoudnessWindow loud_m_{};            // momentary  (400 ms)
+    LoudnessWindow loud_s_{};            // short-term (3 s)
     std::atomic<float> kw_ms_published_{0.0f};
+    std::atomic<float> kw_ms_s_published_{0.0f};
 
     // Filter one sample through the K-weighting chain (audio thread).
     float kw_process_sample(float s) noexcept;
-    // Fold one block's squared-sum into the window + publish (audio thread).
+    // Fold one block's squared-sum into both windows + publish (audio thread).
     void  kw_push_block_sum(float sum_sq, std::uint32_t n) noexcept;
 
     // Published values (atomic for the control-thread reader).
