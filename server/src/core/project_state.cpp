@@ -2429,6 +2429,263 @@ std::string ProjectState::next_item_override() const {
     return next_item_override_;
 }
 
+// ---------------------------------------------------------------------------
+// External-control surface (Bitfocus Companion, custom remotes).
+// ---------------------------------------------------------------------------
+static const char* transport_state_name(audio::TransportState t) {
+    switch (t) {
+        case audio::TransportState::Playing:   return "playing";
+        case audio::TransportState::FadingIn:  return "fading_in";
+        case audio::TransportState::FadingOut: return "fading_out";
+        case audio::TransportState::Paused:    return "paused";
+        default:                               return "stopped";
+    }
+}
+
+json ProjectState::state_summary() const {
+    // Doc-derived facts are snapshotted under mutex_ first; engine transport
+    // is read afterwards (engine calls take their own locks) and the auto
+    // "Up Next" derivation re-acquires mutex_ at the end. Never call into the
+    // engine while holding mutex_ from here — play_item does the same dance.
+    struct ItemFacts {
+        std::string      name;
+        double           duration  = 0.0;  // full-file seconds (0 = unknown)
+        double           in_point  = 0.0;
+        double           out_point = 0.0;  // 0 = play to end
+        std::vector<int> index;            // playlist index path; empty for cart-only items
+    };
+    std::unordered_map<std::string, ItemFacts> facts;
+    // uuid → (cue, duration from decode metadata)
+    std::vector<std::tuple<std::string, audio::CueId, double>> cue_pairs;
+    std::string override_uuid;
+    json project_block;
+    json cart_bindings = json::array();
+
+    {
+        std::lock_guard lock{mutex_};
+
+        const std::size_t item_count =
+            (document_.contains("items") && document_["items"].is_array())
+                ? document_["items"].size() : 0;
+        project_block = json{
+            {"name",           document_.value("name", "")},
+            {"itemCount",      item_count},
+            {"hasOpenProject", item_count > 0 || !project_file_path_.empty()},
+            {"audioLoading",   loading_audio_.load(std::memory_order_acquire)},
+        };
+
+        // Walk the playlist tree recording every item's display facts and its
+        // index path — the same path /api/transport/play_index accepts.
+        std::function<void(const json&, std::vector<int>&)> walk;
+        walk = [&](const json& arr, std::vector<int>& path) {
+            if (!arr.is_array()) return;
+            for (int i = 0; i < static_cast<int>(arr.size()); ++i) {
+                const auto& it = arr[i];
+                if (!it.is_object()) continue;
+                path.push_back(i);
+                const std::string uuid = it.value("uuid", std::string{});
+                if (!uuid.empty()) {
+                    ItemFacts f;
+                    f.name      = it.value("displayName", std::string{});
+                    f.duration  = it.value("duration", 0.0);
+                    f.in_point  = it.value("inPoint",  0.0);
+                    f.out_point = it.value("outPoint", 0.0);
+                    f.index     = path;
+                    facts.emplace(uuid, std::move(f));
+                }
+                if (it.value("type", std::string{}) == "group" &&
+                    it.contains("children")) {
+                    walk(it["children"], path);
+                }
+                path.pop_back();
+            }
+        };
+        std::vector<int> path;
+        if (document_.contains("items")) walk(document_["items"], path);
+
+        // Cart-only items live outside the playlist tree — record their names
+        // so cart bindings resolve, but with no index path.
+        if (document_.contains("cartOnlyItems") && document_["cartOnlyItems"].is_array()) {
+            for (const auto& it : document_["cartOnlyItems"]) {
+                if (!it.is_object()) continue;
+                const std::string uuid = it.value("uuid", std::string{});
+                if (uuid.empty() || facts.count(uuid)) continue;
+                ItemFacts f;
+                f.name      = it.value("displayName", std::string{});
+                f.duration  = it.value("duration", 0.0);
+                f.in_point  = it.value("inPoint",  0.0);
+                f.out_point = it.value("outPoint", 0.0);
+                facts.emplace(uuid, std::move(f));
+            }
+        }
+
+        cue_pairs.reserve(item_uuid_to_cue_.size());
+        for (const auto& [uuid, cue] : item_uuid_to_cue_) {
+            double duration = 0.0;
+            if (auto it = cues_.find(cue.value); it != cues_.end())
+                duration = it->second.duration_seconds;
+            cue_pairs.emplace_back(uuid, cue, duration);
+        }
+
+        override_uuid = next_item_override_;
+
+        if (document_.contains("cartItems") && document_["cartItems"].is_array()) {
+            for (const auto& c : document_["cartItems"]) {
+                if (c.is_object()) cart_bindings.push_back(c);
+            }
+        }
+    }
+
+    // Engine pass: which cues are on air, and where are their playheads.
+    struct OnAir {
+        std::string           uuid;
+        std::string           cue_id;
+        audio::TransportState transport;
+        double                playhead = 0.0;
+        double                duration = 0.0;
+    };
+    std::vector<OnAir> on_air;
+    for (const auto& [uuid, cue, duration] : cue_pairs) {
+        auto* pi = engine_.find_cue(cue);
+        if (!pi) continue;
+        const auto s = pi->stats();
+        if (s.transport == audio::TransportState::Stopped) continue;
+        on_air.push_back(OnAir{uuid, cue.value, s.transport, s.playhead_seconds, duration});
+    }
+    // Document order (index path, lexicographic); cart-only items last.
+    std::sort(on_air.begin(), on_air.end(), [&](const OnAir& a, const OnAir& b) {
+        const auto& ia = facts[a.uuid].index;
+        const auto& ib = facts[b.uuid].index;
+        if (ia.empty() != ib.empty()) return ib.empty();
+        return ia < ib;
+    });
+
+    json playing = json::array();
+    for (const auto& e : on_air) {
+        const auto& f = facts[e.uuid];
+        // Effective bounds honour inPoint / outPoint trims the same way the
+        // client's transport display does.
+        const double duration  = (f.duration > 0.0) ? f.duration : e.duration;
+        const double end       = (f.out_point > f.in_point) ? f.out_point
+                                : (duration > 0.0 ? duration : e.playhead);
+        const double elapsed   = std::max(0.0, e.playhead - f.in_point);
+        const double eff_dur   = std::max(0.0, end - f.in_point);
+        json entry{
+            {"itemUuid",     e.uuid},
+            {"cueId",        e.cue_id},
+            {"name",         f.name},
+            {"transport",    transport_state_name(e.transport)},
+            {"paused",       e.transport == audio::TransportState::Paused},
+            {"playheadSec",  e.playhead},
+            {"elapsedSec",   elapsed},
+            {"durationSec",  eff_dur},
+            {"remainingSec", std::max(0.0, eff_dur - elapsed)},
+        };
+        if (!f.index.empty()) entry["index"] = f.index;
+        playing.push_back(std::move(entry));
+    }
+
+    // Effective "Up Next": user override first, else derived from the
+    // currently-playing item's endBehavior (client GO-button parity).
+    std::string next_uuid   = override_uuid;
+    std::string next_source = next_uuid.empty() ? "" : "override";
+    if (next_uuid.empty() && !on_air.empty()) {
+        std::lock_guard lock{mutex_};
+        for (const auto& e : on_air) {
+            const auto n = resolve_next_item_locked(e.uuid);
+            if (!n.empty()) { next_uuid = n; next_source = "auto"; break; }
+        }
+    }
+    json next = nullptr;
+    if (!next_uuid.empty()) {
+        next = json{{"itemUuid", next_uuid}, {"source", next_source}};
+        if (auto it = facts.find(next_uuid); it != facts.end()) {
+            next["name"] = it->second.name;
+            if (!it->second.index.empty()) next["index"] = it->second.index;
+        }
+    }
+
+    // Cart bindings, decorated with the bound item's name + live state.
+    json cart = json::array();
+    for (const auto& c : cart_bindings) {
+        const int slot = c.value("slot", -1);
+        const std::string uuid = c.value("itemUuid", std::string{});
+        if (slot < 0 || uuid.empty()) continue;
+        json entry{{"slot", slot}, {"itemUuid", uuid}};
+        if (auto it = facts.find(uuid); it != facts.end()) entry["name"] = it->second.name;
+        entry["playing"] = std::any_of(on_air.begin(), on_air.end(),
+                                       [&](const OnAir& e){ return e.uuid == uuid; });
+        cart.push_back(std::move(entry));
+    }
+
+    return json{
+        {"project", std::move(project_block)},
+        {"playing", std::move(playing)},
+        {"next",    std::move(next)},
+        {"master", json{
+            {"gainDb",         engine_.master_gain_db()},
+            {"limiterEnabled", engine_.limiter_enabled()},
+        }},
+        {"cart",    std::move(cart)},
+        {"preview", json{
+            {"active",   !current_preview_item_uuid().empty()},
+            {"itemUuid", current_preview_item_uuid()},
+        }},
+    };
+}
+
+std::string ProjectState::go() {
+    std::string target;
+    {
+        std::lock_guard lock{mutex_};
+        target = next_item_override_;
+    }
+    const bool from_override = !target.empty();
+
+    if (target.empty()) {
+        // No override armed — derive from the currently-playing item's
+        // endBehavior, the same fallback the client's GO button uses.
+        std::vector<std::pair<std::string, audio::CueId>> pairs;
+        {
+            std::lock_guard lock{mutex_};
+            pairs.reserve(item_uuid_to_cue_.size());
+            for (const auto& [u, c] : item_uuid_to_cue_) pairs.emplace_back(u, c);
+        }
+        std::vector<std::string> on_air;
+        for (const auto& [u, c] : pairs) {
+            if (auto* pi = engine_.find_cue(c)) {
+                if (pi->stats().transport != audio::TransportState::Stopped)
+                    on_air.push_back(u);
+            }
+        }
+        {
+            std::lock_guard lock{mutex_};
+            for (const auto& u : on_air) {
+                const auto n = resolve_next_item_locked(u);
+                if (!n.empty()) { target = n; break; }
+            }
+        }
+    }
+
+    if (target.empty()) return {};
+    if (!trigger_item(target)) return {};
+    // Consume the override only after a successful trigger so a GO against a
+    // not-yet-loaded item doesn't silently disarm the operator's choice.
+    if (from_override) set_next_item_override("");
+    return target;
+}
+
+std::string ProjectState::cart_slot_item_uuid(int slot) const {
+    std::lock_guard lock{mutex_};
+    if (!document_.contains("cartItems") || !document_["cartItems"].is_array())
+        return {};
+    for (const auto& c : document_["cartItems"]) {
+        if (c.is_object() && c.value("slot", -1) == slot)
+            return c.value("itemUuid", std::string{});
+    }
+    return {};
+}
+
 // Dispatch by item type: audio → play_item; group → walk startBehavior
 // (play-first plays the first child recursively; play-all triggers every
 // child). Mirrors the client's triggerGroup() so auto-next / Up Next

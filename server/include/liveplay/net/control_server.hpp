@@ -20,6 +20,12 @@
 //   POST   /api/cues/{id}/fade               — { "in_ms": N, "out_ms": M }
 //   POST   /api/cues/{id}/ltc                — { "enabled":..., "fps":..., "offset_ns":... }
 //   POST   /api/transport/stop_all           — { "fade_ms": 250 }
+//   GET    /api/state/summary                — compact transport state (external control)
+//   POST   /api/transport/go                 — play the armed "Up Next" item
+//   POST   /api/transport/play_index         — { "index": [1, 11] } trigger by index path
+//   POST   /api/transport/cart/{slot}/play   — trigger a cart slot's bound item
+//   GET    /api/master/limiter               — { "enabled": bool }
+//   POST   /api/master/limiter               — { "enabled": bool } (omit = toggle)
 //   POST   /api/routing/item_to_mixer        — { cue, source_channel, mixer, gain_db }
 //   POST   /api/routing/mixer_to_master      — { mixer, master_channel, gain_db }
 //   POST   /api/routing/master_to_device     — { master_channel, device, hw_channel }
