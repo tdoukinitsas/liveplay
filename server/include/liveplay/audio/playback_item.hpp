@@ -115,6 +115,18 @@ public:
     void set_ltc_frame_rate(LTCFrameRate fr);
     void set_ltc_offset(std::chrono::nanoseconds offset) noexcept;
 
+    // Retune source-meter ballistics (applies to existing meters immediately
+    // and to any meters created later, e.g. after an LTC channel-count
+    // change). Safe mid-playback.
+    void set_meter_ballistics(const MeterBallistics& b) noexcept;
+
+    // Toggle 4× oversampled true-peak detection on the source meters (same
+    // apply-now-and-to-future-meters semantics as set_meter_ballistics).
+    void set_true_peak_metering(bool enabled) noexcept;
+
+    // Toggle K-weighted loudness on the source meters (same semantics).
+    void set_loudness_metering(bool enabled) noexcept;
+
     // Configure a soft end-of-playback point in seconds (the item's "out
     // point"). When the playhead reaches this frame, the same code path as
     // natural EOF runs — stop() honours fade_out_duration. Pass <= 0 to
@@ -161,6 +173,8 @@ public:
     PlaybackItemStats stats() const noexcept;
 
     MeterSnapshot source_meter(ChannelIndex ch) const noexcept;
+    // Consuming read (resets the channel's max-since-read). Broadcaster only.
+    MeterSnapshot source_meter_consume(ChannelIndex ch) noexcept;
 
     // ---- Audio thread ----------------------------------------------------
     // Render `frame_count` frames into `out` (deinterleaved per source channel).
@@ -230,6 +244,12 @@ private:
 
     // Per-source-channel meters (including LTC if enabled). Sized at load().
     std::vector<std::unique_ptr<Meter>> source_meters_;
+    // Current ballistics + feature flags — applied by resize_meters() so
+    // meters created after a channel-count change inherit the project
+    // settings.
+    MeterBallistics meter_ballistics_{};
+    bool            meter_true_peak_ = false;
+    bool            meter_loudness_  = false;
 
     // Helpers ----------------------------------------------------------
     void start_fade(float from_lin, float to_lin, std::chrono::milliseconds dur,

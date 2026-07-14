@@ -295,8 +295,25 @@ public:
     void  set_output_channel_gain_db(MasterChannelIndex ch, float db);
     float output_channel_gain_db(MasterChannelIndex ch) const noexcept;
 
+    // ---- Metering config ---------------------------------------------------
+    // Retune the ballistics of EVERY meter in the engine (per-item source
+    // meters, mixer strip lanes, masters) and remember them so meters created
+    // later inherit the setting. Safe mid-playback.
+    void set_meter_ballistics(const MeterBallistics& b);
+
+    // Toggle 4× oversampled true-peak detection on every meter (same
+    // fan-out + remember semantics). Gated by the project's meter mode —
+    // the extra DSP only runs when the operator is looking at dBTP.
+    void set_true_peak_metering(bool enabled);
+
+    // Toggle K-weighted loudness (BS.1770 momentary) on every meter (same
+    // fan-out + remember semantics). Gated on meter mode == LUFS.
+    void set_loudness_metering(bool enabled);
+
     // ---- Metering reads --------------------------------------------------
     MeterSnapshot read_master_meter(MasterChannelIndex master) const;
+    // Consuming read (resets the master's max-since-read). Broadcaster only.
+    MeterSnapshot read_master_meter_consume(MasterChannelIndex master);
     float         read_master_gain_reduction_db(MasterChannelIndex master) const;
 
     // ---- Introspection ---------------------------------------------------
@@ -369,6 +386,12 @@ private:
         std::unique_ptr<Meter>   meter;
     };
     std::vector<MasterChannelState>  master_state_;
+
+    // Current meter ballistics + feature flags (project settings). Guarded by
+    // mutex_; applied to meters created after the corresponding setter ran.
+    MeterBallistics meter_ballistics_{};
+    bool            meter_true_peak_ = false;
+    bool            meter_loudness_  = false;
 
     // Render thread plumbing.
     std::atomic<bool>                running_{false};

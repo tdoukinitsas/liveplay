@@ -28,10 +28,19 @@
       <!-- L + R bars -->
       <div class="stereo-meter__bars">
         <div class="stereo-meter__chan">
+          <!-- Clip latch — lights on any raw sample ≥ clip threshold since
+               the last click (click either indicator to reset both). -->
+          <div
+            class="stereo-meter__clip"
+            :class="{ 'is-clipped': holdL.clipped.value || holdR.clipped.value }"
+            :title="'Clip (click to reset)'"
+            @click="resetClips"
+          />
           <div class="stereo-meter__bar-group">
             <div class="stereo-meter__track">
               <div class="stereo-meter__fill" :style="rmsStyleL" />
               <div class="stereo-meter__fill" :style="peakStyleL" />
+              <div v-if="holdVisibleL" class="stereo-meter__hold" :style="holdStyleL" />
             </div>
             <!-- GR track: same rounded-rect shape, accent fill from top -->
             <div v-if="props.leftIndex != null" class="stereo-meter__gr-track">
@@ -41,10 +50,17 @@
           <div class="stereo-meter__chan-label">L</div>
         </div>
         <div class="stereo-meter__chan">
+          <div
+            class="stereo-meter__clip"
+            :class="{ 'is-clipped': holdL.clipped.value || holdR.clipped.value }"
+            :title="'Clip (click to reset)'"
+            @click="resetClips"
+          />
           <div class="stereo-meter__bar-group">
             <div class="stereo-meter__track">
               <div class="stereo-meter__fill" :style="rmsStyleR" />
               <div class="stereo-meter__fill" :style="peakStyleR" />
+              <div v-if="holdVisibleR" class="stereo-meter__hold" :style="holdStyleR" />
             </div>
             <div v-if="props.rightIndex != null" class="stereo-meter__gr-track">
               <div class="stereo-meter__gr-fill" :style="grStyleR" />
@@ -58,12 +74,17 @@
     <div v-if="showPeakValue" class="stereo-meter__peak-text">
       {{ peakLabel }}
     </div>
+    <!-- Short-term loudness readout (LUFS mode only): momentary drives the
+         bars + main label; this second line shows the 3 s EBU "S" value. -->
+    <div v-if="showPeakValue && meterMode === 'LUFS'" class="stereo-meter__peak-text">
+      {{ shortTermLabel }}
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useMasterMeter, useCueMeters } from '~/composables/useLiveMeters';
+import { useMasterMeter, useCueMeters, usePeakHold, lufsFromKwMs } from '~/composables/useLiveMeters';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { useProject } from '~/composables/useProject';
 
@@ -113,21 +134,70 @@ const rawRmsR = computed(() => props.cueId != null
   ? (cueStream.sources.value[1]?.rms_db ?? cueStream.sources.value[0]?.rms_db ?? -120)
   : rightStream.rms.value);
 
+// Lossless raw max since the previous frame — drives peak hold + clip latch.
+// In dBTP mode the true-peak max is used, so intersample overs latch clip.
+const rawMaxL = computed(() => {
+  if (props.cueId != null) {
+    const s = cueStream.sources.value[0];
+    return (meterMode.value === 'dBTP' ? s?.true_peak_max_db : s?.peak_max_db) ?? -120;
+  }
+  return meterMode.value === 'dBTP' ? leftStream.truePeakMax.value : leftStream.peakMax.value;
+});
+const rawMaxR = computed(() => {
+  if (props.cueId != null) {
+    const s = cueStream.sources.value[1] ?? cueStream.sources.value[0];
+    return (meterMode.value === 'dBTP' ? s?.true_peak_max_db : s?.peak_max_db) ?? -120;
+  }
+  return meterMode.value === 'dBTP' ? rightStream.truePeakMax.value : rightStream.peakMax.value;
+});
+
+const holdL = usePeakHold(() => rawMaxL.value);
+const holdR = usePeakHold(() => rawMaxR.value);
+const resetClips = () => { holdL.resetClip(); holdR.resetClip(); };
+
+// True-peak stream (4× oversampled server-side when the project's meter
+// mode is dBTP; mirrors sample peak otherwise).
+const rawTpL = computed(() => props.cueId != null
+  ? (cueStream.sources.value[0]?.true_peak_db ?? -120)
+  : leftStream.truePeak.value);
+const rawTpR = computed(() => props.cueId != null
+  ? (cueStream.sources.value[1]?.true_peak_db ?? cueStream.sources.value[0]?.true_peak_db ?? -120)
+  : rightStream.truePeak.value);
+
+// Loudness (BS.1770) of the metered pair: sum of the channels' K-weighted
+// mean squares. One value for the pair — loudness has no L/R.
+// Momentary (400 ms, EBU "M") drives the bars; short-term (3 s, EBU "S")
+// is shown as a second readout.
+const lufsMomentary = computed(() => {
+  if (props.cueId != null) {
+    return lufsFromKwMs(cueStream.sources.value.map(s => s.kw_ms));
+  }
+  return lufsFromKwMs([leftStream.kwMs.value, rightStream.kwMs.value]);
+});
+const lufsShortTerm = computed(() => {
+  if (props.cueId != null) {
+    return lufsFromKwMs(cueStream.sources.value.map(s => s.kw_ms_s));
+  }
+  return lufsFromKwMs([leftStream.kwMsS.value, rightStream.kwMsS.value]);
+});
+
 // Display value selected by the active meter mode.
-// dBTP / dBFS ≈ peak_db; RMS ≈ rms_db; LUFS ≈ rms_db (integrated loudness
-// requires ITU BS.1770 — until the server implements it we use RMS as a
-// reasonable approximation that at least gives a different display than TP).
+// dBTP → oversampled true peak; dBFS → sample peak; RMS → rms;
+// LUFS → K-weighted momentary loudness (same value on both bars — loudness
+// is a property of the pair, not of a channel).
 const displayL = computed(() => {
   switch (meterMode.value) {
     case 'RMS':  return rawRmsL.value;
-    case 'LUFS': return rawRmsL.value;
-    default:     return rawPeakL.value; // dBFS / dBTP
+    case 'LUFS': return lufsMomentary.value;
+    case 'dBTP': return rawTpL.value;
+    default:     return rawPeakL.value; // dBFS
   }
 });
 const displayR = computed(() => {
   switch (meterMode.value) {
     case 'RMS':  return rawRmsR.value;
-    case 'LUFS': return rawRmsR.value;
+    case 'LUFS': return lufsMomentary.value;
+    case 'dBTP': return rawTpR.value;
     default:     return rawPeakR.value;
   }
 });
@@ -162,6 +232,17 @@ function grStyle(grDb: number): Record<string, string> {
 const grStyleL = computed(() => grStyle(leftStream.gainReduction.value));
 const grStyleR = computed(() => grStyle(rightStream.gainReduction.value));
 
+// Peak-hold line: thin marker at the held level, coloured by zone.
+function holdStyle(db: number): Record<string, string> {
+  const pct = Math.min(100, Math.max(0,
+    ((db - props.minDb) / (props.maxDb - props.minDb)) * 100));
+  return { bottom: `${pct.toFixed(2)}%`, background: colorForLevel(db) };
+}
+const holdVisibleL = computed(() => holdL.held.value > props.minDb);
+const holdVisibleR = computed(() => holdR.held.value > props.minDb);
+const holdStyleL = computed(() => holdStyle(holdL.held.value));
+const holdStyleR = computed(() => holdStyle(holdR.held.value));
+
 // Scale tick marks at key zone boundary levels from the server-reported
 // output target. Ticks use the zone colour for their position.
 const scaleMarks = computed(() => {
@@ -188,7 +269,15 @@ const modeLabel = computed(() => meterMode.value);
 
 const peakLabel = computed(() => {
   const m = Math.max(displayL.value, displayR.value);
-  return m <= -119 ? '−∞' : `${Math.round(m)} ${modeLabel.value}`;
+  if (m <= -119) return '−∞';
+  // LUFS mode: label the momentary value "M"; the S line follows below.
+  if (meterMode.value === 'LUFS') return `M ${m.toFixed(1)}`;
+  return `${Math.round(m)} ${modeLabel.value}`;
+});
+
+const shortTermLabel = computed(() => {
+  const s = lufsShortTerm.value;
+  return s <= -119 ? 'S −∞' : `S ${s.toFixed(1)}`;
 });
 </script>
 
@@ -281,6 +370,22 @@ const peakLabel = computed(() => {
     flex-shrink: 0;
   }
 
+  // Clip latch dot above each bar. Dim until a raw sample crosses the clip
+  // threshold; click to acknowledge/reset.
+  &__clip {
+    width: 8px;
+    height: 4px;
+    border-radius: 1px;
+    background: var(--color-border);
+    cursor: pointer;
+    flex-shrink: 0;
+
+    &.is-clipped {
+      background: #ff1744;
+      box-shadow: 0 0 4px rgba(255, 23, 68, 0.8);
+    }
+  }
+
   // Row containing the 8px signal track + 4px GR track
   &__bar-group {
     display: flex;
@@ -318,7 +423,19 @@ const peakLabel = computed(() => {
   &__gr-fill {
     position: absolute;
     inset: 0;
-    transition: clip-path 110ms linear;
+    // ~One broadcast frame (30 Hz): just enough to hide frame jitter.
+    // Meter feel comes from the engine's ballistics, not CSS smoothing.
+    transition: clip-path 35ms linear;
+  }
+
+  // Peak-hold line — no transition: it snaps to new peaks and drops on
+  // release, like a hardware meter's hold segment.
+  &__hold {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    pointer-events: none;
   }
 
   &__chan-label {

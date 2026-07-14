@@ -181,6 +181,22 @@ target_compile_definitions(liveplay-server PRIVATE
 )
 
 # ---------------------------------------------------------------------------
+# Tests (opt-in; framework-free assertion binaries)
+# ---------------------------------------------------------------------------
+option(LIVEPLAY_BUILD_TESTS "Build the liveplay test binaries" OFF)
+if(LIVEPLAY_BUILD_TESTS)
+    enable_testing()
+    add_executable(liveplay-meter-tests
+        tests/meter_test.cpp
+        src/audio/meter.cpp
+    )
+    target_include_directories(liveplay-meter-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME meter COMMAND liveplay-meter-tests)
+endif()
+
+# ---------------------------------------------------------------------------
 # Install rules — used by CI when staging the artifact directory.
 # ---------------------------------------------------------------------------
 include(GNUInstallDirs)

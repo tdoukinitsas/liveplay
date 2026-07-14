@@ -396,7 +396,9 @@ void ControlServer::stop() {
 }
 
 // ---------------------------------------------------------------------------
-// Meter broadcaster (~60 fps) + cue_state edge events
+// Meter broadcaster (cfg_.meter_broadcast_hz) + cue_state edge events.
+// Uses CONSUMING meter reads (snapshot_consume_max) — this loop must remain
+// the only consumer or readers would steal each other's peaks.
 // ---------------------------------------------------------------------------
 void ControlServer::broadcast_loop() {
     using clock = std::chrono::steady_clock;
@@ -407,8 +409,13 @@ void ControlServer::broadcast_loop() {
     // exactly once on each transition (rather than every tick).
     std::unordered_map<std::string, audio::TransportState> prev_transports;
 
+    // Absolute-deadline schedule. sleep_for(period - work) systematically
+    // undershoots the target rate on Windows (~15.6 ms sleep granularity
+    // rounds every sleep up); sleep_until against an advancing deadline
+    // self-corrects, so the average rate converges on meter_broadcast_hz.
+    auto next_tick = clock::now() + period;
+
     while (running_.load(std::memory_order_acquire)) {
-        const auto start = clock::now();
 
         // Build the meters payload.
         json payload;
@@ -429,8 +436,14 @@ void ControlServer::broadcast_loop() {
             m["playhead_seconds"]  = stats.playhead_seconds;
             json srcs = json::array();
             for (audio::ChannelIndex c = 0; c < item->source_channel_count(); ++c) {
-                auto snap = item->source_meter(c);
-                srcs.push_back(json{{"peak_db", snap.peak_db}, {"rms_db", snap.rms_db}});
+                auto snap = item->source_meter_consume(c);
+                srcs.push_back(json{{"peak_db", snap.peak_db},
+                                    {"rms_db", snap.rms_db},
+                                    {"peak_max_db", snap.peak_max_db},
+                                    {"true_peak_db", snap.true_peak_db},
+                                    {"true_peak_max_db", snap.true_peak_max_db},
+                                    {"kw_ms", snap.kw_ms},
+                                    {"kw_ms_s", snap.kw_ms_s}});
             }
             m["sources"] = std::move(srcs);
             item_meters.push_back(std::move(m));
@@ -446,11 +459,16 @@ void ControlServer::broadcast_loop() {
         json mixer_meters = json::array();
         for (auto& mch : state_.list_mixer_channels()) {
             if (auto* m = engine_.find_mixer_channel(mch.id)) {
-                auto s = m->meter_snapshot();
+                auto s = m->meter_snapshot_consume();
                 mixer_meters.push_back(json{
-                    {"mixer_id", mch.id.value},
-                    {"peak_db",  s.peak_db},
-                    {"rms_db",   s.rms_db},
+                    {"mixer_id",         mch.id.value},
+                    {"peak_db",          s.peak_db},
+                    {"rms_db",           s.rms_db},
+                    {"peak_max_db",      s.peak_max_db},
+                    {"true_peak_db",     s.true_peak_db},
+                    {"true_peak_max_db", s.true_peak_max_db},
+                    {"kw_ms",            s.kw_ms},
+                    {"kw_ms_s",          s.kw_ms_s},
                 });
             }
         }
@@ -458,14 +476,21 @@ void ControlServer::broadcast_loop() {
 
         json master_meters = json::array();
         for (audio::MasterChannelIndex i = 0; i < engine_.config().master_channels; ++i) {
-            auto s = engine_.read_master_meter(i);
+            auto s = engine_.read_master_meter_consume(i);
             const float gr = engine_.read_master_gain_reduction_db(i);
             // Only include non-silent channels to keep the payload light.
-            if (s.peak_db > -119.0f || gr < -0.05f) {
+            // (peak_max_db is checked too so an isolated transient inside an
+            // otherwise-silent frame still gets reported.)
+            if (s.peak_db > -119.0f || s.peak_max_db > -119.0f || gr < -0.05f) {
                 master_meters.push_back(json{
-                    {"index",   i},
-                    {"peak_db", s.peak_db},
-                    {"rms_db",  s.rms_db},
+                    {"index",            i},
+                    {"peak_db",          s.peak_db},
+                    {"rms_db",           s.rms_db},
+                    {"peak_max_db",      s.peak_max_db},
+                    {"true_peak_db",     s.true_peak_db},
+                    {"true_peak_max_db", s.true_peak_max_db},
+                    {"kw_ms",            s.kw_ms},
+                    {"kw_ms_s",          s.kw_ms_s},
                     {"gain_reduction_db", gr},
                 });
             }
@@ -476,8 +501,9 @@ void ControlServer::broadcast_loop() {
         try { serialized = payload.dump(); }
         catch (const std::exception& e) {
             Logger::error("broadcast_loop: failed to serialize meters: {}", e.what());
-            const auto used = clock::now() - start;
-            if (used < period) std::this_thread::sleep_for(period - used);
+            std::this_thread::sleep_until(next_tick);
+            next_tick += period;
+            if (next_tick < clock::now()) next_tick = clock::now() + period;
             continue;
         }
 
@@ -540,9 +566,12 @@ void ControlServer::broadcast_loop() {
             catch (...) { /* connection will be cleaned up by onclose */ }
         }
 
-        // Sleep to maintain the broadcast cadence.
-        const auto used = clock::now() - start;
-        if (used < period) std::this_thread::sleep_for(period - used);
+        // Sleep to maintain the broadcast cadence (absolute deadline; see
+        // next_tick comment above). After a long stall, re-anchor instead of
+        // burst-firing to catch up.
+        std::this_thread::sleep_until(next_tick);
+        next_tick += period;
+        if (next_tick < clock::now()) next_tick = clock::now() + period;
     }
 }
 

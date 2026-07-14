@@ -76,6 +76,19 @@ export interface ServerFsListing {
 export interface MeterSnapshot {
   peak_db: number;
   rms_db: number;
+  // Raw sample maximum since the previous meter frame (no ballistics).
+  // Lossless — transients between frames are never missed. Drives
+  // peak-hold and clip detection.
+  peak_max_db: number;
+  // True peak (dBTP, 4× oversampled per BS.1770). Mirrors peak values when
+  // true-peak metering is disabled (project not in dBTP mode).
+  true_peak_db: number;
+  true_peak_max_db: number;
+  // K-weighted mean square (BS.1770), LINEAR power. Loudness of a channel
+  // group: LUFS = -0.691 + 10·log10(Σ kw_ms) — see lufsFromKwMs().
+  // Both 0 when loudness metering is disabled (project not in LUFS mode).
+  kw_ms: number;     // momentary  — 400 ms window (EBU "M")
+  kw_ms_s: number;   // short-term — 3 s window   (EBU "S")
 }
 
 export interface ItemMeterFrame {
@@ -89,12 +102,22 @@ export interface MixerMeterFrame {
   mixer_id: MixerChannelId;
   peak_db: number;
   rms_db: number;
+  peak_max_db: number;
+  true_peak_db: number;
+  true_peak_max_db: number;
+  kw_ms: number;
+  kw_ms_s: number;
 }
 
 export interface MasterMeterFrame {
   index: MasterChannelIndex;
   peak_db: number;
   rms_db: number;
+  peak_max_db: number;
+  true_peak_db: number;
+  true_peak_max_db: number;
+  kw_ms: number;
+  kw_ms_s: number;
   gain_reduction_db: number;
 }
 

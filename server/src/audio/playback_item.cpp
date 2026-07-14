@@ -152,6 +152,11 @@ MeterSnapshot PlaybackItem::source_meter(ChannelIndex ch) const noexcept {
     return source_meters_[ch]->snapshot();
 }
 
+MeterSnapshot PlaybackItem::source_meter_consume(ChannelIndex ch) noexcept {
+    if (ch >= source_meters_.size() || !source_meters_[ch]) return {};
+    return source_meters_[ch]->snapshot_consume_max();
+}
+
 void PlaybackItem::play() {
     if (!decoder_ready_) {
         Logger::warn("PlaybackItem[{}] play() ignored — decoder not ready", desc_.id.value);
@@ -394,7 +399,30 @@ void PlaybackItem::resize_meters(ChannelCount n) {
     source_meters_.resize(n);
     for (ChannelCount i = 0; i < n; ++i) {
         if (!source_meters_[i]) source_meters_[i] = std::make_unique<Meter>();
-        source_meters_[i]->configure(desc_.mix_sample_rate);
+        source_meters_[i]->configure(desc_.mix_sample_rate, meter_ballistics_);
+        source_meters_[i]->set_true_peak_enabled(meter_true_peak_);
+        source_meters_[i]->set_loudness_enabled(meter_loudness_);
+    }
+}
+
+void PlaybackItem::set_meter_ballistics(const MeterBallistics& b) noexcept {
+    meter_ballistics_ = b;
+    for (auto& m : source_meters_) {
+        if (m) m->configure(desc_.mix_sample_rate, b);
+    }
+}
+
+void PlaybackItem::set_true_peak_metering(bool enabled) noexcept {
+    meter_true_peak_ = enabled;
+    for (auto& m : source_meters_) {
+        if (m) m->set_true_peak_enabled(enabled);
+    }
+}
+
+void PlaybackItem::set_loudness_metering(bool enabled) noexcept {
+    meter_loudness_ = enabled;
+    for (auto& m : source_meters_) {
+        if (m) m->set_loudness_enabled(enabled);
     }
 }
 

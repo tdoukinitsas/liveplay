@@ -55,11 +55,30 @@ public:
     // Initialise audio-thread state (call from engine setup).
     void configure(SampleRate sample_rate, FrameCount render_block) noexcept;
 
+    // Retune every lane meter's ballistics. Safe mid-playback (Meter
+    // coefficients are atomic).
+    void configure_meters(const MeterBallistics& b) noexcept {
+        for (auto& m : meters_) m.configure(sample_rate_, b);
+    }
+
+    // Toggle 4× oversampled true-peak detection on every lane meter.
+    void set_true_peak_enabled(bool enabled) noexcept {
+        for (auto& m : meters_) m.set_true_peak_enabled(enabled);
+    }
+
+    // Toggle K-weighted loudness on every lane meter.
+    void set_loudness_enabled(bool enabled) noexcept {
+        for (auto& m : meters_) m.set_loudness_enabled(enabled);
+    }
+
     // Combined strip reading: element-wise max across lanes (what a single
     // strip meter widget should show).
     MeterSnapshot meter_snapshot() const noexcept;
     // Per-lane reading (L = 0, R = 1) for stereo strip meters.
     MeterSnapshot meter_snapshot(ChannelIndex lane) const noexcept;
+    // Combined consuming read (resets every lane's max-since-read).
+    // Broadcaster only.
+    MeterSnapshot meter_snapshot_consume() noexcept;
 
 private:
     MixerChannelId id_;
