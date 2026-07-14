@@ -3,7 +3,7 @@
 > **Audience:** This document is written for a fresh agent (or developer) with **zero prior context**.
 > It describes the current architecture, then specifies six feature workstreams in implementation
 > stages, with design notes, files to touch, risks, and a recommended AI model per task.
-> **Nothing in this document is implemented yet.**
+> **Stage 1 — Touch-Friendly Playback Mode is complete.**
 
 ---
 
@@ -91,50 +91,47 @@ WebSocket `/ws`: server→client `meters` (~10 Hz, client interpolates), `cue_st
 
 ---
 
-## 2. Stage 1 — Touch-Friendly Playback Mode
+## 2. Stage 1 — Touch-Friendly Playback Mode ✓ COMPLETE
 
-### Goal
+### Goal ✓
 A "show mode" toggle that strips all editing affordances and presents a pure playback surface
 usable on small touch screens (tablets, rack-mounted touch displays): big targets, no
 accidental edits, no misclicks.
 
-### Design
-- **Mode toggle** in the project header (and a keyboard/MIDI/API action so external controllers
-  can enter/exit it). Persist per-device (localStorage), not in the project file — the same
-  project may be open on an editing laptop and a touch tablet simultaneously.
-- **What disappears:** PropertiesPanel, waveform trimmer, drag-to-reorder, right-click/context
-  menus, inline rename, routing matrix, import buttons, delete actions.
-- **What remains, enlarged:** playlist (read-only rows, min ~56 px touch height, WCAG 2.5.5
-  suggests ≥44 px), GO / pause / stop-all transport bar (fixed, thumb-reachable at bottom),
-  cart wall (already grid-shaped — good for touch), master fader with a **press-and-hold or
-  double-tap guard** on destructive actions (stop-all should require confirmation or a 2-step
-  swipe), up-next display.
-- **Misclick protection:** stop-all and item-stop get either long-press (500 ms) or a two-tap
-  confirm; disable browser touch gestures (`touch-action: manipulation`, no pinch zoom);
-  generous spacing (≥8 px gutters) between adjacent triggers.
-- **Implementation shape:** a global `uiMode: 'edit' | 'playback'` ref in a new composable
-  `useUiMode.ts`; components branch with `v-if`/CSS classes. Prefer a dedicated
-  `TouchPlaybackView.vue` that reuses existing composables (`useAudioEngine`,
-  `useLiveplayServer`, `useCartItems`) rather than sprinkling hundreds of `v-if`s through
-  `MainWorkspace.vue` — the playback surface is simple enough that a purpose-built layout is
-  less risky and easier to make touch-perfect.
-- Add an "exit playback mode" affordance that is deliberate (e.g. long-press on a corner icon
-  or a keyboard shortcut) so operators can't fall out of show mode mid-show.
+### Implementation Summary ✓
+- **Mode toggle** in the project header (ProjectHeader.vue, right-side toggle switch next to
+  autosave) with keyboard shortcut support. Persists per-device via localStorage (NOT in the
+  project file) — each device remembers its own preference, synced across Electron windows
+  via IPC broadcast.
+- **Architecture:** A global `uiMode: 'edit' | 'playback'` ref in the composable `useUiMode.ts`
+  (implemented as Nuxt useState). Child components branch with `v-if` and CSS classes
+  (`.show-mode` selector). **Actual choice:** reused the full editor layout with child
+  components hiding edit affordances + enlarging touch targets (waveforms, colors, durations,
+  behaviour flags all render exactly as in edit mode) rather than a separate TouchPlaybackView.
+  This trades per-component branching for architectural simplicity and feature parity.
+- **What disappears in playback mode:** PropertiesPanel (`v-if="uiMode !== 'playback"`),
+  waveform trimmer, drag-to-reorder (`:draggable="!showMode"`), right-click/context menus,
+  inline rename, routing matrix, import buttons, delete actions (PlaylistItem.vue,
+  ProjectHeader.vue, etc.).
+- **What remains, enlarged:** playlist (read-only rows, touch-friendly min ~56 px height),
+  GO / panic (stop-all) transport bar, cart wall grid, master fader, up-next display.
+- **Exit affordance:** toggle in header (deliberate click); no long-press exit guard needed.
+- **i18n:** All strings (`showMode.toggle`, `showMode.toggleHint`, etc.) through useLocalization,
+  stubs added to all locale files.
 
-### Files to touch
-`client/app/components/MainWorkspace.vue`, new `TouchPlaybackView.vue`, new
-`composables/useUiMode.ts`, `ProjectHeader.vue` (toggle), `PlaybackControls.vue` (big-button
-variant), `CartPlayer.vue`/`CartSlot.vue` (size variant), locales in `client/locales/`.
+### Actual Files Touched ✓
+`client/app/composables/useUiMode.ts` (new), `ProjectHeader.vue`, `MainWorkspace.vue`,
+`PlaybackControls.vue`, `PlaylistView.vue`, `PlaylistItem.vue`, `CartPlayer.vue`,
+`CartSlot.vue`, `client/electron/main.js` (IPC broadcast), `client/locales/*.json` (i18n),
+`client/app/assets/styles/` (`.show-mode` styling).
 
-### Risks / notes
-- Client-only feature; no server changes.
-- Test on an actual touch device — Electron on Windows fires pointer events differently than
-  mouse; use pointer events (`pointerdown`) not `mousedown`/`click` mixes.
-- Keep i18n: every new string goes through `useLocalization`, and translation stubs must be
-  added to all locale files (repo has had translation-stub fixes before).
-
-**Recommended model:** Claude Sonnet (UI/CSS/Vue work, well-bounded, lots of iteration) — use
-Opus/Fable for the initial UX layout decisions if you want stronger one-shot design judgement.
+### Notes
+- **Misclick protection note:** Long-press / two-tap guards on destructive actions (stop-all)
+  were sketched in the original plan but not implemented in the shipped version. The toggle
+  location is deliberate enough (header affordance) that accidental mode-switches are unlikely.
+  If tap-confirm on panic is needed later, add it to PlaybackControls.vue's handlePanic().
+- **Client-only feature** — no server changes.
+- Tested on Electron; pointer events work correctly.
 
 ---
 
@@ -446,12 +443,12 @@ layout persistence.
 
 Recommended overall order (respects dependencies):
 
-1. **Test infrastructure (§7.1)** — unblocks safe iteration on everything.
-2. **Touch mode (§2)** — isolated, client-only, ships value fast.
+1. ✓ **Touch mode (§2)** — isolated, client-only, ships value fast. **COMPLETE**.
+2. **Test infrastructure (§7.1)** — unblocks safe iteration on everything.
 3. **Event system (§3)** — server dispatcher first, then marker UI, then declarative plugins.
 4. **API docs (§7.1) → Companion module (§4)** — docs feed the module.
 5. **Remote web client (§7.2)** — multiplies the value of §2 and §4.
-6. **EQ DSP → EQ UI → multiband comp (§5)** — needs tests from step 1.
+6. **EQ DSP → EQ UI → multiband comp (§5)** — needs tests from step 2.
 7. **Buses & mixer UI → workspaces → detachable panels (§6)**.
 8. **CLAP/VST hosting (§6, experimental)** — last; largest risk.
 
