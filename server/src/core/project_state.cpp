@@ -358,6 +358,7 @@ void to_json(json& j, const RouteSendV2& r) {
         {"source_channel",    r.source_channel},
         {"destination_mixer", r.destination_mixer.value},
         {"gain_db",           r.gain_db},
+        {"lane",              r.lane},
     };
 }
 
@@ -366,6 +367,7 @@ void to_json(json& j, const MixerToMasterV2& r) {
         {"mixer",           r.mixer.value},
         {"master_channel",  r.master_channel},
         {"gain_db",         r.gain_db},
+        {"lane",            r.lane},
     };
 }
 
@@ -2493,8 +2495,8 @@ ProjectState::ensure_device_routing(const std::string& device_name) {
         "Output: " + device_name);
     engine_.assign_master_to_device(master_l, dev, 0);
     engine_.assign_master_to_device(master_r, dev, 1);
-    engine_.route_mixer_to_master(mixer, master_l);
-    engine_.route_mixer_to_master(mixer, master_r);
+    engine_.route_mixer_to_master(mixer, master_l, 0.0f, 0);   // strip L lane
+    engine_.route_mixer_to_master(mixer, master_r, 0.0f, 1);   // strip R lane
 
     {
         std::lock_guard lock{mutex_};
@@ -2512,6 +2514,11 @@ void ProjectState::route_cue_to_mixer(const audio::CueId& cue,
     auto* pi = engine_.find_cue(cue);
     if (!pi) return;
     const auto src_count = pi->source_channel_count();
+    // The LTC synthetic channel is always the LAST source channel — it must
+    // never feed the audible mixer (it gets its own device routing from
+    // apply_ltc_device_routing()). Only the real audio channels route here.
+    const audio::ChannelCount audio_count =
+        (pi->desc().ltc_enabled && src_count > 0) ? src_count - 1 : src_count;
 
     // Drop ALL prior item-to-mixer routes for this cue — including the engine's
     // auto-created "Main" mixer, which ProjectState does NOT track by id. The
@@ -2522,8 +2529,16 @@ void ProjectState::route_cue_to_mixer(const audio::CueId& cue,
     // apply_ltc_device_routing() call that follows routing in play_item.)
     engine_.unroute_item_from_all_mixers(cue);
 
-    for (audio::ChannelIndex c = 0; c < std::min<audio::ChannelCount>(2, src_count); ++c) {
-        engine_.route_item_source_to_mixer(cue, c, mixer);
+    if (audio_count == 1) {
+        // Mono cue: fan the single channel across both strip lanes (centre).
+        engine_.route_item_source_to_mixer(cue, 0, mixer, 0.0f,
+                                           audio::kAllMixerLanes);
+    } else {
+        // Stereo (or wider): L → lane 0, R → lane 1, preserving the image.
+        for (audio::ChannelIndex c = 0;
+             c < std::min<audio::ChannelCount>(audio::kMixerLanes, audio_count); ++c) {
+            engine_.route_item_source_to_mixer(cue, c, mixer, 0.0f, c);
+        }
     }
 }
 
@@ -2627,8 +2642,8 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
             const auto mixer = engine_.create_mixer_channel("Preview");
             engine_.assign_master_to_device(kPreviewMasterL, dev, 0);
             engine_.assign_master_to_device(kPreviewMasterR, dev, 1);
-            engine_.route_mixer_to_master(mixer, kPreviewMasterL);
-            engine_.route_mixer_to_master(mixer, kPreviewMasterR);
+            engine_.route_mixer_to_master(mixer, kPreviewMasterL, 0.0f, 0);
+            engine_.route_mixer_to_master(mixer, kPreviewMasterR, 0.0f, 1);
             {
                 std::lock_guard lock{mutex_};
                 preview_device_      = dev;
@@ -2648,9 +2663,14 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
 
     auto* pi = engine_.find_cue(cue_id);
     if (pi) {
-        engine_.route_item_source_to_mixer(cue_id, 0, preview_mixer);
         if (pi->source_channel_count() >= 2) {
-            engine_.route_item_source_to_mixer(cue_id, 1, preview_mixer);
+            // Stereo: L → lane 0, R → lane 1.
+            engine_.route_item_source_to_mixer(cue_id, 0, preview_mixer, 0.0f, 0);
+            engine_.route_item_source_to_mixer(cue_id, 1, preview_mixer, 0.0f, 1);
+        } else {
+            // Mono: fan across both lanes.
+            engine_.route_item_source_to_mixer(cue_id, 0, preview_mixer, 0.0f,
+                                               audio::kAllMixerLanes);
         }
         pi->prime(2.0, in_point);
     }
@@ -2979,6 +2999,7 @@ bool ProjectState::load_from_json(const json& doc_in) {
                 r.value("source_channel", (audio::ChannelIndex)0),
                 audio::MixerChannelId{r.value("destination_mixer", std::string{})},
                 r.value("gain_db", 0.0f),
+                r.value("lane", audio::kAllMixerLanes),
             });
         }
     }
@@ -2988,6 +3009,7 @@ bool ProjectState::load_from_json(const json& doc_in) {
                 audio::MixerChannelId{r.value("mixer", std::string{})},
                 r.value("master_channel", (audio::MasterChannelIndex)0),
                 r.value("gain_db", 0.0f),
+                r.value("lane", audio::kAllMixerLanes),
             });
         }
     }
@@ -3100,10 +3122,12 @@ void ProjectState::apply_to_engine_locked() {
     // 3) Re-apply routes.
     for (auto& r : item_routes_) {
         engine_.route_item_source_to_mixer(audio::CueId{}, r.source_channel,
-                                           r.destination_mixer, r.gain_db);
+                                           r.destination_mixer, r.gain_db,
+                                           r.lane);
     }
     for (auto& r : mixer_routes_) {
-        engine_.route_mixer_to_master(r.mixer, r.master_channel, r.gain_db);
+        engine_.route_mixer_to_master(r.mixer, r.master_channel, r.gain_db,
+                                      r.lane);
     }
     for (auto& a : master_assignments_) {
         // If the document didn't specify a device (e.g. upgraded legacy

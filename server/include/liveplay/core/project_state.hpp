@@ -67,12 +67,18 @@ struct RouteSendV2 {
     audio::ChannelIndex source_channel;
     audio::MixerChannelId destination_mixer;
     float gain_db;
+    // Destination strip lane (0 = L, 1 = R); kAllMixerLanes = every lane.
+    // Documents written before lanes existed load as kAllMixerLanes, which
+    // reproduces the old mono-bus behaviour.
+    audio::ChannelIndex lane = audio::kAllMixerLanes;
 };
 
 struct MixerToMasterV2 {
     audio::MixerChannelId mixer;
     audio::MasterChannelIndex master_channel;
     float gain_db;
+    // Source strip lane feeding the master; kAllMixerLanes = sum of lanes.
+    audio::ChannelIndex lane = audio::kAllMixerLanes;
 };
 
 struct MasterAssignment {
