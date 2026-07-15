@@ -847,6 +847,17 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
                              fade ? std::to_string(*fade) + "ms" : "project default");
             state.stop_all_cues(fade);
         }
+        else if (type == "go") {
+            // Play whatever is armed as "Up Next" (override first, else the
+            // playing item's endBehavior target). Same semantics as
+            // POST /api/transport/go.
+            const auto uuid = state.go();
+            if (uuid.empty()) {
+                Logger::warn("WS go: nothing armed or derivable to play");
+                return json({{"type", "error"}, {"message", "nothing armed to GO to"}}).dump();
+            }
+            Logger::playback("GO: {}", item_playback_info(uuid, state));
+        }
         else if (type == "gain") {
             auto cue = resolve_cue(j);
             if (cue) {
@@ -1106,6 +1117,87 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // ---- External-control surface (Bitfocus Companion, custom remotes) ----
+    // Compact machine-readable transport summary. Control surfaces fetch this
+    // once on connect (and after a project_changed doc_patch), then keep it
+    // fresh from the /ws push stream — no polling.
+    CROW_ROUTE(app, "/api/state/summary").methods(crow::HTTPMethod::Get)
+        ([this] {
+            try {
+                json s = state_.state_summary();
+                s["server"] = json{
+                    {"version", std::string{
+#ifdef LIVEPLAY_SERVER_VERSION
+                        LIVEPLAY_SERVER_VERSION
+#else
+                        "0.0.0"
+#endif
+                    }},
+                    {"meterBroadcastHz", cfg_.meter_broadcast_hz},
+                };
+                return json_ok(s);
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
+            catch (...) { return json_err(500, "internal error"); }
+        });
+
+    // GO — play whatever is armed as "Up Next" (user override first, else the
+    // playing item's endBehavior target). GET is accepted as well as POST so
+    // the URL can be fired from a browser or a plain `curl`.
+    CROW_ROUTE(app, "/api/transport/go")
+        .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
+        ([this](const crow::request& req){
+            Logger::api_request("Client ({}) -> Server ({}) : {} /api/transport/go",
+                                req.remote_ip_address, impl_->server_addr,
+                                crow::method_name(req.method));
+            const std::string uuid = state_.go();
+            if (uuid.empty()) {
+                Logger::warn("GO — nothing armed or derivable to play");
+                return json_err(404, "nothing armed or playing to GO to");
+            }
+            Logger::playback("GO: {}", item_playback_info(uuid, state_));
+            return json_ok(json({{"ok", true}, {"uuid", uuid}}));
+        });
+
+    // First-class body-addressed variant of /api/project/items/by-index/…
+    // Body: { "index": [1, 11] } — an index path descending into groups.
+    CROW_ROUTE(app, "/api/transport/play_index").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                auto j = json::parse(req.body);
+                std::vector<int> path;
+                if (j.contains("index") && j["index"].is_array()) {
+                    for (const auto& v : j["index"]) {
+                        if (!v.is_number_integer() || v.get<int>() < 0)
+                            return json_err(400, "index must contain non-negative integers");
+                        path.push_back(v.get<int>());
+                    }
+                }
+                if (path.empty())
+                    return json_err(400, "index must be a non-empty array of child indices");
+                const std::string uuid = state_.item_uuid_by_index(path);
+                if (uuid.empty()) return json_err(404, "no item at that index");
+                Logger::playback("TRIGGER: {}", item_playback_info(uuid, state_));
+                if (!state_.trigger_item(uuid))
+                    return json_err(404, "item not loaded into engine");
+                return json_ok(json({{"ok", true}, {"uuid", uuid}, {"index", path}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // Trigger the item bound to a cart slot. GET accepted for curl/browser.
+    CROW_ROUTE(app, "/api/transport/cart/<int>/play")
+        .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
+        ([this](const crow::request& req, int slot){
+            Logger::api_request("Client ({}) -> Server ({}) : {} /api/transport/cart/{}/play",
+                                req.remote_ip_address, impl_->server_addr,
+                                crow::method_name(req.method), slot);
+            const std::string uuid = state_.cart_slot_item_uuid(slot);
+            if (uuid.empty()) return json_err(404, "cart slot is empty");
+            Logger::playback("CART {}: {}", slot, item_playback_info(uuid, state_));
+            if (!state_.trigger_item(uuid))
+                return json_err(404, "item not loaded into engine");
+            return json_ok(json({{"ok", true}, {"slot", slot}, {"uuid", uuid}}));
+        });
+
     CROW_ROUTE(app, "/api/master/ceiling").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
@@ -1121,13 +1213,41 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req){
             try {
                 auto j = json::parse(req.body);
-                const float db = j.value("db", 0.0f);
+                // "db" sets an absolute gain; "delta" nudges the current gain
+                // (control-surface increment/decrement without a read-modify-
+                // write race on the caller's side). "db" wins if both present.
+                float db;
+                if (!j.contains("db") && j.contains("delta") && j["delta"].is_number())
+                    db = engine_.master_gain_db() + j["delta"].get<float>();
+                else
+                    db = j.value("db", 0.0f);
                 engine_.set_master_gain_db(db);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "master_gain_changed"},
                     {"db", engine_.master_gain_db()},
                 });
                 return json_ok(json({{"ok", true}, {"db", engine_.master_gain_db()}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // Master brickwall limiter enable/bypass. POST body { "enabled": bool };
+    // omitting "enabled" toggles the current state (single-button surfaces).
+    CROW_ROUTE(app, "/api/master/limiter").methods(crow::HTTPMethod::Get)
+        ([this]{ return json_ok(json({{"enabled", engine_.limiter_enabled()}})); });
+    CROW_ROUTE(app, "/api/master/limiter").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                auto j = json::parse(req.body.empty() ? std::string{"{}"} : req.body);
+                const bool enabled =
+                    (j.contains("enabled") && j["enabled"].is_boolean())
+                        ? j["enabled"].get<bool>()
+                        : !engine_.limiter_enabled();
+                engine_.set_limiter_enabled(enabled);
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "limiter_changed"},
+                    {"enabled", enabled},
+                });
+                return json_ok(json({{"ok", true}, {"enabled", enabled}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
@@ -2327,6 +2447,34 @@ void ControlServer::install_routes() {
             Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/items/{}/stop OK",
                                  req.remote_ip_address, impl_->server_addr, uuid);
             return json_ok(json({{"ok", true}}));
+        });
+    // Pause / resume hold the playhead without unloading. REST mirror of the
+    // WS "pause"/"resume" messages so stateless control surfaces can use them.
+    CROW_ROUTE(app, "/api/project/items/<string>/pause").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, std::string uuid){
+            Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items/{}/pause",
+                                req.remote_ip_address, impl_->server_addr, uuid);
+            const auto cue = state_.item_to_cue_id(uuid);
+            if (!cue) return json_err(404, "item not loaded into engine");
+            if (auto* pi = engine_.find_cue(*cue)) {
+                Logger::playback("PAUSE: {}", item_playback_info(uuid, state_));
+                pi->pause();
+                return json_ok(json({{"ok", true}}));
+            }
+            return json_err(404, "item not loaded into engine");
+        });
+    CROW_ROUTE(app, "/api/project/items/<string>/resume").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, std::string uuid){
+            Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items/{}/resume",
+                                req.remote_ip_address, impl_->server_addr, uuid);
+            const auto cue = state_.item_to_cue_id(uuid);
+            if (!cue) return json_err(404, "item not loaded into engine");
+            if (auto* pi = engine_.find_cue(*cue)) {
+                Logger::playback("RESUME: {}", item_playback_info(uuid, state_));
+                pi->resume();
+                return json_ok(json({{"ok", true}}));
+            }
+            return json_err(404, "item not loaded into engine");
         });
     CROW_ROUTE(app, "/api/project/items/<string>/seek").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req, std::string uuid){

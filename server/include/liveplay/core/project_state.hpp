@@ -244,6 +244,24 @@ public:
     // server to seed newly-connected clients with the live override state.
     std::string next_item_override() const;
 
+    // ---- External-control surface (Bitfocus Companion, custom remotes) ----
+    // Compact machine-readable transport summary: project header facts, every
+    // on-air item (name, index path, elapsed/remaining), the effective "Up
+    // Next" target, master gain/limiter state and cart-slot bindings. Built
+    // for polling-free control surfaces — fetch once on connect, then keep it
+    // fresh from the /ws push messages (cue_state, meters, doc_patch).
+    json state_summary() const;
+
+    // GO: trigger whatever is armed as "Up Next". Uses the user-set override
+    // when present (consumed on success), otherwise derives the target from
+    // the currently-playing item's endBehavior — mirroring the client's GO
+    // button. Returns the uuid triggered, or empty if nothing was armed /
+    // derivable / loaded.
+    std::string go();
+
+    // Item uuid bound to a cart slot, or empty if the slot is unbound.
+    std::string cart_slot_item_uuid(int slot) const;
+
     // ---- Per-device routing ---------------------------------------------
     // Ensure a "device mixer" exists for `device_name` (the user-visible
     // name from /api/devices). Opens the audio device if needed, creates a
