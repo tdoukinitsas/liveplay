@@ -20,11 +20,43 @@ node server/tests/e2e/gen-signal.js /tmp/liveplay-test-signal.wav
 
 # 3. Start a server on a spare port, then drive it.
 server/build/Release/liveplay-server.exe --port 4500 &
-node server/tests/e2e/pfl-e2e.js 4500 /tmp/liveplay-test-signal.wav
+node server/tests/e2e/pfl-e2e.js        4500 /tmp/liveplay-test-signal.wav
+node server/tests/e2e/filters-e2e.js    4500 /tmp/liveplay-test-signal.wav
+node server/tests/e2e/gate-e2e.js       4500 /tmp/liveplay-test-signal.wav
+node server/tests/e2e/reroute-e2e.js    4500 /tmp/liveplay-test-signal.wav
+node server/tests/e2e/save-churn.js     4500 /tmp/liveplay-test-signal.wav <projDir> <serverLog>
+node server/tests/e2e/materialise-skip.js 4500
 ```
+
+The server holds the wav open while a project referencing it is loaded, so **stop the server
+before regenerating the signal** or the write fails with EBUSY and the old file is used silently.
 
 Exit code is non-zero if anything failed; each assertion prints PASS/FAIL with the levels it
 measured, so a failure says *how far* out it was rather than just that it was.
+
+## Measuring DSP, specifically
+
+Every "the processor is broken" result in this directory so far has turned out to be the
+measurement. In order of how much time each one cost:
+
+- **Average POWER, never decibels.** A mean of dB readings is a geometric mean and weights quiet
+  frames far too heavily. Two identical flat chains read 0.4 dB apart until this was fixed.
+- **Wait 1.5 s after a change before believing the meter.** The engine ramps coefficients over
+  ~340 ms and the RMS meter integrates on top of that. At 700 ms the window still caught the tail
+  of a +12 dB boost and read 0.3 dB hot — which looks exactly like a band failing to flatten.
+- **The signal is a 1-second triangle sweep for a reason.** A whole number of sweep periods covers
+  identical spectral content wherever the window starts; at five seconds a 1.2 s window sampled a
+  different slice each time. It is a triangle rather than a sawtooth because a sawtooth's
+  2 kHz → 200 Hz wrap is a broadband click a window can catch.
+- **Choose thresholds with margin.** The gate closes 3 dB below its threshold, so a threshold of
+  −3 dB against a −6 dBFS signal puts the close point exactly on the signal level, inside the
+  hysteresis window. The gate correctly held open; the test called it a failure to gate.
+- **Pick a corner that actually puts the signal in the stopband.** A 1 kHz low-pass leaves 44% of
+  a 200 Hz–2 kHz sweep in the passband and takes about 2 dB off the total, which is the right
+  answer and a poor test.
+- **`POST /api/buses/<id>/dsp` does not persist.** It is the in-gesture path: it merges onto the
+  *stored* bus and writes no document. Send the whole section, and `PATCH` first if a later
+  assertion depends on the value being stored.
 
 ## Things worth knowing before adding assertions
 

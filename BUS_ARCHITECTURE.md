@@ -1,7 +1,10 @@
 # LivePlay — Bus Architecture
 
-> **Status:** Stages 0–3 complete on `fix/engine-config-wiring`, unmerged. Stages 4–5 not started.
-> Stage 4 (bus → bus) is the next one, and the only one that changes the graph shape.
+> **Status:** Stages 0–3 complete on `fix/engine-config-wiring`, unmerged. **Stage 5 is in
+> progress and is being done before Stage 4** — they are independent, the surface already
+> promised the processing, and bus→bus is the risky one. Done so far: HPF, LPF, four-band EQ,
+> expander/gate, section bypasses. **The compressor/limiter is next** — see §0.4 for the design
+> already settled. Stage 4 (bus → bus) follows it.
 > Supersedes the "Stage 3 — Bus Mixing" sketch in `IMPROVEMENTS_PLAN.md` §6, which is now
 > stale (it lists mute/solo/mixer-meters as missing; they exist).
 > Ownership-model placement follows the object-ownership model discussed in issue #46.
@@ -117,11 +120,17 @@ the symptom is misleading in every case.
 | **PFL arriving in the house** — the master read 5 dB hot the moment PFL went up | Two separate causes, both found by metering the master with PFL raised, neither visible from the code. (1) `ensure_default_routing()` took `mixers_.begin()` — an arbitrary strip out of an `unordered_map` — as "the Main mixer" and wired it to masters 0/1; sometimes that was the Monitor strip. It now skips the monitor and prefers a strip actually named Main. (2) An unmapped Monitor fell through the identity fallback to `open_device_by_name()`, which returns the *default* device on no match. Both are in the e2e harness as assertions, and both were confirmed to fail without the fix. |
 | Repeat runs of the e2e harness disagreeing with the first | Two real leaks plus one bad assertion. `materialise_buses()` cleared the free master-pair pool without rewinding the allocator, so every project load abandoned its pairs and walked the counter towards the preview reserve. `rewire_buses_for_output_map()` compared Monitor against the plain output map, which never matches a binding that came from `settings.previewDevice`, so every save tore the headphone feed down and rebuilt it. And "the house level" was maxing over *every* master channel, which stopped meaning the house the moment Monitor was mapped — the reserved pair is a master channel too. |
 
+| The gate ran but did nothing, at any setting | `ChannelDsp::advance_coeffs()` ramps the filter coefficients and originally only those, so the gate's coefficients were never copied out of the published slot into the struct the render thread reads. Every parameter change published correctly into a slot nothing looked at, and the render thread kept a default-constructed — disabled — gate. Anything added to `StripCoeffs` that is *not* ramped still has to be assigned there. The unit tests drove `GateState` directly and passed throughout; only the e2e caught it. |
+
 ### 0.3 Not done
 
 - **Stage 4 — bus → bus.** A bus targeting another bus is accepted, warns, and stays silent.
-- **Stage 5 — inserts.** Insert slots and the EQ/Dynamics panels in the channel view are
-  laid-out shells with disabled controls. (PFL is real as of Stage 3.)
+- **Stage 5 — the compressor/limiter and plugins.** HPF, LPF, the four EQ bands and the
+  expander/gate are real; §0.4 has the compressor design. The six-slot plugin rack is still a
+  shell, and stays one — plugins were deferred deliberately.
+- **The EQ bands are always bells.** The surface gives all four a Q control, and Q means something
+  different on a shelf, so shelving LF/HF needs one more control per band to say which it is.
+  `biquad_lowshelf` / `biquad_highshelf` are written and tested already.
 - **`previewDevice` is still a device name in the project**, now as the fallback binding for the
   Monitor bus. The portable path exists — map `"Monitor"` in the output map and it wins — but the
   legacy field is still honoured, because dropping it would silently take pre-listen away from
@@ -153,6 +162,64 @@ The **server** work is verified properly, and Stage 3 more thoroughly than the r
   no hardware at all. It found two ways for PFL to reach the house that reading the code did not.
 - Every safety assertion was confirmed to **fail** against a deliberately broken build before
   being trusted.
+
+### 0.4 The channel chain, and what the compressor still needs
+
+**The chain is fixed, not a plugin rack.** HPF → LPF → EQ ×4 → gate → *(compressor)* → PFL tap →
+fader → pan send → master. These are known blocks every strip has, always in that order, so they
+are fields on `ChannelDsp` rather than an insert interface. Plugins arrive later as a separate
+list alongside. It runs **regardless of mute**, because PFL is pre-mute.
+
+**Where the pieces live**
+
+| File | What |
+|---|---|
+| `audio/biquad.hpp` | TDF-II section + RBJ designers. Header-only, denormal-flushed, Nyquist-clamped. |
+| `audio/dynamics.hpp` | `GateParams` / `GateCoeffs` / `GateState`. The compressor goes here. |
+| `audio/channel_dsp.hpp` | The chain. Double-buffered publish, per-block coefficient ramp. |
+| `core/project_state.hpp` | `BusDsp`, `BusGate`, `merge_bus_dsp`, `dsp_params_for`. |
+| `client/utils/filterResponse.ts` | Display-only mirror of the C++ maths. **Must be kept in step by hand.** |
+
+**Rules that already bind the compressor**
+
+- **Parameters cross to the render thread through `StripCoeffs`**, published into a double-buffered
+  slot with an atomic index — *not* the topology, because a knob drag must not re-walk every route.
+  Filter coefficients are ramped; dynamics coefficients are **assigned whole** in
+  `advance_coeffs()`. Forgetting that assignment is what made the gate inert (§0.2b).
+- **Detection is stereo-linked.** `ChannelDsp::process()` takes the lanes as a set for this reason,
+  and a mono strip passes a lane count of 1. Keying per lane shifts the image; on a compressor it is
+  worse than on the gate.
+- **A no-op must be a genuine no-op** — bit-transparent, and reporting `needs_processing()` false so
+  flat strips cost nothing. A chain going flat keeps running for a settle tail so it can ramp out.
+- **Attack/release mean the opposite of the gate's.** On the compressor, attack is the gain
+  *decreasing* (clamping down) and release is recovery. The gate's is the other way round and the
+  notes in `_DSP_DOCS` do not say so.
+
+**What the surface already promises** (`MixerDynamicsPanel.vue`, `compParams`): threshold −18
+(−60…0 dB), ratio 4 (1…60), makeup 0 (−12…24 dB), attack 10 (0.1…300 ms), knee 6 (0…24 dB),
+release 200 (5…5000 ms). Ratio, attack and release want the **log** taper; threshold, makeup and
+knee stay linear.
+
+**Gotchas `_DSP_DOCS/compressor_limiter.md` does not cover**
+
+1. **Soft knee**, which the notes omit entirely and which is the single biggest difference between
+   clinical and musical. Standard quadratic interpolation over a knee width `W` centred on the
+   threshold: below `T − W/2` unity, above `T + W/2` the hard law, and in between
+   `gain = −(1/ratio − 1)·(x − T + W/2)² / (2W)`.
+2. **The notes hard-code coefficients** (`attack_coefficent = 0.01`) instead of deriving them from
+   a time in milliseconds. Use `time_constant_coeff()`, already in `dynamics.hpp`.
+3. **Peak versus RMS detection.** The notes say "peak or RMS" and never choose. A musical bus
+   compressor wants an RMS-ish detector; a *limiter* needs peak. Since one control set covers both,
+   the sensible split is peak detection with the ratio deciding the character.
+4. **Makeup gain** is in the parameter list and absent from the snippet.
+5. **A limiter wants lookahead** to be genuinely brickwall. That means latency, which §2.7 defers,
+   so this is a high-ratio compressor rather than a true brickwall — worth saying out loud rather
+   than implying otherwise. The master bus limiter is separate and unaffected.
+
+**Still to wire when it lands:** `comp_gr_db` in the meter broadcast beside `gate_gr_db`; the
+second GR bar in the panel; the compressor half of `outputFor()` in the transfer curve (one curve
+for both processors — the gate bends bottom-left, the compressor flattens top-right); and the
+`dyn__group--pending` badge comes off.
 
 ---
 
