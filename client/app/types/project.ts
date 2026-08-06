@@ -202,7 +202,24 @@ export interface BusGate {
   release: number;
 }
 
-/** The strip's tone controls. The compressor joins this next. */
+/**
+ * The compressor / limiter.
+ *
+ * `attack` clamps down and `release` recovers — the opposite sense to BusGate's
+ * pair of the same name. `knee` is the total width of the soft knee, centred on
+ * the threshold; at 0 it is a hard knee.
+ */
+export interface BusComp {
+  on: boolean;
+  threshold: number;
+  ratio: number;
+  makeup: number;
+  attack: number;
+  knee: number;
+  release: number;
+}
+
+/** The strip's tone controls. */
 export interface BusDsp {
   /**
    * Section bypass. Distinct from every band being flat: it takes the whole
@@ -216,6 +233,7 @@ export interface BusDsp {
   lpf: BusFilter;
   eq: BusEqBand[];
   gate: BusGate;
+  comp: BusComp;
 }
 
 /** Band names, in order. Fixed layout, so the surface can label the columns. */
@@ -252,7 +270,7 @@ export interface Bus {
    * engine, never saved, and a reload clears it.
    */
   pfl: boolean;
-  /** The strip's tone controls: HPF and LPF today, EQ and dynamics to come. */
+  /** The strip's tone controls: filters, EQ and dynamics. */
   dsp: BusDsp;
   /**
    * Whether this bus actually reaches hardware. Not derivable from the output

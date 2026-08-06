@@ -60,12 +60,13 @@ struct StripCoeffs {
     BiquadCoeffs hpf;
     BiquadCoeffs lpf;
     std::array<BiquadCoeffs, kEqBands> eq;
-    // The gate rides in the same published slot as the filter coefficients, so
-    // there is one handover to the render thread rather than two that could
-    // land a block apart. Not ramped: a threshold or a ratio is meant to take
-    // effect when you set it, and the gate's own attack and release are
-    // already the smoothing that matters here.
-    GateCoeffs gate;
+    // The dynamics ride in the same published slot as the filter coefficients,
+    // so there is one handover to the render thread rather than several that
+    // could land a block apart. Not ramped: a threshold or a ratio is meant to
+    // take effect when you set it, and each processor's own attack and release
+    // are already the smoothing that matters here.
+    GateCoeffs       gate;
+    CompressorCoeffs comp;
 };
 
 // What the operator set. Plain values, owned by the control thread.
@@ -83,7 +84,8 @@ struct EqBandParams {
 };
 
 struct StripDspParams {
-    GateParams   gate;
+    GateParams       gate;
+    CompressorParams comp;
     FilterParams hpf{false, 80.0f,    0.70710678f};
     FilterParams lpf{false, 18000.0f, 0.70710678f};
     std::array<EqBandParams, kEqBands> eq{{
@@ -126,6 +128,7 @@ public:
                           : biquad_passthrough();
         }
         c.gate = gate_coeffs(p.gate, fs);
+        c.comp = compressor_coeffs(p.comp, fs);
         publish(c);
         any_active_.store(needs_processing(p), std::memory_order_release);
     }
@@ -167,11 +170,12 @@ public:
         // threshold crawling to where it was set, and the gate's own attack
         // and release already provide the smoothing that matters.
         //
-        // It also has to be copied at all, which is the point. Leaving it out
-        // meant the render thread kept reading a default-constructed gate —
-        // permanently disabled — while every parameter change published
+        // They also have to be copied at all, which is the point. Leaving the
+        // gate out meant the render thread kept reading a default-constructed
+        // one — permanently disabled — while every parameter change published
         // correctly into a slot nothing ever looked at.
         active_.gate = target.gate;
+        active_.comp = target.comp;
     }
 
     // Filter one lane's block in place. `lane` selects which lane's filter
@@ -194,26 +198,36 @@ public:
     // The whole chain, for one block: tone per lane, then dynamics across all
     // of them together.
     //
-    // The dynamics have to see every lane at once, because the detector is
-    // linked — one gain for the strip, so gating cannot pull the stereo image
-    // sideways. That is why this takes the lanes as a set rather than being
-    // called once per lane like the filters.
+    // The dynamics have to see every lane at once, because both detectors are
+    // linked — one gain for the strip, so neither processor can pull the stereo
+    // image sideways. That is why this takes the lanes as a set rather than
+    // being called once per lane like the filters.
+    //
+    // Gate before compressor, which is the console order and the useful one:
+    // the gate cleans up what is below the floor first, so the compressor is
+    // not asked to work on noise the gate is about to remove anyway. Reversed,
+    // a compressor's makeup gain lifts that noise up over the gate's threshold
+    // and holds it open.
     void process(Sample* const* lanes, ChannelCount count, std::size_t frames) noexcept {
         advance_coeffs();
-        for (ChannelCount l = 0; l < count && l < kMixerLanes; ++l) {
+        const auto lc = std::min<ChannelCount>(count, kMixerLanes);
+        for (ChannelCount l = 0; l < lc; ++l) {
             process_tone(l, lanes[l], frames);
         }
-        gate_.process(active_.gate, lanes, std::min<ChannelCount>(count, kMixerLanes), frames);
+        gate_.process(active_.gate, lanes, lc, frames);
+        comp_.process(active_.comp, lanes, lc, frames);
     }
 
-    // How far the gate is pulling the strip down, for its meter.
+    // How far each processor is pulling the strip down, for their meters.
     float gate_reduction_db() const noexcept { return gate_.gain_reduction_db(); }
+    float comp_reduction_db() const noexcept { return comp_.gain_reduction_db(); }
 
     // Drop every section's memory. For when a strip's signal source changes
     // underneath it and the old tail is no longer meaningful.
     void reset() noexcept {
         for (auto& lane : state_) lane.reset();
         gate_.reset();
+        comp_.reset();
     }
 
 private:
@@ -229,7 +243,7 @@ private:
     };
 
     static bool needs_processing(const StripDspParams& p) noexcept {
-        if (p.hpf.enabled || p.lpf.enabled || p.gate.enabled) return true;
+        if (p.hpf.enabled || p.lpf.enabled || p.gate.enabled || p.comp.enabled) return true;
         for (const auto& b : p.eq) if (b.enabled && b.gain_db != 0.0f) return true;
         return false;
     }
@@ -271,6 +285,7 @@ private:
     StripCoeffs                       active_{};          // render thread only
     std::array<LaneState, kMixerLanes> state_{};          // render thread only
     GateState                         gate_{};            // render thread only
+    CompressorState                   comp_{};            // render thread only
     std::uint32_t                     seen_generation_{0}; // render thread only
     int                               settle_blocks_{0};   // render thread only
 };

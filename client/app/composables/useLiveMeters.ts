@@ -78,16 +78,18 @@ export function useMixerMeter(mixerId: () => MixerChannelId | null | undefined,
   const truePeakMax = ref(SILENT.true_peak_max_db);
   const kwMs        = ref(0);
   const kwMsS       = ref(0);
-  // How far the strip's gate is pulling down. Per strip rather than per lane:
-  // the detector is linked, so there is one figure for the whole channel.
+  // How far each dynamics processor is pulling down. Per strip rather than per
+  // lane: both detectors are linked, so there is one figure per processor for
+  // the whole channel.
   const gateGr      = ref(0);
+  const compGr      = ref(0);
 
   const silence = () => {
     peak.value = SILENT.peak_db; rms.value = SILENT.rms_db;
     peakMax.value = SILENT.peak_max_db;
     truePeak.value = SILENT.true_peak_db; truePeakMax.value = SILENT.true_peak_max_db;
     kwMs.value = 0; kwMsS.value = 0;
-    gateGr.value = 0;
+    gateGr.value = 0; compGr.value = 0;
   };
 
   const unsubscribe = server.onMeters((m) => {
@@ -110,12 +112,13 @@ export function useMixerMeter(mixerId: () => MixerChannelId | null | undefined,
     kwMs.value        = src?.kw_ms            ?? 0;
     kwMsS.value       = src?.kw_ms_s          ?? 0;
     // Read off the strip frame, not the lane: gain reduction is one number for
-    // the channel because the gate's detector is linked across its lanes.
+    // the channel because both detectors are linked across its lanes.
     gateGr.value      = (frame as any)?.gate_gr_db ?? 0;
+    compGr.value      = (frame as any)?.comp_gr_db ?? 0;
   });
   onScopeDispose(() => unsubscribe());
 
-  return { peak, rms, peakMax, truePeak, truePeakMax, kwMs, kwMsS, gateGr };
+  return { peak, rms, peakMax, truePeak, truePeakMax, kwMs, kwMsS, gateGr, compGr };
 }
 
 // ---------------------------------------------------------------------

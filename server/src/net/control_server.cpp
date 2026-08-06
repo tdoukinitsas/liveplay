@@ -514,9 +514,12 @@ void ControlServer::broadcast_loop() {
 
                 mixer_meters.push_back(json{
                     {"mixer_id",         mch.id.value},
-                    // How far the strip's gate is pulling down, for the panel's
-                    // GR meter. Zero when it is open or switched out.
+                    // How far each dynamics processor is pulling down, for the
+                    // panel's GR meters. Zero when idle or switched out. One
+                    // figure each rather than per lane: both detectors are
+                    // linked across the strip's lanes.
                     {"gate_gr_db",       m->dsp().gate_reduction_db()},
+                    {"comp_gr_db",       m->dsp().comp_reduction_db()},
                     {"peak_db",          c.peak_db},
                     {"rms_db",           c.rms_db},
                     {"peak_max_db",      c.peak_max_db},

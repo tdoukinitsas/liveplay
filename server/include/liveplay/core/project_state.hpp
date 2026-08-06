@@ -130,6 +130,21 @@ struct BusGate {
     float release_ms   = 100.0f;
 };
 
+// The compressor / limiter, as the project stores it. Defaults match what the
+// surface shows so a fresh bus does not look pre-adjusted.
+//
+// `attack` clamps down and `release` recovers — the opposite sense to BusGate's
+// pair of the same name, which is why they are separate structs rather than one
+// shared "dynamics" record.
+struct BusComp {
+    float threshold_db = -18.0f;
+    float ratio        = 4.0f;
+    float makeup_db    = 0.0f;
+    float attack_ms    = 10.0f;
+    float knee_db      = 6.0f;
+    float release_ms   = 200.0f;
+};
+
 struct BusDsp {
     // Section bypass. Separate from a band being flat: bypass takes the whole
     // section out in one press and, crucially, PUTS IT BACK exactly as it was.
@@ -138,10 +153,13 @@ struct BusDsp {
     // section rather than expecting you to undo your way back.
     bool      eq_enabled  = true;
     bool      dyn_enabled = true;
-    // Whether the gate is in circuit at all. Separate from the section bypass:
-    // a strip can have dynamics switched in with only the compressor working.
+    // Whether each processor is in circuit at all. Separate from the section
+    // bypass, so a strip can run the compressor with the gate out — which is
+    // the common case on a bus.
     bool      gate_on     = false;
+    bool      comp_on     = false;
     BusGate   gate;
+    BusComp   comp;
     BusFilter hpf{20.0f};       // parked at the bottom: out of circuit
     BusFilter lpf{20000.0f};    // parked at the top: out of circuit
     // Conventional four-band starting layout, matching what the surface shows.

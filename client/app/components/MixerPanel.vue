@@ -183,6 +183,8 @@ const masterBus = computed<Bus>(() => ({
     hpf: { freq: 20, q: 0.7071 }, lpf: { freq: 20000, q: 0.7071 },
     eq: [], gate: { on: false, threshold: -40, ratio: 2, range: -20,
                     attack: 1, hold: 10, release: 100 },
+    comp: { on: false, threshold: -18, ratio: 4, makeup: 0,
+            attack: 10, knee: 6, release: 200 },
   },
   bound: true,
   system: true,

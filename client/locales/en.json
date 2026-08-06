@@ -606,6 +606,7 @@
     "bypass": "BYP",
     "bypassHint": "Take this section out of circuit. The settings are kept, so switching it back in restores exactly what was there.",
     "gateToggle": "Switch the expander/gate in or out. Separate from the section bypass above.",
+    "compToggle": "Switch the compressor/limiter in or out. Separate from the section bypass above.",
     "inCircuit": "IN",
     "outOfCircuit": "OUT",
     "freq": "Freq",

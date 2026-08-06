@@ -3636,6 +3636,20 @@ void merge_bus_dsp(const json& src, BusDsp& out) {
         o.hold_ms      = std::clamp(g.value("hold",      o.hold_ms),       0.0f, 1000.0f);
         o.release_ms   = std::clamp(g.value("release",   o.release_ms),    5.0f, 5000.0f);
     }
+    if (src.contains("comp") && src["comp"].is_object()) {
+        const auto& k = src["comp"];
+        auto& o = out.comp;
+        out.comp_on   = k.value("on", out.comp_on);
+        // Ranges match the surface's knobs. The ratio runs to 60:1 rather than
+        // the gate's 20 because the top of this control is meant to be a
+        // limiter setting, not a heavier compressor.
+        o.threshold_db = std::clamp(k.value("threshold", o.threshold_db), -60.0f, 0.0f);
+        o.ratio        = std::clamp(k.value("ratio",     o.ratio),          1.0f, 60.0f);
+        o.makeup_db    = std::clamp(k.value("makeup",    o.makeup_db),    -12.0f, 24.0f);
+        o.attack_ms    = std::clamp(k.value("attack",    o.attack_ms),      0.1f, 300.0f);
+        o.knee_db      = std::clamp(k.value("knee",      o.knee_db),        0.0f, 24.0f);
+        o.release_ms   = std::clamp(k.value("release",   o.release_ms),     5.0f, 5000.0f);
+    }
     if (src.contains("eq") && src["eq"].is_array()) {
         const auto& arr = src["eq"];
         for (std::size_t i = 0; i < kBusEqBands && i < arr.size(); ++i) {
@@ -3667,6 +3681,15 @@ json bus_dsp_to_json(const BusDsp& d) {
             {"attack",    d.gate.attack_ms},
             {"hold",      d.gate.hold_ms},
             {"release",   d.gate.release_ms},
+        }},
+        {"comp", json{
+            {"on",        d.comp_on},
+            {"threshold", d.comp.threshold_db},
+            {"ratio",     d.comp.ratio},
+            {"makeup",    d.comp.makeup_db},
+            {"attack",    d.comp.attack_ms},
+            {"knee",      d.comp.knee_db},
+            {"release",   d.comp.release_ms},
         }},
     };
 }
@@ -4009,6 +4032,19 @@ audio::StripDspParams ProjectState::dsp_params_for(const BusDef& bus) {
     p.gate.attack_ms    = bus.dsp.gate.attack_ms;
     p.gate.hold_ms      = bus.dsp.gate.hold_ms;
     p.gate.release_ms   = bus.dsp.gate.release_ms;
+
+    // Same pair of switches for the compressor. A ratio of 1 is a no-op here
+    // too — but only if the makeup is also zero, because ratio 1 with makeup is
+    // a legitimate way to use this as a plain gain stage, and switching it out
+    // from under the operator would silently lose the level they set.
+    p.comp.enabled      = bus.dsp.dyn_enabled && bus.dsp.comp_on &&
+                          (bus.dsp.comp.ratio > 1.0f || bus.dsp.comp.makeup_db != 0.0f);
+    p.comp.threshold_db = bus.dsp.comp.threshold_db;
+    p.comp.ratio        = bus.dsp.comp.ratio;
+    p.comp.knee_db      = bus.dsp.comp.knee_db;
+    p.comp.attack_ms    = bus.dsp.comp.attack_ms;
+    p.comp.release_ms   = bus.dsp.comp.release_ms;
+    p.comp.makeup_db    = bus.dsp.comp.makeup_db;
     return p;
 }
 

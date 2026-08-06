@@ -1,10 +1,10 @@
 # LivePlay — Bus Architecture
 
-> **Status:** Stages 0–3 complete on `fix/engine-config-wiring`, unmerged. **Stage 5 is in
-> progress and is being done before Stage 4** — they are independent, the surface already
-> promised the processing, and bus→bus is the risky one. Done so far: HPF, LPF, four-band EQ,
-> expander/gate, section bypasses. **The compressor/limiter is next** — see §0.4 for the design
-> already settled. Stage 4 (bus → bus) follows it.
+> **Status:** Stages 0–3 complete on `fix/engine-config-wiring`, unmerged. **Stage 5 was done
+> before Stage 4** — they are independent, the surface already promised the processing, and
+> bus→bus is the risky one. The channel chain is complete: HPF, LPF, four-band EQ,
+> expander/gate, compressor/limiter, section bypasses. See §0.4. **Stage 4 (bus → bus) is next**;
+> plugins remain a separate future piece.
 > Supersedes the "Stage 3 — Bus Mixing" sketch in `IMPROVEMENTS_PLAN.md` §6, which is now
 > stale (it lists mute/solo/mixer-meters as missing; they exist).
 > Ownership-model placement follows the object-ownership model discussed in issue #46.
@@ -163,24 +163,29 @@ The **server** work is verified properly, and Stage 3 more thoroughly than the r
 - Every safety assertion was confirmed to **fail** against a deliberately broken build before
   being trusted.
 
-### 0.4 The channel chain, and what the compressor still needs
+### 0.4 The channel chain
 
-**The chain is fixed, not a plugin rack.** HPF → LPF → EQ ×4 → gate → *(compressor)* → PFL tap →
+**The chain is fixed, not a plugin rack.** HPF → LPF → EQ ×4 → gate → compressor → PFL tap →
 fader → pan send → master. These are known blocks every strip has, always in that order, so they
 are fields on `ChannelDsp` rather than an insert interface. Plugins arrive later as a separate
 list alongside. It runs **regardless of mute**, because PFL is pre-mute.
+
+Gate before compressor is the console order and the useful one: the gate removes what is below the
+floor first, so the compressor is not working on noise that is about to be gated anyway. Reversed,
+the compressor's makeup gain lifts that noise over the gate's threshold and holds it open.
 
 **Where the pieces live**
 
 | File | What |
 |---|---|
 | `audio/biquad.hpp` | TDF-II section + RBJ designers. Header-only, denormal-flushed, Nyquist-clamped. |
-| `audio/dynamics.hpp` | `GateParams` / `GateCoeffs` / `GateState`. The compressor goes here. |
+| `audio/dynamics.hpp` | Both processors: `Gate*` and `Compressor*` params / coeffs / state. |
 | `audio/channel_dsp.hpp` | The chain. Double-buffered publish, per-block coefficient ramp. |
-| `core/project_state.hpp` | `BusDsp`, `BusGate`, `merge_bus_dsp`, `dsp_params_for`. |
-| `client/utils/filterResponse.ts` | Display-only mirror of the C++ maths. **Must be kept in step by hand.** |
+| `core/project_state.hpp` | `BusDsp`, `BusGate`, `BusComp`, `merge_bus_dsp`, `dsp_params_for`. |
+| `client/utils/filterResponse.ts` | Display-only mirror of the C++ filter maths. **Must be kept in step by hand.** |
+| `client/components/MixerDynamicsPanel.vue` | The surface, and a second by-hand mirror: its `compressed()` is the C++ static curve. |
 
-**Rules that already bind the compressor**
+**Rules that bind anything added to the chain**
 
 - **Parameters cross to the render thread through `StripCoeffs`**, published into a double-buffered
   slot with an atomic index — *not* the topology, because a knob drag must not re-walk every route.
@@ -195,31 +200,42 @@ list alongside. It runs **regardless of mute**, because PFL is pre-mute.
   *decreasing* (clamping down) and release is recovery. The gate's is the other way round and the
   notes in `_DSP_DOCS` do not say so.
 
-**What the surface already promises** (`MixerDynamicsPanel.vue`, `compParams`): threshold −18
-(−60…0 dB), ratio 4 (1…60), makeup 0 (−12…24 dB), attack 10 (0.1…300 ms), knee 6 (0…24 dB),
-release 200 (5…5000 ms). Ratio, attack and release want the **log** taper; threshold, makeup and
-knee stay linear.
+**The compressor's controls** (`MixerDynamicsPanel.vue`, `compParams`): threshold −18 (−60…0 dB),
+ratio 4 (1…60), makeup 0 (−12…24 dB), attack 10 (0.1…300 ms), knee 6 (0…24 dB), release 200
+(5…5000 ms). Ratio, attack and release use the **log** taper; threshold, makeup and knee are
+linear. Ratio 1 with a non-zero makeup stays in circuit deliberately — it is a legitimate way to
+use the block as a plain gain stage, and switching it out would silently lose the level set.
 
-**Gotchas `_DSP_DOCS/compressor_limiter.md` does not cover**
+**What `_DSP_DOCS/compressor_limiter.md` does not cover, and what was done instead**
 
-1. **Soft knee**, which the notes omit entirely and which is the single biggest difference between
-   clinical and musical. Standard quadratic interpolation over a knee width `W` centred on the
-   threshold: below `T − W/2` unity, above `T + W/2` the hard law, and in between
-   `gain = −(1/ratio − 1)·(x − T + W/2)² / (2W)`.
-2. **The notes hard-code coefficients** (`attack_coefficent = 0.01`) instead of deriving them from
-   a time in milliseconds. Use `time_constant_coeff()`, already in `dynamics.hpp`.
-3. **Peak versus RMS detection.** The notes say "peak or RMS" and never choose. A musical bus
-   compressor wants an RMS-ish detector; a *limiter* needs peak. Since one control set covers both,
-   the sensible split is peak detection with the ratio deciding the character.
-4. **Makeup gain** is in the parameter list and absent from the snippet.
+1. **Soft knee**, omitted from the notes entirely and the single biggest difference between
+   clinical and musical. Quadratic interpolation over a knee width `W` centred on the threshold:
+   below `T − W/2` unity, above `T + W/2` the hard law, and in between
+   `gain = −(1 − 1/ratio)·(x − T + W/2)² / (2W)` — continuous in value *and* slope at both joins,
+   so the curve leaves unity flat and arrives already at the full ratio.
+2. **The notes hard-code coefficients** (`attack_coefficent = 0.01`), which means nothing without a
+   sample rate — the same constant is 0.2 ms at 48 kHz and 0.1 ms at 96. Everything derives from a
+   time in milliseconds through `time_constant_coeff()`.
+3. **Peak versus RMS detection**, which the notes raise and never decide. One control set covers a
+   bus compressor and a limiter, so it detects peak and lets the ratio decide the character: an RMS
+   detector could not do the limiter job at all.
+4. **Makeup gain**, in the notes' parameter list and absent from their snippet. It rides on the
+   same per-sample multiply and is deliberately kept *out* of the reported gain reduction — the GR
+   meter answers "how hard is it working", and folding makeup in would show an idle compressor as
+   though it were pushing.
 5. **A limiter wants lookahead** to be genuinely brickwall. That means latency, which §2.7 defers,
-   so this is a high-ratio compressor rather than a true brickwall — worth saying out loud rather
-   than implying otherwise. The master bus limiter is separate and unaffected.
+   so this is a high-ratio compressor rather than a true brickwall — said out loud rather than
+   implied. The master bus limiter is separate and unaffected.
+6. **The side-chain has its own release**, capped at 15 ms rather than fixed there. A detector that
+   decays much between peaks modulates the gain at the signal's own frequency, which is distortion
+   on bass; but a short release setting exists precisely to be heard, and a fixed floor would
+   quietly cancel it. So the detector follows the release until it would start rippling.
 
-**Still to wire when it lands:** `comp_gr_db` in the meter broadcast beside `gate_gr_db`; the
-second GR bar in the panel; the compressor half of `outputFor()` in the transfer curve (one curve
-for both processors — the gate bends bottom-left, the compressor flattens top-right); and the
-`dyn__group--pending` badge comes off.
+**Two mutation results worth keeping.** Swapping the compressor's attack/release comparison passes
+every steady-state unit test and is caught only by the timing one — a compressor with them
+backwards meters perfectly and destroys every transient. And deleting `active_.comp = target.comp`
+from `advance_coeffs()` leaves all 43 unit tests green while turning seven e2e assertions red: the
+same signature as the gate bug in §0.2b, which is why both suites exist.
 
 ---
 

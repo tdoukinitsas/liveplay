@@ -23,6 +23,7 @@ server/build/Release/liveplay-server.exe --port 4500 &
 node server/tests/e2e/pfl-e2e.js        4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/filters-e2e.js    4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/gate-e2e.js       4500 /tmp/liveplay-test-signal.wav
+node server/tests/e2e/comp-e2e.js       4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/reroute-e2e.js    4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/save-churn.js     4500 /tmp/liveplay-test-signal.wav <projDir> <serverLog>
 node server/tests/e2e/materialise-skip.js 4500
@@ -54,6 +55,16 @@ measurement. In order of how much time each one cost:
 - **Pick a corner that actually puts the signal in the stopband.** A 1 kHz low-pass leaves 44% of
   a 200 Hz–2 kHz sweep in the passband and takes about 2 dB off the total, which is the right
   answer and a poor test.
+- **Wait out the PROCESSOR's own time constants too, not just the meter's.** Only transitions
+  *out* of gain reduction are slow — attack is milliseconds — so a step down from 9 dB of
+  reduction with a 1000 ms release was still 0.6 dB down when a 2 s settle expired. That read as a
+  hard knee doing 0.7 dB of work it should not have been doing. Either settle for several time
+  constants or set a release the harness can afford to wait for.
+- **`peak_db` is not the peak a dynamics detector sees.** It is ballistically released, so a
+  threshold compared against it is being compared against the wrong quantity; `peak_max_db` is the
+  raw sample maximum and cannot miss a transient however slowly the harness polls. On a
+  constant-amplitude signal the two agree and it does not matter — which is exactly why it is
+  worth fixing before a test uses a signal where they do not.
 - **`POST /api/buses/<id>/dsp` does not persist.** It is the in-gesture path: it merges onto the
   *stored* bus and writes no document. Send the whole section, and `PATCH` first if a later
   assertion depends on the value being stored.
