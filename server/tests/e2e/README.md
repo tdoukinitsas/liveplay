@@ -24,6 +24,11 @@ node server/tests/e2e/pfl-e2e.js        4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/filters-e2e.js    4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/gate-e2e.js       4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/comp-e2e.js       4500 /tmp/liveplay-test-signal.wav
+
+# The stereo-image checks need their OWN signal: the one above is identical on
+# both lanes, so it has no side content for a width control to act on.
+node server/tests/e2e/gen-wide-signal.js /tmp/liveplay-wide-signal.wav
+node server/tests/e2e/width-e2e.js      4500 /tmp/liveplay-wide-signal.wav
 node server/tests/e2e/reroute-e2e.js    4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/save-churn.js     4500 /tmp/liveplay-test-signal.wav <projDir> <serverLog>
 node server/tests/e2e/materialise-skip.js 4500
@@ -65,6 +70,14 @@ measurement. In order of how much time each one cost:
   raw sample maximum and cannot miss a transient however slowly the harness polls. On a
   constant-amplitude signal the two agree and it does not matter — which is exactly why it is
   worth fixing before a test uses a signal where they do not.
+- **Measure a control where it is actually applied.** Width is per-sample DSP inside the strip, so
+  it shows on the BUS meter; balance is nothing but the two sends to the master, so it shows on the
+  MASTER meter and not on the bus meter at all. Checking either in the other's place reads as the
+  control doing nothing.
+- **Relative assertions can all shift together.** Every balance check in `width-e2e.js` was
+  measured against the centre reading, so swapping in the pan law moved the whole set 3 dB down
+  and only one assertion noticed. One absolute check — the bus's own peak against the house — pins
+  the law rather than its symmetry.
 - **`POST /api/buses/<id>/dsp` does not persist.** It is the in-gesture path: it merges onto the
   *stored* bus and writes no document. Send the whole section, and `PATCH` first if a later
   assertion depends on the value being stored.

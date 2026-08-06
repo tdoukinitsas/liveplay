@@ -520,6 +520,10 @@ void ControlServer::broadcast_loop() {
                     // linked across the strip's lanes.
                     {"gate_gr_db",       m->dsp().gate_reduction_db()},
                     {"comp_gr_db",       m->dsp().comp_reduction_db()},
+                    // Inter-channel correlation: +1 mono-compatible, 0 wide,
+                    // negative means the lanes are cancelling and material will
+                    // disappear the moment anything sums the strip to mono.
+                    {"correlation",      m->correlation()},
                     {"peak_db",          c.peak_db},
                     {"rms_db",           c.rms_db},
                     {"peak_max_db",      c.peak_max_db},

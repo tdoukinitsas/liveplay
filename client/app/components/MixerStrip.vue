@@ -74,11 +74,15 @@
       </button>
     </div>
 
-    <!-- Pan. Only a mono bus has one: pan is the position of a single lane
-         between the two lanes of a stereo destination, which is what a mono
-         channel's pot does. A stereo bus would want balance, which isn't
-         built — the knob stays visible but disabled so strips keep the same
-         height and their meters stay aligned across the rail. -->
+    <!-- Pan on a mono bus, balance on a stereo one — one knob, and the server
+         picks the law from the bus's width. Pan places a single lane between
+         the two lanes of a stereo destination, which is what a mono channel's
+         pot does; balance trims a stereo bus's own pair against each other and
+         only ever attenuates.
+
+         Width lives in the channel view, not here: it needs two more controls
+         and a correlation readout to be usable, and none of that fits a strip
+         sized to sit twenty across. -->
     <div class="strip__pan" @click.stop>
       <Knob
         :value="pan"
@@ -86,8 +90,8 @@
         :max="1"
         :origin="0"
         :size="touch ? 40 : 30"
-        :disabled="bus.width >= 2"
-        :title="bus.width >= 2 ? t('mixer.balanceUnsupported') : t('mixer.pan')"
+        :disabled="master"
+        :title="bus.width >= 2 ? t('mixer.balanceHint') : t('mixer.panHint')"
         @input="onPan"
         @reset="onPan(0)"
       />
@@ -287,7 +291,8 @@ let   panSettle: ReturnType<typeof setTimeout> | null = null;
 watch(() => props.bus.pan, v => { if (!panHold) pan.value = v ?? 0; });
 
 function onPan(v: number) {
-  if (props.master || props.bus.width >= 2) return;
+  // The master has no bus behind it, so there is nothing to send this to.
+  if (props.master) return;
   pan.value = v;
   panHold = true;
   void server.setBusPan(props.bus.id, v).catch(() => {});
@@ -301,7 +306,7 @@ function onPan(v: number) {
 
 // L/R offset in the usual console notation: C at centre, L50/R50 halfway.
 const panLabel = computed(() => {
-  if (props.bus.width >= 2) return '--';
+  if (props.master) return '--';
   const v = Math.round(pan.value * 100);
   if (v === 0) return 'C';
   return (v < 0 ? 'L' : 'R') + Math.abs(v);

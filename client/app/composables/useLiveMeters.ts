@@ -83,13 +83,16 @@ export function useMixerMeter(mixerId: () => MixerChannelId | null | undefined,
   // the whole channel.
   const gateGr      = ref(0);
   const compGr      = ref(0);
+  // Correlation between the strip's lanes: +1 mono-compatible, 0 wide,
+  // negative means a mono sum will cancel part of it. Mono strips read +1.
+  const correlation = ref(1);
 
   const silence = () => {
     peak.value = SILENT.peak_db; rms.value = SILENT.rms_db;
     peakMax.value = SILENT.peak_max_db;
     truePeak.value = SILENT.true_peak_db; truePeakMax.value = SILENT.true_peak_max_db;
     kwMs.value = 0; kwMsS.value = 0;
-    gateGr.value = 0; compGr.value = 0;
+    gateGr.value = 0; compGr.value = 0; correlation.value = 1;
   };
 
   const unsubscribe = server.onMeters((m) => {
@@ -115,10 +118,12 @@ export function useMixerMeter(mixerId: () => MixerChannelId | null | undefined,
     // the channel because both detectors are linked across its lanes.
     gateGr.value      = (frame as any)?.gate_gr_db ?? 0;
     compGr.value      = (frame as any)?.comp_gr_db ?? 0;
+    correlation.value = (frame as any)?.correlation ?? 1;
   });
   onScopeDispose(() => unsubscribe());
 
-  return { peak, rms, peakMax, truePeak, truePeakMax, kwMs, kwMsS, gateGr, compGr };
+  return { peak, rms, peakMax, truePeak, truePeakMax, kwMs, kwMsS,
+           gateGr, compGr, correlation };
 }
 
 // ---------------------------------------------------------------------

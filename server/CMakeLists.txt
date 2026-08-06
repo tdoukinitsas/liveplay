@@ -221,7 +221,7 @@ if(LIVEPLAY_BUILD_TESTS)
     )
     add_test(NAME biquad COMMAND liveplay-biquad-tests)
 
-    # Expander / gate, and the compressor when it lands. Header-only too.
+    # Expander / gate and compressor / limiter. Header-only too.
     add_executable(liveplay-dynamics-tests
         tests/dynamics_test.cpp
     )
@@ -229,6 +229,16 @@ if(LIVEPLAY_BUILD_TESTS)
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
     add_test(NAME dynamics COMMAND liveplay-dynamics-tests)
+
+    # Stereo image: the M/S width matrix, bass-mono, the balance law and the
+    # correlation meter. Header-only.
+    add_executable(liveplay-stereo-tests
+        tests/stereo_width_test.cpp
+    )
+    target_include_directories(liveplay-stereo-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME stereo COMMAND liveplay-stereo-tests)
 
     # Waveform downsampler (single-pass decode, per-channel traces).
     add_executable(liveplay-waveform-tests

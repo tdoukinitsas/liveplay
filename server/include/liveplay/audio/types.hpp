@@ -76,6 +76,32 @@ inline PanGainsDb pan_gains_db(float pan) noexcept {
     return {to_db(l), to_db(r)};
 }
 
+// BALANCE of a stereo source across its own two lanes. Same -1..+1 control,
+// deliberately NOT the same law as pan_gains_db above.
+//
+// Pan places one mono signal somewhere in an image it does not otherwise
+// occupy, so it has to hold constant power as it sweeps — which means both
+// gains sit at -3 dB in the middle and the live side climbs to unity at the
+// end of the travel. Applying that to a stereo bus would be wrong twice over:
+// a centred stereo bus would lose 3 dB for doing nothing, and moving the
+// control would ADD 3 dB of gain to the side you moved toward.
+//
+// Balance only ever takes away. Centre is unity on both lanes, and moving the
+// control attenuates the lane you are moving away from until it is silent. That
+// is what a console balance pot does, and it means the loud side of an
+// already-lopsided mix cannot be pushed into the limiter by trying to correct
+// the quiet one.
+inline PanGainsDb balance_gains_db(float balance) noexcept {
+    const float b = std::clamp(balance, -1.0f, 1.0f);
+    const float l = b > 0.0f ? 1.0f - b : 1.0f;
+    const float r = b < 0.0f ? 1.0f + b : 1.0f;
+    const auto to_db = [](float g) {
+        return g <= 0.0f ? kSilentGainDb
+                         : std::max(kSilentGainDb, 20.0f * std::log10(g));
+    };
+    return {to_db(l), to_db(r)};
+}
+
 // Mixer strips carry this many parallel audio lanes (stereo: L=0, R=1).
 // Item→mixer and mixer→master sends address a specific lane; kAllMixerLanes
 // fans the send across every lane — used for mono sources (centre image) and

@@ -1291,6 +1291,20 @@ void AudioEngine::render_one_block(const Topology& topo) {
             for (std::size_t s = 0; s < block; ++s) buf[s] *= effective;
             m->update_meter(lane, buf, block);
         }
+        // Correlation between the lanes, for the width control's readout. Taken
+        // here, after the chain, so it describes the image that actually leaves
+        // the strip rather than the one that arrived — which is the whole point
+        // when the thing being checked is what widening did to it. It is a
+        // ratio, so the fader above cannot move it.
+        //
+        // Mono strips are skipped rather than fed a silent lane 1, which would
+        // read as a correlation of nothing and warn about a strip that has no
+        // image to be wrong about.
+        if (m->width() >= kMixerLanes) {
+            m->update_correlation(mixer_accumulators_[i * kMixerLanes].data(),
+                                  mixer_accumulators_[i * kMixerLanes + 1].data(),
+                                  block);
+        }
     }
 
     // ---- Tier-2 → Tier-3 mix into master accumulators ----

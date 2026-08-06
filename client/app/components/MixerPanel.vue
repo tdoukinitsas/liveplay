@@ -185,6 +185,7 @@ const masterBus = computed<Bus>(() => ({
                     attack: 1, hold: 10, release: 100 },
     comp: { on: false, threshold: -18, ratio: 4, makeup: 0,
             attack: 10, knee: 6, release: 200 },
+    width: { width: 1, bassMonoHz: 20, bassMonoQ: 0.7071 },
   },
   bound: true,
   system: true,

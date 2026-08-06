@@ -23,6 +23,12 @@ void MixerChannel::set_pan(float pan) noexcept {
     pan_.store(std::clamp(pan, -1.0f, 1.0f), std::memory_order_relaxed);
 }
 
+void MixerChannel::update_correlation(const Sample* left, const Sample* right,
+                                      std::size_t frame_count) noexcept {
+    correlation_meter_.process(left, right, frame_count);
+    correlation_.store(correlation_meter_.value(), std::memory_order_relaxed);
+}
+
 void MixerChannel::set_gain_db(float db) noexcept {
     const float lin = std::pow(10.0f, db * 0.05f);
     target_gain_linear_.store(lin, std::memory_order_release);

@@ -219,6 +219,24 @@ export interface BusComp {
   release: number;
 }
 
+/**
+ * Stereo image width, on a stereo bus only.
+ *
+ * `width` is 0 mono, 1 untouched, 2 double. `bassMonoHz` high-passes the SIDE
+ * signal alone, so the low end collapses to the centre and stays mono-safe
+ * however hard the rest is widened; parked at 20 Hz it is out of circuit, the
+ * same convention the strip's HPF and LPF use.
+ *
+ * There is no level compensation, deliberately: widening only raises material
+ * that has side content, so any static correction would attenuate mono-ish
+ * material it never touched.
+ */
+export interface BusWidth {
+  width: number;
+  bassMonoHz: number;
+  bassMonoQ: number;
+}
+
 /** The strip's tone controls. */
 export interface BusDsp {
   /**
@@ -234,6 +252,7 @@ export interface BusDsp {
   eq: BusEqBand[];
   gate: BusGate;
   comp: BusComp;
+  width: BusWidth;
 }
 
 /** Band names, in order. Fixed layout, so the surface can label the columns. */
@@ -242,6 +261,8 @@ export const EQ_BAND_NAMES = ['LF', 'LMF', 'HMF', 'HF'] as const;
 /** Where the filters sit when out of circuit. Must match the server's. */
 export const HPF_PARKED_HZ = 20;
 export const LPF_PARKED_HZ = 20000;
+/** Bass-mono parks at the bottom of its travel, the same way the HPF does. */
+export const BASS_MONO_PARKED_HZ = 20;
 
 /**
  * A bus is the user-facing mixer strip. Items and groups are assigned to one
@@ -258,10 +279,14 @@ export interface Bus {
   gainDb: number;
   mute: boolean;
   /**
-   * Position of a MONO bus between the two lanes of a stereo destination:
-   * -1 hard left, 0 centre, +1 hard right. Ignored when width is 2 — pan
-   * belongs to a mono->stereo send, and a stereo bus wants balance, which
-   * is not built.
+   * The strip's position control, -1 hard left .. 0 centre .. +1 hard right.
+   * One field, two meanings, decided by `width`:
+   *
+   * - mono bus: PAN, the position of its single lane between the destination's
+   *   two. Constant-power, so centre sits at -3 dB.
+   * - stereo bus: BALANCE, a trim between its own two lanes. Only ever
+   *   attenuates, so centre is unity and correcting a lopsided mix cannot push
+   *   the loud side up.
    */
   pan: number;
   /**

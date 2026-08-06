@@ -145,6 +145,18 @@ struct BusComp {
     float release_ms   = 200.0f;
 };
 
+// Stereo image width, as the project stores it.
+//
+// No in/out switch, for the same reason the filters have none: width 1 with the
+// bass-mono filter parked at the bottom of its travel IS out of circuit, and a
+// switch that could disagree with the knob beside it would be one control too
+// many. Ignored entirely on a mono bus, which has no image to widen.
+struct BusWidth {
+    float width        = 1.0f;    // 0 mono .. 1 unity .. 2 wide
+    float bass_mono_hz = 20.0f;   // parked at the bottom: out of circuit
+    float bass_mono_q  = 0.70710678f;
+};
+
 struct BusDsp {
     // Section bypass. Separate from a band being flat: bypass takes the whole
     // section out in one press and, crucially, PUTS IT BACK exactly as it was.
@@ -160,6 +172,7 @@ struct BusDsp {
     bool      comp_on     = false;
     BusGate   gate;
     BusComp   comp;
+    BusWidth  width;
     BusFilter hpf{20.0f};       // parked at the bottom: out of circuit
     BusFilter lpf{20000.0f};    // parked at the top: out of circuit
     // Conventional four-band starting layout, matching what the surface shows.

@@ -3,14 +3,20 @@
 // ----------------------------------------------------------------------------
 // The channel strip's fixed processing chain, in console order:
 //
-//     HPF -> LPF -> EQ (4 bands) -> gate -> compressor
+//     HPF -> LPF -> EQ (4 bands) -> gate -> compressor -> width
 //
-// Fixed, not a plugin rack. These five are known blocks that every strip has,
+// Fixed, not a plugin rack. These are known blocks that every strip has,
 // exactly as a console channel does, so they are laid out as fields rather
 // than dispatched through an insert interface. User-orderable plugins arrive
 // later as a separate list alongside this — building a virtual-dispatch
-// framework for five blocks that are always present and always in this order
+// framework for six blocks that are always present and always in this order
 // would be scaffolding around a thing that does not move.
+//
+// Width sits LAST, after the dynamics, which is where a mastering widener
+// goes: the compressor and gate then key off the source image, so moving the
+// width control never changes how hard the compressor is working. The cost is
+// that this strip's own compressor cannot catch a peak the widening creates —
+// the strip meter shows it and the master limiter catches it instead.
 //
 // Where it runs
 // -------------
@@ -41,6 +47,7 @@
 
 #include "liveplay/audio/biquad.hpp"
 #include "liveplay/audio/dynamics.hpp"
+#include "liveplay/audio/stereo_width.hpp"
 #include "liveplay/audio/types.hpp"
 
 #include <array>
@@ -67,6 +74,10 @@ struct StripCoeffs {
     // are already the smoothing that matters here.
     GateCoeffs       gate;
     CompressorCoeffs comp;
+    // Width IS ramped, unlike the dynamics beside it: its side gain is a gain,
+    // and stepping a gain mid-drag is the click the ramp exists to remove. Its
+    // filter ramps for the same reason the tone sections' do.
+    WidthCoeffs      width;
 };
 
 // What the operator set. Plain values, owned by the control thread.
@@ -86,6 +97,7 @@ struct EqBandParams {
 struct StripDspParams {
     GateParams       gate;
     CompressorParams comp;
+    WidthParams      width;
     FilterParams hpf{false, 80.0f,    0.70710678f};
     FilterParams lpf{false, 18000.0f, 0.70710678f};
     std::array<EqBandParams, kEqBands> eq{{
@@ -127,8 +139,9 @@ public:
                           ? biquad_peaking(b.freq_hz, fs, b.gain_db, b.q)
                           : biquad_passthrough();
         }
-        c.gate = gate_coeffs(p.gate, fs);
-        c.comp = compressor_coeffs(p.comp, fs);
+        c.gate  = gate_coeffs(p.gate, fs);
+        c.comp  = compressor_coeffs(p.comp, fs);
+        c.width = width_coeffs(p.width, fs);
         publish(c);
         any_active_.store(needs_processing(p), std::memory_order_release);
     }
@@ -176,6 +189,22 @@ public:
         // correctly into a slot nothing ever looked at.
         active_.gate = target.gate;
         active_.comp = target.comp;
+        // Ramped, not taken whole. A width knob drag is a gain drag, and
+        // stepping a gain is the click the ramp exists to remove.
+        active_.width.side_gain +=
+            (target.width.side_gain - active_.width.side_gain) * kRamp;
+        lerp(active_.width.side_hpf, target.width.side_hpf, kRamp);
+        // Once the ramp is inaudibly close to identity, snap onto it exactly so
+        // the block drops out of circuit. Without this a strip that had ever
+        // been widened would run the matrix forever at 0.9999 and never be
+        // bit-transparent again. Dropping the side filter's memory with it,
+        // because the tail of a filter that is no longer in circuit is not
+        // something to reintroduce the next time it is.
+        width_active_ = !width_near_identity(active_.width);
+        if (!width_active_) {
+            active_.width = WidthCoeffs{};
+            width_.reset();
+        }
     }
 
     // Filter one lane's block in place. `lane` selects which lane's filter
@@ -216,6 +245,12 @@ public:
         }
         gate_.process(active_.gate, lanes, lc, frames);
         comp_.process(active_.comp, lanes, lc, frames);
+        // Last, and only on a strip that actually has an image. A mono strip
+        // carries nothing on lane 1, so a matrix across the pair would read
+        // silence as the right channel and hard-pan the strip left.
+        if (width_active_ && lc >= kMixerLanes) {
+            width_.process(active_.width, lanes[0], lanes[1], frames);
+        }
     }
 
     // How far each processor is pulling the strip down, for their meters.
@@ -228,6 +263,7 @@ public:
         for (auto& lane : state_) lane.reset();
         gate_.reset();
         comp_.reset();
+        width_.reset();
     }
 
 private:
@@ -244,6 +280,10 @@ private:
 
     static bool needs_processing(const StripDspParams& p) noexcept {
         if (p.hpf.enabled || p.lpf.enabled || p.gate.enabled || p.comp.enabled) return true;
+        // Asked of the parameters rather than the coefficients, like every
+        // other block here — the coefficient form needs a sample rate this has
+        // no reason to know.
+        if (p.width.width != 1.0f || p.width.bass_mono_hz > kBassMonoParkedHz) return true;
         for (const auto& b : p.eq) if (b.enabled && b.gain_db != 0.0f) return true;
         return false;
     }
@@ -286,6 +326,8 @@ private:
     std::array<LaneState, kMixerLanes> state_{};          // render thread only
     GateState                         gate_{};            // render thread only
     CompressorState                   comp_{};            // render thread only
+    WidthState                        width_{};           // render thread only
+    bool                              width_active_{false}; // render thread only
     std::uint32_t                     seen_generation_{0}; // render thread only
     int                               settle_blocks_{0};   // render thread only
 };

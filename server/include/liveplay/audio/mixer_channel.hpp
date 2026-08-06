@@ -78,13 +78,30 @@ public:
     void update_meter(ChannelIndex lane,
                       const Sample* samples, std::size_t frame_count) noexcept;
 
-    // Where a MONO strip sits between the two lanes of its destination.
-    // Mirrors the bus's pan, and exists here so the PFL tap can be taken
-    // post-pan: pan itself is applied in the strip's send to the master, which
-    // is downstream of the tap, so the tap has to place the signal itself.
-    // Ignored for a stereo strip, which has no pan (§2.5.3).
+    // The strip's position control, -1..+1. It means one of two things
+    // depending on width, and the strip stores it for the same reason either
+    // way: both are applied in the send to the master, which is DOWNSTREAM of
+    // the PFL tap, so the tap has to place the signal itself or the phones
+    // would disagree with the house.
+    //
+    //   mono   — pan, the position of lane 0 between the destination's lanes
+    //   stereo — balance, a trim between the strip's own two lanes
+    //
+    // One field because it is one knob in one place on the surface; the law
+    // that reads it differs (pan_gains_db vs balance_gains_db) and that is
+    // where the distinction lives.
     void  set_pan(float pan) noexcept;
     float pan() const noexcept { return pan_.load(std::memory_order_relaxed); }
+
+    // Correlation between the strip's two lanes over the last block, +1..-1.
+    // Fed by the render loop after the strip pass, so it describes what
+    // actually leaves the strip — including anything the width block did.
+    // Mono strips never call it and read a steady +1.
+    void  update_correlation(const Sample* left, const Sample* right,
+                             std::size_t frame_count) noexcept;
+    float correlation() const noexcept {
+        return correlation_.load(std::memory_order_relaxed);
+    }
 
     // The strip's fixed processing chain: HPF, LPF, EQ, dynamics. Owned here
     // because its filter memory has to survive topology rebuilds — a routing
@@ -138,6 +155,10 @@ private:
     std::atomic<float> pan_{0.0f};
 
     ChannelDsp         dsp_;
+    // Written by the render thread, read by the meter broadcaster. The state
+    // lives on the audio side; only the smoothed result is published.
+    CorrelationMeter    correlation_meter_{};
+    std::atomic<float>  correlation_{1.0f};
 
     // Fade ramp parameters set by begin_fade(). Hot-read by audio thread.
     std::atomic<float>           fade_target_linear_{1.0f};

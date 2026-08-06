@@ -102,21 +102,71 @@
       </div>
     </div>
 
-    <!-- Pan. Real for a mono bus; a stereo bus would want balance, which is
-         not built, so the knob shows disabled rather than vanishing. -->
-    <div class="cf__pan">
-      <Knob
-        :value="pan"
-        :min="-1"
-        :max="1"
-        :origin="0"
-        :size="44"
-        :disabled="bus.width >= 2"
-        :title="bus.width >= 2 ? t('mixer.balanceUnsupported') : t('mixer.pan')"
-        @input="onPan"
-        @reset="onPan(0)"
-      />
-      <span class="cf__panlabel">{{ panLabel }}</span>
+    <!-- Where the channel sits, and how wide it is.
+
+         The big knob is one control with two laws behind it: PAN on a mono bus,
+         placing its single lane between the destination's two, and BALANCE on a
+         stereo bus, trimming its own pair against each other. Both come out as
+         the same two send gains, so neither costs the render thread anything.
+
+         Width and bass-mono only exist on a stereo bus — there is no image to
+         widen otherwise — and are held disabled rather than hidden so the
+         column does not change height as you step through channels. -->
+    <div class="cf__image">
+      <div class="cf__pan">
+        <Knob
+          :value="pan"
+          :min="-1"
+          :max="1"
+          :origin="0"
+          :size="44"
+          :title="isStereo ? t('mixer.balanceHint') : t('mixer.panHint')"
+          @input="onPan"
+          @reset="onPan(0)"
+        />
+        <span class="cf__panlabel">{{ panLabel }}</span>
+      </div>
+
+      <div class="cf__widthrow">
+        <!-- Linear, unlike the frequency knobs beside it: width is a ratio
+             either side of 1, and half the travel belongs below unity. -->
+        <KnobField
+          :value="widthVal" :min="0" :max="2" :origin="1"
+          :decimals="2" unit="" :label="t('mixer.width')" :size="34"
+          :class="{ 'cf__filter--in': widthIn }"
+          :disabled="!isStereo"
+          :title="isStereo ? t('mixer.widthHint') : t('mixer.widthMonoOnly')"
+          @input="onWidth"
+        />
+        <KnobField
+          :value="bassHz" :min="BASS_MONO_PARKED_HZ" :max="500"
+          :origin="BASS_MONO_PARKED_HZ"
+          taper="log"
+          :decimals="0" unit="Hz" :label="t('mixer.bassMono')" :size="34"
+          :class="{ 'cf__filter--in': bassIn }"
+          :disabled="!isStereo"
+          :title="isStereo ? t('mixer.bassMonoHint') : t('mixer.widthMonoOnly')"
+          @input="onBassMono"
+        />
+      </div>
+
+      <!-- Correlation, which is the thing to watch while widening: +1 is
+           mono-safe, 0 is wide, and anything below zero is material a mono sum
+           will start cancelling. The bar runs from the centre so the eye reads
+           distance-from-mono rather than an absolute quantity. -->
+      <div v-if="isStereo" class="cf__corr" :title="t('mixer.correlationHint')">
+        <div class="cf__corrtrack">
+          <div class="cf__corrzero"></div>
+          <div
+            class="cf__corrfill"
+            :class="{ 'cf__corrfill--warn': correlation < 0 }"
+            :style="corrStyle"
+          ></div>
+        </div>
+        <span class="cf__corrlabel" :class="{ 'cf__corrlabel--warn': correlation < 0 }">
+          {{ correlation.toFixed(2) }}
+        </span>
+      </div>
     </div>
   </section>
 </template>
@@ -124,7 +174,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import type { Bus, BusDsp } from '~/types/project';
-import { HPF_PARKED_HZ, LPF_PARKED_HZ } from '~/types/project';
+import { HPF_PARKED_HZ, LPF_PARKED_HZ, BASS_MONO_PARKED_HZ } from '~/types/project';
 import CanvasFader from './CanvasFader.vue';
 import StereoMeter from './StereoMeter.vue';
 import MeterScale from './MeterScale.vue';
@@ -181,14 +231,18 @@ function onFader(db: number) {
   }, 250);
 }
 
+const isStereo = computed(() => props.bus.width >= 2);
+
 const pan       = ref(props.bus.pan ?? 0);
 let   panHold   = false;
 let   panSettle: ReturnType<typeof setTimeout> | null = null;
 
 watch(() => props.bus.pan, v => { if (!panHold) pan.value = v ?? 0; });
 
+// One handler for both laws. The server decides which to apply from the bus's
+// width, so there is nothing to branch on here — and a mono bus is no longer
+// the only one allowed to move, which is what this used to refuse.
 function onPan(v: number) {
-  if (props.bus.width >= 2) return;
   pan.value = v;
   panHold = true;
   void server.setBusPan(props.bus.id, v).catch(() => {});
@@ -203,6 +257,7 @@ onBeforeUnmount(() => {
   if (settle) clearTimeout(settle);
   if (panSettle) clearTimeout(panSettle);
   if (filtSettle) clearTimeout(filtSettle);
+  if (widthSettle) clearTimeout(widthSettle);
 });
 
 function onMute() {
@@ -239,7 +294,7 @@ watch(() => props.bus.dsp, v => {
 const hpfIn = computed(() => hpfHz.value > HPF_PARKED_HZ);
 const lpfIn = computed(() => lpfHz.value < LPF_PARKED_HZ);
 
-function currentDsp(): BusDsp {
+function currentDsp(): Partial<BusDsp> {
   return {
     hpf: { freq: hpfHz.value, q: props.bus.dsp?.hpf?.q ?? 0.7071 },
     lpf: { freq: lpfHz.value, q: props.bus.dsp?.lpf?.q ?? 0.7071 },
@@ -263,14 +318,71 @@ function pushFilters() {
 function onHpf(v: number) { hpfHz.value = v; pushFilters(); }
 function onLpf(v: number) { lpfHz.value = v; pushFilters(); }
 
+// ---- Stereo image --------------------------------------------------------
+// Width lives in the strip's DSP rather than in its sends, because the M/S
+// matrix needs a negative cross-term above unity and send gains are decibels.
+// So it travels the same live-then-persist path the filters do.
+const widthVal  = ref(props.bus.dsp?.width?.width ?? 1);
+const bassHz    = ref(props.bus.dsp?.width?.bassMonoHz ?? BASS_MONO_PARKED_HZ);
+let   widthHold = false;
+let   widthSettle: ReturnType<typeof setTimeout> | null = null;
+
+watch(() => props.bus.dsp?.width, v => {
+  if (widthHold) return;
+  widthVal.value = v?.width ?? 1;
+  bassHz.value   = v?.bassMonoHz ?? BASS_MONO_PARKED_HZ;
+}, { deep: true });
+
+watch(() => props.bus.id, () => {
+  widthVal.value = props.bus.dsp?.width?.width ?? 1;
+  bassHz.value   = props.bus.dsp?.width?.bassMonoHz ?? BASS_MONO_PARKED_HZ;
+});
+
+// In circuit, by the same rule the filters use: unity width and a parked
+// bass-mono knob are both genuine no-ops, so neither needs a switch.
+const widthIn = computed(() => widthVal.value !== 1);
+const bassIn  = computed(() => bassHz.value > BASS_MONO_PARKED_HZ);
+
+function pushWidth() {
+  widthHold = true;
+  const width = {
+    width: widthVal.value,
+    bassMonoHz: bassHz.value,
+    bassMonoQ: props.bus.dsp?.width?.bassMonoQ ?? 0.7071,
+  };
+  emit('dsp-live', { width });
+  void server.setBusDsp(props.bus.id, { width }).catch(() => {});
+  if (widthSettle) clearTimeout(widthSettle);
+  widthSettle = setTimeout(() => {
+    widthSettle = null;
+    widthHold   = false;
+    emit('patch', props.bus.id, { dsp: { width } } as Partial<Bus>);
+  }, 250);
+}
+
+function onWidth(v: number)    { widthVal.value = v; pushWidth(); }
+function onBassMono(v: number) { bassHz.value   = v; pushWidth(); }
+
 const gainLabel = computed(() =>
   gainDb.value <= -60 ? '-∞' : (gainDb.value > 0 ? '+' : '') + gainDb.value.toFixed(1));
 
 const panLabel = computed(() => {
-  if (props.bus.width >= 2) return '--';
   const v = Math.round(pan.value * 100);
   if (v === 0) return 'C';
   return (v < 0 ? 'L' : 'R') + Math.abs(v);
+});
+
+// Correlation, drawn as a bar growing out of the centre of its track: right
+// toward +1 (mono-compatible) and left toward -1 (cancelling). Centre-out
+// rather than left-filling because what the eye needs is distance from mono,
+// and the sign of that distance.
+const correlation = computed(() => (isStereo.value ? mL.correlation.value : 1));
+const corrStyle = computed(() => {
+  const c = Math.max(-1, Math.min(1, correlation.value));
+  const half = Math.abs(c) * 50;
+  return c >= 0
+    ? { left: '50%', width: half + '%' }
+    : { left: (50 - half) + '%', width: half + '%' };
 });
 
 // Reads the same streams the meter above does, formatted by the shared helper,
@@ -384,10 +496,67 @@ const meterLabel = computed(() => {
    to look at. */
 .cf__filter--in :deep(.kf__label) { color: var(--color-accent); }
 
+/* Placement and image, as one block: where the channel sits and how wide it
+   is are the same question asked twice. */
+.cf__image {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
 .cf__pan { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .cf__panlabel {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--color-text-secondary);
 }
+.cf__widthrow { display: flex; justify-content: center; gap: 4px; }
+
+/* Correlation. Deliberately not StereoMeter: that reads level against the
+   project's output target, and this is a signed ratio on a fixed -1..+1 scale
+   that has nothing to do with how loud anything is. */
+.cf__corr {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+.cf__corrtrack {
+  position: relative;
+  flex: 1 1 auto;
+  height: 4px;
+  min-width: 40px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+/* Mono sits at the right-hand end, so the bar shortens as the image opens up
+   and the tick marks where correlation crosses into cancellation. */
+.cf__corrzero {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--color-border);
+}
+.cf__corrfill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--color-accent);
+  transition: left 80ms linear, width 80ms linear;
+}
+/* Negative correlation is the one state worth colouring: it is material that
+   will partly vanish the moment anything sums this strip to mono. */
+.cf__corrfill--warn { background: var(--color-danger, #e5484d); }
+.cf__corrlabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  min-width: 30px;
+  text-align: right;
+  color: var(--color-text-secondary);
+}
+.cf__corrlabel--warn { color: var(--color-danger, #e5484d); }
 </style>

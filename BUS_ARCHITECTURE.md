@@ -96,7 +96,8 @@ part of the show.
 | **The detached mixer window still takes the cart window's project-data IPC**, despite needing no document to function. | Meter zone colours come from `settings.outputTargetLevels`, and theme/accent from `theme` — without them the popped-out meters would colour off the EBU defaults and disagree with the same meter in the main window. Buses, meters and fader moves do go over that window's own WebSocket. |
 | **Detaching leaves `mixerOpen` alone**; the main window hides the panel while `mixerDetached` is set. | Closing the pop-out puts the panel back exactly where it was, and the header toggle can raise the window instead of opening a second copy of the same faders. |
 | **Pan moves the two mixer→master send gains in place; it never rewires.** `POST /api/buses/<id>/pan` is live-only, `PATCH` persists on settle. | `route_mixer_to_master` replaces an existing send, so a pan drag drops no audio. Going through `unwire_bus`/`wire_bus` would release and re-acquire the master pair and re-open the device on every drag event. |
-| **A stereo bus shows its pan knob disabled** rather than hiding it. | Strips must stay the same height or the meters stop lining up across the rail. Balance is still deferred (§2.5.3). |
+| **One `pan` field, two laws.** Mono buses are panned, stereo buses are balanced, and `apply_bus_pan` picks by width. | It is one knob in one place on the surface, so it is one value in the document. The distinction lives in the law, not in the storage — see §0.5 for why the laws must differ. |
+| **Width lives in `dsp`, not beside `pan`.** | It is the one placement control that is genuinely per-sample (§0.5), so it needs the DSP path's live-then-persist plumbing rather than the pan endpoint's. |
 | **An output-map save re-wires only the buses the edit actually moved.** `BusRouting` records what the name resolved to when it was wired; `PUT /api/outputs` re-resolves each Output-kind bus and leaves it alone unless the channels differ. | Buses are wired from the map at load, so without this a remap did nothing until the project was reloaded. Rewiring *everything* would have been the easy fix, but it drops audio on buses the edit never touched — not acceptable mid-show. A bus that failed to wire earlier records no resolution, so it compares as changed and gets retried, which is what you want right after fixing the map. |
 | **Monitor IS the preview bus** — one strip, on the reserved master pair, fed by both PFL and cue pre-listen. | They were the same thing described twice: a pre-listen destination on headphones that the house never hears. Two of them meant two strips, two device handles for one pair of phones, two levels, and a preview strip the mixer never displayed. Merged, the Monitor fader is *the* headphone level and its meter shows everything you are auditioning. |
 | **The PFL tap is pre-fader AND pre-mute.** | Pre-fader is the whole diagnostic use — hearing a channel with its fader down. Pre-mute is the same argument: checking a muted channel before unmuting it is exactly when you reach for PFL. Both fall out of tapping the accumulators before the strip pass, at no cost. |
@@ -137,8 +138,12 @@ the symptom is misleading in every case.
   every project that has one configured. `ltcDevice` is untouched, being a separate feature.
 - **Global master gain has no UI** (see above). A true master fader distinct from output trim is a
   real thing a desk has; needs a decision.
-- **Balance for stereo buses** (§2.5.3). The knob is there and disabled; pan on mono buses is
-  built.
+- **Frequency-dependent width above the bass** — widening the top independently of the middle.
+  Bass-mono covers the half of this that matters (§0.5); a second crossover for the treble is a
+  mastering flavour and was left out rather than doubling the control count on every strip.
+- **A mono-sum audition button.** Folding a strip to mono in the Monitor bus alone would turn the
+  phase-cancellation risk into something checkable rather than something the correlation number
+  warns about. Cheap; not built.
 - **Neither `CanvasFader` nor `Knob` is keyboard-reachable.** Deliberate, so the two behave
   identically, but it means the mixer cannot be driven without a pointer.
 - **The EQ band handles are not draggable.** With no EQ behind them there is nothing to drag to;
@@ -165,8 +170,8 @@ The **server** work is verified properly, and Stage 3 more thoroughly than the r
 
 ### 0.4 The channel chain
 
-**The chain is fixed, not a plugin rack.** HPF → LPF → EQ ×4 → gate → compressor → PFL tap →
-fader → pan send → master. These are known blocks every strip has, always in that order, so they
+**The chain is fixed, not a plugin rack.** HPF → LPF → EQ ×4 → gate → compressor → width →
+PFL tap → fader → pan/balance send → master. These are known blocks every strip has, always in that order, so they
 are fields on `ChannelDsp` rather than an insert interface. Plugins arrive later as a separate
 list alongside. It runs **regardless of mute**, because PFL is pre-mute.
 
@@ -180,6 +185,7 @@ the compressor's makeup gain lifts that noise over the gate's threshold and hold
 |---|---|
 | `audio/biquad.hpp` | TDF-II section + RBJ designers. Header-only, denormal-flushed, Nyquist-clamped. |
 | `audio/dynamics.hpp` | Both processors: `Gate*` and `Compressor*` params / coeffs / state. |
+| `audio/stereo_width.hpp` | The M/S matrix, the bass-mono side filter, and `CorrelationMeter`. |
 | `audio/channel_dsp.hpp` | The chain. Double-buffered publish, per-block coefficient ramp. |
 | `core/project_state.hpp` | `BusDsp`, `BusGate`, `BusComp`, `merge_bus_dsp`, `dsp_params_for`. |
 | `client/utils/filterResponse.ts` | Display-only mirror of the C++ filter maths. **Must be kept in step by hand.** |
@@ -236,6 +242,60 @@ every steady-state unit test and is caught only by the timing one — a compress
 backwards meters perfectly and destroys every transient. And deleting `active_.comp = target.comp`
 from `advance_coeffs()` leaves all 43 unit tests green while turning seven e2e assertions red: the
 same signature as the gate bug in §0.2b, which is why both suites exist.
+
+### 0.5 The stereo image: balance and width
+
+Two controls on a stereo bus, and they deliberately use **different mechanisms**, because one of
+them cannot use the other's.
+
+**Balance is send gains, like pan.** `apply_bus_pan` sets the two mixer→master send gains and
+nothing else happens per sample. One `pan` field on the bus carries both meanings and
+`apply_bus_pan` picks the law from the bus's width.
+
+**The two laws differ on purpose** (`audio/types.hpp`):
+
+| | centre | hard over | why |
+|---|---|---|---|
+| `pan_gains_db` (mono) | −3.01 dB both | live side at unity | must hold constant power as one source sweeps an image it does not otherwise occupy |
+| `balance_gains_db` (stereo) | **unity both** | other side silent | only ever attenuates — a centred stereo bus must not lose 3 dB for doing nothing, and correcting a lopsided mix must not push the loud side into the limiter |
+
+**Width cannot be a send gain, which is why it is DSP.** The matrix expands to
+`L' = a·L + b·R`, `R' = b·L + a·R` with `a = (1+w)/2`, `b = (1-w)/2` — four sends, except **`b`
+goes negative above w = 1** and send gains are decibels with no polarity. Narrowing would work;
+widening, the entire point, cannot be expressed. So it is a per-sample block, last in the chain.
+
+- **The `/2` convention, not `/√2`.** The symmetric form is the one usually written down, and it
+  matters only if you are metering M/S or working in both domains at equal scale. Nothing here
+  does. The `/2` form needs no compensation constant anywhere.
+- **Unity width is not automatically a no-op.** `fl(L+R)` and `fl(L-R)` each round, so the matrix
+  is not bit-exact at w = 1 in floating point. Identity is *detected* and the block skipped —
+  `width_near_identity()`, with a tolerance rather than an exact test, because these are the
+  ramped coefficients and a filter's feedback terms take far longer to land exactly than to
+  become inaudible. Removing that snap turns two transparency tests red.
+- **No level compensation, deliberately.** The obvious `1/max(1, w)` is wrong for anything not
+  already wide: a mono source has S = 0, so widening does not touch it, yet that term would still
+  pull it down 6 dB at w = 2. It also scales the mid, deepening the phantom-centre loss that wide
+  settings already cause. There is a unit test asserting mono material is untouched at every
+  width, which is the same statement from the other side.
+- **Bass-mono is a high-pass on the side signal alone**, not a crossover. The mid is untouched, so
+  `L + R = 2M` is preserved exactly at every frequency and the low end is mono-safe however hard
+  the rest is widened. One biquad. Parked at 20 Hz is out of circuit, the same convention the
+  strip's HPF and LPF use — so neither width nor bass-mono needs an in/out switch.
+- **Width sits after the dynamics**, where a mastering widener goes, so the compressor keys off
+  the source image and moving width never changes how hard it works. The cost, stated rather than
+  hidden: this strip's own compressor cannot catch a peak the widening creates. The strip meter
+  shows it and the master limiter catches it.
+
+**Correlation, not a goniometer.** `CorrelationMeter` publishes one number per strip — `+1`
+mono-compatible, `0` wide, negative meaning a mono sum will cancel part of it. Three MACs per
+sample against a vectorscope's canvas and history buffer, and it answers the question the width
+control actually raises. Measured post-width so it describes what leaves. Silence and a single
+live lane both read `+1`: neither is a phase problem, and reading `0` there would put a warning on
+every idle strip.
+
+**Why the PFL tap changed.** Width is upstream of the tap, so the phones hear it for free. Balance
+is *downstream*, in the sends, so `append_monitor_taps` applies it itself — exactly as it already
+did for mono pan. Without that a hard-balanced bus would sound centred in the phones.
 
 ---
 
@@ -503,6 +563,12 @@ lanes, which is exactly what a console pan pot does on a mono channel.
 - A **mono bus** feeding a stereo destination gets a pan control.
 - A **stereo bus** gets balance, or nothing at all for v1 — balance is a nicety, pan is not.
 - Neither needs a strip-level pan field on `MixerChannel`, so no engine state is added.
+
+> **Superseded in part (§0.5).** Balance is built, and it shares the `pan` field rather than
+> getting its own — but under a *different law*, because a constant-power pan applied to a stereo
+> bus loses 3 dB at centre and adds gain at the extremes. A strip-level field did turn out to be
+> needed after all: the PFL tap sits upstream of the sends, so the strip carries its own copy to
+> place itself in the phones. Stereo buses also gained M/S width, which is not a send gain at all.
 
 The pan law is the same −3 dB question as §2.5.2, and should use the same answer so a mono source
 panned centre and a stereo source folded to mono behave consistently.

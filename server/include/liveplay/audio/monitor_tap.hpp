@@ -76,22 +76,26 @@ inline void mix_monitor_taps(
 
 // The taps a strip contributes when PFL is up.
 //
-// Stereo goes lane-for-lane at unity. Mono lives on lane 0 alone and would
-// arrive hard left if tapped the same way, so it is placed across both monitor
-// lanes by the pan law — the tap carries the pan itself.
+// Stereo goes lane-for-lane, mono places its single lane across both — and
+// either way the tap carries the strip's own position gains.
 //
-// That is what makes PFL post-pan. Pan is not a strip operation here: it lives
-// in the strip's send to the master (§2.5.3), which sits downstream of this
-// tap, so a tap that ignored it would put every mono bus dead centre in the
-// phones no matter where it sat in the house. At pan centre the law gives
-// -3.01 dB, which is the downmix constant to within a hundredth of a dB, so a
-// centred bus reads exactly as it did before.
+// That is what makes PFL post-pan. Neither pan nor balance is a strip operation
+// here: both live in the strip's sends to the master (§2.5.3), which sit
+// downstream of this tap, so a tap that ignored them would put every mono bus
+// dead centre in the phones and show a hard-balanced stereo bus as though it
+// were still even. At pan centre the law gives -3.01 dB, the downmix constant
+// to within a hundredth of a dB; at balance centre it gives unity, so a centred
+// bus of either width reads exactly as it did before.
+//
+// Width, by contrast, needs nothing here: it is applied inside the strip's DSP
+// chain, which is upstream of this tap, so the phones hear it for free.
 inline void append_monitor_taps(std::vector<MonitorTap>& out,
                                 std::shared_ptr<MixerChannel> strip) {
     if (!strip) return;
     if (strip->width() >= kMixerLanes) {
-        out.push_back({strip, 0, 0, 1.0f});
-        out.push_back({strip, 1, 1, 1.0f});
+        const auto g = balance_gains_db(strip->pan());
+        out.push_back({strip, 0, 0, db_to_linear_precise(g.left)});
+        out.push_back({strip, 1, 1, db_to_linear_precise(g.right)});
     } else {
         const auto g = pan_gains_db(strip->pan());
         out.push_back({strip, 0, 0, db_to_linear_precise(g.left)});

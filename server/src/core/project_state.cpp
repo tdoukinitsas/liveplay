@@ -3650,6 +3650,16 @@ void merge_bus_dsp(const json& src, BusDsp& out) {
         o.knee_db      = std::clamp(k.value("knee",      o.knee_db),        0.0f, 24.0f);
         o.release_ms   = std::clamp(k.value("release",   o.release_ms),     5.0f, 5000.0f);
     }
+    if (src.contains("width") && src["width"].is_object()) {
+        const auto& w = src["width"];
+        auto& o = out.width;
+        // 2.0 is the conventional top of a width control: past it the phantom
+        // centre is so far down that lead material sounds hollow, and the mono
+        // sum starts losing it altogether.
+        o.width        = std::clamp(w.value("width",      o.width),        0.0f, 2.0f);
+        o.bass_mono_hz = std::clamp(w.value("bassMonoHz", o.bass_mono_hz), 20.0f, 500.0f);
+        o.bass_mono_q  = std::clamp(w.value("bassMonoQ",  o.bass_mono_q),   0.1f, 4.0f);
+    }
     if (src.contains("eq") && src["eq"].is_array()) {
         const auto& arr = src["eq"];
         for (std::size_t i = 0; i < kBusEqBands && i < arr.size(); ++i) {
@@ -3690,6 +3700,11 @@ json bus_dsp_to_json(const BusDsp& d) {
             {"attack",    d.comp.attack_ms},
             {"knee",      d.comp.knee_db},
             {"release",   d.comp.release_ms},
+        }},
+        {"width", json{
+            {"width",      d.width.width},
+            {"bassMonoHz", d.width.bass_mono_hz},
+            {"bassMonoQ",  d.width.bass_mono_q},
         }},
     };
 }
@@ -4045,6 +4060,19 @@ audio::StripDspParams ProjectState::dsp_params_for(const BusDef& bus) {
     p.comp.attack_ms    = bus.dsp.comp.attack_ms;
     p.comp.release_ms   = bus.dsp.comp.release_ms;
     p.comp.makeup_db    = bus.dsp.comp.makeup_db;
+
+    // Width is meaningless on a mono bus — there is no second lane to matrix
+    // against — so it is forced to identity rather than left for the render
+    // thread to skip. That way a bus narrowed to mono and then rebuilt as mono
+    // does not come back wide if it is ever widened again.
+    //
+    // No dyn_enabled here: the dynamics bypass is a bypass of the two dynamics
+    // processors, and width is neither. Its own parked position is its bypass.
+    if (bus.width >= 2) {
+        p.width.width        = bus.dsp.width.width;
+        p.width.bass_mono_hz = bus.dsp.width.bass_mono_hz;
+        p.width.bass_mono_q  = bus.dsp.width.bass_mono_q;
+    }
     return p;
 }
 
@@ -4089,27 +4117,37 @@ bool ProjectState::set_bus_pan_live(const std::string& id, float pan) {
 }
 
 void ProjectState::apply_bus_pan(const BusDef& bus, const BusRouting& routing) {
-    // Pan is a property of a mono->stereo send (§2.5.3). A stereo bus has no
-    // pan — balance is deferred — and a mono destination has nowhere to pan to.
-    if (routing.mixer.empty() || bus.width >= 2) return;
+    if (routing.mixer.empty()) return;
 
     // The strip needs its own copy: the PFL tap is taken upstream of the sends
     // below, so it places the signal itself to stay post-pan. Without this a
     // panned mono bus would sit dead centre in the phones.
     engine_.set_mixer_pan(routing.mixer, bus.pan);
 
-    const auto g = audio::pan_gains_db(bus.pan);
+    // One knob, two laws. A mono bus is PANNED — lane 0 is placed between the
+    // destination's lanes on the constant-power law (§2.5.3). A stereo bus is
+    // BALANCED — its own two lanes are trimmed against each other, and that
+    // law only ever attenuates, so correcting a lopsided mix cannot push the
+    // loud side up into the limiter. Both end up as the same two send gains.
+    const auto g = bus.width >= 2 ? audio::balance_gains_db(bus.pan)
+                                  : audio::pan_gains_db(bus.pan);
+
+    // ...and two source lanes, or one twice. A stereo bus keeps its own L and R
+    // and only has their gains trimmed; a mono bus sends lane 0 to both sides,
+    // which is what "placing" it means when there is only one of it.
+    const audio::ChannelIndex lane_l = 0;
+    const audio::ChannelIndex lane_r = bus.width >= 2 ? 1 : 0;
 
     if (bus.output_kind == BusOutputKind::Master) {
-        engine_.route_mixer_to_master(routing.mixer, 0, g.left,  0);
-        engine_.route_mixer_to_master(routing.mixer, 1, g.right, 0);
+        engine_.route_mixer_to_master(routing.mixer, 0, g.left,  lane_l);
+        engine_.route_mixer_to_master(routing.mixer, 1, g.right, lane_r);
         return;
     }
     if (bus.output_kind != BusOutputKind::Output || !routing.has_masters) return;
     if (outputs_.resolve(bus.output_target).size() < 2) return;
 
-    engine_.route_mixer_to_master(routing.mixer, routing.master_l, g.left,  0);
-    engine_.route_mixer_to_master(routing.mixer, routing.master_r, g.right, 0);
+    engine_.route_mixer_to_master(routing.mixer, routing.master_l, g.left,  lane_l);
+    engine_.route_mixer_to_master(routing.mixer, routing.master_r, g.right, lane_r);
 }
 
 void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing) {
@@ -4120,15 +4158,12 @@ void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing) {
     routing.wired_channels.clear();
 
     if (bus.output_kind == BusOutputKind::Master) {
-        if (bus.width >= 2) {
-            engine_.route_mixer_to_master(routing.mixer, 0, 0.0f, 0);   // L
-            engine_.route_mixer_to_master(routing.mixer, 1, 0.0f, 1);   // R
-        } else {
-            // Mono bus placed in the stereo master by the pan law. At pan 0
-            // both gains are -3 dB, so a centred mono source and a stereo
-            // fold-down agree.
-            apply_bus_pan(bus, routing);
-        }
+        // One call for both widths. It places a mono bus by the pan law — at
+        // pan 0 both gains are -3 dB, so a centred mono source and a stereo
+        // fold-down agree — and trims a stereo bus by the balance law, which at
+        // centre is unity on both lanes and so is exactly the straight-through
+        // wiring this used to hard-code.
+        apply_bus_pan(bus, routing);
         return;
     }
 
@@ -4180,8 +4215,10 @@ void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing) {
     }
 
     if (bus.width >= 2 && used >= 2) {
-        engine_.route_mixer_to_master(routing.mixer, routing.master_l, 0.0f, 0);
-        engine_.route_mixer_to_master(routing.mixer, routing.master_r, 0.0f, 1);
+        // Balance rides on these two sends, exactly as pan does on the mono
+        // branch below. At centre it is unity on both, which is the
+        // straight-through wiring this used to hard-code.
+        apply_bus_pan(bus, routing);
     } else if (bus.width >= 2) {
         // Stereo bus folded into a mono output: both lanes at the pan law.
         engine_.route_mixer_to_master(routing.mixer, routing.master_l,
