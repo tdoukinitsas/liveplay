@@ -141,9 +141,9 @@ the symptom is misleading in every case.
 - **Frequency-dependent width above the bass** — widening the top independently of the middle.
   Bass-mono covers the half of this that matters (§0.5); a second crossover for the treble is a
   mastering flavour and was left out rather than doubling the control count on every strip.
-- **A mono-sum audition button.** Folding a strip to mono in the Monitor bus alone would turn the
-  phase-cancellation risk into something checkable rather than something the correlation number
-  warns about. Cheap; not built.
+- **The mono-sum audition's e2e has not been run.** `width-e2e.js` gained two assertions for it
+  which were red before the fix and could not be re-run afterwards — Smart App Control blocked the
+  freshly linked server binary. The unit suites pass. Measure it before trusting it.
 - **Neither `CanvasFader` nor `Knob` is keyboard-reachable.** Deliberate, so the two behave
   identically, but it means the mixer cannot be driven without a pointer.
 - **The EQ band handles are not draggable.** With no EQ behind them there is nothing to drag to;
@@ -296,6 +296,22 @@ every idle strip.
 **Why the PFL tap changed.** Width is upstream of the tap, so the phones hear it for free. Balance
 is *downstream*, in the sends, so `append_monitor_taps` applies it itself — exactly as it already
 did for mono pan. Without that a hard-balanced bus would sound centred in the phones.
+
+**The mono-sum audition** (`POST /api/monitor/mono`, `monoCheck` on `GET /api/buses`) is the same
+width block, forced to 0 on the Monitor strip. One control for the monitoring path rather than one
+per channel, taking the button slot PFL leaves disabled on Monitor. Live, never persisted.
+
+It is **amplitude-preserving**, not `kDefaultDownmixDb`: at width 0 both lanes become `(L+R)/2`, so
+mono-compatible material — the case you are checking against — does not change level at all. The
+−3 dB constant still governs actually *routing* a stereo bus to a mono output (§2.5.2); this is an
+audition, and a power-preserving fold would make it 3 dB louder on exactly the material it is
+meant to be compared with.
+
+**It also forced a render-loop ordering fix.** The Monitor strip's DSP chain ran in the same pass
+as every other strip — which is *before* the PFL taps are mixed into its accumulator, so it was
+processing an empty buffer. The fold folded nothing, and Monitor's own EQ and dynamics applied to
+cue pre-listen but not to anything PFL'd: one strip treating its two sources differently. Monitor's
+chain now runs after the taps.
 
 ---
 

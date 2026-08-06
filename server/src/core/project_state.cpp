@@ -4007,7 +4007,7 @@ std::size_t ProjectState::rewire_buses_for_output_map() {
     return moved;
 }
 
-audio::StripDspParams ProjectState::dsp_params_for(const BusDef& bus) {
+audio::StripDspParams ProjectState::dsp_params_for(const BusDef& bus) const {
     audio::StripDspParams p;
     // Parked is out of circuit. A filter left at the end of its travel should
     // be a genuine passthrough, not a 20 Hz section still bending phase across
@@ -4073,7 +4073,33 @@ audio::StripDspParams ProjectState::dsp_params_for(const BusDef& bus) {
         p.width.bass_mono_hz = bus.dsp.width.bass_mono_hz;
         p.width.bass_mono_q  = bus.dsp.width.bass_mono_q;
     }
+
+    // The mono-sum audition, which is the Monitor strip's width forced to 0.
+    // It overrides whatever width Monitor is carrying, because the operator
+    // pressing MONO wants mono and not "mono times whatever was already set".
+    // Last, so nothing above can undo it.
+    if (bus.id == kMonitorBusId && monitor_mono_.load(std::memory_order_relaxed)) {
+        p.width.width = 0.0f;
+    }
     return p;
+}
+
+bool ProjectState::set_monitor_mono(bool on) {
+    BusDef def;
+    audio::MixerChannelId mixer;
+    {
+        std::lock_guard lock{mutex_};
+        const auto bit = std::find_if(buses_.begin(), buses_.end(),
+                                      [](const BusDef& b) { return b.id == kMonitorBusId; });
+        if (bit == buses_.end()) return false;
+        def   = *bit;
+        mixer = mixer_for_bus(kMonitorBusId);
+    }
+    if (mixer.empty()) return false;
+    // Set before rebuilding the parameters, since dsp_params_for reads it.
+    monitor_mono_.store(on, std::memory_order_relaxed);
+    engine_.set_mixer_dsp(mixer, dsp_params_for(def));
+    return true;
 }
 
 bool ProjectState::set_bus_dsp_live(const std::string& id, const json& dsp) {
@@ -4696,6 +4722,10 @@ std::vector<ProjectState::BusInfo> ProjectState::list_buses() const {
         const auto rit = bus_routings_.find(b.id);
         info.bound = b.output_kind == BusOutputKind::Master ||
                      (rit != bus_routings_.end() && !rit->second.wired_channels.empty());
+        // Only Monitor can be folded to mono for auditioning, so only Monitor
+        // ever reports it.
+        info.mono_check = b.id == kMonitorBusId &&
+                          monitor_mono_.load(std::memory_order_relaxed);
         out.push_back(std::move(info));
     }
 

@@ -349,6 +349,13 @@ function createClient() {
           if (payload.op === 'bus_pfl_cleared') {
             for (const b of buses.value) b.pfl = false;
           }
+          // Same story as PFL: live monitoring state, its own op, applied in
+          // place so a second mixer window agrees about what the phones are
+          // doing.
+          if (payload.op === 'monitor_mono_changed') {
+            const mon = buses.value.find(x => x.id === 'monitor');
+            if (mon) mon.monoCheck = !!payload.mono;
+          }
           // Handle output_channel_gain_changed locally before fanning out.
           if (payload.op === 'output_channel_gain_changed' &&
               typeof payload.channel === 'number' &&
@@ -935,6 +942,25 @@ function createClient() {
     return rest<{ cleared: number }>('/api/buses/pfl/clear', { method: 'POST' });
   }
 
+  // Fold the Monitor bus to mono, to check what is in the phones for mono
+  // compatibility. Set locally first for the same reason PFL is: this is a
+  // press made against something playing right now.
+  //
+  // Not addressed per bus — it is one control for the whole monitoring path.
+  async function setMonitorMono(on: boolean) {
+    const mon = buses.value.find(x => x.id === 'monitor');
+    if (mon) mon.monoCheck = on;
+    try {
+      await rest('/api/monitor/mono', {
+        method: 'POST',
+        body: JSON.stringify({ mono: on }),
+      });
+    } catch (e) {
+      if (mon) mon.monoCheck = !on;
+      throw e;
+    }
+  }
+
   // Live tone controls for the duration of a filter drag. Coefficients go
   // straight to the strip — no document write, no refetch — exactly as
   // setBusPan does, and for the same reason: a PATCH per drag event would
@@ -1264,6 +1290,7 @@ function createClient() {
     setBusDsp,
     setBusPfl,
     clearAllPfl,
+    setMonitorMono,
     deleteBus,
     setItemBus,
     fetchOutputs,

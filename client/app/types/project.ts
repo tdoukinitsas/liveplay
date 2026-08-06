@@ -295,6 +295,12 @@ export interface Bus {
    * engine, never saved, and a reload clears it.
    */
   pfl: boolean;
+  /**
+   * Monitor only: the mono-sum audition is folding the phones to mono. Live
+   * state like `pfl` — read from the engine, never saved. Always false on
+   * every other bus.
+   */
+  monoCheck: boolean;
   /** The strip's tone controls: filters, EQ and dynamics. */
   dsp: BusDsp;
   /**

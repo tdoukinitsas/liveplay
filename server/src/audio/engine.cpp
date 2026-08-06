@@ -1242,9 +1242,9 @@ void AudioEngine::render_one_block(const Topology& topo) {
     //
     // Every lane goes in together rather than one at a time: the gate's
     // detector is linked across them, so it has to see the whole strip.
-    for (std::size_t i = 0; i < active_mixers.size(); ++i) {
+    const auto run_strip_dsp = [&](std::size_t i) {
         auto& dsp = active_mixers[i]->dsp();
-        if (!dsp.needs_processing()) continue;
+        if (!dsp.needs_processing()) return;
         Sample* lanes[kMixerLanes];
         for (ChannelIndex lane = 0; lane < kMixerLanes; ++lane) {
             lanes[lane] = mixer_accumulators_[i * kMixerLanes + lane].data();
@@ -1254,6 +1254,22 @@ void AudioEngine::render_one_block(const Topology& topo) {
         const ChannelCount used = std::min<ChannelCount>(
             std::max<ChannelCount>(1, active_mixers[i]->width()), kMixerLanes);
         dsp.process(lanes, used, block);
+    };
+
+    // Monitor is deliberately left out of this pass and run after the taps
+    // below. Its accumulator is empty until they land, so processing it here
+    // would be processing silence: the mono-sum audition folded nothing, and
+    // any EQ or dynamics on Monitor applied to cue pre-listen but not to
+    // anything PFL'd — the same strip treating its two sources differently.
+    const std::size_t monitor_index = [&]() -> std::size_t {
+        if (!topo.monitor) return active_mixers.size();
+        const auto it = mixer_index.find(topo.monitor->id().value);
+        return it == mixer_index.end() ? active_mixers.size() : it->second;
+    }();
+
+    for (std::size_t i = 0; i < active_mixers.size(); ++i) {
+        if (i == monitor_index) continue;
+        run_strip_dsp(i);
     }
 
     // ---- PFL taps into the Monitor strip ----
@@ -1264,13 +1280,16 @@ void AudioEngine::render_one_block(const Topology& topo) {
     //
     // Nothing is copied. The tap adds straight into the monitor's
     // accumulator, which is the buffer copy §2.4 costed, minus the copy.
-    if (topo.monitor && !topo.monitor_taps.empty()) {
-        const auto mon = mixer_index.find(topo.monitor->id().value);
-        if (mon != mixer_index.end()) {
-            mix_monitor_taps(mon->second, topo.monitor_taps, mixer_index,
-                             mixer_accumulators_, block);
-        }
+    if (topo.monitor && !topo.monitor_taps.empty() &&
+        monitor_index < active_mixers.size()) {
+        mix_monitor_taps(monitor_index, topo.monitor_taps, mixer_index,
+                         mixer_accumulators_, block);
     }
+
+    // ---- Monitor's own chain, now that everything it carries has arrived ----
+    // Both sources are in: cue pre-listen from the item pass, PFL from the taps
+    // just above. This is where the mono-sum audition folds the phones.
+    if (monitor_index < active_mixers.size()) run_strip_dsp(monitor_index);
 
     // ---- Tier-2 strip processing (gain/mute/fade) + meter ----
     // No solo scan. Solo was never reachable from the UI and the mixer design

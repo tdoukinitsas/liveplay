@@ -1623,6 +1623,8 @@ void ControlServer::install_routes() {
                         // Live monitoring state, not part of the document —
                         // it comes from the strip, and a reload clears it.
                         {"pfl",      b.pfl},
+                        // Monitor only: the mono-sum audition. Live too.
+                        {"monoCheck", b.mono_check},
                         // Whether it actually reaches hardware — see BusInfo.
                         {"bound",    b.bound},
                         {"system",   b.def.system},
@@ -1723,6 +1725,24 @@ void ControlServer::install_routes() {
                     {"id", id}, {"pfl", on},
                 });
                 return json_ok(json({{"ok", true}, {"pfl", on}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // The mono-sum audition. Not per bus: it folds the MONITOR to mono, which
+    // is one control for the whole monitoring path rather than one per strip —
+    // PFL whichever buses you want to check, then press this.
+    CROW_ROUTE(app, "/api/monitor/mono").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                auto j = json::parse(req.body);
+                const bool on = j.value("mono", false);
+                if (!state_.set_monitor_mono(on))
+                    return json_err(409, "the Monitor bus has no strip");
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "monitor_mono_changed"},
+                    {"mono", on},
+                });
+                return json_ok(json({{"ok", true}, {"mono", on}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 

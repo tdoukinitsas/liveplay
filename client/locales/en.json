@@ -571,6 +571,8 @@
     "bassMono": "Bass→M",
     "bassMonoHint": "Sends everything below this to the centre, leaving the rest of the image alone. Parked at the bottom of its travel it is out of circuit.",
     "correlationHint": "How mono-compatible this bus is. +1 sums perfectly, 0 is wide, below 0 means part of it cancels when summed to mono.",
+    "monoCheck": "MONO",
+    "monoCheckHint": "Fold the headphones to mono to check mono compatibility. PFL a bus first — anything that cancels when summed will drop out. The house is unaffected.",
     "mono": "Mono",
     "stereo": "Stereo",
     "output": "Output",

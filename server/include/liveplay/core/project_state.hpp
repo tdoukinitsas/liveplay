@@ -580,6 +580,9 @@ public:
         // settings.previewDevice, which is not in the map, and flagging that
         // as unmapped would put a warning on a bus that is working.
         bool                     bound = false;
+        // Monitor only, and live rather than persisted: the mono-sum audition
+        // (see set_monitor_mono). False on every other bus.
+        bool                     mono_check = false;
     };
     std::vector<BusInfo> list_buses() const;
 
@@ -611,7 +614,34 @@ public:
     // Turn a bus's stored tone controls into engine parameters. Public because
     // the shape of StripDspParams is the engine's, not the document's, and
     // both the materialise path and the live path need the same translation.
-    static audio::StripDspParams dsp_params_for(const BusDef& bus);
+    //
+    // Not static: the Monitor bus's parameters depend on the live mono-check
+    // flag as well as on what the document says.
+    audio::StripDspParams dsp_params_for(const BusDef& bus) const;
+
+    // ---- Mono-sum audition -----------------------------------------------
+    // Fold the Monitor bus to mono, so what is in the phones can be checked
+    // for mono compatibility without touching the house. PFL a bus, press
+    // this, and anything that cancels when summed will audibly drop out.
+    //
+    // Implemented as the Monitor strip's own width control forced to 0, which
+    // is exactly a mono fold, so it costs no new DSP and glides over ~20 ms
+    // instead of clicking.
+    //
+    // Deliberately amplitude-preserving rather than kDefaultDownmixDb: at
+    // width 0 both lanes become (L+R)/2, so mono-compatible material — the
+    // common case, and the case you are checking against — does not change
+    // level at all. A power-preserving fold would make the check 3 dB louder
+    // on exactly that material, and a louder A/B always sounds better. The
+    // -3 dB constant still governs actually ROUTING a stereo bus to a mono
+    // output (§2.5.2); this is an audition, which is a different question.
+    //
+    // Not persisted, for the same reason PFL is not: it is what the operator
+    // is listening to right now, not part of the show.
+    bool set_monitor_mono(bool on);
+    bool monitor_mono() const noexcept {
+        return monitor_mono_.load(std::memory_order_relaxed);
+    }
 
     // ---- PFL -------------------------------------------------------------
     // Raise or lower pre-fade listen on a bus: a pre-fader, pre-mute tap into
@@ -765,6 +795,11 @@ private:
     // monotonic counter grows — without this, repeatedly changing a bus's
     // output would walk the counter into the preview reserve and exhaust it.
     std::vector<audio::MasterChannelIndex> free_master_pairs_;
+
+    // The mono-sum audition. Atomic rather than mutex-guarded because
+    // dsp_params_for reads it while building parameters and takes no lock.
+    // Never written to the document — see set_monitor_mono.
+    std::atomic<bool> monitor_mono_{false};
 
     // Read document_["buses"] into buses_, synthesising the system buses and
     // migrating legacy per-item deviceOverride values into real buses. Caller

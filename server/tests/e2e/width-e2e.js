@@ -208,6 +208,55 @@ const width = (o) => ({ width: { width: 1, bassMonoHz: 20, bassMonoQ: 0.7071, ..
   ok('and a mono bus reports correlation +1', m.correlation(mb.mixerId) > 0.99,
      m.correlation(mb.mixerId).toFixed(3));
 
+  // ---- The mono-sum audition ----
+  // PFL the wide bus into Monitor, then fold Monitor to mono. The check is on
+  // the MONITOR strip: the bus being auditioned must not move at all, because
+  // the whole promise is that this touches the phones and nothing else.
+  //
+  // Monitor is unbound on a machine with no headphone output, but its strip
+  // still runs and still meters, so this measures correctly either way.
+  await rest(`/api/project/items/${uuid}`, {
+    method: 'PATCH', body: JSON.stringify({ busId: bus }) });
+  await rest(`/api/buses/${bus}/pfl`, {
+    method: 'POST', body: JSON.stringify({ pfl: true }) });
+  await sleep(SETTLE_MS);
+  await measure(m, 2000);
+  const monitorBus = (await rest('/api/buses')).body.find(x => x.id === 'monitor');
+  const monWide = m.rms(monitorBus.mixerId);
+  const busWide = m.rms(b.mixerId);
+  ok('PFL puts the wide bus into Monitor', monWide > -40, `${monWide.toFixed(1)} dB RMS`);
+  ok('and Monitor starts un-folded', monitorBus.monoCheck === false);
+
+  await rest('/api/monitor/mono', {
+    method: 'POST', body: JSON.stringify({ mono: true }) });
+  await sleep(SETTLE_MS);
+  await measure(m, 2000);
+  // The side content is uncorrelated with the mid, so folding drops it: the
+  // monitor loses 3 dB and becomes mono-compatible.
+  ok('MONO folds the monitor: -3.01 dB',
+     Math.abs((m.rms(monitorBus.mixerId) - monWide) + 3.01) < 0.6,
+     `${monWide.toFixed(1)} -> ${m.rms(monitorBus.mixerId).toFixed(1)} dB RMS`);
+  ok('and the monitor reads as mono-compatible',
+     m.correlation(monitorBus.mixerId) > 0.95,
+     m.correlation(monitorBus.mixerId).toFixed(3));
+  // The safety claim, and the reason this is on the Monitor strip rather than
+  // on each channel: the bus being checked is untouched.
+  ok('while the bus being auditioned does not move',
+     Math.abs(m.rms(b.mixerId) - busWide) < 0.2,
+     `${busWide.toFixed(1)} -> ${m.rms(b.mixerId).toFixed(1)} dB RMS`);
+  ok('and the API reports the fold',
+     (await rest('/api/buses')).body.find(x => x.id === 'monitor').monoCheck === true);
+
+  await rest('/api/monitor/mono', {
+    method: 'POST', body: JSON.stringify({ mono: false }) });
+  await sleep(SETTLE_MS);
+  await measure(m, 2000);
+  ok('and releasing it restores the monitor exactly',
+     Math.abs(m.rms(monitorBus.mixerId) - monWide) < 0.3,
+     `${monWide.toFixed(1)} -> ${m.rms(monitorBus.mixerId).toFixed(1)} dB RMS`);
+  await rest(`/api/buses/${bus}/pfl`, {
+    method: 'POST', body: JSON.stringify({ pfl: false }) });
+
   // ---- Persistence ----
   await rest(`/api/buses/${bus}`, {
     method: 'PATCH',

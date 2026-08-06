@@ -102,7 +102,13 @@
          PFL adds a pre-fader, pre-mute tap into the Monitor bus and changes
          nothing about what the room hears — several can be up at once. The
          master has no PFL (it is what you are already listening to) and
-         neither does Monitor (it is the destination). -->
+         neither does Monitor (it is the destination).
+
+         Monitor gets MONO in that slot instead, which is the console
+         arrangement: one button on the monitoring path that folds the phones
+         to mono, rather than one per channel. PFL whichever buses you want to
+         check, then press it — anything that cancels when summed drops out.
+         It only ever touches the phones; the house is untouched. -->
     <div class="strip__row strip__row--split">
       <button
         class="strip__btn"
@@ -111,10 +117,18 @@
         @click.stop="onMute"
       >{{ t('mixer.mute') }}</button>
       <button
+        v-if="monitor"
+        class="strip__btn"
+        :class="{ 'strip__btn--mono': bus.monoCheck }"
+        :title="t('mixer.monoCheckHint')"
+        @click.stop="onMonoCheck"
+      >{{ t('mixer.monoCheck') }}</button>
+      <button
+        v-else
         class="strip__btn"
         :class="{ 'strip__btn--pfl': bus.pfl }"
-        :disabled="master || monitor"
-        :title="master || monitor ? '' : t('mixer.pflHint')"
+        :disabled="master"
+        :title="master ? '' : t('mixer.pflHint')"
         @click.stop="onPfl"
       >{{ t('mixer.pfl') }}</button>
     </div>
@@ -349,6 +363,13 @@ function onPfl() {
   void server.setBusPfl(props.bus.id, !props.bus.pfl).catch(() => {});
 }
 
+// The mono-sum audition, and engine-only for the same reason PFL is: it is
+// what the operator is checking right now, not part of the show.
+function onMonoCheck() {
+  if (!props.monitor) return;
+  void server.setMonitorMono(!props.bus.monoCheck).catch(() => {});
+}
+
 // Width moved to the channel details view; the strip just reports it, next to
 // the button that opens the place it can be changed.
 const widthLabel = computed(() => props.bus.width >= 2 ? 'ST' : 'MONO');
@@ -530,6 +551,14 @@ function onOutputChange(e: Event) {
   color: #fff;
 }
 .strip__btn--pfl { background: var(--color-success); border-color: var(--color-success); color: #fff; }
+/* Lit in the accent rather than in PFL's green: it is a different kind of
+   state — a temporary way of listening, not a thing being listened to — and
+   two greens side by side on the same row would read as the same control. */
+.strip__btn--mono {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
 .strip__btn:disabled { cursor: not-allowed; opacity: 0.4; }
 
 .strip__pan {
