@@ -87,11 +87,23 @@ struct FilterParams {
     float q       = 0.70710678f;
 };
 
+// One EQ band. A bell unless `shelf` is set, in which case `low_shelf` picks
+// which end it turns up.
+//
+// Q and slope are SEPARATE fields rather than one number read two ways. They
+// are different quantities — Q is the width of a bell, slope is the steepness
+// of a shelf's transition, and their useful ranges barely overlap — so sharing
+// a field would mean switching a band to shelf and back silently changed the
+// bell's width. Same argument as the section bypasses: flipping a switch has
+// to put things back exactly as they were.
 struct EqBandParams {
-    bool  enabled = false;
-    float freq_hz = 1000.0f;
-    float gain_db = 0.0f;
-    float q       = 1.0f;
+    bool  enabled   = false;
+    bool  shelf     = false;
+    bool  low_shelf = false;   // ignored unless shelf
+    float freq_hz   = 1000.0f;
+    float gain_db   = 0.0f;
+    float q         = 1.0f;
+    float slope     = 1.0f;
 };
 
 struct StripDspParams {
@@ -101,10 +113,10 @@ struct StripDspParams {
     FilterParams hpf{false, 80.0f,    0.70710678f};
     FilterParams lpf{false, 18000.0f, 0.70710678f};
     std::array<EqBandParams, kEqBands> eq{{
-        {false, 100.0f,   0.0f, 0.7f},
-        {false, 500.0f,   0.0f, 1.0f},
-        {false, 2500.0f,  0.0f, 1.0f},
-        {false, 10000.0f, 0.0f, 0.7f},
+        {false, false, true,  100.0f,   0.0f, 0.7f, 1.0f},
+        {false, false, false, 500.0f,   0.0f, 1.0f, 1.0f},
+        {false, false, false, 2500.0f,  0.0f, 1.0f, 1.0f},
+        {false, false, false, 10000.0f, 0.0f, 0.7f, 1.0f},
     }};
 };
 
@@ -134,10 +146,17 @@ public:
         for (std::size_t i = 0; i < kEqBands; ++i) {
             const auto& b = p.eq[i];
             // A band sitting at 0 dB is a no-op; make it literally one so four
-            // flat bands in circuit cannot colour the desk.
-            c.eq[i] = (b.enabled && b.gain_db != 0.0f)
-                          ? biquad_peaking(b.freq_hz, fs, b.gain_db, b.q)
-                          : biquad_passthrough();
+            // flat bands in circuit cannot colour the desk. That holds for a
+            // shelf as much as a bell — both are identities at unity gain.
+            if (!b.enabled || b.gain_db == 0.0f) {
+                c.eq[i] = biquad_passthrough();
+            } else if (b.shelf) {
+                c.eq[i] = b.low_shelf
+                              ? biquad_lowshelf(b.freq_hz, fs, b.gain_db, b.slope)
+                              : biquad_highshelf(b.freq_hz, fs, b.gain_db, b.slope);
+            } else {
+                c.eq[i] = biquad_peaking(b.freq_hz, fs, b.gain_db, b.q);
+            }
         }
         c.gate  = gate_coeffs(p.gate, fs);
         c.comp  = compressor_coeffs(p.comp, fs);

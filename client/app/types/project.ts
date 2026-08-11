@@ -183,7 +183,23 @@ export interface BusEqBand {
   freq: number;
   gain: number;
   q: number;
+  /**
+   * Switch this band from a bell to a shelf. Honoured only on the outer bands
+   * — LF shelves the bottom, HF the top; which end follows from the band's
+   * position and is not stored.
+   */
+  shelf: boolean;
+  /**
+   * A shelf's steepness, 0.1..2. Separate from `q` rather than sharing it,
+   * because they are different quantities with barely overlapping ranges, and
+   * one field would mean switching to shelf and back silently changed the
+   * bell's width.
+   */
+  slope: number;
 }
+
+/** Which bands may be shelved. The middle two are always bells. */
+export const EQ_SHELVABLE_BANDS = [0, 3] as const;
 
 /**
  * The expander / gate.

@@ -128,6 +128,59 @@ export function biquadPeaking(
   );
 }
 
+// A shelf's steepness, clamped the same way the C++ side clamps it. Past 2 the
+// transition overshoots into a resonant peak at the corner, which is not what
+// the control means; below 0.1 it is so gradual it stops being a shelf.
+function clampSlope(slope: number): number {
+  if (slope < 0.1) return 0.1;
+  if (slope > 2.0) return 2.0;
+  return slope;
+}
+
+export function biquadLowShelf(
+  freqHz: number,
+  sampleRate: number,
+  gainDb: number,
+  slope = 1.0
+): BiquadCoeffs {
+  const A = Math.pow(10.0, gainDb / 40.0);
+  const w0 = (2.0 * PI * clampFreq(freqHz, sampleRate)) / sampleRate;
+  const cosw = Math.cos(w0);
+  const s = clampSlope(slope);
+  const alpha = (Math.sin(w0) / 2.0) * Math.sqrt((A + 1.0 / A) * (1.0 / s - 1.0) + 2.0);
+  const tsa = 2.0 * Math.sqrt(A) * alpha;
+  return normalise(
+    A * (A + 1.0 - (A - 1.0) * cosw + tsa),
+    2.0 * A * (A - 1.0 - (A + 1.0) * cosw),
+    A * (A + 1.0 - (A - 1.0) * cosw - tsa),
+    A + 1.0 + (A - 1.0) * cosw + tsa,
+    -2.0 * (A - 1.0 + (A + 1.0) * cosw),
+    A + 1.0 + (A - 1.0) * cosw - tsa
+  );
+}
+
+export function biquadHighShelf(
+  freqHz: number,
+  sampleRate: number,
+  gainDb: number,
+  slope = 1.0
+): BiquadCoeffs {
+  const A = Math.pow(10.0, gainDb / 40.0);
+  const w0 = (2.0 * PI * clampFreq(freqHz, sampleRate)) / sampleRate;
+  const cosw = Math.cos(w0);
+  const s = clampSlope(slope);
+  const alpha = (Math.sin(w0) / 2.0) * Math.sqrt((A + 1.0 / A) * (1.0 / s - 1.0) + 2.0);
+  const tsa = 2.0 * Math.sqrt(A) * alpha;
+  return normalise(
+    A * (A + 1.0 + (A - 1.0) * cosw + tsa),
+    -2.0 * A * (A - 1.0 + (A + 1.0) * cosw),
+    A * (A + 1.0 + (A - 1.0) * cosw - tsa),
+    A + 1.0 - (A - 1.0) * cosw + tsa,
+    2.0 * (A - 1.0 - (A + 1.0) * cosw),
+    A + 1.0 - (A - 1.0) * cosw - tsa
+  );
+}
+
 /**
  * Magnitude response at one frequency, for drawing the EQ curve. Evaluates
  * |H(e^jw)| directly from the coefficients, matching the C++ side's approach

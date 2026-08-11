@@ -372,7 +372,7 @@ void test_chain_ramps_out() {
     while (dsp.needs_processing()) {}            // drain the start-up tail
 
     StripDspParams boosted;
-    boosted.eq[1] = {true, 1000.0f, 12.0f, 1.0f};
+    boosted.eq[1] = {.enabled = true, .freq_hz = 1000.0f, .gain_db = 12.0f, .q = 1.0f};
     dsp.set_params(boosted);
     check_true("ramp: a boosted chain needs processing", dsp.needs_processing());
 
@@ -405,13 +405,70 @@ void test_chain_eq_bands_cascade() {
     ChannelDsp dsp;
     dsp.configure(48000);
     StripDspParams p;
-    p.eq[0] = {true, 100.0f,  6.0f, 1.0f};
-    p.eq[3] = {true, 8000.0f, -6.0f, 1.0f};
+    p.eq[0] = {.enabled = true, .freq_hz = 100.0f,  .gain_db =  6.0f, .q = 1.0f};
+    p.eq[3] = {.enabled = true, .freq_hz = 8000.0f, .gain_db = -6.0f, .q = 1.0f};
     dsp.set_params(p);
     check_near("chain: EQ band 1 boosts its centre", chain_response_db(dsp, 0, 100.0),  6.0, 0.3);
     check_near("chain: EQ band 4 cuts its centre",   chain_response_db(dsp, 0, 8000.0), -6.0, 0.3);
     check_near("chain: between the bands is untouched",
                chain_response_db(dsp, 0, 1000.0), 0.0, 0.5);
+}
+
+void test_chain_shelving_bands() {
+    // The outer bands can be shelves. The distinction that matters is what
+    // happens BEYOND the corner: a bell returns to unity, a shelf does not —
+    // it holds its gain all the way to the end of the band. Checking only at
+    // the corner frequency would pass on a bell, since both sit at half gain
+    // there.
+    {
+        ChannelDsp dsp;
+        dsp.configure(48000);
+        StripDspParams p;
+        p.eq[0] = {.enabled = true, .shelf = true, .low_shelf = true,
+                   .freq_hz = 200.0f, .gain_db = 9.0f, .slope = 1.0f};
+        dsp.set_params(p);
+        check_near("shelf: a low shelf holds its gain below the corner",
+                   chain_response_db(dsp, 0, 40.0), 9.0, 0.5);
+        check_near("shelf: and lets go above it",
+                   chain_response_db(dsp, 0, 2000.0), 0.0, 0.5);
+    }
+    {
+        ChannelDsp dsp;
+        dsp.configure(48000);
+        StripDspParams p;
+        p.eq[3] = {.enabled = true, .shelf = true, .low_shelf = false,
+                   .freq_hz = 4000.0f, .gain_db = -9.0f, .slope = 1.0f};
+        dsp.set_params(p);
+        check_near("shelf: a high shelf holds its cut above the corner",
+                   chain_response_db(dsp, 0, 16000.0), -9.0, 0.5);
+        check_near("shelf: and lets go below it",
+                   chain_response_db(dsp, 0, 400.0), 0.0, 0.5);
+    }
+    {
+        // The same band as a BELL must come back to unity out at the edges.
+        // This is what makes the two readings above a shelf test rather than
+        // a gain test.
+        ChannelDsp dsp;
+        dsp.configure(48000);
+        StripDspParams p;
+        p.eq[0] = {.enabled = true, .shelf = false,
+                   .freq_hz = 200.0f, .gain_db = 9.0f, .q = 1.0f};
+        dsp.set_params(p);
+        check_near("shelf: the same band as a bell returns to unity below",
+                   chain_response_db(dsp, 0, 40.0), 0.0, 1.0);
+    }
+    {
+        // A shelf at unity gain is an identity, so it must be out of circuit
+        // for the same reason a flat bell is.
+        ChannelDsp dsp;
+        dsp.configure(48000);
+        StripDspParams p;
+        p.eq[0] = {.enabled = true, .shelf = true, .low_shelf = true,
+                   .freq_hz = 200.0f, .gain_db = 0.0f, .slope = 1.0f};
+        dsp.set_params(p);
+        check_near("shelf: a shelf at 0 dB is transparent",
+                   chain_response_db(dsp, 0, 40.0), 0.0, 0.01);
+    }
 }
 
 } // namespace
@@ -433,6 +490,7 @@ int main() {
     test_chain_param_handover();
     test_chain_ramps_out();
     test_chain_eq_bands_cascade();
+    test_chain_shelving_bands();
 
     std::printf("\n%s (%d failure%s)\n", g_failures == 0 ? "ALL PASS" : "FAILURES",
                 g_failures, g_failures == 1 ? "" : "s");

@@ -3668,6 +3668,14 @@ void merge_bus_dsp(const json& src, BusDsp& out) {
             b.freq_hz = arr[i].value("freq", b.freq_hz);
             b.gain_db = std::clamp(arr[i].value("gain", b.gain_db), -24.0f, 24.0f);
             b.q       = std::clamp(arr[i].value("q", b.q), 0.1f, 40.0f);
+            // Only the outer bands can be shelves. Refused here rather than
+            // ignored downstream, so what the document says and what the desk
+            // does cannot drift apart.
+            b.shelf   = (i == 0 || i == kBusEqBands - 1) &&
+                        arr[i].value("shelf", b.shelf);
+            // Past 2 a shelf overshoots into a resonant peak at the corner,
+            // which is not what the control means; the engine clamps too.
+            b.slope   = std::clamp(arr[i].value("slope", b.slope), 0.1f, 2.0f);
         }
     }
 }
@@ -3675,7 +3683,8 @@ void merge_bus_dsp(const json& src, BusDsp& out) {
 json bus_dsp_to_json(const BusDsp& d) {
     json eq = json::array();
     for (const auto& b : d.eq) {
-        eq.push_back(json{{"freq", b.freq_hz}, {"gain", b.gain_db}, {"q", b.q}});
+        eq.push_back(json{{"freq",  b.freq_hz}, {"gain",  b.gain_db}, {"q", b.q},
+                          {"shelf", b.shelf},   {"slope", b.slope}});
     }
     return json{
         {"eqEnabled",  d.eq_enabled},
@@ -4033,6 +4042,11 @@ audio::StripDspParams ProjectState::dsp_params_for(const BusDef& bus) const {
         dst.freq_hz = src.freq_hz;
         dst.gain_db = src.gain_db;
         dst.q       = src.q;
+        dst.slope   = src.slope;
+        // Outer bands only, and which end follows from which band it is —
+        // the low band shelves the bottom, the high band the top.
+        dst.shelf     = src.shelf && (i == 0 || i + 1 == kBusEqBands);
+        dst.low_shelf = i == 0;
         dst.enabled = bus.dsp.eq_enabled && src.gain_db != 0.0f;
     }
 

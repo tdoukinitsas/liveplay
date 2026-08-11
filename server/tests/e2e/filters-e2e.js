@@ -144,11 +144,14 @@ const uuid = 'item-filters-0001';
   await rest(`/api/buses/${bus}/dsp`, {
     method: 'POST', body: JSON.stringify({ lpf: { freq: 20000, q: 0.7071 } }) });
 
+  // shelf/slope are spelled out rather than left off. /dsp merges, so an absent
+  // key means "leave it alone" — and a later test that shelves a band would
+  // then stay shelved through every reset that followed it.
   const flatBands = [
-    { freq: 100,   gain: 0, q: 0.7 },
-    { freq: 500,   gain: 0, q: 1.0 },
-    { freq: 2500,  gain: 0, q: 1.0 },
-    { freq: 10000, gain: 0, q: 0.7 },
+    { freq: 100,   gain: 0, q: 0.7, shelf: false, slope: 1 },
+    { freq: 500,   gain: 0, q: 1.0, shelf: false, slope: 1 },
+    { freq: 2500,  gain: 0, q: 1.0, shelf: false, slope: 1 },
+    { freq: 10000, gain: 0, q: 0.7, shelf: false, slope: 1 },
   ];
   ok('bands default to a conventional layout',
      JSON.stringify(b.dsp.eq.map(e => e.freq)) === JSON.stringify([100, 500, 2500, 10000]),
@@ -184,6 +187,75 @@ const uuid = 'item-filters-0001';
   const boostDb = m.rms(b.mixerId);
   ok('a wide +12 dB band lifts the sweep', boostDb > flat + 4,
      `${flat.toFixed(1)} -> ${boostDb.toFixed(1)} dB RMS`);
+
+  // ---- Shelving on the outer bands ----
+  // The corner frequencies here are deliberately OUTSIDE the sweep, which is
+  // what makes these shelf tests rather than gain tests. The sweep runs
+  // 200 Hz - 2 kHz, so:
+  //
+  //   a HIGH shelf at 100 Hz has the whole sweep above its corner  -> all of it
+  //   a LOW  shelf at 5 kHz  has the whole sweep below its corner  -> all of it
+  //
+  // A BELL at either of those frequencies is more than an octave from the
+  // material and reaches only the near edge of it. Each shelf is therefore run
+  // against the SAME band as a bell, with the same frequency, gain and Q, and
+  // what is asserted is the ratio between them — because "the level dropped"
+  // on its own would also be explained by the band simply working.
+  //
+  // The ratio, not an absolute figure for the bell: a Q of 0.7 is nearly two
+  // octaves wide, so a -18 dB bell at 5 kHz still takes a couple of decibels
+  // off a sweep that reaches 2 kHz. That is correct behaviour and it made an
+  // absolute "leaves it alone" tolerance a test of the Q rather than of the
+  // shape.
+  const measureBand = async (band, index) => {
+    const eq = flatBands.map((e, i) => (i === index ? band : e));
+    await rest(`/api/buses/${bus}/dsp`, {
+      method: 'POST', body: JSON.stringify({ eq }) });
+    await sleep(SETTLE_MS);
+    await measure(m, 2000);
+    return flat - m.rms(b.mixerId);          // decibels of drop
+  };
+
+  const hiShelfDrop = await measureBand(
+    { freq: 100, gain: -18, q: 0.7, shelf: true, slope: 1 }, 3);
+  const hiBellDrop = await measureBand(
+    { freq: 100, gain: -18, q: 0.7, shelf: false, slope: 1 }, 3);
+  ok('a high shelf below the sweep cuts all of it', hiShelfDrop > 12,
+     `${hiShelfDrop.toFixed(1)} dB down`);
+  ok('and cuts far harder than the same band as a bell',
+     hiShelfDrop > hiBellDrop * 4,
+     `shelf ${hiShelfDrop.toFixed(1)} dB vs bell ${hiBellDrop.toFixed(1)} dB`);
+
+  const loShelfDrop = await measureBand(
+    { freq: 5000, gain: -18, q: 0.7, shelf: true, slope: 1 }, 0);
+  const loBellDrop = await measureBand(
+    { freq: 5000, gain: -18, q: 0.7, shelf: false, slope: 1 }, 0);
+  ok('a low shelf above the sweep cuts all of it', loShelfDrop > 12,
+     `${loShelfDrop.toFixed(1)} dB down`);
+  ok('and cuts far harder than the same band as a bell',
+     loShelfDrop > loBellDrop * 4,
+     `shelf ${loShelfDrop.toFixed(1)} dB vs bell ${loBellDrop.toFixed(1)} dB`);
+
+  // Only the outer bands may shelve. Refused at the model rather than ignored
+  // downstream, so what the document says and what the desk does agree.
+  await rest(`/api/buses/${bus}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ dsp: { eq: flatBands.map((e, i) =>
+      ({ ...e, shelf: true, slope: 1.4 })) } }) });
+  const shelved = (await rest('/api/buses')).body.find(x => x.id === bus);
+  ok('the outer bands accept a shelf',
+     shelved.dsp.eq[0].shelf === true && shelved.dsp.eq[3].shelf === true);
+  ok('the middle bands refuse one',
+     shelved.dsp.eq[1].shelf === false && shelved.dsp.eq[2].shelf === false,
+     JSON.stringify(shelved.dsp.eq.map(e => e.shelf)));
+  ok('and the slope persists',
+     Math.abs(shelved.dsp.eq[0].slope - 1.4) < 1e-4,
+     String(shelved.dsp.eq[0].slope));
+
+  // Put the bands back flat before the bypass checks below, which measure
+  // against `flat` and would otherwise be reading two shelves as well.
+  await rest(`/api/buses/${bus}`, {
+    method: 'PATCH', body: JSON.stringify({ dsp: { eq: flatBands } }) });
 
   // ---- Section bypass ----
   // The whole point of a bypass over zeroing the controls: it takes the

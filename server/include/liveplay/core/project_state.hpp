@@ -99,22 +99,30 @@ struct BusFilter {
     float q       = 0.70710678f;
 };
 
-// One EQ band. All four are bells.
+// One EQ band. The two middle bands are always bells; the outer two can be
+// switched to shelves, which is the conventional four-band console layout.
 //
 // A band sitting at 0 dB is out of circuit, for the same reason a parked
-// filter is: a peaking section at unity gain is an identity whatever its Q, so
-// running it would cost arithmetic to achieve nothing and four flat bands on
-// every strip must not colour the desk.
+// filter is: both a peaking section and a shelf are identities at unity gain,
+// so running one would cost arithmetic to achieve nothing and four flat bands
+// on every strip must not colour the desk.
 //
-// The outer bands are bells rather than shelves because the surface gives all
-// four a Q control, and Q on a shelf means something different enough that the
-// same knob would be lying on two of them. Shelving LF/HF is the conventional
-// next step and the sections are already written and tested; it needs one more
-// control per band to say which it is.
+// `q` and `slope` are separate fields because they are different quantities —
+// the width of a bell versus the steepness of a shelf's transition — with
+// barely overlapping useful ranges. One shared field would mean switching a
+// band to shelf and back silently changed the bell, which is the same thing
+// the section bypasses exist to avoid.
+//
+// Which END a shelf turns up is not stored: it follows from the band's
+// position, so band 0 is a low shelf and band 3 a high one. Storing it would
+// allow a low shelf on the HF band, which is a way of building a broken EQ
+// rather than a feature.
 struct BusEqBand {
     float freq_hz = 1000.0f;
     float gain_db = 0.0f;
     float q       = 1.0f;
+    bool  shelf   = false;   // honoured only on the outer bands
+    float slope   = 1.0f;    // shelf steepness; 1 is the steepest without peaking
 };
 
 inline constexpr std::size_t kBusEqBands = 4;

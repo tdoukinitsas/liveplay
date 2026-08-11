@@ -129,27 +129,30 @@ the symptom is misleading in every case.
   and stays silent.
 - **Plugins.** The six-slot rack is still a shell and stays one — deferred deliberately. The
   fixed chain (§0.4) is complete.
-- **The EQ bands are always bells.** The surface gives all four a Q control, and Q means something
-  different on a shelf, so shelving LF/HF needs one more control per band to say which it is.
-  `biquad_lowshelf` / `biquad_highshelf` are written and tested already.
+- **Global master gain has no UI, and it is not simply a missing knob.** The engine has a genuine
+  global master gain (`set_master_gain_db`, ±12 dB) applied to *every* master accumulator before
+  the limiter. The visible master fader — in the mixer and on the transport bar — drives something
+  else: the **per-output-channel gain on masters 0/1**, deliberately, so two faders both labelled
+  master cannot move independently. The global one cannot just be exposed as "the master fader",
+  because it also hits the reserved pair at the top of the bus: pulling it down would take the
+  operator's headphones with it. Any UI for it has to answer that first.
 - **`previewDevice` is still a device name in the project**, now as the fallback binding for the
   Monitor bus. The portable path exists — map `"Monitor"` in the output map and it wins — but the
   legacy field is still honoured, because dropping it would silently take pre-listen away from
   every project that has one configured. `ltcDevice` is untouched, being a separate feature.
-- **Global master gain has no UI** (see above). A true master fader distinct from output trim is a
-  real thing a desk has; needs a decision.
 - **Frequency-dependent width above the bass** — widening the top independently of the middle.
   Bass-mono covers the half of this that matters (§0.5); a second crossover for the treble is a
   mastering flavour and was left out rather than doubling the control count on every strip.
-- **The mono-sum audition's e2e has still not been run here.** `width-e2e.js` carries two
-  assertions for it which were red before the render-order fix; Smart App Control blocked the
-  freshly linked server binary before they could be re-run. The maintainer has since confirmed the
-  feature works by hand, so the behaviour is not in doubt — but the assertions themselves remain
-  unproven, and an unproven assertion is one that could be silently broken later.
 - **Neither `CanvasFader` nor `Knob` is keyboard-reachable.** Deliberate, so the two behave
   identically, but it means the mixer cannot be driven without a pointer.
-- **The EQ band handles are not draggable.** With no EQ behind them there is nothing to drag to;
-  they are position markers on a flat curve. Making them live is Stage 5.
+- **No pinch gesture on the EQ, deliberately.** The wheel sets a band's Q. A pinch would be the
+  first and only multi-touch anywhere in the app — `Knob` and `CanvasFader` are mouse-event only,
+  and the mixer's one touch-aware feature just makes controls bigger in playback mode — so it
+  would be a gesture with nothing to be consistent with. Worth revisiting if touch is ever taken
+  on properly, which would mean converting the shared controls first.
+- **The HPF/LPF markers on the EQ curve are still inert.** The band handles are draggable; the
+  filter markers are not, because the knobs that set them live on the fader column and dragging
+  here would mean reaching into a sibling component's controls.
 - **The Monitor strip has no dedicated "what am I listening to" readout.** It meters the sum of
   PFL and pre-listen, which is correct, but with three buses tapped there is nothing naming them
   except three lit PFL buttons and the count on the clear control.
@@ -192,6 +195,21 @@ the compressor's makeup gain lifts that noise over the gate's threshold and hold
 | `core/project_state.hpp` | `BusDsp`, `BusGate`, `BusComp`, `merge_bus_dsp`, `dsp_params_for`. |
 | `client/utils/filterResponse.ts` | Display-only mirror of the C++ filter maths. **Must be kept in step by hand.** |
 | `client/components/MixerDynamicsPanel.vue` | The surface, and a second by-hand mirror: its `compressed()` is the C++ static curve. |
+
+**The EQ's outer bands can be shelves.** LF shelves the bottom, HF the top; the middle two are
+always bells. Which end a shelf turns up is *not* stored — it follows from the band's position, so
+there is no way to build a low shelf on the HF band. `q` and `slope` are separate fields rather
+than one number read two ways: they are different quantities with barely overlapping ranges, and
+sharing a field would mean switching a band to shelf and back silently changed the bell's width.
+A shelf at 0 dB is an identity, so the "flat band is out of circuit" rule needs no special case.
+
+**The band handles on the curve are draggable** — sideways is frequency, vertical is gain, wheel is
+Q (or slope on a shelf), shift is fine, double-click resets. Movement is a delta from the grab
+point rather than putting the handle under the pointer: the two are indistinguishable at normal
+sensitivity, but only the delta form has anywhere to put shift-for-fine, which matters when a whole
+decade of frequency is a centimetre of travel. They use pointer events rather than the mouse events
+`Knob` uses, so pen and touch work; `Knob` is not worth converting on its own account, but there was
+no reason to add a second mouse-only control.
 
 **Rules that bind anything added to the chain**
 
