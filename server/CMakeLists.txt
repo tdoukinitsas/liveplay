@@ -240,6 +240,17 @@ if(LIVEPLAY_BUILD_TESTS)
     )
     add_test(NAME stereo COMMAND liveplay-stereo-tests)
 
+    # Clock-drift compensation: the resampler and its control loop. Header-only,
+    # and the controller is driven by a simulated device rather than by audio —
+    # a drift bug that takes twenty minutes to hear runs here in milliseconds.
+    add_executable(liveplay-drift-tests
+        tests/drift_test.cpp
+    )
+    target_include_directories(liveplay-drift-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME drift COMMAND liveplay-drift-tests)
+
     # Waveform downsampler (single-pass decode, per-channel traces).
     add_executable(liveplay-waveform-tests
         tests/waveform_test.cpp

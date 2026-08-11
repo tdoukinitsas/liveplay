@@ -1884,7 +1884,19 @@ bool ProjectState::replace_full_document(const json& doc) {
         }
     }
     // Rebuild the engine strips for the new document's buses. Outside the lock.
-    if (!buses_unchanged) materialise_buses();
+    //
+    // Loud on purpose. This tears down every strip and wires it up again,
+    // which reopens audio devices and drops whatever is playing through them —
+    // so on an ordinary save it is a bug, not a step. If this line appears
+    // while a show is running, the round trip through load_buses_locked() and
+    // write_buses_to_document_locked() is not exact and something in the bus
+    // JSON is changing shape on the way through.
+    if (!buses_unchanged) {
+        Logger::warn("replace_full_document: bus definitions changed shape — "
+                     "rebuilding every strip. On an ordinary save this is a bug; "
+                     "see BUS_ARCHITECTURE.md §0.7.");
+        materialise_buses();
+    }
     // Kick off the engine mirror asynchronously — matches load_from_json's
     // path so the PUT /api/project/document handler doesn't block on cue
     // decode for large projects. start_async_mirror() takes mutex_ itself,
