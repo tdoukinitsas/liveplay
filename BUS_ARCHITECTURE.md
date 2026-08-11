@@ -125,10 +125,10 @@ the symptom is misleading in every case.
 
 ### 0.3 Not done
 
-- **Stage 4 — bus → bus.** A bus targeting another bus is accepted, warns, and stays silent.
-- **Stage 5 — the compressor/limiter and plugins.** HPF, LPF, the four EQ bands and the
-  expander/gate are real; §0.4 has the compressor design. The six-slot plugin rack is still a
-  shell, and stays one — plugins were deferred deliberately.
+- **Stage 4 — bus → bus.** The only stage left. A bus targeting another bus is accepted, warns,
+  and stays silent.
+- **Plugins.** The six-slot rack is still a shell and stays one — deferred deliberately. The
+  fixed chain (§0.4) is complete.
 - **The EQ bands are always bells.** The surface gives all four a Q control, and Q means something
   different on a shelf, so shelving LF/HF needs one more control per band to say which it is.
   `biquad_lowshelf` / `biquad_highshelf` are written and tested already.
@@ -141,9 +141,11 @@ the symptom is misleading in every case.
 - **Frequency-dependent width above the bass** — widening the top independently of the middle.
   Bass-mono covers the half of this that matters (§0.5); a second crossover for the treble is a
   mastering flavour and was left out rather than doubling the control count on every strip.
-- **The mono-sum audition's e2e has not been run.** `width-e2e.js` gained two assertions for it
-  which were red before the fix and could not be re-run afterwards — Smart App Control blocked the
-  freshly linked server binary. The unit suites pass. Measure it before trusting it.
+- **The mono-sum audition's e2e has still not been run here.** `width-e2e.js` carries two
+  assertions for it which were red before the render-order fix; Smart App Control blocked the
+  freshly linked server binary before they could be re-run. The maintainer has since confirmed the
+  feature works by hand, so the behaviour is not in doubt — but the assertions themselves remain
+  unproven, and an unproven assertion is one that could be silently broken later.
 - **Neither `CanvasFader` nor `Knob` is keyboard-reachable.** Deliberate, so the two behave
   identically, but it means the mixer cannot be driven without a pointer.
 - **The EQ band handles are not draggable.** With no EQ behind them there is nothing to drag to;
