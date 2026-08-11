@@ -29,6 +29,34 @@ using ChannelIndex  = std::uint32_t;
 
 inline constexpr SampleRate   kDefaultMixSampleRate  = 48'000;
 inline constexpr FrameCount   kDefaultRenderBlock    = 256;   // ~5.3 ms @ 48k
+
+// How many render blocks the engine keeps queued ahead of the device.
+//
+// This IS the output latency: the render thread produces a block whenever the
+// ring has room, so in steady state the ring stays full and everything — a cue
+// starting, a fader move, an EQ sweep — is heard this far after it happens.
+//
+// It was 80 blocks (~427 ms), chosen as headroom against decode spikes, which
+// is a real risk because decoding runs on the render thread. But it was chosen
+// without measuring, and 427 ms is audible as sluggishness on every control.
+//
+// Measured (server/tests/e2e/latency-probe.js, 8 files playing, 90 s):
+//   * a render block takes ~110 us average against a 5333 us budget, and
+//     1.1 ms at worst — 2% of budget, and it barely moves from 1 file to 12
+//   * the queue never drained more than ~11 ms below its steady depth, at
+//     either 37 ms or 69 ms of queue, so the drain is bounded by scheduling
+//     jitter rather than by how deep the ring is
+//   * no underruns at any depth tested, down to the 3-device-period floor
+//
+// So the margin that matters is about 11 ms, and 6 blocks (~37 ms at 48 kHz)
+// covers it more than three times over while cutting the latency by an order
+// of magnitude. The device adds ~30 ms of its own on top that no setting here
+// can remove — see the ring allocation in engine.cpp.
+//
+// Raise it with --ring-blocks on a machine that genuinely stutters; that is
+// the only lever, because the queue depth is simultaneously the latency and
+// the entire dropout margin.
+inline constexpr FrameCount   kDefaultRingBlocks     = 6;     // ~37 ms @ 48k
 inline constexpr ChannelCount kDefaultMasterChannels = 32;    // sparse; usually only a handful are wired
 inline constexpr float        kDefaultMasterCeilingDb = -0.3f;
 

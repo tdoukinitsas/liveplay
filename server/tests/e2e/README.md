@@ -40,6 +40,30 @@ before regenerating the signal** or the write fails with EBUSY and the old file 
 Exit code is non-zero if anything failed; each assertion prints PASS/FAIL with the levels it
 measured, so a failure says *how far* out it was rather than just that it was.
 
+## The latency probes
+
+`latency-probe.js` and `control-latency-probe.js` are **measurements, not pass/fail harnesses** —
+they print numbers and exit 0. They exist because the engine's output latency is not readable from
+its configuration: the ring's depth is the latency, the device overrides the period it was asked
+for, and whether any of it is safe depends on how long a render block actually takes.
+
+```sh
+# Output latency and headroom, ramping up to 8 files, then a 90 s soak.
+node server/tests/e2e/latency-probe.js 4500 /tmp/liveplay-test-signal.wav 8 90
+
+# The control path: one REST call per pointer event, at 60/s for 3 s.
+node server/tests/e2e/control-latency-probe.js 4500 60 3
+```
+
+Both read `GET /api/engine/stats`, which reports queued frames, the device's *actual* period,
+render-block time against its budget, and underruns. `?reset=1` clears the peak so a probe can
+bound a window.
+
+Two things to know before reading the output. **The ramp's per-step window is far too short to
+justify a latency default** — a stall that happens once a minute will not appear in two seconds, so
+use the soak for that. And **the shallowest queue depth is the number that matters**, not the
+average: it is how close the device came to running dry, which an average hides completely.
+
 ## Measuring DSP, specifically
 
 Every "the processor is broken" result in this directory so far has turned out to be the

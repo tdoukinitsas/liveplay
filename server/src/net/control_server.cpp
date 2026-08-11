@@ -1728,6 +1728,33 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // What the engine is measurably doing, for diagnosing latency and dropouts.
+    // Measured rather than configured: the device gets a say in the period it
+    // actually runs, and how long a block takes to render is the only thing
+    // that says whether the queue depth is buying anything.
+    //
+    // `?reset=1` clears the render-time peak, so a probe can bound a
+    // measurement to a window it controls.
+    CROW_ROUTE(app, "/api/engine/stats")
+        ([this](const crow::request& req){
+            const bool reset = req.url_params.get("reset") != nullptr;
+            const auto s = state_.engine().stats(reset);
+            return json_ok(json{
+                {"queuedFrames",       s.queued_frames},
+                {"queuedMs",           s.queued_ms},
+                {"ringCapacityFrames", s.ring_capacity_frames},
+                {"devicePeriodFrames", s.device_period_frames},
+                {"devicePeriods",      s.device_periods},
+                {"deviceMs",           s.device_ms},
+                {"renderBlockUsMax",   s.render_block_us_max},
+                {"renderBlockUsAvg",   s.render_block_us_avg},
+                {"blockBudgetUs",      s.block_budget_us},
+                {"blocksRendered",     s.blocks_rendered},
+                {"underruns",          s.underruns},
+                {"devices",            s.devices},
+            });
+        });
+
     // The mono-sum audition. Not per bus: it folds the MONITOR to mono, which
     // is one control for the whole monitoring path rather than one per strip —
     // PFL whichever buses you want to check, then press this.

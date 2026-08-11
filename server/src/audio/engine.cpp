@@ -300,6 +300,9 @@ void AudioEngine::ma_data_callback(ma_device* dev,
         if (available == 0) {
             // Ring underrun — render thread isn't keeping up with hardware consumption.
             // Fill with silence so operators hear silence instead of garbage.
+            if (device->engine) {
+                device->engine->underruns_.fetch_add(1, std::memory_order_relaxed);
+            }
             if (remaining == frames) {
                 // Entire block is missing — likely indicates a scheduling hiccup
                 Logger::warn("Ring underrun on device '{}': {} frames starved",
@@ -361,18 +364,6 @@ DeviceId AudioEngine::open_device_by_name(const std::string& name_substring,
     dev->ring         = std::make_unique<ma_pcm_rb>();
     dev->engine       = this;                       // for callback → consumption_counter_
 
-    // Allocate a ring big enough for ~80 render blocks of headroom. With 256
-    // frames @ 48 kHz that's ~427 ms — provides extra margin against decode-path
-    // spikes (disk I/O, MP3/FLAC inner-loop) so transient stalls never reach
-    // the device callback. Transport latency is unaffected because the engine
-    // commits gain/transport state independently of the buffer position.
-    const ma_uint32 ring_frames = static_cast<ma_uint32>(cfg_.render_block * 80);
-    if (ma_pcm_rb_init(ma_format_f32, output_channels, ring_frames,
-                       nullptr, nullptr, dev->ring.get()) != MA_SUCCESS) {
-        Logger::error("Failed to allocate ring buffer for device '{}'", dev->display_name);
-        return {};
-    }
-
     ma_device_config cfg = ma_device_config_init(ma_device_type_playback);
     cfg.playback.format    = ma_format_f32;
     cfg.playback.channels  = output_channels;
@@ -416,9 +407,42 @@ DeviceId AudioEngine::open_device_by_name(const std::string& name_substring,
 
     if (ma_device_init(nullptr, &cfg, dev->ma_dev.get()) != MA_SUCCESS) {
         Logger::error("ma_device_init failed for '{}'", dev->display_name);
-        ma_pcm_rb_uninit(dev->ring.get());
         return {};
     }
+
+    // The ring is allocated AFTER the device, because its size depends on what
+    // the device settled on rather than on what it was asked for. The request
+    // above is a hint: WASAPI shared mode has its own minimum and quietly runs
+    // a larger period — 480 frames x 3 on the machine this was written on,
+    // against a 256-frame request.
+    //
+    // Its depth IS the output latency, because the render thread fills it
+    // whenever there is room and so it sits full in steady state. It is also
+    // the entire margin against a slow decode, since decoding runs on the
+    // render thread: the two are the same number and cannot be tuned apart.
+    //
+    // Floored at three device periods whatever the configuration says. A ring
+    // shallower than the callback's own appetite starves it on the first
+    // request regardless of how fast the render thread is, which would turn a
+    // low --ring-blocks into continuous dropouts rather than low latency.
+    const ma_uint32 period = dev->ma_dev->playback.internalPeriodSizeInFrames;
+    const ma_uint32 wanted =
+        static_cast<ma_uint32>(cfg_.render_block * (cfg_.ring_blocks + 1));
+    const ma_uint32 floor_frames = period > 0 ? period * 3 : 0;
+    const ma_uint32 ring_frames  = std::max(wanted, floor_frames);
+    if (ring_frames > wanted) {
+        Logger::info("Device '{}' runs {} frame periods; ring raised to {} frames "
+                     "({:.0f} ms) to stay ahead of it",
+                     dev->display_name, period, ring_frames,
+                     (static_cast<double>(ring_frames) / cfg_.mix_sample_rate) * 1000.0);
+    }
+    if (ma_pcm_rb_init(ma_format_f32, output_channels, ring_frames,
+                       nullptr, nullptr, dev->ring.get()) != MA_SUCCESS) {
+        Logger::error("Failed to allocate ring buffer for device '{}'", dev->display_name);
+        ma_device_uninit(dev->ma_dev.get());
+        return {};
+    }
+
     if (ma_device_start(dev->ma_dev.get()) != MA_SUCCESS) {
         Logger::error("ma_device_start failed for '{}'", dev->display_name);
         ma_device_uninit(dev->ma_dev.get());
@@ -1042,6 +1066,53 @@ MeterSnapshot AudioEngine::read_master_meter(MasterChannelIndex master) const {
     return master_state_[master].meter->snapshot();
 }
 
+EngineStats AudioEngine::stats(bool reset_peaks) {
+    EngineStats s;
+    const double sr = static_cast<double>(cfg_.mix_sample_rate);
+    s.block_budget_us = (static_cast<double>(cfg_.render_block) / sr) * 1e6;
+
+    {
+        std::lock_guard lock{mutex_};
+        s.devices = devices_.size();
+        // The primary device is the one production is gated on, so it is the
+        // one whose queue depth is the engine's output latency.
+        if (!devices_.empty() && devices_.front()->ring) {
+            auto& primary = devices_.front();
+            s.queued_frames = ma_pcm_rb_available_read(primary->ring.get());
+            s.ring_capacity_frames =
+                ma_pcm_rb_available_read(primary->ring.get()) +
+                ma_pcm_rb_available_write(primary->ring.get());
+            if (primary->ma_dev) {
+                // What the device SETTLED on, not what it was asked for.
+                // WASAPI shared mode in particular has its own minimum and
+                // will quietly ignore a smaller request.
+                s.device_period_frames = primary->ma_dev->playback.internalPeriodSizeInFrames;
+                s.device_periods       = primary->ma_dev->playback.internalPeriods;
+            }
+        }
+    }
+    s.queued_ms = (s.queued_frames / sr) * 1000.0;
+    s.device_ms =
+        ((static_cast<double>(s.device_period_frames) * s.device_periods) / sr) * 1000.0;
+
+    const auto blocks = blocks_rendered_.load(std::memory_order_relaxed);
+    s.blocks_rendered     = blocks;
+    s.underruns           = underruns_.load(std::memory_order_relaxed);
+    s.render_block_us_max = static_cast<double>(render_us_max_.load(std::memory_order_relaxed));
+    s.render_block_us_avg =
+        blocks ? static_cast<double>(render_us_total_.load(std::memory_order_relaxed)) /
+                 static_cast<double>(blocks)
+               : 0.0;
+
+    if (reset_peaks) {
+        render_us_max_.store(0, std::memory_order_relaxed);
+        render_us_total_.store(0, std::memory_order_relaxed);
+        blocks_rendered_.store(0, std::memory_order_relaxed);
+        underruns_.store(0, std::memory_order_relaxed);
+    }
+    return s;
+}
+
 MeterSnapshot AudioEngine::read_master_meter_consume(MasterChannelIndex master) {
     if (master >= master_state_.size()) return {};
     return master_state_[master].meter->snapshot_consume_max();
@@ -1139,7 +1210,21 @@ void AudioEngine::render_loop() {
                 continue;
             }
 
+            // Timed, because "is the engine keeping up" is the question behind
+            // every latency decision and it is not answerable from the config.
+            // steady_clock::now() twice per block is a handful of nanoseconds
+            // against a budget of thousands.
+            const auto t0 = std::chrono::steady_clock::now();
             render_one_block(*snap);
+            const auto us = static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::steady_clock::now() - t0).count());
+            render_us_total_.fetch_add(us, std::memory_order_relaxed);
+            blocks_rendered_.fetch_add(1, std::memory_order_relaxed);
+            auto prev = render_us_max_.load(std::memory_order_relaxed);
+            while (us > prev &&
+                   !render_us_max_.compare_exchange_weak(prev, us,
+                                                         std::memory_order_relaxed)) {}
         } catch (const std::bad_alloc&) {
             // Memory pressure: skip this block and give the system a moment.
             // Audio will glitch but the server survives.

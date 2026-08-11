@@ -258,6 +258,7 @@ struct CliOptions {
     // require touching the CLI.
     std::optional<audio::SampleRate>         mix_sample_rate;
     std::optional<audio::FrameCount>         render_block;
+    std::optional<audio::FrameCount>         ring_blocks;
     std::optional<audio::MasterChannelIndex> master_channels;
     std::optional<std::uint32_t>             max_buses;
     std::optional<float>                     master_ceiling_db;
@@ -325,6 +326,10 @@ CliOptions parse_cli(int argc, char** argv) {
         opts.render_block = parse_ranged<audio::FrameCount>(
             "LIVEPLAY_RENDER_BLOCK", v, 32, 8'192);
     }
+    if (const char* v = std::getenv("LIVEPLAY_RING_BLOCKS")) {
+        opts.ring_blocks = parse_ranged<audio::FrameCount>(
+            "LIVEPLAY_RING_BLOCKS", v, 2, 512);
+    }
     if (const char* v = std::getenv("LIVEPLAY_MASTER_CHANNELS")) {
         opts.master_channels = parse_ranged<audio::MasterChannelIndex>(
             "LIVEPLAY_MASTER_CHANNELS", v, audio::kMinMasterChannels, 1'024);
@@ -376,6 +381,13 @@ CliOptions parse_cli(int argc, char** argv) {
         } else if (a == "--render-block") {
             if (const char* v = next_value()) {
                 opts.render_block = parse_ranged<audio::FrameCount>(a, v, 32, 8'192);
+            }
+        } else if (a == "--ring-blocks") {
+            // How far ahead of the device the engine runs, in render blocks.
+            // This is the output latency; raise it only on a machine that
+            // genuinely stutters.
+            if (const char* v = next_value()) {
+                opts.ring_blocks = parse_ranged<audio::FrameCount>(a, v, 2, 512);
             }
         } else if (a == "--master-channels") {
             if (const char* v = next_value()) {
@@ -747,6 +759,7 @@ int main(int argc, char** argv) {
     audio::EngineConfig engine_cfg;
     if (opts.mix_sample_rate)   engine_cfg.mix_sample_rate   = *opts.mix_sample_rate;
     if (opts.render_block)      engine_cfg.render_block      = *opts.render_block;
+    if (opts.ring_blocks)       engine_cfg.ring_blocks       = *opts.ring_blocks;
     if (opts.master_channels)   engine_cfg.master_channels   = *opts.master_channels;
     if (opts.max_buses)         engine_cfg.max_mixer_channels = *opts.max_buses;
     if (opts.master_ceiling_db) engine_cfg.master_ceiling_db = *opts.master_ceiling_db;

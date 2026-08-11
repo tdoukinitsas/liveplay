@@ -123,6 +123,41 @@ struct EngineConfig {
     MasterChannelIndex master_channels    = kDefaultMasterChannels;  // logical bus width
     float              master_ceiling_db  = kDefaultMasterCeilingDb;
     std::uint32_t      max_mixer_channels = kDefaultMaxMixerChannels;
+    // How many render blocks of audio the engine runs ahead of the device.
+    //
+    // THIS IS THE OUTPUT LATENCY. The render thread produces a block whenever
+    // the ring has room, so in steady state the ring sits full and everything
+    // — a fader move, an EQ sweep, the start of a cue — is heard this far
+    // after it happens. It is also the only thing standing between a slow
+    // decode and an audible dropout, since decoding runs on the render thread.
+    // See kDefaultRingBlocks.
+    FrameCount         ring_blocks        = kDefaultRingBlocks;
+};
+
+// What the engine is doing right now, for diagnostics. Latency questions are
+// answered from measurements rather than from the configured numbers, because
+// the device gets a say in the period it actually runs and miniaudio may not
+// honour what it was asked for.
+struct EngineStats {
+    // Audio queued ahead of the device on the primary ring: the real output
+    // latency, in frames and milliseconds.
+    std::uint32_t queued_frames        = 0;
+    double        queued_ms            = 0.0;
+    std::uint32_t ring_capacity_frames = 0;
+    // What the device actually settled on, which is not necessarily what it
+    // was asked for.
+    std::uint32_t device_period_frames = 0;
+    std::uint32_t device_periods       = 0;
+    double        device_ms            = 0.0;
+    // How long one render block takes to produce. If the average approaches
+    // the block's own duration the engine is not keeping up and no amount of
+    // ring will help.
+    double        render_block_us_max  = 0.0;
+    double        render_block_us_avg  = 0.0;
+    double        block_budget_us      = 0.0;
+    std::uint64_t blocks_rendered      = 0;
+    std::uint64_t underruns            = 0;
+    std::size_t   devices              = 0;
 };
 
 // ---------------------------------------------------------------------------
@@ -383,6 +418,10 @@ public:
     // ---- Introspection ---------------------------------------------------
     const EngineConfig& config() const noexcept { return cfg_; }
 
+    // Measured engine state. `reset_peaks` clears the render-time maximum, so
+    // a probe can bound a measurement to a window it controls.
+    EngineStats stats(bool reset_peaks = false);
+
 private:
     // ---- Internal device wrapper ----------------------------------------
     struct Device {
@@ -469,6 +508,14 @@ private:
     // consumption_counter_ + notifies after consuming samples, waking the
     // render thread to refill rings. Eliminates the previous polling delay.
     std::atomic<std::uint32_t>       consumption_counter_{0};
+
+    // Render-time instrumentation. Written by the render thread and the device
+    // callbacks, read by stats(); relaxed throughout, because these are
+    // diagnostics and a torn read of a counter costs nothing.
+    std::atomic<std::uint64_t>       render_us_total_{0};
+    std::atomic<std::uint64_t>       render_us_max_{0};
+    std::atomic<std::uint64_t>       blocks_rendered_{0};
+    std::atomic<std::uint64_t>       underruns_{0};
 
     // Scratch buffers reused by the render thread (allocated once at start()).
     std::vector<std::vector<Sample>> mixer_accumulators_;  // [mixer_index * kMixerLanes + lane][frame]

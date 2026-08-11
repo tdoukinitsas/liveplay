@@ -127,6 +127,12 @@ the symptom is misleading in every case.
 
 - **Stage 4 — bus → bus.** The only stage left. A bus targeting another bus is accepted, warns,
   and stays silent.
+- **No clock-drift compensation between devices** (§0.6). Two devices run on independent clocks and
+  nothing resamples between them, so a second output eventually drops or repeats a block. The
+  shallower ring makes this show up in minutes rather than hours. Fixing it properly means
+  resampling secondary devices onto the primary's clock.
+- **"Primary" is whichever device opened first**, not the house. It decides the production rate for
+  everything, so the house can end up as the drifting one.
 - **Plugins.** The six-slot rack is still a shell and stays one — deferred deliberately. The
   fixed chain (§0.4) is complete.
 - **Global master gain has no UI, and it is not simply a missing knob.** The engine has a genuine
@@ -332,6 +338,55 @@ as every other strip — which is *before* the PFL taps are mixed into its accum
 processing an empty buffer. The fold folded nothing, and Monitor's own EQ and dynamics applied to
 cue pre-listen but not to anything PFL'd: one strip treating its two sources differently. Monitor's
 chain now runs after the taps.
+
+### 0.6 Latency, measured
+
+Two complaints — playback felt late, and an EQ knob was heard well after it moved — turned out to
+be **one cause**. `server/tests/e2e/latency-probe.js` and `control-latency-probe.js` measure it;
+`GET /api/engine/stats` is what they read.
+
+**The output queue was 427 ms.** The ring between the render thread and the device held 80 render
+blocks, and the render thread produces a block whenever there is room — so in steady state it sat
+full. Everything the engine does is heard that far after it happens: a cue starting, a fader move,
+an EQ sweep. The depth had been chosen as headroom against decode spikes (decoding runs on the
+render thread, so that risk is real) but never measured against.
+
+**What the measurements said**, with 8 files playing and a 90-second soak:
+
+| | |
+|---|---|
+| render block, average | ~110 µs against a **5333 µs** budget — 2% |
+| render block, worst | 1.1 ms (21% of budget), and it barely moves from 1 file to 12 |
+| deepest the queue ever drained | ~11 ms below steady, at *either* 37 ms or 69 ms of queue |
+| underruns | none at any depth tested, down to the 3-device-period floor |
+
+The drain is bounded by scheduling jitter, not by ring depth — so a deeper ring was buying almost
+nothing. The default is now **6 blocks (~37 ms)**, which covers the worst observed drain three
+times over. `--ring-blocks` raises it on a machine that genuinely stutters; that is the only lever,
+because **the queue depth is simultaneously the latency and the entire dropout margin**.
+
+**The control path was never the problem.** A knob drag fires one `POST /api/buses/<id>/dsp` per
+pointer event, fire-and-forget. At 60 events/s for 3 s: p50 1 ms, p99 2 ms, and the last call lands
+0 ms after the pointer stops — no backlog. The EQ lag was entirely the output queue.
+
+**Two things no setting can remove.** The device runs its own buffer — 480 frames × 3 = 30 ms on
+the machine this was measured on, and it *ignored* the 256-frame request, because WASAPI shared
+mode has its own minimum. The ring is therefore allocated **after** `ma_device_init` and floored at
+three device periods, so a low `--ring-blocks` cannot make it shallower than the callback's own
+appetite. And the strip's coefficient ramp glides over ~21 ms, which is deliberate: it is what
+stops a knob drag clicking.
+
+**Known limitation this makes more visible: clock drift between devices.** Production is gated on
+`devices_.front()` alone. Every device is written the same blocks, so a secondary device whose
+clock runs faster drains its ring and underruns, and a slower one fills and drops frames. Nothing
+compensates — there is no resampling to a common clock. At ~50 ppm drift, 37 ms of slack lasts
+about 12 minutes where 427 ms lasted a couple of hours, so this bites sooner now. It was *never*
+fixed by the deep ring, only postponed.
+
+Deliberately **not** addressed by giving secondary devices a deeper ring: that would put the
+headphones permanently out of sync with the house by the difference, which is worse for PFL work
+than an occasional discontinuity. Also worth knowing: "primary" is whichever device opened first,
+which is not necessarily the house.
 
 ---
 
