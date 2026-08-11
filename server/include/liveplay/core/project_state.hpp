@@ -809,6 +809,17 @@ private:
     // Never written to the document — see set_monitor_mono.
     std::atomic<bool> monitor_mono_{false};
 
+    // Cue ids whose decoder has already been primed, so priming happens once
+    // per cue rather than once per mirror. The mirror runs on every save, and
+    // priming is a seek plus a two-second decode per cart binding — a real
+    // load spike mid-show, for cues that were already hot. Guarded by mutex_;
+    // entries are dropped by forget_primed_cue_locked() when a cue is
+    // unloaded, so a replaced file is primed again.
+    std::unordered_set<std::string> primed_cues_;
+    void forget_primed_cue_locked(const audio::CueId& id) {
+        primed_cues_.erase(id.value);
+    }
+
     // Read document_["buses"] into buses_, synthesising the system buses and
     // migrating legacy per-item deviceOverride values into real buses. Caller
     // holds mutex_.

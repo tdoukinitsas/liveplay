@@ -58,7 +58,15 @@ const IDLE    = 'churn-idle';
         type: 'audio', displayName: `Fill ${i}`, mediaServerPath: WAV,
         volume: 1, endBehavior: 'stop',
       })),
-    ] }),
+    ],
+    // Cart bindings, because that is where the save path does its expensive
+    // work. Every mirror re-primed every cart cue — a decoder seek plus a
+    // two-second decode each, all at once — and the mirror runs on every save.
+    // Without bindings the probe skipped that entirely and found nothing.
+    cartItems: Array.from({ length: Math.min(16, Math.max(0, ITEMS - 2)) }, (_, i) => ({
+      slot: i, itemUuid: `churn-fill-${String(i).padStart(3, '0')}`,
+    })),
+  }),
   });
   for (let i = 0; i < 200; i++) {
     const p = await rest('/api/project/progress');

@@ -739,6 +739,7 @@ void ProjectState::start_async_mirror() {
                     if (wanted.find(it->first) == wanted.end()) {
                         engine_.unload_cue(it->second);
                         cues_.erase(it->second.value);
+                        forget_primed_cue_locked(it->second);
                         it = item_uuid_to_cue_.erase(it);
                     } else {
                         ++it;
@@ -892,6 +893,17 @@ void ProjectState::start_async_mirror() {
             }
 
             // Phase 4: prime cart cues (also unlocked — engine handles its own).
+            //
+            // ONCE PER CUE, not once per mirror. Priming seeks the decoder and
+            // decodes two seconds, and this ran for every cart binding every
+            // time the mirror did — which is every save, because the client
+            // round-trips the whole document. Sixteen cart cues meant sixteen
+            // std::async threads all seeking and decoding at once, on a machine
+            // that was in the middle of a show, for no benefit: the cue was
+            // already primed and nothing had changed.
+            //
+            // A cue is dropped from the set when it is unloaded, so a genuinely
+            // new or replaced cue still gets primed.
             std::vector<std::future<void>> prime_futures;
             for (const auto& uuid : cart_uuids) {
                 audio::CueId cue;
@@ -899,6 +911,7 @@ void ProjectState::start_async_mirror() {
                     std::lock_guard lock{mutex_};
                     auto it = item_uuid_to_cue_.find(uuid);
                     if (it == item_uuid_to_cue_.end()) continue;
+                    if (!primed_cues_.insert(it->second.value).second) continue;
                     cue = it->second;
                 }
                 prime_futures.push_back(std::async(std::launch::async,
@@ -907,8 +920,8 @@ void ProjectState::start_async_mirror() {
                     }));
             }
             for (auto& f : prime_futures) f.get();
-            if (!cart_uuids.empty()) {
-                Logger::info("ProjectState: primed {} cart cue(s).", cart_uuids.size());
+            if (!prime_futures.empty()) {
+                Logger::info("ProjectState: primed {} cart cue(s).", prime_futures.size());
             }
         } catch (const std::exception& e) {
             Logger::error("async mirror threw: {}", e.what());
@@ -1002,6 +1015,7 @@ void ProjectState::reset() {
     mixer_routes_.clear();
     master_assignments_.clear();
     item_uuid_to_cue_.clear();
+    primed_cues_.clear();
     release_device_routings_locked();
     for (auto& [_, r] : bus_routings_) {
         if (!r.mixer.empty()) engine_.remove_mixer_channel(r.mixer);
@@ -1134,6 +1148,7 @@ void ProjectState::mirror_items_to_engine_locked() {
         if (wanted.find(it->first) == wanted.end()) {
             engine_.unload_cue(it->second);
             cues_.erase(it->second.value);
+            forget_primed_cue_locked(it->second);
             it = item_uuid_to_cue_.erase(it);
         } else {
             ++it;
@@ -2082,6 +2097,7 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
             if (old != item_uuid_to_cue_.end()) {
                 engine_.unload_cue(old->second);
                 cues_.erase(old->second.value);
+                forget_primed_cue_locked(old->second);
                 item_uuid_to_cue_.erase(old);
             }
             auto path = resolve_media_path(
@@ -5190,6 +5206,7 @@ bool ProjectState::load_from_json(const json& doc_in) {
     std::lock_guard lock{mutex_};
     for (auto& [_, id] : item_uuid_to_cue_) engine_.unload_cue(id);
     item_uuid_to_cue_.clear();
+    primed_cues_.clear();
     cues_.clear();
     mixers_.clear();
     item_routes_.clear();
