@@ -55,6 +55,19 @@ node server/tests/e2e/latency-probe.js 4500 /tmp/liveplay-test-signal.wav 8 90
 node server/tests/e2e/control-latency-probe.js 4500 60 3
 ```
 
+`ui-churn-probe.js` asks a different question: does editing item properties disturb playing audio?
+
+```sh
+# 6 edits/s for 8 s per window, against a 60-item project, one file looping.
+node server/tests/e2e/ui-churn-probe.js 4500 /tmp/liveplay-test-signal.wav 6 8 60
+```
+
+It watches for both failure modes, which is the lesson from writing it. The first version tracked
+only the *maximum* master peak, looking for the overshoot a step discontinuity makes — and reported
+everything clean. **A dropout is silence, and silence is not loud.** It now tracks the minimum
+per-frame peak too, so a gap is as visible as a click. Any probe for "did the audio glitch" that
+only looks upward is blind to half of it.
+
 Both read `GET /api/engine/stats`, which reports queued frames, the device's *actual* period,
 render-block time against its budget, and underruns. `?reset=1` clears the peak so a probe can
 bound a window.
