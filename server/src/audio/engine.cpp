@@ -758,6 +758,8 @@ MixerChannelId AudioEngine::create_mixer_channel(std::string display_name) {
     ch->set_true_peak_enabled(meter_true_peak_);
     ch->set_loudness_enabled(meter_loudness_);
     mixers_[id.value] = ch;
+    // Tells the render thread its cached strip list and index are stale.
+    mixers_generation_.fetch_add(1, std::memory_order_relaxed);
     rebuild_topology_locked();
     return id;
 }
@@ -862,6 +864,7 @@ void AudioEngine::set_mixer_dsp(const MixerChannelId& id, const StripDspParams& 
 void AudioEngine::remove_mixer_channel(const MixerChannelId& id) {
     std::lock_guard lock{mutex_};
     mixers_.erase(id.value);
+    mixers_generation_.fetch_add(1, std::memory_order_relaxed);
     pending_.mixer_to_master.erase(id.value);
     // A dangling monitor designation would survive a project reload and point
     // at a strip that no longer exists, quietly disabling PFL.
@@ -1244,15 +1247,38 @@ void AudioEngine::render_loop() {
 void AudioEngine::render_one_block(const Topology& topo) {
     const std::size_t block = static_cast<std::size_t>(cfg_.render_block);
 
-    // ---- (Re)size scratch buffers if the mixer count changed ----
-    std::vector<std::shared_ptr<MixerChannel>> active_mixers;
-    std::vector<float> channel_gains_snapshot;
+    // ---- The strips, and the per-channel gains ----
+    //
+    // The strip list and its index are CACHED and rebuilt only when a strip is
+    // created or removed. They used to be rebuilt here every block, which
+    // allocated a vector of shared_ptr and an unordered_map — with a node and
+    // a string hash per strip — on the audio thread, 187 times a second. The
+    // gains are copied into a member for the same reason.
+    //
+    // This is the difference between "the audio thread does arithmetic" and
+    // "the audio thread asks the allocator for memory". The second only shows
+    // up when something else is hammering the heap, which is exactly what a
+    // project save does, which is when the popping was reported.
     {
         std::lock_guard lock{mutex_};
-        active_mixers.reserve(mixers_.size());
-        for (auto& [_, m] : mixers_) active_mixers.emplace_back(m);
-        channel_gains_snapshot = output_channel_gains_;
+        const auto gen = mixers_generation_.load(std::memory_order_relaxed);
+        if (!render_mixers_valid_ || gen != render_mixers_seen_) {
+            render_mixers_.clear();
+            render_mixer_index_.clear();
+            render_mixers_.reserve(mixers_.size());
+            for (auto& [_, m] : mixers_) render_mixers_.emplace_back(m);
+            for (std::size_t i = 0; i < render_mixers_.size(); ++i) {
+                render_mixer_index_.emplace(render_mixers_[i]->id().value, i);
+            }
+            render_mixers_seen_  = gen;
+            render_mixers_valid_ = true;
+        }
+        // assign() over a member keeps the capacity, so this stops allocating
+        // after the first block.
+        render_gains_.assign(output_channel_gains_.begin(), output_channel_gains_.end());
     }
+    auto& active_mixers          = render_mixers_;
+    auto& channel_gains_snapshot = render_gains_;
     // One accumulator per mixer *lane* (stereo strips: L and R stay separate
     // all the way to the masters).
     const std::size_t lane_buf_count = active_mixers.size() * kMixerLanes;
@@ -1265,8 +1291,12 @@ void AudioEngine::render_one_block(const Topology& topo) {
                           "extra strips will be silent",
                           lane_buf_count, mixer_accumulators_.size());
         }
-        active_mixers.resize(mixer_accumulators_.size() / kMixerLanes);
+        // Not resized in place: active_mixers is the cached list now, and
+        // truncating it would quietly drop strips for every later block too.
+        // The loops below are bounded instead.
     }
+    const std::size_t usable_mixers =
+        std::min(active_mixers.size(), mixer_accumulators_.size() / kMixerLanes);
     for (auto& mb : mixer_accumulators_) {
         if (mb.size() < block) mb.assign(block, 0.0f);
         else std::fill(mb.begin(), mb.begin() + block, 0.0f);
@@ -1279,11 +1309,7 @@ void AudioEngine::render_one_block(const Topology& topo) {
         if (mb.size() < block) mb.assign(block, 0.0f);
         else std::fill(mb.begin(), mb.begin() + block, 0.0f);
     }
-    // Map mixer-id → accumulator index for the duration of this block.
-    std::unordered_map<std::string, std::size_t> mixer_index;
-    for (std::size_t i = 0; i < active_mixers.size(); ++i) {
-        mixer_index.emplace(active_mixers[i]->id().value, i);
-    }
+    const auto& mixer_index = render_mixer_index_;
 
     // ---- Per-item render + Tier-1 → Tier-2 mix ----
     if (item_channel_buffers_.size() < topo.items.size()) {
@@ -1294,14 +1320,16 @@ void AudioEngine::render_one_block(const Topology& topo) {
         const ChannelCount n_src = entry.item->source_channel_count();
         auto& chbufs = item_channel_buffers_[i];
         if (chbufs.size() < n_src) chbufs.resize(n_src);
-        std::vector<Sample*> ptrs;
-        ptrs.reserve(n_src);
+        // A member, cleared rather than constructed: this ran once per item
+        // per block, so a project with a hundred cues loaded was asking the
+        // allocator for memory a hundred times every 5.3 ms.
+        render_ptrs_.clear();
         for (ChannelCount c = 0; c < n_src; ++c) {
             if (chbufs[c].size() < block) chbufs[c].assign(block, 0.0f);
-            ptrs.push_back(chbufs[c].data());
+            render_ptrs_.push_back(chbufs[c].data());
         }
 
-        entry.item->render_block(ptrs.data(), n_src, block);
+        entry.item->render_block(render_ptrs_.data(), n_src, block);
 
         // Route each source channel to its destination mixer lanes.
         for (ChannelCount c = 0; c < n_src && c < entry.per_source_channel.size(); ++c) {
@@ -1347,12 +1375,12 @@ void AudioEngine::render_one_block(const Topology& topo) {
     // any EQ or dynamics on Monitor applied to cue pre-listen but not to
     // anything PFL'd — the same strip treating its two sources differently.
     const std::size_t monitor_index = [&]() -> std::size_t {
-        if (!topo.monitor) return active_mixers.size();
+        if (!topo.monitor) return usable_mixers;
         const auto it = mixer_index.find(topo.monitor->id().value);
-        return it == mixer_index.end() ? active_mixers.size() : it->second;
+        return it == mixer_index.end() ? usable_mixers : it->second;
     }();
 
-    for (std::size_t i = 0; i < active_mixers.size(); ++i) {
+    for (std::size_t i = 0; i < usable_mixers; ++i) {
         if (i == monitor_index) continue;
         run_strip_dsp(i);
     }
@@ -1366,7 +1394,7 @@ void AudioEngine::render_one_block(const Topology& topo) {
     // Nothing is copied. The tap adds straight into the monitor's
     // accumulator, which is the buffer copy §2.4 costed, minus the copy.
     if (topo.monitor && !topo.monitor_taps.empty() &&
-        monitor_index < active_mixers.size()) {
+        monitor_index < usable_mixers) {
         mix_monitor_taps(monitor_index, topo.monitor_taps, mixer_index,
                          mixer_accumulators_, block);
     }
@@ -1374,14 +1402,14 @@ void AudioEngine::render_one_block(const Topology& topo) {
     // ---- Monitor's own chain, now that everything it carries has arrived ----
     // Both sources are in: cue pre-listen from the item pass, PFL from the taps
     // just above. This is where the mono-sum audition folds the phones.
-    if (monitor_index < active_mixers.size()) run_strip_dsp(monitor_index);
+    if (monitor_index < usable_mixers) run_strip_dsp(monitor_index);
 
     // ---- Tier-2 strip processing (gain/mute/fade) + meter ----
     // No solo scan. Solo was never reachable from the UI and the mixer design
     // replaced it with PFL outright (§2.4), which costs the render thread a
     // flat list of taps instead of a per-block scan of every strip plus a
     // per-strip audibility test that depended on all the others.
-    for (std::size_t i = 0; i < active_mixers.size(); ++i) {
+    for (std::size_t i = 0; i < usable_mixers; ++i) {
         auto& m = active_mixers[i];
         // Advance the strip's fade envelope by exactly one render block, then
         // read the resulting gain. peek_gain_linear() is side-effect-free, so

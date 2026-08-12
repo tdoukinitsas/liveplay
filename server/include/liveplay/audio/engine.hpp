@@ -517,6 +517,30 @@ private:
     std::atomic<std::uint64_t>       blocks_rendered_{0};
     std::atomic<std::uint64_t>       underruns_{0};
 
+    // Bumped whenever the set of mixer strips changes, so the render thread
+    // can tell when its cached view of them is stale without comparing lists.
+    std::atomic<std::uint32_t>       mixers_generation_{0};
+
+    // The render thread's view of the strips, and the id → accumulator index
+    // it looks sends up in.
+    //
+    // Cached rather than rebuilt per block, because rebuilding them was
+    // allocating on the audio thread every 5.3 ms: a vector of shared_ptr, a
+    // vector of gains, and an unordered_map with a node and a string hash per
+    // strip. That is fine until something else in the process is allocating
+    // hard — a project save copying a JSON document across nineteen worker
+    // threads, say — and then the audio thread waits on the heap lock, the
+    // ring drains, and the operator hears a pop while saving.
+    //
+    // Rebuilt only when mixers_generation_ moves, which is a strip being
+    // created or removed.
+    std::vector<std::shared_ptr<MixerChannel>>          render_mixers_;
+    std::unordered_map<std::string, std::size_t>        render_mixer_index_;
+    std::uint32_t                                       render_mixers_seen_{0};
+    bool                                                render_mixers_valid_{false};
+    std::vector<float>                                  render_gains_;
+    std::vector<Sample*>                                render_ptrs_;
+
     // Scratch buffers reused by the render thread (allocated once at start()).
     std::vector<std::vector<Sample>> mixer_accumulators_;  // [mixer_index * kMixerLanes + lane][frame]
     std::vector<std::vector<Sample>> master_accumulators_; // [master_index][frame]
