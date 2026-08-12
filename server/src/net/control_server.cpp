@@ -1751,6 +1751,7 @@ void ControlServer::install_routes() {
                 {"blockBudgetUs",      s.block_budget_us},
                 {"blocksRendered",     s.blocks_rendered},
                 {"underruns",          s.underruns},
+                {"topologyRebuilds",   s.topology_rebuilds},
                 {"devices",            s.devices},
             });
         });

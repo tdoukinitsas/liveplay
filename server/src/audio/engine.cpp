@@ -155,6 +155,7 @@ void AudioEngine::publish_topology(std::shared_ptr<const Topology> snap) {
 }
 
 void AudioEngine::rebuild_topology_locked() {
+    topology_rebuilds_.fetch_add(1, std::memory_order_relaxed);
     auto snap = std::make_shared<Topology>();
 
     // ---- Items ----
@@ -672,10 +673,20 @@ void AudioEngine::ensure_default_routing() {
     }
 
     // Step 3: wire master 0/1 → device 0/1 if not already.
+    //
+    // Everything below is idempotent, and `changed` records whether any of it
+    // actually did something. That matters because this runs on every project
+    // save — the client round-trips the whole document — and it used to end in
+    // an unconditional topology rebuild. A rebuild walks every item, route and
+    // master allocating as it goes, all while holding the mutex the RENDER
+    // thread takes twice a block. Saving three times in a second, which the
+    // client does, meant three of those stalls in a second.
+    bool changed = false;
     {
         std::lock_guard lock{mutex_};
         if (pending_.master_destinations.size() < 2) {
             pending_.master_destinations.resize(2);
+            changed = true;
         }
         for (std::size_t i = 0; i < 2; ++i) {
             if (!pending_.master_destinations[i].has_value()) {
@@ -683,6 +694,7 @@ void AudioEngine::ensure_default_routing() {
                 dest.device     = chosen_device;
                 dest.hw_channel = static_cast<ChannelIndex>(i);
                 pending_.master_destinations[i] = dest;
+                changed = true;
             }
         }
         // Step 4: route Main mixer lanes → masters (lane 0 → master 0 = L,
@@ -693,8 +705,8 @@ void AudioEngine::ensure_default_routing() {
             if (s.master == 0) has_m0 = true;
             if (s.master == 1) has_m1 = true;
         }
-        if (!has_m0) m2m.push_back({0, 0, 1.0f});
-        if (!has_m1) m2m.push_back({1, 1, 1.0f});
+        if (!has_m0) { m2m.push_back({0, 0, 1.0f}); changed = true; }
+        if (!has_m1) { m2m.push_back({1, 1, 1.0f}); changed = true; }
 
         // Step 5: auto-route every loaded cue's source channels → Main, but
         // ONLY for cues that have no routes yet. Cues that were explicitly
@@ -712,7 +724,7 @@ void AudioEngine::ensure_default_routing() {
         for (auto& [cue_id, item] : items_) {
             auto& srcs = pending_.item_sources[cue_id].by_source_channel;
             const auto src_count = item->source_channel_count();
-            if (srcs.size() < src_count) srcs.resize(src_count);
+            if (srcs.size() < src_count) { srcs.resize(src_count); changed = true; }
             const auto audio_count = item->desc().ltc_enabled
                                      ? src_count - 1 : src_count;
             // Determine whether ANY audio source channel of this cue already
@@ -729,13 +741,19 @@ void AudioEngine::ensure_default_routing() {
                     ? kAllMixerLanes
                     : static_cast<ChannelIndex>(ch % kMixerLanes);
                 srcs[ch].push_back({main_mixer, lane, 1.0f});
+                changed = true;
             }
         }
 
-        rebuild_topology_locked();
+        // Only when something actually moved. See `changed` above.
+        if (changed) rebuild_topology_locked();
     }
-    Logger::info("ensure_default_routing: ready (device='{}', main_mixer='{}')",
-                 chosen_device.value, main_mixer.value);
+    // Debug, not info: this ran on every save and every play_item, so at info
+    // it was three lines a second in the log during ordinary editing — noise
+    // that buries the one line that matters mid-show.
+    Logger::debug("ensure_default_routing: {} (device='{}', main_mixer='{}')",
+                  changed ? "rewired" : "already wired",
+                  chosen_device.value, main_mixer.value);
 }
 
 // ---------------------------------------------------------------------------
@@ -1101,6 +1119,7 @@ EngineStats AudioEngine::stats(bool reset_peaks) {
     const auto blocks = blocks_rendered_.load(std::memory_order_relaxed);
     s.blocks_rendered     = blocks;
     s.underruns           = underruns_.load(std::memory_order_relaxed);
+    s.topology_rebuilds   = topology_rebuilds_.load(std::memory_order_relaxed);
     s.render_block_us_max = static_cast<double>(render_us_max_.load(std::memory_order_relaxed));
     s.render_block_us_avg =
         blocks ? static_cast<double>(render_us_total_.load(std::memory_order_relaxed)) /
@@ -1112,6 +1131,7 @@ EngineStats AudioEngine::stats(bool reset_peaks) {
         render_us_total_.store(0, std::memory_order_relaxed);
         blocks_rendered_.store(0, std::memory_order_relaxed);
         underruns_.store(0, std::memory_order_relaxed);
+        topology_rebuilds_.store(0, std::memory_order_relaxed);
     }
     return s;
 }

@@ -158,6 +158,12 @@ struct EngineStats {
     std::uint64_t blocks_rendered      = 0;
     std::uint64_t underruns            = 0;
     std::size_t   devices              = 0;
+    // How many times the topology has been rebuilt. A rebuild walks every
+    // item, route and master, allocating, while holding the mutex the render
+    // thread needs twice a block — so this should be near-zero during a show.
+    // If it climbs while the operator is only editing, something is rewiring
+    // the graph that has no business doing so.
+    std::uint64_t topology_rebuilds    = 0;
 };
 
 // ---------------------------------------------------------------------------
@@ -516,6 +522,7 @@ private:
     std::atomic<std::uint64_t>       render_us_max_{0};
     std::atomic<std::uint64_t>       blocks_rendered_{0};
     std::atomic<std::uint64_t>       underruns_{0};
+    std::atomic<std::uint64_t>       topology_rebuilds_{0};
 
     // Bumped whenever the set of mixer strips changes, so the render thread
     // can tell when its cached view of them is stale without comparing lists.

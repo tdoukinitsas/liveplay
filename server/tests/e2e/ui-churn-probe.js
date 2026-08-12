@@ -118,7 +118,11 @@ const IDLE    = 'churn-idle';
     console.log(`${label.padEnd(26)} under ${String(s.underruns).padStart(3)}  ` +
                 `rmax ${s.renderBlockUsMax.toFixed(0).padStart(6)}us  ` +
                 `peak ${peak.toFixed(2).padStart(7)}  dip ${dip.toFixed(2).padStart(8)}  ` +
-                `frames ${String(frames).padStart(4)}  ${bad ? '<<< GLITCH' : ''}`);
+                // Topology rebuilds during the window. Each one walks the whole
+                // graph while holding the mutex the render thread needs twice a
+                // block, so anything above zero for an edit that changed no
+                // routing is work that should not be happening.
+                `rebuilds ${String(s.topologyRebuilds).padStart(3)}  ${bad ? '<<< GLITCH' : ''}`);
     return s;
   };
 
