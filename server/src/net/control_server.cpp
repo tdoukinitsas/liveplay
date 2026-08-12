@@ -1752,6 +1752,7 @@ void ControlServer::install_routes() {
                 {"blocksRendered",     s.blocks_rendered},
                 {"underruns",          s.underruns},
                 {"topologyRebuilds",   s.topology_rebuilds},
+                {"mutexWaitUsMax",     s.mutex_wait_us_max},
                 {"devices",            s.devices},
             });
         });

@@ -1120,6 +1120,8 @@ EngineStats AudioEngine::stats(bool reset_peaks) {
     s.blocks_rendered     = blocks;
     s.underruns           = underruns_.load(std::memory_order_relaxed);
     s.topology_rebuilds   = topology_rebuilds_.load(std::memory_order_relaxed);
+    s.mutex_wait_us_max   = static_cast<double>(
+        mutex_wait_us_max_.load(std::memory_order_relaxed));
     s.render_block_us_max = static_cast<double>(render_us_max_.load(std::memory_order_relaxed));
     s.render_block_us_avg =
         blocks ? static_cast<double>(render_us_total_.load(std::memory_order_relaxed)) /
@@ -1132,6 +1134,7 @@ EngineStats AudioEngine::stats(bool reset_peaks) {
         blocks_rendered_.store(0, std::memory_order_relaxed);
         underruns_.store(0, std::memory_order_relaxed);
         topology_rebuilds_.store(0, std::memory_order_relaxed);
+        mutex_wait_us_max_.store(0, std::memory_order_relaxed);
     }
     return s;
 }
@@ -1199,7 +1202,7 @@ void AudioEngine::render_loop() {
             bool has_devices  = false;
             bool has_ring     = false;
             {
-                std::lock_guard lock{mutex_};
+                auto lock = lock_timed();
                 has_devices = !devices_.empty();
                 if (has_devices) {
                     // Gate production on the primary device only, to prevent
@@ -1248,6 +1251,35 @@ void AudioEngine::render_loop() {
             while (us > prev &&
                    !render_us_max_.compare_exchange_weak(prev, us,
                                                          std::memory_order_relaxed)) {}
+
+            // Say so when a block takes a serious bite out of its budget.
+            //
+            // An underrun is logged already, but by then the audio has gone —
+            // and a stall can be loud enough to hear as the queue lurches
+            // without ever fully draining. This catches the near miss, which is
+            // what makes a reported pop diagnosable on the machine it happens
+            // on rather than only on one that reproduces it.
+            //
+            // Rate-limited to one line a second: the failure being chased fires
+            // in bursts, and a burst that fills the log is its own problem.
+            const auto budget_us = static_cast<std::uint64_t>(
+                (static_cast<double>(cfg_.render_block) /
+                 static_cast<double>(cfg_.mix_sample_rate)) * 1e6);
+            if (us > budget_us / 2) {
+                const auto now = std::chrono::steady_clock::now();
+                if (now - last_slow_block_log_ > std::chrono::seconds{1}) {
+                    last_slow_block_log_ = now;
+                    std::uint32_t queued = 0;
+                    {
+                        std::lock_guard lock{mutex_};
+                        if (!devices_.empty() && devices_.front()->ring)
+                            queued = ma_pcm_rb_available_read(devices_.front()->ring.get());
+                    }
+                    Logger::warn("render: block took {} us of a {} us budget "
+                                 "({} frames still queued). Something is stalling "
+                                 "the audio thread.", us, budget_us, queued);
+                }
+            }
         } catch (const std::bad_alloc&) {
             // Memory pressure: skip this block and give the system a moment.
             // Audio will glitch but the server survives.
@@ -1280,7 +1312,7 @@ void AudioEngine::render_one_block(const Topology& topo) {
     // up when something else is hammering the heap, which is exactly what a
     // project save does, which is when the popping was reported.
     {
-        std::lock_guard lock{mutex_};
+        auto lock = lock_timed();
         const auto gen = mixers_generation_.load(std::memory_order_relaxed);
         if (!render_mixers_valid_ || gen != render_mixers_seen_) {
             render_mixers_.clear();
@@ -1496,13 +1528,13 @@ void AudioEngine::render_one_block(const Topology& topo) {
     // ---- Dispatch to devices ----
     // For each device, build an interleaved block of its hardware channels by
     // picking the right master accumulator for each.
-    std::vector<Device*> devices_copy;
+    // A member, cleared and refilled: this built a fresh vector every block.
+    render_devices_.clear();
     {
-        std::lock_guard lock{mutex_};
-        devices_copy.reserve(devices_.size());
-        for (auto& d : devices_) devices_copy.push_back(d.get());
+        auto lock = lock_timed();
+        for (auto& d : devices_) render_devices_.push_back(d.get());
     }
-    for (auto* dev : devices_copy) {
+    for (auto* dev : render_devices_) {
         if (!dev->ring) continue;
         if (dev->scratch.size() < block * dev->channels) {
             dev->scratch.assign(block * dev->channels, 0.0f);

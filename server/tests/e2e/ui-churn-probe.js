@@ -122,7 +122,13 @@ const IDLE    = 'churn-idle';
                 // graph while holding the mutex the render thread needs twice a
                 // block, so anything above zero for an edit that changed no
                 // routing is work that should not be happening.
-                `rebuilds ${String(s.topologyRebuilds).padStart(3)}  ${bad ? '<<< GLITCH' : ''}`);
+                `rebuilds ${String(s.topologyRebuilds).padStart(3)}  ` +
+                // The direct measure of "was audio blocked by the UI": how long
+                // the render thread waited for the engine mutex. If a control
+                // action is audible and this stays small, contention is not the
+                // cause and looking there is wasted effort.
+                `lockwait ${s.mutexWaitUsMax.toFixed(0).padStart(6)}us  ` +
+                `${bad ? '<<< GLITCH' : ''}`);
     return s;
   };
 

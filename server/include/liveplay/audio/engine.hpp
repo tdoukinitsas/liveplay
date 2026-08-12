@@ -164,6 +164,12 @@ struct EngineStats {
     // If it climbs while the operator is only editing, something is rewiring
     // the graph that has no business doing so.
     std::uint64_t topology_rebuilds    = 0;
+    // Longest the RENDER THREAD has waited to acquire the engine mutex. It
+    // takes that lock twice a block, and every control-thread operation takes
+    // the same one — so this is the direct measure of "was audio blocked by
+    // something the UI did". If a control action is audible and this stays
+    // small, the cause is not contention and looking there is wasted effort.
+    double        mutex_wait_us_max    = 0.0;
 };
 
 // ---------------------------------------------------------------------------
@@ -523,6 +529,25 @@ private:
     std::atomic<std::uint64_t>       blocks_rendered_{0};
     std::atomic<std::uint64_t>       underruns_{0};
     std::atomic<std::uint64_t>       topology_rebuilds_{0};
+    std::atomic<std::uint64_t>       mutex_wait_us_max_{0};
+    // Render thread only; rate-limits the slow-block warning.
+    std::chrono::steady_clock::time_point last_slow_block_log_{};
+
+    // Acquire mutex_ from the RENDER THREAD, recording how long it waited.
+    // Only the render thread should use this: the number is meaningless for a
+    // control thread, which is allowed to wait.
+    std::unique_lock<std::mutex> lock_timed() {
+        const auto t0 = std::chrono::steady_clock::now();
+        std::unique_lock<std::mutex> lk{mutex_};
+        const auto us = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - t0).count());
+        auto prev = mutex_wait_us_max_.load(std::memory_order_relaxed);
+        while (us > prev &&
+               !mutex_wait_us_max_.compare_exchange_weak(prev, us,
+                                                         std::memory_order_relaxed)) {}
+        return lk;
+    }
 
     // Bumped whenever the set of mixer strips changes, so the render thread
     // can tell when its cached view of them is stale without comparing lists.
@@ -547,6 +572,7 @@ private:
     bool                                                render_mixers_valid_{false};
     std::vector<float>                                  render_gains_;
     std::vector<Sample*>                                render_ptrs_;
+    std::vector<Device*>                                render_devices_;
 
     // Scratch buffers reused by the render thread (allocated once at start()).
     std::vector<std::vector<Sample>> mixer_accumulators_;  // [mixer_index * kMixerLanes + lane][frame]
