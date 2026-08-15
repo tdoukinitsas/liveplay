@@ -1753,6 +1753,8 @@ void ControlServer::install_routes() {
                 {"underruns",          s.underruns},
                 {"topologyRebuilds",   s.topology_rebuilds},
                 {"mutexWaitUsMax",     s.mutex_wait_us_max},
+                {"discontinuities",    s.discontinuities},
+                {"worstSeam",          s.worst_seam},
                 {"devices",            s.devices},
             });
         });

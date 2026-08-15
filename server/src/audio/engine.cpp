@@ -1122,6 +1122,9 @@ EngineStats AudioEngine::stats(bool reset_peaks) {
     s.topology_rebuilds   = topology_rebuilds_.load(std::memory_order_relaxed);
     s.mutex_wait_us_max   = static_cast<double>(
         mutex_wait_us_max_.load(std::memory_order_relaxed));
+    s.discontinuities     = discontinuities_.load(std::memory_order_relaxed);
+    s.worst_seam          =
+        worst_seam_milli_.load(std::memory_order_relaxed) / 1000.0;
     s.render_block_us_max = static_cast<double>(render_us_max_.load(std::memory_order_relaxed));
     s.render_block_us_avg =
         blocks ? static_cast<double>(render_us_total_.load(std::memory_order_relaxed)) /
@@ -1135,6 +1138,8 @@ EngineStats AudioEngine::stats(bool reset_peaks) {
         underruns_.store(0, std::memory_order_relaxed);
         topology_rebuilds_.store(0, std::memory_order_relaxed);
         mutex_wait_us_max_.store(0, std::memory_order_relaxed);
+        discontinuities_.store(0, std::memory_order_relaxed);
+        worst_seam_milli_.store(0, std::memory_order_relaxed);
     }
     return s;
 }
@@ -1523,6 +1528,50 @@ void AudioEngine::render_one_block(const Topology& topo) {
             master_state_[mc].limiter->process(buf, block);
         }
         master_state_[mc].meter->push_block(buf, block);
+
+        // ---- Seam detector ----
+        //
+        // Catches the pop itself, rather than a condition that might cause one.
+        //
+        // The trick is WHERE it looks. A parameter that changes between blocks —
+        // a gain snapped instead of slewed, a decoder seeking, a route
+        // reconnecting — puts a step exactly on the block boundary. Programme
+        // material's own transients land anywhere, so comparing the boundary
+        // jump against the largest jump INSIDE the same block separates the two
+        // without needing to know anything about the material: a drum hit makes
+        // both large, a seam makes only the first large.
+        //
+        // This exists because three rounds of fixing plausible causes did not
+        // stop a reported pop, and every timing measurement came back clean. It
+        // turns "it pops when I save" into a timestamped line naming the size
+        // of the step.
+        if (mc < 2 && block > 1) {
+            float worst_internal = 0.0f;
+            for (std::size_t s = 1; s < block; ++s) {
+                worst_internal = std::max(worst_internal, std::fabs(buf[s] - buf[s - 1]));
+            }
+            const float seam = std::fabs(buf[0] - master_last_sample_[mc]);
+            // Both tests matter. The ratio is what identifies a seam; the floor
+            // stops near-silence, where every ratio is enormous and nothing is
+            // audible, from filling the log.
+            if (seam > 0.05f && seam > worst_internal * 4.0f) {
+                discontinuities_.fetch_add(1, std::memory_order_relaxed);
+                const auto milli = static_cast<std::uint32_t>(seam * 1000.0f);
+                auto prev = worst_seam_milli_.load(std::memory_order_relaxed);
+                while (milli > prev &&
+                       !worst_seam_milli_.compare_exchange_weak(prev, milli,
+                                                                std::memory_order_relaxed)) {}
+                const auto now = std::chrono::steady_clock::now();
+                if (now - last_seam_log_ > std::chrono::milliseconds{250}) {
+                    last_seam_log_ = now;
+                    Logger::warn("render: DISCONTINUITY on master {} — {:.4f} step at a "
+                                 "block boundary against {:.4f} inside the block. "
+                                 "Something changed a value under playing audio.",
+                                 mc, seam, worst_internal);
+                }
+            }
+            master_last_sample_[mc] = buf[block - 1];
+        }
     }
 
     // ---- Dispatch to devices ----

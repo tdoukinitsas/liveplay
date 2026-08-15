@@ -128,7 +128,12 @@ const IDLE    = 'churn-idle';
                 // action is audible and this stays small, contention is not the
                 // cause and looking there is wasted effort.
                 `lockwait ${s.mutexWaitUsMax.toFixed(0).padStart(6)}us  ` +
-                `${bad ? '<<< GLITCH' : ''}`);
+                // The pop itself, counted per window. This is the column that
+                // finally caught the reported fault; the level columns never
+                // did, because a step does not change a peak.
+                `seams ${String(s.discontinuities).padStart(3)}` +
+                (s.discontinuities ? ` (worst ${s.worstSeam.toFixed(3)})` : '') +
+                `  ${bad || s.discontinuities ? '<<< GLITCH' : ''}`);
     return s;
   };
 

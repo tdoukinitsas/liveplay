@@ -170,6 +170,12 @@ struct EngineStats {
     // something the UI did". If a control action is audible and this stays
     // small, the cause is not contention and looking there is wasted effort.
     double        mutex_wait_us_max    = 0.0;
+    // Steps detected at a block boundary that are far larger than anything
+    // inside the block — see the seam detector in render_one_block. This is
+    // the pop itself, counted, so a probe can attribute it to the action that
+    // caused it rather than to a timestamp in a log.
+    std::uint64_t discontinuities      = 0;
+    double        worst_seam           = 0.0;
 };
 
 // ---------------------------------------------------------------------------
@@ -532,6 +538,12 @@ private:
     std::atomic<std::uint64_t>       mutex_wait_us_max_{0};
     // Render thread only; rate-limits the slow-block warning.
     std::chrono::steady_clock::time_point last_slow_block_log_{};
+    // Render thread only. Last sample of the previous block on masters 0/1, so
+    // the seam detector can see across the boundary, and its rate limit.
+    float                                 master_last_sample_[2]{0.0f, 0.0f};
+    std::chrono::steady_clock::time_point last_seam_log_{};
+    std::atomic<std::uint64_t>            discontinuities_{0};
+    std::atomic<std::uint32_t>            worst_seam_milli_{0};   // seam * 1000
 
     // Acquire mutex_ from the RENDER THREAD, recording how long it waited.
     // Only the render thread should use this: the number is meaningless for a
