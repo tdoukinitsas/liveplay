@@ -1135,6 +1135,24 @@ const pendingApiRequests = new Map(); // requestId → { resolve } for PATCH rou
 let fileToOpen = null; // Store file path if app is opened with a file
 let stateViewerWindow = null; // Debug state viewer window
 let cartPlayerWindow = null;  // Detached cart player window
+let mixerWindow = null;       // Detached mixer window
+
+// Minimum size for windows that host the full editing surface. Applied to the
+// main window and the detached mixer, both of which render the mixer's channel
+// view. Not applied to the cart player: that is a pad grid, and shrinking it to
+// a corner of a screen is a legitimate way to use it.
+//
+// useContentSize matters here. Without it these numbers describe the outer
+// window, frame included, so a 1280x768 minimum left the page itself at
+// 1266x706 on Windows — the borders and title bar eat 14 and 62 — and every
+// CSS breakpoint and vh unit in the layout is measured against the page, not
+// the frame. With it, the numbers mean what the stylesheets assume.
+//
+// Measured on Windows: this yields an outer window of about 1295x784, so the
+// app needs a display with roughly 800px of usable height. A 1366x768 panel
+// cannot fit it; dropping to 1280x640 content would, at the cost of the
+// channel view falling back to its stacked, scrolling layout.
+const MIN_WINDOW = { minWidth: 1280, minHeight: 720, useContentSize: true };
 
 // Flatten all audio items from a nested project items array
 function flattenAudioItems(items) {
@@ -1507,8 +1525,11 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    minWidth: 1200,
-    minHeight: 700,
+    // The floor the layouts are designed against. The mixer's channel view in
+    // particular assumes it can put a channel column, an EQ and a dynamics
+    // section side by side; below this it degrades to stacked, scrolling
+    // sections, which works but is not what anyone should be running a show on.
+    ...MIN_WINDOW,
     icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -1618,6 +1639,58 @@ function createCartPlayerWindow() {
   cartPlayerWindow.webContents.once('did-finish-load', () => {
     if (mainWindow) {
       mainWindow.webContents.send('cart-player-window-opened');
+    }
+  });
+}
+
+// Create detached mixer window.
+//
+// Unlike the cart window this one needs almost nothing from us: buses, meters
+// and fader moves all travel over the renderer's own WebSocket to the audio
+// server, which every window opens independently. The only thing it takes from
+// the main window is the project's look (theme + accent) and the meter zone
+// levels, which ride along on the existing cart-window project-data channel.
+function createMixerWindow() {
+  if (mixerWindow) {
+    mixerWindow.focus();
+    return;
+  }
+
+  mixerWindow = new BrowserWindow({
+    width: 1440,
+    height: 860,
+    ...MIN_WINDOW,
+    title: 'LivePlay - Mixer',
+    icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+      webSecurity: false
+    }
+  });
+
+  if (isDevMode) {
+    mixerWindow.loadURL('http://localhost:3000/?mixerWindow=1');
+  } else {
+    const indexPath = path.join(__dirname, '../.output/public/index.html');
+    mixerWindow.loadFile(indexPath, { query: { mixerWindow: '1' } });
+  }
+
+  mixerWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[MixerWindow] Failed to load:', errorCode, errorDescription);
+  });
+
+  mixerWindow.on('closed', () => {
+    mixerWindow = null;
+    if (mainWindow && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send('mixer-window-closed');
+    }
+  });
+
+  mixerWindow.webContents.once('did-finish-load', () => {
+    if (mainWindow && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send('mixer-window-opened');
     }
   });
 }
@@ -2642,9 +2715,15 @@ ipcMain.on('sync-project-data', (event, projectData) => {
     } else {
       currentProject = nextOpen;
     }
-    // Forward project updates to the detached cart window if open
-    if (cartPlayerWindow && projectData) {
-      cartPlayerWindow.webContents.send('cart-window-project-update', projectData);
+    // Forward project updates to the detached windows if open. The mixer
+    // window takes only the theme and meter levels off this, but it is the
+    // same payload, so it rides the same channel.
+    if (projectData) {
+      for (const win of [cartPlayerWindow, mixerWindow]) {
+        if (win && !win.webContents.isDestroyed()) {
+          win.webContents.send('cart-window-project-update', projectData);
+        }
+      }
     }
   }
   // Silently ignore syncs from the cart window to prevent feedback loops
@@ -2658,6 +2737,17 @@ ipcMain.handle('open-cart-player-window', () => {
 ipcMain.on('cart-player-window-attach', () => {
   if (cartPlayerWindow) {
     cartPlayerWindow.close();
+  }
+});
+
+// Mixer window IPC handlers
+ipcMain.handle('open-mixer-window', () => {
+  createMixerWindow();
+});
+
+ipcMain.on('mixer-window-attach', () => {
+  if (mixerWindow) {
+    mixerWindow.close();
   }
 });
 

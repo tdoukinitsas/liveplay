@@ -8,12 +8,12 @@
     which resolves after mount (server decorates items asynchronously) still
     activates the subscription on the next meter frame.
   -->
-  <div class="stereo-meter">
+  <div class="stereo-meter" :class="{ 'stereo-meter--bare': bare }">
     <div v-if="label" class="stereo-meter__label">{{ label }}</div>
 
     <div class="stereo-meter__body">
       <!-- dB scale -->
-      <div class="stereo-meter__scale">
+      <div v-if="showScale" class="stereo-meter__scale">
         <div
           v-for="m in scaleMarks"
           :key="m.db"
@@ -43,13 +43,13 @@
               <div v-if="holdVisibleL" class="stereo-meter__hold" :style="holdStyleL" />
             </div>
             <!-- GR track: same rounded-rect shape, accent fill from top -->
-            <div v-if="props.leftIndex != null" class="stereo-meter__gr-track">
+            <div v-if="grVisible" class="stereo-meter__gr-track">
               <div class="stereo-meter__gr-fill" :style="grStyleL" />
             </div>
           </div>
-          <div class="stereo-meter__chan-label">L</div>
+          <div class="stereo-meter__chan-label">{{ mono ? 'M' : 'L' }}</div>
         </div>
-        <div class="stereo-meter__chan">
+        <div v-if="!mono" class="stereo-meter__chan">
           <div
             class="stereo-meter__clip"
             :class="{ 'is-clipped': holdL.clipped.value || holdR.clipped.value }"
@@ -62,7 +62,7 @@
               <div class="stereo-meter__fill" :style="peakStyleR" />
               <div v-if="holdVisibleR" class="stereo-meter__hold" :style="holdStyleR" />
             </div>
-            <div v-if="props.rightIndex != null" class="stereo-meter__gr-track">
+            <div v-if="grVisible" class="stereo-meter__gr-track">
               <div class="stereo-meter__gr-fill" :style="grStyleR" />
             </div>
           </div>
@@ -84,24 +84,56 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useMasterMeter, useCueMeters, usePeakHold, lufsFromKwMs } from '~/composables/useLiveMeters';
+import { useMasterMeter, useCueMeters, useMixerMeter, usePeakHold, lufsFromKwMs } from '~/composables/useLiveMeters';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { useProject } from '~/composables/useProject';
+import { formatMeterLabel, formatShortTermLabel } from '~/utils/meterScale';
 
 const props = withDefaults(defineProps<{
   leftIndex?: number | null;
   rightIndex?: number | null;
   cueId?: string | null;
+  /** Mixer strip source — lane 0 and lane 1 of one bus. */
+  mixerId?: string | null;
+  /** One bar instead of two, for a mono bus. Lane 0 only. */
+  mono?: boolean;
   label?: string;
   showPeakValue?: boolean;
+  /**
+   * The tick column. Off inside a channel strip, which has its own shared
+   * scale sitting between the meter and the fader — rendering both put two
+   * scales side by side.
+   */
+  showScale?: boolean;
+  /**
+   * Drop the frame (border, background, padding, fixed width) so the meter
+   * can sit inside a strip that already provides them.
+   */
+  bare?: boolean;
+  /**
+   * Force the gain-reduction sub-track on or off. Left unset it appears only
+   * for master channels, which are the only source that reports GR today.
+   *
+   * The mixer sets it on every strip so the rail is one uniform grid: with it
+   * appearing on the master alone, that strip's meter block was wider than the
+   * others and its fader sat further across. A bus reads zero reduction, which
+   * is not a placeholder (nothing is reducing it) and is where the bus
+   * compressor's reading will land.
+   */
+  showGr?: boolean;
   minDb?: number;
   maxDb?: number;
 }>(), {
   leftIndex: null,
   rightIndex: null,
   cueId: null,
+  mixerId: null,
+  mono: false,
   label: '',
   showPeakValue: false,
+  showScale: true,
+  bare: false,
+  showGr: undefined,
   minDb: -60,
   maxDb: 0,
 });
@@ -113,6 +145,58 @@ const props = withDefaults(defineProps<{
 const cueStream   = useCueMeters(() => props.cueId);
 const leftStream  = useMasterMeter(() => props.leftIndex);
 const rightStream = useMasterMeter(() => props.rightIndex);
+// A mono bus has only lane 0, so both sides read it and only one bar is drawn.
+const mixerL = useMixerMeter(() => props.mixerId, () => 0);
+const mixerR = useMixerMeter(() => props.mixerId, () => (props.mono ? 0 : 1));
+
+// One place decides which stream feeds each side. Everything below reads these
+// rather than repeating the source branch — with three sources the ternary
+// chains were about to appear a dozen times over.
+type Reading = {
+  peak: number; rms: number; max: number;
+  truePeak: number; trueMax: number;
+  kwMs: number; kwMsS: number;
+};
+const SILENT_READING: Reading = {
+  peak: -120, rms: -120, max: -120, truePeak: -120, trueMax: -120, kwMs: 0, kwMsS: 0,
+};
+
+function readCue(i: number): Reading {
+  // A mono cue has one source; its lane 0 feeds both sides.
+  const s = cueStream.sources.value[i] ?? cueStream.sources.value[0];
+  if (!s) return SILENT_READING;
+  return {
+    peak: s.peak_db ?? -120, rms: s.rms_db ?? -120, max: s.peak_max_db ?? -120,
+    truePeak: s.true_peak_db ?? -120, trueMax: s.true_peak_max_db ?? -120,
+    kwMs: s.kw_ms ?? 0, kwMsS: s.kw_ms_s ?? 0,
+  };
+}
+function readStream(s: {
+  peak: { value: number }; rms: { value: number }; peakMax: { value: number };
+  truePeak: { value: number }; truePeakMax: { value: number };
+  kwMs: { value: number }; kwMsS: { value: number };
+}): Reading {
+  return {
+    peak: s.peak.value, rms: s.rms.value, max: s.peakMax.value,
+    truePeak: s.truePeak.value, trueMax: s.truePeakMax.value,
+    kwMs: s.kwMs.value, kwMsS: s.kwMsS.value,
+  };
+}
+
+const srcL = computed<Reading>(() =>
+  props.cueId   != null ? readCue(0)
+  : props.mixerId != null ? readStream(mixerL)
+  : readStream(leftStream));
+const srcR = computed<Reading>(() =>
+  props.cueId   != null ? readCue(1)
+  : props.mixerId != null ? readStream(mixerR)
+  : readStream(rightStream));
+
+// Gain reduction is reported by master channels today; a bus has no dynamics
+// of its own until Stage 5, so it reads zero. The caller can still ask for the
+// track, and the mixer does, so every strip in the rail is the same width.
+const grVisible = computed(() =>
+  props.showGr ?? (props.leftIndex != null || props.rightIndex != null));
 
 // Server-reported output-target levels and meter mode.
 const { levels, meterMode, colorForLevel } = useOutputTarget();
@@ -121,35 +205,17 @@ const { currentProject } = useProject();
 const accentColor = computed(() => currentProject.value?.theme?.accentColor ?? '#DA1E28');
 
 // Raw signal values from the server (always peak_db and rms_db).
-const rawPeakL = computed(() => props.cueId != null
-  ? (cueStream.sources.value[0]?.peak_db ?? -120)
-  : leftStream.peak.value);
-const rawRmsL = computed(() => props.cueId != null
-  ? (cueStream.sources.value[0]?.rms_db ?? -120)
-  : leftStream.rms.value);
-const rawPeakR = computed(() => props.cueId != null
-  ? (cueStream.sources.value[1]?.peak_db ?? cueStream.sources.value[0]?.peak_db ?? -120)
-  : rightStream.peak.value);
-const rawRmsR = computed(() => props.cueId != null
-  ? (cueStream.sources.value[1]?.rms_db ?? cueStream.sources.value[0]?.rms_db ?? -120)
-  : rightStream.rms.value);
+const rawPeakL = computed(() => srcL.value.peak);
+const rawRmsL  = computed(() => srcL.value.rms);
+const rawPeakR = computed(() => srcR.value.peak);
+const rawRmsR  = computed(() => srcR.value.rms);
 
 // Lossless raw max since the previous frame — drives peak hold + clip latch.
 // In dBTP mode the true-peak max is used, so intersample overs latch clip.
-const rawMaxL = computed(() => {
-  if (props.cueId != null) {
-    const s = cueStream.sources.value[0];
-    return (meterMode.value === 'dBTP' ? s?.true_peak_max_db : s?.peak_max_db) ?? -120;
-  }
-  return meterMode.value === 'dBTP' ? leftStream.truePeakMax.value : leftStream.peakMax.value;
-});
-const rawMaxR = computed(() => {
-  if (props.cueId != null) {
-    const s = cueStream.sources.value[1] ?? cueStream.sources.value[0];
-    return (meterMode.value === 'dBTP' ? s?.true_peak_max_db : s?.peak_max_db) ?? -120;
-  }
-  return meterMode.value === 'dBTP' ? rightStream.truePeakMax.value : rightStream.peakMax.value;
-});
+const rawMaxL = computed(() =>
+  meterMode.value === 'dBTP' ? srcL.value.trueMax : srcL.value.max);
+const rawMaxR = computed(() =>
+  meterMode.value === 'dBTP' ? srcR.value.trueMax : srcR.value.max);
 
 const holdL = usePeakHold(() => rawMaxL.value);
 const holdR = usePeakHold(() => rawMaxR.value);
@@ -157,29 +223,19 @@ const resetClips = () => { holdL.resetClip(); holdR.resetClip(); };
 
 // True-peak stream (4× oversampled server-side when the project's meter
 // mode is dBTP; mirrors sample peak otherwise).
-const rawTpL = computed(() => props.cueId != null
-  ? (cueStream.sources.value[0]?.true_peak_db ?? -120)
-  : leftStream.truePeak.value);
-const rawTpR = computed(() => props.cueId != null
-  ? (cueStream.sources.value[1]?.true_peak_db ?? cueStream.sources.value[0]?.true_peak_db ?? -120)
-  : rightStream.truePeak.value);
+const rawTpL = computed(() => srcL.value.truePeak);
+const rawTpR = computed(() => srcR.value.truePeak);
 
 // Loudness (BS.1770) of the metered pair: sum of the channels' K-weighted
 // mean squares. One value for the pair — loudness has no L/R.
 // Momentary (400 ms, EBU "M") drives the bars; short-term (3 s, EBU "S")
-// is shown as a second readout.
-const lufsMomentary = computed(() => {
-  if (props.cueId != null) {
-    return lufsFromKwMs(cueStream.sources.value.map(s => s.kw_ms));
-  }
-  return lufsFromKwMs([leftStream.kwMs.value, rightStream.kwMs.value]);
-});
-const lufsShortTerm = computed(() => {
-  if (props.cueId != null) {
-    return lufsFromKwMs(cueStream.sources.value.map(s => s.kw_ms_s));
-  }
-  return lufsFromKwMs([leftStream.kwMsS.value, rightStream.kwMsS.value]);
-});
+// is shown as a second readout. A mono source is summed once, not twice.
+const lufsMomentary = computed(() => props.mono
+  ? lufsFromKwMs([srcL.value.kwMs])
+  : lufsFromKwMs([srcL.value.kwMs, srcR.value.kwMs]));
+const lufsShortTerm = computed(() => props.mono
+  ? lufsFromKwMs([srcL.value.kwMsS])
+  : lufsFromKwMs([srcL.value.kwMsS, srcR.value.kwMsS]));
 
 // Display value selected by the active meter mode.
 // dBTP → oversampled true peak; dBFS → sample peak; RMS → rms;
@@ -265,20 +321,9 @@ const scaleMarks = computed(() => {
     }));
 });
 
-const modeLabel = computed(() => meterMode.value);
-
-const peakLabel = computed(() => {
-  const m = Math.max(displayL.value, displayR.value);
-  if (m <= -119) return '−∞';
-  // LUFS mode: label the momentary value "M"; the S line follows below.
-  if (meterMode.value === 'LUFS') return `M ${m.toFixed(1)}`;
-  return `${Math.round(m)} ${modeLabel.value}`;
-});
-
-const shortTermLabel = computed(() => {
-  const s = lufsShortTerm.value;
-  return s <= -119 ? 'S −∞' : `S ${s.toFixed(1)}`;
-});
+const peakLabel = computed(() =>
+  formatMeterLabel(Math.max(displayL.value, displayR.value), meterMode.value));
+const shortTermLabel = computed(() => formatShortTermLabel(lufsShortTerm.value));
 </script>
 
 <style lang="scss" scoped>
@@ -295,6 +340,21 @@ const shortTermLabel = computed(() => {
   width: 68px;
   flex-shrink: 0;
   gap: 3px;
+  // min-height:0 lets the meter shrink with its container. Without it the bars
+  // keep their content height and a short mixer pane overflows instead of the
+  // meter getting shorter.
+  min-height: 0;
+
+  // Inside a channel strip the strip already draws the frame, and the width
+  // has to follow the bars rather than the 68px the master meter reserves for
+  // its own scale column.
+  &--bare {
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 0;
+    width: auto;
+  }
 
   &__label {
     font-family: var(--font-mono);

@@ -51,6 +51,21 @@ import {
 // streamItemPages / closeProject (which live inside the per-call closure)
 // can still poke into the single global watcher block.
 // ---------------------------------------------------------------------------
+// Detached windows (cart player, mixer) hold a one-shot IPC copy of the
+// project rather than owning it. They deliberately run without the sync
+// watchers — diffing that copy against itself would push phantom edits — and
+// for the same reason they must never author a whole-document save: the copy
+// can be older than what the server holds, so pushing it back would undo work
+// done in the main window. Anything a detached window creates has to reach the
+// server through a targeted endpoint instead, which is also what makes the
+// main window converge (it applies the resulting doc_patch).
+export const isSecondaryWindow = typeof window !== 'undefined'
+  ? (() => {
+      const q = new URLSearchParams(window.location.search);
+      return q.get('cartWindow') === '1' || q.get('mixerWindow') === '1';
+    })()
+  : false;
+
 let _syncWatchersInstalled = false;
 let _refreshItemsBaselineAfterHydrate: () => void = () => {};
 let _captureBaselinesFn: () => void = () => {};
@@ -1008,7 +1023,12 @@ export const useProject = () => {
       // in-memory copy in sync — but we pass the document explicitly so a
       // missed PATCH (race, debounce, hidden watcher gap) can never leave
       // the file (or the engine) with stale property values.
-      const docSnapshot = buildDocumentSnapshot();
+      // ...except from a detached window, which must send no document at all.
+      // Its copy of the project arrived over IPC and can be older than the
+      // server's — pushing it back would silently revert whatever the main
+      // window has done since. It saves the server's own state instead, which
+      // already includes anything this window created (see isSecondaryWindow).
+      const docSnapshot = isSecondaryWindow ? undefined : buildDocumentSnapshot();
       const path = projectFilePathRef.value ||
                    `${currentProject.value.folderPath}/${currentProject.value.name}.liveplay`;
       const res = await server.saveProjectTo(path, docSnapshot);
@@ -1332,11 +1352,11 @@ export const useProject = () => {
   };
   const itemsToJSON = _deepToRaw;
 
-  const isCartWindowMode = import.meta.client
-    ? new URLSearchParams(window.location.search).get('cartWindow') === '1'
-    : false;
-
-  if (import.meta.client && !_syncWatchersInstalled && !isCartWindowMode) {
+  // Detached windows (cart player, mixer) receive a one-shot copy of the
+  // project over IPC rather than owning it. Installing the sync watchers there
+  // would diff that copy against itself and push phantom edits to the server,
+  // so every secondary window opts out.
+  if (import.meta.client && !_syncWatchersInstalled && !isSecondaryWindow) {
     _syncWatchersInstalled = true;
     // Per-section debounced sync timers.
     let itemsTimer:    ReturnType<typeof setTimeout> | null = null;

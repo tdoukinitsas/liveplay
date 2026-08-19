@@ -100,6 +100,11 @@ declare global {
       onCartPlayerWindowOpened: (callback: () => void) => void;
       onCartPlayerWindowClosed: (callback: () => void) => void;
       onCartWindowProjectUpdate: (callback: (event: any, projectData: any) => void) => void;
+      // Mixer window
+      openMixerWindow: () => Promise<void>;
+      attachMixerWindow: () => void;
+      onMixerWindowOpened: (callback: () => void) => void;
+      onMixerWindowClosed: (callback: () => void) => void;
       // UI mode ("show mode") sync across windows
       broadcastUiMode: (mode: 'edit' | 'playback') => void;
       onUiModeSet: (callback: (event: any, mode: 'edit' | 'playback') => void) => void;

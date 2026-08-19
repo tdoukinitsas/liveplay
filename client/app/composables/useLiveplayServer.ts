@@ -22,6 +22,7 @@
 //   watch(server.connected, ...);        // react to connection state
 // =====================================================================
 import { reactive, ref, shallowRef, computed } from 'vue';
+import type { Bus, BusDsp } from '~/types/project';
 import type {
   CueId,
   DeviceId,
@@ -108,6 +109,7 @@ function createClient() {
     cues: Array<{ cue_id: string; transport: number; playhead_seconds: number }>;
     next_item_uuid: string;
     preview: { item_uuid: string; cue_id: string };
+    master_bus?: { channels: number; preview_l: number; preview_r: number };
   };
   type PlaybackSnapshotSubscriber = (s: PlaybackSnapshot) => void;
   const playbackSnapshotSubscribers = new Set<PlaybackSnapshotSubscriber>();
@@ -240,7 +242,7 @@ function createClient() {
       void refreshIsLocalServer();
       if (!hasEverConnected) {
         hasEverConnected = true;
-        void Promise.allSettled([fetchCues(), fetchMixerChannels(), fetchDevices()]);
+        void Promise.allSettled([fetchCues(), fetchMixerChannels(), fetchDevices(), fetchBuses()]);
       } else {
         // On reconnect, the server's playback_snapshot (sent immediately
         // after the WS open) covers transport/up-next/preview state, but
@@ -304,6 +306,15 @@ function createClient() {
           for (const g of (snap as any).output_channel_gains ?? []) {
             outputChannelGains.value[g.channel] = g.db;
           }
+          // Adopt the server's master-bus geometry. Absent on older servers,
+          // in which case the 32-wide defaults stay in place.
+          if (snap.master_bus) {
+            masterBus.value = {
+              channels:  snap.master_bus.channels,
+              previewL:  snap.master_bus.preview_l,
+              previewR:  snap.master_bus.preview_r,
+            };
+          }
           for (const cb of playbackSnapshotSubscribers) cb(snap);
           break;
         }
@@ -323,6 +334,28 @@ function createClient() {
           break;
         }
         case 'doc_patch': {
+          // Another client changed the mixer — refetch so this one converges.
+          // The payload carries the definitions, but not the resolved item
+          // membership, which only the server can compute.
+          if (payload.op === 'buses_patched') void fetchBuses();
+          // PFL isn't in the document, so it arrives as its own op and is
+          // applied in place. A refetch would work too, but PFL is pressed
+          // while something is playing and the whole bus list is the last
+          // thing worth re-pulling at that moment.
+          if (payload.op === 'bus_pfl_changed' && typeof payload.id === 'string') {
+            const b = buses.value.find(x => x.id === payload.id);
+            if (b) b.pfl = !!payload.pfl;
+          }
+          if (payload.op === 'bus_pfl_cleared') {
+            for (const b of buses.value) b.pfl = false;
+          }
+          // Same story as PFL: live monitoring state, its own op, applied in
+          // place so a second mixer window agrees about what the phones are
+          // doing.
+          if (payload.op === 'monitor_mono_changed') {
+            const mon = buses.value.find(x => x.id === 'monitor');
+            if (mon) mon.monoCheck = !!payload.mono;
+          }
           // Handle output_channel_gain_changed locally before fanning out.
           if (payload.op === 'output_channel_gain_changed' &&
               typeof payload.channel === 'number' &&
@@ -746,6 +779,16 @@ function createClient() {
   // Reactive map of per-output-channel gains (channel index → dB).
   const outputChannelGains = ref<Record<number, number>>({});
 
+  // Master-bus geometry, learned from the server's playback_snapshot. The bus
+  // width is configurable at boot, so the preview pair is not always 30/31 —
+  // the UI must place output meters from these values rather than assume. The
+  // defaults below match a 32-wide bus so a pre-#5 server still renders right.
+  const masterBus = ref<{ channels: number; previewL: number; previewR: number }>({
+    channels: 32,
+    previewL: 30,
+    previewR: 31,
+  });
+
   // Theme + settings shallow-merge patches.
   async function patchTheme(patch: any) {
     return rest<any>('/api/project/theme', {
@@ -815,6 +858,144 @@ function createClient() {
   async function removeMixerChannel(id: MixerChannelId) {
     await rest(`/api/mixers/${encodeURIComponent(id)}`, { method: 'DELETE' });
     fetchMixerChannels().catch(() => {});
+  }
+
+  // Live strip level / mute. These hit the engine only — no document write, no
+  // refetch — so they are cheap enough to call while a fader is moving. The
+  // owning bus is persisted separately once the gesture settles.
+  async function setMixerGainDb(mixerId: MixerChannelId, db: number) {
+    return rest(`/api/mixers/${encodeURIComponent(mixerId)}/gain`, {
+      method: 'POST',
+      body: JSON.stringify({ db }),
+    });
+  }
+  async function setMixerMute(mixerId: MixerChannelId, muted: boolean) {
+    return rest(`/api/mixers/${encodeURIComponent(mixerId)}/mute`, {
+      method: 'POST',
+      body: JSON.stringify({ muted }),
+    });
+  }
+
+  // ---- Buses --------------------------------------------------------
+  // The user-facing mixer. Every mutation is authoritative on the server, so
+  // the local list is refreshed from it rather than patched optimistically —
+  // creating a bus can be refused at the strip limit, and deleting one
+  // reassigns items, neither of which the client can predict.
+  const buses = ref<Bus[]>([]);
+
+  async function fetchBuses() {
+    try {
+      buses.value = await rest<Bus[]>('/api/buses');
+    } catch { /* offline; the WS reconnect path refetches */ }
+    return buses.value;
+  }
+
+  async function createBus(spec: Partial<Bus> & { name: string }) {
+    const out = await rest<{ id: string }>('/api/buses', {
+      method: 'POST',
+      body: JSON.stringify(spec),
+    });
+    await fetchBuses();
+    return out.id;
+  }
+
+  async function patchBus(id: string, patch: Partial<Bus>) {
+    await rest(`/api/buses/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+    await fetchBuses();
+  }
+
+  // Live pan for the duration of a knob drag. Moves the send gains in the
+  // engine only — no document write, no refetch — exactly as setMixerGainDb
+  // does for the fader. The caller PATCHes the settled value.
+  async function setBusPan(id: string, pan: number) {
+    return rest(`/api/buses/${encodeURIComponent(id)}/pan`, {
+      method: 'POST',
+      body: JSON.stringify({ pan }),
+    });
+  }
+
+  // Pre-fade listen. The button is set locally first because the operator is
+  // holding it against a cue that is playing right now — waiting a round trip
+  // to light up reads as a dropped press. The server broadcasts the change, so
+  // every other window converges on the same value anyway.
+  async function setBusPfl(id: string, on: boolean) {
+    const b = buses.value.find(x => x.id === id);
+    if (b) b.pfl = on;
+    try {
+      await rest(`/api/buses/${encodeURIComponent(id)}/pfl`, {
+        method: 'POST',
+        body: JSON.stringify({ pfl: on }),
+      });
+    } catch (e) {
+      // Refused (the Monitor bus) or offline: put the button back where the
+      // server still has it rather than leaving a lie lit.
+      if (b) b.pfl = !on;
+      throw e;
+    }
+  }
+
+  async function clearAllPfl() {
+    for (const b of buses.value) b.pfl = false;
+    return rest<{ cleared: number }>('/api/buses/pfl/clear', { method: 'POST' });
+  }
+
+  // Fold the Monitor bus to mono, to check what is in the phones for mono
+  // compatibility. Set locally first for the same reason PFL is: this is a
+  // press made against something playing right now.
+  //
+  // Not addressed per bus — it is one control for the whole monitoring path.
+  async function setMonitorMono(on: boolean) {
+    const mon = buses.value.find(x => x.id === 'monitor');
+    if (mon) mon.monoCheck = on;
+    try {
+      await rest('/api/monitor/mono', {
+        method: 'POST',
+        body: JSON.stringify({ mono: on }),
+      });
+    } catch (e) {
+      if (mon) mon.monoCheck = !on;
+      throw e;
+    }
+  }
+
+  // Live tone controls for the duration of a filter drag. Coefficients go
+  // straight to the strip — no document write, no refetch — exactly as
+  // setBusPan does, and for the same reason: a PATCH per drag event would
+  // rewrite the document and bounce the knob to the stale value.
+  async function setBusDsp(id: string, dsp: Partial<BusDsp>) {
+    return rest(`/api/buses/${encodeURIComponent(id)}/dsp`, {
+      method: 'POST',
+      body: JSON.stringify(dsp),
+    });
+  }
+
+  async function deleteBus(id: string) {
+    await rest(`/api/buses/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await fetchBuses();
+  }
+
+  // Assign an item (or group) to a bus. Passing null clears the assignment so
+  // it inherits from its group, or falls back to Main.
+  async function setItemBus(uuid: string, busId: string | null) {
+    await rest(`/api/project/items/${encodeURIComponent(uuid)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ busId }),
+    });
+    // Membership is resolved server-side (an item can inherit its bus from a
+    // group), so refetch rather than guessing which bus it landed on.
+    await fetchBuses();
+  }
+
+  // ---- Logical outputs (server-owned; never in the project) ----------
+  async function fetchOutputs() {
+    return rest<{ version: number; outputs: Array<{ name: string; channels: Array<{ device: string; hwChannel: number }> }> }>(
+      '/api/outputs');
+  }
+  async function saveOutputs(map: unknown) {
+    return rest('/api/outputs', { method: 'PUT', body: JSON.stringify(map) });
   }
 
   // ---- Devices ------------------------------------------------------
@@ -1095,6 +1276,25 @@ function createClient() {
     fetchMasterGainDb,
     outputChannelGains,
     setOutputChannelGainDb,
+    masterBus,
+
+    setMixerGainDb,
+    setMixerMute,
+
+    // buses
+    buses,
+    fetchBuses,
+    createBus,
+    patchBus,
+    setBusPan,
+    setBusDsp,
+    setBusPfl,
+    clearAllPfl,
+    setMonitorMono,
+    deleteBus,
+    setItemBus,
+    fetchOutputs,
+    saveOutputs,
 
     // cart bindings
     setCartSlot,

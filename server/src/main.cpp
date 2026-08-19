@@ -60,6 +60,10 @@
 
 namespace {
 
+namespace audio = liveplay::audio;
+namespace net   = liveplay::net;
+using liveplay::Logger;
+
 // Default control-surface port. Overridable via --port or LIVEPLAY_PORT.
 constexpr int kDefaultPort = 4480;
 
@@ -247,7 +251,58 @@ struct CliOptions {
     std::string pidfile;                   // optional; if set, write JSON {pid,port,startedAt}
     bool        verbose   = false;
     int         start_delay_ms = 0;        // wait before binding (crash-restart uses this)
+
+    // Engine / control-server overrides. Deliberately optional: an unset value
+    // means "keep whatever EngineConfig / ControlServerConfig defaults to", so
+    // those defaults live in exactly one place and improving them doesn't
+    // require touching the CLI.
+    std::optional<audio::SampleRate>         mix_sample_rate;
+    std::optional<audio::FrameCount>         render_block;
+    std::optional<audio::FrameCount>         ring_blocks;
+    std::optional<audio::MasterChannelIndex> master_channels;
+    std::optional<std::uint32_t>             max_buses;
+    std::optional<float>                     master_ceiling_db;
+    std::optional<std::size_t>               meter_broadcast_hz;
+    std::optional<std::size_t>               max_upload_bytes;
 };
+
+// Numeric option parsing. Unlike a bare stoi, a value that is unparseable or
+// out of range is reported and then discarded, so a typo leaves the default in
+// place rather than silently misconfiguring the engine.
+template <typename T>
+std::optional<T> parse_ranged(std::string_view name, const char* raw,
+                              long long lo, long long hi) {
+    long long v = 0;
+    try {
+        v = std::stoll(std::string{raw});
+    } catch (...) {
+        Logger::warn("{}: '{}' is not a number - ignoring, using default", name, raw);
+        return std::nullopt;
+    }
+    if (v < lo || v > hi) {
+        Logger::warn("{}: {} is outside the supported range [{}, {}] - ignoring, "
+                     "using default", name, v, lo, hi);
+        return std::nullopt;
+    }
+    return static_cast<T>(v);
+}
+
+std::optional<float> parse_ranged_db(std::string_view name, const char* raw,
+                                     double lo, double hi) {
+    double v = 0.0;
+    try {
+        v = std::stod(std::string{raw});
+    } catch (...) {
+        Logger::warn("{}: '{}' is not a number - ignoring, using default", name, raw);
+        return std::nullopt;
+    }
+    if (v < lo || v > hi) {
+        Logger::warn("{}: {} dB is outside the supported range [{}, {}] - ignoring, "
+                     "using default", name, v, lo, hi);
+        return std::nullopt;
+    }
+    return static_cast<float>(v);
+}
 
 // Crash-resume state read from .crash-resume.json on startup.
 struct CrashResume {
@@ -258,34 +313,144 @@ struct CrashResume {
 
 CliOptions parse_cli(int argc, char** argv) {
     CliOptions opts;
-    if (const char* env_port = std::getenv("LIVEPLAY_PORT")) {
-        try { opts.port = std::stoi(env_port); } catch (...) {}
+
+    // Environment first so that a CLI flag always wins, regardless of order.
+    if (const char* v = std::getenv("LIVEPLAY_PORT")) {
+        if (auto p = parse_ranged<int>("LIVEPLAY_PORT", v, 1, 65535)) opts.port = *p;
     }
+    if (const char* v = std::getenv("LIVEPLAY_MIX_SAMPLE_RATE")) {
+        opts.mix_sample_rate = parse_ranged<audio::SampleRate>(
+            "LIVEPLAY_MIX_SAMPLE_RATE", v, 8'000, 192'000);
+    }
+    if (const char* v = std::getenv("LIVEPLAY_RENDER_BLOCK")) {
+        opts.render_block = parse_ranged<audio::FrameCount>(
+            "LIVEPLAY_RENDER_BLOCK", v, 32, 8'192);
+    }
+    if (const char* v = std::getenv("LIVEPLAY_RING_BLOCKS")) {
+        opts.ring_blocks = parse_ranged<audio::FrameCount>(
+            "LIVEPLAY_RING_BLOCKS", v, 2, 512);
+    }
+    if (const char* v = std::getenv("LIVEPLAY_MASTER_CHANNELS")) {
+        opts.master_channels = parse_ranged<audio::MasterChannelIndex>(
+            "LIVEPLAY_MASTER_CHANNELS", v, audio::kMinMasterChannels, 1'024);
+    }
+    if (const char* v = std::getenv("LIVEPLAY_MAX_BUSES")) {
+        opts.max_buses = parse_ranged<std::uint32_t>("LIVEPLAY_MAX_BUSES", v, 2, 512);
+    }
+    if (const char* v = std::getenv("LIVEPLAY_MASTER_CEILING_DB")) {
+        opts.master_ceiling_db = parse_ranged_db(
+            "LIVEPLAY_MASTER_CEILING_DB", v, -24.0, 0.0);
+    }
+    if (const char* v = std::getenv("LIVEPLAY_METER_HZ")) {
+        opts.meter_broadcast_hz = parse_ranged<std::size_t>(
+            "LIVEPLAY_METER_HZ", v, 1, 120);
+    }
+    if (const char* v = std::getenv("LIVEPLAY_MAX_UPLOAD_MB")) {
+        if (auto mb = parse_ranged<std::size_t>("LIVEPLAY_MAX_UPLOAD_MB", v, 1, 8'192)) {
+            opts.max_upload_bytes = *mb * 1024ull * 1024ull;
+        }
+    }
+
     for (int i = 1; i < argc; ++i) {
         std::string_view a{argv[i]};
-        const auto next = [&](int& dst) {
-            if (i + 1 < argc) { try { dst = std::stoi(argv[++i]); } catch (...) {} }
+        // Returns the next argv entry, or nullptr if the flag was given without
+        // a value (in which case the default is left untouched).
+        const auto next_value = [&]() -> const char* {
+            if (i + 1 < argc) return argv[++i];
+            Logger::warn("{}: missing value - ignoring", a);
+            return nullptr;
+        };
+        const auto next = [&](int& dst, long long lo, long long hi) {
+            if (const char* v = next_value()) {
+                if (auto p = parse_ranged<int>(a, v, lo, hi)) dst = *p;
+            }
         };
         if (a == "--port" || a == "-p") {
-            next(opts.port);
+            next(opts.port, 1, 65535);
         } else if (a == "--bind" || a == "-b") {
-            if (i + 1 < argc) opts.bind_addr = argv[++i];
+            if (const char* v = next_value()) opts.bind_addr = v;
         } else if (a == "--pidfile") {
-            if (i + 1 < argc) opts.pidfile = argv[++i];
+            if (const char* v = next_value()) opts.pidfile = v;
         } else if (a == "--start-delay-ms") {
-            next(opts.start_delay_ms);
+            next(opts.start_delay_ms, 0, 600'000);
+        } else if (a == "--mix-sample-rate") {
+            if (const char* v = next_value()) {
+                opts.mix_sample_rate =
+                    parse_ranged<audio::SampleRate>(a, v, 8'000, 192'000);
+            }
+        } else if (a == "--render-block") {
+            if (const char* v = next_value()) {
+                opts.render_block = parse_ranged<audio::FrameCount>(a, v, 32, 8'192);
+            }
+        } else if (a == "--ring-blocks") {
+            // How far ahead of the device the engine runs, in render blocks.
+            // This is the output latency; raise it only on a machine that
+            // genuinely stutters.
+            if (const char* v = next_value()) {
+                opts.ring_blocks = parse_ranged<audio::FrameCount>(a, v, 2, 512);
+            }
+        } else if (a == "--master-channels") {
+            if (const char* v = next_value()) {
+                opts.master_channels = parse_ranged<audio::MasterChannelIndex>(
+                    a, v, audio::kMinMasterChannels, 1'024);
+            }
+        } else if (a == "--max-buses") {
+            if (const char* v = next_value()) {
+                opts.max_buses = parse_ranged<std::uint32_t>(a, v, 2, 512);
+            }
+        } else if (a == "--master-ceiling-db") {
+            if (const char* v = next_value()) {
+                opts.master_ceiling_db = parse_ranged_db(a, v, -24.0, 0.0);
+            }
+        } else if (a == "--meter-hz") {
+            if (const char* v = next_value()) {
+                opts.meter_broadcast_hz = parse_ranged<std::size_t>(a, v, 1, 120);
+            }
+        } else if (a == "--max-upload-mb") {
+            if (const char* v = next_value()) {
+                if (auto mb = parse_ranged<std::size_t>(a, v, 1, 8'192)) {
+                    opts.max_upload_bytes = *mb * 1024ull * 1024ull;
+                }
+            }
         } else if (a == "--verbose" || a == "-v") {
             opts.verbose = true;
         } else if (a == "--help" || a == "-h") {
+            const audio::EngineConfig      eng_defaults;
+            const net::ControlServerConfig srv_defaults;
             std::printf(
                 "Usage: %s [options]\n"
+                "\n"
+                "Server:\n"
                 "  -p, --port <port>     Port to listen on (default %d)\n"
                 "  -b, --bind <addr>     Interface to bind (default 0.0.0.0)\n"
                 "      --pidfile <path>  Write JSON {pid,port,startedAt} after binding\n"
                 "      --start-delay-ms <n>  Wait <n> ms before binding (used by crash-restart)\n"
+                "      --meter-hz <n>    WebSocket meter push rate, 1-120 (default %zu)\n"
+                "      --max-upload-mb <n>  Max upload size in MiB, 1-8192 (default %zu)\n"
+                "\n"
+                "Engine (applied at boot; the engine cannot be re-initialised later):\n"
+                "      --mix-sample-rate <hz>  Mix sample rate, 8000-192000 (default %u)\n"
+                "      --render-block <frames> Render block size, 32-8192 (default %llu)\n"
+                "      --master-channels <n>   Master bus width, %u-1024 (default %u)\n"
+                "      --max-buses <n>         Max simultaneous mixer strips, 2-512 (default %u)\n"
+                "      --master-ceiling-db <db>  Limiter ceiling, -24.0-0.0 (default %.1f)\n"
+                "\n"
+                "Diagnostics:\n"
                 "  -v, --verbose         Enable debug-level logging\n"
-                "  -h, --help            Show this help and exit\n",
-                LIVEPLAY_SERVER_NAME, kDefaultPort);
+                "  -h, --help            Show this help and exit\n"
+                "\n"
+                "Every option above can also be set via environment variable using the\n"
+                "LIVEPLAY_ prefix (LIVEPLAY_PORT, LIVEPLAY_MIX_SAMPLE_RATE, ...). A CLI\n"
+                "flag always overrides the environment. Out-of-range values are reported\n"
+                "and ignored rather than silently applied.\n",
+                LIVEPLAY_SERVER_NAME, kDefaultPort,
+                srv_defaults.meter_broadcast_hz,
+                srv_defaults.max_upload_bytes / (1024ull * 1024ull),
+                eng_defaults.mix_sample_rate,
+                static_cast<unsigned long long>(eng_defaults.render_block),
+                audio::kMinMasterChannels, eng_defaults.master_channels,
+                eng_defaults.max_mixer_channels,
+                static_cast<double>(eng_defaults.master_ceiling_db));
             std::exit(0);
         }
     }
@@ -591,7 +756,15 @@ int main(int argc, char** argv) {
     // ------------------------------------------------------------------
     // Audio engine (Milestone 2)
     // ------------------------------------------------------------------
-    auto engine = std::make_unique<audio::AudioEngine>();
+    audio::EngineConfig engine_cfg;
+    if (opts.mix_sample_rate)   engine_cfg.mix_sample_rate   = *opts.mix_sample_rate;
+    if (opts.render_block)      engine_cfg.render_block      = *opts.render_block;
+    if (opts.ring_blocks)       engine_cfg.ring_blocks       = *opts.ring_blocks;
+    if (opts.master_channels)   engine_cfg.master_channels   = *opts.master_channels;
+    if (opts.max_buses)         engine_cfg.max_mixer_channels = *opts.max_buses;
+    if (opts.master_ceiling_db) engine_cfg.master_ceiling_db = *opts.master_ceiling_db;
+
+    auto engine = std::make_unique<audio::AudioEngine>(engine_cfg);
     if (!engine->start()) {
         Logger::error("Audio engine failed to start.");
         return 1;
@@ -618,14 +791,22 @@ int main(int argc, char** argv) {
     // ------------------------------------------------------------------
     // Project state + control plane (Milestone 3)
     // ------------------------------------------------------------------
-    auto project = std::make_unique<core::ProjectState>(*engine);
+    // Logical output name → hardware for this machine. Server-owned and kept
+    // out of project files, so a show stays portable between venues.
+    auto outputs = std::make_unique<core::OutputMap>();
+    outputs->set_path(exe_dir / "outputs.json");
+    outputs->load();   // absent file is fine — names resolve by identity
+
+    auto project = std::make_unique<core::ProjectState>(*engine, *outputs);
     auto backup  = std::make_unique<core::BackupManager>(*project);
     backup->start();
 
     net::ControlServerConfig server_cfg;
     server_cfg.bind_address = opts.bind_addr;
     server_cfg.port         = static_cast<std::uint16_t>(opts.port);
-    auto server = std::make_unique<net::ControlServer>(*engine, *project, server_cfg);
+    if (opts.meter_broadcast_hz) server_cfg.meter_broadcast_hz = *opts.meter_broadcast_hz;
+    if (opts.max_upload_bytes)   server_cfg.max_upload_bytes   = *opts.max_upload_bytes;
+    auto server = std::make_unique<net::ControlServer>(*engine, *project, *outputs, server_cfg);
     if (!server->start()) {
         Logger::error("Control server failed to start.");
         engine->stop();

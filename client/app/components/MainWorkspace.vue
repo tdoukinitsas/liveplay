@@ -8,7 +8,13 @@
     <ProjectHeader />
     <PlaybackControls />
 
-    <div class="workspace-content">
+    <!-- Mixer, full width. Useful once there are enough buses that strips need
+         the whole window. -->
+    <div v-if="mixerOpen && !mixerDetached && mixerMode === 'full'" class="workspace-content">
+      <MixerPanel :mode="mixerMode" @close="mixerOpen = false" @mode="setMixerMode" />
+    </div>
+
+    <div v-else class="workspace-content">
       <div v-if="!cartFullscreen" class="playlist-section" :style="{ width: (cartClosed || cartDetached) ? '100%' : `calc(100% - ${cartWidth}px)` }">
         <PlaylistView />
       </div>
@@ -23,6 +29,19 @@
       <div v-if="!cartClosed && !cartDetached" class="cart-section" :style="{ width: cartFullscreen ? '100%' : `${cartWidth}px` }">
         <CartPlayer />
       </div>
+
+      <!-- Docked mixer: a resizable right-hand pane, so a rig with a handful of
+           buses can leave it up permanently instead of swapping views. -->
+      <template v-if="mixerOpen && !mixerDetached && mixerMode === 'side'">
+        <div
+          class="resize-handle mixer-resize-handle"
+          :class="{ dragging: isMixerResizing }"
+          @pointerdown="startMixerResize"
+        ></div>
+        <div class="mixer-section" :style="{ width: `${mixerWidth}px` }">
+          <MixerPanel :mode="mixerMode" @close="mixerOpen = false" @mode="setMixerMode" />
+        </div>
+      </template>
     </div>
 
     <!-- Properties panel is an edit affordance — never surfaced in Show Mode. -->
@@ -94,6 +113,41 @@ const progressModal = ref({
 });
 
 // Resizable cart width
+// Shared with ProjectHeader's toggle. There is no router, so views are panel
+// swaps driven by a flag — the same shape cartFullscreen / cartClosed use.
+const mixerOpen = useState<boolean>('liveplay:mixerOpen', () => false);
+// 'side' docks it as a resizable right-hand pane (good for a few buses, can
+// stay up permanently); 'full' gives it the whole workspace. Per-device, so it
+// is remembered locally rather than travelling in the project.
+const mixerMode = useState<'side' | 'full'>('liveplay:mixerMode', () => 'side');
+// Popped out into its own window: the in-app panel steps aside rather than
+// drawing a second copy of the same faders. Shared with ProjectHeader, whose
+// toggle focuses the window instead of opening the panel while this is true.
+const mixerDetached = useState<boolean>('liveplay:mixerDetached', () => false);
+const mixerWidth = ref(420);
+const isMixerResizing = ref(false);
+
+function setMixerMode(mode: 'side' | 'full') { mixerMode.value = mode; }
+
+function startMixerResize(e: PointerEvent) {
+  e.preventDefault();
+  isMixerResizing.value = true;
+  const startX = e.clientX;
+  const startWidth = mixerWidth.value;
+  const onMove = (ev: PointerEvent) => {
+    // Dragging left widens the pane, since it is anchored to the right edge.
+    const next = startWidth + (startX - ev.clientX);
+    mixerWidth.value = Math.max(220, Math.min(next, window.innerWidth - 320));
+  };
+  const onUp = () => {
+    isMixerResizing.value = false;
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+}
+
 const cartWidth = ref(500);
 const isResizing = ref(false);
 const cartClosed = ref(false);
@@ -220,6 +274,15 @@ if (import.meta.client && window.electronAPI) {
   });
   window.electronAPI.onCartPlayerWindowClosed(() => {
     cartDetached.value = false;
+  });
+
+  // Mixer window detach/attach. mixerOpen is left alone on both edges, so
+  // closing the detached window puts the panel back exactly where it was.
+  window.electronAPI.onMixerWindowOpened?.(() => {
+    mixerDetached.value = true;
+  });
+  window.electronAPI.onMixerWindowClosed?.(() => {
+    mixerDetached.value = false;
   });
 
   // Listen for API triggers
@@ -489,6 +552,14 @@ onUnmounted(() => {
 .playlist-section {
   min-width: 30%;
   overflow: hidden;
+}
+
+.mixer-section {
+  flex: 0 0 auto;
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--color-border);
 }
 
 .resize-handle {

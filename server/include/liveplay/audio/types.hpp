@@ -7,7 +7,9 @@
 // ============================================================================
 #pragma once
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <functional>
 #include <ostream>
@@ -27,7 +29,106 @@ using ChannelIndex  = std::uint32_t;
 
 inline constexpr SampleRate   kDefaultMixSampleRate  = 48'000;
 inline constexpr FrameCount   kDefaultRenderBlock    = 256;   // ~5.3 ms @ 48k
-inline constexpr ChannelCount kDefaultMasterChannels = 64;    // sparse; usually only a handful are wired
+
+// How many render blocks the engine keeps queued ahead of the device.
+//
+// This IS the output latency: the render thread produces a block whenever the
+// ring has room, so in steady state the ring stays full and everything — a cue
+// starting, a fader move, an EQ sweep — is heard this far after it happens.
+//
+// It was 80 blocks (~427 ms), chosen as headroom against decode spikes, which
+// is a real risk because decoding runs on the render thread. But it was chosen
+// without measuring, and 427 ms is audible as sluggishness on every control.
+//
+// Measured (server/tests/e2e/latency-probe.js, 8 files playing, 90 s):
+//   * a render block takes ~110 us average against a 5333 us budget, and
+//     1.1 ms at worst — 2% of budget, and it barely moves from 1 file to 12
+//   * the queue never drained more than ~11 ms below its steady depth, at
+//     either 37 ms or 69 ms of queue, so the drain is bounded by scheduling
+//     jitter rather than by how deep the ring is
+//   * no underruns at any depth tested, down to the 3-device-period floor
+//
+// So the margin that matters is about 11 ms, and 6 blocks (~37 ms at 48 kHz)
+// covers it more than three times over while cutting the latency by an order
+// of magnitude. The device adds ~30 ms of its own on top that no setting here
+// can remove — see the ring allocation in engine.cpp.
+//
+// Raise it with --ring-blocks on a machine that genuinely stutters; that is
+// the only lever, because the queue depth is simultaneously the latency and
+// the entire dropout margin.
+inline constexpr FrameCount   kDefaultRingBlocks     = 6;     // ~37 ms @ 48k
+inline constexpr ChannelCount kDefaultMasterChannels = 32;    // sparse; usually only a handful are wired
+inline constexpr float        kDefaultMasterCeilingDb = -0.3f;
+
+// The top two master channels are reserved for the Preview bus, and the default
+// stereo Main output always occupies masters 0/1, so the bus can never be
+// narrower than four channels.
+inline constexpr ChannelCount kReservedPreviewChannels = 2;
+inline constexpr ChannelCount kMinMasterChannels       = 4;
+
+// Hard ceiling on simultaneous mixer strips ("buses"). The render thread's
+// per-lane accumulators are sized for this once at start() so it never has to
+// allocate mid-block; creating a strip beyond the cap is refused instead.
+inline constexpr std::uint32_t kDefaultMaxMixerChannels = 64;
+
+// Power-preserving pan / downmix law. Governs both folding a stereo source to
+// mono and placing a mono source at the centre of a stereo destination, so the
+// two stay consistent. Referenced by symbol everywhere rather than written as
+// a literal, because this is intended to become a server config value.
+inline constexpr float kDefaultDownmixDb = -3.0f;
+
+// Anything below this is inaudible; used as the floor for a hard-panned
+// send so 20*log10(0) never reaches the engine as -inf.
+inline constexpr float kSilentGainDb = -120.0f;
+
+// Constant-power pan of a mono source across two lanes of a stereo
+// destination. `pan` is -1 (hard left) .. 0 (centre) .. +1 (hard right).
+//
+// The two returned gains satisfy l^2 + r^2 = 1, so the perceived level holds
+// steady as the source sweeps across the image. At centre both come out at
+// -3.01 dB, which is kDefaultDownmixDb to within a hundredth of a dB: a
+// centred mono source and a stereo fold-down land at the same level, which is
+// the consistency §2.5.2/§2.5.3 asked for. Hard over, the live side is exactly
+// unity — panning never adds gain.
+struct PanGainsDb { float left; float right; };
+
+inline PanGainsDb pan_gains_db(float pan) noexcept {
+    const float p     = std::clamp(pan, -1.0f, 1.0f);
+    const float theta = (p + 1.0f) * 0.25f * 3.14159265358979323846f;  // 0 .. pi/2
+    const float l     = std::cos(theta);
+    const float r     = std::sin(theta);
+    const auto to_db  = [](float g) {
+        return g <= 0.0f ? kSilentGainDb
+                         : std::max(kSilentGainDb, 20.0f * std::log10(g));
+    };
+    return {to_db(l), to_db(r)};
+}
+
+// BALANCE of a stereo source across its own two lanes. Same -1..+1 control,
+// deliberately NOT the same law as pan_gains_db above.
+//
+// Pan places one mono signal somewhere in an image it does not otherwise
+// occupy, so it has to hold constant power as it sweeps — which means both
+// gains sit at -3 dB in the middle and the live side climbs to unity at the
+// end of the travel. Applying that to a stereo bus would be wrong twice over:
+// a centred stereo bus would lose 3 dB for doing nothing, and moving the
+// control would ADD 3 dB of gain to the side you moved toward.
+//
+// Balance only ever takes away. Centre is unity on both lanes, and moving the
+// control attenuates the lane you are moving away from until it is silent. That
+// is what a console balance pot does, and it means the loud side of an
+// already-lopsided mix cannot be pushed into the limiter by trying to correct
+// the quiet one.
+inline PanGainsDb balance_gains_db(float balance) noexcept {
+    const float b = std::clamp(balance, -1.0f, 1.0f);
+    const float l = b > 0.0f ? 1.0f - b : 1.0f;
+    const float r = b < 0.0f ? 1.0f + b : 1.0f;
+    const auto to_db = [](float g) {
+        return g <= 0.0f ? kSilentGainDb
+                         : std::max(kSilentGainDb, 20.0f * std::log10(g));
+    };
+    return {to_db(l), to_db(r)};
+}
 
 // Mixer strips carry this many parallel audio lanes (stereo: L=0, R=1).
 // Item→mixer and mixer→master sends address a specific lane; kAllMixerLanes
@@ -70,6 +171,16 @@ using DeviceId       = detail::StringId<DeviceIdTag>;
 // number of them and they map 1:1 to hardware destinations.
 using MasterChannelIndex = std::uint32_t;
 inline constexpr MasterChannelIndex kInvalidMasterChannel = static_cast<MasterChannelIndex>(-1);
+
+// First master channel of the Preview reserve, which always sits at the very top
+// of the bus. Preview routing and the device-override allocator both have to
+// agree on where the reserve begins, so it is derived here in exactly one place
+// instead of being spelled as literals in each.
+constexpr MasterChannelIndex preview_master_base(MasterChannelIndex bus_width) noexcept {
+    return bus_width >= kReservedPreviewChannels
+               ? static_cast<MasterChannelIndex>(bus_width - kReservedPreviewChannels)
+               : 0;
+}
 
 // ---------------------------------------------------------------------------
 // Linear / decibel gain helpers

@@ -26,6 +26,20 @@
       />
     </template>
 
+    <!-- Mixer-window mode: the mixer on its own, always full width.
+         It needs no project data to work — buses, meters and fader moves all
+         go over this window's own WebSocket — so it renders as soon as the
+         socket is up, whether or not the main window has a project open. -->
+    <template v-else-if="isMixerWindow">
+      <div class="mixer-window-root">
+        <MixerPanel mode="full" :detached="true" @close="attachMixerWindow" />
+      </div>
+
+      <!-- Faders here move the live rig, so the same lockout applies: without
+           it a fader would keep accepting drags that never reach the server. -->
+      <ConnectionLostModal />
+    </template>
+
     <!-- Normal mode -->
     <template v-else>
       <WelcomeScreen v-if="!currentProject" />
@@ -172,6 +186,7 @@
 <script setup lang="ts">
 import 'material-symbols';
 import CartPlayer from './components/CartPlayer.vue';
+import MixerPanel from './components/MixerPanel.vue';
 
 const {
   currentProject, saveProject, openProject, closeProject, confirmUnsavedChanges,
@@ -212,6 +227,18 @@ const theme = useState('theme', () => 'dark');
 const isCartWindow = import.meta.client
   ? new URLSearchParams(window.location.search).get('cartWindow') === '1'
   : false;
+
+// …or the detached mixer window.
+const isMixerWindow = import.meta.client
+  ? new URLSearchParams(window.location.search).get('mixerWindow') === '1'
+  : false;
+
+// The mixer window's own close/dock button. Closing the window is what
+// re-docks it: the main window flips its panel back on when it hears
+// `mixer-window-closed`, so the X button and this do the same thing.
+function attachMixerWindow() {
+  if (import.meta.client) window.electronAPI?.attachMixerWindow?.();
+}
 
 // Initialize state viewer for dev mode
 useStateViewer();
@@ -255,16 +282,22 @@ const accentColors = [
   '#ff7eb6', '#ee5396', '#d02670', // Pinks
 ];
 
-// Cart window: fetch project data from main process and keep in sync
-function applyCartWindowProjectData(projectData: any) {
-  if (!projectData || !isCartWindow) return;
-  clearCartOnlyItems();
-  if (Array.isArray(projectData.cartOnlyItems)) {
-    for (const item of projectData.cartOnlyItems) {
-      addCartOnlyItem(item);
+// Detached windows: fetch project data from the main process and keep in sync.
+// The mixer window takes this too — not because it needs the cue list, but for
+// the theme and for settings.outputTargetLevels, which drive the meter zone
+// colours. Without it a detached meter would colour its zones off the EBU
+// defaults and disagree with the same meter in the main window.
+function applyDetachedWindowProjectData(projectData: any) {
+  if (!projectData || !(isCartWindow || isMixerWindow)) return;
+  if (isCartWindow) {
+    clearCartOnlyItems();
+    if (Array.isArray(projectData.cartOnlyItems)) {
+      for (const item of projectData.cartOnlyItems) {
+        addCartOnlyItem(item);
+      }
     }
   }
-  // In cart window mode, only set currentProject without triggering watchers
+  // In detached windows, only set currentProject without triggering watchers
   // Use Object.assign to preserve reactivity while avoiding deep-watch triggers
   if (currentProject.value) {
     Object.assign(currentProject.value, projectData);
@@ -283,13 +316,16 @@ function applyCartWindowProjectData(projectData: any) {
 // Listen to menu events
 onMounted(() => {
   if (import.meta.client && window.electronAPI) {
-    // Cart window initialisation: load project data then listen for updates
-    if (isCartWindow) {
+    // Detached-window initialisation: load project data then listen for
+    // updates. Both the cart and mixer windows stop here — the listeners
+    // below (menu commands, updates, file association, quit flow) belong to
+    // the main window and would double-fire if a second window took them too.
+    if (isCartWindow || isMixerWindow) {
       window.electronAPI.getCartWindowProjectData().then((projectData: any) => {
-        applyCartWindowProjectData(projectData);
+        applyDetachedWindowProjectData(projectData);
       });
       window.electronAPI.onCartWindowProjectUpdate((_event: any, projectData: any) => {
-        applyCartWindowProjectData(projectData);
+        applyDetachedWindowProjectData(projectData);
       });
       // Apply locale from localStorage (already handled by useLocalization)
       return; // skip main-window-only event listeners below
@@ -705,6 +741,14 @@ onMounted(() => {
 }
 
 .cart-window-root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-background);
+}
+
+.mixer-window-root {
   width: 100%;
   height: 100%;
   display: flex;

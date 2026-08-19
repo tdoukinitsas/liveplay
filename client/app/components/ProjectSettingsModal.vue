@@ -24,23 +24,16 @@
         <div class="modal-body">
           <!-- ================= Audio Routing ================= -->
           <template v-if="activeTab === 'audio'">
-            <!-- Audio device (default for cue playback) -->
+            <!-- Output routing left the project deliberately. A show says
+                 which bus it plays through; the machine says what that bus's
+                 output means in hardware. A project that names a sound card
+                 cannot travel between venues. -->
             <section class="settings-field">
               <label class="settings-label">
                 <span class="material-symbols-rounded">speaker</span>
                 {{ t('settings.audioDevice') }}
               </label>
-              <select
-                class="settings-select"
-                :value="audioDeviceId"
-                @change="onAudioDeviceChange"
-              >
-                <option :value="''">{{ t('settings.noneSelected') }}</option>
-                <option v-for="d in devices" :key="d.id" :value="d.id">
-                  {{ d.display_name }}{{ d.is_default ? ' (' + t('common.default') + ')' : '' }}
-                </option>
-              </select>
-              <p class="settings-help">{{ t('settings.audioDeviceHelp') }}</p>
+              <p class="settings-help">{{ t('settings.audioDeviceMoved') }}</p>
             </section>
 
             <!-- Preview device (used by headphones button) -->

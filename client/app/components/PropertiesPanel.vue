@@ -124,27 +124,32 @@
       </div>
       
       <!-- Output Tab -->
-      <div v-if="activeTab === 'output' && selectedItem.type === 'audio'" class="tab-panel">
+      <div v-if="activeTab === 'output'" class="tab-panel">
+        <!-- Bus assignment is the whole of an item's routing. Where that bus
+             then goes — hardware, level, processing — is the mixer's business,
+             not the item's. Groups carry it too: children inherit unless they
+             assign their own. -->
         <div class="property-field">
-          <label>{{ t('properties.deviceOverride') }}</label>
-          <select
-            :value="(audioItem as any).deviceOverride ?? ''"
-            @change="onDeviceOverrideChange"
-          >
-            <option value="">{{ t('settings.useProjectDefault') }}</option>
-            <option
-              v-for="d in devicesList"
-              :key="d.id"
-              :value="d.id"
-            >
-              {{ d.display_name }}{{ d.is_default ? ' (' + t('common.default') + ')' : '' }}
-            </option>
+          <label>{{ t('properties.bus') }}</label>
+          <select :value="(selectedItem as any).busId ?? ''" @change="onBusChange">
+            <option value="">{{ t('properties.busInherit') }}</option>
+            <option v-for="b in assignableBuses" :key="b.id" :value="b.id">{{ b.name }}</option>
           </select>
-          <p class="property-help">{{ t('properties.deviceOverrideHelp') }}</p>
+          <p class="property-help">
+            {{ selectedItem.type === 'group' ? t('properties.busGroupHelp') : t('properties.busHelp') }}
+          </p>
+          <p v-if="assignableBuses.length === 0" class="property-help">{{ t('properties.busNone') }}</p>
+          <p v-else-if="effectiveBusName" class="property-help">
+            {{ t('properties.busEffective', { name: effectiveBusName }) }}
+          </p>
         </div>
 
-        <!-- LTC Output Section -->
-        <div class="property-field" :class="{ 'field-disabled': !ltcDeviceConfigured }">
+        <!-- LTC Output Section — audio items only; a group has no timecode. -->
+        <div
+          v-if="selectedItem.type === 'audio' && audioItem"
+          class="property-field"
+          :class="{ 'field-disabled': !ltcDeviceConfigured }"
+        >
           <label class="ltc-checkbox-label">
             <input
               type="checkbox"
@@ -331,15 +336,33 @@ const apiTriggerUrl = computed(() => {
   const base = (_server.serverUrl ?? 'http://127.0.0.1:4480').replace(/\/+$/, '');
   return `${base}/api/project/items/${selectedItem.value?.uuid}/play`;
 });
-const onDeviceOverrideChange = (e: Event) => {
+// Bus assignment. An item carries busId and nothing else about routing; the
+// bus decides where the audio goes. Clearing it means "inherit" — from the
+// nearest ancestor group, or Main if no group assigns one.
+const assignableBuses = computed(() =>
+  (_server.buses ?? []).filter((b: any) => !b.system));
+
+// What the item actually resolves to, which is not the same as what is written
+// on it: with no assignment of its own it may still inherit one from a group.
+const effectiveBusName = computed(() => {
+  const it = selectedItem.value as any;
+  // Only meaningful for a cue: a group's own "effective" bus is whatever it
+  // inherits, but nothing reports group membership.
+  if (!it?.uuid || it.busId || it.type !== 'audio') return '';
+  const owner = (_server.buses ?? []).find((b: any) => b.itemUuids?.includes(it.uuid));
+  return owner?.name ?? '';
+});
+
+const onBusChange = async (e: Event) => {
   const v = (e.target as HTMLSelectElement).value;
-  const it = audioItem.value as any;
-  if (!v) {
-    delete it.deviceOverride;
-  } else {
-    it.deviceOverride = v;
-  }
-  handleSave();
+  const it = selectedItem.value as any;
+  if (!it) return;
+  if (!v) delete it.busId; else it.busId = v;
+  // Awaited: the save can re-materialise the buses server-side, and refetching
+  // across that rebuild is what used to read back a half-built table.
+  await handleSave();
+  // Membership is resolved server-side, so refresh the mixer's view of it.
+  try { await _server.fetchBuses(); } catch { /* offline */ }
 };
 
 // LTC helpers
@@ -411,7 +434,9 @@ const allTabs = computed<Tab[]>(() => [
   { id: 'basic', label: t('properties.basicInfo'), icon: 'info' },
   { id: 'media', label: t('properties.media'), icon: 'audio_file', audioOnly: true },
   { id: 'playback', label: t('properties.playback'), icon: 'play_circle', audioOnly: true },
-  { id: 'output', label: t('properties.output'), icon: 'speaker', audioOnly: true },
+  // Not audioOnly: a group carries a bus assignment too, which is how a whole
+  // folder of cues is routed in one move and what its children inherit.
+  { id: 'output', label: t('properties.output'), icon: 'speaker' },
   { id: 'ducking', label: t('properties.ducking'), icon: 'volume_down', audioOnly: true },
   { id: 'startBehavior', label: t('properties.startBehavior'), icon: 'play_arrow' },
   { id: 'endBehavior', label: t('properties.endBehavior'), icon: 'stop_circle' }

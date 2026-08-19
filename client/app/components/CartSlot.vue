@@ -190,6 +190,7 @@ import ActionButton from './ActionButton.vue';
 import AudioImportModal from './AudioImportModal.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { calculatePerceivedLoudness, parseWaveformFileData } from '~/utils/audio';
+import { isSecondaryWindow } from '~/composables/useProject';
 
 const props = defineProps<{
   slot: number;
@@ -214,6 +215,27 @@ const { uiMode } = useUiMode();
 // Show Mode: hide edit affordances (import/preview/edit/delete + drag) and
 // enlarge the slot for touch. Waveform, colour, flags and warnings unchanged.
 const showMode = computed(() => uiMode.value === 'playback');
+
+// A cart item created here normally reaches the server via useProject's item
+// diff-watcher, but a detached window runs without it — nothing pushed the new
+// item, so the main window never learned about it. Its next project sync then
+// pushed a copy that predates the item back over IPC, and the cart window
+// cleared and repopulated from it, wiping the item it had just created. It only
+// came back on restart, when the file (which the save had written) was re-read.
+//
+// So in a detached window we publish the item and its slot binding explicitly.
+// The server broadcasts both, and the main window's doc_patch handler folds
+// them into its own cart store — which is what makes the two agree.
+async function publishNewCartItem(item: AudioItem, slot: number) {
+  if (!isSecondaryWindow) return;   // the diff-watcher already handles it
+  const server = useLiveplayServer();
+  try {
+    await server.addProjectItem(item, '', true);
+    await server.setCartSlot(slot, item.uuid);
+  } catch (e) {
+    console.warn('[cart] could not publish new cart item to the server:', e);
+  }
+}
 
 const waveformCanvas = ref<HTMLCanvasElement | null>(null);
 const currentTime = ref(0);
@@ -398,6 +420,8 @@ const importFromServerPath = async (serverPath: string) => {
     } else {
       currentProject.value.cartItems.push({ slot: props.slot, itemUuid: uuid, index: [-1, props.slot] });
     }
+
+    await publishNewCartItem(newItem, props.slot);
 
     const { saveProject } = useProject();
     await saveProject();
@@ -868,6 +892,8 @@ const handleDrop = async (e: DragEvent) => {
       index: [-1, props.slot]
     });
   }
+
+  await publishNewCartItem(cloned, props.slot);
 
   // Save the project
   const { saveProject } = useProject();

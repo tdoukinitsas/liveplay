@@ -24,9 +24,10 @@
 
       <div v-else class="cue-list">
         <!-- Preview card: styled identically to ActiveCueItem, with a green
-             "Preview" pill at the start of the name. Meter reads master
-             channels 30/31 (the preview output bus). Seek + time come from
-             the per-cue meter stream (playhead_seconds). -->
+             "Preview" pill at the start of the name. Meter reads the preview
+             output bus, which is the top pair of the master bus (30/31 on a
+             default 32-wide bus). Seek + time come from the per-cue meter
+             stream (playhead_seconds). -->
         <div v-if="previewingItem" class="preview-cue-card">
           <div class="preview-cue-content">
             <div class="preview-cue-header">
@@ -53,7 +54,12 @@
             </div>
           </div>
           <div class="preview-cue-meter">
-            <StereoMeter :left-index="30" :right-index="31" :min-db="-60" :max-db="0" />
+            <StereoMeter
+              :left-index="server.masterBus.previewL"
+              :right-index="server.masterBus.previewR"
+              :min-db="-60"
+              :max-db="0"
+            />
           </div>
         </div>
 
@@ -66,8 +72,8 @@
     </div>
     
     <!-- Per-output meters — one StereoMeter + volume fader per active audio output pair.
-         Main output (masters 0/1) is always shown. Preview (30/31) and
-         device-override pairs (2+) appear when they carry signal. -->
+         Main output (masters 0/1) is always shown. Preview (the top pair of the
+         bus) and device-override pairs (2+) appear when they carry signal. -->
     <div class="output-meters">
       <div v-for="pair in outputPairs" :key="pair.key" class="output-pair">
         <StereoMeter
@@ -79,7 +85,7 @@
         <VolumeSlider
           :db="getOutputGainDb(pair.leftIndex)"
           :min-db="-60"
-          :max-db="40"
+          :max-db="12"
           :title="pair.label"
           @input="(db: number) => onOutputGainInput(pair.leftIndex, pair.rightIndex, db)"
           @reset="resetOutputGain(pair.leftIndex, pair.rightIndex)"
@@ -95,9 +101,9 @@
 //     (until every component is migrated away from it) AND the new C++
 //     server via useLiveplayServer().stopAll(). Removing the legacy call
 //     is safe once all play paths route through the server.
-//   * The master mix meter is rendered by <LiveMeterBar source="master"
-//     :index="0" />, which consumes the live WebSocket meter stream from
-//     the engine — replacing the static-waveform "cheat" levels.
+//   * The output meters are <StereoMeter> pairs driven by the live WebSocket
+//     meter stream from the engine — replacing the static-waveform "cheat"
+//     levels. Every meter in the app is now that one component.
 import { formatKeyLabel } from '~/composables/useCartHotkeys';
 import type { AudioItem } from '~/types/project';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
@@ -147,12 +153,16 @@ function handlePreviewSeek(e: MouseEvent) {
   server.seekCueId(previewCueId.value, Math.max(0, seekTo + inPoint));
 }
 
-// Dynamic per-output meters. Main (0/1) is always shown. Preview (30/31)
-// and per-device overrides (2+) appear only when they carry signal so we
-// don't flood the UI with silent meters.
+// Dynamic per-output meters. Main (0/1) is always shown. Preview (the top pair
+// of the master bus) and per-device overrides (2+) appear only when they carry
+// signal so we don't flood the UI with silent meters.
 const outputPairs = computed(() => {
   const m = server.meters;
   const activeIdx = new Set((m?.master_channels ?? []).map((mc: any) => mc.index as number));
+  // Bus width is a server boot option, so the preview pair and therefore the
+  // top of the device-override range move with it.
+  const previewL = server.masterBus.previewL;
+  const previewR = server.masterBus.previewR;
 
   const configuredId = (currentProject.value as any)?.settings?.defaultOutputDevice;
   const mainLabel = configuredId
@@ -166,7 +176,7 @@ const outputPairs = computed(() => {
   // show a "Main" 0/1 strip — that produced a permanent duplicated, signal-less
   // "Main" strip alongside the real one.
   const overridePairs: Array<{ key: string; leftIndex: number; rightIndex: number; label: string }> = [];
-  for (let i = 2; i < 30; i += 2) {
+  for (let i = 2; i < previewL; i += 2) {
     if (activeIdx.has(i) || activeIdx.has(i + 1)) {
       overridePairs.push({ key: `out-${i}`, leftIndex: i, rightIndex: i + 1, label: `Out ${i / 2}` });
     }
@@ -185,9 +195,9 @@ const outputPairs = computed(() => {
   }
   pairs.push(...overridePairs);
 
-  // Preview output (master 30/31) — only when active
-  if (activeIdx.has(30) || activeIdx.has(31)) {
-    pairs.push({ key: 'preview-out', leftIndex: 30, rightIndex: 31, label: 'Preview' });
+  // Preview output (top pair of the bus) — only when active
+  if (activeIdx.has(previewL) || activeIdx.has(previewR)) {
+    pairs.push({ key: 'preview-out', leftIndex: previewL, rightIndex: previewR, label: 'Preview' });
   }
 
   return pairs;

@@ -341,8 +341,9 @@ json cue_to_json(const core::CueMeta& c, audio::AudioEngine& engine) {
 
 ControlServer::ControlServer(audio::AudioEngine& engine,
                              core::ProjectState& state,
+                             core::OutputMap&    outputs,
                              ControlServerConfig cfg)
-    : engine_(engine), state_(state), cfg_(std::move(cfg)),
+    : engine_(engine), state_(state), outputs_(outputs), cfg_(std::move(cfg)),
       impl_(std::make_unique<Impl>()) {}
 
 ControlServer::~ControlServer() { stop(); }
@@ -478,18 +479,59 @@ void ControlServer::broadcast_loop() {
         payload["items"] = std::move(item_meters);
 
         json mixer_meters = json::array();
-        for (auto& mch : state_.list_mixer_channels()) {
+        // Engine strips, not ProjectState's legacy mixers_ table — that table
+        // is cleared and never repopulated on the client document path, so
+        // this section has always serialised empty.
+        for (auto& mch : engine_.list_mixer_channels()) {
             if (auto* m = engine_.find_mixer_channel(mch.id)) {
-                auto s = m->meter_snapshot_consume();
+                // One consuming read, split per lane, so a stereo strip can
+                // show separate L/R meters. The combined values are derived
+                // here rather than read again — a second consuming call would
+                // find the maxima already reset.
+                const auto lanes = m->meter_snapshot_consume_lanes();
+
+                audio::MeterSnapshot c{};
+                json lane_arr = json::array();
+                for (const auto& s : lanes) {
+                    c.peak_db          = std::max(c.peak_db,          s.peak_db);
+                    c.rms_db           = std::max(c.rms_db,           s.rms_db);
+                    c.peak_max_db      = std::max(c.peak_max_db,      s.peak_max_db);
+                    c.true_peak_db     = std::max(c.true_peak_db,     s.true_peak_db);
+                    c.true_peak_max_db = std::max(c.true_peak_max_db, s.true_peak_max_db);
+                    // Loudness sums across the channel group (BS.1770).
+                    c.kw_ms   += s.kw_ms;
+                    c.kw_ms_s += s.kw_ms_s;
+                    lane_arr.push_back(json{
+                        {"peak_db",          s.peak_db},
+                        {"rms_db",           s.rms_db},
+                        {"peak_max_db",      s.peak_max_db},
+                        {"true_peak_db",     s.true_peak_db},
+                        {"true_peak_max_db", s.true_peak_max_db},
+                        {"kw_ms",            s.kw_ms},
+                        {"kw_ms_s",          s.kw_ms_s},
+                    });
+                }
+
                 mixer_meters.push_back(json{
                     {"mixer_id",         mch.id.value},
-                    {"peak_db",          s.peak_db},
-                    {"rms_db",           s.rms_db},
-                    {"peak_max_db",      s.peak_max_db},
-                    {"true_peak_db",     s.true_peak_db},
-                    {"true_peak_max_db", s.true_peak_max_db},
-                    {"kw_ms",            s.kw_ms},
-                    {"kw_ms_s",          s.kw_ms_s},
+                    // How far each dynamics processor is pulling down, for the
+                    // panel's GR meters. Zero when idle or switched out. One
+                    // figure each rather than per lane: both detectors are
+                    // linked across the strip's lanes.
+                    {"gate_gr_db",       m->dsp().gate_reduction_db()},
+                    {"comp_gr_db",       m->dsp().comp_reduction_db()},
+                    // Inter-channel correlation: +1 mono-compatible, 0 wide,
+                    // negative means the lanes are cancelling and material will
+                    // disappear the moment anything sums the strip to mono.
+                    {"correlation",      m->correlation()},
+                    {"peak_db",          c.peak_db},
+                    {"rms_db",           c.rms_db},
+                    {"peak_max_db",      c.peak_max_db},
+                    {"true_peak_db",     c.true_peak_db},
+                    {"true_peak_max_db", c.true_peak_max_db},
+                    {"kw_ms",            c.kw_ms},
+                    {"kw_ms_s",          c.kw_ms_s},
+                    {"lanes",            std::move(lane_arr)},
                 });
             }
         }
@@ -779,6 +821,14 @@ static json build_playback_snapshot(audio::AudioEngine& engine,
         {"preview", json{
             {"item_uuid", state.current_preview_item_uuid()},
             {"cue_id",    state.current_preview_cue_id().value},
+        }},
+        // Master-bus geometry, so the UI can label and place output meters
+        // without hardcoding a bus width. Preview always occupies the top pair,
+        // which is only 30/31 at the default 32-wide bus.
+        {"master_bus", json{
+            {"channels",   engine.config().master_channels},
+            {"preview_l",  audio::preview_master_base(engine.config().master_channels)},
+            {"preview_r",  audio::preview_master_base(engine.config().master_channels) + 1},
         }},
     };
 }
@@ -1270,6 +1320,15 @@ void ControlServer::install_routes() {
 #endif
                     }},
                     {"meterBroadcastHz", cfg_.meter_broadcast_hz},
+                    // Master-bus geometry. The bus width is configurable at
+                    // boot, so clients must read the preview pair from here
+                    // rather than assuming the historical 30/31.
+                    {"masterChannels", engine_.config().master_channels},
+                    {"previewMasterL",
+                     audio::preview_master_base(engine_.config().master_channels)},
+                    {"previewMasterR",
+                     audio::preview_master_base(engine_.config().master_channels) + 1},
+                    {"maxUploadBytes", cfg_.max_upload_bytes},
                 };
                 return json_ok(s);
             } catch (const std::exception& e) { return json_err(500, e.what()); }
@@ -1538,17 +1597,241 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // ---- Buses ----
+    // The user-facing view of the mixer: every bus in display order, with the
+    // items that resolve to it (own assignment, inherited from a group, or the
+    // Main fallback).
+    CROW_ROUTE(app, "/api/buses").methods(crow::HTTPMethod::Get)
+        ([this] {
+            try {
+                json arr = json::array();
+                for (const auto& b : state_.list_buses()) {
+                    const char* kind =
+                        b.def.output_kind == core::BusOutputKind::Bus    ? "bus"
+                      : b.def.output_kind == core::BusOutputKind::Output ? "output"
+                                                                         : "master";
+                    arr.push_back(json{
+                        {"id",       b.def.id},
+                        {"name",     b.def.display_name},
+                        {"color",    b.def.color},
+                        {"order",    b.def.order},
+                        {"width",    b.def.width},
+                        {"gainDb",   b.def.gain_db},
+                        {"mute",     b.def.muted},
+                        {"pan",      b.def.pan},
+                        {"dsp",      core::bus_dsp_to_json(b.def.dsp)},
+                        // Live monitoring state, not part of the document —
+                        // it comes from the strip, and a reload clears it.
+                        {"pfl",      b.pfl},
+                        // Monitor only: the mono-sum audition. Live too.
+                        {"monoCheck", b.mono_check},
+                        // Whether it actually reaches hardware — see BusInfo.
+                        {"bound",    b.bound},
+                        {"system",   b.def.system},
+                        {"output",   json{{"type", kind}, {"target", b.def.output_target}}},
+                        {"mixerId",  b.mixer.value},
+                        {"itemUuids", b.item_uuids},
+                    });
+                }
+                return json_ok(arr);
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/buses").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                auto created = state_.create_bus(json::parse(req.body));
+                if (!created) return json_err(507, "no mixer strip available");
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "buses_patched"},
+                    {"buses", state_.full_document().value("buses", json::array())},
+                });
+                return json_ok(json({{"id", created->id}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/buses/<string>").methods(crow::HTTPMethod::Patch)
+        ([this](const crow::request& req, std::string id){
+            try {
+                using PR = core::ProjectState::PatchBusResult;
+                const auto r = state_.patch_bus(id, json::parse(req.body));
+                if (r == PR::NotFound) return json_err(404, "not found");
+                if (r == PR::Refused)
+                    return json_err(409, "the Monitor bus cannot be routed to the master");
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "buses_patched"},
+                    {"buses", state_.full_document().value("buses", json::array())},
+                });
+                return json_ok(json({{"ok", true}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // Live pan while the knob is being dragged: moves the send gains only.
+    // No document write, no broadcast — the client PATCHes the settled value.
+    // Same shape as the strip gain/mute endpoints, and for the same reason:
+    // a PATCH per drag event would rewrite the document and bounce the knob
+    // back to the stale value until the round-trip landed.
+    CROW_ROUTE(app, "/api/buses/<string>/pan").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, std::string id){
+            try {
+                auto j = json::parse(req.body);
+                if (!state_.set_bus_pan_live(id, j.value("pan", 0.0f)))
+                    return json_err(404, "not found");
+                return json_ok(json({{"ok", true}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // Live tone controls while a filter knob is being dragged. Coefficients
+    // straight at the strip: no document write, no broadcast, no re-wire.
+    // Same shape and the same reason as the pan endpoint — a PATCH per drag
+    // event would rewrite the document and bounce the knob back to the stale
+    // value until the round trip landed.
+    CROW_ROUTE(app, "/api/buses/<string>/dsp").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, std::string id){
+            try {
+                if (!state_.set_bus_dsp_live(id, json::parse(req.body)))
+                    return json_err(404, "not found");
+                return json_ok(json({{"ok", true}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // PFL — pre-fade listen. A tap into the Monitor bus, taken before the
+    // fader and before the mute, so a channel can be checked without the house
+    // hearing anything change. No document write: PFL is what the operator is
+    // listening to now, not part of the show. The broadcast is what keeps a
+    // second mixer window's buttons in step.
+    CROW_ROUTE(app, "/api/buses/pfl/clear").methods(crow::HTTPMethod::Post)
+        ([this]{
+            try {
+                const auto cleared = state_.clear_all_pfl();
+                if (cleared > 0) {
+                    broadcast_doc_patch(json{
+                        {"type", "doc_patch"}, {"op", "bus_pfl_cleared"},
+                    });
+                }
+                return json_ok(json({{"cleared", cleared}}));
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/buses/<string>/pfl").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, std::string id){
+            try {
+                auto j = json::parse(req.body);
+                const bool on = j.value("pfl", false);
+                if (!state_.set_bus_pfl(id, on))
+                    return json_err(404, "not found, or not a bus that can be PFL'd");
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "bus_pfl_changed"},
+                    {"id", id}, {"pfl", on},
+                });
+                return json_ok(json({{"ok", true}, {"pfl", on}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // What the engine is measurably doing, for diagnosing latency and dropouts.
+    // Measured rather than configured: the device gets a say in the period it
+    // actually runs, and how long a block takes to render is the only thing
+    // that says whether the queue depth is buying anything.
+    //
+    // `?reset=1` clears the render-time peak, so a probe can bound a
+    // measurement to a window it controls.
+    CROW_ROUTE(app, "/api/engine/stats")
+        ([this](const crow::request& req){
+            const bool reset = req.url_params.get("reset") != nullptr;
+            const auto s = state_.engine().stats(reset);
+            return json_ok(json{
+                {"queuedFrames",       s.queued_frames},
+                {"queuedMs",           s.queued_ms},
+                {"ringCapacityFrames", s.ring_capacity_frames},
+                {"devicePeriodFrames", s.device_period_frames},
+                {"devicePeriods",      s.device_periods},
+                {"deviceMs",           s.device_ms},
+                {"renderBlockUsMax",   s.render_block_us_max},
+                {"renderBlockUsAvg",   s.render_block_us_avg},
+                {"blockBudgetUs",      s.block_budget_us},
+                {"blocksRendered",     s.blocks_rendered},
+                {"underruns",          s.underruns},
+                {"topologyRebuilds",   s.topology_rebuilds},
+                {"mutexWaitUsMax",     s.mutex_wait_us_max},
+                {"discontinuities",    s.discontinuities},
+                {"worstSeam",          s.worst_seam},
+                {"devices",            s.devices},
+            });
+        });
+
+    // The mono-sum audition. Not per bus: it folds the MONITOR to mono, which
+    // is one control for the whole monitoring path rather than one per strip —
+    // PFL whichever buses you want to check, then press this.
+    CROW_ROUTE(app, "/api/monitor/mono").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                auto j = json::parse(req.body);
+                const bool on = j.value("mono", false);
+                if (!state_.set_monitor_mono(on))
+                    return json_err(409, "the Monitor bus has no strip");
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "monitor_mono_changed"},
+                    {"mono", on},
+                });
+                return json_ok(json({{"ok", true}, {"mono", on}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/buses/<string>").methods(crow::HTTPMethod::Delete)
+        ([this](std::string id){
+            try {
+                // Refused for the system buses; assigned items fall back to Main.
+                if (!state_.delete_bus(id)) return json_err(409, "not found or not deletable");
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "buses_patched"},
+                    {"buses", state_.full_document().value("buses", json::array())},
+                });
+                return json_ok(json({{"ok", true}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // ---- Logical outputs ----
+    // Server-owned: what a project's output names mean on THIS machine. Never
+    // part of a project document — that is what keeps a show portable.
+    CROW_ROUTE(app, "/api/outputs").methods(crow::HTTPMethod::Get)
+        ([this] {
+            try { return json_ok(outputs_.to_json()); }
+            catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/outputs").methods(crow::HTTPMethod::Put)
+        ([this](const crow::request& req){
+            try {
+                if (!outputs_.from_json(json::parse(req.body)))
+                    return json_err(400, "malformed output map");
+                outputs_.save();
+                // Buses are wired from the map at load time, so without this a
+                // remapped output would appear to do nothing until the project
+                // was reloaded. Only the buses this edit actually moved are
+                // re-wired — the rest keep playing.
+                const auto moved = state_.rewire_buses_for_output_map();
+                auto out = outputs_.to_json();
+                out["rewiredBuses"] = moved;
+                return json_ok(out);
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
     // ---- Mixer channels ----
     CROW_ROUTE(app, "/api/mixers").methods(crow::HTTPMethod::Get)
         ([this] {
+            // Enumerate the engine's live strips, not ProjectState's legacy
+            // mixers_ table. POST/DELETE here have always operated on the
+            // engine, while this listed the table — which the client-format
+            // load path clears and never repopulates, so it always read empty
+            // and a strip created through this API could never be seen again.
             json arr = json::array();
-            for (auto& m : state_.list_mixer_channels()) {
+            for (const auto& m : engine_.list_mixer_channels()) {
                 arr.push_back(json{
                     {"id",           m.id.value},
                     {"display_name", m.display_name},
                     {"gain_db",      m.gain_db},
                     {"muted",        m.muted},
-                    {"soloed",       m.soloed},
+                    {"pfl",          m.pfl},
                 });
             }
             return json_ok(arr);
@@ -1559,6 +1842,8 @@ void ControlServer::install_routes() {
             try {
                 auto j = json::parse(req.body);
                 const auto id = engine_.create_mixer_channel(j.value("name", "Channel"));
+                if (id.empty())
+                    return json_err(507, "mixer channel limit reached");
                 return json_ok(json({{"id", id.value}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
@@ -1570,6 +1855,30 @@ void ControlServer::install_routes() {
                 return json_err(404, "not found");
             engine_.remove_mixer_channel(audio::MixerChannelId{id});
             return json_ok(json({{"ok", true}}));
+        });
+
+    // Strip level / mute. GET /api/mixers has always reported these, but until
+    // now nothing could set them over the API — only server-internal code could.
+    CROW_ROUTE(app, "/api/mixers/<string>/gain").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, std::string id){
+            try {
+                auto* m = engine_.find_mixer_channel(audio::MixerChannelId{id});
+                if (!m) return json_err(404, "not found");
+                auto j = json::parse(req.body);
+                m->set_gain_db(j.value("db", 0.0f));
+                return json_ok(json({{"ok", true}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/mixers/<string>/mute").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, std::string id){
+            try {
+                auto* m = engine_.find_mixer_channel(audio::MixerChannelId{id});
+                if (!m) return json_err(404, "not found");
+                auto j = json::parse(req.body);
+                m->set_mute(j.value("muted", false));
+                return json_ok(json({{"ok", true}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
     // ---- Routing ----
@@ -2812,7 +3121,11 @@ void ControlServer::install_routes() {
             return json_ok(json({{"ok", true}, {"slot", slot}}));
         });
 
-    // ---- Preview (DJ-style pre-listening on settings.previewDevice) ----
+    // ---- Preview (DJ-style pre-listening) ----
+    // Auditions the item on the Monitor bus — the same strip PFL feeds, on the
+    // master pair reserved at the top of the bus. Where that lands is the
+    // Monitor bus's own output: the "Monitor" logical output if this machine
+    // maps one, else settings.previewDevice.
     CROW_ROUTE(app, "/api/preview").methods(crow::HTTPMethod::Get)
         ([this] {
             const auto item_uuid = state_.current_preview_item_uuid();

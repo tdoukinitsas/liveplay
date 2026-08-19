@@ -136,6 +136,7 @@ add_executable(liveplay-server
 
     # Milestone 3 — project state + control plane
     src/core/project_state.cpp
+    src/core/output_map.cpp
     src/core/backup_manager.cpp
     src/net/control_server.cpp
     src/net/discovery.cpp
@@ -196,15 +197,59 @@ if(LIVEPLAY_BUILD_TESTS)
     add_test(NAME meter COMMAND liveplay-meter-tests)
 
     # Mixer strip gain / fade envelope (peek vs. advance).
+    # Also covers the PFL monitor taps, which is why limiter.cpp is here: it
+    # carries db_to_linear_precise, and the tap gain has to be the same number
+    # the engine uses, not a re-derivation of it.
     add_executable(liveplay-mixer-tests
         tests/mixer_channel_test.cpp
         src/audio/mixer_channel.cpp
         src/audio/meter.cpp
+        src/audio/limiter.cpp
     )
     target_include_directories(liveplay-mixer-tests
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
     add_test(NAME mixer COMMAND liveplay-mixer-tests)
+
+    # Filter sections behind the HPF, the LPF and every EQ band. Header-only,
+    # so the test needs nothing linked with it.
+    add_executable(liveplay-biquad-tests
+        tests/biquad_test.cpp
+    )
+    target_include_directories(liveplay-biquad-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME biquad COMMAND liveplay-biquad-tests)
+
+    # Expander / gate and compressor / limiter. Header-only too.
+    add_executable(liveplay-dynamics-tests
+        tests/dynamics_test.cpp
+    )
+    target_include_directories(liveplay-dynamics-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME dynamics COMMAND liveplay-dynamics-tests)
+
+    # Stereo image: the M/S width matrix, bass-mono, the balance law and the
+    # correlation meter. Header-only.
+    add_executable(liveplay-stereo-tests
+        tests/stereo_width_test.cpp
+    )
+    target_include_directories(liveplay-stereo-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME stereo COMMAND liveplay-stereo-tests)
+
+    # Clock-drift compensation: the resampler and its control loop. Header-only,
+    # and the controller is driven by a simulated device rather than by audio —
+    # a drift bug that takes twenty minutes to hear runs here in milliseconds.
+    add_executable(liveplay-drift-tests
+        tests/drift_test.cpp
+    )
+    target_include_directories(liveplay-drift-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME drift COMMAND liveplay-drift-tests)
 
     # Waveform downsampler (single-pass decode, per-channel traces).
     add_executable(liveplay-waveform-tests

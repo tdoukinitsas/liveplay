@@ -5,6 +5,17 @@ export interface BaseItem {
   displayName: string;
   color: string;
   type: 'audio' | 'group' | 'action'; // Extensible for future item types
+  /**
+   * Which bus this item plays through. Absent means *inherit* — from the
+   * nearest ancestor group, or the Main bus if nothing along the chain
+   * assigns one. It is the whole of an item's routing.
+   *
+   * Declared on BaseItem because a group carries it too and passes it down.
+   * It was missing from these types entirely, so every site that touched it
+   * cast to `any` and nothing type-checked that it was being carried through
+   * the save and sync paths.
+   */
+  busId?: string;
 }
 
 // Audio-specific properties
@@ -139,6 +150,188 @@ export interface CartItem {
   slot: number; // 0-15
   itemUuid: string;
   index: number[]; // [-1, slot] for API triggering
+}
+
+/**
+ * Where a bus sends its audio.
+ *
+ * `target` is a bus id for `bus`, or a *logical* output name for `output`
+ * ("FOH", "Comms"). It is never a device name — the server owns the mapping
+ * from a logical name to real hardware, which is what keeps a show portable
+ * between venues.
+ */
+export interface BusOutput {
+  type: 'master' | 'bus' | 'output';
+  target: string;
+}
+
+/**
+ * One filter block on a strip. There is no separate in/out switch: a high-pass
+ * parked at the bottom of its range and a low-pass parked at the top are out
+ * of circuit, which is what the knob's origin already means on the surface.
+ */
+export interface BusFilter {
+  freq: number;
+  q: number;
+}
+
+/**
+ * One EQ band. All four are bells; a band at 0 dB gain is out of circuit,
+ * because a peaking section at unity is an identity whatever its Q.
+ */
+export interface BusEqBand {
+  freq: number;
+  gain: number;
+  q: number;
+  /**
+   * Switch this band from a bell to a shelf. Honoured only on the outer bands
+   * — LF shelves the bottom, HF the top; which end follows from the band's
+   * position and is not stored.
+   */
+  shelf: boolean;
+  /**
+   * A shelf's steepness, 0.1..2. Separate from `q` rather than sharing it,
+   * because they are different quantities with barely overlapping ranges, and
+   * one field would mean switching to shelf and back silently changed the
+   * bell's width.
+   */
+  slope: number;
+}
+
+/** Which bands may be shelved. The middle two are always bells. */
+export const EQ_SHELVABLE_BANDS = [0, 3] as const;
+
+/**
+ * The expander / gate.
+ *
+ * `attack` opens the gate and `release` closes it — the opposite of what those
+ * words mean on a compressor. `range` is the deepest attenuation, so the gate
+ * ducks rather than slamming to silence.
+ */
+export interface BusGate {
+  on: boolean;
+  threshold: number;
+  ratio: number;
+  range: number;
+  attack: number;
+  hold: number;
+  release: number;
+}
+
+/**
+ * The compressor / limiter.
+ *
+ * `attack` clamps down and `release` recovers — the opposite sense to BusGate's
+ * pair of the same name. `knee` is the total width of the soft knee, centred on
+ * the threshold; at 0 it is a hard knee.
+ */
+export interface BusComp {
+  on: boolean;
+  threshold: number;
+  ratio: number;
+  makeup: number;
+  attack: number;
+  knee: number;
+  release: number;
+}
+
+/**
+ * Stereo image width, on a stereo bus only.
+ *
+ * `width` is 0 mono, 1 untouched, 2 double. `bassMonoHz` high-passes the SIDE
+ * signal alone, so the low end collapses to the centre and stays mono-safe
+ * however hard the rest is widened; parked at 20 Hz it is out of circuit, the
+ * same convention the strip's HPF and LPF use.
+ *
+ * There is no level compensation, deliberately: widening only raises material
+ * that has side content, so any static correction would attenuate mono-ish
+ * material it never touched.
+ */
+export interface BusWidth {
+  width: number;
+  bassMonoHz: number;
+  bassMonoQ: number;
+}
+
+/** The strip's tone controls. */
+export interface BusDsp {
+  /**
+   * Section bypass. Distinct from every band being flat: it takes the whole
+   * section out in one press and puts it back exactly as it was, which is why
+   * a desk has an in/out button per section rather than expecting you to
+   * zero the controls and remember what they were.
+   */
+  eqEnabled: boolean;
+  dynEnabled: boolean;
+  hpf: BusFilter;
+  lpf: BusFilter;
+  eq: BusEqBand[];
+  gate: BusGate;
+  comp: BusComp;
+  width: BusWidth;
+}
+
+/** Band names, in order. Fixed layout, so the surface can label the columns. */
+export const EQ_BAND_NAMES = ['LF', 'LMF', 'HMF', 'HF'] as const;
+
+/** Where the filters sit when out of circuit. Must match the server's. */
+export const HPF_PARKED_HZ = 20;
+export const LPF_PARKED_HZ = 20000;
+/** Bass-mono parks at the bottom of its travel, the same way the HPF does. */
+export const BASS_MONO_PARKED_HZ = 20;
+
+/**
+ * A bus is the user-facing mixer strip. Items and groups are assigned to one
+ * via `busId` and carry no other routing; the bus alone decides where the
+ * audio goes, and it is edited from the mixer rather than per item.
+ */
+export interface Bus {
+  id: string;
+  name: string;
+  color: string;
+  order: number;
+  /** 1 = mono, 2 = stereo. Wider buses are a separate design conversation. */
+  width: number;
+  gainDb: number;
+  mute: boolean;
+  /**
+   * The strip's position control, -1 hard left .. 0 centre .. +1 hard right.
+   * One field, two meanings, decided by `width`:
+   *
+   * - mono bus: PAN, the position of its single lane between the destination's
+   *   two. Constant-power, so centre sits at -3 dB.
+   * - stereo bus: BALANCE, a trim between its own two lanes. Only ever
+   *   attenuates, so centre is unity and correcting a lopsided mix cannot push
+   *   the loud side up.
+   */
+  pan: number;
+  /**
+   * Pre-fade listen: this bus is being tapped into Monitor, pre-fader and
+   * pre-mute. Live state rather than part of the show — it is read from the
+   * engine, never saved, and a reload clears it.
+   */
+  pfl: boolean;
+  /**
+   * Monitor only: the mono-sum audition is folding the phones to mono. Live
+   * state like `pfl` — read from the engine, never saved. Always false on
+   * every other bus.
+   */
+  monoCheck: boolean;
+  /** The strip's tone controls: filters, EQ and dynamics. */
+  dsp: BusDsp;
+  /**
+   * Whether this bus actually reaches hardware. Not derivable from the output
+   * name list: Monitor may be bound through settings.previewDevice, which is
+   * not in the map, and the strip must not warn about a bus that is working.
+   */
+  bound: boolean;
+  /** Main and Monitor: always present, cannot be deleted. */
+  system: boolean;
+  output: BusOutput;
+  /** Engine strip backing this bus; empty when it has none (Main today). */
+  mixerId: string;
+  /** Items resolving to this bus, including ones inheriting it from a group. */
+  itemUuids: string[];
 }
 
 export interface ProjectSettings {

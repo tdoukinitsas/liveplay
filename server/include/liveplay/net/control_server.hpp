@@ -77,6 +77,7 @@ class ControlServer {
 public:
     ControlServer(audio::AudioEngine& engine,
                   core::ProjectState& state,
+                  core::OutputMap&    outputs,
                   ControlServerConfig cfg = {});
     ~ControlServer();   // defined in .cpp where Impl is complete
 
@@ -86,6 +87,7 @@ public:
 private:
     audio::AudioEngine& engine_;
     core::ProjectState& state_;
+    core::OutputMap&    outputs_;
     ControlServerConfig cfg_;
     std::atomic<bool>   running_{false};
 

@@ -115,6 +115,7 @@ Key IPC channels (non-exhaustive):
 | `update-menu-language` / `get-system-locale` / `get-available-locales` / `get-locale-data` | Dynamic menu localisation. |
 | `open-folder` / `open-external` / `app:relaunch` / `app:exit` | OS integration. |
 | `open-cart-player-window` / `cart-player-window-attach` / `sync-project-data` | Second-window cart-player surface. |
+| `open-mixer-window` / `mixer-window-attach` | Second-window mixer surface. Carries no state of its own — that window opens its own WebSocket to the audio server. |
 
 The audio data path is **not** via IPC — it's directly between the renderer and `liveplay-server` over HTTP + WebSocket. IPC is used only for things Electron needs to do as a desktop application.
 
@@ -175,8 +176,8 @@ The component tree is intentionally flat — every SFC lives directly in [`compo
 - `PropertiesPanel.vue` — properties for the selected item (gain, fades, behaviours, ducking).
 - `WaveformCanvas.vue` — canvas-rendered waveform fetched from `GET /api/waveform/<cueId>`.
 - `WaveformTrimmer.vue` — interactive in/out trimming + normalise.
-- `RoutingMatrixPanel.vue` — the 3-tier routing matrix UI.
-- `LiveMeterBar.vue`, `StereoMeter.vue`, `VUMeter.vue` — meter widgets driven by `useLiveMeters`.
+- `MixerPanel.vue`, `MixerStrip.vue`, `MixerChannelDetails.vue` — the mixer: one channel strip per bus, with a per-bus detail view. Docks as a side pane, takes the full workspace, or pops out into its own window (`?mixerWindow=1`).
+- `StereoMeter.vue`, `VUMeter.vue` — meter widgets driven by `useLiveMeters`. `StereoMeter` covers every source (cue, mixer strip, master pair) so zone colours, peak hold, the clip latch and the project's meter mode are identical wherever a level is shown.
 - `ServerSettingsModal.vue`, `LocalServerStatus.vue`, `ConnectionLostModal.vue` — server connection management.
 - `ServerFileBrowser.vue`, `ServerFilePickerModal.vue` — `GET /api/fs/list` browser, used when the client and server live on different machines.
 - `AudioImportModal.vue`, `YouTubeImportModal.vue` — media import surfaces.

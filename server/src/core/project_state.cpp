@@ -27,7 +27,7 @@ inline std::string id_to_string(const audio::DeviceId& id)       { return id.val
 // this never throws on a wrong-typed (or null) field — it returns `def`
 // instead. Malformed project fields (e.g. a number where a string is
 // expected) would otherwise throw nlohmann::type_error uncaught through the
-// network layer. (#5)
+// network layer. 
 template <class T>
 T json_get_or(const nlohmann::json& j, const char* key, const T& def) noexcept {
     try {
@@ -395,7 +395,7 @@ void to_json(json& j, const MixerChannelMeta& m) {
         {"display_name", m.display_name},
         {"gain_db",      m.gain_db},
         {"muted",        m.muted},
-        {"soloed",       m.soloed},
+        {"pfl",          m.pfl},
     };
 }
 
@@ -475,7 +475,8 @@ std::chrono::nanoseconds parse_smpte_timecode_to_ns(const std::string& tc,
 
 // ---------------------------------------------------------------------------
 
-ProjectState::ProjectState(audio::AudioEngine& engine) : engine_(engine) {
+ProjectState::ProjectState(audio::AudioEngine& engine, OutputMap& outputs)
+    : engine_(engine), outputs_(outputs) {
     document_ = default_empty_document();
     start_sequencer();
     // Background decoder for single-item adds/media swaps (#43).
@@ -494,15 +495,11 @@ ProjectState::~ProjectState() {
 
     // Tear down preview infrastructure on shutdown so the audio device gets
     // released cleanly.
+    // The strip and the device belong to the Monitor bus now, and are torn
+    // down with every other bus routing; only the auditioned cue is ours.
     if (!preview_cue_.empty()) {
         engine_.stop(preview_cue_);
         engine_.unload_cue(preview_cue_);
-    }
-    if (!preview_mixer_.empty()) {
-        engine_.remove_mixer_channel(preview_mixer_);
-    }
-    if (!preview_device_.empty()) {
-        engine_.close_device(preview_device_);
     }
 }
 
@@ -742,6 +739,7 @@ void ProjectState::start_async_mirror() {
                     if (wanted.find(it->first) == wanted.end()) {
                         engine_.unload_cue(it->second);
                         cues_.erase(it->second.value);
+                        forget_primed_cue_locked(it->second);
                         it = item_uuid_to_cue_.erase(it);
                     } else {
                         ++it;
@@ -895,6 +893,17 @@ void ProjectState::start_async_mirror() {
             }
 
             // Phase 4: prime cart cues (also unlocked — engine handles its own).
+            //
+            // ONCE PER CUE, not once per mirror. Priming seeks the decoder and
+            // decodes two seconds, and this ran for every cart binding every
+            // time the mirror did — which is every save, because the client
+            // round-trips the whole document. Sixteen cart cues meant sixteen
+            // std::async threads all seeking and decoding at once, on a machine
+            // that was in the middle of a show, for no benefit: the cue was
+            // already primed and nothing had changed.
+            //
+            // A cue is dropped from the set when it is unloaded, so a genuinely
+            // new or replaced cue still gets primed.
             std::vector<std::future<void>> prime_futures;
             for (const auto& uuid : cart_uuids) {
                 audio::CueId cue;
@@ -902,6 +911,7 @@ void ProjectState::start_async_mirror() {
                     std::lock_guard lock{mutex_};
                     auto it = item_uuid_to_cue_.find(uuid);
                     if (it == item_uuid_to_cue_.end()) continue;
+                    if (!primed_cues_.insert(it->second.value).second) continue;
                     cue = it->second;
                 }
                 prime_futures.push_back(std::async(std::launch::async,
@@ -910,8 +920,8 @@ void ProjectState::start_async_mirror() {
                     }));
             }
             for (auto& f : prime_futures) f.get();
-            if (!cart_uuids.empty()) {
-                Logger::info("ProjectState: primed {} cart cue(s).", cart_uuids.size());
+            if (!prime_futures.empty()) {
+                Logger::info("ProjectState: primed {} cart cue(s).", prime_futures.size());
             }
         } catch (const std::exception& e) {
             Logger::error("async mirror threw: {}", e.what());
@@ -1005,6 +1015,18 @@ void ProjectState::reset() {
     mixer_routes_.clear();
     master_assignments_.clear();
     item_uuid_to_cue_.clear();
+    primed_cues_.clear();
+    release_device_routings_locked();
+    for (auto& [_, r] : bus_routings_) {
+        if (!r.mixer.empty()) engine_.remove_mixer_channel(r.mixer);
+        if (r.has_masters) {
+            engine_.clear_master_assignment(r.master_l);
+            engine_.clear_master_assignment(r.master_r);
+        }
+    }
+    bus_routings_.clear();
+    free_master_pairs_.clear();
+    buses_.clear();
     // The selection and the trigger-order stamps belong to the project that is
     // going away; carrying them into the next one would leave control surfaces
     // pointing at uuids that no longer exist. Show Mode and the locale are
@@ -1014,6 +1036,10 @@ void ProjectState::reset() {
     project_name_ = "Untitled";
     project_file_path_.clear();
     document_ = default_empty_document();
+    // A brand-new project still has Main and Monitor, so /api/buses and the
+    // mixer are never looking at an empty desk.
+    load_buses_locked();
+    write_buses_to_document_locked();
     apply_to_engine_locked();
 }
 
@@ -1031,8 +1057,11 @@ json ProjectState::default_empty_document() {
         {"playbackKeys",  json::object()},
         {"cartOnlyItems", json::array()},
         {"theme",         json{{"mode", "dark"}, {"accentColor", "#DA1E28"}}},
+        // No defaultOutputDevice: where audio goes is the Main bus's output,
+        // and the binding from a logical output to hardware belongs to the
+        // machine, not the show. previewDevice / ltcDevice are still device
+        // names pending the same treatment.
         {"settings",      json{
-            {"defaultOutputDevice", nullptr},
             {"previewDevice",       nullptr},
             {"ltcDevice",           nullptr},
         }},
@@ -1119,6 +1148,7 @@ void ProjectState::mirror_items_to_engine_locked() {
         if (wanted.find(it->first) == wanted.end()) {
             engine_.unload_cue(it->second);
             cues_.erase(it->second.value);
+            forget_primed_cue_locked(it->second);
             it = item_uuid_to_cue_.erase(it);
         } else {
             ++it;
@@ -1519,8 +1549,13 @@ void ProjectState::apply_default_device_routing() {
 }
 
 // ---------------------------------------------------------------------------
-// Preview device change — tear down any active preview so the next call to
-// start_preview() opens a fresh connection to the newly selected device.
+// Preview device change — stop what is being auditioned and move the Monitor
+// bus to the newly selected hardware.
+//
+// Pre-listen and PFL share that bus, so this setting now moves both. It is
+// re-wired here rather than left for the next start_preview(), because PFL can
+// be up with nothing being auditioned at all: waiting would leave the operator
+// listening to the old device with no obvious way to say so.
 // ---------------------------------------------------------------------------
 void ProjectState::apply_preview_device_change() {
     audio::CueId prev_cue;
@@ -1529,11 +1564,30 @@ void ProjectState::apply_preview_device_change() {
         prev_cue = preview_cue_;
         preview_cue_ = audio::CueId{};
         preview_item_uuid_.clear();
-        preview_device_name_.clear();
     }
     if (!prev_cue.empty()) {
         engine_.stop(prev_cue);
         engine_.unload_cue(prev_cue);
+    }
+
+    BusDef     def;
+    BusRouting routing;
+    {
+        std::lock_guard lock{mutex_};
+        const auto bit = std::find_if(buses_.begin(), buses_.end(),
+                                      [](const BusDef& b) { return b.id == kMonitorBusId; });
+        if (bit == buses_.end()) return;
+        def = *bit;
+        const auto rit = bus_routings_.find(kMonitorBusId);
+        if (rit == bus_routings_.end()) return;
+        routing = rit->second;
+    }
+    if (routing.mixer.empty()) return;
+    unwire_bus(routing);
+    wire_bus(def, routing);
+    {
+        std::lock_guard lock{mutex_};
+        bus_routings_[kMonitorBusId] = routing;
     }
 }
 
@@ -1628,7 +1682,7 @@ bool ProjectState::save(const std::filesystem::path& path) const {
         // Atomic write: serialise to a sibling temp file, verify the stream is
         // healthy, then rename it over the target. A write error, disk-full, or
         // crash therefore never truncates or corrupts the previous good file —
-        // the documented "preserve previous state on failure" contract. (#5)
+        // the documented "preserve previous state on failure" contract. 
         std::filesystem::path tmp = path;
         tmp += ".tmp";
         {
@@ -1790,9 +1844,23 @@ json ProjectState::items_page(std::size_t offset, std::size_t limit) const {
 
 bool ProjectState::replace_full_document(const json& doc) {
     if (!doc.is_object()) return false;
+    bool buses_unchanged = false;
     {
         std::lock_guard lock{mutex_};
+        // What the buses looked like before this document landed, so an
+        // ordinary save can be told apart from a genuine project change.
+        const json buses_before = document_.contains("buses") ? document_["buses"] : json{};
+        // A document that does not mention buses is not asserting that there
+        // are none — the client round-trips the project on every ordinary save
+        // and does not carry the bus list, so taking absence literally wiped
+        // every bus the moment anything else was edited. Buses are mutated
+        // through their own endpoints; an absent key means "unchanged".
+        json carried_buses;
+        if (!doc.contains("buses") && document_.contains("buses")) {
+            carried_buses = document_["buses"];
+        }
         document_ = doc;
+        if (!carried_buses.is_null()) document_["buses"] = std::move(carried_buses);
         if (!document_.contains("settings")) {
             document_["settings"] = json{
                 {"defaultOutputDevice", nullptr},
@@ -1805,6 +1873,44 @@ bool ProjectState::replace_full_document(const json& doc) {
         }
         project_name_ = document_.value("name", std::string{"Untitled"});
         update_media_root_from_folder_locked();
+        // The incoming document carries its own buses. Without this, buses_
+        // would still describe the outgoing document and every assignment in
+        // the new one would resolve against stale definitions.
+        load_buses_locked();
+        write_buses_to_document_locked();
+        // Nothing about the buses moved, and every one of them already has a
+        // strip: there is nothing to rebuild.
+        //
+        // The client round-trips the whole project on every ordinary save, so
+        // without this check a single property edit tore down every bus strip
+        // and wired it up again — re-opening audio devices, dropping the audio
+        // running through those buses for the length of the rebuild, and
+        // logging a full materialise each time. Saving a project should not
+        // interrupt what is playing through it.
+        buses_unchanged = !buses_before.is_null() && buses_before == document_["buses"];
+        if (buses_unchanged) {
+            for (const auto& b : buses_) {
+                const auto it = bus_routings_.find(b.id);
+                if (it == bus_routings_.end() || it->second.mixer.empty()) {
+                    buses_unchanged = false;
+                    break;
+                }
+            }
+        }
+    }
+    // Rebuild the engine strips for the new document's buses. Outside the lock.
+    //
+    // Loud on purpose. This tears down every strip and wires it up again,
+    // which reopens audio devices and drops whatever is playing through them —
+    // so on an ordinary save it is a bug, not a step. If this line appears
+    // while a show is running, the round trip through load_buses_locked() and
+    // write_buses_to_document_locked() is not exact and something in the bus
+    // JSON is changing shape on the way through.
+    if (!buses_unchanged) {
+        Logger::warn("replace_full_document: bus definitions changed shape — "
+                     "rebuilding every strip. On an ordinary save this is a bug; "
+                     "see BUS_ARCHITECTURE.md §0.7.");
+        materialise_buses();
     }
     // Kick off the engine mirror asynchronously — matches load_from_json's
     // path so the PUT /api/project/document handler doesn't block on cue
@@ -1934,7 +2040,11 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     bool touched            = false;
     bool media_path_changed = false;
     bool ltc_changed        = false;
+    bool bus_changed        = false;
     json* updated_item = nullptr;
+    // Items whose routing this edit moves: the item itself, or — when a group's
+    // assignment changes — every audio descendant that inherits from it.
+    std::vector<std::string> rerouted;
 
     // Captured under mutex_, applied to the engine loop state and the sequencer
     // snapshot AFTER the lock is released — so out point / crossfade / stop-fade /
@@ -1969,6 +2079,9 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                         if (!it.contains(k) || it[k] != v)
                             ltc_changed = true;
                     }
+                    if (k == "busId") {
+                        if (!it.contains(k) || it[k] != v) bus_changed = true;
+                    }
                     it[k] = v;
                 }
                 touched = true;
@@ -1984,6 +2097,7 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
             if (old != item_uuid_to_cue_.end()) {
                 engine_.unload_cue(old->second);
                 cues_.erase(old->second.value);
+                forget_primed_cue_locked(old->second);
                 item_uuid_to_cue_.erase(old);
             }
             auto path = resolve_media_path(
@@ -2055,6 +2169,31 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
             }
         }
 
+        // Collect who this assignment moves. An item carries its own routing;
+        // a group carries it for every descendant that doesn't override it, so
+        // re-assigning a group has to move all of them. resolve_item_bus works
+        // the inheritance out per item, so this only needs the candidates.
+        if (touched && bus_changed && updated_item) {
+            if (updated_item->value("type", std::string{}) == "group") {
+                std::function<void(const json&)> walk = [&](const json& arr) {
+                    if (!arr.is_array()) return;
+                    for (const auto& child : arr) {
+                        if (!child.is_object()) continue;
+                        if (child.value("type", std::string{}) == "audio") {
+                            const auto u = child.value("uuid", std::string{});
+                            if (!u.empty()) rerouted.push_back(u);
+                        } else if (child.value("type", std::string{}) == "group" &&
+                                   child.contains("children")) {
+                            walk(child["children"]);
+                        }
+                    }
+                };
+                if (updated_item->contains("children")) walk((*updated_item)["children"]);
+            } else {
+                rerouted.push_back(uuid);
+            }
+        }
+
         // Snapshot the sequencing-relevant fields so the playing cue's
         // auto-advance/crossfade/stop-fade/loop timing can be refreshed live
         // (done below, after releasing mutex_, to keep the existing lock order).
@@ -2110,9 +2249,18 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
         }
     }
 
+    // A bus assignment now takes effect on the cue immediately, rather than
+    // waiting for the next time it happens to be fired. It re-establishes LTC
+    // itself, so this runs before the LTC branch and makes it redundant.
+    if (!rerouted.empty()) {
+        reroute_items_to_buses(rerouted);
+        Logger::info("update_item: '{}' bus changed — re-routed {} cue(s) live",
+                     uuid, rerouted.size());
+    }
+
     // Route (or re-route) the LTC channel after releasing mutex_ so
     // ensure_device_routing() can safely acquire it.
-    if (touched && ltc_changed)
+    if (touched && ltc_changed && rerouted.empty())
         apply_ltc_device_routing();
     return touched;
 }
@@ -2380,7 +2528,7 @@ bool ProjectState::play_item(const std::string& uuid,
                              double fade_in_override_sec,
                              const audio::CueId& exclude_from_ducking) {
   // Guard the whole body: a malformed item field must never throw uncaught
-  // into the network layer. (#5)
+  // into the network layer. 
   try {
     // If this item was added moments ago its decode may still be running on the
     // loader thread (#43). Wait for THAT item only — every other request stays
@@ -2522,8 +2670,18 @@ bool ProjectState::play_item(const std::string& uuid,
     }
     // "no-ducking" → do nothing.
 
-    // Apply per-cue device routing right before play.
-    if (!device_override.empty()) {
+    // Bus assignment is the whole of an item's routing. Everything resolves to
+    // a bus — Main when nothing along the chain says otherwise — and the bus
+    // decides where the audio goes. Where a project used to name an output
+    // device, that is now the Main bus's output, set on load.
+    audio::MixerChannelId bus_mixer;
+    {
+        std::lock_guard lock{mutex_};
+        bus_mixer = mixer_for_bus(resolve_item_bus(uuid));
+    }
+    if (!bus_mixer.empty()) {
+        route_cue_to_mixer(target_cue, bus_mixer);
+    } else if (!device_override.empty()) {
         const auto mixer = ensure_device_routing(device_override);
         if (!mixer.empty()) {
             route_cue_to_mixer(target_cue, mixer);
@@ -3221,7 +3379,7 @@ bool ProjectState::trigger_item(const std::string& uuid,
                                 double fade_in_override_sec,
                                 const audio::CueId& exclude_from_ducking) {
   // Guard the whole body: a malformed item field must never throw uncaught
-  // into the network layer. (#5)
+  // into the network layer. 
   try {
     // Look up the item's type and (for groups) startBehavior + children.
     std::string type;
@@ -3324,37 +3482,42 @@ ProjectState::ensure_device_routing(const std::string& device_name) {
         return {};
     }
 
-    audio::MasterChannelIndex master_l;
-    audio::MasterChannelIndex master_r;
+    // Create the strip before reserving the master pair. A refused strip then
+    // costs nothing to unwind, whereas reserving first would strand the pair —
+    // next_override_master_ only ever moves upward within a project.
+    const auto mixer = engine_.create_mixer_channel(
+        "Output: " + device_name);
+    if (mixer.empty()) {
+        Logger::error("ensure_device_routing: no mixer strip available for '{}'; "
+                      "item will use default routing", device_name);
+        return {};
+    }
+
+    audio::MasterChannelIndex master_l = 0;
+    audio::MasterChannelIndex master_r = 0;
+    bool exhausted = false;
     {
         std::lock_guard lock{mutex_};
         // Bound-check master allocation. Each distinct device override consumes
         // a pair of master channels growing upward from next_override_master_,
-        // while the top two channels of the bus are reserved for preview
-        // (kPreviewMasterL/R). Never allocate into or past that reserve — doing
-        // so would collide with preview output or run past the engine's master
-        // bus width. Compute the reserved base from the live bus width rather
-        // than trusting the 30/31 literals. (#5)
-        const audio::MasterChannelIndex bus_width =
-            engine_.config().master_channels;
-        const audio::MasterChannelIndex reserved_base =
-            (bus_width >= 2) ? static_cast<audio::MasterChannelIndex>(bus_width - 2)
-                             : 0;
-        if (next_override_master_ + 1 >= reserved_base) {
+        // while the top two channels of the bus are reserved for preview.
+        // Never allocate into or past that reserve — doing so would collide with
+        // preview output or run past the engine's master bus width.
+        if (!allocate_master_pair_locked(master_l, master_r)) {
             Logger::error(
                 "ensure_device_routing: out of master channels for '{}' "
-                "(next={}, reserved_base={}, bus_width={}); item will use "
-                "default routing instead of a dedicated device master",
-                device_name, next_override_master_, reserved_base, bus_width);
-            return {};
+                "(next={}, bus_width={}); item will use default routing "
+                "instead of a dedicated device master",
+                device_name, next_override_master_,
+                engine_.config().master_channels);
+            exhausted = true;
         }
-        master_l = next_override_master_;
-        master_r = next_override_master_ + 1;
-        next_override_master_ += 2;
+    }
+    if (exhausted) {
+        engine_.remove_mixer_channel(mixer);   // engine takes its own lock
+        return {};
     }
 
-    const auto mixer = engine_.create_mixer_channel(
-        "Output: " + device_name);
     engine_.assign_master_to_device(master_l, dev, 0);
     engine_.assign_master_to_device(master_r, dev, 1);
     engine_.route_mixer_to_master(mixer, master_l, 0.0f, 0);   // strip L lane
@@ -3369,6 +3532,35 @@ ProjectState::ensure_device_routing(const std::string& device_name) {
     Logger::info("ensure_device_routing: '{}' → mixer '{}' (masters {}/{})",
                  device_name, mixer.value, master_l, master_r);
     return mixer;
+}
+
+void ProjectState::reroute_items_to_buses(const std::vector<std::string>& item_uuids) {
+    // Resolve everything under the lock, route with it released: route_cue_to_-
+    // mixer calls into the engine, which takes its own.
+    std::vector<std::pair<audio::CueId, audio::MixerChannelId>> moves;
+    {
+        std::lock_guard lock{mutex_};
+        for (const auto& uuid : item_uuids) {
+            const auto cit = item_uuid_to_cue_.find(uuid);
+            if (cit == item_uuid_to_cue_.end()) continue;   // not loaded; play_item will route it
+            const auto mixer = mixer_for_bus(resolve_item_bus(uuid));
+            if (mixer.empty()) continue;
+            moves.emplace_back(cit->second, mixer);
+        }
+    }
+
+    // Moving a cue between buses is a re-patch, not a fade. It is seamless in
+    // the ordinary case — the samples simply arrive at the master through a
+    // different accumulator, at the same gain — and audibly abrupt only when
+    // the two buses differ in level, mute or output, which is precisely the
+    // change the operator just asked for.
+    for (const auto& [cue, mixer] : moves) route_cue_to_mixer(cue, mixer);
+
+    // route_cue_to_mixer drops every item->mixer route this cue had, the
+    // synthetic LTC channel included, so timecode has to be re-established or
+    // re-assigning the bus of an LTC-enabled cue would silently kill its
+    // output. Same call play_item makes straight after routing.
+    if (!moves.empty()) apply_ltc_device_routing();
 }
 
 void ProjectState::route_cue_to_mixer(const audio::CueId& cue,
@@ -3410,23 +3602,1232 @@ void ProjectState::route_cue_to_mixer(const audio::CueId& cue,
 // (device + mixer + master assignments) is set up lazily on first preview
 // and reused for subsequent ones.
 // ---------------------------------------------------------------------------
+// Unwire every per-device override routing and release its master pair.
+//
+// These live only in device_routings_ — the engine knows about the mixer strip
+// and the master assignments, but nothing else tracks them. Dropping the map
+// alone would strand the strips and permanently consume master channels:
+// next_override_master_ only ever moves upward, so switching projects enough
+// times in one session exhausts the bus and every subsequent device override
+// silently falls back to default routing.
+//
+// Devices themselves are left open on purpose. Reopening one is the expensive
+// part (which is why preview caches its device), and the engine reuses open
+// devices by name, so nothing is gained by closing them here.
+void ProjectState::release_device_routings_locked() {
+    for (auto& [name, dr] : device_routings_) {
+        // remove_mixer_channel() also drops the strip's mixer->master sends and
+        // any item->mixer sends pointing at it, so only the master->device
+        // assignments need clearing explicitly.
+        engine_.remove_mixer_channel(dr.mixer);
+        engine_.clear_master_assignment(dr.master_l);
+        engine_.clear_master_assignment(dr.master_r);
+    }
+    if (!device_routings_.empty()) {
+        Logger::debug("released {} device-override routing(s)", device_routings_.size());
+    }
+    device_routings_.clear();
+    next_override_master_ = kFirstOverrideMaster;
+}
+
+// ---------------------------------------------------------------------------
+// Buses
+//
+// A bus is the user-facing name for an engine mixer strip. Items and groups
+// carry a busId and nothing else about routing; the bus decides where the
+// audio goes. Definitions live in document_["buses"] and are materialised onto
+// engine strips whenever a project loads.
+// ---------------------------------------------------------------------------
 namespace {
-// Master channels reserved for preview output. Picked from the tail of the
-// 32-channel master bus so they don't collide with project routing.
-constexpr audio::MasterChannelIndex kPreviewMasterL = 30;
-constexpr audio::MasterChannelIndex kPreviewMasterR = 31;
+} // namespace
+
+// Declared in the header: the control server serialises buses too.
+void merge_bus_dsp(const json& src, BusDsp& out) {
+    if (!src.is_object()) return;
+    out.eq_enabled  = src.value("eqEnabled",  out.eq_enabled);
+    out.dyn_enabled = src.value("dynEnabled", out.dyn_enabled);
+    const auto filter = [](const json& f, BusFilter& o) {
+        if (!f.is_object()) return;
+        o.freq_hz = f.value("freq", o.freq_hz);
+        o.q       = std::clamp(f.value("q", o.q), 0.1f, 40.0f);
+    };
+    if (src.contains("hpf")) filter(src["hpf"], out.hpf);
+    if (src.contains("lpf")) filter(src["lpf"], out.lpf);
+    if (src.contains("gate") && src["gate"].is_object()) {
+        const auto& g = src["gate"];
+        auto& o = out.gate;
+        out.gate_on   = g.value("on", out.gate_on);
+        o.threshold_db = std::clamp(g.value("threshold", o.threshold_db), -80.0f, 0.0f);
+        o.ratio        = std::clamp(g.value("ratio",     o.ratio),         1.0f, 20.0f);
+        o.range_db     = std::clamp(g.value("range",     o.range_db),    -80.0f, 0.0f);
+        o.attack_ms    = std::clamp(g.value("attack",    o.attack_ms),     0.1f, 100.0f);
+        o.hold_ms      = std::clamp(g.value("hold",      o.hold_ms),       0.0f, 1000.0f);
+        o.release_ms   = std::clamp(g.value("release",   o.release_ms),    5.0f, 5000.0f);
+    }
+    if (src.contains("comp") && src["comp"].is_object()) {
+        const auto& k = src["comp"];
+        auto& o = out.comp;
+        out.comp_on   = k.value("on", out.comp_on);
+        // Ranges match the surface's knobs. The ratio runs to 60:1 rather than
+        // the gate's 20 because the top of this control is meant to be a
+        // limiter setting, not a heavier compressor.
+        o.threshold_db = std::clamp(k.value("threshold", o.threshold_db), -60.0f, 0.0f);
+        o.ratio        = std::clamp(k.value("ratio",     o.ratio),          1.0f, 60.0f);
+        o.makeup_db    = std::clamp(k.value("makeup",    o.makeup_db),    -12.0f, 24.0f);
+        o.attack_ms    = std::clamp(k.value("attack",    o.attack_ms),      0.1f, 300.0f);
+        o.knee_db      = std::clamp(k.value("knee",      o.knee_db),        0.0f, 24.0f);
+        o.release_ms   = std::clamp(k.value("release",   o.release_ms),     5.0f, 5000.0f);
+    }
+    if (src.contains("width") && src["width"].is_object()) {
+        const auto& w = src["width"];
+        auto& o = out.width;
+        // 2.0 is the conventional top of a width control: past it the phantom
+        // centre is so far down that lead material sounds hollow, and the mono
+        // sum starts losing it altogether.
+        o.width        = std::clamp(w.value("width",      o.width),        0.0f, 2.0f);
+        o.bass_mono_hz = std::clamp(w.value("bassMonoHz", o.bass_mono_hz), 20.0f, 500.0f);
+        o.bass_mono_q  = std::clamp(w.value("bassMonoQ",  o.bass_mono_q),   0.1f, 4.0f);
+    }
+    if (src.contains("eq") && src["eq"].is_array()) {
+        const auto& arr = src["eq"];
+        for (std::size_t i = 0; i < kBusEqBands && i < arr.size(); ++i) {
+            if (!arr[i].is_object()) continue;
+            auto& b = out.eq[i];
+            b.freq_hz = arr[i].value("freq", b.freq_hz);
+            b.gain_db = std::clamp(arr[i].value("gain", b.gain_db), -24.0f, 24.0f);
+            b.q       = std::clamp(arr[i].value("q", b.q), 0.1f, 40.0f);
+            // Only the outer bands can be shelves. Refused here rather than
+            // ignored downstream, so what the document says and what the desk
+            // does cannot drift apart.
+            b.shelf   = (i == 0 || i == kBusEqBands - 1) &&
+                        arr[i].value("shelf", b.shelf);
+            // Past 2 a shelf overshoots into a resonant peak at the corner,
+            // which is not what the control means; the engine clamps too.
+            b.slope   = std::clamp(arr[i].value("slope", b.slope), 0.1f, 2.0f);
+        }
+    }
+}
+
+json bus_dsp_to_json(const BusDsp& d) {
+    json eq = json::array();
+    for (const auto& b : d.eq) {
+        eq.push_back(json{{"freq",  b.freq_hz}, {"gain",  b.gain_db}, {"q", b.q},
+                          {"shelf", b.shelf},   {"slope", b.slope}});
+    }
+    return json{
+        {"eqEnabled",  d.eq_enabled},
+        {"dynEnabled", d.dyn_enabled},
+        {"hpf", json{{"freq", d.hpf.freq_hz}, {"q", d.hpf.q}}},
+        {"lpf", json{{"freq", d.lpf.freq_hz}, {"q", d.lpf.q}}},
+        {"eq",  std::move(eq)},
+        {"gate", json{
+            {"on",        d.gate_on},
+            {"threshold", d.gate.threshold_db},
+            {"ratio",     d.gate.ratio},
+            {"range",     d.gate.range_db},
+            {"attack",    d.gate.attack_ms},
+            {"hold",      d.gate.hold_ms},
+            {"release",   d.gate.release_ms},
+        }},
+        {"comp", json{
+            {"on",        d.comp_on},
+            {"threshold", d.comp.threshold_db},
+            {"ratio",     d.comp.ratio},
+            {"makeup",    d.comp.makeup_db},
+            {"attack",    d.comp.attack_ms},
+            {"knee",      d.comp.knee_db},
+            {"release",   d.comp.release_ms},
+        }},
+        {"width", json{
+            {"width",      d.width.width},
+            {"bassMonoHz", d.width.bass_mono_hz},
+            {"bassMonoQ",  d.width.bass_mono_q},
+        }},
+    };
+}
+
+namespace {
+
+// Human-readable, stable-ish bus id derived from a name, so the document stays
+// legible instead of carrying opaque uuids. Uniqueness is the caller's problem.
+std::string bus_id_from_name(const std::string& name) {
+    std::string id;
+    for (char c : name) {
+        if (std::isalnum(static_cast<unsigned char>(c))) id += static_cast<char>(std::tolower(c));
+        else if (!id.empty() && id.back() != '-')        id += '-';
+    }
+    while (!id.empty() && id.back() == '-') id.pop_back();
+    return id.empty() ? std::string{"bus"} : id;
+}
 }  // namespace
+
+void ProjectState::load_buses_locked() {
+    buses_.clear();
+    // The bus list is about to change, so anything previously reported as
+    // unknown is worth reporting again if it is still unknown afterwards.
+    warned_unknown_buses_.clear();
+    std::unordered_set<std::string> seen;
+
+    if (document_.contains("buses") && document_["buses"].is_array()) {
+        for (const auto& b : document_["buses"]) {
+            if (!b.is_object()) continue;
+            BusDef d;
+            d.id = b.value("id", std::string{});
+            if (d.id.empty() || seen.count(d.id)) continue;   // drop junk / dupes
+            d.display_name = b.value("name", d.id);
+            d.color        = b.value("color", std::string{});
+            d.order        = b.value("order", 0);
+            d.width        = std::clamp(b.value("width", 2), 1, 2);
+            d.gain_db      = b.value("gainDb", 0.0f);
+            d.muted        = b.value("mute", false);
+            d.pan          = std::clamp(b.value("pan", 0.0f), -1.0f, 1.0f);
+            if (b.contains("dsp")) merge_bus_dsp(b["dsp"], d.dsp);
+            if (b.contains("output") && b["output"].is_object()) {
+                const auto& out = b["output"];
+                const auto kind = out.value("type", std::string{"master"});
+                d.output_kind = kind == "bus"    ? BusOutputKind::Bus
+                              : kind == "output" ? BusOutputKind::Output
+                                                 : BusOutputKind::Master;
+                d.output_target = out.value("target", std::string{});
+            }
+            seen.insert(d.id);
+            buses_.push_back(std::move(d));
+        }
+    }
+
+    // Main and Monitor always exist. A document that already defines them
+    // keeps its levels; one that doesn't gets them synthesised, which is what
+    // makes every pre-bus project load unchanged.
+    const auto ensure_system = [&](const char* id, const char* name, int order) -> BusDef& {
+        for (auto& b : buses_) {
+            if (b.id == id) { b.system = true; return b; }
+        }
+        BusDef d;
+        d.id           = id;
+        d.display_name = name;
+        d.order        = order;
+        d.system       = true;
+        buses_.push_back(std::move(d));
+        return buses_.back();
+    };
+    ensure_system(kMainBusId, "Main", 0);
+
+    // Monitor is where PFL lands, so it must not be pointed at the master —
+    // that would put every PFL'd channel into the house mix, live. A document
+    // written before PFL existed has Monitor on the master kind by default
+    // (nothing fed it, so it was harmless); moving it here is lossless and
+    // silent, because an unmapped output name resolves to no channels.
+    {
+        BusDef& mon = ensure_system(kMonitorBusId, "Monitor", 1'000'000);
+        if (mon.output_kind == BusOutputKind::Master) {
+            mon.output_kind   = BusOutputKind::Output;
+            mon.output_target = kMonitorOutputName;
+        }
+    }
+
+    // A project that named a default output device gets it moved onto Main,
+    // as a logical output. Because an unmapped name resolves back to a device
+    // of the same name, the audio keeps coming out of the same place — but the
+    // project no longer decides which hardware that is, which is the point:
+    // output binding belongs to the machine, not the show.
+    if (document_.contains("settings") && document_["settings"].is_object()) {
+        auto& settings = document_["settings"];
+        if (settings.contains("defaultOutputDevice") &&
+            settings["defaultOutputDevice"].is_string()) {
+            const auto device = settings["defaultOutputDevice"].get<std::string>();
+            settings.erase("defaultOutputDevice");
+            if (!device.empty()) {
+                for (auto& b : buses_) {
+                    if (b.id != kMainBusId) continue;
+                    if (b.output_kind == BusOutputKind::Master) {
+                        b.output_kind   = BusOutputKind::Output;
+                        b.output_target = device;
+                        Logger::info("migrated settings.defaultOutputDevice '{}' onto the Main bus",
+                                     device);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    migrate_device_overrides_locked();
+
+    std::stable_sort(buses_.begin(), buses_.end(),
+                     [](const BusDef& a, const BusDef& b) { return a.order < b.order; });
+}
+
+// Convert the legacy per-item `deviceOverride` into real buses.
+//
+// Before buses existed, "play this cue out of the other sound card" was a
+// device name written on the item. Each distinct device becomes one bus whose
+// output targets that name; because an unmapped logical name resolves back to
+// a device of the same name (see OutputMap::resolve), the audio lands exactly
+// where it did before. The field is then dropped — a project should carry one
+// routing concept, not two.
+void ProjectState::migrate_device_overrides_locked() {
+    std::unordered_map<std::string, std::string> device_to_bus;
+    int migrated = 0;
+
+    for_each_item(document_, [&](json& item, const std::string&) {
+        if (!item.contains("deviceOverride")) return;
+        std::string device;
+        if (item["deviceOverride"].is_string()) device = item["deviceOverride"].get<std::string>();
+        item.erase("deviceOverride");
+        if (device.empty()) return;
+
+        // An explicit bus assignment already says where this goes; the legacy
+        // field is just stale, so drop it and leave the assignment alone.
+        if (item.contains("busId") && item["busId"].is_string() &&
+            !item["busId"].get<std::string>().empty()) {
+            return;
+        }
+
+        auto it = device_to_bus.find(device);
+        if (it == device_to_bus.end()) {
+            const std::string base = bus_id_from_name(device);
+            std::string       id   = base;
+            for (int n = 2; ; ++n) {
+                bool taken = false;
+                for (const auto& b : buses_) if (b.id == id) { taken = true; break; }
+                if (!taken) break;
+                id = base + "-" + std::to_string(n);
+            }
+            BusDef d;
+            d.id            = id;
+            d.display_name  = device;
+            d.width         = 2;
+            d.output_kind   = BusOutputKind::Output;
+            d.output_target = device;
+            int max_order = 0;
+            for (const auto& b : buses_) if (!b.system) max_order = std::max(max_order, b.order);
+            d.order = max_order + 1;
+            buses_.push_back(d);
+            it = device_to_bus.emplace(device, id).first;
+        }
+        item["busId"] = it->second;
+        ++migrated;
+    });
+
+    if (migrated > 0) {
+        Logger::info("migrated {} item(s) from deviceOverride onto {} bus(es)",
+                     migrated, device_to_bus.size());
+    }
+}
+
+void ProjectState::write_buses_to_document_locked() {
+    json arr = json::array();
+    for (const auto& b : buses_) {
+        const char* kind = b.output_kind == BusOutputKind::Bus    ? "bus"
+                         : b.output_kind == BusOutputKind::Output ? "output"
+                                                                  : "master";
+        arr.push_back(json{
+            {"id",     b.id},
+            {"name",   b.display_name},
+            {"color",  b.color},
+            {"order",  b.order},
+            {"width",  b.width},
+            {"gainDb", b.gain_db},
+            {"mute",   b.muted},
+            {"pan",    b.pan},
+            {"dsp",    bus_dsp_to_json(b.dsp)},
+            {"output", json{{"type", kind}, {"target", b.output_target}}},
+        });
+    }
+    document_["buses"] = std::move(arr);
+}
+
+bool ProjectState::allocate_master_pair_locked(audio::MasterChannelIndex& l,
+                                               audio::MasterChannelIndex& r) {
+    // Reuse a pair handed back by a deleted or rewired bus before growing the
+    // monotonic counter, so churn doesn't march into the preview reserve.
+    if (!free_master_pairs_.empty()) {
+        l = free_master_pairs_.back();
+        r = l + 1;
+        free_master_pairs_.pop_back();
+        return true;
+    }
+    const audio::MasterChannelIndex bus_width     = engine_.config().master_channels;
+    const audio::MasterChannelIndex reserved_base = audio::preview_master_base(bus_width);
+    if (next_override_master_ + 1 >= reserved_base) return false;
+    l = next_override_master_;
+    r = next_override_master_ + 1;
+    next_override_master_ += 2;
+    return true;
+}
+
+void ProjectState::release_master_pair_locked(audio::MasterChannelIndex l) {
+    free_master_pairs_.push_back(l);
+}
+
+void ProjectState::unwire_bus(BusRouting& routing) {
+    if (routing.mixer.empty()) return;
+    routing.wired_channels.clear();
+    if (routing.reserved_pair) {
+        // Monitor's pair comes back off the strip and the device, but never
+        // goes into the pool — it belongs to the headphone output, and handing
+        // it to the next direct-out bus would put that bus in the operator's
+        // ears.
+        engine_.unroute_mixer_from_master(routing.mixer, routing.master_l);
+        engine_.unroute_mixer_from_master(routing.mixer, routing.master_r);
+        engine_.clear_master_assignment(routing.master_l);
+        engine_.clear_master_assignment(routing.master_r);
+        routing.reserved_pair = false;
+    } else if (routing.has_masters) {
+        engine_.unroute_mixer_from_master(routing.mixer, routing.master_l);
+        engine_.unroute_mixer_from_master(routing.mixer, routing.master_r);
+        engine_.clear_master_assignment(routing.master_l);
+        engine_.clear_master_assignment(routing.master_r);
+        std::lock_guard lock{mutex_};
+        release_master_pair_locked(routing.master_l);
+        routing.has_masters = false;
+    } else {
+        // Master-kind buses sit on the shared 0/1 pair, which is not ours to
+        // release — only our own sends come off it.
+        engine_.unroute_mixer_from_master(routing.mixer, 0);
+        engine_.unroute_mixer_from_master(routing.mixer, 1);
+    }
+}
+
+std::size_t ProjectState::rewire_buses_for_output_map() {
+    std::vector<BusDef>                         defs;
+    std::unordered_map<std::string, BusRouting> routings;
+    {
+        std::lock_guard lock{mutex_};
+        defs     = buses_;
+        routings = bus_routings_;
+    }
+
+    const auto same = [](const std::vector<OutputMap::Channel>& a,
+                         const std::vector<OutputMap::Channel>& b) {
+        if (a.size() != b.size()) return false;
+        for (std::size_t i = 0; i < a.size(); ++i) {
+            if (a[i].device != b[i].device || a[i].hw_channel != b[i].hw_channel) return false;
+        }
+        return true;
+    };
+
+    std::size_t moved = 0;
+    for (const auto& bus : defs) {
+        // Master- and Bus-kind buses never consult the map, and resolving
+        // their empty target would hit the identity fallback and look like a
+        // change on every save.
+        if (bus.output_kind != BusOutputKind::Output) continue;
+
+        auto it = routings.find(bus.id);
+        if (it == routings.end() || it->second.mixer.empty()) continue;
+
+        // A bus that failed to wire earlier has no recorded resolution, so it
+        // compares as changed and gets a retry — which is what you want after
+        // the operator has just fixed the map.
+        //
+        // Monitor is asked the same way it was wired. Comparing it against the
+        // plain map would use the identity fallback, which never matches a
+        // binding that came from settings.previewDevice — so every save of the
+        // output map tore down the headphone feed and built it again.
+        const auto resolved = bus.id == kMonitorBusId
+                                  ? resolve_monitor_channels(bus.output_target)
+                                  : outputs_.resolve(bus.output_target);
+        if (same(resolved, it->second.wired_channels)) continue;
+
+        BusRouting routing = it->second;
+        unwire_bus(routing);
+        wire_bus(bus, routing);
+        {
+            std::lock_guard lock{mutex_};
+            bus_routings_[bus.id] = routing;
+        }
+        ++moved;
+        Logger::info("output map changed: re-wired bus '{}' -> '{}'",
+                     bus.display_name, bus.output_target);
+    }
+    return moved;
+}
+
+audio::StripDspParams ProjectState::dsp_params_for(const BusDef& bus) const {
+    audio::StripDspParams p;
+    // Parked is out of circuit. A filter left at the end of its travel should
+    // be a genuine passthrough, not a 20 Hz section still bending phase across
+    // the bottom of the band — which is what "off" has to mean when the knob
+    // itself is the only control.
+    p.hpf.freq_hz = bus.dsp.hpf.freq_hz > 0.0f ? bus.dsp.hpf.freq_hz : kHpfParkedHz;
+    p.hpf.q       = bus.dsp.hpf.q;
+    p.hpf.enabled = p.hpf.freq_hz > kHpfParkedHz;
+
+    p.lpf.freq_hz = bus.dsp.lpf.freq_hz > 0.0f ? bus.dsp.lpf.freq_hz : kLpfParkedHz;
+    p.lpf.q       = bus.dsp.lpf.q;
+    p.lpf.enabled = p.lpf.freq_hz < kLpfParkedHz;
+
+    // A band at 0 dB is an identity whatever its Q, so it is left out of
+    // circuit rather than run to achieve nothing. ChannelDsp checks the gain
+    // again on its side; this keeps the two honest about the same rule.
+    //
+    // A bypassed section takes every band out while leaving the parameters
+    // untouched, so switching it back in restores exactly what was there.
+    for (std::size_t i = 0; i < kBusEqBands && i < audio::kEqBands; ++i) {
+        const auto& src = bus.dsp.eq[i];
+        auto&       dst = p.eq[i];
+        dst.freq_hz = src.freq_hz;
+        dst.gain_db = src.gain_db;
+        dst.q       = src.q;
+        dst.slope   = src.slope;
+        // Outer bands only, and which end follows from which band it is —
+        // the low band shelves the bottom, the high band the top.
+        dst.shelf     = src.shelf && (i == 0 || i + 1 == kBusEqBands);
+        dst.low_shelf = i == 0;
+        dst.enabled = bus.dsp.eq_enabled && src.gain_db != 0.0f;
+    }
+
+    // The gate needs both switches: its own, and the dynamics section's
+    // bypass. A ratio of 1 is also a no-op, so it is treated as off rather
+    // than run to multiply by one.
+    p.gate.enabled      = bus.dsp.dyn_enabled && bus.dsp.gate_on &&
+                          bus.dsp.gate.ratio > 1.0f && bus.dsp.gate.range_db < 0.0f;
+    p.gate.threshold_db = bus.dsp.gate.threshold_db;
+    p.gate.ratio        = bus.dsp.gate.ratio;
+    p.gate.range_db     = bus.dsp.gate.range_db;
+    p.gate.attack_ms    = bus.dsp.gate.attack_ms;
+    p.gate.hold_ms      = bus.dsp.gate.hold_ms;
+    p.gate.release_ms   = bus.dsp.gate.release_ms;
+
+    // Same pair of switches for the compressor. A ratio of 1 is a no-op here
+    // too — but only if the makeup is also zero, because ratio 1 with makeup is
+    // a legitimate way to use this as a plain gain stage, and switching it out
+    // from under the operator would silently lose the level they set.
+    p.comp.enabled      = bus.dsp.dyn_enabled && bus.dsp.comp_on &&
+                          (bus.dsp.comp.ratio > 1.0f || bus.dsp.comp.makeup_db != 0.0f);
+    p.comp.threshold_db = bus.dsp.comp.threshold_db;
+    p.comp.ratio        = bus.dsp.comp.ratio;
+    p.comp.knee_db      = bus.dsp.comp.knee_db;
+    p.comp.attack_ms    = bus.dsp.comp.attack_ms;
+    p.comp.release_ms   = bus.dsp.comp.release_ms;
+    p.comp.makeup_db    = bus.dsp.comp.makeup_db;
+
+    // Width is meaningless on a mono bus — there is no second lane to matrix
+    // against — so it is forced to identity rather than left for the render
+    // thread to skip. That way a bus narrowed to mono and then rebuilt as mono
+    // does not come back wide if it is ever widened again.
+    //
+    // No dyn_enabled here: the dynamics bypass is a bypass of the two dynamics
+    // processors, and width is neither. Its own parked position is its bypass.
+    if (bus.width >= 2) {
+        p.width.width        = bus.dsp.width.width;
+        p.width.bass_mono_hz = bus.dsp.width.bass_mono_hz;
+        p.width.bass_mono_q  = bus.dsp.width.bass_mono_q;
+    }
+
+    // The mono-sum audition, which is the Monitor strip's width forced to 0.
+    // It overrides whatever width Monitor is carrying, because the operator
+    // pressing MONO wants mono and not "mono times whatever was already set".
+    // Last, so nothing above can undo it.
+    if (bus.id == kMonitorBusId && monitor_mono_.load(std::memory_order_relaxed)) {
+        p.width.width = 0.0f;
+    }
+    return p;
+}
+
+bool ProjectState::set_monitor_mono(bool on) {
+    BusDef def;
+    audio::MixerChannelId mixer;
+    {
+        std::lock_guard lock{mutex_};
+        const auto bit = std::find_if(buses_.begin(), buses_.end(),
+                                      [](const BusDef& b) { return b.id == kMonitorBusId; });
+        if (bit == buses_.end()) return false;
+        def   = *bit;
+        mixer = mixer_for_bus(kMonitorBusId);
+    }
+    if (mixer.empty()) return false;
+    // Set before rebuilding the parameters, since dsp_params_for reads it.
+    monitor_mono_.store(on, std::memory_order_relaxed);
+    engine_.set_mixer_dsp(mixer, dsp_params_for(def));
+    return true;
+}
+
+bool ProjectState::set_bus_dsp_live(const std::string& id, const json& dsp) {
+    BusDef def;
+    audio::MixerChannelId mixer;
+    {
+        std::lock_guard lock{mutex_};
+        const auto bit = std::find_if(buses_.begin(), buses_.end(),
+                                      [&](const BusDef& b) { return b.id == id; });
+        if (bit == buses_.end()) return false;
+        def   = *bit;             // a copy: this is the in-gesture value
+        mixer = mixer_for_bus(id);
+    }
+    if (mixer.empty()) return false;
+
+    // Deliberately not written back to buses_, exactly as pan is not. patch_bus
+    // persists the settled value and re-applies the same coefficients.
+    merge_bus_dsp(dsp, def.dsp);
+    engine_.set_mixer_dsp(mixer, dsp_params_for(def));
+    return true;
+}
+
+bool ProjectState::set_bus_pan_live(const std::string& id, float pan) {
+    BusDef     def;
+    BusRouting routing;
+    {
+        std::lock_guard lock{mutex_};
+        const auto bit = std::find_if(buses_.begin(), buses_.end(),
+                                      [&](const BusDef& b) { return b.id == id; });
+        if (bit == buses_.end()) return false;
+        def = *bit;
+        const auto rit = bus_routings_.find(id);
+        if (rit == bus_routings_.end()) return false;
+        routing = rit->second;
+    }
+    // Deliberately not written back to buses_: this is the in-gesture value.
+    // patch_bus persists it on settle and will re-apply the same gains.
+    def.pan = std::clamp(pan, -1.0f, 1.0f);
+    apply_bus_pan(def, routing);
+    return true;
+}
+
+void ProjectState::apply_bus_pan(const BusDef& bus, const BusRouting& routing) {
+    if (routing.mixer.empty()) return;
+
+    // The strip needs its own copy: the PFL tap is taken upstream of the sends
+    // below, so it places the signal itself to stay post-pan. Without this a
+    // panned mono bus would sit dead centre in the phones.
+    engine_.set_mixer_pan(routing.mixer, bus.pan);
+
+    // One knob, two laws. A mono bus is PANNED — lane 0 is placed between the
+    // destination's lanes on the constant-power law (§2.5.3). A stereo bus is
+    // BALANCED — its own two lanes are trimmed against each other, and that
+    // law only ever attenuates, so correcting a lopsided mix cannot push the
+    // loud side up into the limiter. Both end up as the same two send gains.
+    const auto g = bus.width >= 2 ? audio::balance_gains_db(bus.pan)
+                                  : audio::pan_gains_db(bus.pan);
+
+    // ...and two source lanes, or one twice. A stereo bus keeps its own L and R
+    // and only has their gains trimmed; a mono bus sends lane 0 to both sides,
+    // which is what "placing" it means when there is only one of it.
+    const audio::ChannelIndex lane_l = 0;
+    const audio::ChannelIndex lane_r = bus.width >= 2 ? 1 : 0;
+
+    if (bus.output_kind == BusOutputKind::Master) {
+        engine_.route_mixer_to_master(routing.mixer, 0, g.left,  lane_l);
+        engine_.route_mixer_to_master(routing.mixer, 1, g.right, lane_r);
+        return;
+    }
+    if (bus.output_kind != BusOutputKind::Output || !routing.has_masters) return;
+    if (outputs_.resolve(bus.output_target).size() < 2) return;
+
+    engine_.route_mixer_to_master(routing.mixer, routing.master_l, g.left,  lane_l);
+    engine_.route_mixer_to_master(routing.mixer, routing.master_r, g.right, lane_r);
+}
+
+void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing) {
+    if (routing.mixer.empty()) return;
+
+    // Only the Output branch below consults the map; anything else is wired
+    // from nothing the map can change, so it records no resolution.
+    routing.wired_channels.clear();
+
+    if (bus.output_kind == BusOutputKind::Master) {
+        // One call for both widths. It places a mono bus by the pan law — at
+        // pan 0 both gains are -3 dB, so a centred mono source and a stereo
+        // fold-down agree — and trims a stereo bus by the balance law, which at
+        // centre is unity on both lanes and so is exactly the straight-through
+        // wiring this used to hard-code.
+        apply_bus_pan(bus, routing);
+        return;
+    }
+
+    if (bus.output_kind == BusOutputKind::Bus) {
+        Logger::warn("bus '{}' feeds another bus; bus→bus routing is not "
+                     "implemented yet, so it is silent", bus.display_name);
+        return;
+    }
+
+    // Monitor is wired differently enough to be its own function: fixed master
+    // pair, and a hardware binding that falls back to settings.previewDevice.
+    if (bus.id == kMonitorBusId) {
+        wire_monitor_bus(bus, routing);
+        return;
+    }
+
+    // What "FOH" means on this machine. Unmapped names fall back to being
+    // treated as a device name, which keeps a fresh install working with no
+    // configuration and lets legacy device overrides migrate unchanged.
+    const auto channels = outputs_.resolve(bus.output_target);
+    if (channels.empty()) {
+        Logger::warn("bus '{}': output '{}' resolves to nothing; leaving it silent",
+                     bus.display_name, bus.output_target);
+        return;
+    }
+    routing.wired_channels = channels;
+
+    if (!routing.has_masters) {
+        std::lock_guard lock{mutex_};
+        if (!allocate_master_pair_locked(routing.master_l, routing.master_r)) {
+            Logger::error("bus '{}': out of master channels; leaving it silent",
+                          bus.display_name);
+            return;
+        }
+        routing.has_masters = true;
+    }
+
+    // One master channel per physical output channel, up to the stereo cap.
+    const std::size_t used = std::min<std::size_t>(channels.size(), 2);
+    const audio::MasterChannelIndex masters[2] = {routing.master_l, routing.master_r};
+    for (std::size_t i = 0; i < used; ++i) {
+        const auto dev = engine_.open_device_by_name(channels[i].device, 2);
+        if (dev.empty()) {
+            Logger::warn("bus '{}': could not open device '{}'",
+                         bus.display_name, channels[i].device);
+            continue;
+        }
+        engine_.assign_master_to_device(masters[i], dev, channels[i].hw_channel);
+    }
+
+    if (bus.width >= 2 && used >= 2) {
+        // Balance rides on these two sends, exactly as pan does on the mono
+        // branch below. At centre it is unity on both, which is the
+        // straight-through wiring this used to hard-code.
+        apply_bus_pan(bus, routing);
+    } else if (bus.width >= 2) {
+        // Stereo bus folded into a mono output: both lanes at the pan law.
+        engine_.route_mixer_to_master(routing.mixer, routing.master_l,
+                                      audio::kDefaultDownmixDb, 0);
+        engine_.route_mixer_to_master(routing.mixer, routing.master_l,
+                                      audio::kDefaultDownmixDb, 1);
+    } else if (used >= 2) {
+        // Mono bus placed across a stereo output by the same pan law.
+        apply_bus_pan(bus, routing);
+    } else {
+        engine_.route_mixer_to_master(routing.mixer, routing.master_l, 0.0f, 0);
+    }
+
+    Logger::info("bus '{}' → output '{}' (masters {}/{}{})",
+                 bus.display_name, bus.output_target,
+                 routing.master_l, routing.master_r,
+                 outputs_.has(bus.output_target) ? "" : ", unmapped: name used as device");
+}
+
+std::vector<OutputMap::Channel> ProjectState::resolve_monitor_channels(
+        const std::string& logical_name) const {
+    // A real mapping wins. That is the portable answer, and the one the rest
+    // of this branch is moving everything towards.
+    if (outputs_.has(logical_name)) return outputs_.resolve(logical_name);
+
+    // Otherwise the project's own preview device, which is where pre-listen
+    // has always gone and what every existing project already carries. It is
+    // a device name in the document — the portability problem §0.3 lists —
+    // but dropping it would silently take pre-listen away from every user who
+    // has one configured, which is a worse trade than keeping the field alive
+    // until it is migrated deliberately.
+    std::string device;
+    {
+        std::lock_guard lock{mutex_};
+        if (document_.contains("settings") && document_["settings"].is_object()) {
+            const auto& s = document_["settings"];
+            if (s.contains("previewDevice") && s["previewDevice"].is_string())
+                device = s["previewDevice"].get<std::string>();
+        }
+    }
+    if (device.empty()) return {};
+    return {OutputMap::Channel{device, 0}, OutputMap::Channel{device, 1}};
+}
+
+void ProjectState::wire_monitor_bus(const BusDef& bus, BusRouting& routing) {
+    // Monitor owns the master pair the engine reserves at the top of the bus.
+    // That pair was already the preview bus's; giving it to Monitor is what
+    // merges the two, so PFL from the mixer and pre-listen from the playlist
+    // arrive in the same headphones, under the same fader, on the same meter.
+    // It is never drawn from the general pool — allocate_master_pair_locked
+    // stops below it precisely so nothing else can land here.
+    const audio::MasterChannelIndex l =
+        audio::preview_master_base(engine_.config().master_channels);
+    routing.master_l     = l;
+    routing.master_r     = l + 1;
+    routing.has_masters  = false;   // not ours to pool
+    routing.reserved_pair = true;
+
+    const auto channels = resolve_monitor_channels(bus.output_target);
+    if (channels.empty()) {
+        // Valid and silent, per §7.5. Deliberately NOT the identity fallback
+        // every other bus gets: open_device_by_name() falls back to the
+        // DEFAULT device when a name matches nothing, and for Monitor that
+        // means every PFL'd channel arriving in the house — the exact accident
+        // PFL was chosen over solo to make impossible.
+        Logger::warn("bus 'Monitor': no headphone output on this machine "
+                     "(no '{}' in the output map, no settings.previewDevice), "
+                     "so PFL and pre-listen are silent",
+                     bus.output_target);
+        return;
+    }
+    routing.wired_channels = channels;
+
+    const audio::MasterChannelIndex masters[2] = {routing.master_l, routing.master_r};
+    const std::size_t used = std::min<std::size_t>(channels.size(), 2);
+    for (std::size_t i = 0; i < used; ++i) {
+        const auto dev = engine_.open_device_by_name(channels[i].device, 2);
+        if (dev.empty()) {
+            Logger::warn("bus 'Monitor': could not open device '{}'", channels[i].device);
+            continue;
+        }
+        engine_.assign_master_to_device(masters[i], dev, channels[i].hw_channel);
+    }
+
+    if (used >= 2) {
+        engine_.route_mixer_to_master(routing.mixer, routing.master_l, 0.0f, 0);
+        engine_.route_mixer_to_master(routing.mixer, routing.master_r, 0.0f, 1);
+    } else {
+        // A one-channel headphone output: fold both lanes into it rather than
+        // dropping the right-hand side of everything being auditioned.
+        engine_.route_mixer_to_master(routing.mixer, routing.master_l,
+                                      audio::kDefaultDownmixDb, 0);
+        engine_.route_mixer_to_master(routing.mixer, routing.master_l,
+                                      audio::kDefaultDownmixDb, 1);
+    }
+
+    Logger::info("bus 'Monitor' -> '{}' on the reserved pair (masters {}/{}){}",
+                 channels[0].device, routing.master_l, routing.master_r,
+                 outputs_.has(bus.output_target) ? "" : " via settings.previewDevice");
+}
+
+void ProjectState::materialise_buses() {
+    std::vector<BusDef>                         defs;
+    std::unordered_map<std::string, BusRouting> previous;
+    {
+        std::lock_guard lock{mutex_};
+        defs = buses_;
+        // Copy rather than move, and leave bus_routings_ in place. Everything
+        // below runs with mutex_ released — it makes engine calls and can open
+        // devices — so emptying the table here would publish a state where
+        // every bus exists but reports no strip. A GET /api/buses landing in
+        // that window returned exactly that, and the mixer, which hides buses
+        // without a strip, showed an empty rail until it was remounted. The
+        // table is swapped once, at the end, instead.
+        previous = bus_routings_;
+        // A fresh project starts from a clean pool: every pair the outgoing
+        // one held is about to be torn down wholesale.
+        //
+        // The allocator is rewound with it. Clearing the pool alone abandoned
+        // every pair the outgoing project held — open enough projects in one
+        // session and the counter walks up into the preview reserve and the
+        // next direct-out bus has nowhere to go. Same leak §1.2 described for
+        // device_routings_, and visible here as the pair index climbing by two
+        // on every reload.
+        free_master_pairs_.clear();
+        next_override_master_ = kFirstOverrideMaster;
+    }
+
+    // Strips from the outgoing project are ours to clean up; nothing else
+    // tracks them, exactly as with device_routings_.
+    for (auto& [_, r] : previous) {
+        if (!r.mixer.empty()) engine_.remove_mixer_channel(r.mixer);
+        if (r.has_masters) {
+            engine_.clear_master_assignment(r.master_l);
+            engine_.clear_master_assignment(r.master_r);
+        }
+    }
+
+    std::unordered_map<std::string, BusRouting> created;
+    for (const auto& b : defs) {
+        BusRouting r;
+        r.mixer = engine_.create_mixer_channel(b.display_name);
+        if (r.mixer.empty()) {
+            Logger::error("materialise_buses: no strip available for bus '{}'", b.display_name);
+            continue;
+        }
+        if (auto* m = engine_.find_mixer_channel(r.mixer)) {
+            m->set_gain_db(b.gain_db);
+            m->set_mute(b.muted);
+            // Width so PFL can place this strip in the monitor; never PFL,
+            // because a project does not carry what the operator is listening
+            // to and a stale flag would be signal in the phones with nothing
+            // on screen to explain it.
+            m->set_width(static_cast<audio::ChannelCount>(b.width));
+            m->set_pan(b.pan);
+            m->set_pfl(false);
+            m->dsp().set_params(dsp_params_for(b));
+        }
+        wire_bus(b, r);
+        created[b.id] = r;
+        // Everything PFL'd taps this strip. Nominated after wiring so the
+        // engine never sees a monitor that is not yet connected to anything.
+        if (b.id == kMonitorBusId) engine_.set_monitor_mixer(r.mixer);
+    }
+
+    {
+        // One swap: the table goes straight from the outgoing routings to the
+        // new ones and is never observed empty in between. Readers in the gap
+        // above see the old strip ids, which are stale for a moment rather
+        // than absent — a meter reads silent and self-corrects, where a
+        // missing id made the whole bus disappear.
+        std::lock_guard lock{mutex_};
+        bus_routings_ = std::move(created);
+    }
+    Logger::info("materialise_buses: {} bus(es) live", defs.size());
+}
+
+// ---------------------------------------------------------------------------
+// Bus mutation. Each of these updates document_["buses"] so the change is
+// saved, and touches only the affected strip so unrelated buses keep playing.
+// ---------------------------------------------------------------------------
+std::optional<BusDef> ProjectState::create_bus(const json& spec) {
+    BusDef d;
+    d.display_name = spec.value("name", std::string{"Bus"});
+    d.color        = spec.value("color", std::string{});
+    d.width        = std::clamp(spec.value("width", 2), 1, 2);
+    d.gain_db      = spec.value("gainDb", 0.0f);
+    d.muted        = spec.value("mute", false);
+    d.pan          = std::clamp(spec.value("pan", 0.0f), -1.0f, 1.0f);
+    if (spec.contains("output") && spec["output"].is_object()) {
+        const auto& out  = spec["output"];
+        const auto  kind = out.value("type", std::string{"master"});
+        d.output_kind = kind == "bus"    ? BusOutputKind::Bus
+                      : kind == "output" ? BusOutputKind::Output
+                                         : BusOutputKind::Master;
+        d.output_target = out.value("target", std::string{});
+    }
+
+    {
+        std::lock_guard lock{mutex_};
+        const std::string base = bus_id_from_name(d.display_name);
+        std::string       id   = base;
+        for (int n = 2; ; ++n) {
+            bool taken = false;
+            for (const auto& b : buses_) if (b.id == id) { taken = true; break; }
+            if (!taken) break;
+            id = base + "-" + std::to_string(n);
+        }
+        d.id = id;
+        // New buses land above Monitor, which deliberately sorts last.
+        int max_order = 0;
+        for (const auto& b : buses_) if (!b.system) max_order = std::max(max_order, b.order);
+        d.order = spec.value("order", max_order + 1);
+        buses_.push_back(d);
+        std::stable_sort(buses_.begin(), buses_.end(),
+                         [](const BusDef& a, const BusDef& b) { return a.order < b.order; });
+        write_buses_to_document_locked();
+    }
+
+    BusRouting r;
+    r.mixer = engine_.create_mixer_channel(d.display_name);
+    if (r.mixer.empty()) {
+        Logger::error("create_bus: no strip available for '{}'", d.display_name);
+        std::lock_guard lock{mutex_};
+        buses_.erase(std::remove_if(buses_.begin(), buses_.end(),
+                                    [&](const BusDef& b) { return b.id == d.id; }),
+                     buses_.end());
+        write_buses_to_document_locked();
+        return std::nullopt;
+    }
+    if (auto* m = engine_.find_mixer_channel(r.mixer)) {
+        m->set_gain_db(d.gain_db);
+        m->set_mute(d.muted);
+        m->set_width(static_cast<audio::ChannelCount>(d.width));
+        m->set_pan(d.pan);
+        m->dsp().set_params(dsp_params_for(d));
+    }
+    wire_bus(d, r);
+    {
+        std::lock_guard lock{mutex_};
+        bus_routings_[d.id] = r;
+    }
+    Logger::info("create_bus: '{}' ({})", d.display_name, d.id);
+    return d;
+}
+
+ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
+                                                     const json& patch) {
+    // Checked before anything is mutated, so a refused patch leaves the bus
+    // exactly as it was rather than half-applied.
+    //
+    // Monitor carries PFL. Sending it to the master would put every PFL'd
+    // channel into the house mix — one click, live, in front of an audience,
+    // which is the failure mode PFL was chosen over solo to avoid. It goes to
+    // hardware or nowhere.
+    if (id == kMonitorBusId && patch.contains("output") && patch["output"].is_object() &&
+        patch["output"].value("type", std::string{"master"}) == "master") {
+        Logger::warn("patch_bus: refusing to route Monitor to the master bus");
+        return PatchBusResult::Refused;
+    }
+
+    BusDef     updated;
+    BusRouting routing;
+    bool       found       = false;
+    bool       needs_rewire = false;
+    bool       pan_moved    = false;
+    bool       dsp_moved    = false;
+    {
+        std::lock_guard lock{mutex_};
+        for (auto& b : buses_) {
+            if (b.id != id) continue;
+            found = true;
+            if (patch.contains("name"))   b.display_name = patch.value("name", b.display_name);
+            if (patch.contains("color"))  b.color        = patch.value("color", b.color);
+            if (patch.contains("order"))  b.order        = patch.value("order", b.order);
+            if (patch.contains("gainDb")) b.gain_db      = patch.value("gainDb", b.gain_db);
+            if (patch.contains("mute"))   b.muted        = patch.value("mute", b.muted);
+            if (patch.contains("width")) {
+                const int w = std::clamp(patch.value("width", b.width), 1, 2);
+                if (w != b.width) { b.width = w; needs_rewire = true; }
+            }
+            if (patch.contains("pan")) {
+                const float p = std::clamp(patch.value("pan", b.pan), -1.0f, 1.0f);
+                if (p != b.pan) { b.pan = p; pan_moved = true; }
+            }
+            if (patch.contains("dsp")) {
+                merge_bus_dsp(patch["dsp"], b.dsp);
+                dsp_moved = true;
+            }
+            if (patch.contains("output") && patch["output"].is_object()) {
+                const auto& out  = patch["output"];
+                const auto  kind = out.value("type", std::string{"master"});
+                const auto  k    = kind == "bus"    ? BusOutputKind::Bus
+                                 : kind == "output" ? BusOutputKind::Output
+                                                    : BusOutputKind::Master;
+                const auto  t    = out.value("target", std::string{});
+                if (k != b.output_kind || t != b.output_target) {
+                    b.output_kind   = k;
+                    b.output_target = t;
+                    needs_rewire    = true;
+                }
+            }
+            updated = b;
+            break;
+        }
+        if (!found) return PatchBusResult::NotFound;
+        std::stable_sort(buses_.begin(), buses_.end(),
+                         [](const BusDef& a, const BusDef& b) { return a.order < b.order; });
+        write_buses_to_document_locked();
+        auto it = bus_routings_.find(id);
+        if (it != bus_routings_.end()) routing = it->second;
+    }
+
+    // Level and mute apply straight to the live strip — no rewire, no gap.
+    if (!routing.mixer.empty()) {
+        if (auto* m = engine_.find_mixer_channel(routing.mixer)) {
+            m->set_gain_db(updated.gain_db);
+            m->set_mute(updated.muted);
+            if (patch.contains("name")) m->set_display_name(updated.display_name);
+        }
+        if (needs_rewire) {
+            // Width is part of needs_rewire, and it also decides how PFL
+            // places this strip in the monitor — so the engine has to be told
+            // even for a bus that is only ever listened to.
+            engine_.set_mixer_width(routing.mixer,
+                                    static_cast<audio::ChannelCount>(updated.width));
+            unwire_bus(routing);
+            wire_bus(updated, routing);
+            std::lock_guard lock{mutex_};
+            bus_routings_[id] = routing;
+        } else if (pan_moved) {
+            // Send gains only — a pan drag must not tear the routing down.
+            apply_bus_pan(updated, routing);
+        }
+        // Tone controls never touch routing: new coefficients into the strip's
+        // own slot and nothing else moves.
+        if (dsp_moved) engine_.set_mixer_dsp(routing.mixer, dsp_params_for(updated));
+    }
+    return PatchBusResult::Ok;
+}
+
+bool ProjectState::set_bus_pfl(const std::string& id, bool on) {
+    audio::MixerChannelId mixer;
+    {
+        std::lock_guard lock{mutex_};
+        // The Monitor bus is the destination, not a source. The engine
+        // refuses this too; catching it here means the API can say so.
+        if (id == kMonitorBusId) return false;
+        const auto bit = std::find_if(buses_.begin(), buses_.end(),
+                                      [&](const BusDef& b) { return b.id == id; });
+        if (bit == buses_.end()) return false;
+        mixer = mixer_for_bus(id);
+    }
+    if (mixer.empty()) return false;
+    engine_.set_mixer_pfl(mixer, on);
+    return true;
+}
+
+std::size_t ProjectState::clear_all_pfl() {
+    return engine_.clear_all_pfl();
+}
+
+bool ProjectState::delete_bus(const std::string& id) {
+    BusRouting routing;
+    {
+        std::lock_guard lock{mutex_};
+        auto it = std::find_if(buses_.begin(), buses_.end(),
+                               [&](const BusDef& b) { return b.id == id; });
+        if (it == buses_.end()) return false;
+        if (it->system) {
+            Logger::warn("delete_bus: '{}' is a system bus and cannot be deleted", id);
+            return false;
+        }
+        buses_.erase(it);
+
+        // Items pointing at the bus that just went away fall back to Main by
+        // losing their assignment, rather than being left dangling.
+        for_each_item(document_, [&](json& item, const std::string&) {
+            if (item.contains("busId") && item["busId"].is_string() &&
+                item["busId"].get<std::string>() == id) {
+                item.erase("busId");
+            }
+        });
+        write_buses_to_document_locked();
+
+        auto rit = bus_routings_.find(id);
+        if (rit != bus_routings_.end()) {
+            routing = rit->second;
+            bus_routings_.erase(rit);
+        }
+    }
+
+    if (!routing.mixer.empty()) {
+        unwire_bus(routing);                       // returns the pair to the pool
+        engine_.remove_mixer_channel(routing.mixer);
+    }
+    Logger::info("delete_bus: '{}'", id);
+    return true;
+}
+
+std::string ProjectState::resolve_item_bus(const std::string& item_uuid) const {
+    if (item_uuid.empty()) return kMainBusId;
+
+    // Walk the tree carrying the nearest ancestor's assignment down. An item's
+    // own busId overrides whatever it inherited, so "item beats group" falls
+    // out of the ordering rather than needing a second pass.
+    std::string found;
+    bool        hit = false;
+    std::function<bool(const json&, const std::string&)> walk =
+        [&](const json& arr, const std::string& inherited) -> bool {
+            if (!arr.is_array()) return false;
+            for (const auto& it : arr) {
+                if (!it.is_object()) continue;
+                std::string effective = inherited;
+                if (it.contains("busId") && it["busId"].is_string()) {
+                    auto v = it["busId"].get<std::string>();
+                    if (!v.empty()) effective = std::move(v);
+                }
+                if (it.value("uuid", std::string{}) == item_uuid) {
+                    found = effective;
+                    hit   = true;
+                    return true;
+                }
+                if (it.value("type", std::string{}) == "group" &&
+                    it.contains("children") && it["children"].is_array()) {
+                    if (walk(it["children"], effective)) return true;
+                }
+            }
+            return false;
+        };
+
+    if (document_.contains("items")) walk(document_["items"], std::string{});
+    if (!hit && document_.contains("cartOnlyItems") && document_["cartOnlyItems"].is_array()) {
+        for (const auto& it : document_["cartOnlyItems"]) {
+            if (!it.is_object()) continue;
+            if (it.value("uuid", std::string{}) != item_uuid) continue;
+            if (it.contains("busId") && it["busId"].is_string())
+                found = it["busId"].get<std::string>();
+            break;
+        }
+    }
+
+    if (found.empty()) return kMainBusId;
+    // An assignment naming a bus that no longer exists falls back to Main
+    // rather than leaving the cue unrouted and silent.
+    for (const auto& b : buses_) {
+        if (b.id == found) return found;
+    }
+    // Once per unknown bus id, not once per item per resolve. This runs for
+    // every item on every save and every mixer poll, so a project carrying a
+    // few stale assignments produced a steady stream of identical warnings —
+    // the kind of noise that hides the one line that matters mid-show. The set
+    // is cleared whenever the bus list is reloaded, so a genuine change says
+    // so again.
+    if (warned_unknown_buses_.insert(found).second) {
+        Logger::warn("resolve_item_bus: item '{}' names unknown bus '{}'; using Main. "
+                     "The assignment is kept, so it takes effect again if that bus returns.",
+                     item_uuid, found);
+    }
+    return kMainBusId;
+}
+
+std::vector<ProjectState::BusInfo> ProjectState::list_buses() const {
+    std::vector<BusInfo> out;
+    {
+    std::lock_guard lock{mutex_};
+    out.reserve(buses_.size());
+    for (const auto& b : buses_) {
+        BusInfo info;
+        info.def   = b;
+        info.mixer = mixer_for_bus(b.id);
+        // Master-kind buses need no binding — they land in the house pair,
+        // which the engine always wires. Everything else is bound only if it
+        // resolved to real channels when it was wired.
+        const auto rit = bus_routings_.find(b.id);
+        info.bound = b.output_kind == BusOutputKind::Master ||
+                     (rit != bus_routings_.end() && !rit->second.wired_channels.empty());
+        // Only Monitor can be folded to mono for auditioning, so only Monitor
+        // ever reports it.
+        info.mono_check = b.id == kMonitorBusId &&
+                          monitor_mono_.load(std::memory_order_relaxed);
+        out.push_back(std::move(info));
+    }
+
+    // Attribute every audio item to the bus it actually resolves to, so the
+    // caller sees inherited and overridden assignments rather than only the
+    // ones written on the item itself.
+    const auto attribute = [&](const json& it) {
+        if (!it.is_object()) return;
+        if (it.value("type", std::string{}) != "audio") return;
+        const auto uuid = it.value("uuid", std::string{});
+        if (uuid.empty()) return;
+        const auto bus_id = resolve_item_bus(uuid);
+        for (auto& info : out) {
+            if (info.def.id == bus_id) { info.item_uuids.push_back(uuid); return; }
+        }
+    };
+    std::function<void(const json&)> walk = [&](const json& arr) {
+        if (!arr.is_array()) return;
+        for (const auto& it : arr) {
+            attribute(it);
+            if (it.is_object() && it.value("type", std::string{}) == "group" &&
+                it.contains("children")) {
+                walk(it["children"]);
+            }
+        }
+    };
+    if (document_.contains("items")) walk(document_["items"]);
+    if (document_.contains("cartOnlyItems")) walk(document_["cartOnlyItems"]);
+    }
+
+    // PFL is read from the live strip, not the document — it is monitoring
+    // state, not part of the show. A project that reopened with PFL latched on
+    // some bus would put signal in the operator's headphones for reasons
+    // nothing on screen explains. Asked outside the lock: this calls into the
+    // engine, which takes its own.
+    for (auto& info : out) {
+        if (info.mixer.empty()) continue;
+        if (auto* m = engine_.find_mixer_channel(info.mixer)) info.pfl = m->is_pfl();
+    }
+    return out;
+}
+
+audio::MixerChannelId ProjectState::mixer_for_bus(const std::string& bus_id) const {
+    auto it = bus_routings_.find(bus_id);
+    return it == bus_routings_.end() ? audio::MixerChannelId{} : it->second.mixer;
+}
 
 bool ProjectState::start_preview(const std::string& item_uuid) {
     if (item_uuid.empty()) return false;
 
-    // 1. Resolve the source file path under the lock.
+    // 1. Resolve the source file and the strip to audition it on, under the
+    //    lock. Pre-listen goes to the Monitor bus — the same strip PFL feeds —
+    //    so there is no preview device or preview mixer to set up here any
+    //    more. Monitor is wired when the project is materialised.
     std::filesystem::path file_path;
-    double in_point = 0.0;
-    std::string preview_device_name;
+    double in_point  = 0.0;
+    float  gain_db   = 0.0f;
+    audio::MixerChannelId preview_mixer;
     {
         std::lock_guard lock{mutex_};
-        // path
         for_each_item(document_,
             [&](json& it, const std::string&) {
                 if (it.value("uuid", std::string{}) != item_uuid) return;
@@ -3434,17 +4835,26 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
                     it, document_.value("folderPath", std::string{}));
                 if (!p.empty()) file_path = std::move(p);
                 in_point = it.value("inPoint", 0.0);
+                // The item's own level, same 0..2 linear field playback uses.
+                // Auditioning is meant to answer "what will this sound like
+                // when I fire it", and a preview that ignored the trim you
+                // just set answered a different question — audibly so now
+                // that pre-listen and PFL share one meter.
+                if (it.contains("volume") && it["volume"].is_number()) {
+                    const float lin = it["volume"].get<float>();
+                    gain_db = (lin <= 0.0001f) ? -120.0f
+                                               : 20.0f * std::log10(lin);
+                }
             });
-        // settings.previewDevice
-        if (document_.contains("settings") && document_["settings"].is_object()) {
-            const auto& s = document_["settings"];
-            if (s.contains("previewDevice") && s["previewDevice"].is_string()) {
-                preview_device_name = s["previewDevice"].get<std::string>();
-            }
-        }
+        preview_mixer = mixer_for_bus(kMonitorBusId);
     }
     if (file_path.empty()) {
         Logger::warn("preview: item '{}' has no resolvable file path", item_uuid);
+        return false;
+    }
+    if (preview_mixer.empty()) {
+        Logger::warn("preview: the Monitor bus has no engine strip, so there is "
+                     "nowhere to audition '{}'", item_uuid);
         return false;
     }
 
@@ -3464,67 +4874,17 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
         }
     }
 
-    // 3. Ensure preview infrastructure (device open + mixer + master wiring).
-    audio::MixerChannelId preview_mixer;
-    {
-        // If the user changed the preview device since our last setup,
-        // close the old one and start fresh.
-        std::string current_name;
-        audio::DeviceId current_device;
-        audio::MixerChannelId current_mixer;
-        {
-            std::lock_guard lock{mutex_};
-            current_name   = preview_device_name_;
-            current_device = preview_device_;
-            current_mixer  = preview_mixer_;
-        }
-
-        if (preview_device_name.empty()) {
-            Logger::warn("preview: no preview device configured in settings");
-            return false;
-        }
-
-        if (current_name != preview_device_name && !current_device.empty()) {
-            // Close old preview device + mixer.
-            engine_.close_device(current_device);
-            if (!current_mixer.empty()) engine_.remove_mixer_channel(current_mixer);
-            std::lock_guard lock{mutex_};
-            preview_device_ = audio::DeviceId{};
-            preview_mixer_  = audio::MixerChannelId{};
-            preview_device_name_.clear();
-        }
-
-        if (preview_device_.empty()) {
-            // Open the device, create a dedicated "Preview" mixer, wire it.
-            const auto dev = engine_.open_device_by_name(preview_device_name, 2);
-            if (dev.empty()) {
-                Logger::warn("preview: could not open device '{}'", preview_device_name);
-                return false;
-            }
-            const auto mixer = engine_.create_mixer_channel("Preview");
-            engine_.assign_master_to_device(kPreviewMasterL, dev, 0);
-            engine_.assign_master_to_device(kPreviewMasterR, dev, 1);
-            engine_.route_mixer_to_master(mixer, kPreviewMasterL, 0.0f, 0);
-            engine_.route_mixer_to_master(mixer, kPreviewMasterR, 0.0f, 1);
-            {
-                std::lock_guard lock{mutex_};
-                preview_device_      = dev;
-                preview_mixer_       = mixer;
-                preview_device_name_ = preview_device_name;
-                preview_mixer = mixer;
-            }
-        } else {
-            preview_mixer = preview_mixer_;
-        }
-    }
-
-    // 4. Load the file as a fresh engine cue, route it to the preview mixer
+    // 3. Load the file as a fresh engine cue, route it to the Monitor strip
     // ONLY (no auto-routing to Main). prime + play.
     const auto cue_id = engine_.load_cue_no_route(file_path);
     if (cue_id.empty()) return false;
 
     auto* pi = engine_.find_cue(cue_id);
     if (pi) {
+        // The item's level, and only that. Not its fades — a preview that
+        // faded in would hide the start of what you are checking — and not its
+        // LTC, which belongs to the show, not to an audition.
+        pi->set_gain_db(gain_db);
         if (pi->source_channel_count() >= 2) {
             // Stereo: L → lane 0, R → lane 1.
             engine_.route_item_source_to_mixer(cue_id, 0, preview_mixer, 0.0f, 0);
@@ -3543,7 +4903,7 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
         preview_cue_       = cue_id;
         preview_item_uuid_ = item_uuid;
     }
-    Logger::info("preview: started for item '{}' on '{}'", item_uuid, preview_device_name);
+    Logger::info("preview: started for item '{}' on the Monitor bus", item_uuid);
     return true;
 }
 
@@ -3787,8 +5147,17 @@ bool ProjectState::load_from_json(const json& doc_in) {
             item_routes_.clear();
             mixer_routes_.clear();
             master_assignments_.clear();
+            // The outgoing project's device overrides are meaningless to the
+            // incoming one, and their master pairs are never otherwise
+            // reclaimed — see release_device_routings_locked().
+            release_device_routings_locked();
 
             document_ = std::move(doc_repaired);
+            // Read the incoming document's buses (synthesising Main/Monitor if
+            // it predates them) and write them back so the shape is canonical
+            // from here on. Strips are created after the lock is released.
+            load_buses_locked();
+            write_buses_to_document_locked();
             // Ensure required top-level keys exist (migrate older client saves).
             if (!document_.contains("settings") || !document_["settings"].is_object()) {
                 document_["settings"] = json{
@@ -3808,6 +5177,10 @@ bool ProjectState::load_from_json(const json& doc_in) {
             update_media_root_from_folder_locked();
             pending_repair_info_ = std::move(repair);
         }
+
+        // Create the engine strips for this project's buses. Outside the lock:
+        // every engine call takes its own.
+        materialise_buses();
 
         // Audio mirroring happens off-thread so the client can render the
         // project immediately. Items not yet loaded into the engine will
@@ -3833,6 +5206,7 @@ bool ProjectState::load_from_json(const json& doc_in) {
     std::lock_guard lock{mutex_};
     for (auto& [_, id] : item_uuid_to_cue_) engine_.unload_cue(id);
     item_uuid_to_cue_.clear();
+    primed_cues_.clear();
     cues_.clear();
     mixers_.clear();
     item_routes_.clear();
@@ -3879,7 +5253,12 @@ bool ProjectState::load_from_json(const json& doc_in) {
             mm.display_name = m.value("display_name", "");
             mm.gain_db      = m.value("gain_db", 0.0f);
             mm.muted        = m.value("muted",   false);
-            mm.soloed       = m.value("soloed",  false);
+            // `soloed` is the pre-PFL spelling. Reading it here and writing
+            // `pfl` back is the whole of the migration §5.3 asked for — solo
+            // was never reachable from the UI, so a document carrying it is
+            // unlikely, and the two meant close enough to the same thing for
+            // the value to survive.
+            mm.pfl          = m.value("pfl", m.value("soloed", false));
             mixers_.emplace(mm.id.value, std::move(mm));
         }
     }
@@ -3988,7 +5367,7 @@ void ProjectState::apply_to_engine_locked() {
         if (!id.empty()) {
             // Cache the lookup once and null-check it — find_cue can return
             // null (e.g. the load raced with an unload) and the previous code
-            // dereferenced it up to six times unchecked. (#5)
+            // dereferenced it up to six times unchecked. 
             auto* cue = engine_.find_cue(id);
             if (!cue) continue;
             cue->set_gain_db(c.gain_db);
@@ -4011,7 +5390,7 @@ void ProjectState::apply_to_engine_locked() {
         if (auto* m = engine_.find_mixer_channel(created)) {
             m->set_gain_db(mm.gain_db);
             m->set_mute (mm.muted);
-            m->set_solo (mm.soloed);
+            m->set_pfl  (mm.pfl);
         }
     }
     // 3) Re-apply routes.

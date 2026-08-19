@@ -136,14 +136,40 @@ liveplay-server [options]
   -b, --bind <addr>         Interface to bind (default 0.0.0.0)
       --pidfile <path>      Write JSON {pid,port,startedAt} after binding
       --start-delay-ms <n>  Wait <n> ms before binding (used by crash-restart)
+      --meter-hz <n>        WebSocket meter push rate, 1-120 (default 30)
+      --max-upload-mb <n>   Max upload size in MiB, 1-8192 (default 256)
+
+  Engine (applied at boot — the engine cannot be re-initialised later):
+      --mix-sample-rate <hz>    Mix sample rate, 8000-192000 (default 48000)
+      --render-block <frames>   Render block size, 32-8192 (default 256)
+      --master-channels <n>     Master bus width, 4-1024 (default 32)
+      --master-ceiling-db <db>  Limiter ceiling, -24.0-0.0 (default -0.3)
+
   -v, --verbose             Enable debug-level logging
   -h, --help                Show this help and exit
 
 Environment:
-  LIVEPLAY_PORT         Same as --port
-  NO_COLOR=1            Disable ANSI colour in logs
-  FORCE_COLOR=1         Force colour even when stdout isn't a tty
+  LIVEPLAY_PORT              Same as --port
+  LIVEPLAY_MIX_SAMPLE_RATE   Same as --mix-sample-rate
+  LIVEPLAY_RENDER_BLOCK      Same as --render-block
+  LIVEPLAY_MASTER_CHANNELS   Same as --master-channels
+  LIVEPLAY_MASTER_CEILING_DB Same as --master-ceiling-db
+  LIVEPLAY_METER_HZ          Same as --meter-hz
+  LIVEPLAY_MAX_UPLOAD_MB     Same as --max-upload-mb
+  NO_COLOR=1                 Disable ANSI colour in logs
+  FORCE_COLOR=1              Force colour even when stdout isn't a tty
 ```
+
+A CLI flag always overrides the matching environment variable. Values that are
+unparseable or out of range are reported in the log and then **ignored** — the
+built-in default stays in force rather than a typo silently misconfiguring the
+engine.
+
+Master-bus geometry is not fixed: the top two channels are always reserved for
+the Preview bus, so at the default 32-wide bus preview sits on 30/31, and at a
+16-wide bus on 14/15. Clients must read `masterChannels` / `previewMasterL` /
+`previewMasterR` from `GET /api/state/summary` (or the `master_bus` block in the
+`playback_snapshot` WebSocket frame) rather than assuming 30/31.
 
 The control surface listens on **TCP 4480** (REST + WebSocket). Alongside it, the
 [discovery beacon](include/liveplay/net/discovery.hpp) announces the server on
@@ -184,12 +210,12 @@ Every cue's audio goes through three explicit tiers, in order, on the engine's r
  PlaybackItem  ─send─►  MixerChannel  ─send─►  Master Output Bus  ─hw─►  Device:HwCh
    (one per                (group bus,            (per-channel
    live cue,               gain/mute/             brick-wall
-   own decoder)            solo/fade)             limiter)
+   own decoder)            PFL/fade)              limiter)
 ```
 
 - **Tier 1 — [`PlaybackItem`](include/liveplay/audio/playback_item.hpp)**: one instance per active cue, with its own `ma_decoder`, gain/fade state machine, optional LTC generator, and a per-source-channel meter. Loading the same `.wav` into two cart slots yields **two independent instances**; attenuating one never affects the other.
-- **Tier 2 — [`MixerChannel`](include/liveplay/audio/mixer_channel.hpp)**: a virtual strip with gain, mute, solo, and a smooth-fade ramp. Many items can route into one channel; one item's source channels can fan out to multiple channels.
-- **Tier 3 — Master output bus** ([`engine.hpp`](include/liveplay/audio/engine.hpp)): up to 64 logical master channels (configurable). Each carries a limiter + meter and is assigned to exactly one `(Device, HardwareChannelIndex)` tuple.
+- **Tier 2 — [`MixerChannel`](include/liveplay/audio/mixer_channel.hpp)**: a virtual strip with gain, mute, PFL, and a smooth-fade ramp. Many items can route into one channel; one item's source channels can fan out to multiple channels. PFL adds a pre-fader, pre-mute tap into the designated Monitor strip and changes nothing else — it replaced solo, which no UI ever reached and which cost the render thread a per-block scan of every strip.
+- **Tier 3 — Master output bus** ([`engine.hpp`](include/liveplay/audio/engine.hpp)): 32 logical master channels by default, configurable from 4 to 1024 via `--master-channels`. Each carries a limiter + meter and is assigned to exactly one `(Device, HardwareChannelIndex)` tuple. The top two are reserved for the **Monitor** bus — the pre-listen destination, where both PFL and cue preview land.
 
 All three tiers run at a 256-frame block (~5.3 ms at 48 kHz). Meters and limiter envelopes update once per block.
 
@@ -318,7 +344,7 @@ This is the low-level cue surface — for normal use, prefer the project-item su
 
 | Method · Path | Body | Response |
 |---------------|------|----------|
-| `GET /api/mixers` | — | `[ { "id": "…", "display_name": "…", "gain_db": 0.0, "muted": false, "soloed": false } ]` |
+| `GET /api/mixers` | — | `[ { "id": "…", "display_name": "…", "gain_db": 0.0, "muted": false, "pfl": false } ]` |
 | `POST /api/mixers` | `{ "name": "Channel" }` | `{ "id": "…" }` |
 | `DELETE /api/mixers/<id>` | — | `{ "ok": true }` |
 
