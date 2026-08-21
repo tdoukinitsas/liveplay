@@ -691,6 +691,10 @@ void ProjectState::start_async_mirror() {
     load_progress_total_.store(0, std::memory_order_release);
 
     load_thread_ = std::thread([this] {
+        // Items this pass actually loaded into the engine. They come out of
+        // Phase 3 wired to the engine's default routing, which is not where
+        // their bus says they belong — see the reroute at the bottom.
+        std::vector<std::string> newly_loaded;
         try {
             // Phase 1: snapshot what we need to load under a brief lock.
             std::unordered_map<std::string, std::filesystem::path> wanted;
@@ -812,6 +816,7 @@ void ProjectState::start_async_mirror() {
                         continue;
                     }
                     item_uuid_to_cue_.emplace(l.uuid, l.cue_id);
+                    newly_loaded.push_back(l.uuid);
 
                     CueMeta meta;
                     meta.id           = l.cue_id;
@@ -950,6 +955,30 @@ void ProjectState::start_async_mirror() {
         // when the user changed the setting, so on load the project's chosen
         // device was ignored until re-selected. (#30)
         apply_default_device_routing();
+
+        // Bus assignment is the last word on where an item goes, so it is
+        // applied last — after ensure_default_routing() and the legacy
+        // default-device pass have both had their say.
+        //
+        // Until this ran, an item carrying a busId sat on the engine's default
+        // routing from the moment the project opened until the first time it
+        // was played, because only play_item() consulted resolve_item_bus().
+        // That is audible before a single GO: PFL and the bus meters were
+        // reading the wrong strip, and an item assigned to a bus with its own
+        // output was still wired to the house pair.
+        //
+        // Only the items this pass loaded. An ordinary save re-runs the mirror
+        // with nothing new to load, and re-patching every cue in the project on
+        // every save is exactly the churn §0.7 warns about — items already in
+        // the engine keep the routing their bus assignment gave them, which
+        // assign_item_bus() maintains through reroute_items_to_buses().
+        if (!newly_loaded.empty()) {
+            try {
+                reroute_items_to_buses(newly_loaded);
+            } catch (const std::exception& e) {
+                Logger::error("async mirror: bus routing failed: {}", e.what());
+            }
+        }
         loading_audio_.store(false, std::memory_order_release);
     });
 }
@@ -1075,15 +1104,21 @@ bool ProjectState::is_client_document(const json& doc) const {
     // to the Electron client's `Project` interface and not present in the
     // server's snake_case schema_version 2 format.
     if (!doc.is_object()) return false;
-    if (doc.contains("items") && doc["items"].is_array()) {
-        // Confirm one item has uuid/type/displayName (camelCase) — that
-        // distinguishes from any other "items" field we might add later.
-        for (const auto& it : doc["items"]) {
-            if (it.is_object() && it.contains("uuid") && it.contains("type")) {
-                return true;
-            }
-        }
+    // Rule out the two formats that are definitely not client documents first,
+    // so the `items` test below can be a plain shape check rather than a
+    // content one. Anything carrying schema_version speaks the server's own
+    // snake_case schema; anything carrying the 1.x collections is legacy (the
+    // same keys is_legacy_document() looks for).
+    if (doc.contains("schema_version")) return false;
+    if (doc.contains("carts") || doc.contains("playlist") ||
+        doc.contains("cues_legacy")) {
+        return false;
     }
+    // An `items` ARRAY is the client format, empty or not. Requiring a
+    // populated item here meant a brand-new project — `items: []`, no carts —
+    // fell through to the legacy branch and had its whole document replaced by
+    // the default, silently discarding name, theme and settings.
+    if (doc.contains("items") && doc["items"].is_array()) return true;
     if (doc.contains("cartItems") || doc.contains("cartSlotKeys") ||
         doc.contains("cartOnlyItems")) {
         return true;
@@ -1862,8 +1897,10 @@ bool ProjectState::replace_full_document(const json& doc) {
         document_ = doc;
         if (!carried_buses.is_null()) document_["buses"] = std::move(carried_buses);
         if (!document_.contains("settings")) {
+            // No defaultOutputDevice — load_buses_locked() migrates that key
+            // onto the Main bus and erases it, so re-injecting it here would
+            // resurrect the field the migration exists to remove.
             document_["settings"] = json{
-                {"defaultOutputDevice", nullptr},
                 {"previewDevice",       nullptr},
                 {"ltcDevice",           nullptr},
             };
@@ -5160,8 +5197,10 @@ bool ProjectState::load_from_json(const json& doc_in) {
             write_buses_to_document_locked();
             // Ensure required top-level keys exist (migrate older client saves).
             if (!document_.contains("settings") || !document_["settings"].is_object()) {
+                // Deliberately no defaultOutputDevice: load_buses_locked()
+                // above has just migrated that key onto the Main bus and
+                // erased it. Writing it back would undo the migration.
                 document_["settings"] = json{
-                    {"defaultOutputDevice", nullptr},
                     {"previewDevice",       nullptr},
                     {"ltcDevice",           nullptr},
                 };
@@ -5203,7 +5242,9 @@ bool ProjectState::load_from_json(const json& doc_in) {
         doc = upgrade_legacy_document(doc);
     }
 
-    std::lock_guard lock{mutex_};
+    // unique_lock, not lock_guard: the bus sequence at the bottom of this
+    // branch has to hand the lock back before materialise_buses() runs.
+    std::unique_lock lock{mutex_};
     for (auto& [_, id] : item_uuid_to_cue_) engine_.unload_cue(id);
     item_uuid_to_cue_.clear();
     primed_cues_.clear();
@@ -5292,6 +5333,29 @@ bool ProjectState::load_from_json(const json& doc_in) {
         }
     }
     apply_to_engine_locked();
+
+    // Same bus sequence the client branch runs, and for the same reason: a
+    // document that predates buses does not name any, so this synthesises Main
+    // and Monitor and writes them into the document. Without it a 1.x or
+    // snake_case project came up with an empty mixer — no Main, no Monitor,
+    // nothing for /api/buses to report and nowhere for a cue to resolve to.
+    // It runs AFTER the document has been populated, because load_buses_locked
+    // reads document_ (and migrates settings.defaultOutputDevice out of it).
+    //
+    // A 1.x document carries no client `items`, so there is nothing to route
+    // per-item here: everything it plays goes out of the master, which is
+    // exactly where the Main bus lands (D1).
+    load_buses_locked();
+    write_buses_to_document_locked();
+    const std::size_t legacy_cue_count = cues_.size();
+    lock.unlock();
+    // Strips for those buses. Outside the lock: every engine call takes its own.
+    materialise_buses();
+    // Said out loud because it is a routing decision made on the operator's
+    // behalf: this format carries no bus assignments, so everything in it goes
+    // to Main (D1). No migration wizard — the mixer shows the result.
+    Logger::warn("legacy project loaded: this format carries no bus assignments, "
+                 "so all {} cue(s) play through Main.", legacy_cue_count);
     return true;
 }
 
