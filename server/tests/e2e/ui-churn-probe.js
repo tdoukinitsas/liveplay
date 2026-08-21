@@ -27,6 +27,9 @@
 //
 // usage: node ui-churn-probe.js <port> <wavPath> [editsPerSec] [seconds] [items]
 const WebSocket = require(require.resolve('ws', { paths: [process.cwd()] }));
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const PORT = process.argv[2], WAV = process.argv[3];
 const RATE = Number(process.argv[4] || 10);
 const SECS = Number(process.argv[5] || 6);
@@ -39,6 +42,27 @@ const rest = async (p, o = {}) => {
   try { return { status: r.status, body: JSON.parse(t) }; } catch { return { status: r.status, body: t }; }
 };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Every /api/project/save in this probe is load-bearing: the whole point of
+// the "save" windows below is to exercise replace_full_document under real
+// churn. The server 400s a save with "no path set" if no project path was
+// ever established, and that failure is silent to the caller unless someone
+// checks — which is exactly how a 60-item run once logged 96 straight 400s
+// and reported a reassuring "0 seams" for a save path that never ran. So this
+// establishes a real path up front, and every subsequent save is checked and
+// fails the whole probe hard (loud message, non-zero exit) rather than
+// quietly measuring nothing.
+const PROJECT_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'liveplay-churn-'));
+const PROJECT_PATH = path.join(PROJECT_DIR, 'churn.liveplay');
+const save = async (body) => {
+  const r = await rest('/api/project/save', { method: 'POST', body: JSON.stringify(body) });
+  if (r.status !== 200 || !r.body || r.body.ok !== true) {
+    console.error(`\nFATAL: /api/project/save failed (${r.status}) ${JSON.stringify(r.body)} — ` +
+                  `the probe's save window would silently measure nothing.`);
+    process.exit(1);
+  }
+  return r;
+};
 
 const PLAYING = 'churn-playing';
 const IDLE    = 'churn-idle';
@@ -73,6 +97,10 @@ const IDLE    = 'churn-idle';
     if (p.body && p.body.loading === false) break;
     await sleep(100);
   }
+
+  // Establish a real project path so every save below actually reaches
+  // replace_full_document instead of 400ing.
+  await save({ path: PROJECT_PATH });
 
   const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws`);
   await new Promise((res, rej) => { ws.on('open', res); ws.on('error', rej); });
@@ -174,15 +202,14 @@ const IDLE    = 'churn-idle';
   const doc = (await rest('/api/project')).body;
   await window('save (full document)', async (i) => {
     doc.items[1].color = colours[i % colours.length];
-    await rest('/api/project/save', {
-      method: 'POST', body: JSON.stringify({ document: doc }) });
+    await save({ document: doc });
   });
 
   // The same save WITHOUT the document body, which skips replace_full_document
   // entirely. If this one is quiet and the one above is not, the document
   // round-trip is the cause rather than writing the file.
   await window('save (no document)', async () => {
-    await rest('/api/project/save', { method: 'POST', body: '{}' });
+    await save({});
   });
 
   await rest(`/api/project/items/${PLAYING}`, {

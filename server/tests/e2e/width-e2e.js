@@ -271,9 +271,14 @@ const width = (o) => ({ width: { width: 1, bassMonoHz: 20, bassMonoQ: 0.7071, ..
   const doc = (await rest('/api/project')).body;
   await rest('/api/project/document', {
     method: 'PUT',
-    body: JSON.stringify({ name: doc.name, items: doc.items,
-                           cartItems: doc.cartItems ?? [],
-                           settings: doc.settings, theme: doc.theme }) });
+    body: JSON.stringify({
+      // busSchema included, exactly what buildDocumentSnapshot() sends: without
+      // it the server reads this as a pre-bus project landing on top of the
+      // loaded one and does not carry the buses forward (D11).
+      busSchema: 1,
+      name: doc.name, items: doc.items,
+      cartItems: doc.cartItems ?? [],
+      settings: doc.settings, theme: doc.theme }) });
   const after = (await rest('/api/buses')).body.find(x => x.id === bus);
   ok('they survive a document round trip',
      after && Math.abs(after.dsp.width.width - 1.6) < 1e-4 &&

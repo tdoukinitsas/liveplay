@@ -7,6 +7,9 @@
 // caused it.
 //
 // usage: node seam-bisect.js <port> <wavPath> [repeats]
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const PORT = process.argv[2], WAV = process.argv[3];
 const REPEATS = Number(process.argv[4] || 5);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -18,6 +21,24 @@ const rest = async (p, o = {}) => {
 };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const seams = async () => (await rest('/api/engine/stats')).body.discontinuities;
+
+// Both "save" trials below only mean something if the save actually reaches
+// replace_full_document. With no project path ever set the server 400s every
+// one of them with "no path set" and the trial measures nothing while
+// reporting clean — which is what produced the misleading "16 saves, 0 seams"
+// history. So a real path is established up front, and every save is checked
+// and aborts the whole run loudly if it is ever rejected.
+const PROJECT_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'liveplay-seam-'));
+const PROJECT_PATH = path.join(PROJECT_DIR, 'seam.liveplay');
+const save = async (body) => {
+  const r = await rest('/api/project/save', { method: 'POST', body: JSON.stringify(body) });
+  if (r.status !== 200 || !r.body || r.body.ok !== true) {
+    console.error(`\nFATAL: /api/project/save failed (${r.status}) ${JSON.stringify(r.body)} — ` +
+                  `the save trials would silently measure nothing.`);
+    process.exit(1);
+  }
+  return r;
+};
 
 // The playing cue's identity and position. If a seam coincides with the cue id
 // changing, the item was reloaded underneath the audio; if the position jumps
@@ -43,6 +64,10 @@ const cueState = async () => {
     if (p.body && p.body.loading === false) break;
     await sleep(100);
   }
+  // Establish a real project path so the save trials below actually reach
+  // replace_full_document instead of 400ing.
+  await save({ path: PROJECT_PATH });
+
   await rest('/api/project/items/seam-play/play', { method: 'POST', body: '{}' });
   await sleep(2500);
 
@@ -71,11 +96,10 @@ const cueState = async () => {
   for (let i = 0; i < REPEATS; i++) {
     await trial('nothing at all', async () => {});
     await trial('save WITHOUT document', async () => {
-      await rest('/api/project/save', { method: 'POST', body: '{}' });
+      await save({});
     });
     await trial('save WITH document', async () => {
-      await rest('/api/project/save', {
-        method: 'POST', body: JSON.stringify({ document: doc }) });
+      await save({ document: doc });
     });
     await trial('PUT document (no save)', async () => {
       await rest('/api/project/document', {
