@@ -145,6 +145,66 @@
     },
     "note": "A single-machine install needs no configuration — the client and server talk over 127.0.0.1 and the Windows installer adds the firewall rules for you. These ports only matter when separating the control position from the audio hardware across a LAN."
   },
+  "api": {
+    "title": "External control / API",
+    "subtitle": "Drive LivePlay from lighting consoles, Stream Deck, Companion, or your own scripts.",
+    "surface": {
+      "title": "The control surface",
+      "description": "LivePlay exposes a REST + WebSocket control surface on TCP 4480 — the same interface the client itself uses to talk to the server. Every transport, selection and mixer action is a plain HTTP call or a WebSocket frame, so any tool that can speak HTTP/JSON can drive a show. A lightweight discovery beacon on UDP 4481 lets a controller find a server on the LAN without the operator typing an IP address."
+    },
+    "discovery": {
+      "title": "Finding a server",
+      "description": "The server periodically broadcasts (and multicasts) a JSON beacon on UDP 4481, and answers a unicast solicitation immediately. The payload:",
+      "payload": "{\n  \"type\": \"liveplay-beacon\",\n  \"name\": \"<hostname>\",\n  \"version\": \"<server version>\",\n  \"port\": 4480,\n  \"projectName\": \"<name or empty>\",\n  \"hasOpenProject\": false,\n  \"itemCount\": 2,\n  \"instanceId\": \"<per-run id>\"\n}",
+      "note": "Send {\"type\":\"liveplay-solicit\"} to UDP 4481 to provoke an immediate unicast reply instead of waiting for the next periodic broadcast."
+    },
+    "endpoints": {
+      "title": "Headline endpoints",
+      "description": "A handful of REST endpoints cover most controller needs:",
+      "stateSummary": {
+        "path": "GET /api/state/summary",
+        "description": "a single compact snapshot of the whole show — transport, selection, master bus and the bus list — ideal for a controller populating its UI on connect."
+      },
+      "transport": {
+        "path": "POST /api/transport/*",
+        "description": "go, play, pause, stop and cart triggers."
+      },
+      "selection": {
+        "path": "GET/POST /api/selection",
+        "description": "read or set the currently selected item, mirrored to every connected client and controller."
+      },
+      "buses": {
+        "path": "GET/PATCH /api/buses",
+        "description": "list every mixer bus (id, name, colour, order, width, gain, mute, PFL, bound state and output routing) and patch one by id."
+      },
+      "master": {
+        "path": "GET/POST /api/master/*",
+        "description": "master gain, limiter ceiling and per-output-channel trim."
+      },
+      "busesCaveat": "Buses only exist once a project has been loaded or created — a bare, freshly-started server reports an empty [] from GET /api/buses.",
+      "dragWarning": "The .../pan and .../dsp POST routes under /api/buses/<id> are client-internal drag surfaces for live knob movement, not part of the external-control API — external controllers should use PATCH /api/buses/<id> instead."
+    },
+    "websocket": {
+      "title": "The WebSocket push model",
+      "description": "Connect to ws://<host>:4480/ws to receive live state without polling. Three frame types matter most to a controller:",
+      "cueState": {
+        "name": "cue_state",
+        "description": "fires on every transport edge (play, pause, stop, fade) for a cue."
+      },
+      "meters": {
+        "name": "meters",
+        "description": "a ~60 Hz stream of per-cue, per-mixer and per-master peak/RMS levels for metering UIs."
+      },
+      "docPatch": {
+        "name": "doc_patch",
+        "description": "fires on every server-side document mutation — bus changes, selection changes and more — so a mirrored local state never drifts."
+      }
+    },
+    "reference": {
+      "text": "This is a summary, not the spec. For the full endpoint reference, request/response shapes and the complete doc_patch vocabulary, see",
+      "linkText": "server/README.md"
+    }
+  },
   "footer": {
     "license": "is licensed under the",
     "developedBy": "Developed by",

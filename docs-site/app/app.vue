@@ -255,6 +255,58 @@
       </div>
     </section>
 
+    <section id="api" class="api-section">
+      <div class="container">
+        <h2>{{ t('api.title') }}</h2>
+        <p class="api-subtitle">{{ t('api.subtitle') }}</p>
+
+        <div class="api-block">
+          <h3>{{ t('api.surface.title') }}</h3>
+          <p>{{ t('api.surface.description') }}</p>
+        </div>
+
+        <div class="api-block">
+          <h3>{{ t('api.discovery.title') }}</h3>
+          <p>{{ t('api.discovery.description') }}</p>
+          <pre class="api-code"><code>{{ t('api.discovery.payload') }}</code></pre>
+          <p>{{ t('api.discovery.note') }}</p>
+        </div>
+
+        <div class="api-block">
+          <h3>{{ t('api.endpoints.title') }}</h3>
+          <p>{{ t('api.endpoints.description') }}</p>
+          <ul class="api-endpoint-list">
+            <li><code>{{ t('api.endpoints.stateSummary.path') }}</code> — {{ t('api.endpoints.stateSummary.description') }}</li>
+            <li><code>{{ t('api.endpoints.transport.path') }}</code> — {{ t('api.endpoints.transport.description') }}</li>
+            <li><code>{{ t('api.endpoints.selection.path') }}</code> — {{ t('api.endpoints.selection.description') }}</li>
+            <li><code>{{ t('api.endpoints.buses.path') }}</code> — {{ t('api.endpoints.buses.description') }}</li>
+            <li><code>{{ t('api.endpoints.master.path') }}</code> — {{ t('api.endpoints.master.description') }}</li>
+          </ul>
+          <p class="api-caveat">{{ t('api.endpoints.busesCaveat') }}</p>
+          <p class="api-caveat">{{ t('api.endpoints.dragWarning') }}</p>
+        </div>
+
+        <div class="api-block">
+          <h3>{{ t('api.websocket.title') }}</h3>
+          <p>{{ t('api.websocket.description') }}</p>
+          <ul class="api-endpoint-list">
+            <li><code>{{ t('api.websocket.cueState.name') }}</code> — {{ t('api.websocket.cueState.description') }}</li>
+            <li><code>{{ t('api.websocket.meters.name') }}</code> — {{ t('api.websocket.meters.description') }}</li>
+            <li><code>{{ t('api.websocket.docPatch.name') }}</code> — {{ t('api.websocket.docPatch.description') }}</li>
+          </ul>
+        </div>
+
+        <div class="api-reference">
+          <p>
+            {{ t('api.reference.text') }}
+            <a href="https://github.com/tdoukinitsas/liveplay/blob/main/server/README.md" target="_blank" rel="noopener noreferrer">
+              {{ t('api.reference.linkText') }}
+            </a>
+          </p>
+        </div>
+      </div>
+    </section>
+
     <section class="contribute-section">
       <div class="container">
         <h2>{{ t('contribute.title') }}</h2>
@@ -334,7 +386,7 @@ const { t, direction, initLocale, isLocaleLoaded } = useI18n();
 const baseURL = useRuntimeConfig().app.baseURL;
 const asset = (path: string) => `${baseURL}${path.replace(/^\/+/, '')}`;
 
-const version = ref('2.4.3');
+const version = ref('2.5.0');
 const contributors = ref<{ name: string; link: string }[]>([]);
 
 // Platform download cards. When we can detect the visitor's OS we surface only
@@ -874,6 +926,97 @@ useSeoMeta({
     margin: 0;
     font-size: 0.85rem;
     line-height: 1.6;
+  }
+}
+
+.api-section {
+  padding: 4rem 0;
+  background: rgba(255, 255, 255, 0.02);
+
+  h2 {
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: #DA1E28;
+  }
+
+  .api-subtitle {
+    text-align: center;
+    font-size: 1.25rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 3rem;
+  }
+
+  .api-block {
+    max-width: 820px;
+    margin: 0 auto 2.5rem;
+
+    h3 {
+      font-size: 1.35rem;
+      margin: 0 0 0.75rem;
+      color: #ffffff;
+    }
+
+    p {
+      color: rgba(255, 255, 255, 0.75);
+      line-height: 1.7;
+      margin: 0.5rem 0;
+    }
+
+    .api-caveat {
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 0.9rem;
+    }
+  }
+
+  .api-code {
+    background: rgba(0, 0, 0, 0.4);
+    color: #f0f0f0;
+    padding: 1rem 1.25rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    margin: 1rem 0;
+  }
+
+  .api-endpoint-list {
+    list-style: none;
+    margin: 1rem 0;
+    padding: 0;
+
+    li {
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin: 0.5rem 0;
+    }
+
+    code {
+      background: rgba(218, 30, 40, 0.1);
+      color: #DA1E28;
+      padding: 0.15rem 0.5rem;
+      border-radius: 5px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+  }
+
+  .api-reference {
+    max-width: 820px;
+    margin: 0 auto;
+    text-align: center;
+
+    a {
+      color: #DA1E28;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
   }
 }
 
