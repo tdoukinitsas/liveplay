@@ -142,7 +142,7 @@
               <span>{{ t('mixer.output') }}</span>
               <select :value="outputValue" @change="onOutputChange">
                 <option value="master">{{ t('mixer.toMaster') }}</option>
-                <option v-for="o in outputNames" :key="'out:' + o" :value="'out:' + o">{{ o }}</option>
+                <option v-for="o in outputOptions" :key="'out:' + o" :value="'out:' + o">{{ o }}</option>
               </select>
             </label>
             <label class="det__field">
@@ -296,8 +296,17 @@ const outputValue = computed(() =>
 const outputSummary = computed(() =>
   props.bus.output.type === 'output' ? props.bus.output.target : t('mixer.toMaster'));
 
+const outputOptions = computed(() => {
+  const names = [...props.outputNames];
+  const target = props.bus.output.target;
+  if (props.bus.output.type === 'output' && target && !names.includes(target)) {
+    names.push(target);
+  }
+  return names;
+});
+
 const unmapped = computed(() =>
-  props.bus.output.type === 'output' && !props.outputNames.includes(props.bus.output.target));
+  props.bus.output.type === 'output' && props.bus.bound === false);
 
 function onOutputChange(e: Event) {
   const v = (e.target as HTMLSelectElement).value;
