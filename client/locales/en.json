@@ -561,7 +561,7 @@
     "addBus": "Add bus",
     "newBusName": "New Bus",
     "master": "Master",
-    "empty": "No buses yet. Add one to send cues somewhere other than the main output.",
+    "empty": "All cues route to Master. Add a bus to split your mix.",
     "mute": "MUTE",
     "pfl": "PFL",
     "width": "Width",
@@ -671,5 +671,12 @@
     "nextChannel": "Next channel",
     "backToMixer": "Back to the mixer",
     "busColor": "Bus colour"
+  },
+  "migration": {
+    "title": "This project was created before mixer buses.",
+    "body": "All cues now route to the Master bus.",
+    "busesFromOverrides": "{count} cues were moved onto buses created from their device overrides.",
+    "openMixer": "Open Mixer",
+    "dismiss": "Dismiss"
   }
 }

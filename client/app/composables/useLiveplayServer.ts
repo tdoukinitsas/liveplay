@@ -137,6 +137,23 @@ function createClient() {
     return () => docPatchSubscribers.delete(cb);
   }
 
+  // D12 — legacy-project migration banner. Pure client view state: the server
+  // only tells us a migration *happened* (once, via the doc_patch broadcast
+  // below); whether the banner is still showing in this window is local, so
+  // it can be dismissed independently per client (D17 requires every
+  // connected window to see it fire, not that they agree on dismissal).
+  // null = no banner to show. Set fresh on every project_migrated broadcast
+  // (even if a previous one was dismissed) so a later migration re-alerts.
+  type MigrationBannerState = {
+    itemsToMain: number;
+    busesFromDeviceOverride: number;
+    mainOutputMigrated: boolean;
+  };
+  const migrationBanner = ref<MigrationBannerState | null>(null);
+  function dismissMigrationBanner() {
+    migrationBanner.value = null;
+  }
+
   // ---- WebSocket ----------------------------------------------------
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -344,6 +361,20 @@ function createClient() {
           // buses_patched). Refetch so a strip's warn state clears without
           // needing a reload.
           if (payload.op === 'outputs_changed') void fetchBuses();
+          // D12/D17 — a legacy project (pre-mixer-buses) was just migrated on
+          // load. The server sends this once, to every connected client, only
+          // when something actually migrated (a reload of an already-migrated
+          // doc broadcasts nothing) — so this fires for windows that didn't
+          // even issue the load that triggered it. Counts arrive flat on the
+          // frame, not nested under a `migration` key.
+          if (payload.op === 'project_migrated') {
+            migrationBanner.value = {
+              itemsToMain: Number(payload.itemsToMain) || 0,
+              busesFromDeviceOverride: Number(payload.busesFromDeviceOverride) || 0,
+              mainOutputMigrated: !!payload.mainOutputMigrated,
+            };
+            void fetchBuses();
+          }
           // PFL isn't in the document, so it arrives as its own op and is
           // applied in place. A refetch would work too, but PFL is pressed
           // while something is playing and the whole bus list is the last
@@ -1198,6 +1229,8 @@ function createClient() {
     onDocPatch,
     onPlaybackSnapshot,
     onReconnected,
+    migrationBanner,
+    dismissMigrationBanner,
 
     // transport
     play,

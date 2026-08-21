@@ -6,6 +6,30 @@
          touch targets, so waveforms, colours, durations, behaviour flags and
          warnings all render exactly as in edit mode. -->
     <ProjectHeader />
+
+    <!-- D12/D17 — dismissible, non-blocking banner shown in every connected
+         window when the server migrates a legacy (pre-mixer-buses) project on
+         load. Never a modal: invariant 3 says a banner must never block a
+         show from loading. Dismissal is per-client view state, tracked in the
+         composable (server.migrationBanner is null once dismissed here). -->
+    <div v-if="server.migrationBanner" class="migration-banner" role="status">
+      <div class="migration-banner__text">
+        <p class="migration-banner__title">{{ t('migration.title') }}</p>
+        <p class="migration-banner__body">{{ t('migration.body') }}</p>
+        <p v-if="server.migrationBanner.busesFromDeviceOverride > 0" class="migration-banner__body">
+          {{ t('migration.busesFromOverrides', { count: server.migrationBanner.busesFromDeviceOverride }) }}
+        </p>
+      </div>
+      <div class="migration-banner__actions">
+        <button class="migration-banner__btn migration-banner__btn--primary" @click="openMixerFromBanner">
+          {{ t('migration.openMixer') }}
+        </button>
+        <button class="migration-banner__btn" @click="server.dismissMigrationBanner()">
+          {{ t('migration.dismiss') }}
+        </button>
+      </div>
+    </div>
+
     <PlaybackControls />
 
     <!-- Mixer, full width. Useful once there are enough buses that strips need
@@ -128,6 +152,13 @@ const mixerWidth = ref(420);
 const isMixerResizing = ref(false);
 
 function setMixerMode(mode: 'side' | 'full') { mixerMode.value = mode; }
+
+// Migration banner's "Open Mixer" action (D12): open the panel and dismiss
+// the banner locally — dismissal is per-client view state, see the composable.
+function openMixerFromBanner() {
+  mixerOpen.value = true;
+  server.dismissMigrationBanner();
+}
 
 function startMixerResize(e: PointerEvent) {
   e.preventDefault();
@@ -558,6 +589,71 @@ onUnmounted(() => {
   display: flex;
   overflow: hidden;
   position: relative;
+}
+
+// D12 migration banner. Same warn tint used elsewhere (e.g. ProjectHeader's
+// unsaved-changes pill, MixerStrip's output warn) — a yellow-on-dark strip,
+// never a modal.
+.migration-banner {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-warning);
+  color: black;
+}
+
+.migration-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.migration-banner__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.migration-banner__body {
+  margin: 0;
+  font-size: 13px;
+}
+
+.migration-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.migration-banner__btn {
+  padding: 4px 10px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  background: transparent;
+  color: black;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.1);
+  }
+}
+
+.migration-banner__btn--primary {
+  background: black;
+  color: var(--color-warning);
+  border-color: black;
+
+  &:hover {
+    opacity: 0.85;
+    background: black;
+  }
 }
 
 .playlist-section {
