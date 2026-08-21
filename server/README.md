@@ -268,7 +268,7 @@ The authoritative endpoint list is the table of `CROW_ROUTE` registrations in [`
 ### Conventions
 
 - Every JSON response carries `Content-Type: application/json` and `Access-Control-Allow-Origin: *`.
-- Every error follows `{ "error": "<message>" }` with an appropriate 4xx/5xx status code. `400` covers malformed bodies; `404` covers unknown ids/paths; `413` covers oversize uploads; `500` covers internal failures.
+- Every error follows `{ "error": "<message>" }` with an appropriate 4xx/5xx status code. `400` covers malformed bodies; `404` covers unknown ids/paths; `409` covers a request that's understood but refused (e.g. a bus routing rule); `413` covers oversize uploads; `500` covers internal failures.
 - `OPTIONS` on any path returns `204` with permissive CORS headers (preflight).
 - All IDs are opaque strings unless typed otherwise. `<int>` path parameters are 32-bit signed.
 - `cue_id` (engine-level) ≠ `item_uuid` (project-document level). The server maintains the mapping in `ProjectState`; most transport endpoints accept either.
@@ -336,17 +336,134 @@ This is the low-level cue surface — for normal use, prefer the project-item su
 | `POST /api/transport/stop_all` | `{ "fade_ms": 0 }` (optional; empty body permitted) | `{ "ok": true }` |
 | `POST /api/master/ceiling` | `{ "db": -0.3 }` | `{ "ok": true }` |
 | `GET /api/master/gain` | — | `{ "db": float }` |
-| `POST /api/master/gain` | `{ "db": float }` | `{ "ok": true, "db": float }` · also broadcasts `master_gain_changed` |
+| `POST /api/master/gain` | `{ "db": float }` sets an absolute gain, or `{ "delta": float }` nudges the current gain (no read-modify-write race for a control surface). `db` wins if both are present. | `{ "ok": true, "db": float }` · also broadcasts `master_gain_changed` |
+| `GET /api/master/limiter` | — | `{ "enabled": bool }` |
+| `POST /api/master/limiter` | `{ "enabled": bool }` (omit to toggle — single-button surfaces) | `{ "ok": true, "enabled": bool }` · also broadcasts `limiter_changed` |
 | `GET /api/master/channels/<int>/gain` | — | `{ "channel": int, "db": float }` |
 | `POST /api/master/channels/<int>/gain` | `{ "db": float }` | `{ "ok": true, "channel": int, "db": float }` · also broadcasts `output_channel_gain_changed` |
 
+#### External control surface (Companion, custom remotes)
+
+Everything below is the surface a stateless control surface (Bitfocus Companion, a Stream Deck plugin, a curl script) drives. Every mutation is broadcast as a `doc_patch`, so a control surface, the desktop client and a second control surface can never disagree about what is selected, armed or in Show Mode.
+
+| Method · Path | Body | Response | Notes |
+|---------------|------|----------|-------|
+| `GET /api/state/summary` | — | see below | Compact machine-readable snapshot. Fetch once on connect (and after `project_changed`), then keep it fresh from `/ws` — no polling. |
+| `GET`/`POST /api/transport/go` | — | `{ "ok": true, "uuid": "…" }` · `404` if nothing armed or derivable | Plays whatever is armed as "Up Next" (user override first, else the playing item's `endBehavior` target). `GET` is accepted so it can be fired from a browser or `curl`. |
+| `GET /api/selection` | — | `{ "itemUuid": "…" }` (empty string = nothing selected) | The shared playlist selection — the control-surface equivalent of the client's arrow-key cursor. |
+| `POST /api/selection` | `{ "itemUuid": "…" }` to select (empty string clears) *or* `{ "delta": -1 \| 1 }` to step through the flattened playlist | `{ "ok": true, "itemUuid": "…" }` · `400` if neither field present or `delta` is `0` · `404` if the playlist is empty | Broadcasts `selection_changed`. |
+| `GET`/`POST /api/transport/arm_selected` | — | `{ "ok": true, "itemUuid": "…" }` · `404` if nothing selected | Arms the selected item as "Up Next" — the control-surface equivalent of the client's "Set As Next" context action. Broadcasts `next_item_set`. |
+| `GET`/`POST /api/transport/play_selected` | — | `{ "ok": true, "itemUuid": "…" }` · `404` if nothing selected or not loaded | Triggers the selected item — the client's Enter / "Play Selected" key. |
+| `GET`/`POST /api/transport/pause_toggle` | — | `{ "ok": true, "resumed": bool }` · `404` if nothing is on air | Pause/resume everything on air in one press. Resumes if anything is paused, otherwise pauses everything sounding, so a single button is never ambiguous about which way it goes. |
+| `GET /api/ui/showmode` | — | `{ "enabled": bool }` | |
+| `POST /api/ui/showmode` | `{ "enabled": bool }` (omit to toggle) | `{ "ok": true, "enabled": bool }` | Broadcasts `show_mode_changed`. |
+| `GET /api/ui/locale` | — | `{ "locale": "…" }` | |
+| `POST /api/ui/locale` | `{ "locale": "en" }` | `{ "ok": true, "locale": "…" }` · `400` if `locale` missing/not a string | Broadcasts `locale_changed`. |
+| `POST /api/transport/play_index` | `{ "index": [1, 11] }` — an index path descending into groups | `{ "ok": true, "uuid": "…", "index": [int, …] }` · `400` malformed path · `404` no item / not loaded | Body-addressed equivalent of `…/by-index/<path>` (see [Project items](#project-items)). |
+| `GET`/`POST /api/transport/cart/<int>/play` | — | `{ "ok": true, "slot": int, "uuid": "…" }` · `404` empty slot or not loaded | Triggers whatever is bound to that cart slot. |
+
+**`GET /api/state/summary` response** — top-level shape:
+
+```json
+{
+  "buses":     [ { "id", "name", "color", "order", "width", "gainDb", "mute", "pfl", "bound", "output": { "type", "target" }, "monoCheck" (Monitor only) } ],
+  "project":   { "name", "itemCount", "hasOpenProject", "audioLoading" },
+  "playing":   [ { "itemUuid", "cueId", "name", "color", "transport", "paused", "playheadSec", "elapsedSec", "durationSec", "remainingSec", "index"?, "triggerSeq"? } ],
+  "next":      { "itemUuid", "source": "override" | "auto", "name", "color", "type", "index"? } | null,
+  "selection": { "itemUuid", "name", "color", "type", "index"?, "onAir" } | null,
+  "ui":        { "showMode": bool, "locale": "…" },
+  "master":    { "gainDb": float, "limiterEnabled": bool },
+  "cart":      [ { "slot", "itemUuid", "name", "color", "playing" } ],
+  "preview":   { "active": bool, "itemUuid": "…" },
+  "server":    { "version", "meterBroadcastHz", "masterChannels", "previewMasterL", "previewMasterR", "maxUploadBytes" }
+}
+```
+
+`buses` is deliberately compact — no `dsp`, no `itemUuids`; a controller wants "what is it called and what state is it in", not the mixer's internals. Meters ride the separate `meters` WS broadcast, not this snapshot. Buses only exist once a project has been loaded, created or closed at least once in the server's lifetime — a bare fresh server reports `[]` here (and from `GET /api/buses`) until then.
+
+#### Buses
+
+The user-facing view of the mixer: every bus in display order, with the items that resolve to it (own assignment, inherited from a group, or the Main fallback). `bus_info_to_json()` in [`control_server.cpp`](src/net/control_server.cpp) is the single serialiser shared by the list and single-resource routes below, so they can never drift apart.
+
+| Method · Path | Body | Response |
+|---------------|------|----------|
+| `GET /api/buses` | — | array of bus objects (see below) |
+| `GET /api/buses/<id>` | — | one bus object · `404` if unknown |
+| `POST /api/buses` | `{ "name": "…", "color": "…", "width": 1\|2, "gainDb": float, "mute": bool, "pan": -1..1, "order": int, "output": { "type": "master"\|"output"\|"bus", "target": "…" } }` (all optional) | `{ "id": "…" }` · `409` if the output is refused (see below) · `507` if no mixer strip is available | broadcasts `buses_patched` |
+| `PATCH /api/buses/<id>` | any subset of the `POST` fields, plus `{ "dsp": { …partial BusDsp… } }` | `{ "ok": true }` · `404` unknown id · `409` if the output is refused | broadcasts `buses_patched` |
+| `DELETE /api/buses/<id>` | — | `{ "ok": true }` · `409` if not found or not deletable (the system buses `main`/`monitor` can't be deleted; assigned items fall back to Main) | broadcasts `buses_patched` |
+| `POST /api/buses/<id>/pfl` | `{ "pfl": bool }` | `{ "ok": true, "pfl": bool }` · `404` unknown id | broadcasts `bus_pfl_changed` |
+| `POST /api/buses/pfl/clear` | — | `{ "cleared": int }` | broadcasts `bus_pfl_cleared` when `cleared > 0` |
+| `POST /api/monitor/mono` | `{ "mono": bool }` | `{ "ok": true, "mono": bool }` · `409` if the Monitor bus has no strip | broadcasts `monitor_mono_changed`. Folds the whole MONITOR bus to mono — not per-strip; PFL whichever buses you want to check, then press this. |
+
+`buses_patched` always carries the full `buses` array (`{ "type": "doc_patch", "op": "buses_patched", "buses": [...] }`) rather than a diff, so a second client converges in one apply.
+
+**Bus object** (`GET /api/buses`, `GET /api/buses/<id>`):
+
+```json
+{
+  "id": "…", "name": "…", "color": "…", "order": 0, "width": 2,
+  "gainDb": 0.0, "mute": false, "pan": 0.0,
+  "dsp": { "eqEnabled", "dynEnabled", "hpf", "lpf", "eq": [...], "gate": {...}, "comp": {...}, "... " },
+  "pfl": false,
+  "monoCheck": false,
+  "bound": true,
+  "system": false,
+  "output": { "type": "master" | "output" | "bus", "target": "…" },
+  "mixerId": "…",
+  "itemUuids": ["…"]
+}
+```
+
+`monoCheck` is present on every bus object here (unlike the compact `summary.buses` array, which only carries it for Monitor) but is only ever meaningful for Monitor. `bound` is server-computed by walking the output chain to its terminal (master, a hardware output, or an unbound dead end) — a client renders it and never derives it itself. `dsp` is the full DSP chain (EQ bands, HPF/LPF, gate, compressor); see `bus_dsp_to_json()` in `control_server.cpp` for the exact shape.
+
+**A bus output** is one of:
+
+- `{ "type": "master", "target": "" }`
+- `{ "type": "output", "target": "<logical output name>" }` — see [Logical outputs](#logical-outputs)
+- `{ "type": "bus", "target": "<bus id>" }` — bus-to-bus routing
+
+A refused output is a `409` with one of: `"the Monitor bus cannot be routed to the master"`, `"the Monitor bus cannot be routed to another bus"`, `"no such bus to route to"`, `"a bus cannot feed a system bus; use \"master\" to reach the master"`, `"routing this bus would create a cycle"`. A bus may not target a system bus (`main`/`monitor`), and a bus→bus chain that would loop back on itself is refused rather than silently breaking.
+
+Two drag-only endpoints exist for live knob feedback and are **not** part of the external-control surface — external controllers use `PATCH /api/buses/<id>` instead (D16):
+
+| Method · Path | Body | Response | Notes |
+|---------------|------|----------|-------|
+| `POST /api/buses/<id>/pan` | `{ "pan": -1..1 }` | `{ "ok": true }` · `404` unknown id | Live pan while the knob is being dragged: moves the send gains only, no document write, no broadcast. Client-internal. |
+| `POST /api/buses/<id>/dsp` | partial `BusDsp` JSON | `{ "ok": true }` · `404` unknown id | Live tone-control coefficients while a filter knob is dragged: straight into the strip, no document write, no broadcast, no re-wire. Client-internal. |
+
+The document carries a top-level `busSchema` version (currently `1`) alongside `buses`.
+
+#### Logical outputs
+
+Server-owned: what a project's output names (`"output"` targets, above) mean on *this* machine. Never part of the project document — that's what keeps a show portable between machines with different hardware.
+
+| Method · Path | Body | Response |
+|---------------|------|----------|
+| `GET /api/outputs` | — | `{ "version": 1, "outputs": [ { "name": "…", "channels": [ { "device": "…", "hwChannel": int }, … ] } ] }` |
+| `PUT /api/outputs` | same shape as the `GET` response | `{ "version", "outputs", "rewiredBuses": [...] }` · `400` malformed map | broadcasts `outputs_changed` |
+
+Any bus routed through a remapped output is re-wired immediately (`rewiredBuses` lists which ones) — without this a remap would appear to do nothing until the project was reloaded.
+
+#### Engine diagnostics
+
+| Method · Path | Query | Response |
+|---------------|-------|----------|
+| `GET /api/engine/stats` | `?reset=1` clears the render-time peak, bounding a measurement to a window the caller controls | `{ "queuedFrames", "queuedMs", "ringCapacityFrames", "devicePeriodFrames", "devicePeriods", "deviceMs", "renderBlockUsMax", "renderBlockUsAvg", "blockBudgetUs", "blocksRendered", "underruns", "topologyRebuilds", "mutexWaitUsMax", "discontinuities", "worstSeam", "devices" }` |
+
+Measured rather than configured — the device gets a say in the period it actually runs, and how long a block takes to render is the only thing that says whether the queue depth is buying anything.
+
 #### Mixers
+
+Low-level engine strips (as opposed to the document-backed [Buses](#buses) surface above). Buses are implemented on top of these strips.
 
 | Method · Path | Body | Response |
 |---------------|------|----------|
 | `GET /api/mixers` | — | `[ { "id": "…", "display_name": "…", "gain_db": 0.0, "muted": false, "pfl": false } ]` |
-| `POST /api/mixers` | `{ "name": "Channel" }` | `{ "id": "…" }` |
-| `DELETE /api/mixers/<id>` | — | `{ "ok": true }` |
+| `POST /api/mixers` | `{ "name": "Channel" }` | `{ "id": "…" }` · `507` if the strip limit is reached |
+| `DELETE /api/mixers/<id>` | — | `{ "ok": true }` · `404` if unknown |
+| `POST /api/mixers/<id>/gain` | `{ "db": float }` | `{ "ok": true }` · `404` if unknown |
+| `POST /api/mixers/<id>/mute` | `{ "muted": bool }` | `{ "ok": true }` · `404` if unknown |
 
 #### Routing matrix
 
@@ -437,11 +554,13 @@ Plays an item on `settings.previewDevice` without routing through the live mixer
 | `GET /api/project/header`       | — | lightweight header `{ name, itemCount, theme, settings, cart, hasOpenProject, … }` | Hit this first so the workspace shell can paint before the items array arrives. |
 | `GET /api/project/items?offset=0&limit=100` | — | `{ "offset": int, "limit": int, "total": int, "items": [...] }` | `limit` clamps to [1,1000]. Top-level items only (groups carry their children inline). |
 | `GET /api/project/progress`     | — | `{ "loading": bool, "loaded": int, "total": int }` | Cheap poll for the open-project progress bar. |
-| `POST /api/project/load`        | `{ "path": "/abs/file.liveplay" }` *or* `{ "document": { … } }` | header object, augmented with `needsRepair`/`repairIssues` if the document was auto-repaired on load | broadcasts `project_changed`. `400` if neither field is present or load fails. |
+| `POST /api/project/load`        | `{ "path": "/abs/file.liveplay" }` *or* `{ "document": { … } }` | header object, augmented with `needsRepair`/`repairIssues` if the document was auto-repaired on load, and `migration` if buses had to be synthesised (see below) | broadcasts `project_changed`, and `project_migrated` if anything was migrated. `400` if neither field is present or load fails. |
 | `POST /api/project/close`       | — | `{ "closed": true }` | broadcasts `project_changed` |
-| `PUT /api/project/document`     | full project JSON document | header object | Replaces the entire in-memory document. Broadcasts `project_changed`. |
-| `POST /api/project/save`        | `{ "path": "/abs/file.liveplay" (optional) }` | `{ "ok": true, "path": "…" }` | Saves to the supplied path or the currently-loaded one. `400` if neither is set. |
+| `PUT /api/project/document`     | full project JSON document | header object, augmented with `migration` as above | Replaces the entire in-memory document. Broadcasts `project_changed`, and `project_migrated` if anything was migrated. |
+| `POST /api/project/save`        | `{ "path": "/abs/file.liveplay" (optional) }`, optionally with `{ "document": { … } }` to push an embedded document first | `{ "ok": true, "path": "…" }`, augmented with `migration` as above | Saves to the supplied path or the currently-loaded one. `400` if neither is set. Broadcasts `project_migrated` if the embedded document (if any) had to migrate. |
 | `POST /api/project/repair`      | — | `{ "repaired": bool, "issues": [string], "saved": bool }` | Forces a re-save of the (already auto-repaired on load) in-memory document. |
+
+**Bus migration** — a project document that predates buses names no routing at all, so the server invents it on load/replace: every audio item that carried no bus assignment lands on Main, distinct legacy per-item `deviceOverride` values become real buses, and `settings.defaultOutputDevice` becomes Main's output. That's a routing decision made without asking, so it's counted, logged, returned to whoever triggered it, and broadcast to every other connected client as `project_migrated` so nobody's mirror disagrees about where a show is routed. `migration` (in the HTTP response) and the `project_migrated` doc_patch carry the same three counts: `{ "itemsToMain": int, "busesFromDeviceOverride": int, "mainOutputMigrated": bool }` — flat on the doc_patch frame itself, not nested under `migration`.
 
 #### Project items
 
@@ -456,6 +575,8 @@ Mutating routes return `{ ok: true, ... }` only — the full document is **not**
 | `POST` or `GET /api/project/items/<uuid>/play` | — | `{ "ok": true }` · `404` if not loaded | — (transport edge fires `cue_state` instead) |
 | `POST` or `GET /api/project/items/by-index/<path>` | — | `{ "ok": true, "uuid": "…", "index": [int, …] }` · `400` invalid path · `404` no item / not loaded | — (transport edge fires `cue_state` instead) |
 | `POST /api/project/items/<uuid>/stop`  | — | `{ "ok": true }` · `404` if not loaded | — |
+| `POST /api/project/items/<uuid>/pause` | — | `{ "ok": true }` · `404` if not loaded | — (REST mirror of the WS `pause` message, for stateless control surfaces) |
+| `POST /api/project/items/<uuid>/resume`| — | `{ "ok": true }` · `404` if not loaded | — (REST mirror of the WS `resume` message) |
 | `POST /api/project/items/<uuid>/seek`  | `{ "seconds": float }` | `{ "ok": true }` · `404` if not loaded | — |
 
 **Triggering by index** — `…/by-index/<path>` triggers an item by its position instead of its uuid. The `<path>` is an **index path**: a zero-based list of child indices that descends into groups at each level, mirroring the client's `findItemByIndex` / `endBehavior.targetIndex`. A single number (`5`) targets the 6th top-level item; multiple components descend into groups — `1,11` means top-level item `1` (the 2nd item, a group) then its child `11` (the 12th item inside it). Both **comma- and slash-separated** forms are accepted and equivalent, so the same target can be written `…/by-index/1,11` or `…/by-index/1/11` (mixed forms like `1,2/0` work too). Like `/play`, it accepts `GET` so it can be fired from a browser or `curl`, and it routes through `trigger_item` — audio items play, group items dispatch per their `startBehavior`. Returns `400` for a malformed path, `404` when no item exists at that index or the resolved item isn't loaded into the engine.
@@ -519,21 +640,30 @@ On connect, the server adds the connection to the broadcast set and queues a one
       "transport":        1,
       "playhead_seconds": 12.43,
       "sources": [
-        { "peak_db": -3.1, "rms_db": -9.2 },
-        { "peak_db": -4.2, "rms_db": -9.5 }
+        { "peak_db": -3.1, "rms_db": -9.2, "peak_max_db": -1.0, "true_peak_db": -2.9,
+          "true_peak_max_db": -0.8, "kw_ms": 0.002, "kw_ms_s": 4.1 }
       ]
     }
   ],
   "mixer_channels": [
-    { "mixer_id": "…", "peak_db": -6.0, "rms_db": -12.0 }
+    {
+      "mixer_id": "…", "gate_gr_db": 0.0, "comp_gr_db": -1.2, "correlation": 0.8,
+      "peak_db": -6.0, "rms_db": -12.0, "peak_max_db": -4.0,
+      "true_peak_db": -5.8, "true_peak_max_db": -3.9, "kw_ms": 0.001, "kw_ms_s": 2.0,
+      "lanes": [ { "peak_db", "rms_db", "peak_max_db", "true_peak_db", "true_peak_max_db", "kw_ms", "kw_ms_s" } ]
+    }
   ],
   "master_channels": [
-    { "index": 0, "peak_db": -0.3, "rms_db": -8.1, "gain_reduction_db": -1.4 }
+    { "index": 0, "peak_db": -0.3, "rms_db": -8.1, "peak_max_db": -0.1,
+      "true_peak_db": -0.2, "true_peak_max_db": -0.05, "kw_ms": 0.003, "kw_ms_s": 6.4,
+      "gain_reduction_db": -1.4 }
   ]
 }
 ```
 
-Stopped cues are omitted from `items`. Silent master channels (`peak_db <= -119 dB` and gain reduction `> -0.05 dB`) are omitted from `master_channels` to keep the frame small.
+Every `*_db` reading pairs a live value (`peak_db`, `rms_db`) with a held maximum (`peak_max_db`) plus true-peak (inter-sample) equivalents (`true_peak_db`, `true_peak_max_db`), and `kw_ms`/`kw_ms_s` are K-weighted (BS.1770) momentary/short-term loudness accumulators. `mixer_channels` covers every engine strip — which is what a bus's meters ride on: match a bus's `mixerId` (from `GET /api/buses`) against `mixer_channels[].mixer_id` to get its meters, gain-reduction and correlation. `lanes` gives one entry per physical channel of the strip (so a stereo strip reports separate L/R) with the combined fields above it derived as their per-field maxima (and `kw_ms`/`kw_ms_s` summed across lanes, per BS.1770). `gate_gr_db`/`comp_gr_db` are single figures per strip (both detectors are linked across its lanes), and `correlation` is inter-channel correlation: `+1` mono-compatible, `0` wide, negative means the lanes are cancelling and material will disappear if anything sums the strip to mono.
+
+Stopped cues are omitted from `items`. Silent master channels (`peak_db <= -119 dB` and `peak_max_db <= -119 dB` and gain reduction `> -0.05 dB`) are omitted from `master_channels` to keep the frame small.
 
 **Transport state values**: `0=Stopped`, `1=Playing`, `2=FadingOut`, `3=Paused`.
 
@@ -542,6 +672,7 @@ Stopped cues are omitted from `items`. Silent master channels (`peak_db <= -119 
 | `op`                            | Additional fields                                          | Emitted by |
 |---------------------------------|------------------------------------------------------------|------------|
 | `project_changed`               | (none — clients refetch)                                   | `POST /api/project/{load,close}`, `PUT /api/project/document` |
+| `project_migrated`              | `itemsToMain`, `busesFromDeviceOverride`, `mainOutputMigrated` — flat on the frame, not nested | `POST /api/project/load`, `POST /api/project/save`, `PUT /api/project/document`, when the loaded/replaced document had to migrate |
 | `item_added`                    | `uuid`, `parentUuid`, `item`, `cueId`                      | `POST /api/project/items` |
 | `item_updated`                  | `uuid`, `patch`                                            | `PATCH /api/project/items/<uuid>` |
 | `item_removed`                  | `uuid`                                                     | `DELETE /api/project/items/<uuid>` |
@@ -551,10 +682,19 @@ Stopped cues are omitted from `items`. Silent master channels (`peak_db <= -119 
 | `theme_patched`                 | `theme` (full resulting theme object)                      | `PATCH /api/project/theme` |
 | `settings_patched`              | `settings` (full resulting settings object)                | `PATCH /api/project/settings` |
 | `master_gain_changed`           | `db`                                                       | `POST /api/master/gain` |
+| `limiter_changed`               | `enabled`                                                  | `POST /api/master/limiter` |
 | `output_channel_gain_changed`   | `channel`, `db`                                            | `POST /api/master/channels/<n>/gain` |
+| `buses_patched`                 | `buses` (full resulting `buses` array — see [Buses](#buses)) | `POST /api/buses`, `PATCH /api/buses/<id>`, `DELETE /api/buses/<id>`, WS `bus_gain`, WS `bus_mute` |
+| `bus_pfl_changed`               | `id`, `pfl`                                                | `POST /api/buses/<id>/pfl`, WS `bus_pfl` |
+| `bus_pfl_cleared`               | (none)                                                     | `POST /api/buses/pfl/clear` (only when it actually cleared something) |
+| `monitor_mono_changed`          | `mono`                                                     | `POST /api/monitor/mono` |
+| `outputs_changed`               | same shape as `GET /api/outputs`, plus `rewiredBuses`      | `PUT /api/outputs` |
+| `selection_changed`             | `itemUuid` (empty string clears)                           | `POST /api/selection`, WS `set_selection`, WS `select_step` |
+| `show_mode_changed`             | `enabled`                                                  | `POST /api/ui/showmode`, WS `set_show_mode` |
+| `locale_changed`                | `locale`                                                   | `POST /api/ui/locale`, WS `set_locale` |
 | `preview_started`               | `itemUuid`, `cueId`                                        | `POST /api/preview` |
 | `preview_stopped`               | (none)                                                     | `DELETE /api/preview` |
-| `next_item_set`                 | `itemUuid` (empty string clears)                           | WS `set_next_item` |
+| `next_item_set`                 | `itemUuid` (empty string clears)                           | WS `set_next_item`, and server-armed "Up Next" (auto-cue / first-item / end-of-list wrap) |
 | `waveform_ready`                | `item_uuid`, `bucket_count`, `duration_ms`, `sample_rate`, `source_channels`, `channels` | waveform worker, after `/api/waveform_generate` finishes |
 | `waveform_failed`               | `item_uuid`                                                | waveform worker on decode failure |
 | `custom_action_http`            | `action` (project-defined HTTP action descriptor)          | `ProjectState` external-action handler — server has no HTTP client, so clients perform the fetch |
@@ -575,7 +715,15 @@ Mostly mirror the REST surface so transport commands can skip the HTTP request/r
 | `gain`           | `{ "item_uuid"\|"cue_id": "…", "db": float }` | Sets the per-cue gain. |
 | `fade`           | `{ "item_uuid"\|"cue_id": "…", "in_ms": int, "out_ms": int }` | Sets fade durations. |
 | `stop_all`       | `{ "fade_ms": 0 }` | Stops every active cue. |
+| `go`             | `{}` | Same semantics as `GET /api/transport/go`. Replies with an `error` frame if nothing is armed or derivable. |
 | `set_next_item`  | `{ "item_uuid": "…" }` (empty/missing clears) | Sets the user-overridden "Up Next" target. Echoed to all clients as `next_item_set`. |
+| `set_selection`  | `{ "item_uuid": "…" }` (empty/missing clears) | Sets the shared playlist selection. Broadcasts `selection_changed`, including back to the sender — that's what keeps two clients from diverging. |
+| `select_step`    | `{ "delta": int }` | Steps the shared selection through the flattened playlist. With nothing selected, steps from whatever is currently sounding instead of snapping to the top of the show; an explicit selection always wins. Broadcasts `selection_changed`. |
+| `set_show_mode`  | `{ "enabled": bool }` (omit to toggle) | Broadcasts `show_mode_changed`. |
+| `set_locale`     | `{ "locale": "en" }` | Broadcasts `locale_changed`. |
+| `bus_gain`       | `{ "busId": "…", "gainDb": float }` | Same code path as `PATCH /api/buses/<id>`, so it persists and broadcasts `buses_patched` identically. `error` frame to the sender only (no broadcast) if `busId` is missing or unknown. |
+| `bus_mute`       | `{ "busId": "…", "mute": bool }` (omit `mute` to toggle the bus's current state) | Same code path as `PATCH /api/buses/<id>`; broadcasts `buses_patched`. `error` frame to the sender only if unknown. |
+| `bus_pfl`        | `{ "busId": "…", "pfl": bool }` (omit `pfl` to toggle) | Same code path as `POST /api/buses/<id>/pfl`, including its broadcast shape (`bus_pfl_changed`). `error` frame to the sender only if unknown. |
 | `ping`           | `{}` | Server replies with `{ "type": "pong" }`. |
 
 Unknown `type` values get a `{ "type": "error", "message": "unknown type" }` reply.
