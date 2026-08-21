@@ -885,3 +885,126 @@ serializes per §5, verifies, commits, and keeps §6 truthful.
 > BLOCKED with the question in its Notes cell and continue with other tasks. Work until
 > every task is VERIFIED or BLOCKED, finishing with G4 and the final full verification
 > pass, then append the run log per §8.6.
+
+---
+
+## 9. Run log
+
+Executed 2026-08-21 by an unattended orchestrator (Opus) over 23 sub-agent tasks — the 22 in §6
+plus one unplanned remediation. **All 22 tasks are `VERIFIED`. None is `BLOCKED`.** 31 commits on
+`2.5.0-dev`, from `7c0607d` to the G4 commit. **Nothing was pushed. `main` was never touched.**
+
+### Final verification pass (§8.6)
+
+Run against a clean rebuild (`--clean-first`), on this machine, with a real audio device:
+
+| check | result |
+|---|---|
+| server build | clean |
+| `ctest` (8 suites: meter, mixer, biquad, dynamics, stereo, drift, **topo**, waveform) | **8/8** |
+| e2e: pfl, width, comp, gate, filters, reroute, **busbus**, **migration**, save-churn, materialise-skip | **all ALL PASS (0)** |
+| `ui-churn-probe`, 60 items, saves proven real | **0 seams in every window** |
+| `seam-bisect` | clean, 20/20 trials |
+| `npm run build:nuxt` | green |
+| docs-site build | green |
+| all 21 locales parse | yes |
+
+### What was delivered
+
+Stage 4 (bus→bus routing) with a control-thread Kahn sort and three independent cycle guards;
+the save-time pop root-caused and fixed; clock-drift compensation wired with a real 11-minute
+two-device soak; the legacy/migration load paths repaired and made to announce themselves; the
+output-map UI; the external-control surface completed and both protocol documents rewritten from
+the code; the mixer translated into 20 languages; and the splitter, save-debounce and
+channel-view divergences fixed.
+
+### Deviations from the plan, and why
+
+1. **D11 was implemented strictly, and that required an unplanned client change.** C2's agent
+   correctly found that strict D11 breaks ordinary saving, because the client never sent
+   `busSchema` — every save would have wiped the bus list and re-materialised every strip
+   mid-show. Its proposed fix added a content-sniffing fallback. The orchestrator **rejected**
+   that: a heuristic in this load path is what caused finding §1.2-5 in the first place, and D11
+   plainly presupposes the client round-trips the version. The client now emits `busSchema`
+   (server header → `applyServerHeader` → `buildDocumentSnapshot`) and the rule is the strict
+   one. This was judged implied implementation of D11, not new policy.
+2. **That decision caused a regression the orchestrator had to repair.** Four DSP round-trip e2e
+   scripts (`width`, `filters`, `gate`, `comp`) send a rebuilt document without `busSchema` and
+   began failing with `(bus missing)`. `save-churn` and `materialise-skip` had been updated when
+   the call was made; these four were missed. Fixed in a separate commit by making them emulate
+   the client. **No assertion was weakened.**
+3. **`mixer.emptyRail` was not added.** C3 found `mixer.empty` already renders in exactly that
+   slot; its *value* was changed to the specified copy instead. A duplicate key rendering in one
+   place would have been worse.
+4. **The empty-rail and banner copy say "Master" though the system bus is named "Main".**
+   Orchestrator decision: the two strings sit on the same screen, and two words for one
+   destination in a single glance is worse than the naming inconsistency. G3 was told not to
+   "correct" it.
+5. **`/api/engine/stats` `devices` is a breaking change** — integer count → array; the count is
+   now `deviceCount`. No in-repo consumer read it as a number; an external controller will break
+   silently. Documented in `server/README.md`.
+6. **E1's `fillPercent` was sent back.** It first reported the raw ring read (~70%) against a
+   documented 50% target. A tripwire whose number contradicts its own target is worse than none,
+   so it now reports the controller's regulated value; the raw figure is kept as
+   `ringFillPercent`, because the smoothed one is a ~2.7 s filter and a queue slamming shut must
+   be visible on the first poll.
+
+### Errata in this plan, found during execution
+
+- **§7's docs-site command is wrong.** `npm run build --workspace=docs-site` fails — docs-site is
+  not an npm workspace. Use `npm run build` from inside `docs-site/`.
+- **§4-D1 names the wrong endpoint.** The whole-document write a save performs is
+  `POST /api/project/save` carrying `{document}`, not `PUT /api/project/document`. The latter has
+  three call sites (initial load, reconnect overlay, a rare 800 ms fallback watcher), none of
+  which is the three-saves-per-edit storm. D1 debounced the right one.
+- **§4-G2 says "Inheriting: Master".** There is no bus named Master; the system bus is `main`
+  ("Main"). The readout resolves the name from the live bus list instead.
+
+### Findings the maintainer should see
+
+1. **The seam detector is structurally blind to steps born before the limiter.** Its 240-sample
+   lookahead shifts an upstream discontinuity mid-block, where the ratio test reads it as
+   material — a hard ±120 dB master mute under playback registers **zero** seams. The only fault
+   it could ever catch at a block boundary was the limiter itself being reset, which is what the
+   pop turned out to be. Lucky, not general. Recorded in `BUS_ARCHITECTURE.md` §0.2c.
+2. **The probes were measuring nothing.** `ui-churn-probe` and `seam-bisect` saved without a
+   project path, so every save returned 400 before reaching `replace_full_document`. A 60-item
+   run logged 96 rejected saves and reported 0 seams. The historical "1 item, clean across 16
+   trials" almost certainly measured nothing. Both now establish a path and abort loudly on a
+   non-200 save. **This is a large part of why the bug looked load-dependent for four rounds.**
+3. **`pfl-e2e` has an unresolved intermittent.** It reported `FAILURES (2)` twice — once for the
+   E1 agent, once in the orchestrator's final pass, both on a fresh server — and did not
+   reproduce in six subsequent attempts. **Neither occurrence captured which assertions failed.**
+   Given this suite exists because PFL has twice leaked into the house while the code read
+   correctly, the next occurrence must capture the `FAIL` lines. Not diagnosed.
+4. **A separate known quirk:** `pfl-e2e` reliably fails its first assertion on a *second* run
+   against the same server (the monitor retains ~−27 dBFS). Confirmed pre-existing by building
+   `HEAD` in a scratch worktree and reproducing the identical alternation. Test hygiene, not a
+   product fault, but it should establish its own clean state as `busbus-e2e` does.
+5. **Five locale keys are missing from all 20 non-English locales** — `settings.audioDeviceMoved`,
+   `actions.cueToContinue`, `actions.jumpCue`, `controls.cueToContinue`, `controls.jumpCue`.
+   Pre-existing, outside D20's scope, unfixed.
+6. **G5 left one open question** (in its Notes): with `.cart-section` pinned to `flex-shrink: 0`,
+   the playlist's `min-width: 30%` floor and the cart's `maxWidth: 95%` clamp are mutually
+   inconsistent in a narrow band at the far left of the drag when the mixer is docked. Honest
+   tracking there needs a mixer-aware clamp, which §4-G5 forbids changing. **Maintainer call.**
+7. **`reset()` loads buses without materialising strips** (flagged by C1) — a reset project has
+   Main/Monitor in the document with no strips. Pre-existing, not a load path, untouched.
+8. **A 1.x document still produces no client `items`** (flagged by C1). Its cues reach hardware
+   through the master, which is where Main lands, so D1 holds; but the mixer will not show them
+   as items on Main. Making 1.x synthesise client items is a policy call that was not recorded.
+
+### Verification notes
+
+Every task's acceptance was re-run by the orchestrator, not taken from the sub-agent's report.
+Three claims were checked by building a **separate worktree**: A1's pfl alternation (pre-existing),
+E1's engine work (isolated from D2's concurrent edits), and D2's save-pop counterfactual
+(**16 seams unfixed vs 0 fixed**, with saves proven real). Two required fail-tests were performed
+against deliberately broken builds — A3's bus→bus chain and PFL tap, and C4's migration broadcast
+and no-carry rule — each restored byte-identically and confirmed with an empty `git diff`.
+
+Two orchestrator errors are worth recording. An early table-update script matched prose instead of
+a table row and clobbered this file's title line (restored, and the helper rewritten to be
+line-based, anchored on the row prefix with a cell-count assertion). And a cleanup loop killed
+every agent's server rather than only its own — the exact hazard the sub-agent instructions warned
+about — though the kill silently failed, so no run was lost.
