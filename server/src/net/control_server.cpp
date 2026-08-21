@@ -39,6 +39,7 @@
 #include <deque>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <mutex>
 #include <nlohmann/json.hpp>
@@ -163,6 +164,37 @@ static std::string_view bus_output_refusal_text(core::ProjectState::PatchBusResu
         default:
             return "the bus output was refused";
     }
+}
+
+// The full mixer view of one bus, shared by GET /api/buses and
+// GET /api/buses/<id> so the two can never drift apart.
+static json bus_info_to_json(const core::ProjectState::BusInfo& b) {
+    const char* kind =
+        b.def.output_kind == core::BusOutputKind::Bus    ? "bus"
+      : b.def.output_kind == core::BusOutputKind::Output ? "output"
+                                                          : "master";
+    return json{
+        {"id",       b.def.id},
+        {"name",     b.def.display_name},
+        {"color",    b.def.color},
+        {"order",    b.def.order},
+        {"width",    b.def.width},
+        {"gainDb",   b.def.gain_db},
+        {"mute",     b.def.muted},
+        {"pan",      b.def.pan},
+        {"dsp",      core::bus_dsp_to_json(b.def.dsp)},
+        // Live monitoring state, not part of the document —
+        // it comes from the strip, and a reload clears it.
+        {"pfl",      b.pfl},
+        // Monitor only: the mono-sum audition. Live too.
+        {"monoCheck", b.mono_check},
+        // Whether it actually reaches hardware — see BusInfo.
+        {"bound",    b.bound},
+        {"system",   b.def.system},
+        {"output",   json{{"type", kind}, {"target", b.def.output_target}}},
+        {"mixerId",  b.mixer.value},
+        {"itemUuids", b.item_uuids},
+    };
 }
 
 // Returns "Display Name (cue_id) (media/path)" for playback log lines.
@@ -877,11 +909,15 @@ static std::vector<std::string> selection_anchors(audio::AudioEngine& engine,
 // Returns a non-empty string if a direct reply to this specific client is
 // needed (pong, error). The caller sends it under ws_mutex so it doesn't
 // race with broadcast_loop's concurrent send_text calls on the same conn.
+// `broadcast` fans a doc_patch out to every connected client (see
+// ControlServer::broadcast_doc_patch); bus commands need it to converge a
+// second client the same way the REST endpoints they mirror do (D17).
 static std::string handle_ws_message(crow::websocket::connection& conn,
                                      const std::string& msg,
                                      audio::AudioEngine& engine,
                                      core::ProjectState& state,
-                                     const std::string& server_addr) {
+                                     const std::string& server_addr,
+                                     const std::function<void(const json&)>& broadcast) {
     Logger::api_request("Client ({}) -> Server ({}) : {}", conn.get_remote_ip(), server_addr, msg);
 
     json j;
@@ -1084,6 +1120,96 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
         else if (type == "set_locale") {
             if (j.contains("locale") && j["locale"].is_string())
                 state.set_ui_locale(j["locale"].get<std::string>());
+        }
+        else if (type == "bus_gain") {
+            // Same code path as PATCH /api/buses/<id>: persists to the
+            // document and applies straight to the live strip, then
+            // broadcasts buses_patched so a second client converges (D17).
+            using PR = core::ProjectState::PatchBusResult;
+            const std::string busId = j.value("busId", "");
+            if (busId.empty()) {
+                return json({{"type", "error"}, {"message", "bus_gain: missing busId"}}).dump();
+            }
+            const float db = j.value("gainDb", 0.0f);
+            const auto r = state.patch_bus(busId, json{{"gainDb", db}});
+            if (r == PR::NotFound) {
+                return json({{"type", "error"}, {"message", "bus_gain: not found"}}).dump();
+            }
+            if (r != PR::Ok) {
+                return json({{"type", "error"},
+                             {"message", std::string(bus_output_refusal_text(r))}}).dump();
+            }
+            if (broadcast) {
+                broadcast(json{
+                    {"type", "doc_patch"}, {"op", "buses_patched"},
+                    {"buses", state.full_document().value("buses", json::array())},
+                });
+            }
+        }
+        else if (type == "bus_mute") {
+            // Omit "mute" to toggle the bus's current state. Same code path
+            // as PATCH /api/buses/<id> for the actual mutation.
+            using PR = core::ProjectState::PatchBusResult;
+            const std::string busId = j.value("busId", "");
+            if (busId.empty()) {
+                return json({{"type", "error"}, {"message", "bus_mute: missing busId"}}).dump();
+            }
+            bool mute = false;
+            if (j.contains("mute") && j["mute"].is_boolean()) {
+                mute = j["mute"].get<bool>();
+            } else {
+                bool found = false;
+                for (const auto& b : state.list_buses()) {
+                    if (b.def.id == busId) { mute = !b.def.muted; found = true; break; }
+                }
+                if (!found) {
+                    return json({{"type", "error"}, {"message", "bus_mute: not found"}}).dump();
+                }
+            }
+            const auto r = state.patch_bus(busId, json{{"mute", mute}});
+            if (r == PR::NotFound) {
+                return json({{"type", "error"}, {"message", "bus_mute: not found"}}).dump();
+            }
+            if (r != PR::Ok) {
+                return json({{"type", "error"},
+                             {"message", std::string(bus_output_refusal_text(r))}}).dump();
+            }
+            if (broadcast) {
+                broadcast(json{
+                    {"type", "doc_patch"}, {"op", "buses_patched"},
+                    {"buses", state.full_document().value("buses", json::array())},
+                });
+            }
+        }
+        else if (type == "bus_pfl") {
+            // Omit "pfl" to toggle. Same code path as
+            // POST /api/buses/<id>/pfl, including its broadcast shape.
+            const std::string busId = j.value("busId", "");
+            if (busId.empty()) {
+                return json({{"type", "error"}, {"message", "bus_pfl: missing busId"}}).dump();
+            }
+            bool pfl = false;
+            if (j.contains("pfl") && j["pfl"].is_boolean()) {
+                pfl = j["pfl"].get<bool>();
+            } else {
+                bool found = false;
+                for (const auto& b : state.list_buses()) {
+                    if (b.def.id == busId) { pfl = !b.pfl; found = true; break; }
+                }
+                if (!found) {
+                    return json({{"type", "error"}, {"message", "bus_pfl: not found"}}).dump();
+                }
+            }
+            if (!state.set_bus_pfl(busId, pfl)) {
+                return json({{"type", "error"},
+                             {"message", "bus_pfl: not found, or not a bus that can be PFL'd"}}).dump();
+            }
+            if (broadcast) {
+                broadcast(json{
+                    {"type", "doc_patch"}, {"op", "bus_pfl_changed"},
+                    {"id", busId}, {"pfl", pfl},
+                });
+            }
         }
         else if (type == "ping") {
             return json({{"type", "pong"}}).dump();
@@ -1626,35 +1752,20 @@ void ControlServer::install_routes() {
         ([this] {
             try {
                 json arr = json::array();
-                for (const auto& b : state_.list_buses()) {
-                    const char* kind =
-                        b.def.output_kind == core::BusOutputKind::Bus    ? "bus"
-                      : b.def.output_kind == core::BusOutputKind::Output ? "output"
-                                                                         : "master";
-                    arr.push_back(json{
-                        {"id",       b.def.id},
-                        {"name",     b.def.display_name},
-                        {"color",    b.def.color},
-                        {"order",    b.def.order},
-                        {"width",    b.def.width},
-                        {"gainDb",   b.def.gain_db},
-                        {"mute",     b.def.muted},
-                        {"pan",      b.def.pan},
-                        {"dsp",      core::bus_dsp_to_json(b.def.dsp)},
-                        // Live monitoring state, not part of the document —
-                        // it comes from the strip, and a reload clears it.
-                        {"pfl",      b.pfl},
-                        // Monitor only: the mono-sum audition. Live too.
-                        {"monoCheck", b.mono_check},
-                        // Whether it actually reaches hardware — see BusInfo.
-                        {"bound",    b.bound},
-                        {"system",   b.def.system},
-                        {"output",   json{{"type", kind}, {"target", b.def.output_target}}},
-                        {"mixerId",  b.mixer.value},
-                        {"itemUuids", b.item_uuids},
-                    });
-                }
+                for (const auto& b : state_.list_buses()) arr.push_back(bus_info_to_json(b));
                 return json_ok(arr);
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
+    // Single-resource read: the same shape as one element of the list above.
+    // Unknown id is a 404, same as every other /api/buses/<id> route.
+    CROW_ROUTE(app, "/api/buses/<string>").methods(crow::HTTPMethod::Get)
+        ([this](std::string id){
+            try {
+                for (const auto& b : state_.list_buses()) {
+                    if (b.def.id == id) return json_ok(bus_info_to_json(b));
+                }
+                return json_err(404, "not found");
             } catch (const std::exception& e) { return json_err(500, e.what()); }
         });
 
@@ -1698,6 +1809,8 @@ void ControlServer::install_routes() {
     // Same shape as the strip gain/mute endpoints, and for the same reason:
     // a PATCH per drag event would rewrite the document and bounce the knob
     // back to the stale value until the round-trip landed.
+    // Client-internal (D16): this endpoint is a drag surface, not part of the
+    // external-control API. External controllers use PATCH /api/buses/<id>.
     CROW_ROUTE(app, "/api/buses/<string>/pan").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req, std::string id){
             try {
@@ -1713,6 +1826,8 @@ void ControlServer::install_routes() {
     // Same shape and the same reason as the pan endpoint — a PATCH per drag
     // event would rewrite the document and bounce the knob back to the stale
     // value until the round trip landed.
+    // Client-internal (D16): this endpoint is a drag surface, not part of the
+    // external-control API. External controllers use PATCH /api/buses/<id>.
     CROW_ROUTE(app, "/api/buses/<string>/dsp").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req, std::string id){
             try {
@@ -3326,7 +3441,8 @@ void ControlServer::install_routes() {
           if (is_binary) return;
           std::string direct_reply;
           try {
-              direct_reply = handle_ws_message(conn, data, engine_, state_, impl_->server_addr);
+              direct_reply = handle_ws_message(conn, data, engine_, state_, impl_->server_addr,
+                                               [this](const json& p) { broadcast_doc_patch(p); });
           } catch (const std::exception& e) {
               Logger::error("WS onmessage threw past handler: {}", e.what());
           } catch (...) {

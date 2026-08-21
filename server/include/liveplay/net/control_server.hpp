@@ -20,7 +20,7 @@
 //   POST   /api/cues/{id}/fade               — { "in_ms": N, "out_ms": M }
 //   POST   /api/cues/{id}/ltc                — { "enabled":..., "fps":..., "offset_ns":... }
 //   POST   /api/transport/stop_all           — { "fade_ms": 250 }
-//   GET    /api/state/summary                — compact transport state (external control)
+//   GET    /api/state/summary                — compact transport + bus state (external control)
 //   POST   /api/transport/go                 — play the armed "Up Next" item
 //   POST   /api/transport/play_index         — { "index": [1, 11] } trigger by index path
 //   POST   /api/transport/cart/{slot}/play   — trigger a cart slot's bound item
@@ -40,6 +40,19 @@
 //   POST   /api/routing/master_to_device     — { master_channel, device, hw_channel }
 //   POST   /api/mixers                       — { "name": "..." }
 //   DELETE /api/mixers/{id}
+//   GET    /api/buses                        — list buses, mixer-view shape
+//   GET    /api/buses/{id}                   — single bus, same shape as one list element
+//   POST   /api/buses                        — { name, color, order, ... } create
+//   PATCH  /api/buses/{id}                   — persist-and-broadcast edit (name/color/order/
+//                                               width/gainDb/mute/pan/dsp/output)
+//   DELETE /api/buses/{id}                   — refused for system buses
+//   POST   /api/buses/{id}/pan               — live-drag only; client-internal (D16) —
+//                                               external controllers use PATCH
+//   POST   /api/buses/{id}/dsp               — live-drag only; client-internal (D16) —
+//                                               external controllers use PATCH
+//   POST   /api/buses/{id}/pfl               — { "pfl": bool } persist-and-broadcast
+//   POST   /api/buses/pfl/clear              — clear PFL on every bus
+//   POST   /api/monitor/mono                 — { "mono": bool } Monitor bus mono-sum audition
 //   GET    /api/fs/list?path=...             — list directory (audio + dirs)
 //   POST   /api/upload                       — multipart upload to media root
 //   GET    /api/project                      — current project JSON
@@ -49,7 +62,11 @@
 // WebSocket: /ws — bidirectional JSON message stream.
 //   Server → Client: { "type": "meters", ... } @ ~60Hz, plus
 //                    { "type": "cue_state", ... } on transport transitions.
-//   Client → Server: { "type": "play"|"stop"|"stop_all"|"gain"|... }
+//   Client → Server: { "type": "play"|"stop"|"stop_all"|"gain"|... }, plus bus commands that
+//                    mirror the REST persist-and-broadcast endpoints above:
+//                    { "type": "bus_gain", "busId": "...", "gainDb": -3.0 }
+//                    { "type": "bus_mute", "busId": "...", "mute": bool }        (omit = toggle)
+//                    { "type": "bus_pfl",  "busId": "...", "pfl":  bool }        (omit = toggle)
 // ============================================================================
 #pragma once
 

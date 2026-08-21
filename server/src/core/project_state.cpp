@@ -3357,7 +3357,35 @@ json ProjectState::state_summary() const {
         cart.push_back(std::move(entry));
     }
 
+    // Buses: names, levels and flags only, for Companion-style control
+    // surfaces (D23: meters ride the separate `meters` WS broadcast, not
+    // this snapshot). Deliberately compact — no `dsp` block, no
+    // `itemUuids`; a controller wants "what is it called and what state is
+    // it in", not the mixer's internals.
+    json buses_arr = json::array();
+    for (const auto& b : list_buses()) {
+        const char* kind =
+            b.def.output_kind == BusOutputKind::Bus    ? "bus"
+          : b.def.output_kind == BusOutputKind::Output ? "output"
+                                                        : "master";
+        json entry{
+            {"id",     b.def.id},
+            {"name",   b.def.display_name},
+            {"color",  b.def.color},
+            {"order",  b.def.order},
+            {"width",  b.def.width},
+            {"gainDb", b.def.gain_db},
+            {"mute",   b.def.muted},
+            {"pfl",    b.pfl},
+            {"bound",  b.bound},
+            {"output", json{{"type", kind}, {"target", b.def.output_target}}},
+        };
+        if (b.def.id == kMonitorBusId) entry["monoCheck"] = b.mono_check;
+        buses_arr.push_back(std::move(entry));
+    }
+
     return json{
+        {"buses",   std::move(buses_arr)},
         {"project", std::move(project_block)},
         {"playing", std::move(playing)},
         {"next",    std::move(next)},
