@@ -778,28 +778,28 @@ task needs to know.
 
 | ID | Task | Agent | Thinking | Effort | Depends on | Status | Notes |
 |----|------|-------|----------|--------|------------|--------|-------|
-| A1 | Engine: mixer→mixer routes, topo order, render-loop restructure | Fable | On | High | — | TODO | |
+| A1 | Engine: mixer→mixer routes, topo order, render-loop restructure | Fable | On | High | — | IN PROGRESS | |
 | A2 | ProjectState: bus-output wiring, cycle 409, `bound` chain, delete-retarget | Opus | On | High | A1 | TODO | |
 | A3 | Bus→bus unit tests + `busbus-e2e.js` | Sonnet | On | Medium | A2 | TODO | |
 | A4 | Client: bus targets in output selectors, 409 handling, copy updates | Sonnet | On | Low | A2 | TODO | |
-| B1 | Server: `outputs_changed` broadcast on PUT /api/outputs | Sonnet | Off | — | — | TODO | |
+| B1 | Server: `outputs_changed` broadcast on PUT /api/outputs | Sonnet | Off | — | — | IN PROGRESS | |
 | B2 | Client: `OutputMapModal.vue` (Remap Hardware Outputs) | Sonnet | On | Medium | B1 | TODO | |
 | B3 | Client: details-view `bound` + option-fallback fixes | Haiku | Off | — | B1 | TODO | |
-| C1 | Server: legacy/snake_case load-path fixes, heuristic, route-on-load | Opus | On | High | — | TODO | |
+| C1 | Server: legacy/snake_case load-path fixes, heuristic, route-on-load | Opus | On | High | — | IN PROGRESS | |
 | C2 | Server: `busSchema`, carry rule, `project_migrated` broadcast | Opus | On | Medium | C1 | TODO | |
 | C3 | Client: migration banner + mixer empty-state copy | Sonnet | Off | — | C2 | TODO | |
 | C4 | `migration-e2e.js` | Sonnet | On | Medium | C2 | TODO | |
-| D1 | Client: one document save per edit (debounce + flush) | Sonnet | On | Medium | — | TODO | |
+| D1 | Client: one document save per edit (debounce + flush) | Sonnet | On | Medium | — | VERIFIED | D13 done. Module-scoped trailing 300ms debounce over the whole-document save, shared waiter list so every caller in a burst gets one save and one result; force bypasses it; flushes wired into closeProject() and app.vue runQuitFlow() step 0. Cart-only mirroring and autosave gating stay synchronous on every call (they feed the item diff-watcher, not the disk write). NOTE for D2: the whole-document write is POST /api/project/save carrying {document} (which is what reaches replace_full_document and what save-churn.js exercises), NOT PUT /api/project/document as the spec text says; PUT /api/project/document has only 3 call sites (initial load, reconnect overlay, and a rare 800ms fallback watcher for cartSlotKeys/playbackKeys/name, left alone). No separate Save As flow exists; File>Save uses force and flushes. Verified: build:nuxt green, call sites enumerated. Residual, not a regression: flushPendingSave() returns early if the timer already fired and the save is still in flight. |
 | D2 | Server: root-cause + fix the residual save-time pop | Fable | On | Max | C2 | TODO | |
 | E1 | Engine: clock-device drift compensation wiring + stats | Opus | On | High | A1 | TODO | |
 | F1 | Server: `GET /api/buses/<id>`, summary buses block, WS bus commands | Sonnet | On | Medium | A2 | TODO | |
 | F2 | Docs: `server/README.md` protocol refresh | Sonnet | On | Low | F1 | TODO | |
 | F3 | Docs-site: "External control / API" section | Sonnet | On | Low | F1 | TODO | |
-| G1 | Client: bus colour swatch popover + details rename | Sonnet | Off | — | — | TODO | |
+| G1 | Client: bus colour swatch popover + details rename | Sonnet | Off | — | — | VERIFIED | D18 done. Details-header colour chip is now a button opening a PRESET_COLORS swatch popover; header name inline-renameable (dblclick, Enter/blur commit, Esc cancel), system buses excluded to match MixerStrip. Both go through the existing patch emit to PATCH /api/buses/<id>; no client-local authoritative state. MixerStrip.vue untouched: its chip already renders bus.color from the shared buses ref refreshed on buses_patched, so colour propagates by construction. New en.json key: mixer.busColor; reuses existing mixer.renameHint. Verified by orchestrator: build:nuxt green, PRESET_COLORS export + patch emit signature + useLocalization t() all confirmed in code. D17 convergence verified by analysis, not by driving two windows. |
 | G2 | Client: playlist bus badge + group inheritance readout | Sonnet | On | Low | — | TODO | |
 | G3 | i18n: translate new keys ×20 locales, delete dead keys ×21 | Sonnet | Off | — | A4,B2,C3,G1,G2 | TODO | |
 | G4 | Docs: `BUS_ARCHITECTURE.md` status refresh | Sonnet | On | Low | all others | TODO | |
-| G5 | Client: splitter drag offset fix | Sonnet | On | Low | — | TODO | |
+| G5 | Client: splitter drag offset fix | Sonnet | On | Low | — | VERIFIED | Two real bugs, both fixed. (1) Offset: startResize measured the cart pane's right edge as the container's right edge, but with the mixer docked the row is playlist/handle/cart/mixer-handle/mixer, so the divider trailed the pointer by the mixer's width. Now measures the live .mixer-resize-handle left edge, falling back to the container edge when undocked. (2) Slope: .cart-section had default flex-shrink 1 while playlist+cart already request 100% before the mixer's handle and panel, so the rendered cart width was cartWidth*(1-k) and the divider tracked at a fractional slope; .cart-section is now flex-shrink 0 and playlist absorbs the overflow. startMixerResize was already 1:1 (mixer-section is flex 0 0 auto). Clamp ranges, snap thresholds and min-width 30% untouched. Verified: build:nuxt green; tracking verified by arithmetic (slope 1, offset 0, docked and undocked), not by dragging. OPEN QUESTION FOR MAINTAINER: with cart flex-shrink 0, the playlist min-width 30% floor and the cart maxWidth 95% clamp are mutually inconsistent in a narrow band near the far-left of the drag when the mixer is docked; making tracking honest there needs a mixer-aware cart clamp, which SS5 forbids changing. Not addressed. |
 
 Model-choice rationale (for the orchestrator when re-planning): **Fable** for the two tasks
 where a wrong judgement is expensive and evidence must drive design (the render-loop

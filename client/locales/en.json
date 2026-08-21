@@ -640,6 +640,7 @@
     "release": "Release",
     "prevChannel": "Previous channel",
     "nextChannel": "Next channel",
-    "backToMixer": "Back to the mixer"
+    "backToMixer": "Back to the mixer",
+    "busColor": "Bus colour"
   }
 }

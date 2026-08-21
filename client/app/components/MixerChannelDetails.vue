@@ -19,8 +19,41 @@
   -->
   <div class="det">
     <header class="det__head">
-      <span class="det__chip" :style="{ background: bus.color || 'var(--color-accent)' }"></span>
-      <span class="det__title">{{ bus.name }}</span>
+      <div ref="colorWrapRef" class="det__colorwrap">
+        <button
+          class="det__chip"
+          :style="{ background: bus.color || 'var(--color-accent)' }"
+          :title="t('mixer.busColor')"
+          @click.stop="colorPickerOpen = !colorPickerOpen"
+        ></button>
+        <div v-if="colorPickerOpen" class="det__colorpopover">
+          <button
+            v-for="color in PRESET_COLORS"
+            :key="color"
+            class="det__colorswatch"
+            :style="{ background: color }"
+            :class="{ 'det__colorswatch--active': bus.color === color }"
+            :title="color"
+            @click="onPickColor(color)"
+          ></button>
+        </div>
+      </div>
+      <div
+        class="det__titlewrap"
+        :title="bus.system ? '' : (renaming ? '' : bus.name + ' — ' + t('mixer.renameHint'))"
+      >
+        <input
+          v-if="renaming"
+          ref="nameInput"
+          class="det__titleinput"
+          :value="bus.name"
+          @click.stop
+          @keyup.enter="commitRename"
+          @keyup.esc="renaming = false"
+          @blur="commitRename"
+        />
+        <span v-else class="det__title" @dblclick="startRename">{{ bus.name }}</span>
+      </div>
       <span class="det__meta">{{ widthLabel }} · {{ outputSummary }}</span>
 
       <div class="det__spacer"></div>
@@ -193,8 +226,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import type { Bus, BusDsp } from '~/types/project';
+import { PRESET_COLORS } from '~/types/project';
 import MixerChannelFader from './MixerChannelFader.vue';
 import MixerEqPanel from './MixerEqPanel.vue';
 import MixerDynamicsPanel from './MixerDynamicsPanel.vue';
@@ -224,7 +258,11 @@ const { findItemByUuid } = useProject();
 // common parent, rather than in shared module state — this is the only place
 // that needs to know, and it clears itself when the channel changes.
 const liveDsp = ref<Partial<BusDsp> | null>(null);
-watch(() => props.bus?.id, () => { liveDsp.value = null; });
+watch(() => props.bus?.id, () => {
+  liveDsp.value = null;
+  renaming.value = false;
+  colorPickerOpen.value = false;
+});
 // Once the settled value has landed on the bus, stop overriding with a stale
 // copy of the same thing.
 watch(() => props.bus?.dsp, () => { liveDsp.value = null; }, { deep: true });
@@ -272,6 +310,48 @@ function itemName(uuid: string): string {
   const it = findItemByUuid?.(uuid) as any;
   return it?.displayName || uuid;
 }
+
+// Inline rename, same pattern as the strip's scribble strip
+// (MixerStrip.vue): system buses (Main, Monitor) keep their given names.
+const renaming  = ref(false);
+const nameInput = ref<HTMLInputElement | null>(null);
+
+async function startRename() {
+  if (props.bus.system) return;
+  renaming.value = true;
+  await nextTick();
+  nameInput.value?.select();
+}
+function commitRename() {
+  if (!renaming.value) return;
+  renaming.value = false;
+  const next = nameInput.value?.value?.trim();
+  if (next && next !== props.bus.name) emit('patch', props.bus.id, { name: next });
+}
+
+// Colour swatch popover. Picking a colour patches the bus straight away —
+// there is no drag gesture to debounce here, unlike gain/pan — and the
+// server's buses_patched broadcast is what every window, including this one,
+// renders from.
+const colorPickerOpen = ref(false);
+const colorWrapRef = ref<HTMLElement | null>(null);
+
+function onDocClick(e: MouseEvent) {
+  if (!colorPickerOpen.value) return;
+  const target = e.target as Node;
+  if (colorWrapRef.value && !colorWrapRef.value.contains(target)) {
+    colorPickerOpen.value = false;
+  }
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('mousedown', onDocClick, true);
+  onBeforeUnmount(() => window.removeEventListener('mousedown', onDocClick, true));
+}
+
+function onPickColor(color: string) {
+  emit('patch', props.bus.id, { color });
+  colorPickerOpen.value = false;
+}
 </script>
 
 <style scoped>
@@ -292,10 +372,56 @@ function itemName(uuid: string): string {
   padding: var(--spacing-xs) var(--spacing-sm);
   border-bottom: 1px solid var(--color-border);
 }
-.det__chip { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
-/* The name is editable in the channel column, where it sits between the
-   stepping arrows; here it is just the heading. */
-.det__title { font-size: 13px; color: var(--color-text-primary); }
+.det__colorwrap { position: relative; flex: 0 0 auto; }
+.det__chip {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+.det__colorpopover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  padding: var(--spacing-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.det__colorswatch {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: var(--border-radius-sm);
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.det__colorswatch:hover { transform: scale(1.1); }
+.det__colorswatch--active {
+  border-color: var(--color-text-primary);
+  box-shadow: 0 0 0 2px var(--color-background);
+}
+/* The name is editable here, double-click as on the strip; system buses keep
+   their given name, same restriction as the strip's scribble strip. */
+.det__titlewrap { display: flex; align-items: center; min-width: 0; }
+.det__title { font-size: 13px; color: var(--color-text-primary); cursor: text; }
+.det__titleinput {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  background: var(--color-background);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--border-radius-sm);
+  padding: 1px 4px;
+  min-width: 0;
+}
 .det__meta { font-size: 11px; color: var(--color-text-disabled); }
 .det__delete, .det__close {
   display: flex;
