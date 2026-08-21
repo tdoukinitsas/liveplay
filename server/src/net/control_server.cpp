@@ -1812,6 +1812,15 @@ void ControlServer::install_routes() {
                 const auto moved = state_.rewire_buses_for_output_map();
                 auto out = outputs_.to_json();
                 out["rewiredBuses"] = moved;
+                // Same shape as GET /api/outputs plus rewiredBuses, so a second
+                // connected client (detached mixer, Companion, curl) converges
+                // on the new map without polling.
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "outputs_changed"},
+                    {"version", out.value("version", 1)},
+                    {"outputs", out.value("outputs", json::array())},
+                    {"rewiredBuses", moved},
+                });
                 return json_ok(out);
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
