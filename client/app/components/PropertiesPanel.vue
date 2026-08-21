@@ -342,15 +342,39 @@ const apiTriggerUrl = computed(() => {
 const assignableBuses = computed(() =>
   (_server.buses ?? []).filter((b: any) => !b.system));
 
+// Mirrors the server's resolve_item_bus (server/src/core/project_state.cpp):
+// walk the tree carrying the nearest ancestor's assignment down; an item's
+// own busId (checked by the caller before this runs) would override it, so
+// by the time we get here the answer is purely "what did it inherit". Falls
+// back to the Main bus (server id "main") when nothing along the chain
+// assigns one — same as the server.
+const resolveEffectiveBusId = (uuid: string): string => {
+  const MAIN_BUS_ID = 'main';
+  const items = currentProject.value?.items ?? [];
+  let result: string | null = null;
+  const walk = (arr: (AudioItem | GroupItem)[], inherited: string): boolean => {
+    for (const it of arr) {
+      const effective = (it as any).busId || inherited;
+      if (it.uuid === uuid) { result = effective; return true; }
+      if (it.type === 'group' && walk((it as GroupItem).children, effective)) return true;
+    }
+    return false;
+  };
+  if (walk(items as (AudioItem | GroupItem)[], MAIN_BUS_ID)) return result as string;
+  return MAIN_BUS_ID;
+};
+
 // What the item actually resolves to, which is not the same as what is written
 // on it: with no assignment of its own it may still inherit one from a group.
+// Computed client-side (rather than read off the server's bus membership
+// list) because that list only attributes leaf audio items to a bus — a
+// group never appears in it, so groups showed nothing here before.
 const effectiveBusName = computed(() => {
   const it = selectedItem.value as any;
-  // Only meaningful for a cue: a group's own "effective" bus is whatever it
-  // inherits, but nothing reports group membership.
-  if (!it?.uuid || it.busId || it.type !== 'audio') return '';
-  const owner = (_server.buses ?? []).find((b: any) => b.itemUuids?.includes(it.uuid));
-  return owner?.name ?? '';
+  if (!it?.uuid || it.busId) return '';
+  const busId = resolveEffectiveBusId(it.uuid);
+  const bus = (_server.buses ?? []).find((b: any) => b.id === busId);
+  return bus?.name ?? 'Main';
 });
 
 const onBusChange = async (e: Event) => {

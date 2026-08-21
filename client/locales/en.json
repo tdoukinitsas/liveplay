@@ -140,7 +140,9 @@
     "addGroup": "Add Group",
     "noItems": "No items in playlist",
     "importAudio": "Import Audio",
-    "importHint": "Use the import buttons or drag files here"
+    "importHint": "Use the import buttons or drag files here",
+    "busRouted": "Routed to {name}",
+    "busRoutedMissing": "Routed to a missing bus"
   },
   "cart": {
     "title": "Cart Player",

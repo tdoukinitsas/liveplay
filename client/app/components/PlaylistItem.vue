@@ -68,6 +68,12 @@
         
         <span class="item-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
         <span
+          v-if="busBadge"
+          class="bus-badge"
+          :style="{ backgroundColor: busBadge.color }"
+          :title="busBadge.title"
+        ></span>
+        <span
           v-if="isPeaking"
           class="material-symbols-rounded peak-warning-icon"
           :title="t('properties.peakWarning')"
@@ -242,6 +248,25 @@ const { uiMode } = useUiMode();
 // row up for touch, while keeping waveform, colour, duration, behaviour flags
 // and warnings identical to edit mode.
 const showMode = computed(() => uiMode.value === 'playback');
+
+// D19: rows with an EXPLICIT busId of their own get a small coloured dot.
+// Inherited routing is intentionally not badged here — it shows in
+// PropertiesPanel's "Inheriting: ..." readout instead. Reads colour straight
+// from the shared server-broadcast `buses` state (not a local copy), so a
+// recolour elsewhere (G1) or a `buses_patched` refresh repaints this badge
+// automatically with no extra wiring.
+const _server = useLiveplayServer();
+const busBadge = computed(() => {
+  const busId = (props.item as any).busId;
+  if (!busId) return null;
+  const bus = (_server.buses ?? []).find((b: any) => b.id === busId);
+  if (!bus) {
+    // Stale assignment — the bus was deleted. Never block rendering; just
+    // show it as unrouted rather than throwing or hiding the row.
+    return { color: 'var(--color-text-disabled)', title: t('playlist.busRoutedMissing') };
+  }
+  return { color: bus.color, title: t('playlist.busRouted', { name: bus.name }) };
+});
 
 const { isRevealed, forgetReveal } = usePlaylistReveal();
 
@@ -999,6 +1024,16 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   flex-shrink: 0;
   cursor: help;
   line-height: 1;
+}
+
+/* D19: bus-routing badge — a small coloured dot shown only when the row
+   carries an EXPLICIT busId of its own (never for inherited routing). */
+.bus-badge {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  cursor: help;
 }
 
 .item-duration {
