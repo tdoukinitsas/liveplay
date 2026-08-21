@@ -176,7 +176,18 @@ const startResize = (e: PointerEvent) => {
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
-    const newWidth = rect.right - e.clientX;
+
+    // The cart pane's right edge is the container's right edge only when
+    // nothing else sits to its right. When the mixer is docked ('side' mode)
+    // its panel and resize handle occupy the same row, so the cart's actual
+    // boundary is wherever the mixer's own handle starts — not the far edge
+    // of the workspace. Measuring from the container's edge unconditionally
+    // left this divider trailing the pointer by the mixer's width whenever
+    // the mixer panel was open, which is why it looked like it wasn't
+    // tracking the mouse at all.
+    const mixerHandle = document.querySelector('.mixer-resize-handle');
+    const rightEdge = mixerHandle ? mixerHandle.getBoundingClientRect().left : rect.right;
+    const newWidth = rightEdge - e.clientX;
 
     // Snap zones
     const snapThreshold = 100; // pixels from edge to trigger snap
@@ -680,5 +691,15 @@ onUnmounted(() => {
 
 .cart-section {
   overflow: hidden;
+  // The row over-requests width whenever the mixer is docked (playlist +
+  // cart alone already ask for 100%, before the mixer's own handle/panel are
+  // added in). With the default flex-shrink: 1, that overflow got divided
+  // between playlist *and* cart, so cart's rendered width was always less
+  // than the `cartWidth` px just set — the divider tracked the pointer at a
+  // fractional slope instead of 1:1. Pinning cart's shrink to 0 makes its
+  // rendered width equal `cartWidth` by construction; the playlist pane (the
+  // only other shrinkable item) absorbs all of the overflow instead, same as
+  // its `min-width: 30%` already assumed it might have to.
+  flex-shrink: 0;
 }
 </style>
