@@ -25,6 +25,7 @@
       @delete="onDelete"
       @select="showChannel"
       @close="detailsId = ''"
+      @open-output-map="outputMapOpen = true"
     >
       <template #actions>
         <MixerActions
@@ -37,6 +38,7 @@
           @mode="$emit('mode', $event)"
           @close="$emit('close')"
           @clear-pfl="clearPfl"
+          @output-map="outputMapOpen = true"
         />
       </template>
     </MixerChannelDetails>
@@ -54,6 +56,7 @@
             @select="selectedId = $event"
             @open="openDetails"
             @patch="onPatch"
+            @open-output-map="outputMapOpen = true"
           />
           <p v-if="userBuses.length === 0" class="mixer__empty">{{ t('mixer.empty') }}</p>
         </div>
@@ -76,6 +79,7 @@
             :output-names="outputNames"
             monitor
             @patch="onPatch"
+            @open-output-map="outputMapOpen = true"
           />
           <MixerStrip :bus="masterBus" :touch="touch" :output-names="[]" master />
         </div>
@@ -95,18 +99,25 @@
           @mode="$emit('mode', $event)"
           @close="$emit('close')"
           @clear-pfl="clearPfl"
+          @output-map="outputMapOpen = true"
         />
       </footer>
     </template>
+
+    <!-- Outside the rail/details v-if branch so it works from either mode,
+         and in the detached mixer window, which has its own socket but the
+         same component tree. -->
+    <OutputMapModal :open="outputMapOpen" @close="outputMapOpen = false" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { Bus } from '~/types/project';
 import MixerStrip from './MixerStrip.vue';
 import MixerChannelDetails from './MixerChannelDetails.vue';
 import MixerActions from './MixerActions.vue';
+import OutputMapModal from './OutputMapModal.vue';
 
 const props = withDefaults(
   defineProps<{ mode?: 'side' | 'full'; detached?: boolean }>(),
@@ -155,6 +166,10 @@ const selectedId  = useState<string>('liveplay:mixerSelectedBus', () => '');
 // Which channel the channel view is showing; empty means the rail.
 const detailsId   = useState<string>('liveplay:mixerDetailsBus', () => '');
 const outputNames = ref<string[]>([]);
+// Pure view state (invariant 1's one allowance): whether the output-map
+// editor is open. Everything the modal shows and saves comes from the
+// server, never from anything held here.
+const outputMapOpen = ref(false);
 
 // The master strip drives the *same* parameter as the transport bar's Main
 // fader — the output-channel gain on masters 0/1 — rather than the engine's
@@ -237,12 +252,31 @@ const detailsBus = computed(() =>
     ? userBuses.value.find(b => b.id === detailsId.value) ?? null
     : null);
 
-onMounted(async () => {
-  await server.fetchBuses();
+// Was fetched once at mount and never again — a remap from any client (this
+// window's own modal included) left every strip's output <select> pointing
+// at a stale name list until the panel was remounted. Refetching here, on
+// the outputs_changed broadcast and on every WS reconnect, is what actually
+// keeps it live; the modal owns its own copy of the map and is not the thing
+// this depends on.
+async function refreshOutputNames() {
   try {
     const map = await server.fetchOutputs();
     outputNames.value = (map?.outputs ?? []).map(o => o.name);
-  } catch { outputNames.value = []; }
+  } catch { /* offline; the next reconnect or outputs_changed retries */ }
+}
+
+const unsubDocPatch = server.onDocPatch((payload: any) => {
+  if (payload?.op === 'outputs_changed') void refreshOutputNames();
+});
+const unsubReconnected = server.onReconnected(() => { void refreshOutputNames(); });
+onBeforeUnmount(() => {
+  unsubDocPatch();
+  unsubReconnected();
+});
+
+onMounted(async () => {
+  await server.fetchBuses();
+  await refreshOutputNames();
 });
 
 async function onPatch(id: string, patch: Partial<Bus>) {

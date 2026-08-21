@@ -156,9 +156,17 @@
                 <option :value="2">{{ t('mixer.stereo') }}</option>
               </select>
             </label>
-            <p v-if="unmapped" class="det__warn">
+            <!-- Replaces the old dead-end warning text: this is now the D3
+                 click affordance straight into the Remap Hardware Outputs
+                 modal, since the select above can only pick a logical name,
+                 never bind one to hardware. -->
+            <button
+              v-if="unmapped"
+              class="det__warn det__warnbtn"
+              @click="$emit('open-output-map')"
+            >
               {{ t('mixer.outputUnmapped', { name: bus.output.target }) }}
-            </p>
+            </button>
             <p v-if="bus.output.type === 'bus'" class="det__warn">
               {{ t('mixer.busToBusUnsupported') }}
             </p>
@@ -246,6 +254,7 @@ const emit = defineEmits<{
   (e: 'delete', id: string): void;
   (e: 'select', id: string): void;
   (e: 'close'): void;
+  (e: 'open-output-map'): void;
 }>();
 
 const { t } = useLocalization();
@@ -607,6 +616,18 @@ function onPickColor(color: string) {
 }
 
 .det__warn { margin: 0; font-size: 11px; color: var(--color-warning); }
+/* The unmapped warning is a click affordance into the remap modal, not just
+   a status line, so it reads as text but behaves as a button. */
+.det__warnbtn {
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+.det__warnbtn:hover { color: var(--color-danger, var(--color-warning)); }
 .det__none { list-style: none; margin: 0; font-size: 11px; color: var(--color-text-disabled); }
 
 /* Contributions above, sends below, in one full-height column.

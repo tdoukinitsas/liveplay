@@ -27,6 +27,17 @@
       <span class="material-symbols-rounded">add</span>
     </button>
 
+    <!-- Always available, regardless of whether anything is currently
+         unmapped — this is the general output-map editor as well as the D3
+         "Remap Hardware Outputs" surface. -->
+    <button
+      class="acts__btn"
+      :title="t('mixer.outputMapButton')"
+      @click="$emit('output-map')"
+    >
+      <span class="material-symbols-rounded">settings_input_hdmi</span>
+    </button>
+
     <!-- Detached: the window IS the mixer, so the side/full toggle has nothing
          to toggle between and the only exit is back to the main window. -->
     <template v-if="!detached">
@@ -72,6 +83,7 @@ defineEmits<{
   (e: 'mode', mode: 'side' | 'full'): void;
   (e: 'close'): void;
   (e: 'clear-pfl'): void;
+  (e: 'output-map'): void;
 }>();
 
 const { t } = useLocalization();

@@ -56,6 +56,18 @@
           :value="'out:' + o"
         >{{ o }}</option>
       </select>
+      <!-- The unmapped state used to be a dead-end tooltip. Now it's a click
+           affordance straight into the Remap Hardware Outputs modal — the
+           select above still lets you pick a different logical name, but only
+           the modal can actually bind one to hardware. -->
+      <button
+        v-if="!master && outputUnmapped"
+        class="strip__outputwarn"
+        :title="t('mixer.outputMissingHint')"
+        @click.stop="$emit('open-output-map')"
+      >
+        <span class="material-symbols-rounded">warning</span>
+      </button>
     </div>
 
     <!-- Channel details. The mono/stereo toggle used to sit beside this, but
@@ -246,6 +258,7 @@ const emit = defineEmits<{
   (e: 'select', id: string): void;
   (e: 'open', id: string): void;
   (e: 'patch', id: string, patch: Partial<Bus>): void;
+  (e: 'open-output-map'): void;
 }>();
 
 const { t } = useLocalization();
@@ -509,6 +522,8 @@ function onOutputChange(e: Event) {
 
 .strip__output {
   width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
   font-size: 10px;
   padding: 2px;
   color: var(--color-text-primary);
@@ -517,6 +532,23 @@ function onOutputChange(e: Event) {
   border-radius: var(--border-radius-sm);
 }
 .strip__output--warn { border-color: var(--color-warning); }
+/* The click affordance that replaces the old dead-end tooltip: a small red
+   flag beside the select, sized to fit in a 96px strip without crowding the
+   picker it sits next to. */
+.strip__outputwarn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 16px;
+  padding: 0;
+  color: #fff;
+  background: var(--color-warning);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+}
+.strip__outputwarn .material-symbols-rounded { font-size: 11px; }
 /* The master's output is not a choice; it reads as a plate, but keeps the
    select's box so the row is the same height on every strip. */
 .strip__output--fixed {

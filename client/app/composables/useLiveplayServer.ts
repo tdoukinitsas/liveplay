@@ -338,6 +338,12 @@ function createClient() {
           // The payload carries the definitions, but not the resolved item
           // membership, which only the server can compute.
           if (payload.op === 'buses_patched') void fetchBuses();
+          // A remapped output can silently change `bound` on any bus whose
+          // output targets it (D10 — bound is server-computed; the server's
+          // PUT /api/outputs rewires affected buses but does not also emit
+          // buses_patched). Refetch so a strip's warn state clears without
+          // needing a reload.
+          if (payload.op === 'outputs_changed') void fetchBuses();
           // PFL isn't in the document, so it arrives as its own op and is
           // applied in place. A refetch would work too, but PFL is pressed
           // while something is playing and the whole bus list is the last
