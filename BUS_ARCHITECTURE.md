@@ -1,13 +1,16 @@
 # LivePlay — Bus Architecture
 
-> **Status:** Stages 0–3 complete on `fix/engine-config-wiring`, unmerged. **Stage 5 was done
-> before Stage 4** — they are independent, the surface already promised the processing, and
-> bus→bus is the risky one. The channel chain is complete: HPF, LPF, four-band EQ,
-> expander/gate, compressor/limiter, section bypasses. See §0.4. **Stage 4 (bus → bus) is next**;
-> plugins remain a separate future piece.
+> **Status:** Stages 0–3 and 5 merged via PR #59; **Stage 4 (bus → bus routing) is now also
+> done** — the last of the five, closed out on `2.5.0-dev` by the `MIXER_BUSES_PLAN.md`
+> completion plan (workstream A), alongside clock-drift compensation between output devices, an
+> output-map remap UI, and hardening of the legacy/migration load paths. The channel chain is
+> complete: HPF, LPF, four-band EQ, expander/gate, compressor/limiter, section bypasses. See
+> §0.4. Plugins remain a separate future piece — the six-slot rack is still a shell (§0.3, D21).
 > Supersedes the "Stage 3 — Bus Mixing" sketch in `IMPROVEMENTS_PLAN.md` §6, which is now
 > stale (it lists mute/solo/mixer-meters as missing; they exist).
 > Ownership-model placement follows the object-ownership model discussed in issue #46.
+> Decisions below cite `MIXER_BUSES_PLAN.md` §3 (D1–D23) where they were taken during that
+> plan's execution; see that file's task table (§6) for full agent-verified detail.
 
 ---
 
@@ -71,6 +74,52 @@ New surface: `POST /api/buses/<id>/pfl`, `POST /api/buses/pfl/clear`, `pfl` and 
 keeps up. PFL is deliberately **not** persisted — it is what the operator is listening to now, not
 part of the show.
 
+**Stage 4 — bus → bus routing. Complete.** A bus's single output may now target another
+non-system bus (D5, D6), making the render pass a DAG instead of a fixed two-hop
+item → bus → master. `AudioEngine::route_mixer_to_mixer` / `unroute_mixer_to_mixer` add one
+`StripRouteEntry` per source strip to the `Topology` snapshot (one downstream target per
+strip — D5); a `strip_order` list, a Kahn topological sort, is computed once per topology
+rebuild **on the control thread**, so the render thread only ever walks a flat ordered list and
+can never observe a cycle. A cycle is refused three separate times, deliberately redundant,
+because a cycle in the audio callback is a hang rather than a bad mix: HTTP 409
+`"routing this bus would create a cycle"` at the API before any mutation lands
+(`validate_bus_output_locked`, a hop-capped forward walk); dropped defensively with a
+`Logger::warn` naming both strips if one somehow reaches topology build; and the `bound` chain
+walk (D10) is itself hop-capped so a walk that shouldn't exist still terminates. Lane mapping
+(D8) reuses the mixer→master laws exactly — `apply_bus_pan`'s width-aware pan/balance sends,
+`kDefaultDownmixDb` (−3 dB) for a 2→1 fold — no new matrix. A bus may not target a system bus
+(Main, Monitor) and Monitor may be neither a bus→bus source nor target (D6, the same rule PFL
+already enforced against the house). Deleting a bus retargets every feeder bus to master (D9),
+persisted and broadcast, never silent-orphaned. `bound` for a Bus-kind output is a walk to the
+terminal, server-computed, true iff the terminal reaches hardware. New unit suite
+`liveplay-topo-tests` (ctest name `topo`) and `server/tests/e2e/busbus-e2e.js` (27 assertions,
+fail-tested against a deliberately broken build per §0.3's standing bar).
+
+**Clock-drift compensation between output devices. Complete** (§0.6). The device carrying
+master channels 0/1 is the clock (D15) and keeps the original untouched memcpy path; every
+other device now runs through a `DriftController`-driven `DriftResampler`. Buffers are
+pre-allocated at device open, on the control thread — nothing new allocates on the render
+thread.
+
+**Output-map remap UI.** `OutputMapModal.vue` ("Remap Hardware Outputs") lists logical outputs
+against hardware, flags buses left unbound, and saves the whole map in one `PUT /api/outputs`.
+The server broadcasts `outputs_changed` on a successful save; the mixer panel refetches output
+names on that broadcast and on WebSocket reconnect, closing the "never-refreshed list" gap
+noted in an earlier finding.
+
+**Migration hardening.** The legacy and snake_case document load paths now run the same bus
+code the modern path does — they previously ran none, which is the literal cause of "nothing
+got routed to the mixer" on an old project. The client-document heuristic no longer replaces an
+empty project's document with the default empty one. Items carrying a `busId` are wired at load
+rather than at first play. Documents carry a top-level `busSchema` (currently 1, D11), and the
+carry-previous-buses rule is strict: an incoming document must declare `busSchema >= 1` **and**
+omit the `buses` key for the server to inherit the loaded project's buses — anything else takes
+the full migration path. Migration is counted and surfaced (D12): a `migration` object
+(`itemsToMain`, `busesFromDeviceOverride`, `mainOutputMigrated`) on the HTTP response from
+`POST /api/project/load`, `PUT /api/project/document` and `POST /api/project/save`, and a
+`project_migrated` WS broadcast so a second connected client sees it too (D17). The client shows
+a dismissible banner. New e2e `migration-e2e.js` (33 assertions).
+
 ### 0.2 Decisions taken during implementation
 
 | Decision | Why |
@@ -106,6 +155,17 @@ part of the show.
 | **Monitor may not target the master, at the API and in the UI** (HTTP 409, and the option is absent from its dropdown). | PFL summing into the house, live, is the accident §2.4 chose PFL over solo to make impossible. Monitor goes to hardware or nowhere. |
 | **Monitor gets no identity fallback when its output is unmapped** — unlike every other bus, which falls back to treating the name as a device. | `open_device_by_name()` falls back to the *default* device when a name matches nothing, so the fallback that keeps a migrated `deviceOverride` working would have put every PFL'd channel in the house. Unmapped Monitor is valid and silent (§7.5), and starts working the moment it is bound. |
 | **`GET /api/buses` reports `bound`.** | The client cannot work out from the output-name list whether a bus reaches hardware: Monitor is usually bound through `settings.previewDevice`, which is not in the map at all, so inferring it put an "unmapped" warning on the one bus most likely to be working. |
+| **A bus→bus target must be a non-system bus (D6).** "To Master" stays the existing `output.type:"master"` option rather than a second way to reach it, and Monitor may never source or target a bus→bus edge — the same accident PFL was designed to make impossible, now closed on the new routing kind too. | `MIXER_BUSES_PLAN.md` D6. |
+| **Strip processing order is a control-thread topological sort (D7)**, stored as a flat `strip_order` in the `Topology` snapshot; the render thread only ever iterates it. | `MIXER_BUSES_PLAN.md` D7 — a render-thread graph walk is a latency and safety risk a control-thread sort avoids entirely. |
+| **Bus→bus lane mapping reuses the mixer→master laws verbatim (D8)** — no new send matrix. | `MIXER_BUSES_PLAN.md` D8 — one law for "how two strips' lanes combine," not one per routing kind. |
+| **Deleting a bus retargets its feeder buses to master, not orphaning them (D9).** | `MIXER_BUSES_PLAN.md` D9 — a feeder silently going nowhere is a mix change nobody asked for. |
+| **`bound` for a bus→bus chain is a walk to the terminal (D10)**, server-computed; true iff the terminal is Master or a wired Output. | `MIXER_BUSES_PLAN.md` D10. |
+| **Documents carry a top-level `busSchema` (D11), and carrying the previous project's buses forward requires both an omitted `buses` key and `busSchema >= 1`.** A document without `busSchema` always takes the full migration path. | `MIXER_BUSES_PLAN.md` D11 — this is what makes "is this a bus-era client round-trip or a document that genuinely has no buses" decidable instead of guessed. |
+| **A migration that changes anything is surfaced three ways (D12):** a server warn log, a `migration` object on the triggering HTTP response, and a `project_migrated` broadcast so every connected client sees it, not just the one that loaded the project. | `MIXER_BUSES_PLAN.md` D12. |
+| **Whole-document saves debounce to one PUT per edit burst (D13)**, 300 ms trailing, with an immediate flush on project close, quit, and force-save. Targeted endpoints (item add/update, cart ops) are untouched — they are what keeps other clients live. | `MIXER_BUSES_PLAN.md` D13 — a single property edit was producing three document PUTs. |
+| **The save-time pop had to be root-caused and fixed, not muted around (D14).** | `MIXER_BUSES_PLAN.md` D14 — see the dedicated writeup below. |
+| **The clock device is whichever device carries master channels 0/1 (D15)**, not whichever opened first; every other device resamples to it. | `MIXER_BUSES_PLAN.md` D15 — see §0.6. |
+| **Every new feature is REST/WS-controllable with persist-and-broadcast semantics (D16)**; `/pan` and `/dsp` stay documented as client-internal live-drag endpoints, external controllers use `PATCH`. | `MIXER_BUSES_PLAN.md` D16. |
 
 ### 0.2b Bugs found while building Stages 2 and 3
 
@@ -123,34 +183,109 @@ the symptom is misleading in every case.
 
 | The gate ran but did nothing, at any setting | `ChannelDsp::advance_coeffs()` ramps the filter coefficients and originally only those, so the gate's coefficients were never copied out of the published slot into the struct the render thread reads. Every parameter change published correctly into a slot nothing looked at, and the render thread kept a default-constructed — disabled — gate. Anything added to `StripCoeffs` that is *not* ramped still has to be assigned there. The unit tests drove `GateState` directly and passed throughout; only the e2e caught it. |
 
+### 0.2c The save-time pop — root-caused and fixed (D2/D14)
+
+Earlier notes on this branch (see the commit history: `3b727a3`, `13bbdec`, `16816de`) had ruled
+out underruns, render-thread cost, lock contention, topology rebuilds and cart re-priming by
+measurement, but left the actual mechanism open. It is now found and fixed, and it is worth
+recording properly because both the fault and the way it hid are instructive.
+
+**The mechanism.** Every document save ends in `replace_full_document`'s async mirror, whose
+tail block applied the project's master settings to the engine **unconditionally** — including
+`engine_.set_master_ceiling_db()` even when the ceiling had not changed since the last save.
+That call reaches `Limiter::configure()`, which does `delay_.assign(lookahead_, 0.0f)` and
+snaps `current_gain_` back to 1. The lookahead delay line is not a cache sitting beside the
+signal — **it is 5 ms of the signal itself, in flight**, on both house masters. Zeroing it
+punches 5 ms of hard silence into the output and then steps the gain back to unity. The limiter
+was never misbehaving under load; it was being correctly, faithfully rebuilt from scratch, for
+no reason, on every save.
+
+**Why the seam counter read 10–14 rather than roughly one per master per save.** The hole opens
+on a block boundary (the mirror runs between render blocks) but the delay line's refill lands
+240 samples into the following 256-sample block, so the seam detector's ratio test — which
+compares consecutive blocks — only recognises the second edge when the material happens to be
+near a zero crossing at that point. `worstSeam` reading 0.483–0.499 is not an artifact of the
+detector; it is the −6 dBFS programme material's own peak amplitude, because a mute is a step
+the size of whatever was playing.
+
+**The fix is apply-on-change**, exactly what D14 asked for rather than any form of hiding the
+symptom: `ProjectState` now keeps an `AppliedEngineSettings` record (ceiling, limiter-enabled,
+ballistics, true-peak, loudness) under its own mutex, and the mirror's tail applies only the
+fields that actually differ from it. `patch_settings` keeps the record in step, so the save that
+follows a live settings edit does not re-apply what the edit already pushed. Nothing is muted,
+ramped or smeared to cover the gap — the pointless mutation simply no longer happens. Side
+benefit: live `/api/master/ceiling` and `/limiter` tweaks are no longer stomped by the next
+autosave landing a moment later.
+
+**A supersession worth stating plainly, because it changes how to read the old numbers.** The
+earlier belief that the fault was *load-dependent* — clean at one item across sixteen trials,
+10–14 seams at sixty — was largely an artifact of the probe, not a property of the bug. The
+probes saved without a project path set, so every save's `POST /api/project/save` returned 400
+**before `replace_full_document` ran at all** — a 60-item run logged 96 attempted saves, all
+rejected by the server, and correctly reported 0 seams for work that never happened. The
+historical "1 item, clean across 16 trials" almost certainly measured nothing either. With a
+project path actually set so the saves are real, the *unfixed* build produces seams at one item
+too. The measured counterfactual: unfixed, real saves, **16 seams in a single run, worst 0.498**;
+fixed, same conditions, three separate runs, **0**.
+
+**A limitation of the seam detector itself, worth recording because it explains why this was
+the only fault it could ever have caught here.** The detector is structurally **blind to a step
+born before the limiter** — the 240-sample lookahead shifts any upstream discontinuity to a
+point mid-block, where the ratio test reads it as ordinary material rather than a seam. A hard
+±120 dB master-gain mute applied under live playback registers **zero** seams, confirmed by
+test. So the only class of fault this instrument could ever have caught at a block boundary was
+the limiter itself being torn down and rebuilt — which is, not coincidentally, exactly what this
+turned out to be. That is a lucky alignment between the bug and the tripwire, not a property of
+the tripwire in general, and the next person reaching for the seam counter to rule something out
+should know its blind spot before trusting a clean read.
+
 ### 0.3 Not done
 
-- **Stage 4 — bus → bus.** The only stage left. A bus targeting another bus is accepted, warns,
-  and stays silent.
-- **No clock-drift compensation between devices** (§0.6). Two devices run on independent clocks and
-  nothing resamples between them, so a second output eventually drops or repeats a block. The
-  shallower ring makes this show up in minutes rather than hours. Fixing it properly means
-  resampling secondary devices onto the primary's clock.
-- **"Primary" is whichever device opened first**, not the house. It decides the production rate for
-  everything, so the house can end up as the drifting one.
+Stages 0–5 are complete (0–3 and 5 merged via PR #59; Stage 4 committed to `2.5.0-dev` and
+awaiting the maintainer's review); the deferrals below are what remains, taken as an explicit
+decision (D21, `MIXER_BUSES_PLAN.md` §3) rather than found late. None of these is a bug — each
+is a scope line drawn on purpose, most with a reason recorded where the UI copy already gestures
+at them.
+
+- **Aux sends** (a parallel send-at-a-level, as distinct from Stage 4's single-output routing).
+  Stage 4 shipped *output routing only* (D5): a bus's one output may target another bus, which
+  covers the issue's motivating cases (PreShow → Master, Beds → Master, SFX → hardware) but not
+  a bus feeding two destinations at once at independent levels. The Sends-panel copy says so
+  plainly rather than implying it is coming imminently.
 - **Plugins.** The six-slot rack is still a shell and stays one — deferred deliberately. The
-  fixed chain (§0.4) is complete.
-- **Global master gain has no UI, and it is not simply a missing knob.** The engine has a genuine
-  global master gain (`set_master_gain_db`, ±12 dB) applied to *every* master accumulator before
-  the limiter. The visible master fader — in the mixer and on the transport bar — drives something
-  else: the **per-output-channel gain on masters 0/1**, deliberately, so two faders both labelled
-  master cannot move independently. The global one cannot just be exposed as "the master fader",
-  because it also hits the reserved pair at the top of the bus: pulling it down would take the
-  operator's headphones with it. Any UI for it has to answer that first.
-- **`previewDevice` is still a device name in the project**, now as the fallback binding for the
-  Monitor bus. The portable path exists — map `"Monitor"` in the output map and it wins — but the
-  legacy field is still honoured, because dropping it would silently take pre-listen away from
-  every project that has one configured. `ltcDevice` is untouched, being a separate feature.
+  fixed chain (§0.4) is complete and is not a plugin host.
+- **Keyboard accessibility of `Knob` and `CanvasFader`.** Deliberately deferred again this
+  release (maintainer decision, 2026-08-21) rather than added piecemeal — the two need to behave
+  identically, and neither has tabindex/keydown handling, so the mixer still cannot be driven
+  without a pointer.
+- **Master-strip channel view (master DSP).** The channel-details view exists for every ordinary
+  bus; opening it on the master strip is out of scope this release.
+- **Multi-channel (>2) buses.** Every bus is mono or stereo; buses wider than a pair are not
+  modelled.
 - **Frequency-dependent width above the bass** — widening the top independently of the middle.
   Bass-mono covers the half of this that matters (§0.5); a second crossover for the treble is a
   mastering flavour and was left out rather than doubling the control count on every strip.
-- **Neither `CanvasFader` nor `Knob` is keyboard-reachable.** Deliberate, so the two behave
-  identically, but it means the mixer cannot be driven without a pointer.
+- **A UI for the engine's global master gain.** The engine has a genuine global master gain
+  (`set_master_gain_db`, ±12 dB) applied to *every* master accumulator before the limiter. The
+  visible master fader — in the mixer and on the transport bar — drives something else: the
+  **per-output-channel gain on masters 0/1**, deliberately, so two faders both labelled master
+  cannot move independently. The global one cannot just be exposed as "the master fader", because
+  it also hits the reserved pair at the top of the bus: pulling it down would take the operator's
+  headphones with it. Any UI for it has to answer that first, and D21 leaves that question open.
+- **`previewDevice`/`ltcDevice` migration.** `previewDevice` is still a device name in the
+  project, used as the fallback binding for the Monitor bus. The portable path exists — map
+  `"Monitor"` in the output map and it wins — but the legacy field is still honoured, because
+  dropping it would silently take pre-listen away from every project that has one configured.
+  `ltcDevice` is untouched, being a separate feature.
+- **The Bitfocus Companion module repo.** Not started. D16's northbound REST/WS semantics
+  (persist-and-broadcast, `PATCH` over the live-drag endpoints) exist to make a Companion module
+  straightforward to build, but nothing has been built against them yet.
+- **mDNS discovery.** Not started; a discovery beacon exists on UDP 4481 (see
+  `release_artifacts_and_ports` project memory) but no mDNS/Bonjour advertisement.
+
+Two long-standing items from earlier in this section are carried here **only because they are
+still true**, not because they are newly deferred:
+
 - **No pinch gesture on the EQ, deliberately.** The wheel sets a band's Q. A pinch would be the
   first and only multi-touch anywhere in the app — `Knob` and `CanvasFader` are mouse-event only,
   and the mixer's one touch-aware feature just makes controls bigger in playback mode — so it
@@ -162,22 +297,35 @@ the symptom is misleading in every case.
 - **The Monitor strip has no dedicated "what am I listening to" readout.** It meters the sum of
   PFL and pre-listen, which is correct, but with three buses tapped there is nothing naming them
   except three lit PFL buttons and the count on the clear control.
-- **Nothing on this branch has been driven through the GUI by me** — no browser driver is present
-  and I did not add one. Every UI change was verified by build plus reasoning, and by the
-  maintainer testing manually.
 
-The **server** work is verified properly, and Stage 3 more thoroughly than the rest:
+**On GUI verification.** Client changes across this plan were verified by build (`build:nuxt`
+green, `vue-tsc`/en.json checks) plus code-level reasoning against the exact diff, and — for a
+handful of tasks — by a live REST/WS smoke script confirming the server side a UI action calls
+into. Two-window (multi-client, D17) convergence was in most cases verified by reading the
+broadcast wiring rather than by driving two actual browser windows side by side. No task in this
+plan added a browser driver, so nothing here has been *watched* render correctly by an agent;
+the maintainer is the one who has exercised the UI directly.
 
-- Unit tests (`liveplay-mixer-tests`) cover PFL state on the strip, width clamping, and the
-  monitor-tap arithmetic — which lane a tapped strip lands in, at what gain, that taps sum, and
-  that the monitor never taps itself. `mix_monitor_taps` lives in its own header so it can be
-  called without opening an audio device.
-- `server/tests/e2e/pfl-e2e.js` drives a live server over REST and WebSocket with real audio
-  through the real render loop, asserting the behavioural claims: pre-fader, pre-mute, the house
-  never moving, mono arriving centred, PFL and pre-listen summing, and an unbound Monitor driving
-  no hardware at all. It found two ways for PFL to reach the house that reading the code did not.
-- Every safety assertion was confirmed to **fail** against a deliberately broken build before
-  being trusted.
+The **server** work is verified more thoroughly, with real audio through the real render loop
+end to end:
+
+- Unit tests (`liveplay-mixer-tests`, `liveplay-topo-tests`) cover PFL state on the strip, width
+  clamping, monitor-tap arithmetic, and — new this release — that `compute_strip_order` is a
+  genuine topological order for chains and diamonds, that cycle edges are dropped
+  deterministically while the rest of the graph still orders correctly, and that Monitor is
+  excluded from `strip_order`.
+- `server/tests/e2e/pfl-e2e.js`, `busbus-e2e.js`, `migration-e2e.js` and the rest of the e2e set
+  (`width`, `comp`, `gate`, `filters`, `reroute`, `save-churn`, `materialise-skip`) drive a live
+  server over REST and WebSocket with real audio through the real render loop, asserting the
+  behavioural claims rather than internal state. Between them they have found faults reading the
+  code did not: two ways for PFL to reach the house (§0.2b), the save-time pop's true mechanism
+  (§0.2c), and — for bus→bus — that a naive peak-domain prediction for a 2→1 fold is wrong for
+  decorrelated content by about 6 dB, where the correct RMS-domain prediction matches to within
+  0.1 dB (`busbus-e2e.js`'s own comments record the reasoning so it is not silently
+  reintroduced).
+- Every safety assertion in every one of these suites was confirmed to **fail** against a
+  deliberately broken build before being trusted — the standing bar this project holds itself to,
+  applied again to every new assertion added this release.
 
 ### 0.4 The channel chain
 
@@ -376,17 +524,42 @@ three device periods, so a low `--ring-blocks` cannot make it shallower than the
 appetite. And the strip's coefficient ramp glides over ~21 ms, which is deliberate: it is what
 stops a knob drag clicking.
 
-**Known limitation this makes more visible: clock drift between devices.** Production is gated on
-`devices_.front()` alone. Every device is written the same blocks, so a secondary device whose
-clock runs faster drains its ring and underruns, and a slower one fills and drops frames. Nothing
-compensates — there is no resampling to a common clock. At ~50 ppm drift, 37 ms of slack lasts
-about 12 minutes where 427 ms lasted a couple of hours, so this bites sooner now. It was *never*
-fixed by the deep ring, only postponed.
+**Clock drift between devices — fixed this release (D15).** This section originally recorded a
+known limitation the shallower ring made "bite sooner": production was gated on
+`devices_.front()` alone, every device was written the same blocks with no resampling between
+them, and at ~50 ppm drift the ~37 ms ring lasted about 12 minutes before a secondary device's
+independent clock drained or filled it — where the old 427 ms ring had bought a couple of hours.
+It was never fixed by the deep ring, only postponed, and it stayed postponed through Stage 4.
 
-Deliberately **not** addressed by giving secondary devices a deeper ring: that would put the
-headphones permanently out of sync with the house by the difference, which is worse for PFL work
-than an occasional discontinuity. Also worth knowing: "primary" is whichever device opened first,
-which is not necessarily the house.
+It is now wired. The device carrying master channels 0/1's assignment is **the clock** (falling
+back to whichever device opened first if that cannot be resolved); production gating and the
+slow-block warning moved from `devices_.front()` to this clock device. The clock device keeps
+the original, untouched memcpy path — it is never resampled, by design, so the house always
+plays back at its own native rate with zero added latency or artifacts. Every other device now
+runs its ring's available-read through a `DriftController`, which drives a `DriftResampler` to
+hold that device's fill at its target. The clock device is recomputed whenever routing changes
+(the single funnel every routing change passes through already), and it early-returns when
+unchanged so a show's ordinary routing rebuilds cost nothing; on a genuine change every device's
+drift state resets, because a demoted clock never ran its resampler and a promoted follower has
+an integrator wound for the wrong reference. All buffers for this are allocated at device open,
+on the control thread — the render thread's only addition is two atomic stores.
+
+`GET /api/engine/stats` gained a `devices` array, one entry per open device with
+`{name, ppm, fillPercent, ringFillPercent, isClock}`. **This is a breaking change**: `devices`
+used to be an integer count; that count now lives at the new key `deviceCount`. No in-repo
+consumer read it as a number, but an external controller reading the old shape will break
+silently — `server/README.md` documents the new shape. `fillPercent` reports the controller's
+smoothed fill (settles to 50 against a 50 target); `ringFillPercent` is kept as a separate,
+deliberately unsmoothed reading, because the smoothed figure is a ~2.7 s filter and a queue
+slamming to empty or full needs to be visible on the very first poll, not three seconds later.
+
+Measured on a real follower device (a Behringer UMC404HD against the WASAPI default clock) over
+an 11-minute soak: 123,868 blocks, **0 underruns, 0 discontinuities**, fill settling to 50.0
+from ~t=181s, worst observed drift 108 ppm.
+
+Still true, and still deliberate: giving secondary devices a *deeper* ring instead of resampling
+them was rejected, because a fixed offset would put the headphones permanently out of sync with
+the house by the difference — worse for PFL work than an occasional discontinuity ever was.
 
 ---
 
