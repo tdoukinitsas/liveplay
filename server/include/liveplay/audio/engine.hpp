@@ -28,6 +28,7 @@
 // ============================================================================
 #pragma once
 
+#include "liveplay/audio/drift_resampler.hpp"
 #include "liveplay/audio/limiter.hpp"
 #include "liveplay/audio/meter.hpp"
 #include "liveplay/audio/mixer_channel.hpp"
@@ -160,6 +161,33 @@ struct EngineStats {
     std::uint64_t blocks_rendered      = 0;
     std::uint64_t underruns            = 0;
     std::size_t   devices              = 0;
+    // One entry per open device, in the order they were opened.
+    //
+    // The engine renders at ONE rate — the clock device's — and every other
+    // device is resampled to keep its queue at kDriftTargetFill. `ppm` is how
+    // hard that correction is working: a healthy pair settles at a small
+    // steady figure within a minute or so, and a number pinned near 2000
+    // (kMaxDriftRatio) means something other than crystal drift is wrong.
+    // `fill_percent` is the queue it is holding, which should sit at 50%.
+    struct DeviceStat {
+        std::string name;
+        bool        is_clock     = false;   // the house clock; never resampled
+        double      ppm          = 0.0;     // 0 for the clock device
+        // What the drift loop is regulating: the SMOOTHED queue depth, as a
+        // percentage of the ring. This is the number to read against the 50%
+        // target — see DriftController::smoothed_fill_frames() for why the
+        // instantaneous read sits some twenty points above it on a locked
+        // loop. The clock device is regulated by nothing, so for that one this
+        // is the instantaneous figure and `is_clock` says so.
+        double      fill_percent = 0.0;     // 0..100 of that device's ring
+        // The raw instantaneous ring occupancy, unfiltered. Kept alongside
+        // rather than folded in, because the two answer different questions:
+        // this one is the tripwire for a queue actually pinned at 0 or 100 —
+        // starving or dropping — which the smoothed figure would take seconds
+        // to admit to.
+        double      ring_fill_percent = 0.0;
+    };
+    std::vector<DeviceStat> device_stats;
     // How many times the topology has been rebuilt. A rebuild walks every
     // item, route and master, allocating, while holding the mutex the render
     // thread needs twice a block — so this should be near-zero during a show.
@@ -593,9 +621,28 @@ private:
         SampleRate                  sample_rate = kDefaultMixSampleRate;
         std::unique_ptr<ma_device>  ma_dev;
         std::unique_ptr<ma_pcm_rb>  ring;             // SPSC PCM ring
+        // What the ring settled on, captured at open. Read every block by the
+        // drift controller, which wants it as a constant rather than as two
+        // more ring queries.
+        ma_uint32                   ring_capacity_frames = 0;
         std::vector<Sample>         scratch;          // interleaved staging buffer
         std::atomic<bool>           started{false};
         AudioEngine*                engine = nullptr; // back-pointer for callback
+
+        // ---- Clock-drift compensation (see drift_resampler.hpp) ----------
+        // Unused on the clock device, which is copied through untouched. Both
+        // are configured — and `resample_out` sized — when the device opens,
+        // on the control thread, because the render thread must not allocate.
+        DriftController             drift_ctl;
+        DriftResampler              drift_rs;
+        std::vector<Sample>         resample_out;     // interleaved, max_output()-sized
+        // Written by the render thread, read by stats() on the control thread.
+        // Diagnostics, so relaxed: a torn read costs nothing.
+        std::atomic<double>         drift_ppm{0.0};
+        // The controller's smoothed queue depth in frames, republished here
+        // each block so stats() can read it without racing the render thread.
+        // Negative until the first block seeds it.
+        std::atomic<double>         drift_fill_frames{-1.0};
     };
 
     EngineConfig                                 cfg_;
@@ -613,6 +660,12 @@ private:
     std::unordered_map<std::string, std::shared_ptr<PlaybackItem>>  items_;
     std::unordered_map<std::string, std::shared_ptr<MixerChannel>>  mixers_;
     std::vector<std::unique_ptr<Device>>         devices_;
+
+    // The house clock (decision D15). Production is gated on this device's
+    // ring, and every other device is resampled to follow it. Guarded by
+    // mutex_; only recompute_clock_device_locked() writes it, and only from
+    // the control thread. Null when no device is open.
+    Device*                                      clock_device_ = nullptr;
 
     // Pending route description — the source-of-truth that topology rebuilds from.
     // Lanes here may be kAllMixerLanes (expanded when the snapshot is built).
@@ -759,6 +812,9 @@ private:
     void render_one_block(const Topology& topo);
 
     Device* find_device_locked(const DeviceId& id) const;
+    // Pick the house clock and reset the drift state of any device whose role
+    // changed. Control thread, mutex_ held.
+    void    recompute_clock_device_locked();
     DeviceId next_device_id();
 
     static void ma_data_callback(ma_device* dev, void* out, const void* in, std::uint32_t frames);

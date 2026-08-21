@@ -30,6 +30,29 @@ const rest = async (p, o = {}) => {
 };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// Per-device drift telemetry.
+//
+// The engine renders at ONE rate — the clock device's — and resamples every
+// other device so its queue stays at half depth. On a single-device machine
+// this is one line saying [clock] and there is nothing else to see. With two
+// devices open it is the whole feature, visible: the follower's fill settling
+// near 50% and its ppm settling at a small steady figure means the loop has
+// locked. A ppm parked near 2000 is the controller at its limit, which means
+// whatever is wrong is not crystal drift.
+const printDevices = s => {
+  if (!Array.isArray(s.devices) || s.devices.length === 0) return;
+  for (const d of s.devices) {
+    // fill is the loop's own smoothed measurement — the figure the 50% target
+    // refers to. ring is the raw occupancy beside it, which swings by a whole
+    // device period and is here to catch a queue pinned at 0 or 100.
+    console.log(`  device        ${d.isClock ? '[clock]' : '       '} ` +
+                `fill ${d.fillPercent.toFixed(1).padStart(5)}%  ` +
+                `ring ${d.ringFillPercent.toFixed(1).padStart(5)}%  ` +
+                `${d.isClock ? '        -' : (d.ppm.toFixed(1) + ' ppm').padStart(9)}  ` +
+                `${d.name}`);
+  }
+};
+
 (async () => {
   // One bus, many items, all playing the same file. Same file deliberately:
   // each PlaybackItem owns its own decoder, so this measures N concurrent
@@ -51,7 +74,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   console.log(`ring capacity   ${cfg.ringCapacityFrames} frames`);
   console.log(`device period   ${cfg.devicePeriodFrames} frames x ${cfg.devicePeriods}` +
               `  (${cfg.deviceMs.toFixed(1)} ms)`);
-  console.log(`block budget    ${cfg.blockBudgetUs.toFixed(0)} us\n`);
+  console.log(`block budget    ${cfg.blockBudgetUs.toFixed(0)} us`);
+  printDevices(cfg);
+  console.log('');
 
   const header = 'playing   queued(ms)   render avg/max(us)   % of budget   underruns';
   console.log(header);
@@ -89,6 +114,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     }
     const s = (await rest('/api/engine/stats')).body;
     console.log(`  underruns          ${s.underruns}`);
+    printDevices(s);
     console.log(`  worst render block ${s.renderBlockUsMax.toFixed(0)} us ` +
                 `(${((s.renderBlockUsMax / s.blockBudgetUs) * 100).toFixed(1)}% of budget)`);
     console.log(`  shallowest queue   ${worstQueue.toFixed(1)} ms`);
@@ -105,4 +131,5 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
               `(${worst.pct.toFixed(1)}% of budget) at ${worst.n} files`);
   console.log(`total underruns:    ${under}`);
   console.log(`steady queue:       ${rows[rows.length - 1].queuedMs.toFixed(1)} ms`);
+  printDevices((await rest('/api/engine/stats')).body);
 })().catch(e => { console.error('probe error:', e); process.exit(2); });

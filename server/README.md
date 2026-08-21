@@ -449,9 +449,23 @@ Any bus routed through a remapped output is re-wired immediately (`rewiredBuses`
 
 | Method · Path | Query | Response |
 |---------------|-------|----------|
-| `GET /api/engine/stats` | `?reset=1` clears the render-time peak, bounding a measurement to a window the caller controls | `{ "queuedFrames", "queuedMs", "ringCapacityFrames", "devicePeriodFrames", "devicePeriods", "deviceMs", "renderBlockUsMax", "renderBlockUsAvg", "blockBudgetUs", "blocksRendered", "underruns", "topologyRebuilds", "mutexWaitUsMax", "discontinuities", "worstSeam", "devices" }` |
+| `GET /api/engine/stats` | `?reset=1` clears the render-time peak, bounding a measurement to a window the caller controls | `{ "queuedFrames", "queuedMs", "ringCapacityFrames", "devicePeriodFrames", "devicePeriods", "deviceMs", "renderBlockUsMax", "renderBlockUsAvg", "blockBudgetUs", "blocksRendered", "underruns", "topologyRebuilds", "mutexWaitUsMax", "discontinuities", "worstSeam", "deviceCount", "devices": [ … ] }` |
 
 Measured rather than configured — the device gets a say in the period it actually runs, and how long a block takes to render is the only thing that says whether the queue depth is buying anything.
+
+The queue and period figures describe the **clock device**: the one carrying master channels 0/1, or the first opened if those are unassigned. Production is gated on it, so its ring depth is the engine's output latency.
+
+`devices` is one object per open device. Every other device runs on its own crystal and is resampled to follow the clock, and this array is how that loop is watched:
+
+| Field | Meaning |
+|-------|---------|
+| `name` | the device's display name |
+| `isClock` | whether this is the clock device — the one nothing corrects |
+| `ppm` | parts per million of correction being applied to follow the clock; `0` on the clock device. A healthy pair settles within a minute at a small steady figure; a number pinned near `2000` means whatever is wrong is not crystal drift |
+| `fillPercent` | the queue depth the drift loop is regulating, smoothed. **This is the one to read against the 50% target.** On the clock device, which no loop regulates, it is the raw figure instead |
+| `ringFillPercent` | raw, unfiltered ring occupancy. It jitters by a whole device period, so it is not the number to compare against the target — its job is to show a queue genuinely pinned at 0 or 100, starving or dropping, before the smoothed one admits to it |
+
+`deviceCount` is the number of open devices. **Breaking change in 2.5.0:** `devices` was this count; it is now the array above, and the count moved to `deviceCount`.
 
 #### Mixers
 

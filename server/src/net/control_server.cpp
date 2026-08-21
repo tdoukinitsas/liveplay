@@ -1881,6 +1881,24 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req){
             const bool reset = req.url_params.get("reset") != nullptr;
             const auto s = state_.engine().stats(reset);
+            // Per-device drift telemetry (D15). `ppm` is how hard the drift
+            // loop is bending a non-clock device to follow the house clock,
+            // and `fillPercent` is the queue depth it is holding it at — the
+            // loop's own smoothed measurement, which is the one the 50% target
+            // refers to, so a figure parked anywhere else is a real symptom.
+            // `ringFillPercent` is the unfiltered occupancy beside it: it
+            // jitters by a whole device period, and its job is to show a queue
+            // genuinely pinned at 0 or 100 before the smoothed one admits it.
+            auto devices = json::array();
+            for (const auto& d : s.device_stats) {
+                devices.push_back(json{
+                    {"name",            d.name},
+                    {"isClock",         d.is_clock},
+                    {"ppm",             d.ppm},
+                    {"fillPercent",     d.fill_percent},
+                    {"ringFillPercent", d.ring_fill_percent},
+                });
+            }
             return json_ok(json{
                 {"queuedFrames",       s.queued_frames},
                 {"queuedMs",           s.queued_ms},
@@ -1897,7 +1915,8 @@ void ControlServer::install_routes() {
                 {"mutexWaitUsMax",     s.mutex_wait_us_max},
                 {"discontinuities",    s.discontinuities},
                 {"worstSeam",          s.worst_seam},
-                {"devices",            s.devices},
+                {"deviceCount",        s.devices},
+                {"devices",            devices},
             });
         });
 

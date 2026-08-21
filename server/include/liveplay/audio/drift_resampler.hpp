@@ -166,6 +166,21 @@ public:
     // number pinned at the limit means something other than drift is wrong.
     double ppm() const noexcept { return (ratio_ - 1.0) * 1.0e6; }
 
+    // The queue depth the loop is ACTUALLY regulating, in frames. Negative
+    // until the first update() seeds it.
+    //
+    // This, not an instantaneous read of the ring, is what a diagnostic should
+    // report against kDriftTargetFill. The two differ by more than they look
+    // as though they should: the loop samples the ring once per rendered
+    // block, which is immediately after a device callback has drained a
+    // period, whereas anything asking from outside lands at a uniformly random
+    // point in that period. On a device whose period is a third of its ring
+    // that is a twenty-point offset — enough that a healthy locked loop reads
+    // 70% to an outside observer while holding its own measurement at exactly
+    // the 50% it is aiming for. Reporting the raw number invites someone to
+    // chase a fault that is not there.
+    double smoothed_fill_frames() const noexcept { return smoothed_; }
+
 private:
     double integral_ = 0.0;
     double ratio_    = 1.0;

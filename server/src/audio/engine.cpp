@@ -97,6 +97,7 @@ AudioEngine::~AudioEngine() {
         }
     }
     devices_.clear();
+    clock_device_ = nullptr;
 }
 
 bool AudioEngine::start() {
@@ -286,6 +287,11 @@ void AudioEngine::rebuild_topology_locked() {
     }
 
     publish_topology(std::move(snap));
+
+    // Master 0/1's destination is what names the house clock, and this is the
+    // one funnel every routing change passes through — so the clock is
+    // re-derived here rather than at each of the twenty-odd call sites.
+    recompute_clock_device_locked();
 }
 
 // ---------------------------------------------------------------------------
@@ -507,12 +513,29 @@ DeviceId AudioEngine::open_device_by_name(const std::string& name_substring,
     }
 
     dev->scratch.assign(cfg_.render_block * output_channels, 0.0f);
+    dev->ring_capacity_frames = ring_frames;
+
+    // Everything the drift compensator will ever need, allocated here on the
+    // control thread. The render thread must not allocate (see the render-
+    // thread rules in engine.hpp), and the resampler's output is longer than
+    // its input whenever the ratio is above 1 — so the staging buffer is sized
+    // for the worst ratio the controller is allowed to ask for, not for a
+    // block. Unused if this device turns out to be the clock, which costs a
+    // few kilobytes and saves having to allocate if the clock later moves.
+    dev->drift_rs.configure(output_channels, cfg_.render_block);
+    dev->drift_ctl.reset();
+    dev->resample_out.assign(
+        DriftResampler::max_output(cfg_.render_block) * output_channels, 0.0f);
+
     dev->started.store(true);
 
     DeviceId id = dev->id;
     {
         std::lock_guard lock{mutex_};
         devices_.emplace_back(std::move(dev));
+        // First device in becomes the clock by the fallback rule; a later one
+        // takes over only if masters 0/1 point at it.
+        recompute_clock_device_locked();
     }
     // Wake render thread: when we boot with no devices it idles on a coarse
     // timer; opening the first device should kick it into the live path
@@ -535,6 +558,9 @@ void AudioEngine::close_device(const DeviceId& id) {
         if ((*it)->ma_dev) ma_device_uninit((*it)->ma_dev.get());
         if ((*it)->ring)   ma_pcm_rb_uninit((*it)->ring.get());
         Logger::info("Closed audio device '{}'", (*it)->display_name);
+        // Cleared BEFORE the erase, so the pointer is never briefly dangling;
+        // the rebuild below re-derives it from what is left.
+        if (clock_device_ == it->get()) clock_device_ = nullptr;
         devices_.erase(it);
 
         // Drop any master assignments that pointed at this device.
@@ -552,6 +578,50 @@ void AudioEngine::close_device(const DeviceId& id) {
 AudioEngine::Device* AudioEngine::find_device_locked(const DeviceId& id) const {
     for (const auto& d : devices_) if (d->id == id) return d.get();
     return nullptr;
+}
+
+// Decision D15: the clock device is the house.
+//
+// Two devices run on independent crystals, and one of them has to be right by
+// definition — production is gated on its ring and everything else is bent to
+// follow it. The natural choice is whichever device the operator is listening
+// to on the main outputs: an error there is heard, an error anywhere else is
+// corrected. So the clock is the device carrying masters 0/1, master 0 first.
+//
+// The fallback matters as much as the rule. Before any routing exists — at
+// boot, or while a project loads — masters 0/1 point nowhere, and the first
+// device opened is as good a reference as any. It is also what the engine did
+// before this existed, so a single-device server behaves exactly as it always
+// has: one device, no resampler, plain memcpy.
+void AudioEngine::recompute_clock_device_locked() {
+    Device* chosen = nullptr;
+    for (MasterChannelIndex m = 0; m < 2 && m < pending_.master_destinations.size(); ++m) {
+        const auto& dest = pending_.master_destinations[m];
+        if (!dest) continue;
+        if (auto* d = find_device_locked(dest->device)) { chosen = d; break; }
+    }
+    if (!chosen && !devices_.empty()) chosen = devices_.front().get();
+    if (chosen == clock_device_) return;
+
+    clock_device_ = chosen;
+
+    // Every device's role may have just changed, and stale drift state is
+    // worse than none: a controller that has wound its integrator to correct
+    // for the old clock would spend a minute unwinding it against the new one,
+    // and the demoted clock has never run its resampler at all. Both are
+    // cheap to reset and neither allocates — configure() already sized the
+    // buffers, and reset() only assigns within that capacity.
+    for (auto& d : devices_) {
+        d->drift_ctl.reset();
+        d->drift_rs.reset();
+        d->drift_ppm.store(0.0, std::memory_order_relaxed);
+        d->drift_fill_frames.store(-1.0, std::memory_order_relaxed);
+    }
+    if (clock_device_) {
+        Logger::info("Clock device is now '{}'; {} other device(s) follow it",
+                     clock_device_->display_name,
+                     devices_.empty() ? 0 : devices_.size() - 1);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1193,10 +1263,49 @@ EngineStats AudioEngine::stats(bool reset_peaks) {
     {
         std::lock_guard lock{mutex_};
         s.devices = devices_.size();
-        // The primary device is the one production is gated on, so it is the
+
+        Device* clk = clock_device_;
+        if (!clk && !devices_.empty()) clk = devices_.front().get();
+
+        s.device_stats.reserve(devices_.size());
+        for (const auto& d : devices_) {
+            EngineStats::DeviceStat ds;
+            ds.name     = d->display_name;
+            ds.is_clock = (d.get() == clk);
+            // The clock is not resampled, so its ppm is 0 by construction
+            // rather than by measurement — reporting its controller's idle
+            // value would suggest a loop is running when none is.
+            ds.ppm      = ds.is_clock ? 0.0 : d->drift_ppm.load(std::memory_order_relaxed);
+            if (d->ring && d->ring_capacity_frames > 0) {
+                const double cap = static_cast<double>(d->ring_capacity_frames);
+                ds.ring_fill_percent =
+                    100.0 * static_cast<double>(ma_pcm_rb_available_read(d->ring.get())) / cap;
+
+                // Report what the loop regulates, not what a passing read
+                // happens to catch. The controller samples the ring once per
+                // block — always just after a callback drained a period —
+                // while this call lands anywhere in that period, and the two
+                // differ by a fixed twenty-odd points on a perfectly locked
+                // loop. Against a documented 50% target that gap reads as a
+                // fault, so the target and the number shown have to be
+                // measuring the same thing.
+                //
+                // The clock device is regulated by nothing, so there is no
+                // smoothed view to show and the raw figure stands; `is_clock`
+                // tells the reader which of the two they are looking at.
+                const double smoothed =
+                    d->drift_fill_frames.load(std::memory_order_relaxed);
+                ds.fill_percent = (!ds.is_clock && smoothed >= 0.0)
+                                      ? 100.0 * smoothed / cap
+                                      : ds.ring_fill_percent;
+            }
+            s.device_stats.push_back(std::move(ds));
+        }
+
+        // The clock device is the one production is gated on, so it is the
         // one whose queue depth is the engine's output latency.
-        if (!devices_.empty() && devices_.front()->ring) {
-            auto& primary = devices_.front();
+        if (clk && clk->ring) {
+            auto* primary = clk;
             s.queued_frames = ma_pcm_rb_available_read(primary->ring.get());
             s.ring_capacity_frames =
                 ma_pcm_rb_available_read(primary->ring.get()) +
@@ -1308,12 +1417,17 @@ void AudioEngine::render_loop() {
                 auto lock = lock_timed();
                 has_devices = !devices_.empty();
                 if (has_devices) {
-                    // Gate production on the primary device only, to prevent
-                    // clock drift on secondary devices from starving the primary.
-                    auto& primary = devices_.front();
-                    if (primary->ring) {
+                    // Gate production on the CLOCK device alone (D15). It is
+                    // the one device whose rate is right by definition; every
+                    // other one is resampled to follow it in the dispatch
+                    // loop, so its queue depth is no longer a reason to
+                    // produce or to wait. Gating on the slowest consumer
+                    // instead — which this used to do — hands the tempo to
+                    // whichever crystal happens to be slowest today.
+                    Device* clk = clock_device_ ? clock_device_ : devices_.front().get();
+                    if (clk->ring) {
                         has_ring = true;
-                        if (ma_pcm_rb_available_write(primary->ring.get()) < cfg_.render_block) {
+                        if (ma_pcm_rb_available_write(clk->ring.get()) < cfg_.render_block) {
                             can_render = false;
                         }
                     }
@@ -1375,8 +1489,10 @@ void AudioEngine::render_loop() {
                     std::uint32_t queued = 0;
                     {
                         std::lock_guard lock{mutex_};
-                        if (!devices_.empty() && devices_.front()->ring)
-                            queued = ma_pcm_rb_available_read(devices_.front()->ring.get());
+                        Device* clk = clock_device_;
+                        if (!clk && !devices_.empty()) clk = devices_.front().get();
+                        if (clk && clk->ring)
+                            queued = ma_pcm_rb_available_read(clk->ring.get());
                     }
                     Logger::warn("render: block took {} us of a {} us budget "
                                  "({} frames still queued). Something is stalling "
@@ -1721,9 +1837,12 @@ void AudioEngine::render_one_block(const Topology& topo) {
     // picking the right master accumulator for each.
     // A member, cleared and refilled: this built a fresh vector every block.
     render_devices_.clear();
+    Device* clock = nullptr;
     {
         auto lock = lock_timed();
         for (auto& d : devices_) render_devices_.push_back(d.get());
+        clock = clock_device_;
+        if (!clock && !devices_.empty()) clock = devices_.front().get();
     }
     for (auto* dev : render_devices_) {
         if (!dev->ring) continue;
@@ -1745,16 +1864,53 @@ void AudioEngine::render_one_block(const Topology& topo) {
             }
         }
 
+        // ---- Clock-drift compensation (D15) ----
+        //
+        // The clock device is copied through byte for byte: it defines the
+        // rate, so there is nothing to correct and nothing here may change
+        // what a single-device server does.
+        //
+        // Every other device is resampled by a ratio a few parts per million
+        // from 1, chosen by its own controller from how full its ring is, so
+        // that its queue is held at half depth instead of slowly draining or
+        // backing up. Without this a device 50 ppm off the clock reaches the
+        // end of a 37 ms ring in about twelve minutes and then drops or
+        // repeats a frame every twenty seconds for the rest of the show.
+        //
+        // Neither branch allocates. `scratch` and `resample_out` are sized at
+        // device open; the resampler's own carry-over buffer was reserved by
+        // configure() at the same time and holds at most two frames more than
+        // a block.
+        ma_uint32     remaining = static_cast<ma_uint32>(block);
+        const Sample* src       = dev->scratch.data();
+        if (dev != clock && dev->ring_capacity_frames > 0 && dev->channels > 0) {
+            const double ratio = dev->drift_ctl.update(
+                ma_pcm_rb_available_read(dev->ring.get()), dev->ring_capacity_frames);
+            dev->drift_ppm.store(dev->drift_ctl.ppm(), std::memory_order_relaxed);
+            dev->drift_fill_frames.store(dev->drift_ctl.smoothed_fill_frames(),
+                                         std::memory_order_relaxed);
+            // Capacity in FRAMES, and taken from the buffer that exists rather
+            // than from what it ought to be — an under-sized buffer must cost
+            // frames, never an allocation.
+            const std::size_t cap = dev->resample_out.size() / dev->channels;
+            const std::size_t n   = dev->drift_rs.process(
+                dev->scratch.data(), block, ratio, dev->resample_out.data(), cap);
+            remaining = static_cast<ma_uint32>(n);
+            src       = dev->resample_out.data();
+        }
+
         // Push into the device's ring buffer.
-        ma_uint32 remaining = static_cast<ma_uint32>(block);
-        const Sample* src   = dev->scratch.data();
         while (remaining > 0) {
             ma_uint32 frames_to_write = remaining;
             void*     buf = nullptr;
             if (ma_pcm_rb_acquire_write(dev->ring.get(), &frames_to_write, &buf) != MA_SUCCESS) break;
             if (frames_to_write == 0) {
-                // Ring is full. Since we only gate production on the primary device, 
-                // secondary devices with slower clocks will occasionally drop a frame here.
+                // Ring full. With the drift loop running this is now a cold
+                // path — the controller holds a non-clock ring at half depth,
+                // and the clock device's ring is what production is gated on,
+                // so neither should reach here. Kept as the last resort it
+                // was: dropping the tail of a block is survivable, blocking
+                // the render thread on a full ring is not.
                 break;
             }
             std::memcpy(buf, src,
