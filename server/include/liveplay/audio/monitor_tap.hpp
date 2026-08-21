@@ -32,15 +32,34 @@ namespace liveplay::audio {
 
 // One PFL'd strip's contribution to the Monitor strip.
 //
-// Deliberately NOT the general bus→bus edge. Monitor is a single, known
-// destination that nothing may feed onward, so it needs no processing order
-// and no cycle check; those arrive with bus→bus routing.
+// Deliberately NOT the general bus→bus edge — that is StripRouteEntry in the
+// topology, which carries the processing order and the cycle defence. Monitor
+// is a single, known destination that nothing may feed onward, so its taps
+// need neither.
 struct MonitorTap {
     std::shared_ptr<MixerChannel> source;
     ChannelIndex                  src_lane = 0;
     ChannelIndex                  dst_lane = 0;
     float                         gain     = 1.0f;
 };
+
+// The arithmetic of one tap: add the source strip's lane into the monitor's,
+// at the tap's gain. Shared by the whole-list fold below and the per-strip
+// append the ordered render pass uses, so the two can never disagree.
+inline void mix_one_tap(const MonitorTap& tap,
+                        std::size_t source_index,
+                        std::size_t mon_base,
+                        std::vector<std::vector<Sample>>& lane_buffers,
+                        std::size_t block) noexcept {
+    const std::size_t src_idx = source_index * kMixerLanes + tap.src_lane;
+    if (src_idx >= lane_buffers.size()) return;
+
+    const Sample* src = lane_buffers[src_idx].data();
+    Sample*       dst = lane_buffers[mon_base + tap.dst_lane].data();
+    const std::size_t n = std::min({block, lane_buffers[src_idx].size(),
+                                    lane_buffers[mon_base + tap.dst_lane].size()});
+    for (std::size_t s = 0; s < n; ++s) dst[s] += src[s] * tap.gain;
+}
 
 // Fold every tap into the monitor strip's lane buffers, in place.
 //
@@ -63,14 +82,33 @@ inline void mix_monitor_taps(
         if (tap.src_lane >= kMixerLanes || tap.dst_lane >= kMixerLanes) continue;
         const auto sit = mixer_index.find(tap.source->id().value);
         if (sit == mixer_index.end() || sit->second == monitor_index) continue;
-        const std::size_t src_idx = sit->second * kMixerLanes + tap.src_lane;
-        if (src_idx >= lane_buffers.size()) continue;
+        mix_one_tap(tap, sit->second, mon_base, lane_buffers, block);
+    }
+}
 
-        const Sample* src = lane_buffers[src_idx].data();
-        Sample*       dst = lane_buffers[mon_base + tap.dst_lane].data();
-        const std::size_t n = std::min({block, lane_buffers[src_idx].size(),
-                                        lane_buffers[mon_base + tap.dst_lane].size()});
-        for (std::size_t s = 0; s < n; ++s) dst[s] += src[s] * tap.gain;
+// Fold ONE strip's taps — the per-strip append the ordered render pass calls
+// right after the strip's DSP chain and right before its fader, which is what
+// keeps the tap post-chain, pre-fader and pre-mute now that strips run one at
+// a time in topological order rather than in whole-desk passes.
+//
+// Same skip rules and, via mix_one_tap, the same arithmetic as the whole-list
+// fold above; the caller has already resolved the strip to its accumulator
+// index, so the source is matched by identity instead of by id lookup.
+inline void mix_strip_monitor_taps(
+        std::size_t monitor_index,
+        const MixerChannel* source,
+        std::size_t source_index,
+        const std::vector<MonitorTap>& taps,
+        std::vector<std::vector<Sample>>& lane_buffers,
+        std::size_t block) noexcept {
+    if (!source || source_index == monitor_index) return;
+    const std::size_t mon_base = monitor_index * kMixerLanes;
+    if (mon_base + kMixerLanes > lane_buffers.size()) return;
+
+    for (const auto& tap : taps) {
+        if (tap.source.get() != source) continue;
+        if (tap.src_lane >= kMixerLanes || tap.dst_lane >= kMixerLanes) continue;
+        mix_one_tap(tap, source_index, mon_base, lane_buffers, block);
     }
 }
 

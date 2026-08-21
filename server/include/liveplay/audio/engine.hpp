@@ -37,6 +37,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <mutex>
@@ -44,6 +45,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 // miniaudio types (header-only; implementation compiled once in miniaudio_impl.c).
@@ -214,9 +216,121 @@ struct MasterRouteEntry {
     std::optional<MasterDestination> destination;
 };
 
+// One strip in the snapshot, with its (at most one — D5) bus→bus destination.
+// The destination is an index into Topology::strips rather than an id, so the
+// render thread resolves it with arithmetic instead of a map lookup.
+struct StripRouteEntry {
+    static constexpr std::size_t npos = static_cast<std::size_t>(-1);
+
+    std::shared_ptr<MixerChannel> strip;
+
+    // Where this strip's finalised (post-fader) lanes are summed onward.
+    // npos = the strip feeds no other strip (masters only, as before).
+    std::size_t dst_strip = npos;
+
+    // The lane mapping of that send. Lanes are concrete and the gains carry
+    // the same width-aware pan/balance laws as the mixer→master sends (D8) —
+    // computed by the caller of route_mixer_to_mixer, stored verbatim.
+    struct LaneSend {
+        ChannelIndex src_lane = 0;
+        ChannelIndex dst_lane = 0;
+        float        gain     = 1.0f;
+    };
+    std::vector<LaneSend> lane_sends;
+};
+
+// ---------------------------------------------------------------------------
+// compute_strip_order — Kahn's algorithm over strip→strip edges.
+// ---------------------------------------------------------------------------
+// Runs on the CONTROL thread (rebuild_topology_locked); the render thread only
+// ever iterates the resulting flat index list. Guarantees:
+//   * every node except `exclude_index` appears in `order` exactly once;
+//   * for every surviving edge, the source precedes the destination;
+//   * cycles never survive: when the sort stalls, the smallest-index remaining
+//     node is freed by dropping its remaining incoming edges, which are
+//     reported in `dropped` so the caller can log them. Deterministic — the
+//     same graph always drops the same edges and yields the same order.
+//   * edges touching `exclude_index` (the Monitor strip, which neither feeds
+//     nor is fed by a bus) or out of range are ignored, not dropped;
+//     self-loops are cycles and land in `dropped`.
+//
+// With at most one outgoing edge per node (D5), a stalled remainder is only
+// ever cycle members — a chain into a cycle drains first, and a cycle member's
+// single output stays inside the cycle — so the dropped edge is always a real
+// cycle edge. The helper stays general (multi-out graphs sort correctly) so it
+// can be exercised in a unit test without an engine.
+struct StripOrderResult {
+    std::vector<std::size_t>                          order;
+    std::vector<std::pair<std::size_t, std::size_t>>  dropped;
+};
+
+inline StripOrderResult compute_strip_order(
+        std::size_t strip_count,
+        const std::vector<std::pair<std::size_t, std::size_t>>& edges,
+        std::size_t exclude_index = static_cast<std::size_t>(-1)) {
+    StripOrderResult res;
+    res.order.reserve(strip_count);
+
+    std::vector<std::size_t> indeg(strip_count, 0);
+    std::vector<char>        edge_alive(edges.size(), 0);
+    for (std::size_t e = 0; e < edges.size(); ++e) {
+        const auto [s, d] = edges[e];
+        if (s >= strip_count || d >= strip_count) continue;
+        if (s == exclude_index || d == exclude_index) continue;
+        if (s == d) { res.dropped.push_back(edges[e]); continue; }  // self-loop
+        edge_alive[e] = 1;
+        ++indeg[d];
+    }
+
+    std::vector<char> placed(strip_count, 0);
+    std::size_t remaining = strip_count;
+    if (exclude_index < strip_count) { placed[exclude_index] = 1; --remaining; }
+
+    while (remaining > 0) {
+        // Smallest-index ready node, so the order is deterministic. Linear
+        // scans throughout: the strip cap is 64 and this is the control
+        // thread, so clarity beats a priority queue here.
+        std::size_t pick = strip_count;
+        for (std::size_t n = 0; n < strip_count; ++n) {
+            if (!placed[n] && indeg[n] == 0) { pick = n; break; }
+        }
+        if (pick == strip_count) {
+            // Every remaining node has an incoming edge: a cycle. Free the
+            // smallest-index remaining node by dropping what feeds it.
+            std::size_t victim = strip_count;
+            for (std::size_t n = 0; n < strip_count; ++n) {
+                if (!placed[n]) { victim = n; break; }
+            }
+            for (std::size_t e = 0; e < edges.size(); ++e) {
+                if (!edge_alive[e] || edges[e].second != victim) continue;
+                edge_alive[e] = 0;
+                res.dropped.push_back(edges[e]);
+            }
+            indeg[victim] = 0;
+            continue;
+        }
+        placed[pick] = 1;
+        --remaining;
+        res.order.push_back(pick);
+        for (std::size_t e = 0; e < edges.size(); ++e) {
+            if (!edge_alive[e] || edges[e].first != pick) continue;
+            edge_alive[e] = 0;
+            if (indeg[edges[e].second] > 0) --indeg[edges[e].second];
+        }
+    }
+    return res;
+}
+
 struct Topology {
     std::vector<ItemRouteEntry>   items;     // all known items (active list filtered at render time)
     std::vector<MasterRouteEntry> masters;   // size == master_channels
+    // Every live strip, with its optional bus→bus destination, and the order
+    // the render thread must process them in: topological over the strip→strip
+    // edges, so a strip's feeders are always finalised before it runs. The
+    // Monitor strip is excluded from strip_order — it runs after the PFL taps
+    // land, as it always has.
+    std::vector<StripRouteEntry>  strips;
+    std::vector<std::size_t>      strip_order;
     // The Monitor strip and what PFL is feeding it. Null when no strip has
     // been designated as the monitor, in which case PFL does nothing.
     std::shared_ptr<MixerChannel> monitor;
@@ -386,6 +500,36 @@ public:
     void unroute_mixer_from_master(const MixerChannelId& mixer,
                                    MasterChannelIndex master);
 
+    // ---- Bus → bus routing (Stage 4, D5–D8) -------------------------------
+    // One lane of a strip→strip send: which source lane feeds which
+    // destination lane, at what gain. The caller computes the gains with the
+    // same width-aware laws as the mixer→master sends (pan_gains_db /
+    // balance_gains_db, kDefaultDownmixDb for a 2→1 fold) — the engine stores
+    // and applies them, it does not re-derive them.
+    struct MixerLaneGain {
+        ChannelIndex src_lane = 0;
+        ChannelIndex dst_lane = 0;
+        float        gain_db  = 0.0f;
+    };
+
+    // Route a strip's finalised (post-fader, post-mute) lanes into another
+    // strip's accumulator. A strip has at most ONE downstream strip (D5), so
+    // routing again replaces the existing send. The Monitor strip may neither
+    // feed nor be fed this way, and a strip never feeds itself — both are
+    // refused here with a warning. Cycles across several strips are the
+    // caller's job to refuse at the API; if one slips through anyway, the
+    // offending edge is dropped at topology build with a warning, so the
+    // render thread can never see one.
+    //
+    // Like every other route, this lands in the pending table: requested
+    // before start(), it replays when the topology is next built.
+    void route_mixer_to_mixer(const MixerChannelId& src,
+                              const MixerChannelId& dst,
+                              const std::vector<MixerLaneGain>& lane_gains);
+
+    // Remove the strip's bus→bus send (there is at most one). No-op when none.
+    void unroute_mixer_to_mixer(const MixerChannelId& src);
+
     void assign_master_to_device(MasterChannelIndex master,
                                  const DeviceId& device,
                                  ChannelIndex hw_channel);
@@ -491,6 +635,19 @@ private:
             float              gain_lin = 1.0f;
         };
         std::unordered_map<std::string, std::vector<MasterSend>> mixer_to_master;
+
+        // mixer-to-mixer: srcMixerId → its one bus destination (D5). Lanes are
+        // concrete here — the caller computed the width-aware send gains.
+        struct MixerToMixer {
+            MixerChannelId dst;
+            struct Lane {
+                ChannelIndex src_lane = 0;
+                ChannelIndex dst_lane = 0;
+                float        gain_lin = 1.0f;
+            };
+            std::vector<Lane> lanes;
+        };
+        std::unordered_map<std::string, MixerToMixer> mixer_to_mixer;
 
         // master-to-device: masterIdx → MasterDestination
         std::vector<std::optional<MasterDestination>> master_destinations;

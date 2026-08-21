@@ -215,6 +215,61 @@ void AudioEngine::rebuild_topology_locked() {
         }
     }
 
+    // ---- Strips: bus→bus sends + processing order ----
+    // The strip list, each strip's (at most one — D5) downstream strip, and
+    // the topological order the render thread walks. All of it is computed
+    // here, on the control thread; the render thread only iterates the flat
+    // index list, and a cycle can never reach it — an edge that would close
+    // one is dropped right here, loudly.
+    snap->strips.reserve(mixers_.size());
+    std::unordered_map<std::string, std::size_t> strip_index;
+    strip_index.reserve(mixers_.size());
+    for (auto& [id_str, m] : mixers_) {
+        strip_index.emplace(id_str, snap->strips.size());
+        StripRouteEntry se;
+        se.strip = m;
+        snap->strips.emplace_back(std::move(se));
+    }
+    std::size_t monitor_idx = StripRouteEntry::npos;
+    if (!monitor_mixer_.empty()) {
+        const auto it = strip_index.find(monitor_mixer_.value);
+        if (it != strip_index.end()) monitor_idx = it->second;
+    }
+    std::vector<std::pair<std::size_t, std::size_t>> strip_edges;
+    strip_edges.reserve(pending_.mixer_to_mixer.size());
+    for (const auto& [src_str, m2m] : pending_.mixer_to_mixer) {
+        const auto sit = strip_index.find(src_str);
+        if (sit == strip_index.end()) continue;
+        const auto dit = strip_index.find(m2m.dst.value);
+        if (dit == strip_index.end()) continue;
+        // Monitor neither feeds nor is fed by a bus (D6). The API refuses
+        // these; this is the defence in case one is minted around it.
+        if (sit->second == monitor_idx || dit->second == monitor_idx) {
+            Logger::warn("topology: dropping bus route '{}' -> '{}' — the monitor "
+                         "strip neither feeds nor is fed by a bus",
+                         snap->strips[sit->second].strip->display_name(),
+                         snap->strips[dit->second].strip->display_name());
+            continue;
+        }
+        auto& se = snap->strips[sit->second];
+        se.dst_strip = dit->second;
+        se.lane_sends.reserve(m2m.lanes.size());
+        for (const auto& l : m2m.lanes) {
+            if (l.src_lane >= kMixerLanes || l.dst_lane >= kMixerLanes) continue;
+            se.lane_sends.push_back({l.src_lane, l.dst_lane, l.gain_lin});
+        }
+        strip_edges.emplace_back(sit->second, dit->second);
+    }
+    auto ordered = compute_strip_order(snap->strips.size(), strip_edges, monitor_idx);
+    for (const auto& [s, d] : ordered.dropped) {
+        Logger::warn("topology: dropping bus route '{}' -> '{}' — it closes a cycle",
+                     snap->strips[s].strip->display_name(),
+                     snap->strips[d].strip->display_name());
+        snap->strips[s].dst_strip = StripRouteEntry::npos;
+        snap->strips[s].lane_sends.clear();
+    }
+    snap->strip_order = std::move(ordered.order);
+
     // ---- Monitor + PFL taps ----
     // PFL is state on the strip, not a route the caller has to maintain, so
     // the tap list is derived here rather than stored. That keeps one source
@@ -884,6 +939,14 @@ void AudioEngine::remove_mixer_channel(const MixerChannelId& id) {
     mixers_.erase(id.value);
     mixers_generation_.fetch_add(1, std::memory_order_relaxed);
     pending_.mixer_to_master.erase(id.value);
+    // Its bus→bus send goes with it, and so does anything feeding it — ids
+    // are never reused, so a dangling entry would sit in the table forever.
+    pending_.mixer_to_mixer.erase(id.value);
+    for (auto it = pending_.mixer_to_mixer.begin();
+         it != pending_.mixer_to_mixer.end();) {
+        if (it->second.dst == id) it = pending_.mixer_to_mixer.erase(it);
+        else ++it;
+    }
     // A dangling monitor designation would survive a project reload and point
     // at a strip that no longer exists, quietly disabling PFL.
     if (monitor_mixer_ == id) monitor_mixer_ = MixerChannelId{};
@@ -983,6 +1046,41 @@ void AudioEngine::unroute_mixer_from_master(const MixerChannelId& mixer,
     auto& v = it->second;
     v.erase(std::remove_if(v.begin(), v.end(),
                            [&](auto& s){ return s.master == master; }), v.end());
+    rebuild_topology_locked();
+}
+
+void AudioEngine::route_mixer_to_mixer(const MixerChannelId& src,
+                                       const MixerChannelId& dst,
+                                       const std::vector<MixerLaneGain>& lane_gains) {
+    std::lock_guard lock{mutex_};
+    if (src == dst) {
+        Logger::warn("route_mixer_to_mixer: refusing to route strip '{}' into itself",
+                     src.value);
+        return;
+    }
+    if (mixers_.find(src.value) == mixers_.end()) return;
+    if (mixers_.find(dst.value) == mixers_.end()) return;
+    if (!monitor_mixer_.empty() && (src == monitor_mixer_ || dst == monitor_mixer_)) {
+        Logger::warn("route_mixer_to_mixer: refusing '{}' -> '{}' — the monitor "
+                     "strip neither feeds nor is fed by a bus",
+                     src.value, dst.value);
+        return;
+    }
+    // One downstream strip per source (D5) — routing again replaces the send.
+    auto& e = pending_.mixer_to_mixer[src.value];
+    e.dst = dst;
+    e.lanes.clear();
+    e.lanes.reserve(lane_gains.size());
+    for (const auto& lg : lane_gains) {
+        if (lg.src_lane >= kMixerLanes || lg.dst_lane >= kMixerLanes) continue;
+        e.lanes.push_back({lg.src_lane, lg.dst_lane, db_to_lin(lg.gain_db)});
+    }
+    rebuild_topology_locked();
+}
+
+void AudioEngine::unroute_mixer_to_mixer(const MixerChannelId& src) {
+    std::lock_guard lock{mutex_};
+    if (pending_.mixer_to_mixer.erase(src.value) == 0) return;
     rebuild_topology_locked();
 }
 
@@ -1412,8 +1510,8 @@ void AudioEngine::render_one_block(const Topology& topo) {
     //
     // Every lane goes in together rather than one at a time: the gate's
     // detector is linked across them, so it has to see the whole strip.
-    const auto run_strip_dsp = [&](std::size_t i) {
-        auto& dsp = active_mixers[i]->dsp();
+    const auto run_strip_dsp = [&](MixerChannel& m, std::size_t i) {
+        auto& dsp = m.dsp();
         if (!dsp.needs_processing()) return;
         Sample* lanes[kMixerLanes];
         for (ChannelIndex lane = 0; lane < kMixerLanes; ++lane) {
@@ -1422,63 +1520,29 @@ void AudioEngine::render_one_block(const Topology& topo) {
         // A mono strip's lane 1 carries nothing, so keying the gate on it
         // would hold the detector at silence and shut the strip down.
         const ChannelCount used = std::min<ChannelCount>(
-            std::max<ChannelCount>(1, active_mixers[i]->width()), kMixerLanes);
+            std::max<ChannelCount>(1, m.width()), kMixerLanes);
         dsp.process(lanes, used, block);
     };
 
-    // Monitor is deliberately left out of this pass and run after the taps
-    // below. Its accumulator is empty until they land, so processing it here
-    // would be processing silence: the mono-sum audition folded nothing, and
-    // any EQ or dynamics on Monitor applied to cue pre-listen but not to
-    // anything PFL'd — the same strip treating its two sources differently.
-    const std::size_t monitor_index = [&]() -> std::size_t {
-        if (!topo.monitor) return usable_mixers;
-        const auto it = mixer_index.find(topo.monitor->id().value);
-        return it == mixer_index.end() ? usable_mixers : it->second;
-    }();
-
-    for (std::size_t i = 0; i < usable_mixers; ++i) {
-        if (i == monitor_index) continue;
-        run_strip_dsp(i);
-    }
-
-    // ---- PFL taps into the Monitor strip ----
-    // Placed here, between the tone chain and the fader, which is what makes
-    // the tap post-processing and pre-fader. Monitor is a strip like any
-    // other, so the pass below then applies its own fader and mute to the
-    // result — that fader is the headphone level.
+    // Fader, mute, fade envelope, meters and correlation for one strip — in
+    // place on its accumulators, which finalises what the strip sends onward.
     //
-    // Nothing is copied. The tap adds straight into the monitor's
-    // accumulator, which is the buffer copy §2.4 costed, minus the copy.
-    if (topo.monitor && !topo.monitor_taps.empty() &&
-        monitor_index < usable_mixers) {
-        mix_monitor_taps(monitor_index, topo.monitor_taps, mixer_index,
-                         mixer_accumulators_, block);
-    }
-
-    // ---- Monitor's own chain, now that everything it carries has arrived ----
-    // Both sources are in: cue pre-listen from the item pass, PFL from the taps
-    // just above. This is where the mono-sum audition folds the phones.
-    if (monitor_index < usable_mixers) run_strip_dsp(monitor_index);
-
-    // ---- Tier-2 strip processing (gain/mute/fade) + meter ----
     // No solo scan. Solo was never reachable from the UI and the mixer design
     // replaced it with PFL outright (§2.4), which costs the render thread a
     // flat list of taps instead of a per-block scan of every strip plus a
     // per-strip audibility test that depended on all the others.
-    for (std::size_t i = 0; i < usable_mixers; ++i) {
-        auto& m = active_mixers[i];
+    const auto run_strip_fader = [&](MixerChannel& m, std::size_t i) {
         // Advance the strip's fade envelope by exactly one render block, then
         // read the resulting gain. peek_gain_linear() is side-effect-free, so
         // the read may be repeated (metering, gain application) without the
         // fade running at a multiple of its configured speed.
-        m->advance_block();
-        const float gain_lin  = m->peek_gain_linear();
-        const float effective = m->is_muted() ? 0.0f : gain_lin;
+        m.advance_block();
+        const float gain_lin  = m.peek_gain_linear();
+        const float effective = m.is_muted() ? 0.0f : gain_lin;
         for (ChannelIndex lane = 0; lane < kMixerLanes; ++lane) {
             Sample* buf = mixer_accumulators_[i * kMixerLanes + lane].data();
             for (std::size_t s = 0; s < block; ++s) buf[s] *= effective;
-            m->update_meter(lane, buf, block);
+            m.update_meter(lane, buf, block);
         }
         // Correlation between the lanes, for the width control's readout. Taken
         // here, after the chain, so it describes the image that actually leaves
@@ -1489,11 +1553,89 @@ void AudioEngine::render_one_block(const Topology& topo) {
         // Mono strips are skipped rather than fed a silent lane 1, which would
         // read as a correlation of nothing and warn about a strip that has no
         // image to be wrong about.
-        if (m->width() >= kMixerLanes) {
-            m->update_correlation(mixer_accumulators_[i * kMixerLanes].data(),
-                                  mixer_accumulators_[i * kMixerLanes + 1].data(),
-                                  block);
+        if (m.width() >= kMixerLanes) {
+            m.update_correlation(mixer_accumulators_[i * kMixerLanes].data(),
+                                 mixer_accumulators_[i * kMixerLanes + 1].data(),
+                                 block);
         }
+    };
+
+    // Monitor is deliberately left out of the ordered pass and run after the
+    // taps below. Its accumulator is empty until they land, so processing it
+    // earlier would be processing silence: the mono-sum audition folded
+    // nothing, and any EQ or dynamics on Monitor applied to cue pre-listen but
+    // not to anything PFL'd — the same strip treating its two sources
+    // differently.
+    const std::size_t monitor_index = [&]() -> std::size_t {
+        if (!topo.monitor) return usable_mixers;
+        const auto it = mixer_index.find(topo.monitor->id().value);
+        return it == mixer_index.end() ? usable_mixers : it->second;
+    }();
+    const bool monitor_live = topo.monitor && monitor_index < usable_mixers;
+
+    // ---- The ordered strip pass ----
+    // Strips run one at a time, in the topological order the control thread
+    // computed (strip_order, monitor excluded): chain → PFL tap → fader →
+    // bus→bus send. The order guarantees a strip's feeders are all finalised
+    // before it runs and its own destination has not run yet, so the middle of
+    // the graph can be a DAG while this stays a flat walk of a precomputed
+    // list — no traversal, no allocation, and by construction no cycle.
+    //
+    // The tap sits between the chain and the fader, exactly where the
+    // whole-desk tap pass sat: post-processing, pre-fader, pre-mute. Nothing
+    // is copied — the tap adds straight into the monitor's accumulator, which
+    // is the buffer copy §2.4 costed, minus the copy.
+    //
+    // A strip the snapshot doesn't know yet (created after this block's
+    // snapshot was taken; one block at most) is skipped whole: the old
+    // snapshot routes nothing into it either, so there is nothing to process.
+    for (const std::size_t oi : topo.strip_order) {
+        if (oi >= topo.strips.size()) continue;
+        const auto& se = topo.strips[oi];
+        if (!se.strip) continue;
+        const auto it = mixer_index.find(se.strip->id().value);
+        if (it == mixer_index.end()) continue;
+        const std::size_t i = it->second;
+        if (i >= usable_mixers || i == monitor_index) continue;
+        MixerChannel& m = *se.strip;
+
+        run_strip_dsp(m, i);
+        if (monitor_live && !topo.monitor_taps.empty() && m.is_pfl()) {
+            mix_strip_monitor_taps(monitor_index, &m, i, topo.monitor_taps,
+                                   mixer_accumulators_, block);
+        }
+        run_strip_fader(m, i);
+
+        // Bus→bus send: the strip's finalised lanes into its destination
+        // strip's accumulator, at the control-thread-computed lane gains. The
+        // destination is downstream in strip_order, so it has not run yet.
+        if (se.dst_strip < topo.strips.size() && !se.lane_sends.empty()) {
+            const auto& de = topo.strips[se.dst_strip];
+            if (de.strip) {
+                const auto dit = mixer_index.find(de.strip->id().value);
+                if (dit != mixer_index.end() && dit->second < usable_mixers &&
+                    dit->second != monitor_index && dit->second != i) {
+                    for (const auto& ls : se.lane_sends) {
+                        if (ls.src_lane >= kMixerLanes || ls.dst_lane >= kMixerLanes) continue;
+                        const Sample* src =
+                            mixer_accumulators_[i * kMixerLanes + ls.src_lane].data();
+                        Sample* dst =
+                            mixer_accumulators_[dit->second * kMixerLanes + ls.dst_lane].data();
+                        for (std::size_t s = 0; s < block; ++s) dst[s] += src[s] * ls.gain;
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- Monitor, now that everything it carries has arrived ----
+    // Both sources are in: cue pre-listen from the item pass, PFL from the
+    // per-strip taps above. Its chain runs here — this is where the mono-sum
+    // audition folds the phones — and then its own fader and mute, which is
+    // the headphone level.
+    if (monitor_live) {
+        run_strip_dsp(*topo.monitor, monitor_index);
+        run_strip_fader(*topo.monitor, monitor_index);
     }
 
     // ---- Tier-2 → Tier-3 mix into master accumulators ----

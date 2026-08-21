@@ -251,6 +251,22 @@ if(LIVEPLAY_BUILD_TESTS)
     )
     add_test(NAME drift COMMAND liveplay-drift-tests)
 
+    # Bus→bus processing order: Kahn's sort over strip→strip edges, cycle
+    # edges dropped deterministically, Monitor excluded. The sort itself is a
+    # header-only free function (compute_strip_order in engine.hpp) precisely
+    # so it runs here without an audio device — but engine.hpp includes
+    # miniaudio's header for the device types, hence the include-path link.
+    add_executable(liveplay-topo-tests
+        tests/topo_order_test.cpp
+    )
+    target_include_directories(liveplay-topo-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    target_link_libraries(liveplay-topo-tests
+        PRIVATE liveplay_miniaudio Threads::Threads
+    )
+    add_test(NAME topo COMMAND liveplay-topo-tests)
+
     # Waveform downsampler (single-pass decode, per-channel traces).
     add_executable(liveplay-waveform-tests
         tests/waveform_test.cpp
