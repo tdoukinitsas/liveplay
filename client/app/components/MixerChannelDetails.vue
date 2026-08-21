@@ -141,8 +141,17 @@
             <label class="det__field">
               <span>{{ t('mixer.output') }}</span>
               <select :value="outputValue" @change="onOutputChange">
+                <!-- The channel view never opens on Monitor — it is not in
+                     userBuses (MixerPanel.vue) — so unlike the strip's select
+                     this one needs no monitor guard on either option group. -->
                 <option value="master">{{ t('mixer.toMaster') }}</option>
                 <option v-for="o in outputOptions" :key="'out:' + o" :value="'out:' + o">{{ o }}</option>
+                <!-- Bus targets: any other non-system bus, minus ones a route
+                     here would loop back through. Convenience only — the
+                     server's 409 is the real authority; see onOutputChange. -->
+                <optgroup v-if="busOptions.length" :label="t('mixer.busesGroup')">
+                  <option v-for="b in busOptions" :key="'bus:' + b.id" :value="'bus:' + b.id">{{ b.name }}</option>
+                </optgroup>
               </select>
             </label>
             <label class="det__field">
@@ -167,9 +176,12 @@
             >
               {{ t('mixer.outputUnmapped', { name: bus.output.target }) }}
             </button>
-            <p v-if="bus.output.type === 'bus'" class="det__warn">
-              {{ t('mixer.busToBusUnsupported') }}
-            </p>
+            <!-- A bus-kind route that never reaches the master: not a mapping
+                 problem, so no click affordance, just the warning. -->
+            <p v-if="busUnbound" class="det__warn">{{ t('mixer.busRouteUnbound') }}</p>
+            <!-- Inline, non-blocking: the server's own 409 text for the last
+                 rejected route, so the reason is legible without a dialog. -->
+            <p v-if="outputErrorMsg" class="det__warn">{{ outputErrorMsg }}</p>
             <p class="det__none">{{ t('mixer.auxSendsPending') }}</p>
           </section>
         </div>
@@ -259,6 +271,7 @@ const emit = defineEmits<{
 
 const { t } = useLocalization();
 const { findItemByUuid } = useProject();
+const server = useLiveplayServer();
 
 // The filter values as they are being dragged, ahead of the bus catching up.
 //
@@ -271,6 +284,7 @@ watch(() => props.bus?.id, () => {
   liveDsp.value = null;
   renaming.value = false;
   colorPickerOpen.value = false;
+  outputErrorMsg.value = '';
 });
 // Once the settled value has landed on the bus, stop overriding with a stale
 // copy of the same thing.
@@ -299,11 +313,25 @@ const nextId = computed(() => props.buses[index.value + 1]?.id ?? '');
 const widthLabel = computed(() =>
   props.bus.width >= 2 ? t('mixer.stereo') : t('mixer.mono'));
 
-const outputValue = computed(() =>
-  props.bus.output.type === 'output' ? 'out:' + props.bus.output.target : 'master');
+const outputValue = computed(() => {
+  const o = props.bus.output;
+  if (o.type === 'bus') return 'bus:' + o.target;
+  if (o.type === 'output') return 'out:' + o.target;
+  return 'master';
+});
 
-const outputSummary = computed(() =>
-  props.bus.output.type === 'output' ? props.bus.output.target : t('mixer.toMaster'));
+// For a bus target, the summary reads the target bus's own name rather than
+// its id — "→ Beds", not "→ beds". Falls back to the raw id if the target
+// bus is somehow not in the loaded list (e.g. a stale broadcast mid-delete).
+const outputSummary = computed(() => {
+  const o = props.bus.output;
+  if (o.type === 'master') return t('mixer.toMaster');
+  if (o.type === 'bus') {
+    const target = props.buses.find(b => b.id === o.target);
+    return target?.name ?? o.target;
+  }
+  return o.target;
+});
 
 const outputOptions = computed(() => {
   const names = [...props.outputNames];
@@ -314,14 +342,78 @@ const outputOptions = computed(() => {
   return names;
 });
 
+// Candidate bus targets, same rule as the strip's (MixerStrip.vue): any other
+// non-system bus, excluding this one and excluding any bus whose existing
+// output chain already reaches this one. Convenience only — the server 409
+// is the actual authority.
+function reachesBus(fromId: string, toId: string, all: Bus[]): boolean {
+  const visited = new Set<string>();
+  let cur = all.find(b => b.id === fromId);
+  while (cur && cur.output.type === 'bus') {
+    const nextId = cur.output.target;
+    if (nextId === toId) return true;
+    if (visited.has(nextId)) break;
+    visited.add(nextId);
+    cur = all.find(b => b.id === nextId);
+  }
+  return false;
+}
+const busOptions = computed(() => {
+  // props.buses is already the non-system list (MixerPanel's userBuses); a
+  // 'bus' type target can never be a system bus in the first place, so it is
+  // also everything a chain could walk through.
+  const all = props.buses;
+  return all.filter(b =>
+    b.id !== props.bus.id && !reachesBus(b.id, props.bus.id, all));
+});
+
 const unmapped = computed(() =>
   props.bus.output.type === 'output' && props.bus.bound === false);
 
-function onOutputChange(e: Event) {
-  const v = (e.target as HTMLSelectElement).value;
-  emit('patch', props.bus.id, v === 'master'
-    ? { output: { type: 'master', target: '' } }
-    : { output: { type: 'output', target: v.slice(4) } });
+// A bus-kind route that never reaches the master, per D10 — bound is
+// server-computed and just rendered here, not re-derived.
+const busUnbound = computed(() =>
+  props.bus.output.type === 'bus' && props.bus.bound === false);
+
+// Transient: the server's 409 text for the last rejected route, cleared on
+// the next successful change or after a few seconds.
+const outputErrorMsg = ref('');
+let outputErrorTimer: ReturnType<typeof setTimeout> | null = null;
+
+function serverErrorText(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  const body = msg.slice(msg.indexOf('—') + 1).trim();
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed && typeof parsed.error === 'string') return parsed.error;
+  } catch { /* not JSON; fall through */ }
+  return body || msg;
+}
+
+// Goes straight to the server, same as the strip's version, rather than
+// through emit('patch') — that path is fire-and-forget and can't catch a 409
+// to revert the select and show the reason.
+async function onOutputChange(e: Event) {
+  const el = e.target as HTMLSelectElement;
+  const v = el.value;
+  const prevValue = outputValue.value;
+  const patch = v === 'master'
+    ? { output: { type: 'master' as const, target: '' } }
+    : v.startsWith('bus:')
+      ? { output: { type: 'bus' as const, target: v.slice(4) } }
+      : { output: { type: 'output' as const, target: v.slice(4) } };
+  try {
+    await server.patchBus(props.bus.id, patch);
+    outputErrorMsg.value = '';
+  } catch (err) {
+    // Vue won't force the DOM element back on its own here — outputValue's
+    // own bound value hasn't changed, only the browser's live selection has
+    // — so it is reset directly.
+    el.value = prevValue;
+    outputErrorMsg.value = serverErrorText(err);
+    if (outputErrorTimer) clearTimeout(outputErrorTimer);
+    outputErrorTimer = setTimeout(() => { outputErrorMsg.value = ''; }, 6000);
+  }
 }
 
 function itemName(uuid: string): string {
@@ -365,6 +457,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('mousedown', onDocClick, true);
   onBeforeUnmount(() => window.removeEventListener('mousedown', onDocClick, true));
 }
+onBeforeUnmount(() => { if (outputErrorTimer) clearTimeout(outputErrorTimer); });
 
 function onPickColor(color: string) {
   emit('patch', props.bus.id, { color });

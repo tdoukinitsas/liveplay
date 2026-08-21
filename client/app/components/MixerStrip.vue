@@ -42,19 +42,31 @@
         class="strip__output"
         :value="outputValue"
         :title="outputTitle"
-        :class="{ 'strip__output--warn': outputUnmapped }"
+        :class="{ 'strip__output--warn': outputWarn }"
         @click.stop
         @change="onOutputChange"
       >
-        <!-- Monitor is offered no route to the master. It carries PFL, and
-             PFL summed into the house is the accident this whole scheme was
-             chosen to make impossible; the server refuses it too. -->
+        <!-- Monitor is offered no route to the master, and no bus targets
+             either — the server refuses both, for the same reason: PFL
+             summed into the house (directly, or by way of another bus) is
+             the accident this whole scheme was chosen to make impossible. -->
         <option v-if="!monitor" value="master">{{ t('mixer.toMaster') }}</option>
         <option
           v-for="o in outputOptions"
           :key="'out:' + o"
           :value="'out:' + o"
         >{{ o }}</option>
+        <!-- Bus targets: any other non-system bus, except ones a route here
+             would loop back through. The server is the actual authority on
+             this (see onOutputChange's 409 handling) — this list is just a
+             convenience so the obviously-illegal choices aren't offered. -->
+        <optgroup v-if="!monitor && busOptions.length" :label="t('mixer.busesGroup')">
+          <option
+            v-for="b in busOptions"
+            :key="'bus:' + b.id"
+            :value="'bus:' + b.id"
+          >{{ b.name }}</option>
+        </optgroup>
       </select>
       <!-- The unmapped state used to be a dead-end tooltip. Now it's a click
            affordance straight into the Remap Hardware Outputs modal — the
@@ -342,6 +354,7 @@ const panLabel = computed(() => {
 onBeforeUnmount(() => {
   if (settle) clearTimeout(settle);
   if (panSettle) clearTimeout(panSettle);
+  if (outputErrorTimer) clearTimeout(outputErrorTimer);
 });
 
 const renaming  = ref(false);
@@ -420,11 +433,12 @@ const gainLabel = computed(() => {
   return (v > 0 ? '+' : '') + v.toFixed(1);
 });
 
-// The <select> carries "master" or "out:<logical name>". Bus→bus targets are
-// shown as-is but not selectable yet — that routing isn't implemented.
+// The <select> carries "master", "out:<logical name>" or "bus:<bus id>".
 const outputValue = computed(() => {
   const o = props.bus.output;
-  return o.type === 'output' ? 'out:' + o.target : 'master';
+  if (o.type === 'bus') return 'bus:' + o.target;
+  if (o.type === 'output') return 'out:' + o.target;
+  return 'master';
 });
 
 // The names offered, plus whatever this bus is already pointing at.
@@ -443,15 +457,53 @@ const outputOptions = computed(() => {
   return names;
 });
 
-// Whether this bus reaches hardware — answered by the server, not inferred
-// from the name list. Monitor is usually bound through settings.previewDevice,
-// which is not in the output map at all, so inferring it here put a warning on
-// the one bus most likely to be working.
+// Candidate bus targets: any other non-system bus, excluding this one and
+// excluding any bus whose existing output chain already reaches this one —
+// pointing here at one of those would close a loop. This is a convenience
+// only; the server's 409 (cycle / system target / Monitor-as-source) is the
+// actual authority, and onOutputChange below reverts on one.
+function reachesBus(fromId: string, toId: string, all: Bus[]): boolean {
+  const visited = new Set<string>();
+  let cur = all.find(b => b.id === fromId);
+  while (cur && cur.output.type === 'bus') {
+    const nextId = cur.output.target;
+    if (nextId === toId) return true;
+    if (visited.has(nextId)) break;
+    visited.add(nextId);
+    cur = all.find(b => b.id === nextId);
+  }
+  return false;
+}
+const busOptions = computed(() => {
+  const all = (server.buses ?? []) as Bus[];
+  return all.filter(b =>
+    !b.system && b.id !== props.bus.id && !reachesBus(b.id, props.bus.id, all));
+});
+
+// Whether this bus's route is unmapped hardware — answered by the server, not
+// inferred from the name list. Monitor is usually bound through
+// settings.previewDevice, which is not in the output map at all, so inferring
+// it here put a warning on the one bus most likely to be working.
 const outputUnmapped = computed(() =>
   props.bus.output.type === 'output' && props.bus.bound === false);
 
+// A bus-kind route that never reaches the master is a different kind of
+// broken — a dangling or ownerless chain — and it warns too, but there is no
+// remap affordance for it since it isn't a hardware-mapping problem.
+const outputWarn = computed(() =>
+  !props.master && props.bus.bound === false);
+
+// Transient: set on a 409 from the server, cleared after a few seconds or on
+// the next successful change. Overrides the tooltip so the rejection reason
+// is readable without a blocking dialog.
+const outputErrorMsg = ref('');
+let outputErrorTimer: ReturnType<typeof setTimeout> | null = null;
+
 const outputTitle = computed(() => {
-  if (props.bus.output.type === 'bus') return t('mixer.busToBusUnsupported');
+  if (outputErrorMsg.value) return outputErrorMsg.value;
+  if (props.bus.output.type === 'bus') {
+    return outputWarn.value ? t('mixer.busRouteUnbound') : t('mixer.output');
+  }
   // Unmapped means something different on Monitor. Every other bus falls back
   // to treating the name as a device and usually still plays; Monitor's
   // default name matches no device, so unmapped means PFL is inaudible — a
@@ -465,11 +517,46 @@ const outputTitle = computed(() => {
   return t('mixer.output');
 });
 
-function onOutputChange(e: Event) {
-  const v = (e.target as HTMLSelectElement).value;
-  emit('patch', props.bus.id, v === 'master'
-    ? { output: { type: 'master', target: '' } }
-    : { output: { type: 'output', target: v.slice(4) } });
+// Best-effort extraction of the server's `{"error":"..."}` body out of the
+// Error thrown by rest() (`"<status> <statusText> — <raw body>"`) — falls
+// back to the raw message if the body isn't the shape expected.
+function serverErrorText(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  const body = msg.slice(msg.indexOf('—') + 1).trim();
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed && typeof parsed.error === 'string') return parsed.error;
+  } catch { /* not JSON; fall through */ }
+  return body || msg;
+}
+
+// The output PATCH is the only call for a routing change — there is no live
+// engine-only step to do first, unlike gain and pan — so this goes straight
+// to the server rather than through the emit('patch') + parent-refetch path
+// every other control here uses. That is what lets it catch the 409 and
+// revert, which the fire-and-forget emit path cannot do.
+async function onOutputChange(e: Event) {
+  const el = e.target as HTMLSelectElement;
+  const v = el.value;
+  const prevValue = outputValue.value;
+  const patch = v === 'master'
+    ? { output: { type: 'master' as const, target: '' } }
+    : v.startsWith('bus:')
+      ? { output: { type: 'bus' as const, target: v.slice(4) } }
+      : { output: { type: 'output' as const, target: v.slice(4) } };
+  try {
+    await server.patchBus(props.bus.id, patch);
+    outputErrorMsg.value = '';
+  } catch (err) {
+    // Rejected: put the select back where the server still has it. Vue won't
+    // force this by itself — the bound value (outputValue) hasn't changed
+    // from its own point of view, only the browser's live selection has — so
+    // the DOM element is reset directly.
+    el.value = prevValue;
+    outputErrorMsg.value = serverErrorText(err);
+    if (outputErrorTimer) clearTimeout(outputErrorTimer);
+    outputErrorTimer = setTimeout(() => { outputErrorMsg.value = ''; }, 6000);
+  }
 }
 </script>
 
