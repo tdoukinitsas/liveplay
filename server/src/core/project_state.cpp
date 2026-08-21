@@ -932,6 +932,22 @@ void ProjectState::start_async_mirror() {
             Logger::error("async mirror threw: {}", e.what());
         }
         // Apply the output-target brickwall ceiling configured for this project.
+        //
+        // ONLY WHAT CHANGED, field by field. This block runs at the end of
+        // every mirror, and the mirror runs on every save — and re-applying an
+        // unchanged ceiling was never the no-op it looked like. The engine's
+        // set_master_ceiling_db() reconfigures the master limiters, and
+        // Limiter::configure() zeroes the lookahead delay line and snaps the
+        // gain envelope — five milliseconds of hard silence punched into the
+        // house output, on both masters, on every save. That was the save-time
+        // pop the seam detector finally caught: a step the size of the
+        // programme material, at a block boundary, only when a save carried a
+        // document. The meter setters walk every strip and reset meter state
+        // the same way; cheaper, but just as pointless when nothing moved.
+        //
+        // patch_settings() applies these live when the operator changes them
+        // and keeps applied_engine_settings_ in step, so the save that follows
+        // a settings edit does not apply the same value a second time.
         {
             json settings_snap;
             {
@@ -939,15 +955,30 @@ void ProjectState::start_async_mirror() {
                 settings_snap = document_.value("settings", json::object());
             }
             const auto levels = compute_output_target_levels(settings_snap);
-            engine_.set_master_ceiling_db(levels.value("limiterCeilingDb", -0.3f));
-            // Honour the per-project "disable limiter" toggle.
-            engine_.set_limiter_enabled(!settings_snap.value("disableLimiter", false));
-            // Apply the project's meter ballistics to every engine meter.
-            engine_.set_meter_ballistics(meter_ballistics_from_settings(settings_snap));
-            // Enable the true-peak / loudness DSP per the display mode.
-            const auto mode = effective_meter_mode(settings_snap);
-            engine_.set_true_peak_metering(mode == "dBTP");
-            engine_.set_loudness_metering(mode == "LUFS");
+            AppliedEngineSettings next;
+            next.ceiling_db      = levels.value("limiterCeilingDb", -0.3f);
+            next.limiter_enabled = !settings_snap.value("disableLimiter", false);
+            next.ballistics      = meter_ballistics_from_settings(settings_snap);
+            const auto mode      = effective_meter_mode(settings_snap);
+            next.true_peak       = mode == "dBTP";
+            next.loudness        = mode == "LUFS";
+
+            std::lock_guard alock{applied_engine_settings_mutex_};
+            const auto& prev = applied_engine_settings_;
+            if (!prev || prev->ceiling_db != next.ceiling_db)
+                engine_.set_master_ceiling_db(next.ceiling_db);
+            if (!prev || prev->limiter_enabled != next.limiter_enabled)
+                engine_.set_limiter_enabled(next.limiter_enabled);
+            if (!prev ||
+                prev->ballistics.attack_ms     != next.ballistics.attack_ms ||
+                prev->ballistics.release_ms    != next.ballistics.release_ms ||
+                prev->ballistics.rms_window_ms != next.ballistics.rms_window_ms)
+                engine_.set_meter_ballistics(next.ballistics);
+            if (!prev || prev->true_peak != next.true_peak)
+                engine_.set_true_peak_metering(next.true_peak);
+            if (!prev || prev->loudness != next.loudness)
+                engine_.set_loudness_metering(next.loudness);
+            applied_engine_settings_ = next;
         }
         // Honour the project's default output device: re-pin every non-override
         // cue from Main (the OS default device, where ensure_default_routing()
@@ -5421,6 +5452,26 @@ bool ProjectState::patch_settings(const json& patch) {
     if (meter_mode_changed) {
         engine_.set_true_peak_metering(meter_true_peak);
         engine_.set_loudness_metering(meter_loudness);
+    }
+    // Keep the mirror's applied-settings record in step with what was just
+    // applied, so the save that follows this edit sees nothing to re-apply.
+    // Re-applying the ceiling is audible (it rebuilds the master limiters),
+    // which is why the mirror only applies differences — see the matching
+    // block in start_async_mirror().
+    {
+        std::lock_guard alock{applied_engine_settings_mutex_};
+        if (applied_engine_settings_) {
+            if (output_target_changed)
+                applied_engine_settings_->ceiling_db = new_ceiling_db;
+            if (limiter_toggle_changed)
+                applied_engine_settings_->limiter_enabled = !limiter_disabled;
+            if (ballistics_changed)
+                applied_engine_settings_->ballistics = new_ballistics;
+            if (meter_mode_changed) {
+                applied_engine_settings_->true_peak = meter_true_peak;
+                applied_engine_settings_->loudness  = meter_loudness;
+            }
+        }
     }
     return true;
 }

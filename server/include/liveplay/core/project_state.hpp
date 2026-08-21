@@ -888,6 +888,25 @@ private:
         primed_cues_.erase(id.value);
     }
 
+    // The settings-derived engine parameters last applied, so the mirror
+    // (which runs on every save) re-applies only what actually changed.
+    // Re-applying an unchanged limiter ceiling is not a no-op: it rebuilds
+    // the master limiters and zeroes their lookahead delay lines — five
+    // milliseconds of silence on the house output per save (the save-time
+    // pop). Written by the mirror thread and by patch_settings(); guarded by
+    // applied_engine_settings_mutex_ (NOT mutex_ — the mirror applies these
+    // outside the project lock). Empty until the first mirror, which
+    // therefore applies everything once.
+    struct AppliedEngineSettings {
+        float                  ceiling_db      = -0.3f;
+        bool                   limiter_enabled = true;
+        audio::MeterBallistics ballistics{};
+        bool                   true_peak       = false;
+        bool                   loudness        = false;
+    };
+    std::optional<AppliedEngineSettings> applied_engine_settings_;
+    std::mutex                           applied_engine_settings_mutex_;
+
     // Read document_["buses"] into buses_, synthesising the system buses and
     // migrating legacy per-item deviceOverride values into real buses. Caller
     // holds mutex_.
