@@ -76,6 +76,11 @@ const ok = (name, pass, detail = '') => {
       body: JSON.stringify({
         path: DIR + '/churn.liveplay',
         document: {
+          // Exactly what buildDocumentSnapshot() sends, busSchema included:
+          // without it the server reads this as a pre-bus project landing on
+          // top of the loaded one and re-routes it, which is the very churn
+          // this test exists to catch.
+          busSchema: 1,
           name: doc.name, version: doc.version, folderPath: DIR,
           items: [{ ...item, volume: 0.5 + n * 0.01 }],
           cartItems: doc.cartItems ?? [], cartOnlyItems: doc.cartOnlyItems ?? [],

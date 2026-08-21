@@ -2492,7 +2492,8 @@ void ControlServer::install_routes() {
                     Logger::warn("POST /api/project/load — missing 'path' or 'document' in body");
                     return json_err(400, "expected 'path' or 'document'");
                 }
-                auto repair = state_.consume_repair_info();
+                auto repair    = state_.consume_repair_info();
+                auto migration = state_.consume_bus_migration_summary();
                 auto header = state_.header_document();
                 const std::size_t item_count = header.value("itemCount", (std::size_t)0);
                 Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/load OK — '{}' ({} items){}",
@@ -2509,6 +2510,16 @@ void ControlServer::install_routes() {
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "project_changed"},
                 });
+                // The server re-routed this project on the operator's behalf.
+                // Told to the client that asked, and to every other client so
+                // they converge on the same story (D12, D17).
+                if (migration.any()) {
+                    header["migration"] = migration.to_json();
+                    json patch = migration.to_json();
+                    patch["type"] = "doc_patch";
+                    patch["op"]   = "project_migrated";
+                    broadcast_doc_patch(patch);
+                }
                 return json_ok(header);
             } catch (const std::exception& e) {
                 Logger::error("POST /api/project/load threw: {}", e.what());
@@ -2828,7 +2839,20 @@ void ControlServer::install_routes() {
                 const auto path_str = liveplay::util::path_to_utf8(p);
                 Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/save OK → '{}'",
                                      req.remote_ip_address, impl_->server_addr, path_str);
-                return json_ok(json({{"ok", true}, {"path", path_str}}));
+                // A save carrying an embedded document goes through
+                // replace_full_document(), so it can migrate too. Always
+                // drained, so a migration reported here can't leak into the
+                // response of some later, unrelated load.
+                auto migration = state_.consume_bus_migration_summary();
+                json body{{"ok", true}, {"path", path_str}};
+                if (migration.any()) {
+                    body["migration"] = migration.to_json();
+                    json patch = migration.to_json();
+                    patch["type"] = "doc_patch";
+                    patch["op"]   = "project_migrated";
+                    broadcast_doc_patch(patch);
+                }
+                return json_ok(body);
             } catch (const std::exception& e) {
                 Logger::error("POST /api/project/save threw: {}", e.what());
                 return json_err(400, e.what());
@@ -2850,6 +2874,7 @@ void ControlServer::install_routes() {
                     Logger::error("PUT /api/project/document — document not accepted");
                     return json_err(400, "document not accepted");
                 }
+                auto migration = state_.consume_bus_migration_summary();
                 auto header = state_.header_document();
                 const std::size_t item_count = header.value("itemCount", (std::size_t)0);
                 Logger::api_response("Client ({}) <- Server ({}) : PUT /api/project/document OK — '{}' ({} items)",
@@ -2858,6 +2883,13 @@ void ControlServer::install_routes() {
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "project_changed"},
                 });
+                if (migration.any()) {
+                    header["migration"] = migration.to_json();
+                    json patch = migration.to_json();
+                    patch["type"] = "doc_patch";
+                    patch["op"]   = "project_migrated";
+                    broadcast_doc_patch(patch);
+                }
                 return json_ok(header);
             } catch (const std::exception& e) {
                 Logger::error("PUT /api/project/document threw: {}", e.what());

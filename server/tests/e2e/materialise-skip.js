@@ -45,14 +45,26 @@ const buses = async () => (await rest('/api/buses')).body;
   ok('project B replaced them, not kept A', JSON.stringify(c) === '["stage"]', c.join(','));
   ok('every bus in B has a strip', b.every(x => !!x.mixerId));
 
-  // And a save-shaped round trip (no buses key) must NOT disturb them.
+  // And a save-shaped round trip (no buses key, but `busSchema` declaring the
+  // bus era exactly as buildDocumentSnapshot() does) must NOT disturb them.
   const before = (await buses()).map(x => x.id + ':' + x.mixerId).sort().join('|');
   await rest('/api/project/document', {
-    method: 'PUT', body: JSON.stringify({ name: 'projB', items: [] }),
+    method: 'PUT', body: JSON.stringify({ busSchema: 1, name: 'projB', items: [] }),
   });
   const after = (await buses()).map(x => x.id + ':' + x.mixerId).sort().join('|');
   ok('a save-shaped round trip keeps the same strips', before === after,
      before === after ? '(strip ids unchanged)' : `${before}  ->  ${after}`);
+
+  // The other half of that rule (D11): a document that omits `buses` AND omits
+  // `busSchema` predates buses, so it must NOT inherit the loaded project's —
+  // it takes the migration path and comes up on the system buses alone. This is
+  // what stops one project's routing leaking into the next one.
+  await rest('/api/project/document', {
+    method: 'PUT', body: JSON.stringify({ name: 'projLegacy', items: [] }),
+  });
+  const legacy = (await buses()).map(x => x.id).sort();
+  ok('a doc with no busSchema does not inherit the previous buses',
+     JSON.stringify(legacy) === '["main","monitor"]', legacy.join(','));
 
   console.log(`\n${failures === 0 ? 'ALL PASS' : 'FAILURES'} (${failures})`);
   process.exit(failures === 0 ? 0 : 1);

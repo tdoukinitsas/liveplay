@@ -225,6 +225,13 @@ struct BusDef {
     bool          system     = false;
 };
 
+// Version stamped into the document as top-level "busSchema" whenever the bus
+// list is written back. Its presence is what tells a client round-trip of a
+// bus-era project apart from a pre-bus project being pushed over the top of
+// one (D11): the former omits `buses` because buses are edited through their
+// own endpoints, the latter omits them because it has never heard of them.
+inline constexpr int kBusSchemaVersion = 1;
+
 // The always-present buses. Main is where everything lands by default;
 // Monitor is the PFL / pre-listen destination.
 inline constexpr const char* kMainBusId    = "main";
@@ -275,6 +282,33 @@ struct RepairInfo {
     std::vector<std::string> issues;
 };
 
+// What a load / document replace had to migrate on the operator's behalf.
+// A project that predates buses names no routing at all, so the server
+// invents it: everything plays through Main, per-item deviceOverride values
+// become real buses, and settings.defaultOutputDevice becomes Main's output.
+// That is a routing decision made without asking, so it is counted here,
+// logged at warn, broadcast, and returned to whoever triggered it (D12).
+struct BusMigrationSummary {
+    // Audio items that ended up on Main because the document carried no bus
+    // assignments at all — i.e. the whole project, for a pre-bus document.
+    int  items_to_main = 0;
+    // Buses synthesised from distinct legacy per-item deviceOverride values.
+    int  buses_from_device_override = 0;
+    // settings.defaultOutputDevice was moved onto the Main bus's output.
+    bool main_output_migrated = false;
+
+    bool any() const {
+        return items_to_main > 0 || buses_from_device_override > 0 || main_output_migrated;
+    }
+    json to_json() const {
+        return json{
+            {"itemsToMain",             items_to_main},
+            {"busesFromDeviceOverride", buses_from_device_override},
+            {"mainOutputMigrated",      main_output_migrated},
+        };
+    }
+};
+
 class ProjectState {
 public:
     ProjectState(audio::AudioEngine& engine, OutputMap& outputs);
@@ -292,6 +326,11 @@ public:
     // load_from_json call. The repair has already been applied in memory;
     // call save() if the caller wants to persist it.
     RepairInfo consume_repair_info();
+
+    // Returns and clears the bus migration summary recorded by the last load /
+    // load_from_json / replace_full_document. The migration has already been
+    // applied to the in-memory document; the caller reports it (D12).
+    BusMigrationSummary consume_bus_migration_summary();
 
     // Re-run validation + repair on the in-memory document and return the
     // result. Useful when the caller wants to trigger an explicit repair
@@ -740,6 +779,10 @@ private:
     // Repair info from the last load. Consumed by consume_repair_info().
     RepairInfo pending_repair_info_;
 
+    // What the last load_buses_locked() had to migrate. Consumed by
+    // consume_bus_migration_summary(). Guarded by mutex_.
+    BusMigrationSummary pending_bus_migration_;
+
     // uuid → engine cue id, for audio items currently loaded.
     std::unordered_map<std::string, audio::CueId> item_uuid_to_cue_;
 
@@ -851,7 +894,7 @@ private:
     void load_buses_locked();
     // One-way conversion of the pre-bus per-item `deviceOverride` field into
     // buses. Caller holds mutex_; runs as part of load_buses_locked().
-    void migrate_device_overrides_locked();
+    void migrate_device_overrides_locked(BusMigrationSummary& summary);
     // Create an engine mixer strip per bus and wire its output. Caller must
     // NOT hold mutex_ (engine calls take their own locks).
     void materialise_buses();

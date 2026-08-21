@@ -26,7 +26,7 @@ import type {
   Theme,
   CartItem
 } from '~/types/project';
-import { DEFAULT_THEME, DEFAULT_CART_SLOT_KEYS, anchorStartNextMarker } from '~/types/project';
+import { DEFAULT_THEME, DEFAULT_CART_SLOT_KEYS, BUS_SCHEMA_VERSION, anchorStartNextMarker } from '~/types/project';
 import { applyAutoProcessing, buildWaveformFromChannels } from '~/utils/audio';
 import {
   formatDisplayIndexPath,
@@ -872,6 +872,9 @@ export const useProject = () => {
       name:           header.name ?? 'Untitled',
       version:        header.version ?? '2.0.0',
       folderPath:     header.folderPath ?? '',
+      // Passed through, not asserted: whatever the server says the loaded
+      // document is at comes back out on the next save.
+      busSchema:      header.busSchema ?? BUS_SCHEMA_VERSION,
       items:          [], // populated by streamItemPages
       cartItems:      header.cartItems ?? [],
       cartSlotKeys:   header.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS },
@@ -938,6 +941,11 @@ export const useProject = () => {
       name:          currentProject.value.name,
       version:       currentProject.value.version,
       folderPath:    currentProject.value.folderPath,
+      // Declares which routing era this document comes from. Without it the
+      // server cannot tell this save from a pre-bus project being pushed over
+      // the loaded one, and takes the migration path — which would wipe the
+      // bus list on every ordinary save (D11).
+      busSchema:     currentProject.value.busSchema ?? BUS_SCHEMA_VERSION,
       items:         itemsToJSON(currentProject.value.items) ?? [],
       cartItems:     toJSON(currentProject.value.cartItems) ?? [],
       cartSlotKeys:  toJSON((currentProject.value as any).cartSlotKeys),

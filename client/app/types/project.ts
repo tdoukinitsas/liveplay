@@ -361,11 +361,21 @@ export interface ProjectSettings {
 }
 
 
+// The bus-schema version this build speaks, matching the server's
+// kBusSchemaVersion. A whole-document save declares it so the server can tell a
+// round trip of the loaded project (buses omitted because they are edited
+// through their own endpoints) from a pre-bus project being pushed over the top
+// of one (buses omitted because it has never heard of them). See D11.
+export const BUS_SCHEMA_VERSION = 1;
+
 // Project structure
 export interface Project {
   name: string;
   version: string;
   folderPath: string;
+  // Mirrored from the server's header and handed straight back on save, so the
+  // client never claims a version it wasn't given.
+  busSchema?: number;
   items: (AudioItem | GroupItem)[];
   cartItems: CartItem[];
   cartSlotKeys?: Record<number, CartSlotKeyBinding>;

@@ -1838,6 +1838,11 @@ json ProjectState::header_document() const {
         {"playbackKeys", document_.value("playbackKeys",  json::object())},
         {"cartOnlyItems", std::move(cart_only)},
         {"itemCount",    item_count},
+        // The bus-schema version the loaded document is at. The client mirrors
+        // it and hands it back on every whole-document save, which is how
+        // replace_full_document() tells a round trip of this project from a
+        // pre-bus project being pushed over the top of it (D11).
+        {"busSchema",    document_.value("busSchema", kBusSchemaVersion)},
         // "Open" means a real project landed — either it has items or it
         // was loaded/saved from disk. A fresh server has a default name
         // "Untitled" but no file path and no items, so the welcome screen
@@ -1877,6 +1882,16 @@ json ProjectState::items_page(std::size_t offset, std::size_t limit) const {
     };
 }
 
+namespace {
+
+// The document's declared bus-schema version, 0 when it does not declare one.
+int bus_schema_of(const json& doc) {
+    if (!doc.contains("busSchema") || !doc["busSchema"].is_number()) return 0;
+    return doc["busSchema"].get<int>();
+}
+
+}  // namespace
+
 bool ProjectState::replace_full_document(const json& doc) {
     if (!doc.is_object()) return false;
     bool buses_unchanged = false;
@@ -1890,8 +1905,15 @@ bool ProjectState::replace_full_document(const json& doc) {
         // and does not carry the bus list, so taking absence literally wiped
         // every bus the moment anything else was edited. Buses are mutated
         // through their own endpoints; an absent key means "unchanged".
+        //
+        // But only for a document that says it comes from the bus era. A
+        // round trip of a bus-era project declares `busSchema`; a pre-bus
+        // project PUT over a loaded one does not, and must bring its own
+        // routing rather than inherit the outgoing project's buses (D11).
+        // Nothing is sniffed out of the content — the version is the signal.
         json carried_buses;
-        if (!doc.contains("buses") && document_.contains("buses")) {
+        if (!doc.contains("buses") && document_.contains("buses") &&
+            bus_schema_of(doc) >= kBusSchemaVersion) {
             carried_buses = document_["buses"];
         }
         document_ = doc;
@@ -3799,6 +3821,13 @@ std::string bus_id_from_name(const std::string& name) {
 }  // namespace
 
 void ProjectState::load_buses_locked() {
+    // What this load has to invent on the operator's behalf (D12). Reset on
+    // every load so an already-migrated document reports nothing.
+    BusMigrationSummary summary;
+    // A document with no `buses` key predates buses entirely: nothing in it
+    // says where anything goes, so everything in it lands on Main (D1).
+    const bool had_buses_key = document_.contains("buses");
+
     buses_.clear();
     // The bus list is about to change, so anything previously reported as
     // unknown is worth reporting again if it is still unknown afterwards.
@@ -3879,7 +3908,8 @@ void ProjectState::load_buses_locked() {
                     if (b.output_kind == BusOutputKind::Master) {
                         b.output_kind   = BusOutputKind::Output;
                         b.output_target = device;
-                        Logger::info("migrated settings.defaultOutputDevice '{}' onto the Main bus",
+                        summary.main_output_migrated = true;
+                        Logger::warn("migrated settings.defaultOutputDevice '{}' onto the Main bus",
                                      device);
                     }
                     break;
@@ -3888,10 +3918,35 @@ void ProjectState::load_buses_locked() {
         }
     }
 
-    migrate_device_overrides_locked();
+    migrate_device_overrides_locked(summary);
+
+    // Items that end up on Main because the document never said otherwise.
+    // Only counted for a document that predates buses: one that carries a
+    // `buses` key and leaves an item unassigned is expressing a choice, not
+    // being migrated. Counted after the deviceOverride pass so items that
+    // just gained a real bus are not reported as having fallen back to Main.
+    if (!had_buses_key) {
+        for_each_item(document_, [&](json& item, const std::string&) {
+            if (item.value("type", std::string{}) != "audio") return;
+            if (item.contains("busId") && item["busId"].is_string() &&
+                !item["busId"].get<std::string>().empty()) {
+                return;
+            }
+            ++summary.items_to_main;
+        });
+        if (summary.items_to_main > 0) {
+            Logger::warn("legacy project loaded: it carries no bus assignments, "
+                         "so all {} item(s) play through Main.", summary.items_to_main);
+        }
+    }
 
     std::stable_sort(buses_.begin(), buses_.end(),
                      [](const BusDef& a, const BusDef& b) { return a.order < b.order; });
+
+    // Surfaced by the endpoint that triggered the load and broadcast to every
+    // other connected client (D12). Overwritten, not accumulated: the summary
+    // describes the document that is loaded right now.
+    pending_bus_migration_ = summary;
 }
 
 // Convert the legacy per-item `deviceOverride` into real buses.
@@ -3902,7 +3957,7 @@ void ProjectState::load_buses_locked() {
 // a device of the same name (see OutputMap::resolve), the audio lands exactly
 // where it did before. The field is then dropped — a project should carry one
 // routing concept, not two.
-void ProjectState::migrate_device_overrides_locked() {
+void ProjectState::migrate_device_overrides_locked(BusMigrationSummary& summary) {
     std::unordered_map<std::string, std::string> device_to_bus;
     int migrated = 0;
 
@@ -3947,7 +4002,9 @@ void ProjectState::migrate_device_overrides_locked() {
     });
 
     if (migrated > 0) {
-        Logger::info("migrated {} item(s) from deviceOverride onto {} bus(es)",
+        summary.buses_from_device_override = static_cast<int>(device_to_bus.size());
+        // Warn, not info: a routing concept was rewritten under the operator.
+        Logger::warn("migrated {} item(s) from deviceOverride onto {} bus(es)",
                      migrated, device_to_bus.size());
     }
 }
@@ -3972,6 +4029,11 @@ void ProjectState::write_buses_to_document_locked() {
         });
     }
     document_["buses"] = std::move(arr);
+    // Version marker for the bus era, deliberately top-level: document_["buses"]
+    // stays a bare array so replace_full_document()'s before/after comparison
+    // keeps matching on an ordinary save. Nesting the version inside it would
+    // change that shape and re-materialise every strip on every save.
+    document_["busSchema"] = kBusSchemaVersion;
 }
 
 bool ProjectState::allocate_master_pair_locked(audio::MasterChannelIndex& l,
@@ -5494,6 +5556,10 @@ bool ProjectState::load_from_json(const json& doc_in) {
     item_routes_.clear();
     mixer_routes_.clear();
     master_assignments_.clear();
+    // Same reason as the client branch above: the outgoing project's device
+    // overrides mean nothing here, and their master pairs are never otherwise
+    // reclaimed — see release_device_routings_locked().
+    release_device_routings_locked();
     document_ = default_empty_document();
 
     project_name_ = doc.value("project_name", std::string{"Untitled"});
@@ -5639,6 +5705,13 @@ bool ProjectState::load(const std::filesystem::path& path) {
         Logger::error("ProjectState::load failed: {}", ex.what());
         return false;
     }
+}
+
+BusMigrationSummary ProjectState::consume_bus_migration_summary() {
+    std::lock_guard lock{mutex_};
+    BusMigrationSummary result;
+    std::swap(result, pending_bus_migration_);
+    return result;
 }
 
 RepairInfo ProjectState::consume_repair_info() {
