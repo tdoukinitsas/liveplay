@@ -4000,6 +4000,15 @@ void ProjectState::release_master_pair_locked(audio::MasterChannelIndex l) {
 void ProjectState::unwire_bus(BusRouting& routing) {
     if (routing.mixer.empty()) return;
     routing.wired_channels.clear();
+    if (!routing.wired_bus_target.empty()) {
+        // A bus→bus edge lives entirely on the source strip and holds no
+        // master pair of its own, so taking it down is one call. Dropped
+        // before anything else so a bus that has just changed kind stops
+        // feeding its old destination.
+        engine_.unroute_mixer_to_mixer(routing.mixer);
+        routing.wired_bus_target.clear();
+        if (!routing.reserved_pair && !routing.has_masters) return;
+    }
     if (routing.reserved_pair) {
         // Monitor's pair comes back off the strip and the device, but never
         // goes into the pool — it belongs to the headphone output, and handing
@@ -4221,7 +4230,46 @@ bool ProjectState::set_bus_pan_live(const std::string& id, float pan) {
     return true;
 }
 
-void ProjectState::apply_bus_pan(const BusDef& bus, const BusRouting& routing) {
+audio::MixerChannelId ProjectState::resolve_bus_strip(
+        const std::string& bus_id,
+        const std::unordered_map<std::string, BusRouting>* strips,
+        int* width_out,
+        bool* system_out) const {
+    if (bus_id.empty()) return {};
+    std::lock_guard lock{mutex_};
+    const auto bit = std::find_if(buses_.begin(), buses_.end(),
+                                  [&](const BusDef& b) { return b.id == bus_id; });
+    if (bit == buses_.end()) return {};
+    if (width_out)  *width_out  = bit->width;
+    if (system_out) *system_out = bit->system;
+    const auto& table = strips ? *strips : bus_routings_;
+    const auto  rit   = table.find(bus_id);
+    return rit == table.end() ? audio::MixerChannelId{} : rit->second.mixer;
+}
+
+std::vector<audio::AudioEngine::MixerLaneGain>
+ProjectState::bus_to_bus_lane_gains(const BusDef& src, int dst_width) {
+    // Exactly the laws the mixer→master sends use (D8), with the destination
+    // strip's lanes standing in for the master pair: a mono source is PANNED
+    // across the destination's two lanes on the constant-power law, a stereo
+    // source is BALANCED lane-for-lane, and a stereo source arriving at a mono
+    // destination folds at kDefaultDownmixDb. No new law.
+    using LG = audio::AudioEngine::MixerLaneGain;
+    if (src.width >= 2 && dst_width < 2) {
+        return {LG{0, 0, audio::kDefaultDownmixDb}, LG{1, 0, audio::kDefaultDownmixDb}};
+    }
+    if (src.width < 2 && dst_width < 2) {
+        // One lane into one lane: nothing to place, so nothing to trim.
+        return {LG{0, 0, 0.0f}};
+    }
+    const auto g = src.width >= 2 ? audio::balance_gains_db(src.pan)
+                                  : audio::pan_gains_db(src.pan);
+    const audio::ChannelIndex lane_r = src.width >= 2 ? 1 : 0;
+    return {LG{0, 0, g.left}, LG{lane_r, 1, g.right}};
+}
+
+void ProjectState::apply_bus_pan(const BusDef& bus, const BusRouting& routing,
+                                 const std::unordered_map<std::string, BusRouting>* strips) {
     if (routing.mixer.empty()) return;
 
     // The strip needs its own copy: the PFL tap is taken upstream of the sends
@@ -4248,6 +4296,22 @@ void ProjectState::apply_bus_pan(const BusDef& bus, const BusRouting& routing) {
         engine_.route_mixer_to_master(routing.mixer, 1, g.right, lane_r);
         return;
     }
+
+    if (bus.output_kind == BusOutputKind::Bus) {
+        // Nothing was wired — an unknown or unresolvable destination — so
+        // there is no send to move. wire_bus has already said why.
+        if (routing.wired_bus_target.empty()) return;
+        int dst_width = 2;
+        const auto dst = resolve_bus_strip(routing.wired_bus_target, strips, &dst_width);
+        if (dst.empty()) return;
+        // Routing again replaces the send in place (D5), exactly as
+        // route_mixer_to_master does — so a pan drag re-issues gains rather
+        // than tearing the edge down and dropping audio.
+        engine_.route_mixer_to_mixer(routing.mixer, dst,
+                                     bus_to_bus_lane_gains(bus, dst_width));
+        return;
+    }
+
     if (bus.output_kind != BusOutputKind::Output || !routing.has_masters) return;
     if (outputs_.resolve(bus.output_target).size() < 2) return;
 
@@ -4255,12 +4319,14 @@ void ProjectState::apply_bus_pan(const BusDef& bus, const BusRouting& routing) {
     engine_.route_mixer_to_master(routing.mixer, routing.master_r, g.right, lane_r);
 }
 
-void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing) {
+void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing,
+                            const std::unordered_map<std::string, BusRouting>* strips) {
     if (routing.mixer.empty()) return;
 
     // Only the Output branch below consults the map; anything else is wired
     // from nothing the map can change, so it records no resolution.
     routing.wired_channels.clear();
+    routing.wired_bus_target.clear();
 
     if (bus.output_kind == BusOutputKind::Master) {
         // One call for both widths. It places a mono bus by the pan law — at
@@ -4273,8 +4339,34 @@ void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing) {
     }
 
     if (bus.output_kind == BusOutputKind::Bus) {
-        Logger::warn("bus '{}' feeds another bus; bus→bus routing is not "
-                     "implemented yet, so it is silent", bus.display_name);
+        // The API refuses an illegal or looping destination before it is ever
+        // stored (D6), so anything that gets here is either legal or came off
+        // disk in a document nobody validated. A destination that no longer
+        // exists leaves the bus valid and silent rather than failing the load,
+        // and a loop that was hand-edited into the document is dropped at
+        // topology build, so neither can reach the render thread.
+        int  dst_width  = 2;
+        bool dst_system = false;
+        const auto dst = resolve_bus_strip(bus.output_target, strips, &dst_width, &dst_system);
+        if (dst_system) {
+            // Only a document that was hand-edited gets here: the API refuses
+            // a system destination (D6). Main is reached with output.type
+            // "master" and Monitor is never a destination at all — feeding it
+            // would put the house mix in the operator's headphones.
+            Logger::warn("bus '{}': output bus '{}' is a system bus and cannot be "
+                         "fed; leaving it silent", bus.display_name, bus.output_target);
+            return;
+        }
+        if (dst.empty()) {
+            Logger::warn("bus '{}': output bus '{}' does not exist or has no strip; "
+                         "leaving it silent", bus.display_name, bus.output_target);
+            return;
+        }
+        routing.wired_bus_target = bus.output_target;
+        // One call for both widths, exactly as the Master branch above: the
+        // lane gains carry the pan/balance law and the 2→1 fold (D8).
+        apply_bus_pan(bus, routing, strips);
+        Logger::info("bus '{}' -> bus '{}'", bus.display_name, bus.output_target);
         return;
     }
 
@@ -4462,6 +4554,10 @@ void ProjectState::materialise_buses() {
         }
     }
 
+    // Two passes. A Bus-kind bus is wired to another bus's STRIP, and the
+    // document says nothing about the order buses appear in, so every strip
+    // has to exist before any edge is drawn — otherwise a bus that feeds one
+    // defined below it would resolve to nothing and come up silent.
     std::unordered_map<std::string, BusRouting> created;
     for (const auto& b : defs) {
         BusRouting r;
@@ -4482,11 +4578,19 @@ void ProjectState::materialise_buses() {
             m->set_pfl(false);
             m->dsp().set_params(dsp_params_for(b));
         }
-        wire_bus(b, r);
         created[b.id] = r;
+    }
+
+    // Pass two: every strip now exists, so a bus→bus edge can resolve. The
+    // strips built above are handed to wire_bus explicitly — bus_routings_
+    // still names the outgoing project's strips, which are already gone.
+    for (const auto& b : defs) {
+        auto it = created.find(b.id);
+        if (it == created.end()) continue;
+        wire_bus(b, it->second, &created);
         // Everything PFL'd taps this strip. Nominated after wiring so the
         // engine never sees a monitor that is not yet connected to anything.
-        if (b.id == kMonitorBusId) engine_.set_monitor_mixer(r.mixer);
+        if (b.id == kMonitorBusId) engine_.set_monitor_mixer(it->second.mixer);
     }
 
     {
@@ -4505,7 +4609,74 @@ void ProjectState::materialise_buses() {
 // Bus mutation. Each of these updates document_["buses"] so the change is
 // saved, and touches only the affected strip so unrelated buses keep playing.
 // ---------------------------------------------------------------------------
-std::optional<BusDef> ProjectState::create_bus(const json& spec) {
+ProjectState::PatchBusResult ProjectState::validate_bus_output_locked(
+        const std::string& source_id,
+        BusOutputKind kind,
+        const std::string& target) const {
+    // Monitor carries PFL. Sending it anywhere but hardware would put every
+    // PFL'd channel somewhere the audience can hear it — one click, live,
+    // which is the failure mode PFL was chosen over solo to avoid (§2.4).
+    if (source_id == kMonitorBusId) {
+        if (kind == BusOutputKind::Master) return PatchBusResult::Refused;
+        if (kind == BusOutputKind::Bus)    return PatchBusResult::RefusedMonitorToBus;
+    }
+    if (kind != BusOutputKind::Bus) return PatchBusResult::Ok;
+
+    const auto find = [&](const std::string& id) -> const BusDef* {
+        for (const auto& b : buses_) if (b.id == id) return &b;
+        return nullptr;
+    };
+    const BusDef* dst = find(target);
+    if (!dst) return PatchBusResult::UnknownTarget;
+    // D6: only a non-system bus may be fed. Main is reached with output.type
+    // "master" — one way to the master, not two — and Monitor is never a
+    // destination.
+    if (dst->system) return PatchBusResult::IllegalTarget;
+
+    // Walk the output chain forward from the destination. If it comes back to
+    // the source, this edge would close the loop. A bus routed into itself
+    // falls out of the same walk on its first step, which is why self is not a
+    // separate case. The hop cap makes a cycle already present in a
+    // hand-edited document terminate rather than spin.
+    const std::string* cur = &target;
+    for (std::size_t hops = 0; hops <= buses_.size(); ++hops) {
+        if (!source_id.empty() && *cur == source_id) return PatchBusResult::Cycle;
+        const BusDef* b = find(*cur);
+        if (!b || b->output_kind != BusOutputKind::Bus || b->output_target.empty())
+            return PatchBusResult::Ok;
+        cur = &b->output_target;
+    }
+    // Only reachable if the stored graph already loops, which the API cannot
+    // produce. Refusing to add to it is the safe answer.
+    Logger::warn("validate_bus_output: the stored bus graph already loops at '{}'", target);
+    return PatchBusResult::Cycle;
+}
+
+bool ProjectState::bus_reaches_hardware_locked(const std::string& bus_id) const {
+    // D10: walk the output chain to its terminal and ask whether THAT reaches
+    // hardware. A submix is bound exactly when the bus it feeds is.
+    std::string cur = bus_id;
+    for (std::size_t hops = 0; hops <= buses_.size(); ++hops) {
+        const BusDef* def = nullptr;
+        for (const auto& b : buses_) if (b.id == cur) { def = &b; break; }
+        if (!def) return false;                 // a destination that went away
+        if (def->output_kind == BusOutputKind::Master) return true;
+        if (def->output_kind == BusOutputKind::Output) {
+            const auto rit = bus_routings_.find(def->id);
+            return rit != bus_routings_.end() && !rit->second.wired_channels.empty();
+        }
+        if (def->output_target.empty()) return false;
+        cur = def->output_target;
+    }
+    // Hop-capped rather than visited-set: the cap costs nothing and answers
+    // the same question. The API refuses cycles, so reaching this means the
+    // document was hand-edited — and a loop reaches no hardware.
+    Logger::warn("bus '{}': its output chain loops, so it reaches no output", bus_id);
+    return false;
+}
+
+std::optional<BusDef> ProjectState::create_bus(const json& spec, PatchBusResult* why) {
+    if (why) *why = PatchBusResult::Ok;
     BusDef d;
     d.display_name = spec.value("name", std::string{"Bus"});
     d.color        = spec.value("color", std::string{});
@@ -4524,6 +4695,16 @@ std::optional<BusDef> ProjectState::create_bus(const json& spec) {
 
     {
         std::lock_guard lock{mutex_};
+        // Validated before the bus exists, so a refused output leaves nothing
+        // behind. The source id is empty because there is no source yet —
+        // which also means a new bus cannot close a loop: nothing points at it.
+        const auto v = validate_bus_output_locked({}, d.output_kind, d.output_target);
+        if (v != PatchBusResult::Ok) {
+            if (why) *why = v;
+            Logger::warn("create_bus: refusing '{}' -> bus '{}'",
+                         d.display_name, d.output_target);
+            return std::nullopt;
+        }
         const std::string base = bus_id_from_name(d.display_name);
         std::string       id   = base;
         for (int n = 2; ; ++n) {
@@ -4572,23 +4753,35 @@ std::optional<BusDef> ProjectState::create_bus(const json& spec) {
 
 ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
                                                      const json& patch) {
-    // Checked before anything is mutated, so a refused patch leaves the bus
-    // exactly as it was rather than half-applied.
-    //
-    // Monitor carries PFL. Sending it to the master would put every PFL'd
-    // channel into the house mix — one click, live, in front of an audience,
-    // which is the failure mode PFL was chosen over solo to avoid. It goes to
-    // hardware or nowhere.
-    if (id == kMonitorBusId && patch.contains("output") && patch["output"].is_object() &&
-        patch["output"].value("type", std::string{"master"}) == "master") {
-        Logger::warn("patch_bus: refusing to route Monitor to the master bus");
-        return PatchBusResult::Refused;
+    // The whole output patch is parsed and checked BEFORE anything is
+    // mutated, so a refused patch leaves the bus exactly as it was rather than
+    // half-applied — and so a rejected edge is never stored, never persisted,
+    // and never reaches the engine. Every bus→bus rule (D6) lives in
+    // validate_bus_output_locked, including Monitor's, which predates them.
+    bool          output_patched = false;
+    BusOutputKind new_kind       = BusOutputKind::Master;
+    std::string   new_target;
+    if (patch.contains("output") && patch["output"].is_object()) {
+        const auto& out  = patch["output"];
+        const auto  kind = out.value("type", std::string{"master"});
+        output_patched   = true;
+        new_kind         = kind == "bus"    ? BusOutputKind::Bus
+                         : kind == "output" ? BusOutputKind::Output
+                                            : BusOutputKind::Master;
+        new_target       = out.value("target", std::string{});
+        std::lock_guard lock{mutex_};
+        const auto v = validate_bus_output_locked(id, new_kind, new_target);
+        if (v != PatchBusResult::Ok) {
+            Logger::warn("patch_bus: refusing to route bus '{}' to '{}'", id, new_target);
+            return v;
+        }
     }
 
     BusDef     updated;
     BusRouting routing;
-    bool       found       = false;
+    bool       found        = false;
     bool       needs_rewire = false;
+    bool       width_moved  = false;
     bool       pan_moved    = false;
     bool       dsp_moved    = false;
     {
@@ -4603,7 +4796,7 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
             if (patch.contains("mute"))   b.muted        = patch.value("mute", b.muted);
             if (patch.contains("width")) {
                 const int w = std::clamp(patch.value("width", b.width), 1, 2);
-                if (w != b.width) { b.width = w; needs_rewire = true; }
+                if (w != b.width) { b.width = w; needs_rewire = true; width_moved = true; }
             }
             if (patch.contains("pan")) {
                 const float p = std::clamp(patch.value("pan", b.pan), -1.0f, 1.0f);
@@ -4613,18 +4806,11 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
                 merge_bus_dsp(patch["dsp"], b.dsp);
                 dsp_moved = true;
             }
-            if (patch.contains("output") && patch["output"].is_object()) {
-                const auto& out  = patch["output"];
-                const auto  kind = out.value("type", std::string{"master"});
-                const auto  k    = kind == "bus"    ? BusOutputKind::Bus
-                                 : kind == "output" ? BusOutputKind::Output
-                                                    : BusOutputKind::Master;
-                const auto  t    = out.value("target", std::string{});
-                if (k != b.output_kind || t != b.output_target) {
-                    b.output_kind   = k;
-                    b.output_target = t;
-                    needs_rewire    = true;
-                }
+            if (output_patched &&
+                (new_kind != b.output_kind || new_target != b.output_target)) {
+                b.output_kind   = new_kind;
+                b.output_target = new_target;
+                needs_rewire    = true;
             }
             updated = b;
             break;
@@ -4662,7 +4848,30 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
         // own slot and nothing else moves.
         if (dsp_moved) engine_.set_mixer_dsp(routing.mixer, dsp_params_for(updated));
     }
+
+    // A bus's width is half of the lane law on every send that FEEDS it (D8):
+    // a stereo submix arriving at a bus that has just become mono has to fold
+    // at -3 dB rather than lose its right-hand lane. Done outside the block
+    // above because it is about other buses' strips, not this one's.
+    if (width_moved) rewire_bus_feeders(id);
     return PatchBusResult::Ok;
+}
+
+void ProjectState::rewire_bus_feeders(const std::string& target_id) {
+    std::vector<std::pair<BusDef, BusRouting>> feeders;
+    {
+        std::lock_guard lock{mutex_};
+        for (const auto& b : buses_) {
+            if (b.output_kind != BusOutputKind::Bus || b.output_target != target_id) continue;
+            const auto rit = bus_routings_.find(b.id);
+            if (rit == bus_routings_.end() || rit->second.mixer.empty()) continue;
+            feeders.emplace_back(b, rit->second);
+        }
+    }
+    // route_mixer_to_mixer replaces the send in place, so the edge never goes
+    // away and nothing recorded in the routing changes — there is nothing to
+    // write back.
+    for (const auto& [def, routing] : feeders) apply_bus_pan(def, routing);
 }
 
 bool ProjectState::set_bus_pfl(const std::string& id, bool on) {
@@ -4688,6 +4897,8 @@ std::size_t ProjectState::clear_all_pfl() {
 
 bool ProjectState::delete_bus(const std::string& id) {
     BusRouting routing;
+    // Buses whose output fed the one going away, and what they are now.
+    std::vector<std::pair<BusDef, BusRouting>> retargeted;
     {
         std::lock_guard lock{mutex_};
         auto it = std::find_if(buses_.begin(), buses_.end(),
@@ -4698,6 +4909,20 @@ bool ProjectState::delete_bus(const std::string& id) {
             return false;
         }
         buses_.erase(it);
+
+        // D9: a bus that fed the deleted one goes to the master rather than
+        // being silently orphaned. Losing a submix is a routing change the
+        // operator can see and undo; a strip that quietly stops reaching an
+        // output is one they find out about from the room.
+        for (auto& b : buses_) {
+            if (b.output_kind != BusOutputKind::Bus || b.output_target != id) continue;
+            b.output_kind   = BusOutputKind::Master;
+            b.output_target.clear();
+            const auto rit = bus_routings_.find(b.id);
+            retargeted.emplace_back(b, rit == bus_routings_.end() ? BusRouting{} : rit->second);
+            Logger::info("delete_bus: bus '{}' fed '{}'; re-routed to the master",
+                         b.display_name, id);
+        }
 
         // Items pointing at the bus that just went away fall back to Main by
         // losing their assignment, rather than being left dangling.
@@ -4718,7 +4943,20 @@ bool ProjectState::delete_bus(const std::string& id) {
 
     if (!routing.mixer.empty()) {
         unwire_bus(routing);                       // returns the pair to the pool
+        // Removing the strip also drops every edge either way, so a feeder's
+        // send goes with it — but the feeder's own record of that send does
+        // not, which is what unwire_bus below clears before it is re-wired.
         engine_.remove_mixer_channel(routing.mixer);
+    }
+
+    // The feeders, now on the master, are wired to it for real. Done after the
+    // deleted strip is gone so nothing is briefly routed to both.
+    for (auto& [def, r] : retargeted) {
+        if (r.mixer.empty()) continue;
+        unwire_bus(r);
+        wire_bus(def, r);
+        std::lock_guard lock{mutex_};
+        bus_routings_[def.id] = r;
     }
     Logger::info("delete_bus: '{}'", id);
     return true;
@@ -4798,9 +5036,12 @@ std::vector<ProjectState::BusInfo> ProjectState::list_buses() const {
         // Master-kind buses need no binding — they land in the house pair,
         // which the engine always wires. Everything else is bound only if it
         // resolved to real channels when it was wired.
-        const auto rit = bus_routings_.find(b.id);
-        info.bound = b.output_kind == BusOutputKind::Master ||
-                     (rit != bus_routings_.end() && !rit->second.wired_channels.empty());
+        //
+        // Derived on every read, never cached: a Bus-kind bus is bound
+        // through whatever its chain ends at (D10), so an output-map edit or
+        // a re-route several buses downstream changes this answer with
+        // nothing here to update.
+        info.bound = bus_reaches_hardware_locked(b.id);
         // Only Monitor can be folded to mono for auditioning, so only Monitor
         // ever reports it.
         info.mono_check = b.id == kMonitorBusId &&

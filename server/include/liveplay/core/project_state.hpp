@@ -597,12 +597,31 @@ public:
     // ---- Bus mutation ----------------------------------------------------
     // All three write document_["buses"] so the change survives a save, and
     // touch only the affected strip so other buses keep playing.
-    std::optional<BusDef> create_bus(const json& spec);
     // Refused is distinct from NotFound because the one thing a caller may be
     // told no about — pointing Monitor at the master — is a deliberate rule,
     // and reporting it as "no such bus" would send whoever hit it looking for
-    // the wrong problem.
-    enum class PatchBusResult { Ok, NotFound, Refused };
+    // the wrong problem. The bus→bus refusals (D6) are separate values for the
+    // same reason: each one is a different thing to go and fix.
+    enum class PatchBusResult {
+        Ok,
+        NotFound,
+        // Monitor pointed at the master. PFL in the house — see patch_bus.
+        Refused,
+        // Monitor pointed at another bus. Same rule, other half of it.
+        RefusedMonitorToBus,
+        // output.target names no bus at all.
+        UnknownTarget,
+        // output.target names a bus that may not be fed: a system bus (Main is
+        // reached with output.type "master", Monitor is never a destination).
+        IllegalTarget,
+        // The edge would close a loop. Refused here so the render thread can
+        // never be handed one — see D6.
+        Cycle,
+    };
+    // `why`, when given, receives Ok on success or the refusal that stopped
+    // it, so the REST layer can answer 409 rather than "no strip available".
+    std::optional<BusDef> create_bus(const json& spec,
+                                     PatchBusResult* why = nullptr);
     PatchBusResult patch_bus(const std::string& id, const json& patch);
     // Refuses the system buses. Items assigned to the deleted bus fall back to
     // Main by having their busId cleared.
@@ -786,6 +805,12 @@ private:
         // actually moved, instead of interrupting every bus on the desk.
         // Empty for Master-kind buses, which do not consult the map.
         std::vector<OutputMap::Channel> wired_channels;
+        // The bus id this strip's mixer→mixer send was wired to, empty unless
+        // the bus is Bus-kind and the send actually went in. Recorded for the
+        // same reason wired_channels is: unwire_bus has to know which kind of
+        // edge it is taking down, and a bus that changed kind must drop the
+        // send it used to hold rather than leave it feeding the old strip.
+        std::string wired_bus_target;
         // The Monitor bus sits on the master pair the engine reserves at the
         // top of the bus, not on one drawn from the pool. Flagged so unwiring
         // releases the routing without handing that pair out to a bus that
@@ -845,7 +870,29 @@ private:
     void release_master_pair_locked(audio::MasterChannelIndex l);
     // Connect a materialised strip to wherever its bus says it goes, reserving
     // a master pair if the destination needs one. Caller must NOT hold mutex_.
-    void wire_bus(const BusDef& bus, BusRouting& routing);
+    //
+    // `strips`, when given, is where a Bus-kind destination is looked up
+    // instead of bus_routings_. materialise_buses() needs it: it builds every
+    // strip before wiring any edge, and until it swaps its table in,
+    // bus_routings_ still names the outgoing project's strips — which have
+    // already been removed from the engine.
+    void wire_bus(const BusDef& bus, BusRouting& routing,
+                  const std::unordered_map<std::string, BusRouting>* strips = nullptr);
+    // The lane mapping for a bus→bus send, by the mixer→master laws (D8):
+    // width-aware pan/balance, kDefaultDownmixDb for a 2→1 fold.
+    static std::vector<audio::AudioEngine::MixerLaneGain>
+        bus_to_bus_lane_gains(const BusDef& src, int dst_width);
+    // Whether a proposed output for `source_id` is allowed (D6). Ok, or the
+    // refusal to report. `source_id` may be empty for a bus that does not
+    // exist yet, which is how create_bus asks. Caller holds mutex_.
+    PatchBusResult validate_bus_output_locked(const std::string& source_id,
+                                              BusOutputKind kind,
+                                              const std::string& target) const;
+    // Does this bus reach hardware (D10)? Master-kind counts; Output-kind is
+    // bound when it resolved to real channels; Bus-kind walks its chain to the
+    // terminal. The walk is hop-capped, so even a document hand-edited into a
+    // cycle answers rather than hangs. Caller holds mutex_.
+    bool bus_reaches_hardware_locked(const std::string& bus_id) const;
     // Monitor's own wiring: the reserved master pair, bound to whatever this
     // machine calls the headphone output. Split out because it is the one bus
     // whose master channels are fixed rather than allocated.
@@ -860,7 +907,25 @@ private:
     // Separate from wire_bus because panning must not tear the routing down:
     // route_mixer_to_master replaces an existing send in place, so a pan drag
     // never drops audio or churns the device assignment.
-    void apply_bus_pan(const BusDef& bus, const BusRouting& routing);
+    // `strips` has the same meaning as it does for wire_bus: where a Bus-kind
+    // destination is looked up when bus_routings_ is not yet the live table.
+    void apply_bus_pan(const BusDef& bus, const BusRouting& routing,
+                       const std::unordered_map<std::string, BusRouting>* strips = nullptr);
+    // The strip a bus id was materialised onto, and that bus's width, without
+    // the caller holding mutex_. Empty when the bus is unknown or has no
+    // strip. `strips` overrides bus_routings_ — see wire_bus.
+    audio::MixerChannelId resolve_bus_strip(
+            const std::string& bus_id,
+            const std::unordered_map<std::string, BusRouting>* strips,
+            int* width_out,
+            bool* system_out = nullptr) const;
+    // Re-issue the send gains of every bus whose output feeds `target_id`.
+    // The lane law of a bus->bus send depends on BOTH widths (D8), so a bus
+    // that changes width has to move the sends arriving at it as well as its
+    // own. Replaces the sends in place, so no feeder ever goes silent, and
+    // writes no document: nothing the feeders persist has changed. Caller must
+    // NOT hold mutex_.
+    void rewire_bus_feeders(const std::string& target_id);
     // Drop every master route and assignment the bus holds and return its
     // pair to the pool. Caller must NOT hold mutex_.
     void unwire_bus(BusRouting& routing);

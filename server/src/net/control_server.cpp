@@ -144,6 +144,27 @@ crow::response json_err(int status, std::string_view message) {
     return r;
 }
 
+// Why a bus output was refused, in words the operator can act on. Every one of
+// these is a 409: the request was understood and is not allowed (D6). The
+// cycle wording is fixed by the plan and the client matches on it.
+static std::string_view bus_output_refusal_text(core::ProjectState::PatchBusResult r) {
+    using PR = core::ProjectState::PatchBusResult;
+    switch (r) {
+        case PR::Refused:
+            return "the Monitor bus cannot be routed to the master";
+        case PR::RefusedMonitorToBus:
+            return "the Monitor bus cannot be routed to another bus";
+        case PR::UnknownTarget:
+            return "no such bus to route to";
+        case PR::IllegalTarget:
+            return "a bus cannot feed a system bus; use \"master\" to reach the master";
+        case PR::Cycle:
+            return "routing this bus would create a cycle";
+        default:
+            return "the bus output was refused";
+    }
+}
+
 // Returns "Display Name (cue_id) (media/path)" for playback log lines.
 // Falls back gracefully when the item or cue metadata is not yet loaded.
 static std::string item_playback_info(const std::string& item_uuid, core::ProjectState& state) {
@@ -1640,8 +1661,15 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/api/buses").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
-                auto created = state_.create_bus(json::parse(req.body));
-                if (!created) return json_err(507, "no mixer strip available");
+                using PR = core::ProjectState::PatchBusResult;
+                PR   why     = PR::Ok;
+                auto created = state_.create_bus(json::parse(req.body), &why);
+                if (!created) {
+                    // A refused output is the caller's mistake (409); anything
+                    // else means the desk is full, which is not (507).
+                    if (why != PR::Ok) return json_err(409, bus_output_refusal_text(why));
+                    return json_err(507, "no mixer strip available");
+                }
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "buses_patched"},
                     {"buses", state_.full_document().value("buses", json::array())},
@@ -1656,8 +1684,7 @@ void ControlServer::install_routes() {
                 using PR = core::ProjectState::PatchBusResult;
                 const auto r = state_.patch_bus(id, json::parse(req.body));
                 if (r == PR::NotFound) return json_err(404, "not found");
-                if (r == PR::Refused)
-                    return json_err(409, "the Monitor bus cannot be routed to the master");
+                if (r != PR::Ok) return json_err(409, bus_output_refusal_text(r));
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "buses_patched"},
                     {"buses", state_.full_document().value("buses", json::array())},
