@@ -189,7 +189,7 @@ import CartPlayer from './components/CartPlayer.vue';
 import MixerPanel from './components/MixerPanel.vue';
 
 const {
-  currentProject, saveProject, openProject, closeProject, confirmUnsavedChanges,
+  currentProject, saveProject, flushPendingSave, openProject, closeProject, confirmUnsavedChanges,
   hasUnsavedChanges,
   isLoading, loadingMessage,
   repairDialogVisible, repairDialogIssues, confirmRepair, cancelRepair,
@@ -453,6 +453,12 @@ async function runQuitFlow() {
   quitFlowActive = true;
   const api = (window as any).electronAPI;
   try {
+    // Step 0 — D13: flush any whole-document save still sitting in the
+    // 300 ms debounce window (autosave on, edit made in the instant before
+    // quit). hasUnsavedChanges only tracks the autosave-off case below, so
+    // this has to run unconditionally; it's a no-op when nothing is pending.
+    try { await flushPendingSave(); } catch (e) { console.warn('[quit] flush failed:', e); }
+
     // Step 1 — unsaved changes (pending edits with autosave off).
     if (hasUnsavedChanges.value) {
       const choice = await askQuitUnsaved();

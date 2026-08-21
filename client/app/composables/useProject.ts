@@ -76,6 +76,28 @@ let _syncItemsDiffFn: () => Promise<void> = async () => {};
 let _installItemsWatcherFn:   null | (() => void) = null;
 let _uninstallItemsWatcherFn: null | (() => void) = null;
 
+// ---------------------------------------------------------------------------
+// Whole-document save debouncing (decision D13).
+//
+// saveProject() is called from ~15 different call sites across the app (drag
+// batches, cart ops, properties-panel field commits, etc.) — a single user
+// edit gesture can trigger it more than once (e.g. a slider firing several
+// `change` events, or a handler that both mutates state directly AND calls
+// saveProject()). Each call used to hit the server immediately
+// (POST /api/project/save with a full document snapshot), so one edit could
+// produce a burst of redundant whole-document writes within the same second.
+//
+// Module-scoped (not per-useProject()-call) so the debounce coalesces across
+// every component instance, not just calls from the same closure. A
+// non-forced saveProject() call schedules a single trailing 300 ms flush;
+// every caller in that window shares the same outbound save and its result.
+// `force` (File > Save, autosave toggle, project close, app quit) bypasses
+// the wait and flushes synchronously with whatever is already scheduled, so
+// no edit is ever lost to a debounce window the app is about to tear down.
+// ---------------------------------------------------------------------------
+let _saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let _saveDebounceWaiters: Array<(ok: boolean) => void> = [];
+
 // UUIDs of items that were just added in this session and are waiting for
 // their first waveform so that auto-process (trim + normalise) can run.
 // Items loaded from the saved project file are NEVER added here — only
@@ -990,31 +1012,13 @@ export const useProject = () => {
     }
   };
 
-  // Save the current project — the server already has the document, it just
-  // needs to write to disk.
-  const saveProject = async (opts?: { force?: boolean }): Promise<boolean> => {
+  // The actual network round-trip: build the document snapshot and PUT/POST
+  // it to the server. No debouncing, no autosave gating — every path that
+  // wants an unconditional save-right-now (the debounce flush below, and the
+  // force branch when nothing is currently scheduled) goes through this.
+  const doSaveProjectNow = async (): Promise<boolean> => {
     try {
       if (!currentProject.value) return false;
-
-      // Mirror cart-only items from the client-side memory store back into the
-      // project doc. This MUST run even when autosave is off: the doc's
-      // cartOnlyItems array is what the items diff-watcher pushes to the server
-      // (the playback source of truth), so skipping it leaves a freshly
-      // dragged-in cart item unregistered — the engine has no cue for it and
-      // play logs "PLAY: ?" until the next manual save mirrors + syncs it.
-      const { cartOnlyItems } = useCartItems();
-      currentProject.value.cartOnlyItems = Array.from(cartOnlyItems.value.values());
-
-      // Autosave gating: when the user has turned autosave off, an ordinary
-      // edit-triggered save doesn't touch the disk file — we only flag that
-      // there are unsaved changes. Explicit saves (File > Save, or toggling
-      // autosave) pass { force: true } to bypass this and always persist.
-      // The in-memory server sync still happens via the diff-watcher above.
-      if (!opts?.force && !autoSaveEnabled.value) {
-        hasUnsavedChanges.value = true;
-        return true;
-      }
-
       currentProject.value.lastModified = new Date().toISOString();
 
       const server = useLiveplayServer();
@@ -1040,6 +1044,71 @@ export const useProject = () => {
     }
   };
 
+  // Cancel whatever debounced save is currently scheduled and run it right
+  // now, resolving every saveProject() caller that was waiting on that
+  // window with the same result. No-op (resolves true without touching the
+  // network) when nothing is scheduled — used by project close / app quit,
+  // which must guarantee nothing is left behind but shouldn't force a
+  // redundant save when there was nothing pending.
+  const flushPendingSave = async (): Promise<boolean> => {
+    if (_saveDebounceTimer === null) return true;
+    clearTimeout(_saveDebounceTimer);
+    _saveDebounceTimer = null;
+    const waiters = _saveDebounceWaiters;
+    _saveDebounceWaiters = [];
+    const ok = await doSaveProjectNow();
+    for (const w of waiters) w(ok);
+    return ok;
+  };
+
+  // Save the current project — the server already has the document, it just
+  // needs to write to disk.
+  //
+  // D13: an ordinary (non-forced) call doesn't hit the network directly. It
+  // schedules a single trailing 300 ms debounce (module-scoped, so it
+  // coalesces calls from every component) and returns a promise that
+  // resolves once that debounce actually flushes. `force` bypasses the wait
+  // entirely — it flushes synchronously with whatever is already scheduled
+  // (or saves immediately if nothing was) so File > Save, the autosave
+  // toggle, project close and app quit can never lose an edit to the window.
+  const saveProject = async (opts?: { force?: boolean }): Promise<boolean> => {
+    if (!currentProject.value) return false;
+
+    // Mirror cart-only items from the client-side memory store back into the
+    // project doc. This MUST run synchronously on every call, even when the
+    // actual save is debounced or gated off: the doc's cartOnlyItems array is
+    // what the items diff-watcher pushes to the server (the playback source
+    // of truth), so skipping it leaves a freshly dragged-in cart item
+    // unregistered — the engine has no cue for it and play logs "PLAY: ?"
+    // until the next save mirrors + syncs it.
+    const { cartOnlyItems } = useCartItems();
+    currentProject.value.cartOnlyItems = Array.from(cartOnlyItems.value.values());
+
+    // Autosave gating: when the user has turned autosave off, an ordinary
+    // edit-triggered save doesn't touch the disk file — we only flag that
+    // there are unsaved changes. Explicit saves (File > Save, or toggling
+    // autosave) pass { force: true } to bypass this and always persist.
+    // The in-memory server sync still happens via the diff-watcher above.
+    if (!opts?.force && !autoSaveEnabled.value) {
+      hasUnsavedChanges.value = true;
+      return true;
+    }
+
+    if (opts?.force) {
+      return _saveDebounceTimer !== null ? await flushPendingSave() : await doSaveProjectNow();
+    }
+
+    if (_saveDebounceTimer) clearTimeout(_saveDebounceTimer);
+    const result = new Promise<boolean>((resolve) => { _saveDebounceWaiters.push(resolve); });
+    _saveDebounceTimer = setTimeout(() => {
+      _saveDebounceTimer = null;
+      const waiters = _saveDebounceWaiters;
+      _saveDebounceWaiters = [];
+      void doSaveProjectNow().then(ok => { for (const w of waiters) w(ok); });
+    }, 300);
+    return result;
+  };
+
   // Toggle autosave on/off. The preference lives in project settings (so it
   // persists across reopens) and is force-saved to disk immediately: turning
   // it OFF would otherwise never write `autoSave: false` to the file, and
@@ -1055,6 +1124,15 @@ export const useProject = () => {
   // unload its in-memory document so we land back on the welcome screen
   // (where the user can pick New or Open).
   const closeProject = async () => {
+    // D13: flush any whole-document save still sitting in the 300 ms
+    // debounce window before tearing the project down. Without this, an
+    // edit made just before New / Open / Close (autosave on, so
+    // confirmUnsavedChanges() doesn't see it as "unsaved") would have its
+    // scheduled save silently dropped once currentProject is nulled below.
+    // No-op when nothing is pending.
+    try { await flushPendingSave(); }
+    catch (e) { console.warn('[useProject] closeProject flush failed:', e); }
+
     // Tear down the items deep-watcher before nulling the project so the
     // null assignment doesn't trigger one last (now meaningless) sync.
     // The watcher is re-installed by streamItemPages when the next
@@ -1977,6 +2055,7 @@ export const useProject = () => {
     tryRejoinExistingProject,
     resumeProjectOnServer,
     saveProject,
+    flushPendingSave,
     hasUnsavedChanges,
     autoSaveEnabled,
     indexDisplayStart,
