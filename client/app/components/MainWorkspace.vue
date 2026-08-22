@@ -32,37 +32,59 @@
 
     <PlaybackControls />
 
-    <!-- Mixer, full width. Useful once there are enough buses that strips need
-         the whole window. -->
-    <div v-if="mixerOpen && !mixerDetached && mixerMode === 'full'" class="workspace-content">
-      <MixerPanel :mode="mixerMode" @close="mixerOpen = false" @mode="setMixerMode" />
-    </div>
+    <!-- One flex row, left to right: playlist | handle | cart | handle | mixer.
+         The playlist is the only flexible pane (flex: 1, min-width 0); cart
+         and mixer carry explicit px widths with flex-shrink 0, and the drag
+         handlers clamp those widths so the row never over-requests and the
+         playlist never drops below PLAYLIST_MIN_PX. Every separator snaps the
+         same way: drag it past a threshold and the pane it is dragged over
+         collapses to maximise the others, while the handle itself stays as a
+         thin bar on the edge so the collapsed pane can be dragged back out.
+         Collapsed handles are ordinary 8px flex items in their natural slot —
+         not absolutely positioned — so a closed cart's handle sits between the
+         playlist and a docked mixer rather than floating over the mixer.
 
-    <div v-else class="workspace-content">
-      <div v-if="!cartFullscreen" class="playlist-section" :style="{ width: (cartClosed || cartDetached) ? '100%' : `calc(100% - ${cartWidth}px)` }">
+         The mixer in 'full' mode is the same row with the playlist and cart
+         withheld, so every handle keeps its DOM node across a mode flip and a
+         drag that crosses the threshold carries straight on. -->
+    <div ref="workspaceEl" class="workspace-content">
+      <div v-if="!cartFullscreen && !mixerFull" class="playlist-section">
         <PlaylistView />
       </div>
 
       <div
-        v-if="!cartDetached"
+        v-if="!cartDetached && !mixerFull"
         class="resize-handle"
         :class="{ 'collapsed-left': cartFullscreen, 'collapsed-right': cartClosed, dragging: isResizing }"
         @pointerdown="startResize"
       ></div>
 
-      <div v-if="!cartClosed && !cartDetached" class="cart-section" :style="{ width: cartFullscreen ? '100%' : `${cartWidth}px` }">
+      <div
+        v-if="!cartClosed && !cartDetached && !mixerFull"
+        class="cart-section"
+        :class="{ 'cart-section--fill': cartFullscreen }"
+        :style="cartFullscreen ? undefined : { width: `${cartWidth}px` }"
+      >
         <CartPlayer />
       </div>
 
       <!-- Docked mixer: a resizable right-hand pane, so a rig with a handful of
-           buses can leave it up permanently instead of swapping views. -->
-      <template v-if="mixerOpen && !mixerDetached && mixerMode === 'side'">
+           buses can leave it up permanently instead of swapping views. In
+           'full' mode the pane fills the row and its handle sits on the left
+           edge, so the user can drag it back down to a side pane; collapsed,
+           only the handle remains, on the right edge. -->
+      <template v-if="mixerOpen && !mixerDetached">
         <div
           class="resize-handle mixer-resize-handle"
-          :class="{ dragging: isMixerResizing }"
+          :class="{ 'collapsed-left': mixerFull, 'collapsed-right': mixerCollapsed, dragging: isMixerResizing }"
           @pointerdown="startMixerResize"
         ></div>
-        <div class="mixer-section" :style="{ width: `${mixerWidth}px` }">
+        <div
+          v-if="!mixerCollapsed"
+          class="mixer-section"
+          :class="{ 'mixer-section--fill': mixerFull }"
+          :style="mixerFull ? undefined : { width: `${mixerWidth}px` }"
+        >
           <MixerPanel :mode="mixerMode" @close="mixerOpen = false" @mode="setMixerMode" />
         </div>
       </template>
@@ -150,8 +172,81 @@ const mixerMode = useState<'side' | 'full'>('liveplay:mixerMode', () => 'side');
 const mixerDetached = useState<boolean>('liveplay:mixerDetached', () => false);
 const mixerWidth = ref(420);
 const isMixerResizing = ref(false);
+// Collapsed by dragging its separator to the right edge: the pane is not
+// rendered but mixerOpen stays true, so the header toggle still reads as
+// "open" and only the thin handle remains to drag it back out. Pure view
+// state, like cartClosed — the server never hears about pane layout.
+const mixerCollapsed = ref(false);
+// Handy alias for the template/handlers: the mixer is rendered full-width.
+const mixerFull = computed(() => mixerOpen.value && !mixerDetached.value && mixerMode.value === 'full');
 
-function setMixerMode(mode: 'side' | 'full') { mixerMode.value = mode; }
+const workspaceEl = ref<HTMLElement | null>(null);
+
+// Splitter geometry, shared by both handles so the two clamps agree.
+const PLAYLIST_MIN_PX = 240;      // the flexible pane never shrinks below this
+const CART_MIN_PX = 300;
+const MIXER_MIN_PX = 220;
+const HANDLE_PX = 5;              // an open separator
+const COLLAPSED_HANDLE_PX = 8;    // a separator standing in for a collapsed pane
+const SNAP_PX = 100;              // drag this far past an edge/limit to snap
+
+// How much of the row the cart side (pane + its handle) takes up, as seen by
+// the mixer's clamp. A fullscreen cart is the flexible pane itself, so only
+// its collapsed handle counts as fixed width.
+function cartReservedPx(): number {
+  if (cartDetached.value) return 0;
+  if (cartClosed.value || cartFullscreen.value) return COLLAPSED_HANDLE_PX;
+  return cartWidth.value + HANDLE_PX;
+}
+
+// Likewise the mixer side, as seen by the cart's clamp.
+function mixerReservedPx(): number {
+  if (!mixerOpen.value || mixerDetached.value) return 0;
+  if (mixerCollapsed.value) return COLLAPSED_HANDLE_PX;
+  return mixerWidth.value + HANDLE_PX;
+}
+
+function maxCartWidth(containerWidth: number): number {
+  return containerWidth - mixerReservedPx() - HANDLE_PX - PLAYLIST_MIN_PX;
+}
+
+function maxMixerWidth(containerWidth: number): number {
+  return containerWidth - cartReservedPx() - HANDLE_PX - PLAYLIST_MIN_PX;
+}
+
+// Minimums win over the maximum: only on a window too narrow for every
+// minimum at once (≈ 770px with cart + mixer docked) can the row still
+// over-request, and then the playlist is what gives.
+const clampWidth = (w: number, min: number, max: number) => Math.max(min, Math.min(w, max));
+
+function setMixerMode(mode: 'side' | 'full') {
+  mixerMode.value = mode;
+  // A mode button can only be pressed on a rendered panel, but the header
+  // toggle and the watcher below also route through here in spirit: any
+  // explicit mode/open change brings a collapsed mixer back.
+  mixerCollapsed.value = false;
+}
+
+// Un-collapse whenever the mixer is opened/closed from the header toggle or
+// flipped to 'full' by a panel button — a collapsed pane that silently stayed
+// collapsed after "Open Mixer" would look like the toggle did nothing.
+watch([mixerOpen, mixerMode], () => { mixerCollapsed.value = false; });
+
+// Re-clamp after a window resize so the widths the user last dragged to can
+// never leave the row over-requesting once the viewport gets narrower.
+// Mixer first (it is the newest pane), then the cart.
+function reclampPanes() {
+  const container = workspaceEl.value;
+  if (!container) return;
+  const width = container.getBoundingClientRect().width;
+  if (width <= 0) return;
+  if (mixerOpen.value && !mixerDetached.value && !mixerCollapsed.value && mixerMode.value === 'side') {
+    mixerWidth.value = clampWidth(mixerWidth.value, MIXER_MIN_PX, maxMixerWidth(width));
+  }
+  if (!cartDetached.value && !cartClosed.value && !cartFullscreen.value) {
+    cartWidth.value = clampWidth(cartWidth.value, CART_MIN_PX, maxCartWidth(width));
+  }
+}
 
 // Migration banner's "Open Mixer" action (D12): open the panel and dismiss
 // the banner locally — dismissal is per-client view state, see the composable.
@@ -160,23 +255,69 @@ function openMixerFromBanner() {
   server.dismissMigrationBanner();
 }
 
+// The mixer's separator. Same pointer-capture shape as startResize below (see
+// the comment there for why), and the same snap semantics as the cart's: the
+// pane is anchored to the right edge, so dragging left widens it. Past the
+// row's limit it snaps to 'full'; dragged off the right edge it collapses to
+// a bare handle. One handler serves the side, collapsed and full-mode
+// handle alike — the width under the pointer decides which state we're in.
 function startMixerResize(e: PointerEvent) {
-  e.preventDefault();
+  if (isMixerResizing.value || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  const handle = e.currentTarget as HTMLElement | null;
   isMixerResizing.value = true;
-  const startX = e.clientX;
-  const startWidth = mixerWidth.value;
+  e.preventDefault();
+  try { handle?.setPointerCapture(e.pointerId); } catch { /* capture is best-effort */ }
+
   const onMove = (ev: PointerEvent) => {
-    // Dragging left widens the pane, since it is anchored to the right edge.
-    const next = startWidth + (startX - ev.clientX);
-    mixerWidth.value = Math.max(220, Math.min(next, window.innerWidth - 320));
+    if (!isMixerResizing.value) return;
+    const container = workspaceEl.value;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+
+    // Continuous width: from the pointer to the row's right edge, which is
+    // the mixer pane's right edge in every mode.
+    const width = rect.right - ev.clientX;
+    const maxWidth = maxMixerWidth(rect.width);
+
+    // Full mode: the handle is on the left edge; dragging it right past the
+    // threshold brings the pane back down to a side pane at the pointer.
+    if (mixerMode.value === 'full') {
+      if (width > rect.width - SNAP_PX) return;
+      mixerMode.value = 'side';
+      mixerCollapsed.value = false;
+      mixerWidth.value = clampWidth(width, MIXER_MIN_PX, maxWidth);
+      return;
+    }
+
+    // Dragged off the right edge: collapse, keeping mixerWidth so the pane
+    // comes back at a sensible size when dragged out again.
+    if (width < SNAP_PX) {
+      mixerCollapsed.value = true;
+      return;
+    }
+
+    // Dragged past the room the playlist and cart can spare: go full width.
+    if (width > maxWidth + SNAP_PX) {
+      mixerCollapsed.value = false;
+      mixerMode.value = 'full';
+      return;
+    }
+
+    mixerCollapsed.value = false;
+    mixerWidth.value = clampWidth(width, MIXER_MIN_PX, maxWidth);
   };
+
   const onUp = () => {
     isMixerResizing.value = false;
-    window.removeEventListener('pointermove', onMove);
-    window.removeEventListener('pointerup', onUp);
+    try { handle?.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
   };
-  window.addEventListener('pointermove', onMove);
-  window.addEventListener('pointerup', onUp);
+
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointercancel', onUp);
 }
 
 const cartWidth = ref(500);
@@ -203,7 +344,7 @@ const startResize = (e: PointerEvent) => {
   const handleMouseMove = (e: PointerEvent) => {
     if (!isResizing.value) return;
 
-    const container = document.querySelector('.workspace-content');
+    const container = workspaceEl.value;
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
@@ -216,33 +357,31 @@ const startResize = (e: PointerEvent) => {
     // left this divider trailing the pointer by the mixer's width whenever
     // the mixer panel was open, which is why it looked like it wasn't
     // tracking the mouse at all.
-    const mixerHandle = document.querySelector('.mixer-resize-handle');
-    const rightEdge = mixerHandle ? mixerHandle.getBoundingClientRect().left : rect.right;
+    const rightEdge = rect.right - mixerReservedPx();
     const newWidth = rightEdge - e.clientX;
+    // The most the cart can have while the playlist keeps its minimum and a
+    // docked mixer keeps its width — so the fullscreen snap below is measured
+    // against what is actually reachable, not the raw container width.
+    const maxWidth = maxCartWidth(rect.width);
 
-    // Snap zones
-    const snapThreshold = 100; // pixels from edge to trigger snap
-    const minWidth = 300;
-    const maxWidth = rect.width * 0.95; // Allow up to 95% to trigger fullscreen
-    
-    // Check for close snap (dragging very close to right edge)
-    if (newWidth < snapThreshold) {
+    // Close snap: dragged off the cart's right edge.
+    if (newWidth < SNAP_PX) {
       cartClosed.value = true;
       cartFullscreen.value = false;
       return;
     }
-    
-    // Check for fullscreen snap (dragging very close to left edge)
-    if (newWidth > rect.width - snapThreshold) {
+
+    // Fullscreen snap: dragged past the room the playlist can spare.
+    if (newWidth > maxWidth + SNAP_PX) {
       cartFullscreen.value = true;
       cartClosed.value = false;
       return;
     }
-    
+
     // Normal resize
     cartClosed.value = false;
     cartFullscreen.value = false;
-    cartWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth));
+    cartWidth.value = clampWidth(newWidth, CART_MIN_PX, maxWidth);
   };
   
   const handleMouseUp = () => {
@@ -565,12 +704,14 @@ const handleKeydown = (e: KeyboardEvent) => {
 onMounted(() => {
   if (import.meta.client) {
     window.addEventListener('keydown', handleKeydown);
+    window.addEventListener('resize', reclampPanes);
   }
 });
 
 onUnmounted(() => {
   if (import.meta.client) {
     window.removeEventListener('keydown', handleKeydown);
+    window.removeEventListener('resize', reclampPanes);
   }
 });
 </script>
@@ -612,15 +753,18 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-.migration-banner__title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-}
-
+.migration-banner__title,
 .migration-banner__body {
   margin: 0;
   font-size: 13px;
+  // The global `p { color: var(--color-text-primary) }` rule beats the colour
+  // inherited from the banner, which painted this white on yellow in the dark
+  // theme. Set it on the paragraphs themselves.
+  color: black;
+}
+
+.migration-banner__title {
+  font-weight: 700;
 }
 
 .migration-banner__actions {
@@ -657,7 +801,13 @@ onUnmounted(() => {
 }
 
 .playlist-section {
-  min-width: 30%;
+  // The one flexible pane: it takes whatever the cart and mixer leave. Its
+  // floor is PLAYLIST_MIN_PX, enforced by the drag clamps in the script
+  // rather than a CSS min-width — a CSS minimum on a flex item that can't
+  // shrink past it made the row overflow instead, with the mixer pushed off
+  // the right of the window.
+  flex: 1 1 0;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -667,6 +817,13 @@ onUnmounted(() => {
   min-width: 0;
   overflow: hidden;
   border-left: 1px solid var(--color-border);
+
+  // 'full' mode: the pane takes the whole row (the playlist and cart are
+  // withheld), with only its left-edge handle beside it.
+  &.mixer-section--fill {
+    flex: 1 1 0;
+    border-left: none;
+  }
 }
 
 .resize-handle {
@@ -714,17 +871,18 @@ onUnmounted(() => {
     background-color: var(--color-accent);
   }
 
+  /* Collapsed states: the handle stays in its flex slot as a thin transparent
+     bar (8px, the line drawn by ::after) on the edge of the pane it reopens —
+     left edge for a pane that filled the row, right edge for one that closed.
+     Staying in flow (rather than position: absolute against the row) is what
+     keeps a closed cart's handle between the playlist and a docked mixer
+     instead of floating over the mixer's own handle. */
   &.collapsed-left {
-    /* When cart is fullscreen, show handle at left edge */
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
     width: 8px;
     background-color: transparent;
 
-    /* Collapsed states float ON TOP of a panel, so the grab zone may only grow
-       inward — growing outward too would swallow taps on the panel behind it. */
+    /* The grab zone may only grow inward, over the open pane beside it —
+       growing outward too would sit over the neighbouring separator. */
     @media (any-pointer: coarse) {
       &::before {
         left: 0;
@@ -751,11 +909,6 @@ onUnmounted(() => {
   }
   
   &.collapsed-right {
-    /* When cart is closed, show handle at right edge */
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
     width: 8px;
     background-color: transparent;
 
@@ -787,15 +940,20 @@ onUnmounted(() => {
 
 .cart-section {
   overflow: hidden;
-  // The row over-requests width whenever the mixer is docked (playlist +
-  // cart alone already ask for 100%, before the mixer's own handle/panel are
-  // added in). With the default flex-shrink: 1, that overflow got divided
-  // between playlist *and* cart, so cart's rendered width was always less
-  // than the `cartWidth` px just set — the divider tracked the pointer at a
-  // fractional slope instead of 1:1. Pinning cart's shrink to 0 makes its
-  // rendered width equal `cartWidth` by construction; the playlist pane (the
-  // only other shrinkable item) absorbs all of the overflow instead, same as
-  // its `min-width: 30%` already assumed it might have to.
-  flex-shrink: 0;
+  // Explicit px width, never shrunk: with the default flex-shrink: 1 any
+  // over-request got divided between playlist *and* cart, so cart's rendered
+  // width was less than the `cartWidth` just set and the divider tracked the
+  // pointer at a fractional slope instead of 1:1. Pinning shrink to 0 makes
+  // the rendered width equal `cartWidth` by construction; the playlist (the
+  // one flexible item) gives instead, and the drag clamps keep it above
+  // PLAYLIST_MIN_PX.
+  flex: 0 0 auto;
+
+  // Fullscreen cart: it becomes the flexible pane in the playlist's place,
+  // so a docked mixer keeps its own width beside it.
+  &.cart-section--fill {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 }
 </style>
