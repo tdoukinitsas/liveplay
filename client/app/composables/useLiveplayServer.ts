@@ -1034,9 +1034,18 @@ function createClient() {
   // locally since two buses change, and the rewire can change `masters` and
   // `bound` on both.
   async function setBusRole(id: string, role: 'master' | 'preview') {
+    // A role holder must send to hardware (the server refuses the role on a
+    // bus that feeds another bus). Rather than bounce the operator off a 409
+    // for picking "Set as Preview bus" on a sub-mix, send the built-in output
+    // for that role in the same PATCH — the server applies both atomically.
+    const bus = buses.value.find(b => b.id === id);
+    const body: Record<string, unknown> = { [role]: true };
+    if (bus && bus.output.type !== 'output') {
+      body.output = { type: 'output', target: role === 'master' ? 'Main Out' : 'Preview Out' };
+    }
     await rest(`/api/buses/${encodeURIComponent(id)}`, {
       method: 'PATCH',
-      body: JSON.stringify({ [role]: true }),
+      body: JSON.stringify(body),
     });
     await fetchBuses();
   }
