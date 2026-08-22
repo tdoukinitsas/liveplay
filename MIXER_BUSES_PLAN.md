@@ -1173,3 +1173,66 @@ paths and buses; AFL/PFL to a dedicated listen path. The model below is that mod
 R3 and R4 touch disjoint files and run in parallel with R1. R3/R4 code against the JSON
 contract in D24–D33; their build check is `npm run build:nuxt`; behaviour is verified in R6
 against the R1 server.
+
+### 10.4 Round-2 run log (2026-08-22)
+
+Executed by one orchestrator over seven sub-agent tasks (items 2 and 3 of the review, then
+R1–R5) plus the orchestrator's own fixes and a browser-driven visual check. **Nothing pushed;
+`main` untouched.** Commits, in order: `72755db` (mixer title bar), `d01e120` (splitters +
+banner colour), `439076e` (this plan's §10), `2a9fa89` (R4), `fb87d29` (R3), `d509e1d` (role
+PATCH carries the built-in output), `e8d39cb` (R1), `b2332ea` (R5 docs), `0993fec` (R5 i18n),
+`e1318dc` (R2), `be00caf` (orchestrator server fixes).
+
+| task | status | notes |
+|---|---|---|
+| item 1 banner text | VERIFIED | global `p { color }` beat the inherited black; set on the paragraphs |
+| item 2 splitters | VERIFIED | one layout model, shared clamps, every handle snaps/collapses, mixer snaps to full and back, window-resize re-clamp; playlist floor is 240 px (closes round-1 finding 6) |
+| item 3 mixer title bar | VERIFIED | same header as playlist/cart; labels drop to icons under 640 px container width |
+| R1 server roles | VERIFIED | ctest 8/8; smoke 36/36; JSON/409 texts documented in `server/README.md` |
+| R2 tests | VERIFIED | pfl 49, roles 70, migration 57, busbus 27, width 27, filters 27, comp 19, gate 13, reroute 6, materialise-skip 6, save-churn 7 — all green on the final build; two fail-tests performed and restored (`git diff --exit-code server/src` clean) |
+| R3 client mixer | VERIFIED | build green; visually checked (below) |
+| R4 client periphery | VERIFIED | build green; settings modal, preview gating, transport outputs checked visually |
+| R5 docs + i18n | VERIFIED | docs-site build green; 20 locales: +33 / −10 / 1 changed each, key sets identical to en |
+| R6 final pass | VERIFIED | clean server build, ctest 8/8, the e2e set above, `ui-churn-probe` 60 items **0 seams**, `build:nuxt` green, docs-site green |
+
+**Visual check.** The Nuxt dev client was driven in headless Chrome (puppeteer-core, Electron
+bridge shimmed for locales) against a scratch server carrying a pre-bus project (device names
+in settings, one `deviceOverride`, a group). Seen: playlist intact; the mixer's title bar; rail
+strip "OUT 3-4 …" (from the override) with grip/⋮/EDIT/output picker (Buses · Outputs with
+mapping text · Devices · Edit hardware outputs…); Preview (MONO, PREVIEW badge, bound to the
+migrated preview device) and Master (MASTER badge, `Main Out — default device`) pinned right;
+the ⋮ menu; the channel view with Preview/Master in its select row; the settings modal's Audio
+tab reduced to the routing note + Open Mixer; and — the item-4 symptom — a legacy cue playing
+reads **−4.7 dBFS on the Master strip** and on the transport's MASTER pair.
+
+**Bugs found and fixed during the run (beyond the plan).**
+1. A master-role move re-wired the house pair but left a *playing* inheriting cue on the old
+   holder's strip: the house went quiet while the mixer showed the cue on the new master.
+   Found by R2's roles-e2e (4 red assertions, left red rather than weakened); fixed in
+   `be00caf` by re-routing every loaded cue that now resolves to the new master. roles-e2e
+   is 70/0 on the final build.
+2. A pre-bus project's `settings.defaultOutputDevice` was erased but no longer migrated onto
+   the master when the master was *synthesised* (R1 only handled a legacy Master-kind bus) —
+   `mainOutputMigrated:false` and the device name lost. Fixed; verified on a fresh server.
+3. Three empty-document templates still injected `settings.previewDevice: null`; the preview
+   400 text still mentioned a device. Fixed.
+4. `setBusRole` from the client on a bus-kind bus would have 409'd (`RoleNeedsOutput`) with
+   nothing shown; the client now sends the built-in output with the role.
+
+**Decisions taken where §10 was silent** (R1's conservative readings, kept): a role onto a
+bus-kind bus → 409 unless the same PATCH supplies an Output-kind output; preview role onto a
+bus that others feed → 409 `RoleTargetFed`; a preview-role move stops an active pre-listen and
+clears PFL on the new holder; `masters` is reported for role holders as soon as they are
+materialised (the preview pair is reserved even while unbound — the client's transport list
+also checks `bound`); `rolesMigrated` is not raised for a bus-less document that merely
+received the defaults; `PATCH {order}` renumbers the rail 1..N with holders pinned.
+
+**Open / for the maintainer.**
+- The migration banner only appears in clients connected at load time; a client that joins a
+  project already migrated sees no banner (pre-existing semantics, unchanged).
+- `GET /api/state/summary` still has a top-level `master` block that is the *engine* trim,
+  easy to confuse with the Master bus now; a rename is a breaking change, not done.
+- 1.x (snake_case) documents still produce no client `items` (round-1 finding 8) — untouched.
+- Round-1 finding 3 (`pfl-e2e` intermittent) did not recur in five runs this round; the suite
+  now prints every comparison, so the next occurrence will say what failed.
+- The e2e scripts' README run list says port 4500 / `/tmp` paths; on Windows pass real paths.
