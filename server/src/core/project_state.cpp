@@ -1129,12 +1129,11 @@ json ProjectState::default_empty_document() {
         {"playbackKeys",  json::object()},
         {"cartOnlyItems", json::array()},
         {"theme",         json{{"mode", "dark"}, {"accentColor", "#DA1E28"}}},
-        // No defaultOutputDevice: where audio goes is the master bus's output,
-        // and the binding from a logical output to hardware belongs to the
-        // machine, not the show. previewDevice / ltcDevice are still device
-        // names pending the same treatment.
+        // No defaultOutputDevice or previewDevice: where audio goes is the
+        // master bus's output, pre-listen goes to the preview bus, and the
+        // binding from a logical output to hardware belongs to the machine,
+        // not the show. ltcDevice is still a device name (D21).
         {"settings",      json{
-            {"previewDevice",       nullptr},
             {"ltcDevice",           nullptr},
         }},
         {"createdAt",     ""},
@@ -1927,7 +1926,6 @@ bool ProjectState::replace_full_document(const json& doc) {
             // onto the master bus and erases it, so re-injecting it here would
             // resurrect the field the migration exists to remove.
             document_["settings"] = json{
-                {"previewDevice",       nullptr},
                 {"ltcDevice",           nullptr},
             };
         }
@@ -4008,6 +4006,7 @@ void ProjectState::load_buses_locked() {
     // one is synthesised. A document with no buses at all is not being
     // migrated — it is getting the defaults — so only a document that brought
     // buses and lacked a holder counts.
+    bool master_synthesised = false;
     if (!master_bus_locked()) {
         BusDef* promoted = nullptr;
         for (auto& b : buses_) {
@@ -4030,6 +4029,7 @@ void ProjectState::load_buses_locked() {
             d.output_kind   = BusOutputKind::Output;
             d.output_target = kMainOutputName;
             buses_.push_back(std::move(d));
+            master_synthesised = true;
             if (had_buses_key) {
                 summary.roles_migrated = true;
                 Logger::warn("no bus carries the master role and none sends to an output; "
@@ -4070,7 +4070,12 @@ void ProjectState::load_buses_locked() {
             const auto device = settings["defaultOutputDevice"].get<std::string>();
             settings.erase("defaultOutputDevice");
             if (!device.empty()) {
-                if (BusDef* m = find(master_id); m && legacy_master_kind.count(m->id)) {
+                // A master that was the old Master kind, or one synthesised
+                // just now for a pre-bus document (which is exactly where a
+                // defaultOutputDevice comes from): the device name becomes
+                // its target, so audio keeps coming out of the same place.
+                if (BusDef* m = find(master_id);
+                    m && (legacy_master_kind.count(m->id) || master_synthesised)) {
                     m->output_kind   = BusOutputKind::Output;
                     m->output_target = device;
                     legacy_master_kind.erase(m->id);
@@ -5306,6 +5311,28 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
             }
             if (take_master)  rewire_role_move(true,  old_master_id,  id);
             if (take_preview) rewire_role_move(false, old_preview_id, id);
+            if (take_master) {
+                // The house pair now belongs to this bus, and the resolver
+                // already says every cue without a busId lands here — but a
+                // cue that is PLAYING is still routed to the old holder's
+                // strip, which just left the house pair for a pool one. So
+                // the house went quiet while the mixer showed the cue on the
+                // new master. Re-route every loaded cue that now resolves
+                // here, exactly as update_item does for a busId change.
+                std::vector<std::string> inherited;
+                {
+                    std::lock_guard lock{mutex_};
+                    for (const auto& [uuid, cue] : item_uuid_to_cue_) {
+                        (void)cue;
+                        if (resolve_item_bus(uuid) == id) inherited.push_back(uuid);
+                    }
+                }
+                if (!inherited.empty()) {
+                    reroute_items_to_buses(inherited);
+                    Logger::info("patch_bus: master role moved to '{}' — re-routed {} cue(s) live",
+                                 id, inherited.size());
+                }
+            }
         } else if (needs_rewire) {
             // Width is part of needs_rewire, and it also decides how PFL
             // places this strip in the monitor — so the engine has to be told
@@ -6017,7 +6044,6 @@ bool ProjectState::load_from_json(const json& doc_in) {
                 // above has just migrated that key onto the master bus and
                 // erased it. Writing it back would undo the migration.
                 document_["settings"] = json{
-                    {"previewDevice",       nullptr},
                     {"ltcDevice",           nullptr},
                 };
             }

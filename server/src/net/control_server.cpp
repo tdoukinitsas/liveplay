@@ -3381,7 +3381,7 @@ void ControlServer::install_routes() {
                 const bool ok = state_.start_preview(uuid);
                 if (!ok) {
                     Logger::warn("PREVIEW START failed for item_uuid='{}' — no device or item not found", uuid);
-                    return json_err(400, "preview could not start (no device, or item not found)");
+                    return json_err(400, "preview could not start (item not found, or the Preview bus has no strip)");
                 }
                 const auto cue_id = state_.current_preview_cue_id().value;
                 Logger::api_response("Client ({}) <- Server ({}) : POST /api/preview OK — cueId='{}'",
