@@ -95,11 +95,11 @@
     },
     "routing": {
       "title": "Multi-Device Audio Routing",
-      "description": "Route audio from any cue to any combination of output channels across multiple sound cards simultaneously, with independent output assignment per item. The routing matrix lets you split a stereo file into individual channels and send each one to a different device with its own gain — perfect for feeding front-of-house, a monitor mix, and a recording output from a single cue, all at once."
+      "description": "Every cue plays through a mixer bus, and every bus sends to a hardware output, to another bus, or to the Preview bus for headphones — across multiple sound cards at once. The Master bus is the house: it sends to \"Main Out\", which is your default sound card until you map it to something else. Pick a device or output straight from a strip, or open \"Remap hardware outputs\" in the mixer header to bind logical outputs like FOH or Foyer to real channels — so a show travels between venues without being rewired."
     },
     "previewLtc": {
       "title": "Dedicated Preview & LTC Timecode",
-      "description": "Audition cues silently on a dedicated preview device — headphones or a cue bus — without ever touching your main outputs, so you can line up the next cue while the show rolls on. A separate SMPTE LTC timecode generator outputs a continuous linear timecode signal on its own channel, letting you synchronise lighting desks, video playback and other external devices to LivePlay."
+      "description": "Audition cues silently through the mixer's Preview bus — the strip PFL and the headphone preview button both land on — without ever touching your main outputs, so you can line up the next cue while the show rolls on. Give the Preview bus a device or output on its strip and it is ready; its fader is your headphone level. A separate SMPTE LTC timecode generator outputs a continuous linear timecode signal on its own channel, letting you synchronise lighting desks, video playback and other external devices to LivePlay."
     },
     "waveform": {
       "title": "Waveform Trimmer",
@@ -163,7 +163,7 @@
       "description": "A handful of REST endpoints cover most controller needs:",
       "stateSummary": {
         "path": "GET /api/state/summary",
-        "description": "a single compact snapshot of the whole show — transport, selection, master bus and the bus list — ideal for a controller populating its UI on connect."
+        "description": "a single compact snapshot of the whole show — transport, selection, the engine master trim and the bus list (each bus with its master/preview role, bound state and the master pair it occupies) — ideal for a controller populating its UI on connect."
       },
       "transport": {
         "path": "POST /api/transport/*",
@@ -174,14 +174,14 @@
         "description": "read or set the currently selected item, mirrored to every connected client and controller."
       },
       "buses": {
-        "path": "GET/PATCH /api/buses",
-        "description": "list every mixer bus (id, name, colour, order, width, gain, mute, PFL, bound state and output routing) and patch one by id."
+        "path": "GET/POST/PATCH/DELETE /api/buses",
+        "description": "list every mixer bus (id, name, colour, order, width, gain, mute, PFL, bound state, master/preview role, the master pair it occupies, and its output: { type: \"output\" | \"bus\", target }) and create, patch or delete one by id. Exactly one bus holds the Master role (the house — unassigned cues play through it and its output sits on master channels 0/1) and exactly one holds the Preview role (where PFL and cue pre-listen land). PATCH { master: true } or { preview: true } moves a role; role holders cannot be deleted. Outputs name a logical output or a device — the built-ins \"Main Out\" (the default device unless mapped) and \"Preview Out\" (silent unless mapped) come from GET /api/outputs."
       },
       "master": {
         "path": "GET/POST /api/master/*",
-        "description": "master gain, limiter ceiling and per-output-channel trim."
+        "description": "the engine-wide master trim, limiter ceiling and per-output-channel trim. The Master bus's own fader is a bus like any other — PATCH /api/buses/<id> { gainDb } on the bus whose master flag is true."
       },
-      "busesCaveat": "Buses only exist once a project has been loaded or created — a bare, freshly-started server reports an empty [] from GET /api/buses.",
+      "busesCaveat": "A server always has a Master and a Preview bus, even with no project open. output.type \"master\" from the previous release is still accepted on POST/PATCH for one release and mapped to a bus→bus send into the Master bus; write { type: \"bus\", target: <master bus id> } instead. Device names in project settings (previewDevice, defaultOutputDevice) are migrated onto the buses on load and no longer read — route through /api/buses.",
       "dragWarning": "The .../pan and .../dsp POST routes under /api/buses/<id> are client-internal drag surfaces for live knob movement, not part of the external-control API — external controllers should use PATCH /api/buses/<id> instead."
     },
     "websocket": {

@@ -214,14 +214,16 @@ Every cue's audio goes through three explicit tiers, in order, on the engine's r
 ```
 
 - **Tier 1 — [`PlaybackItem`](include/liveplay/audio/playback_item.hpp)**: one instance per active cue, with its own `ma_decoder`, gain/fade state machine, optional LTC generator, and a per-source-channel meter. Loading the same `.wav` into two cart slots yields **two independent instances**; attenuating one never affects the other.
-- **Tier 2 — [`MixerChannel`](include/liveplay/audio/mixer_channel.hpp)**: a virtual strip with gain, mute, PFL, and a smooth-fade ramp. Many items can route into one channel; one item's source channels can fan out to multiple channels. PFL adds a pre-fader, pre-mute tap into the designated Monitor strip and changes nothing else — it replaced solo, which no UI ever reached and which cost the render thread a per-block scan of every strip.
-- **Tier 3 — Master output bus** ([`engine.hpp`](include/liveplay/audio/engine.hpp)): 32 logical master channels by default, configurable from 4 to 1024 via `--master-channels`. Each carries a limiter + meter and is assigned to exactly one `(Device, HardwareChannelIndex)` tuple. The top two are reserved for the **Monitor** bus — the pre-listen destination, where both PFL and cue preview land.
+- **Tier 2 — [`MixerChannel`](include/liveplay/audio/mixer_channel.hpp)**: a virtual strip with gain, mute, PFL, and a smooth-fade ramp. Many items can route into one channel; one item's source channels can fan out to multiple channels. Every project **bus** (see [Buses](#buses)) is one of these strips. PFL adds a pre-fader, pre-mute tap into the strip of the bus holding the **Preview** role and changes nothing else — it replaced solo, which no UI ever reached and which cost the render thread a per-block scan of every strip.
+- **Tier 3 — Master output bus** ([`engine.hpp`](include/liveplay/audio/engine.hpp)): 32 logical master channels by default, configurable from 4 to 1024 via `--master-channels`. Each carries a limiter + meter and is assigned to exactly one `(Device, HardwareChannelIndex)` tuple. Master channels 0/1 are the **house pair**: the hardware output of the bus holding the **Master** role, the clock device every other device resamples to, and what the transport bar's house meter reads. The top two are reserved for the **Preview** bus — the pre-listen destination, where both PFL and cue preview land. Every other hardware-bound bus takes a pair from the pool in between.
 
 All three tiers run at a 256-frame block (~5.3 ms at 48 kHz). Meters and limiter envelopes update once per block.
 
+A note on words: "master channel" below is an engine accumulator (one of the 32); "the Master bus" is the project bus that carries the master role and sits on master channels 0/1. `/api/master/*` drives the engine-wide trims; the Master bus's own fader is `PATCH /api/buses/<id>` like any bus.
+
 ### Multi-device routing matrix
 
-LivePlay drives **multiple sound cards simultaneously** with full source-channel splitting. The matrix is sparse, JSON-serialisable, and round-trips through `/api/project`. The three stages:
+LivePlay drives **multiple sound cards simultaneously** with full source-channel splitting. The matrix is sparse, JSON-serialisable, and round-trips through `/api/project`. A project expresses its routing as buses (cue → bus → output / bus → bus / bus → hardware); the server turns that into the three engine stages below, which is why an external controller should drive `/api/buses` and leave the raw matrix alone. The three stages:
 
 | Stage              | Mapping                                       | Persisted as         |
 |--------------------|-----------------------------------------------|----------------------|
@@ -342,6 +344,8 @@ This is the low-level cue surface — for normal use, prefer the project-item su
 | `GET /api/master/channels/<int>/gain` | — | `{ "channel": int, "db": float }` |
 | `POST /api/master/channels/<int>/gain` | `{ "db": float }` | `{ "ok": true, "channel": int, "db": float }` · also broadcasts `output_channel_gain_changed` |
 
+These are engine-wide trims, not the Master bus. `/api/master/gain` is a global gain applied to *every* master channel before its limiter — the reserved Preview pair included — and `/api/master/channels/<n>/gain` is a per-master-channel trim the client no longer drives (it stays at unity; the transport bar's output faders are bus faders now). The fader on the mixer's Master strip, and the "Master" fader on the transport bar, are the Master bus's `gainDb`: `PATCH /api/buses/<id> { "gainDb": … }` on the bus whose `master` flag is `true`, or the WS `bus_gain` frame.
+
 #### External control surface (Companion, custom remotes)
 
 Everything below is the surface a stateless control surface (Bitfocus Companion, a Stream Deck plugin, a curl script) drives. Every mutation is broadcast as a `doc_patch`, so a control surface, the desktop client and a second control surface can never disagree about what is selected, armed or in Show Mode.
@@ -366,7 +370,7 @@ Everything below is the surface a stateless control surface (Bitfocus Companion,
 
 ```json
 {
-  "buses":     [ { "id", "name", "color", "order", "width", "gainDb", "mute", "pfl", "bound", "output": { "type", "target" }, "monoCheck" (Monitor only) } ],
+  "buses":     [ { "id", "name", "color", "order", "width", "gainDb", "mute", "pfl", "bound", "master", "preview", "masters": [l, r] | null, "output": { "type", "target" }, "monoCheck" (Preview bus only) } ],
   "project":   { "name", "itemCount", "hasOpenProject", "audioLoading" },
   "playing":   [ { "itemUuid", "cueId", "name", "color", "transport", "paused", "playheadSec", "elapsedSec", "durationSec", "remainingSec", "index"?, "triggerSeq"? } ],
   "next":      { "itemUuid", "source": "override" | "auto", "name", "color", "type", "index"? } | null,
@@ -379,24 +383,31 @@ Everything below is the surface a stateless control surface (Bitfocus Companion,
 }
 ```
 
-`buses` is deliberately compact — no `dsp`, no `itemUuids`; a controller wants "what is it called and what state is it in", not the mixer's internals. Meters ride the separate `meters` WS broadcast, not this snapshot. Buses only exist once a project has been loaded, created or closed at least once in the server's lifetime — a bare fresh server reports `[]` here (and from `GET /api/buses`) until then.
+`buses` is deliberately compact — no `dsp`, no `itemUuids`; a controller wants "what is it called and what state is it in", not the mixer's internals. Meters ride the separate `meters` WS broadcast, not this snapshot. `master` / `preview` flag the two role holders (exactly one of each, always present — a bare server with no project open still has its default Master and Preview buses), and `masters` is the pair of engine master channels the bus's hardware output occupies, or `null` when it is not hardware-bound; see [Buses](#buses). `master` at the top level is the engine's global trim, not the Master bus (see [Transport & master](#transport--master)).
 
 #### Buses
 
-The user-facing view of the mixer: every bus in display order, with the items that resolve to it (own assignment, inherited from a group, or the Main fallback). `bus_info_to_json()` in [`control_server.cpp`](src/net/control_server.cpp) is the single serialiser shared by the list and single-resource routes below, so they can never drift apart.
+The user-facing view of the mixer: every bus in display order, with the items that resolve to it (own assignment, inherited from a group, or the Master bus as the fallback). `bus_info_to_json()` in [`control_server.cpp`](src/net/control_server.cpp) is the single serialiser shared by the list and single-resource routes below, so they can never drift apart.
+
+Every bus is an ordinary bus — there are no hidden system buses. Two of them carry a **role**:
+
+- **Master** (`"master": true`) — the house. It is where a cue plays when neither it nor any ancestor group names a bus, its hardware output sits on engine master channels 0/1 (the clock device, the transport bar's house meter), and a sub-mix reaches the house by routing bus→bus into it.
+- **Preview** (`"preview": true`) — the pre-listen bus. PFL taps and cue pre-listen (`POST /api/preview`) both land on its strip, it owns the reserved master pair at the top of the engine's bus, and it carries the mono-check. Nothing may feed it, and it never falls back to the default device: an unresolved Preview output is valid and silent.
+
+A project has **exactly one** of each, never the same bus. Both are otherwise ordinary: rename, recolour, re-route, reorder, DSP, channel view. Roles move; they are not dropped, and a holder cannot be deleted. The defaults are ids `master` / `preview`, names "Master" / "Preview" — a bare server with no project open already has both, so `GET /api/buses` is never empty.
 
 | Method · Path | Body | Response |
 |---------------|------|----------|
 | `GET /api/buses` | — | array of bus objects (see below) |
 | `GET /api/buses/<id>` | — | one bus object · `404` if unknown |
-| `POST /api/buses` | `{ "name": "…", "color": "…", "width": 1\|2, "gainDb": float, "mute": bool, "pan": -1..1, "order": int, "output": { "type": "master"\|"output"\|"bus", "target": "…" } }` (all optional) | `{ "id": "…" }` · `409` if the output is refused (see below) · `507` if no mixer strip is available | broadcasts `buses_patched` |
-| `PATCH /api/buses/<id>` | any subset of the `POST` fields, plus `{ "dsp": { …partial BusDsp… } }` | `{ "ok": true }` · `404` unknown id · `409` if the output is refused | broadcasts `buses_patched` |
-| `DELETE /api/buses/<id>` | — | `{ "ok": true }` · `409` if not found or not deletable (the system buses `main`/`monitor` can't be deleted; assigned items fall back to Main) | broadcasts `buses_patched` |
-| `POST /api/buses/<id>/pfl` | `{ "pfl": bool }` | `{ "ok": true, "pfl": bool }` · `404` unknown id | broadcasts `bus_pfl_changed` |
+| `POST /api/buses` | `{ "name": "…", "color": "…", "width": 1\|2, "gainDb": float, "mute": bool, "pan": -1..1, "order": int, "output": { "type": "output"\|"bus", "target": "…" } }` (all optional; no `output` means bus→Master) | `{ "id": "…" }` · `409` if the output is refused (see below) · `507` if no mixer strip is available | broadcasts `buses_patched` |
+| `PATCH /api/buses/<id>` | any subset of the `POST` fields, plus `{ "dsp": { …partial BusDsp… } }`, `{ "master": true }` or `{ "preview": true }` to move a role here | `{ "ok": true }` · `404` unknown id · `409` if the output or the role change is refused | broadcasts `buses_patched` |
+| `DELETE /api/buses/<id>` | — | `{ "ok": true }` · `404` unknown id · `409` `"this bus holds the Master role; move it first"` / `"this bus holds the Preview role; move it first"` | broadcasts `buses_patched`. Feeder buses are re-routed to the Master bus; assigned items fall back to it. |
+| `POST /api/buses/<id>/pfl` | `{ "pfl": bool }` | `{ "ok": true, "pfl": bool }` · `404` unknown id (the Preview bus included — it has no PFL of its own) | broadcasts `bus_pfl_changed` |
 | `POST /api/buses/pfl/clear` | — | `{ "cleared": int }` | broadcasts `bus_pfl_cleared` when `cleared > 0` |
-| `POST /api/monitor/mono` | `{ "mono": bool }` | `{ "ok": true, "mono": bool }` · `409` if the Monitor bus has no strip | broadcasts `monitor_mono_changed`. Folds the whole MONITOR bus to mono — not per-strip; PFL whichever buses you want to check, then press this. |
+| `POST /api/preview/mono` · `POST /api/monitor/mono` | `{ "mono": bool }` | `{ "ok": true, "mono": bool }` · `409` `"the Preview bus has no strip"` | broadcasts `monitor_mono_changed`. Folds the whole Preview bus to mono — not per-strip; PFL whichever buses you want to check, then press this. The two paths are one handler; `/api/monitor/mono` is kept for controllers written against the previous release. |
 
-`buses_patched` always carries the full `buses` array (`{ "type": "doc_patch", "op": "buses_patched", "buses": [...] }`) rather than a diff, so a second client converges in one apply.
+`buses_patched` always carries the full `buses` array (`{ "type": "doc_patch", "op": "buses_patched", "buses": [...] }`) rather than a diff, so a second client converges in one apply. A role move is one `PATCH` and one `buses_patched`: the previous holder loses the flag, both buses are re-wired (the new Master takes masters 0/1 and the old one goes back to a pool pair; the new Preview takes the reserved pair and the PFL taps with it) and the broadcast carries the settled state.
 
 **Bus object** (`GET /api/buses`, `GET /api/buses/<id>`):
 
@@ -408,22 +419,40 @@ The user-facing view of the mixer: every bus in display order, with the items th
   "pfl": false,
   "monoCheck": false,
   "bound": true,
-  "system": false,
-  "output": { "type": "master" | "output" | "bus", "target": "…" },
+  "master": false,
+  "preview": false,
+  "masters": [2, 3],
+  "output": { "type": "output" | "bus", "target": "…" },
   "mixerId": "…",
   "itemUuids": ["…"]
 }
 ```
 
-`monoCheck` is present on every bus object here (unlike the compact `summary.buses` array, which only carries it for Monitor) but is only ever meaningful for Monitor. `bound` is server-computed by walking the output chain to its terminal (master, a hardware output, or an unbound dead end) — a client renders it and never derives it itself. `dsp` is the full DSP chain (EQ bands, HPF/LPF, gate, compressor); see `bus_dsp_to_json()` in `control_server.cpp` for the exact shape.
+`monoCheck` is present on every bus object here (unlike the compact `summary.buses` array, which only carries it for the Preview bus) but is only ever meaningful for the Preview bus. `masters` is the pair of engine master channels the bus's hardware output occupies — `[0, 1]` for the Master bus, the reserved pair for Preview, a pool pair for any other Output-kind bus — or `null` when the bus is not hardware-bound (a bus→bus send, or an output that did not resolve); it is what the transport bar builds its output meters and faders from. `bound` is server-computed by walking the output chain to its terminal — a client renders it and never derives it itself. For an Output-kind terminal it is true when the target is mapped in `outputs.json`, **or** is the built-in `Main Out`, **or** names a device that is currently present (the device list is refreshed on `GET /api/devices` and on device open, never on the render thread); the Preview bus is the exception and is bound only when its output actually resolved to channels. `dsp` is the full DSP chain (EQ bands, HPF/LPF, gate, compressor); see `bus_dsp_to_json()` in `control_server.cpp` for the exact shape.
 
 **A bus output** is one of:
 
-- `{ "type": "master", "target": "" }`
-- `{ "type": "output", "target": "<logical output name>" }` — see [Logical outputs](#logical-outputs)
-- `{ "type": "bus", "target": "<bus id>" }` — bus-to-bus routing
+- `{ "type": "output", "target": "<logical output name>" }` — to hardware; see [Logical outputs](#logical-outputs). A plain device name is a valid target too: it resolves to that device's channels 0/1 and reports `bound` while the device is present.
+- `{ "type": "bus", "target": "<bus id>" }` — bus-to-bus routing. Targeting the Master bus is how a sub-mix reaches the house.
 
-A refused output is a `409` with one of: `"the Monitor bus cannot be routed to the master"`, `"the Monitor bus cannot be routed to another bus"`, `"no such bus to route to"`, `"a bus cannot feed a system bus; use \"master\" to reach the master"`, `"routing this bus would create a cycle"`. A bus may not target a system bus (`main`/`monitor`), and a bus→bus chain that would loop back on itself is refused rather than silently breaking.
+`{ "type": "master" }` is **retired**. For one release `POST`/`PATCH` still accept it (and an omitted `output` on `POST`) and map it to `{ "type": "bus", "target": "<master bus id>" }`, logged at warn — a controller written against the previous release keeps working, but should move to the explicit form. It is never written back: the document and every response carry `output` or `bus` only.
+
+The rules, each refused as a `409` before anything is stored (the text is the `message`):
+
+| Refused | `409` text |
+|---|---|
+| Preview bus routed to another bus | `the Preview bus cannot be routed to another bus` |
+| Master bus routed to another bus | `the Master bus must send to an output` |
+| bus→bus to an unknown id | `no such bus to route to` |
+| any bus targeting the Preview bus | `a bus cannot feed the Preview bus` |
+| a bus→bus chain that loops back on itself | `routing this bus would create a cycle` |
+| `{ "master": false }` / `{ "preview": false }` | `move the role to another bus instead` |
+| a role granted to a bus that does not send to an output (the output may arrive in the same `PATCH`) | `a bus must send to an output to hold the Master or Preview role` |
+| `{ "master": true, "preview": true }`, or granting one role to the holder of the other | `one bus cannot hold both the Master and Preview roles` |
+| `{ "preview": true }` on a bus that other buses feed | `buses feed this bus; re-route them before making it the Preview bus` |
+| deleting a role holder | `this bus holds the Master role; move it first` / `this bus holds the Preview role; move it first` |
+
+**Order.** `order` is the rail position; the role holders are pinned on the surface and keep their own sort keys (`1000000` / `1000001` by default) outside the rail. `PATCH { "order": n }` is a drop onto the rail: the moved bus takes `n`, wins a tie against whatever already had it, and the rail is then renumbered `1..N` — so the `order` values in the resulting `buses_patched` are dense and may differ from what was sent. A new bus lands at the end of the rail unless `order` is given.
 
 Two drag-only endpoints exist for live knob feedback and are **not** part of the external-control surface — external controllers use `PATCH /api/buses/<id>` instead (D16):
 
@@ -432,7 +461,7 @@ Two drag-only endpoints exist for live knob feedback and are **not** part of the
 | `POST /api/buses/<id>/pan` | `{ "pan": -1..1 }` | `{ "ok": true }` · `404` unknown id | Live pan while the knob is being dragged: moves the send gains only, no document write, no broadcast. Client-internal. |
 | `POST /api/buses/<id>/dsp` | partial `BusDsp` JSON | `{ "ok": true }` · `404` unknown id | Live tone-control coefficients while a filter knob is dragged: straight into the strip, no document write, no broadcast, no re-wire. Client-internal. |
 
-The document carries a top-level `busSchema` version (currently `1`) alongside `buses`.
+The document carries a top-level `busSchema` version (currently `2`) alongside `buses`; each stored bus carries `master` / `preview` and an `output` of type `output` or `bus`. See [Project document](#project-document) for what a `busSchema < 2` document gets on load.
 
 #### Logical outputs
 
@@ -440,10 +469,16 @@ Server-owned: what a project's output names (`"output"` targets, above) mean on 
 
 | Method · Path | Body | Response |
 |---------------|------|----------|
-| `GET /api/outputs` | — | `{ "version": 1, "outputs": [ { "name": "…", "channels": [ { "device": "…", "hwChannel": int }, … ] } ] }` |
-| `PUT /api/outputs` | same shape as the `GET` response | `{ "version", "outputs", "rewiredBuses": [...] }` · `400` malformed map | broadcasts `outputs_changed` |
+| `GET /api/outputs` | — | `{ "version": 1, "builtin": ["Main Out", "Preview Out"], "outputs": [ { "name": "…", "channels": [ { "device": "…", "hwChannel": int }, … ] } ] }` |
+| `PUT /api/outputs` | the `GET` shape without `builtin` | `{ "version", "outputs", "rewiredBuses": [...] }` · `400` malformed map | broadcasts `outputs_changed` |
 
-Any bus routed through a remapped output is re-wired immediately (`rewiredBuses` lists which ones) — without this a remap would appear to do nothing until the project was reloaded.
+Two names are **built in** and mean something even when the map says nothing about them. A real mapping always wins; unmapped:
+
+- **`Main Out`** → the platform's default playback device, stereo. It is what the Master bus targets out of the box, so a fresh install makes sound with no configuration.
+- **`Preview Out`** → no channels at all. The Preview bus targets it out of the box; silence is the safe answer for the bus PFL lands on, because the default device is the house.
+- Any **other** unmapped name → treated as a device name, stereo on hardware channels 0/1 (and, if no device of that name exists, the engine's default device). This is what lets a device chosen from the strip's output picker — or a legacy per-item device override — work without an `outputs.json` entry.
+
+`GET /api/outputs` lists the built-ins in `builtin` so a client can show them ahead of the machine's own names; `PUT` ignores the field. Any bus routed through a remapped output is re-wired immediately (`rewiredBuses` lists which ones) — without this a remap would appear to do nothing until the project was reloaded. In the client the map is edited from the mixer header ("Remap hardware outputs") and from the "Edit hardware outputs…" row at the bottom of every strip's output picker.
 
 #### Engine diagnostics
 
@@ -552,12 +587,12 @@ Each channel's `peak` and `rms` arrays have exactly `bucket_count` floats in `[0
 
 #### Preview (DJ-style pre-listening)
 
-Plays an item on `settings.previewDevice` without routing through the live mixer. Used by the WaveformTrimmer / cue editor.
+Plays an item into the **Preview bus** — the same strip PFL lands on, under the same fader and meter — without touching the house. Used by the cue preview buttons and the WaveformTrimmer / cue editor. There is no separate preview device: where the audition is heard is the Preview bus's `output` (see [Buses](#buses)), and the client only offers the button while that bus reports `bound`.
 
 | Method · Path | Body | Response | Side effect |
 |---------------|------|----------|-------------|
 | `GET /api/preview` | — | `{ "active": bool, "itemUuid": "…", "cueId": "…" }` | — |
-| `POST /api/preview` | `{ "itemUuid": "<uuid>" }` | `{ "ok": true, "itemUuid": "…", "cueId": "…" }` · `400` if no preview device or item missing | broadcasts `preview_started` |
+| `POST /api/preview` | `{ "itemUuid": "<uuid>" }` | `{ "ok": true, "itemUuid": "…", "cueId": "…" }` · `400` if the item is missing or the Preview bus has no strip | broadcasts `preview_started` |
 | `DELETE /api/preview` | — | `{ "ok": true }` | broadcasts `preview_stopped` |
 
 #### Project document
@@ -574,7 +609,11 @@ Plays an item on `settings.previewDevice` without routing through the live mixer
 | `POST /api/project/save`        | `{ "path": "/abs/file.liveplay" (optional) }`, optionally with `{ "document": { … } }` to push an embedded document first | `{ "ok": true, "path": "…" }`, augmented with `migration` as above | Saves to the supplied path or the currently-loaded one. `400` if neither is set. Broadcasts `project_migrated` if the embedded document (if any) had to migrate. |
 | `POST /api/project/repair`      | — | `{ "repaired": bool, "issues": [string], "saved": bool }` | Forces a re-save of the (already auto-repaired on load) in-memory document. |
 
-**Bus migration** — a project document that predates buses names no routing at all, so the server invents it on load/replace: every audio item that carried no bus assignment lands on Main, distinct legacy per-item `deviceOverride` values become real buses, and `settings.defaultOutputDevice` becomes Main's output. That's a routing decision made without asking, so it's counted, logged, returned to whoever triggered it, and broadcast to every other connected client as `project_migrated` so nobody's mirror disagrees about where a show is routed. `migration` (in the HTTP response) and the `project_migrated` doc_patch carry the same three counts: `{ "itemsToMain": int, "busesFromDeviceOverride": int, "mainOutputMigrated": bool }` — flat on the doc_patch frame itself, not nested under `migration`.
+**Bus migration** — a project document that predates buses names no routing at all, so the server invents it on load/replace: every audio item that carried no bus assignment lands on the Master bus, distinct legacy per-item `deviceOverride` values become real buses, and `settings.defaultOutputDevice` becomes the Master bus's output. That's a routing decision made without asking, so it's counted, logged, returned to whoever triggered it, and broadcast to every other connected client as `project_migrated` so nobody's mirror disagrees about where a show is routed. `migration` (in the HTTP response) and the `project_migrated` doc_patch carry the same fields: `{ "itemsToMain": int, "busesFromDeviceOverride": int, "mainOutputMigrated": bool, "previewDeviceMigrated": int, "rolesMigrated": bool }` — flat on the doc_patch frame itself, not nested under `migration`.
+
+**`busSchema`.** The document carries a top-level `busSchema`, written as `2`. A document that declares `busSchema >= 1` and *omits* the `buses` key keeps the loaded project's buses (the client round-trips the document without them). Anything else takes the full path above, and a document with `buses` but `busSchema < 2` (or none) — one from the previous release — additionally gets the **role migration**: the bus with id `main` becomes the Master bus (renamed "Master" only if it is still called "Main"), the bus with id `monitor` becomes the Preview bus (renamed "Preview" only if still "Monitor"); any bus whose output was the retired `{ "type": "master" }` (or had no output at all) becomes `{ "type": "bus", "target": "<master bus id>" }`, except the Master bus itself, which becomes `{ "type": "output", "target": "Main Out" }`; a stored `system` flag is ignored. A document lacking a Preview bus gets one synthesised; lacking a Master bus, the first Output-kind bus by `order` is promoted, else one is synthesised. The role holders are then held to the API's rules (Master and Preview must send to an output; nothing may feed Preview) and anything off disk that breaks them is corrected conservatively. All of this is logged at warn and reported as `rolesMigrated: true`.
+
+**`settings.previewDevice` and `settings.defaultOutputDevice`** are migrated, not read. On load, `previewDevice` becomes the Preview bus's `output.target` (unless that target is already mapped in `outputs.json`) and the key is erased either way — `previewDeviceMigrated` counts it; `defaultOutputDevice` becomes the Master bus's output as before and is erased. Nothing consults either key after load, so an external controller that used to set them through `PATCH /api/project/settings` must route through the buses instead: `PATCH /api/buses/<master-id> { "output": { "type": "output", "target": "<device or logical name>" } }` for the house, the same on the Preview bus for headphones. `settings.ltcDevice` is untouched.
 
 #### Project items
 
@@ -611,6 +650,8 @@ Project UI settings such as `settings.indexDisplayStart` only change the numbers
 | `PATCH /api/project/theme`    | partial `theme` object | the resulting `theme` object | `theme_patched` |
 | `PATCH /api/project/settings` | partial `settings` object | the resulting `settings` object | `settings_patched` |
 
+`settings` no longer carries audio routing. `defaultOutputDevice` and `previewDevice` are migrated onto the Master and Preview buses on load and erased (see [Project document](#project-document)); patching them here changes nothing audible and the keys go on the next load. Route through `PATCH /api/buses/<id>` instead.
+
 #### Project export / import (`.lpa` archives)
 
 `.lpa` is a zip of a project folder. Used for transporting projects between machines or between client and server.
@@ -638,7 +679,7 @@ On connect, the server adds the connection to the broadcast set and queues a one
 |-----------------------|--------------------|---------|
 | `meters`              | ~60 Hz             | per-cue / per-mixer / per-master meters (see below) |
 | `cue_state`           | On transport edge  | `{ "type": "cue_state", "cue_id": "…", "transport": 0\|1\|2\|3, "playhead_seconds": float, "item_uuid": "…" (when known) }` |
-| `playback_snapshot`   | On WS connect      | `{ "type": "playback_snapshot", "cues": [{cue_id,transport,playhead_seconds,item_uuid?}], "next_item_uuid": "…", "master_gain_db": float, "output_channel_gains": [{channel,db}], "preview": {item_uuid, cue_id} }` — lets a freshly-reconnected client mirror state without waiting for the next transport edge. |
+| `playback_snapshot`   | On WS connect      | `{ "type": "playback_snapshot", "cues": [{cue_id,transport,playhead_seconds,item_uuid?}], "next_item_uuid": "…", "master_gain_db": float, "output_channel_gains": [{channel,db}], "preview": {item_uuid, cue_id} }` — lets a freshly-reconnected client mirror state without waiting for the next transport edge. `master_gain_db` / `output_channel_gains` are the engine-wide trims (see [Transport & master](#transport--master)); bus faders are in `GET /api/buses`. |
 | `doc_patch`           | On every server-side document mutation | `{ "type": "doc_patch", "op": "<op-name>", …op-specific fields }` — see the `op` table below |
 | `pong`                | On `ping`          | `{ "type": "pong" }` |
 | `error`               | On malformed frame | `{ "type": "error", "message": "…" }` |
@@ -686,7 +727,7 @@ Stopped cues are omitted from `items`. Silent master channels (`peak_db <= -119 
 | `op`                            | Additional fields                                          | Emitted by |
 |---------------------------------|------------------------------------------------------------|------------|
 | `project_changed`               | (none — clients refetch)                                   | `POST /api/project/{load,close}`, `PUT /api/project/document` |
-| `project_migrated`              | `itemsToMain`, `busesFromDeviceOverride`, `mainOutputMigrated` — flat on the frame, not nested | `POST /api/project/load`, `POST /api/project/save`, `PUT /api/project/document`, when the loaded/replaced document had to migrate |
+| `project_migrated`              | `itemsToMain`, `busesFromDeviceOverride`, `mainOutputMigrated`, `previewDeviceMigrated`, `rolesMigrated` — flat on the frame, not nested | `POST /api/project/load`, `POST /api/project/save`, `PUT /api/project/document`, when the loaded/replaced document had to migrate |
 | `item_added`                    | `uuid`, `parentUuid`, `item`, `cueId`                      | `POST /api/project/items` |
 | `item_updated`                  | `uuid`, `patch`                                            | `PATCH /api/project/items/<uuid>` |
 | `item_removed`                  | `uuid`                                                     | `DELETE /api/project/items/<uuid>` |
@@ -698,10 +739,10 @@ Stopped cues are omitted from `items`. Silent master channels (`peak_db <= -119 
 | `master_gain_changed`           | `db`                                                       | `POST /api/master/gain` |
 | `limiter_changed`               | `enabled`                                                  | `POST /api/master/limiter` |
 | `output_channel_gain_changed`   | `channel`, `db`                                            | `POST /api/master/channels/<n>/gain` |
-| `buses_patched`                 | `buses` (full resulting `buses` array — see [Buses](#buses)) | `POST /api/buses`, `PATCH /api/buses/<id>`, `DELETE /api/buses/<id>`, WS `bus_gain`, WS `bus_mute` |
+| `buses_patched`                 | `buses` (full resulting `buses` array — see [Buses](#buses); a role move or a reorder arrives as this one frame) | `POST /api/buses`, `PATCH /api/buses/<id>`, `DELETE /api/buses/<id>`, WS `bus_gain`, WS `bus_mute` |
 | `bus_pfl_changed`               | `id`, `pfl`                                                | `POST /api/buses/<id>/pfl`, WS `bus_pfl` |
 | `bus_pfl_cleared`               | (none)                                                     | `POST /api/buses/pfl/clear` (only when it actually cleared something) |
-| `monitor_mono_changed`          | `mono`                                                     | `POST /api/monitor/mono` |
+| `monitor_mono_changed`          | `mono`                                                     | `POST /api/preview/mono`, `POST /api/monitor/mono` (one handler; the op name is unchanged for compatibility) |
 | `outputs_changed`               | same shape as `GET /api/outputs`, plus `rewiredBuses`      | `PUT /api/outputs` |
 | `selection_changed`             | `itemUuid` (empty string clears)                           | `POST /api/selection`, WS `set_selection`, WS `select_step` |
 | `show_mode_changed`             | `enabled`                                                  | `POST /api/ui/showmode`, WS `set_show_mode` |
@@ -774,6 +815,7 @@ A `.liveplay` project is a folder containing a JSON document plus a `media/` sub
 
 - Walks legacy `carts` / `playlist` arrays and reconstructs the v2 `cues` list with the same names, file paths, gains, and fade durations.
 - Synthesises stereo master assignments: master channel 0 → default device hw ch 0, master channel 1 → default device hw ch 1.
+- Runs the same bus load as a modern document (see [Project document](#project-document)), so a 1.x file comes up with a Master bus on `Main Out` and a Preview bus on `Preview Out` — everything it plays goes out of the house.
 - Auto-creates one per-cue mixer channel so each cue still has independent gain/fade.
 
 Result: existing `.liveplay` projects open and play identically. Operators can then open the new Routing UI to split source channels or send to additional devices.

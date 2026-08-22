@@ -11,6 +11,9 @@
 > Ownership-model placement follows the object-ownership model discussed in issue #46.
 > Decisions below cite `MIXER_BUSES_PLAN.md` §3 (D1–D23) where they were taken during that
 > plan's execution; see that file's task table (§6) for full agent-verified detail.
+> **Round 2 (2026-08-22):** the system buses are gone — Master and Preview are ordinary buses
+> carrying a *role* (`MIXER_BUSES_PLAN.md` §10, D24–D37). §0.7 records it; wherever an older
+> section below says Main, Monitor or "system bus", read it through §0.7.
 
 ---
 
@@ -258,8 +261,9 @@ at them.
   release (maintainer decision, 2026-08-21) rather than added piecemeal — the two need to behave
   identically, and neither has tabindex/keydown handling, so the mixer still cannot be driven
   without a pointer.
-- **Master-strip channel view (master DSP).** The channel-details view exists for every ordinary
-  bus; opening it on the master strip is out of scope this release.
+- ~~**Master-strip channel view (master DSP).** The channel-details view exists for every ordinary
+  bus; opening it on the master strip is out of scope this release.~~ **Closed in round 2 (§0.7):**
+  the Master bus is an ordinary bus with a role, so the master channel view is just the channel view.
 - **Multi-channel (>2) buses.** Every bus is mono or stereo; buses wider than a pair are not
   modelled.
 - **Frequency-dependent width above the bass** — widening the top independently of the middle.
@@ -267,16 +271,20 @@ at them.
   mastering flavour and was left out rather than doubling the control count on every strip.
 - **A UI for the engine's global master gain.** The engine has a genuine global master gain
   (`set_master_gain_db`, ±12 dB) applied to *every* master accumulator before the limiter. The
-  visible master fader — in the mixer and on the transport bar — drives something else: the
-  **per-output-channel gain on masters 0/1**, deliberately, so two faders both labelled master
-  cannot move independently. The global one cannot just be exposed as "the master fader", because
-  it also hits the reserved pair at the top of the bus: pulling it down would take the operator's
-  headphones with it. Any UI for it has to answer that first, and D21 leaves that question open.
-- **`previewDevice`/`ltcDevice` migration.** `previewDevice` is still a device name in the
+  visible master fader — in the mixer and on the transport bar — drives something else: since
+  round 2 (§0.7) it is the **Master bus's own `gainDb`**, the same fader every bus has (before
+  that it was the per-output-channel gain on masters 0/1), deliberately, so two faders both
+  labelled master cannot move independently. The global one cannot just be exposed as "the master
+  fader", because it also hits the reserved pair at the top of the bus: pulling it down would take
+  the operator's headphones with it. Any UI for it has to answer that first, and D21 leaves that
+  question open.
+- ~~**`previewDevice`/`ltcDevice` migration.** `previewDevice` is still a device name in the
   project, used as the fallback binding for the Monitor bus. The portable path exists — map
   `"Monitor"` in the output map and it wins — but the legacy field is still honoured, because
-  dropping it would silently take pre-listen away from every project that has one configured.
-  `ltcDevice` is untouched, being a separate feature.
+  dropping it would silently take pre-listen away from every project that has one configured.~~
+  **`previewDevice` closed in round 2 (§0.7, D28):** it migrates onto the Preview bus's output on
+  load and is erased; nothing reads it after that. `ltcDevice` is untouched, being a separate
+  feature.
 - **The Bitfocus Companion module repo.** Not started. D16's northbound REST/WS semantics
   (persist-and-broadcast, `PATCH` over the live-drag endpoints) exist to make a Companion module
   straightforward to build, but nothing has been built against them yet.
@@ -294,7 +302,7 @@ still true**, not because they are newly deferred:
 - **The HPF/LPF markers on the EQ curve are still inert.** The band handles are draggable; the
   filter markers are not, because the knobs that set them live on the fader column and dragging
   here would mean reaching into a sibling component's controls.
-- **The Monitor strip has no dedicated "what am I listening to" readout.** It meters the sum of
+- **The Monitor strip (the Preview strip, since §0.7) has no dedicated "what am I listening to" readout.** It meters the sum of
   PFL and pre-listen, which is correct, but with three buses tapped there is nothing naming them
   except three lit PFL buttons and the count on the clear control.
 
@@ -561,6 +569,129 @@ Still true, and still deliberate: giving secondary devices a *deeper* ring inste
 them was rejected, because a fixed offset would put the headphones permanently out of sync with
 the house by the difference — worse for PFL work than an occasional discontinuity ever was.
 
+### 0.7 Roles replace system buses (round 2, 2026-08-22)
+
+The maintainer's review of the round-1 result (`MIXER_BUSES_PLAN.md` §10) turned one design
+knot — Main and Monitor as hidden *system* buses, special-cased in some twenty-five places, with
+the audio device and the preview device still living in project settings as device names — into
+one design change. The model asked for is the one every console already has: Fairlight's bus
+management, where Main, Sub, Aux, Mix-Minus and Matrix buses are all renamed, re-formatted and
+colour-coded in one window, channels assign to "one or more available Main Output busses" and
+hardware is patched in a separate Patching Matrix; Pro Tools' I/O Setup, where a track's Output
+selector lists output paths and buses alike and AFL/PFL goes to a dedicated listen path. In that
+model there is no special bus type. There are ordinary buses, and two of them happen to be *the*
+house and *the* listen path. That is what round 2 built (D24–D37; server in `e8d39cb`, mixer in
+`fb87d29`, periphery in `2a9fa89`).
+
+**What was actually wrong.** The report was "legacy projects aren't routed to the master — audio
+plays but the mixer shows nothing". Two causes (§10.1). Main was hidden from the rail, so a
+migrated project showed an empty desk; that was cosmetic. The real one: migration moved
+`settings.defaultOutputDevice` onto Main as an Output-kind target, and an Output-kind bus took a
+**pool** master pair (≥ 2) — while the master strip, the transport bar's "Main" meter and the
+house seam detector all read masters 0/1, which were therefore silent. The mixer really did show
+nothing. The house pair is now a property of the role, not of the output kind (D27 below), which
+closes that for good.
+
+**The rules.**
+
+- **D24 — roles.** A bus carries `master: bool` and `preview: bool`. A project has exactly one
+  master-role bus and exactly one preview-role bus, never the same bus; `system` is gone from the
+  JSON and the document. The master-role bus is the inheritance fallback (item `busId` → nearest
+  ancestor group → master bus) **and the house**: its hardware pair is masters 0/1 — the clock
+  device (D15), the house meters, the seam detector, the transport bar's "Main". The preview-role
+  bus is the destination of PFL and cue pre-listen, owns the reserved preview pair, and carries
+  mono-check — everything Monitor did. Roles move with `PATCH /api/buses/<id> {master:true}` /
+  `{preview:true}`, atomically: the previous holder loses the flag, both are rewired, one
+  `buses_patched`. `{master:false}` / `{preview:false}` is 409 ("move the role to another bus
+  instead"); `DELETE` of a holder is 409 ("this bus holds the Master/Preview role; move it
+  first"). Defaults: ids `master` / `preview`, names "Master" / "Preview". A role holder is in
+  every other respect an ordinary bus — renamed, recoloured, re-routed, reordered, given DSP,
+  opened in the channel view.
+- **D25 — `output.type:"master"` is retired.** Types are `output` and `bus`. A sub-mix reaches
+  the house by targeting the master bus bus→bus; the master bus itself sends to an output. The
+  master-role and preview-role buses must both be Output-kind (409 otherwise), and nothing may
+  feed the preview bus (409). The API still accepts `type:"master"` on `POST`/`PATCH` for one
+  release and maps it to bus→master at warn, so a round-1 controller keeps working; it is never
+  written back. D9's delete-retarget now re-routes feeders to the master bus.
+- **D26 — built-in logical outputs.** `"Main Out"` and `"Preview Out"`. A real mapping always
+  wins; unmapped, `Main Out` is the platform default device (the empty device name, which is what
+  `open_device_by_name` treats as the default) and `Preview Out` is no channels at all — silence
+  is the safe answer for the bus PFL lands on, because the default device *is* the house. Any
+  other unmapped name keeps the identity fallback. `GET /api/outputs` lists the two in
+  `builtin`. `bound` for an Output-kind bus is mapped ‖ `Main Out` ‖ a device of that name is
+  present (a cached device list, refreshed on `/api/devices` and on device open, never on the
+  render thread); the preview bus keeps Monitor's strict rule and is bound only when it actually
+  resolved.
+- **D27 — the house pair.** The master-role bus resolves its target like any Output-kind bus but
+  is wired on masters 0/1 via `assign_master_to_device(0/1, …)`, not from the pool; the pool
+  starts at 2 as before; the preview-role bus wires on the reserved pair exactly as
+  `wire_monitor_bus` did. Moving the master role re-wires 0/1 to the new holder and returns the
+  old holder to a pool pair. `AudioEngine::ensure_default_routing` prefers the strip registered
+  via `set_master_mixer(id)` (mirror of `set_monitor_mixer`) over a strip named "Main".
+- **D28 — `settings.previewDevice` migrates.** On load, if the preview bus's target is not mapped,
+  the device name becomes the preview bus's `output.target`; the key is erased either way and
+  counted as `previewDeviceMigrated`. `resolve_monitor_channels`' previewDevice fallback and
+  `apply_preview_device_change` are gone; nothing reads the key after load. `ltcDevice` is
+  untouched.
+
+**What round 2 also carried** (D29–D35, in brief): the strip's output picker offers Buses
+(master first), Outputs (built-ins first, each with its mapping spelled out — `FOH — Scarlett
+3/4`, `— default device`, `— unmapped`), plain Devices, then "Edit hardware outputs…"; picking a
+device writes `{type:"output", target:<device name>}` and D26 makes it `bound`, no
+`outputs.json` write. The Audio Device and Preview Device sections left project settings for a
+one-paragraph pointer and an Open Mixer button; the cue preview buttons gate on the preview bus
+being `bound` and open the mixer when it is not. Bus JSON gained `masters: [l, r] | null`, and the
+transport bar builds its output meters and faders from buses that have one — label is the bus
+name, fader is that bus's `gainDb`; `outputChannelGains` stays at unity and lost its UI.
+`/api/monitor/mono` is aliased at `/api/preview/mono`. `busSchema` is 2; a `< 2` document gets
+the role migration (`main` → master, `monitor` → preview, renamed only if still carrying the old
+stock name; Master-kind outputs per D25) and reports `rolesMigrated`. New and empty projects get
+`master` ("Master", order 1 000 000, `Main Out`) and `preview` ("Preview", order 1 000 001,
+`Preview Out`); a loaded document lacking a preview holder gets one synthesised, lacking a master
+holder has its first Output-kind bus promoted (else one synthesised), at warn. `reset()` now
+materialises its strips, closing round-1 finding 7 (`MIXER_BUSES_PLAN.md` §9): a bare server has
+a desk with the house pair wired from the start, so `GET /api/buses` is never `[]`.
+
+**The mixer (D31).** Rail = every bus without a role, by `order`, drag-reorderable (`PATCH
+{order}`; the server renumbers the rail 1..N and broadcasts); the pinned right section is the
+preview strip then the master strip. One `MixerStrip` for all of them — the `master`/`monitor`
+render props are gone, the strip reads `bus.master` / `bus.preview` — with a role badge on the
+scribble strip, a colour chip that recolours, a ⋮ menu (rename, colour, channel settings, set as
+Master / Preview, delete — disabled with the D24 reason on a holder) and an EDIT button that
+reads as one. The preview strip's MUTE/PFL slot shows MONO; every other strip, the master
+included, has PFL. The pseudo `__master__` bus, `masterGainDb` and the `master` StereoMeter path
+are deleted: the master strip meters its own lanes like every bus.
+
+**What this does to the older sections.** They stay as the record of how the design was reached;
+read them with these substitutions:
+
+- §2.1's "two system busses always exist and cannot be deleted" → two *roles* always exist and
+  cannot be dropped; the buses carrying them can be anything. Its `output.type` table loses the
+  `master` row: "into the master bus" is `{type:"bus", target:<master bus id>}`.
+- §2.4's Monitor is the preview-role bus. Everything said about the tap point, the reserved pair
+  and the safety argument holds unchanged; "Monitor" is now whichever bus holds the role, and
+  the role can move.
+- §0.2 "**Monitor IS the preview bus**" — still true; it is now the preview-*role* bus. "Monitor
+  may not target the master", "Monitor gets no identity fallback", "a bus→bus target must be a
+  non-system bus (D6)" — all still true of the preview-role bus, with D25's one relaxation: the
+  **master** bus may be a bus→bus *target*, because that is how a sub-mix reaches the house.
+- §0.2 "**System buses (Main, Monitor) are hidden from the strip rail**" — superseded. Both are
+  on the surface, pinned right. The reason given there (Main had no level of its own) is no
+  longer true: the Master bus has a fader, and it is the master fader.
+- §0.2 "**The mixer's master fader drives output-channel gain on masters 0/1**" and "**The
+  master is a `MixerStrip` with `master` set**" — superseded. The master strip's fader is the
+  Master bus's `gainDb`, persisted and broadcast like any bus; the transport bar's "Master" fader
+  is the same value through the same path. The engine's global master gain still has no UI
+  (§0.3, unchanged).
+- §0.2 "**`GET /api/buses` reports `bound`**" — still true; the reason cited
+  (`settings.previewDevice` not being in the map) has gone with the key, and `bound` now also
+  answers for a plain device name (D26).
+- §0.1 Stage 3's "Monitor's hardware binding is the `"Monitor"` logical output when this machine
+  maps one, else `settings.previewDevice`" → the preview bus's binding is its own `output`,
+  `Preview Out` by default; `"Monitor"` still resolves as a plain name if a map carries it.
+- §0.3's master-strip channel view and `previewDevice` migration items are closed (struck
+  through above).
+
 ---
 
 ## 1. What exists today
@@ -639,6 +770,9 @@ allocation fails. This should be fixed regardless of the bus work, and gets wors
 ## 2. Target model
 
 ### 2.1 Bus object (Project tier)
+
+> Superseded in part by §0.7: there are no system buses — `master`/`preview` are *role flags* on
+> ordinary buses, and `output.type` is `output` or `bus` only. Kept as the record.
 
 ```jsonc
 {
@@ -743,6 +877,9 @@ feed a bus makes it a directed graph, which brings two requirements:
 Both belong to the control thread. The render thread's contract stays "walk a flat list."
 
 ### 2.4 PFL instead of solo
+
+> Superseded in part by §0.7: "the Monitor bus" below is the bus holding the *preview* role, which
+> can move between buses. The tap point and the safety argument are unchanged.
 
 **Decision: replace solo with PFL.** A PFL'd bus adds one send into the Monitor bus. Nothing is
 muted, the house output is untouched, multiple PFLs sum — standard console behaviour.
