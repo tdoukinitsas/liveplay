@@ -293,7 +293,7 @@
 </template>
 
 <script setup lang="ts">
-import type { AudioItem, GroupItem } from '~/types/project';
+import type { AudioItem, Bus, GroupItem } from '~/types/project';
 import { PRESET_COLORS } from '~/types/project';
 import { calculatePerceivedLoudness } from '~/utils/audio';
 import { useOutputTarget } from '~/composables/useOutputTarget';
@@ -338,18 +338,25 @@ const apiTriggerUrl = computed(() => {
 });
 // Bus assignment. An item carries busId and nothing else about routing; the
 // bus decides where the audio goes. Clearing it means "inherit" — from the
-// nearest ancestor group, or Main if no group assigns one.
+// nearest ancestor group, or the master-role bus if no group assigns one.
+//
+// Every bus is offered except the preview-role bus: it is the PFL and
+// pre-listen destination, and the server refuses cues on it. The master bus
+// is listed under its own name, in rail order with the rest — it is the
+// default destination, but "Inherit" is how you say so, not picking it.
 const assignableBuses = computed(() =>
-  (_server.buses ?? []).filter((b: any) => !b.system));
+  (_server.buses ?? [])
+    .filter((b: Bus) => !b.preview)
+    .sort((a: Bus, b: Bus) => a.order - b.order));
 
 // Mirrors the server's resolve_item_bus (server/src/core/project_state.cpp):
 // walk the tree carrying the nearest ancestor's assignment down; an item's
 // own busId (checked by the caller before this runs) would override it, so
 // by the time we get here the answer is purely "what did it inherit". Falls
-// back to the Main bus (server id "main") when nothing along the chain
-// assigns one — same as the server.
+// back to the master-role bus (D24) when nothing along the chain assigns one
+// — same as the server.
 const resolveEffectiveBusId = (uuid: string): string => {
-  const MAIN_BUS_ID = 'main';
+  const MAIN_BUS_ID = (_server.buses ?? []).find((b: Bus) => b.master)?.id ?? 'master';
   const items = currentProject.value?.items ?? [];
   let result: string | null = null;
   const walk = (arr: (AudioItem | GroupItem)[], inherited: string): boolean => {
@@ -373,8 +380,8 @@ const effectiveBusName = computed(() => {
   const it = selectedItem.value as any;
   if (!it?.uuid || it.busId) return '';
   const busId = resolveEffectiveBusId(it.uuid);
-  const bus = (_server.buses ?? []).find((b: any) => b.id === busId);
-  return bus?.name ?? 'Main';
+  const bus = (_server.buses ?? []).find((b: Bus) => b.id === busId);
+  return bus?.name ?? t('mixer.master');
 });
 
 const onBusChange = async (e: Event) => {

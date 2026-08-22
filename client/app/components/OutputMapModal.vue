@@ -26,9 +26,22 @@
                 class="outmap-name"
                 :value="row.name"
                 :placeholder="t('mixer.outputMapOutputName')"
+                :readonly="row.builtin"
+                :title="row.builtin ? t('mixer.outputMapBuiltin') : ''"
                 @input="row.name = ($event.target as HTMLInputElement).value"
               />
+              <!-- A built-in row (D26) is a name the server special-cases
+                   when it has no mapping; it cannot be deleted, only left
+                   unmapped, so the delete button gives way to a hint. -->
+              <span
+                v-if="row.builtin"
+                class="outmap-builtin"
+                :title="t('mixer.outputMapBuiltin')"
+              >
+                <span class="material-symbols-rounded">lock</span>
+              </span>
               <button
+                v-else
                 class="outmap-iconbtn outmap-iconbtn--danger"
                 :title="t('mixer.outputMapDeleteOutput')"
                 @click="requestDeleteOutput(ri)"
@@ -148,7 +161,7 @@ import { computed, ref, watch } from 'vue';
 // than only reacting to its own submit.
 
 interface DraftChannel { device: string; hwChannel: number }
-interface DraftRow { key: number; name: string; channels: DraftChannel[] }
+interface DraftRow { key: number; name: string; channels: DraftChannel[]; builtin?: boolean }
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: 'close'): void }>();
@@ -169,11 +182,23 @@ async function loadAll() {
   try {
     await server.fetchDevices();
     const map = await server.fetchOutputs();
+    const builtin = new Set(map?.builtin ?? []);
     rows.value = (map?.outputs ?? []).map(o => ({
       key: freshKey(),
       name: o.name,
       channels: (o.channels ?? []).map(c => ({ device: c.device, hwChannel: c.hwChannel })),
+      builtin: builtin.has(o.name),
     }));
+    // The built-in names (D26) are always shown, mapped or not, so "Main
+    // Out" and "Preview Out" can be bound like any other name. An unmapped
+    // one is a row with no channels; it is left out of the saved map (see
+    // save) so the server keeps special-casing it rather than reading an
+    // empty mapping.
+    for (const name of [...(map?.builtin ?? [])].reverse()) {
+      if (!rows.value.some(r => r.name === name)) {
+        rows.value.unshift({ key: freshKey(), name, channels: [], builtin: true });
+      }
+    }
   } catch (e) {
     loadError.value = String(e);
   }
@@ -285,11 +310,16 @@ async function save() {
       outputs: rows.value
         .map(r => ({
           name: r.name.trim(),
+          builtin: !!r.builtin,
           channels: r.channels
             .filter(c => c.device)
             .map(c => ({ device: c.device, hwChannel: Math.max(0, Math.trunc(c.hwChannel) || 0) })),
         }))
-        .filter(r => r.name),
+        // A built-in row with no channels is "unmapped", not "mapped to
+        // nothing" — leaving it out is what keeps Main Out on the default
+        // device.
+        .filter(r => r.name && !(r.builtin && r.channels.length === 0))
+        .map(({ name, channels }) => ({ name, channels })),
     };
     // Single whole-map PUT — the endpoint is a full replace, so there is no
     // partial-save path. On success the server's outputs_changed broadcast is
@@ -440,6 +470,13 @@ function requestClose() {
   border-radius: 6px;
   cursor: pointer;
 }
+.outmap-builtin {
+  display: flex;
+  align-items: center;
+  color: var(--color-text-disabled);
+  cursor: help;
+}
+.outmap-builtin .material-symbols-rounded { font-size: 16px; }
 .outmap-iconbtn:hover { color: var(--color-text-primary); }
 .outmap-iconbtn .material-symbols-rounded { font-size: 16px; }
 .outmap-iconbtn--danger:hover { color: var(--color-danger); border-color: var(--color-danger); }

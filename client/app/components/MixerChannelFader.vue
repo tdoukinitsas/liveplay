@@ -23,7 +23,6 @@
       <div class="cf__name">
         <input
           :value="bus.name"
-          :disabled="bus.system"
           @change="$emit('patch', bus.id, { name: ($event.target as HTMLInputElement).value })"
         />
       </div>
@@ -266,8 +265,8 @@ function onMute() {
   emit('patch', props.bus.id, { mute: next });
 }
 
-// Pre-fade listen: a tap into Monitor, taken before this fader and before the
-// mute above it. Engine-only state, so nothing is persisted and there is no
+// Pre-fade listen: a tap into the preview bus, taken before this fader and
+// before the mute above it. Engine-only state, so nothing is persisted and there is no
 // document round-trip to wait for.
 function onPfl() {
   void server.setBusPfl(props.bus.id, !props.bus.pfl).catch(() => {});

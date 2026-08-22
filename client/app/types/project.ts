@@ -7,8 +7,8 @@ export interface BaseItem {
   type: 'audio' | 'group' | 'action'; // Extensible for future item types
   /**
    * Which bus this item plays through. Absent means *inherit* — from the
-   * nearest ancestor group, or the Main bus if nothing along the chain
-   * assigns one. It is the whole of an item's routing.
+   * nearest ancestor group, or the master-role bus if nothing along the
+   * chain assigns one. It is the whole of an item's routing.
    *
    * Declared on BaseItem because a group carries it too and passes it down.
    * It was missing from these types entirely, so every site that touched it

@@ -244,7 +244,7 @@ export const useProject = () => {
     () => ({ loading: false, loaded: 0, total: 0 }),
   );
   // Server-owned preview state: at most one item is "being previewed" at a
-  // time (DJ pre-listen on settings.previewDevice). Empty string = no
+  // time (DJ pre-listen, on the Preview bus). Empty string = no
   // preview active. The server updates this; the client mirrors it for UI.
   const previewItemUuid = useState<string>('useProject.previewItemUuid', () => '');
   // Engine cue ID for the active preview — needed to subscribe to its meter

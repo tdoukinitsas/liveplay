@@ -1,7 +1,7 @@
 <template>
   <!--
-    The mixer: a bank of channel strips, one per bus, with the master pinned
-    to the right.
+    The mixer: a bank of channel strips, one per bus, with the Preview and
+    Master buses pinned to the right.
 
     Strips are buses, not cues. A cue is transient — it starts and stops
     constantly during a show — so a mixer whose strips appeared and vanished
@@ -39,53 +39,68 @@
     <MixerChannelDetails
       v-if="detailsBus"
       :bus="detailsBus"
-      :buses="userBuses"
-      :output-names="outputNames"
+      :buses="orderedBuses"
+      :outputs="outputMap"
       @patch="onPatch"
       @delete="onDelete"
+      @set-role="onSetRole"
       @select="showChannel"
       @close="detailsId = ''"
       @open-output-map="outputMapOpen = true"
     />
 
     <div v-else class="mixer__body">
-      <div class="mixer__strips">
+      <!-- The rail: every bus without a role, in `order`. Strips are dragged
+           by their grip to reorder; the marker shows where the drop lands. -->
+      <div ref="railEl" class="mixer__strips">
         <MixerStrip
-          v-for="bus in userBuses"
+          v-for="bus in railBuses"
           :key="bus.id"
           :bus="bus"
+          :buses="buses"
+          :outputs="outputMap"
           :selected="bus.id === selectedId"
           :touch="touch"
-          :output-names="outputNames"
+          :dragging="drag?.id === bus.id"
           @select="selectedId = $event"
           @open="openDetails"
           @patch="onPatch"
+          @delete="onDelete"
+          @set-role="onSetRole"
+          @drag-start="onDragStart"
           @open-output-map="outputMapOpen = true"
         />
-        <p v-if="userBuses.length === 0" class="mixer__empty">{{ t('mixer.empty') }}</p>
+        <p v-if="railBuses.length === 0" class="mixer__empty">{{ t('mixer.empty') }}</p>
+        <div
+          v-if="drag && dropMarkerLeft !== null"
+          class="mixer__dropmark"
+          :style="{ left: dropMarkerLeft + 'px' }"
+        ></div>
       </div>
 
-      <!-- Monitor and master, pinned right — the same component as every
+      <!-- Preview and Master, pinned right — the same component as every
            other strip, so they have the same rows at the same heights and
-           their faders line up with the rail's. The master was bespoke
-           markup here, which is exactly why the one strip that matters most
-           looked unlike all the others.
-
-           Monitor is a real bus with a real fader — that fader is the
-           headphone level — but it is where PFL lands rather than a channel
-           anything can be assigned to, so it sits beside the master instead
-           of in the assignable rail. -->
+           their faders line up with the rail's. They are ordinary buses
+           that hold a role (D24): Preview is where PFL and cue pre-listen
+           land, and its fader is the headphone level; Master is the house
+           and where every unassigned cue plays. A role can be moved to any
+           rail strip from its ⋮ menu, and the strips swap places here. -->
       <div class="mixer__master">
         <MixerStrip
-          v-if="monitorBus"
-          :bus="monitorBus"
+          v-for="bus in pinnedBuses"
+          :key="bus.id"
+          :bus="bus"
+          :buses="buses"
+          :outputs="outputMap"
+          :selected="bus.id === selectedId"
           :touch="touch"
-          :output-names="outputNames"
-          monitor
+          @select="selectedId = $event"
+          @open="openDetails"
           @patch="onPatch"
+          @delete="onDelete"
+          @set-role="onSetRole"
           @open-output-map="outputMapOpen = true"
         />
-        <MixerStrip :bus="masterBus" :touch="touch" :output-names="[]" master />
       </div>
     </div>
 
@@ -99,6 +114,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { Bus } from '~/types/project';
+import type { OutputMap } from '~/composables/useLiveplayServer';
 import MixerStrip from './MixerStrip.vue';
 import MixerChannelDetails from './MixerChannelDetails.vue';
 import MixerActions from './MixerActions.vue';
@@ -150,70 +166,39 @@ const touch = computed(() => uiMode.value === 'playback');
 const selectedId  = useState<string>('liveplay:mixerSelectedBus', () => '');
 // Which channel the channel view is showing; empty means the rail.
 const detailsId   = useState<string>('liveplay:mixerDetailsBus', () => '');
-const outputNames = ref<string[]>([]);
+// The machine's output map, for the strips' pickers; null until fetched.
+const outputMap   = ref<OutputMap | null>(null);
 // Pure view state (invariant 1's one allowance): whether the output-map
 // editor is open. Everything the modal shows and saves comes from the
 // server, never from anything held here.
 const outputMapOpen = ref(false);
 
-// The master strip drives the *same* parameter as the transport bar's Main
-// fader — the output-channel gain on masters 0/1 — rather than the engine's
-// global master gain. Two faders both labelled master that moved independently
-// was just confusing. outputChannelGains is reactive and kept live by the
-// output_channel_gain_changed broadcast, so the two track each other in both
-// directions and across clients.
-const masterGainDb = computed(() => server.outputChannelGains[0] ?? 0);
-
-// The master presented as a bus, so it can go through MixerStrip. Nothing on
-// the server backs this — MixerStrip reads `master` and takes the output-pair
-// path for the fader and the meter — but shaping it as a Bus keeps one strip
-// component instead of two that drift apart.
-const masterBus = computed<Bus>(() => ({
-  id: '__master__',
-  name: t('mixer.master'),
-  color: '',
-  order: Number.MAX_SAFE_INTEGER,
-  width: 2,
-  gainDb: masterGainDb.value,
-  mute: false,
-  pan: 0,
-  pfl: false,
-  monoCheck: false,
-  dsp: {
-    eqEnabled: true, dynEnabled: true,
-    hpf: { freq: 20, q: 0.7071 }, lpf: { freq: 20000, q: 0.7071 },
-    eq: [], gate: { on: false, threshold: -40, ratio: 2, range: -20,
-                    attack: 1, hold: 10, release: 100 },
-    comp: { on: false, threshold: -18, ratio: 4, makeup: 0,
-            attack: 10, knee: 6, release: 200 },
-    width: { width: 1, bassMonoHz: 20, bassMonoQ: 0.7071 },
-  },
-  bound: true,
-  system: true,
-  output: { type: 'output', target: '' },
-  mixerId: '',
-  itemUuids: [],
-}));
-
 const buses = computed<Bus[]>(() => server.buses ?? []);
 
-// Only user buses get a strip. Main is where unassigned cues already land and
-// Monitor is the PFL destination, which nothing can be assigned to until PFL
-// exists — drawing either as a fader that does nothing would be a lie, and
-// Monitor showing up as the lone strip on a fresh project reads as "the mixer
-// is already set up" when it isn't.
-//
-// Deliberately NOT filtered on mixerId. A bus is a bus whether or not the
-// engine currently has a strip for it; MixerStrip already renders the
-// strip-less state. Hiding them meant a single fetch that caught the server
-// mid-rebuild emptied the whole rail, and nothing refetched until the panel
-// was remounted — which is why expanding or undocking appeared to "fix" it.
-const userBuses = computed(() => buses.value.filter(b => !b.system));
+// The rail is every bus without a role, in order. Deliberately NOT filtered
+// on mixerId: a bus is a bus whether or not the engine currently has a strip
+// for it, and MixerStrip already renders the strip-less state. Hiding them
+// meant a single fetch that caught the server mid-rebuild emptied the whole
+// rail, and nothing refetched until the panel was remounted — which is why
+// expanding or undocking appeared to "fix" it.
+const railBuses = computed(() =>
+  buses.value.filter(b => !b.master && !b.preview).sort((a, b) => a.order - b.order));
 
-// Monitor gets a strip of its own next to the master, because since PFL landed
-// it has something to carry and a level worth reaching for. Absent only while
-// the first fetch is in flight.
-const monitorBus = computed(() => buses.value.find(b => b.id === 'monitor') ?? null);
+// The pinned pair: Preview, then Master, at the right-hand end — as a desk
+// puts its monitor section beside the main fader. Either is absent only
+// while the first fetch is in flight; the server guarantees one of each.
+const pinnedBuses = computed(() => {
+  const out: Bus[] = [];
+  const preview = buses.value.find(b => b.preview);
+  const master  = buses.value.find(b => b.master);
+  if (preview) out.push(preview);
+  if (master)  out.push(master);
+  return out;
+});
+
+// Rail then pinned: the order the channel view steps through and the order
+// of its select row, matching what the eye sees left to right.
+const orderedBuses = computed(() => [...railBuses.value, ...pinnedBuses.value]);
 
 // Anything currently in the phones. Drives the clear control, which exists
 // because PFL is additive and silent about it: three channels tapped from
@@ -234,51 +219,173 @@ async function clearPfl() {
 // for it, via the strip's button or the select row at the bottom.
 const detailsBus = computed(() =>
   props.mode === 'full'
-    ? userBuses.value.find(b => b.id === detailsId.value) ?? null
+    ? buses.value.find(b => b.id === detailsId.value) ?? null
     : null);
 
-// Was fetched once at mount and never again — a remap from any client (this
-// window's own modal included) left every strip's output <select> pointing
-// at a stale name list until the panel was remounted. Refetching here, on
-// the outputs_changed broadcast and on every WS reconnect, is what actually
-// keeps it live; the modal owns its own copy of the map and is not the thing
-// this depends on.
-async function refreshOutputNames() {
+// Refetched here, on the outputs_changed broadcast and on every WS reconnect,
+// so a remap from any client (this window's own modal included) reaches every
+// strip's picker; the modal owns its own draft of the map and is not the
+// thing this depends on. Devices too: the pickers list them (D29), and the
+// server's `bound` for a device-named target follows the same enumeration.
+async function refreshOutputs() {
   try {
-    const map = await server.fetchOutputs();
-    outputNames.value = (map?.outputs ?? []).map(o => o.name);
+    outputMap.value = await server.fetchOutputs();
   } catch { /* offline; the next reconnect or outputs_changed retries */ }
+  try { await server.fetchDevices(); } catch { /* same */ }
 }
 
 const unsubDocPatch = server.onDocPatch((payload: any) => {
-  if (payload?.op === 'outputs_changed') void refreshOutputNames();
+  if (payload?.op === 'outputs_changed') void refreshOutputs();
 });
-const unsubReconnected = server.onReconnected(() => { void refreshOutputNames(); });
+const unsubReconnected = server.onReconnected(() => { void refreshOutputs(); });
 onBeforeUnmount(() => {
   unsubDocPatch();
   unsubReconnected();
+  endDrag();
 });
 
 onMounted(async () => {
   await server.fetchBuses();
-  await refreshOutputNames();
+  await refreshOutputs();
 });
 
 async function onPatch(id: string, patch: Partial<Bus>) {
   await server.patchBus(id, patch);
 }
 async function onDelete(id: string) {
+  // A role holder cannot be deleted (D24); the menu already says so and
+  // disables the item, and the server 409s regardless.
+  const b = buses.value.find(x => x.id === id);
+  if (!b || b.master || b.preview) return;
   await server.deleteBus(id);
   if (selectedId.value === id) selectedId.value = '';
   // Deleting the channel you are looking at drops you back to the rail rather
   // than leaving the view pointed at something that no longer exists.
   if (detailsId.value === id) detailsId.value = '';
 }
+async function onSetRole(id: string, role: 'master' | 'preview') {
+  try { await server.setBusRole(id, role); } catch { /* refused; the list refetches on the next broadcast */ }
+}
 async function addBus() {
   const id = await server.createBus({ name: t('mixer.newBusName'), width: 2 });
   selectedId.value = id;
   // Back to the rail, where the new strip actually is.
   detailsId.value = '';
+}
+
+// ---- Rail drag-reorder ----------------------------------------------------
+// A pointer drag from a strip's grip. The strip reports the grab; the rail
+// owns the gesture, since where a drop lands is a question about every
+// strip's position, not the one being moved. The marker is the only visual
+// — strips do not shuffle live, because the server owns the order and the
+// rail re-sorts from its broadcast after the PATCH. Nothing here is state
+// another client could see.
+const railEl = ref<HTMLElement | null>(null);
+const drag = ref<{ id: string; dropIndex: number } | null>(null);
+const dropMarkerLeft = ref<number | null>(null);
+
+function railStripEls(): HTMLElement[] {
+  return Array.from(railEl.value?.querySelectorAll<HTMLElement>(':scope > .strip') ?? []);
+}
+
+function onDragStart(id: string, e: PointerEvent) {
+  drag.value = { id, dropIndex: railBuses.value.findIndex(b => b.id === id) };
+  // Capture on the grip element so the move/up keep arriving even when the
+  // pointer leaves it — or the window.
+  try { (e.target as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* not capturable */ }
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', onDragEnd);
+  window.addEventListener('pointercancel', endDrag);
+  updateDrop(e.clientX);
+}
+
+// The insertion index is the count of strips whose centre the pointer has
+// passed; the marker sits at that strip's left edge, or past the last one.
+function updateDrop(clientX: number) {
+  if (!drag.value) return;
+  const els = railStripEls();
+  let idx = els.length;
+  for (let i = 0; i < els.length; i++) {
+    const r = els[i]!.getBoundingClientRect();
+    if (clientX < r.left + r.width / 2) { idx = i; break; }
+  }
+  drag.value.dropIndex = idx;
+  const rail = railEl.value;
+  if (!rail) { dropMarkerLeft.value = null; return; }
+  if (els.length === 0) { dropMarkerLeft.value = null; return; }
+  // offsetLeft is relative to the rail (it is positioned), and scrolls with
+  // the strips, so the marker stays beside the strip it marks while the rail
+  // is scrolled.
+  if (idx < els.length) {
+    dropMarkerLeft.value = els[idx]!.offsetLeft - 2;
+  } else {
+    const last = els[els.length - 1]!;
+    dropMarkerLeft.value = last.offsetLeft + last.offsetWidth;
+  }
+}
+
+function onDragMove(e: PointerEvent) {
+  updateDrop(e.clientX);
+  // Scroll the rail when dragging against its edges, so a long rail can be
+  // crossed in one gesture.
+  const rail = railEl.value;
+  if (rail) {
+    const r = rail.getBoundingClientRect();
+    if (e.clientX > r.right - 24) rail.scrollLeft += 8;
+    else if (e.clientX < r.left + 24) rail.scrollLeft -= 8;
+  }
+}
+
+function endDrag() {
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onDragEnd);
+  window.removeEventListener('pointercancel', endDrag);
+  drag.value = null;
+  dropMarkerLeft.value = null;
+}
+
+async function onDragEnd() {
+  const d = drag.value;
+  endDrag();
+  if (!d) return;
+  await dropBus(d.id, d.dropIndex);
+}
+
+// Land `id` at `dropIndex` in the rail. One PATCH {order} on the moved bus
+// with an integer between its new neighbours' orders is the preferred path
+// (D31): the server stores it and broadcasts, and the rail re-sorts. Only
+// when the neighbours are consecutive and no integer fits between them is
+// the rail renumbered 0..n-1, one PATCH per bus that moves — idempotent
+// whatever the server does to the order field on its side.
+async function dropBus(id: string, dropIndex: number) {
+  const rail = railBuses.value;
+  const from = rail.findIndex(b => b.id === id);
+  if (from < 0) return;
+  // Dropping a strip on either side of itself is a no-op.
+  if (dropIndex === from || dropIndex === from + 1) return;
+  const seq = rail.filter(b => b.id !== id);
+  const at  = dropIndex > from ? dropIndex - 1 : dropIndex;
+  const moved = rail[from]!;
+  seq.splice(at, 0, moved);
+  const prev = seq[at - 1];
+  const next = seq[at + 1];
+  let order: number | null = null;
+  if (prev && next) {
+    if (next.order - prev.order >= 2) order = Math.floor((prev.order + next.order) / 2);
+  } else if (prev) {
+    order = prev.order + 1;
+  } else if (next) {
+    order = next.order - 1;
+  }
+  try {
+    if (order !== null) {
+      await server.reorderBus(id, order);
+    } else {
+      for (let i = 0; i < seq.length; i++) {
+        if (seq[i]!.order !== i) await server.reorderBus(seq[i]!.id, i);
+      }
+    }
+  } catch { /* refused or offline; the rail stays as the server has it */ }
 }
 </script>
 
@@ -328,6 +435,8 @@ async function addBus() {
 
 .mixer__body { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .mixer__strips {
+  /* Positioned so the drop marker's offsetLeft is measured against it. */
+  position: relative;
   display: flex;
   gap: var(--spacing-xs);
   padding: var(--spacing-sm);
@@ -346,11 +455,22 @@ async function addBus() {
   color: var(--color-text-disabled);
   font-size: 12px;
 }
+/* The live insertion marker: a bar in the gap the drop will land in. */
+.mixer__dropmark {
+  position: absolute;
+  top: var(--spacing-sm);
+  bottom: var(--spacing-sm);
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  pointer-events: none;
+}
 
-/* The master is just a strip in a divider; the padding matches .mixer__strips
-   so its rows sit at exactly the same heights as the channels'. */
+/* The pinned strips are just strips in a divider; the padding matches
+   .mixer__strips so their rows sit at exactly the same heights as the rail's. */
 .mixer__master {
   display: flex;
+  gap: var(--spacing-xs);
   flex: 0 0 auto;
   min-height: 0;
   padding: var(--spacing-sm);

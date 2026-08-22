@@ -18,29 +18,11 @@
     panels instead of inventing navigation late.
   -->
   <div class="det">
-    <header class="det__head">
-      <div ref="colorWrapRef" class="det__colorwrap">
-        <button
-          class="det__chip"
-          :style="{ background: bus.color || 'var(--color-accent)' }"
-          :title="t('mixer.busColor')"
-          @click.stop="colorPickerOpen = !colorPickerOpen"
-        ></button>
-        <div v-if="colorPickerOpen" class="det__colorpopover">
-          <button
-            v-for="color in PRESET_COLORS"
-            :key="color"
-            class="det__colorswatch"
-            :style="{ background: color }"
-            :class="{ 'det__colorswatch--active': bus.color === color }"
-            :title="color"
-            @click="onPickColor(color)"
-          ></button>
-        </div>
-      </div>
+    <header class="det__head" @contextmenu.prevent="openMenuAt($event.clientX, $event.clientY)">
+      <BusColorPicker :color="bus.color" size="lg" @pick="onPickColor" />
       <div
         class="det__titlewrap"
-        :title="bus.system ? '' : (renaming ? '' : bus.name + ' — ' + t('mixer.renameHint'))"
+        :title="renaming ? '' : bus.name + ' — ' + t('mixer.renameHint')"
       >
         <input
           v-if="renaming"
@@ -54,16 +36,30 @@
         />
         <span v-else class="det__title" @dblclick="startRename">{{ bus.name }}</span>
       </div>
+      <!-- The role badge (D24): the same mark the strip carries, so the
+           channel view says which bus is the house and which is the phones
+           without the operator having to go back to the rail to check. -->
+      <span v-if="bus.master" class="det__badge det__badge--master">{{ t('mixer.roleMaster') }}</span>
+      <span v-else-if="bus.preview" class="det__badge det__badge--preview">{{ t('mixer.rolePreview') }}</span>
       <span class="det__meta">{{ widthLabel }} · {{ outputSummary }}</span>
 
       <div class="det__spacer"></div>
+      <!-- Delete is kept visible but disabled on a role holder, with the
+           reason in the tooltip — the role has to move first (D24). The
+           same menu as the strip's ⋮ sits beside it, which is where the
+           role moves from. -->
       <button
-        v-if="!bus.system"
         class="det__delete"
-        :title="t('mixer.deleteBus')"
+        :disabled="bus.master || bus.preview"
+        :title="bus.master || bus.preview
+          ? t('mixer.roleDeleteBlocked', { role: bus.master ? t('mixer.roleMaster') : t('mixer.rolePreview') })
+          : t('mixer.deleteBus')"
         @click="$emit('delete', bus.id)"
       >
         <span class="material-symbols-rounded">delete</span>
+      </button>
+      <button ref="menuBtn" class="det__menu" :title="t('mixer.busMenu')" @click.stop="openMenuFromButton">
+        <span class="material-symbols-rounded">more_vert</span>
       </button>
       <button class="det__close" :title="t('mixer.backToMixer')" @click="$emit('close')">
         <span class="material-symbols-rounded">close</span>
@@ -140,25 +136,24 @@
             <h4 class="det__h">{{ t('mixer.sends') }}</h4>
             <label class="det__field">
               <span>{{ t('mixer.output') }}</span>
-              <select :value="outputValue" @change="onOutputChange">
-                <!-- The channel view never opens on Monitor — it is not in
-                     userBuses (MixerPanel.vue) — so unlike the strip's select
-                     this one needs no monitor guard on either option group. -->
-                <option value="master">{{ t('mixer.toMaster') }}</option>
-                <option v-for="o in outputOptions" :key="'out:' + o" :value="'out:' + o">{{ o }}</option>
-                <!-- Bus targets: any other non-system bus, minus ones a route
-                     here would loop back through. Convenience only — the
-                     server's 409 is the real authority; see onOutputChange. -->
-                <optgroup v-if="busOptions.length" :label="t('mixer.busesGroup')">
-                  <option v-for="b in busOptions" :key="'bus:' + b.id" :value="'bus:' + b.id">{{ b.name }}</option>
-                </optgroup>
-              </select>
+              <!-- The same picker as the strip's (BusOutputSelect.vue): buses,
+                   outputs with their mappings, devices, and the action row
+                   into the output map. It reverts itself on a 409 and hands
+                   the reason up, shown inline below. -->
+              <BusOutputSelect
+                :bus="bus"
+                :buses="buses"
+                :outputs="outputs"
+                @open-output-map="$emit('open-output-map')"
+                @error="outputErrorMsg = $event"
+              />
             </label>
+            <!-- Width is a setup decision and belongs here rather than on the
+                 strip; every bus has it, the role holders included. -->
             <label class="det__field">
               <span>{{ t('mixer.width') }}</span>
               <select
                 :value="bus.width"
-                :disabled="bus.system"
                 @change="$emit('patch', bus.id, { width: Number(($event.target as HTMLSelectElement).value) })"
               >
                 <option :value="1">{{ t('mixer.mono') }}</option>
@@ -174,9 +169,9 @@
               class="det__warn det__warnbtn"
               @click="$emit('open-output-map')"
             >
-              {{ t('mixer.outputUnmapped', { name: bus.output.target }) }}
+              {{ bus.preview ? t('mixer.previewUnmapped') : t('mixer.outputUnmapped', { name: bus.output.target }) }}
             </button>
-            <!-- A bus-kind route that never reaches the master: not a mapping
+            <!-- A bus-kind route that never reaches hardware: not a mapping
                  problem, so no click affordance, just the warning. -->
             <p v-if="busUnbound" class="det__warn">{{ t('mixer.busRouteUnbound') }}</p>
             <!-- Inline, non-blocking: the server's own 409 text for the last
@@ -238,28 +233,48 @@
         <span class="material-symbols-rounded">chevron_right</span>
       </button>
     </footer>
+
+    <BusMenu
+      :bus="bus"
+      :open="menuOpen"
+      :x="menuPos.x"
+      :y="menuPos.y"
+      @close="menuOpen = false"
+      @rename="startRename"
+      @color="onPickColor"
+      @open="menuOpen = false"
+      @set-master="$emit('set-role', bus.id, 'master')"
+      @set-preview="$emit('set-role', bus.id, 'preview')"
+      @delete="$emit('delete', bus.id)"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import type { Bus, BusDsp } from '~/types/project';
-import { PRESET_COLORS } from '~/types/project';
+import type { OutputMap } from '~/composables/useLiveplayServer';
 import MixerChannelFader from './MixerChannelFader.vue';
 import MixerEqPanel from './MixerEqPanel.vue';
 import MixerDynamicsPanel from './MixerDynamicsPanel.vue';
 import StereoMeter from './StereoMeter.vue';
+import BusOutputSelect from './BusOutputSelect.vue';
+import BusColorPicker from './BusColorPicker.vue';
+import BusMenu from './BusMenu.vue';
 import { FADER_MIN_DB, METER_MAX_DB } from '~/utils/meterScale';
 
 const props = defineProps<{
   bus: Bus;
+  /** Every bus, rail order then the pinned pair — the stepping order. */
   buses: Bus[];
-  outputNames: string[];
+  /** The machine's output map, null until fetched. */
+  outputs: OutputMap | null;
 }>();
 
 const emit = defineEmits<{
   (e: 'patch', id: string, patch: Partial<Bus>): void;
   (e: 'delete', id: string): void;
+  (e: 'set-role', id: string, role: 'master' | 'preview'): void;
   (e: 'select', id: string): void;
   (e: 'close'): void;
   (e: 'open-output-map'): void;
@@ -267,7 +282,6 @@ const emit = defineEmits<{
 
 const { t } = useLocalization();
 const { findItemByUuid } = useProject();
-const server = useLiveplayServer();
 
 // The filter values as they are being dragged, ahead of the bus catching up.
 //
@@ -279,7 +293,7 @@ const liveDsp = ref<Partial<BusDsp> | null>(null);
 watch(() => props.bus?.id, () => {
   liveDsp.value = null;
   renaming.value = false;
-  colorPickerOpen.value = false;
+  menuOpen.value = false;
   outputErrorMsg.value = '';
 });
 // Once the settled value has landed on the bus, stop overriding with a stale
@@ -309,108 +323,30 @@ const nextId = computed(() => props.buses[index.value + 1]?.id ?? '');
 const widthLabel = computed(() =>
   props.bus.width >= 2 ? t('mixer.stereo') : t('mixer.mono'));
 
-const outputValue = computed(() => {
-  const o = props.bus.output;
-  if (o.type === 'bus') return 'bus:' + o.target;
-  if (o.type === 'output') return 'out:' + o.target;
-  return 'master';
-});
-
-// For a bus target, the summary reads the target bus's own name rather than
-// its id — "→ Beds", not "→ beds". Falls back to the raw id if the target
-// bus is somehow not in the loaded list (e.g. a stale broadcast mid-delete).
+// The output summary in the header: "→ <target>" for a hardware route, the
+// target bus's own name for a bus route — "→ Beds", not "→ beds". Falls back
+// to the raw id if the target bus is somehow not in the loaded list (a stale
+// broadcast mid-delete).
 const outputSummary = computed(() => {
   const o = props.bus.output;
-  if (o.type === 'master') return t('mixer.toMaster');
   if (o.type === 'bus') {
     const target = props.buses.find(b => b.id === o.target);
-    return target?.name ?? o.target;
+    return '→ ' + (target?.name ?? o.target);
   }
-  return o.target;
-});
-
-const outputOptions = computed(() => {
-  const names = [...props.outputNames];
-  const target = props.bus.output.target;
-  if (props.bus.output.type === 'output' && target && !names.includes(target)) {
-    names.push(target);
-  }
-  return names;
-});
-
-// Candidate bus targets, same rule as the strip's (MixerStrip.vue): any other
-// non-system bus, excluding this one and excluding any bus whose existing
-// output chain already reaches this one. Convenience only — the server 409
-// is the actual authority.
-function reachesBus(fromId: string, toId: string, all: Bus[]): boolean {
-  const visited = new Set<string>();
-  let cur = all.find(b => b.id === fromId);
-  while (cur && cur.output.type === 'bus') {
-    const nextId = cur.output.target;
-    if (nextId === toId) return true;
-    if (visited.has(nextId)) break;
-    visited.add(nextId);
-    cur = all.find(b => b.id === nextId);
-  }
-  return false;
-}
-const busOptions = computed(() => {
-  // props.buses is already the non-system list (MixerPanel's userBuses); a
-  // 'bus' type target can never be a system bus in the first place, so it is
-  // also everything a chain could walk through.
-  const all = props.buses;
-  return all.filter(b =>
-    b.id !== props.bus.id && !reachesBus(b.id, props.bus.id, all));
+  return '→ ' + o.target;
 });
 
 const unmapped = computed(() =>
   props.bus.output.type === 'output' && props.bus.bound === false);
 
-// A bus-kind route that never reaches the master, per D10 — bound is
+// A bus-kind route that never reaches hardware, per D10 — bound is
 // server-computed and just rendered here, not re-derived.
 const busUnbound = computed(() =>
   props.bus.output.type === 'bus' && props.bus.bound === false);
 
-// Transient: the server's 409 text for the last rejected route, cleared on
-// the next successful change or after a few seconds.
+// The server's 409 text for the last rejected route, handed up by the picker
+// and shown inline; it clears itself.
 const outputErrorMsg = ref('');
-let outputErrorTimer: ReturnType<typeof setTimeout> | null = null;
-
-function serverErrorText(err: unknown): string {
-  const msg = err instanceof Error ? err.message : String(err);
-  const body = msg.slice(msg.indexOf('—') + 1).trim();
-  try {
-    const parsed = JSON.parse(body);
-    if (parsed && typeof parsed.error === 'string') return parsed.error;
-  } catch { /* not JSON; fall through */ }
-  return body || msg;
-}
-
-// Goes straight to the server, same as the strip's version, rather than
-// through emit('patch') — that path is fire-and-forget and can't catch a 409
-// to revert the select and show the reason.
-async function onOutputChange(e: Event) {
-  const el = e.target as HTMLSelectElement;
-  const v = el.value;
-  const prevValue = outputValue.value;
-  const patch = v === 'master'
-    ? { output: { type: 'master' as const, target: '' } }
-    : v.startsWith('bus:')
-      ? { output: { type: 'bus' as const, target: v.slice(4) } }
-      : { output: { type: 'output' as const, target: v.slice(4) } };
-  try {
-    await server.patchBus(props.bus.id, patch);
-    outputErrorMsg.value = '';
-  } catch (err) {
-    // Vue won't force the DOM element back on its own here — outputValue's
-    // own bound value hasn't changed, only the browser's live selection has
-    // — so it is reset directly.
-    el.value = prevValue;
-    outputErrorMsg.value = serverErrorText(err);
-    if (outputErrorTimer) clearTimeout(outputErrorTimer);
-    outputErrorTimer = setTimeout(() => { outputErrorMsg.value = ''; }, 6000);
-  }
-}
 
 function itemName(uuid: string): string {
   const it = findItemByUuid?.(uuid) as any;
@@ -418,12 +354,11 @@ function itemName(uuid: string): string {
 }
 
 // Inline rename, same pattern as the strip's scribble strip
-// (MixerStrip.vue): system buses (Main, Monitor) keep their given names.
+// (MixerStrip.vue). Every bus can be renamed, role holders included.
 const renaming  = ref(false);
 const nameInput = ref<HTMLInputElement | null>(null);
 
 async function startRename() {
-  if (props.bus.system) return;
   renaming.value = true;
   await nextTick();
   nameInput.value?.select();
@@ -435,29 +370,27 @@ function commitRename() {
   if (next && next !== props.bus.name) emit('patch', props.bus.id, { name: next });
 }
 
-// Colour swatch popover. Picking a colour patches the bus straight away —
-// there is no drag gesture to debounce here, unlike gain/pan — and the
-// server's buses_patched broadcast is what every window, including this one,
-// renders from.
-const colorPickerOpen = ref(false);
-const colorWrapRef = ref<HTMLElement | null>(null);
-
-function onDocClick(e: MouseEvent) {
-  if (!colorPickerOpen.value) return;
-  const target = e.target as Node;
-  if (colorWrapRef.value && !colorWrapRef.value.contains(target)) {
-    colorPickerOpen.value = false;
-  }
-}
-if (typeof window !== 'undefined') {
-  window.addEventListener('mousedown', onDocClick, true);
-  onBeforeUnmount(() => window.removeEventListener('mousedown', onDocClick, true));
-}
-onBeforeUnmount(() => { if (outputErrorTimer) clearTimeout(outputErrorTimer); });
-
+// Picking a colour patches the bus straight away — there is no drag gesture
+// to debounce here, unlike gain/pan — and the server's buses_patched
+// broadcast is what every window, including this one, renders from.
 function onPickColor(color: string) {
   emit('patch', props.bus.id, { color });
-  colorPickerOpen.value = false;
+}
+
+// The ⋮ menu — the same BusMenu the strip uses, from the header button or a
+// right-click on the header. Its "Channel settings…" entry is a no-op here,
+// since this is the channel settings.
+const menuOpen = ref(false);
+const menuPos  = ref({ x: 0, y: 0 });
+const menuBtn  = ref<HTMLButtonElement | null>(null);
+
+function openMenuAt(x: number, y: number) {
+  menuPos.value = { x, y };
+  menuOpen.value = true;
+}
+function openMenuFromButton() {
+  const r = menuBtn.value?.getBoundingClientRect();
+  if (r) openMenuAt(r.left, r.bottom + 2);
 }
 </script>
 
@@ -479,45 +412,7 @@ function onPickColor(color: string) {
   padding: var(--spacing-xs) var(--spacing-sm);
   border-bottom: 1px solid var(--color-border);
 }
-.det__colorwrap { position: relative; flex: 0 0 auto; }
-.det__chip {
-  width: 10px;
-  height: 10px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  flex: 0 0 auto;
-  cursor: pointer;
-}
-.det__colorpopover {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 10;
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 4px;
-  padding: var(--spacing-xs);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-.det__colorswatch {
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  border-radius: var(--border-radius-sm);
-  border: 2px solid transparent;
-  cursor: pointer;
-}
-.det__colorswatch:hover { transform: scale(1.1); }
-.det__colorswatch--active {
-  border-color: var(--color-text-primary);
-  box-shadow: 0 0 0 2px var(--color-background);
-}
-/* The name is editable here, double-click as on the strip; system buses keep
-   their given name, same restriction as the strip's scribble strip. */
+/* The name is editable here, double-click as on the strip. */
 .det__titlewrap { display: flex; align-items: center; min-width: 0; }
 .det__title { font-size: 13px; color: var(--color-text-primary); cursor: text; }
 .det__titleinput {
@@ -530,14 +425,31 @@ function onPickColor(color: string) {
   min-width: 0;
 }
 .det__meta { font-size: 11px; color: var(--color-text-disabled); }
-.det__delete, .det__close {
+/* The role badge, the same mark as the strip's (MixerStrip.vue .strip__badge):
+   Master in the accent, Preview in PFL's green. */
+.det__badge {
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 13px;
+  border-radius: 2px;
+  color: #fff;
+  flex: 0 0 auto;
+}
+.det__badge--master  { background: var(--color-accent); }
+.det__badge--preview { background: var(--color-success); }
+.det__delete, .det__menu, .det__close {
   display: flex;
   color: var(--color-text-secondary);
   background: none;
   border: none;
   cursor: pointer;
 }
-.det__delete:hover, .det__close:hover { color: var(--color-text-primary); }
+.det__delete:hover:not(:disabled), .det__menu:hover, .det__close:hover { color: var(--color-text-primary); }
+.det__delete:disabled { opacity: 0.35; cursor: not-allowed; }
 .det__spacer { flex: 1; }
 
 .det__main { display: flex; flex: 1; min-height: 0; min-width: 0; }

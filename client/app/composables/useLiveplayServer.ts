@@ -36,6 +36,15 @@ import type {
   ServerWaveform,
 } from '~/types/server';
 
+/** GET /api/outputs: the machine's logical-output map, plus the built-in names. */
+export interface OutputMapChannel { device: string; hwChannel: number }
+export interface OutputMapEntry   { name: string; channels: OutputMapChannel[] }
+export interface OutputMap {
+  version: number;
+  outputs: OutputMapEntry[];
+  builtin?: string[];
+}
+
 // ---------------------------------------------------------------------
 // Singleton — created lazily on first useLiveplayServer() call.
 // ---------------------------------------------------------------------
@@ -388,9 +397,10 @@ function createClient() {
           }
           // Same story as PFL: live monitoring state, its own op, applied in
           // place so a second mixer window agrees about what the phones are
-          // doing.
+          // doing. It lands on whichever bus holds the preview role (D33),
+          // not on a fixed id — the role can move.
           if (payload.op === 'monitor_mono_changed') {
-            const mon = buses.value.find(x => x.id === 'monitor');
+            const mon = buses.value.find(x => x.preview);
             if (mon) mon.monoCheck = !!payload.mono;
           }
           // Handle output_channel_gain_changed locally before fanning out.
@@ -779,7 +789,7 @@ function createClient() {
     return rest<any>(`/api/project/cart/${slot}`, { method: 'DELETE' });
   }
 
-  // Preview (DJ-style pre-listening on settings.previewDevice).
+  // Preview (DJ-style pre-listening, rendered on the Preview bus).
   async function startPreview(itemUuid: string) {
     return rest<any>('/api/preview', {
       method: 'POST',
@@ -967,8 +977,9 @@ function createClient() {
         body: JSON.stringify({ pfl: on }),
       });
     } catch (e) {
-      // Refused (the Monitor bus) or offline: put the button back where the
-      // server still has it rather than leaving a lie lit.
+      // Refused (the preview-role bus is the destination, not a source) or
+      // offline: put the button back where the server still has it rather
+      // than leaving a lie lit.
       if (b) b.pfl = !on;
       throw e;
     }
@@ -979,13 +990,15 @@ function createClient() {
     return rest<{ cleared: number }>('/api/buses/pfl/clear', { method: 'POST' });
   }
 
-  // Fold the Monitor bus to mono, to check what is in the phones for mono
-  // compatibility. Set locally first for the same reason PFL is: this is a
-  // press made against something playing right now.
+  // Fold the preview-role bus to mono, to check what is in the phones for
+  // mono compatibility. Set locally first for the same reason PFL is: this is
+  // a press made against something playing right now.
   //
-  // Not addressed per bus — it is one control for the whole monitoring path.
+  // Not addressed per bus — it is one control for the whole monitoring path,
+  // and the server applies it to whichever bus currently holds the preview
+  // role (D33; /api/preview/mono is the same endpoint under its new name).
   async function setMonitorMono(on: boolean) {
-    const mon = buses.value.find(x => x.id === 'monitor');
+    const mon = buses.value.find(x => x.preview);
     if (mon) mon.monoCheck = on;
     try {
       await rest('/api/monitor/mono', {
@@ -1014,8 +1027,33 @@ function createClient() {
     await fetchBuses();
   }
 
+  // Move a role (D24) onto this bus. The server does it atomically — the
+  // previous holder loses the flag, both are rewired, one broadcast — and it
+  // is the only way a role moves: {master:false} is refused, because a
+  // project always has exactly one of each. Refetched rather than patched
+  // locally since two buses change, and the rewire can change `masters` and
+  // `bound` on both.
+  async function setBusRole(id: string, role: 'master' | 'preview') {
+    await rest(`/api/buses/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ [role]: true }),
+    });
+    await fetchBuses();
+  }
+
+  // Rail position. The server stores the number and broadcasts; the rail is
+  // whatever sorting by `order` gives, so the caller picks a value that lands
+  // the bus where it was dropped (MixerPanel.vue decides how).
+  async function reorderBus(id: string, order: number) {
+    await rest(`/api/buses/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ order }),
+    });
+    await fetchBuses();
+  }
+
   // Assign an item (or group) to a bus. Passing null clears the assignment so
-  // it inherits from its group, or falls back to Main.
+  // it inherits from its group, or falls back to the master-role bus.
   async function setItemBus(uuid: string, busId: string | null) {
     await rest(`/api/project/items/${encodeURIComponent(uuid)}`, {
       method: 'PATCH',
@@ -1027,9 +1065,11 @@ function createClient() {
   }
 
   // ---- Logical outputs (server-owned; never in the project) ----------
+  // `builtin` (D26) names the outputs the server special-cases when they
+  // have no row: "Main Out" falls back to the default device, "Preview Out"
+  // stays silent. They are offered and mapped like any other name.
   async function fetchOutputs() {
-    return rest<{ version: number; outputs: Array<{ name: string; channels: Array<{ device: string; hwChannel: number }> }> }>(
-      '/api/outputs');
+    return rest<OutputMap>('/api/outputs');
   }
   async function saveOutputs(map: unknown) {
     return rest('/api/outputs', { method: 'PUT', body: JSON.stringify(map) });
@@ -1331,6 +1371,8 @@ function createClient() {
     clearAllPfl,
     setMonitorMono,
     deleteBus,
+    setBusRole,
+    reorderBus,
     setItemBus,
     fetchOutputs,
     saveOutputs,
