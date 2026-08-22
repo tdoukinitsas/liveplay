@@ -237,10 +237,6 @@
       >
         <span class="material-symbols-rounded">chevron_right</span>
       </button>
-
-      <!-- The mixer's own controls ride this bar rather than a title row of
-           their own; the parent fills them in. -->
-      <slot name="actions" />
     </footer>
   </div>
 </template>

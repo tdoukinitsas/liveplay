@@ -9,13 +9,33 @@
     details view instead.
   -->
   <div class="mixer">
+    <!-- The same header as the playlist and the cart player: title left,
+         labelled buttons right, identical padding and height so the three
+         views line up across the workspace. It sits above both the rail and
+         the channel view, which keeps its own bus header below this one. -->
+    <header class="mixer-header">
+      <h2>{{ t('mixer.title') }}</h2>
+      <MixerActions
+        class="mixer-header-actions"
+        :mode="mode"
+        :detached="detached"
+        :can-detach="canDetach"
+        :pfl-count="pflCount"
+        @add="addBus"
+        @detach="detach"
+        @mode="$emit('mode', $event)"
+        @close="$emit('close')"
+        @clear-pfl="clearPfl"
+        @output-map="outputMapOpen = true"
+      />
+    </header>
+
     <!-- The channel view replaces the rail rather than sharing the window with
          it. Splitting the height between the two left the strips half-height
          in the one mode that has room for them, and put the fader you were
          adjusting somewhere different from where you grabbed it. Here the rail
          is always full height, and opening a channel swaps to a view whose own
-         left column is that channel. It also hosts the mixer's controls in its
-         select row, so that view needs no bar of its own. -->
+         left column is that channel. -->
     <MixerChannelDetails
       v-if="detailsBus"
       :bus="detailsBus"
@@ -26,83 +46,48 @@
       @select="showChannel"
       @close="detailsId = ''"
       @open-output-map="outputMapOpen = true"
-    >
-      <template #actions>
-        <MixerActions
-          :mode="mode"
-          :detached="detached"
-          :can-detach="canDetach"
-          :pfl-count="pflCount"
-          @add="addBus"
-          @detach="detach"
-          @mode="$emit('mode', $event)"
-          @close="$emit('close')"
-          @clear-pfl="clearPfl"
-          @output-map="outputMapOpen = true"
+    />
+
+    <div v-else class="mixer__body">
+      <div class="mixer__strips">
+        <MixerStrip
+          v-for="bus in userBuses"
+          :key="bus.id"
+          :bus="bus"
+          :selected="bus.id === selectedId"
+          :touch="touch"
+          :output-names="outputNames"
+          @select="selectedId = $event"
+          @open="openDetails"
+          @patch="onPatch"
+          @open-output-map="outputMapOpen = true"
         />
-      </template>
-    </MixerChannelDetails>
-
-    <template v-else>
-      <div class="mixer__body">
-        <div class="mixer__strips">
-          <MixerStrip
-            v-for="bus in userBuses"
-            :key="bus.id"
-            :bus="bus"
-            :selected="bus.id === selectedId"
-            :touch="touch"
-            :output-names="outputNames"
-            @select="selectedId = $event"
-            @open="openDetails"
-            @patch="onPatch"
-            @open-output-map="outputMapOpen = true"
-          />
-          <p v-if="userBuses.length === 0" class="mixer__empty">{{ t('mixer.empty') }}</p>
-        </div>
-
-        <!-- Monitor and master, pinned right — the same component as every
-             other strip, so they have the same rows at the same heights and
-             their faders line up with the rail's. The master was bespoke
-             markup here, which is exactly why the one strip that matters most
-             looked unlike all the others.
-
-             Monitor is a real bus with a real fader — that fader is the
-             headphone level — but it is where PFL lands rather than a channel
-             anything can be assigned to, so it sits beside the master instead
-             of in the assignable rail. -->
-        <div class="mixer__master">
-          <MixerStrip
-            v-if="monitorBus"
-            :bus="monitorBus"
-            :touch="touch"
-            :output-names="outputNames"
-            monitor
-            @patch="onPatch"
-            @open-output-map="outputMapOpen = true"
-          />
-          <MixerStrip :bus="masterBus" :touch="touch" :output-names="[]" master />
-        </div>
+        <p v-if="userBuses.length === 0" class="mixer__empty">{{ t('mixer.empty') }}</p>
       </div>
 
-      <!-- One slim bar instead of a title row. A mixer is judged on how much of
-           the window is fader. -->
-      <footer class="mixer__foot">
-        <div class="mixer__spacer"></div>
-        <MixerActions
-          :mode="mode"
-          :detached="detached"
-          :can-detach="canDetach"
-          :pfl-count="pflCount"
-          @add="addBus"
-          @detach="detach"
-          @mode="$emit('mode', $event)"
-          @close="$emit('close')"
-          @clear-pfl="clearPfl"
-          @output-map="outputMapOpen = true"
+      <!-- Monitor and master, pinned right — the same component as every
+           other strip, so they have the same rows at the same heights and
+           their faders line up with the rail's. The master was bespoke
+           markup here, which is exactly why the one strip that matters most
+           looked unlike all the others.
+
+           Monitor is a real bus with a real fader — that fader is the
+           headphone level — but it is where PFL lands rather than a channel
+           anything can be assigned to, so it sits beside the master instead
+           of in the assignable rail. -->
+      <div class="mixer__master">
+        <MixerStrip
+          v-if="monitorBus"
+          :bus="monitorBus"
+          :touch="touch"
+          :output-names="outputNames"
+          monitor
+          @patch="onPatch"
+          @open-output-map="outputMapOpen = true"
         />
-      </footer>
-    </template>
+        <MixerStrip :bus="masterBus" :touch="touch" :output-names="[]" master />
+      </div>
+    </div>
 
     <!-- Outside the rail/details v-if branch so it works from either mode,
          and in the detached mixer window, which has its own socket but the
@@ -309,18 +294,37 @@ async function addBus() {
   height: 100%;
   background: var(--color-background);
   overflow: hidden;
+  /* Named container for the header's label-collapsing query (MixerActions.vue):
+     the docked side pane can be ~220px wide while the viewport is not, so the
+     query has to be against the mixer's own width. inline-size containment
+     costs nothing here — flex:1 + min-width:0 already stop the content
+     dictating the width. */
+  container: mixer / inline-size;
 }
 
-.mixer__foot {
+/* Copied from .playlist-header / .cart-header on purpose — same padding,
+   height and border so the three views' top bars line up. */
+.mixer-header {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  justify-content: space-between;
+  gap: var(--spacing-sm);
   flex: 0 0 auto;
-  padding: var(--spacing-xs) var(--spacing-sm);
-  border-top: 1px solid var(--color-border);
-  background: var(--color-surface);
+  padding: var(--spacing-md) var(--spacing-lg);
+  min-height: 56px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-surface);
 }
-.mixer__spacer { flex: 1; }
+.mixer-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* The action group itself is MixerActions; this only stops it wrapping under
+   the title when the docked pane is narrow — the container query in
+   MixerActions.vue drops the labels instead. */
+.mixer-header-actions { flex: 0 0 auto; }
 
 .mixer__body { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .mixer__strips {
