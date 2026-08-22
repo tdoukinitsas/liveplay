@@ -71,9 +71,12 @@
       </div>
     </div>
     
-    <!-- Per-output meters — one StereoMeter + volume fader per active audio output pair.
-         Main output (masters 0/1) is always shown. Preview (the top pair of the
-         bus) and device-override pairs (2+) appear when they carry signal. -->
+    <!-- Per-output meters — one StereoMeter + fader per hardware output pair
+         (D32). Each row is a bus that reaches hardware: the Master bus first,
+         then every other bound bus, then Preview — the Preview row only while
+         it carries signal or a pre-listen is running, so the headphone pair
+         does not take transport-bar space during a show. The fader is that
+         bus's own fader, the same control the mixer strip drives. -->
     <div class="output-meters">
       <div v-for="pair in outputPairs" :key="pair.key" class="output-pair">
         <StereoMeter
@@ -83,12 +86,12 @@
           :show-peak-value="true"
         />
         <VolumeSlider
-          :db="getOutputGainDb(pair.leftIndex)"
-          :min-db="-60"
-          :max-db="12"
+          :db="pair.bus ? busFaderDb(pair.bus) : getOutputGainDb(pair.leftIndex)"
+          :min-db="FADER_MIN_DB"
+          :max-db="FADER_MAX_DB"
           :title="pair.label"
-          @input="(db: number) => onOutputGainInput(pair.leftIndex, pair.rightIndex, db)"
-          @reset="resetOutputGain(pair.leftIndex, pair.rightIndex)"
+          @input="(db: number) => pair.bus ? onBusFader(pair.bus, db) : onOutputGainInput(pair.leftIndex, pair.rightIndex, db)"
+          @reset="pair.bus ? onBusFader(pair.bus, 0) : resetOutputGain(pair.leftIndex, pair.rightIndex)"
         />
       </div>
     </div>
@@ -105,13 +108,14 @@
 //     meter stream from the engine — replacing the static-waveform "cheat"
 //     levels. Every meter in the app is now that one component.
 import { formatKeyLabel } from '~/composables/useCartHotkeys';
-import type { AudioItem } from '~/types/project';
+import type { AudioItem, Bus } from '~/types/project';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
 import { useCueMeters } from '~/composables/useLiveMeters';
+import { FADER_MIN_DB, FADER_MAX_DB } from '~/utils/meterScale';
 import VolumeSlider from './VolumeSlider.vue';
 
 const { activeCues, panicStop, nextItemOverrideUuid, autoNextItemUuid, setNextItem, playCue, triggerGroup } = useAudioEngine();
-const { findItemByUuid, previewItemUuid, previewCueId, stopPreview, currentProject } = useProject();
+const { findItemByUuid, previewItemUuid, previewCueId, stopPreview } = useProject();
 const { playbackMappings } = useCartHotkeys();
 const { t } = useLocalization();
 const server = useLiveplayServer();
@@ -153,51 +157,53 @@ function handlePreviewSeek(e: MouseEvent) {
   server.seekCueId(previewCueId.value, Math.max(0, seekTo + inPoint));
 }
 
-// Dynamic per-output meters. Main (0/1) is always shown. Preview (the top pair
-// of the master bus) and per-device overrides (2+) appear only when they carry
-// signal so we don't flood the UI with silent meters.
-const outputPairs = computed(() => {
+// The output rows come from the buses (D32). A bus with `masters` occupies a
+// hardware pair on the engine's master bus; that pair is what the meter reads
+// and the bus's own fader is what the slider moves. Order: the master-role bus
+// (the house, masters 0/1), then every other hardware-bound bus by `order`,
+// then the preview-role bus. Bound buses are shown whether or not they carry
+// signal — a silent Master is still an output — except Preview, which keeps
+// the old "only while active" rule so a headphone pair does not take space
+// during a show.
+//
+// `server.buses` is empty until the composable's first-connect fetch lands
+// (it refetches on every buses_patched / outputs_changed), so nothing is
+// fetched from here.
+type OutputPair = { key: string; leftIndex: number; rightIndex: number; label: string; bus: Bus | null };
+
+const outputPairs = computed<OutputPair[]>(() => {
   const m = server.meters;
   const activeIdx = new Set((m?.master_channels ?? []).map((mc: any) => mc.index as number));
-  // Bus width is a server boot option, so the preview pair and therefore the
-  // top of the device-override range move with it.
   const previewL = server.masterBus.previewL;
   const previewR = server.masterBus.previewR;
 
-  const configuredId = (currentProject.value as any)?.settings?.defaultOutputDevice;
-  const mainLabel = configuredId
-    ? (server.devices.find((d: any) => d.id === configuredId)?.display_name ?? 'Main')
-    : (server.devices.find((d: any) => d.is_default)?.display_name ?? 'Main');
-  const pairs: Array<{ key: string; leftIndex: number; rightIndex: number; label: string }> = [];
+  const bound = server.buses.filter(b => b.bound && b.masters !== null);
+  const ordered = [
+    ...bound.filter(b => b.master),
+    ...bound.filter(b => !b.master && !b.preview).sort((a, b) => a.order - b.order),
+    ...bound.filter(b => b.preview && !b.master),
+  ];
 
-  // Per-device override pairs (allocated at 2+, step 2). When a project selects
-  // a specific default output device the server routes the program onto one of
-  // these override buses (masters 0/1 stay silent), so we must NOT unconditionally
-  // show a "Main" 0/1 strip — that produced a permanent duplicated, signal-less
-  // "Main" strip alongside the real one.
-  const overridePairs: Array<{ key: string; leftIndex: number; rightIndex: number; label: string }> = [];
-  for (let i = 2; i < previewL; i += 2) {
-    if (activeIdx.has(i) || activeIdx.has(i + 1)) {
-      overridePairs.push({ key: `out-${i}`, leftIndex: i, rightIndex: i + 1, label: `Out ${i / 2}` });
-    }
+  const pairs: OutputPair[] = [];
+  const claimed = new Set<number>();
+  for (const bus of ordered) {
+    const [l, r] = bus.masters!;
+    claimed.add(l); claimed.add(r);
+    if (bus.preview && !(activeIdx.has(l) || activeIdx.has(r) || previewItemUuid.value)) continue;
+    pairs.push({ key: bus.id, leftIndex: l, rightIndex: r, label: bus.name, bus });
   }
 
-  const mainActive = activeIdx.has(0) || activeIdx.has(1);
-  // Show the 0/1 "Main" strip only when it actually carries signal, or when
-  // there is no override bus to represent the main output (so at least one
-  // output strip is always visible). When the program has moved onto the
-  // project's default-device override bus, relabel that first override pair
-  // with the configured device name instead of a bare "Out N".
-  if (mainActive || overridePairs.length === 0) {
-    pairs.push({ key: 'main', leftIndex: 0, rightIndex: 1, label: mainLabel });
-  } else if (overridePairs.length > 0) {
-    overridePairs[0]!.label = mainLabel;
-  }
-  pairs.push(...overridePairs);
-
-  // Preview output (top pair of the bus) — only when active
-  if (activeIdx.has(previewL) || activeIdx.has(previewR)) {
-    pairs.push({ key: 'preview-out', leftIndex: previewL, rightIndex: previewR, label: 'Preview' });
+  // Diagnostic fallback: a pair that carries signal but no bus claims, and
+  // is not the reserved preview pair, still shows as "Out N" with the old
+  // per-output-channel gain fader. With every hardware-bound bus reporting
+  // `masters` this is expected never to appear; if it does, the engine has
+  // routed something the bus list does not account for, and hiding it would
+  // hide exactly the thing worth seeing.
+  for (let i = 0; i + 1 < server.masterBus.channels; i += 2) {
+    if (claimed.has(i) || claimed.has(i + 1)) continue;
+    if (i === previewL || i === previewR) continue;
+    if (!(activeIdx.has(i) || activeIdx.has(i + 1))) continue;
+    pairs.push({ key: `out-${i}`, leftIndex: i, rightIndex: i + 1, label: `Out ${i / 2}`, bus: null });
   }
 
   return pairs;
@@ -233,7 +239,39 @@ const handlePanic = () => {
   panicStop();
 };
 
-// ---- Per-output gain faders -----------------------------------------------
+// ---- Bus faders ------------------------------------------------------------
+// The same pattern as MixerStrip: while a fader moves the level goes straight
+// to the engine strip (no document write, no refetch) and the local value is
+// held, because binding to bus.gainDb meant every drag event did a PATCH plus
+// a full bus refetch and the knob snapped back to the stale value until the
+// round-trip landed. Once the gesture settles the bus is persisted with
+// patchBus {gainDb}, and the held value is released so the fader follows the
+// bus again — including changes made from the mixer or another client.
+const heldDb = reactive<Record<string, number>>({});
+const settleTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+
+function busFaderDb(bus: Bus): number {
+  return heldDb[bus.id] ?? bus.gainDb;
+}
+
+function onBusFader(bus: Bus, db: number) {
+  heldDb[bus.id] = db;
+  if (bus.mixerId) void server.setMixerGainDb(bus.mixerId, db).catch(() => {});
+  if (settleTimers[bus.id]) clearTimeout(settleTimers[bus.id]);
+  settleTimers[bus.id] = setTimeout(() => {
+    delete settleTimers[bus.id];
+    const id = bus.id;
+    // patchBus refetches the bus list before resolving, so by the time the
+    // held value is released bus.gainDb already carries what we sent.
+    void server.patchBus(id, { gainDb: db })
+      .catch(() => {})
+      .finally(() => { if (!settleTimers[id]) delete heldDb[id]; });
+  }, 250);
+}
+
+// ---- Fallback per-output-channel faders ------------------------------------
+// Only for the unclaimed "Out N" rows above. outputChannelGains stays at unity
+// in the bus world; these drive it directly, as the transport bar always did.
 function getOutputGainDb(leftIndex: number): number {
   return server.outputChannelGains[leftIndex] ?? 0;
 }

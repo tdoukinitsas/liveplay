@@ -86,10 +86,10 @@
             :icon="'headphones'"
             :highlight-color="isPreviewing ? 'var(--color-accent)' : 'var(--color-success)'"
             :is-active="isPreviewing"
-            :class="{ 'no-device': !hasPreviewDevice }"
+            :class="{ 'no-device': !previewReady }"
             context="Cart"
             @click.stop="isPreviewing ? handleStopPreview() : handleStartPreview()"
-            :title="isPreviewing ? t('actions.stopPreview') : (hasPreviewDevice ? t('actions.preview') : t('actions.previewNoDevice'))"
+            :title="isPreviewing ? t('actions.stopPreview') : (previewReady ? t('actions.preview') : t('actions.previewNoBus'))"
           />
           <ActionButton
             :icon="isPlaying ? 'stop' : 'play_arrow'"
@@ -543,12 +543,18 @@ const { previewItemUuid, startPreview, stopPreview } = useProject();
 const isPreviewing = computed(() =>
   props.item ? previewItemUuid.value === props.item.uuid : false,
 );
-const hasPreviewDevice = computed(() => !!(currentProject.value as any)?.settings?.previewDevice);
-const showProjectSettings = useState('showProjectSettings', () => false);
+// Pre-listen lands on the preview-role bus (D24), so the button is live only
+// when that bus reaches hardware. Before the first /api/buses fetch the list
+// is empty, which reads as "not ready" — the composable fetches on connect.
+// When there is nowhere to listen, the button opens the mixer so the fix is
+// one click away (D30); the class name `no-device` is kept for the CSS hook.
+const previewBusStore = useLiveplayServer();
+const previewReady = computed(() => !!previewBusStore.buses.find(b => b.preview)?.bound);
+const mixerOpen = useState<boolean>('liveplay:mixerOpen', () => false);
 const handleStartPreview = () => {
   if (!props.item || props.item.type !== 'audio') return;
-  if (!hasPreviewDevice.value) {
-    showProjectSettings.value = true;
+  if (!previewReady.value) {
+    mixerOpen.value = true;
     return;
   }
   startPreview(props.item.uuid);

@@ -24,35 +24,19 @@
         <div class="modal-body">
           <!-- ================= Audio Routing ================= -->
           <template v-if="activeTab === 'audio'">
-            <!-- Output routing left the project deliberately. A show says
-                 which bus it plays through; the machine says what that bus's
-                 output means in hardware. A project that names a sound card
-                 cannot travel between venues. -->
+            <!-- Routing does not live here. A show says which bus each cue
+                 plays through and what each bus sends to; that is the mixer's
+                 job (D30), and a project that names a sound card cannot
+                 travel between venues. This section only points the way. -->
             <section class="settings-field">
               <label class="settings-label">
-                <span class="material-symbols-rounded">speaker</span>
-                {{ t('settings.audioDevice') }}
+                <span class="material-symbols-rounded">tune</span>
+                {{ t('settings.routing') }}
               </label>
-              <p class="settings-help">{{ t('settings.audioDeviceMoved') }}</p>
-            </section>
-
-            <!-- Preview device (used by headphones button) -->
-            <section class="settings-field">
-              <label class="settings-label">
-                <span class="material-symbols-rounded">headphones</span>
-                {{ t('settings.previewDevice') }}
-              </label>
-              <select
-                class="settings-select"
-                :value="previewDeviceId"
-                @change="onPreviewDeviceChange"
-              >
-                <option :value="''">{{ t('settings.noneSelected') }}</option>
-                <option v-for="d in devices" :key="d.id" :value="d.id">
-                  {{ d.display_name }}{{ d.is_default ? ' (' + t('common.default') + ')' : '' }}
-                </option>
-              </select>
-              <p class="settings-help">{{ t('settings.previewDeviceHelp') }}</p>
+              <p class="settings-help">{{ t('settings.routingInMixer') }}</p>
+              <div class="settings-actions">
+                <Btn icon="tune" :text="t('settings.openMixer')" @click="openMixer" />
+              </div>
             </section>
 
             <!-- LTC device (timecode output) -->
@@ -278,7 +262,7 @@ const { currentProject } = useProject();
 const devices = computed(() => server.devices ?? []);
 
 // Tabs mirror the Properties panel's tab styling. Grouping:
-//  - audio    : device routing + loudness target
+//  - audio    : pointer to the mixer, LTC device, loudness target
 //  - playback : transitions, auto-cue, stop-all fade, processing toggles
 //  - ui       : metering + list behaviour
 const activeTab = ref<'audio' | 'playback' | 'ui'>('audio');
@@ -290,8 +274,6 @@ const tabs = computed(() => [
 
 // The settings live on the project document; we read them from there and
 // patch via the server endpoint.
-const audioDeviceId          = computed(() => (currentProject.value as any)?.settings?.defaultOutputDevice || '');
-const previewDeviceId        = computed(() => (currentProject.value as any)?.settings?.previewDevice || '');
 const ltcDeviceId            = computed(() => (currentProject.value as any)?.settings?.ltcDevice || '');
 const outputTarget           = computed(() => (currentProject.value as any)?.settings?.outputTarget || 'ebu-r128');
 const disableAutoVolumeAndTrim = computed(() => !!(currentProject.value as any)?.settings?.disableAutoVolumeAndTrim);
@@ -313,7 +295,7 @@ const { meterMode: currentMeterMode } = useOutputTarget();
 const meterMode              = computed(() => (currentProject.value as any)?.settings?.meterMode || currentMeterMode.value);
 const meterBallistics        = computed(() => (currentProject.value as any)?.settings?.meterBallistics || 'digital-ppm');
 
-// Make sure devices are loaded when the modal opens.
+// Make sure devices are loaded when the modal opens (the LTC select lists them).
 watch(() => props.open, async (v) => {
   if (v) await server.fetchDevices();
 });
@@ -336,14 +318,6 @@ async function applyPatch(patch: Record<string, any>) {
   }
 }
 
-function onAudioDeviceChange(e: Event) {
-  const v = (e.target as HTMLSelectElement).value;
-  applyPatch({ defaultOutputDevice: v || null });
-}
-function onPreviewDeviceChange(e: Event) {
-  const v = (e.target as HTMLSelectElement).value;
-  applyPatch({ previewDevice: v || null });
-}
 function onLtcDeviceChange(e: Event) {
   const v = (e.target as HTMLSelectElement).value;
   applyPatch({ ltcDevice: v || null });
@@ -392,6 +366,14 @@ function onScrollToPlayingChange(e: Event) {
 
 function close() {
   emit('close');
+}
+
+// The mixer is a sibling pane, not part of this modal: flip the shared flag
+// ProjectHeader / MainWorkspace already watch and get out of its way.
+const mixerOpen = useState<boolean>('liveplay:mixerOpen', () => false);
+function openMixer() {
+  mixerOpen.value = true;
+  close();
 }
 </script>
 
@@ -518,6 +500,10 @@ function close() {
   margin: 0;
   font-size: 12px;
   color: var(--color-text-secondary);
+}
+.settings-actions {
+  display: flex;
+  margin-top: 4px;
 }
 .settings-label--checkbox {
   flex-direction: row;

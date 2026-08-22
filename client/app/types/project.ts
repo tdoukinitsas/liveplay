@@ -155,13 +155,16 @@ export interface CartItem {
 /**
  * Where a bus sends its audio.
  *
- * `target` is a bus id for `bus`, or a *logical* output name for `output`
- * ("FOH", "Comms"). It is never a device name — the server owns the mapping
- * from a logical name to real hardware, which is what keeps a show portable
- * between venues.
+ * `target` is a bus id for `bus`, or an output name for `output`: a *logical*
+ * name ("FOH", "Comms", the built-in "Main Out" / "Preview Out") that the
+ * server's outputs.json binds to hardware, or — since D29 — a device name
+ * picked straight from the strip, which the server treats as bound while a
+ * device of that name is present. There is no `master` kind any more (D25):
+ * the master-role bus is an ordinary Output-kind bus on "Main Out", and a
+ * sub-mix reaches the house by targeting it as a `bus`.
  */
 export interface BusOutput {
-  type: 'master' | 'bus' | 'output';
+  type: 'bus' | 'output';
   target: string;
 }
 
@@ -306,29 +309,44 @@ export interface Bus {
    */
   pan: number;
   /**
-   * Pre-fade listen: this bus is being tapped into Monitor, pre-fader and
-   * pre-mute. Live state rather than part of the show — it is read from the
+   * Pre-fade listen: this bus is being tapped into the preview-role bus,
+   * pre-fader and pre-mute. Live state rather than part of the show — it is read from the
    * engine, never saved, and a reload clears it.
    */
   pfl: boolean;
   /**
-   * Monitor only: the mono-sum audition is folding the phones to mono. Live
-   * state like `pfl` — read from the engine, never saved. Always false on
-   * every other bus.
+   * Preview-role bus only: the mono-sum audition is folding the phones to
+   * mono. Live state like `pfl` — read from the engine, never saved. Always
+   * false on every other bus.
    */
   monoCheck: boolean;
   /** The strip's tone controls: filters, EQ and dynamics. */
   dsp: BusDsp;
   /**
-   * Whether this bus actually reaches hardware. Not derivable from the output
-   * name list: Monitor may be bound through settings.previewDevice, which is
-   * not in the map, and the strip must not warn about a bus that is working.
+   * Whether this bus actually reaches hardware. Server-computed (D26): true
+   * for a mapped logical output, for "Main Out" even unmapped (it falls back
+   * to the default device), and for a target naming a device that is present.
+   * Not derivable from the output name list, so the strip renders it rather
+   * than inferring it.
    */
   bound: boolean;
-  /** Main and Monitor: always present, cannot be deleted. */
-  system: boolean;
+  /**
+   * Roles (D24). Exactly one bus in a project holds each; never both on one
+   * bus. The master-role bus is the inheritance fallback and the house
+   * (masters 0/1); the preview-role bus is where PFL and cue pre-listen land.
+   * Moved with PATCH {master:true} / {preview:true}; the holder cannot be
+   * deleted until the role has moved.
+   */
+  master: boolean;
+  preview: boolean;
+  /**
+   * The engine master pair this bus's hardware output occupies — [0,1] for
+   * the master role, the reserved pair for preview, a pool pair for any other
+   * hardware-bound bus — or null when it is not bound to hardware (D32).
+   */
+  masters: [number, number] | null;
   output: BusOutput;
-  /** Engine strip backing this bus; empty when it has none (Main today). */
+  /** Engine strip backing this bus; empty only while the engine is rebuilding. */
   mixerId: string;
   /** Items resolving to this bus, including ones inheriting it from a group. */
   itemUuids: string[];
@@ -366,7 +384,7 @@ export interface ProjectSettings {
 // round trip of the loaded project (buses omitted because they are edited
 // through their own endpoints) from a pre-bus project being pushed over the top
 // of one (buses omitted because it has never heard of them). See D11.
-export const BUS_SCHEMA_VERSION = 1;
+export const BUS_SCHEMA_VERSION = 2;
 
 // Project structure
 export interface Project {
