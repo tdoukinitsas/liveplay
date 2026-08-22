@@ -15,8 +15,9 @@
 //   3. A cycle NEVER reaches the order: the offending edge is dropped,
 //      deterministically, and the rest of the graph still sorts
 //   4. Self-loops are cycles too
-//   5. The excluded node (Monitor) is absent from the order and its edges
-//      are ignored rather than sorted or dropped
+//   5. The excluded node — the preview-role strip, which the engine still
+//      registers via set_monitor_mixer() — is absent from the order and its
+//      edges are ignored rather than sorted or dropped
 // ============================================================================
 #include "liveplay/audio/engine.hpp"
 
@@ -183,29 +184,31 @@ void test_self_loop() {
                is_topological(res, 3, edges));
 }
 
-// --- 5. Monitor exclusion ---------------------------------------------------
-void test_monitor_excluded() {
-    // Strip 2 is the Monitor. It must be absent from the order, and edges
-    // touching it — even ones that would otherwise close a cycle through it —
-    // are ignored rather than sorted or reported as drops.
+// --- 5. Preview-role strip exclusion ----------------------------------------
+void test_preview_strip_excluded() {
+    // Strip 2 is the preview-role strip (the bus PFL and pre-listen land on;
+    // the engine API still calls it the monitor mixer). It must be absent
+    // from the order, and edges touching it — even ones that would otherwise
+    // close a cycle through it — are ignored rather than sorted or reported
+    // as drops: nothing may feed it (D25) and it feeds nothing.
     {
         const Edges edges{{0, 1}, {3, 2}, {2, 0}};
         const auto res = compute_strip_order(4, edges, 2);
-        check_true("monitor: absent from the order",
+        check_true("preview strip: absent from the order",
                    std::find(res.order.begin(), res.order.end(),
                              std::size_t{2}) == res.order.end());
-        check_true("monitor: order covers everyone else once",
+        check_true("preview strip: order covers everyone else once",
                    is_topological(res, 4, edges, 2));
-        check_true("monitor: its edges are ignored, not dropped",
+        check_true("preview strip: its edges are ignored, not dropped",
                    res.dropped.empty());
     }
-    // A real cycle among the others still drops with Monitor excluded.
+    // A real cycle among the others still drops with the preview strip excluded.
     {
         const Edges edges{{0, 1}, {1, 0}, {3, 2}};
         const auto res = compute_strip_order(4, edges, 2);
-        check_true("monitor + cycle: cycle edge still dropped (1->0)",
+        check_true("preview strip + cycle: cycle edge still dropped (1->0)",
                    res.dropped.size() == 1 && res.dropped[0] == Edge{1, 0});
-        check_true("monitor + cycle: remainder topological",
+        check_true("preview strip + cycle: remainder topological",
                    is_topological(res, 4, edges, 2));
     }
     // Out-of-range edges are ignored quietly.
@@ -229,8 +232,8 @@ int main() {
     test_cycles();
     std::printf("\n== compute_strip_order: self-loops ==\n");
     test_self_loop();
-    std::printf("\n== compute_strip_order: monitor exclusion ==\n");
-    test_monitor_excluded();
+    std::printf("\n== compute_strip_order: preview-role strip exclusion ==\n");
+    test_preview_strip_excluded();
 
     std::printf("\n%s (%d failure%s)\n",
                 g_failures == 0 ? "ALL PASS" : "FAILURES",

@@ -21,6 +21,7 @@ node server/tests/e2e/gen-signal.js /tmp/liveplay-test-signal.wav
 # 3. Start a server on a spare port, then drive it.
 server/build/Release/liveplay-server.exe --port 4500 &
 node server/tests/e2e/pfl-e2e.js        4500 /tmp/liveplay-test-signal.wav
+node server/tests/e2e/roles-e2e.js      4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/filters-e2e.js    4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/gate-e2e.js       4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/comp-e2e.js       4500 /tmp/liveplay-test-signal.wav
@@ -30,9 +31,35 @@ node server/tests/e2e/comp-e2e.js       4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/gen-wide-signal.js /tmp/liveplay-wide-signal.wav
 node server/tests/e2e/width-e2e.js      4500 /tmp/liveplay-wide-signal.wav
 node server/tests/e2e/reroute-e2e.js    4500 /tmp/liveplay-test-signal.wav
+node server/tests/e2e/busbus-e2e.js     4500 /tmp/liveplay-test-signal.wav /tmp/liveplay-wide-signal.wav
+node server/tests/e2e/migration-e2e.js  4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/save-churn.js     4500 /tmp/liveplay-test-signal.wav <projDir> <serverLog>
 node server/tests/e2e/materialise-skip.js 4500
 ```
+
+What each one pins, in the bus-role model (round 2, D24–D36):
+
+- `pfl-e2e.js` — PFL and pre-listen land on the **preview-role** bus (stock id `preview`, name
+  "Preview", built-in output `Preview Out`, silent until mapped or given a device name); the tap
+  is pre-fader / pre-mute; the house (masters 0/1) never moves; mapping `Preview Out` or naming a
+  present device binds it on the reserved pair; an absent device name leaves it silent, never on
+  the default device.
+- `roles-e2e.js` — the role model itself: `GET /api/outputs` `builtin`, `bound` / `masters` on
+  every bus, the whole 409 matrix (delete a holder, drop a role, both roles on one bus, fed bus
+  as preview, bus-kind bus as a holder, feeding the preview bus, master/preview to a bus, the
+  retired `type:"master"` still accepted), and the two safety claims: **moving the preview role
+  moves the PFL tap and the reserved pair** (old holder off the pair and silent, pre-listen
+  stopped, house untouched) and **moving the master role re-wires the house pair** (items with
+  no `busId` fall back to the new holder, the house follows, the old holder sits on a pool pair).
+- `busbus-e2e.js` — bus→bus routing; "to master" is a bus→bus send into the master-role bus.
+- `migration-e2e.js` — a pre-bus document gets the D35 defaults; `deviceOverride` → buses; a
+  round-1 document (`busSchema:1`, system Main/Monitor, a user bus of the retired `master` kind,
+  `settings.previewDevice`) takes the role migration and plays out the house; `project_migrated`
+  carries `rolesMigrated` / `previewDeviceMigrated` on every client.
+- `width-e2e.js` — also covers mono-check on the preview bus via both `/api/monitor/mono` and
+  its alias `/api/preview/mono`.
+- `materialise-skip.js` — a project's own buses are the ones **without a role**; a document with
+  no `busSchema` comes up on `master` + `preview` alone.
 
 The server holds the wav open while a project referencing it is loaded, so **stop the server
 before regenerating the signal** or the write fails with EBUSY and the old file is used silently.
@@ -122,9 +149,19 @@ measurement. In order of how much time each one cost:
 ## Things worth knowing before adding assertions
 
 - **"The house" is masters 0/1 specifically.** Maxing over every master channel silently stops
-  meaning the house once Monitor is bound, because the reserved pair at the top of the bus is a
-  master channel too. `Meters.housePeak()` and `Meters.monitorOutPeak()` are separate for that
-  reason.
+  meaning the house once the preview bus is bound, because the reserved pair at the top of the
+  bus is a master channel too. `Meters.housePeak()` and `Meters.monitorOutPeak()` are separate
+  for that reason. Bus JSON now says which pair each hardware-bound bus occupies (`masters`),
+  so a script can assert the house pair is `[0,1]` on the master-role bus directly.
+- **Find the role holders by role, never by id.** `buses.find(b => b.master)` /
+  `find(b => b.preview)`. The stock ids are `master` and `preview` for a fresh document, but a
+  migrated round-1 project keeps `main` / `monitor`, and a role can be moved onto any bus.
+- **Establish the starting state; do not assume it.** Scripts run back to back against one
+  server. `pfl-e2e.js` and `roles-e2e.js` clear PFL, stop any pre-listen, and wait for the
+  preview strip to actually read silent before taking a baseline; every script PUTs a fresh
+  document with no `buses` key so nothing carries over.
+- **Every FAIL line prints the values it compared.** An intermittent that says only FAIL
+  captures nothing. `ok(name, pass, detail)` — always pass `detail`.
 - **Master and strip meters fall back slowly (~4 dB/s).** Assert on level *changes* over a settle,
   not on an absolute floor a decaying meter will not reach inside the window. Running the script
   twice in a row leaves the previous run's tail on the reserved pair for tens of seconds.
@@ -135,6 +172,7 @@ measurement. In order of how much time each one cost:
   frequencies. The peak is unchanged, so every level assertion still reads −6 dBFS.
 - **The script mutates server config.** `PUT /api/outputs` persists to `outputs.json` next to the
   binary, so the script puts the map back at the end. Without that, the second run disagrees with
-  the first for reasons that have nothing to do with the code.
+  the first for reasons that have nothing to do with the code. `pfl-e2e.js` and `roles-e2e.js`
+  map `Preview Out` (not the old `Monitor` name) while they need the reserved pair driven.
 - **Prove a new assertion can fail.** Break the thing deliberately, rebuild, and watch it go red
   before trusting it. Every safety assertion here was confirmed that way.

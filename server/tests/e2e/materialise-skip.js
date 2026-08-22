@@ -25,8 +25,12 @@ const buses = async () => (await rest('/api/buses')).body;
       ],
     }),
   });
+  // The role holders (D24) are ordinary buses now, so the project's OWN buses
+  // are the ones without a role — and "to master" is written as the legacy
+  // type the API still accepts, to prove that spelling still loads.
+  const own = bs => bs.filter(x => !x.master && !x.preview).map(x => x.id).sort();
   let b = await buses();
-  const a = b.filter(x => !x.system).map(x => x.id).sort();
+  const a = own(b);
   ok('project A materialised its own buses', JSON.stringify(a) === '["comms","foh"]', a.join(','));
   ok('every bus in A has a strip', b.every(x => !!x.mixerId));
 
@@ -41,7 +45,7 @@ const buses = async () => (await rest('/api/buses')).body;
     }),
   });
   b = await buses();
-  const c = b.filter(x => !x.system).map(x => x.id).sort();
+  const c = own(b);
   ok('project B replaced them, not kept A', JSON.stringify(c) === '["stage"]', c.join(','));
   ok('every bus in B has a strip', b.every(x => !!x.mixerId));
 
@@ -57,14 +61,15 @@ const buses = async () => (await rest('/api/buses')).body;
 
   // The other half of that rule (D11): a document that omits `buses` AND omits
   // `busSchema` predates buses, so it must NOT inherit the loaded project's —
-  // it takes the migration path and comes up on the system buses alone. This is
-  // what stops one project's routing leaking into the next one.
+  // it takes the migration path and comes up on the two role holders alone
+  // (D35 defaults: "master" and "preview"). This is what stops one project's
+  // routing leaking into the next one.
   await rest('/api/project/document', {
     method: 'PUT', body: JSON.stringify({ name: 'projLegacy', items: [] }),
   });
   const legacy = (await buses()).map(x => x.id).sort();
   ok('a doc with no busSchema does not inherit the previous buses',
-     JSON.stringify(legacy) === '["main","monitor"]', legacy.join(','));
+     JSON.stringify(legacy) === '["master","preview"]', legacy.join(','));
 
   console.log(`\n${failures === 0 ? 'ALL PASS' : 'FAILURES'} (${failures})`);
   process.exit(failures === 0 ? 0 : 1);

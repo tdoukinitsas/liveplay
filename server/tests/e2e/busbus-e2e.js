@@ -170,6 +170,8 @@ async function setBus(uuid, busId) {
   //   A -> B -> master            (the chain under test: 1, 2, 4, 5, 6)
   //   M -> S -> master            (mono bus feeding stereo: assertion 3a)
   //   W -> T -> master            (stereo bus feeding mono: assertion 3b)
+  // "master" here is the master-ROLE bus (id "master" in a fresh document),
+  // reached as a bus->bus send; POST /api/buses defaults to exactly that.
   const mk = async (name, width) =>
     (await rest('/api/buses', { method: 'POST', body: JSON.stringify({ name, width }) })).body.id;
   const Ctrl = await mk('Ctrl', 2);
@@ -344,9 +346,13 @@ async function setBus(uuid, busId) {
      `discontinuities ${statsBefore.discontinuities} -> ${statsAfter.discontinuities}`);
   await measure(m, 800);
   ok('and the chain is still audible, undisturbed', m.house() > -20, `${m.house().toFixed(1)} dBFS`);
+  // "To master" is a bus->bus send into the master-role bus now (D25):
+  // a fresh document's master bus has the stock id "master".
+  const masterId = (await buses()).find(b => b.master).id;
   const bAfterCycle = await bus(B);
-  ok('B still points at master, not A (the refused patch changed nothing)',
-     bAfterCycle.output.type === 'master', JSON.stringify(bAfterCycle.output));
+  ok('B still points at the master bus, not A (the refused patch changed nothing)',
+     bAfterCycle.output.type === 'bus' && bAfterCycle.output.target === masterId,
+     JSON.stringify(bAfterCycle.output));
 
   // =========================================================================
   // 5. Deleting the middle bus (B) retargets its feeder (A) to master, and
@@ -355,8 +361,9 @@ async function setBus(uuid, busId) {
   const del = await rest(`/api/buses/${B}`, { method: 'DELETE' });
   ok('DELETE B is 200', del.status === 200, `status ${del.status}`);
   const aAfterDelete = await bus(A);
-  ok('A was retargeted to the master (D9)',
-     aAfterDelete.output.type === 'master', JSON.stringify(aAfterDelete.output));
+  ok('A was retargeted to the master bus as a bus->bus send (D9/D25)',
+     aAfterDelete.output.type === 'bus' && aAfterDelete.output.target === masterId,
+     JSON.stringify(aAfterDelete.output));
   await sleep(300);
   await measure(m, 800);
   ok('audio continues after the retarget (no silence)', m.house() > -20, `${m.house().toFixed(1)} dBFS`);
@@ -368,9 +375,10 @@ async function setBus(uuid, busId) {
   await sleep(300);
   await measure(m, 800);
   const houseBeforeFaderDown = m.house();
-  const monitorId = (await bus('monitor')).mixerId;
+  // The preview-role bus is where PFL lands; found by role, not by id.
+  const monitorId = (await buses()).find(b => b.preview).mixerId;
   const monitorBeforeFaderDown = m.peak(monitorId);
-  ok('PFL is audible in Monitor before touching the fader',
+  ok('PFL is audible in the preview bus before touching the fader',
      monitorBeforeFaderDown > -20, `${monitorBeforeFaderDown.toFixed(1)} dBFS`);
 
   await rest(`/api/buses/${A}`, { method: 'PATCH', body: JSON.stringify({ gainDb: -60, mute: true }) });
@@ -380,7 +388,7 @@ async function setBus(uuid, busId) {
   const monitorAfterFaderDown = m.peak(monitorId);
   ok('the house goes quiet with A\'s fader down and muted',
      houseAfterFaderDown < -30, `${houseAfterFaderDown.toFixed(1)} dBFS`);
-  ok('...but Monitor still hears A: PFL is pre-fader and pre-mute',
+  ok('...but the preview bus still hears A: PFL is pre-fader and pre-mute',
      monitorAfterFaderDown > -20, `${monitorAfterFaderDown.toFixed(1)} dBFS`);
   ok('and PFL never changed what the house heard beforehand',
      houseBeforeFaderDown > -20, `${houseBeforeFaderDown.toFixed(1)} dBFS`);

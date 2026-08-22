@@ -209,23 +209,25 @@ const width = (o) => ({ width: { width: 1, bassMonoHz: 20, bassMonoQ: 0.7071, ..
      m.correlation(mb.mixerId).toFixed(3));
 
   // ---- The mono-sum audition ----
-  // PFL the wide bus into Monitor, then fold Monitor to mono. The check is on
-  // the MONITOR strip: the bus being auditioned must not move at all, because
-  // the whole promise is that this touches the phones and nothing else.
+  // PFL the wide bus into the preview bus, then fold it to mono. The check is
+  // on the PREVIEW strip: the bus being auditioned must not move at all,
+  // because the whole promise is that this touches the phones and nothing
+  // else.
   //
-  // Monitor is unbound on a machine with no headphone output, but its strip
-  // still runs and still meters, so this measures correctly either way.
+  // The preview bus is unbound on a machine with no headphone output, but its
+  // strip still runs and still meters, so this measures correctly either way.
+  // It is found by role (D24), not by id.
   await rest(`/api/project/items/${uuid}`, {
     method: 'PATCH', body: JSON.stringify({ busId: bus }) });
   await rest(`/api/buses/${bus}/pfl`, {
     method: 'POST', body: JSON.stringify({ pfl: true }) });
   await sleep(SETTLE_MS);
   await measure(m, 2000);
-  const monitorBus = (await rest('/api/buses')).body.find(x => x.id === 'monitor');
+  const monitorBus = (await rest('/api/buses')).body.find(x => x.preview);
   const monWide = m.rms(monitorBus.mixerId);
   const busWide = m.rms(b.mixerId);
-  ok('PFL puts the wide bus into Monitor', monWide > -40, `${monWide.toFixed(1)} dB RMS`);
-  ok('and Monitor starts un-folded', monitorBus.monoCheck === false);
+  ok('PFL puts the wide bus into the preview bus', monWide > -40, `${monWide.toFixed(1)} dB RMS`);
+  ok('and the preview bus starts un-folded', monitorBus.monoCheck === false);
 
   await rest('/api/monitor/mono', {
     method: 'POST', body: JSON.stringify({ mono: true }) });
@@ -245,9 +247,11 @@ const width = (o) => ({ width: { width: 1, bassMonoHz: 20, bassMonoQ: 0.7071, ..
      Math.abs(m.rms(b.mixerId) - busWide) < 0.2,
      `${busWide.toFixed(1)} -> ${m.rms(b.mixerId).toFixed(1)} dB RMS`);
   ok('and the API reports the fold',
-     (await rest('/api/buses')).body.find(x => x.id === 'monitor').monoCheck === true);
+     (await rest('/api/buses')).body.find(x => x.preview).monoCheck === true);
 
-  await rest('/api/monitor/mono', {
+  // Released through the role-named alias (D33): /api/preview/mono and
+  // /api/monitor/mono are one handler, so both must work.
+  await rest('/api/preview/mono', {
     method: 'POST', body: JSON.stringify({ mono: false }) });
   await sleep(SETTLE_MS);
   await measure(m, 2000);
