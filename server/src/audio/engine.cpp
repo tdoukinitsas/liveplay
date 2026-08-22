@@ -768,11 +768,19 @@ void AudioEngine::ensure_default_routing() {
         }
     }
 
-    // Step 2: ensure a "Main" mixer exists. create_mixer_channel locks too.
+    // Step 2: find the house strip. create_mixer_channel locks too.
     MixerChannelId main_mixer{};
+    bool project_owned = false;
     {
         std::lock_guard lock{mutex_};
-        // Never the monitor, and prefer a strip actually called Main.
+        // The registered master strip first (D27): a loaded project says
+        // which bus is the house, and that bus is wired by ProjectState.
+        if (!master_mixer_.empty() && mixers_.count(master_mixer_.value)) {
+            main_mixer    = master_mixer_;
+            project_owned = true;
+        }
+        // Otherwise never the monitor, and prefer a strip actually called
+        // Main.
         //
         // This used to take mixers_.begin(), which is an arbitrary strip out
         // of an unordered_map — and once Monitor existed, it sometimes picked
@@ -780,10 +788,12 @@ void AudioEngine::ensure_default_routing() {
         // in the house, at roughly one launch in N, which is the precise
         // accident PFL was chosen over solo to make impossible. Caught by
         // metering the master with PFL up.
-        for (const auto& [_, m] : mixers_) {
-            if (!monitor_mixer_.empty() && m->id() == monitor_mixer_) continue;
-            if (main_mixer.empty()) main_mixer = m->id();
-            if (m->display_name() == "Main") { main_mixer = m->id(); break; }
+        if (main_mixer.empty()) {
+            for (const auto& [_, m] : mixers_) {
+                if (!monitor_mixer_.empty() && m->id() == monitor_mixer_) continue;
+                if (main_mixer.empty()) main_mixer = m->id();
+                if (m->display_name() == "Main") { main_mixer = m->id(); break; }
+            }
         }
     }
     if (main_mixer.empty()) {
@@ -824,14 +834,21 @@ void AudioEngine::ensure_default_routing() {
         }
         // Step 4: route Main mixer lanes → masters (lane 0 → master 0 = L,
         // lane 1 → master 1 = R) so the strip's stereo image survives.
-        auto& m2m = pending_.mixer_to_master[main_mixer.value];
-        bool has_m0 = false, has_m1 = false;
-        for (auto& s : m2m) {
-            if (s.master == 0) has_m0 = true;
-            if (s.master == 1) has_m1 = true;
+        //
+        // Only for the pre-project fallback strip. A registered master bus
+        // is wired by ProjectState — by the pan/balance law, or folded onto
+        // one master when its output is mono — and a unity send added behind
+        // its back would put the right lane on a master nothing should feed.
+        if (!project_owned) {
+            auto& m2m = pending_.mixer_to_master[main_mixer.value];
+            bool has_m0 = false, has_m1 = false;
+            for (auto& s : m2m) {
+                if (s.master == 0) has_m0 = true;
+                if (s.master == 1) has_m1 = true;
+            }
+            if (!has_m0) { m2m.push_back({0, 0, 1.0f}); changed = true; }
+            if (!has_m1) { m2m.push_back({1, 1, 1.0f}); changed = true; }
         }
-        if (!has_m0) { m2m.push_back({0, 0, 1.0f}); changed = true; }
-        if (!has_m1) { m2m.push_back({1, 1, 1.0f}); changed = true; }
 
         // Step 5: auto-route every loaded cue's source channels → Main, but
         // ONLY for cues that have no routes yet. Cues that were explicitly
@@ -933,6 +950,18 @@ void AudioEngine::set_monitor_mixer(const MixerChannelId& id) {
     rebuild_topology_locked();
 }
 
+void AudioEngine::set_master_mixer(const MixerChannelId& id) {
+    std::lock_guard lock{mutex_};
+    // No topology rebuild: nothing on the render thread reads this. It only
+    // decides where ensure_default_routing() parks a cue that has no route.
+    master_mixer_ = id;
+}
+
+MixerChannelId AudioEngine::master_mixer() const {
+    std::lock_guard lock{mutex_};
+    return master_mixer_;
+}
+
 MixerChannelId AudioEngine::monitor_mixer() const {
     std::lock_guard lock{mutex_};
     return monitor_mixer_;
@@ -1018,8 +1047,11 @@ void AudioEngine::remove_mixer_channel(const MixerChannelId& id) {
         else ++it;
     }
     // A dangling monitor designation would survive a project reload and point
-    // at a strip that no longer exists, quietly disabling PFL.
+    // at a strip that no longer exists, quietly disabling PFL. Same for the
+    // master designation: ensure_default_routing() checks the strip exists,
+    // but a stale id is still a lie worth not telling.
     if (monitor_mixer_ == id) monitor_mixer_ = MixerChannelId{};
+    if (master_mixer_ == id)  master_mixer_  = MixerChannelId{};
     for (auto& [_, item_routes] : pending_.item_sources) {
         for (auto& sends : item_routes.by_source_channel) {
             sends.erase(std::remove_if(sends.begin(), sends.end(),

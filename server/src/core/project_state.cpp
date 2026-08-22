@@ -477,7 +477,17 @@ std::chrono::nanoseconds parse_smpte_timecode_to_ns(const std::string& tc,
 
 ProjectState::ProjectState(audio::AudioEngine& engine, OutputMap& outputs)
     : engine_(engine), outputs_(outputs) {
-    document_ = default_empty_document();
+    {
+        std::lock_guard lock{mutex_};
+        document_ = default_empty_document();
+        // A server with no project open still has a desk: the default master
+        // and preview buses (D35), so /api/buses and the mixer never look at
+        // an empty rail and the house pair is wired from the start.
+        load_buses_locked();
+        write_buses_to_document_locked();
+        pending_bus_migration_ = {};
+    }
+    materialise_buses();
     start_sequencer();
     // Background decoder for single-item adds/media swaps (#43).
     loader_thread_ = std::thread([this] { loader_loop(); });
@@ -495,7 +505,7 @@ ProjectState::~ProjectState() {
 
     // Tear down preview infrastructure on shutdown so the audio device gets
     // released cleanly.
-    // The strip and the device belong to the Monitor bus now, and are torn
+    // The strip and the device belong to the preview bus now, and are torn
     // down with every other bus routing; only the auditioned cue is ours.
     if (!preview_cue_.empty()) {
         engine_.stop(preview_cue_);
@@ -1053,7 +1063,7 @@ void ProjectState::reset() {
     }
     next_item_override_.clear(); next_item_override_manual_ = false;
 
-    std::lock_guard lock{mutex_};
+    std::unique_lock lock{mutex_};
 
     // Stop and unload every engine cue. Clearing the bookkeeping maps alone is
     // not enough — the PlaybackItems live in the engine and keep playing until
@@ -1077,15 +1087,9 @@ void ProjectState::reset() {
     item_uuid_to_cue_.clear();
     primed_cues_.clear();
     release_device_routings_locked();
-    for (auto& [_, r] : bus_routings_) {
-        if (!r.mixer.empty()) engine_.remove_mixer_channel(r.mixer);
-        if (r.has_masters) {
-            engine_.clear_master_assignment(r.master_l);
-            engine_.clear_master_assignment(r.master_r);
-        }
-    }
-    bus_routings_.clear();
-    free_master_pairs_.clear();
+    // The outgoing project's strips are NOT torn down here: materialise_buses()
+    // below does that, outside the lock, as it does on every load — and
+    // creates the default desk in their place.
     buses_.clear();
     // The selection and the trigger-order stamps belong to the project that is
     // going away; carrying them into the next one would leave control surfaces
@@ -1096,11 +1100,19 @@ void ProjectState::reset() {
     project_name_ = "Untitled";
     project_file_path_.clear();
     document_ = default_empty_document();
-    // A brand-new project still has Main and Monitor, so /api/buses and the
-    // mixer are never looking at an empty desk.
+    // A brand-new project still has a master and a preview bus (D35), so
+    // /api/buses and the mixer are never looking at an empty desk.
     load_buses_locked();
     write_buses_to_document_locked();
+    // The defaults are not a migration: nothing was rewritten on anyone's
+    // behalf, so the next load reports only what IT had to do.
+    pending_bus_migration_ = {};
     apply_to_engine_locked();
+    lock.unlock();
+    // Strips for the default desk, with the house pair wired (round-1
+    // finding 7: a closed project used to leave the rail empty until the
+    // next load). Outside the lock: every engine call takes its own.
+    materialise_buses();
 }
 
 json ProjectState::default_empty_document() {
@@ -1117,7 +1129,7 @@ json ProjectState::default_empty_document() {
         {"playbackKeys",  json::object()},
         {"cartOnlyItems", json::array()},
         {"theme",         json{{"mode", "dark"}, {"accentColor", "#DA1E28"}}},
-        // No defaultOutputDevice: where audio goes is the Main bus's output,
+        // No defaultOutputDevice: where audio goes is the master bus's output,
         // and the binding from a logical output to hardware belongs to the
         // machine, not the show. previewDevice / ltcDevice are still device
         // names pending the same treatment.
@@ -1615,49 +1627,6 @@ void ProjectState::apply_default_device_routing() {
 }
 
 // ---------------------------------------------------------------------------
-// Preview device change — stop what is being auditioned and move the Monitor
-// bus to the newly selected hardware.
-//
-// Pre-listen and PFL share that bus, so this setting now moves both. It is
-// re-wired here rather than left for the next start_preview(), because PFL can
-// be up with nothing being auditioned at all: waiting would leave the operator
-// listening to the old device with no obvious way to say so.
-// ---------------------------------------------------------------------------
-void ProjectState::apply_preview_device_change() {
-    audio::CueId prev_cue;
-    {
-        std::lock_guard lock{mutex_};
-        prev_cue = preview_cue_;
-        preview_cue_ = audio::CueId{};
-        preview_item_uuid_.clear();
-    }
-    if (!prev_cue.empty()) {
-        engine_.stop(prev_cue);
-        engine_.unload_cue(prev_cue);
-    }
-
-    BusDef     def;
-    BusRouting routing;
-    {
-        std::lock_guard lock{mutex_};
-        const auto bit = std::find_if(buses_.begin(), buses_.end(),
-                                      [](const BusDef& b) { return b.id == kMonitorBusId; });
-        if (bit == buses_.end()) return;
-        def = *bit;
-        const auto rit = bus_routings_.find(kMonitorBusId);
-        if (rit == bus_routings_.end()) return;
-        routing = rit->second;
-    }
-    if (routing.mixer.empty()) return;
-    unwire_bus(routing);
-    wire_bus(def, routing);
-    {
-        std::lock_guard lock{mutex_};
-        bus_routings_[kMonitorBusId] = routing;
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Introspection
 // ---------------------------------------------------------------------------
 std::vector<CueMeta> ProjectState::list_cues() const {
@@ -1942,16 +1911,20 @@ bool ProjectState::replace_full_document(const json& doc) {
         // project PUT over a loaded one does not, and must bring its own
         // routing rather than inherit the outgoing project's buses (D11).
         // Nothing is sniffed out of the content — the version is the signal.
+        //
+        // Any bus-era schema carries (D34: the rule is `>= 1`, not "the
+        // current version") — a round trip from a client that has not yet
+        // learned about roles still omits `buses` for the same reason.
         json carried_buses;
         if (!doc.contains("buses") && document_.contains("buses") &&
-            bus_schema_of(doc) >= kBusSchemaVersion) {
+            bus_schema_of(doc) >= 1) {
             carried_buses = document_["buses"];
         }
         document_ = doc;
         if (!carried_buses.is_null()) document_["buses"] = std::move(carried_buses);
         if (!document_.contains("settings")) {
             // No defaultOutputDevice — load_buses_locked() migrates that key
-            // onto the Main bus and erases it, so re-injecting it here would
+            // onto the master bus and erases it, so re-injecting it here would
             // resurrect the field the migration exists to remove.
             document_["settings"] = json{
                 {"previewDevice",       nullptr},
@@ -2761,9 +2734,9 @@ bool ProjectState::play_item(const std::string& uuid,
     // "no-ducking" → do nothing.
 
     // Bus assignment is the whole of an item's routing. Everything resolves to
-    // a bus — Main when nothing along the chain says otherwise — and the bus
+    // a bus — the master bus when nothing along the chain says otherwise — and the bus
     // decides where the audio goes. Where a project used to name an output
-    // device, that is now the Main bus's output, set on load.
+    // device, that is now the master bus's output, set on load.
     audio::MixerChannelId bus_mixer;
     {
         std::lock_guard lock{mutex_};
@@ -3395,23 +3368,23 @@ json ProjectState::state_summary() const {
     // it in", not the mixer's internals.
     json buses_arr = json::array();
     for (const auto& b : list_buses()) {
-        const char* kind =
-            b.def.output_kind == BusOutputKind::Bus    ? "bus"
-          : b.def.output_kind == BusOutputKind::Output ? "output"
-                                                        : "master";
+        const char* kind = b.def.output_kind == BusOutputKind::Bus ? "bus" : "output";
         json entry{
-            {"id",     b.def.id},
-            {"name",   b.def.display_name},
-            {"color",  b.def.color},
-            {"order",  b.def.order},
-            {"width",  b.def.width},
-            {"gainDb", b.def.gain_db},
-            {"mute",   b.def.muted},
-            {"pfl",    b.pfl},
-            {"bound",  b.bound},
-            {"output", json{{"type", kind}, {"target", b.def.output_target}}},
+            {"id",      b.def.id},
+            {"name",    b.def.display_name},
+            {"color",   b.def.color},
+            {"order",   b.def.order},
+            {"width",   b.def.width},
+            {"gainDb",  b.def.gain_db},
+            {"mute",    b.def.muted},
+            {"pfl",     b.pfl},
+            {"bound",   b.bound},
+            {"master",  b.def.master},
+            {"preview", b.def.preview},
+            {"masters", b.masters ? json{b.masters->first, b.masters->second} : json{}},
+            {"output",  json{{"type", kind}, {"target", b.def.output_target}}},
         };
-        if (b.def.id == kMonitorBusId) entry["monoCheck"] = b.mono_check;
+        if (b.def.preview) entry["monoCheck"] = b.mono_check;
         buses_arr.push_back(std::move(entry));
     }
 
@@ -3879,21 +3852,75 @@ std::string bus_id_from_name(const std::string& name) {
 }
 }  // namespace
 
+// Parse an output spec as the API and the document carry it. "master" is the
+// retired kind (D25): accepted for one release and mapped to a bus→bus send
+// into the master-role bus, whose id the caller supplies because at load time
+// the roles are settled after every bus has been read.
+namespace {
+struct ParsedOutput {
+    BusOutputKind kind = BusOutputKind::Bus;
+    std::string   target;
+    bool          legacy_master = false;   // the word "master" was used
+};
+ParsedOutput parse_output_spec(const json& out) {
+    ParsedOutput p;
+    const auto kind = out.value("type", std::string{"master"});
+    p.target = out.value("target", std::string{});
+    if (kind == "bus")         { p.kind = BusOutputKind::Bus;    return p; }
+    if (kind == "output")      { p.kind = BusOutputKind::Output; return p; }
+    // "master", or anything unrecognised: the old default.
+    p.kind          = BusOutputKind::Bus;
+    p.target.clear();
+    p.legacy_master = true;
+    return p;
+}
+}  // namespace
+
+const BusDef* ProjectState::master_bus_locked() const {
+    for (const auto& b : buses_) if (b.master) return &b;
+    return nullptr;
+}
+
+const BusDef* ProjectState::preview_bus_locked() const {
+    for (const auto& b : buses_) if (b.preview) return &b;
+    return nullptr;
+}
+
+std::string ProjectState::master_bus_id_locked() const {
+    const BusDef* b = master_bus_locked();
+    return b ? b->id : std::string{};
+}
+
+std::string ProjectState::preview_bus_id_locked() const {
+    const BusDef* b = preview_bus_locked();
+    return b ? b->id : std::string{};
+}
+
 void ProjectState::load_buses_locked() {
     // What this load has to invent on the operator's behalf (D12). Reset on
     // every load so an already-migrated document reports nothing.
     BusMigrationSummary summary;
     // A document with no `buses` key predates buses entirely: nothing in it
-    // says where anything goes, so everything in it lands on Main (D1).
-    const bool had_buses_key = document_.contains("buses");
+    // says where anything goes, so everything in it lands on the master bus
+    // (D1). One with a key but a schema below 2 comes from round 1: it has
+    // buses but no roles, and may carry the retired "master" output kind.
+    const bool had_buses_key = document_.contains("buses") &&
+                               document_["buses"].is_array();
+    int schema = 0;
+    if (document_.contains("busSchema") && document_["busSchema"].is_number())
+        schema = document_["busSchema"].get<int>();
 
     buses_.clear();
     // The bus list is about to change, so anything previously reported as
     // unknown is worth reporting again if it is still unknown afterwards.
     warned_unknown_buses_.clear();
     std::unordered_set<std::string> seen;
+    // Buses whose output was written as the retired "master" kind, or left
+    // out entirely (which meant the same thing). Settled once the master
+    // role is known.
+    std::unordered_set<std::string> legacy_master_kind;
 
-    if (document_.contains("buses") && document_["buses"].is_array()) {
+    if (had_buses_key) {
         for (const auto& b : document_["buses"]) {
             if (!b.is_object()) continue;
             BusDef d;
@@ -3906,55 +3933,136 @@ void ProjectState::load_buses_locked() {
             d.gain_db      = b.value("gainDb", 0.0f);
             d.muted        = b.value("mute", false);
             d.pan          = std::clamp(b.value("pan", 0.0f), -1.0f, 1.0f);
+            d.master       = b.value("master", false);
+            d.preview      = b.value("preview", false);
             if (b.contains("dsp")) merge_bus_dsp(b["dsp"], d.dsp);
+            ParsedOutput out;
             if (b.contains("output") && b["output"].is_object()) {
-                const auto& out = b["output"];
-                const auto kind = out.value("type", std::string{"master"});
-                d.output_kind = kind == "bus"    ? BusOutputKind::Bus
-                              : kind == "output" ? BusOutputKind::Output
-                                                 : BusOutputKind::Master;
-                d.output_target = out.value("target", std::string{});
+                out = parse_output_spec(b["output"]);
+            } else {
+                out.legacy_master = true;
             }
+            d.output_kind   = out.kind;
+            d.output_target = out.target;
+            if (out.legacy_master) legacy_master_kind.insert(d.id);
             seen.insert(d.id);
             buses_.push_back(std::move(d));
         }
     }
 
-    // Main and Monitor always exist. A document that already defines them
-    // keeps its levels; one that doesn't gets them synthesised, which is what
-    // makes every pre-bus project load unchanged.
-    const auto ensure_system = [&](const char* id, const char* name, int order) -> BusDef& {
-        for (auto& b : buses_) {
-            if (b.id == id) { b.system = true; return b; }
-        }
-        BusDef d;
-        d.id           = id;
-        d.display_name = name;
-        d.order        = order;
-        d.system       = true;
-        buses_.push_back(std::move(d));
-        return buses_.back();
+    const auto find = [&](const std::string& id) -> BusDef* {
+        for (auto& b : buses_) if (b.id == id) return &b;
+        return nullptr;
     };
-    ensure_system(kMainBusId, "Main", 0);
+    const auto by_order = [](const BusDef& a, const BusDef& b) { return a.order < b.order; };
 
-    // Monitor is where PFL lands, so it must not be pointed at the master —
-    // that would put every PFL'd channel into the house mix, live. A document
-    // written before PFL existed has Monitor on the master kind by default
-    // (nothing fed it, so it was harmless); moving it here is lossless and
-    // silent, because an unmapped output name resolves to no channels.
-    {
-        BusDef& mon = ensure_system(kMonitorBusId, "Monitor", 1'000'000);
-        if (mon.output_kind == BusOutputKind::Master) {
-            mon.output_kind   = BusOutputKind::Output;
-            mon.output_target = kMonitorOutputName;
+    // ---- Roles (D24 / D34 / D35) ----------------------------------------
+    // A round-1 document has no role flags; its "main" and "monitor" buses
+    // ARE the holders, and get the new stock names only if they still carry
+    // the old ones — a renamed bus stays renamed.
+    if (had_buses_key && schema < kBusSchemaVersion) {
+        if (BusDef* m = find("main")) {
+            if (!m->master) { m->master = true; summary.roles_migrated = true; }
+            if (m->display_name == "Main") m->display_name = "Master";
+        }
+        if (BusDef* p = find("monitor")) {
+            if (!p->preview) { p->preview = true; summary.roles_migrated = true; }
+            if (p->display_name == "Monitor") p->display_name = "Preview";
         }
     }
+    // Exactly one of each, never the same bus. Duplicates can only come from
+    // a hand-edited document; the first by order keeps the role. A bus
+    // claiming both keeps master — the house matters more than the phones —
+    // and a preview holder is found or made below.
+    std::stable_sort(buses_.begin(), buses_.end(), by_order);
+    {
+        bool have_master = false;
+        for (auto& b : buses_) {
+            if (!b.master) continue;
+            if (have_master) {
+                Logger::warn("bus '{}' also claims the master role; '{}' keeps it",
+                             b.display_name, master_bus_locked()->display_name);
+                b.master = false;
+                summary.roles_migrated = true;
+            }
+            have_master = true;
+            if (b.preview) {
+                Logger::warn("bus '{}' claims both roles; it keeps master", b.display_name);
+                b.preview = false;
+                summary.roles_migrated = true;
+            }
+        }
+        bool have_preview = false;
+        for (auto& b : buses_) {
+            if (!b.preview) continue;
+            if (have_preview) {
+                Logger::warn("bus '{}' also claims the preview role; '{}' keeps it",
+                             b.display_name, preview_bus_locked()->display_name);
+                b.preview = false;
+                summary.roles_migrated = true;
+            }
+            have_preview = true;
+        }
+    }
+    // No master holder: the first Output-kind bus by order is promoted, else
+    // one is synthesised. A document with no buses at all is not being
+    // migrated — it is getting the defaults — so only a document that brought
+    // buses and lacked a holder counts.
+    if (!master_bus_locked()) {
+        BusDef* promoted = nullptr;
+        for (auto& b : buses_) {
+            if (b.preview || b.output_kind != BusOutputKind::Output) continue;
+            promoted = &b;
+            break;
+        }
+        if (promoted) {
+            promoted->master = true;
+            summary.roles_migrated = true;
+            Logger::warn("no bus carries the master role; promoting '{}' (it sends to '{}')",
+                         promoted->display_name, promoted->output_target);
+        } else {
+            BusDef d;
+            d.id            = kMasterBusId;
+            for (int n = 2; find(d.id); ++n) d.id = std::string{kMasterBusId} + "-" + std::to_string(n);
+            d.display_name  = "Master";
+            d.order         = kMasterBusOrder;
+            d.master        = true;
+            d.output_kind   = BusOutputKind::Output;
+            d.output_target = kMainOutputName;
+            buses_.push_back(std::move(d));
+            if (had_buses_key) {
+                summary.roles_migrated = true;
+                Logger::warn("no bus carries the master role and none sends to an output; "
+                             "synthesised '{}' -> '{}'", buses_.back().display_name, kMainOutputName);
+            }
+        }
+    }
+    if (!preview_bus_locked()) {
+        BusDef d;
+        d.id            = kPreviewBusId;
+        for (int n = 2; find(d.id); ++n) d.id = std::string{kPreviewBusId} + "-" + std::to_string(n);
+        d.display_name  = "Preview";
+        d.order         = kPreviewBusOrder;
+        d.preview       = true;
+        d.output_kind   = BusOutputKind::Output;
+        d.output_target = kPreviewOutputName;
+        buses_.push_back(std::move(d));
+        if (had_buses_key) {
+            summary.roles_migrated = true;
+            Logger::warn("no bus carries the preview role; synthesised '{}' -> '{}'",
+                         buses_.back().display_name, kPreviewOutputName);
+        }
+    }
+    const std::string master_id  = master_bus_id_locked();
+    const std::string preview_id = preview_bus_id_locked();
 
-    // A project that named a default output device gets it moved onto Main,
-    // as a logical output. Because an unmapped name resolves back to a device
-    // of the same name, the audio keeps coming out of the same place — but the
-    // project no longer decides which hardware that is, which is the point:
-    // output binding belongs to the machine, not the show.
+    // ---- settings.defaultOutputDevice → the master bus -------------------
+    // A project that named a default output device gets it moved onto the
+    // master bus, as a logical output. Because an unmapped name resolves back
+    // to a device of the same name, the audio keeps coming out of the same
+    // place — but the project no longer decides which hardware that is, which
+    // is the point: output binding belongs to the machine, not the show.
+    // Only when the master bus does not already say where it goes.
     if (document_.contains("settings") && document_["settings"].is_object()) {
         auto& settings = document_["settings"];
         if (settings.contains("defaultOutputDevice") &&
@@ -3962,28 +4070,100 @@ void ProjectState::load_buses_locked() {
             const auto device = settings["defaultOutputDevice"].get<std::string>();
             settings.erase("defaultOutputDevice");
             if (!device.empty()) {
-                for (auto& b : buses_) {
-                    if (b.id != kMainBusId) continue;
-                    if (b.output_kind == BusOutputKind::Master) {
-                        b.output_kind   = BusOutputKind::Output;
-                        b.output_target = device;
-                        summary.main_output_migrated = true;
-                        Logger::warn("migrated settings.defaultOutputDevice '{}' onto the Main bus",
-                                     device);
-                    }
-                    break;
+                if (BusDef* m = find(master_id); m && legacy_master_kind.count(m->id)) {
+                    m->output_kind   = BusOutputKind::Output;
+                    m->output_target = device;
+                    legacy_master_kind.erase(m->id);
+                    summary.main_output_migrated = true;
+                    Logger::warn("migrated settings.defaultOutputDevice '{}' onto the master bus",
+                                 device);
                 }
             }
         }
     }
 
+    // ---- The retired "master" output kind (D25) ---------------------------
+    // A user bus that went "to master" now feeds the master bus as a bus→bus
+    // send; the master bus itself, which used to BE the master, sends to the
+    // built-in Main Out. Both are lossless: the audio lands where it did.
+    for (auto& b : buses_) {
+        if (!legacy_master_kind.count(b.id)) continue;
+        if (b.id == master_id) {
+            b.output_kind   = BusOutputKind::Output;
+            b.output_target = kMainOutputName;
+        } else {
+            b.output_kind   = BusOutputKind::Bus;
+            b.output_target = master_id;
+        }
+        // Only a document from the bus era is being migrated; the defaults
+        // for a pre-bus or empty document are just the defaults.
+        if (had_buses_key && schema < kBusSchemaVersion) summary.roles_migrated = true;
+    }
+    // A bus→bus send with no target meant "to master" too (the API never
+    // writes one; a hand-edited document might).
+    for (auto& b : buses_) {
+        if (b.id != master_id && b.output_kind == BusOutputKind::Bus && b.output_target.empty())
+            b.output_target = master_id;
+    }
+
+    // ---- settings.previewDevice → the preview bus (D28) ------------------
+    // The one device name the document still carried. It becomes the preview
+    // bus's target unless that target is already mapped — a real mapping is
+    // the portable answer — and the key goes either way, so nothing reads it
+    // after load. A device that is not on this machine leaves the preview
+    // bus valid and silent, as any unresolvable preview target does.
+    if (document_.contains("settings") && document_["settings"].is_object()) {
+        auto& settings = document_["settings"];
+        if (settings.contains("previewDevice")) {
+            std::string device;
+            if (settings["previewDevice"].is_string())
+                device = settings["previewDevice"].get<std::string>();
+            settings.erase("previewDevice");
+            if (!device.empty()) {
+                if (BusDef* pv = find(preview_id); pv && !outputs_.has(pv->output_target)) {
+                    pv->output_kind   = BusOutputKind::Output;
+                    pv->output_target = device;
+                    summary.preview_device_migrated = 1;
+                    Logger::warn("migrated settings.previewDevice '{}' onto the preview bus", device);
+                }
+            }
+        }
+    }
+
+    // ---- Validation (D25) ---------------------------------------------------
+    // The rules the API enforces, applied to what came off disk. Each fix is
+    // the conservative one: the role holders go to the built-in outputs,
+    // feeders of the preview bus go to the house rather than into the phones.
+    if (BusDef* m = find(master_id); m && m->output_kind != BusOutputKind::Output) {
+        Logger::warn("the master bus '{}' must send to an output; moving it to '{}'",
+                     m->display_name, kMainOutputName);
+        m->output_kind   = BusOutputKind::Output;
+        m->output_target = kMainOutputName;
+        summary.roles_migrated = true;
+    }
+    if (BusDef* pv = find(preview_id); pv && pv->output_kind != BusOutputKind::Output) {
+        Logger::warn("the preview bus '{}' must send to an output; moving it to '{}'",
+                     pv->display_name, kPreviewOutputName);
+        pv->output_kind   = BusOutputKind::Output;
+        pv->output_target = kPreviewOutputName;
+        summary.roles_migrated = true;
+    }
+    for (auto& b : buses_) {
+        if (b.output_kind != BusOutputKind::Bus || b.output_target != preview_id) continue;
+        Logger::warn("bus '{}' fed the preview bus, which nothing may feed; re-routed to the master bus",
+                     b.display_name);
+        b.output_target = master_id;
+        summary.roles_migrated = true;
+    }
+
     migrate_device_overrides_locked(summary);
 
-    // Items that end up on Main because the document never said otherwise.
-    // Only counted for a document that predates buses: one that carries a
-    // `buses` key and leaves an item unassigned is expressing a choice, not
-    // being migrated. Counted after the deviceOverride pass so items that
-    // just gained a real bus are not reported as having fallen back to Main.
+    // Items that end up on the master bus because the document never said
+    // otherwise. Only counted for a document that predates buses: one that
+    // carries a `buses` key and leaves an item unassigned is expressing a
+    // choice, not being migrated. Counted after the deviceOverride pass so
+    // items that just gained a real bus are not reported as having fallen
+    // back.
     if (!had_buses_key) {
         for_each_item(document_, [&](json& item, const std::string&) {
             if (item.value("type", std::string{}) != "audio") return;
@@ -3995,12 +4175,16 @@ void ProjectState::load_buses_locked() {
         });
         if (summary.items_to_main > 0) {
             Logger::warn("legacy project loaded: it carries no bus assignments, "
-                         "so all {} item(s) play through Main.", summary.items_to_main);
+                         "so all {} item(s) play through the master bus.", summary.items_to_main);
         }
     }
 
-    std::stable_sort(buses_.begin(), buses_.end(),
-                     [](const BusDef& a, const BusDef& b) { return a.order < b.order; });
+    std::stable_sort(buses_.begin(), buses_.end(), by_order);
+
+    if (summary.roles_migrated) {
+        Logger::warn("bus roles settled for this document: master = '{}', preview = '{}'",
+                     master_bus_locked()->display_name, preview_bus_locked()->display_name);
+    }
 
     // Surfaced by the endpoint that triggered the load and broadcast to every
     // other connected client (D12). Overwritten, not accumulated: the summary
@@ -4051,7 +4235,8 @@ void ProjectState::migrate_device_overrides_locked(BusMigrationSummary& summary)
             d.output_kind   = BusOutputKind::Output;
             d.output_target = device;
             int max_order = 0;
-            for (const auto& b : buses_) if (!b.system) max_order = std::max(max_order, b.order);
+            for (const auto& b : buses_)
+                if (!b.master && !b.preview) max_order = std::max(max_order, b.order);
             d.order = max_order + 1;
             buses_.push_back(d);
             it = device_to_bus.emplace(device, id).first;
@@ -4071,20 +4256,20 @@ void ProjectState::migrate_device_overrides_locked(BusMigrationSummary& summary)
 void ProjectState::write_buses_to_document_locked() {
     json arr = json::array();
     for (const auto& b : buses_) {
-        const char* kind = b.output_kind == BusOutputKind::Bus    ? "bus"
-                         : b.output_kind == BusOutputKind::Output ? "output"
-                                                                  : "master";
+        const char* kind = b.output_kind == BusOutputKind::Bus ? "bus" : "output";
         arr.push_back(json{
-            {"id",     b.id},
-            {"name",   b.display_name},
-            {"color",  b.color},
-            {"order",  b.order},
-            {"width",  b.width},
-            {"gainDb", b.gain_db},
-            {"mute",   b.muted},
-            {"pan",    b.pan},
-            {"dsp",    bus_dsp_to_json(b.dsp)},
-            {"output", json{{"type", kind}, {"target", b.output_target}}},
+            {"id",      b.id},
+            {"name",    b.display_name},
+            {"color",   b.color},
+            {"order",   b.order},
+            {"width",   b.width},
+            {"gainDb",  b.gain_db},
+            {"mute",    b.muted},
+            {"pan",     b.pan},
+            {"master",  b.master},
+            {"preview", b.preview},
+            {"dsp",     bus_dsp_to_json(b.dsp)},
+            {"output",  json{{"type", kind}, {"target", b.output_target}}},
         });
     }
     document_["buses"] = std::move(arr);
@@ -4130,16 +4315,19 @@ void ProjectState::unwire_bus(BusRouting& routing) {
         routing.wired_bus_target.clear();
         if (!routing.reserved_pair && !routing.has_masters) return;
     }
-    if (routing.reserved_pair) {
-        // Monitor's pair comes back off the strip and the device, but never
-        // goes into the pool — it belongs to the headphone output, and handing
-        // it to the next direct-out bus would put that bus in the operator's
-        // ears.
+    if (routing.reserved_pair || routing.house_pair) {
+        // The preview bus's pair comes back off the strip and the device, but
+        // never goes into the pool — it belongs to the headphone output, and
+        // handing it to the next direct-out bus would put that bus in the
+        // operator's ears. The master bus's house pair (0/1) likewise: it is
+        // the engine's own pair, and ensure_default_routing() re-assigns it
+        // to the first open device if nothing claims it again.
         engine_.unroute_mixer_from_master(routing.mixer, routing.master_l);
         engine_.unroute_mixer_from_master(routing.mixer, routing.master_r);
         engine_.clear_master_assignment(routing.master_l);
         engine_.clear_master_assignment(routing.master_r);
         routing.reserved_pair = false;
+        routing.house_pair    = false;
     } else if (routing.has_masters) {
         engine_.unroute_mixer_from_master(routing.mixer, routing.master_l);
         engine_.unroute_mixer_from_master(routing.mixer, routing.master_r);
@@ -4148,11 +4336,6 @@ void ProjectState::unwire_bus(BusRouting& routing) {
         std::lock_guard lock{mutex_};
         release_master_pair_locked(routing.master_l);
         routing.has_masters = false;
-    } else {
-        // Master-kind buses sit on the shared 0/1 pair, which is not ours to
-        // release — only our own sends come off it.
-        engine_.unroute_mixer_from_master(routing.mixer, 0);
-        engine_.unroute_mixer_from_master(routing.mixer, 1);
     }
 }
 
@@ -4174,11 +4357,14 @@ std::size_t ProjectState::rewire_buses_for_output_map() {
         return true;
     };
 
+    // The device list may be why the operator is here.
+    refresh_device_cache();
+
     std::size_t moved = 0;
     for (const auto& bus : defs) {
-        // Master- and Bus-kind buses never consult the map, and resolving
-        // their empty target would hit the identity fallback and look like a
-        // change on every save.
+        // Bus-kind buses never consult the map, and resolving their target
+        // (a bus id) would hit the identity fallback and look like a change
+        // on every save.
         if (bus.output_kind != BusOutputKind::Output) continue;
 
         auto it = routings.find(bus.id);
@@ -4188,12 +4374,12 @@ std::size_t ProjectState::rewire_buses_for_output_map() {
         // compares as changed and gets a retry — which is what you want after
         // the operator has just fixed the map.
         //
-        // Monitor is asked the same way it was wired. Comparing it against the
-        // plain map would use the identity fallback, which never matches a
-        // binding that came from settings.previewDevice — so every save of the
-        // output map tore down the headphone feed and built it again.
-        const auto resolved = bus.id == kMonitorBusId
-                                  ? resolve_monitor_channels(bus.output_target)
+        // The preview bus is asked the same way it was wired. Comparing it
+        // against the plain map would use the identity fallback, which it
+        // never gets — so every save of the output map would tear down the
+        // headphone feed and build it again.
+        const auto resolved = bus.preview
+                                  ? resolve_preview_channels(bus.output_target)
                                   : outputs_.resolve(bus.output_target);
         if (same(resolved, it->second.wired_channels)) continue;
 
@@ -4283,11 +4469,11 @@ audio::StripDspParams ProjectState::dsp_params_for(const BusDef& bus) const {
         p.width.bass_mono_q  = bus.dsp.width.bass_mono_q;
     }
 
-    // The mono-sum audition, which is the Monitor strip's width forced to 0.
-    // It overrides whatever width Monitor is carrying, because the operator
-    // pressing MONO wants mono and not "mono times whatever was already set".
-    // Last, so nothing above can undo it.
-    if (bus.id == kMonitorBusId && monitor_mono_.load(std::memory_order_relaxed)) {
+    // The mono-sum audition, which is the preview strip's width forced to 0.
+    // It overrides whatever width the preview bus is carrying, because the
+    // operator pressing MONO wants mono and not "mono times whatever was
+    // already set". Last, so nothing above can undo it.
+    if (bus.preview && monitor_mono_.load(std::memory_order_relaxed)) {
         p.width.width = 0.0f;
     }
     return p;
@@ -4298,11 +4484,10 @@ bool ProjectState::set_monitor_mono(bool on) {
     audio::MixerChannelId mixer;
     {
         std::lock_guard lock{mutex_};
-        const auto bit = std::find_if(buses_.begin(), buses_.end(),
-                                      [](const BusDef& b) { return b.id == kMonitorBusId; });
-        if (bit == buses_.end()) return false;
-        def   = *bit;
-        mixer = mixer_for_bus(kMonitorBusId);
+        const BusDef* pv = preview_bus_locked();
+        if (!pv) return false;
+        def   = *pv;
+        mixer = mixer_for_bus(pv->id);
     }
     if (mixer.empty()) return false;
     // Set before rebuilding the parameters, since dsp_params_for reads it.
@@ -4355,14 +4540,14 @@ audio::MixerChannelId ProjectState::resolve_bus_strip(
         const std::string& bus_id,
         const std::unordered_map<std::string, BusRouting>* strips,
         int* width_out,
-        bool* system_out) const {
+        bool* preview_out) const {
     if (bus_id.empty()) return {};
     std::lock_guard lock{mutex_};
     const auto bit = std::find_if(buses_.begin(), buses_.end(),
                                   [&](const BusDef& b) { return b.id == bus_id; });
     if (bit == buses_.end()) return {};
-    if (width_out)  *width_out  = bit->width;
-    if (system_out) *system_out = bit->system;
+    if (width_out)   *width_out   = bit->width;
+    if (preview_out) *preview_out = bit->preview;
     const auto& table = strips ? *strips : bus_routings_;
     const auto  rit   = table.find(bus_id);
     return rit == table.end() ? audio::MixerChannelId{} : rit->second.mixer;
@@ -4412,12 +4597,6 @@ void ProjectState::apply_bus_pan(const BusDef& bus, const BusRouting& routing,
     const audio::ChannelIndex lane_l = 0;
     const audio::ChannelIndex lane_r = bus.width >= 2 ? 1 : 0;
 
-    if (bus.output_kind == BusOutputKind::Master) {
-        engine_.route_mixer_to_master(routing.mixer, 0, g.left,  lane_l);
-        engine_.route_mixer_to_master(routing.mixer, 1, g.right, lane_r);
-        return;
-    }
-
     if (bus.output_kind == BusOutputKind::Bus) {
         // Nothing was wired — an unknown or unresolvable destination — so
         // there is no send to move. wire_bus has already said why.
@@ -4433,7 +4612,12 @@ void ProjectState::apply_bus_pan(const BusDef& bus, const BusRouting& routing,
         return;
     }
 
-    if (bus.output_kind != BusOutputKind::Output || !routing.has_masters) return;
+    // Output-kind, on a pool pair or the house pair. The preview bus's
+    // reserved pair is wired lane-for-lane by wire_preview_bus and does not
+    // pan: it holds no pair in this sense, so it returns here with only the
+    // strip's own pan set (which is what places its PFL taps).
+    if (bus.output_kind != BusOutputKind::Output) return;
+    if (!routing.has_masters && !routing.house_pair) return;
     if (outputs_.resolve(bus.output_target).size() < 2) return;
 
     engine_.route_mixer_to_master(routing.mixer, routing.master_l, g.left,  lane_l);
@@ -4449,16 +4633,6 @@ void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing,
     routing.wired_channels.clear();
     routing.wired_bus_target.clear();
 
-    if (bus.output_kind == BusOutputKind::Master) {
-        // One call for both widths. It places a mono bus by the pan law — at
-        // pan 0 both gains are -3 dB, so a centred mono source and a stereo
-        // fold-down agree — and trims a stereo bus by the balance law, which at
-        // centre is unity on both lanes and so is exactly the straight-through
-        // wiring this used to hard-code.
-        apply_bus_pan(bus, routing);
-        return;
-    }
-
     if (bus.output_kind == BusOutputKind::Bus) {
         // The API refuses an illegal or looping destination before it is ever
         // stored (D6), so anything that gets here is either legal or came off
@@ -4466,15 +4640,14 @@ void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing,
         // exists leaves the bus valid and silent rather than failing the load,
         // and a loop that was hand-edited into the document is dropped at
         // topology build, so neither can reach the render thread.
-        int  dst_width  = 2;
-        bool dst_system = false;
-        const auto dst = resolve_bus_strip(bus.output_target, strips, &dst_width, &dst_system);
-        if (dst_system) {
+        int  dst_width   = 2;
+        bool dst_preview = false;
+        const auto dst = resolve_bus_strip(bus.output_target, strips, &dst_width, &dst_preview);
+        if (dst_preview) {
             // Only a document that was hand-edited gets here: the API refuses
-            // a system destination (D6). Main is reached with output.type
-            // "master" and Monitor is never a destination at all — feeding it
-            // would put the house mix in the operator's headphones.
-            Logger::warn("bus '{}': output bus '{}' is a system bus and cannot be "
+            // the preview bus as a destination (D25) — feeding it would put
+            // the house mix in the operator's headphones.
+            Logger::warn("bus '{}': output bus '{}' is the preview bus and cannot be "
                          "fed; leaving it silent", bus.display_name, bus.output_target);
             return;
         }
@@ -4484,23 +4657,43 @@ void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing,
             return;
         }
         routing.wired_bus_target = bus.output_target;
-        // One call for both widths, exactly as the Master branch above: the
-        // lane gains carry the pan/balance law and the 2→1 fold (D8).
+        // One call for both widths: the lane gains carry the pan/balance law
+        // and the 2→1 fold (D8). At centre a stereo bus is unity on both
+        // lanes — the straight-through wiring "to master" used to hard-code.
         apply_bus_pan(bus, routing, strips);
         Logger::info("bus '{}' -> bus '{}'", bus.display_name, bus.output_target);
         return;
     }
 
-    // Monitor is wired differently enough to be its own function: fixed master
-    // pair, and a hardware binding that falls back to settings.previewDevice.
-    if (bus.id == kMonitorBusId) {
-        wire_monitor_bus(bus, routing);
+    // The preview bus is wired differently enough to be its own function:
+    // the reserved master pair, and no fallback to the default device, ever.
+    if (bus.preview) {
+        wire_preview_bus(bus, routing);
         return;
     }
 
-    // What "FOH" means on this machine. Unmapped names fall back to being
-    // treated as a device name, which keeps a fresh install working with no
-    // configuration and lets legacy device overrides migrate unchanged.
+    // The master bus is the house (D27): its output sits on masters 0/1,
+    // which the engine's own default routing, the house meters, the seam
+    // detector and the clock-device rule (D15) all read. Never a pool pair.
+    // Claimed before resolving, like the preview bus's reserved pair, so an
+    // unresolvable target still reports the pair it owns rather than none.
+    if (bus.master) {
+        routing.master_l   = 0;
+        routing.master_r   = 1;
+        routing.house_pair = true;
+        if (routing.has_masters) {
+            // It held a pool pair as an ordinary bus before the role landed
+            // on it; that pair goes back.
+            std::lock_guard lock{mutex_};
+            release_master_pair_locked(routing.master_l);
+            routing.has_masters = false;
+        }
+    }
+
+    // What "FOH" means on this machine. The built-in Main Out is the default
+    // device unmapped; any other unmapped name falls back to being treated as
+    // a device name, which keeps a fresh install working with no configuration
+    // and lets legacy device overrides migrate unchanged.
     const auto channels = outputs_.resolve(bus.output_target);
     if (channels.empty()) {
         Logger::warn("bus '{}': output '{}' resolves to nothing; leaving it silent",
@@ -4509,7 +4702,7 @@ void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing,
     }
     routing.wired_channels = channels;
 
-    if (!routing.has_masters) {
+    if (!routing.has_masters && !routing.house_pair) {
         std::lock_guard lock{mutex_};
         if (!allocate_master_pair_locked(routing.master_l, routing.master_r)) {
             Logger::error("bus '{}': out of master channels; leaving it silent",
@@ -4550,62 +4743,63 @@ void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing,
         engine_.route_mixer_to_master(routing.mixer, routing.master_l, 0.0f, 0);
     }
 
-    Logger::info("bus '{}' → output '{}' (masters {}/{}{})",
+    Logger::info("bus '{}' -> output '{}' (masters {}/{}{}{})",
                  bus.display_name, bus.output_target,
                  routing.master_l, routing.master_r,
-                 outputs_.has(bus.output_target) ? "" : ", unmapped: name used as device");
+                 routing.house_pair ? ", the house pair" : "",
+                 outputs_.has(bus.output_target)          ? ""
+                 : bus.output_target == kMainOutputName   ? ", unmapped: default device"
+                                                          : ", unmapped: name used as device");
 }
 
-std::vector<OutputMap::Channel> ProjectState::resolve_monitor_channels(
+std::vector<OutputMap::Channel> ProjectState::resolve_preview_channels(
         const std::string& logical_name) const {
     // A real mapping wins. That is the portable answer, and the one the rest
     // of this branch is moving everything towards.
     if (outputs_.has(logical_name)) return outputs_.resolve(logical_name);
-
-    // Otherwise the project's own preview device, which is where pre-listen
-    // has always gone and what every existing project already carries. It is
-    // a device name in the document — the portability problem §0.3 lists —
-    // but dropping it would silently take pre-listen away from every user who
-    // has one configured, which is a worse trade than keeping the field alive
-    // until it is migrated deliberately.
-    std::string device;
+    // The built-in is silence unmapped (D26), and so is an empty name.
+    if (logical_name.empty() || logical_name == kPreviewOutputName) return {};
+    // Otherwise a device name — which is what settings.previewDevice migrated
+    // into (D28) — but ONLY if the device is actually here. The identity
+    // fallback every other bus gets would hand a missing name to
+    // open_device_by_name(), which falls back to the DEFAULT device, and for
+    // the preview bus that means every PFL'd channel arriving in the house:
+    // the exact accident PFL was chosen over solo to make impossible.
     {
         std::lock_guard lock{mutex_};
-        if (document_.contains("settings") && document_["settings"].is_object()) {
-            const auto& s = document_["settings"];
-            if (s.contains("previewDevice") && s["previewDevice"].is_string())
-                device = s["previewDevice"].get<std::string>();
-        }
+        if (!device_present_locked(logical_name)) return {};
     }
-    if (device.empty()) return {};
-    return {OutputMap::Channel{device, 0}, OutputMap::Channel{device, 1}};
+    return {OutputMap::Channel{logical_name, 0}, OutputMap::Channel{logical_name, 1}};
 }
 
-void ProjectState::wire_monitor_bus(const BusDef& bus, BusRouting& routing) {
-    // Monitor owns the master pair the engine reserves at the top of the bus.
-    // That pair was already the preview bus's; giving it to Monitor is what
-    // merges the two, so PFL from the mixer and pre-listen from the playlist
-    // arrive in the same headphones, under the same fader, on the same meter.
-    // It is never drawn from the general pool — allocate_master_pair_locked
-    // stops below it precisely so nothing else can land here.
+void ProjectState::wire_preview_bus(const BusDef& bus, BusRouting& routing) {
+    // The preview bus owns the master pair the engine reserves at the top of
+    // the bus, so PFL from the mixer and pre-listen from the playlist arrive
+    // in the same headphones, under the same fader, on the same meter. It is
+    // never drawn from the general pool — allocate_master_pair_locked stops
+    // below it precisely so nothing else can land here.
     const audio::MasterChannelIndex l =
         audio::preview_master_base(engine_.config().master_channels);
-    routing.master_l     = l;
-    routing.master_r     = l + 1;
-    routing.has_masters  = false;   // not ours to pool
+    if (routing.has_masters) {
+        // It held a pool pair as an ordinary bus before the role landed on
+        // it; that pair goes back.
+        std::lock_guard lock{mutex_};
+        release_master_pair_locked(routing.master_l);
+        routing.has_masters = false;
+    }
+    routing.master_l      = l;
+    routing.master_r      = l + 1;
+    routing.has_masters   = false;   // not ours to pool
     routing.reserved_pair = true;
 
-    const auto channels = resolve_monitor_channels(bus.output_target);
+    const auto channels = resolve_preview_channels(bus.output_target);
     if (channels.empty()) {
         // Valid and silent, per §7.5. Deliberately NOT the identity fallback
-        // every other bus gets: open_device_by_name() falls back to the
-        // DEFAULT device when a name matches nothing, and for Monitor that
-        // means every PFL'd channel arriving in the house — the exact accident
-        // PFL was chosen over solo to make impossible.
-        Logger::warn("bus 'Monitor': no headphone output on this machine "
-                     "(no '{}' in the output map, no settings.previewDevice), "
+        // every other bus gets — see resolve_preview_channels.
+        Logger::warn("bus '{}' (preview): no headphone output on this machine "
+                     "('{}' is not in the output map and names no present device), "
                      "so PFL and pre-listen are silent",
-                     bus.output_target);
+                     bus.display_name, bus.output_target);
         return;
     }
     routing.wired_channels = channels;
@@ -4615,7 +4809,8 @@ void ProjectState::wire_monitor_bus(const BusDef& bus, BusRouting& routing) {
     for (std::size_t i = 0; i < used; ++i) {
         const auto dev = engine_.open_device_by_name(channels[i].device, 2);
         if (dev.empty()) {
-            Logger::warn("bus 'Monitor': could not open device '{}'", channels[i].device);
+            Logger::warn("bus '{}' (preview): could not open device '{}'",
+                         bus.display_name, channels[i].device);
             continue;
         }
         engine_.assign_master_to_device(masters[i], dev, channels[i].hw_channel);
@@ -4633,9 +4828,23 @@ void ProjectState::wire_monitor_bus(const BusDef& bus, BusRouting& routing) {
                                       audio::kDefaultDownmixDb, 1);
     }
 
-    Logger::info("bus 'Monitor' -> '{}' on the reserved pair (masters {}/{}){}",
-                 channels[0].device, routing.master_l, routing.master_r,
-                 outputs_.has(bus.output_target) ? "" : " via settings.previewDevice");
+    Logger::info("bus '{}' (preview) -> '{}' on the reserved pair (masters {}/{}){}",
+                 bus.display_name, channels[0].device, routing.master_l, routing.master_r,
+                 outputs_.has(bus.output_target) ? "" : ", unmapped: name used as device");
+}
+
+void ProjectState::refresh_device_cache() {
+    // Enumeration opens a backend context, so it runs here — control thread,
+    // no locks held — and the result is what list_buses() consults.
+    std::vector<std::string> names;
+    for (const auto& d : engine_.enumerate_devices()) names.push_back(d.display_name);
+    std::lock_guard lock{mutex_};
+    known_devices_ = std::move(names);
+}
+
+bool ProjectState::device_present_locked(const std::string& name) const {
+    if (name.empty()) return false;
+    return std::find(known_devices_.begin(), known_devices_.end(), name) != known_devices_.end();
 }
 
 void ProjectState::materialise_buses() {
@@ -4666,14 +4875,20 @@ void ProjectState::materialise_buses() {
     }
 
     // Strips from the outgoing project are ours to clean up; nothing else
-    // tracks them, exactly as with device_routings_.
+    // tracks them, exactly as with device_routings_. The reserved pair and
+    // the house pair come off the device too: the incoming project's holders
+    // assign them afresh, and a stale assignment would keep the old device
+    // in the operator's ears, or as the clock, until they did.
     for (auto& [_, r] : previous) {
         if (!r.mixer.empty()) engine_.remove_mixer_channel(r.mixer);
-        if (r.has_masters) {
+        if (r.has_masters || r.reserved_pair || r.house_pair) {
             engine_.clear_master_assignment(r.master_l);
             engine_.clear_master_assignment(r.master_r);
         }
     }
+
+    // `bound` for a bus naming a device is decided against this list (D26).
+    refresh_device_cache();
 
     // Two passes. A Bus-kind bus is wired to another bus's STRIP, and the
     // document says nothing about the order buses appear in, so every strip
@@ -4709,9 +4924,12 @@ void ProjectState::materialise_buses() {
         auto it = created.find(b.id);
         if (it == created.end()) continue;
         wire_bus(b, it->second, &created);
-        // Everything PFL'd taps this strip. Nominated after wiring so the
-        // engine never sees a monitor that is not yet connected to anything.
-        if (b.id == kMonitorBusId) engine_.set_monitor_mixer(it->second.mixer);
+        // Everything PFL'd taps the preview strip. Nominated after wiring so
+        // the engine never sees a monitor that is not yet connected to
+        // anything. The master strip is where the engine parks a cue that
+        // has no route (D27).
+        if (b.preview) engine_.set_monitor_mixer(it->second.mixer);
+        if (b.master)  engine_.set_master_mixer(it->second.mixer);
     }
 
     {
@@ -4734,25 +4952,28 @@ ProjectState::PatchBusResult ProjectState::validate_bus_output_locked(
         const std::string& source_id,
         BusOutputKind kind,
         const std::string& target) const {
-    // Monitor carries PFL. Sending it anywhere but hardware would put every
-    // PFL'd channel somewhere the audience can hear it — one click, live,
-    // which is the failure mode PFL was chosen over solo to avoid (§2.4).
-    if (source_id == kMonitorBusId) {
-        if (kind == BusOutputKind::Master) return PatchBusResult::Refused;
-        if (kind == BusOutputKind::Bus)    return PatchBusResult::RefusedMonitorToBus;
-    }
-    if (kind != BusOutputKind::Bus) return PatchBusResult::Ok;
-
     const auto find = [&](const std::string& id) -> const BusDef* {
         for (const auto& b : buses_) if (b.id == id) return &b;
         return nullptr;
     };
+    // The role holders send to outputs (D25). The preview bus carries PFL:
+    // sending it anywhere but hardware would put every PFL'd channel
+    // somewhere the audience can hear it — one click, live, which is the
+    // failure mode PFL was chosen over solo to avoid (§2.4). The master bus
+    // IS the house; a house that feeds a bus is not a house.
+    if (const BusDef* src = source_id.empty() ? nullptr : find(source_id)) {
+        if (kind == BusOutputKind::Bus) {
+            if (src->preview) return PatchBusResult::RefusedPreviewToBus;
+            if (src->master)  return PatchBusResult::RefusedMasterToBus;
+        }
+    }
+    if (kind != BusOutputKind::Bus) return PatchBusResult::Ok;
+
     const BusDef* dst = find(target);
     if (!dst) return PatchBusResult::UnknownTarget;
-    // D6: only a non-system bus may be fed. Main is reached with output.type
-    // "master" — one way to the master, not two — and Monitor is never a
-    // destination.
-    if (dst->system) return PatchBusResult::IllegalTarget;
+    // D25: nothing may feed the preview bus. The master bus may be fed — that
+    // is how a sub-mix reaches the house.
+    if (dst->preview) return PatchBusResult::IllegalTarget;
 
     // Walk the output chain forward from the destination. If it comes back to
     // the source, this edge would close the loop. A bus routed into itself
@@ -4781,10 +5002,19 @@ bool ProjectState::bus_reaches_hardware_locked(const std::string& bus_id) const 
         const BusDef* def = nullptr;
         for (const auto& b : buses_) if (b.id == cur) { def = &b; break; }
         if (!def) return false;                 // a destination that went away
-        if (def->output_kind == BusOutputKind::Master) return true;
         if (def->output_kind == BusOutputKind::Output) {
-            const auto rit = bus_routings_.find(def->id);
-            return rit != bus_routings_.end() && !rit->second.wired_channels.empty();
+            // The preview bus keeps the strict rule: bound only when it
+            // actually resolved to channels, because it never falls back to
+            // the default device. Every other bus is bound when its target is
+            // mapped, is the built-in Main Out (the default device), or names
+            // a device that is present (D26).
+            if (def->preview) {
+                const auto rit = bus_routings_.find(def->id);
+                return rit != bus_routings_.end() && !rit->second.wired_channels.empty();
+            }
+            return outputs_.has(def->output_target) ||
+                   def->output_target == kMainOutputName ||
+                   device_present_locked(def->output_target);
         }
         if (def->output_target.empty()) return false;
         cur = def->output_target;
@@ -4805,17 +5035,27 @@ std::optional<BusDef> ProjectState::create_bus(const json& spec, PatchBusResult*
     d.gain_db      = spec.value("gainDb", 0.0f);
     d.muted        = spec.value("mute", false);
     d.pan          = std::clamp(spec.value("pan", 0.0f), -1.0f, 1.0f);
+    ParsedOutput out;
     if (spec.contains("output") && spec["output"].is_object()) {
-        const auto& out  = spec["output"];
-        const auto  kind = out.value("type", std::string{"master"});
-        d.output_kind = kind == "bus"    ? BusOutputKind::Bus
-                      : kind == "output" ? BusOutputKind::Output
-                                         : BusOutputKind::Master;
-        d.output_target = out.value("target", std::string{});
+        out = parse_output_spec(spec["output"]);
+    } else {
+        out.legacy_master = true;   // no output = into the house, as ever
     }
+    d.output_kind   = out.kind;
+    d.output_target = out.target;
 
     {
         std::lock_guard lock{mutex_};
+        // The retired kind (D25): "master" means a bus→bus send into the bus
+        // carrying the master role. Warned, because a controller still
+        // sending it is working against the round-1 protocol.
+        if (out.legacy_master) {
+            d.output_target = master_bus_id_locked();
+            if (spec.contains("output")) {
+                Logger::warn("create_bus: output.type \"master\" is retired; routing '{}' to "
+                             "the master bus '{}' instead", d.display_name, d.output_target);
+            }
+        }
         // Validated before the bus exists, so a refused output leaves nothing
         // behind. The source id is empty because there is no source yet —
         // which also means a new bus cannot close a loop: nothing points at it.
@@ -4835,9 +5075,11 @@ std::optional<BusDef> ProjectState::create_bus(const json& spec, PatchBusResult*
             id = base + "-" + std::to_string(n);
         }
         d.id = id;
-        // New buses land above Monitor, which deliberately sorts last.
+        // New buses land at the end of the rail; the role holders are pinned
+        // on the surface and deliberately sort last.
         int max_order = 0;
-        for (const auto& b : buses_) if (!b.system) max_order = std::max(max_order, b.order);
+        for (const auto& b : buses_)
+            if (!b.master && !b.preview) max_order = std::max(max_order, b.order);
         d.order = spec.value("order", max_order + 1);
         buses_.push_back(d);
         std::stable_sort(buses_.begin(), buses_.end(),
@@ -4863,6 +5105,7 @@ std::optional<BusDef> ProjectState::create_bus(const json& spec, PatchBusResult*
         m->set_pan(d.pan);
         m->dsp().set_params(dsp_params_for(d));
     }
+    if (d.output_kind == BusOutputKind::Output) refresh_device_cache();
     wire_bus(d, r);
     {
         std::lock_guard lock{mutex_};
@@ -4874,27 +5117,94 @@ std::optional<BusDef> ProjectState::create_bus(const json& spec, PatchBusResult*
 
 ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
                                                      const json& patch) {
-    // The whole output patch is parsed and checked BEFORE anything is
-    // mutated, so a refused patch leaves the bus exactly as it was rather than
-    // half-applied — and so a rejected edge is never stored, never persisted,
-    // and never reaches the engine. Every bus→bus rule (D6) lives in
-    // validate_bus_output_locked, including Monitor's, which predates them.
+    // The whole patch is parsed and checked BEFORE anything is mutated, so a
+    // refused patch leaves the bus exactly as it was rather than half-applied
+    // — and so a rejected edge is never stored, never persisted, and never
+    // reaches the engine. Every bus→bus rule (D6/D25) lives in
+    // validate_bus_output_locked; the role rules (D24) are here.
     bool          output_patched = false;
-    BusOutputKind new_kind       = BusOutputKind::Master;
+    bool          output_legacy  = false;
+    BusOutputKind new_kind       = BusOutputKind::Bus;
     std::string   new_target;
     if (patch.contains("output") && patch["output"].is_object()) {
-        const auto& out  = patch["output"];
-        const auto  kind = out.value("type", std::string{"master"});
-        output_patched   = true;
-        new_kind         = kind == "bus"    ? BusOutputKind::Bus
-                         : kind == "output" ? BusOutputKind::Output
-                                            : BusOutputKind::Master;
-        new_target       = out.value("target", std::string{});
+        const auto out = parse_output_spec(patch["output"]);
+        output_patched = true;
+        output_legacy  = out.legacy_master;
+        new_kind       = out.kind;
+        new_target     = out.target;
+    }
+    // Roles: {master:true} / {preview:true} move the role here; false is a
+    // request to drop it, which has no meaning — a project always has one of
+    // each — so it is refused rather than ignored.
+    bool take_master  = false;
+    bool take_preview = false;
+    if (patch.contains("master")) {
+        if (!patch["master"].is_boolean() || !patch["master"].get<bool>())
+            return PatchBusResult::RoleCannotBeDropped;
+        take_master = true;
+    }
+    if (patch.contains("preview")) {
+        if (!patch["preview"].is_boolean() || !patch["preview"].get<bool>())
+            return PatchBusResult::RoleCannotBeDropped;
+        take_preview = true;
+    }
+    if (take_master && take_preview) return PatchBusResult::RoleConflict;
+
+    std::string old_master_id, old_preview_id;   // previous holders, when a role moves
+    {
         std::lock_guard lock{mutex_};
-        const auto v = validate_bus_output_locked(id, new_kind, new_target);
-        if (v != PatchBusResult::Ok) {
-            Logger::warn("patch_bus: refusing to route bus '{}' to '{}'", id, new_target);
-            return v;
+        const BusDef* self = nullptr;
+        for (const auto& b : buses_) if (b.id == id) { self = &b; break; }
+        if (!self) return PatchBusResult::NotFound;
+
+        if (output_legacy) {
+            new_target = master_bus_id_locked();
+            Logger::warn("patch_bus: output.type \"master\" is retired; routing bus '{}' to "
+                         "the master bus '{}' instead", id, new_target);
+        }
+        // What the bus will look like after the patch, for the role checks:
+        // a role may arrive in the same request as the output that qualifies
+        // it.
+        const BusOutputKind kind_after = output_patched ? new_kind : self->output_kind;
+
+        if (take_master && !self->master) {
+            if (self->preview)                       return PatchBusResult::RoleConflict;
+            if (kind_after != BusOutputKind::Output) return PatchBusResult::RoleNeedsOutput;
+            old_master_id = master_bus_id_locked();
+        } else {
+            take_master = false;   // already the holder: nothing to move
+        }
+        if (take_preview && !self->preview) {
+            if (self->master)                        return PatchBusResult::RoleConflict;
+            if (kind_after != BusOutputKind::Output) return PatchBusResult::RoleNeedsOutput;
+            // Nothing may feed the preview bus (D25). Refused rather than
+            // re-pointed: the feeders are routing the operator chose.
+            for (const auto& b : buses_) {
+                if (b.id != id && b.output_kind == BusOutputKind::Bus && b.output_target == id)
+                    return PatchBusResult::RoleTargetFed;
+            }
+            old_preview_id = preview_bus_id_locked();
+        } else {
+            take_preview = false;
+        }
+
+        if (output_patched) {
+            // Validated as the bus will be once the roles land: the holder
+            // of a role is held to that role's rules even in the request
+            // that grants it. Cheapest way to say so is to flip the flags
+            // on a copy.
+            const auto v = [&] {
+                if (!take_master && !take_preview)
+                    return validate_bus_output_locked(id, new_kind, new_target);
+                // The role rules above already required Output-kind, and an
+                // Output-kind edge has nothing else to check.
+                return new_kind == BusOutputKind::Output ? PatchBusResult::Ok
+                                                         : PatchBusResult::RoleNeedsOutput;
+            }();
+            if (v != PatchBusResult::Ok) {
+                Logger::warn("patch_bus: refusing to route bus '{}' to '{}'", id, new_target);
+                return v;
+            }
         }
     }
 
@@ -4905,6 +5215,7 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
     bool       width_moved  = false;
     bool       pan_moved    = false;
     bool       dsp_moved    = false;
+    bool       order_moved  = false;
     {
         std::lock_guard lock{mutex_};
         for (auto& b : buses_) {
@@ -4912,7 +5223,10 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
             found = true;
             if (patch.contains("name"))   b.display_name = patch.value("name", b.display_name);
             if (patch.contains("color"))  b.color        = patch.value("color", b.color);
-            if (patch.contains("order"))  b.order        = patch.value("order", b.order);
+            if (patch.contains("order")) {
+                b.order     = patch.value("order", b.order);
+                order_moved = true;
+            }
             if (patch.contains("gainDb")) b.gain_db      = patch.value("gainDb", b.gain_db);
             if (patch.contains("mute"))   b.muted        = patch.value("mute", b.muted);
             if (patch.contains("width")) {
@@ -4933,10 +5247,39 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
                 b.output_target = new_target;
                 needs_rewire    = true;
             }
+            // The role lands here, atomically with the previous holder losing
+            // it: one write, one broadcast (D24).
+            if (take_master)  b.master  = true;
+            if (take_preview) b.preview = true;
             updated = b;
             break;
         }
         if (!found) return PatchBusResult::NotFound;
+        if (take_master) {
+            for (auto& b : buses_) if (b.id != id) b.master = false;
+        }
+        if (take_preview) {
+            for (auto& b : buses_) if (b.id != id) b.preview = false;
+        }
+        if (order_moved) {
+            // A reorder is a drop onto the rail (D31): the moved bus takes the
+            // requested order — winning a tie against the bus already there,
+            // so "put me where X is" lands before X — and the rail is then
+            // renumbered 1..N so orders stay dense and the next drop has an
+            // unambiguous answer. The role holders are pinned and keep their
+            // own sort keys.
+            std::stable_sort(buses_.begin(), buses_.end(),
+                             [&](const BusDef& a, const BusDef& b) {
+                                 if (a.order != b.order) return a.order < b.order;
+                                 return a.id == id && b.id != id;
+                             });
+            int next = 1;
+            for (auto& b : buses_) {
+                if (b.master || b.preview) continue;
+                b.order = next++;
+                if (b.id == id) updated.order = b.order;
+            }
+        }
         std::stable_sort(buses_.begin(), buses_.end(),
                          [](const BusDef& a, const BusDef& b) { return a.order < b.order; });
         write_buses_to_document_locked();
@@ -4951,12 +5294,25 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
             m->set_mute(updated.muted);
             if (patch.contains("name")) m->set_display_name(updated.display_name);
         }
-        if (needs_rewire) {
+        if (take_master || take_preview) {
+            // Both holders change hands: the old one comes off its role pair
+            // and goes back on the desk as an ordinary bus, the new one
+            // leaves its pool pair for the role's. Width is re-sent too, as
+            // the plain rewire path below does — a role move that also
+            // changed width must not lose it.
+            if (width_moved) {
+                engine_.set_mixer_width(routing.mixer,
+                                        static_cast<audio::ChannelCount>(updated.width));
+            }
+            if (take_master)  rewire_role_move(true,  old_master_id,  id);
+            if (take_preview) rewire_role_move(false, old_preview_id, id);
+        } else if (needs_rewire) {
             // Width is part of needs_rewire, and it also decides how PFL
             // places this strip in the monitor — so the engine has to be told
             // even for a bus that is only ever listened to.
             engine_.set_mixer_width(routing.mixer,
                                     static_cast<audio::ChannelCount>(updated.width));
+            if (updated.output_kind == BusOutputKind::Output) refresh_device_cache();
             unwire_bus(routing);
             wire_bus(updated, routing);
             std::lock_guard lock{mutex_};
@@ -4966,8 +5322,11 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
             apply_bus_pan(updated, routing);
         }
         // Tone controls never touch routing: new coefficients into the strip's
-        // own slot and nothing else moves.
-        if (dsp_moved) engine_.set_mixer_dsp(routing.mixer, dsp_params_for(updated));
+        // own slot and nothing else moves. After a role move the strip may
+        // have just become the preview bus, whose mono-check rides on these.
+        if (dsp_moved || take_preview) {
+            engine_.set_mixer_dsp(routing.mixer, dsp_params_for(updated));
+        }
     }
 
     // A bus's width is half of the lane law on every send that FEEDS it (D8):
@@ -4976,6 +5335,72 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
     // above because it is about other buses' strips, not this one's.
     if (width_moved) rewire_bus_feeders(id);
     return PatchBusResult::Ok;
+}
+
+void ProjectState::rewire_role_move(bool master_role, const std::string& old_id,
+                                    const std::string& new_id) {
+    // Everything below runs with mutex_ released — wire_bus opens devices and
+    // every engine call takes its own lock — so the definitions are copied
+    // out first. buses_ already carries the flags as they now are.
+    BusDef     old_def, new_def;
+    BusRouting old_routing, new_routing;
+    bool       have_old = false, have_new = false;
+    {
+        std::lock_guard lock{mutex_};
+        for (const auto& b : buses_) {
+            if (b.id == old_id) { old_def = b; have_old = true; }
+            if (b.id == new_id) { new_def = b; have_new = true; }
+        }
+        if (auto it = bus_routings_.find(old_id); it != bus_routings_.end()) old_routing = it->second;
+        if (auto it = bus_routings_.find(new_id); it != bus_routings_.end()) new_routing = it->second;
+    }
+    if (!have_new || new_routing.mixer.empty()) return;
+
+    if (!master_role) {
+        // Whatever was being auditioned was routed into the OLD preview
+        // strip, which is about to become an ordinary bus — possibly one that
+        // reaches the house. Stopped, not moved: an audition is momentary
+        // and the operator can start it again on the new bus.
+        stop_preview();
+        // The new holder is the destination now, not a source. The engine's
+        // tap loop skips it anyway; the flag is cleared so the surface agrees.
+        engine_.set_mixer_pfl(new_routing.mixer, false);
+    }
+    refresh_device_cache();
+
+    // Old holder first: the role's pair comes free before the new holder
+    // claims it, so the two are never both on it. The old bus then goes back
+    // on the desk exactly as an ordinary Output-kind bus would — a pool pair
+    // for its target (which may resolve to nothing; it is valid and silent
+    // then, as any bus is).
+    if (have_old && !old_routing.mixer.empty()) {
+        if (!master_role) engine_.set_monitor_mixer({});
+        unwire_bus(old_routing);
+        wire_bus(old_def, old_routing);
+        std::lock_guard lock{mutex_};
+        bus_routings_[old_id] = old_routing;
+    }
+    unwire_bus(new_routing);
+    wire_bus(new_def, new_routing);
+    {
+        std::lock_guard lock{mutex_};
+        bus_routings_[new_id] = new_routing;
+    }
+    // Nominated after wiring, as materialise_buses does, so the engine never
+    // sees a monitor that is not connected to anything.
+    if (master_role) engine_.set_master_mixer(new_routing.mixer);
+    else             engine_.set_monitor_mixer(new_routing.mixer);
+
+    // The old holder's DSP is rebuilt too: if it was the preview bus with
+    // mono-check on, its width was being forced to 0, and that belongs to
+    // the role, not the bus.
+    if (have_old && !old_routing.mixer.empty()) {
+        engine_.set_mixer_dsp(old_routing.mixer, dsp_params_for(old_def));
+    }
+    Logger::info("{} role moved: '{}' -> '{}'",
+                 master_role ? "master" : "preview",
+                 have_old ? old_def.display_name : std::string{"(none)"},
+                 new_def.display_name);
 }
 
 void ProjectState::rewire_bus_feeders(const std::string& target_id) {
@@ -4999,12 +5424,12 @@ bool ProjectState::set_bus_pfl(const std::string& id, bool on) {
     audio::MixerChannelId mixer;
     {
         std::lock_guard lock{mutex_};
-        // The Monitor bus is the destination, not a source. The engine
-        // refuses this too; catching it here means the API can say so.
-        if (id == kMonitorBusId) return false;
         const auto bit = std::find_if(buses_.begin(), buses_.end(),
                                       [&](const BusDef& b) { return b.id == id; });
         if (bit == buses_.end()) return false;
+        // The preview bus is the destination, not a source. The engine
+        // refuses this too; catching it here means the API can say so.
+        if (bit->preview) return false;
         mixer = mixer_for_bus(id);
     }
     if (mixer.empty()) return false;
@@ -5016,7 +5441,8 @@ std::size_t ProjectState::clear_all_pfl() {
     return engine_.clear_all_pfl();
 }
 
-bool ProjectState::delete_bus(const std::string& id) {
+bool ProjectState::delete_bus(const std::string& id, std::string* why) {
+    if (why) why->clear();
     BusRouting routing;
     // Buses whose output fed the one going away, and what they are now.
     std::vector<std::pair<BusDef, BusRouting>> retargeted;
@@ -5024,29 +5450,34 @@ bool ProjectState::delete_bus(const std::string& id) {
         std::lock_guard lock{mutex_};
         auto it = std::find_if(buses_.begin(), buses_.end(),
                                [&](const BusDef& b) { return b.id == id; });
-        if (it == buses_.end()) return false;
-        if (it->system) {
-            Logger::warn("delete_bus: '{}' is a system bus and cannot be deleted", id);
+        if (it == buses_.end()) { if (why) *why = "not found"; return false; }
+        if (it->master || it->preview) {
+            // A role is moved, never deleted with its bus (D24).
+            const char* role = it->master ? "Master" : "Preview";
+            Logger::warn("delete_bus: '{}' holds the {} role and cannot be deleted", id, role);
+            if (why) *why = std::string{"this bus holds the "} + role + " role; move it first";
             return false;
         }
         buses_.erase(it);
 
-        // D9: a bus that fed the deleted one goes to the master rather than
-        // being silently orphaned. Losing a submix is a routing change the
-        // operator can see and undo; a strip that quietly stops reaching an
-        // output is one they find out about from the room.
+        // D9: a bus that fed the deleted one goes to the master bus rather
+        // than being silently orphaned. Losing a submix is a routing change
+        // the operator can see and undo; a strip that quietly stops reaching
+        // an output is one they find out about from the room.
+        const std::string master_id = master_bus_id_locked();
         for (auto& b : buses_) {
             if (b.output_kind != BusOutputKind::Bus || b.output_target != id) continue;
-            b.output_kind   = BusOutputKind::Master;
-            b.output_target.clear();
+            b.output_kind   = BusOutputKind::Bus;
+            b.output_target = master_id;
             const auto rit = bus_routings_.find(b.id);
             retargeted.emplace_back(b, rit == bus_routings_.end() ? BusRouting{} : rit->second);
-            Logger::info("delete_bus: bus '{}' fed '{}'; re-routed to the master",
+            Logger::info("delete_bus: bus '{}' fed '{}'; re-routed to the master bus",
                          b.display_name, id);
         }
 
-        // Items pointing at the bus that just went away fall back to Main by
-        // losing their assignment, rather than being left dangling.
+        // Items pointing at the bus that just went away fall back to the
+        // master bus by losing their assignment, rather than being left
+        // dangling.
         for_each_item(document_, [&](json& item, const std::string&) {
             if (item.contains("busId") && item["busId"].is_string() &&
                 item["busId"].get<std::string>() == id) {
@@ -5070,8 +5501,8 @@ bool ProjectState::delete_bus(const std::string& id) {
         engine_.remove_mixer_channel(routing.mixer);
     }
 
-    // The feeders, now on the master, are wired to it for real. Done after the
-    // deleted strip is gone so nothing is briefly routed to both.
+    // The feeders, now on the master bus, are wired to it for real. Done
+    // after the deleted strip is gone so nothing is briefly routed to both.
     for (auto& [def, r] : retargeted) {
         if (r.mixer.empty()) continue;
         unwire_bus(r);
@@ -5084,7 +5515,7 @@ bool ProjectState::delete_bus(const std::string& id) {
 }
 
 std::string ProjectState::resolve_item_bus(const std::string& item_uuid) const {
-    if (item_uuid.empty()) return kMainBusId;
+    if (item_uuid.empty()) return master_bus_id_locked();
 
     // Walk the tree carrying the nearest ancestor's assignment down. An item's
     // own busId overrides whatever it inherited, so "item beats group" falls
@@ -5125,9 +5556,9 @@ std::string ProjectState::resolve_item_bus(const std::string& item_uuid) const {
         }
     }
 
-    if (found.empty()) return kMainBusId;
-    // An assignment naming a bus that no longer exists falls back to Main
-    // rather than leaving the cue unrouted and silent.
+    if (found.empty()) return master_bus_id_locked();
+    // An assignment naming a bus that no longer exists falls back to the
+    // master bus rather than leaving the cue unrouted and silent.
     for (const auto& b : buses_) {
         if (b.id == found) return found;
     }
@@ -5138,11 +5569,11 @@ std::string ProjectState::resolve_item_bus(const std::string& item_uuid) const {
     // is cleared whenever the bus list is reloaded, so a genuine change says
     // so again.
     if (warned_unknown_buses_.insert(found).second) {
-        Logger::warn("resolve_item_bus: item '{}' names unknown bus '{}'; using Main. "
+        Logger::warn("resolve_item_bus: item '{}' names unknown bus '{}'; using the master bus. "
                      "The assignment is kept, so it takes effect again if that bus returns.",
                      item_uuid, found);
     }
-    return kMainBusId;
+    return master_bus_id_locked();
 }
 
 std::vector<ProjectState::BusInfo> ProjectState::list_buses() const {
@@ -5163,10 +5594,16 @@ std::vector<ProjectState::BusInfo> ProjectState::list_buses() const {
         // a re-route several buses downstream changes this answer with
         // nothing here to update.
         info.bound = bus_reaches_hardware_locked(b.id);
-        // Only Monitor can be folded to mono for auditioning, so only Monitor
-        // ever reports it.
-        info.mono_check = b.id == kMonitorBusId &&
-                          monitor_mono_.load(std::memory_order_relaxed);
+        // Only the preview bus can be folded to mono for auditioning, so only
+        // it ever reports it.
+        info.mono_check = b.preview && monitor_mono_.load(std::memory_order_relaxed);
+        // The master pair its hardware output occupies (D32): the house pair,
+        // the reserved pair, or a pool pair — whichever it was wired onto.
+        if (const auto rit = bus_routings_.find(b.id); rit != bus_routings_.end()) {
+            const auto& r = rit->second;
+            if (r.has_masters || r.house_pair || r.reserved_pair)
+                info.masters = std::make_pair(r.master_l, r.master_r);
+        }
         out.push_back(std::move(info));
     }
 
@@ -5218,9 +5655,9 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
     if (item_uuid.empty()) return false;
 
     // 1. Resolve the source file and the strip to audition it on, under the
-    //    lock. Pre-listen goes to the Monitor bus — the same strip PFL feeds —
-    //    so there is no preview device or preview mixer to set up here any
-    //    more. Monitor is wired when the project is materialised.
+    //    lock. Pre-listen goes to the preview bus — the same strip PFL feeds
+    //    — so there is no preview device or preview mixer to set up here any
+    //    more. The preview bus is wired when the project is materialised.
     std::filesystem::path file_path;
     double in_point  = 0.0;
     float  gain_db   = 0.0f;
@@ -5245,14 +5682,14 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
                                                : 20.0f * std::log10(lin);
                 }
             });
-        preview_mixer = mixer_for_bus(kMonitorBusId);
+        preview_mixer = mixer_for_bus(preview_bus_id_locked());
     }
     if (file_path.empty()) {
         Logger::warn("preview: item '{}' has no resolvable file path", item_uuid);
         return false;
     }
     if (preview_mixer.empty()) {
-        Logger::warn("preview: the Monitor bus has no engine strip, so there is "
+        Logger::warn("preview: the preview bus has no engine strip, so there is "
                      "nowhere to audition '{}'", item_uuid);
         return false;
     }
@@ -5273,8 +5710,8 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
         }
     }
 
-    // 3. Load the file as a fresh engine cue, route it to the Monitor strip
-    // ONLY (no auto-routing to Main). prime + play.
+    // 3. Load the file as a fresh engine cue, route it to the preview strip
+    // ONLY (no auto-routing to the house). prime + play.
     const auto cue_id = engine_.load_cue_no_route(file_path);
     if (cue_id.empty()) return false;
 
@@ -5302,7 +5739,7 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
         preview_cue_       = cue_id;
         preview_item_uuid_ = item_uuid;
     }
-    Logger::info("preview: started for item '{}' on the Monitor bus", item_uuid);
+    Logger::info("preview: started for item '{}' on the preview bus", item_uuid);
     return true;
 }
 
@@ -5387,7 +5824,6 @@ bool ProjectState::patch_settings(const json& patch) {
     if (!patch.is_object()) return false;
     bool ltc_device_changed      = false;
     bool default_device_changed  = false;
-    bool preview_device_changed  = false;
     bool output_target_changed   = false;
     bool limiter_toggle_changed  = false;
     bool limiter_disabled        = false;
@@ -5405,7 +5841,6 @@ bool ProjectState::patch_settings(const json& patch) {
         for (auto& [k, v] : patch.items()) {
             if (k == "ltcDevice")           ltc_device_changed     = true;
             if (k == "defaultOutputDevice") default_device_changed = true;
-            if (k == "previewDevice")       preview_device_changed = true;
             if (k == "outputTarget")        output_target_changed  = true;
             if (k == "disableLimiter") {
                 limiter_toggle_changed = true;
@@ -5441,7 +5876,6 @@ bool ProjectState::patch_settings(const json& patch) {
     // Re-apply device routing when device selections change mid-playback.
     if (ltc_device_changed)     apply_ltc_device_routing();
     if (default_device_changed) apply_default_device_routing();
-    if (preview_device_changed) apply_preview_device_change();
     // Apply brickwall limiter ceiling for the chosen output platform.
     if (output_target_changed)  engine_.set_master_ceiling_db(new_ceiling_db);
     // Enable/disable the limiter live so the change is heard immediately.
@@ -5572,7 +6006,7 @@ bool ProjectState::load_from_json(const json& doc_in) {
             release_device_routings_locked();
 
             document_ = std::move(doc_repaired);
-            // Read the incoming document's buses (synthesising Main/Monitor if
+            // Read the incoming document's buses (settling the roles, synthesising if
             // it predates them) and write them back so the shape is canonical
             // from here on. Strips are created after the lock is released.
             load_buses_locked();
@@ -5580,7 +6014,7 @@ bool ProjectState::load_from_json(const json& doc_in) {
             // Ensure required top-level keys exist (migrate older client saves).
             if (!document_.contains("settings") || !document_["settings"].is_object()) {
                 // Deliberately no defaultOutputDevice: load_buses_locked()
-                // above has just migrated that key onto the Main bus and
+                // above has just migrated that key onto the master bus and
                 // erased it. Writing it back would undo the migration.
                 document_["settings"] = json{
                     {"previewDevice",       nullptr},
@@ -5721,16 +6155,16 @@ bool ProjectState::load_from_json(const json& doc_in) {
     apply_to_engine_locked();
 
     // Same bus sequence the client branch runs, and for the same reason: a
-    // document that predates buses does not name any, so this synthesises Main
-    // and Monitor and writes them into the document. Without it a 1.x or
-    // snake_case project came up with an empty mixer — no Main, no Monitor,
+    // document that predates buses does not name any, so this synthesises master
+    // and preview buses and writes them into the document. Without it a 1.x or
+    // snake_case project came up with an empty mixer — no master, no preview,
     // nothing for /api/buses to report and nowhere for a cue to resolve to.
     // It runs AFTER the document has been populated, because load_buses_locked
     // reads document_ (and migrates settings.defaultOutputDevice out of it).
     //
     // A 1.x document carries no client `items`, so there is nothing to route
     // per-item here: everything it plays goes out of the master, which is
-    // exactly where the Main bus lands (D1).
+    // exactly where the master bus lands (D1).
     load_buses_locked();
     write_buses_to_document_locked();
     const std::size_t legacy_cue_count = cues_.size();
@@ -5739,9 +6173,9 @@ bool ProjectState::load_from_json(const json& doc_in) {
     materialise_buses();
     // Said out loud because it is a routing decision made on the operator's
     // behalf: this format carries no bus assignments, so everything in it goes
-    // to Main (D1). No migration wizard — the mixer shows the result.
+    // to the master bus (D1). No migration wizard — the mixer shows the result.
     Logger::warn("legacy project loaded: this format carries no bus assignments, "
-                 "so all {} cue(s) play through Main.", legacy_cue_count);
+                 "so all {} cue(s) play through the master bus.", legacy_cue_count);
     return true;
 }
 

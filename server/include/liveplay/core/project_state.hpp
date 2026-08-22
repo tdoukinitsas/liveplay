@@ -76,13 +76,18 @@ struct MixerChannelMeta {
 // Definitions live in the project document and are materialised onto engine
 // mixer channels on load.
 //
-// Where a bus feeds is always expressed logically — either the master bus,
-// another bus, or a *named* output like "FOH". The name→hardware binding lives
-// on the server, never in the document, so a show stays portable between
-// venues. See BUS_ARCHITECTURE.md.
+// Where a bus feeds is always expressed logically — either another bus or a
+// *named* output like "FOH". The name→hardware binding lives on the server,
+// never in the document, so a show stays portable between venues. See
+// BUS_ARCHITECTURE.md.
+//
+// There is no "master" kind any more (D25). The house is an ordinary bus
+// carrying the master ROLE; a sub-mix reaches it with a bus→bus output like
+// any other, and the master bus itself sends to a logical output. Documents
+// written with output.type "master" are migrated on load; the API still
+// accepts the word on PATCH/POST for one release and maps it to bus→master.
 // ---------------------------------------------------------------------------
 enum class BusOutputKind {
-    Master,   // into the master bus (inherits the master limiter)
     Bus,      // submix feeding another bus
     Output,   // direct to a named logical output
 };
@@ -218,11 +223,18 @@ struct BusDef {
     // stereo bus wants balance, which is deferred.
     float         pan        = 0.0f;
     BusDsp        dsp;
-    BusOutputKind output_kind = BusOutputKind::Master;
+    BusOutputKind output_kind = BusOutputKind::Bus;
     std::string   output_target;        // bus id, or logical output name
-    // System buses (Main, Monitor) are created implicitly and cannot be
-    // deleted or renamed away — the document may still carry their level.
-    bool          system     = false;
+    // Roles (D24). Exactly one bus in a project carries each, never the same
+    // bus for both. The MASTER bus is the house: the inheritance fallback for
+    // every item that names no bus, and the bus whose hardware output sits on
+    // master channels 0/1 (clock device, house meters, seam detector). The
+    // PREVIEW bus is where PFL and cue pre-listen land: it owns the reserved
+    // master pair, carries mono-check, and nothing may be routed into it. A
+    // role moves between buses; it is never dropped. Otherwise a role holder
+    // is an ordinary bus — renamed, recoloured, re-routed, given DSP.
+    bool          master     = false;
+    bool          preview    = false;
 };
 
 // Version stamped into the document as top-level "busSchema" whenever the bus
@@ -230,27 +242,22 @@ struct BusDef {
 // bus-era project apart from a pre-bus project being pushed over the top of
 // one (D11): the former omits `buses` because buses are edited through their
 // own endpoints, the latter omits them because it has never heard of them.
-inline constexpr int kBusSchemaVersion = 1;
-
-// The always-present buses. Main is where everything lands by default;
-// Monitor is the PFL / pre-listen destination.
-inline constexpr const char* kMainBusId    = "main";
-inline constexpr const char* kMonitorBusId = "monitor";
-
-// The logical output Monitor targets unless the operator moves it. A name,
-// like every other bus output — the server's output map says which hardware
-// it means here, so a show that uses PFL is still portable.
 //
-// Deliberately not the master: PFL summing into the house is the accident
-// §2.4 exists to prevent, so Monitor is not allowed to target it at all.
-//
-// Monitor is also the pre-listen bus. The engine has always reserved the top
-// pair of master channels for DJ-style cue preview; Monitor owns that pair
-// now, and cue pre-listen routes into this strip rather than a "Preview" strip
-// of its own. So PFL'ing a bus and pre-listening a cue sum in one pair of
-// headphones, under one fader, on one meter — which is what a desk does, and
-// what §2.4 said should eventually happen to the reserved pair.
-inline constexpr const char* kMonitorOutputName = "Monitor";
+// 2 (D34): roles replace the system buses. A document below 2 runs the role
+// migration on load — its "main"/"monitor" buses become the master/preview
+// holders and output.type "master" is rewritten (D25).
+inline constexpr int kBusSchemaVersion = 2;
+
+// Ids of the buses synthesised when a document brings no role holder of its
+// own. Ids are arbitrary — a loaded document's "main"/"monitor" keep working,
+// the roles are flags — these are only what a fresh project gets.
+inline constexpr const char* kMasterBusId  = "master";
+inline constexpr const char* kPreviewBusId = "preview";
+// Sort keys that keep the synthesised role holders out of the rail's
+// numbering: the master and preview strips are pinned on the surface, not
+// ordered with the rest, and a new bus takes the highest RAIL order plus one.
+inline constexpr int kMasterBusOrder  = 1'000'000;
+inline constexpr int kPreviewBusOrder = 1'000'001;
 
 struct RouteSendV2 {
     audio::ChannelIndex source_channel;
@@ -289,22 +296,34 @@ struct RepairInfo {
 // That is a routing decision made without asking, so it is counted here,
 // logged at warn, broadcast, and returned to whoever triggered it (D12).
 struct BusMigrationSummary {
-    // Audio items that ended up on Main because the document carried no bus
-    // assignments at all — i.e. the whole project, for a pre-bus document.
+    // Audio items that ended up on the master bus because the document
+    // carried no bus assignments at all — i.e. the whole project, for a
+    // pre-bus document.
     int  items_to_main = 0;
     // Buses synthesised from distinct legacy per-item deviceOverride values.
     int  buses_from_device_override = 0;
-    // settings.defaultOutputDevice was moved onto the Main bus's output.
+    // settings.defaultOutputDevice was moved onto the master bus's output.
     bool main_output_migrated = false;
+    // settings.previewDevice was moved onto the preview bus's output (D28).
+    // A count, for symmetry with the other tallies: 0 or 1.
+    int  preview_device_migrated = 0;
+    // The role migration did something (D34/D35): a busSchema < 2 document's
+    // Main/Monitor became the master/preview holders, a Master-kind output
+    // was rewritten, or a document lacking a role holder had one promoted or
+    // synthesised.
+    bool roles_migrated = false;
 
     bool any() const {
-        return items_to_main > 0 || buses_from_device_override > 0 || main_output_migrated;
+        return items_to_main > 0 || buses_from_device_override > 0 ||
+               main_output_migrated || preview_device_migrated > 0 || roles_migrated;
     }
     json to_json() const {
         return json{
             {"itemsToMain",             items_to_main},
             {"busesFromDeviceOverride", buses_from_device_override},
             {"mainOutputMigrated",      main_output_migrated},
+            {"previewDeviceMigrated",   preview_device_migrated},
+            {"rolesMigrated",           roles_migrated},
         };
     }
 };
@@ -569,10 +588,10 @@ public:
     void reroute_items_to_buses(const std::vector<std::string>& item_uuids);
 
     // ---- Preview --------------------------------------------------------
-    // Play an item through the configured preview device (project
-    // settings.previewDevice). This is independent of the main project
-    // playback — the user can preview one cue while another plays through
-    // the main outputs (DJ-style pre-listen). At most one preview is
+    // Play an item through the preview-role bus (the same strip PFL feeds).
+    // This is independent of the main project playback — the user can
+    // preview one cue while another plays through the house (DJ-style
+    // pre-listen). At most one preview is
     // active at a time; starting a new one replaces the old. Returns true
     // on success.
     bool start_preview(const std::string& item_uuid);
@@ -593,9 +612,6 @@ public:
     // changes in settings (including during playback).
     void apply_default_device_routing();
 
-    // Stop any active preview and reset preview state so the next call to
-    // start_preview() picks up the updated previewDevice setting.
-    void apply_preview_device_change();
 
     // Cart slot binding (slot → item uuid). Slot < 0 clears.
     bool set_cart_slot(int slot, const std::string& item_uuid);
@@ -618,17 +634,22 @@ public:
     // shows as "what feeds this bus".
     struct BusInfo {
         BusDef                   def;
+        // The master pair this bus's hardware output occupies (D32): 0/1 for
+        // the master role, the reserved pair for the preview role, a pool
+        // pair for any other bus that resolved to hardware. Empty when it
+        // holds none.
+        std::optional<std::pair<audio::MasterChannelIndex,
+                                audio::MasterChannelIndex>> masters;
         audio::MixerChannelId    mixer;      // empty when not materialised
         std::vector<std::string> item_uuids;
         // Live, not persisted — read from the strip. See list_buses().
         bool                     pfl = false;
-        // Whether this bus actually reaches hardware. The UI cannot work this
-        // out from the output map alone: Monitor may be bound through
-        // settings.previewDevice, which is not in the map, and flagging that
-        // as unmapped would put a warning on a bus that is working.
+        // Whether this bus actually reaches hardware (D10/D26). The UI cannot
+        // work this out from the output map alone: a bus may name a device
+        // directly, or the built-in Main Out, neither of which is in the map.
         bool                     bound = false;
-        // Monitor only, and live rather than persisted: the mono-sum audition
-        // (see set_monitor_mono). False on every other bus.
+        // Preview bus only, and live rather than persisted: the mono-sum
+        // audition (see set_monitor_mono). False on every other bus.
         bool                     mono_check = false;
     };
     std::vector<BusInfo> list_buses() const;
@@ -636,35 +657,49 @@ public:
     // ---- Bus mutation ----------------------------------------------------
     // All three write document_["buses"] so the change survives a save, and
     // touch only the affected strip so other buses keep playing.
-    // Refused is distinct from NotFound because the one thing a caller may be
-    // told no about — pointing Monitor at the master — is a deliberate rule,
-    // and reporting it as "no such bus" would send whoever hit it looking for
-    // the wrong problem. The bus→bus refusals (D6) are separate values for the
-    // same reason: each one is a different thing to go and fix.
+    // Every refusal is its own value rather than a bare "no", because each
+    // one is a different thing to go and fix, and reporting a deliberate rule
+    // as "no such bus" would send whoever hit it looking for the wrong
+    // problem. The control server turns these into 409 texts.
     enum class PatchBusResult {
         Ok,
         NotFound,
-        // Monitor pointed at the master. PFL in the house — see patch_bus.
-        Refused,
-        // Monitor pointed at another bus. Same rule, other half of it.
-        RefusedMonitorToBus,
+        // The preview bus pointed at another bus. PFL in the house — the
+        // accident §2.4 exists to prevent. The preview bus goes to hardware
+        // or nowhere.
+        RefusedPreviewToBus,
+        // The master bus pointed at another bus. The house is an output.
+        RefusedMasterToBus,
         // output.target names no bus at all.
         UnknownTarget,
-        // output.target names a bus that may not be fed: a system bus (Main is
-        // reached with output.type "master", Monitor is never a destination).
+        // output.target names the preview bus, which nothing may feed (D25).
         IllegalTarget,
         // The edge would close a loop. Refused here so the render thread can
         // never be handed one — see D6.
         Cycle,
+        // {master:false} / {preview:false}: a role is moved, never dropped.
+        RoleCannotBeDropped,
+        // A role was offered to a bus that does not send to an output. Both
+        // roles require Output-kind (D25); the caller re-routes first.
+        RoleNeedsOutput,
+        // A role was offered to the bus holding the other role. Never the
+        // same bus (D24).
+        RoleConflict,
+        // The preview role was offered to a bus other buses feed. Nothing may
+        // target the preview bus (D25); the caller re-routes the feeders
+        // first rather than having them silently re-pointed.
+        RoleTargetFed,
     };
     // `why`, when given, receives Ok on success or the refusal that stopped
     // it, so the REST layer can answer 409 rather than "no strip available".
     std::optional<BusDef> create_bus(const json& spec,
                                      PatchBusResult* why = nullptr);
     PatchBusResult patch_bus(const std::string& id, const json& patch);
-    // Refuses the system buses. Items assigned to the deleted bus fall back to
-    // Main by having their busId cleared.
-    bool delete_bus(const std::string& id);
+    // Refuses a role holder (D24) — `why`, when given, receives the reason
+    // in the words the API reports. Items assigned to the deleted bus fall
+    // back to the master bus by having their busId cleared; buses that fed
+    // it are retargeted to the master bus (D9).
+    bool delete_bus(const std::string& id, std::string* why = nullptr);
 
     // Live pan, for the duration of a drag: moves the send gains without
     // writing the document or broadcasting, the way the strip-level gain and
@@ -681,16 +716,16 @@ public:
     // the shape of StripDspParams is the engine's, not the document's, and
     // both the materialise path and the live path need the same translation.
     //
-    // Not static: the Monitor bus's parameters depend on the live mono-check
+    // Not static: the preview bus's parameters depend on the live mono-check
     // flag as well as on what the document says.
     audio::StripDspParams dsp_params_for(const BusDef& bus) const;
 
     // ---- Mono-sum audition -----------------------------------------------
-    // Fold the Monitor bus to mono, so what is in the phones can be checked
+    // Fold the preview bus to mono, so what is in the phones can be checked
     // for mono compatibility without touching the house. PFL a bus, press
     // this, and anything that cancels when summed will audibly drop out.
     //
-    // Implemented as the Monitor strip's own width control forced to 0, which
+    // Implemented as the preview strip's own width control forced to 0, which
     // is exactly a mono fold, so it costs no new DSP and glides over ~20 ms
     // instead of clicking.
     //
@@ -711,12 +746,12 @@ public:
 
     // ---- PFL -------------------------------------------------------------
     // Raise or lower pre-fade listen on a bus: a pre-fader, pre-mute tap into
-    // the Monitor bus. Nothing else changes — the house mix is untouched and
+    // the preview bus. Nothing else changes — the house mix is untouched and
     // several buses can be PFL'd at once, which is the point of PFL over solo.
     //
     // Not written to the document. PFL is what the operator is listening to
     // right now, not part of the show, so it does not survive a reload.
-    // Refused for the Monitor bus itself, which is the destination.
+    // Refused for the preview bus itself, which is the destination.
     bool set_bus_pfl(const std::string& id, bool on);
     // Drop PFL everywhere. Returns how many buses were cleared.
     std::size_t clear_all_pfl();
@@ -731,6 +766,14 @@ public:
     // re-resolved and left alone unless its channels differ from what it was
     // wired to. Returns the number of buses moved.
     std::size_t rewire_buses_for_output_map();
+
+    // Re-read the machine's playback device list (D26). `bound` for an
+    // Output-kind bus that names a device directly is decided against this
+    // cache, never against a live enumeration — list_buses() runs under the
+    // lock and on every mixer poll, and enumerating opens a backend context.
+    // Called where the list can have changed: at materialise / wire time and
+    // from GET /api/devices. Never from the render thread.
+    void refresh_device_cache();
 
     std::filesystem::path media_root() const;
     void set_media_root(std::filesystem::path p);
@@ -843,10 +886,15 @@ private:
         audio::MasterChannelIndex master_l    = 0;
         audio::MasterChannelIndex master_r    = 0;
         bool                      has_masters = false;
+        // The master-role bus sits on masters 0/1 — the house pair, which the
+        // engine's own default routing also targets — not on a pair drawn
+        // from the pool (D27). Flagged so unwiring takes the sends and the
+        // device assignment off 0/1 without handing that pair to the pool.
+        bool                      house_pair  = false;
         // What the bus's logical output name resolved to when it was wired.
         // Kept so an output-map edit can rewire only the buses the edit
         // actually moved, instead of interrupting every bus on the desk.
-        // Empty for Master-kind buses, which do not consult the map.
+        // Empty for Bus-kind buses, which do not consult the map.
         std::vector<OutputMap::Channel> wired_channels;
         // The bus id this strip's mixer→mixer send was wired to, empty unless
         // the bus is Bus-kind and the send actually went in. Recorded for the
@@ -854,7 +902,7 @@ private:
         // edge it is taking down, and a bus that changed kind must drop the
         // send it used to hold rather than leave it feeding the old strip.
         std::string wired_bus_target;
-        // The Monitor bus sits on the master pair the engine reserves at the
+        // The preview bus sits on the master pair the engine reserves at the
         // top of the bus, not on one drawn from the pool. Flagged so unwiring
         // releases the routing without handing that pair out to a bus that
         // would then be sharing the operator's headphones.
@@ -876,6 +924,10 @@ private:
     // dsp_params_for reads it while building parameters and takes no lock.
     // Never written to the document — see set_monitor_mono.
     std::atomic<bool> monitor_mono_{false};
+
+    // Playback device names as of the last refresh_device_cache(). Guarded by
+    // mutex_. See refresh_device_cache().
+    std::vector<std::string> known_devices_;
 
     // Cue ids whose decoder has already been primed, so priming happens once
     // per cue rather than once per mirror. The mirror runs on every save, and
@@ -907,8 +959,9 @@ private:
     std::optional<AppliedEngineSettings> applied_engine_settings_;
     std::mutex                           applied_engine_settings_mutex_;
 
-    // Read document_["buses"] into buses_, synthesising the system buses and
-    // migrating legacy per-item deviceOverride values into real buses. Caller
+    // Read document_["buses"] into buses_, settling the master/preview roles
+    // (D24/D34/D35), migrating legacy outputs (D25), settings.previewDevice
+    // (D28) and per-item deviceOverride values into real buses. Caller
     // holds mutex_.
     void load_buses_locked();
     // One-way conversion of the pre-bus per-item `deviceOverride` field into
@@ -920,8 +973,23 @@ private:
     // Serialise buses_ back into document_["buses"]. Caller holds mutex_.
     void write_buses_to_document_locked();
     // Resolve an item's effective bus by walking up its group ancestry.
-    // Returns the Main bus when nothing along the chain assigns one.
+    // Returns the master bus when nothing along the chain assigns one.
     std::string resolve_item_bus(const std::string& item_uuid) const;
+    // The bus carrying a role, or null when none does — which load_buses_
+    // locked() makes impossible for a loaded document. Caller holds mutex_.
+    const BusDef* master_bus_locked() const;
+    const BusDef* preview_bus_locked() const;
+    std::string   master_bus_id_locked() const;
+    std::string   preview_bus_id_locked() const;
+    // Is a playback device with exactly this name present, per the last
+    // refresh_device_cache()? Caller holds mutex_.
+    bool device_present_locked(const std::string& name) const;
+    // Hand a role to `new_id` (which must already carry the flag in buses_),
+    // taking it off `old_id`: both strips are unwired and re-wired, the
+    // engine's master/monitor designation follows, and an active preview is
+    // stopped when the preview role moves. Caller must NOT hold mutex_.
+    void rewire_role_move(bool master_role, const std::string& old_id,
+                          const std::string& new_id);
     // Engine strip for a bus id, or empty if unknown / not materialised.
     audio::MixerChannelId mixer_for_bus(const std::string& bus_id) const;
     // Reserve the next free pair of master channels below the preview reserve.
@@ -950,20 +1018,26 @@ private:
     PatchBusResult validate_bus_output_locked(const std::string& source_id,
                                               BusOutputKind kind,
                                               const std::string& target) const;
-    // Does this bus reach hardware (D10)? Master-kind counts; Output-kind is
-    // bound when it resolved to real channels; Bus-kind walks its chain to the
+    // Does this bus reach hardware (D10/D26)? Output-kind is bound when its
+    // target is mapped, is the built-in Main Out, or names a device that is
+    // present — the preview bus only when it actually resolved to channels;
+    // Bus-kind walks its chain to the
     // terminal. The walk is hop-capped, so even a document hand-edited into a
     // cycle answers rather than hangs. Caller holds mutex_.
     bool bus_reaches_hardware_locked(const std::string& bus_id) const;
-    // Monitor's own wiring: the reserved master pair, bound to whatever this
-    // machine calls the headphone output. Split out because it is the one bus
-    // whose master channels are fixed rather than allocated.
-    void wire_monitor_bus(const BusDef& bus, BusRouting& routing);
-    // Where the headphones are on this machine. The logical output map answers
-    // first — that is what keeps a show portable — and settings.previewDevice
-    // is the legacy answer every existing project already carries. Empty when
-    // neither is configured, in which case Monitor is valid and silent.
-    std::vector<OutputMap::Channel> resolve_monitor_channels(
+    // The preview bus's own wiring: the reserved master pair, bound to
+    // whatever this machine calls the headphone output. Split out because it
+    // is the one bus whose master channels are fixed rather than allocated —
+    // the master bus's house pair is the other, and wire_bus handles that
+    // inline because it is the ordinary Output path aimed at 0/1.
+    void wire_preview_bus(const BusDef& bus, BusRouting& routing);
+    // What the preview bus's target means here. A real mapping wins; the
+    // built-in Preview Out is silent unmapped; any other name is taken as a
+    // device name ONLY if such a device is present. Never the identity
+    // fallback every other bus gets: open_device_by_name() falls back to the
+    // DEFAULT device when a name matches nothing, and for the preview bus
+    // that is PFL in the house.
+    std::vector<OutputMap::Channel> resolve_preview_channels(
             const std::string& logical_name) const;
     // Re-issues just the two mixer->master sends that carry a mono bus's pan.
     // Separate from wire_bus because panning must not tear the routing down:
@@ -980,7 +1054,7 @@ private:
             const std::string& bus_id,
             const std::unordered_map<std::string, BusRouting>* strips,
             int* width_out,
-            bool* system_out = nullptr) const;
+            bool* preview_out = nullptr) const;
     // Re-issue the send gains of every bus whose output feeds `target_id`.
     // The lane law of a bus->bus send depends on BOTH widths (D8), so a bus
     // that changes width has to move the sends arriving at it as well as its
@@ -1001,7 +1075,7 @@ private:
     void release_device_routings_locked();
 
     // Preview state. There is no longer a preview mixer or a separately-opened
-    // preview device: pre-listen routes into the Monitor bus, which owns the
+    // preview device: pre-listen routes into the preview bus, which owns the
     // reserved master pair and is wired when the project is materialised. What
     // is left is just which cue is being auditioned.
     audio::CueId           preview_cue_;

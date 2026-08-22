@@ -82,8 +82,18 @@ std::vector<OutputMap::Channel> OutputMap::resolve(const std::string& name) cons
         auto it = map_.find(name);
         if (it != map_.end() && !it->second.empty()) return it->second;
     }
+    // The built-ins carry their own meaning when unmapped (D26). Main Out is
+    // the platform default device: an empty device name is what
+    // open_device_by_name() opens as the default. Preview Out is silence —
+    // the Preview bus must never fall through to the house.
+    if (name == kMainOutputName)    return {Channel{"", 0}, Channel{"", 1}};
+    if (name == kPreviewOutputName) return {};
     // Identity fallback — the name is taken to be a device name, stereo.
     return {Channel{name, 0}, Channel{name, 1}};
+}
+
+std::vector<std::string> OutputMap::builtin_names() {
+    return {kMainOutputName, kPreviewOutputName};
 }
 
 bool OutputMap::has(const std::string& name) const {

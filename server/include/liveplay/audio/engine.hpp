@@ -428,12 +428,23 @@ public:
 
     // ---- Sensible-default routing ---------------------------------------
     // Brings the engine into a usable state without explicit routing
-    // calls: opens the default device if no device is open, creates a
-    // "Main" mixer if no mixer exists, wires Main lane 0/1 → master 0/1 →
-    // default device hardware channels 0/1, and routes every loaded cue's
-    // source channels through Main (stereo → lanes L/R, mono → both lanes).
+    // calls: opens the default device if no device is open, picks the house
+    // strip — the one registered with set_master_mixer() when a project is
+    // loaded, else a strip called "Main", created if need be — assigns any
+    // unassigned master 0/1 to that device's hardware channels 0/1, and
+    // routes every loaded cue that has no route yet through the house strip
+    // (stereo → lanes L/R, mono → both lanes). The house strip's own sends
+    // to 0/1 are added only for the pre-project fallback strip; a registered
+    // master strip is wired by ProjectState and left alone.
     // Idempotent — safe to call any number of times.
     void ensure_default_routing();
+
+    // Nominate the strip that carries the master role (D27): the one
+    // ensure_default_routing() parks unrouted cues on and the one it never
+    // second-guesses the wiring of. An empty id clears the designation and
+    // the pre-project "Main" fallback applies again.
+    void set_master_mixer(const MixerChannelId& id);
+    MixerChannelId master_mixer() const;
 
     // ---- Mixer channels --------------------------------------------------
     MixerChannelId create_mixer_channel(std::string display_name);
@@ -710,6 +721,9 @@ private:
     // Which strip PFL feeds. Guarded by mutex_; the render thread reads the
     // resolved strip out of the topology snapshot instead.
     MixerChannelId monitor_mixer_;
+    // Which strip is the house (set_master_mixer). Guarded by mutex_; only
+    // ensure_default_routing() consults it.
+    MixerChannelId master_mixer_;
 
     // Atomic topology snapshot for the render thread.
     detail::AtomicSharedPtr<const Topology> topology_{};

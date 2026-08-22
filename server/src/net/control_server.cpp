@@ -151,16 +151,24 @@ crow::response json_err(int status, std::string_view message) {
 static std::string_view bus_output_refusal_text(core::ProjectState::PatchBusResult r) {
     using PR = core::ProjectState::PatchBusResult;
     switch (r) {
-        case PR::Refused:
-            return "the Monitor bus cannot be routed to the master";
-        case PR::RefusedMonitorToBus:
-            return "the Monitor bus cannot be routed to another bus";
+        case PR::RefusedPreviewToBus:
+            return "the Preview bus cannot be routed to another bus";
+        case PR::RefusedMasterToBus:
+            return "the Master bus must send to an output";
         case PR::UnknownTarget:
             return "no such bus to route to";
         case PR::IllegalTarget:
-            return "a bus cannot feed a system bus; use \"master\" to reach the master";
+            return "a bus cannot feed the Preview bus";
         case PR::Cycle:
             return "routing this bus would create a cycle";
+        case PR::RoleCannotBeDropped:
+            return "move the role to another bus instead";
+        case PR::RoleNeedsOutput:
+            return "a bus must send to an output to hold the Master or Preview role";
+        case PR::RoleConflict:
+            return "one bus cannot hold both the Master and Preview roles";
+        case PR::RoleTargetFed:
+            return "buses feed this bus; re-route them before making it the Preview bus";
         default:
             return "the bus output was refused";
     }
@@ -169,10 +177,7 @@ static std::string_view bus_output_refusal_text(core::ProjectState::PatchBusResu
 // The full mixer view of one bus, shared by GET /api/buses and
 // GET /api/buses/<id> so the two can never drift apart.
 static json bus_info_to_json(const core::ProjectState::BusInfo& b) {
-    const char* kind =
-        b.def.output_kind == core::BusOutputKind::Bus    ? "bus"
-      : b.def.output_kind == core::BusOutputKind::Output ? "output"
-                                                          : "master";
+    const char* kind = b.def.output_kind == core::BusOutputKind::Bus ? "bus" : "output";
     return json{
         {"id",       b.def.id},
         {"name",     b.def.display_name},
@@ -186,11 +191,15 @@ static json bus_info_to_json(const core::ProjectState::BusInfo& b) {
         // Live monitoring state, not part of the document —
         // it comes from the strip, and a reload clears it.
         {"pfl",      b.pfl},
-        // Monitor only: the mono-sum audition. Live too.
+        // Preview bus only: the mono-sum audition. Live too.
         {"monoCheck", b.mono_check},
         // Whether it actually reaches hardware — see BusInfo.
         {"bound",    b.bound},
-        {"system",   b.def.system},
+        // Roles (D24): the house, and where PFL / pre-listen land.
+        {"master",   b.def.master},
+        {"preview",  b.def.preview},
+        // The master pair its hardware output occupies, or null (D32).
+        {"masters",  b.masters ? json{b.masters->first, b.masters->second} : json{}},
         {"output",   json{{"type", kind}, {"target", b.def.output_target}}},
         {"mixerId",  b.mixer.value},
         {"itemUuids", b.item_uuids},
@@ -1303,6 +1312,10 @@ void ControlServer::install_routes() {
             try {
                 json arr = json::array();
                 for (auto& d : engine_.enumerate_devices()) arr.push_back(device_info_to_json(d));
+                // `bound` for a bus that names a device is decided against
+                // the cached list (D26); whoever asks for the devices is
+                // the right moment to bring it up to date.
+                state_.refresh_device_cache();
                 return json_ok(arr);
             } catch (const std::exception& e) { return json_err(500, e.what()); }
             catch (...) { return json_err(500, "unknown error enumerating devices"); }
@@ -1923,26 +1936,35 @@ void ControlServer::install_routes() {
     // The mono-sum audition. Not per bus: it folds the MONITOR to mono, which
     // is one control for the whole monitoring path rather than one per strip —
     // PFL whichever buses you want to check, then press this.
-    CROW_ROUTE(app, "/api/monitor/mono").methods(crow::HTTPMethod::Post)
-        ([this](const crow::request& req){
-            try {
-                auto j = json::parse(req.body);
-                const bool on = j.value("mono", false);
-                if (!state_.set_monitor_mono(on))
-                    return json_err(409, "the Monitor bus has no strip");
-                broadcast_doc_patch(json{
-                    {"type", "doc_patch"}, {"op", "monitor_mono_changed"},
-                    {"mono", on},
-                });
-                return json_ok(json({{"ok", true}, {"mono", on}}));
-            } catch (const std::exception& e) { return json_err(400, e.what()); }
-        });
+    // Mono-check on the preview bus. /api/preview/mono is the name that
+    // matches the role; /api/monitor/mono is kept for controllers written
+    // against round 1 (D33). One handler, two routes.
+    const auto preview_mono = [this](const crow::request& req){
+        try {
+            auto j = json::parse(req.body);
+            const bool on = j.value("mono", false);
+            if (!state_.set_monitor_mono(on))
+                return json_err(409, "the Preview bus has no strip");
+            broadcast_doc_patch(json{
+                {"type", "doc_patch"}, {"op", "monitor_mono_changed"},
+                {"mono", on},
+            });
+            return json_ok(json({{"ok", true}, {"mono", on}}));
+        } catch (const std::exception& e) { return json_err(400, e.what()); }
+    };
+    CROW_ROUTE(app, "/api/monitor/mono").methods(crow::HTTPMethod::Post)(preview_mono);
+    CROW_ROUTE(app, "/api/preview/mono").methods(crow::HTTPMethod::Post)(preview_mono);
 
     CROW_ROUTE(app, "/api/buses/<string>").methods(crow::HTTPMethod::Delete)
         ([this](std::string id){
             try {
-                // Refused for the system buses; assigned items fall back to Main.
-                if (!state_.delete_bus(id)) return json_err(409, "not found or not deletable");
+                // Refused for a role holder (D24); assigned items fall back
+                // to the master bus.
+                std::string why;
+                if (!state_.delete_bus(id, &why)) {
+                    if (why == "not found") return json_err(404, "not found");
+                    return json_err(409, why.empty() ? "not deletable" : why);
+                }
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "buses_patched"},
                     {"buses", state_.full_document().value("buses", json::array())},
@@ -1956,7 +1978,13 @@ void ControlServer::install_routes() {
     // part of a project document — that is what keeps a show portable.
     CROW_ROUTE(app, "/api/outputs").methods(crow::HTTPMethod::Get)
         ([this] {
-            try { return json_ok(outputs_.to_json()); }
+            try {
+                auto out = outputs_.to_json();
+                // The names that mean something unmapped (D26), so a client
+                // can list them ahead of the machine's own.
+                out["builtin"] = core::OutputMap::builtin_names();
+                return json_ok(out);
+            }
             catch (const std::exception& e) { return json_err(500, e.what()); }
         });
 

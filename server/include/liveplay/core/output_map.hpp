@@ -28,6 +28,20 @@ namespace liveplay::core {
 
 using json = nlohmann::json;
 
+// The two built-in logical outputs (D26). They are names like any other —
+// a real mapping in outputs.json always wins — but each has a defined meaning
+// when the map says nothing:
+//
+//   "Main Out"    → the platform's default playback device, stereo. It is
+//                   what the Master bus targets out of the box, so a fresh
+//                   install makes sound with no configuration at all.
+//   "Preview Out" → nothing. The Preview bus targets it out of the box, and
+//                   silence is the safe answer for the bus PFL lands on: the
+//                   default device is the house, and PFL in the house is the
+//                   accident §2.4 chose PFL over solo to make impossible.
+inline constexpr const char* kMainOutputName    = "Main Out";
+inline constexpr const char* kPreviewOutputName = "Preview Out";
+
 class OutputMap {
 public:
     struct Channel {
@@ -47,11 +61,19 @@ public:
 
     // Channels a logical name resolves to on this machine.
     //
-    // An unmapped name falls back to being treated as a device name, stereo on
-    // hardware channels 0/1. That keeps a fresh install working with no
-    // configuration, and it is what lets legacy per-item device overrides
-    // migrate into buses without changing where the audio goes.
+    // A real mapping always wins. Unmapped, the built-ins have their own
+    // meaning (see kMainOutputName / kPreviewOutputName above): "Main Out" is
+    // the default device — an empty device name, which is what
+    // AudioEngine::open_device_by_name takes to mean the platform default —
+    // and "Preview Out" is no channels at all. Any other unmapped name falls
+    // back to being treated as a device name, stereo on hardware channels
+    // 0/1. That keeps a fresh install working with no configuration, and it
+    // is what lets legacy per-item device overrides migrate into buses
+    // without changing where the audio goes.
     std::vector<Channel> resolve(const std::string& name) const;
+
+    // The built-in names, in the order the UI lists them.
+    static std::vector<std::string> builtin_names();
 
     // True when the name has a real mapping (not the identity fallback), so
     // the UI can flag a bus pointing at an output this machine doesn't know.
