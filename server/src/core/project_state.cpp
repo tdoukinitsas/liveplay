@@ -1831,6 +1831,17 @@ void ProjectState::update_media_root_from_folder_locked() {
     media_root_ = util::utf8_to_path(folder) / "media";
 }
 
+void ProjectState::reanchor_folder_path_locked() {
+    // No file yet — a new project that has been given a folder but not written.
+    // The client's folderPath is all there is, so leave it alone.
+    if (project_file_path_.empty() || !project_file_path_.has_parent_path()) {
+        update_media_root_from_folder_locked();
+        return;
+    }
+    document_["folderPath"] = util::path_to_utf8(project_file_path_.parent_path());
+    update_media_root_from_folder_locked();
+}
+
 // ---------------------------------------------------------------------------
 // Persistence
 // ---------------------------------------------------------------------------
@@ -1867,10 +1878,27 @@ bool ProjectState::save(const std::filesystem::path& path) const {
             doc = document_;
             doc["lastModified"] = now_iso();
         }
+        // The folder we are saving INTO is the project folder, whatever the
+        // in-memory document says — the same rule load() applies in reverse.
+        // relativize_media_paths() measures against this, so on a Save As the
+        // media that stayed behind is correctly seen as outside the new folder
+        // and keeps its absolute path instead of being rewritten to a
+        // "media/..." that would not exist there.
+        if (path.has_parent_path())
+            doc["folderPath"] = util::path_to_utf8(path.parent_path());
+
         // Persist media as relative paths whenever it lives in the project
         // folder, so the saved file stays portable across moves. Covers items
         // imported this session (which carry an absolute mediaServerPath).
         relativize_media_paths(doc);
+
+        // ...and then the folder itself goes. It is an absolute path on THIS
+        // machine, and a show file has no business naming one: mail the project
+        // to a colleague, unzip a .lpa anywhere, or just move the folder, and
+        // the stored value is wrong while the file's own location is right.
+        // load() has always overwritten it on the way in for exactly that
+        // reason, so nothing reads what we were writing here.
+        doc.erase("folderPath");
 
         // Atomic write: serialise to a sibling temp file, verify the stream is
         // healthy, then rename it over the target. A write error, disk-full, or
@@ -2092,7 +2120,17 @@ bool ProjectState::replace_full_document(const json& doc) {
             document_["theme"] = json{{"mode", "dark"}, {"accentColor", "#DA1E28"}};
         }
         project_name_ = document_.value("name", std::string{"Untitled"});
-        update_media_root_from_folder_locked();
+        // A document that names its own folder is asserting where it lives, and
+        // is believed: that is how a brand-new project arrives — pushed with
+        // the folder the operator picked, before any file has been written to
+        // it. Only when it names none do we fall back to the open file's
+        // location, which is the one thing on this machine that cannot be
+        // stale. (A document loaded from disk was corrected on the way in, so
+        // by the time a client round-trips it the two already agree.)
+        if (document_.value("folderPath", std::string{}).empty())
+            reanchor_folder_path_locked();
+        else
+            update_media_root_from_folder_locked();
         // The incoming document carries its own buses. Without this, buses_
         // would still describe the outgoing document and every assignment in
         // the new one would resolve against stale definitions.
@@ -2149,6 +2187,11 @@ std::filesystem::path ProjectState::project_file_path() const {
 void ProjectState::set_project_file_path(std::filesystem::path p) {
     std::lock_guard lock{mutex_};
     project_file_path_ = std::move(p);
+    // Learning where the file lives IS learning the project folder — the two
+    // cannot disagree. Before this, a Save As adopted the new path but left
+    // folderPath (and with it media_root_) pointing at the old folder, so the
+    // next import landed in the project the operator had just saved away from.
+    reanchor_folder_path_locked();
 }
 
 ProjectState::PlaybackSnapshot ProjectState::current_playback_snapshot() const {
@@ -6454,9 +6497,10 @@ bool ProjectState::load(const std::filesystem::path& path) {
         json doc;
         f >> doc;
         // The media/ folder always lives next to the .liveplay file, so the
-        // project folder is authoritatively the directory the file sits in —
-        // regardless of any (possibly stale) folderPath baked into the document
-        // the last time it was saved somewhere else. We rewrite it BEFORE
+        // project folder is authoritatively the directory the file sits in.
+        // Since 2.5 the saved file carries no folderPath at all and this is the
+        // only place it comes from; older files carry one baked in wherever
+        // they were last saved, which this overwrites. We rewrite it BEFORE
         // load_from_json() because that call kicks off the async engine mirror,
         // which resolves each item's media against folderPath; injecting the
         // real location first is what lets a moved project — or a legacy v1
@@ -6467,15 +6511,14 @@ bool ProjectState::load(const std::filesystem::path& path) {
         }
         const bool ok = load_from_json(doc);
         if (ok) {
+            // Adopting the path re-anchors folderPath and media_root_ onto the
+            // file's real location (see set_project_file_path).
             set_project_file_path(path);
             // Normalise media references to the portable relative form now that
             // folderPath points at the file's real location: drops stale
             // absolute mediaServerPaths so the document served to clients (and
             // written on the next save) stays portable across moves.
             std::lock_guard lock{mutex_};
-            if (path.has_parent_path()) {
-                document_["folderPath"] = util::path_to_utf8(path.parent_path());
-            }
             relativize_media_paths(document_);
         }
         return ok;

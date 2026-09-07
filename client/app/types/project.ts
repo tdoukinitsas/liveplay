@@ -401,6 +401,12 @@ export const BUS_SCHEMA_VERSION = 2;
 export interface Project {
   name: string;
   version: string;
+  // Where the project folder is ON THIS MACHINE. Derived by the server from the
+  // location of the .liveplay file, not stored in it — a saved project names no
+  // directory, so one that has been moved, mailed or unzipped elsewhere still
+  // finds its media. The client sets this exactly once, for a new project that
+  // has a chosen folder but no file yet; after that it is read-only, and every
+  // load and save-as replaces it.
   folderPath: string;
   // Mirrored from the server's header and handed straight back on save, so the
   // client never claims a version it wasn't given.

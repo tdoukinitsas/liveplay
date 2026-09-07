@@ -336,6 +336,11 @@ public:
     // Load a project file (.liveplay JSON). Returns true on success. On
     // failure, the previous state is preserved.
     bool load(const std::filesystem::path& path);
+
+    // Write the project document to `path`. The saved file does NOT carry
+    // folderPath: the project folder is wherever the file is found, so it is
+    // derived on load rather than stored (and a project mailed to another
+    // machine therefore names no directory on this one).
     bool save(const std::filesystem::path& path) const;
 
     // Replace state from an in-memory JSON document. Same semantics as load.
@@ -1313,6 +1318,18 @@ private:
     // guarantees the server never reads or writes media outside that folder.
     // No-op when folderPath is empty (unsaved project). Caller must hold mutex_.
     void update_media_root_from_folder_locked();
+
+    // Point document_["folderPath"] at the directory the .liveplay file
+    // actually sits in, then re-anchor media_root_ from it.
+    //
+    // The project folder is a property of WHERE THE FILE IS, not of what the
+    // file says — a machine fact, not a show one — so the document does not own
+    // it and the saved file no longer carries it. Everything that learns the
+    // file's location (load, save-as) calls this, and nothing else writes the
+    // field. Until a project has a file path, the client's own folderPath
+    // stands: that is the new-project case, where the folder has been chosen
+    // but nothing has been written yet. Caller must hold mutex_.
+    void reanchor_folder_path_locked();
 };
 
 } // namespace liveplay::core

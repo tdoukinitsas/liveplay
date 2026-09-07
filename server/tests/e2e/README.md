@@ -39,6 +39,9 @@ node server/tests/e2e/materialise-skip.js 4500
 # Needs no audio device and no signal — nothing here plays.
 node server/tests/e2e/settings-registry-e2e.js 4500
 
+# Writes and moves its own temp project tree, and closes the project when done.
+node server/tests/e2e/project-folder-e2e.js 4500 /tmp/liveplay-test-signal.wav
+
 # Needs a device present to have something to materialise; skips cleanly if none.
 node server/tests/e2e/output-materialise-e2e.js 4500
 node server/tests/e2e/absent-device-e2e.js 4500 /tmp/liveplay-test-signal.wav
@@ -90,9 +93,17 @@ What each one pins, in the bus-role model (round 2, D24–D36):
 - `output-materialise-e2e.js` — pointing a bus at a device present on this host adds a logical
   output of that name to `outputs.json` instead of leaving the document holding a bare device
   reference (O2). Also pins the three cases it must *not* fire on: a repeat of the same pick, a
-  name matching no present device (the identity fallback still covers it, and inventing an entry
-  for absent hardware would be a lie about the machine), and a built-in, whose unmapped meaning
-  D26 defines. Restores the map it found.
+  name matching no present device (inventing an entry for absent hardware would be a lie about
+  the machine — since §0.8 that name resolves to silence, not to a device), and a built-in,
+  whose unmapped meaning D26 defines. Restores the map it found.
+- `project-folder-e2e.js` — `folderPath` is derived from where the `.liveplay` file is found and
+  is **not** written into it, so a project that has been moved, mailed or unzipped somewhere else
+  still resolves its media. Pins the saved file having no such key, a moved project reporting and
+  resolving against its new location, a save-as re-anchoring the folder *and* `media_root` (before
+  this, the next import landed in the folder just saved away from), and a pre-2.5 file that still
+  carries the field being corrected rather than believed. Deliberately does not pin what a save-as
+  does to media: it does not copy the media folder, so the copy's relative `media/…` points at
+  nothing — true before this change too, and a question nobody has answered.
 - `fs-jail-e2e.js` — the filesystem allow-list (`--fs-root`) and the configurable CORS origin
   (`--cors-origin`). Two halves, and the second matters as much as the first: that a confined
   server refuses paths outside its roots — including a traversal *out* of a root and a sibling
