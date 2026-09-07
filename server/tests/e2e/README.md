@@ -41,6 +41,7 @@ node server/tests/e2e/settings-registry-e2e.js 4500
 
 # Needs a device present to have something to materialise; skips cleanly if none.
 node server/tests/e2e/output-materialise-e2e.js 4500
+node server/tests/e2e/absent-device-e2e.js 4500 /tmp/liveplay-test-signal.wav
 
 # Starts its own servers (it is testing boot configuration), so it takes the
 # binary rather than a port. Defaults to the Release build.
@@ -77,6 +78,15 @@ What each one pins, in the bus-role model (round 2, D24–D36):
   input must not *break* anything — a stray key still returns 200 and the good keys in the same
   patch still land, because the client PATCHes its whole settings object on every edit. Also pins
   that the derived `outputTargetLevels` still arrives on every read but is never written to disk.
+- `absent-device-e2e.js` — a bus whose output names hardware this machine does not have goes
+  **silent**, rather than to the default device as `open_device_by_name()` would (§0.8). Measured
+  on the meters, because the claim that matters is about where the audio went, not what a flag
+  says. Note which assertion carries the weight: an ordinary Output-kind bus takes a *pool* pair,
+  so the old fallback surfaced there and not on the house pair — the house check passes against
+  the unfixed build too, and is kept only because it is the claim a reader will assume is being
+  made. Includes a contrast phase (the same bus and cue re-pointed at Main Out, which must be
+  loud) so "silent" cannot pass on a dead harness, an unloaded wav or a cue that never fired.
+  Also pins that the preview bus stays strict even on Main Out.
 - `output-materialise-e2e.js` — pointing a bus at a device present on this host adds a logical
   output of that name to `outputs.json` instead of leaving the document holding a bare device
   reference (O2). Also pins the three cases it must *not* fire on: a repeat of the same pick, a

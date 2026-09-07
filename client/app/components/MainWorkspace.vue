@@ -30,6 +30,31 @@
       </div>
     </div>
 
+    <!-- A bus whose output names hardware this machine does not have is
+         silent, deliberately: the server stopped falling back to the default
+         device, because a sub-mix arriving out of the house at the wrong venue
+         is worse than silence. Silence still has to be SAID, though, or the
+         operator finds out by firing a cue and hearing nothing.
+
+         Only buses that actually have cues on them, and never the preview bus
+         — an unmapped Preview Out is the shipped default and correct. -->
+    <div v-if="unboundBuses.length && !unboundDismissed" class="migration-banner" role="alert">
+      <div class="migration-banner__text">
+        <p class="migration-banner__title">{{ t('mixer.unboundTitle') }}</p>
+        <p class="migration-banner__body">
+          {{ t('mixer.unboundBody', { buses: unboundBuses.map(b => b.name).join(', ') }) }}
+        </p>
+      </div>
+      <div class="migration-banner__actions">
+        <button class="migration-banner__btn migration-banner__btn--primary" @click="openOutputMap">
+          {{ t('mixer.outputMapButton') }}
+        </button>
+        <button class="migration-banner__btn" @click="unboundSignatureDismissed = unboundSignature">
+          {{ t('migration.dismiss') }}
+        </button>
+      </div>
+    </div>
+
     <PlaybackControls />
 
     <!-- One flex row, left to right: playlist | handle | cart | handle | mixer.
@@ -700,6 +725,37 @@ const handleKeydown = (e: KeyboardEvent) => {
     void pasteItemsFromClipboard();
   }
 };
+
+// Buses that will make no sound: unbound, carrying cues, and not the preview
+// bus. `bound` is server-computed and server.buses is kept fresh by the
+// buses_patched / outputs_changed broadcasts, so this needs no polling.
+//
+// The itemUuids test is what keeps this from nagging. An unbound bus with
+// nothing routed to it is a configuration detail; an unbound bus with cues on
+// it means those cues are silent, which is the thing worth interrupting for.
+const unboundBuses = computed(() =>
+  (server.buses ?? []).filter(
+    (b: any) => !b.preview && b.bound === false && (b.itemUuids?.length ?? 0) > 0
+  )
+);
+// Dismissal is per-client view state, like the migration banner — but keyed on
+// WHICH buses are unbound, so dismissing today's warning does not hide a
+// different one tomorrow.
+const unboundSignature = computed(() =>
+  unboundBuses.value.map((b: any) => b.id).sort().join('|')
+);
+const unboundSignatureDismissed = ref('');
+const unboundDismissed = computed(
+  () => unboundSignature.value !== '' && unboundSignature.value === unboundSignatureDismissed.value
+);
+// The output map lives in the mixer panel, so the panel has to be up for the
+// modal to render. When the map moves into Settings this becomes a plain deep
+// link to that section instead.
+function openOutputMap() {
+  mixerOpen.value = true;
+  outputMapOpen.value = true;
+}
+const outputMapOpen = useState<boolean>('liveplay:outputMapOpen', () => false);
 
 // Transport keys and MIDI belong to the workspace, not to the cart pane.
 //

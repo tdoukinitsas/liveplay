@@ -617,7 +617,7 @@ closes that for good.
   wins; unmapped, `Main Out` is the platform default device (the empty device name, which is what
   `open_device_by_name` treats as the default) and `Preview Out` is no channels at all — silence
   is the safe answer for the bus PFL lands on, because the default device *is* the house. Any
-  other unmapped name keeps the identity fallback. `GET /api/outputs` lists the two in
+  other unmapped name keeps the identity fallback — **superseded, see §0.8**. `GET /api/outputs` lists the two in
   `builtin`. `bound` for an Output-kind bus is mapped ‖ `Main Out` ‖ a device of that name is
   present (a cached device list, refreshed on `/api/devices` and on device open, never on the
   render thread); the preview bus keeps Monitor's strict rule and is bound only when it actually
@@ -691,6 +691,41 @@ read them with these substitutions:
   `Preview Out` by default; `"Monitor"` still resolves as a plain name if a map carries it.
 - §0.3's master-strip channel view and `previewDevice` migration items are closed (struck
   through above).
+
+---
+
+### 0.8 The identity fallback is gone (ownership round, 2026-09-07)
+
+D26's identity fallback — *any unmapped name is treated as a device name* — has been withdrawn
+for every bus. It now applies **only when a device of that name is actually present**.
+
+**Why.** `open_device_by_name()` warns and opens the **default** device when a name matches
+nothing ([engine.cpp](server/src/audio/engine.cpp)). So the fallback that kept a migrated
+`deviceOverride` working also meant a project whose sub-mix targeted a sound card the current
+venue does not have came out of the default device instead of going quiet. On a rig, the default
+device is the house. That is the accident PFL was chosen over solo to make impossible (§0.2),
+reached through routing rather than through monitoring — and it was invisible, because `bound`
+was true and the strip looked correct.
+
+This is exactly the rule the preview bus has had since §0.7, now applied to every hardware
+output. `resolve_preview_channels()` became `resolve_output_channels(name, allow_default_device)`
+and both paths share it; the flag carries the single remaining difference, which is that an
+unmapped **Main Out** is the platform default device for an ordinary or master bus (so a fresh
+install still makes sound with no configuration) and nothing at all for the preview bus (so PFL
+cannot reach the house).
+
+**What changes for a legacy project** whose `deviceOverride` migrated onto a bus and whose device
+has since been unplugged: it is now silent rather than playing out of whatever is default. The
+bus reports `bound: false`, the strip says so, and a banner in the workspace names the affected
+buses and offers the output map. Silence that is announced beats audio in the wrong room.
+
+The other half of the same round: picking a device from a strip's output picker now **adds a
+logical output of that name to `outputs.json`** rather than leaving a bare device reference in the
+document (D29's convenience, kept, with what it writes changed). `outputs_changed` is broadcast so
+a second client's map view converges.
+
+Pinned by `server/tests/e2e/absent-device-e2e.js` — measured on the meters, with a contrast phase
+so "silent" cannot pass on a dead harness — and `output-materialise-e2e.js`.
 
 ---
 

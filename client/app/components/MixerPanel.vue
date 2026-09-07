@@ -171,7 +171,11 @@ const outputMap   = ref<OutputMap | null>(null);
 // Pure view state (invariant 1's one allowance): whether the output-map
 // editor is open. Everything the modal shows and saves comes from the
 // server, never from anything held here.
-const outputMapOpen = ref(false);
+//
+// Shared rather than local for the same reason selectedId is — the docked and
+// full instances swap — and because the unbound-output banner in
+// MainWorkspace opens it, which it cannot do through a ref that lives here.
+const outputMapOpen = useState<boolean>('liveplay:outputMapOpen', () => false);
 
 const buses = computed<Bus[]>(() => server.buses ?? []);
 

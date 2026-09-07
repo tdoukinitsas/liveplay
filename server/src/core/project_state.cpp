@@ -4538,13 +4538,12 @@ std::size_t ProjectState::rewire_buses_for_output_map() {
         // compares as changed and gets a retry — which is what you want after
         // the operator has just fixed the map.
         //
-        // The preview bus is asked the same way it was wired. Comparing it
-        // against the plain map would use the identity fallback, which it
-        // never gets — so every save of the output map would tear down the
-        // headphone feed and build it again.
-        const auto resolved = bus.preview
-                                  ? resolve_preview_channels(bus.output_target)
-                                  : outputs_.resolve(bus.output_target);
+        // Asked exactly the way it was wired. Comparing against the plain map
+        // would use OutputMap's identity fallback, which no bus gets any more —
+        // so every save of the output map would tear a working feed down and
+        // build it again. The preview bus is the same call with the default
+        // device withheld, which is its one difference.
+        const auto resolved = resolve_output_channels(bus.output_target, !bus.preview);
         if (same(resolved, it->second.wired_channels)) continue;
 
         BusRouting routing = it->second;
@@ -4854,13 +4853,14 @@ void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing,
         }
     }
 
-    // What "FOH" means on this machine. The built-in Main Out is the default
-    // device unmapped; any other unmapped name falls back to being treated as
-    // a device name, which keeps a fresh install working with no configuration
-    // and lets legacy device overrides migrate unchanged.
-    const auto channels = outputs_.resolve(bus.output_target);
+    // What "FOH" means on this machine. Main Out unmapped is the default
+    // device; any other unmapped name is a device name only if that device is
+    // present, and otherwise nothing — see resolve_output_channels() for why
+    // silence rather than the default device is the safe answer.
+    const auto channels = resolve_output_channels(bus.output_target, true);
     if (channels.empty()) {
-        Logger::warn("bus '{}': output '{}' resolves to nothing; leaving it silent",
+        Logger::warn("bus '{}': output '{}' is not in the output map and names no present "
+                     "device, so it is silent — map it or point the bus somewhere else",
                      bus.display_name, bus.output_target);
         return;
     }
@@ -4916,19 +4916,33 @@ void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing,
                                                           : ", unmapped: name used as device");
 }
 
-std::vector<OutputMap::Channel> ProjectState::resolve_preview_channels(
-        const std::string& logical_name) const {
-    // A real mapping wins. That is the portable answer, and the one the rest
-    // of this branch is moving everything towards.
+std::vector<OutputMap::Channel> ProjectState::resolve_output_channels(
+        const std::string& logical_name, bool allow_default_device) const {
+    // A real mapping wins. That is the portable answer, and what the whole
+    // logical-output model exists to make the normal case.
     if (outputs_.has(logical_name)) return outputs_.resolve(logical_name);
-    // The built-in is silence unmapped (D26), and so is an empty name.
+    // An empty name is nothing, and the built-in Preview Out is silence
+    // unmapped (D26) whichever bus asks.
     if (logical_name.empty() || logical_name == kPreviewOutputName) return {};
-    // Otherwise a device name — which is what settings.previewDevice migrated
-    // into (D28) — but ONLY if the device is actually here. The identity
-    // fallback every other bus gets would hand a missing name to
-    // open_device_by_name(), which falls back to the DEFAULT device, and for
-    // the preview bus that means every PFL'd channel arriving in the house:
-    // the exact accident PFL was chosen over solo to make impossible.
+    // Main Out unmapped is the platform default device — an empty device name
+    // is what open_device_by_name() opens as the default — so a fresh install
+    // makes sound with no configuration. Withheld from the preview bus, where
+    // reaching the default device means the house, and the house is where PFL
+    // must never arrive.
+    if (logical_name == kMainOutputName)
+        return allow_default_device ? std::vector<OutputMap::Channel>{
+                   OutputMap::Channel{"", 0}, OutputMap::Channel{"", 1}}
+                                    : std::vector<OutputMap::Channel>{};
+    // Otherwise a device name — which is what a strip pick and the legacy
+    // deviceOverride / previewDevice migrations produce — but ONLY if that
+    // device is actually here.
+    //
+    // This is the clause that stops a travelling show going to the wrong
+    // place. OutputMap::resolve()'s identity fallback would hand a name this
+    // machine cannot match to open_device_by_name(), which falls back to the
+    // DEFAULT device: a sub-mix bus in a project opened at another venue used
+    // to land in the house rather than going quiet. It is the same rule the
+    // preview bus has always had, now applied to every hardware output.
     {
         std::lock_guard lock{mutex_};
         if (!device_present_locked(logical_name)) return {};
@@ -4956,10 +4970,10 @@ void ProjectState::wire_preview_bus(const BusDef& bus, BusRouting& routing) {
     routing.has_masters   = false;   // not ours to pool
     routing.reserved_pair = true;
 
-    const auto channels = resolve_preview_channels(bus.output_target);
+    const auto channels = resolve_output_channels(bus.output_target, false);
     if (channels.empty()) {
-        // Valid and silent, per §7.5. Deliberately NOT the identity fallback
-        // every other bus gets — see resolve_preview_channels.
+        // Valid and silent, per §7.5. The default device is withheld here even
+        // for Main Out — see resolve_output_channels.
         Logger::warn("bus '{}' (preview): no headphone output on this machine "
                      "('{}' is not in the output map and names no present device), "
                      "so PFL and pre-listen are silent",

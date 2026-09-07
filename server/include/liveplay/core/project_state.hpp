@@ -1048,14 +1048,25 @@ private:
     // the master bus's house pair is the other, and wire_bus handles that
     // inline because it is the ordinary Output path aimed at 0/1.
     void wire_preview_bus(const BusDef& bus, BusRouting& routing);
-    // What the preview bus's target means here. A real mapping wins; the
-    // built-in Preview Out is silent unmapped; any other name is taken as a
-    // device name ONLY if such a device is present. Never the identity
-    // fallback every other bus gets: open_device_by_name() falls back to the
-    // DEFAULT device when a name matches nothing, and for the preview bus
-    // that is PFL in the house.
-    std::vector<OutputMap::Channel> resolve_preview_channels(
-            const std::string& logical_name) const;
+    // What a logical output name means on this machine, for wiring.
+    //
+    // A real mapping always wins. Unmapped, any other name is taken as a device
+    // name ONLY if such a device is actually present — never OutputMap's
+    // identity fallback, which hands an unmatched name to
+    // open_device_by_name(), which falls back to the DEFAULT device. That
+    // fallback is why a project whose sub-mix named a sound card this venue
+    // does not have used to arrive in the house instead of going quiet.
+    // Silence is the safe answer, and `bound` then reports false so the
+    // surface can say so and the operator can decide.
+    //
+    // `allow_default_device` adds one branch for ordinary and master buses:
+    // the built-in Main Out unmapped IS the platform default device, which is
+    // what makes a fresh install produce sound with no configuration at all.
+    // The preview bus passes false, because even Main Out must not reach the
+    // house from there — PFL in the house is the accident PFL was chosen over
+    // solo to make impossible.
+    std::vector<OutputMap::Channel> resolve_output_channels(
+            const std::string& logical_name, bool allow_default_device) const;
     // Re-issues just the two mixer->master sends that carry a mono bus's pan.
     // Separate from wire_bus because panning must not tear the routing down:
     // route_mixer_to_master replaces an existing send in place, so a pan drag
