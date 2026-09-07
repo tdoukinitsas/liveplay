@@ -43,6 +43,18 @@ struct ma_decoder;
 
 namespace liveplay::audio {
 
+// How much audio prime() reads and discards to warm a decoder before its cue is
+// ever fired. Long enough that the first read during real playback comes from
+// the OS file cache instead of the disk — the dominant cause of crackling at
+// the start of a cue — and short enough that priming a cart of hundreds does
+// not stall a project load.
+//
+// One owner. Every caller took its own copy of the literal, which is how a
+// value like this quietly becomes two values: the number is a judgement about
+// disk latency, and a judgement revised in five places out of six is worse than
+// the one that was never revised at all.
+inline constexpr double kPrimeSeconds = 2.0;
+
 enum class TransportState : std::uint8_t {
     Stopped     = 0,
     Playing     = 1,
@@ -173,7 +185,7 @@ public:
     // Returns true on success, false if the decoder isn't ready. Safe to
     // call while NOT playing; should not be called concurrently with
     // playback (it holds the decoder mutex).
-    bool prime(double seconds = 2.0, double start_seconds = 0.0) noexcept;
+    bool prime(double seconds = kPrimeSeconds, double start_seconds = 0.0) noexcept;
 
     // ---- Introspection ---------------------------------------------------
     const CueId&     id() const noexcept                  { return desc_.id; }

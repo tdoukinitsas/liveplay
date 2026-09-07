@@ -803,7 +803,7 @@ void ProjectState::loader_loop() {
                 engine_.ensure_default_routing();
                 apply_ltc_device_routing();
                 if (is_cart) {
-                    if (auto* pi = engine_.find_cue(req.cue_id)) pi->prime(2.0);
+                    if (auto* pi = engine_.find_cue(req.cue_id)) pi->prime();
                 }
                 Logger::info("ProjectState: loaded item uuid='{}' cue='{}'",
                              req.uuid, req.cue_id.value);
@@ -1090,7 +1090,7 @@ void ProjectState::start_async_mirror() {
                 }
                 prime_futures.push_back(std::async(std::launch::async,
                     [this, cue]() {
-                        if (auto* pi = engine_.find_cue(cue)) pi->prime(2.0);
+                        if (auto* pi = engine_.find_cue(cue)) pi->prime();
                     }));
             }
             for (auto& f : prime_futures) f.get();
@@ -1486,7 +1486,7 @@ void ProjectState::mirror_items_to_engine_locked() {
             auto* pi = engine_.find_cue(it->second);
             if (!pi) continue;
             prime_futures.push_back(std::async(std::launch::async,
-                [pi]() { pi->prime(2.0); }));
+                [pi]() { pi->prime(); }));
         }
         for (auto& f : prime_futures) f.get();
         if (!cart_uuids.empty()) {
@@ -3001,7 +3001,7 @@ bool ProjectState::play_item(const std::string& uuid,
         // re-trigger — that flap caused the client UI to drop the cue from
         // "currently playing" and grey out its stop button mid-loop.
         pi->set_loop(end_behavior_action == "loop", in_point);
-        pi->prime(2.0, in_point);
+        pi->prime(audio::kPrimeSeconds, in_point);
 
         // Crossfade-in: fade the incoming cue up over the crossfade window
         // instead of using its own play-fade. play() captures the fade
@@ -3085,7 +3085,7 @@ bool ProjectState::play_item(const std::string& uuid,
         }
         if (next_cue) {
             std::thread([this, cue = *next_cue]() {
-                if (auto* pi = engine_.find_cue(cue)) pi->prime(2.0);
+                if (auto* pi = engine_.find_cue(cue)) pi->prime();
             }).detach();
         }
     }
@@ -6023,7 +6023,7 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
             engine_.route_item_source_to_mixer(cue_id, 0, preview_mixer, 0.0f,
                                                audio::kAllMixerLanes);
         }
-        pi->prime(2.0, in_point);
+        pi->prime(audio::kPrimeSeconds, in_point);
     }
     engine_.play(cue_id);
 
@@ -6628,15 +6628,26 @@ void ProjectState::stop_sequencer() {
 void ProjectState::sequencer_loop() {
     using namespace std::chrono_literals;
 
+    // How often this loop wakes to look at every playing item. Nothing here can
+    // notice anything sooner than its next pass, so every "a hair before X"
+    // below is measured against it.
+    constexpr auto kPollInterval = 50ms;
+
     // How far before an item's out-point to start the next cue for a seamless
-    // (gapless) auto-advance. Must exceed the sequencer poll interval (50 ms)
-    // plus a little device/ring slack so the incoming cue is already sounding
-    // by the time the outgoing reaches its out-point. The resulting overlap of
-    // program tails (~0.1 s) is inaudible and replaces the previous silent gap.
-    constexpr double kSeamlessLeadSec = 0.10;
+    // (gapless) auto-advance. Must exceed the poll interval plus a little
+    // device/ring slack, so the incoming cue is already sounding by the time
+    // the outgoing reaches its out-point. The resulting overlap of program
+    // tails (~0.1 s) is inaudible and replaces the previous silent gap.
+    //
+    // Derived from the poll rather than written as 0.10, because that is what
+    // it IS: one interval to be sure of seeing the marker, one for slack. As a
+    // literal it was a number that silently stopped being enough the moment
+    // anyone changed the sleep below — the two are one decision, not two.
+    constexpr double kSeamlessLeadSec =
+        2.0 * std::chrono::duration<double>(kPollInterval).count();
 
     while (sequencer_running_.load(std::memory_order_acquire)) {
-        std::this_thread::sleep_for(50ms);
+        std::this_thread::sleep_for(kPollInterval);
         if (!sequencer_running_.load(std::memory_order_acquire)) break;
 
         struct PendingAction {

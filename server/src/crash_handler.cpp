@@ -353,13 +353,22 @@ void emit_crash_report(const std::string& reason, const std::string& trace) {
     if (!will_restart) return;
 
     // 4. Relaunch the server, then exit so the OS releases our listening port.
-    //    We spawn immediately and pass --start-delay-ms so the *new* instance
-    //    waits before binding — by which point we're gone.
+    //    We spawn immediately and the *new* instance waits before binding — by
+    //    which point we're gone.
+    //
+    //    How long it waits is one decision, and it used to be written twice in
+    //    two different units: 5000 on the Windows command line and 5 in the
+    //    POSIX child's sleep. Two spellings of the same number is how they end
+    //    up different, and this particular number is load-bearing — too short
+    //    and the relaunched server finds the port still held by the corpse that
+    //    spawned it, then exits, and the show stays down.
+    constexpr int kRestartDelayMs = 5000;
 #if defined(_WIN32)
     if (g_exe_path[0] != '\0') {
         std::string cmd = std::string{"\""} + g_exe_path + "\"";
         if (g_restart_args[0] != '\0') { cmd += ' '; cmd += g_restart_args; }
-        cmd += " --start-delay-ms 5000";
+        // The new instance takes the wait itself, before binding.
+        cmd += " --start-delay-ms " + std::to_string(kRestartDelayMs);
 
         STARTUPINFOA si{};
         si.cb = sizeof(si);
@@ -377,7 +386,14 @@ void emit_crash_report(const std::string& reason, const std::string& trace) {
     if (g_exe_path[0] != '\0') {
         const pid_t pid = ::fork();
         if (pid == 0) {
-            ::sleep(5);
+            // No --start-delay-ms here: the fork IS the new instance, so it
+            // takes the same wait directly rather than asking for it. nanosleep
+            // rather than sleep() so the delay keeps its millisecond resolution
+            // if it is ever changed to something that is not a whole second.
+            struct timespec ts{};
+            ts.tv_sec  = kRestartDelayMs / 1000;
+            ts.tv_nsec = static_cast<long>(kRestartDelayMs % 1000) * 1'000'000L;
+            ::nanosleep(&ts, nullptr);
             if (g_restart_args[0] != '\0') {
                 std::string cmd = std::string{g_exe_path} + " " + g_restart_args;
                 ::execl("/bin/sh", "sh", "-c", cmd.c_str(), nullptr);

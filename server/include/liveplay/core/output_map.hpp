@@ -66,10 +66,25 @@ public:
     // the default device — an empty device name, which is what
     // AudioEngine::open_device_by_name takes to mean the platform default —
     // and "Preview Out" is no channels at all. Any other unmapped name falls
-    // back to being treated as a device name, stereo on hardware channels
-    // 0/1. That keeps a fresh install working with no configuration, and it
-    // is what lets legacy per-item device overrides migrate into buses
-    // without changing where the audio goes.
+    // back to being treated as a device name, stereo on hardware channels 0/1.
+    //
+    // NOT the routing answer any more. That last clause — the identity
+    // fallback — was withdrawn in BUS_ARCHITECTURE.md §0.8, because
+    // open_device_by_name() opens the DEFAULT device when a name matches
+    // nothing, so an unmapped name reached the house at a venue without that
+    // hardware. Wiring goes through ProjectState::resolve_output_channels(),
+    // which asks whether the device is actually present and answers silence
+    // when it is not.
+    //
+    // What is left here is one caller: the pan path's "is there anything to
+    // send to" guard. It can still be answered by the fallback, for a
+    // master-role bus whose target names absent hardware — that bus holds the
+    // house pair whatever its target resolves to (D27), so the guard is
+    // reached, and the fallback lets the strip's sends be placed on masters
+    // 0/1. Nothing is heard: in that state the house pair was never assigned
+    // to a device. So the fallback cannot leak audio from here, but it is not
+    // answering the current question either. Anything new that asks where
+    // audio actually goes wants resolve_output_channels(), not this.
     std::vector<Channel> resolve(const std::string& name) const;
 
     // The built-in names, in the order the UI lists them.
