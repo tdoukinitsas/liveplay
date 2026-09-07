@@ -1874,13 +1874,31 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req, std::string id){
             try {
                 using PR = core::ProjectState::PatchBusResult;
-                const auto r = state_.patch_bus(id, json::parse(req.body));
+                std::string materialised;
+                const auto r = state_.patch_bus(id, json::parse(req.body), &materialised);
                 if (r == PR::NotFound) return json_err(404, "not found");
                 if (r != PR::Ok) return json_err(409, bus_output_refusal_text(r));
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "buses_patched"},
                     {"buses", state_.full_document().value("buses", json::array())},
                 });
+                // Targeting a present device adds a logical output of that name
+                // to the map, so every other client's output-map view is now a
+                // row short. Same broadcast PUT /api/outputs sends.
+                if (!materialised.empty()) {
+                    auto out = outputs_.to_json();
+                    // Same shape PUT /api/outputs broadcasts, rewiredBuses
+                    // included: nothing was re-wired, because the entry
+                    // resolves to exactly what the identity fallback already
+                    // gave this bus, and a client that keys off the field
+                    // should see 0 rather than nothing.
+                    broadcast_doc_patch(json{
+                        {"type", "doc_patch"}, {"op", "outputs_changed"},
+                        {"version",      out.value("version", 1)},
+                        {"outputs",      out.value("outputs", json::array())},
+                        {"rewiredBuses", 0},
+                    });
+                }
                 return json_ok(json({{"ok", true}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });

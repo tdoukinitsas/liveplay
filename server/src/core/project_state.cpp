@@ -5280,7 +5280,10 @@ std::optional<BusDef> ProjectState::create_bus(const json& spec, PatchBusResult*
 }
 
 ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
-                                                     const json& patch) {
+                                                     const json& patch,
+                                                     std::string* materialised_output) {
+    if (materialised_output) materialised_output->clear();
+    std::string to_materialise;
     // The whole patch is parsed and checked BEFORE anything is mutated, so a
     // refused patch leaves the bus exactly as it was rather than half-applied
     // — and so a rejected edge is never stored, never persisted, and never
@@ -5369,6 +5372,53 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
                 Logger::warn("patch_bus: refusing to route bus '{}' to '{}'", id, new_target);
                 return v;
             }
+
+            // Picking a device from the strip used to write that device's name
+            // straight into the document as the bus's output target, leaning on
+            // OutputMap's identity fallback to resolve it. That put a sound-card
+            // name back inside the portable show file — the exact leak the
+            // logical-output map exists to close.
+            //
+            // So a target that names a device present on THIS machine, and that
+            // the map does not already carry, is materialised as a logical
+            // output of that name. The document still says "Scarlett 2i2", but
+            // it now says it as a logical output the map really carries, and the
+            // operator can see and re-point it in the output map like any other.
+            // At another venue the name is simply unmapped, `bound` is false and
+            // the strip says so, instead of the mapping being invisible.
+            //
+            // Stereo on hardware 0/1, matching exactly what the identity
+            // fallback produced, so nothing about where the audio goes changes
+            // on the machine that made the choice.
+            //
+            // Built-ins are excluded: they carry their own meaning when unmapped
+            // (D26) and writing an entry for them would override it.
+            if (output_patched && new_kind == BusOutputKind::Output &&
+                !new_target.empty() &&
+                new_target != kMainOutputName &&
+                new_target != kPreviewOutputName &&
+                !outputs_.has(new_target) &&
+                device_present_locked(new_target)) {
+                to_materialise = new_target;
+            }
+        }
+    }
+
+    // Outside the lock: save() is file I/O, and OutputMap takes its own.
+    if (!to_materialise.empty()) {
+        outputs_.set(to_materialise,
+                     {OutputMap::Channel{to_materialise, 0},
+                      OutputMap::Channel{to_materialise, 1}});
+        if (outputs_.save()) {
+            Logger::info("patch_bus: '{}' named device '{}'; added it to the output map "
+                         "so the project references a logical output rather than a device",
+                         id, to_materialise);
+            if (materialised_output) *materialised_output = to_materialise;
+        } else {
+            // The routing still works through the identity fallback; only the
+            // explicit entry is missing, so this is a warning, not a failure.
+            Logger::warn("patch_bus: could not save the output map after adding '{}'",
+                         to_materialise);
         }
     }
 

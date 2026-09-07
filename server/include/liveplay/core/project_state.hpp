@@ -703,7 +703,15 @@ public:
     // it, so the REST layer can answer 409 rather than "no strip available".
     std::optional<BusDef> create_bus(const json& spec,
                                      PatchBusResult* why = nullptr);
-    PatchBusResult patch_bus(const std::string& id, const json& patch);
+    // `materialised_output`, when given, receives the name of a logical output
+    // this patch created in the output map, or stays empty. Setting a bus's
+    // output to a device present on this machine adds an entry of that name to
+    // outputs.json rather than leaning on OutputMap's identity fallback, so the
+    // document names a logical output the map actually carries — see the
+    // comment at the call site. The REST layer uses it to broadcast
+    // `outputs_changed`, since a second client's output-map view is now stale.
+    PatchBusResult patch_bus(const std::string& id, const json& patch,
+                             std::string* materialised_output = nullptr);
     // Refuses a role holder (D24) — `why`, when given, receives the reason
     // in the words the API reports. Items assigned to the deleted bus fall
     // back to the master bus by having their busId cleared; buses that fed

@@ -39,6 +39,9 @@ node server/tests/e2e/materialise-skip.js 4500
 # Needs no audio device and no signal — nothing here plays.
 node server/tests/e2e/settings-registry-e2e.js 4500
 
+# Needs a device present to have something to materialise; skips cleanly if none.
+node server/tests/e2e/output-materialise-e2e.js 4500
+
 # Starts its own servers (it is testing boot configuration), so it takes the
 # binary rather than a port. Defaults to the Release build.
 node server/tests/e2e/fs-jail-e2e.js
@@ -74,6 +77,12 @@ What each one pins, in the bus-role model (round 2, D24–D36):
   input must not *break* anything — a stray key still returns 200 and the good keys in the same
   patch still land, because the client PATCHes its whole settings object on every edit. Also pins
   that the derived `outputTargetLevels` still arrives on every read but is never written to disk.
+- `output-materialise-e2e.js` — pointing a bus at a device present on this host adds a logical
+  output of that name to `outputs.json` instead of leaving the document holding a bare device
+  reference (O2). Also pins the three cases it must *not* fire on: a repeat of the same pick, a
+  name matching no present device (the identity fallback still covers it, and inventing an entry
+  for absent hardware would be a lie about the machine), and a built-in, whose unmapped meaning
+  D26 defines. Restores the map it found.
 - `fs-jail-e2e.js` — the filesystem allow-list (`--fs-root`) and the configurable CORS origin
   (`--cors-origin`). Two halves, and the second matters as much as the first: that a confined
   server refuses paths outside its roots — including a traversal *out* of a root and a sibling
