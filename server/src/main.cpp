@@ -338,10 +338,228 @@ struct CrashResume {
     double      position_sec = 0.0;
 };
 
-CliOptions parse_cli(int argc, char** argv) {
+// ---------------------------------------------------------------------------
+// liveplay.json — boot configuration
+// ---------------------------------------------------------------------------
+// A file beside the executable, next to outputs.json, holding what an
+// installation wants every launch to have. The alternative is a shortcut with
+// nine flags on it, and policy that has to survive a reinstall, a
+// crash-restart, and whoever launches the server next does not belong in a
+// shortcut.
+//
+// SPARSE on purpose: an absent key means "not set", NOT "the default". A file
+// written today therefore keeps taking improved defaults rather than freezing
+// this version's. It is also why the server never writes this file — nothing it
+// wrote could tell an operator's deliberate choice apart from whatever default
+// happened to be current the day the file was created.
+//
+// Precedence, lowest first:
+//     built-in default  <  liveplay.json  <  environment  <  command line
+// The file is where an installation states its posture, the environment is
+// where a launcher varies it, and a flag is a person overriding both on
+// purpose — so the flag wins.
+constexpr int kConfigSchemaVersion = 1;
+
+// Every key the file may carry, and the flag it stands in for. One list: the
+// unknown-key check and `--help` both read it, so a key cannot be added to one
+// and forgotten in the other.
+struct ConfigKey { const char* name; const char* flag; };
+constexpr ConfigKey kConfigKeys[] = {
+    {"port",            "--port"},
+    {"bind",            "--bind"},
+    {"meterHz",         "--meter-hz"},
+    {"maxUploadMb",     "--max-upload-mb"},
+    {"mixSampleRate",   "--mix-sample-rate"},
+    {"renderBlock",     "--render-block"},
+    {"ringBlocks",      "--ring-blocks"},
+    {"masterChannels",  "--master-channels"},
+    {"maxBuses",        "--max-buses"},
+    {"masterCeilingDb", "--master-ceiling-db"},
+    {"fsRoots",         "--fs-root (an array; one entry per root)"},
+    {"corsOrigin",      "--cors-origin"},
+    {"verbose",         "--verbose"},
+};
+
+// Fold whatever `path` validly contains into `opts`.
+//
+// Every problem is reported and then survived: a malformed file, a wrong type,
+// an out-of-range number and an unknown key each cost that one key and nothing
+// else. A server that refuses to boot over a typo is worse than one that boots
+// on a default and says so — this one is routinely started by a shortcut with
+// nobody watching the console.
+void apply_config_file(CliOptions& opts, const std::filesystem::path& path) {
+    std::ifstream f{path};
+    if (!f) {
+        Logger::warn("liveplay.json: cannot open '{}' - continuing without it",
+                     liveplay::util::path_to_utf8(path));
+        return;
+    }
+    nlohmann::json j = nlohmann::json::parse(f, nullptr, false);
+    if (j.is_discarded() || !j.is_object()) {
+        Logger::error("liveplay.json: not a valid JSON object - the WHOLE file is "
+                      "ignored, and every setting in it falls back to its default");
+        return;
+    }
+
+    const int ver = j.value("schema_version", kConfigSchemaVersion);
+    if (ver > kConfigSchemaVersion) {
+        Logger::warn("liveplay.json declares schema_version {} and this server knows {}. "
+                     "Reading what it recognises; anything newer is reported as unknown.",
+                     ver, kConfigSchemaVersion);
+    }
+
+    for (auto it = j.begin(); it != j.end(); ++it) {
+        if (it.key() == "schema_version") continue;
+        bool known = false;
+        for (const auto& k : kConfigKeys) {
+            if (it.key() == k.name) { known = true; break; }
+        }
+        if (!known) {
+            Logger::warn("liveplay.json: unknown key '{}' - ignored. Run with --help "
+                         "for the keys this server reads.", it.key());
+        }
+    }
+
+    // Same range checks the flags and the environment apply, so a value cannot
+    // arrive out of range just because it came in by a different door.
+    const auto num = [&](const char* key, long long lo, long long hi)
+            -> std::optional<long long> {
+        const auto it = j.find(key);
+        if (it == j.end()) return std::nullopt;
+        if (!it->is_number_integer() && !it->is_number_unsigned()) {
+            Logger::warn("liveplay.json: '{}' must be a whole number - ignoring, "
+                         "using default", key);
+            return std::nullopt;
+        }
+        const long long v = it->get<long long>();
+        if (v < lo || v > hi) {
+            Logger::warn("liveplay.json: {} = {} is outside the supported range "
+                         "[{}, {}] - ignoring, using default", key, v, lo, hi);
+            return std::nullopt;
+        }
+        return v;
+    };
+    const auto real = [&](const char* key, double lo, double hi) -> std::optional<double> {
+        const auto it = j.find(key);
+        if (it == j.end()) return std::nullopt;
+        if (!it->is_number()) {
+            Logger::warn("liveplay.json: '{}' must be a number - ignoring, using default", key);
+            return std::nullopt;
+        }
+        const double v = it->get<double>();
+        if (v < lo || v > hi) {
+            Logger::warn("liveplay.json: {} = {} is outside the supported range "
+                         "[{}, {}] - ignoring, using default", key, v, lo, hi);
+            return std::nullopt;
+        }
+        return v;
+    };
+    const auto text = [&](const char* key) -> std::optional<std::string> {
+        const auto it = j.find(key);
+        if (it == j.end()) return std::nullopt;
+        if (!it->is_string() || it->get<std::string>().empty()) {
+            Logger::warn("liveplay.json: '{}' must be a non-empty string - ignoring, "
+                         "using default", key);
+            return std::nullopt;
+        }
+        return it->get<std::string>();
+    };
+
+    if (auto v = num("port", 1, 65535))              opts.port = static_cast<int>(*v);
+    if (auto v = text("bind"))                       opts.bind_addr = *v;
+    if (auto v = num("meterHz", 1, 120))
+        opts.meter_broadcast_hz = static_cast<std::size_t>(*v);
+    if (auto v = num("maxUploadMb", 1, 8'192))
+        opts.max_upload_bytes = static_cast<std::size_t>(*v) * 1024ull * 1024ull;
+    if (auto v = num("mixSampleRate", 8'000, 192'000))
+        opts.mix_sample_rate = static_cast<audio::SampleRate>(*v);
+    if (auto v = num("renderBlock", 32, 8'192))
+        opts.render_block = static_cast<audio::FrameCount>(*v);
+    if (auto v = num("ringBlocks", 2, 512))
+        opts.ring_blocks = static_cast<audio::FrameCount>(*v);
+    if (auto v = num("masterChannels", audio::kMinMasterChannels, 1'024))
+        opts.master_channels = static_cast<audio::MasterChannelIndex>(*v);
+    if (auto v = num("maxBuses", 2, 512))
+        opts.max_buses = static_cast<std::uint32_t>(*v);
+    if (auto v = real("masterCeilingDb", -24.0, 0.0))
+        opts.master_ceiling_db = static_cast<float>(*v);
+    if (auto v = text("corsOrigin"))                 opts.cors_allow_origin = *v;
+
+    // An array rather than a delimited string: this is a file, so there is no
+    // shell to quote around and no reason to inherit PATH's separator problem.
+    if (const auto it = j.find("fsRoots"); it != j.end()) {
+        if (!it->is_array()) {
+            Logger::warn("liveplay.json: 'fsRoots' must be an array of paths - "
+                         "ignoring, the filesystem API stays unrestricted");
+        } else {
+            std::vector<std::string> roots;
+            for (const auto& entry : *it) {
+                if (entry.is_string() && !entry.get<std::string>().empty()) {
+                    roots.push_back(entry.get<std::string>());
+                } else {
+                    Logger::warn("liveplay.json: 'fsRoots' entry is not a path string - "
+                                 "ignoring that entry");
+                }
+            }
+            // Only adopt a list that survived: an fsRoots of entirely bad
+            // entries must not read as "confined to nothing", which would
+            // refuse every path, nor silently as "unrestricted".
+            if (!roots.empty()) opts.fs_browse_roots = std::move(roots);
+            else Logger::warn("liveplay.json: 'fsRoots' named no usable path - "
+                              "the filesystem API stays unrestricted");
+        }
+    }
+
+    if (const auto it = j.find("verbose"); it != j.end()) {
+        if (it->is_boolean()) opts.verbose = it->get<bool>();
+        else Logger::warn("liveplay.json: 'verbose' must be true or false - ignoring");
+    }
+}
+
+// Where to read boot configuration from, and whether a person named it.
+//
+// An explicitly named file that is missing is a mistake worth saying out loud;
+// the default file being absent is the ordinary case and says nothing.
+struct ConfigChoice {
+    std::filesystem::path path;
+    bool                  explicitly_named = false;
+};
+
+ConfigChoice choose_config_path(int argc, char** argv,
+                                const std::filesystem::path& exe_dir) {
+    // Scanned ahead of the main loop: the config file has to be read before the
+    // flags that override it, so it cannot wait its turn in argv order.
+    for (int i = 1; i + 1 < argc; ++i) {
+        if (std::string_view{argv[i]} == "--config" && *argv[i + 1]) {
+            return {liveplay::util::utf8_to_path(argv[i + 1]), true};
+        }
+    }
+    if (const char* v = std::getenv("LIVEPLAY_CONFIG")) {
+        if (*v) return {liveplay::util::utf8_to_path(v), true};
+    }
+    return {exe_dir / "liveplay.json", false};
+}
+
+CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir) {
     CliOptions opts;
 
-    // Environment first so that a CLI flag always wins, regardless of order.
+    // The file first: it is the lowest of the three, so everything below can
+    // simply overwrite what it set.
+    {
+        const ConfigChoice cfg = choose_config_path(argc, argv, exe_dir);
+        std::error_code ec;
+        if (std::filesystem::exists(cfg.path, ec)) {
+            Logger::info("Boot configuration: {}", liveplay::util::path_to_utf8(cfg.path));
+            apply_config_file(opts, cfg.path);
+        } else if (cfg.explicitly_named) {
+            Logger::warn("Boot configuration '{}' does not exist - continuing with "
+                         "defaults. A named config that isn't there is almost always "
+                         "a typo, not an empty one.",
+                         liveplay::util::path_to_utf8(cfg.path));
+        }
+    }
+
+    // Environment next so that a CLI flag always wins, regardless of order.
     if (const char* v = std::getenv("LIVEPLAY_PORT")) {
         if (auto p = parse_ranged<int>("LIVEPLAY_PORT", v, 1, 65535)) opts.port = *p;
     }
@@ -384,6 +602,8 @@ CliOptions parse_cli(int argc, char** argv) {
         }
     }
 
+    // Whether the command line has supplied any --fs-root yet; see below.
+    bool cli_roots_seen = false;
     for (int i = 1; i < argc; ++i) {
         std::string_view a{argv[i]};
         // Returns the next argv entry, or nullptr if the flag was given without
@@ -445,11 +665,22 @@ CliOptions parse_cli(int argc, char** argv) {
                     opts.max_upload_bytes = *mb * 1024ull * 1024ull;
                 }
             }
+        } else if (a == "--config") {
+            // Already read, ahead of everything else — see choose_config_path.
+            // Consumed here only so its value isn't mistaken for a flag.
+            next_value();
         } else if (a == "--fs-root") {
             // Repeatable, so a shell can pass paths containing the list
-            // separator without quoting games.
+            // separator without quoting games. The FIRST one clears whatever
+            // the file or the environment set: repeating a flag builds one
+            // list, but a flag still overrides a lower tier rather than
+            // extending it, or `--fs-root` could only ever widen an
+            // installation's jail and never narrow it.
             if (const char* v = next_value()) {
-                if (*v) opts.fs_browse_roots.emplace_back(v);
+                if (*v) {
+                    if (!cli_roots_seen) { opts.fs_browse_roots.clear(); cli_roots_seen = true; }
+                    opts.fs_browse_roots.emplace_back(v);
+                }
             }
         } else if (a == "--cors-origin") {
             if (const char* v = next_value()) {
@@ -474,6 +705,8 @@ CliOptions parse_cli(int argc, char** argv) {
                 "Engine (applied at boot; the engine cannot be re-initialised later):\n"
                 "      --mix-sample-rate <hz>  Mix sample rate, 8000-192000 (default %u)\n"
                 "      --render-block <frames> Render block size, 32-8192 (default %llu)\n"
+                "      --ring-blocks <n>       Output latency in render blocks, 2-512.\n"
+                "                        Raise it only on a machine that genuinely stutters.\n"
                 "      --master-channels <n>   Master bus width, %u-1024 (default %u)\n"
                 "      --max-buses <n>         Max simultaneous mixer strips, 2-512 (default %u)\n"
                 "      --master-ceiling-db <db>  Limiter ceiling, -24.0-0.0 (default %.1f)\n"
@@ -488,11 +721,21 @@ CliOptions parse_cli(int argc, char** argv) {
                 "Diagnostics:\n"
                 "  -v, --verbose         Enable debug-level logging\n"
                 "  -h, --help            Show this help and exit\n"
+                "      --config <path>   Read boot configuration from <path> instead of\n"
+                "                        liveplay.json beside this executable\n"
                 "\n"
                 "Every option above can also be set via environment variable using the\n"
-                "LIVEPLAY_ prefix (LIVEPLAY_PORT, LIVEPLAY_MIX_SAMPLE_RATE, ...). A CLI\n"
-                "flag always overrides the environment. Out-of-range values are reported\n"
-                "and ignored rather than silently applied.\n",
+                "LIVEPLAY_ prefix (LIVEPLAY_PORT, LIVEPLAY_MIX_SAMPLE_RATE, ...), or in a\n"
+                "liveplay.json beside this executable. Precedence, lowest first:\n"
+                "\n"
+                "    built-in default  <  liveplay.json  <  environment  <  command line\n"
+                "\n"
+                "Out-of-range values are reported and ignored rather than silently applied,\n"
+                "whichever door they came in by. The config file is sparse: a key it does\n"
+                "not mention is not set, so an installation keeps taking improved defaults\n"
+                "instead of freezing this version's. The server never writes it.\n"
+                "\n"
+                "Config keys (schema_version %d), each the same value as its flag:\n",
                 LIVEPLAY_SERVER_NAME, kDefaultPort,
                 srv_defaults.meter_broadcast_hz,
                 srv_defaults.max_upload_bytes / (1024ull * 1024ull),
@@ -500,7 +743,13 @@ CliOptions parse_cli(int argc, char** argv) {
                 static_cast<unsigned long long>(eng_defaults.render_block),
                 audio::kMinMasterChannels, eng_defaults.master_channels,
                 eng_defaults.max_mixer_channels,
-                static_cast<double>(eng_defaults.master_ceiling_db));
+                static_cast<double>(eng_defaults.master_ceiling_db),
+                kConfigSchemaVersion);
+            // Printed from the same list the file is validated against, so a
+            // key can never be readable and undocumented, or documented and
+            // rejected.
+            for (const auto& k : kConfigKeys)
+                std::printf("      %-16s %s\n", k.name, k.flag);
             std::exit(0);
         }
     }
@@ -618,11 +867,10 @@ int main(int argc, char** argv) {
 #endif
 
     Logger::init();
-    const CliOptions opts = parse_cli(argc, argv);
-    if (opts.verbose) Logger::set_min_level(LogLevel::Debug);
 
     // ------------------------------------------------------------------
-    // Locate our own executable; used by crash handler for auto-restart.
+    // Locate our own executable; used by the crash handler for auto-restart,
+    // and by parse_cli to find liveplay.json — which is why this runs first.
     // ------------------------------------------------------------------
     std::filesystem::path exe_dir;
     std::string exe_path_str;
@@ -657,6 +905,9 @@ int main(int argc, char** argv) {
         if (exe_path_str.empty() && argv && argv[0])
             exe_path_str = argv[0];
     }
+
+    const CliOptions opts = parse_cli(argc, argv, exe_dir);
+    if (opts.verbose) Logger::set_min_level(LogLevel::Debug);
 
     // Rebuild the original arg string (argv[1..]) so a restarted instance
     // inherits the same port / bind / verbose flags. Skip --pidfile (the new

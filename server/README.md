@@ -142,28 +142,85 @@ liveplay-server [options]
   Engine (applied at boot — the engine cannot be re-initialised later):
       --mix-sample-rate <hz>    Mix sample rate, 8000-192000 (default 48000)
       --render-block <frames>   Render block size, 32-8192 (default 256)
+      --ring-blocks <n>         Output latency in render blocks, 2-512
       --master-channels <n>     Master bus width, 4-1024 (default 32)
+      --max-buses <n>           Max simultaneous mixer strips, 2-512 (default 64)
       --master-ceiling-db <db>  Limiter ceiling, -24.0-0.0 (default -0.3)
+
+  Security (both default to the pre-2.5 behaviour, so an upgrade changes
+  nothing until you set them):
+      --fs-root <path>          Confine the filesystem API to <path>. Repeatable;
+                                unset, the API can reach the whole filesystem
+      --cors-origin <origin>    Access-Control-Allow-Origin value (default "*")
 
   -v, --verbose             Enable debug-level logging
   -h, --help                Show this help and exit
+      --config <path>       Read boot configuration from <path> instead of
+                            liveplay.json beside the executable
 
 Environment:
+  LIVEPLAY_CONFIG            Same as --config
   LIVEPLAY_PORT              Same as --port
   LIVEPLAY_MIX_SAMPLE_RATE   Same as --mix-sample-rate
   LIVEPLAY_RENDER_BLOCK      Same as --render-block
+  LIVEPLAY_RING_BLOCKS       Same as --ring-blocks
   LIVEPLAY_MASTER_CHANNELS   Same as --master-channels
+  LIVEPLAY_MAX_BUSES         Same as --max-buses
   LIVEPLAY_MASTER_CEILING_DB Same as --master-ceiling-db
   LIVEPLAY_METER_HZ          Same as --meter-hz
   LIVEPLAY_MAX_UPLOAD_MB     Same as --max-upload-mb
+  LIVEPLAY_FS_ROOTS          Same as --fs-root, PATH-delimited (';' on Windows)
+  LIVEPLAY_CORS_ORIGIN       Same as --cors-origin
   NO_COLOR=1                 Disable ANSI colour in logs
   FORCE_COLOR=1              Force colour even when stdout isn't a tty
 ```
 
-A CLI flag always overrides the matching environment variable. Values that are
-unparseable or out of range are reported in the log and then **ignored** — the
-built-in default stays in force rather than a typo silently misconfiguring the
-engine.
+Values that are unparseable or out of range are reported in the log and then
+**ignored** — the built-in default stays in force rather than a typo silently
+misconfiguring the engine. That holds whichever door the value came in by.
+
+### `liveplay.json`
+
+Everything above can also be set in a `liveplay.json` beside the executable,
+next to `outputs.json`. Precedence, lowest first:
+
+```
+built-in default  <  liveplay.json  <  environment  <  command line
+```
+
+The file is where an **installation** states its posture, the environment is
+where a launcher varies it, and a flag is a person overriding both on purpose.
+`--fs-root` on the command line therefore *replaces* the file's roots rather
+than extending them — a flag that could only widen a jail and never narrow it
+would not be an override.
+
+```json
+{
+  "schema_version": 1,
+  "port": 4480,
+  "corsOrigin": "https://booth.example",
+  "fsRoots": ["D:/Shows", "E:/Media"]
+}
+```
+
+Keys are named after the flags (`port`, `bind`, `meterHz`, `maxUploadMb`,
+`mixSampleRate`, `renderBlock`, `ringBlocks`, `masterChannels`, `maxBuses`,
+`masterCeilingDb`, `fsRoots`, `corsOrigin`, `verbose`); `--help` prints the
+list. `fsRoots` is an array — there is no shell here, so there is no reason to
+inherit `PATH`'s separator problem.
+
+The file is **sparse**: a key it does not mention is *not set*, which is not the
+same as being set to the default. That is what lets an installation keep taking
+improved defaults instead of freezing whichever ones were current the day the
+file was written — and it is why the server never writes this file itself.
+Nothing it wrote could tell a deliberate choice apart from a default.
+
+One bad key costs that key and nothing else: an unknown name, a wrong type and
+an out-of-range number are each reported and dropped, the rest of the file still
+applies, and the server still boots. A malformed file is reported and ignored
+whole. A server that refused to start over a typo would be worse than one that
+starts on a default and says so — it is routinely launched by a shortcut with
+nobody watching the console.
 
 Master-bus geometry is not fixed: the top two channels are always reserved for
 the Preview bus, so at the default 32-wide bus preview sits on 30/31, and at a

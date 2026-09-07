@@ -46,9 +46,10 @@ node server/tests/e2e/project-folder-e2e.js 4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/output-materialise-e2e.js 4500
 node server/tests/e2e/absent-device-e2e.js 4500 /tmp/liveplay-test-signal.wav
 
-# Starts its own servers (it is testing boot configuration), so it takes the
-# binary rather than a port. Defaults to the Release build.
+# Start their own servers (they test boot configuration), so they take the
+# binary rather than a port. Both default to the Release build.
 node server/tests/e2e/fs-jail-e2e.js
+node server/tests/e2e/boot-config-e2e.js
 ```
 
 What each one pins, in the bus-role model (round 2, D24–D36):
@@ -111,6 +112,14 @@ What each one pins, in the bus-role model (round 2, D24–D36):
   wrong — and that an **unconfigured** server still reaches the whole filesystem and still sends
   `*`, because those defaults are deliberate and a test that only proved the jail works would not
   notice if they had silently become restrictive.
+- `boot-config-e2e.js` — `liveplay.json` and the precedence around it: a file alone configures a
+  server with no flags at all, and `default < file < environment < command line` holds on every
+  tier. Two halves are easy to miss. `--fs-root` must *replace* the file's roots, not extend them,
+  or a flag could only ever widen an installation's jail; and every complaint has to be **said** —
+  an unknown key, a wrong type, an out-of-range number, a malformed file and a `--config` naming
+  nothing each get a named log line, because a silently ignored config file is worse than none at
+  all, the operator believing the posture is set. Also pins that one bad key costs one key: the
+  server still boots and the good keys in the same file still land.
 
 The server holds the wav open while a project referencing it is loaded, so **stop the server
 before regenerating the signal** or the write fails with EBUSY and the old file is used silently.
