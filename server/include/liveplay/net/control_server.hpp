@@ -77,6 +77,7 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <vector>
 
 namespace liveplay::net {
 
@@ -88,6 +89,25 @@ struct ControlServerConfig {
     // fluid the meters look, not what they catch.
     std::size_t   meter_broadcast_hz = 30;
     std::size_t   max_upload_bytes   = 256ull * 1024 * 1024;   // 256 MiB
+
+    // Directories the filesystem API may reach: /api/fs/list, /api/fs/mkdir,
+    // /api/metadata, /api/copy_to_media, the waveform readers and the project
+    // load/export/import paths. A request naming a path outside every root is
+    // refused with 403.
+    //
+    // EMPTY MEANS UNRESTRICTED, and empty is the default. That is not an
+    // oversight: every release so far has served the whole filesystem, shows
+    // legitimately live on other volumes, and silently jailing them on upgrade
+    // would break opening a project rather than protect it. The server logs a
+    // warning at boot while this is empty, so the posture is stated rather
+    // than assumed. Set it to lock an install down.
+    std::vector<std::string> fs_browse_roots{};
+
+    // Value sent as Access-Control-Allow-Origin on every response. "*" is what
+    // every release so far has hardcoded, and it stays the default so no
+    // existing deployment changes behaviour on upgrade; an integrator can pin
+    // it to one origin.
+    std::string   cors_allow_origin  = "*";
 };
 
 class ControlServer {

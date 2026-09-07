@@ -131,18 +131,81 @@ bool is_audio_file(const fs::path& p) {
     return audio_extensions().count(e) > 0;
 }
 
+// ---------------------------------------------------------------------------
+// Server policy: CORS origin and the filesystem allow-list
+// ---------------------------------------------------------------------------
+// json_ok / json_err are free functions called from ~90 route lambdas, so the
+// configured origin reaches them through file scope rather than by threading a
+// parameter through every one. Written once in the ControlServer constructor,
+// before start() opens the socket, and only read afterwards — there is one
+// ControlServer per process.
+std::string  g_cors_allow_origin = "*";
+// Same lifetime, same reason: the path guard is called from a dozen handlers.
+std::vector<std::string> g_fs_browse_roots{};
+
+// Comparable form of a path: case-folded and separator-normalised on Windows,
+// where the filesystem is case-insensitive and a case-sensitive prefix test
+// would let "c:\shows" escape a root configured as "C:\Shows".
+static std::string fs_compare_key(const fs::path& p) {
+    std::string s = liveplay::util::path_to_utf8(p);
+#if defined(_WIN32)
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
+    std::replace(s.begin(), s.end(), '\\', '/');
+#endif
+    while (s.size() > 1 && s.back() == '/') s.pop_back();
+    return s;
+}
+
+// Is this path inside one of the configured roots? No roots means unrestricted
+// (see ControlServerConfig::fs_browse_roots).
+//
+// weakly_canonical, not canonical: the path may not exist yet — mkdir and
+// export name their destination before creating it — and canonical() throws on
+// a missing path. It still resolves "..", symlinks and short names on the parts
+// that do exist, which is what stops "<root>/../../etc/passwd" escaping.
+//
+// The boundary test is deliberately "equal, or prefixed by root + separator",
+// so a root of /media does not also admit /mediaX.
+bool path_within_fs_roots(const fs::path& p) {
+    if (g_fs_browse_roots.empty()) return true;
+    std::error_code ec;
+    fs::path canon = fs::weakly_canonical(p, ec);
+    if (ec) canon = p.lexically_normal();
+    const std::string key = fs_compare_key(canon);
+
+    for (const auto& root : g_fs_browse_roots) {
+        std::error_code rec;
+        fs::path rp = liveplay::util::utf8_to_path(root);
+        fs::path rcanon = fs::weakly_canonical(rp, rec);
+        if (rec) rcanon = rp.lexically_normal();
+        const std::string rkey = fs_compare_key(rcanon);
+        if (rkey.empty()) continue;
+        if (key == rkey) return true;
+        if (key.starts_with(rkey + "/")) return true;
+    }
+    return false;
+}
+
 crow::response json_ok(const json& body) {
     crow::response r{200, body.dump()};
     r.add_header("Content-Type", "application/json");
-    r.add_header("Access-Control-Allow-Origin", "*");
+    r.add_header("Access-Control-Allow-Origin", g_cors_allow_origin);
     return r;
 }
 
 crow::response json_err(int status, std::string_view message) {
     crow::response r{status, json({{"error", message}}).dump()};
     r.add_header("Content-Type", "application/json");
-    r.add_header("Access-Control-Allow-Origin", "*");
+    r.add_header("Access-Control-Allow-Origin", g_cors_allow_origin);
     return r;
+}
+
+// Refusal for a path outside the allow-list. Deliberately does not echo the
+// path back: the caller already knows what it asked for, and reflecting it
+// turns the error into a probe that confirms what exists.
+crow::response json_fs_denied() {
+    return json_err(403, "path is outside the server's permitted directories");
 }
 
 // Why a bus output was refused, in words the operator can act on. Every one of
@@ -406,7 +469,12 @@ ControlServer::ControlServer(audio::AudioEngine& engine,
                              core::OutputMap&    outputs,
                              ControlServerConfig cfg)
     : engine_(engine), state_(state), outputs_(outputs), cfg_(std::move(cfg)),
-      impl_(std::make_unique<Impl>()) {}
+      impl_(std::make_unique<Impl>()) {
+    // Publish policy to the file-scope copies the free helpers read. Done here,
+    // before start() opens the socket, so nothing can observe a half-set value.
+    g_cors_allow_origin = cfg_.cors_allow_origin.empty() ? "*" : cfg_.cors_allow_origin;
+    g_fs_browse_roots   = cfg_.fs_browse_roots;
+}
 
 ControlServer::~ControlServer() { stop(); }
 
@@ -1274,7 +1342,7 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/<path>").methods(crow::HTTPMethod::Options)
         ([](const crow::request&, std::string){
             crow::response r{204};
-            r.add_header("Access-Control-Allow-Origin",  "*");
+            r.add_header("Access-Control-Allow-Origin",  g_cors_allow_origin);
             r.add_header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
             r.add_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
             return r;
@@ -2161,6 +2229,25 @@ void ControlServer::install_routes() {
                         out["entries"].push_back(std::move(e));
                     };
 
+                    // With an allow-list configured, the computer root IS the
+                    // allow-list: offering Home and every drive letter would
+                    // just be a list of places the next request gets a 403
+                    // from. Unrestricted, this falls through to the original
+                    // native-file-dialog behaviour below.
+                    if (!g_fs_browse_roots.empty()) {
+                        for (const auto& root : g_fs_browse_roots) {
+                            const fs::path rp = liveplay::util::utf8_to_path(root);
+                            std::error_code rec;
+                            fs::path rc = fs::weakly_canonical(rp, rec);
+                            if (rec) rc = rp.lexically_normal();
+                            auto name = rc.filename().empty()
+                                          ? liveplay::util::path_to_utf8(rc)
+                                          : liveplay::util::path_to_utf8(rc.filename());
+                            add_entry(name, liveplay::util::path_to_utf8(rc), "drive");
+                        }
+                        return json_ok(out);
+                    }
+
                     // Home shortcut on every platform. The dialog used to open
                     // at "/" with no way to reach $HOME or a mounted USB stick,
                     // which made opening a project off removable media painful
@@ -2280,6 +2367,9 @@ void ControlServer::install_routes() {
                 std::error_code canon_ec;
                 fs::path canon = fs::weakly_canonical(p, canon_ec);
                 if (!canon_ec) p = canon;
+                // Before the existence check, so a refusal cannot be used to
+                // probe for what exists outside the roots.
+                if (!path_within_fs_roots(p)) return json_fs_denied();
                 if (!fs::exists(p)) return json_err(404, "no such path");
 
                 json out;
@@ -2366,6 +2456,7 @@ void ControlServer::install_routes() {
                     return json_err(400, "missing 'path'");
                 const fs::path dir = liveplay::util::utf8_to_path(j["path"].get<std::string>());
                 if (dir.empty()) return json_err(400, "empty path");
+                if (!path_within_fs_roots(dir)) return json_fs_denied();
                 std::error_code ec;
                 fs::create_directories(dir, ec);
                 if (ec) return json_err(400, ec.message());
@@ -2427,6 +2518,9 @@ void ControlServer::install_routes() {
                 if (src_str.empty()) return json_err(400, "missing source_path");
 
                 const fs::path src  = liveplay::util::utf8_to_path(src_str);
+                // Checked before the existence probe, so a denied path cannot
+                // be used to test whether a file exists outside the roots.
+                if (!path_within_fs_roots(src)) return json_fs_denied();
                 if (!fs::exists(src)) return json_err(404, "source file not found");
 
                 const fs::path media = state_.media_root();
@@ -2463,6 +2557,8 @@ void ControlServer::install_routes() {
                 const bool        force     = body.value("force", false);
                 if (path_str.empty() || item_uuid.empty())
                     return json_err(400, "missing path or item_uuid");
+                if (!path_within_fs_roots(liveplay::util::utf8_to_path(path_str)))
+                    return json_fs_denied();
 
                 const auto proj_path = state_.project_file_path();
                 const auto wdir = proj_path.empty()
@@ -2488,7 +2584,9 @@ void ControlServer::install_routes() {
         ([](const crow::request& req) {
             const char* path = req.url_params.get("path");
             if (!path) return json_err(400, "missing ?path=");
-            const auto md = liveplay::meta::read_metadata(liveplay::util::utf8_to_path(path));
+            const fs::path mp = liveplay::util::utf8_to_path(path);
+            if (!path_within_fs_roots(mp)) return json_fs_denied();
+            const auto md = liveplay::meta::read_metadata(mp);
             return json_ok(json{
                 {"valid",        md.valid},
                 {"artist",       md.artist},
@@ -2552,6 +2650,7 @@ void ControlServer::install_routes() {
 
                 const std::filesystem::path file_path =
                     liveplay::util::utf8_to_path(std::string{path_param});
+                if (!path_within_fs_roots(file_path)) return json_fs_denied();
 
                 const auto wf = liveplay::meta::compute_waveform(file_path, buckets);
                 if (!wf.ok) return json_err(500, "waveform decode failed");
@@ -2639,6 +2738,7 @@ void ControlServer::install_routes() {
                     Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/load path='{}'",
                                         req.remote_ip_address, impl_->server_addr, path_str);
                     const fs::path p = liveplay::util::utf8_to_path(path_str);
+                    if (!path_within_fs_roots(p)) return json_fs_denied();
                     if (!state_.load(p)) {
                         Logger::error("POST /api/project/load FAILED — load returned false for '{}'", path_str);
                         return json_err(400, "load failed");
@@ -2743,6 +2843,7 @@ void ControlServer::install_routes() {
                 }
                 const fs::path src = liveplay::util::utf8_to_path(
                     j["folderPath"].get<std::string>());
+                if (!path_within_fs_roots(src)) return json_fs_denied();
                 if (!fs::exists(src) || !fs::is_directory(src)) {
                     return json_err(400, "folderPath does not exist or is not a directory");
                 }
@@ -2754,6 +2855,9 @@ void ControlServer::install_routes() {
                 if (j.contains("outputPath") && j["outputPath"].is_string() &&
                     !j["outputPath"].get<std::string>().empty()) {
                     out = liveplay::util::utf8_to_path(j["outputPath"].get<std::string>());
+                    // Guard before create_directories, or a denied export would
+                    // still leave a directory tree behind wherever it pointed.
+                    if (!path_within_fs_roots(out)) return json_fs_denied();
                     if (out.has_parent_path()) fs::create_directories(out.parent_path());
                 } else {
                     // Stage in a temp directory; surface via download token.
@@ -2816,7 +2920,7 @@ void ControlServer::install_routes() {
                 r.add_header("Content-Disposition",
                              "attachment; filename=\""
                                  + liveplay::util::path_to_utf8(p.filename()) + "\"");
-                r.add_header("Access-Control-Allow-Origin", "*");
+                r.add_header("Access-Control-Allow-Origin", g_cors_allow_origin);
                 // The temp file has served its purpose; delete it to bound disk
                 // usage on the server.
                 std::error_code ec; fs::remove(p, ec);
@@ -2892,6 +2996,15 @@ void ControlServer::install_routes() {
                     extract_path = liveplay::util::utf8_to_path(j["extractPath"].get<std::string>());
                 }
 
+                // Both ends of an import: the archive being read and the
+                // directory it explodes into. The multipart form supplies the
+                // archive from a temp dir we chose, but extractPath is always
+                // caller-supplied.
+                if (!path_within_fs_roots(extract_path)) return json_fs_denied();
+                if (!archive_path.empty() && !path_within_fs_roots(archive_path)
+                    && !delete_archive_after) {
+                    return json_fs_denied();
+                }
                 if (!fs::exists(archive_path))
                     return json_err(400, "archive does not exist");
                 fs::create_directories(extract_path);
@@ -2967,6 +3080,10 @@ void ControlServer::install_routes() {
                 fs::path p;
                 if (j.contains("path") && j["path"].is_string()) {
                     p = liveplay::util::utf8_to_path(j["path"].get<std::string>());
+                    // Guard before set_project_file_path: adopting the path
+                    // would re-anchor media_root() outside the roots even if
+                    // the write itself were refused.
+                    if (!path_within_fs_roots(p)) return json_fs_denied();
                     state_.set_project_file_path(p);
                 } else {
                     p = state_.project_file_path();

@@ -38,6 +38,10 @@ node server/tests/e2e/materialise-skip.js 4500
 
 # Needs no audio device and no signal — nothing here plays.
 node server/tests/e2e/settings-registry-e2e.js 4500
+
+# Starts its own servers (it is testing boot configuration), so it takes the
+# binary rather than a port. Defaults to the Release build.
+node server/tests/e2e/fs-jail-e2e.js
 ```
 
 What each one pins, in the bus-role model (round 2, D24–D36):
@@ -70,6 +74,13 @@ What each one pins, in the bus-role model (round 2, D24–D36):
   input must not *break* anything — a stray key still returns 200 and the good keys in the same
   patch still land, because the client PATCHes its whole settings object on every edit. Also pins
   that the derived `outputTargetLevels` still arrives on every read but is never written to disk.
+- `fs-jail-e2e.js` — the filesystem allow-list (`--fs-root`) and the configurable CORS origin
+  (`--cors-origin`). Two halves, and the second matters as much as the first: that a confined
+  server refuses paths outside its roots — including a traversal *out* of a root and a sibling
+  directory whose name merely shares the root's prefix, the two cases a naive prefix test gets
+  wrong — and that an **unconfigured** server still reaches the whole filesystem and still sends
+  `*`, because those defaults are deliberate and a test that only proved the jail works would not
+  notice if they had silently become restrictive.
 
 The server holds the wav open while a project referencing it is loaded, so **stop the server
 before regenerating the signal** or the write fails with EBUSY and the old file is used silently.

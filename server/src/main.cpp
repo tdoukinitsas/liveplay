@@ -264,7 +264,34 @@ struct CliOptions {
     std::optional<float>                     master_ceiling_db;
     std::optional<std::size_t>               meter_broadcast_hz;
     std::optional<std::size_t>               max_upload_bytes;
+
+    // Server policy. Both keep the pre-2.5 behaviour when unset, so the knobs
+    // appear without the posture changing on upgrade.
+    std::vector<std::string>                 fs_browse_roots;   // empty = unrestricted
+    std::optional<std::string>               cors_allow_origin; // unset = "*"
 };
+
+// Split a platform-delimited path list (';' on Windows, ':' elsewhere, to match
+// PATH), dropping empty segments so a trailing delimiter is harmless.
+static std::vector<std::string> split_path_list(const std::string& raw) {
+#if defined(_WIN32)
+    constexpr char kSep = ';';
+#else
+    constexpr char kSep = ':';
+#endif
+    std::vector<std::string> out;
+    std::string cur;
+    for (const char c : raw) {
+        if (c == kSep) {
+            if (!cur.empty()) out.push_back(cur);
+            cur.clear();
+        } else {
+            cur.push_back(c);
+        }
+    }
+    if (!cur.empty()) out.push_back(cur);
+    return out;
+}
 
 // Numeric option parsing. Unlike a bare stoi, a value that is unparseable or
 // out of range is reported and then discarded, so a typo leaves the default in
@@ -345,6 +372,12 @@ CliOptions parse_cli(int argc, char** argv) {
         opts.meter_broadcast_hz = parse_ranged<std::size_t>(
             "LIVEPLAY_METER_HZ", v, 1, 120);
     }
+    if (const char* v = std::getenv("LIVEPLAY_FS_ROOTS")) {
+        opts.fs_browse_roots = split_path_list(v);
+    }
+    if (const char* v = std::getenv("LIVEPLAY_CORS_ORIGIN")) {
+        if (*v) opts.cors_allow_origin = std::string{v};
+    }
     if (const char* v = std::getenv("LIVEPLAY_MAX_UPLOAD_MB")) {
         if (auto mb = parse_ranged<std::size_t>("LIVEPLAY_MAX_UPLOAD_MB", v, 1, 8'192)) {
             opts.max_upload_bytes = *mb * 1024ull * 1024ull;
@@ -412,6 +445,16 @@ CliOptions parse_cli(int argc, char** argv) {
                     opts.max_upload_bytes = *mb * 1024ull * 1024ull;
                 }
             }
+        } else if (a == "--fs-root") {
+            // Repeatable, so a shell can pass paths containing the list
+            // separator without quoting games.
+            if (const char* v = next_value()) {
+                if (*v) opts.fs_browse_roots.emplace_back(v);
+            }
+        } else if (a == "--cors-origin") {
+            if (const char* v = next_value()) {
+                if (*v) opts.cors_allow_origin = std::string{v};
+            }
         } else if (a == "--verbose" || a == "-v") {
             opts.verbose = true;
         } else if (a == "--help" || a == "-h") {
@@ -434,6 +477,13 @@ CliOptions parse_cli(int argc, char** argv) {
                 "      --master-channels <n>   Master bus width, %u-1024 (default %u)\n"
                 "      --max-buses <n>         Max simultaneous mixer strips, 2-512 (default %u)\n"
                 "      --master-ceiling-db <db>  Limiter ceiling, -24.0-0.0 (default %.1f)\n"
+                "\n"
+                "Security (both default to the pre-2.5 behaviour, so an upgrade changes\n"
+                "nothing until you set them):\n"
+                "      --fs-root <path>  Confine the filesystem API to <path>. Repeatable.\n"
+                "                        Unset, the API can reach the whole filesystem.\n"
+                "      --cors-origin <origin>  Access-Control-Allow-Origin value\n"
+                "                        (default \"*\", i.e. any origin may call this server)\n"
                 "\n"
                 "Diagnostics:\n"
                 "  -v, --verbose         Enable debug-level logging\n"
@@ -806,6 +856,27 @@ int main(int argc, char** argv) {
     server_cfg.port         = static_cast<std::uint16_t>(opts.port);
     if (opts.meter_broadcast_hz) server_cfg.meter_broadcast_hz = *opts.meter_broadcast_hz;
     if (opts.max_upload_bytes)   server_cfg.max_upload_bytes   = *opts.max_upload_bytes;
+    server_cfg.fs_browse_roots = opts.fs_browse_roots;
+    if (opts.cors_allow_origin)  server_cfg.cors_allow_origin  = *opts.cors_allow_origin;
+
+    // State the posture at boot rather than leaving it implicit. Both defaults
+    // are the permissive pre-2.5 behaviour, which is right for compatibility
+    // and wrong for a server reachable off the box — so say so once, here,
+    // where an integrator reading the log will find it.
+    if (server_cfg.fs_browse_roots.empty()) {
+        Logger::warn("Filesystem API is UNRESTRICTED — any client that can reach this "
+                     "server can browse and read the whole filesystem. Set --fs-root "
+                     "(repeatable) or LIVEPLAY_FS_ROOTS to confine it.");
+    } else {
+        for (const auto& r : server_cfg.fs_browse_roots)
+            Logger::info("Filesystem API confined to '{}'", r);
+    }
+    if (server_cfg.cors_allow_origin == "*" && opts.bind_addr != "127.0.0.1") {
+        Logger::warn("CORS allows any origin (*) while bound to {} — a page on any "
+                     "site the operator visits can call this server. Set --cors-origin "
+                     "to pin it.", opts.bind_addr);
+    }
+
     auto server = std::make_unique<net::ControlServer>(*engine, *project, *outputs, server_cfg);
     if (!server->start()) {
         Logger::error("Control server failed to start.");
