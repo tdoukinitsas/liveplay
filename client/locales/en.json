@@ -111,7 +111,14 @@
     "indexDisplayStartHelp": "Controls the number shown for the first playlist item. Internal indexes and API index paths remain zero-based.",
     "routing": "Audio routing",
     "routingInMixer": "Audio routing lives in the mixer. Each cue plays through a bus; each bus sends to a hardware output, another bus, or the Preview bus for headphones.",
-    "openMixer": "Open Mixer"
+    "openMixer": "Open Mixer",
+    "sectionPlayback": "Playback",
+    "sectionPlaybackHelp": "How cues start, end and hand over to one another. These travel with the show.",
+    "sectionAudio": "Audio & Metering",
+    "sectionAudioHelp": "Output level standard, limiting, metering and timecode for this show.",
+    "sectionProject": "Project",
+    "sectionProjectHelp": "How this project saves itself and numbers its cues.",
+    "autosaveHelp": "Saves the project after every edit. When off, the project is only written by File > Save and an \"Unsaved Changes\" pill appears beside the title."
   },
   "common": {
     "default": "default",

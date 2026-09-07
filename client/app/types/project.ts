@@ -359,6 +359,17 @@ export interface ProjectSettings {
   outputTarget?: string;
   outputTargetLevels?: Record<string, unknown>;
   meterMode?: string;
+  /**
+   * Meter ballistics preset id, or "custom" to use `meterBallisticsCustom`.
+   * The server's settings registry is the authority on the accepted ids:
+   * digital-ppm | ppm-i | ppm-ii | vu | instant | custom.
+   */
+  meterBallistics?: string;
+  meterBallisticsCustom?: {
+    attackMs?: number;
+    releaseMs?: number;
+    rmsWindowMs?: number;
+  };
   defaultTransitionMode?: TransitionMode;
   autoCueNextWithoutEndBehavior?: boolean;
   stopAllFadeMs?: number;

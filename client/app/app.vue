@@ -62,6 +62,11 @@
       </div>
     </div>
     
+    <!-- Settings: a full-window page, mounted here rather than inside the
+         header because it covers the workspace and outlives whichever
+         control opened it. Deep-linkable as #/settings/<section>. -->
+    <SettingsPage />
+
     <!-- About Modal -->
     <AboutModal v-if="showAboutModal" @close="showAboutModal = false" />
     

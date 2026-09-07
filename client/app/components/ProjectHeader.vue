@@ -34,7 +34,7 @@
         :class="{ 'btn--active': mixerOpen || mixerDetached }"
         @click="toggleMixer"
       />
-      <Btn icon="tune" :text="t('settings.title')" @click="showProjectSettings = true" />
+      <Btn icon="tune" :text="t('settings.title')" @click="openSettings()" />
       <Btn icon="keyboard" :text="t('controls.shortcutBtn')" @click="showControlConfig = true" />
 
       <!-- Autosave toggle: on by default; when off the project is only saved
@@ -93,14 +93,9 @@
     v-if="showControlConfig"
     @close="showControlConfig = false"
   />
-  <ProjectSettingsModal
-    :open="showProjectSettings"
-    @close="showProjectSettings = false"
-  />
 </template>
 
 <script setup lang="ts">
-import ProjectSettingsModal from './ProjectSettingsModal.vue';
 import Btn from './Btn.vue';
 import type { AudioItem } from '~/types/project';
 
@@ -110,7 +105,10 @@ const { activeCues } = useAudioEngine();
 const { uiMode, toggleUiMode } = useUiMode();
 
 const showControlConfig = ref(false);
-const showProjectSettings = useState('showProjectSettings', () => false);
+// Settings is a full-window page mounted at app level, not a modal owned by
+// this header — the button only opens it. It is deep-linkable, so the section
+// is part of the URL rather than a flag here.
+const { open: openSettings } = useSettingsPage();
 // Shared with MainWorkspace, which swaps the mixer in for the playlist/cart.
 const mixerOpen = useState<boolean>('liveplay:mixerOpen', () => false);
 const mixerDetached = useState<boolean>('liveplay:mixerDetached', () => false);
