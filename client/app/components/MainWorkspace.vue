@@ -701,10 +701,27 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 };
 
+// Transport keys and MIDI belong to the workspace, not to the cart pane.
+//
+// They used to be mounted by CartPlayer, which meant Space, Escape, the arrows
+// and every MIDI binding stopped working whenever the cart pane was closed,
+// collapsed or popped out — a transport key dying because an unrelated panel
+// was hidden is a show-stopper, and it gets worse as more panes become
+// closable. The workspace is the right owner: it exists for exactly as long as
+// a project is open, which was the real precondition all along.
+//
+// Exactly one owner per window. The detached cart window has no MainWorkspace,
+// so CartPlayer still mounts them there, and only when detached — so the two
+// never both claim the same window.
+const { mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
+const { mount: mountMidi, unmount: unmountMidi } = useMidiController();
+
 onMounted(() => {
   if (import.meta.client) {
     window.addEventListener('keydown', handleKeydown);
     window.addEventListener('resize', reclampPanes);
+    mountHotkeys();
+    mountMidi();
   }
 });
 
@@ -712,6 +729,8 @@ onUnmounted(() => {
   if (import.meta.client) {
     window.removeEventListener('keydown', handleKeydown);
     window.removeEventListener('resize', reclampPanes);
+    unmountHotkeys();
+    unmountMidi();
   }
 });
 </script>

@@ -116,6 +116,10 @@
     "sectionPlaybackHelp": "How cues start, end and hand over to one another. These travel with the show.",
     "sectionAudio": "Audio & Metering",
     "sectionAudioHelp": "Output level standard, limiting, metering and timecode for this show.",
+    "sectionKeyboard": "Keyboard",
+    "sectionKeyboardHelp": "Keys for transport actions and cart slots. Click a row, then press the combination you want.",
+    "sectionSurfaces": "Control Surfaces",
+    "sectionSurfacesHelp": "MIDI controllers. Arm Learn on an action, then move the control you want to bind to it.",
     "sectionProject": "Project",
     "sectionProjectHelp": "How this project saves itself and numbers its cues.",
     "autosaveHelp": "Saves the project after every edit. When off, the project is only written by File > Save and an \"Unsaved Changes\" pill appears beside the title."

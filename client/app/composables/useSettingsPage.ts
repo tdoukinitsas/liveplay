@@ -25,6 +25,8 @@ export interface SettingsSection {
 export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: 'playback', icon: 'play_circle',    labelKey: 'settings.sectionPlayback' },
   { id: 'audio',    icon: 'graphic_eq',     labelKey: 'settings.sectionAudio'    },
+  { id: 'keyboard', icon: 'keyboard',       labelKey: 'settings.sectionKeyboard' },
+  { id: 'surfaces', icon: 'piano',          labelKey: 'settings.sectionSurfaces' },
   { id: 'project',  icon: 'folder_managed', labelKey: 'settings.sectionProject'  },
 ];
 
