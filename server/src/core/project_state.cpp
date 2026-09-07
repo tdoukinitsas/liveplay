@@ -12,6 +12,8 @@
 #include <fstream>
 #include <functional>
 #include <future>
+#include <optional>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -365,6 +367,163 @@ static std::string effective_meter_mode(const json& settings) {
     }
     return compute_output_target_levels(settings)
         .value("meterUnit", std::string{"LUFS"});
+}
+
+// ---------------------------------------------------------------------------
+// The settings registry
+// ---------------------------------------------------------------------------
+// Every key `document_["settings"]` may carry, with the type and range that
+// make it valid. Before this table existed, patch_settings() looped over the
+// incoming patch and wrote each key straight into the show document, so any
+// client could persist any key of any type into a .liveplay and only a
+// handful of them had server meaning. The document is the portable artifact —
+// it should not be an open bag.
+//
+// Unknown keys are DROPPED, not rejected, and that is deliberate. The client
+// watches its whole settings object and PATCHes all of it back whenever any
+// part changes (useProject.ts), and the object it holds is the one
+// full_document() decorated with the derived outputTargetLevels. Answering a
+// stray key with 400 would therefore fail every settings edit in the app.
+// Dropping buys the guarantee that actually matters — the document only ever
+// contains registered keys — without breaking that round trip.
+//
+// Numbers clamp rather than drop, matching merge_bus_dsp()'s convention for
+// every other client-supplied number in this file.
+enum class SettingKind {
+    Bool,
+    Enum,          // string, one of `allowed`
+    Number,        // double, clamped to [min, max]
+    Integer,       // whole number, clamped to [min, max]
+    StringOrNull,  // free string, or null to clear
+    Ballistics,    // the meterBallisticsCustom object
+    Derived,       // computed server-side; never accepted from a client
+};
+
+struct SettingSpec {
+    SettingKind                   kind;
+    double                        min = 0.0;
+    double                        max = 0.0;
+    std::vector<std::string_view> allowed{};
+};
+
+// Function-local static: avoids any static-init-order dependency on
+// kOutputTargets, which shares this translation unit.
+static const std::unordered_map<std::string, SettingSpec>& settings_registry() {
+    static const std::unordered_map<std::string, SettingSpec> kRegistry = {
+        // --- Audio / metering -------------------------------------------
+        // The one device name left in a portable document (D21). Splitting
+        // it is tracked separately; it stays accepted here so the existing
+        // LTC feature does not regress.
+        {"ltcDevice",                     {SettingKind::StringOrNull}},
+        {"outputTarget",                  {SettingKind::Enum, 0, 0,
+                                           {"ebu-r128", "streaming", "radio", "netflix", "live"}}},
+        {"meterMode",                     {SettingKind::Enum, 0, 0,
+                                           {"LUFS", "dBFS", "dBTP", "RMS"}}},
+        {"meterBallistics",               {SettingKind::Enum, 0, 0,
+                                           {"digital-ppm", "ppm-i", "ppm-ii", "vu", "instant",
+                                            "custom"}}},
+        {"meterBallisticsCustom",         {SettingKind::Ballistics}},
+        {"disableLimiter",                {SettingKind::Bool}},
+
+        // --- Playback ----------------------------------------------------
+        {"defaultTransitionMode",         {SettingKind::Enum, 0, 0,
+                                           {"crossfade", "start-next"}}},
+        {"autoCueNextWithoutEndBehavior", {SettingKind::Bool}},
+        // 60 s is well past any musical fade and still finite, so a typo'd
+        // value cannot wedge Stop-All into an unstoppable ramp.
+        {"stopAllFadeMs",                 {SettingKind::Integer, 0.0, 60'000.0}},
+        {"disableAutoVolumeAndTrim",      {SettingKind::Bool}},
+        {"disableSilenceWarning",         {SettingKind::Bool}},
+
+        // --- UI / project ------------------------------------------------
+        {"uiScrollToPlaying",             {SettingKind::Bool}},
+        {"autoSave",                      {SettingKind::Bool}},
+        // Matches normalizeIndexDisplayStart() on the client: a non-negative
+        // whole number. The ceiling is arbitrary but keeps the displayed cue
+        // number inside a sane column width.
+        {"indexDisplayStart",             {SettingKind::Integer, 0.0, 1'000'000.0}},
+
+        // --- Legacy, still honoured on the way in ------------------------
+        // Both migrate onto buses at load and are erased from the document
+        // there. They stay registered so a pre-2.5 client patching one is
+        // handled by the migration rather than silently dropped.
+        {"defaultOutputDevice",           {SettingKind::StringOrNull}},
+        {"previewDevice",                 {SettingKind::StringOrNull}},
+
+        // --- Derived ------------------------------------------------------
+        // compute_output_target_levels() owns this. full_document() injects a
+        // fresh copy on every read, so the client always has it and hands it
+        // straight back; accepting it is what used to persist a stale copy
+        // into the saved document.
+        {"outputTargetLevels",            {SettingKind::Derived}},
+    };
+    return kRegistry;
+}
+
+// Validate one key against the registry. Returns the value to persist, or
+// nullopt to drop it — with `why` describing the reason for the log line.
+static std::optional<json> validate_setting(const std::string& key,
+                                            const json&        value,
+                                            std::string&       why) {
+    const auto& reg = settings_registry();
+    const auto  it  = reg.find(key);
+    if (it == reg.end()) {
+        why = "not a known setting";
+        return std::nullopt;
+    }
+    const SettingSpec& spec = it->second;
+
+    switch (spec.kind) {
+    case SettingKind::Derived:
+        why = "computed server-side";
+        return std::nullopt;
+
+    // Every accepted branch wraps the value explicitly: nlohmann's greedy
+    // converting constructor means `return value;` for an lvalue json does not
+    // resolve to optional<json>.
+    case SettingKind::Bool:
+        if (!value.is_boolean()) { why = "expected a boolean"; return std::nullopt; }
+        return std::optional<json>{value};
+
+    case SettingKind::StringOrNull:
+        if (value.is_null() || value.is_string()) return std::optional<json>{value};
+        why = "expected a string or null";
+        return std::nullopt;
+
+    case SettingKind::Enum: {
+        if (!value.is_string()) { why = "expected a string"; return std::nullopt; }
+        const auto s = value.get<std::string>();
+        for (const auto& a : spec.allowed)
+            if (s == a) return std::optional<json>{value};
+        why = "not one of the accepted values";
+        return std::nullopt;
+    }
+
+    case SettingKind::Number: {
+        if (!value.is_number()) { why = "expected a number"; return std::nullopt; }
+        return std::optional<json>{json(std::clamp(value.get<double>(), spec.min, spec.max))};
+    }
+
+    case SettingKind::Integer: {
+        if (!value.is_number()) { why = "expected a number"; return std::nullopt; }
+        const double c = std::clamp(value.get<double>(), spec.min, spec.max);
+        return std::optional<json>{json(static_cast<long long>(std::trunc(c)))};
+    }
+
+    case SettingKind::Ballistics: {
+        if (!value.is_object()) { why = "expected an object"; return std::nullopt; }
+        // Same clamps meter_ballistics_from_settings() applies when reading,
+        // hoisted to the write so the stored value and the applied value
+        // cannot disagree. Unrecognised sub-keys are dropped with the rest.
+        json out = json::object();
+        out["attackMs"]    = std::clamp(value.value("attackMs",    1.0),   0.0, 5'000.0);
+        out["releaseMs"]   = std::clamp(value.value("releaseMs",   300.0), 0.0, 10'000.0);
+        out["rmsWindowMs"] = std::clamp(value.value("rmsWindowMs", 300.0), 1.0, 10'000.0);
+        return std::optional<json>{std::move(out)};
+    }
+    }
+    why = "unhandled setting kind";
+    return std::nullopt;
 }
 
 } // namespace
@@ -5847,8 +6006,10 @@ bool ProjectState::patch_theme(const json& patch) {
     return true;
 }
 
-bool ProjectState::patch_settings(const json& patch) {
+bool ProjectState::patch_settings(const json&               patch,
+                                  std::vector<std::string>* dropped_out) {
     if (!patch.is_object()) return false;
+    std::vector<std::string> dropped;
     bool ltc_device_changed      = false;
     bool default_device_changed  = false;
     bool output_target_changed   = false;
@@ -5866,12 +6027,23 @@ bool ProjectState::patch_settings(const json& patch) {
             document_["settings"] = json::object();
         }
         for (auto& [k, v] : patch.items()) {
+            // Validate before anything else: a key that does not survive the
+            // registry must not fire its side effect either, or a rejected
+            // value would still be heard while never being stored.
+            std::string why;
+            const auto  accepted = validate_setting(k, v, why);
+            if (!accepted) {
+                dropped.push_back(k);
+                Logger::warn("settings patch: dropped '{}' — {}", k, why);
+                continue;
+            }
+
             if (k == "ltcDevice")           ltc_device_changed     = true;
             if (k == "defaultOutputDevice") default_device_changed = true;
             if (k == "outputTarget")        output_target_changed  = true;
             if (k == "disableLimiter") {
                 limiter_toggle_changed = true;
-                limiter_disabled       = v.is_boolean() ? v.get<bool>() : false;
+                limiter_disabled       = accepted->get<bool>();
             }
             if (k == "meterBallistics" || k == "meterBallisticsCustom") {
                 ballistics_changed = true;
@@ -5881,15 +6053,17 @@ bool ProjectState::patch_settings(const json& patch) {
             if (k == "meterMode" || k == "outputTarget") {
                 meter_mode_changed = true;
             }
-            document_["settings"][k] = v;
+            document_["settings"][k] = *accepted;
         }
+        // outputTargetLevels is derived, so it is never stored — full_document()
+        // injects a fresh copy on every read and the broadcast below is built
+        // from that. Erasing here also cleans the stale copy out of any project
+        // saved before the registry existed, the first time its settings are
+        // touched.
+        document_["settings"].erase("outputTargetLevels");
         if (output_target_changed) {
-            const auto levels = compute_output_target_levels(document_["settings"]);
-            new_ceiling_db = levels.value("limiterCeilingDb", -0.3f);
-            // Keep the embedded outputTargetLevels in sync so every broadcast
-            // (settings_patched, full_document) carries the fresh zone colours
-            // and ceiling rather than the stale values from before the change.
-            document_["settings"]["outputTargetLevels"] = levels;
+            new_ceiling_db = compute_output_target_levels(document_["settings"])
+                                 .value("limiterCeilingDb", -0.3f);
         }
         if (ballistics_changed) {
             new_ballistics = meter_ballistics_from_settings(document_["settings"]);
@@ -5934,6 +6108,7 @@ bool ProjectState::patch_settings(const json& patch) {
             }
         }
     }
+    if (dropped_out) *dropped_out = std::move(dropped);
     return true;
 }
 

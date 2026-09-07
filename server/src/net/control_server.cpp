@@ -3445,13 +3445,23 @@ void ControlServer::install_routes() {
                 auto patch = json::parse(req.body);
                 Logger::api_request("Client ({}) -> Server ({}) : PATCH /api/project/settings",
                                     req.remote_ip_address, impl_->server_addr);
-                state_.patch_settings(patch);
+                std::vector<std::string> dropped;
+                state_.patch_settings(patch, &dropped);
                 auto settings = state_.full_document()["settings"];
                 Logger::api_response("Client ({}) <- Server ({}) : PATCH /api/project/settings OK",
                                      req.remote_ip_address, impl_->server_addr);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "settings_patched"}, {"settings", settings},
                 });
+                // The response stays exactly the settings object it always was.
+                // Keys the registry refused are reported in the log rather than
+                // the body: the body's shape is the settings map itself, so
+                // there is no free field to hang a report on without making
+                // "droppedKeys" indistinguishable from a setting of that name.
+                if (!dropped.empty()) {
+                    Logger::warn("PATCH /api/project/settings from {}: {} key(s) not stored",
+                                 req.remote_ip_address, dropped.size());
+                }
                 return json_ok(settings);
             } catch (const std::exception& e) {
                 Logger::error("PATCH /api/project/settings threw: {}", e.what());

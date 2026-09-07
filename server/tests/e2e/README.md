@@ -35,6 +35,9 @@ node server/tests/e2e/busbus-e2e.js     4500 /tmp/liveplay-test-signal.wav /tmp/
 node server/tests/e2e/migration-e2e.js  4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/save-churn.js     4500 /tmp/liveplay-test-signal.wav <projDir> <serverLog>
 node server/tests/e2e/materialise-skip.js 4500
+
+# Needs no audio device and no signal — nothing here plays.
+node server/tests/e2e/settings-registry-e2e.js 4500
 ```
 
 What each one pins, in the bus-role model (round 2, D24–D36):
@@ -60,6 +63,13 @@ What each one pins, in the bus-role model (round 2, D24–D36):
   its alias `/api/preview/mono`.
 - `materialise-skip.js` — a project's own buses are the ones **without a role**; a document with
   no `busSchema` comes up on `master` + `preview` alone.
+- `settings-registry-e2e.js` — the `settings` object is validated against a registry, not written
+  through verbatim: unknown keys, wrong types and out-of-vocabulary enum values are dropped,
+  numbers clamp, and a dropped key does **not** fire its live side effect (a rejected
+  `disableLimiter` must not be heard while never being stored). The other half is that invalid
+  input must not *break* anything — a stray key still returns 200 and the good keys in the same
+  patch still land, because the client PATCHes its whole settings object on every edit. Also pins
+  that the derived `outputTargetLevels` still arrives on every read but is never written to disk.
 
 The server holds the wav open while a project referencing it is loaded, so **stop the server
 before regenerating the signal** or the write fails with EBUSY and the old file is used silently.

@@ -620,7 +620,16 @@ public:
     // Theme + project settings patches. Each accepts a JSON object that's
     // shallow-merged into the corresponding section.
     bool patch_theme(const json& patch);
-    bool patch_settings(const json& patch);
+
+    // Settings are validated against a registry (see the table in the .cpp):
+    // a key that is unknown, wrongly typed, or outside its range is dropped
+    // rather than stored, and numeric values clamp to their range. The patch
+    // as a whole still succeeds — the client round-trips its entire settings
+    // object on every edit, so failing the request over one stray key would
+    // break every settings change in the app. Pass `dropped_out` to learn
+    // which keys did not land, e.g. to report them on the API response.
+    bool patch_settings(const json& patch,
+                        std::vector<std::string>* dropped_out = nullptr);
 
     // ---- Introspection ---------------------------------------------------
     std::vector<CueMeta> list_cues() const;
