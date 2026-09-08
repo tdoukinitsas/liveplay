@@ -81,7 +81,7 @@
           <span class="clock-label">{{ t('project.clock') }}</span>
           <span class="clock-value">{{ currentTime }}</span>
         </div>
-        <div v-if="hasLtcDevice" class="digital-clock" :class="ltcTimecode ? 'clock--active' : 'clock--inactive'">
+        <div v-if="hasLtcOutput" class="digital-clock" :class="ltcTimecode ? 'clock--active' : 'clock--inactive'">
           <span class="clock-label">LTC</span>
           <span class="clock-value">{{ ltcTimecode ?? '--:--:--:--' }}</span>
         </div>
@@ -311,17 +311,16 @@ function framesToTc(totalFrames: number, fps: number): string {
   return [h, m, s, f].map(n => String(n).padStart(2, '0')).join(':');
 }
 
-// Whether the project has an LTC output device configured at all — the LTC
-// clock box is only rendered when this is true, so it doesn't sit in the
-// (increasingly crowded) header as permanent dead weight for projects that
-// never use timecode.
-const hasLtcDevice = computed(() => !!(currentProject.value as any)?.settings?.ltcDevice);
+// Whether the project names an LTC output at all — the LTC clock box is only
+// rendered when this is true, so it doesn't sit in the (increasingly crowded)
+// header as permanent dead weight for projects that never use timecode.
+const hasLtcOutput = computed(() => !!(currentProject.value as any)?.settings?.ltcOutput);
 
 // Returns the current LTC timecode string if any active cue is outputting LTC
-// to a configured LTC device, otherwise null (→ box shown grey with dashes).
+// to a configured LTC output, otherwise null (→ box shown grey with dashes).
 const ltcTimecode = computed<string | null>(() => {
-  const ltcDevice = (currentProject.value as any)?.settings?.ltcDevice;
-  if (!ltcDevice) return null;
+  const ltcOutput = (currentProject.value as any)?.settings?.ltcOutput;
+  if (!ltcOutput) return null;
 
   for (const [uuid, cue] of activeCues.value) {
     const item = findItemByUuid(uuid);

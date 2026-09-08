@@ -283,8 +283,9 @@ at them.
   `"Monitor"` in the output map and it wins — but the legacy field is still honoured, because
   dropping it would silently take pre-listen away from every project that has one configured.~~
   **`previewDevice` closed in round 2 (§0.7, D28):** it migrates onto the Preview bus's output on
-  load and is erased; nothing reads it after that. `ltcDevice` is untouched, being a separate
-  feature.
+  load and is erased; nothing reads it after that. **`ltcDevice` closed with D38:** it becomes
+  `settings.ltcOutput`, a logical output name resolved by the same rule as a bus target. No device
+  name survives in a portable document.
 - **The Bitfocus Companion module repo.** Not started. D16's northbound REST/WS semantics
   (persist-and-broadcast, `PATCH` over the live-drag endpoints) exist to make a Companion module
   straightforward to build, but nothing has been built against them yet.
@@ -631,8 +632,8 @@ closes that for good.
 - **D28 — `settings.previewDevice` migrates.** On load, if the preview bus's target is not mapped,
   the device name becomes the preview bus's `output.target`; the key is erased either way and
   counted as `previewDeviceMigrated`. `resolve_monitor_channels`' previewDevice fallback and
-  `apply_preview_device_change` are gone; nothing reads the key after load. `ltcDevice` is
-  untouched.
+  `apply_preview_device_change` are gone; nothing reads the key after load. `ltcDevice` was left
+  for D38.
 
 **What round 2 also carried** (D29–D35, in brief): the strip's output picker offers Buses
 (master first), Outputs (built-ins first, each with its mapping spelled out — `FOH — Scarlett
@@ -726,6 +727,42 @@ a second client's map view converges.
 
 Pinned by `server/tests/e2e/absent-device-e2e.js` — measured on the meters, with a contrast phase
 so "silent" cannot pass on a dead harness — and `output-materialise-e2e.js`.
+
+---
+
+### 0.9 Timecode is an output too (D38, ownership round, 2026-09-07)
+
+`settings.ltcDevice` was the last device name a portable document carried — the one deliberate
+exception D21 left standing, on the grounds that LTC was a separate feature. It was not separate
+enough: the field went straight to `ensure_device_routing()`, which calls
+`open_device_by_name()`, which falls back to the **default** device. §0.8 removed that path for
+every bus and left it in place for timecode, so the accident §0.8 exists to prevent was still
+reachable — a show configured for an interface the venue does not have put an **LTC squeal into
+the house** instead of going quiet.
+
+**What it is now.** `settings.ltcOutput`, a logical output name in exactly the vocabulary a bus
+target uses (R4: shared vocabulary stays Project; the binding is the machine's). It resolves
+through `resolve_output_channels(name, /*allow_default_device=*/false)`. The `false` is the one
+place this differs from an ordinary bus, and it is deliberate: unmapped **Main Out** *is* the
+default device, and the default device is the house. Timecode in the house is a squeal over the
+programme — the same class of accident as PFL in the house, so it gets the same answer the
+preview bus gets.
+
+**Migration.** A non-empty `ltcDevice` becomes `ltcOutput` on load (unless `ltcOutput` is already
+set) and is erased either way, counted as `ltcDeviceMigrated` and broadcast in `project_migrated`.
+The string does not change, so a machine that really has that interface keeps working untouched —
+an unmapped name that names a *present* device still resolves to it. Only the venue that lacks the
+hardware sees a difference, and there the difference is silence instead of a squeal.
+`PATCH /api/project/settings` still accepts the old key from a pre-2.5 controller but applies it
+to `ltcOutput` and stores no second copy, so R1's one-writer-per-value holds.
+
+**One implementation note worth keeping.** The LTC feed holds a master pair from the same pool the
+buses draw from, so `materialise_buses()` — which rewinds that allocator — releases the feed
+before rewinding. Without it the allocator would hand the LTC pair to a bus while timecode was
+still assigned to those channels, and the squeal would arrive in that bus's output instead.
+
+Pinned by `server/tests/e2e/ltc-output-e2e.js`, measured on the meters with the cue's own bus
+pointed at absent hardware so that anything the meters see is the LTC channel alone.
 
 ---
 

@@ -46,6 +46,10 @@ node server/tests/e2e/project-folder-e2e.js 4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/output-materialise-e2e.js 4500
 node server/tests/e2e/absent-device-e2e.js 4500 /tmp/liveplay-test-signal.wav
 
+# Writes outputs.json (and restores it) — do not run it against a rig whose
+# output map you care about while something else is using the same server.
+node server/tests/e2e/ltc-output-e2e.js 4500 /tmp/liveplay-test-signal.wav
+
 # Start their own servers (they test boot configuration), so they take the
 # binary rather than a port. Both default to the Release build.
 node server/tests/e2e/fs-jail-e2e.js
@@ -91,6 +95,16 @@ What each one pins, in the bus-role model (round 2, D24–D36):
   made. Includes a contrast phase (the same bus and cue re-pointed at Main Out, which must be
   loud) so "silent" cannot pass on a dead harness, an unloaded wav or a cue that never fired.
   Also pins that the preview bus stays strict even on Main Out.
+- `ltc-output-e2e.js` — the same rule for timecode (§0.9, D38). `settings.ltcDevice` migrates to
+  `settings.ltcOutput` and is erased, the migration is *reported*, and an output this machine
+  cannot resolve makes timecode **silent** instead of handing it to the default device — which is
+  the house, and an LTC squeal over the programme. The cue under test sits on a bus that is itself
+  unbound, so programme audio reaches nothing and anything the meters see is the LTC channel
+  alone; that separation is what makes LTC measurable at all here. Contrast phase maps a real
+  output and checks timecode does arrive (reads about −6 dBFS on a pool pair), then clears the
+  output and checks the feed comes down. Also pins that a legacy `ltcDevice` **patch** lands on
+  `ltcOutput` without storing a second copy, and that the saved file names no sound card.
+  Writes `outputs.json` and restores it on the way out.
 - `output-materialise-e2e.js` — pointing a bus at a device present on this host adds a logical
   output of that name to `outputs.json` instead of leaving the document holding a bare device
   reference (O2). Also pins the three cases it must *not* fire on: a repeat of the same pick, a

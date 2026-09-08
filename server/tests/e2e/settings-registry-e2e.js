@@ -122,15 +122,26 @@ const settings = async () => (await rest('/api/project')).body.settings ?? {};
      `${JSON.stringify(limiterBefore)} -> ${JSON.stringify(limiterAfter)}`);
 
   // ---- 8. Legacy keys still accepted -----------------------------------
-  // ltcDevice is the one device name a portable document still carries (D21).
-  // Dropping it here would silently break LTC output on every project that
-  // has it configured.
+  // ltcDevice named a sound card in a document meant to travel; ltcOutput is
+  // a logical output name resolved by the machine's output map (D38). The old
+  // key is still ACCEPTED — a pre-2.5 client or a Companion button still sends
+  // it — but it lands on the new one rather than being stored beside it, so
+  // there is exactly one writer for where timecode goes (R1).
+  await patch({ ltcOutput: 'Timecode' });
+  s = await settings();
+  ok('ltcOutput is stored', s.ltcOutput === 'Timecode', String(s.ltcOutput));
+
   await patch({ ltcDevice: 'Some Interface' });
   s = await settings();
-  ok('ltcDevice is still accepted', s.ltcDevice === 'Some Interface', String(s.ltcDevice));
-  await patch({ ltcDevice: null });
+  ok('a legacy ltcDevice patch still lands',
+     s.ltcOutput === 'Some Interface', `ltcOutput = ${s.ltcOutput}`);
+  ok('...on ltcOutput, and does not resurrect ltcDevice beside it',
+     s.ltcDevice === undefined,
+     s.ltcDevice === undefined ? '(absent)' : `ltcDevice = ${s.ltcDevice}`);
+
+  await patch({ ltcOutput: null });
   s = await settings();
-  ok('ltcDevice can still be cleared with null', s.ltcDevice === null, String(s.ltcDevice));
+  ok('ltcOutput can be cleared with null', s.ltcOutput === null, String(s.ltcOutput));
 
   // ---- 9. outputTargetLevels: read yes, disk no -------------------------
   // The client depends on it being present on every read, so it must keep
