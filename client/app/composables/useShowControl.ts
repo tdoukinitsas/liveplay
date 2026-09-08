@@ -107,7 +107,24 @@ export const useShowControl = () => {
     if (!snap) return;
     applySelection(snap.selected_item_uuid ?? null);
     if (typeof snap.show_mode === 'boolean') applyShowMode(snap.show_mode);
-    if (typeof snap.locale === 'string')     applyLocale(snap.locale);
+    // Language is this operator's, not the rig's (server U2). The snapshot
+    // carries the installation DEFAULT, so it is adopted only by a client that
+    // has never chosen for itself — otherwise reconnecting to a house running
+    // in English would silently undo the Greek this person set, every time.
+    //
+    // Selection and Show Mode keep the opposite rule on purpose: those are the
+    // show's state, shared by everyone looking at it, and a client joining
+    // mid-show must adopt them rather than impose its own stale copy.
+    let storedLocale: string | null = null;
+    try { storedLocale = localStorage.getItem('liveplay-locale'); } catch { /* private browsing */ }
+    if (storedLocale) {
+      // Tell the server what this client is actually showing, so the session
+      // record and anything reading it are not describing a language nobody
+      // is looking at.
+      server.setServerLocale(storedLocale);
+    } else if (typeof snap.locale === 'string') {
+      applyLocale(snap.locale);
+    }
     // Only now may local changes travel outward.
     hydrated = true;
   });

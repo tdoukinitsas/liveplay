@@ -354,7 +354,7 @@ The authoritative endpoint list is the table of `CROW_ROUTE` registrations in [`
 |--------------------|------|----------|-------|
 | `GET /api/health`  | —    | `{ "ok": true, "name": "liveplay-server" }` | Liveness probe. |
 | `GET /api/whoami`  | —    | `{ "clientIp": "192.168.1.10", "isLocal": false }` | `isLocal` is true for loopback callers (127.0.0.0/8, `::1`). |
-| `GET /api/clients` | —    | `[ { "id": 3, "remoteIp": "192.168.1.10", "connectedSeconds": 412 }, … ]`, lowest `id` first | Who is connected **right now**: one row per live WebSocket. REST is stateless, so a `curl` against it is not a session — anything driving the rig holds a socket open. `id` is monotonic within a process run and never reused, so an id in a log line always means one connection. Unauthenticated today, like every other route; it is on the list to gate when authentication lands. |
+| `GET /api/clients` | —    | `[ { "id": 3, "remoteIp": "192.168.1.10", "connectedSeconds": 412, "locale": "el", "localeIsOwn": true, "meterHz": 5, "meterHzIsOwn": true }, … ]`, lowest `id` first | Who is connected **right now**: one row per live WebSocket. REST is stateless, so a `curl` against it is not a session — anything driving the rig holds a socket open. `id` is monotonic within a process run and never reused, so an id in a log line always means one connection. Unauthenticated today, like every other route; it is on the list to gate when authentication lands. |
 
 #### Devices
 
@@ -433,8 +433,8 @@ Everything below is the surface a stateless control surface (Bitfocus Companion,
 | `GET`/`POST /api/transport/pause_toggle` | — | `{ "ok": true, "resumed": bool }` · `404` if nothing is on air | Pause/resume everything on air in one press. Resumes if anything is paused, otherwise pauses everything sounding, so a single button is never ambiguous about which way it goes. |
 | `GET /api/ui/showmode` | — | `{ "enabled": bool }` | |
 | `POST /api/ui/showmode` | `{ "enabled": bool }` (omit to toggle) | `{ "ok": true, "enabled": bool }` | Broadcasts `show_mode_changed`. |
-| `GET /api/ui/locale` | — | `{ "locale": "…" }` | |
-| `POST /api/ui/locale` | `{ "locale": "en" }` | `{ "ok": true, "locale": "…" }` · `400` if `locale` missing/not a string | Broadcasts `locale_changed`. |
+| `GET /api/ui/locale` | — | `{ "locale": "…" }` | The installation **default**, not "the" locale — see below. |
+| `POST /api/ui/locale` | `{ "locale": "en" }` | `{ "ok": true, "locale": "…" }` · `400` if `locale` missing/not a string | Sets the installation default. Broadcasts `locale_changed` **only to connections that have not chosen a locale of their own**. |
 | `POST /api/transport/play_index` | `{ "index": [1, 11] }` — an index path descending into groups | `{ "ok": true, "uuid": "…", "index": [int, …] }` · `400` malformed path · `404` no item / not loaded | Body-addressed equivalent of `…/by-index/<path>` (see [Project items](#project-items)). |
 | `GET`/`POST /api/transport/cart/<int>/play` | — | `{ "ok": true, "slot": int, "uuid": "…" }` · `404` empty slot or not loaded | Triggers whatever is bound to that cart slot. |
 
@@ -822,7 +822,8 @@ Stopped cues are omitted from `items`. Silent master channels (`peak_db <= -119 
 | `outputs_changed`               | same shape as `GET /api/outputs`, plus `rewiredBuses`      | `PUT /api/outputs` |
 | `selection_changed`             | `itemUuid` (empty string clears)                           | `POST /api/selection`, WS `set_selection`, WS `select_step` |
 | `show_mode_changed`             | `enabled`                                                  | `POST /api/ui/showmode`, WS `set_show_mode` |
-| `locale_changed`                | `locale`                                                   | `POST /api/ui/locale`, WS `set_locale` |
+| `locale_changed`                | `locale`                                                   | WS `set_locale` (to the sending connection alone); `POST /api/ui/locale` (to connections with no locale of their own) |
+| `meter_hz_changed`              | `hz` (the effective rate after clamping)                   | WS `set_meter_hz`, to the sending connection alone |
 | `preview_started`               | `itemUuid`, `cueId`                                        | `POST /api/preview` |
 | `preview_stopped`               | (none)                                                     | `DELETE /api/preview` |
 | `next_item_set`                 | `itemUuid` (empty string clears)                           | WS `set_next_item`, and server-armed "Up Next" (auto-cue / first-item / end-of-list wrap) |
@@ -851,13 +852,43 @@ Mostly mirror the REST surface so transport commands can skip the HTTP request/r
 | `set_selection`  | `{ "item_uuid": "…" }` (empty/missing clears) | Sets the shared playlist selection. Broadcasts `selection_changed`, including back to the sender — that's what keeps two clients from diverging. |
 | `select_step`    | `{ "delta": int }` | Steps the shared selection through the flattened playlist. With nothing selected, steps from whatever is currently sounding instead of snapping to the top of the show; an explicit selection always wins. Broadcasts `selection_changed`. |
 | `set_show_mode`  | `{ "enabled": bool }` (omit to toggle) | Broadcasts `show_mode_changed`. |
-| `set_locale`     | `{ "locale": "en" }` | Broadcasts `locale_changed`. |
+| `set_locale`     | `{ "locale": "en" }` | **This connection only.** Replies `locale_changed` down the same socket and to nobody else. |
+| `set_meter_hz`   | `{ "hz": 5 }` (`0` = follow the server's rate) | **This connection only.** Thins the `meters` stream for this client; replies `meter_hz_changed` with the *effective* rate, clamped to the server's own tick rate. `cue_state` and `playback_snapshot` are never thinned. |
 | `bus_gain`       | `{ "busId": "…", "gainDb": float }` | Same code path as `PATCH /api/buses/<id>`, so it persists and broadcasts `buses_patched` identically. `error` frame to the sender only (no broadcast) if `busId` is missing or unknown. |
 | `bus_mute`       | `{ "busId": "…", "mute": bool }` (omit `mute` to toggle the bus's current state) | Same code path as `PATCH /api/buses/<id>`; broadcasts `buses_patched`. `error` frame to the sender only if unknown. |
 | `bus_pfl`        | `{ "busId": "…", "pfl": bool }` (omit `pfl` to toggle) | Same code path as `POST /api/buses/<id>/pfl`, including its broadcast shape (`bus_pfl_changed`). `error` frame to the sender only if unknown. |
 | `ping`           | `{}` | Server replies with `{ "type": "pong" }`. |
 
 Unknown `type` values get a `{ "type": "error", "message": "unknown type" }` reply.
+
+#### What is shared, and what is yours
+
+Most WS state is deliberately **shared**: selection, Show Mode, bus gain and mute
+are the show's state, so a change broadcasts to everyone — that is what keeps two
+operators and a Companion surface from diverging, and why a client joining
+mid-show adopts what it finds instead of imposing its own stale copy.
+
+**Language and meter rate are not.** They are presentation preferences, and they
+belong to the person at the surface. `set_locale` used to write one server-global
+string and broadcast it, so one operator switching to Greek switched every other
+client and every control surface with them; `set_meter_hz` did not exist, so a
+tablet on Wi-Fi paid for the desk's 60 Hz meters. Both are now per connection:
+
+```
+built-in default  <  POST /api/ui/locale  <  this connection's set_locale
+   "en"              (installation)           (the person)
+```
+
+An installation default still exists and still travels — but only to connections
+that have expressed no preference, so a client that chose for itself is never
+dragged back by the house changing its default. `GET /api/clients` reports each
+session's effective values along with `localeIsOwn` / `meterHzIsOwn`, which is
+the distinction that decides whether a default change will reach it.
+
+Meter thinning applies to the `meters` frame **only**. `cue_state` and
+`playback_snapshot` are edges, not samples: dropping a sample costs resolution,
+while dropping a transition costs the client a fact it will never be told again,
+leaving its transport display wrong until something else happens to move.
 
 ### Network event lifecycle (cue trigger)
 

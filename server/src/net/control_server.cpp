@@ -101,6 +101,25 @@ struct ControlServer::Impl {
         // remember to erase from both; per-connection state belongs in the
         // per-connection record.
         bool          wants_snapshot = false;
+
+        // ---- User tier (U2) ----------------------------------------------
+        // This operator's display language. Empty means "no preference" —
+        // the installation default stands, and a later change to that default
+        // reaches this connection. A session that HAS chosen is left alone by
+        // such a change, which is the whole override chain in one field.
+        std::string   locale;
+        // How often this connection wants meter frames, in Hz. 0 means "no
+        // preference": every tick of the server's own broadcast rate.
+        //
+        // Never faster than the server ticks — the loop is the only consumer
+        // of the consuming meter reads, so a per-connection rate can thin the
+        // stream but cannot conjure samples that were never taken. A tablet
+        // over Wi-Fi asking for 10 Hz is the case this exists for.
+        std::size_t   meter_hz = 0;
+        // Bresenham accumulator for the thinning. Carrying the remainder
+        // spreads the kept frames evenly instead of bunching them, which a
+        // simple "every Nth" counter does not do for rates that do not divide.
+        std::size_t   meter_accum = 0;
     };
     std::unordered_map<crow::websocket::connection*, ClientSession> ws_clients;
     // Monotonic, never reused within a process run, so a session id in a log
@@ -801,13 +820,27 @@ void ControlServer::broadcast_loop() {
         // Fan out meters + cue_state events to all subscribed clients,
         // plus snapshots for any client still flagged as pending.
         std::lock_guard lock{impl_->ws_mutex};
+        const std::size_t tick_hz = std::max<std::size_t>(1, cfg_.meter_broadcast_hz);
         for (auto& [c, session] : impl_->ws_clients) {
             try {
                 if (!snapshot_serialized.empty() && session.wants_snapshot) {
                     session.wants_snapshot = false;
                     c->send_text(snapshot_serialized);
                 }
-                c->send_text(serialized);
+                // Meters are SAMPLES, so a connection that asked for fewer of
+                // them just gets fewer (U2). Everything else on this tick is an
+                // EDGE — the snapshot above, the cue_state events below — and
+                // edges are never thinned: dropping one does not cost
+                // resolution, it costs the client a transition it will never
+                // hear about again, and its transport display stays wrong until
+                // something else moves.
+                bool send_meters = true;
+                if (session.meter_hz > 0 && session.meter_hz < tick_hz) {
+                    session.meter_accum += session.meter_hz;
+                    if (session.meter_accum < tick_hz) send_meters = false;
+                    else                               session.meter_accum -= tick_hz;
+                }
+                if (send_meters) c->send_text(serialized);
                 for (const auto& e : cue_state_events) c->send_text(e);
             }
             catch (...) { /* connection will be cleaned up by onclose */ }
@@ -1001,7 +1034,11 @@ static json build_playback_snapshot(audio::AudioEngine& engine,
         // imposing its own stale local one.
         {"selected_item_uuid",  state.selected_item_uuid()},
         {"show_mode",           state.show_mode()},
-        {"locale",              state.ui_locale()},
+        // The installation default. A connection that has chosen its own
+        // language does not learn it from here — it already knows, having
+        // asked for it — so the snapshot carries the value a client with no
+        // preference should adopt (U2).
+        {"locale",              state.default_ui_locale()},
         {"preview", json{
             {"item_uuid", state.current_preview_item_uuid()},
             {"cue_id",    state.current_preview_cue_id().value},
@@ -1043,12 +1080,24 @@ static std::vector<std::string> selection_anchors(audio::AudioEngine& engine,
 // `broadcast` fans a doc_patch out to every connected client (see
 // ControlServer::broadcast_doc_patch); bus commands need it to converge a
 // second client the same way the REST endpoints they mirror do (D17).
+// Writes to the ClientSession this message arrived on (U2). Bound to the
+// connection by the onmessage lambda, because the sessions live in Impl and
+// this handler is a free function. Each returns the EFFECTIVE value after the
+// change, which is what the caller replies with — a request for 500 Hz meters
+// is not refused, it is honoured as far as the server actually ticks, and the
+// client is told what it really got rather than being left to assume.
+struct SessionOps {
+    std::function<std::string(const std::string&)> set_locale;
+    std::function<std::size_t(std::size_t)>        set_meter_hz;
+};
+
 static std::string handle_ws_message(crow::websocket::connection& conn,
                                      const std::string& msg,
                                      audio::AudioEngine& engine,
                                      core::ProjectState& state,
                                      const std::string& server_addr,
-                                     const std::function<void(const json&)>& broadcast) {
+                                     const std::function<void(const json&)>& broadcast,
+                                     const SessionOps& session) {
     Logger::api_request("Client ({}) -> Server ({}) : {}", conn.get_remote_ip(), server_addr, msg);
 
     json j;
@@ -1249,8 +1298,34 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
                 state.toggle_show_mode();
         }
         else if (type == "set_locale") {
-            if (j.contains("locale") && j["locale"].is_string())
-                state.set_ui_locale(j["locale"].get<std::string>());
+            // This connection's language, and nobody else's (U2). It used to
+            // set a server-global and broadcast it, so one operator switching
+            // to Greek switched every other client and every control surface
+            // with them — a presentation preference imposed across users,
+            // which is the leak rule R2 exists to catch.
+            //
+            // The reply goes back down this socket alone, through the same
+            // direct_reply path a pong takes. The sender's own UI already
+            // holds the value, so applying it is a no-op there; what matters
+            // is that nothing arrives at anyone else.
+            if (j.contains("locale") && j["locale"].is_string() && session.set_locale) {
+                const auto effective = session.set_locale(j["locale"].get<std::string>());
+                return json{{"type", "doc_patch"}, {"op", "locale_changed"},
+                            {"locale", effective}}.dump();
+            }
+        }
+        else if (type == "set_meter_hz") {
+            // How often THIS client wants meters. The spec's nominated first
+            // test of the User tier, and the one a tablet over Wi-Fi actually
+            // needs: the desk can run its meters at 60 Hz without every remote
+            // paying for it.
+            if (j.contains("hz") && j["hz"].is_number() && session.set_meter_hz) {
+                const auto asked = j["hz"].get<double>();
+                const auto effective = session.set_meter_hz(
+                    asked <= 0 ? 0 : static_cast<std::size_t>(asked));
+                return json{{"type", "doc_patch"}, {"op", "meter_hz_changed"},
+                            {"hz", effective}}.dump();
+            }
         }
         else if (type == "bus_gain") {
             // Same code path as PATCH /api/buses/<id>: persists to the
@@ -1442,6 +1517,11 @@ void ControlServer::install_routes() {
         ([this]{
             try {
                 const auto now = std::chrono::steady_clock::now();
+                // Read before taking ws_mutex: default_ui_locale() takes the
+                // project lock, and the broadcast loop's ABBA note applies to
+                // every ws_mutex → project-lock ordering, not just its own.
+                const std::string fallback_locale = state_.default_ui_locale();
+                const std::size_t tick_hz = std::max<std::size_t>(1, cfg_.meter_broadcast_hz);
                 json arr = json::array();
                 {
                     std::lock_guard lock{impl_->ws_mutex};
@@ -1449,6 +1529,17 @@ void ControlServer::install_routes() {
                         arr.push_back(json{
                             {"id",               s.id},
                             {"remoteIp",         s.remote_ip},
+                            // Effective values, not raw ones: an empty locale
+                            // and a zero rate both mean "no preference", and
+                            // reporting them as blanks would make the caller
+                            // re-derive the override chain to say anything
+                            // useful. `localeIsOwn` keeps the distinction that
+                            // actually matters — whether a change to the
+                            // default will reach this session.
+                            {"locale",           s.locale.empty() ? fallback_locale : s.locale},
+                            {"localeIsOwn",      !s.locale.empty()},
+                            {"meterHz",          s.meter_hz == 0 ? tick_hz : s.meter_hz},
+                            {"meterHzIsOwn",     s.meter_hz != 0},
                             // Elapsed, not a wall-clock stamp: it is what an
                             // operator actually wants ("that one has been on
                             // for ten minutes"), it survives a clock step, and
@@ -1784,8 +1875,11 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // The installation's DEFAULT locale, not "the" locale (U2). REST is
+    // stateless, so there is no connection here to attach a preference to;
+    // what this addresses is the value a connection starts from.
     CROW_ROUTE(app, "/api/ui/locale").methods(crow::HTTPMethod::Get)
-        ([this]{ return json_ok(json({{"locale", state_.ui_locale()}})); });
+        ([this]{ return json_ok(json({{"locale", state_.default_ui_locale()}})); });
 
     CROW_ROUTE(app, "/api/ui/locale").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
@@ -1793,8 +1887,25 @@ void ControlServer::install_routes() {
                 auto j = json::parse(req.body.empty() ? std::string{"{}"} : req.body);
                 if (!j.contains("locale") || !j["locale"].is_string())
                     return json_err(400, "expected \"locale\"");
-                state_.set_ui_locale(j["locale"].get<std::string>());
-                return json_ok(json({{"ok", true}, {"locale", state_.ui_locale()}}));
+                state_.set_default_ui_locale(j["locale"].get<std::string>());
+                const auto now = state_.default_ui_locale();
+                // Fanned out HERE rather than from ProjectState, and only to
+                // the sessions that have expressed no preference — a client
+                // that chose Greek for itself must not be dragged back by the
+                // house changing its default. That selectivity is why
+                // set_default_ui_locale() does not broadcast: it cannot see
+                // the sessions, so it could only have gone all-or-nothing.
+                const std::string frame =
+                    json{{"type", "doc_patch"}, {"op", "locale_changed"},
+                         {"locale", now}}.dump();
+                {
+                    std::lock_guard lock{impl_->ws_mutex};
+                    for (auto& [c, s] : impl_->ws_clients) {
+                        if (!s.locale.empty()) continue;
+                        try { c->send_text(frame); } catch (...) { /* onclose cleans up */ }
+                    }
+                }
+                return json_ok(json({{"ok", true}, {"locale", now}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
@@ -3755,8 +3866,33 @@ void ControlServer::install_routes() {
           if (is_binary) return;
           std::string direct_reply;
           try {
+              SessionOps session;
+              // Both take ws_mutex to touch the session, and neither touches
+              // the project or engine locks — so they cannot re-enter the
+              // ABBA ordering the broadcast loop's comment describes.
+              session.set_locale = [this, &conn](const std::string& code) {
+                  std::lock_guard lock{impl_->ws_mutex};
+                  auto it = impl_->ws_clients.find(&conn);
+                  if (it == impl_->ws_clients.end()) return code;
+                  if (!code.empty()) it->second.locale = code;
+                  return it->second.locale;
+              };
+              session.set_meter_hz = [this, &conn](std::size_t hz) -> std::size_t {
+                  // Clamped to what the server actually ticks at: the loop is
+                  // the only consumer of the consuming meter reads, so a
+                  // faster request cannot be honoured by anyone.
+                  const std::size_t ceiling =
+                      std::max<std::size_t>(1, cfg_.meter_broadcast_hz);
+                  std::lock_guard lock{impl_->ws_mutex};
+                  auto it = impl_->ws_clients.find(&conn);
+                  if (it == impl_->ws_clients.end()) return hz;
+                  it->second.meter_hz    = (hz == 0) ? 0 : std::min(hz, ceiling);
+                  it->second.meter_accum = 0;
+                  return it->second.meter_hz == 0 ? ceiling : it->second.meter_hz;
+              };
               direct_reply = handle_ws_message(conn, data, engine_, state_, impl_->server_addr,
-                                               [this](const json& p) { broadcast_doc_patch(p); });
+                                               [this](const json& p) { broadcast_doc_patch(p); },
+                                               session);
           } catch (const std::exception& e) {
               Logger::error("WS onmessage threw past handler: {}", e.what());
           } catch (...) {
