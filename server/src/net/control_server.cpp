@@ -72,14 +72,40 @@ struct ControlServer::Impl {
     std::thread     broadcast_thread;
     std::mutex      ws_mutex;
     std::string     server_addr;
-    std::unordered_set<crow::websocket::connection*> ws_clients;
-    // Clients that need an initial playback_snapshot push. Populated by
-    // onopen, drained by broadcast_loop under ws_mutex — keeps all send_text
-    // calls on a single connection serialised through one mutex (Crow's
-    // websocket::connection is not safe under concurrent writes; calling
-    // send_text directly from onopen while broadcast_loop was concurrently
-    // sending meters to the same conn caused the crash on connect).
-    std::unordered_set<crow::websocket::connection*> ws_clients_pending_snapshot;
+    // What the server knows about one connected client (U1).
+    //
+    // A connection used to be an element of a set — a bare pointer, with no
+    // room to say who is on the other end. Everything the ownership model
+    // calls the User tier needs somewhere to hang: a locale that is this
+    // operator's rather than the server's, a meter rate this surface asked
+    // for, and eventually a principal that says what this client may do.
+    // This is that place; the tier is built on it rather than beside it.
+    //
+    // Deliberately holds no `crow::request` and no pointer into one. The
+    // request is gone by the time onopen runs, and a session that outlived a
+    // dangling reference to it would be a use-after-free waiting for the
+    // first client that disconnects mid-handshake.
+    struct ClientSession {
+        std::uint64_t id = 0;               // stable for the life of the connection
+        std::string   remote_ip;
+        std::chrono::steady_clock::time_point connected_at{};
+        // Needs an initial playback_snapshot push. Set by onopen, cleared by
+        // broadcast_loop under ws_mutex — which keeps every send_text on a
+        // single connection serialised through one mutex (Crow's
+        // websocket::connection is not safe under concurrent writes; calling
+        // send_text directly from onopen while broadcast_loop was concurrently
+        // sending meters to the same conn caused the crash on connect).
+        //
+        // This was a second parallel set until U1. Two containers keyed by the
+        // same pointer had to be kept in step by hand, and onclose had to
+        // remember to erase from both; per-connection state belongs in the
+        // per-connection record.
+        bool          wants_snapshot = false;
+    };
+    std::unordered_map<crow::websocket::connection*, ClientSession> ws_clients;
+    // Monotonic, never reused within a process run, so a session id in a log
+    // line always means one connection. Guarded by ws_mutex.
+    std::uint64_t next_client_id = 1;
 
     // Async waveform-generation queue. REST handler enqueues a task and
     // returns immediately; waveform_worker() processes them one at a time and
@@ -185,6 +211,33 @@ bool path_within_fs_roots(const fs::path& p) {
         if (key.starts_with(rkey + "/")) return true;
     }
     return false;
+}
+
+// May a WebSocket upgrade carrying this Origin proceed?
+//
+// CORS does not cover WebSockets. `Access-Control-Allow-Origin` is a rule the
+// browser applies to XHR and fetch; the WebSocket handshake is exempt from it,
+// and a page on any origin may open a socket to any host the user can reach.
+// So before U1 an installation started with --cors-origin https://console.here
+// had its REST surface restricted and its WebSocket wide open — and the socket
+// carries play, stop, bus gain, mute and selection. The lock was on the front
+// door while the side door stood open.
+//
+// The rules, in order:
+//   • `*` (the default) admits everything, because that is what S2's default
+//     posture means and no upgrade behaviour should change on upgrade.
+//   • No Origin header at all is admitted. Native clients, Companion, curl and
+//     the Electron app send none, and refusing them would break every control
+//     surface that is not a browser tab. This is not the hole it looks like: a
+//     browser cannot suppress its own Origin, which is the whole reason the
+//     check works, and an attacker who is not in a browser does not need the
+//     trick — they can reach the socket directly either way. The check exists
+//     to stop a page the operator merely VISITED from driving the rig.
+//   • Otherwise it must match the configured origin exactly.
+bool ws_origin_allowed(const std::string& origin) {
+    if (g_cors_allow_origin == "*") return true;
+    if (origin.empty())             return true;
+    return origin == g_cors_allow_origin;
 }
 
 crow::response json_ok(const json& body) {
@@ -733,7 +786,8 @@ void ControlServer::broadcast_loop() {
         bool has_pending = false;
         {
             std::lock_guard lock{impl_->ws_mutex};
-            has_pending = !impl_->ws_clients_pending_snapshot.empty();
+            for (const auto& [_, s] : impl_->ws_clients)
+                if (s.wants_snapshot) { has_pending = true; break; }
         }
         std::string snapshot_serialized;
         if (has_pending) {
@@ -747,10 +801,10 @@ void ControlServer::broadcast_loop() {
         // Fan out meters + cue_state events to all subscribed clients,
         // plus snapshots for any client still flagged as pending.
         std::lock_guard lock{impl_->ws_mutex};
-        for (auto* c : impl_->ws_clients) {
+        for (auto& [c, session] : impl_->ws_clients) {
             try {
-                if (!snapshot_serialized.empty() &&
-                    impl_->ws_clients_pending_snapshot.erase(c)) {
+                if (!snapshot_serialized.empty() && session.wants_snapshot) {
+                    session.wants_snapshot = false;
                     c->send_text(snapshot_serialized);
                 }
                 c->send_text(serialized);
@@ -792,7 +846,7 @@ void ControlServer::broadcast_doc_patch(const json& payload) {
         return;
     }
     std::lock_guard lock{impl_->ws_mutex};
-    for (auto* c : impl_->ws_clients) {
+    for (auto& [c, _] : impl_->ws_clients) {
         try { c->send_text(serialized); }
         catch (...) { /* onclose will clean up dead connections */ }
     }
@@ -1372,6 +1426,47 @@ void ControlServer::install_routes() {
                 ip == "::ffff:127.0.0.1" ||
                 ip.rfind("127.", 0) == 0;
             return json_ok(json{{"clientIp", ip}, {"isLocal", is_local}});
+        });
+
+    // Who is on this server right now (U1). One row per live WebSocket, which
+    // is what "a client" means here: REST is stateless and a curl against it
+    // is not a session, but anything driving the rig holds a socket open.
+    //
+    // The read surface for the per-connection record — without one, identity
+    // would be a structure nothing could observe, and the Server pane has
+    // nothing to show an operator asking who else is holding the desk.
+    // U2 adds each session's locale and meter rate here; U3 adds the principal
+    // and gates the route, at which point the addresses stop being readable by
+    // anyone who can reach the port.
+    CROW_ROUTE(app, "/api/clients").methods(crow::HTTPMethod::Get)
+        ([this]{
+            try {
+                const auto now = std::chrono::steady_clock::now();
+                json arr = json::array();
+                {
+                    std::lock_guard lock{impl_->ws_mutex};
+                    for (const auto& [_, s] : impl_->ws_clients) {
+                        arr.push_back(json{
+                            {"id",               s.id},
+                            {"remoteIp",         s.remote_ip},
+                            // Elapsed, not a wall-clock stamp: it is what an
+                            // operator actually wants ("that one has been on
+                            // for ten minutes"), it survives a clock step, and
+                            // it does not duplicate a timestamp formatter that
+                            // already has one owner elsewhere.
+                            {"connectedSeconds",
+                             std::chrono::duration_cast<std::chrono::seconds>(
+                                 now - s.connected_at).count()},
+                        });
+                    }
+                }
+                // Stable order, so a UI listing them does not reshuffle on
+                // every poll — the map's own order is a hash of pointers.
+                std::sort(arr.begin(), arr.end(), [](const json& a, const json& b) {
+                    return a.value("id", 0ULL) < b.value("id", 0ULL);
+                });
+                return json_ok(arr);
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
         });
 
     // ---- Devices ----
@@ -3608,24 +3703,51 @@ void ControlServer::install_routes() {
     // WebSocket
     // ------------------------------------------------------------------
     CROW_WEBSOCKET_ROUTE(app, "/ws")
+      // The one place an upgrade can be refused, and the seam the user tier
+      // is built on: it runs during the HTTP handshake, so it is the last
+      // point at which the request — headers, origin, and eventually a
+      // credential — is still in hand. Today it enforces the origin policy;
+      // U3's authentication check lands here rather than inventing a new hook.
+      //
+      // The three-argument form, not the bool one, purely so a refusal can say
+      // 403 instead of Crow's bare 400: an operator reading a browser console
+      // should be able to tell a rejected origin from a malformed request.
+      .onaccept([this](const crow::request& req,
+                       std::optional<crow::response>& res, void** /*userdata*/) {
+          const std::string origin = req.get_header_value("Origin");
+          if (ws_origin_allowed(origin)) return;
+          // Named in the log, not in the response — the caller already knows
+          // what it sent, and echoing it back only helps someone probing for
+          // what this server will accept. Same rule as json_fs_denied().
+          Logger::warn("WS upgrade refused from {} — origin '{}' is not '{}'",
+                       req.remote_ip_address, origin, g_cors_allow_origin);
+          res = crow::response{403};
+      })
       .onopen([this](crow::websocket::connection& conn) {
           std::lock_guard lock{impl_->ws_mutex};
-          impl_->ws_clients.insert(&conn);
+          auto& session = impl_->ws_clients[&conn];
+          session.id           = impl_->next_client_id++;
+          session.remote_ip    = conn.get_remote_ip();
+          session.connected_at = std::chrono::steady_clock::now();
           // Mark this client for a playback_snapshot push on the next
           // broadcast tick. The snapshot can't be sent inline here because
           // build_playback_snapshot takes both engine and project locks
           // (potentially seconds, e.g. mid project mirror) and Crow's
           // connection is not safe to write from two threads at once —
           // direct send_text here races the broadcast thread.
-          impl_->ws_clients_pending_snapshot.insert(&conn);
-          Logger::info("WS client connected ({} total)", impl_->ws_clients.size());
+          session.wants_snapshot = true;
+          Logger::info("WS client #{} connected from {} ({} total)",
+                       session.id, session.remote_ip, impl_->ws_clients.size());
       })
       .onclose([this](crow::websocket::connection& conn, const std::string& reason, std::uint16_t /*code*/) {
           std::lock_guard lock{impl_->ws_mutex};
-          impl_->ws_clients.erase(&conn);
-          impl_->ws_clients_pending_snapshot.erase(&conn);
-          Logger::info("WS client disconnected ({}); {} remaining",
-                       reason, impl_->ws_clients.size());
+          std::uint64_t id = 0;
+          if (auto it = impl_->ws_clients.find(&conn); it != impl_->ws_clients.end()) {
+              id = it->second.id;
+              impl_->ws_clients.erase(it);
+          }
+          Logger::info("WS client #{} disconnected ({}); {} remaining",
+                       id, reason, impl_->ws_clients.size());
       })
       .onmessage([this](crow::websocket::connection& conn,
                         const std::string& data,

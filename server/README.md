@@ -179,6 +179,20 @@ Values that are unparseable or out of range are reported in the log and then
 **ignored** — the built-in default stays in force rather than a typo silently
 misconfiguring the engine. That holds whichever door the value came in by.
 
+**`--cors-origin` also governs the WebSocket.** CORS is a rule browsers apply to
+XHR and fetch; the WebSocket handshake is exempt from it, so a configured origin
+used to restrict the REST surface while leaving the socket — which carries play,
+stop, bus gain, mute and selection — open to any page the operator happened to
+visit. The upgrade is now refused with **403** unless the `Origin` header matches
+the configured value. Two deliberate exceptions: the default `*` admits
+everything, so nothing changes for an installation that never set the flag; and
+an upgrade carrying **no** `Origin` at all is admitted, because native clients,
+Companion, `curl` and the Electron app send none. That is not the hole it looks
+like — a browser cannot suppress its own `Origin`, which is exactly why the check
+works, and an attacker who is not in a browser can reach the socket directly
+either way. The check exists to stop a page the operator merely *visited* from
+driving the rig.
+
 ### `liveplay.json`
 
 Everything above can also be set in a `liveplay.json` beside the executable,
@@ -340,6 +354,7 @@ The authoritative endpoint list is the table of `CROW_ROUTE` registrations in [`
 |--------------------|------|----------|-------|
 | `GET /api/health`  | —    | `{ "ok": true, "name": "liveplay-server" }` | Liveness probe. |
 | `GET /api/whoami`  | —    | `{ "clientIp": "192.168.1.10", "isLocal": false }` | `isLocal` is true for loopback callers (127.0.0.0/8, `::1`). |
+| `GET /api/clients` | —    | `[ { "id": 3, "remoteIp": "192.168.1.10", "connectedSeconds": 412 }, … ]`, lowest `id` first | Who is connected **right now**: one row per live WebSocket. REST is stateless, so a `curl` against it is not a session — anything driving the rig holds a socket open. `id` is monotonic within a process run and never reused, so an id in a log line always means one connection. Unauthenticated today, like every other route; it is on the list to gate when authentication lands. |
 
 #### Devices
 
