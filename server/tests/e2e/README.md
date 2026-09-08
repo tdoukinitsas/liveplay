@@ -50,6 +50,10 @@ node server/tests/e2e/absent-device-e2e.js 4500 /tmp/liveplay-test-signal.wav
 # output map you care about while something else is using the same server.
 node server/tests/e2e/ltc-output-e2e.js 4500 /tmp/liveplay-test-signal.wav
 
+# Opens two sockets and compares what each one is sent. Restores the
+# installation locale on the way out — other suites share this server.
+node server/tests/e2e/session-prefs-e2e.js 4500 /tmp/liveplay-test-signal.wav
+
 # Start their own servers (they test boot configuration), so they take the
 # binary rather than a port. Both default to the Release build.
 node server/tests/e2e/fs-jail-e2e.js
@@ -116,7 +120,16 @@ What each one pins, in the bus-role model (round 2, D24–D36):
   `Origin` admitted (native clients send none, and a browser cannot suppress its own).
   Starts its own servers, so it takes the binary rather than a port.
 
-  Note when reading a red run: bypassing the `onclose` erase does not merely leave a stale row —
+- `session-prefs-e2e.js` — language and meter rate belong to the person at the surface, not the
+  rig (U2). One client's `set_locale` reaches that client and **nobody else**; the installation
+  default still travels, but only to sessions that never chose for themselves. A client asking for
+  5 Hz gets ~10 meter frames where an unchanged one gets ~60, and a rate above the server's own
+  tick is clamped and *said*. The assertion that carries the weight is the last one: a client
+  thinned to 1 Hz must still hear every `cue_state` edge. Bypassing that — thinning edges along
+  with samples — leaves it with **zero** transport frames, so it never learns the cue played at
+  all, while every meter-count assertion still passes.
+- `client-session-e2e.js` note when reading a red run: bypassing the `onclose` erase does not
+  merely leave a stale row —
   the broadcast thread then writes to freed connections and the server **crashes**, which takes
   several later assertions with it. The erase is load-bearing against a use-after-free, not
   bookkeeping.

@@ -3456,20 +3456,15 @@ bool ProjectState::toggle_show_mode() {
     return result;
 }
 
-std::string ProjectState::ui_locale() const {
+std::string ProjectState::default_ui_locale() const {
     std::lock_guard lock{mutex_};
-    return ui_locale_;
+    return default_ui_locale_;
 }
 
-void ProjectState::set_ui_locale(const std::string& code) {
-    std::function<void(const json&)> cb;
-    {
-        std::lock_guard lock{mutex_};
-        if (code.empty() || ui_locale_ == code) return;
-        ui_locale_ = code;
-        cb = ui_state_broadcaster_;
-    }
-    if (cb) cb(json{{"type", "doc_patch"}, {"op", "locale_changed"}, {"locale", code}});
+void ProjectState::set_default_ui_locale(const std::string& code) {
+    std::lock_guard lock{mutex_};
+    if (code.empty()) return;
+    default_ui_locale_ = code;
 }
 
 // ---------------------------------------------------------------------------
@@ -3583,7 +3578,7 @@ json ProjectState::state_summary() const {
         override_uuid = next_item_override_;
         selected_uuid = selected_item_uuid_;
         show_mode_now = show_mode_;
-        locale_now    = ui_locale_;
+        locale_now    = default_ui_locale_;
         trigger_seq   = item_trigger_seq_;
 
         if (document_.contains("cartItems") && document_["cartItems"].is_array()) {

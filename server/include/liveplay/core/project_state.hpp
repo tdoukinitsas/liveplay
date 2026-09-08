@@ -545,11 +545,25 @@ public:
     void set_show_mode(bool enabled);
     bool toggle_show_mode();   // returns the resulting state
 
-    // Display locale (a code from the client's locale set, e.g. "en", "el").
-    // Mirrored so control surfaces can label their own buttons in the
-    // operator's language.
-    std::string ui_locale() const;
-    void set_ui_locale(const std::string& code);
+    // The installation's DEFAULT display locale (a code from the client's
+    // locale set, e.g. "en", "el") — what a connection is given when it has
+    // expressed no preference of its own, and what a control surface with no
+    // session (Companion polling the external-control snapshot) labels itself
+    // in.
+    //
+    // It is not "the" locale any more (U2). Language is a presentation
+    // preference, so it belongs to the person, not the rig: one operator
+    // switching to Greek used to switch every other client and every control
+    // surface with them. Each WebSocket connection now carries its own, and
+    // this is only the value it starts from — the Server tier of the override
+    // chain, with the User tier above it.
+    //
+    // Deliberately does NOT broadcast. Who should hear about a change to the
+    // default depends on which sessions have overridden it, and the sessions
+    // live in the control server; fanning out from here could only be
+    // all-or-nothing. See POST /api/ui/locale.
+    std::string default_ui_locale() const;
+    void set_default_ui_locale(const std::string& code);
 
     // Install a callback invoked whenever any of the above changes. Called
     // with a complete doc_patch payload, with no ProjectState lock held. The
@@ -874,7 +888,8 @@ private:
     // guarded by mutex_.
     std::string selected_item_uuid_;
     bool        show_mode_ = false;
-    std::string ui_locale_ = "en";
+    // The installation default, not the locale. See default_ui_locale().
+    std::string default_ui_locale_ = "en";
 
     // Trigger ordering: every play_item() stamps the item with the next value
     // of trigger_seq_counter_, so control surfaces can tell which of several
