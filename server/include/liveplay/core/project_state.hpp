@@ -307,6 +307,9 @@ struct BusMigrationSummary {
     // settings.previewDevice was moved onto the preview bus's output (D28).
     // A count, for symmetry with the other tallies: 0 or 1.
     int  preview_device_migrated = 0;
+    // settings.ltcDevice became settings.ltcOutput (D38) — the last device
+    // name a portable document carried. 0 or 1, like previewDevice.
+    int  ltc_device_migrated = 0;
     // The role migration did something (D34/D35): a busSchema < 2 document's
     // Main/Monitor became the master/preview holders, a Master-kind output
     // was rewritten, or a document lacking a role holder had one promoted or
@@ -315,7 +318,8 @@ struct BusMigrationSummary {
 
     bool any() const {
         return items_to_main > 0 || buses_from_device_override > 0 ||
-               main_output_migrated || preview_device_migrated > 0 || roles_migrated;
+               main_output_migrated || preview_device_migrated > 0 ||
+               ltc_device_migrated > 0 || roles_migrated;
     }
     json to_json() const {
         return json{
@@ -323,6 +327,7 @@ struct BusMigrationSummary {
             {"busesFromDeviceOverride", buses_from_device_override},
             {"mainOutputMigrated",      main_output_migrated},
             {"previewDeviceMigrated",   preview_device_migrated},
+            {"ltcDeviceMigrated",       ltc_device_migrated},
             {"rolesMigrated",           roles_migrated},
         };
     }
@@ -606,11 +611,17 @@ public:
     // Engine cue ID for the active preview, or an empty CueId if none.
     audio::CueId current_preview_cue_id() const;
 
-    // Route every LTC-enabled cue's synthetic LTC source channel to the
-    // project's configured ltcDevice mixer. Safe to call at any time without
-    // holding mutex_ — it acquires the lock internally as needed and delegates
-    // engine operations to independently-locked engine APIs.
-    void apply_ltc_device_routing();
+    // Route every LTC-enabled cue's synthetic LTC source channel to whatever
+    // this machine binds settings.ltcOutput to. Safe to call at any time
+    // without holding mutex_ — it acquires the lock internally as needed and
+    // delegates engine operations to independently-locked engine APIs.
+    //
+    // The name is a LOGICAL OUTPUT, resolved exactly like a bus's (D38): the
+    // output map wins, an unmapped name is a device name only if that device
+    // is present, and otherwise timecode is silent. The default device is
+    // never substituted — see apply_ltc_output_routing() for why the house is
+    // the one place LTC must not appear.
+    void apply_ltc_output_routing();
 
     // Re-route all cues that have no per-item deviceOverride to the project's
     // configured defaultOutputDevice mixer. Called when defaultOutputDevice
@@ -893,6 +904,37 @@ private:
         audio::MasterChannelIndex  master_r;
     };
     std::unordered_map<std::string, DeviceRouting> device_routings_;
+
+    // Where timecode goes. Its own record rather than an entry in
+    // device_routings_, because that map is keyed by DEVICE name while
+    // settings.ltcOutput is a LOGICAL one: the two namespaces can collide on
+    // the same string and mean different hardware channels (an override named
+    // "MOTU 8A" is that card's 0/1; an output map entry of the same name can
+    // be its 6/7), and sharing one row would silently hand LTC the other's
+    // wiring. `wired` is what the name resolved to when the routing was built,
+    // so a re-resolve that lands in the same place leaves a running feed
+    // alone — the same no-churn rule rewire_buses_for_output_map() applies.
+    struct LtcRouting {
+        std::string                    output_name;   // the logical name
+        std::vector<OutputMap::Channel> wired;        // what it resolved to
+        audio::DeviceId                device;
+        audio::MixerChannelId          mixer;
+        audio::MasterChannelIndex      master_l = 0;
+        audio::MasterChannelIndex      master_r = 0;
+        bool                           active = false;
+    };
+    LtcRouting ltc_routing_;
+
+    // Tear the LTC feed down and hand its master pair back. Caller holds
+    // mutex_ — engine calls are independently locked.
+    void release_ltc_routing_locked();
+
+    // Make ltc_routing_ describe where `output_name` goes on this machine and
+    // return the strip timecode should be sent to, or an empty id when the
+    // name resolves to nothing (which is the answer for an unmapped output
+    // naming hardware this venue does not have). Re-resolving to the same
+    // channels leaves the running feed untouched. Caller must NOT hold mutex_.
+    audio::MixerChannelId ensure_ltc_routing(const std::string& output_name);
 
     // ---- Buses -----------------------------------------------------------
     // Definitions as loaded from the document, in display order, and the

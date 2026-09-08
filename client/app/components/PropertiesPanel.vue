@@ -148,21 +148,21 @@
         <div
           v-if="selectedItem.type === 'audio' && audioItem"
           class="property-field"
-          :class="{ 'field-disabled': !ltcDeviceConfigured }"
+          :class="{ 'field-disabled': !ltcOutputConfigured }"
         >
           <label class="ltc-checkbox-label">
             <input
               type="checkbox"
-              :checked="(audioItem.ltcEnabled ?? false) && ltcDeviceConfigured"
-              :disabled="!ltcDeviceConfigured"
+              :checked="(audioItem.ltcEnabled ?? false) && ltcOutputConfigured"
+              :disabled="!ltcOutputConfigured"
               @change="onLtcEnabledChange"
             />
             {{ t('properties.ltcOutputTimecode') }}
           </label>
           <p class="property-help">
-            {{ ltcDeviceConfigured
+            {{ ltcOutputConfigured
                 ? t('properties.ltcOutputTimecodeHelp')
-                : (t('properties.ltcRequiresDevice') || 'Select an LTC output device in Project Settings to enable timecode output.') }}
+                : (t('properties.ltcRequiresOutput') || 'Choose an LTC output in Settings > Audio to enable timecode output.') }}
           </p>
         </div>
 
@@ -315,13 +315,19 @@ const { levels: outputTargetLevels } = useOutputTarget();
 
 const audioItem = computed(() => selectedItem.value as AudioItem);
 
-// LTC output is only meaningful when a project-wide LTC device is configured.
+// LTC output is only meaningful when the project names an output for it.
 // The checkbox stays disabled until then to prevent users from "enabling"
 // timecode that has nowhere to go (which is the most common LTC-silent
 // support report we get).
-const ltcDeviceConfigured = computed(() => {
-  const dev = (currentProject.value as any)?.settings?.ltcDevice;
-  return typeof dev === 'string' && dev.length > 0;
+//
+// It asks whether the show has NAMED an output, not whether this machine can
+// currently reach it: a travelling show keeps its timecode configuration at a
+// venue that cannot deliver it, and greying the cue's checkbox there would
+// look like the setting had been lost. Settings > Audio is where an
+// unreachable output is reported.
+const ltcOutputConfigured = computed(() => {
+  const out = (currentProject.value as any)?.settings?.ltcOutput;
+  return typeof out === 'string' && out.length > 0;
 });
 
 // Available output devices (for the per-item Output tab). Pulled from the

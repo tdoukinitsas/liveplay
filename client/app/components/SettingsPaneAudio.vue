@@ -18,18 +18,35 @@
       </div>
     </section>
 
-    <!-- LTC device (timecode output). Still a device name in the document
-         (D21) — the one that has not moved to a logical output yet. -->
+    <!-- LTC output (timecode). A logical output name like any bus target
+         (D38): the show says where its timecode goes, the machine's output
+         map says what that means here. Picking a device names it directly,
+         which works on this machine and is the thing to replace with a mapped
+         name before the show travels. -->
     <section class="settings-field">
       <label class="settings-label">
         <span class="material-symbols-rounded">schedule</span>
-        {{ t('settings.ltcDevice') }}
+        {{ t('settings.ltcOutput') }}
       </label>
-      <select class="settings-select" :value="ltcDeviceId" @change="onLtcDeviceChange">
+      <select class="settings-select" :value="ltcOutput" @change="onLtcOutputChange">
         <option value="">{{ t('settings.noneSelected') }}</option>
-        <option v-for="d in devices" :key="d.name" :value="d.name">{{ d.name }}</option>
+        <optgroup v-if="outputNames.length" :label="t('settings.ltcOutputGroupOutputs')">
+          <option v-for="n in outputNames" :key="`o:${n}`" :value="n">{{ n }}</option>
+        </optgroup>
+        <optgroup v-if="devices.length" :label="t('settings.ltcOutputGroupDevices')">
+          <option v-for="d in devices" :key="`d:${d.name}`" :value="d.name">{{ d.name }}</option>
+        </optgroup>
+        <!-- What the project asks for, when this machine offers neither a
+             mapping nor the hardware. Kept on the list so simply opening the
+             settings page cannot quietly repoint someone else's show. -->
+        <optgroup v-if="ltcOutputMissing" :label="t('settings.ltcOutputGroupUnavailable')">
+          <option :value="ltcOutput">{{ ltcOutput }}</option>
+        </optgroup>
       </select>
-      <p class="settings-help">{{ t('settings.ltcDeviceHelp') }}</p>
+      <p class="settings-help">
+        {{ ltcOutputMissing ? t('settings.ltcOutputUnavailableHelp', { name: ltcOutput })
+                            : t('settings.ltcOutputHelp') }}
+      </p>
     </section>
 
     <section class="settings-field">
@@ -98,21 +115,40 @@ const { close } = useSettingsPage();
 
 const devices = computed(() => server.devices ?? []);
 
-const ltcDeviceId = computed(() => settings.value.ltcDevice || '');
+// The machine's logical outputs, built-ins included — the portable half of
+// the LTC picker. Fetched rather than watched: the output map only changes
+// from the Hardware Outputs pane, and this list is re-read on mount.
+const outputNames = ref<string[]>([]);
+
+const ltcOutput = computed(() => settings.value.ltcOutput || '');
+// The project names an output this machine can neither map nor match to
+// present hardware, so timecode is silent until one of those is true.
+const ltcOutputMissing = computed(() =>
+  !!ltcOutput.value &&
+  !outputNames.value.includes(ltcOutput.value) &&
+  !devices.value.some(d => d.name === ltcOutput.value));
 const outputTarget = computed(() => settings.value.outputTarget || 'ebu-r128');
 const disableLimiter = computed(() => !!settings.value.disableLimiter);
 const { meterMode: currentMeterMode } = useOutputTarget();
 const meterMode = computed(() => settings.value.meterMode || currentMeterMode.value);
 const meterBallistics = computed(() => settings.value.meterBallistics || 'digital-ppm');
 
-// The device list backs the LTC select, so make sure it is loaded whenever
-// this pane is shown rather than only at app start.
+// Both lists back the LTC select, so load them whenever this pane is shown
+// rather than only at app start.
 onMounted(async () => {
   try { await server.fetchDevices(); } catch { /* connection may not be ready yet */ }
+  try {
+    const map = await server.fetchOutputs();
+    const named = (map?.outputs ?? []).map(o => o.name);
+    // Built-ins first, matching the order the strip's output picker uses, and
+    // without repeating a built-in that also has a real mapping.
+    const builtin = (map?.builtin ?? []).filter(n => !named.includes(n));
+    outputNames.value = [...builtin, ...named];
+  } catch { /* an unreachable server just leaves the device list */ }
 });
 
-function onLtcDeviceChange(e: Event) {
-  applyPatch({ ltcDevice: (e.target as HTMLSelectElement).value || null });
+function onLtcOutputChange(e: Event) {
+  applyPatch({ ltcOutput: (e.target as HTMLSelectElement).value || null });
 }
 function onOutputTargetChange(e: Event) {
   applyPatch({ outputTarget: (e.target as HTMLSelectElement).value });

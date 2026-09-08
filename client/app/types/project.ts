@@ -50,7 +50,7 @@ export interface AudioItem extends BaseItem {
   startNextTime?: number;     // absolute seconds within the file
   startNextFadeOut?: boolean; // also begin this item's fade-out at the marker
   // LTC (SMPTE Linear Timecode) output for this cue.
-  ltcEnabled?: boolean;         // output LTC on the project's ltcDevice when playing
+  ltcEnabled?: boolean;         // output LTC on the project's ltcOutput when playing
   ltcStartTimecode?: string;    // starting timecode "HH:MM:SS:FF" (default "00:00:00:00")
   ltcFrameRate?: number;        // 0=24, 1=25, 2=29.97NDF, 3=29.97DF, 4=30 (default 4)
 }
@@ -355,7 +355,11 @@ export interface Bus {
 export interface ProjectSettings {
   defaultOutputDevice?: string | null;
   previewDevice?: string | null;
-  ltcDevice?: string | null;
+  // Where this show's timecode goes, as a LOGICAL output name — the same
+  // vocabulary a bus target uses, bound to hardware by the machine's output
+  // map (D38). `ltcDevice` was its predecessor and named a sound card; the
+  // server migrates it on load and erases it, so it never appears here.
+  ltcOutput?: string | null;
   outputTarget?: string;
   outputTargetLevels?: Record<string, unknown>;
   meterMode?: string;

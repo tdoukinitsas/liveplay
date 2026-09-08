@@ -411,10 +411,11 @@ struct SettingSpec {
 static const std::unordered_map<std::string, SettingSpec>& settings_registry() {
     static const std::unordered_map<std::string, SettingSpec> kRegistry = {
         // --- Audio / metering -------------------------------------------
-        // The one device name left in a portable document (D21). Splitting
-        // it is tracked separately; it stays accepted here so the existing
-        // LTC feature does not regress.
-        {"ltcDevice",                     {SettingKind::StringOrNull}},
+        // Where this show's timecode goes, as a LOGICAL output name — the
+        // same vocabulary a bus uses, bound to hardware by the machine's
+        // output map (D38). It replaced ltcDevice, which named a sound card
+        // in a document meant to travel.
+        {"ltcOutput",                     {SettingKind::StringOrNull}},
         {"outputTarget",                  {SettingKind::Enum, 0, 0,
                                            {"ebu-r128", "streaming", "radio", "netflix", "live"}}},
         {"meterMode",                     {SettingKind::Enum, 0, 0,
@@ -444,11 +445,15 @@ static const std::unordered_map<std::string, SettingSpec>& settings_registry() {
         {"indexDisplayStart",             {SettingKind::Integer, 0.0, 1'000'000.0}},
 
         // --- Legacy, still honoured on the way in ------------------------
-        // Both migrate onto buses at load and are erased from the document
-        // there. They stay registered so a pre-2.5 client patching one is
-        // handled by the migration rather than silently dropped.
+        // All three migrate at load and are erased from the document there —
+        // the first two onto buses, ltcDevice onto ltcOutput. They stay
+        // registered so a pre-2.5 client patching one is handled by the
+        // migration rather than silently dropped; patch_settings() rewrites
+        // ltcDevice to ltcOutput on the way in, so the live key keeps exactly
+        // one writer.
         {"defaultOutputDevice",           {SettingKind::StringOrNull}},
         {"previewDevice",                 {SettingKind::StringOrNull}},
+        {"ltcDevice",                     {SettingKind::StringOrNull}},
 
         // --- Derived ------------------------------------------------------
         // compute_output_target_levels() owns this. full_document() injects a
@@ -798,10 +803,10 @@ void ProjectState::loader_loop() {
             }
 
             if (publish) {
-                // Routing needs no ProjectState lock; apply_ltc_device_routing()
+                // Routing needs no ProjectState lock; apply_ltc_output_routing()
                 // takes mutex_ itself, so it must run unlocked.
                 engine_.ensure_default_routing();
-                apply_ltc_device_routing();
+                apply_ltc_output_routing();
                 if (is_cart) {
                     if (auto* pi = engine_.find_cue(req.cue_id)) pi->prime();
                 }
@@ -868,10 +873,11 @@ void ProjectState::start_async_mirror() {
             // Phase 1: snapshot what we need to load under a brief lock.
             std::unordered_map<std::string, std::filesystem::path> wanted;
             std::unordered_set<std::string> cart_uuids;
-            // LTC: per-item settings snapshotted here, device opened between Phase 2/3.
+            // LTC: per-item settings snapshotted here, the output resolved and
+            // its feed opened between Phase 2/3.
             struct LtcItemSnap { bool enabled; std::string timecode; int fps_index; };
             std::unordered_map<std::string, LtcItemSnap> ltc_snaps;
-            std::string ltc_device_name;
+            std::string ltc_output_name;
             std::unordered_map<std::string, std::filesystem::path> actually_wanted;
             {
                 std::lock_guard lock{mutex_};
@@ -900,11 +906,12 @@ void ProjectState::start_async_mirror() {
                         }
                     }
                 }
-                // Snapshot the project-level LTC output device name.
+                // Snapshot the project-level LTC output name (D38: logical, not
+                // a device — the machine's output map says what it means here).
                 if (doc.contains("settings") && doc["settings"].is_object()) {
                     const auto& s = doc["settings"];
-                    if (s.contains("ltcDevice") && s["ltcDevice"].is_string())
-                        ltc_device_name = s["ltcDevice"].get<std::string>();
+                    if (s.contains("ltcOutput") && s["ltcOutput"].is_string())
+                        ltc_output_name = s["ltcOutput"].get<std::string>();
                 }
 
                 // Unload missing cues
@@ -962,16 +969,15 @@ void ProjectState::start_async_mirror() {
             }
             while (!in_flight.empty()) drain_one();
 
-            // Phase 2.5: ensure the LTC output device is open and has a mixer
-            // allocated BEFORE we take the mutex again in Phase 3. Doing it here
-            // (no lock held) avoids a deadlock because ensure_device_routing()
-            // acquires mutex_ internally.
+            // Phase 2.5: resolve the LTC output and open its feed BEFORE we take
+            // the mutex again in Phase 3. Doing it here (no lock held) avoids a
+            // deadlock, because ensure_ltc_routing() acquires mutex_ internally.
             {
                 bool any_ltc_enabled = false;
                 for (auto& [_, ls] : ltc_snaps)
                     if (ls.enabled) { any_ltc_enabled = true; break; }
-                if (any_ltc_enabled && !ltc_device_name.empty())
-                    ensure_device_routing(ltc_device_name);
+                if (any_ltc_enabled && !ltc_output_name.empty())
+                    ensure_ltc_routing(ltc_output_name);
             }
 
             // Phase 3: register results + metadata under lock. Cheap because
@@ -1030,8 +1036,8 @@ void ProjectState::start_async_mirror() {
                         }
 
                         // LTC: configure on the PlaybackItem and route its
-                        // synthetic channel to the LTC device mixer (which was
-                        // opened in Phase 2.5 and is now in device_routings_).
+                        // synthetic channel to the LTC strip (which Phase 2.5
+                        // opened, and which ltc_routing_ now describes).
                         auto ls_it = ltc_snaps.find(uuid);
                         if (ls_it != ltc_snaps.end() && ls_it->second.enabled) {
                             const auto& ls = ls_it->second;
@@ -1047,15 +1053,15 @@ void ProjectState::start_async_mirror() {
                                 cm_it->second.ltc_offset_ns         = offset;
                                 cm_it->second.ltc_start_timecode    = ls.timecode;
                             }
-                            // Route the LTC synthetic channel to the LTC device mixer.
-                            if (!ltc_device_name.empty()) {
-                                auto dr_it = device_routings_.find(ltc_device_name);
-                                if (dr_it != device_routings_.end()) {
-                                    const auto ltc_ch = static_cast<audio::ChannelIndex>(
-                                        cue->source_channel_count() - 1);
-                                    engine_.route_item_source_to_mixer(
-                                        cit->second, ltc_ch, dr_it->second.mixer, 0.0f);
-                                }
+                            // Route the LTC synthetic channel to the LTC strip.
+                            // Inactive means the output resolved to nothing, so
+                            // there is nowhere to send timecode and the cue
+                            // simply plays without it.
+                            if (ltc_routing_.active) {
+                                const auto ltc_ch = static_cast<audio::ChannelIndex>(
+                                    cue->source_channel_count() - 1);
+                                engine_.route_item_source_to_mixer(
+                                    cit->second, ltc_ch, ltc_routing_.mixer, 0.0f);
                             }
                         }
                     });
@@ -1246,6 +1252,8 @@ void ProjectState::reset() {
     item_uuid_to_cue_.clear();
     primed_cues_.clear();
     release_device_routings_locked();
+    // The LTC feed goes too, but materialise_buses() below is what does it —
+    // it owns the master-pair rewind, and the feed holds one of those pairs.
     // The outgoing project's strips are NOT torn down here: materialise_buses()
     // below does that, outside the lock, as it does on every load — and
     // creates the default desk in their place.
@@ -1288,12 +1296,13 @@ json ProjectState::default_empty_document() {
         {"playbackKeys",  json::object()},
         {"cartOnlyItems", json::array()},
         {"theme",         json{{"mode", "dark"}, {"accentColor", "#DA1E28"}}},
-        // No defaultOutputDevice or previewDevice: where audio goes is the
-        // master bus's output, pre-listen goes to the preview bus, and the
-        // binding from a logical output to hardware belongs to the machine,
-        // not the show. ltcDevice is still a device name (D21).
+        // No device names at all: where audio goes is the master bus's
+        // output, pre-listen goes to the preview bus, timecode goes to
+        // ltcOutput, and the binding from a logical output to hardware
+        // belongs to the machine, not the show. D21's last exception closed
+        // with D38.
         {"settings",      json{
-            {"ltcDevice",           nullptr},
+            {"ltcOutput",           nullptr},
         }},
         {"createdAt",     ""},
         {"lastModified",  ""},
@@ -1496,9 +1505,9 @@ void ProjectState::mirror_items_to_engine_locked() {
     }
 
     // Apply per-item audio properties (gain/fade/in-out/LTC/etc.) to the engine.
-    // NOTE: LTC *device routing* is handled separately in apply_ltc_device_routing()
+    // NOTE: LTC *output routing* is handled separately in apply_ltc_output_routing()
     // which is called by callers after they release mutex_ (because
-    // ensure_device_routing() also needs to acquire mutex_).
+    // ensure_ltc_routing() also needs to acquire mutex_).
     for_each_item(document_,
         [&](json& item, const std::string& /*parent*/) {
             if (item.value("type", std::string{}) != "audio") return;
@@ -1561,8 +1570,8 @@ void ProjectState::apply_item_properties_locked(const json& item,
     }
 
     // LTC: configure enabled/rate/offset on the PlaybackItem.
-    // Routing of the synthetic LTC channel to the ltcDevice is done by the
-    // caller after it releases mutex_ (via apply_ltc_device_routing()).
+    // Routing of the synthetic LTC channel to the ltcOutput is done by the
+    // caller after it releases mutex_ (via apply_ltc_output_routing()).
     const bool ltc_on = item.value("ltcEnabled", false);
     const std::string tc_str = item.value("ltcStartTimecode",
                                            std::string{"00:00:00:00"});
@@ -1695,22 +1704,26 @@ void ProjectState::set_cue_ltc(const audio::CueId& id, bool enabled, int fps_ind
 }
 
 // ---------------------------------------------------------------------------
-// LTC device routing — called from outside the mutex so ensure_device_routing
-// (which acquires the mutex itself) can safely do its work.
+// LTC output routing (D38)
+//
+// Timecode goes to a LOGICAL output, resolved by exactly the rule every bus
+// uses: the output map wins; an unmapped name is a device name only if that
+// device is actually present; otherwise nothing. Called from outside the mutex
+// so ensure_ltc_routing (which acquires it) can safely do its work.
 // ---------------------------------------------------------------------------
-void ProjectState::apply_ltc_device_routing() {
-    // 1. Under a brief lock, gather: the configured LTC device name and the
+void ProjectState::apply_ltc_output_routing() {
+    // 1. Under a brief lock, gather: the configured LTC output name and the
     //    list of LTC-enabled cues with their LTC channel index.
-    std::string ltc_device;
+    std::string ltc_output;
     std::vector<std::pair<audio::CueId, audio::ChannelIndex>> ltc_routes;
     {
         std::lock_guard lock{mutex_};
         if (document_.contains("settings") && document_["settings"].is_object()) {
             const auto& s = document_["settings"];
-            if (s.contains("ltcDevice") && s["ltcDevice"].is_string())
-                ltc_device = s["ltcDevice"].get<std::string>();
+            if (s.contains("ltcOutput") && s["ltcOutput"].is_string())
+                ltc_output = s["ltcOutput"].get<std::string>();
         }
-        if (!ltc_device.empty()) {
+        if (!ltc_output.empty()) {
             for (auto& [uuid, cue_id] : item_uuid_to_cue_) {
                 auto* pi = engine_.find_cue(cue_id);
                 if (!pi || !pi->desc().ltc_enabled) continue;
@@ -1722,24 +1735,151 @@ void ProjectState::apply_ltc_device_routing() {
         }
     }
 
-    if (ltc_device.empty() || ltc_routes.empty()) return;
+    // The output going away (or emptying) has to take the feed with it, or a
+    // show that switches timecode off keeps a strip assigned to the interface
+    // and keeps sending to it. Done before the early return for that reason.
+    if (ltc_output.empty()) {
+        std::lock_guard lock{mutex_};
+        release_ltc_routing_locked();
+        return;
+    }
+    if (ltc_routes.empty()) return;
 
-    // 2. Ensure the LTC device is open and has a mixer (acquires/releases mutex
-    //    internally — safe because we're not holding mutex_ here).
-    const auto ltc_mixer = ensure_device_routing(ltc_device);
+    // 2. Resolve the name and make sure the feed exists (acquires/releases
+    //    mutex_ internally — safe because we're not holding it here).
+    const auto ltc_mixer = ensure_ltc_routing(ltc_output);
     if (ltc_mixer.empty()) return;
 
-    // 3. Route each LTC channel to the LTC device mixer (engine ops; no mutex
+    // 3. Route each LTC channel to the LTC strip (engine ops; no mutex
     //    needed — the engine has its own independent synchronisation).
     for (auto& [cue_id, ltc_ch] : ltc_routes)
         engine_.route_item_source_to_mixer(cue_id, ltc_ch, ltc_mixer, 0.0f);
+}
+
+audio::MixerChannelId ProjectState::ensure_ltc_routing(const std::string& output_name) {
+    if (output_name.empty()) {
+        std::lock_guard lock{mutex_};
+        release_ltc_routing_locked();
+        return {};
+    }
+
+    // What this machine says the name means. `false` withholds the default
+    // device deliberately, and it is the whole point of the unit: Main Out
+    // unmapped IS the default device, and the default device is the house.
+    // Timecode in the house is a squeal over the programme — the same class of
+    // accident as PFL in the house, which is why the preview bus passes false
+    // too. An LTC output this venue cannot provide is silent.
+    const auto channels = resolve_output_channels(output_name, false);
+
+    {
+        std::lock_guard lock{mutex_};
+        if (channels.empty()) {
+            if (ltc_routing_.active) {
+                Logger::warn("LTC output '{}' is no longer available on this machine — "
+                             "timecode is silent", output_name);
+            } else {
+                Logger::warn("LTC output '{}' is not in the output map and names no "
+                             "present device, so timecode is silent — map it, or point "
+                             "settings.ltcOutput somewhere else", output_name);
+            }
+            release_ltc_routing_locked();
+            return {};
+        }
+        // Already wired exactly here: leave it alone. Tearing a running feed
+        // down and rebuilding it would gap the timecode a receiver is locked
+        // to, and every save re-materialises the desk.
+        if (ltc_routing_.active && ltc_routing_.output_name == output_name &&
+            ltc_routing_.wired.size() == channels.size() &&
+            std::equal(ltc_routing_.wired.begin(), ltc_routing_.wired.end(),
+                       channels.begin(),
+                       [](const OutputMap::Channel& a, const OutputMap::Channel& b) {
+                           return a.device == b.device && a.hw_channel == b.hw_channel;
+                       })) {
+            return ltc_routing_.mixer;
+        }
+        // Anything else — a different name, or the same name now meaning
+        // different hardware — is a move, so the old feed goes first.
+        release_ltc_routing_locked();
+    }
+
+    // Open the device and build the strip with the lock released: every engine
+    // API takes its own, and ensure_device_routing's ordering lesson applies
+    // here too — create the strip before reserving the pair, so a refused
+    // strip costs nothing to unwind.
+    const auto dev = engine_.open_device_by_name(channels.front().device, 2);
+    if (dev.empty()) {
+        Logger::warn("LTC output '{}': could not open device '{}'; timecode is silent",
+                     output_name, channels.front().device);
+        return {};
+    }
+    const auto mixer = engine_.create_mixer_channel("LTC: " + output_name);
+    if (mixer.empty()) {
+        Logger::error("LTC output '{}': no mixer strip available; timecode is silent",
+                      output_name);
+        return {};
+    }
+
+    audio::MasterChannelIndex master_l = 0;
+    audio::MasterChannelIndex master_r = 0;
+    bool exhausted = false;
+    {
+        std::lock_guard lock{mutex_};
+        if (!allocate_master_pair_locked(master_l, master_r)) {
+            Logger::error("LTC output '{}': out of master channels (next={}, bus_width={}); "
+                          "timecode is silent", output_name, next_override_master_,
+                          engine_.config().master_channels);
+            exhausted = true;   // unwound outside the lock, as the engine takes its own
+        }
+    }
+    if (exhausted) {
+        engine_.remove_mixer_channel(mixer);
+        return {};
+    }
+
+    // Assign each master lane to the hardware channel the map named. A
+    // one-channel mapping is honoured as one channel: a dedicated mono
+    // timecode feed is the normal way an interface carries LTC, and putting it
+    // on a second output the map did not ask for would waste a channel that
+    // may well be carrying programme.
+    engine_.assign_master_to_device(master_l, dev, channels[0].hw_channel);
+    engine_.route_mixer_to_master(mixer, master_l, 0.0f, 0);
+    if (channels.size() > 1) {
+        engine_.assign_master_to_device(master_r, dev, channels[1].hw_channel);
+        engine_.route_mixer_to_master(mixer, master_r, 0.0f, 1);
+    }
+
+    {
+        std::lock_guard lock{mutex_};
+        ltc_routing_ = LtcRouting{output_name, channels, dev, mixer,
+                                  master_l, master_r, true};
+    }
+    Logger::info("LTC output '{}' → strip '{}' on device '{}' channel(s) {}{}",
+                 output_name, mixer.value, channels.front().device,
+                 channels[0].hw_channel,
+                 channels.size() > 1 ? "/" + std::to_string(channels[1].hw_channel) : "");
+    return mixer;
+}
+
+void ProjectState::release_ltc_routing_locked() {
+    if (!ltc_routing_.active) return;
+    // remove_mixer_channel() drops the strip's mixer->master sends and any
+    // item->mixer sends aimed at it, so only the master->device assignments
+    // need clearing explicitly — the same contract release_device_routings_-
+    // locked() relies on.
+    engine_.remove_mixer_channel(ltc_routing_.mixer);
+    engine_.clear_master_assignment(ltc_routing_.master_l);
+    if (ltc_routing_.wired.size() > 1)
+        engine_.clear_master_assignment(ltc_routing_.master_r);
+    release_master_pair_locked(ltc_routing_.master_l);
+    Logger::debug("released the LTC feed for output '{}'", ltc_routing_.output_name);
+    ltc_routing_ = LtcRouting{};
 }
 
 // ---------------------------------------------------------------------------
 // Default output device routing — re-route all cues that have no per-item
 // deviceOverride to the newly selected defaultOutputDevice. Called from
 // patch_settings() whenever that key changes. Pattern mirrors
-// apply_ltc_device_routing(): gather data under lock, then do engine ops
+// apply_ltc_output_routing(): gather data under lock, then do engine ops
 // outside the lock so ensure_device_routing() can safely acquire mutex_.
 // ---------------------------------------------------------------------------
 void ProjectState::apply_default_device_routing() {
@@ -1776,9 +1916,9 @@ void ProjectState::apply_default_device_routing() {
         route_cue_to_mixer(cue_id, mixer);
 
     // route_cue_to_mixer() clears every source route (incl. the LTC synthetic
-    // channel), so re-establish LTC device routing for any LTC-enabled cues we
+    // channel), so re-establish LTC output routing for any LTC-enabled cues we
     // just re-pinned to the default device.
-    apply_ltc_device_routing();
+    apply_ltc_output_routing();
 
     Logger::info("apply_default_device_routing: routed {} cue(s) to '{}'",
                  non_override_cues.size(), device_name);
@@ -2113,7 +2253,7 @@ bool ProjectState::replace_full_document(const json& doc) {
             // onto the master bus and erases it, so re-injecting it here would
             // resurrect the field the migration exists to remove.
             document_["settings"] = json{
-                {"ltcDevice",           nullptr},
+                {"ltcOutput",           nullptr},
             };
         }
         if (!document_.contains("theme")) {
@@ -2175,8 +2315,8 @@ bool ProjectState::replace_full_document(const json& doc) {
     // decode for large projects. start_async_mirror() takes mutex_ itself,
     // so it must run after the lock above is released.
     start_async_mirror();
-    // Route LTC channels to the LTC device (also acquires mutex_ internally).
-    apply_ltc_device_routing();
+    // Route LTC channels to the LTC output (also acquires mutex_ internally).
+    apply_ltc_output_routing();
     return true;
 }
 
@@ -2291,10 +2431,10 @@ audio::CueId ProjectState::add_item(const json& item, const std::string& parent_
         auto it = item_uuid_to_cue_.find(uuid);
         if (it != item_uuid_to_cue_.end()) result = it->second;
     }
-    // Route any LTC-enabled items to the LTC device (after releasing mutex_).
+    // Route any LTC-enabled items to the LTC output (after releasing mutex_).
     // The loader repeats this once the decode lands — this call covers items
     // that were already loaded.
-    apply_ltc_device_routing();
+    apply_ltc_output_routing();
     return result;
 }
 
@@ -2522,9 +2662,9 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     }
 
     // Route (or re-route) the LTC channel after releasing mutex_ so
-    // ensure_device_routing() can safely acquire it.
+    // ensure_ltc_routing() can safely acquire it.
     if (touched && ltc_changed && rerouted.empty())
-        apply_ltc_device_routing();
+        apply_ltc_output_routing();
     return touched;
 }
 
@@ -2979,9 +3119,9 @@ bool ProjectState::play_item(const std::string& uuid,
         }
     }
 
-    // Re-establish LTC device routing after any audio routing changes above
-    // may have disrupted it (unrouting all channels clears LTC device routes).
-    apply_ltc_device_routing();
+    // Re-establish LTC output routing after any audio routing changes above
+    // may have disrupted it (unrouting all channels clears LTC routes too).
+    apply_ltc_output_routing();
 
     // Look up file duration for sequencer scheduling (from CueMeta).
     double file_duration = 0.0;
@@ -3851,7 +3991,7 @@ void ProjectState::reroute_items_to_buses(const std::vector<std::string>& item_u
     // synthetic LTC channel included, so timecode has to be re-established or
     // re-assigning the bus of an LTC-enabled cue would silently kill its
     // output. Same call play_item makes straight after routing.
-    if (!moves.empty()) apply_ltc_device_routing();
+    if (!moves.empty()) apply_ltc_output_routing();
 }
 
 void ProjectState::route_cue_to_mixer(const audio::CueId& cue,
@@ -3860,8 +4000,8 @@ void ProjectState::route_cue_to_mixer(const audio::CueId& cue,
     if (!pi) return;
     const auto src_count = pi->source_channel_count();
     // The LTC synthetic channel is always the LAST source channel — it must
-    // never feed the audible mixer (it gets its own device routing from
-    // apply_ltc_device_routing()). Only the real audio channels route here.
+    // never feed the audible mixer (it gets its own output routing from
+    // apply_ltc_output_routing()). Only the real audio channels route here.
     const audio::ChannelCount audio_count =
         (pi->desc().ltc_enabled && src_count > 0) ? src_count - 1 : src_count;
 
@@ -3871,7 +4011,7 @@ void ProjectState::route_cue_to_mixer(const audio::CueId& cue,
     // + device_routings_), so a cue pinned to a specific output device stayed
     // routed to Main → the platform-default device as well and played out of
     // both. (The LTC synthetic channel is re-established by the
-    // apply_ltc_device_routing() call that follows routing in play_item.)
+    // apply_ltc_output_routing() call that follows routing in play_item.)
     engine_.unroute_item_from_all_mixers(cue);
 
     if (audio_count == 1) {
@@ -4333,6 +4473,38 @@ void ProjectState::load_buses_locked() {
                     summary.preview_device_migrated = 1;
                     Logger::warn("migrated settings.previewDevice '{}' onto the preview bus", device);
                 }
+            }
+        }
+    }
+
+    // ---- settings.ltcDevice → settings.ltcOutput (D38) --------------------
+    // The last device name a portable document carried (D21's one deliberate
+    // exception). It becomes a LOGICAL output name, which is the same string
+    // it always was — so a machine that really has that interface keeps
+    // working with no operator action, because an unmapped name that names a
+    // present device still resolves to it. What changes is the machine that
+    // does NOT have it: timecode now goes nowhere instead of being handed to
+    // open_device_by_name(), which falls back to the DEFAULT device and put
+    // an LTC squeal into the house at every venue without the interface.
+    //
+    // An ltcOutput already in the document wins — the document has been here
+    // before, or an operator chose an output by name — and ltcDevice goes
+    // either way, so nothing reads it after load.
+    if (document_.contains("settings") && document_["settings"].is_object()) {
+        auto& settings = document_["settings"];
+        if (settings.contains("ltcDevice")) {
+            std::string device;
+            if (settings["ltcDevice"].is_string())
+                device = settings["ltcDevice"].get<std::string>();
+            settings.erase("ltcDevice");
+            const bool have_output =
+                settings.contains("ltcOutput") && settings["ltcOutput"].is_string() &&
+                !settings["ltcOutput"].get<std::string>().empty();
+            if (!device.empty() && !have_output) {
+                settings["ltcOutput"]      = device;
+                summary.ltc_device_migrated = 1;
+                Logger::warn("migrated settings.ltcDevice '{}' to settings.ltcOutput — "
+                             "map that name in the output map to make it portable", device);
             }
         }
     }
@@ -5091,6 +5263,15 @@ void ProjectState::materialise_buses() {
         // next direct-out bus has nowhere to go. Same leak §1.2 described for
         // device_routings_, and visible here as the pair index climbing by two
         // on every reload.
+        //
+        // The LTC feed holds a pair out of that same pool, so it has to come
+        // down BEFORE the rewind — otherwise the allocator hands its channels
+        // to a bus while timecode is still assigned to them, and the LTC
+        // squeal appears in that bus's output. Whoever asks for it next
+        // rebuilds it: every caller here is followed by an
+        // apply_ltc_output_routing(), or by the mirror's Phase 2.5, which is
+        // the same call under another name.
+        release_ltc_routing_locked();
         free_master_pairs_.clear();
         next_override_master_ = kFirstOverrideMaster;
     }
@@ -6117,7 +6298,7 @@ bool ProjectState::patch_settings(const json&               patch,
                                   std::vector<std::string>* dropped_out) {
     if (!patch.is_object()) return false;
     std::vector<std::string> dropped;
-    bool ltc_device_changed      = false;
+    bool ltc_output_changed      = false;
     bool default_device_changed  = false;
     bool output_target_changed   = false;
     bool limiter_toggle_changed  = false;
@@ -6134,33 +6315,47 @@ bool ProjectState::patch_settings(const json&               patch,
             document_["settings"] = json::object();
         }
         for (auto& [k, v] : patch.items()) {
+            // A pre-2.5 client (or a Companion button written against the old
+            // key) still patches ltcDevice. Land it on ltcOutput rather than
+            // storing a second copy: a device name IS a usable logical name,
+            // and two keys meaning the same thing is exactly the drift R1's
+            // one-writer-per-value rule exists to prevent (D38). The load-time
+            // migration handles the same field arriving inside a document.
+            std::string key = k;
+            if (key == "ltcDevice") {
+                key = "ltcOutput";
+                document_["settings"].erase("ltcDevice");
+                Logger::warn("settings patch: 'ltcDevice' is now 'ltcOutput' — "
+                             "applied as a logical output name");
+            }
+
             // Validate before anything else: a key that does not survive the
             // registry must not fire its side effect either, or a rejected
             // value would still be heard while never being stored.
             std::string why;
-            const auto  accepted = validate_setting(k, v, why);
+            const auto  accepted = validate_setting(key, v, why);
             if (!accepted) {
                 dropped.push_back(k);
                 Logger::warn("settings patch: dropped '{}' — {}", k, why);
                 continue;
             }
 
-            if (k == "ltcDevice")           ltc_device_changed     = true;
-            if (k == "defaultOutputDevice") default_device_changed = true;
-            if (k == "outputTarget")        output_target_changed  = true;
-            if (k == "disableLimiter") {
+            if (key == "ltcOutput")           ltc_output_changed     = true;
+            if (key == "defaultOutputDevice") default_device_changed = true;
+            if (key == "outputTarget")        output_target_changed  = true;
+            if (key == "disableLimiter") {
                 limiter_toggle_changed = true;
                 limiter_disabled       = accepted->get<bool>();
             }
-            if (k == "meterBallistics" || k == "meterBallisticsCustom") {
+            if (key == "meterBallistics" || key == "meterBallisticsCustom") {
                 ballistics_changed = true;
             }
             // meterMode selects the display unit; outputTarget changes the
             // default unit, so both can flip the effective mode.
-            if (k == "meterMode" || k == "outputTarget") {
+            if (key == "meterMode" || key == "outputTarget") {
                 meter_mode_changed = true;
             }
-            document_["settings"][k] = *accepted;
+            document_["settings"][key] = *accepted;
         }
         // outputTargetLevels is derived, so it is never stored — full_document()
         // injects a fresh copy on every read and the broadcast below is built
@@ -6181,8 +6376,8 @@ bool ProjectState::patch_settings(const json&               patch,
             meter_loudness  = mode == "LUFS";
         }
     }
-    // Re-apply device routing when device selections change mid-playback.
-    if (ltc_device_changed)     apply_ltc_device_routing();
+    // Re-apply routing when output / device selections change mid-playback.
+    if (ltc_output_changed)     apply_ltc_output_routing();
     if (default_device_changed) apply_default_device_routing();
     // Apply brickwall limiter ceiling for the chosen output platform.
     if (output_target_changed)  engine_.set_master_ceiling_db(new_ceiling_db);
@@ -6322,11 +6517,12 @@ bool ProjectState::load_from_json(const json& doc_in) {
             write_buses_to_document_locked();
             // Ensure required top-level keys exist (migrate older client saves).
             if (!document_.contains("settings") || !document_["settings"].is_object()) {
-                // Deliberately no defaultOutputDevice: load_buses_locked()
-                // above has just migrated that key onto the master bus and
-                // erased it. Writing it back would undo the migration.
+                // Deliberately no defaultOutputDevice and no ltcDevice:
+                // load_buses_locked() above has just migrated those onto the
+                // master bus and onto ltcOutput respectively, and erased them.
+                // Writing either back would undo the migration.
                 document_["settings"] = json{
-                    {"ltcDevice",           nullptr},
+                    {"ltcOutput",           nullptr},
                 };
             }
             if (!document_.contains("cartOnlyItems") ||
