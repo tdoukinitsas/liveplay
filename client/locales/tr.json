@@ -489,6 +489,22 @@
     "discard": "Kaydetme",
     "cancel": "İptal"
   },
+  "login": {
+    "title": "Oturum aç",
+    "message": "{url} adresindeki LivePlay sunucusu oturum açmanızı gerektiriyor.",
+    "setupTitle": "İlk hesabı oluştur",
+    "setupMessage": "Bu sunucuda henüz hesap yok. Oluşturduğunuz ilk hesap yönetici olur ve bundan sonra herkesin oturum açması gerekir.",
+    "name": "Kullanıcı adı",
+    "password": "Parola",
+    "confirmPassword": "Parolayı doğrula",
+    "setupNote": "En az {min} karakter. Güvenli bir yerde saklayın — bu parola kaybolursa geri dönmenin tek yolu sunucu makinesindeki users.json dosyasını silmektir.",
+    "passwordsDiffer": "İki parola eşleşmiyor.",
+    "signIn": "Oturum aç",
+    "createAccount": "Hesap oluştur",
+    "changeServer": "Sunucuyu değiştir",
+    "hint": "Hesabınız yoksa bu sunucuyu kuran kişiye sorun. Oturum açana kadar hiçbir şey çalmaz.",
+    "setupHint": "Bir hesap oluşturulana kadar bu sunucuya erişebilen herkes gösteriyi yönetebilir."
+  },
   "connectionLost": {
     "title": "Bağlantı kesildi",
     "message": "{url} adresindeki LivePlay sunucusuyla bağlantı kesildi.",

@@ -1,5 +1,10 @@
 <template>
   <div id="app" :data-theme="theme">
+    <!-- Outside the three window modes on purpose: every one of them opens its
+         own socket, so every one of them can be the window that finds the
+         server wants a login. Renders nothing until that happens. -->
+    <LoginScreen />
+
     <!-- Cart-window mode: standalone detached cart player -->
     <template v-if="isCartWindow">
       <div class="cart-window-root">

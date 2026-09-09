@@ -59,6 +59,11 @@ node server/tests/e2e/session-prefs-e2e.js 4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/fs-jail-e2e.js
 node server/tests/e2e/boot-config-e2e.js
 node server/tests/e2e/client-session-e2e.js
+
+# Owns users.json beside the binary for the duration (it has to create real
+# accounts), and moves any existing one aside and back. Also restarts the
+# server mid-run, to prove a token issued before the restart still works.
+node server/tests/e2e/auth-e2e.js
 ```
 
 What each one pins, in the bus-role model (round 2, D24–D36):
@@ -128,6 +133,27 @@ What each one pins, in the bus-role model (round 2, D24–D36):
   thinned to 1 Hz must still hear every `cue_state` edge. Bypassing that — thinning edges along
   with samples — leaves it with **zero** transport frames, so it never learns the cue played at
   all, while every meter-count assertion still passes.
+- `auth-e2e.js` — who may talk to this server, and what they may change (U3). Nearly every
+  assertion here is **negative**, because a refusal that silently does not happen looks exactly
+  like the feature working. It starts from the default posture — no `users.json`, everything open,
+  which is what every release before 2.5 did and what an upgrade must keep doing — then creates the
+  first account (possible with no credential, because there is nobody to be an administrator yet,
+  and forced to `admin` however it was asked for) and pins what changes.
+  Three claims carry the weight. **The socket is checked too**: Crow runs middleware for an upgrade
+  and then hands over the connection regardless of what the middleware did to the response, so
+  without the check in `.onaccept` the WebSocket — play, stop, bus gain, mute, selection — would be
+  reachable with no token while REST was locked. **Default deny**: a path matching no route needs a
+  token as well, so the route table cannot be mapped anonymously; bypassing that one line turns
+  eight assertions red at once. **Tokens survive a restart**, which is the whole reason they are
+  signed rather than remembered — the crash handler auto-restarts this server, and in-memory tokens
+  would sign every surface out mid-show. Also pins the role split (an operator is refused
+  `/api/outputs`, `/api/users` and `/api/clients` and allowed everything that runs the show),
+  that a wrong password and an unknown user give the *same* reply so accounts cannot be enumerated,
+  that an edited token is refused, that a password change or a deletion invalidates that user's
+  live tokens, and that the last administrator cannot be deleted.
+  Note when reading a red run: bypassing the socket check turns two assertions red, not one — the
+  second is `/api/clients` reporting the session as `user: null`, because the principal is attached
+  during the same handshake that authenticates it.
 - `client-session-e2e.js` note when reading a red run: bypassing the `onclose` erase does not
   merely leave a stale row —
   the broadcast thread then writes to freed connections and the server **crashes**, which takes

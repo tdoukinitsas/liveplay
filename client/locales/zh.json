@@ -489,6 +489,22 @@
     "discard": "不保存",
     "cancel": "取消"
   },
+  "login": {
+    "title": "登录",
+    "message": "{url} 上的 LivePlay 服务器需要登录。",
+    "setupTitle": "创建第一个账户",
+    "setupMessage": "此服务器尚无账户。您创建的第一个账户将是管理员，此后所有人都需要登录。",
+    "name": "用户名",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "setupNote": "至少 {min} 个字符。请妥善保管——若丢失此密码，唯一的补救办法是在服务器机器上删除 users.json。",
+    "passwordsDiffer": "两次输入的密码不一致。",
+    "signIn": "登录",
+    "createAccount": "创建账户",
+    "changeServer": "更换服务器",
+    "hint": "若您没有账户，请询问搭建此服务器的人。登录之前不会播放任何内容。",
+    "setupHint": "在账户建立之前，任何能连上此服务器的人都可以操控演出。"
+  },
   "connectionLost": {
     "title": "连接已断开",
     "message": "与 {url} 上的 LivePlay 服务器的连接已断开。",

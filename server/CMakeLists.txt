@@ -77,6 +77,17 @@ endif()
 find_path(MINIAUDIO_INCLUDE_DIR miniaudio.h REQUIRED)
 # miniz — used for .lpa (zip) packaging of project exports/imports.
 find_package(miniz CONFIG REQUIRED)
+# libsodium — password hashing (Argon2id) and token signing for the user store.
+# Nothing here rolls its own crypto: the point of the dependency is that the
+# primitives, the constant-time comparisons and the CSPRNG all come from one
+# audited library rather than from us.
+#
+# vcpkg has exported this under two different names across versions, so probe
+# for both — same pattern as TagLib below.
+find_package(unofficial-sodium CONFIG QUIET)
+if(NOT unofficial-sodium_FOUND)
+    find_package(sodium CONFIG REQUIRED)
+endif()
 
 # ---------------------------------------------------------------------------
 # miniaudio implementation translation unit
@@ -137,6 +148,7 @@ add_executable(liveplay-server
     # Milestone 3 — project state + control plane
     src/core/project_state.cpp
     src/core/output_map.cpp
+    src/core/user_store.cpp
     src/core/backup_manager.cpp
     src/net/control_server.cpp
     src/net/discovery.cpp
@@ -159,6 +171,13 @@ target_link_libraries(liveplay-server
         liveplay_miniaudio
         miniz::miniz
 )
+
+# Link libsodium under whichever target name vcpkg exposed.
+if(TARGET unofficial-sodium::sodium)
+    target_link_libraries(liveplay-server PRIVATE unofficial-sodium::sodium)
+elseif(TARGET sodium)
+    target_link_libraries(liveplay-server PRIVATE sodium)
+endif()
 
 # Link TagLib under whichever target name vcpkg exposed.
 if(TARGET TagLib::tag)

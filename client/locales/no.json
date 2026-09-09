@@ -489,6 +489,22 @@
     "discard": "Ikke lagre",
     "cancel": "Avbryt"
   },
+  "login": {
+    "title": "Logg inn",
+    "message": "LivePlay-serveren på {url} krever innlogging.",
+    "setupTitle": "Opprett den første kontoen",
+    "setupMessage": "Denne serveren har ingen kontoer ennå. Den første du oppretter blir administrator, og fra da av må alle logge inn.",
+    "name": "Brukernavn",
+    "password": "Passord",
+    "confirmPassword": "Bekreft passord",
+    "setupNote": "Minst {min} tegn. Oppbevar det trygt — mistes dette passordet, er eneste vei tilbake å slette users.json på servermaskinen.",
+    "passwordsDiffer": "De to passordene er ikke like.",
+    "signIn": "Logg inn",
+    "createAccount": "Opprett konto",
+    "changeServer": "Bytt server",
+    "hint": "Spør den som satte opp serveren dersom du ikke har en konto. Ingenting spilles av før du har logget inn.",
+    "setupHint": "Så lenge ingen konto finnes, kan hvem som helst som når denne serveren kjøre forestillingen."
+  },
   "connectionLost": {
     "title": "Tilkobling mistet",
     "message": "Tilkoblingen til LivePlay-serveren på {url} har gått tapt.",

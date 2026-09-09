@@ -489,6 +489,22 @@
     "discard": "Mos ruaj",
     "cancel": "Anulo"
   },
+  "login": {
+    "title": "Hyr",
+    "message": "Serveri LivePlay në {url} kërkon hyrje.",
+    "setupTitle": "Krijo llogarinë e parë",
+    "setupMessage": "Ky server ende nuk ka llogari. E para që krijoni do të jetë administratore dhe që nga ai çast të gjithë duhet të hyjnë.",
+    "name": "Emri i përdoruesit",
+    "password": "Fjalëkalimi",
+    "confirmPassword": "Konfirmo fjalëkalimin",
+    "setupNote": "Të paktën {min} shenja. Ruajeni në një vend të sigurt — nëse ky fjalëkalim humbet, e vetmja rrugë kthimi është fshirja e users.json në makinën e serverit.",
+    "passwordsDiffer": "Të dy fjalëkalimet nuk përputhen.",
+    "signIn": "Hyr",
+    "createAccount": "Krijo llogari",
+    "changeServer": "Ndrysho serverin",
+    "hint": "Pyesni atë që e ngriti këtë server nëse nuk keni llogari. Asgjë nuk luhet derisa të hyni.",
+    "setupHint": "Derisa të mos ekzistojë asnjë llogari, kushdo që arrin këtë server mund ta drejtojë shfaqjen."
+  },
   "connectionLost": {
     "title": "Lidhja u humb",
     "message": "Lidhja me serverin LivePlay në {url} u humb.",

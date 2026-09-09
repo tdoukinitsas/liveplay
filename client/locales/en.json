@@ -317,6 +317,22 @@
     "contributors": "Contributors",
     "license": "AGPL-3.0-only License"
   },
+  "login": {
+    "title": "Sign in",
+    "message": "The LivePlay server at {url} requires a sign-in.",
+    "setupTitle": "Create the first account",
+    "setupMessage": "This server has no accounts yet. The first one you create is an administrator, and from then on everyone needs to sign in.",
+    "name": "User name",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "setupNote": "At least {min} characters. Keep it somewhere safe — if this password is lost, the only way back in is deleting users.json on the server machine.",
+    "passwordsDiffer": "The two passwords do not match.",
+    "signIn": "Sign in",
+    "createAccount": "Create account",
+    "changeServer": "Change server",
+    "hint": "Ask whoever set this server up if you do not have an account. Nothing plays until you sign in.",
+    "setupHint": "Until an account exists, anyone who can reach this server can run the show."
+  },
   "connectionLost": {
     "title": "Connection lost",
     "message": "The connection to the LivePlay server at {url} has been lost.",

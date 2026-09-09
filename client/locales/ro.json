@@ -489,6 +489,22 @@
     "discard": "Nu salvați",
     "cancel": "Anulați"
   },
+  "login": {
+    "title": "Autentificare",
+    "message": "Serverul LivePlay de la {url} necesită autentificare.",
+    "setupTitle": "Creează primul cont",
+    "setupMessage": "Acest server nu are încă niciun cont. Primul cont creat va fi administrator, iar de atunci încolo toată lumea trebuie să se autentifice.",
+    "name": "Nume de utilizator",
+    "password": "Parolă",
+    "confirmPassword": "Confirmă parola",
+    "setupNote": "Cel puțin {min} caractere. Păstreaz-o într-un loc sigur — dacă această parolă se pierde, singura cale de întoarcere este ștergerea fișierului users.json de pe calculatorul serverului.",
+    "passwordsDiffer": "Cele două parole nu se potrivesc.",
+    "signIn": "Autentificare",
+    "createAccount": "Creează contul",
+    "changeServer": "Schimbă serverul",
+    "hint": "Întreabă persoana care a configurat acest server dacă nu ai un cont. Nimic nu se redă până nu te autentifici.",
+    "setupHint": "Cât timp nu există niciun cont, oricine ajunge la acest server poate conduce spectacolul."
+  },
   "connectionLost": {
     "title": "Conexiune pierdută",
     "message": "Conexiunea la serverul LivePlay de la {url} a fost pierdută.",

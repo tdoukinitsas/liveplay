@@ -9,6 +9,7 @@
 #include "liveplay/audio/engine.hpp"
 #include "liveplay/core/backup_manager.hpp"
 #include "liveplay/core/project_state.hpp"
+#include "liveplay/core/user_store.hpp"
 #include "liveplay/crash_handler.hpp"
 #include "liveplay/logger.hpp"
 #include "liveplay/util/unicode_path.hpp"
@@ -1098,6 +1099,25 @@ int main(int argc, char** argv) {
     outputs->set_path(exe_dir / "outputs.json");
     outputs->load();   // absent file is fine — names resolve by identity
 
+    // Who may talk to this server. Machine-owned, beside outputs.json for the
+    // same reason: the accounts belong to the rig, not to the show on it.
+    auto users = std::make_unique<core::UserStore>();
+    users->set_path(exe_dir / "users.json");
+    users->load();   // absent file is the open posture, stated below
+    if (users->corrupt()) {
+        // Refusing to start is the right answer and the uncomfortable one. The
+        // alternative is booting with an unreadable store, which the rest of
+        // the server can only interpret as "no accounts" — turning a corrupt
+        // file into an unlocked door at exactly the moment nobody is watching.
+        // An operator who wants the server open can delete the file and mean it.
+        Logger::error("users.json exists but could not be read. Refusing to start: "
+                      "continuing would silently serve WITHOUT authentication. "
+                      "Repair or delete '{}' to proceed.",
+                      util::path_to_utf8(users->path()));
+        engine->stop();
+        return 1;
+    }
+
     auto project = std::make_unique<core::ProjectState>(*engine, *outputs);
     auto backup  = std::make_unique<core::BackupManager>(*project);
     backup->start();
@@ -1127,8 +1147,28 @@ int main(int argc, char** argv) {
                      "site the operator visits can call this server. Set --cors-origin "
                      "to pin it.", opts.bind_addr);
     }
+    if (!users->auth_required()) {
+        Logger::warn("NO ACCOUNTS configured — this server is UNAUTHENTICATED. Anyone "
+                     "who can reach {}:{} can run the show. Create the first account "
+                     "(POST /api/users, or the client's setup screen) to require a "
+                     "login; it is stored in '{}'.",
+                     opts.bind_addr, opts.port, util::path_to_utf8(users->path()));
+    } else {
+        Logger::info("Authentication is ON — {} account(s) in '{}'",
+                     users->user_count(), util::path_to_utf8(users->path()));
+        if (!users->has_admin()) {
+            // The store forces the first account to admin, so reaching this
+            // means the file was hand-edited. Say so rather than letting the
+            // Server-tier routes quietly become unreachable to everyone.
+            Logger::warn("No administrator in the user store — the output map, the "
+                         "accounts and the client list cannot be changed by anyone. "
+                         "Promote a user by editing '{}'.",
+                         util::path_to_utf8(users->path()));
+        }
+    }
 
-    auto server = std::make_unique<net::ControlServer>(*engine, *project, *outputs, server_cfg);
+    auto server = std::make_unique<net::ControlServer>(*engine, *project, *outputs,
+                                                       *users, server_cfg);
     if (!server->start()) {
         Logger::error("Control server failed to start.");
         engine->stop();

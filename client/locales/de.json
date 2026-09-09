@@ -489,6 +489,22 @@
     "discard": "Nicht speichern",
     "cancel": "Abbrechen"
   },
+  "login": {
+    "title": "Anmelden",
+    "message": "Der LivePlay-Server unter {url} erfordert eine Anmeldung.",
+    "setupTitle": "Erstes Konto anlegen",
+    "setupMessage": "Auf diesem Server gibt es noch keine Konten. Das erste angelegte Konto ist ein Administrator, und ab dann muss sich jede und jeder anmelden.",
+    "name": "Benutzername",
+    "password": "Passwort",
+    "confirmPassword": "Passwort bestätigen",
+    "setupNote": "Mindestens {min} Zeichen. Bewahren Sie es sicher auf — geht dieses Passwort verloren, hilft nur noch das Löschen von users.json auf dem Servercomputer.",
+    "passwordsDiffer": "Die beiden Passwörter stimmen nicht überein.",
+    "signIn": "Anmelden",
+    "createAccount": "Konto anlegen",
+    "changeServer": "Server wechseln",
+    "hint": "Wenden Sie sich an die Person, die diesen Server eingerichtet hat, wenn Sie kein Konto haben. Bis zur Anmeldung wird nichts wiedergegeben.",
+    "setupHint": "Solange kein Konto existiert, kann jede Person mit Zugriff auf diesen Server die Show fahren."
+  },
   "connectionLost": {
     "title": "Verbindung verloren",
     "message": "Die Verbindung zum LivePlay-Server unter {url} wurde unterbrochen.",

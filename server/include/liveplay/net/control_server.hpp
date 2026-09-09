@@ -59,6 +59,18 @@
 //   POST   /api/project/load                 — { "path": "..." }
 //   POST   /api/project/save                 — { "path": "..." }
 //
+// Authentication (U3). Off entirely while users.json holds no accounts, which
+// is the pre-2.5 posture and the default; from the first account onward every
+// route below needs a bearer token, and the Server-tier ones need an admin.
+//   GET    /api/auth/status                  — public: { authRequired, userCount }
+//   POST   /api/auth/login                   — public: { name, password } → { token, user }
+//   GET    /api/auth/me                      — the caller's own principal
+//   POST   /api/auth/logout_all              — invalidate the caller's tokens
+//   GET    /api/users                        — admin
+//   POST   /api/users                        — admin, or anyone while the store is empty
+//   PATCH  /api/users/{id}                   — admin; or the caller's own password
+//   DELETE /api/users/{id}                   — admin
+//
 // WebSocket: /ws — bidirectional JSON message stream.
 //   Server → Client: { "type": "meters", ... } @ ~60Hz, plus
 //                    { "type": "cue_state", ... } on transport transitions.
@@ -72,6 +84,7 @@
 
 #include "liveplay/audio/engine.hpp"
 #include "liveplay/core/project_state.hpp"
+#include "liveplay/core/user_store.hpp"
 
 #include <atomic>
 #include <memory>
@@ -115,6 +128,7 @@ public:
     ControlServer(audio::AudioEngine& engine,
                   core::ProjectState& state,
                   core::OutputMap&    outputs,
+                  core::UserStore&    users,
                   ControlServerConfig cfg = {});
     ~ControlServer();   // defined in .cpp where Impl is complete
 
@@ -125,6 +139,7 @@ private:
     audio::AudioEngine& engine_;
     core::ProjectState& state_;
     core::OutputMap&    outputs_;
+    core::UserStore&    users_;
     ControlServerConfig cfg_;
     std::atomic<bool>   running_{false};
 

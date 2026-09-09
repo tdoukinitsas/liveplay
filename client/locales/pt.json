@@ -489,6 +489,22 @@
     "discard": "Não salvar",
     "cancel": "Cancelar"
   },
+  "login": {
+    "title": "Iniciar sessão",
+    "message": "O servidor LivePlay em {url} exige início de sessão.",
+    "setupTitle": "Criar a primeira conta",
+    "setupMessage": "Este servidor ainda não tem contas. A primeira que criar será administradora e, a partir daí, todos terão de iniciar sessão.",
+    "name": "Nome de utilizador",
+    "password": "Palavra-passe",
+    "confirmPassword": "Confirmar palavra-passe",
+    "setupNote": "Pelo menos {min} caracteres. Guarde-a num local seguro — se esta palavra-passe se perder, a única forma de voltar a entrar é apagar users.json na máquina do servidor.",
+    "passwordsDiffer": "As duas palavras-passe não coincidem.",
+    "signIn": "Iniciar sessão",
+    "createAccount": "Criar conta",
+    "changeServer": "Mudar de servidor",
+    "hint": "Pergunte a quem configurou este servidor se não tiver conta. Nada é reproduzido até iniciar sessão.",
+    "setupHint": "Enquanto não existir uma conta, qualquer pessoa que alcance este servidor pode conduzir o espetáculo."
+  },
   "connectionLost": {
     "title": "Ligação perdida",
     "message": "A ligação ao servidor LivePlay em {url} foi perdida.",

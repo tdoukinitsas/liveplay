@@ -489,6 +489,22 @@
     "discard": "Spara inte",
     "cancel": "Avbryt"
   },
+  "login": {
+    "title": "Logga in",
+    "message": "LivePlay-servern på {url} kräver inloggning.",
+    "setupTitle": "Skapa det första kontot",
+    "setupMessage": "Den här servern har ännu inga konton. Det första du skapar blir administratör, och därefter måste alla logga in.",
+    "name": "Användarnamn",
+    "password": "Lösenord",
+    "confirmPassword": "Bekräfta lösenord",
+    "setupNote": "Minst {min} tecken. Förvara det säkert — om lösenordet tappas bort är enda vägen tillbaka att ta bort users.json på serverdatorn.",
+    "passwordsDiffer": "Lösenorden stämmer inte överens.",
+    "signIn": "Logga in",
+    "createAccount": "Skapa konto",
+    "changeServer": "Byt server",
+    "hint": "Fråga den som satte upp servern om du saknar konto. Ingenting spelas upp förrän du loggat in.",
+    "setupHint": "Så länge inget konto finns kan vem som helst som når servern köra föreställningen."
+  },
   "connectionLost": {
     "title": "Anslutning förlorad",
     "message": "Anslutningen till LivePlay-servern på {url} har förlorats.",

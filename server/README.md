@@ -20,6 +20,7 @@ This document is the developer's guide to the server. For end-user docs or the o
   - [Real-time metering](#real-time-metering)
   - [Manual-stop fade-out contract](#manual-stop-fade-out-contract)
 - [Control surface](#control-surface)
+  - [Authentication](#authentication)
   - [REST endpoints](#rest-endpoints)
   - [WebSocket frames](#websocket-frames)
 - [Project state & file format](#project-state--file-format)
@@ -57,7 +58,7 @@ ASIO is intentionally *not* enabled — the Steinberg SDK has redistribution ter
 server/
 ├── CMakeLists.txt
 ├── CMakePresets.json          presets: vs2022, default (Ninja), debug, macos, linux
-├── vcpkg.json                 manifest — Crow, TagLib, nlohmann/json
+├── vcpkg.json                 manifest — Crow, TagLib, nlohmann/json, libsodium
 ├── include/liveplay/
 │   ├── audio/
 │   │   ├── types.hpp          shared audio types (DeviceId, ChannelIndex, …)
@@ -69,6 +70,8 @@ server/
 │   │   └── engine.hpp         Tier 3: master bus + device fan-out
 │   ├── core/
 │   │   ├── project_state.hpp  v2 project model + legacy 1.x upgrade
+│   │   ├── output_map.hpp     logical output name → this machine's hardware
+│   │   ├── user_store.hpp     accounts, Argon2id hashes, signed tokens
 │   │   └── backup_manager.hpp on-save rotating backups
 │   ├── meta/
 │   │   ├── metadata.hpp       TagLib wrapper
@@ -346,6 +349,101 @@ The authoritative endpoint list is the table of `CROW_ROUTE` registrations in [`
 - All IDs are opaque strings unless typed otherwise. `<int>` path parameters are 32-bit signed.
 - `cue_id` (engine-level) ≠ `item_uuid` (project-document level). The server maintains the mapping in `ProjectState`; most transport endpoints accept either.
 
+### Authentication
+
+**The default is open, and stays open.** With no `users.json` beside the executable, the server
+authenticates nothing and behaves exactly as every release before 2.5 did. That is deliberate and
+it is the same posture `--fs-root` and `--cors-origin` take: the knob appears, the behaviour does
+not change until someone sets it, and the server states which posture it is in at boot rather than
+leaving it to be discovered. A point release that started demanding a password would lock operators
+out of their own rigs, quite possibly mid-show.
+
+From the **first account onward**, every route needs a bearer token and the Server-tier routes need
+an administrator.
+
+#### The two roles
+
+The split is the ownership model's own tier boundary, not an access scheme invented alongside it —
+so "does this need an admin?" has an answer you can derive rather than memorise: it needs an admin
+if it changes state belonging to the **machine** rather than to the show or to the person at it.
+
+| Role | May |
+|------|-----|
+| `operator` | Run the show. Everything in the Project and User tiers: cues, buses, transport, project settings, media, uploads, their own locale and meter rate. |
+| `admin`    | The above, plus the Server tier: `/api/outputs` (the logical-output map), `/api/users` (accounts), `/api/clients` (who is connected, and from where). |
+
+Everything not on that short list is operator-level. Anything *unlisted* — including a path
+matching no route at all — requires a token: the guard **defaults to deny**, so a route added later
+is protected without anyone having to remember, and an anonymous caller can't map the route table
+by reading which 404s come back.
+
+#### Carrying the credential
+
+REST takes `Authorization: Bearer <token>` and only that — never a query parameter, because a token
+in a URL ends up in proxy logs, browser history and the `Referer` of anything the page then loads.
+
+The **WebSocket** is the exception, and has to be: a browser cannot set headers on a handshake, so
+`/ws` takes `?access_token=<token>`. It is named `access_token` rather than `token` so it can't be
+confused with the one-shot capability the export flow puts on `/api/file/download` (that route needs
+both). Crow's per-request log line is not reached on the upgrade path, and this is a session token
+rather than a password — but the trade is real, which is why REST refuses the same parameter.
+
+The socket is checked in its `.onaccept` handler rather than by the middleware. Crow *does* run
+middleware for an upgrade request, but then hands the connection to the rule regardless of what the
+middleware left in the response — so `res.end()` cannot refuse a socket. Two enforcement points,
+because there are two doors.
+
+#### How it is stored
+
+`users.json` lives beside the executable, next to `outputs.json` and `liveplay.json`. Machine-owned:
+a show moved to another rig does not carry accounts with it. It holds password hashes and the
+token-signing secret, so on POSIX it is written `0600` (set on the temp file before the rename, so
+it is never briefly world-readable at its real name). **On Windows it inherits the directory's
+permissions** — doing it properly means a DACL, and a half-done ACL that looks like protection is
+worse than saying so here.
+
+Passwords are Argon2id (`crypto_pwhash_str`) at libsodium's *interactive* limits — a login has to
+complete on the laptop running the show. The parameters travel inside the hash string, so raising
+them later does not invalidate existing passwords.
+
+Tokens are **stateless and signed** (`crypto_auth`, HMAC-SHA512-256) with a secret generated once
+and kept in the file. That is a deliberate choice rather than the lazy one: the crash handler
+*auto-restarts this server*, and tokens held only in memory would sign every connected surface out
+at the exact moment things were already going wrong. The cost is that an individual token cannot be
+withdrawn, so each user carries a `tokenEpoch` stamped into their tokens and checked on every
+verify — **changing a password or deleting a user invalidates everything issued to them**, which
+covers the two cases where immediate revocation is what anyone actually means. Tokens last 30 days.
+
+A corrupt `users.json` **stops the server booting**. Falling back to "no users" would read as "let
+everyone in", turning a damaged file into an unlocked door; an operator who wants the server open
+can delete the file and mean it.
+
+#### Bootstrapping
+
+While the store is empty there is nobody to be an administrator, so `POST /api/users` is reachable
+without a credential and the first account it creates is forced to `admin` whatever role was asked
+for — a store whose only account cannot manage accounts is a locked room with the key inside. The
+window is real and worth being plain about: until that first account exists, whoever reaches the
+port first can claim the rig. That is not a new exposure — it is the state every release so far has
+shipped in, permanently — and unlike that state, it closes.
+
+Login is throttled per address (5 consecutive failures → 30 s), on top of Argon2id's own ~100 ms
+per attempt. It is a brake on one machine grinding a word list, not a security boundary, and
+nothing here pretends otherwise.
+
+#### Endpoints
+
+| Method · Path | Body | Response | Notes |
+|---------------|------|----------|-------|
+| `GET /api/auth/status` | — | `{ "authRequired": false, "userCount": 0, "setupRequired": true, "tokenTtlSeconds": 2592000 }` | **Public.** It has to be: a client cannot know whether to ask for a password until it has asked this, and requiring a token to find out whether a token is required is a loop. Reveals only whether accounts exist, never who they are. |
+| `POST /api/auth/login` | `{ "name": "sam", "password": "…" }` | `{ "token": "lp1.…", "expiresIn": 2592000, "user": { "id", "name", "role" } }` · `401` · `429` when throttled (with `Retry-After`) · `409` if the server has no accounts | **Public.** A wrong password and an unknown user give the *same* message and take the *same* time (an unknown name is verified against a decoy hash), so the reply cannot be used to enumerate accounts. |
+| `GET /api/auth/me` | — | `{ "authRequired": true, "user": { … } }` | Who the caller is according to their token. |
+| `POST /api/auth/logout_all` | — | `{ "ok": true }` | Bumps the caller's `tokenEpoch`: invalidates every token ever issued to them, including the one making the request and the one on the tablet left at the venue. |
+| `GET /api/users` | — | `[ { "id", "name", "role", "createdAt" }, … ]` | **Admin.** Never returns hashes. |
+| `POST /api/users` | `{ "name", "password", "role" }` | `{ "id", "name", "role" }` · `409` name taken · `400` bad name / short password | **Admin**, except while the store is empty — see Bootstrapping. Passwords must be at least 8 characters. |
+| `PATCH /api/users/{id}` | any of `{ "name", "role", "password" }` | `{ "id", "name", "role" }` · `409` name taken or last admin | **Admin.** A `password` change bumps that user's `tokenEpoch`. |
+| `DELETE /api/users/{id}` | — | `{ "ok": true }` · `404` · `409` last admin | **Admin.** The last administrator cannot be deleted: that would leave a server still requiring a login with nobody able to manage it, recoverable only by editing `users.json` on the machine. |
+
 ### REST endpoints
 
 #### Diagnostics
@@ -354,7 +452,7 @@ The authoritative endpoint list is the table of `CROW_ROUTE` registrations in [`
 |--------------------|------|----------|-------|
 | `GET /api/health`  | —    | `{ "ok": true, "name": "liveplay-server" }` | Liveness probe. |
 | `GET /api/whoami`  | —    | `{ "clientIp": "192.168.1.10", "isLocal": false }` | `isLocal` is true for loopback callers (127.0.0.0/8, `::1`). |
-| `GET /api/clients` | —    | `[ { "id": 3, "remoteIp": "192.168.1.10", "connectedSeconds": 412, "locale": "el", "localeIsOwn": true, "meterHz": 5, "meterHzIsOwn": true }, … ]`, lowest `id` first | Who is connected **right now**: one row per live WebSocket. REST is stateless, so a `curl` against it is not a session — anything driving the rig holds a socket open. `id` is monotonic within a process run and never reused, so an id in a log line always means one connection. Unauthenticated today, like every other route; it is on the list to gate when authentication lands. |
+| `GET /api/clients` | —    | `[ { "id": 3, "remoteIp": "192.168.1.10", "user": "sam", "userId": "9f2…", "isAdmin": false, "connectedSeconds": 412, "locale": "el", "localeIsOwn": true, "meterHz": 5, "meterHzIsOwn": true }, … ]`, lowest `id` first | **Administrators only** (see [Authentication](#authentication)), because it reports the address every connected client came from. Who is connected **right now**: one row per live WebSocket. REST is stateless, so a `curl` against it is not a session — anything driving the rig holds a socket open. `id` is monotonic within a process run and never reused, so an id in a log line always means one connection. `user`/`userId` are `null` on an installation with no accounts — reported as null rather than as a name like "anonymous", so the open posture can't be confused with someone called that. |
 
 #### Devices
 
@@ -889,6 +987,17 @@ Meter thinning applies to the `meters` frame **only**. `cue_state` and
 `playback_snapshot` are edges, not samples: dropping a sample costs resolution,
 while dropping a transition costs the client a fact it will never be told again,
 leaving its transport display wrong until something else happens to move.
+
+**Who** the connection is joins the same record. Once accounts exist, the
+handshake establishes a principal and the session carries it for its lifetime —
+which is what `GET /api/clients` reports and what a log line needs in order to
+stay true about a connection that has since ended. It is deliberately *not* the
+authority on what anyone may do: a token carries only a user id and an epoch, so
+every REST request looks the role up in the store as it stands at that moment,
+and a demotion takes effect on the caller's very next request rather than at
+their next login. No WebSocket message is admin-gated — the socket carries show
+control, which is the operator tier in full — so nothing reads the session's
+cached role to decide anything.
 
 ### Network event lifecycle (cue trigger)
 
