@@ -119,7 +119,8 @@ function toggleMixer() {
   mixerOpen.value = !mixerOpen.value;
 }
 
-const isDark = computed(() => currentProject.value?.theme.mode === 'dark');
+// The operator's own theme (U4), not the open document's.
+const isDark = computed(() => usePreferences().theme.value.mode === 'dark');
 const currentTime = ref('00:00:00');
 
 // ---- Silence warning -------------------------------------------------------

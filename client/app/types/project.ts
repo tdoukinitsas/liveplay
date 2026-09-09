@@ -362,6 +362,7 @@ export interface ProjectSettings {
   ltcOutput?: string | null;
   outputTarget?: string;
   outputTargetLevels?: Record<string, unknown>;
+  /** LEGACY as of U4 — see usePreferences().meterMode. Read as a seed only. */
   meterMode?: string;
   /**
    * Meter ballistics preset id, or "custom" to use `meterBallisticsCustom`.
@@ -377,6 +378,7 @@ export interface ProjectSettings {
   defaultTransitionMode?: TransitionMode;
   autoCueNextWithoutEndBehavior?: boolean;
   stopAllFadeMs?: number;
+  /** LEGACY as of U4 — see usePreferences().scrollToPlaying. Seed only. */
   uiScrollToPlaying?: boolean;
   disableAutoVolumeAndTrim?: boolean;
   disableLimiter?: boolean;
@@ -418,9 +420,20 @@ export interface Project {
   items: (AudioItem | GroupItem)[];
   cartItems: CartItem[];
   cartSlotKeys?: Record<number, CartSlotKeyBinding>;
+  /**
+   * LEGACY as of U4 — the transport keymap belongs to the person, not the
+   * show, and lives in their profile (usePreferences). Still typed because a
+   * 2.4 document carries it and it is read once as a seed for an operator who
+   * has never set one; the server drops it on the next save.
+   */
   playbackKeys?: Record<string, CartSlotKeyBinding | null>;
   cartOnlyItems: AudioItem[]; // Items that exist only in cart (not in playlist)
-  theme: Theme;
+  /**
+   * LEGACY as of U4, same as playbackKeys. Read usePreferences().theme for the
+   * colour scheme actually in force — a document's copy is a seed, and mailing
+   * a project no longer repaints the recipient's desk.
+   */
+  theme?: Theme;
   settings?: ProjectSettings;
   createdAt: string;
   lastModified: string;

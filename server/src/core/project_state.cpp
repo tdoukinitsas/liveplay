@@ -358,13 +358,14 @@ static audio::MeterBallistics meter_ballistics_from_settings(const json& setting
         .value_or(audio::MeterBallistics{});
 }
 
-// Effective meter display mode: explicit settings.meterMode wins, otherwise
-// the output target's recommended unit (mirrors the client's useOutputTarget
-// logic). Drives the CPU gating of true-peak / loudness metering.
-static std::string effective_meter_mode(const json& settings) {
-    if (settings.contains("meterMode") && settings["meterMode"].is_string()) {
-        return settings["meterMode"].get<std::string>();
-    }
+// The unit this PROJECT implies, which since U4 is the only thing the document
+// still has to say about metering: settings.meterMode moved to the person, so
+// what is left is the output target's recommended unit. A show mastered for
+// EBU R128 still wants loudness computed even when nobody has opened a meter,
+// because the limiter ceiling and the target levels are the show's, and an
+// operator who has expressed no preference should see the unit the show is
+// being made in. Mirrors the client's useOutputTarget fallback.
+static std::string project_meter_mode(const json& settings) {
     return compute_output_target_levels(settings)
         .value("meterUnit", std::string{"LUFS"});
 }
@@ -397,6 +398,7 @@ enum class SettingKind {
     StringOrNull,  // free string, or null to clear
     Ballistics,    // the meterBallisticsCustom object
     Derived,       // computed server-side; never accepted from a client
+    Relocated,     // moved to a user profile (U4); read on load, never stored
 };
 
 struct SettingSpec {
@@ -418,8 +420,6 @@ static const std::unordered_map<std::string, SettingSpec>& settings_registry() {
         {"ltcOutput",                     {SettingKind::StringOrNull}},
         {"outputTarget",                  {SettingKind::Enum, 0, 0,
                                            {"ebu-r128", "streaming", "radio", "netflix", "live"}}},
-        {"meterMode",                     {SettingKind::Enum, 0, 0,
-                                           {"LUFS", "dBFS", "dBTP", "RMS"}}},
         {"meterBallistics",               {SettingKind::Enum, 0, 0,
                                            {"digital-ppm", "ppm-i", "ppm-ii", "vu", "instant",
                                             "custom"}}},
@@ -437,7 +437,6 @@ static const std::unordered_map<std::string, SettingSpec>& settings_registry() {
         {"disableSilenceWarning",         {SettingKind::Bool}},
 
         // --- UI / project ------------------------------------------------
-        {"uiScrollToPlaying",             {SettingKind::Bool}},
         {"autoSave",                      {SettingKind::Bool}},
         // Matches normalizeIndexDisplayStart() on the client: a non-negative
         // whole number. The ceiling is arbitrary but keeps the displayed cue
@@ -454,6 +453,16 @@ static const std::unordered_map<std::string, SettingSpec>& settings_registry() {
         {"defaultOutputDevice",           {SettingKind::StringOrNull}},
         {"previewDevice",                 {SettingKind::StringOrNull}},
         {"ltcDevice",                     {SettingKind::StringOrNull}},
+
+        // --- Relocated to the person (U4) ---------------------------------
+        // These two belong to whoever is looking at the screen, not to the
+        // show: which unit a meter is drawn in, and whether the playlist
+        // chases the playing cue. They live in a user profile now
+        // (user_prefs.hpp). Registered rather than deleted so the drop is
+        // explained instead of reading as "not a known setting" — a 2.4
+        // document still carries them, and a 2.4 client still patches them.
+        {"meterMode",                     {SettingKind::Relocated}},
+        {"uiScrollToPlaying",             {SettingKind::Relocated}},
 
         // --- Derived ------------------------------------------------------
         // compute_output_target_levels() owns this. full_document() injects a
@@ -481,6 +490,10 @@ static std::optional<json> validate_setting(const std::string& key,
     switch (spec.kind) {
     case SettingKind::Derived:
         why = "computed server-side";
+        return std::nullopt;
+
+    case SettingKind::Relocated:
+        why = "moved to user preferences — PATCH /api/prefs";
         return std::nullopt;
 
     // Every accepted branch wraps the value explicitly: nlohmann's greedy
@@ -1134,9 +1147,10 @@ void ProjectState::start_async_mirror() {
             next.ceiling_db      = levels.value("limiterCeilingDb", -0.3f);
             next.limiter_enabled = !settings_snap.value("disableLimiter", false);
             next.ballistics      = meter_ballistics_from_settings(settings_snap);
-            const auto mode      = effective_meter_mode(settings_snap);
-            next.true_peak       = mode == "dBTP";
-            next.loudness        = mode == "LUFS";
+            // Computed rather than applied here: this block already owns the
+            // diffing against applied_engine_settings_, so it asks the gate
+            // what it wants and folds the answer into the same comparison.
+            std::tie(next.true_peak, next.loudness) = meter_gate_for(settings_snap);
 
             std::lock_guard alock{applied_engine_settings_mutex_};
             const auto& prev = applied_engine_settings_;
@@ -1295,7 +1309,8 @@ json ProjectState::default_empty_document() {
         {"cartSlotKeys",  json::object()},
         {"playbackKeys",  json::object()},
         {"cartOnlyItems", json::array()},
-        {"theme",         json{{"mode", "dark"}, {"accentColor", "#DA1E28"}}},
+        // No "theme" (U4): a colour scheme belongs to whoever is looking at
+        // the screen, so a blank document has nothing to say about one.
         // No device names at all: where audio goes is the master bus's
         // output, pre-listen goes to the preview bus, timecode goes to
         // ltcOutput, and the binding from a logical output to hardware
@@ -2040,6 +2055,30 @@ bool ProjectState::save(const std::filesystem::path& path) const {
         // reason, so nothing reads what we were writing here.
         doc.erase("folderPath");
 
+        // ...and so do the four values that belong to the PERSON (U4). A
+        // document is a thing you mail to a colleague, and every one of these
+        // travelled with it: opening someone else's show changed your colours
+        // and silently reassigned your transport keys. They live in a user
+        // profile now (user_prefs.hpp) or, with no accounts configured, in the
+        // client's own machine store.
+        //
+        // Dropping them here rather than merely ignoring them on read is the
+        // half that makes R1 true — leaving a stale copy in the file would
+        // give every one of these two writers again the moment anything else
+        // learned to read it. A 2.4 file still opens: load() reads these as
+        // the seed for a profile that has none, which is the migration.
+        //
+        // cartSlotKeys deliberately STAYS. A cart wall is the show's layout,
+        // not a personal preference — the slot that fires the door slam is a
+        // property of this production, and it must be the same slot for
+        // whoever is standing at the desk tonight.
+        doc.erase("theme");
+        doc.erase("playbackKeys");
+        if (doc.contains("settings") && doc["settings"].is_object()) {
+            doc["settings"].erase("meterMode");
+            doc["settings"].erase("uiScrollToPlaying");
+        }
+
         // Atomic write: serialise to a sibling temp file, verify the stream is
         // healthy, then rename it over the target. A write error, disk-full, or
         // crash therefore never truncates or corrupts the previous good file —
@@ -2256,9 +2295,11 @@ bool ProjectState::replace_full_document(const json& doc) {
                 {"ltcOutput",           nullptr},
             };
         }
-        if (!document_.contains("theme")) {
-            document_["theme"] = json{{"mode", "dark"}, {"accentColor", "#DA1E28"}};
-        }
+        // No default theme is injected any more (U4). Filling one in made
+        // every loaded document look like it was carrying a colour scheme,
+        // which meant legacy_user_prefs() always had something to hand a
+        // profile — and a person's one chance to inherit their real theme from
+        // a 2.4 file was spent seeding them the default instead.
         project_name_ = document_.value("name", std::string{"Untitled"});
         // A document that names its own folder is asserting where it lives, and
         // is believed: that is how a brand-new project arrives — pushed with
@@ -4560,10 +4601,56 @@ void ProjectState::load_buses_locked() {
                      master_bus_locked()->display_name, preview_bus_locked()->display_name);
     }
 
+    // Not a bus fact, counted here because this is the one function every load
+    // path runs and the summary it produces is the one thing the operator is
+    // shown. The values are LEFT IN the document — they are the seed a user
+    // profile reads on first sign-in, and a client with no profile at all
+    // still displays them — but save() drops them, so the file quietly changes
+    // shape and the operator is entitled to know that before it happens (U4).
+    summary.user_prefs_migrated = count_legacy_user_prefs_locked();
+    if (summary.user_prefs_migrated > 0) {
+        Logger::warn("this document still carries {} value(s) that belong to the person "
+                     "rather than the show (theme / playbackKeys / meterMode / "
+                     "uiScrollToPlaying); they will be read once and then dropped on save",
+                     summary.user_prefs_migrated);
+    }
+
     // Surfaced by the endpoint that triggered the load and broadcast to every
     // other connected client (D12). Overwritten, not accumulated: the summary
     // describes the document that is loaded right now.
     pending_bus_migration_ = summary;
+}
+
+// The four values U4 moved out of the document, as they stand in whatever is
+// loaded. Caller holds mutex_.
+json ProjectState::legacy_user_prefs_locked() const {
+    json out = json::object();
+    if (document_.contains("theme") && document_["theme"].is_object() &&
+        !document_["theme"].empty())
+        out["theme"] = document_["theme"];
+    // An empty keymap object is not a keymap. Handing one over would count as
+    // "something to seed" and consume a person's one migration on nothing.
+    if (document_.contains("playbackKeys") && document_["playbackKeys"].is_object() &&
+        !document_["playbackKeys"].empty())
+        out["playbackKeys"] = document_["playbackKeys"];
+    if (document_.contains("settings") && document_["settings"].is_object()) {
+        const json& s = document_["settings"];
+        if (s.contains("meterMode"))         out["meterMode"]         = s["meterMode"];
+        if (s.contains("uiScrollToPlaying")) out["uiScrollToPlaying"] = s["uiScrollToPlaying"];
+    }
+    return out;
+}
+
+int ProjectState::count_legacy_user_prefs_locked() const {
+    // Deliberately counts the same keys legacy_user_prefs_locked() hands out,
+    // so what the operator is told matches what actually gets migrated. If
+    // these two ever disagree, the banner is lying about one of them.
+    return static_cast<int>(legacy_user_prefs_locked().size());
+}
+
+json ProjectState::legacy_user_prefs() const {
+    std::lock_guard lock{mutex_};
+    return legacy_user_prefs_locked();
 }
 
 // Convert the legacy per-item `deviceOverride` into real buses.
@@ -6277,18 +6364,57 @@ bool ProjectState::clear_cart_slot(int slot) {
 }
 
 // ---------------------------------------------------------------------------
-// Theme + settings patches
+// The meter DSP gate — see set_user_meter_modes() in the header for why this
+// is a union and why that is allowed to cross the R2 line.
 // ---------------------------------------------------------------------------
-bool ProjectState::patch_theme(const json& patch) {
-    if (!patch.is_object()) return false;
-    std::lock_guard lock{mutex_};
-    if (!document_.contains("theme") || !document_["theme"].is_object()) {
-        document_["theme"] = json::object();
+std::pair<bool, bool> ProjectState::meter_gate_for(const json& settings) const {
+    const std::string implied = project_meter_mode(settings);
+    bool true_peak = implied == audio::kMeterModeTruePeak;
+    bool loudness  = implied == audio::kMeterModeLoudness;
+
+    std::lock_guard lock{user_meter_modes_mutex_};
+    for (const auto& m : user_meter_modes_) {
+        if (m == audio::kMeterModeTruePeak) true_peak = true;
+        if (m == audio::kMeterModeLoudness) loudness  = true;
     }
-    for (auto& [k, v] : patch.items()) document_["theme"][k] = v;
-    return true;
+    return {true_peak, loudness};
 }
 
+void ProjectState::apply_meter_gate() {
+    json settings_snap;
+    {
+        std::lock_guard lock{mutex_};
+        settings_snap = document_.value("settings", json::object());
+    }
+    const auto [want_true_peak, want_loudness] = meter_gate_for(settings_snap);
+
+    // Same diffing discipline as the mirror: turning metering on or off walks
+    // every item and channel, so it happens only when the answer actually
+    // moved. An operator opening a second window must not re-arm the DSP.
+    std::lock_guard alock{applied_engine_settings_mutex_};
+    const auto& prev = applied_engine_settings_;
+    if (!prev || prev->true_peak != want_true_peak)
+        engine_.set_true_peak_metering(want_true_peak);
+    if (!prev || prev->loudness != want_loudness)
+        engine_.set_loudness_metering(want_loudness);
+    if (applied_engine_settings_) {
+        applied_engine_settings_->true_peak = want_true_peak;
+        applied_engine_settings_->loudness  = want_loudness;
+    }
+}
+
+void ProjectState::set_user_meter_modes(std::vector<std::string> modes) {
+    {
+        std::lock_guard lock{user_meter_modes_mutex_};
+        if (modes == user_meter_modes_) return;
+        user_meter_modes_ = std::move(modes);
+    }
+    apply_meter_gate();
+}
+
+// ---------------------------------------------------------------------------
+// Settings patches
+// ---------------------------------------------------------------------------
 bool ProjectState::patch_settings(const json&               patch,
                                   std::vector<std::string>* dropped_out) {
     if (!patch.is_object()) return false;
@@ -6299,9 +6425,7 @@ bool ProjectState::patch_settings(const json&               patch,
     bool limiter_toggle_changed  = false;
     bool limiter_disabled        = false;
     bool ballistics_changed      = false;
-    bool meter_mode_changed      = false;
-    bool meter_true_peak         = false;
-    bool meter_loudness          = false;
+    bool meter_gate_changed      = false;
     float new_ceiling_db         = -0.3f;
     audio::MeterBallistics new_ballistics{};
     {
@@ -6345,11 +6469,10 @@ bool ProjectState::patch_settings(const json&               patch,
             if (key == "meterBallistics" || key == "meterBallisticsCustom") {
                 ballistics_changed = true;
             }
-            // meterMode selects the display unit; outputTarget changes the
-            // default unit, so both can flip the effective mode.
-            if (key == "meterMode" || key == "outputTarget") {
-                meter_mode_changed = true;
-            }
+            // outputTarget is the only project key left that can move the
+            // meter gate: it sets the unit this show implies, and since U4
+            // that is all the document says about metering.
+            if (key == "outputTarget") meter_gate_changed = true;
             document_["settings"][key] = *accepted;
         }
         // outputTargetLevels is derived, so it is never stored — full_document()
@@ -6365,11 +6488,6 @@ bool ProjectState::patch_settings(const json&               patch,
         if (ballistics_changed) {
             new_ballistics = meter_ballistics_from_settings(document_["settings"]);
         }
-        if (meter_mode_changed) {
-            const auto mode = effective_meter_mode(document_["settings"]);
-            meter_true_peak = mode == "dBTP";
-            meter_loudness  = mode == "LUFS";
-        }
     }
     // Re-apply routing when output / device selections change mid-playback.
     if (ltc_output_changed)     apply_ltc_output_routing();
@@ -6380,11 +6498,11 @@ bool ProjectState::patch_settings(const json&               patch,
     if (limiter_toggle_changed) engine_.set_limiter_enabled(!limiter_disabled);
     // Retune every meter live so the operator sees the new feel immediately.
     if (ballistics_changed)     engine_.set_meter_ballistics(new_ballistics);
-    // Gate the true-peak / loudness DSP on the effective display mode.
-    if (meter_mode_changed) {
-        engine_.set_true_peak_metering(meter_true_peak);
-        engine_.set_loudness_metering(meter_loudness);
-    }
+    // Gate the true-peak / loudness DSP. Delegated rather than computed here:
+    // the project is no longer the only voice in that decision, and one owner
+    // for the gate is what stops this and a connecting operator from taking
+    // turns overwriting each other's answer.
+    if (meter_gate_changed) apply_meter_gate();
     // Keep the mirror's applied-settings record in step with what was just
     // applied, so the save that follows this edit sees nothing to re-apply.
     // Re-applying the ceiling is audible (it rebuilds the master limiters),
@@ -6399,10 +6517,9 @@ bool ProjectState::patch_settings(const json&               patch,
                 applied_engine_settings_->limiter_enabled = !limiter_disabled;
             if (ballistics_changed)
                 applied_engine_settings_->ballistics = new_ballistics;
-            if (meter_mode_changed) {
-                applied_engine_settings_->true_peak = meter_true_peak;
-                applied_engine_settings_->loudness  = meter_loudness;
-            }
+            // The meter gate is not folded in here: apply_meter_gate() above
+            // already updated this record itself, because it is reachable
+            // from paths this function is not on.
         }
     }
     if (dropped_out) *dropped_out = std::move(dropped);
@@ -6524,9 +6641,9 @@ bool ProjectState::load_from_json(const json& doc_in) {
                 !document_["cartOnlyItems"].is_array()) {
                 document_["cartOnlyItems"] = json::array();
             }
-            if (!document_.contains("theme") || !document_["theme"].is_object()) {
-                document_["theme"] = json{{"mode", "dark"}, {"accentColor", "#DA1E28"}};
-            }
+            // No default theme injected here either — see load(). A document
+            // either carries a legacy theme or it does not, and inventing one
+            // makes "did anybody choose this?" unanswerable.
             project_name_ = document_.value("name", std::string{"Untitled"});
             update_media_root_from_folder_locked();
             pending_repair_info_ = std::move(repair);

@@ -25,6 +25,10 @@
     {
       "name": "miniz",
       "version>=": "3.0.2"
+    },
+    {
+      "name": "libsodium",
+      "version>=": "1.0.19"
     }
   ],
   "builtin-baseline": "22d9c655dc24ad24c6cac27607005e619ce46740"

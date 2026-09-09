@@ -59,6 +59,19 @@ node server/tests/e2e/session-prefs-e2e.js 4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/fs-jail-e2e.js
 node server/tests/e2e/boot-config-e2e.js
 node server/tests/e2e/client-session-e2e.js
+
+# Owns users.json beside the binary for the duration (it has to create real
+# accounts), and moves any existing one aside and back. Also restarts the
+# server mid-run, to prove a token issued before the restart still works.
+node server/tests/e2e/auth-e2e.js
+
+# Owns users.json AND the prefs/ directory beside the binary, and moves both
+# aside and back. Restarts the server mid-run to prove a profile persists.
+node server/tests/e2e/user-prefs-e2e.js
+
+# Owns liveplay.json as well, and restarts the server four times — it is
+# testing boot-time provenance, an environment override and the config lock.
+node server/tests/e2e/server-config-e2e.js
 ```
 
 What each one pins, in the bus-role model (round 2, D24–D36):
@@ -128,6 +141,71 @@ What each one pins, in the bus-role model (round 2, D24–D36):
   thinned to 1 Hz must still hear every `cue_state` edge. Bypassing that — thinning edges along
   with samples — leaves it with **zero** transport frames, so it never learns the cue played at
   all, while every meter-count assertion still passes.
+- `auth-e2e.js` — who may talk to this server, and what they may change (U3). Nearly every
+  assertion here is **negative**, because a refusal that silently does not happen looks exactly
+  like the feature working. It starts from the default posture — no `users.json`, everything open,
+  which is what every release before 2.5 did and what an upgrade must keep doing — then creates the
+  first account (possible with no credential, because there is nobody to be an administrator yet,
+  and forced to `admin` however it was asked for) and pins what changes.
+  Three claims carry the weight. **The socket is checked too**: Crow runs middleware for an upgrade
+  and then hands over the connection regardless of what the middleware did to the response, so
+  without the check in `.onaccept` the WebSocket — play, stop, bus gain, mute, selection — would be
+  reachable with no token while REST was locked. **Default deny**: a path matching no route needs a
+  token as well, so the route table cannot be mapped anonymously; bypassing that one line turns
+  eight assertions red at once. **Tokens survive a restart**, which is the whole reason they are
+  signed rather than remembered — the crash handler auto-restarts this server, and in-memory tokens
+  would sign every surface out mid-show. Also pins the role split (an operator is refused
+  `/api/outputs`, `/api/users` and `/api/clients` and allowed everything that runs the show),
+  that a wrong password and an unknown user give the *same* reply so accounts cannot be enumerated,
+  that an edited token is refused, that a password change or a deletion invalidates that user's
+  live tokens, and that the last administrator cannot be deleted.
+  Note when reading a red run: bypassing the socket check turns two assertions red, not one — the
+  second is `/api/clients` reporting the session as `user: null`, because the principal is attached
+  during the same handshake that authenticates it.
+- `user-prefs-e2e.js` — what belongs to the person rather than the show (U4). Four values left the
+  `.liveplay` document — the theme, the transport keymap, the meter's display unit, and
+  scroll-to-playing — and the risk of the unit is entirely in the migration: the values are dropped
+  from the file on the next save, so a seed that does not happen is a keymap that is simply gone.
+  The suite pins that a 2.4 document still loads, that its four values are **counted and reported**
+  through the existing `project_migrated` banner so the file changing shape is never silent, that
+  the first read of `/api/prefs` seeds a profile from whatever project is open, that a second read
+  does **not** re-import the document over a choice made since, and that `save()` then drops all
+  four while `cartSlotKeys` survives — a cart wall is the show's layout, and the slot that fires
+  the door slam has to be the same slot for whoever is at the desk tonight.
+  Two claims are worth knowing about. **An empty seed writes nothing**: a client reads its
+  preferences as soon as its socket comes up, which on the ordinary startup order is before any
+  project is open, so creating a profile then would spend that person's one chance at the
+  migration on an empty desk — bypassing it turns two assertions red, the second being an operator
+  who never gets their keymap at all. **A profile is the caller's**: no route names a user id, an
+  administrator reading `/api/prefs` gets their own, and two spellings of a per-user route are
+  asserted to 404 so that adding one later fails here first.
+  Also pins that the relocated settings keys are now dropped by the registry rather than refused (a
+  2.4 client still works), that `PATCH /api/project/theme` is **gone** rather than answering 200 and
+  losing the value at the next save, that validation drops key by key — one malformed binding costs
+  that binding, not the keymap — that a null clears a key so "go back to following the project" can
+  actually be said, that a profile survives a restart, and that deleting an account deletes it.
+- `server-config-e2e.js` — the machine's own settings, editable from the settings page (P3a).
+  S3 gave `liveplay.json` a reader and said the server would never write it; this adds a writer,
+  which is only not a contradiction because of how it behaves. The suite pins that **sparse stays
+  sparse**: patching one key writes one key, so a file with two keys in it does not become a file
+  with thirteen and an installation keeps taking improved defaults for everything nobody chose.
+  A `null` **clears** a key, which is how "stop pinning this" is said — without it a value could be
+  changed but never un-chosen, and the file would fill up one edit at a time until every default
+  was frozen.
+  The claim that carries the unit is that **the page cannot lie about provenance**. The desktop app
+  always launches the server with `--port`, so a port field that accepted an edit and said nothing
+  would write the file, report success and change nothing; every field reports which tier supplied
+  the value in force, and bypassing the flag's own record of that turns three assertions red.
+  Being overridden does not make a field read-only — the stored value is what applies once the flag
+  goes, so the response separates "waiting for a restart" from "shadowed at launch", two facts with
+  different fixes.
+  **The lock is a lock (R3).** `--lock-server-config` refuses every write with 403 including from an
+  administrator, and cannot be turned off through the API it locks — a lock an admin can pick over
+  the network is not one. Bypassing it turns three red.
+  Also pins that this is **admin-only**: an operator is refused, and bypassing that gate lets one
+  rewrite `corsOrigin`, which is the escalation the gate exists to stop. Note when reading that red
+  run: "reading the config needs a token at all" still passes, because `access_for`'s default-deny
+  is a second layer underneath the admin rule.
 - `client-session-e2e.js` note when reading a red run: bypassing the `onclose` erase does not
   merely leave a stale row —
   the broadcast thread then writes to freed connections and the server **crashes**, which takes

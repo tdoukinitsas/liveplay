@@ -58,7 +58,10 @@ const { settings, applyPatch } = useProjectSettings();
 const { currentProject, autoSaveEnabled, setAutoSave } = useProject();
 
 const indexDisplayStart = computed(() => normalizeIndexDisplayStart(settings.value.indexDisplayStart));
-const scrollToPlaying = computed(() => !!settings.value.uiScrollToPlaying);
+// Whose playlist chases the playing cue is a preference of the person reading
+// it, not a property of the show (U4). The control stays on this pane — P3
+// does the relocation into Appearance — but it writes to their profile.
+const { scrollToPlaying, setScrollToPlaying } = usePreferences();
 
 function onAutoSaveChange(e: Event) {
   setAutoSave((e.target as HTMLInputElement).checked);
@@ -70,6 +73,6 @@ function onIndexDisplayStartChange(e: Event) {
   applyPatch({ indexDisplayStart: value });
 }
 function onScrollToPlayingChange(e: Event) {
-  applyPatch({ uiScrollToPlaying: (e.target as HTMLInputElement).checked });
+  setScrollToPlaying((e.target as HTMLInputElement).checked);
 }
 </script>

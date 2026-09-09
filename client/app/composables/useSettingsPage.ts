@@ -28,6 +28,12 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: 'keyboard', icon: 'keyboard',       labelKey: 'settings.sectionKeyboard' },
   { id: 'surfaces', icon: 'piano',          labelKey: 'settings.sectionSurfaces' },
   { id: 'project',  icon: 'folder_managed', labelKey: 'settings.sectionProject'  },
+  // Last in the rail on purpose: it is the machine's settings rather than the
+  // show's, and it is the one an operator has least reason to open mid-session.
+  { id: 'server',   icon: 'dns',            labelKey: 'settings.sectionServer'   },
+  // Beside Server rather than under it: accounts are the same tier — the
+  // machine's, not the show's — and an operator sees the pane but not the list.
+  { id: 'users',    icon: 'group',          labelKey: 'settings.sectionUsers'    },
 ];
 
 export const DEFAULT_SETTINGS_SECTION = 'playback';

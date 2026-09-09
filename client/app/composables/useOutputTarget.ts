@@ -41,11 +41,17 @@ export function useOutputTarget() {
     return DEFAULT_OUTPUT_TARGET_LEVELS;
   });
 
-  // Active meter display mode — set by the user in project settings,
-  // defaulting to the platform's recommended unit.
+  // Active meter display mode. This operator's own choice wins; with none, the
+  // unit the show's output target recommends. It moved out of project settings
+  // in U4 — two people watching the same meters can want different units, and
+  // one of them changing it should not have dirtied the show file.
+  //
+  // The server reads this too, but only to gate the true-peak / loudness DSP,
+  // and it takes the union across everyone connected: the meter frame is
+  // computed once and broadcast, so there is no per-connection DSP to gate.
+  const { meterMode: userMeterMode } = usePreferences();
   const meterMode = computed<MeterMode>(() => {
-    const s = (currentProject.value as any)?.settings;
-    if (s?.meterMode) return s.meterMode as MeterMode;
+    if (userMeterMode.value) return userMeterMode.value as MeterMode;
     return levels.value.meterUnit;
   });
 

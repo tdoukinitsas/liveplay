@@ -310,6 +310,14 @@ struct BusMigrationSummary {
     // settings.ltcDevice became settings.ltcOutput (D38) — the last device
     // name a portable document carried. 0 or 1, like previewDevice.
     int  ltc_device_migrated = 0;
+    // How many of the four User-tier values (theme, playbackKeys,
+    // settings.meterMode, settings.uiScrollToPlaying) the loaded document was
+    // still carrying — 0 to 4. They are read as the seed for a profile that
+    // has none and then dropped on the next save (U4), which means the file
+    // on disk changes shape without anyone asking, so it is counted and
+    // surfaced like every other migration rather than done quietly.
+    int  user_prefs_migrated = 0;
+
     // The role migration did something (D34/D35): a busSchema < 2 document's
     // Main/Monitor became the master/preview holders, a Master-kind output
     // was rewritten, or a document lacking a role holder had one promoted or
@@ -319,7 +327,8 @@ struct BusMigrationSummary {
     bool any() const {
         return items_to_main > 0 || buses_from_device_override > 0 ||
                main_output_migrated || preview_device_migrated > 0 ||
-               ltc_device_migrated > 0 || roles_migrated;
+               ltc_device_migrated > 0 || user_prefs_migrated > 0 ||
+               roles_migrated;
     }
     json to_json() const {
         return json{
@@ -328,6 +337,7 @@ struct BusMigrationSummary {
             {"mainOutputMigrated",      main_output_migrated},
             {"previewDeviceMigrated",   preview_device_migrated},
             {"ltcDeviceMigrated",       ltc_device_migrated},
+            {"userPrefsMigrated",       user_prefs_migrated},
             {"rolesMigrated",           roles_migrated},
         };
     }
@@ -570,6 +580,36 @@ public:
     // control server installs this to fan the change out to every client.
     void set_ui_state_broadcaster(std::function<void(const json&)> cb);
 
+    // The meter display units the currently-connected operators have chosen
+    // for themselves (U4 moved settings.meterMode to the person). The control
+    // server owns the session list, so it supplies the whole set whenever it
+    // changes rather than this class trying to look at connections it cannot
+    // see — the same shape as the locale fan-out above.
+    //
+    // The server does not draw meters, so it reads these for exactly one
+    // thing: true-peak and loudness are real DSP on the audio thread, and are
+    // gated on whether anybody is actually looking at them. That gate has to
+    // be the UNION of what everyone wants, because the meter frame is computed
+    // once and broadcast — there is no per-connection DSP to gate.
+    //
+    // A User-tier value therefore spends CPU on the audio thread, which R2
+    // would normally forbid outright. It is admitted for one reason: the union
+    // can only ever reach a state a single project setting could already reach
+    // on its own, so the worst case is unchanged. Per-user BALLISTICS remain
+    // Project-owned (Q5) precisely because those change the numbers everyone
+    // is shown, not merely who pays for computing them.
+    //
+    // Duplicates are harmless; an empty set means nobody has chosen and the
+    // project's implied unit stands alone.
+    void set_user_meter_modes(std::vector<std::string> modes);
+
+    // The four User-tier values the loaded document is still carrying, if any:
+    // theme, playbackKeys, meterMode, uiScrollToPlaying. This is the seed for
+    // a user profile that has none, and it is why save() can drop them without
+    // anybody losing a keymap — read once, at the moment there is finally
+    // somewhere to put them. Returns an object with only the keys present.
+    json legacy_user_prefs() const;
+
     // ---- External-control surface (Bitfocus Companion, custom remotes) ----
     // Compact machine-readable transport summary: project header facts, every
     // on-air item (name, colour, index path, elapsed/remaining), the effective
@@ -647,9 +687,11 @@ public:
     bool set_cart_slot(int slot, const std::string& item_uuid);
     bool clear_cart_slot(int slot);
 
-    // Theme + project settings patches. Each accepts a JSON object that's
-    // shallow-merged into the corresponding section.
-    bool patch_theme(const json& patch);
+    // patch_theme() was removed in U4 along with PATCH /api/project/theme —
+    // a theme belongs to whoever is looking at the screen, not to the show,
+    // and lives in a user profile or the client's machine store now. What
+    // remains of `theme` in a document is legacy: read once as a seed by
+    // legacy_user_prefs(), and dropped by save().
 
     // Settings are validated against a registry (see the table in the .cpp):
     // a key that is unknown, wrongly typed, or outside its range is dropped
@@ -1038,11 +1080,29 @@ private:
     std::optional<AppliedEngineSettings> applied_engine_settings_;
     std::mutex                           applied_engine_settings_mutex_;
 
+    // Meter display units chosen by the operators currently connected — see
+    // set_user_meter_modes(). Guarded by its own mutex because the control
+    // server writes it from the socket threads, while the gate that reads it
+    // runs on the mirror thread and on settings patches.
+    std::vector<std::string> user_meter_modes_;
+    mutable std::mutex       user_meter_modes_mutex_;
+
+    // {true_peak, loudness}: does the DSP need to run, given this project's
+    // implied unit and everything the connected operators asked for.
+    std::pair<bool, bool> meter_gate_for(const json& settings) const;
+    // Compute the above from the live document and push any change into the
+    // engine. The ONE place outside the mirror that touches the gate.
+    void                  apply_meter_gate();
+
     // Read document_["buses"] into buses_, settling the master/preview roles
     // (D24/D34/D35), migrating legacy outputs (D25), settings.previewDevice
     // (D28) and per-item deviceOverride values into real buses. Caller
     // holds mutex_.
     void load_buses_locked();
+    // The U4 legacy read: what the document still carries, and how much of it
+    // is worth telling the operator about. Caller holds mutex_.
+    json legacy_user_prefs_locked() const;
+    int  count_legacy_user_prefs_locked() const;
     // One-way conversion of the pre-bus per-item `deviceOverride` field into
     // buses. Caller holds mutex_; runs as part of load_buses_locked().
     void migrate_device_overrides_locked(BusMigrationSummary& summary);

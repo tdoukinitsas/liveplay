@@ -20,6 +20,9 @@ This document is the developer's guide to the server. For end-user docs or the o
   - [Real-time metering](#real-time-metering)
   - [Manual-stop fade-out contract](#manual-stop-fade-out-contract)
 - [Control surface](#control-surface)
+  - [Authentication](#authentication)
+  - [Server configuration](#server-configuration)
+  - [User preferences](#user-preferences)
   - [REST endpoints](#rest-endpoints)
   - [WebSocket frames](#websocket-frames)
 - [Project state & file format](#project-state--file-format)
@@ -57,7 +60,7 @@ ASIO is intentionally *not* enabled — the Steinberg SDK has redistribution ter
 server/
 ├── CMakeLists.txt
 ├── CMakePresets.json          presets: vs2022, default (Ninja), debug, macos, linux
-├── vcpkg.json                 manifest — Crow, TagLib, nlohmann/json
+├── vcpkg.json                 manifest — Crow, TagLib, nlohmann/json, libsodium
 ├── include/liveplay/
 │   ├── audio/
 │   │   ├── types.hpp          shared audio types (DeviceId, ChannelIndex, …)
@@ -69,6 +72,10 @@ server/
 │   │   └── engine.hpp         Tier 3: master bus + device fan-out
 │   ├── core/
 │   │   ├── project_state.hpp  v2 project model + legacy 1.x upgrade
+│   │   ├── output_map.hpp     logical output name → this machine's hardware
+│   │   ├── user_store.hpp     accounts, Argon2id hashes, signed tokens
+│   │   ├── user_prefs.hpp     what belongs to the person, not the show
+│   │   ├── server_config.hpp  liveplay.json's schema, reader and writer
 │   │   └── backup_manager.hpp on-save rotating backups
 │   ├── meta/
 │   │   ├── metadata.hpp       TagLib wrapper
@@ -220,14 +227,25 @@ would not be an override.
 Keys are named after the flags (`port`, `bind`, `meterHz`, `maxUploadMb`,
 `mixSampleRate`, `renderBlock`, `ringBlocks`, `masterChannels`, `maxBuses`,
 `masterCeilingDb`, `fsRoots`, `corsOrigin`, `verbose`); `--help` prints the
-list. `fsRoots` is an array — there is no shell here, so there is no reason to
+list, and so does `GET /api/server/config` — all four read
+`core::ServerConfig::schema()`, so a key cannot be readable and undocumented, or
+editable in the settings page and dropped on the way in. `fsRoots` is an array — there is no shell here, so there is no reason to
 inherit `PATH`'s separator problem.
 
 The file is **sparse**: a key it does not mention is *not set*, which is not the
 same as being set to the default. That is what lets an installation keep taking
 improved defaults instead of freezing whichever ones were current the day the
-file was written — and it is why the server never writes this file itself.
-Nothing it wrote could tell a deliberate choice apart from a default.
+file was written.
+
+Until 2.5 the server never wrote this file, for exactly that reason — nothing it
+serialised could tell a deliberate choice apart from whatever the default
+happened to be that day. It writes it now, through
+[`PATCH /api/server/config`](#server-configuration), and the sparseness argument
+is what shapes *how*: a request names keys, and **only those keys are written**.
+Editing the CORS origin in the settings page writes one key and leaves the other
+twelve absent, still taking their improved defaults. What the server will not do
+is serialise its whole configuration, which is the thing that would have made
+every default permanent.
 
 One bad key costs that key and nothing else: an unknown name, a wrong type and
 an out-of-range number are each reported and dropped, the rest of the file still
@@ -346,6 +364,188 @@ The authoritative endpoint list is the table of `CROW_ROUTE` registrations in [`
 - All IDs are opaque strings unless typed otherwise. `<int>` path parameters are 32-bit signed.
 - `cue_id` (engine-level) ≠ `item_uuid` (project-document level). The server maintains the mapping in `ProjectState`; most transport endpoints accept either.
 
+### Authentication
+
+**The default is open, and stays open.** With no `users.json` beside the executable, the server
+authenticates nothing and behaves exactly as every release before 2.5 did. That is deliberate and
+it is the same posture `--fs-root` and `--cors-origin` take: the knob appears, the behaviour does
+not change until someone sets it, and the server states which posture it is in at boot rather than
+leaving it to be discovered. A point release that started demanding a password would lock operators
+out of their own rigs, quite possibly mid-show.
+
+From the **first account onward**, every route needs a bearer token and the Server-tier routes need
+an administrator.
+
+#### The two roles
+
+The split is the ownership model's own tier boundary, not an access scheme invented alongside it —
+so "does this need an admin?" has an answer you can derive rather than memorise: it needs an admin
+if it changes state belonging to the **machine** rather than to the show or to the person at it.
+
+| Role | May |
+|------|-----|
+| `operator` | Run the show. Everything in the Project and User tiers: cues, buses, transport, project settings, media, uploads, their own locale and meter rate. |
+| `admin`    | The above, plus the Server tier: `/api/outputs` (the logical-output map), `/api/users` (accounts), `/api/clients` (who is connected, and from where). |
+
+Everything not on that short list is operator-level. Anything *unlisted* — including a path
+matching no route at all — requires a token: the guard **defaults to deny**, so a route added later
+is protected without anyone having to remember, and an anonymous caller can't map the route table
+by reading which 404s come back.
+
+#### Carrying the credential
+
+REST takes `Authorization: Bearer <token>` and only that — never a query parameter, because a token
+in a URL ends up in proxy logs, browser history and the `Referer` of anything the page then loads.
+
+The **WebSocket** is the exception, and has to be: a browser cannot set headers on a handshake, so
+`/ws` takes `?access_token=<token>`. It is named `access_token` rather than `token` so it can't be
+confused with the one-shot capability the export flow puts on `/api/file/download` (that route needs
+both). Crow's per-request log line is not reached on the upgrade path, and this is a session token
+rather than a password — but the trade is real, which is why REST refuses the same parameter.
+
+The socket is checked in its `.onaccept` handler rather than by the middleware. Crow *does* run
+middleware for an upgrade request, but then hands the connection to the rule regardless of what the
+middleware left in the response — so `res.end()` cannot refuse a socket. Two enforcement points,
+because there are two doors.
+
+#### How it is stored
+
+`users.json` lives beside the executable, next to `outputs.json` and `liveplay.json`. Machine-owned:
+a show moved to another rig does not carry accounts with it. It holds password hashes and the
+token-signing secret, so on POSIX it is written `0600` (set on the temp file before the rename, so
+it is never briefly world-readable at its real name). **On Windows it inherits the directory's
+permissions** — doing it properly means a DACL, and a half-done ACL that looks like protection is
+worse than saying so here.
+
+Passwords are Argon2id (`crypto_pwhash_str`) at libsodium's *interactive* limits — a login has to
+complete on the laptop running the show. The parameters travel inside the hash string, so raising
+them later does not invalidate existing passwords.
+
+Tokens are **stateless and signed** (`crypto_auth`, HMAC-SHA512-256) with a secret generated once
+and kept in the file. That is a deliberate choice rather than the lazy one: the crash handler
+*auto-restarts this server*, and tokens held only in memory would sign every connected surface out
+at the exact moment things were already going wrong. The cost is that an individual token cannot be
+withdrawn, so each user carries a `tokenEpoch` stamped into their tokens and checked on every
+verify — **changing a password or deleting a user invalidates everything issued to them**, which
+covers the two cases where immediate revocation is what anyone actually means. Tokens last 30 days.
+
+A corrupt `users.json` **stops the server booting**. Falling back to "no users" would read as "let
+everyone in", turning a damaged file into an unlocked door; an operator who wants the server open
+can delete the file and mean it.
+
+#### Bootstrapping
+
+While the store is empty there is nobody to be an administrator, so `POST /api/users` is reachable
+without a credential and the first account it creates is forced to `admin` whatever role was asked
+for — a store whose only account cannot manage accounts is a locked room with the key inside. The
+window is real and worth being plain about: until that first account exists, whoever reaches the
+port first can claim the rig. That is not a new exposure — it is the state every release so far has
+shipped in, permanently — and unlike that state, it closes.
+
+Login is throttled per address (5 consecutive failures → 30 s), on top of Argon2id's own ~100 ms
+per attempt. It is a brake on one machine grinding a word list, not a security boundary, and
+nothing here pretends otherwise.
+
+#### Endpoints
+
+| Method · Path | Body | Response | Notes |
+|---------------|------|----------|-------|
+| `GET /api/auth/status` | — | `{ "authRequired": false, "userCount": 0, "setupRequired": true, "tokenTtlSeconds": 2592000 }` | **Public.** It has to be: a client cannot know whether to ask for a password until it has asked this, and requiring a token to find out whether a token is required is a loop. Reveals only whether accounts exist, never who they are. |
+| `POST /api/auth/login` | `{ "name": "sam", "password": "…" }` | `{ "token": "lp1.…", "expiresIn": 2592000, "user": { "id", "name", "role" } }` · `401` · `429` when throttled (with `Retry-After`) · `409` if the server has no accounts | **Public.** A wrong password and an unknown user give the *same* message and take the *same* time (an unknown name is verified against a decoy hash), so the reply cannot be used to enumerate accounts. |
+| `GET /api/auth/me` | — | `{ "authRequired": true, "user": { … } }` | Who the caller is according to their token. |
+| `POST /api/auth/logout_all` | — | `{ "ok": true }` | Bumps the caller's `tokenEpoch`: invalidates every token ever issued to them, including the one making the request and the one on the tablet left at the venue. |
+| `GET /api/users` | — | `[ { "id", "name", "role", "createdAt" }, … ]` | **Admin.** Never returns hashes. |
+| `POST /api/users` | `{ "name", "password", "role" }` | `{ "id", "name", "role" }` · `409` name taken · `400` bad name / short password | **Admin**, except while the store is empty — see Bootstrapping. Passwords must be at least 8 characters. |
+| `PATCH /api/users/{id}` | any of `{ "name", "role", "password" }` | `{ "id", "name", "role" }` · `409` name taken or last admin | **Admin.** A `password` change bumps that user's `tokenEpoch`. |
+| `DELETE /api/users/{id}` | — | `{ "ok": true }` · `404` · `409` last admin | **Admin.** The last administrator cannot be deleted: that would leave a server still requiring a login with nobody able to manage it, recoverable only by editing `users.json` on the machine. Deletes that user's preferences too. |
+
+## Server configuration
+
+The machine's own settings have a settings page since 2.5 — every key in
+[`liveplay.json`](#liveplayjson), editable by an administrator without a text
+editor or a shell on the box.
+
+| Method · Path | Body | Response | Notes |
+|---------------|------|----------|-------|
+| `GET /api/server/config` | — | `{ path, schemaVersion, locked, fields: [ … ] }` | **Admin.** One response renders the whole form: every key, its type and range, what it is for, what is stored, what is in force, and who set it. |
+| `PATCH /api/server/config` | any subset of the schema; `null` clears a key | `{ stored, dropped, restartRequired, overriddenAtLaunch }` · `403` when locked | **Admin.** Merges. Invalid values are dropped key by key with reasons, never 400. |
+
+Each field reports:
+
+| Field | Means |
+|-------|-------|
+| `value` | what is actually in force right now |
+| `stored` | what `liveplay.json` says, which may be different |
+| `source` | `default` · `file` · `env` · `cli` — which tier supplied `value` |
+| `overridden` | `source` is `env` or `cli`, so editing the file will not take effect |
+| `appliesAt` | `restart` for everything today; the engine cannot be re-initialised while running |
+| `policy` | this key is security policy rather than preference — `fsRoots` and `corsOrigin` |
+
+**`source` is what keeps the page honest.** The desktop app always launches the
+server with `--port`, so a port field that accepted an edit and said nothing
+would write the file, report success, and change nothing until somebody removed
+a flag they cannot see. An overridden key is still *written* — the stored value
+is what applies once the flag goes away — so the PATCH response separates
+`restartRequired` (waiting for a restart) from `overriddenAtLaunch` (shadowed by
+something a restart will not clear). They are different facts with different
+fixes, and reporting them as one would be wrong either way.
+
+### `--lock-server-config`
+
+Two of these keys are security policy: `fsRoots` decides how much of the
+filesystem the API can reach, `corsOrigin` decides which web origins may drive
+the server. Making them editable over the network moves them from *needs a shell
+on the machine* to *needs an administrator's token* — a real change, since an
+admin who widened `fsRoots` to the drive root could then read any file on the
+box through `GET /api/fs/list`.
+
+That is defensible — an administrator owns the Server tier by definition, and
+this is that tier — but the ownership model's rule R3 says server policy must be
+lockable, and this is what it was for. `--lock-server-config`,
+`LIVEPLAY_LOCK_SERVER_CONFIG=1`, or `"lockServerConfig": true` in the file makes
+every write refuse with `403` and the settings page render read-only, saying why.
+
+The lock is deliberately **not writable through `PATCH`**. A lock an
+administrator can turn off over the network is not a lock; a venue that sets it
+means it, and clearing it is a decision to be made at the machine. It is also off
+by default, the same posture `--fs-root`, `--cors-origin`, `liveplay.json` and
+`users.json` all take: the knob appears, the behaviour waits to be asked for.
+
+## User preferences
+
+Four values used to live in the `.liveplay` document and never belonged there: the colour scheme (`theme`), the transport keymap (`playbackKeys`), the meter's display unit (`settings.meterMode`) and whether the playlist follows the playing cue (`settings.uiScrollToPlaying`). A document is a portable thing you mail to a colleague, so all four travelled with it — opening someone else's show changed your colours and silently reassigned the keys your hands already knew. They belong to the **person**, and since 2.5 that is where they live.
+
+**Where they live depends on whether anyone is signed in.** With no accounts configured — still the default — there is no person for a preference to belong to, so nothing is stored here and the client keeps them in its own machine store. The obvious alternative, one shared "anonymous" profile, would put whatever the desk chose onto every tablet in the building: the same coupling the document had, moved to a new file and no better for the move. Sign in and they follow you to any surface instead.
+
+Profiles are one JSON file per user under `prefs/` beside the executable, created on first sign-in and never before — an installation that leaves authentication off grows no directory. Deliberately *not* inside `users.json`: that file holds password hashes and the token-signing secret, and every theme toggle should not rewrite it. Same `0600`-on-POSIX-only admission as `users.json` (see below). A profile that cannot be parsed costs one person their colours, never the server's ability to boot, and the unreadable file is moved aside as `<id>.json.corrupt` rather than overwritten — it may be the only copy of a keymap somebody spent an afternoon on.
+
+The store is **sparse**, like `liveplay.json`: an absent key means *not chosen*, not "off", so an installation keeps taking improved defaults instead of being frozen at whatever they were the first time someone opened a colour picker. A `null` value clears a key, which is how "stop choosing this, follow the show again" is said.
+
+| Method · Path | Body | Response | Notes |
+|---------------|------|----------|-------|
+| `GET /api/prefs` | — | the caller's profile · `409` when nobody is signed in | Seeds the profile from the open project's legacy fields if it does not exist yet — this read *is* the migration. |
+| `PATCH /api/prefs` | any of `{ "theme": { "mode", "accentColor" }, "meterMode", "uiScrollToPlaying", "playbackKeys", "locale" }` | the resulting profile · `409` | Merges. `theme` merges rather than replacing. Invalid values are dropped key by key, never 400. |
+
+**Neither route names a user, and that is deliberate.** The profile acted on is always the caller's, so there is no shape of request that reads or writes somebody else's — an administrator owns the machine, not the people using it, and `playbackKeys` in particular is a description of what one person's hands do. An endpoint that took a user id is one that would eventually be called with someone else's.
+
+`409` is not an error a client should retry: it means authentication is off, and the correct response is to keep these values locally.
+
+### The migration
+
+`theme`, `playbackKeys`, `settings.meterMode` and `settings.uiScrollToPlaying` are **legacy, not fatal**. A 2.4 document still opens; the values are read once, as the seed for a profile that does not have one, and `save()` then drops them. The load counts what it found and reports it as `userPrefsMigrated` on the existing `project_migrated` broadcast, so the file changing shape is something the operator is told about rather than something they discover.
+
+Seeding runs at the moment there is finally somewhere to put the values, and never twice. One consequence is worth stating: **an empty seed writes nothing.** A client reads its preferences as soon as its socket comes up, which on the ordinary startup order is before any project is open — creating an empty profile then would permanently spend that person's one chance to inherit their real theme and keymap from a file they open a minute later.
+
+`cartSlotKeys` deliberately did **not** move. A cart wall is the show's layout: the slot that fires the door slam is a property of this production, and it has to be the same slot for whoever is standing at the desk tonight.
+
+`PATCH /api/project/theme` was **removed** rather than deprecated. It wrote a value `save()` now drops, so keeping it would leave a route that answers `200`, broadcasts a change, and quietly loses the input at the next save.
+
+### One thing the server actually reads
+
+`meterMode` is the only preference the server acts on, and only to gate true-peak and loudness metering — real DSP on the audio thread that is not worth running when nobody is looking at it. Because the meter frame is computed once and broadcast, there is no per-connection DSP to gate, so the gate takes the **union** of what every connected operator has chosen and what the project's output target implies.
+
+That means a User-tier value spends CPU on the audio thread, which R2 would normally forbid. It is admitted for one reason: the union can only ever reach a state a single project setting could already reach on its own, so the worst case is unchanged. Per-user meter *ballistics* stay Project-owned for exactly the opposite reason — those change the numbers everyone is shown, not merely who pays for computing them.
+
 ### REST endpoints
 
 #### Diagnostics
@@ -354,7 +554,7 @@ The authoritative endpoint list is the table of `CROW_ROUTE` registrations in [`
 |--------------------|------|----------|-------|
 | `GET /api/health`  | —    | `{ "ok": true, "name": "liveplay-server" }` | Liveness probe. |
 | `GET /api/whoami`  | —    | `{ "clientIp": "192.168.1.10", "isLocal": false }` | `isLocal` is true for loopback callers (127.0.0.0/8, `::1`). |
-| `GET /api/clients` | —    | `[ { "id": 3, "remoteIp": "192.168.1.10", "connectedSeconds": 412, "locale": "el", "localeIsOwn": true, "meterHz": 5, "meterHzIsOwn": true }, … ]`, lowest `id` first | Who is connected **right now**: one row per live WebSocket. REST is stateless, so a `curl` against it is not a session — anything driving the rig holds a socket open. `id` is monotonic within a process run and never reused, so an id in a log line always means one connection. Unauthenticated today, like every other route; it is on the list to gate when authentication lands. |
+| `GET /api/clients` | —    | `[ { "id": 3, "remoteIp": "192.168.1.10", "user": "sam", "userId": "9f2…", "isAdmin": false, "connectedSeconds": 412, "locale": "el", "localeIsOwn": true, "meterHz": 5, "meterHzIsOwn": true }, … ]`, lowest `id` first | **Administrators only** (see [Authentication](#authentication)), because it reports the address every connected client came from. Who is connected **right now**: one row per live WebSocket. REST is stateless, so a `curl` against it is not a session — anything driving the rig holds a socket open. `id` is monotonic within a process run and never reused, so an id in a log line always means one connection. `user`/`userId` are `null` on an installation with no accounts — reported as null rather than as a name like "anonymous", so the open posture can't be confused with someone called that. |
 
 #### Devices
 
@@ -672,7 +872,7 @@ Plays an item into the **Preview bus** — the same strip PFL lands on, under th
 | Method · Path | Body | Response | Notes |
 |---------------|------|----------|-------|
 | `GET /api/project`              | — | full project JSON document | The single GET a remote client needs to render the whole project. |
-| `GET /api/project/header`       | — | lightweight header `{ name, itemCount, theme, settings, cart, hasOpenProject, … }` | Hit this first so the workspace shell can paint before the items array arrives. |
+| `GET /api/project/header`       | — | lightweight header `{ name, itemCount, theme, settings, cart, hasOpenProject, … }` | Hit this first so the workspace shell can paint before the items array arrives. `theme` and `playbackKeys` appear only when a legacy document is loaded that still carries them; they are the migration seed, not live state. |
 | `GET /api/project/items?offset=0&limit=100` | — | `{ "offset": int, "limit": int, "total": int, "items": [...] }` | `limit` clamps to [1,1000]. Top-level items only (groups carry their children inline). |
 | `GET /api/project/progress`     | — | `{ "loading": bool, "loaded": int, "total": int }` | Cheap poll for the open-project progress bar. |
 | `POST /api/project/load`        | `{ "path": "/abs/file.liveplay" }` *or* `{ "document": { … } }` | header object, augmented with `needsRepair`/`repairIssues` if the document was auto-repaired on load, and `migration` if buses had to be synthesised (see below) | broadcasts `project_changed`, and `project_migrated` if anything was migrated. `400` if neither field is present or load fails. |
@@ -719,12 +919,15 @@ Project UI settings such as `settings.indexDisplayStart` only change the numbers
 | `POST /api/project/cart`         | `{ "slot": int, "itemUuid": "<uuid>" }` | `{ "ok": true, "slot": int, "itemUuid": "…" }` | `cart_slot_set` |
 | `DELETE /api/project/cart/<int>` | — | `{ "ok": true, "slot": int }` | `cart_slot_cleared` |
 
-#### Theme & settings
+#### Settings
 
 | Method · Path | Body | Response | Broadcast op |
 |---------------|------|----------|--------------|
-| `PATCH /api/project/theme`    | partial `theme` object | the resulting `theme` object | `theme_patched` |
 | `PATCH /api/project/settings` | partial `settings` object | the resulting `settings` object | `settings_patched` |
+
+`PATCH /api/project/theme` is **gone** — a colour scheme belongs to whoever is looking at the screen, not to the show. See [User preferences](#user-preferences).
+
+`settings.meterMode` and `settings.uiScrollToPlaying` moved there too. They stay registered so the drop is *explained* rather than reading as "not a known setting" — a 2.4 client patching one is ignored, not refused, and its whole settings edit still succeeds.
 
 `settings` no longer carries audio routing. `defaultOutputDevice` and `previewDevice` are migrated onto the Master and Preview buses on load and erased (see [Project document](#project-document)); patching them here changes nothing audible and the keys go on the next load. Route through `PATCH /api/buses/<id>` instead.
 
@@ -803,14 +1006,14 @@ Stopped cues are omitted from `items`. Silent master channels (`peak_db <= -119 
 | `op`                            | Additional fields                                          | Emitted by |
 |---------------------------------|------------------------------------------------------------|------------|
 | `project_changed`               | (none — clients refetch)                                   | `POST /api/project/{load,close}`, `PUT /api/project/document` |
-| `project_migrated`              | `itemsToMain`, `busesFromDeviceOverride`, `mainOutputMigrated`, `previewDeviceMigrated`, `ltcDeviceMigrated`, `rolesMigrated` — flat on the frame, not nested | `POST /api/project/load`, `POST /api/project/save`, `PUT /api/project/document`, when the loaded/replaced document had to migrate |
+| `project_migrated`              | `itemsToMain`, `busesFromDeviceOverride`, `mainOutputMigrated`, `previewDeviceMigrated`, `ltcDeviceMigrated`, `userPrefsMigrated`, `rolesMigrated` — flat on the frame, not nested | `POST /api/project/load`, `POST /api/project/save`, `PUT /api/project/document`, when the loaded/replaced document had to migrate |
 | `item_added`                    | `uuid`, `parentUuid`, `item`, `cueId`                      | `POST /api/project/items` |
 | `item_updated`                  | `uuid`, `patch`                                            | `PATCH /api/project/items/<uuid>` |
 | `item_removed`                  | `uuid`                                                     | `DELETE /api/project/items/<uuid>` |
 | `items_reordered`               | `parentUuid`, `uuids` (array)                              | `POST /api/project/items/reorder` |
 | `cart_slot_set`                 | `slot`, `itemUuid`                                         | `POST /api/project/cart` |
 | `cart_slot_cleared`             | `slot`                                                     | `DELETE /api/project/cart/<slot>` |
-| `theme_patched`                 | `theme` (full resulting theme object)                      | `PATCH /api/project/theme` |
+| `prefs_changed`                 | `prefs` (the full resulting profile)                       | `PATCH /api/prefs`. **Not a broadcast** — it reaches only the sessions belonging to the same user, which is what keeps a detached cart or mixer window in step with the desk without telling the rest of the building about somebody's colour scheme. |
 | `settings_patched`              | `settings` (full resulting settings object)                | `PATCH /api/project/settings` |
 | `master_gain_changed`           | `db`                                                       | `POST /api/master/gain` |
 | `limiter_changed`               | `enabled`                                                  | `POST /api/master/limiter` |
@@ -885,10 +1088,30 @@ dragged back by the house changing its default. `GET /api/clients` reports each
 session's effective values along with `localeIsOwn` / `meterHzIsOwn`, which is
 the distinction that decides whether a default change will reach it.
 
+**Theme, meter unit, scroll-to-playing and the transport keymap are not shared
+either**, and since 2.5 they are not in the show file at all. They are the same
+kind of value as the language — the person's, not the rig's and not the
+document's — and they now persist in a [user profile](#user-preferences) rather
+than merely lasting as long as a connection. `prefs_changed` is the one
+`doc_patch` op that is *not* a broadcast: it reaches only the sessions belonging
+to the same user, which keeps a detached cart or mixer window in step with the
+desk without telling the rest of the building about somebody's colour scheme.
+
 Meter thinning applies to the `meters` frame **only**. `cue_state` and
 `playback_snapshot` are edges, not samples: dropping a sample costs resolution,
 while dropping a transition costs the client a fact it will never be told again,
 leaving its transport display wrong until something else happens to move.
+
+**Who** the connection is joins the same record. Once accounts exist, the
+handshake establishes a principal and the session carries it for its lifetime —
+which is what `GET /api/clients` reports and what a log line needs in order to
+stay true about a connection that has since ended. It is deliberately *not* the
+authority on what anyone may do: a token carries only a user id and an epoch, so
+every REST request looks the role up in the store as it stands at that moment,
+and a demotion takes effect on the caller's very next request rather than at
+their next login. No WebSocket message is admin-gated — the socket carries show
+control, which is the operator tier in full — so nothing reads the session's
+cached role to decide anything.
 
 ### Network event lifecycle (cue trigger)
 

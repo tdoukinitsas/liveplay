@@ -9,6 +9,9 @@
 #include "liveplay/audio/engine.hpp"
 #include "liveplay/core/backup_manager.hpp"
 #include "liveplay/core/project_state.hpp"
+#include "liveplay/core/server_config.hpp"
+#include "liveplay/core/user_prefs.hpp"
+#include "liveplay/core/user_store.hpp"
 #include "liveplay/crash_handler.hpp"
 #include "liveplay/logger.hpp"
 #include "liveplay/util/unicode_path.hpp"
@@ -26,6 +29,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <map>
 #include <string_view>
 #include <thread>
 
@@ -61,6 +65,7 @@
 namespace {
 
 namespace audio = liveplay::audio;
+namespace core  = liveplay::core;
 namespace net   = liveplay::net;
 using liveplay::Logger;
 
@@ -269,6 +274,20 @@ struct CliOptions {
     // appear without the posture changing on upgrade.
     std::vector<std::string>                 fs_browse_roots;   // empty = unrestricted
     std::optional<std::string>               cors_allow_origin; // unset = "*"
+
+    // Refuse every write to liveplay.json through the API (R3). Off by default,
+    // like every other posture knob in this server.
+    bool lock_server_config = false;
+
+    // Which tier last set each key. The settings page needs this or it lies:
+    // the desktop app always launches with --port, so a port field that wrote
+    // the file and said nothing would look like it worked and change nothing.
+    // Absent means nobody set it and the built-in default stands.
+    std::map<std::string, core::ServerConfig::Source, std::less<>> sources;
+
+    void mark(std::string_view key, core::ServerConfig::Source s) {
+        sources[std::string{key}] = s;
+    }
 };
 
 // Split a platform-delimited path list (';' on Windows, ':' elsewhere, to match
@@ -358,27 +377,13 @@ struct CrashResume {
 // The file is where an installation states its posture, the environment is
 // where a launcher varies it, and a flag is a person overriding both on
 // purpose — so the flag wins.
-constexpr int kConfigSchemaVersion = 1;
-
-// Every key the file may carry, and the flag it stands in for. One list: the
-// unknown-key check and `--help` both read it, so a key cannot be added to one
-// and forgotten in the other.
-struct ConfigKey { const char* name; const char* flag; };
-constexpr ConfigKey kConfigKeys[] = {
-    {"port",            "--port"},
-    {"bind",            "--bind"},
-    {"meterHz",         "--meter-hz"},
-    {"maxUploadMb",     "--max-upload-mb"},
-    {"mixSampleRate",   "--mix-sample-rate"},
-    {"renderBlock",     "--render-block"},
-    {"ringBlocks",      "--ring-blocks"},
-    {"masterChannels",  "--master-channels"},
-    {"maxBuses",        "--max-buses"},
-    {"masterCeilingDb", "--master-ceiling-db"},
-    {"fsRoots",         "--fs-root (an array; one entry per root)"},
-    {"corsOrigin",      "--cors-origin"},
-    {"verbose",         "--verbose"},
-};
+// The key list, the ranges and the schema version now live in
+// core::ServerConfig, because P3 gave the file a second reader and a writer:
+// GET /api/server/config renders the settings form from the same list this
+// validates against, and PATCH writes through the same validator. Keeping a
+// private copy here would mean a key could be editable in the UI and dropped
+// on the way in, which is the failure that list was made to prevent.
+using core::kConfigSchemaVersion;
 
 // Fold whatever `path` validly contains into `opts`.
 //
@@ -410,59 +415,52 @@ void apply_config_file(CliOptions& opts, const std::filesystem::path& path) {
 
     for (auto it = j.begin(); it != j.end(); ++it) {
         if (it.key() == "schema_version") continue;
-        bool known = false;
-        for (const auto& k : kConfigKeys) {
-            if (it.key() == k.name) { known = true; break; }
-        }
-        if (!known) {
+        if (it.key() == "lockServerConfig") continue;   // read below, not a Field
+        if (!core::ServerConfig::find(it.key())) {
             Logger::warn("liveplay.json: unknown key '{}' - ignored. Run with --help "
                          "for the keys this server reads.", it.key());
         }
     }
 
-    // Same range checks the flags and the environment apply, so a value cannot
-    // arrive out of range just because it came in by a different door.
-    const auto num = [&](const char* key, long long lo, long long hi)
-            -> std::optional<long long> {
+    // R3's lock. Readable from the file so a venue can set it without changing
+    // how its shortcut launches the server; deliberately NOT writable through
+    // the API, which is what makes it a lock rather than a preference.
+    if (const auto it = j.find("lockServerConfig"); it != j.end()) {
+        if (it->is_boolean()) opts.lock_server_config = it->get<bool>();
+        else Logger::warn("liveplay.json: 'lockServerConfig' must be true or false - ignoring");
+    }
+
+    // Every value goes through ServerConfig::validate, which is the same check
+    // PATCH /api/server/config applies. A value cannot be legal by one door and
+    // rejected by the other, and the log line reads the same either way.
+    const auto accept = [&](const char* key) -> std::optional<nlohmann::json> {
         const auto it = j.find(key);
         if (it == j.end()) return std::nullopt;
-        if (!it->is_number_integer() && !it->is_number_unsigned()) {
-            Logger::warn("liveplay.json: '{}' must be a whole number - ignoring, "
-                         "using default", key);
+        std::string why;
+        auto v = core::ServerConfig::validate(key, *it, why);
+        if (!v) {
+            // The reason is composed by ServerConfig::validate, so the console
+            // at boot and the settings page say the same thing about the same
+            // value — including the range, which is what makes the line
+            // actionable rather than merely accurate.
+            Logger::warn("liveplay.json: '{}' {} - ignoring, using default", key, why);
             return std::nullopt;
         }
-        const long long v = it->get<long long>();
-        if (v < lo || v > hi) {
-            Logger::warn("liveplay.json: {} = {} is outside the supported range "
-                         "[{}, {}] - ignoring, using default", key, v, lo, hi);
-            return std::nullopt;
-        }
+        opts.mark(key, core::ServerConfig::Source::File);
         return v;
     };
-    const auto real = [&](const char* key, double lo, double hi) -> std::optional<double> {
-        const auto it = j.find(key);
-        if (it == j.end()) return std::nullopt;
-        if (!it->is_number()) {
-            Logger::warn("liveplay.json: '{}' must be a number - ignoring, using default", key);
-            return std::nullopt;
-        }
-        const double v = it->get<double>();
-        if (v < lo || v > hi) {
-            Logger::warn("liveplay.json: {} = {} is outside the supported range "
-                         "[{}, {}] - ignoring, using default", key, v, lo, hi);
-            return std::nullopt;
-        }
-        return v;
+    const auto num = [&](const char* key, long long, long long)
+            -> std::optional<long long> {
+        if (auto v = accept(key)) return v->get<long long>();
+        return std::nullopt;
+    };
+    const auto real = [&](const char* key, double, double) -> std::optional<double> {
+        if (auto v = accept(key)) return v->get<double>();
+        return std::nullopt;
     };
     const auto text = [&](const char* key) -> std::optional<std::string> {
-        const auto it = j.find(key);
-        if (it == j.end()) return std::nullopt;
-        if (!it->is_string() || it->get<std::string>().empty()) {
-            Logger::warn("liveplay.json: '{}' must be a non-empty string - ignoring, "
-                         "using default", key);
-            return std::nullopt;
-        }
-        return it->get<std::string>();
+        if (auto v = accept(key)) return v->get<std::string>();
+        return std::nullopt;
     };
 
     if (auto v = num("port", 1, 65535))              opts.port = static_cast<int>(*v);
@@ -487,33 +485,16 @@ void apply_config_file(CliOptions& opts, const std::filesystem::path& path) {
 
     // An array rather than a delimited string: this is a file, so there is no
     // shell to quote around and no reason to inherit PATH's separator problem.
-    if (const auto it = j.find("fsRoots"); it != j.end()) {
-        if (!it->is_array()) {
-            Logger::warn("liveplay.json: 'fsRoots' must be an array of paths - "
-                         "ignoring, the filesystem API stays unrestricted");
-        } else {
-            std::vector<std::string> roots;
-            for (const auto& entry : *it) {
-                if (entry.is_string() && !entry.get<std::string>().empty()) {
-                    roots.push_back(entry.get<std::string>());
-                } else {
-                    Logger::warn("liveplay.json: 'fsRoots' entry is not a path string - "
-                                 "ignoring that entry");
-                }
-            }
-            // Only adopt a list that survived: an fsRoots of entirely bad
-            // entries must not read as "confined to nothing", which would
-            // refuse every path, nor silently as "unrestricted".
-            if (!roots.empty()) opts.fs_browse_roots = std::move(roots);
-            else Logger::warn("liveplay.json: 'fsRoots' named no usable path - "
-                              "the filesystem API stays unrestricted");
-        }
+    // validate() already dropped junk entries and refuses a list that survived
+    // as empty — [] would read as "unrestricted", which is the opposite of what
+    // anyone editing fsRoots meant.
+    if (auto v = accept("fsRoots")) {
+        std::vector<std::string> roots;
+        for (const auto& entry : *v) roots.push_back(entry.get<std::string>());
+        if (!roots.empty()) opts.fs_browse_roots = std::move(roots);
     }
 
-    if (const auto it = j.find("verbose"); it != j.end()) {
-        if (it->is_boolean()) opts.verbose = it->get<bool>();
-        else Logger::warn("liveplay.json: 'verbose' must be true or false - ignoring");
-    }
+    if (auto v = accept("verbose")) opts.verbose = v->get<bool>();
 }
 
 // Where to read boot configuration from, and whether a person named it.
@@ -560,46 +541,67 @@ CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir
     }
 
     // Environment next so that a CLI flag always wins, regardless of order.
+    // Each success marks its key, so the settings page can say "this is set by
+    // the environment — editing the file here will not take effect" rather than
+    // offering an edit that silently does nothing.
+    const auto env_src = core::ServerConfig::Source::Env;
     if (const char* v = std::getenv("LIVEPLAY_PORT")) {
-        if (auto p = parse_ranged<int>("LIVEPLAY_PORT", v, 1, 65535)) opts.port = *p;
+        if (auto p = parse_ranged<int>("LIVEPLAY_PORT", v, 1, 65535)) {
+            opts.port = *p; opts.mark("port", env_src);
+        }
     }
     if (const char* v = std::getenv("LIVEPLAY_MIX_SAMPLE_RATE")) {
         opts.mix_sample_rate = parse_ranged<audio::SampleRate>(
             "LIVEPLAY_MIX_SAMPLE_RATE", v, 8'000, 192'000);
+        if (opts.mix_sample_rate) opts.mark("mixSampleRate", env_src);
     }
     if (const char* v = std::getenv("LIVEPLAY_RENDER_BLOCK")) {
         opts.render_block = parse_ranged<audio::FrameCount>(
             "LIVEPLAY_RENDER_BLOCK", v, 32, 8'192);
+        if (opts.render_block) opts.mark("renderBlock", env_src);
     }
     if (const char* v = std::getenv("LIVEPLAY_RING_BLOCKS")) {
         opts.ring_blocks = parse_ranged<audio::FrameCount>(
             "LIVEPLAY_RING_BLOCKS", v, 2, 512);
+        if (opts.ring_blocks) opts.mark("ringBlocks", env_src);
     }
     if (const char* v = std::getenv("LIVEPLAY_MASTER_CHANNELS")) {
         opts.master_channels = parse_ranged<audio::MasterChannelIndex>(
             "LIVEPLAY_MASTER_CHANNELS", v, audio::kMinMasterChannels, 1'024);
+        if (opts.master_channels) opts.mark("masterChannels", env_src);
     }
     if (const char* v = std::getenv("LIVEPLAY_MAX_BUSES")) {
         opts.max_buses = parse_ranged<std::uint32_t>("LIVEPLAY_MAX_BUSES", v, 2, 512);
+        if (opts.max_buses) opts.mark("maxBuses", env_src);
     }
     if (const char* v = std::getenv("LIVEPLAY_MASTER_CEILING_DB")) {
         opts.master_ceiling_db = parse_ranged_db(
             "LIVEPLAY_MASTER_CEILING_DB", v, -24.0, 0.0);
+        if (opts.master_ceiling_db) opts.mark("masterCeilingDb", env_src);
     }
     if (const char* v = std::getenv("LIVEPLAY_METER_HZ")) {
         opts.meter_broadcast_hz = parse_ranged<std::size_t>(
             "LIVEPLAY_METER_HZ", v, 1, 120);
+        if (opts.meter_broadcast_hz) opts.mark("meterHz", env_src);
     }
     if (const char* v = std::getenv("LIVEPLAY_FS_ROOTS")) {
         opts.fs_browse_roots = split_path_list(v);
+        if (!opts.fs_browse_roots.empty()) opts.mark("fsRoots", env_src);
     }
     if (const char* v = std::getenv("LIVEPLAY_CORS_ORIGIN")) {
-        if (*v) opts.cors_allow_origin = std::string{v};
+        if (*v) { opts.cors_allow_origin = std::string{v}; opts.mark("corsOrigin", env_src); }
     }
     if (const char* v = std::getenv("LIVEPLAY_MAX_UPLOAD_MB")) {
         if (auto mb = parse_ranged<std::size_t>("LIVEPLAY_MAX_UPLOAD_MB", v, 1, 8'192)) {
             opts.max_upload_bytes = *mb * 1024ull * 1024ull;
+            opts.mark("maxUploadMb", env_src);
         }
+    }
+    // The lock has no Field and no settings-page row — it is the thing that
+    // turns the page read-only, so it can only be set from outside it.
+    if (const char* v = std::getenv("LIVEPLAY_LOCK_SERVER_CONFIG")) {
+        const std::string_view s{v};
+        opts.lock_server_config = (s == "1" || s == "true" || s == "yes" || s == "on");
     }
 
     // Whether the command line has supplied any --fs-root yet; see below.
@@ -613,27 +615,41 @@ CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir
             Logger::warn("{}: missing value - ignoring", a);
             return nullptr;
         };
-        const auto next = [&](int& dst, long long lo, long long hi) {
+        // Every branch that actually applies a value also marks its key, so the
+        // settings page can tell an operator that a field is being overridden
+        // at launch instead of offering an edit that does nothing. The desktop
+        // app always passes --port, which is precisely the case that would
+        // otherwise mislead.
+        const auto cli = core::ServerConfig::Source::Cli;
+        const auto next = [&](int& dst, long long lo, long long hi, const char* key) {
             if (const char* v = next_value()) {
-                if (auto p = parse_ranged<int>(a, v, lo, hi)) dst = *p;
+                if (auto p = parse_ranged<int>(a, v, lo, hi)) { dst = *p; opts.mark(key, cli); }
             }
         };
         if (a == "--port" || a == "-p") {
-            next(opts.port, 1, 65535);
+            next(opts.port, 1, 65535, "port");
         } else if (a == "--bind" || a == "-b") {
-            if (const char* v = next_value()) opts.bind_addr = v;
+            if (const char* v = next_value()) { opts.bind_addr = v; opts.mark("bind", cli); }
+        } else if (a == "--lock-server-config") {
+            // R3. Refuses every write through PATCH /api/server/config and
+            // makes the settings page render read-only, saying why. Off by
+            // default, like every other posture knob here.
+            opts.lock_server_config = true;
         } else if (a == "--pidfile") {
             if (const char* v = next_value()) opts.pidfile = v;
         } else if (a == "--start-delay-ms") {
-            next(opts.start_delay_ms, 0, 600'000);
+            // No mark: not a config-file key, so it has no settings-page row.
+            next(opts.start_delay_ms, 0, 600'000, "startDelayMs");
         } else if (a == "--mix-sample-rate") {
             if (const char* v = next_value()) {
                 opts.mix_sample_rate =
                     parse_ranged<audio::SampleRate>(a, v, 8'000, 192'000);
+                if (opts.mix_sample_rate) opts.mark("mixSampleRate", cli);
             }
         } else if (a == "--render-block") {
             if (const char* v = next_value()) {
                 opts.render_block = parse_ranged<audio::FrameCount>(a, v, 32, 8'192);
+                if (opts.render_block) opts.mark("renderBlock", cli);
             }
         } else if (a == "--ring-blocks") {
             // How far ahead of the device the engine runs, in render blocks.
@@ -641,28 +657,34 @@ CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir
             // genuinely stutters.
             if (const char* v = next_value()) {
                 opts.ring_blocks = parse_ranged<audio::FrameCount>(a, v, 2, 512);
+                if (opts.ring_blocks) opts.mark("ringBlocks", cli);
             }
         } else if (a == "--master-channels") {
             if (const char* v = next_value()) {
                 opts.master_channels = parse_ranged<audio::MasterChannelIndex>(
                     a, v, audio::kMinMasterChannels, 1'024);
+                if (opts.master_channels) opts.mark("masterChannels", cli);
             }
         } else if (a == "--max-buses") {
             if (const char* v = next_value()) {
                 opts.max_buses = parse_ranged<std::uint32_t>(a, v, 2, 512);
+                if (opts.max_buses) opts.mark("maxBuses", cli);
             }
         } else if (a == "--master-ceiling-db") {
             if (const char* v = next_value()) {
                 opts.master_ceiling_db = parse_ranged_db(a, v, -24.0, 0.0);
+                if (opts.master_ceiling_db) opts.mark("masterCeilingDb", cli);
             }
         } else if (a == "--meter-hz") {
             if (const char* v = next_value()) {
                 opts.meter_broadcast_hz = parse_ranged<std::size_t>(a, v, 1, 120);
+                if (opts.meter_broadcast_hz) opts.mark("meterHz", cli);
             }
         } else if (a == "--max-upload-mb") {
             if (const char* v = next_value()) {
                 if (auto mb = parse_ranged<std::size_t>(a, v, 1, 8'192)) {
                     opts.max_upload_bytes = *mb * 1024ull * 1024ull;
+                    opts.mark("maxUploadMb", cli);
                 }
             }
         } else if (a == "--config") {
@@ -680,14 +702,16 @@ CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir
                 if (*v) {
                     if (!cli_roots_seen) { opts.fs_browse_roots.clear(); cli_roots_seen = true; }
                     opts.fs_browse_roots.emplace_back(v);
+                    opts.mark("fsRoots", cli);
                 }
             }
         } else if (a == "--cors-origin") {
             if (const char* v = next_value()) {
-                if (*v) opts.cors_allow_origin = std::string{v};
+                if (*v) { opts.cors_allow_origin = std::string{v}; opts.mark("corsOrigin", cli); }
             }
         } else if (a == "--verbose" || a == "-v") {
             opts.verbose = true;
+            opts.mark("verbose", cli);
         } else if (a == "--help" || a == "-h") {
             const audio::EngineConfig      eng_defaults;
             const net::ControlServerConfig srv_defaults;
@@ -717,6 +741,11 @@ CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir
                 "                        Unset, the API can reach the whole filesystem.\n"
                 "      --cors-origin <origin>  Access-Control-Allow-Origin value\n"
                 "                        (default \"*\", i.e. any origin may call this server)\n"
+                "      --lock-server-config  Refuse every write to liveplay.json through\n"
+                "                        the API, and make the settings page read-only.\n"
+                "                        Set it on a machine whose posture is not the\n"
+                "                        operators' to change; it cannot be turned off\n"
+                "                        remotely, which is the point.\n"
                 "\n"
                 "Diagnostics:\n"
                 "  -v, --verbose         Enable debug-level logging\n"
@@ -733,7 +762,9 @@ CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir
                 "Out-of-range values are reported and ignored rather than silently applied,\n"
                 "whichever door they came in by. The config file is sparse: a key it does\n"
                 "not mention is not set, so an installation keeps taking improved defaults\n"
-                "instead of freezing this version's. The server never writes it.\n"
+                "instead of freezing this version's. The server writes it ONLY through\n"
+                "PATCH /api/server/config, and only the keys that request names, so an\n"
+                "edit made in the settings page cannot quietly freeze every other default.\n"
                 "\n"
                 "Config keys (schema_version %d), each the same value as its flag:\n",
                 LIVEPLAY_SERVER_NAME, kDefaultPort,
@@ -748,8 +779,11 @@ CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir
             // Printed from the same list the file is validated against, so a
             // key can never be readable and undocumented, or documented and
             // rejected.
-            for (const auto& k : kConfigKeys)
-                std::printf("      %-16s %s\n", k.name, k.flag);
+            for (const auto& f : core::ServerConfig::schema()) {
+                std::printf("      %-16s %s\n",
+                            std::string{f.key}.c_str(), std::string{f.flag}.c_str());
+            }
+            std::printf("      %-16s %s\n", "lockServerConfig", "--lock-server-config");
             std::exit(0);
         }
     }
@@ -1098,6 +1132,47 @@ int main(int argc, char** argv) {
     outputs->set_path(exe_dir / "outputs.json");
     outputs->load();   // absent file is fine — names resolve by identity
 
+    // The machine's own settings, now with a settings page behind them (P3).
+    // Pointed at the same file parse_cli() already read, whichever one that
+    // was — writing to liveplay.json beside the exe while --config named a
+    // different file would edit a file nobody is reading.
+    auto server_config = std::make_unique<core::ServerConfig>();
+    server_config->set_path(choose_config_path(argc, argv, exe_dir).path);
+    server_config->set_locked(opts.lock_server_config);
+    if (opts.lock_server_config) {
+        Logger::info("Server configuration is LOCKED — PATCH /api/server/config will "
+                     "refuse, and the settings page shows it read-only. Unlock at the "
+                     "machine, not over the network.");
+    }
+
+    // Who may talk to this server. Machine-owned, beside outputs.json for the
+    // same reason: the accounts belong to the rig, not to the show on it.
+    auto users = std::make_unique<core::UserStore>();
+    users->set_path(exe_dir / "users.json");
+    users->load();   // absent file is the open posture, stated below
+    if (users->corrupt()) {
+        // Refusing to start is the right answer and the uncomfortable one. The
+        // alternative is booting with an unreadable store, which the rest of
+        // the server can only interpret as "no accounts" — turning a corrupt
+        // file into an unlocked door at exactly the moment nobody is watching.
+        // An operator who wants the server open can delete the file and mean it.
+        Logger::error("users.json exists but could not be read. Refusing to start: "
+                      "continuing would silently serve WITHOUT authentication. "
+                      "Repair or delete '{}' to proceed.",
+                      util::path_to_utf8(users->path()));
+        engine->stop();
+        return 1;
+    }
+
+    // Where a signed-in operator's own preferences live: theme, meter unit,
+    // scroll-to-playing, transport keymap. One file per user, created on first
+    // sign-in and never before — an installation that leaves authentication off
+    // has nobody to keep preferences for and grows no directory here. There is
+    // deliberately no load() to match: profiles fault in per user, so one bad
+    // file costs one person's colours rather than the server's ability to boot.
+    auto prefs = std::make_unique<core::UserPrefs>();
+    prefs->set_dir(exe_dir / "prefs");
+
     auto project = std::make_unique<core::ProjectState>(*engine, *outputs);
     auto backup  = std::make_unique<core::BackupManager>(*project);
     backup->start();
@@ -1109,6 +1184,38 @@ int main(int argc, char** argv) {
     if (opts.max_upload_bytes)   server_cfg.max_upload_bytes   = *opts.max_upload_bytes;
     server_cfg.fs_browse_roots = opts.fs_browse_roots;
     if (opts.cors_allow_origin)  server_cfg.cors_allow_origin  = *opts.cors_allow_origin;
+
+    // What is actually in force, and who set it. Built here because this is the
+    // only place that has seen all four tiers resolve; the control server just
+    // reports it. Every key in the schema appears, so the settings page can
+    // render a complete form from one response and never has to guess at a
+    // default it would then be asserting on the server's behalf.
+    {
+        const audio::EngineConfig      eng;
+        const net::ControlServerConfig srv;
+        nlohmann::json eff = nlohmann::json::object();
+        eff["port"]            = opts.port;
+        eff["bind"]            = opts.bind_addr;
+        eff["meterHz"]         = opts.meter_broadcast_hz.value_or(srv.meter_broadcast_hz);
+        eff["maxUploadMb"]     = opts.max_upload_bytes.value_or(srv.max_upload_bytes)
+                                 / (1024ull * 1024ull);
+        eff["mixSampleRate"]   = opts.mix_sample_rate.value_or(eng.mix_sample_rate);
+        eff["renderBlock"]     = opts.render_block.value_or(eng.render_block);
+        eff["ringBlocks"]      = engine_cfg.ring_blocks;
+        eff["masterChannels"]  = opts.master_channels.value_or(eng.master_channels);
+        eff["maxBuses"]        = opts.max_buses.value_or(eng.max_mixer_channels);
+        eff["masterCeilingDb"] = opts.master_ceiling_db.value_or(eng.master_ceiling_db);
+        eff["fsRoots"]         = opts.fs_browse_roots;
+        eff["corsOrigin"]      = server_cfg.cors_allow_origin;
+        eff["verbose"]         = opts.verbose;
+
+        nlohmann::json src = nlohmann::json::object();
+        for (const auto& [k, v] : opts.sources) {
+            src[k] = core::ServerConfig::to_string(v);
+        }
+        server_cfg.boot_effective = std::move(eff);
+        server_cfg.boot_sources   = std::move(src);
+    }
 
     // State the posture at boot rather than leaving it implicit. Both defaults
     // are the permissive pre-2.5 behaviour, which is right for compatibility
@@ -1127,8 +1234,29 @@ int main(int argc, char** argv) {
                      "site the operator visits can call this server. Set --cors-origin "
                      "to pin it.", opts.bind_addr);
     }
+    if (!users->auth_required()) {
+        Logger::warn("NO ACCOUNTS configured — this server is UNAUTHENTICATED. Anyone "
+                     "who can reach {}:{} can run the show. Create the first account "
+                     "(POST /api/users, or the client's setup screen) to require a "
+                     "login; it is stored in '{}'.",
+                     opts.bind_addr, opts.port, util::path_to_utf8(users->path()));
+    } else {
+        Logger::info("Authentication is ON — {} account(s) in '{}'",
+                     users->user_count(), util::path_to_utf8(users->path()));
+        if (!users->has_admin()) {
+            // The store forces the first account to admin, so reaching this
+            // means the file was hand-edited. Say so rather than letting the
+            // Server-tier routes quietly become unreachable to everyone.
+            Logger::warn("No administrator in the user store — the output map, the "
+                         "accounts and the client list cannot be changed by anyone. "
+                         "Promote a user by editing '{}'.",
+                         util::path_to_utf8(users->path()));
+        }
+    }
 
-    auto server = std::make_unique<net::ControlServer>(*engine, *project, *outputs, server_cfg);
+    auto server = std::make_unique<net::ControlServer>(*engine, *project, *outputs,
+                                                       *users, *prefs, *server_config,
+                                                       server_cfg);
     if (!server->start()) {
         Logger::error("Control server failed to start.");
         engine->stop();

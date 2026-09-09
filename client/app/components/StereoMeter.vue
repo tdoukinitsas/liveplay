@@ -202,7 +202,7 @@ const grVisible = computed(() =>
 const { levels, meterMode, colorForLevel } = useOutputTarget();
 
 const { currentProject } = useProject();
-const accentColor = computed(() => currentProject.value?.theme?.accentColor ?? '#DA1E28');
+const accentColor = computed(() => usePreferences().theme.value.accentColor);
 
 // Raw signal values from the server (always peak_db and rms_db).
 const rawPeakL = computed(() => srcL.value.peak);
