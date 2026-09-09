@@ -298,6 +298,46 @@
       "verbose": "Registo de depuração"
     }
   },
+  "users": {
+    "authOff": "A autenticação está desligada — quem alcançar este servidor pode conduzir o espetáculo.",
+    "authOffHelp": "Foi assim que todas as versões antes da 2.5 se comportaram, e nada muda até criar a primeira conta. Criá-la liga a autenticação para todos os clientes deste servidor, e essa conta passa a administradora.",
+    "createFirst": "Criar a primeira conta",
+    "firstIsAdmin": "A primeira conta é sempre administradora.",
+    "authNowOn": "{name} criada. Este servidor passa a exigir início de sessão.",
+    "signedInAs": "Sessão iniciada como",
+    "accounts": "Contas",
+    "adminOnly": "Só um administrador pode ver ou alterar a lista de contas.",
+    "loadFailed": "Não foi possível ler a lista de contas.",
+    "you": "você",
+    "roleAdmin": "Administrador",
+    "roleOperator": "Operador",
+    "name": "Nome",
+    "password": "Palavra-passe",
+    "role": "Função",
+    "add": "Adicionar conta",
+    "addTitle": "Nova conta",
+    "added": "{name} adicionada.",
+    "addFailed": "Não foi possível criar a conta.",
+    "remove": "Remover",
+    "removeConfirm": "Remover {name}?",
+    "removeHelp": "As preferências dessa pessoa são removidas com a conta, e qualquer token que ainda tenha deixa de funcionar imediatamente.",
+    "removed": "{name} removida.",
+    "removeFailed": "Não foi possível remover a conta.",
+    "changePassword": "Alterar palavra-passe",
+    "changePasswordTitle": "Alterar palavra-passe",
+    "passwordRule": "Pelo menos {min} caracteres.",
+    "passwordRevokes": "Alterar uma palavra-passe termina a sessão dessa pessoa em todo o lado onde continue autenticada.",
+    "passwordChanged": "Palavra-passe alterada.",
+    "passwordChangedSelf": "Palavra-passe alterada. A sua sessão foi terminada em todo o lado, incluindo aqui.",
+    "roleChanged": "{name} é agora {role}.",
+    "saveFailed": "Não foi possível guardar a alteração.",
+    "signOut": "Terminar sessão",
+    "signOutEverywhere": "Terminar sessão em todo o lado",
+    "signOutEverywhereHelp": "Invalida todos os tokens emitidos em seu nome — esta janela e o tablet que deixou na sala.",
+    "signOutEverywhereConfirm": "Terminar sessão em todos os dispositivos, incluindo este?",
+    "save": "Guardar",
+    "cancel": "Cancelar"
+  },
   "colors": {
     "chooseAccent": "Escolher Cor de Destaque"
   },
@@ -467,7 +507,9 @@
     "routingInMixer": "O encaminhamento de áudio fica no misturador. Cada sinal toca através de um bus; cada bus envia para uma saída de hardware, para outro bus ou para o bus Preview para auscultadores.",
     "openMixer": "Abrir misturador",
     "sectionServer": "Servidor",
-    "sectionServerHelp": "Com que servidor esta aplicação fala e, para um administrador, o que esse servidor faz."
+    "sectionServerHelp": "Com que servidor esta aplicação fala e, para um administrador, o que esse servidor faz.",
+    "sectionUsers": "Contas",
+    "sectionUsersHelp": "Quem pode usar este servidor e o que tem permissão para alterar."
   },
   "common": {
     "default": "padrão",

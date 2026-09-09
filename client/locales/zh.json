@@ -298,6 +298,46 @@
       "verbose": "调试日志"
     }
   },
+  "users": {
+    "authOff": "身份验证已关闭——任何能连上此服务器的人都可以操作演出。",
+    "authOffHelp": "2.5 之前的每个版本都是这样，在你创建第一个账户之前不会改变。创建后将为此服务器的所有客户端开启身份验证，且该账户会成为管理员。",
+    "createFirst": "创建第一个账户",
+    "firstIsAdmin": "第一个账户始终是管理员。",
+    "authNowOn": "已创建 {name}。此服务器现在需要登录。",
+    "signedInAs": "当前登录",
+    "accounts": "账户",
+    "adminOnly": "只有管理员才能查看或更改账户列表。",
+    "loadFailed": "无法读取账户列表。",
+    "you": "你",
+    "roleAdmin": "管理员",
+    "roleOperator": "操作员",
+    "name": "名称",
+    "password": "密码",
+    "role": "角色",
+    "add": "添加账户",
+    "addTitle": "新建账户",
+    "added": "已添加 {name}。",
+    "addFailed": "无法创建账户。",
+    "remove": "移除",
+    "removeConfirm": "移除 {name}？",
+    "removeHelp": "该用户的偏好设置会随账户一并删除，其持有的令牌立即失效。",
+    "removed": "已移除 {name}。",
+    "removeFailed": "无法移除账户。",
+    "changePassword": "更改密码",
+    "changePasswordTitle": "更改密码",
+    "passwordRule": "至少 {min} 个字符。",
+    "passwordRevokes": "更改密码会让该用户在所有仍登录的地方退出。",
+    "passwordChanged": "密码已更改。",
+    "passwordChangedSelf": "密码已更改。你已在所有设备（包括此处）退出登录。",
+    "roleChanged": "{name} 现在是{role}。",
+    "saveFailed": "无法保存更改。",
+    "signOut": "退出登录",
+    "signOutEverywhere": "在所有设备退出",
+    "signOutEverywhereHelp": "使发给你的所有令牌失效——包括此窗口和你留在场地的平板。",
+    "signOutEverywhereConfirm": "在所有设备（包括此设备）退出登录？",
+    "save": "保存",
+    "cancel": "取消"
+  },
   "colors": {
     "chooseAccent": "选择强调色"
   },
@@ -467,7 +507,9 @@
     "routingInMixer": "音频路由在调音台中设置。每个信号通过一条总线播放；每条总线发送到硬件输出、另一条总线，或用于耳机的 Preview 总线。",
     "openMixer": "打开调音台",
     "sectionServer": "服务器",
-    "sectionServerHelp": "此应用连接哪个服务器，以及（对管理员而言）该服务器的运行设置。"
+    "sectionServerHelp": "此应用连接哪个服务器，以及（对管理员而言）该服务器的运行设置。",
+    "sectionUsers": "账户",
+    "sectionUsersHelp": "谁可以使用此服务器，以及各自被允许更改什么。"
   },
   "common": {
     "default": "默认",

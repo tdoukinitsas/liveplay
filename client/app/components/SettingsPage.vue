@@ -33,6 +33,7 @@
         <SettingsPaneSurfaces v-else-if="section === 'surfaces'" />
         <SettingsPaneProject v-else-if="section === 'project'" />
         <SettingsPaneServer v-else-if="section === 'server'" />
+        <SettingsPaneUsers v-else-if="section === 'users'" />
       </div>
     </div>
   </div>
@@ -45,6 +46,7 @@ import SettingsPaneKeyboard from './SettingsPaneKeyboard.vue';
 import SettingsPaneSurfaces from './SettingsPaneSurfaces.vue';
 import SettingsPaneProject from './SettingsPaneProject.vue';
 import SettingsPaneServer from './SettingsPaneServer.vue';
+import SettingsPaneUsers from './SettingsPaneUsers.vue';
 
 const { t } = useLocalization();
 const { section, isOpen, show, close, sections } = useSettingsPage();

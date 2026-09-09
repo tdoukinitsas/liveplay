@@ -298,6 +298,46 @@
       "verbose": "Regjistrimi i korrigjimit"
     }
   },
+  "users": {
+    "authOff": "Vërtetimi është i fikur — kushdo që arrin këtë server mund ta drejtojë shfaqjen.",
+    "authOffHelp": "Kështu sillej çdo version para 2.5, dhe nuk ndryshon derisa të krijoni llogarinë e parë. Krijimi e ndez vërtetimin për të gjithë klientët e këtij serveri, dhe ajo llogari bëhet administrator.",
+    "createFirst": "Krijo llogarinë e parë",
+    "firstIsAdmin": "Llogaria e parë është gjithmonë administrator.",
+    "authNowOn": "{name} u krijua. Ky server tani kërkon hyrje.",
+    "signedInAs": "I identifikuar si",
+    "accounts": "Llogaritë",
+    "adminOnly": "Vetëm një administrator mund ta shohë ose ndryshojë listën e llogarive.",
+    "loadFailed": "Lista e llogarive nuk mund të lexohej.",
+    "you": "ju",
+    "roleAdmin": "Administrator",
+    "roleOperator": "Operator",
+    "name": "Emri",
+    "password": "Fjalëkalimi",
+    "role": "Roli",
+    "add": "Shto llogari",
+    "addTitle": "Llogari e re",
+    "added": "{name} u shtua.",
+    "addFailed": "Llogaria nuk u krijua dot.",
+    "remove": "Hiq",
+    "removeConfirm": "Të hiqet {name}?",
+    "removeHelp": "Preferencat e tij hiqen bashkë me llogarinë, dhe çdo token që ende mban pushon së funksionuari menjëherë.",
+    "removed": "{name} u hoq.",
+    "removeFailed": "Llogaria nuk u hoq dot.",
+    "changePassword": "Ndrysho fjalëkalimin",
+    "changePasswordTitle": "Ndrysho fjalëkalimin",
+    "passwordRule": "Të paktën {min} shenja.",
+    "passwordRevokes": "Ndryshimi i fjalëkalimit e nxjerr atë person nga çdo vend ku është ende i identifikuar.",
+    "passwordChanged": "Fjalëkalimi u ndryshua.",
+    "passwordChangedSelf": "Fjalëkalimi u ndryshua. Jeni nxjerrë kudo, përfshirë këtu.",
+    "roleChanged": "{name} tani është {role}.",
+    "saveFailed": "Ndryshimi nuk u ruajt dot.",
+    "signOut": "Dil",
+    "signOutEverywhere": "Dil kudo",
+    "signOutEverywhereHelp": "Zhvlerëson çdo token të lëshuar për ju — këtë dritare, dhe tabletin që latë në sallë.",
+    "signOutEverywhereConfirm": "Të dilet nga të gjitha pajisjet, përfshirë këtë?",
+    "save": "Ruaj",
+    "cancel": "Anulo"
+  },
   "colors": {
     "chooseAccent": "Zgjidh Ngjyrën e Theksuar"
   },
@@ -467,7 +507,9 @@
     "routingInMixer": "Rrugëzimi i audios bëhet në mikser. Çdo cue luan përmes një bus-i; çdo bus dërgon te një dalje hardware, te një bus tjetër ose te bus-i Preview për kufjet.",
     "openMixer": "Hap mikserin",
     "sectionServer": "Serveri",
-    "sectionServerHelp": "Me cilin server flet ky aplikacion dhe — për administratorët — çfarë bën ai server."
+    "sectionServerHelp": "Me cilin server flet ky aplikacion dhe — për administratorët — çfarë bën ai server.",
+    "sectionUsers": "Llogaritë",
+    "sectionUsersHelp": "Kush mund ta përdorë këtë server dhe çfarë i lejohet të ndryshojë."
   },
   "common": {
     "default": "e paracaktuar",

@@ -298,6 +298,46 @@
       "verbose": "Registro de depuración"
     }
   },
+  "users": {
+    "authOff": "La autenticación está desactivada: cualquiera que alcance este servidor puede dirigir el espectáculo.",
+    "authOffHelp": "Así se comportaban todas las versiones anteriores a la 2.5, y nada cambia hasta que crees la primera cuenta. Crearla activa la autenticación para todos los clientes de este servidor, y esa cuenta se vuelve administradora.",
+    "createFirst": "Crear la primera cuenta",
+    "firstIsAdmin": "La primera cuenta siempre es administradora.",
+    "authNowOn": "{name} creada. Este servidor ya requiere iniciar sesión.",
+    "signedInAs": "Sesión iniciada como",
+    "accounts": "Cuentas",
+    "adminOnly": "Solo un administrador puede ver o cambiar la lista de cuentas.",
+    "loadFailed": "No se pudo leer la lista de cuentas.",
+    "you": "tú",
+    "roleAdmin": "Administrador",
+    "roleOperator": "Operador",
+    "name": "Nombre",
+    "password": "Contraseña",
+    "role": "Rol",
+    "add": "Añadir cuenta",
+    "addTitle": "Nueva cuenta",
+    "added": "{name} añadida.",
+    "addFailed": "No se pudo crear la cuenta.",
+    "remove": "Eliminar",
+    "removeConfirm": "¿Eliminar a {name}?",
+    "removeHelp": "Sus preferencias se eliminan con la cuenta, y cualquier token que aún tenga deja de funcionar de inmediato.",
+    "removed": "{name} eliminada.",
+    "removeFailed": "No se pudo eliminar la cuenta.",
+    "changePassword": "Cambiar contraseña",
+    "changePasswordTitle": "Cambiar contraseña",
+    "passwordRule": "Al menos {min} caracteres.",
+    "passwordRevokes": "Cambiar una contraseña cierra la sesión de esa persona en todos los sitios donde siga conectada.",
+    "passwordChanged": "Contraseña cambiada.",
+    "passwordChangedSelf": "Contraseña cambiada. Se ha cerrado tu sesión en todas partes, incluida esta.",
+    "roleChanged": "{name} ahora es {role}.",
+    "saveFailed": "No se pudo guardar el cambio.",
+    "signOut": "Cerrar sesión",
+    "signOutEverywhere": "Cerrar sesión en todas partes",
+    "signOutEverywhereHelp": "Invalida todos los tokens emitidos a tu nombre: esta ventana y la tableta que dejaste en la sala.",
+    "signOutEverywhereConfirm": "¿Cerrar sesión en todos los dispositivos, incluido este?",
+    "save": "Guardar",
+    "cancel": "Cancelar"
+  },
   "colors": {
     "chooseAccent": "Elegir Color de Acento"
   },
@@ -467,7 +507,9 @@
     "routingInMixer": "El enrutamiento de audio está en el mezclador. Cada señal suena a través de un bus; cada bus envía a una salida de hardware, a otro bus o al bus Preview para auriculares.",
     "openMixer": "Abrir mezclador",
     "sectionServer": "Servidor",
-    "sectionServerHelp": "Con qué servidor habla esta aplicación y, para un administrador, qué hace ese servidor."
+    "sectionServerHelp": "Con qué servidor habla esta aplicación y, para un administrador, qué hace ese servidor.",
+    "sectionUsers": "Cuentas",
+    "sectionUsersHelp": "Quién puede usar este servidor y qué se le permite cambiar."
   },
   "common": {
     "default": "predeterminado",

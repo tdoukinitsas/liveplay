@@ -311,6 +311,39 @@ const close = c => { try { c && c.ws && c.ws.close(); } catch { /* already gone 
     r = await req('/api/users', { token: opToken });
     ok('...nor read the accounts', r.status === 403, `${r.status}`);
 
+    // ---- The shape the Users pane reads (P3c) --------------------------
+    // Not a refusal, and not covered anywhere else: the settings pane renders
+    // this list directly, so a server that stopped sending `role` or started
+    // sending an object instead of an array would leave a blank pane and pass
+    // every other assertion in this file.
+    r = await req('/api/users', { token: adminToken });
+    ok('GET /api/users returns an ARRAY, which is what the pane iterates',
+       r.status === 200 && Array.isArray(r.body),
+       `${r.status} ${Array.isArray(r.body) ? `${r.body.length} row(s)` : typeof r.body}`);
+    const row = Array.isArray(r.body) ? r.body.find(u => u.name === OP_NAME) : null;
+    ok('...and every row carries the id, name and role the pane binds to',
+       !!row && typeof row.id === 'string' && row.id.length > 0 &&
+       typeof row.name === 'string' && (row.role === 'admin' || row.role === 'operator'),
+       JSON.stringify(row));
+    ok('...and no password hash, which is the one field that must never travel',
+       !!row && !('hash' in row) && !('password' in row),
+       `fields: [${row ? Object.keys(row).join(', ') : '—'}]`);
+
+    // The pane changes a role by PATCHing {role} alone, and reads the role back
+    // off the response to confirm rather than re-fetching.
+    r = await req(`/api/users/${opId}`, {
+      method: 'PATCH', token: adminToken, body: { role: 'admin' },
+    });
+    ok('PATCH {role} alone promotes, and answers with the resulting role',
+       r.status === 200 && r.body && r.body.role === 'admin',
+       `${r.status} role=${r.body && r.body.role}`);
+    r = await req(`/api/users/${opId}`, {
+      method: 'PATCH', token: adminToken, body: { role: 'operator' },
+    });
+    ok('...and demotes again, which is what makes the pane\'s select two-way',
+       r.status === 200 && r.body && r.body.role === 'operator',
+       `${r.status} role=${r.body && r.body.role}`);
+
     r = await req('/api/clients', { token: opToken });
     ok('...nor see who else is connected, and from where',
        r.status === 403, `${r.status}`);

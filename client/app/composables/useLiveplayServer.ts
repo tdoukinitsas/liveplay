@@ -1102,6 +1102,40 @@ function createClient() {
     });
   }
 
+  // ---- Accounts (P3c) --------------------------------------------------
+  // Administrators only, except createUser while the store is empty — that is
+  // the bootstrap, and setupFirstUser above is the login screen's path through
+  // the same route. Every one of these throws on refusal: the server has better
+  // wording for "that name is taken" and "you cannot remove the last
+  // administrator" than the pane could invent, and inventing one here would
+  // eventually contradict it.
+  async function fetchUsers(): Promise<any[]> {
+    return rest<any[]>('/api/users');
+  }
+  async function createUser(name: string, password: string, role: string) {
+    return rest<any>('/api/users', {
+      method: 'POST',
+      body: JSON.stringify({ name, password, role }),
+    });
+  }
+  async function updateUser(id: string, patch: Record<string, string>) {
+    return rest<any>(`/api/users/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+  }
+  async function deleteUser(id: string) {
+    return rest<any>(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+  // "Sign me out everywhere." Bumps this user's token epoch, which invalidates
+  // every token ever issued to them — including the one making the request and
+  // the one on the tablet they left at the venue, which is the entire point. So
+  // it necessarily logs this client out too, and says so before it runs.
+  async function logoutAll() {
+    await rest<any>('/api/auth/logout_all', { method: 'POST' });
+    logout();
+  }
+
   // Settings shallow-merge patch. patchTheme is gone with U4 — a theme is the
   // person's, not the show's, and goes through patchPrefs above.
   async function patchSettings(patch: any) {
@@ -1671,6 +1705,11 @@ function createClient() {
     patchPrefs,
     fetchServerConfig,
     patchServerConfig,
+    fetchUsers,
+    createUser,
+    updateUser,
+    deleteUser,
+    logoutAll,
     patchSettings,
 
     // preview

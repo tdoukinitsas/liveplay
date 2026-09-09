@@ -298,6 +298,46 @@
       "verbose": "Debug-Protokollierung"
     }
   },
+  "users": {
+    "authOff": "Authentifizierung ist aus – wer diesen Server erreicht, kann die Show fahren.",
+    "authOffHelp": "So verhielt sich jede Version vor 2.5, und daran ändert sich nichts, bis Sie das erste Konto anlegen. Das schaltet die Authentifizierung für alle Clients dieses Servers ein, und dieses Konto wird Administrator.",
+    "createFirst": "Erstes Konto anlegen",
+    "firstIsAdmin": "Das erste Konto ist immer Administrator.",
+    "authNowOn": "{name} angelegt. Dieser Server verlangt jetzt eine Anmeldung.",
+    "signedInAs": "Angemeldet als",
+    "accounts": "Konten",
+    "adminOnly": "Nur Administratoren können die Kontenliste sehen oder ändern.",
+    "loadFailed": "Die Kontenliste konnte nicht gelesen werden.",
+    "you": "Sie",
+    "roleAdmin": "Administrator",
+    "roleOperator": "Operator",
+    "name": "Name",
+    "password": "Passwort",
+    "role": "Rolle",
+    "add": "Konto hinzufügen",
+    "addTitle": "Neues Konto",
+    "added": "{name} hinzugefügt.",
+    "addFailed": "Das Konto konnte nicht angelegt werden.",
+    "remove": "Entfernen",
+    "removeConfirm": "{name} entfernen?",
+    "removeHelp": "Die Einstellungen dieser Person werden mit dem Konto entfernt, und jedes noch gehaltene Token verliert sofort seine Gültigkeit.",
+    "removed": "{name} entfernt.",
+    "removeFailed": "Das Konto konnte nicht entfernt werden.",
+    "changePassword": "Passwort ändern",
+    "changePasswordTitle": "Passwort ändern",
+    "passwordRule": "Mindestens {min} Zeichen.",
+    "passwordRevokes": "Eine Passwortänderung meldet diese Person überall ab, wo sie noch angemeldet ist.",
+    "passwordChanged": "Passwort geändert.",
+    "passwordChangedSelf": "Passwort geändert. Sie wurden überall abgemeldet, auch hier.",
+    "roleChanged": "{name} ist jetzt {role}.",
+    "saveFailed": "Die Änderung konnte nicht gespeichert werden.",
+    "signOut": "Abmelden",
+    "signOutEverywhere": "Überall abmelden",
+    "signOutEverywhereHelp": "Macht jedes an Sie ausgegebene Token ungültig – dieses Fenster und das Tablet, das Sie im Haus gelassen haben.",
+    "signOutEverywhereConfirm": "Von allen Geräten abmelden, auch von diesem?",
+    "save": "Speichern",
+    "cancel": "Abbrechen"
+  },
   "colors": {
     "chooseAccent": "Akzentfarbe wählen"
   },
@@ -467,7 +507,9 @@
     "routingInMixer": "Das Audio-Routing findet im Mixer statt. Jedes Signal läuft über einen Bus; jeder Bus geht an einen Hardware-Ausgang, einen anderen Bus oder den Preview-Bus für den Kopfhörer.",
     "openMixer": "Mixer öffnen",
     "sectionServer": "Server",
-    "sectionServerHelp": "Mit welchem Server diese App spricht und – für Administratoren – was dieser Server tut."
+    "sectionServerHelp": "Mit welchem Server diese App spricht und – für Administratoren – was dieser Server tut.",
+    "sectionUsers": "Konten",
+    "sectionUsersHelp": "Wer diesen Server nutzen darf und was er ändern kann."
   },
   "common": {
     "default": "Standard",

@@ -298,6 +298,46 @@
       "verbose": "Jurnal de depanare"
     }
   },
+  "users": {
+    "authOff": "Autentificarea este oprită — oricine ajunge la acest server poate conduce spectacolul.",
+    "authOffHelp": "Așa s-a comportat fiecare versiune înainte de 2.5 și nu se schimbă până nu creați primul cont. Crearea lui pornește autentificarea pentru toți clienții acestui server, iar contul devine administrator.",
+    "createFirst": "Creează primul cont",
+    "firstIsAdmin": "Primul cont este întotdeauna administrator.",
+    "authNowOn": "{name} creat. Acest server cere acum autentificare.",
+    "signedInAs": "Autentificat ca",
+    "accounts": "Conturi",
+    "adminOnly": "Doar un administrator poate vedea sau schimba lista de conturi.",
+    "loadFailed": "Lista de conturi nu a putut fi citită.",
+    "you": "dumneavoastră",
+    "roleAdmin": "Administrator",
+    "roleOperator": "Operator",
+    "name": "Nume",
+    "password": "Parolă",
+    "role": "Rol",
+    "add": "Adaugă cont",
+    "addTitle": "Cont nou",
+    "added": "{name} adăugat.",
+    "addFailed": "Contul nu a putut fi creat.",
+    "remove": "Elimină",
+    "removeConfirm": "Eliminați {name}?",
+    "removeHelp": "Preferințele lor sunt eliminate odată cu contul, iar orice token pe care îl mai dețin încetează imediat să funcționeze.",
+    "removed": "{name} eliminat.",
+    "removeFailed": "Contul nu a putut fi eliminat.",
+    "changePassword": "Schimbă parola",
+    "changePasswordTitle": "Schimbă parola",
+    "passwordRule": "Cel puțin {min} caractere.",
+    "passwordRevokes": "Schimbarea parolei deconectează acea persoană din toate locurile unde este încă autentificată.",
+    "passwordChanged": "Parola a fost schimbată.",
+    "passwordChangedSelf": "Parola a fost schimbată. Ați fost deconectat peste tot, inclusiv aici.",
+    "roleChanged": "{name} este acum {role}.",
+    "saveFailed": "Modificarea nu a putut fi salvată.",
+    "signOut": "Deconectare",
+    "signOutEverywhere": "Deconectare de peste tot",
+    "signOutEverywhereHelp": "Invalidează fiecare token emis pentru dumneavoastră — această fereastră și tableta lăsată în sală.",
+    "signOutEverywhereConfirm": "Vă deconectați de pe toate dispozitivele, inclusiv acesta?",
+    "save": "Salvează",
+    "cancel": "Anulează"
+  },
   "colors": {
     "chooseAccent": "Alege accentul de culoare"
   },
@@ -467,7 +507,9 @@
     "routingInMixer": "Rutarea audio se face în mixer. Fiecare cue redă printr-un bus; fiecare bus trimite către o ieșire hardware, către alt bus sau către bus-ul Preview pentru căști.",
     "openMixer": "Deschide mixerul",
     "sectionServer": "Server",
-    "sectionServerHelp": "Cu ce server vorbește această aplicație și — pentru administratori — ce face acel server."
+    "sectionServerHelp": "Cu ce server vorbește această aplicație și — pentru administratori — ce face acel server.",
+    "sectionUsers": "Conturi",
+    "sectionUsersHelp": "Cine poate folosi acest server și ce are voie să schimbe."
   },
   "common": {
     "default": "implicit",

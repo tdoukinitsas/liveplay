@@ -298,6 +298,46 @@
       "verbose": "Feilsøkingslogg"
     }
   },
+  "users": {
+    "authOff": "Autentisering er av — alle som når denne tjeneren kan kjøre forestillingen.",
+    "authOffHelp": "Slik oppførte hver utgivelse før 2.5 seg, og det endres ikke før du oppretter den første kontoen. Å opprette én slår på autentisering for alle klienter mot denne tjeneren, og kontoen blir administrator.",
+    "createFirst": "Opprett den første kontoen",
+    "firstIsAdmin": "Den første kontoen er alltid administrator.",
+    "authNowOn": "{name} opprettet. Denne tjeneren krever nå innlogging.",
+    "signedInAs": "Innlogget som",
+    "accounts": "Kontoer",
+    "adminOnly": "Bare en administrator kan se eller endre kontolisten.",
+    "loadFailed": "Kontolisten kunne ikke leses.",
+    "you": "deg",
+    "roleAdmin": "Administrator",
+    "roleOperator": "Operatør",
+    "name": "Navn",
+    "password": "Passord",
+    "role": "Rolle",
+    "add": "Legg til konto",
+    "addTitle": "Ny konto",
+    "added": "{name} lagt til.",
+    "addFailed": "Kontoen kunne ikke opprettes.",
+    "remove": "Fjern",
+    "removeConfirm": "Fjerne {name}?",
+    "removeHelp": "Innstillingene deres fjernes sammen med kontoen, og et token de fortsatt har slutter å virke umiddelbart.",
+    "removed": "{name} fjernet.",
+    "removeFailed": "Kontoen kunne ikke fjernes.",
+    "changePassword": "Endre passord",
+    "changePasswordTitle": "Endre passord",
+    "passwordRule": "Minst {min} tegn.",
+    "passwordRevokes": "Å endre et passord logger personen ut overalt der de fortsatt er logget inn.",
+    "passwordChanged": "Passordet er endret.",
+    "passwordChangedSelf": "Passordet er endret. Du er logget ut overalt, også her.",
+    "roleChanged": "{name} er nå {role}.",
+    "saveFailed": "Endringen kunne ikke lagres.",
+    "signOut": "Logg ut",
+    "signOutEverywhere": "Logg ut overalt",
+    "signOutEverywhereHelp": "Ugyldiggjør hvert token utstedt til deg — dette vinduet, og nettbrettet du la igjen i salen.",
+    "signOutEverywhereConfirm": "Logge ut av alle enheter, også denne?",
+    "save": "Lagre",
+    "cancel": "Avbryt"
+  },
   "colors": {
     "chooseAccent": "Velg aksentfarge"
   },
@@ -467,7 +507,9 @@
     "routingInMixer": "Lydrutingen ligger i mixeren. Hvert signal spilles gjennom en buss; hver buss sender til en maskinvareutgang, en annen buss eller Preview-bussen for hodetelefoner.",
     "openMixer": "Åpne mixeren",
     "sectionServer": "Tjener",
-    "sectionServerHelp": "Hvilken tjener denne appen snakker med, og — for administratorer — hva den tjeneren gjør."
+    "sectionServerHelp": "Hvilken tjener denne appen snakker med, og — for administratorer — hva den tjeneren gjør.",
+    "sectionUsers": "Kontoer",
+    "sectionUsersHelp": "Hvem som kan bruke denne tjeneren, og hva de har lov til å endre."
   },
   "common": {
     "default": "standard",

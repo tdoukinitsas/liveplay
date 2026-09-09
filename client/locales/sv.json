@@ -298,6 +298,46 @@
       "verbose": "Felsökningsloggning"
     }
   },
+  "users": {
+    "authOff": "Autentisering är av — alla som når den här servern kan köra föreställningen.",
+    "authOffHelp": "Så betedde sig varje utgåva före 2.5, och det ändras inte förrän du skapar det första kontot. Att skapa ett slår på autentisering för alla klienter mot den här servern, och kontot blir administratör.",
+    "createFirst": "Skapa det första kontot",
+    "firstIsAdmin": "Det första kontot är alltid administratör.",
+    "authNowOn": "{name} skapat. Servern kräver nu inloggning.",
+    "signedInAs": "Inloggad som",
+    "accounts": "Konton",
+    "adminOnly": "Bara en administratör kan se eller ändra kontolistan.",
+    "loadFailed": "Kontolistan kunde inte läsas.",
+    "you": "du",
+    "roleAdmin": "Administratör",
+    "roleOperator": "Operatör",
+    "name": "Namn",
+    "password": "Lösenord",
+    "role": "Roll",
+    "add": "Lägg till konto",
+    "addTitle": "Nytt konto",
+    "added": "{name} tillagd.",
+    "addFailed": "Kontot kunde inte skapas.",
+    "remove": "Ta bort",
+    "removeConfirm": "Ta bort {name}?",
+    "removeHelp": "Deras inställningar tas bort med kontot, och en token de fortfarande har slutar fungera omedelbart.",
+    "removed": "{name} borttagen.",
+    "removeFailed": "Kontot kunde inte tas bort.",
+    "changePassword": "Byt lösenord",
+    "changePasswordTitle": "Byt lösenord",
+    "passwordRule": "Minst {min} tecken.",
+    "passwordRevokes": "Att byta lösenord loggar ut personen överallt där de fortfarande är inloggade.",
+    "passwordChanged": "Lösenordet har bytts.",
+    "passwordChangedSelf": "Lösenordet har bytts. Du har loggats ut överallt, även här.",
+    "roleChanged": "{name} är nu {role}.",
+    "saveFailed": "Ändringen kunde inte sparas.",
+    "signOut": "Logga ut",
+    "signOutEverywhere": "Logga ut överallt",
+    "signOutEverywhereHelp": "Ogiltigförklarar varje token utfärdad till dig — det här fönstret, och plattan du lämnade i lokalen.",
+    "signOutEverywhereConfirm": "Logga ut från alla enheter, även den här?",
+    "save": "Spara",
+    "cancel": "Avbryt"
+  },
   "colors": {
     "chooseAccent": "Välj accentfärg"
   },
@@ -467,7 +507,9 @@
     "routingInMixer": "Ljudroutningen finns i mixern. Varje signal spelas genom en buss; varje buss skickar till en hårdvaruutgång, en annan buss eller Preview-bussen för hörlurar.",
     "openMixer": "Öppna mixern",
     "sectionServer": "Server",
-    "sectionServerHelp": "Vilken server appen pratar med, och — för administratörer — vad den servern gör."
+    "sectionServerHelp": "Vilken server appen pratar med, och — för administratörer — vad den servern gör.",
+    "sectionUsers": "Konton",
+    "sectionUsersHelp": "Vem som får använda den här servern, och vad de får ändra."
   },
   "common": {
     "default": "standard",

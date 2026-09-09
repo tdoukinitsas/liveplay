@@ -298,6 +298,46 @@
       "verbose": "Hata ayıklama günlüğü"
     }
   },
+  "users": {
+    "authOff": "Kimlik doğrulama kapalı — bu sunucuya erişebilen herkes gösteriyi yönetebilir.",
+    "authOffHelp": "2.5 öncesi her sürüm böyle davranıyordu ve ilk hesabı oluşturana kadar değişmez. Oluşturmak, bu sunucunun tüm istemcileri için kimlik doğrulamayı açar ve o hesap yönetici olur.",
+    "createFirst": "İlk hesabı oluştur",
+    "firstIsAdmin": "İlk hesap her zaman yöneticidir.",
+    "authNowOn": "{name} oluşturuldu. Bu sunucu artık oturum açmayı gerektiriyor.",
+    "signedInAs": "Oturum açan",
+    "accounts": "Hesaplar",
+    "adminOnly": "Hesap listesini yalnızca bir yönetici görebilir veya değiştirebilir.",
+    "loadFailed": "Hesap listesi okunamadı.",
+    "you": "siz",
+    "roleAdmin": "Yönetici",
+    "roleOperator": "Operatör",
+    "name": "Ad",
+    "password": "Parola",
+    "role": "Rol",
+    "add": "Hesap ekle",
+    "addTitle": "Yeni hesap",
+    "added": "{name} eklendi.",
+    "addFailed": "Hesap oluşturulamadı.",
+    "remove": "Kaldır",
+    "removeConfirm": "{name} kaldırılsın mı?",
+    "removeHelp": "Bu kişinin tercihleri hesapla birlikte silinir ve elindeki her belirteç anında geçersiz olur.",
+    "removed": "{name} kaldırıldı.",
+    "removeFailed": "Hesap kaldırılamadı.",
+    "changePassword": "Parolayı değiştir",
+    "changePasswordTitle": "Parola değiştir",
+    "passwordRule": "En az {min} karakter.",
+    "passwordRevokes": "Parola değiştirmek, o kişinin oturum açtığı her yerde oturumunu kapatır.",
+    "passwordChanged": "Parola değiştirildi.",
+    "passwordChangedSelf": "Parola değiştirildi. Burası dahil her yerde oturumunuz kapatıldı.",
+    "roleChanged": "{name} artık {role}.",
+    "saveFailed": "Değişiklik kaydedilemedi.",
+    "signOut": "Oturumu kapat",
+    "signOutEverywhere": "Her yerde oturumu kapat",
+    "signOutEverywhereHelp": "Size verilmiş tüm belirteçleri geçersiz kılar — bu pencere ve mekânda bıraktığınız tablet dahil.",
+    "signOutEverywhereConfirm": "Bu cihaz dahil tüm cihazlarda oturum kapatılsın mı?",
+    "save": "Kaydet",
+    "cancel": "İptal"
+  },
   "colors": {
     "chooseAccent": "Vurgu Rengini Seç"
   },
@@ -467,7 +507,9 @@
     "routingInMixer": "Ses yönlendirmesi mikserde yapılır. Her cue bir bus üzerinden çalar; her bus bir donanım çıkışına, başka bir bus'a veya kulaklık için Preview bus'ına gönderir.",
     "openMixer": "Mikseri aç",
     "sectionServer": "Sunucu",
-    "sectionServerHelp": "Bu uygulamanın hangi sunucuyla konuştuğu ve — yöneticiler için — o sunucunun ne yaptığı."
+    "sectionServerHelp": "Bu uygulamanın hangi sunucuyla konuştuğu ve — yöneticiler için — o sunucunun ne yaptığı.",
+    "sectionUsers": "Hesaplar",
+    "sectionUsersHelp": "Bu sunucuyu kimin kullanabileceği ve neyi değiştirmesine izin verildiği."
   },
   "common": {
     "default": "varsayılan",

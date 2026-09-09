@@ -298,6 +298,46 @@
       "verbose": "デバッグログ"
     }
   },
+  "users": {
+    "authOff": "認証はオフです。このサーバーに到達できる人は誰でも公演を操作できます。",
+    "authOffHelp": "2.5 より前のすべてのリリースがこの状態で、最初のアカウントを作成するまで変わりません。作成すると、このサーバーのすべてのクライアントで認証が有効になり、そのアカウントは管理者になります。",
+    "createFirst": "最初のアカウントを作成",
+    "firstIsAdmin": "最初のアカウントは必ず管理者になります。",
+    "authNowOn": "{name} を作成しました。このサーバーはログインが必要になりました。",
+    "signedInAs": "ログイン中",
+    "accounts": "アカウント",
+    "adminOnly": "アカウント一覧を表示・変更できるのは管理者だけです。",
+    "loadFailed": "アカウント一覧を読み込めませんでした。",
+    "you": "あなた",
+    "roleAdmin": "管理者",
+    "roleOperator": "オペレーター",
+    "name": "名前",
+    "password": "パスワード",
+    "role": "役割",
+    "add": "アカウントを追加",
+    "addTitle": "新しいアカウント",
+    "added": "{name} を追加しました。",
+    "addFailed": "アカウントを作成できませんでした。",
+    "remove": "削除",
+    "removeConfirm": "{name} を削除しますか？",
+    "removeHelp": "その人の設定はアカウントとともに削除され、保持しているトークンは直ちに無効になります。",
+    "removed": "{name} を削除しました。",
+    "removeFailed": "アカウントを削除できませんでした。",
+    "changePassword": "パスワードを変更",
+    "changePasswordTitle": "パスワードの変更",
+    "passwordRule": "{min} 文字以上。",
+    "passwordRevokes": "パスワードを変更すると、その人はログイン中のすべての場所からサインアウトされます。",
+    "passwordChanged": "パスワードを変更しました。",
+    "passwordChangedSelf": "パスワードを変更しました。ここを含むすべての場所からサインアウトされました。",
+    "roleChanged": "{name} は {role} になりました。",
+    "saveFailed": "変更を保存できませんでした。",
+    "signOut": "サインアウト",
+    "signOutEverywhere": "すべての端末からサインアウト",
+    "signOutEverywhereHelp": "あなたに発行されたすべてのトークンを無効にします — このウィンドウと、会場に置いてきたタブレットも。",
+    "signOutEverywhereConfirm": "この端末を含むすべての端末からサインアウトしますか？",
+    "save": "保存",
+    "cancel": "キャンセル"
+  },
   "colors": {
     "chooseAccent": "アクセントカラーを選択"
   },
@@ -467,7 +507,9 @@
     "routingInMixer": "オーディオのルーティングはミキサーで行います。各キューはバスを通して再生され、各バスはハードウェア出力、別のバス、またはヘッドフォン用のPreviewバスに送られます。",
     "openMixer": "ミキサーを開く",
     "sectionServer": "サーバー",
-    "sectionServerHelp": "このアプリが接続するサーバーと、管理者向けにそのサーバーの動作設定。"
+    "sectionServerHelp": "このアプリが接続するサーバーと、管理者向けにそのサーバーの動作設定。",
+    "sectionUsers": "アカウント",
+    "sectionUsersHelp": "このサーバーを誰が使えるか、そして何を変更できるか。"
   },
   "common": {
     "default": "デフォルト",

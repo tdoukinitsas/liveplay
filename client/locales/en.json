@@ -128,7 +128,9 @@
     "sectionProjectHelp": "How this project saves itself and numbers its cues.",
     "autosaveHelp": "Saves the project after every edit. When off, the project is only written by File > Save and an \"Unsaved Changes\" pill appears beside the title.",
     "sectionServer": "Server",
-    "sectionServerHelp": "Which server this app talks to, and — for an administrator — what that server does."
+    "sectionServerHelp": "Which server this app talks to, and — for an administrator — what that server does.",
+    "sectionUsers": "Accounts",
+    "sectionUsersHelp": "Who may use this server, and what they are allowed to change."
   },
   "common": {
     "default": "default",
@@ -440,6 +442,46 @@
       "corsOrigin": "Allowed web origin",
       "verbose": "Debug logging"
     }
+  },
+  "users": {
+    "authOff": "Authentication is off — anyone who can reach this server can run the show.",
+    "authOffHelp": "That is how every release before 2.5 behaved, and it is unchanged until you create the first account. Creating one turns authentication on for every client of this server, and that account is made an administrator.",
+    "createFirst": "Create the first account",
+    "firstIsAdmin": "The first account is always an administrator.",
+    "authNowOn": "Created {name}. This server now requires a login.",
+    "signedInAs": "Signed in as",
+    "accounts": "Accounts",
+    "adminOnly": "Only an administrator can see or change the account list.",
+    "loadFailed": "The account list could not be read.",
+    "you": "you",
+    "roleAdmin": "Administrator",
+    "roleOperator": "Operator",
+    "name": "Name",
+    "password": "Password",
+    "role": "Role",
+    "add": "Add account",
+    "addTitle": "New account",
+    "added": "Added {name}.",
+    "addFailed": "The account could not be created.",
+    "remove": "Remove",
+    "removeConfirm": "Remove {name}?",
+    "removeHelp": "Their preferences are removed with the account, and any token they still hold stops working immediately.",
+    "removed": "Removed {name}.",
+    "removeFailed": "The account could not be removed.",
+    "changePassword": "Change password",
+    "changePasswordTitle": "Change password",
+    "passwordRule": "At least {min} characters.",
+    "passwordRevokes": "Changing a password signs that person out everywhere they are still signed in.",
+    "passwordChanged": "Password changed.",
+    "passwordChangedSelf": "Password changed. You have been signed out everywhere, including here.",
+    "roleChanged": "{name} is now {role}.",
+    "saveFailed": "The change could not be saved.",
+    "signOut": "Sign out",
+    "signOutEverywhere": "Sign out everywhere",
+    "signOutEverywhereHelp": "Invalidates every token issued to you — this window, and the tablet you left at the venue.",
+    "signOutEverywhereConfirm": "Sign out of every device, including this one?",
+    "save": "Save",
+    "cancel": "Cancel"
   },
   "colors": {
     "chooseAccent": "Choose Accent Color"
