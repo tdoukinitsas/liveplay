@@ -252,6 +252,52 @@
     "open": "打开",
     "noDevices": "（暂无设备）"
   },
+  "serverConfig": {
+    "title": "本机配置",
+    "intro": "属于这台机器而非本场演出的设置。保存在",
+    "loading": "正在读取服务器配置…",
+    "adminOnly": "只有管理员才能查看或更改本机配置。",
+    "unavailable": "无法读取服务器配置。",
+    "locked": "本机配置已锁定，只能在该机器上更改。",
+    "policyField": "策略",
+    "inForce": "当前生效",
+    "setBy": "设置来源",
+    "sourceDefault": "内置默认值",
+    "sourceFile": "此文件",
+    "sourceEnv": "环境变量",
+    "sourceCli": "命令行",
+    "overriddenHelp": "移除该设置后，此处的修改才会生效",
+    "unrestricted": "不受限制",
+    "enabled": "启用",
+    "on": "开",
+    "off": "关",
+    "save": "保存",
+    "saving": "正在保存…",
+    "saved": "已保存。",
+    "saveFailed": "保存失败。",
+    "discard": "放弃更改",
+    "restartRequired": "已保存。重启服务器后生效：{keys}。",
+    "savedButOverridden": "已保存，但尚未生效——启动时已设置：{keys}。",
+    "dropped": "未接受：{list}",
+    "meterRate": "此屏幕的电平表刷新率",
+    "meterRateAuto": "与服务器一致",
+    "meterRateHelp": "此屏幕接收电平更新的频率。通过 Wi-Fi 使用平板时可调低；只影响此连接，不影响调音台，也不影响电平表捕捉到的内容。",
+    "field": {
+      "port": "端口",
+      "bind": "网络接口",
+      "meterHz": "电平表刷新率（安装默认值）",
+      "maxUploadMb": "最大上传大小（MiB）",
+      "mixSampleRate": "混音采样率（Hz）",
+      "renderBlock": "渲染块大小（帧）",
+      "ringBlocks": "输出延迟（块）",
+      "masterChannels": "主总线宽度",
+      "maxBuses": "最大混音通道数",
+      "masterCeilingDb": "限制器上限（dBFS）",
+      "fsRoots": "文件系统访问",
+      "corsOrigin": "允许的网页来源",
+      "verbose": "调试日志"
+    }
+  },
   "colors": {
     "chooseAccent": "选择强调色"
   },
@@ -419,7 +465,9 @@
     "indexDisplayStartHelp": "控制第一个播放列表项目显示的编号。内部索引和 API 索引路径仍从零开始。",
     "routing": "音频路由",
     "routingInMixer": "音频路由在调音台中设置。每个信号通过一条总线播放；每条总线发送到硬件输出、另一条总线，或用于耳机的 Preview 总线。",
-    "openMixer": "打开调音台"
+    "openMixer": "打开调音台",
+    "sectionServer": "服务器",
+    "sectionServerHelp": "此应用连接哪个服务器，以及（对管理员而言）该服务器的运行设置。"
   },
   "common": {
     "default": "默认",

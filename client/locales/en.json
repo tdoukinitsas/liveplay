@@ -126,7 +126,9 @@
     "sectionSurfacesHelp": "MIDI controllers. Arm Learn on an action, then move the control you want to bind to it.",
     "sectionProject": "Project",
     "sectionProjectHelp": "How this project saves itself and numbers its cues.",
-    "autosaveHelp": "Saves the project after every edit. When off, the project is only written by File > Save and an \"Unsaved Changes\" pill appears beside the title."
+    "autosaveHelp": "Saves the project after every edit. When off, the project is only written by File > Save and an \"Unsaved Changes\" pill appears beside the title.",
+    "sectionServer": "Server",
+    "sectionServerHelp": "Which server this app talks to, and — for an administrator — what that server does."
   },
   "common": {
     "default": "default",
@@ -392,6 +394,52 @@
     "outputDevices": "Output devices",
     "open": "Open",
     "noDevices": "(no devices yet)"
+  },
+  "serverConfig": {
+    "title": "Machine configuration",
+    "intro": "Settings that belong to this machine rather than to the show. Stored in",
+    "loading": "Reading the server's configuration…",
+    "adminOnly": "Only an administrator can see or change this machine's configuration.",
+    "unavailable": "The server's configuration could not be read.",
+    "locked": "This machine's configuration is locked. It can only be changed at the machine itself.",
+    "policyField": "Policy",
+    "inForce": "In force",
+    "setBy": "Set by",
+    "sourceDefault": "built-in default",
+    "sourceFile": "this file",
+    "sourceEnv": "environment",
+    "sourceCli": "command line",
+    "overriddenHelp": "editing here takes effect once that is removed",
+    "unrestricted": "Unrestricted",
+    "enabled": "Enabled",
+    "on": "on",
+    "off": "off",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved.",
+    "saveFailed": "Could not save.",
+    "discard": "Discard changes",
+    "restartRequired": "Saved. Restart the server to apply: {keys}.",
+    "savedButOverridden": "Saved, but not in force — set at launch: {keys}.",
+    "dropped": "Not accepted: {list}",
+    "meterRate": "Meter rate for this screen",
+    "meterRateAuto": "Match the server",
+    "meterRateHelp": "How often this screen receives meter updates. Lower it on a tablet over Wi-Fi; it affects only this connection, not the desk, and not what the meters catch.",
+    "field": {
+      "port": "Port",
+      "bind": "Network interface",
+      "meterHz": "Meter rate (installation default)",
+      "maxUploadMb": "Maximum upload size (MiB)",
+      "mixSampleRate": "Mix sample rate (Hz)",
+      "renderBlock": "Render block size (frames)",
+      "ringBlocks": "Output latency (blocks)",
+      "masterChannels": "Master bus width",
+      "maxBuses": "Maximum mixer strips",
+      "masterCeilingDb": "Limiter ceiling (dBFS)",
+      "fsRoots": "Filesystem access",
+      "corsOrigin": "Allowed web origin",
+      "verbose": "Debug logging"
+    }
   },
   "colors": {
     "chooseAccent": "Choose Accent Color"

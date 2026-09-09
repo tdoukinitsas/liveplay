@@ -252,6 +252,52 @@
     "open": "開く",
     "noDevices": "(まだデバイスなし)"
   },
+  "serverConfig": {
+    "title": "マシン設定",
+    "intro": "公演ではなく、このマシンに属する設定です。保存先：",
+    "loading": "サーバー設定を読み込んでいます…",
+    "adminOnly": "このマシンの設定を表示・変更できるのは管理者だけです。",
+    "unavailable": "サーバー設定を読み込めませんでした。",
+    "locked": "このマシンの設定はロックされています。マシン本体でのみ変更できます。",
+    "policyField": "ポリシー",
+    "inForce": "現在有効",
+    "setBy": "設定元",
+    "sourceDefault": "既定値",
+    "sourceFile": "このファイル",
+    "sourceEnv": "環境変数",
+    "sourceCli": "コマンドライン",
+    "overriddenHelp": "それを外すと、ここでの変更が有効になります",
+    "unrestricted": "制限なし",
+    "enabled": "有効",
+    "on": "オン",
+    "off": "オフ",
+    "save": "保存",
+    "saving": "保存中…",
+    "saved": "保存しました。",
+    "saveFailed": "保存できませんでした。",
+    "discard": "変更を破棄",
+    "restartRequired": "保存しました。適用するにはサーバーを再起動してください：{keys}",
+    "savedButOverridden": "保存しましたが有効ではありません — 起動時に設定済み：{keys}",
+    "dropped": "受け付けられません：{list}",
+    "meterRate": "この画面のメーター更新レート",
+    "meterRateAuto": "サーバーに合わせる",
+    "meterRateHelp": "この画面がメーター更新を受け取る頻度です。Wi-Fi 接続のタブレットでは下げてください。この接続だけに影響し、卓にもメーターが捉える内容にも影響しません。",
+    "field": {
+      "port": "ポート",
+      "bind": "ネットワークインターフェース",
+      "meterHz": "メーター更新レート（既定値）",
+      "maxUploadMb": "最大アップロードサイズ（MiB）",
+      "mixSampleRate": "ミックスサンプルレート（Hz）",
+      "renderBlock": "レンダーブロックサイズ（フレーム）",
+      "ringBlocks": "出力レイテンシー（ブロック）",
+      "masterChannels": "マスターバス幅",
+      "maxBuses": "ミキサーストリップ上限",
+      "masterCeilingDb": "リミッター上限（dBFS）",
+      "fsRoots": "ファイルシステムへのアクセス",
+      "corsOrigin": "許可するウェブオリジン",
+      "verbose": "デバッグログ"
+    }
+  },
   "colors": {
     "chooseAccent": "アクセントカラーを選択"
   },
@@ -419,7 +465,9 @@
     "indexDisplayStartHelp": "最初のプレイリスト項目に表示する番号を制御します。内部インデックスと API のインデックスパスは引き続き 0 始まりです。",
     "routing": "オーディオルーティング",
     "routingInMixer": "オーディオのルーティングはミキサーで行います。各キューはバスを通して再生され、各バスはハードウェア出力、別のバス、またはヘッドフォン用のPreviewバスに送られます。",
-    "openMixer": "ミキサーを開く"
+    "openMixer": "ミキサーを開く",
+    "sectionServer": "サーバー",
+    "sectionServerHelp": "このアプリが接続するサーバーと、管理者向けにそのサーバーの動作設定。"
   },
   "common": {
     "default": "デフォルト",

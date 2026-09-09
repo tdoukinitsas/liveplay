@@ -252,6 +252,52 @@
     "open": "Abrir",
     "noDevices": "(sin dispositivos aún)"
   },
+  "serverConfig": {
+    "title": "Configuración de la máquina",
+    "intro": "Ajustes que pertenecen a esta máquina y no al espectáculo. Guardados en",
+    "loading": "Leyendo la configuración del servidor…",
+    "adminOnly": "Solo un administrador puede ver o cambiar la configuración de esta máquina.",
+    "unavailable": "No se pudo leer la configuración del servidor.",
+    "locked": "La configuración de esta máquina está bloqueada. Solo puede cambiarse en la propia máquina.",
+    "policyField": "Política",
+    "inForce": "En vigor",
+    "setBy": "Definido por",
+    "sourceDefault": "valor predeterminado",
+    "sourceFile": "este archivo",
+    "sourceEnv": "entorno",
+    "sourceCli": "línea de comandos",
+    "overriddenHelp": "lo que edites aquí tendrá efecto cuando eso se retire",
+    "unrestricted": "Sin restricción",
+    "enabled": "Activado",
+    "on": "activado",
+    "off": "desactivado",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "saved": "Guardado.",
+    "saveFailed": "No se pudo guardar.",
+    "discard": "Descartar cambios",
+    "restartRequired": "Guardado. Reinicia el servidor para aplicar: {keys}.",
+    "savedButOverridden": "Guardado, pero sin efecto — definido al arrancar: {keys}.",
+    "dropped": "No aceptado: {list}",
+    "meterRate": "Frecuencia de medidores para esta pantalla",
+    "meterRateAuto": "Igual que el servidor",
+    "meterRateHelp": "Con qué frecuencia esta pantalla recibe los medidores. Bájala en una tableta por Wi-Fi; solo afecta a esta conexión, no a la mesa ni a lo que los medidores captan.",
+    "field": {
+      "port": "Puerto",
+      "bind": "Interfaz de red",
+      "meterHz": "Frecuencia de medidores (predeterminada)",
+      "maxUploadMb": "Tamaño máximo de subida (MiB)",
+      "mixSampleRate": "Frecuencia de muestreo (Hz)",
+      "renderBlock": "Tamaño de bloque (muestras)",
+      "ringBlocks": "Latencia de salida (bloques)",
+      "masterChannels": "Anchura del bus máster",
+      "maxBuses": "Canales de mezcla máximos",
+      "masterCeilingDb": "Techo del limitador (dBFS)",
+      "fsRoots": "Acceso al sistema de archivos",
+      "corsOrigin": "Origen web permitido",
+      "verbose": "Registro de depuración"
+    }
+  },
   "colors": {
     "chooseAccent": "Elegir Color de Acento"
   },
@@ -419,7 +465,9 @@
     "indexDisplayStartHelp": "Controla el número que se muestra para el primer elemento de la lista. Los índices internos y las rutas de índice de la API siguen empezando en cero.",
     "routing": "Enrutamiento de audio",
     "routingInMixer": "El enrutamiento de audio está en el mezclador. Cada señal suena a través de un bus; cada bus envía a una salida de hardware, a otro bus o al bus Preview para auriculares.",
-    "openMixer": "Abrir mezclador"
+    "openMixer": "Abrir mezclador",
+    "sectionServer": "Servidor",
+    "sectionServerHelp": "Con qué servidor habla esta aplicación y, para un administrador, qué hace ese servidor."
   },
   "common": {
     "default": "predeterminado",

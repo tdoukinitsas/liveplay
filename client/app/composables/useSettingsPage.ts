@@ -28,6 +28,9 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: 'keyboard', icon: 'keyboard',       labelKey: 'settings.sectionKeyboard' },
   { id: 'surfaces', icon: 'piano',          labelKey: 'settings.sectionSurfaces' },
   { id: 'project',  icon: 'folder_managed', labelKey: 'settings.sectionProject'  },
+  // Last in the rail on purpose: it is the machine's settings rather than the
+  // show's, and it is the one an operator has least reason to open mid-session.
+  { id: 'server',   icon: 'dns',            labelKey: 'settings.sectionServer'   },
 ];
 
 export const DEFAULT_SETTINGS_SECTION = 'playback';

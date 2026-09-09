@@ -481,6 +481,14 @@ function createClient() {
               [payload.channel]: payload.db,
             };
           }
+          // This connection's meter rate, echoed back with what the server
+          // actually granted after clamping to its own tick rate. Tracked here
+          // rather than in the control, so the Server pane shows what is
+          // happening rather than what was asked for — a request for 60 Hz
+          // against a 30 Hz server is honoured as far as 30, not refused.
+          if (payload.op === 'meter_hz_changed' && typeof payload.hz === 'number') {
+            meterHz.value = payload.hz;
+          }
           // Multi-client mirror: another client (or the local mutator
           // itself) just changed something. Hand off to subscribers
           // (useProject installs one that applies the patch under
@@ -964,6 +972,16 @@ function createClient() {
   function setServerLocale(locale: string) {
     wsSend({ type: 'set_locale', locale });
   }
+  // How often THIS connection wants meter frames. 0 means "no preference" —
+  // whatever the installation ticks at. The server clamps to its own rate and
+  // replies with a meter_hz_changed doc_patch carrying what was actually
+  // granted, which is why `meterHz` below tracks the reply rather than the
+  // request: asking for 500 Hz is honoured as far as the server ticks, and the
+  // control should show what is happening rather than what was typed.
+  const meterHz = ref(0);
+  function setMeterHz(hz: number) {
+    wsSend({ type: 'set_meter_hz', hz });
+  }
   // Low-latency seek over the WebSocket so scrub bars feel responsive. The
   // REST endpoint is still available for callers that want a guaranteed
   // ack (mostly tooling) — see seekItemREST below.
@@ -1067,6 +1085,21 @@ function createClient() {
       }
       return null;
     }
+  }
+
+  // ---- The machine's own configuration (P3a) --------------------------
+  // Administrators only. Both throw on refusal rather than swallowing it: a
+  // settings form that silently fails to save is worse than one that says it
+  // could not, and the 403 a locked server answers with is a real answer the
+  // pane renders rather than an error to hide.
+  async function fetchServerConfig(): Promise<any> {
+    return rest<any>('/api/server/config');
+  }
+  async function patchServerConfig(patch: any): Promise<any> {
+    return rest<any>('/api/server/config', {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
   }
 
   // Settings shallow-merge patch. patchTheme is gone with U4 — a theme is the
@@ -1597,6 +1630,8 @@ function createClient() {
     stepSelection,
     setShowMode,
     setServerLocale,
+    setMeterHz,
+    meterHz,
 
     seekItem,
     seekCueId,
@@ -1634,6 +1669,8 @@ function createClient() {
     // theme + settings
     fetchPrefs,
     patchPrefs,
+    fetchServerConfig,
+    patchServerConfig,
     patchSettings,
 
     // preview

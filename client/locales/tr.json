@@ -252,6 +252,52 @@
     "open": "Aç",
     "noDevices": "(henüz cihaz yok)"
   },
+  "serverConfig": {
+    "title": "Makine yapılandırması",
+    "intro": "Gösteriye değil, bu makineye ait ayarlar. Şurada saklanır:",
+    "loading": "Sunucu yapılandırması okunuyor…",
+    "adminOnly": "Bu makinenin yapılandırmasını yalnızca bir yönetici görebilir veya değiştirebilir.",
+    "unavailable": "Sunucu yapılandırması okunamadı.",
+    "locked": "Bu makinenin yapılandırması kilitli. Yalnızca makinenin başında değiştirilebilir.",
+    "policyField": "Politika",
+    "inForce": "Yürürlükte",
+    "setBy": "Ayarlayan",
+    "sourceDefault": "yerleşik varsayılan",
+    "sourceFile": "bu dosya",
+    "sourceEnv": "ortam değişkeni",
+    "sourceCli": "komut satırı",
+    "overriddenHelp": "buradaki düzenleme, o kaldırıldığında geçerli olur",
+    "unrestricted": "Kısıtlamasız",
+    "enabled": "Etkin",
+    "on": "açık",
+    "off": "kapalı",
+    "save": "Kaydet",
+    "saving": "Kaydediliyor…",
+    "saved": "Kaydedildi.",
+    "saveFailed": "Kaydedilemedi.",
+    "discard": "Değişiklikleri at",
+    "restartRequired": "Kaydedildi. Uygulamak için sunucuyu yeniden başlatın: {keys}.",
+    "savedButOverridden": "Kaydedildi ama yürürlükte değil — başlatılırken ayarlanmış: {keys}.",
+    "dropped": "Kabul edilmedi: {list}",
+    "meterRate": "Bu ekran için ölçer hızı",
+    "meterRateAuto": "Sunucuyla aynı",
+    "meterRateHelp": "Bu ekranın ölçer güncellemelerini ne sıklıkla aldığı. Wi-Fi üzerindeki bir tablette düşürün; yalnızca bu bağlantıyı etkiler, masayı ve ölçerlerin yakaladığını değil.",
+    "field": {
+      "port": "Bağlantı noktası",
+      "bind": "Ağ arayüzü",
+      "meterHz": "Ölçer hızı (kurulum varsayılanı)",
+      "maxUploadMb": "En büyük yükleme boyutu (MiB)",
+      "mixSampleRate": "Miks örnekleme hızı (Hz)",
+      "renderBlock": "Render blok boyutu (kare)",
+      "ringBlocks": "Çıkış gecikmesi (blok)",
+      "masterChannels": "Master bus genişliği",
+      "maxBuses": "En fazla mikser kanalı",
+      "masterCeilingDb": "Limiter tavanı (dBFS)",
+      "fsRoots": "Dosya sistemi erişimi",
+      "corsOrigin": "İzin verilen web kaynağı",
+      "verbose": "Hata ayıklama günlüğü"
+    }
+  },
   "colors": {
     "chooseAccent": "Vurgu Rengini Seç"
   },
@@ -419,7 +465,9 @@
     "indexDisplayStartHelp": "İlk çalma listesi öğesi için gösterilen numarayı belirler. Dahili indeksler ve API indeks yolları sıfır tabanlı kalır.",
     "routing": "Ses yönlendirme",
     "routingInMixer": "Ses yönlendirmesi mikserde yapılır. Her cue bir bus üzerinden çalar; her bus bir donanım çıkışına, başka bir bus'a veya kulaklık için Preview bus'ına gönderir.",
-    "openMixer": "Mikseri aç"
+    "openMixer": "Mikseri aç",
+    "sectionServer": "Sunucu",
+    "sectionServerHelp": "Bu uygulamanın hangi sunucuyla konuştuğu ve — yöneticiler için — o sunucunun ne yaptığı."
   },
   "common": {
     "default": "varsayılan",

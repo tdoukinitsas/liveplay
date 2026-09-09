@@ -252,6 +252,52 @@
     "open": "Åpne",
     "noDevices": "(ingen enheter ennå)"
   },
+  "serverConfig": {
+    "title": "Maskinkonfigurasjon",
+    "intro": "Innstillinger som hører til denne maskinen, ikke til forestillingen. Lagret i",
+    "loading": "Leser tjenerens konfigurasjon…",
+    "adminOnly": "Bare en administrator kan se eller endre denne maskinens konfigurasjon.",
+    "unavailable": "Kunne ikke lese tjenerens konfigurasjon.",
+    "locked": "Denne maskinens konfigurasjon er låst. Den kan bare endres på maskinen selv.",
+    "policyField": "Policy",
+    "inForce": "Gjeldende",
+    "setBy": "Satt av",
+    "sourceDefault": "innebygd standard",
+    "sourceFile": "denne filen",
+    "sourceEnv": "miljøvariabel",
+    "sourceCli": "kommandolinje",
+    "overriddenHelp": "endringen her trer i kraft når det fjernes",
+    "unrestricted": "Ubegrenset",
+    "enabled": "På",
+    "on": "på",
+    "off": "av",
+    "save": "Lagre",
+    "saving": "Lagrer…",
+    "saved": "Lagret.",
+    "saveFailed": "Kunne ikke lagre.",
+    "discard": "Forkast endringer",
+    "restartRequired": "Lagret. Start tjeneren på nytt for å ta i bruk: {keys}.",
+    "savedButOverridden": "Lagret, men ikke gjeldende — satt ved oppstart: {keys}.",
+    "dropped": "Ikke godtatt: {list}",
+    "meterRate": "Målerfrekvens for denne skjermen",
+    "meterRateAuto": "Som tjeneren",
+    "meterRateHelp": "Hvor ofte denne skjermen mottar måleroppdateringer. Senk den på et nettbrett over Wi-Fi; det gjelder bare denne tilkoblingen, ikke pulten og ikke hva målerne fanger opp.",
+    "field": {
+      "port": "Port",
+      "bind": "Nettverksgrensesnitt",
+      "meterHz": "Målerfrekvens (standard for installasjonen)",
+      "maxUploadMb": "Største opplastingsstørrelse (MiB)",
+      "mixSampleRate": "Miks-samplingsfrekvens (Hz)",
+      "renderBlock": "Renderblokkstørrelse (rammer)",
+      "ringBlocks": "Utgangsforsinkelse (blokker)",
+      "masterChannels": "Bredde på masterbuss",
+      "maxBuses": "Største antall mikserkanaler",
+      "masterCeilingDb": "Limitertak (dBFS)",
+      "fsRoots": "Filsystemtilgang",
+      "corsOrigin": "Tillatt nettopphav",
+      "verbose": "Feilsøkingslogg"
+    }
+  },
   "colors": {
     "chooseAccent": "Velg aksentfarge"
   },
@@ -419,7 +465,9 @@
     "indexDisplayStartHelp": "Styrer tallet som vises for det første elementet i spillelisten. Interne indekser og API-indeksstier forblir nullbaserte.",
     "routing": "Lydruting",
     "routingInMixer": "Lydrutingen ligger i mixeren. Hvert signal spilles gjennom en buss; hver buss sender til en maskinvareutgang, en annen buss eller Preview-bussen for hodetelefoner.",
-    "openMixer": "Åpne mixeren"
+    "openMixer": "Åpne mixeren",
+    "sectionServer": "Tjener",
+    "sectionServerHelp": "Hvilken tjener denne appen snakker med, og — for administratorer — hva den tjeneren gjør."
   },
   "common": {
     "default": "standard",

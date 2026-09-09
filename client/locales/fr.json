@@ -252,6 +252,52 @@
     "open": "Ouvrir",
     "noDevices": "(aucun périphérique pour l'instant)"
   },
+  "serverConfig": {
+    "title": "Configuration de la machine",
+    "intro": "Réglages qui appartiennent à cette machine plutôt qu'au spectacle. Enregistrés dans",
+    "loading": "Lecture de la configuration du serveur…",
+    "adminOnly": "Seul un administrateur peut voir ou modifier la configuration de cette machine.",
+    "unavailable": "La configuration du serveur n'a pas pu être lue.",
+    "locked": "La configuration de cette machine est verrouillée. Elle ne peut être modifiée que sur la machine elle-même.",
+    "policyField": "Politique",
+    "inForce": "En vigueur",
+    "setBy": "Défini par",
+    "sourceDefault": "valeur par défaut",
+    "sourceFile": "ce fichier",
+    "sourceEnv": "environnement",
+    "sourceCli": "ligne de commande",
+    "overriddenHelp": "la modification prendra effet une fois cela retiré",
+    "unrestricted": "Sans restriction",
+    "enabled": "Activé",
+    "on": "activé",
+    "off": "désactivé",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "saved": "Enregistré.",
+    "saveFailed": "Échec de l'enregistrement.",
+    "discard": "Annuler les modifications",
+    "restartRequired": "Enregistré. Redémarrez le serveur pour appliquer : {keys}.",
+    "savedButOverridden": "Enregistré, mais sans effet — défini au lancement : {keys}.",
+    "dropped": "Non accepté : {list}",
+    "meterRate": "Fréquence des vumètres pour cet écran",
+    "meterRateAuto": "Comme le serveur",
+    "meterRateHelp": "À quelle fréquence cet écran reçoit les vumètres. À baisser sur une tablette en Wi-Fi ; n'affecte que cette connexion, ni la régie ni ce que les vumètres captent.",
+    "field": {
+      "port": "Port",
+      "bind": "Interface réseau",
+      "meterHz": "Fréquence des vumètres (défaut de l'installation)",
+      "maxUploadMb": "Taille maximale des envois (Mio)",
+      "mixSampleRate": "Fréquence de mixage (Hz)",
+      "renderBlock": "Taille du bloc de rendu (échantillons)",
+      "ringBlocks": "Latence de sortie (blocs)",
+      "masterChannels": "Largeur du bus master",
+      "maxBuses": "Nombre maximal de tranches",
+      "masterCeilingDb": "Plafond du limiteur (dBFS)",
+      "fsRoots": "Accès au système de fichiers",
+      "corsOrigin": "Origine web autorisée",
+      "verbose": "Journalisation de débogage"
+    }
+  },
   "colors": {
     "chooseAccent": "Choisir la Couleur d'Accentuation"
   },
@@ -419,7 +465,9 @@
     "indexDisplayStartHelp": "Définit le numéro affiché pour le premier élément de la liste. Les index internes et les chemins d’index de l’API restent basés sur zéro.",
     "routing": "Routage audio",
     "routingInMixer": "Le routage audio se fait dans le mixeur. Chaque signal passe par un bus ; chaque bus envoie vers une sortie matérielle, un autre bus ou le bus Preview pour le casque.",
-    "openMixer": "Ouvrir le mixeur"
+    "openMixer": "Ouvrir le mixeur",
+    "sectionServer": "Serveur",
+    "sectionServerHelp": "À quel serveur cette application parle et — pour un administrateur — ce que fait ce serveur."
   },
   "common": {
     "default": "défaut",

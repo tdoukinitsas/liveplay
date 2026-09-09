@@ -252,6 +252,52 @@
     "open": "Öffnen",
     "noDevices": "(noch keine Geräte)"
   },
+  "serverConfig": {
+    "title": "Maschinenkonfiguration",
+    "intro": "Einstellungen, die zu diesem Rechner gehören, nicht zur Show. Gespeichert in",
+    "loading": "Konfiguration des Servers wird gelesen…",
+    "adminOnly": "Nur Administratoren können die Konfiguration dieses Rechners sehen oder ändern.",
+    "unavailable": "Die Serverkonfiguration konnte nicht gelesen werden.",
+    "locked": "Die Konfiguration dieses Rechners ist gesperrt und kann nur am Rechner selbst geändert werden.",
+    "policyField": "Richtlinie",
+    "inForce": "Aktiv",
+    "setBy": "Gesetzt von",
+    "sourceDefault": "Standardwert",
+    "sourceFile": "dieser Datei",
+    "sourceEnv": "Umgebung",
+    "sourceCli": "Befehlszeile",
+    "overriddenHelp": "Änderungen hier greifen, sobald das entfernt wird",
+    "unrestricted": "Unbeschränkt",
+    "enabled": "Aktiviert",
+    "on": "ein",
+    "off": "aus",
+    "save": "Speichern",
+    "saving": "Wird gespeichert…",
+    "saved": "Gespeichert.",
+    "saveFailed": "Speichern fehlgeschlagen.",
+    "discard": "Änderungen verwerfen",
+    "restartRequired": "Gespeichert. Server neu starten, um zu übernehmen: {keys}.",
+    "savedButOverridden": "Gespeichert, aber nicht aktiv – beim Start gesetzt: {keys}.",
+    "dropped": "Nicht übernommen: {list}",
+    "meterRate": "Meter-Rate für diesen Bildschirm",
+    "meterRateAuto": "Wie der Server",
+    "meterRateHelp": "Wie oft dieser Bildschirm Meter-Updates erhält. Auf einem Tablet über WLAN niedriger setzen; betrifft nur diese Verbindung, nicht den Arbeitsplatz und nicht, was die Meter erfassen.",
+    "field": {
+      "port": "Port",
+      "bind": "Netzwerkschnittstelle",
+      "meterHz": "Meter-Rate (Standard der Installation)",
+      "maxUploadMb": "Maximale Uploadgröße (MiB)",
+      "mixSampleRate": "Mix-Abtastrate (Hz)",
+      "renderBlock": "Render-Blockgröße (Frames)",
+      "ringBlocks": "Ausgangslatenz (Blöcke)",
+      "masterChannels": "Breite des Master-Busses",
+      "maxBuses": "Maximale Mixerkanäle",
+      "masterCeilingDb": "Limiter-Grenze (dBFS)",
+      "fsRoots": "Dateisystemzugriff",
+      "corsOrigin": "Erlaubte Web-Herkunft",
+      "verbose": "Debug-Protokollierung"
+    }
+  },
   "colors": {
     "chooseAccent": "Akzentfarbe wählen"
   },
@@ -419,7 +465,9 @@
     "indexDisplayStartHelp": "Legt die angezeigte Nummer des ersten Playlist-Elements fest. Interne Indizes und API-Indexpfade bleiben nullbasiert.",
     "routing": "Audio-Routing",
     "routingInMixer": "Das Audio-Routing findet im Mixer statt. Jedes Signal läuft über einen Bus; jeder Bus geht an einen Hardware-Ausgang, einen anderen Bus oder den Preview-Bus für den Kopfhörer.",
-    "openMixer": "Mixer öffnen"
+    "openMixer": "Mixer öffnen",
+    "sectionServer": "Server",
+    "sectionServerHelp": "Mit welchem Server diese App spricht und – für Administratoren – was dieser Server tut."
   },
   "common": {
     "default": "Standard",

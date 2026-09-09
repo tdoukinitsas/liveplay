@@ -252,6 +252,52 @@
     "open": "Apri",
     "noDevices": "(nessun dispositivo ancora)"
   },
+  "serverConfig": {
+    "title": "Configurazione della macchina",
+    "intro": "Impostazioni che appartengono a questa macchina e non allo spettacolo. Salvate in",
+    "loading": "Lettura della configurazione del server…",
+    "adminOnly": "Solo un amministratore può vedere o modificare la configurazione di questa macchina.",
+    "unavailable": "Impossibile leggere la configurazione del server.",
+    "locked": "La configurazione di questa macchina è bloccata. Può essere modificata solo sulla macchina stessa.",
+    "policyField": "Criterio",
+    "inForce": "In vigore",
+    "setBy": "Impostato da",
+    "sourceDefault": "valore predefinito",
+    "sourceFile": "questo file",
+    "sourceEnv": "ambiente",
+    "sourceCli": "riga di comando",
+    "overriddenHelp": "le modifiche avranno effetto una volta rimosso",
+    "unrestricted": "Senza restrizioni",
+    "enabled": "Attivo",
+    "on": "attivo",
+    "off": "disattivo",
+    "save": "Salva",
+    "saving": "Salvataggio…",
+    "saved": "Salvato.",
+    "saveFailed": "Salvataggio non riuscito.",
+    "discard": "Annulla modifiche",
+    "restartRequired": "Salvato. Riavvia il server per applicare: {keys}.",
+    "savedButOverridden": "Salvato, ma non in vigore — impostato all’avvio: {keys}.",
+    "dropped": "Non accettato: {list}",
+    "meterRate": "Frequenza dei misuratori per questo schermo",
+    "meterRateAuto": "Come il server",
+    "meterRateHelp": "Con quale frequenza questo schermo riceve i misuratori. Abbassala su un tablet in Wi-Fi; riguarda solo questa connessione, non il banco né ciò che i misuratori rilevano.",
+    "field": {
+      "port": "Porta",
+      "bind": "Interfaccia di rete",
+      "meterHz": "Frequenza dei misuratori (predefinita)",
+      "maxUploadMb": "Dimensione massima di caricamento (MiB)",
+      "mixSampleRate": "Frequenza di campionamento (Hz)",
+      "renderBlock": "Dimensione del blocco (campioni)",
+      "ringBlocks": "Latenza di uscita (blocchi)",
+      "masterChannels": "Ampiezza del bus master",
+      "maxBuses": "Canali mixer massimi",
+      "masterCeilingDb": "Soglia del limiter (dBFS)",
+      "fsRoots": "Accesso al file system",
+      "corsOrigin": "Origine web consentita",
+      "verbose": "Log di debug"
+    }
+  },
   "colors": {
     "chooseAccent": "Scegli Colore Accento"
   },
@@ -419,7 +465,9 @@
     "indexDisplayStartHelp": "Controlla il numero mostrato per il primo elemento della playlist. Gli indici interni e i percorsi indice dell’API restano basati su zero.",
     "routing": "Routing audio",
     "routingInMixer": "Il routing audio si trova nel mixer. Ogni segnale passa per un bus; ogni bus manda a un'uscita hardware, a un altro bus o al bus Preview per le cuffie.",
-    "openMixer": "Apri mixer"
+    "openMixer": "Apri mixer",
+    "sectionServer": "Server",
+    "sectionServerHelp": "A quale server parla questa applicazione e — per un amministratore — cosa fa quel server."
   },
   "common": {
     "default": "predefinito",
