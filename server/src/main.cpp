@@ -9,6 +9,7 @@
 #include "liveplay/audio/engine.hpp"
 #include "liveplay/core/backup_manager.hpp"
 #include "liveplay/core/project_state.hpp"
+#include "liveplay/core/user_prefs.hpp"
 #include "liveplay/core/user_store.hpp"
 #include "liveplay/crash_handler.hpp"
 #include "liveplay/logger.hpp"
@@ -1118,6 +1119,15 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    // Where a signed-in operator's own preferences live: theme, meter unit,
+    // scroll-to-playing, transport keymap. One file per user, created on first
+    // sign-in and never before — an installation that leaves authentication off
+    // has nobody to keep preferences for and grows no directory here. There is
+    // deliberately no load() to match: profiles fault in per user, so one bad
+    // file costs one person's colours rather than the server's ability to boot.
+    auto prefs = std::make_unique<core::UserPrefs>();
+    prefs->set_dir(exe_dir / "prefs");
+
     auto project = std::make_unique<core::ProjectState>(*engine, *outputs);
     auto backup  = std::make_unique<core::BackupManager>(*project);
     backup->start();
@@ -1168,7 +1178,7 @@ int main(int argc, char** argv) {
     }
 
     auto server = std::make_unique<net::ControlServer>(*engine, *project, *outputs,
-                                                       *users, server_cfg);
+                                                       *users, *prefs, server_cfg);
     if (!server->start()) {
         Logger::error("Control server failed to start.");
         engine->stop();

@@ -49,32 +49,50 @@ const settings = async () => (await rest('/api/project')).body.settings ?? {};
   });
 
   // ---- 1. The happy path still works -----------------------------------
-  let r = await patch({ outputTarget: 'live', uiScrollToPlaying: true, stopAllFadeMs: 2500 });
+  // The example boolean used to be uiScrollToPlaying, which U4 moved to the
+  // user profile — a value the project no longer owns cannot demonstrate that
+  // the project stores booleans. disableSilenceWarning is a real one.
+  let r = await patch({ outputTarget: 'live', disableSilenceWarning: true, stopAllFadeMs: 2500 });
   let s = await settings();
   ok('a valid patch returns 200', r.status === 200, `status ${r.status}`);
   ok('an enum value is stored', s.outputTarget === 'live', String(s.outputTarget));
-  ok('a boolean is stored', s.uiScrollToPlaying === true, String(s.uiScrollToPlaying));
+  ok('a boolean is stored', s.disableSilenceWarning === true, String(s.disableSilenceWarning));
   ok('a number in range is stored', s.stopAllFadeMs === 2500, String(s.stopAllFadeMs));
 
   // ---- 2. Unknown keys are dropped, and do not fail the patch ----------
   // The regression this guards: answering a stray key with 400 would fail
   // every settings edit in the app, because the client sends the whole object.
-  r = await patch({ notASetting: 'whatever', alsoNotOne: 42, uiScrollToPlaying: false });
+  r = await patch({ notASetting: 'whatever', alsoNotOne: 42, disableSilenceWarning: false });
   s = await settings();
   ok('a patch carrying unknown keys still returns 200', r.status === 200, `status ${r.status}`);
   ok('an unknown string key is not stored', s.notASetting === undefined, JSON.stringify(s.notASetting));
   ok('an unknown number key is not stored', s.alsoNotOne === undefined, JSON.stringify(s.alsoNotOne));
-  ok('the good key in the same patch still landed', s.uiScrollToPlaying === false,
-     String(s.uiScrollToPlaying));
+  ok('the good key in the same patch still landed', s.disableSilenceWarning === false,
+     String(s.disableSilenceWarning));
+
+  // A key that MOVED to a user profile (U4) behaves like an unknown one from
+  // the document's point of view: dropped, never fatal, so a 2.4 client whose
+  // settings object still carries it keeps working.
+  r = await patch({ meterMode: 'RMS', uiScrollToPlaying: true, outputTarget: 'live' });
+  s = await settings();
+  ok('a patch carrying relocated user-tier keys still returns 200',
+     r.status === 200, `status ${r.status}`);
+  ok('a relocated enum is not stored on the project', s.meterMode === undefined,
+     JSON.stringify(s.meterMode));
+  ok('a relocated boolean is not stored on the project', s.uiScrollToPlaying === undefined,
+     JSON.stringify(s.uiScrollToPlaying));
+  ok('...and a real setting in the same patch still landed', s.outputTarget === 'live',
+     String(s.outputTarget));
 
   // ---- 3. Wrong types are dropped and the previous value survives ------
   // Dropping must leave the old value, not clear it: a client sending one bad
   // field should not silently reset a setting it never meant to touch.
   await patch({ outputTarget: 'radio' });
-  r = await patch({ outputTarget: 12345, uiScrollToPlaying: 'yes' });
+  r = await patch({ outputTarget: 12345, disableSilenceWarning: 'yes' });
   s = await settings();
   ok('a wrongly-typed enum is dropped', s.outputTarget === 'radio', String(s.outputTarget));
-  ok('a wrongly-typed boolean is dropped', s.uiScrollToPlaying === false, String(s.uiScrollToPlaying));
+  ok('a wrongly-typed boolean is dropped', s.disableSilenceWarning === false,
+     String(s.disableSilenceWarning));
 
   // ---- 4. A bad enum VALUE is dropped ----------------------------------
   r = await patch({ outputTarget: 'not-a-standard' });

@@ -1038,13 +1038,39 @@ function createClient() {
     previewR: 31,
   });
 
-  // Theme + settings shallow-merge patches.
-  async function patchTheme(patch: any) {
-    return rest<any>('/api/project/theme', {
-      method: 'PATCH',
-      body: JSON.stringify(patch),
-    });
+  // ---- The signed-in operator's own preferences (U4) -----------------
+  // Both act on whoever the token says we are — no user id crosses the wire,
+  // so there is no way to ask for somebody else's. Both answer 409 when the
+  // server has no accounts, which is not an error: it means these values have
+  // no person to belong to and usePreferences keeps them locally instead.
+  async function fetchPrefs(): Promise<any | null> {
+    try {
+      return await rest<any>('/api/prefs');
+    } catch (e: any) {
+      // 409 is the expected answer on an unauthenticated server and must not
+      // look like a failure; anything else is worth seeing in the console.
+      if (!String(e?.message ?? e).includes('409')) {
+        console.warn('[server] GET /api/prefs failed:', e);
+      }
+      return null;
+    }
   }
+  async function patchPrefs(patch: any): Promise<any | null> {
+    try {
+      return await rest<any>('/api/prefs', {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
+    } catch (e: any) {
+      if (!String(e?.message ?? e).includes('409')) {
+        console.warn('[server] PATCH /api/prefs failed:', e);
+      }
+      return null;
+    }
+  }
+
+  // Settings shallow-merge patch. patchTheme is gone with U4 — a theme is the
+  // person's, not the show's, and goes through patchPrefs above.
   async function patchSettings(patch: any) {
     return rest<any>('/api/project/settings', {
       method: 'PATCH',
@@ -1606,7 +1632,8 @@ function createClient() {
     clearCartSlot,
 
     // theme + settings
-    patchTheme,
+    fetchPrefs,
+    patchPrefs,
     patchSettings,
 
     // preview

@@ -33,6 +33,30 @@ struct MeterBallistics {
     float rms_window_ms = 300.0f;   // RMS averaging window
 };
 
+// ---------------------------------------------------------------------------
+// Meter display units — the vocabulary, owned here
+// ---------------------------------------------------------------------------
+// WHICH unit a meter is drawn in is a User-tier choice (U4): one operator wants
+// peaks in dBFS, the broadcast op beside them wants LUFS, and they are looking
+// at the same show. The server does not draw anything, so it reads the unit for
+// exactly one purpose — deciding whether the true-peak and loudness DSP need to
+// run at all, which is real CPU on the audio thread.
+//
+// The list lives here, next to the meter itself, because three places need to
+// agree on it and R1 says that means one of them owns it: the user-preference
+// validator, the project's outputTarget fallback, and the engine gate below.
+inline constexpr std::string_view kMeterModes[] = {"LUFS", "dBFS", "dBTP", "RMS"};
+
+// The two units that cost something to produce. Everything else is derived
+// from the peak/RMS the meter computes regardless.
+inline constexpr std::string_view kMeterModeTruePeak = "dBTP";
+inline constexpr std::string_view kMeterModeLoudness = "LUFS";
+
+inline bool is_meter_mode(std::string_view s) noexcept {
+    for (const auto m : kMeterModes) if (m == s) return true;
+    return false;
+}
+
 // Resolve a ballistics preset id. Known ids:
 //   "digital-ppm" (default) — instant attack, ~350 ms release
 //   "ppm-i"                 — DIN PPM Type I approximation

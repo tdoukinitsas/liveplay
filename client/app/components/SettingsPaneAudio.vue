@@ -129,8 +129,11 @@ const ltcOutputMissing = computed(() =>
   !devices.value.some(d => d.name === ltcOutput.value));
 const outputTarget = computed(() => settings.value.outputTarget || 'ebu-r128');
 const disableLimiter = computed(() => !!settings.value.disableLimiter);
-const { meterMode: currentMeterMode } = useOutputTarget();
-const meterMode = computed(() => settings.value.meterMode || currentMeterMode.value);
+// The display unit is this operator's, not the show's (U4) — useOutputTarget
+// already resolves "their choice, else the output target's recommendation",
+// so the control just shows and sets that.
+const { meterMode } = useOutputTarget();
+const { setMeterMode } = usePreferences();
 const meterBallistics = computed(() => settings.value.meterBallistics || 'digital-ppm');
 
 // Both lists back the LTC select, so load them whenever this pane is shown
@@ -157,7 +160,7 @@ function onDisableLimiterChange(e: Event) {
   applyPatch({ disableLimiter: (e.target as HTMLInputElement).checked });
 }
 function onMeterModeChange(e: Event) {
-  applyPatch({ meterMode: (e.target as HTMLSelectElement).value });
+  setMeterMode((e.target as HTMLSelectElement).value);
 }
 function onMeterBallisticsChange(e: Event) {
   applyPatch({ meterBallistics: (e.target as HTMLSelectElement).value });

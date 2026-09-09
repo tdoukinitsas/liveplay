@@ -64,6 +64,10 @@ node server/tests/e2e/client-session-e2e.js
 # accounts), and moves any existing one aside and back. Also restarts the
 # server mid-run, to prove a token issued before the restart still works.
 node server/tests/e2e/auth-e2e.js
+
+# Owns users.json AND the prefs/ directory beside the binary, and moves both
+# aside and back. Restarts the server mid-run to prove a profile persists.
+node server/tests/e2e/user-prefs-e2e.js
 ```
 
 What each one pins, in the bus-role model (round 2, D24–D36):
@@ -154,6 +158,28 @@ What each one pins, in the bus-role model (round 2, D24–D36):
   Note when reading a red run: bypassing the socket check turns two assertions red, not one — the
   second is `/api/clients` reporting the session as `user: null`, because the principal is attached
   during the same handshake that authenticates it.
+- `user-prefs-e2e.js` — what belongs to the person rather than the show (U4). Four values left the
+  `.liveplay` document — the theme, the transport keymap, the meter's display unit, and
+  scroll-to-playing — and the risk of the unit is entirely in the migration: the values are dropped
+  from the file on the next save, so a seed that does not happen is a keymap that is simply gone.
+  The suite pins that a 2.4 document still loads, that its four values are **counted and reported**
+  through the existing `project_migrated` banner so the file changing shape is never silent, that
+  the first read of `/api/prefs` seeds a profile from whatever project is open, that a second read
+  does **not** re-import the document over a choice made since, and that `save()` then drops all
+  four while `cartSlotKeys` survives — a cart wall is the show's layout, and the slot that fires
+  the door slam has to be the same slot for whoever is at the desk tonight.
+  Two claims are worth knowing about. **An empty seed writes nothing**: a client reads its
+  preferences as soon as its socket comes up, which on the ordinary startup order is before any
+  project is open, so creating a profile then would spend that person's one chance at the
+  migration on an empty desk — bypassing it turns two assertions red, the second being an operator
+  who never gets their keymap at all. **A profile is the caller's**: no route names a user id, an
+  administrator reading `/api/prefs` gets their own, and two spellings of a per-user route are
+  asserted to 404 so that adding one later fails here first.
+  Also pins that the relocated settings keys are now dropped by the registry rather than refused (a
+  2.4 client still works), that `PATCH /api/project/theme` is **gone** rather than answering 200 and
+  losing the value at the next save, that validation drops key by key — one malformed binding costs
+  that binding, not the keymap — that a null clears a key so "go back to following the project" can
+  actually be said, that a profile survives a restart, and that deleting an account deletes it.
 - `client-session-e2e.js` note when reading a red run: bypassing the `onclose` erase does not
   merely leave a stale row —
   the broadcast thread then writes to freed connections and the server **crashes**, which takes

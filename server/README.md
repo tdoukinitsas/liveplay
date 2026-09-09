@@ -21,6 +21,7 @@ This document is the developer's guide to the server. For end-user docs or the o
   - [Manual-stop fade-out contract](#manual-stop-fade-out-contract)
 - [Control surface](#control-surface)
   - [Authentication](#authentication)
+  - [User preferences](#user-preferences)
   - [REST endpoints](#rest-endpoints)
   - [WebSocket frames](#websocket-frames)
 - [Project state & file format](#project-state--file-format)
@@ -72,6 +73,7 @@ server/
 │   │   ├── project_state.hpp  v2 project model + legacy 1.x upgrade
 │   │   ├── output_map.hpp     logical output name → this machine's hardware
 │   │   ├── user_store.hpp     accounts, Argon2id hashes, signed tokens
+│   │   ├── user_prefs.hpp     what belongs to the person, not the show
 │   │   └── backup_manager.hpp on-save rotating backups
 │   ├── meta/
 │   │   ├── metadata.hpp       TagLib wrapper
@@ -442,7 +444,42 @@ nothing here pretends otherwise.
 | `GET /api/users` | — | `[ { "id", "name", "role", "createdAt" }, … ]` | **Admin.** Never returns hashes. |
 | `POST /api/users` | `{ "name", "password", "role" }` | `{ "id", "name", "role" }` · `409` name taken · `400` bad name / short password | **Admin**, except while the store is empty — see Bootstrapping. Passwords must be at least 8 characters. |
 | `PATCH /api/users/{id}` | any of `{ "name", "role", "password" }` | `{ "id", "name", "role" }` · `409` name taken or last admin | **Admin.** A `password` change bumps that user's `tokenEpoch`. |
-| `DELETE /api/users/{id}` | — | `{ "ok": true }` · `404` · `409` last admin | **Admin.** The last administrator cannot be deleted: that would leave a server still requiring a login with nobody able to manage it, recoverable only by editing `users.json` on the machine. |
+| `DELETE /api/users/{id}` | — | `{ "ok": true }` · `404` · `409` last admin | **Admin.** The last administrator cannot be deleted: that would leave a server still requiring a login with nobody able to manage it, recoverable only by editing `users.json` on the machine. Deletes that user's preferences too. |
+
+## User preferences
+
+Four values used to live in the `.liveplay` document and never belonged there: the colour scheme (`theme`), the transport keymap (`playbackKeys`), the meter's display unit (`settings.meterMode`) and whether the playlist follows the playing cue (`settings.uiScrollToPlaying`). A document is a portable thing you mail to a colleague, so all four travelled with it — opening someone else's show changed your colours and silently reassigned the keys your hands already knew. They belong to the **person**, and since 2.5 that is where they live.
+
+**Where they live depends on whether anyone is signed in.** With no accounts configured — still the default — there is no person for a preference to belong to, so nothing is stored here and the client keeps them in its own machine store. The obvious alternative, one shared "anonymous" profile, would put whatever the desk chose onto every tablet in the building: the same coupling the document had, moved to a new file and no better for the move. Sign in and they follow you to any surface instead.
+
+Profiles are one JSON file per user under `prefs/` beside the executable, created on first sign-in and never before — an installation that leaves authentication off grows no directory. Deliberately *not* inside `users.json`: that file holds password hashes and the token-signing secret, and every theme toggle should not rewrite it. Same `0600`-on-POSIX-only admission as `users.json` (see below). A profile that cannot be parsed costs one person their colours, never the server's ability to boot, and the unreadable file is moved aside as `<id>.json.corrupt` rather than overwritten — it may be the only copy of a keymap somebody spent an afternoon on.
+
+The store is **sparse**, like `liveplay.json`: an absent key means *not chosen*, not "off", so an installation keeps taking improved defaults instead of being frozen at whatever they were the first time someone opened a colour picker. A `null` value clears a key, which is how "stop choosing this, follow the show again" is said.
+
+| Method · Path | Body | Response | Notes |
+|---------------|------|----------|-------|
+| `GET /api/prefs` | — | the caller's profile · `409` when nobody is signed in | Seeds the profile from the open project's legacy fields if it does not exist yet — this read *is* the migration. |
+| `PATCH /api/prefs` | any of `{ "theme": { "mode", "accentColor" }, "meterMode", "uiScrollToPlaying", "playbackKeys", "locale" }` | the resulting profile · `409` | Merges. `theme` merges rather than replacing. Invalid values are dropped key by key, never 400. |
+
+**Neither route names a user, and that is deliberate.** The profile acted on is always the caller's, so there is no shape of request that reads or writes somebody else's — an administrator owns the machine, not the people using it, and `playbackKeys` in particular is a description of what one person's hands do. An endpoint that took a user id is one that would eventually be called with someone else's.
+
+`409` is not an error a client should retry: it means authentication is off, and the correct response is to keep these values locally.
+
+### The migration
+
+`theme`, `playbackKeys`, `settings.meterMode` and `settings.uiScrollToPlaying` are **legacy, not fatal**. A 2.4 document still opens; the values are read once, as the seed for a profile that does not have one, and `save()` then drops them. The load counts what it found and reports it as `userPrefsMigrated` on the existing `project_migrated` broadcast, so the file changing shape is something the operator is told about rather than something they discover.
+
+Seeding runs at the moment there is finally somewhere to put the values, and never twice. One consequence is worth stating: **an empty seed writes nothing.** A client reads its preferences as soon as its socket comes up, which on the ordinary startup order is before any project is open — creating an empty profile then would permanently spend that person's one chance to inherit their real theme and keymap from a file they open a minute later.
+
+`cartSlotKeys` deliberately did **not** move. A cart wall is the show's layout: the slot that fires the door slam is a property of this production, and it has to be the same slot for whoever is standing at the desk tonight.
+
+`PATCH /api/project/theme` was **removed** rather than deprecated. It wrote a value `save()` now drops, so keeping it would leave a route that answers `200`, broadcasts a change, and quietly loses the input at the next save.
+
+### One thing the server actually reads
+
+`meterMode` is the only preference the server acts on, and only to gate true-peak and loudness metering — real DSP on the audio thread that is not worth running when nobody is looking at it. Because the meter frame is computed once and broadcast, there is no per-connection DSP to gate, so the gate takes the **union** of what every connected operator has chosen and what the project's output target implies.
+
+That means a User-tier value spends CPU on the audio thread, which R2 would normally forbid. It is admitted for one reason: the union can only ever reach a state a single project setting could already reach on its own, so the worst case is unchanged. Per-user meter *ballistics* stay Project-owned for exactly the opposite reason — those change the numbers everyone is shown, not merely who pays for computing them.
 
 ### REST endpoints
 
@@ -770,7 +807,7 @@ Plays an item into the **Preview bus** — the same strip PFL lands on, under th
 | Method · Path | Body | Response | Notes |
 |---------------|------|----------|-------|
 | `GET /api/project`              | — | full project JSON document | The single GET a remote client needs to render the whole project. |
-| `GET /api/project/header`       | — | lightweight header `{ name, itemCount, theme, settings, cart, hasOpenProject, … }` | Hit this first so the workspace shell can paint before the items array arrives. |
+| `GET /api/project/header`       | — | lightweight header `{ name, itemCount, theme, settings, cart, hasOpenProject, … }` | Hit this first so the workspace shell can paint before the items array arrives. `theme` and `playbackKeys` appear only when a legacy document is loaded that still carries them; they are the migration seed, not live state. |
 | `GET /api/project/items?offset=0&limit=100` | — | `{ "offset": int, "limit": int, "total": int, "items": [...] }` | `limit` clamps to [1,1000]. Top-level items only (groups carry their children inline). |
 | `GET /api/project/progress`     | — | `{ "loading": bool, "loaded": int, "total": int }` | Cheap poll for the open-project progress bar. |
 | `POST /api/project/load`        | `{ "path": "/abs/file.liveplay" }` *or* `{ "document": { … } }` | header object, augmented with `needsRepair`/`repairIssues` if the document was auto-repaired on load, and `migration` if buses had to be synthesised (see below) | broadcasts `project_changed`, and `project_migrated` if anything was migrated. `400` if neither field is present or load fails. |
@@ -817,12 +854,15 @@ Project UI settings such as `settings.indexDisplayStart` only change the numbers
 | `POST /api/project/cart`         | `{ "slot": int, "itemUuid": "<uuid>" }` | `{ "ok": true, "slot": int, "itemUuid": "…" }` | `cart_slot_set` |
 | `DELETE /api/project/cart/<int>` | — | `{ "ok": true, "slot": int }` | `cart_slot_cleared` |
 
-#### Theme & settings
+#### Settings
 
 | Method · Path | Body | Response | Broadcast op |
 |---------------|------|----------|--------------|
-| `PATCH /api/project/theme`    | partial `theme` object | the resulting `theme` object | `theme_patched` |
 | `PATCH /api/project/settings` | partial `settings` object | the resulting `settings` object | `settings_patched` |
+
+`PATCH /api/project/theme` is **gone** — a colour scheme belongs to whoever is looking at the screen, not to the show. See [User preferences](#user-preferences).
+
+`settings.meterMode` and `settings.uiScrollToPlaying` moved there too. They stay registered so the drop is *explained* rather than reading as "not a known setting" — a 2.4 client patching one is ignored, not refused, and its whole settings edit still succeeds.
 
 `settings` no longer carries audio routing. `defaultOutputDevice` and `previewDevice` are migrated onto the Master and Preview buses on load and erased (see [Project document](#project-document)); patching them here changes nothing audible and the keys go on the next load. Route through `PATCH /api/buses/<id>` instead.
 
@@ -901,14 +941,14 @@ Stopped cues are omitted from `items`. Silent master channels (`peak_db <= -119 
 | `op`                            | Additional fields                                          | Emitted by |
 |---------------------------------|------------------------------------------------------------|------------|
 | `project_changed`               | (none — clients refetch)                                   | `POST /api/project/{load,close}`, `PUT /api/project/document` |
-| `project_migrated`              | `itemsToMain`, `busesFromDeviceOverride`, `mainOutputMigrated`, `previewDeviceMigrated`, `ltcDeviceMigrated`, `rolesMigrated` — flat on the frame, not nested | `POST /api/project/load`, `POST /api/project/save`, `PUT /api/project/document`, when the loaded/replaced document had to migrate |
+| `project_migrated`              | `itemsToMain`, `busesFromDeviceOverride`, `mainOutputMigrated`, `previewDeviceMigrated`, `ltcDeviceMigrated`, `userPrefsMigrated`, `rolesMigrated` — flat on the frame, not nested | `POST /api/project/load`, `POST /api/project/save`, `PUT /api/project/document`, when the loaded/replaced document had to migrate |
 | `item_added`                    | `uuid`, `parentUuid`, `item`, `cueId`                      | `POST /api/project/items` |
 | `item_updated`                  | `uuid`, `patch`                                            | `PATCH /api/project/items/<uuid>` |
 | `item_removed`                  | `uuid`                                                     | `DELETE /api/project/items/<uuid>` |
 | `items_reordered`               | `parentUuid`, `uuids` (array)                              | `POST /api/project/items/reorder` |
 | `cart_slot_set`                 | `slot`, `itemUuid`                                         | `POST /api/project/cart` |
 | `cart_slot_cleared`             | `slot`                                                     | `DELETE /api/project/cart/<slot>` |
-| `theme_patched`                 | `theme` (full resulting theme object)                      | `PATCH /api/project/theme` |
+| `prefs_changed`                 | `prefs` (the full resulting profile)                       | `PATCH /api/prefs`. **Not a broadcast** — it reaches only the sessions belonging to the same user, which is what keeps a detached cart or mixer window in step with the desk without telling the rest of the building about somebody's colour scheme. |
 | `settings_patched`              | `settings` (full resulting settings object)                | `PATCH /api/project/settings` |
 | `master_gain_changed`           | `db`                                                       | `POST /api/master/gain` |
 | `limiter_changed`               | `enabled`                                                  | `POST /api/master/limiter` |
@@ -982,6 +1022,15 @@ that have expressed no preference, so a client that chose for itself is never
 dragged back by the house changing its default. `GET /api/clients` reports each
 session's effective values along with `localeIsOwn` / `meterHzIsOwn`, which is
 the distinction that decides whether a default change will reach it.
+
+**Theme, meter unit, scroll-to-playing and the transport keymap are not shared
+either**, and since 2.5 they are not in the show file at all. They are the same
+kind of value as the language — the person's, not the rig's and not the
+document's — and they now persist in a [user profile](#user-preferences) rather
+than merely lasting as long as a connection. `prefs_changed` is the one
+`doc_patch` op that is *not* a broadcast: it reaches only the sessions belonging
+to the same user, which keeps a detached cart or mixer window in step with the
+desk without telling the rest of the building about somebody's colour scheme.
 
 Meter thinning applies to the `meters` frame **only**. `cue_state` and
 `playback_snapshot` are edges, not samples: dropping a sample costs resolution,

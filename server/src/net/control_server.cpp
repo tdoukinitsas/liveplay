@@ -183,6 +183,20 @@ struct ControlServer::Impl {
         std::string   user_id;
         std::string   user_name;
         bool          is_admin = false;
+
+        // ---- User tier, persistent half (U4) ------------------------------
+        // The meter display unit this operator's stored profile asks for, or
+        // empty for "no preference". Cached on the session rather than read
+        // from UserPrefs on demand because the thing that consumes it is a
+        // union across every connection (ProjectState::set_user_meter_modes),
+        // and computing that must not do a disk read per connection while
+        // holding ws_mutex.
+        //
+        // Only the meter unit is mirrored here. The other preferences are the
+        // client's business entirely — the server has no opinion about a
+        // colour or a keymap, and caching them would be inventing a second
+        // copy of a value that already has an owner.
+        std::string   meter_mode;
     };
     std::unordered_map<crow::websocket::connection*, ClientSession> ws_clients;
     // Monotonic, never reused within a process run, so a session id in a log
@@ -770,9 +784,10 @@ ControlServer::ControlServer(audio::AudioEngine& engine,
                              core::ProjectState& state,
                              core::OutputMap&    outputs,
                              core::UserStore&    users,
+                             core::UserPrefs&    prefs,
                              ControlServerConfig cfg)
     : engine_(engine), state_(state), outputs_(outputs), users_(users),
-      cfg_(std::move(cfg)), impl_(std::make_unique<Impl>()) {
+      prefs_(prefs), cfg_(std::move(cfg)), impl_(std::make_unique<Impl>()) {
     // Publish policy to the file-scope copies the free helpers read. Done here,
     // before start() opens the socket, so nothing can observe a half-set value.
     g_cors_allow_origin = cfg_.cors_allow_origin.empty() ? "*" : cfg_.cors_allow_origin;
@@ -1117,6 +1132,45 @@ void ControlServer::broadcast_doc_patch(const json& payload) {
         try { c->send_text(serialized); }
         catch (...) { /* onclose will clean up dead connections */ }
     }
+}
+
+void ControlServer::broadcast_to_user(const std::string& user_id, const json& payload) {
+    // No user id means nobody is signed in, and "every anonymous session" is
+    // not the same set as "this person's windows" — it is everyone. Refuse
+    // rather than fan out to the building.
+    if (user_id.empty()) return;
+
+    std::string serialized;
+    try { serialized = payload.dump(); }
+    catch (const std::exception& e) {
+        Logger::error("broadcast_to_user: serialization failed: {}", e.what());
+        return;
+    }
+    std::lock_guard lock{impl_->ws_mutex};
+    for (auto& [c, session] : impl_->ws_clients) {
+        if (session.user_id != user_id) continue;
+        try { c->send_text(serialized); }
+        catch (...) { /* onclose will clean up dead connections */ }
+    }
+}
+
+void ControlServer::refresh_user_meter_modes() {
+    std::vector<std::string> modes;
+    {
+        std::lock_guard lock{impl_->ws_mutex};
+        modes.reserve(impl_->ws_clients.size());
+        for (const auto& [_, session] : impl_->ws_clients) {
+            if (!session.meter_mode.empty()) modes.push_back(session.meter_mode);
+        }
+    }
+    // Sorted so an unchanged set compares equal regardless of the map's
+    // iteration order — otherwise a reconnect would look like a change and
+    // re-arm the metering DSP for no reason.
+    std::sort(modes.begin(), modes.end());
+    modes.erase(std::unique(modes.begin(), modes.end()), modes.end());
+    // Outside ws_mutex: this reaches into the engine, and the broadcast loop
+    // already establishes that ws_mutex is the inner lock.
+    state_.set_user_meter_modes(std::move(modes));
 }
 
 // Drains the waveform generation queue. Each task runs compute_waveform()
@@ -1917,6 +1971,81 @@ void ControlServer::install_routes() {
             return json_ok(json{{"ok", true}});
         });
 
+    // ---- The caller's own preferences (User tier — U4) ----
+    //
+    // Neither route names a user, and that is the access decision: the profile
+    // acted on is always the caller's, so there is no shape of request that
+    // reads or writes somebody else's. An administrator owns the machine, not
+    // the people using it — and playbackKeys in particular is a description of
+    // what one person's hands do, which nobody else has a reason to fetch.
+    //
+    // Note also what is NOT here: no entry in access_for(). These are covered
+    // by its default-deny, which is the middleware doing the job it was built
+    // for — a route added later is protected without anyone remembering.
+    CROW_ROUTE(app, "/api/prefs").methods(crow::HTTPMethod::Get)
+        ([this](const crow::request& req){
+            const auto& ctx = impl_->app.get_context<AuthGuard>(req);
+            if (!ctx.authenticated) {
+                // Not an error the client should retry, and not a 404 either:
+                // the route exists, there is simply nobody for it to be about.
+                // With no accounts configured the client keeps these values in
+                // its own machine store, which is the correct answer for a
+                // preference with no person attached.
+                return json_err(409, "no signed-in user — preferences are local "
+                                     "to this surface while authentication is off");
+            }
+            // THE MIGRATION, in one line. A profile that does not exist yet is
+            // created from whatever the open project is still carrying, at the
+            // first moment there is somewhere to put it — so the operator's
+            // theme and keymap survive the values leaving the document, and
+            // this can never run twice for the same person.
+            const json profile = prefs_.get_or_seed(ctx.principal.id,
+                                                    state_.legacy_user_prefs());
+            return json_ok(profile);
+        });
+
+    CROW_ROUTE(app, "/api/prefs").methods(crow::HTTPMethod::Patch)
+        ([this](const crow::request& req){
+            const auto& ctx = impl_->app.get_context<AuthGuard>(req);
+            if (!ctx.authenticated)
+                return json_err(409, "no signed-in user — preferences are local "
+                                     "to this surface while authentication is off");
+            try {
+                const auto patch = json::parse(req.body);
+                if (!patch.is_object()) return json_err(400, "expected an object");
+
+                json profile;
+                const auto r = prefs_.patch(ctx.principal.id, patch, &profile);
+                if (r != core::UserPrefs::Result::Ok)
+                    return json_err(500, std::string{core::UserPrefs::describe(r)});
+
+                // The meter unit is the one preference the server acts on, so
+                // it is the one that has to reach the engine. Every session
+                // this person has open is updated, not just the one that sent
+                // the patch: the desk and the detached mixer window are two
+                // sockets belonging to one operator.
+                const std::string mode = profile.value("meterMode", std::string{});
+                {
+                    std::lock_guard lock{impl_->ws_mutex};
+                    for (auto& [_, session] : impl_->ws_clients) {
+                        if (session.user_id == ctx.principal.id) session.meter_mode = mode;
+                    }
+                }
+                refresh_user_meter_modes();
+
+                // ...and the rest reaches this person's other windows so they
+                // do not sit on a stale theme until the next reconnect. Sent
+                // to them ONLY — the other operators in the building are not
+                // interested in somebody else's colour scheme.
+                broadcast_to_user(ctx.principal.id, json{
+                    {"type", "doc_patch"}, {"op", "prefs_changed"}, {"prefs", profile},
+                });
+                return json_ok(profile);
+            } catch (const std::exception& e) {
+                return json_err(400, e.what());
+            }
+        });
+
     // ---- Accounts (Server tier — administrators only) ----
     CROW_ROUTE(app, "/api/users").methods(crow::HTTPMethod::Get)
         ([this]{
@@ -2039,6 +2168,12 @@ void ControlServer::install_routes() {
             // deleting the file, which is an unambiguous act.
             if (r == R::LastAdmin)  return json_err(409, core::UserStore::describe(r));
             if (r != R::Ok)         return json_err(500, core::UserStore::describe(r));
+            // The account is gone, so its preferences go with it. Ids are
+            // never reused, so this is not strictly required to stop a new
+            // account inheriting a stranger's keymap — it is required because
+            // leaving the file behind means deleting a user does not actually
+            // delete what the server knows about them.
+            prefs_.forget(id);
             return json_ok(json{{"ok", true}});
         });
 
@@ -4242,26 +4377,13 @@ void ControlServer::install_routes() {
             return json_ok(json({{"ok", true}}));
         });
 
-    // ---- Theme + settings patches ----
-    CROW_ROUTE(app, "/api/project/theme").methods(crow::HTTPMethod::Patch)
-        ([this](const crow::request& req){
-            try {
-                auto patch = json::parse(req.body);
-                Logger::api_request("Client ({}) -> Server ({}) : PATCH /api/project/theme",
-                                    req.remote_ip_address, impl_->server_addr);
-                state_.patch_theme(patch);
-                auto theme = state_.full_document()["theme"];
-                Logger::api_response("Client ({}) <- Server ({}) : PATCH /api/project/theme OK",
-                                     req.remote_ip_address, impl_->server_addr);
-                broadcast_doc_patch(json{
-                    {"type", "doc_patch"}, {"op", "theme_patched"}, {"theme", theme},
-                });
-                return json_ok(theme);
-            } catch (const std::exception& e) {
-                Logger::error("PATCH /api/project/theme threw: {}", e.what());
-                return json_err(400, e.what());
-            }
-        });
+    // ---- Settings patches ----
+    // PATCH /api/project/theme is GONE (U4). It wrote document_["theme"],
+    // which save() now drops on the way to disk — so keeping it would leave a
+    // route that answers 200, broadcasts a change, and quietly loses the value
+    // at the next save. A removed endpoint is a clear failure; a working-looking
+    // one that discards its input is the kind nobody finds until a show.
+    // Colours are a person's, and they are set through PATCH /api/prefs.
     CROW_ROUTE(app, "/api/project/settings").methods(crow::HTTPMethod::Patch)
         ([this](const crow::request& req){
             try {
@@ -4369,37 +4491,58 @@ void ControlServer::install_routes() {
               static_cast<core::UserStore::Principal*>(conn.userdata())};
           conn.userdata(nullptr);
 
-          std::lock_guard lock{impl_->ws_mutex};
-          auto& session = impl_->ws_clients[&conn];
-          session.id           = impl_->next_client_id++;
-          session.remote_ip    = conn.get_remote_ip();
-          session.connected_at = std::chrono::steady_clock::now();
+          // Read before ws_mutex is taken: this can touch the disk, and the
+          // broadcast loop wants that mutex sixty times a second.
+          std::string meter_mode;
           if (principal) {
-              session.user_id   = principal->id;
-              session.user_name = principal->name;
-              session.is_admin  = principal->is_admin();
+              if (const auto profile = prefs_.find(principal->id)) {
+                  meter_mode = profile->value("meterMode", std::string{});
+              }
           }
+
+          {
+              std::lock_guard lock{impl_->ws_mutex};
+              auto& session = impl_->ws_clients[&conn];
+              session.id           = impl_->next_client_id++;
+              session.remote_ip    = conn.get_remote_ip();
+              session.connected_at = std::chrono::steady_clock::now();
+              session.meter_mode   = std::move(meter_mode);
+              if (principal) {
+                  session.user_id   = principal->id;
+                  session.user_name = principal->name;
+                  session.is_admin  = principal->is_admin();
+              }
           // Mark this client for a playback_snapshot push on the next
           // broadcast tick. The snapshot can't be sent inline here because
           // build_playback_snapshot takes both engine and project locks
           // (potentially seconds, e.g. mid project mirror) and Crow's
           // connection is not safe to write from two threads at once —
           // direct send_text here races the broadcast thread.
-          session.wants_snapshot = true;
-          Logger::info("WS client #{} connected from {} as {} ({} total)",
-                       session.id, session.remote_ip,
-                       session.user_name.empty() ? "anonymous" : session.user_name,
-                       impl_->ws_clients.size());
+              session.wants_snapshot = true;
+              Logger::info("WS client #{} connected from {} as {} ({} total)",
+                           session.id, session.remote_ip,
+                           session.user_name.empty() ? "anonymous" : session.user_name,
+                           impl_->ws_clients.size());
+          }
+          // Outside the lock, and after the session exists: an operator whose
+          // profile asks for dBTP needs the true-peak DSP running before their
+          // first meter frame, not after they next touch a setting.
+          refresh_user_meter_modes();
       })
       .onclose([this](crow::websocket::connection& conn, const std::string& reason, std::uint16_t /*code*/) {
-          std::lock_guard lock{impl_->ws_mutex};
-          std::uint64_t id = 0;
-          if (auto it = impl_->ws_clients.find(&conn); it != impl_->ws_clients.end()) {
-              id = it->second.id;
-              impl_->ws_clients.erase(it);
+          {
+              std::lock_guard lock{impl_->ws_mutex};
+              std::uint64_t id = 0;
+              if (auto it = impl_->ws_clients.find(&conn); it != impl_->ws_clients.end()) {
+                  id = it->second.id;
+                  impl_->ws_clients.erase(it);
+              }
+              Logger::info("WS client #{} disconnected ({}); {} remaining",
+                           id, reason, impl_->ws_clients.size());
           }
-          Logger::info("WS client #{} disconnected ({}); {} remaining",
-                       id, reason, impl_->ws_clients.size());
+          // The other half of the union: the last operator wanting loudness
+          // leaving is what lets the DSP stop again.
+          refresh_user_meter_modes();
       })
       .onmessage([this](crow::websocket::connection& conn,
                         const std::string& data,
