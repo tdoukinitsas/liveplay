@@ -95,6 +95,7 @@
 
 #include "liveplay/audio/engine.hpp"
 #include "liveplay/core/project_state.hpp"
+#include "liveplay/core/server_config.hpp"
 #include "liveplay/core/user_prefs.hpp"
 #include "liveplay/core/user_store.hpp"
 
@@ -133,6 +134,19 @@ struct ControlServerConfig {
     // existing deployment changes behaviour on upgrade; an integrator can pin
     // it to one origin.
     std::string   cors_allow_origin  = "*";
+
+    // What every schema key resolved to at boot, and which tier supplied each
+    // one ("file" / "env" / "cli"; absent means nobody set it and the built-in
+    // default stands). Filled by main.cpp, which is the only place that has
+    // watched all four tiers resolve, and reported verbatim by
+    // GET /api/server/config.
+    //
+    // The provenance half is not decoration. The desktop app always launches
+    // the server with --port, so a settings page that offered to edit the port
+    // without saying that would write the file, report success, and change
+    // nothing until somebody removed a flag they cannot see.
+    nlohmann::json boot_effective = nlohmann::json::object();
+    nlohmann::json boot_sources   = nlohmann::json::object();
 };
 
 class ControlServer {
@@ -142,6 +156,7 @@ public:
                   core::OutputMap&    outputs,
                   core::UserStore&    users,
                   core::UserPrefs&    prefs,
+                  core::ServerConfig& server_config,
                   ControlServerConfig cfg = {});
     ~ControlServer();   // defined in .cpp where Impl is complete
 
@@ -154,6 +169,7 @@ private:
     core::OutputMap&    outputs_;
     core::UserStore&    users_;
     core::UserPrefs&    prefs_;
+    core::ServerConfig& server_config_;
     ControlServerConfig cfg_;
     std::atomic<bool>   running_{false};
 

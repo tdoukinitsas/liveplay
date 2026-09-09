@@ -189,7 +189,11 @@ const lineWith = (out, re) => {
     ok('an unknown key is named', re.test(h.out), lineWith(h.out, re));
     re = /'port' must be a whole number/;
     ok('a wrong type is named', re.test(h.out), lineWith(h.out, re));
-    re = /meterHz = 9999 is outside the supported range \[1, 120\]/;
+    // The key is quoted since P3a, because this reason is now composed by
+    // core::ServerConfig::validate and shown by the settings page as well as
+    // printed here. What matters is unchanged and still asserted: the value
+    // the operator typed AND the range that would have been accepted.
+    re = /'meterHz' = 9999 is outside the supported range \[1, 120\]/;
     ok('an out-of-range value is named and its range given',
        re.test(h.out), lineWith(h.out, re));
 

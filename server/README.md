@@ -21,6 +21,7 @@ This document is the developer's guide to the server. For end-user docs or the o
   - [Manual-stop fade-out contract](#manual-stop-fade-out-contract)
 - [Control surface](#control-surface)
   - [Authentication](#authentication)
+  - [Server configuration](#server-configuration)
   - [User preferences](#user-preferences)
   - [REST endpoints](#rest-endpoints)
   - [WebSocket frames](#websocket-frames)
@@ -74,6 +75,7 @@ server/
 │   │   ├── output_map.hpp     logical output name → this machine's hardware
 │   │   ├── user_store.hpp     accounts, Argon2id hashes, signed tokens
 │   │   ├── user_prefs.hpp     what belongs to the person, not the show
+│   │   ├── server_config.hpp  liveplay.json's schema, reader and writer
 │   │   └── backup_manager.hpp on-save rotating backups
 │   ├── meta/
 │   │   ├── metadata.hpp       TagLib wrapper
@@ -225,14 +227,25 @@ would not be an override.
 Keys are named after the flags (`port`, `bind`, `meterHz`, `maxUploadMb`,
 `mixSampleRate`, `renderBlock`, `ringBlocks`, `masterChannels`, `maxBuses`,
 `masterCeilingDb`, `fsRoots`, `corsOrigin`, `verbose`); `--help` prints the
-list. `fsRoots` is an array — there is no shell here, so there is no reason to
+list, and so does `GET /api/server/config` — all four read
+`core::ServerConfig::schema()`, so a key cannot be readable and undocumented, or
+editable in the settings page and dropped on the way in. `fsRoots` is an array — there is no shell here, so there is no reason to
 inherit `PATH`'s separator problem.
 
 The file is **sparse**: a key it does not mention is *not set*, which is not the
 same as being set to the default. That is what lets an installation keep taking
 improved defaults instead of freezing whichever ones were current the day the
-file was written — and it is why the server never writes this file itself.
-Nothing it wrote could tell a deliberate choice apart from a default.
+file was written.
+
+Until 2.5 the server never wrote this file, for exactly that reason — nothing it
+serialised could tell a deliberate choice apart from whatever the default
+happened to be that day. It writes it now, through
+[`PATCH /api/server/config`](#server-configuration), and the sparseness argument
+is what shapes *how*: a request names keys, and **only those keys are written**.
+Editing the CORS origin in the settings page writes one key and leaves the other
+twelve absent, still taking their improved defaults. What the server will not do
+is serialise its whole configuration, which is the thing that would have made
+every default permanent.
 
 One bad key costs that key and nothing else: an unknown name, a wrong type and
 an out-of-range number are each reported and dropped, the rest of the file still
@@ -445,6 +458,58 @@ nothing here pretends otherwise.
 | `POST /api/users` | `{ "name", "password", "role" }` | `{ "id", "name", "role" }` · `409` name taken · `400` bad name / short password | **Admin**, except while the store is empty — see Bootstrapping. Passwords must be at least 8 characters. |
 | `PATCH /api/users/{id}` | any of `{ "name", "role", "password" }` | `{ "id", "name", "role" }` · `409` name taken or last admin | **Admin.** A `password` change bumps that user's `tokenEpoch`. |
 | `DELETE /api/users/{id}` | — | `{ "ok": true }` · `404` · `409` last admin | **Admin.** The last administrator cannot be deleted: that would leave a server still requiring a login with nobody able to manage it, recoverable only by editing `users.json` on the machine. Deletes that user's preferences too. |
+
+## Server configuration
+
+The machine's own settings have a settings page since 2.5 — every key in
+[`liveplay.json`](#liveplayjson), editable by an administrator without a text
+editor or a shell on the box.
+
+| Method · Path | Body | Response | Notes |
+|---------------|------|----------|-------|
+| `GET /api/server/config` | — | `{ path, schemaVersion, locked, fields: [ … ] }` | **Admin.** One response renders the whole form: every key, its type and range, what it is for, what is stored, what is in force, and who set it. |
+| `PATCH /api/server/config` | any subset of the schema; `null` clears a key | `{ stored, dropped, restartRequired, overriddenAtLaunch }` · `403` when locked | **Admin.** Merges. Invalid values are dropped key by key with reasons, never 400. |
+
+Each field reports:
+
+| Field | Means |
+|-------|-------|
+| `value` | what is actually in force right now |
+| `stored` | what `liveplay.json` says, which may be different |
+| `source` | `default` · `file` · `env` · `cli` — which tier supplied `value` |
+| `overridden` | `source` is `env` or `cli`, so editing the file will not take effect |
+| `appliesAt` | `restart` for everything today; the engine cannot be re-initialised while running |
+| `policy` | this key is security policy rather than preference — `fsRoots` and `corsOrigin` |
+
+**`source` is what keeps the page honest.** The desktop app always launches the
+server with `--port`, so a port field that accepted an edit and said nothing
+would write the file, report success, and change nothing until somebody removed
+a flag they cannot see. An overridden key is still *written* — the stored value
+is what applies once the flag goes away — so the PATCH response separates
+`restartRequired` (waiting for a restart) from `overriddenAtLaunch` (shadowed by
+something a restart will not clear). They are different facts with different
+fixes, and reporting them as one would be wrong either way.
+
+### `--lock-server-config`
+
+Two of these keys are security policy: `fsRoots` decides how much of the
+filesystem the API can reach, `corsOrigin` decides which web origins may drive
+the server. Making them editable over the network moves them from *needs a shell
+on the machine* to *needs an administrator's token* — a real change, since an
+admin who widened `fsRoots` to the drive root could then read any file on the
+box through `GET /api/fs/list`.
+
+That is defensible — an administrator owns the Server tier by definition, and
+this is that tier — but the ownership model's rule R3 says server policy must be
+lockable, and this is what it was for. `--lock-server-config`,
+`LIVEPLAY_LOCK_SERVER_CONFIG=1`, or `"lockServerConfig": true` in the file makes
+every write refuse with `403` and the settings page render read-only, saying why.
+
+The lock is deliberately **not writable through `PATCH`**. A lock an
+administrator can turn off over the network is not a lock; a venue that sets it
+means it, and clearing it is a decision to be made at the machine. It is also off
+by default, the same posture `--fs-root`, `--cors-origin`, `liveplay.json` and
+`users.json` all take: the knob appears, the behaviour waits to be asked for.
 
 ## User preferences
 

@@ -150,6 +150,7 @@ add_executable(liveplay-server
     src/core/output_map.cpp
     src/core/user_store.cpp
     src/core/user_prefs.cpp
+    src/core/server_config.cpp
     src/core/backup_manager.cpp
     src/net/control_server.cpp
     src/net/discovery.cpp

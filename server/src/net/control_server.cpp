@@ -724,6 +724,13 @@ static AuthGuard::Access access_for(std::string_view path) {
     if (path.rfind("/api/outputs", 0) == 0) return AuthGuard::Access::Admin;
     if (path.rfind("/api/users", 0)   == 0) return AuthGuard::Access::Admin;
     if (path == "/api/clients")             return AuthGuard::Access::Admin;
+    // The machine's own configuration (P3): the port it binds, how wide the
+    // master bus is, where the filesystem API may reach, which origins may call
+    // in. Squarely the Server tier, and the last two are security policy — an
+    // operator who could widen fsRoots could read any file on the machine
+    // through /api/fs/list. --lock-server-config refuses writes even to an
+    // admin, which is R3.
+    if (path.rfind("/api/server", 0)  == 0) return AuthGuard::Access::Admin;
 
     // Default deny. This is the load-bearing line: a route added next year is
     // covered by it without anyone having to remember, and a path matching no
@@ -785,9 +792,11 @@ ControlServer::ControlServer(audio::AudioEngine& engine,
                              core::OutputMap&    outputs,
                              core::UserStore&    users,
                              core::UserPrefs&    prefs,
+                             core::ServerConfig& server_config,
                              ControlServerConfig cfg)
     : engine_(engine), state_(state), outputs_(outputs), users_(users),
-      prefs_(prefs), cfg_(std::move(cfg)), impl_(std::make_unique<Impl>()) {
+      prefs_(prefs), server_config_(server_config), cfg_(std::move(cfg)),
+      impl_(std::make_unique<Impl>()) {
     // Publish policy to the file-scope copies the free helpers read. Done here,
     // before start() opens the socket, so nothing can observe a half-set value.
     g_cors_allow_origin = cfg_.cors_allow_origin.empty() ? "*" : cfg_.cors_allow_origin;
@@ -2041,6 +2050,112 @@ void ControlServer::install_routes() {
                     {"type", "doc_patch"}, {"op", "prefs_changed"}, {"prefs", profile},
                 });
                 return json_ok(profile);
+            } catch (const std::exception& e) {
+                return json_err(400, e.what());
+            }
+        });
+
+    // ---- The machine's own configuration (Server tier — admins only) ----
+    //
+    // One response renders the whole settings form: every key in the schema,
+    // its range, what it is for, what is stored in the file, what is actually
+    // in force, and WHO SET IT. That last field is the one that keeps the page
+    // honest — the desktop app always launches with --port, so a page that
+    // offered to edit the port without saying so would write the file, report
+    // success and change nothing.
+    CROW_ROUTE(app, "/api/server/config").methods(crow::HTTPMethod::Get)
+        ([this]{
+            const json stored = server_config_.read();
+            json fields = json::array();
+            for (const auto& f : core::ServerConfig::schema()) {
+                const std::string key{f.key};
+                // Absent from the sources map means nobody set it: the built-in
+                // default stands, and the file is free to claim it.
+                const std::string source =
+                    cfg_.boot_sources.value(key, std::string{"default"});
+                json entry{
+                    {"key",     key},
+                    {"flag",    std::string{f.flag}},
+                    {"help",    std::string{f.help}},
+                    {"policy",  f.policy},
+                    {"source",  source},
+                    {"stored",  stored.contains(key) ? stored[key] : json(nullptr)},
+                    {"value",   cfg_.boot_effective.contains(key)
+                                    ? cfg_.boot_effective[key] : json(nullptr)},
+                    // Every one of these is read once, at boot. Saying so per
+                    // field rather than in prose somewhere is what stops an
+                    // operator believing a sample-rate change took hold in the
+                    // middle of a show.
+                    {"appliesAt", f.applies == core::ServerConfig::Applies::Live
+                                    ? "live" : "restart"},
+                    // A value the environment or a flag is supplying cannot be
+                    // changed by writing the file. The page greys the field and
+                    // says which tier is winning, instead of accepting an edit
+                    // that goes nowhere.
+                    {"overridden", source == "env" || source == "cli"},
+                };
+                switch (f.kind) {
+                    case core::ServerConfig::Kind::Int:      entry["type"] = "int";      break;
+                    case core::ServerConfig::Kind::Real:     entry["type"] = "real";     break;
+                    case core::ServerConfig::Kind::Text:     entry["type"] = "text";     break;
+                    case core::ServerConfig::Kind::Bool:     entry["type"] = "bool";     break;
+                    case core::ServerConfig::Kind::PathList: entry["type"] = "pathList"; break;
+                }
+                if (f.kind == core::ServerConfig::Kind::Int ||
+                    f.kind == core::ServerConfig::Kind::Real) {
+                    entry["min"] = f.min;
+                    entry["max"] = f.max;
+                }
+                fields.push_back(std::move(entry));
+            }
+            return json_ok(json{
+                {"path",          util::path_to_utf8(server_config_.path())},
+                {"schemaVersion", core::kConfigSchemaVersion},
+                {"locked",        server_config_.locked()},
+                {"fields",        std::move(fields)},
+            });
+        });
+
+    CROW_ROUTE(app, "/api/server/config").methods(crow::HTTPMethod::Patch)
+        ([this](const crow::request& req){
+            try {
+                const auto patch = json::parse(req.body);
+                if (!patch.is_object()) return json_err(400, "expected an object");
+
+                json file;
+                std::vector<std::string> dropped;
+                const auto r = server_config_.patch(patch, &file, &dropped);
+                using R = core::ServerConfig::Result;
+                if (r == R::Locked) {
+                    // 403 rather than 409: this is not a conflict to retry, it
+                    // is a refusal, and the client should render the page
+                    // read-only rather than offer the edit again.
+                    return json_err(403, std::string{core::ServerConfig::describe(r)});
+                }
+                if (r != R::Ok) return json_err(500, std::string{core::ServerConfig::describe(r)});
+
+                // What was written but is NOT in force, and why. Two separate
+                // reasons, and conflating them would be a lie either way: a
+                // value can be waiting on a restart, or it can be shadowed by a
+                // flag that will still be there after one.
+                json pending = json::array(), shadowed = json::array();
+                for (const auto& [k, v] : patch.items()) {
+                    const auto* f = core::ServerConfig::find(k);
+                    if (!f) continue;
+                    const std::string source = cfg_.boot_sources.value(k, std::string{"default"});
+                    if (source == "env" || source == "cli") shadowed.push_back(k);
+                    else if (f->applies == core::ServerConfig::Applies::Restart)
+                        pending.push_back(k);
+                }
+
+                Logger::info("Server configuration patched ({} key(s) stored, {} dropped)",
+                             file.size(), dropped.size());
+                return json_ok(json{
+                    {"stored",           file},
+                    {"dropped",          dropped},
+                    {"restartRequired",  pending},
+                    {"overriddenAtLaunch", shadowed},
+                });
             } catch (const std::exception& e) {
                 return json_err(400, e.what());
             }

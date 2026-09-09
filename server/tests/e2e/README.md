@@ -68,6 +68,10 @@ node server/tests/e2e/auth-e2e.js
 # Owns users.json AND the prefs/ directory beside the binary, and moves both
 # aside and back. Restarts the server mid-run to prove a profile persists.
 node server/tests/e2e/user-prefs-e2e.js
+
+# Owns liveplay.json as well, and restarts the server four times — it is
+# testing boot-time provenance, an environment override and the config lock.
+node server/tests/e2e/server-config-e2e.js
 ```
 
 What each one pins, in the bus-role model (round 2, D24–D36):
@@ -180,6 +184,28 @@ What each one pins, in the bus-role model (round 2, D24–D36):
   losing the value at the next save, that validation drops key by key — one malformed binding costs
   that binding, not the keymap — that a null clears a key so "go back to following the project" can
   actually be said, that a profile survives a restart, and that deleting an account deletes it.
+- `server-config-e2e.js` — the machine's own settings, editable from the settings page (P3a).
+  S3 gave `liveplay.json` a reader and said the server would never write it; this adds a writer,
+  which is only not a contradiction because of how it behaves. The suite pins that **sparse stays
+  sparse**: patching one key writes one key, so a file with two keys in it does not become a file
+  with thirteen and an installation keeps taking improved defaults for everything nobody chose.
+  A `null` **clears** a key, which is how "stop pinning this" is said — without it a value could be
+  changed but never un-chosen, and the file would fill up one edit at a time until every default
+  was frozen.
+  The claim that carries the unit is that **the page cannot lie about provenance**. The desktop app
+  always launches the server with `--port`, so a port field that accepted an edit and said nothing
+  would write the file, report success and change nothing; every field reports which tier supplied
+  the value in force, and bypassing the flag's own record of that turns three assertions red.
+  Being overridden does not make a field read-only — the stored value is what applies once the flag
+  goes, so the response separates "waiting for a restart" from "shadowed at launch", two facts with
+  different fixes.
+  **The lock is a lock (R3).** `--lock-server-config` refuses every write with 403 including from an
+  administrator, and cannot be turned off through the API it locks — a lock an admin can pick over
+  the network is not one. Bypassing it turns three red.
+  Also pins that this is **admin-only**: an operator is refused, and bypassing that gate lets one
+  rewrite `corsOrigin`, which is the escalation the gate exists to stop. Note when reading that red
+  run: "reading the config needs a token at all" still passes, because `access_for`'s default-deny
+  is a second layer underneath the admin rule.
 - `client-session-e2e.js` note when reading a red run: bypassing the `onclose` erase does not
   merely leave a stale row —
   the broadcast thread then writes to freed connections and the server **crashes**, which takes
