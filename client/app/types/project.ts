@@ -342,6 +342,10 @@ export interface Bus {
    * than inferring it.
    */
   bound: boolean;
+  // Output-kind buses: the real device names this machine resolves the target
+  // to ("" = the default device), from the server — which matches a
+  // renumbered Windows device ("(2- …)") to the name the show saved.
+  outputDevices?: string[];
   /**
    * Roles (D24). Exactly one bus in a project holds each; never both on one
    * bus. The master-role bus is the inheritance fallback and the house

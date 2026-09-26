@@ -42,6 +42,10 @@ node server/tests/e2e/transport-fixes-e2e.js 4500
 # Loop crossfade, measured on the cue meter against a plain-loop control.
 node server/tests/e2e/loop-xfade-e2e.js 4500
 
+# Device-name matching: a renumbered Windows device is found, a mapping to an
+# absent card is unbound (not the default device). Saves/restores outputs.json.
+node server/tests/e2e/device-match-e2e.js 4500
+
 # Needs no audio device and no signal — nothing here plays.
 node server/tests/e2e/settings-registry-e2e.js 4500
 

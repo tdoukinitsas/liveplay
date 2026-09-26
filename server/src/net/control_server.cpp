@@ -476,6 +476,9 @@ static json bus_info_to_json(const core::ProjectState::BusInfo& b) {
         {"monoCheck", b.mono_check},
         // Whether it actually reaches hardware — see BusInfo.
         {"bound",    b.bound},
+        // The real device names that target resolves to on this machine
+        // ("" = the default device), so a client never string-matches.
+        {"outputDevices", b.output_devices},
         // Roles (D24): the house, and where PFL / pre-listen land.
         {"master",   b.def.master},
         {"preview",  b.def.preview},

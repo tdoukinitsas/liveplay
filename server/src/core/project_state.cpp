@@ -2,6 +2,7 @@
 // project_state.cpp — see project_state.hpp.
 // ============================================================================
 #include "liveplay/core/project_state.hpp"
+#include "liveplay/audio/device_name.hpp"
 #include "liveplay/logger.hpp"
 #include "liveplay/meta/metadata.hpp"
 #include "liveplay/util/unicode_path.hpp"
@@ -5275,9 +5276,28 @@ void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing,
 
 std::vector<OutputMap::Channel> ProjectState::resolve_output_channels(
         const std::string& logical_name, bool allow_default_device) const {
+    std::lock_guard lock{mutex_};
+    return resolve_output_channels_locked(logical_name, allow_default_device);
+}
+
+std::vector<OutputMap::Channel> ProjectState::resolve_output_channels_locked(
+        const std::string& logical_name, bool allow_default_device) const {
     // A real mapping wins. That is the portable answer, and what the whole
-    // logical-output model exists to make the normal case.
-    if (outputs_.has(logical_name)) return outputs_.resolve(logical_name);
+    // logical-output model exists to make the normal case — but only the
+    // channels whose device is actually here, under the name it has here.
+    // A mapped channel on an absent device used to be handed to
+    // open_device_by_name() as-is, which opened the DEFAULT device instead:
+    // a stale entry played the bus into the house while reporting bound.
+    if (outputs_.has(logical_name)) {
+        std::vector<OutputMap::Channel> present;
+        for (const auto& ch : outputs_.resolve(logical_name)) {
+            if (ch.device.empty()) { present.push_back(ch); continue; }
+            const auto real = present_device_locked(ch.device);
+            if (real.empty()) continue;
+            present.push_back(OutputMap::Channel{real, ch.hw_channel});
+        }
+        return present;
+    }
     // An empty name is nothing, and the built-in Preview Out is silence
     // unmapped (D26) whichever bus asks.
     if (logical_name.empty() || logical_name == kPreviewOutputName) return {};
@@ -5300,11 +5320,9 @@ std::vector<OutputMap::Channel> ProjectState::resolve_output_channels(
     // DEFAULT device: a sub-mix bus in a project opened at another venue used
     // to land in the house rather than going quiet. It is the same rule the
     // preview bus has always had, now applied to every hardware output.
-    {
-        std::lock_guard lock{mutex_};
-        if (!device_present_locked(logical_name)) return {};
-    }
-    return {OutputMap::Channel{logical_name, 0}, OutputMap::Channel{logical_name, 1}};
+    const auto real = present_device_locked(logical_name);
+    if (real.empty()) return {};
+    return {OutputMap::Channel{real, 0}, OutputMap::Channel{real, 1}};
 }
 
 void ProjectState::wire_preview_bus(const BusDef& bus, BusRouting& routing) {
@@ -5377,9 +5395,18 @@ void ProjectState::refresh_device_cache() {
     known_devices_ = std::move(names);
 }
 
-bool ProjectState::device_present_locked(const std::string& name) const {
-    if (name.empty()) return false;
-    return std::find(known_devices_.begin(), known_devices_.end(), name) != known_devices_.end();
+std::string ProjectState::present_device_locked(const std::string& name) const {
+    if (name.empty()) return {};
+    for (const auto& d : known_devices_) if (d == name) return d;
+    // Not exactly here: the same device under a renumbered name counts, as
+    // long as the normalised form picks out exactly one.
+    const auto want = audio::normalise_device_name(name);
+    std::string found;
+    int matches = 0;
+    for (const auto& d : known_devices_) {
+        if (audio::normalise_device_name(d) == want) { found = d; ++matches; }
+    }
+    return matches == 1 ? found : std::string{};
 }
 
 void ProjectState::materialise_buses() {
@@ -5556,9 +5583,10 @@ bool ProjectState::bus_reaches_hardware_locked(const std::string& bus_id) const 
                 const auto rit = bus_routings_.find(def->id);
                 return rit != bus_routings_.end() && !rit->second.wired_channels.empty();
             }
-            return outputs_.has(def->output_target) ||
-                   def->output_target == kMainOutputName ||
-                   device_present_locked(def->output_target);
+            // Resolved exactly as wiring will: a mapped output is bound only if
+            // one of its devices is here — reporting a mapping to an absent
+            // device as bound is what hid the default-device leak.
+            return !resolve_output_channels_locked(def->output_target, true).empty();
         }
         if (def->output_target.empty()) return false;
         cur = def->output_target;
@@ -5664,6 +5692,7 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
                                                      std::string* materialised_output) {
     if (materialised_output) materialised_output->clear();
     std::string to_materialise;
+    std::string materialise_device;   // the real, present name it refers to
     // The whole patch is parsed and checked BEFORE anything is mutated, so a
     // refused patch leaves the bus exactly as it was rather than half-applied
     // — and so a rejected edge is never stored, never persisted, and never
@@ -5779,7 +5808,8 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
                 new_target != kPreviewOutputName &&
                 !outputs_.has(new_target) &&
                 device_present_locked(new_target)) {
-                to_materialise = new_target;
+                to_materialise     = new_target;
+                materialise_device = present_device_locked(new_target);
             }
         }
     }
@@ -5787,8 +5817,8 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
     // Outside the lock: save() is file I/O, and OutputMap takes its own.
     if (!to_materialise.empty()) {
         outputs_.set(to_materialise,
-                     {OutputMap::Channel{to_materialise, 0},
-                      OutputMap::Channel{to_materialise, 1}});
+                     {OutputMap::Channel{materialise_device, 0},
+                      OutputMap::Channel{materialise_device, 1}});
         if (outputs_.save()) {
             Logger::info("patch_bus: '{}' named device '{}'; added it to the output map "
                          "so the project references a logical output rather than a device",
@@ -6210,6 +6240,13 @@ std::vector<ProjectState::BusInfo> ProjectState::list_buses() const {
         // a re-route several buses downstream changes this answer with
         // nothing here to update.
         info.bound = bus_reaches_hardware_locked(b.id);
+        if (b.output_kind == BusOutputKind::Output) {
+            for (const auto& ch : resolve_output_channels_locked(b.output_target, !b.preview)) {
+                if (std::find(info.output_devices.begin(), info.output_devices.end(),
+                              ch.device) == info.output_devices.end())
+                    info.output_devices.push_back(ch.device);
+            }
+        }
         // Only the preview bus can be folded to mono for auditioning, so only
         // it ever reports it.
         info.mono_check = b.preview && monitor_mono_.load(std::memory_order_relaxed);

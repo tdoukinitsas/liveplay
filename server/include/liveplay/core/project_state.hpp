@@ -736,6 +736,11 @@ public:
         // work this out from the output map alone: a bus may name a device
         // directly, or the built-in Main Out, neither of which is in the map.
         bool                     bound = false;
+        // Output-kind buses: the playback devices this machine resolves the
+        // target to, by their real enumerated names (so "OUT 3-4 (BEHRINGER…)"
+        // reports "OUT 3-4 (2- BEHRINGER…)" when Windows renumbered it).
+        // Empty when it reaches nothing; "" stands for the default device.
+        std::vector<std::string> output_devices;
         // Preview bus only, and live rather than persisted: the mono-sum
         // audition (see set_monitor_mono). False on every other bus.
         bool                     mono_check = false;
@@ -1127,9 +1132,15 @@ private:
     const BusDef* preview_bus_locked() const;
     std::string   master_bus_id_locked() const;
     std::string   preview_bus_id_locked() const;
-    // Is a playback device with exactly this name present, per the last
-    // refresh_device_cache()? Caller holds mutex_.
-    bool device_present_locked(const std::string& name) const;
+    // The present playback device `name` refers to, by its real enumerated
+    // name, per the last refresh_device_cache(): an exact match, else the one
+    // device whose normalised name matches (audio/device_name.hpp — Windows'
+    // "2- " renumbering, case). Empty when absent or ambiguous. Caller holds
+    // mutex_.
+    std::string present_device_locked(const std::string& name) const;
+    bool device_present_locked(const std::string& name) const {
+        return !present_device_locked(name).empty();
+    }
     // Hand a role to `new_id` (which must already carry the flag in buses_),
     // taking it off `old_id`: both strips are unwired and re-wired, the
     // engine's master/monitor designation follows, and an active preview is
@@ -1195,6 +1206,9 @@ private:
     // house from there — PFL in the house is the accident PFL was chosen over
     // solo to make impossible.
     std::vector<OutputMap::Channel> resolve_output_channels(
+            const std::string& logical_name, bool allow_default_device) const;
+    // The same, with mutex_ already held.
+    std::vector<OutputMap::Channel> resolve_output_channels_locked(
             const std::string& logical_name, bool allow_default_device) const;
     // Re-issues just the two mixer->master sends that carry a mono bus's pan.
     // Separate from wire_bus because panning must not tear the routing down:

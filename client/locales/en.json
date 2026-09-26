@@ -813,7 +813,8 @@
     "dragToReorder": "Drag to reorder",
     "previewUnmapped": "The Preview bus has no output on this machine, so PFL and cue pre-listen are silent. Pick a device or output for it.",
     "previewHint": "Preview is the pre-listen bus: PFL from the mixer and cue previews both arrive here. Its fader is your headphone level.",
-    "outputMapBuiltin": "Built-in output; map it or leave it on the default device"
+    "outputMapBuiltin": "Built-in output; map it or leave it on the default device",
+    "outputChannelsShort": "ch"
   },
   "migration": {
     "title": "This project was created before mixer buses.",

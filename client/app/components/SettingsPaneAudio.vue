@@ -34,7 +34,7 @@
           <option v-for="n in outputNames" :key="`o:${n}`" :value="n">{{ n }}</option>
         </optgroup>
         <optgroup v-if="devices.length" :label="t('settings.ltcOutputGroupDevices')">
-          <option v-for="d in devices" :key="`d:${d.name}`" :value="d.name">{{ d.name }}</option>
+          <option v-for="d in devices" :key="`d:${d.display_name}`" :value="d.display_name">{{ d.display_name }}</option>
         </optgroup>
         <!-- What the project asks for, when this machine offers neither a
              mapping nor the hardware. Kept on the list so simply opening the
@@ -126,7 +126,7 @@ const ltcOutput = computed(() => settings.value.ltcOutput || '');
 const ltcOutputMissing = computed(() =>
   !!ltcOutput.value &&
   !outputNames.value.includes(ltcOutput.value) &&
-  !devices.value.some(d => d.name === ltcOutput.value));
+  !devices.value.some(d => d.display_name === ltcOutput.value));
 const outputTarget = computed(() => settings.value.outputTarget || 'ebu-r128');
 const disableLimiter = computed(() => !!settings.value.disableLimiter);
 // The display unit is this operator's, not the show's (U4) — useOutputTarget

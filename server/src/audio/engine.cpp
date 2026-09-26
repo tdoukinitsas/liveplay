@@ -2,6 +2,7 @@
 // engine.cpp — see engine.hpp.
 // ============================================================================
 #include "liveplay/audio/engine.hpp"
+#include "liveplay/audio/device_name.hpp"
 #include "liveplay/logger.hpp"
 
 #include <miniaudio.h>
@@ -444,26 +445,43 @@ DeviceId AudioEngine::open_device_by_name(const std::string& name_substring,
         ma_device_info* infos = nullptr;
         ma_uint32       count = 0;
         if (ma_context_get_devices(&ctx, &infos, &count, nullptr, nullptr) == MA_SUCCESS) {
+            // Best match wins: the exact name, then the same name modulo
+            // Windows renumbering and case (device_name.hpp), then — for old
+            // callers that pass a fragment — the first name containing it.
             std::string needle = name_substring;
             std::transform(needle.begin(), needle.end(), needle.begin(),
                            [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
-            for (ma_uint32 i = 0; i < count; ++i) {
-                std::string haystack = infos[i].name;
+            const std::string wanted_norm = normalise_device_name(name_substring);
+            int best = 0;                 // 3 exact, 2 normalised, 1 substring
+            for (ma_uint32 i = 0; i < count && best < 3; ++i) {
+                const std::string name = infos[i].name;
+                std::string haystack = name;
                 std::transform(haystack.begin(), haystack.end(), haystack.begin(),
                                [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
-                if (haystack.find(needle) != std::string::npos) {
-                    matched_id     = infos[i].id;
-                    cfg.playback.pDeviceID = &matched_id;
-                    dev->display_name = infos[i].name;
-                    have_match = true;
-                    break;
+                const int score = name == name_substring                       ? 3
+                                : normalise_device_name(name) == wanted_norm   ? 2
+                                : haystack.find(needle) != std::string::npos   ? 1
+                                                                               : 0;
+                if (score > best) {
+                    best              = score;
+                    matched_id        = infos[i].id;
+                    dev->display_name = name;
                 }
+            }
+            if (best > 0) {
+                cfg.playback.pDeviceID = &matched_id;
+                have_match = true;
             }
         }
         ma_context_uninit(&ctx);
         if (!have_match) {
-            Logger::warn("Device matching '{}' not found, falling back to default.",
+            // A NAMED device that is not here is not the default device. This
+            // used to fall back to it, so a stale name routed a bus into the
+            // house. Callers treat an empty id as "could not open" (silence).
+            Logger::warn("Device matching '{}' not found; not opening anything "
+                         "(an unnamed request is what opens the default device).",
                          name_substring);
+            return {};
         }
     }
 

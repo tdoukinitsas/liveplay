@@ -117,11 +117,20 @@ function deviceLabel(id: string): string {
 function describe(name: string): string {
   const entry = props.outputs?.outputs.find(o => o.name === name);
   const chans = entry?.channels ?? [];
+  // Channels 1-based, as they are printed on the interface.
+  const pair = `${t('mixer.outputChannelsShort')} ${chans.map(c => c.hwChannel + 1).join('/')}`;
   if (chans.length) {
     const dev = deviceLabel(chans[0]!.device);
-    return `${name} — ${dev} ${chans.map(c => c.hwChannel).join('/')}`;
+    // An entry named after its own device (what picking a device creates)
+    // would otherwise print the device name twice.
+    if (chans.every(c => c.device === name)) return `${name} — ${pair}`;
+    return `${name} — ${dev} ${pair}`;
   }
   if (name === BUILTIN_MAIN) return `${name} — ${t('mixer.outputDefaultDevice')}`;
+  // The bus's own target, resolved by the server: a device this machine has
+  // under a renumbered name is found, not "unmapped".
+  const resolved = name === props.bus.output.target ? (props.bus.outputDevices ?? []).filter(Boolean) : [];
+  if (resolved.length) return `${name} — ${resolved[0]}`;
   return `${name} — ${t('mixer.outputUnmappedShort')}`;
 }
 

@@ -217,6 +217,14 @@ if(LIVEPLAY_BUILD_TESTS)
     )
     add_test(NAME meter COMMAND liveplay-meter-tests)
 
+    # Device-name normalisation: a renumbered Windows endpoint is the same
+    # device, a different channel pair is not.
+    add_executable(liveplay-device-name-tests tests/device_name_test.cpp)
+    target_include_directories(liveplay-device-name-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME device_name COMMAND liveplay-device-name-tests)
+
     # Mixer strip gain / fade envelope (peek vs. advance).
     # Also covers the PFL monitor taps, which is why limiter.cpp is here: it
     # carries db_to_linear_precise, and the tap gain has to be the same number
