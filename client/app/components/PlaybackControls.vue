@@ -10,6 +10,9 @@
       >
         <span class="material-symbols-rounded">fast_forward</span>
         <span>{{ t('controls.playNext') }}</span>
+        <span v-if="nextInSeconds !== null" class="next-in-badge">
+          {{ t('controls.nextIn', { seconds: nextInSeconds }) }}
+        </span>
       </button>
       <button class="control-btn panic-btn" @click="handlePanic" :disabled="activeCues.size === 0 && !previewingItem" :title="stopAllTooltip">
         <span class="icon">⚠</span>
@@ -115,7 +118,22 @@ import { FADER_MIN_DB, FADER_MAX_DB } from '~/utils/meterScale';
 import VolumeSlider from './VolumeSlider.vue';
 
 const { activeCues, panicStop, nextItemOverrideUuid, autoNextItemUuid, setNextItem, playCue, triggerGroup } = useAudioEngine();
-const { findItemByUuid, previewItemUuid, previewCueId, stopPreview } = useProject();
+const { findItemByUuid, previewItemUuid, previewCueId, stopPreview, advancePending } = useProject();
+
+// "Wait before next" countdown (#8). The server owns the wait and announces
+// it; this only ticks a clock while one is running.
+const nowMs = ref(Date.now());
+let nowTimer: ReturnType<typeof setInterval> | null = null;
+watch(advancePending, (p) => {
+  if (p && !nowTimer) nowTimer = setInterval(() => { nowMs.value = Date.now(); }, 200);
+  if (!p && nowTimer) { clearInterval(nowTimer); nowTimer = null; }
+}, { immediate: true });
+onBeforeUnmount(() => { if (nowTimer) clearInterval(nowTimer); });
+const nextInSeconds = computed(() => {
+  const p = advancePending.value;
+  if (!p) return null;
+  return Math.max(0, Math.ceil((p.dueAt - nowMs.value) / 1000));
+});
 const { playbackMappings } = useCartHotkeys();
 const { t } = useLocalization();
 const server = useLiveplayServer();
@@ -580,5 +598,15 @@ const handlePlayNext = () => {
   opacity: 0;
   transition: opacity var(--transition-fast);
   pointer-events: none;
+}
+.next-in-badge {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-background);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 </style>

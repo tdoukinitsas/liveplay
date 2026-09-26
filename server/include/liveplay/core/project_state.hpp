@@ -1290,6 +1290,11 @@ private:
         std::string              goto_target_uuid;      // goto-item target
         std::vector<int>         goto_target_index;     // goto-index path
         bool                     advance_triggered    = false;
+        // "Wait before next" (#8): seconds between this cue ending and its
+        // end behaviour firing, for next / goto-* only. 0 = straight away.
+        // Never armed alongside a crossfade or Start Next, which overlap the
+        // next cue on purpose. Disables the seamless pre-roll for this item.
+        double                   advance_delay_sec    = 0.0;
         std::vector<DuckedEntry> ducked;
         std::vector<ScheduledCustomAction> custom_actions;
     };
@@ -1302,6 +1307,24 @@ private:
     void stop_sequencer();
     void sequencer_loop();
     void handle_item_ended(const SequencedItem& item);
+    // The end-behaviour half of handle_item_ended: fire next / goto / loop /
+    // arm Up Next. Runs straight away, or when a delayed advance falls due.
+    void run_end_behaviour(const SequencedItem& item);
+
+    // Advances waiting out their item's advance_delay_sec. Under
+    // sequencer_mutex_. Stop All and a project reset cancel them all.
+    struct DelayedAdvance {
+        SequencedItem                         item;
+        std::chrono::steady_clock::time_point due;
+    };
+    std::vector<DelayedAdvance> delayed_advances_;
+    // Sequencer tick: fire whatever has fallen due. No lock held on entry.
+    void fire_due_advances();
+    // Drop every waiting advance, and tell the clients their countdown is off.
+    void cancel_delayed_advances();
+    // doc_patch op advance_pending: {fromUuid, dueInMs} while a wait runs,
+    // fromUuid "" when none does.
+    void broadcast_advance_pending(const std::string& from_uuid, long long due_in_ms);
     void execute_custom_action(const json& action);
 
     // Resolve the uuid the given item should auto-advance to, for its

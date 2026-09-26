@@ -1262,6 +1262,7 @@ void ProjectState::reset() {
         std::lock_guard slock{sequencer_mutex_};
         sequenced_items_.clear();
     }
+    cancel_delayed_advances();
     next_item_override_.clear(); next_item_override_manual_ = false;
 
     std::unique_lock lock{mutex_};
@@ -2518,6 +2519,7 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     bool         seq_sn_fade_out  = false;
     double       seq_fade_out_dur = 1.0;
     double       seq_loop_xfade   = 0.0;
+    double       seq_advance_delay = 0.0;
     std::string  seq_end_action;
     {
         std::lock_guard lock{mutex_};
@@ -2657,6 +2659,7 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                 seq_sn_fade_out  = json_get_or(it, "startNextFadeOut", false);
                 seq_fade_out_dur = json_get_or(it, "fadeOutDuration",  1.0);
                 seq_loop_xfade   = json_get_or(it, "loopCrossfade",    0.0);
+                seq_advance_delay = std::max(0.0, json_get_or(it, "advanceDelay", 0.0));
                 if (it.contains("endBehavior") && it["endBehavior"].is_object())
                     seq_end_action = json_get_or(it["endBehavior"], "action", std::string{});
                 auto cm_it = cues_.find(cit->second.value);
@@ -2686,6 +2689,9 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
         for (auto& si : sequenced_items_) {
             if (si.uuid != uuid) continue;
             si.crossfade_sec = (looping || sn_on) ? 0.0 : seq_crossfade;
+            si.advance_delay_sec = (looping || sn_on || si.crossfade_sec > 0.0)
+                                       ? 0.0 : seq_advance_delay;
+            si.end_action = seq_end_action;
             si.stop_fade_sec = looping ? 0.0 : seq_stop_fade;
             si.start_next_time     = sn_on ? seq_sn_time : 0.0;
             si.start_next_fade_sec = (sn_on && seq_sn_fade_out)
@@ -2992,6 +2998,7 @@ bool ProjectState::play_item(const std::string& uuid,
     double       crossfade_sec = 0.0;
     double       stop_fade_sec = 0.0;
     double       loop_xfade_sec = 0.0;
+    double       advance_delay_sec = 0.0;
     bool         start_next_enabled  = false;
     double       start_next_time     = 0.0;
     bool         start_next_fade_out = false;
@@ -3035,6 +3042,7 @@ bool ProjectState::play_item(const std::string& uuid,
             crossfade_sec = json_get_or(*found, "crossFade",        0.0);
             stop_fade_sec = json_get_or(*found, "stopFade",         0.0);
             loop_xfade_sec = json_get_or(*found, "loopCrossfade",   0.0);
+            advance_delay_sec = std::max(0.0, json_get_or(*found, "advanceDelay", 0.0));
             start_next_enabled  = json_get_or(*found, "startNextEnabled",  false);
             start_next_time     = json_get_or(*found, "startNextTime",     0.0);
             start_next_fade_out = json_get_or(*found, "startNextFadeOut",  false);
@@ -3230,6 +3238,8 @@ bool ProjectState::play_item(const std::string& uuid,
         si.uuid          = uuid;
         si.cue_id        = target_cue;
         si.crossfade_sec = (looping || start_next_on) ? 0.0 : crossfade_sec;
+        si.advance_delay_sec = (looping || start_next_on || si.crossfade_sec > 0.0)
+                                   ? 0.0 : advance_delay_sec;
         si.stop_fade_sec = looping ? 0.0 : stop_fade_sec;
         si.start_next_time     = start_next_on ? start_next_time : 0.0;
         si.start_next_fade_sec = (start_next_on && start_next_fade_out)
@@ -3366,6 +3376,10 @@ void ProjectState::stop_all_cues(std::optional<long long> fade_ms) {
         }
         resolved_ms = std::max<long long>(0, setting_ms);
     }
+    // A panic is a panic: nothing waiting out a "wait before next" may start
+    // a cue after the operator has stopped everything.
+    cancel_delayed_advances();
+
     const auto fade = std::chrono::milliseconds{resolved_ms};
     bool stops_preview = true;
     audio::CueId preview;
@@ -7032,6 +7046,7 @@ void ProjectState::sequencer_loop() {
         if (!sequencer_running_.load(std::memory_order_acquire)) break;
 
         poll_preview();
+        fire_due_advances();
 
         struct PendingAction {
             SequencedItem item;
@@ -7119,6 +7134,7 @@ void ProjectState::sequencer_loop() {
                 } else if (!si.advance_triggered && !si.start_next_triggered &&
                            si.crossfade_sec <= 0.0 && si.stop_fade_sec <= 0.0 &&
                            si.start_next_time <= 0.0 &&
+                           si.advance_delay_sec <= 0.0 &&
                            (si.end_action == "next" ||
                             si.end_action == "goto-item" ||
                             si.end_action == "goto-index") &&
@@ -7559,6 +7575,73 @@ void ProjectState::handle_item_ended(const SequencedItem& item) {
         return;
     }
 
+    // Wait before next (#8): the cue has ended, the advance waits its turn.
+    if (item.advance_delay_sec > 0.0 &&
+        (item.end_action == "next" || item.end_action == "goto-item" ||
+         item.end_action == "goto-index")) {
+        const auto wait = std::chrono::milliseconds{
+            static_cast<long long>(item.advance_delay_sec * 1000.0)};
+        {
+            std::lock_guard slock{sequencer_mutex_};
+            delayed_advances_.push_back({item, std::chrono::steady_clock::now() + wait});
+        }
+        Logger::playback("END BEHAVIOUR for '{}' waits {} ms", item.uuid, wait.count());
+        broadcast_advance_pending(item.uuid, wait.count());
+        return;
+    }
+    run_end_behaviour(item);
+}
+
+void ProjectState::fire_due_advances() {
+    std::vector<SequencedItem> due;
+    std::string still_waiting;
+    long long   still_waiting_ms = 0;
+    {
+        std::lock_guard slock{sequencer_mutex_};
+        if (delayed_advances_.empty()) return;
+        const auto now = std::chrono::steady_clock::now();
+        for (auto it = delayed_advances_.begin(); it != delayed_advances_.end();) {
+            if (it->due <= now) { due.push_back(std::move(it->item)); it = delayed_advances_.erase(it); }
+            else ++it;
+        }
+        if (due.empty()) return;
+        if (!delayed_advances_.empty()) {
+            const auto& next = delayed_advances_.front();
+            still_waiting    = next.item.uuid;
+            still_waiting_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   next.due - now).count();
+        }
+    }
+    broadcast_advance_pending(still_waiting, still_waiting_ms);
+    for (const auto& item : due) {
+        try { run_end_behaviour(item); }
+        catch (const std::exception& e) {
+            Logger::error("delayed end behaviour for '{}' failed: {}", item.uuid, e.what());
+        }
+    }
+}
+
+void ProjectState::cancel_delayed_advances() {
+    bool had = false;
+    {
+        std::lock_guard slock{sequencer_mutex_};
+        had = !delayed_advances_.empty();
+        delayed_advances_.clear();
+    }
+    if (had) broadcast_advance_pending({}, 0);
+}
+
+void ProjectState::broadcast_advance_pending(const std::string& from_uuid, long long due_in_ms) {
+    std::function<void(const json&)> cb;
+    {
+        std::lock_guard lock{mutex_};
+        cb = ui_state_broadcaster_;
+    }
+    if (cb) cb(json{{"type", "doc_patch"}, {"op", "advance_pending"},
+                    {"fromUuid", from_uuid}, {"dueInMs", due_in_ms}});
+}
+
+void ProjectState::run_end_behaviour(const SequencedItem& item) {
     // Read end-behaviour from the document.
     std::string      end_action;
     std::string      target_uuid;

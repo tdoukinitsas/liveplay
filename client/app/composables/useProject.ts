@@ -247,6 +247,10 @@ export const useProject = () => {
   // time (DJ pre-listen, on the Preview bus). Empty string = no
   // preview active. The server updates this; the client mirrors it for UI.
   const previewItemUuid = useState<string>('useProject.previewItemUuid', () => '');
+  // A "wait before next" in progress (#8): which cue ended, and when (local
+  // clock) its end behaviour fires. Server-owned; mirrored from advance_pending.
+  const advancePending = useState<{ fromUuid: string; dueAt: number } | null>(
+    'useProject.advancePending', () => null);
   // Engine cue ID for the active preview — needed to subscribe to its meter
   // stream and drive the seek bar / playhead time in the preview card.
   const previewCueId = useState<string>('useProject.previewCueId', () => '');
@@ -1737,6 +1741,13 @@ export const useProject = () => {
             previewCueId.value = '';
             break;
           }
+          case 'advance_pending': {
+            const from = typeof msg.fromUuid === 'string' ? msg.fromUuid : '';
+            advancePending.value = from
+              ? { fromUuid: from, dueAt: Date.now() + (Number(msg.dueInMs) || 0) }
+              : null;
+            break;
+          }
           case 'project_changed': {
             // New project → all cached waveforms are invalid.
             server().invalidateWaveformCache();
@@ -2099,6 +2110,7 @@ export const useProject = () => {
     loadingMessage,
     audioLoadingProgress,
     previewItemUuid,
+    advancePending,
     previewCueId,
     startPreview,
     stopPreview,

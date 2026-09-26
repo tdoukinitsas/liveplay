@@ -12,6 +12,8 @@
 //           2.4 rule (max of stopFade and fadeOutDuration).
 //   D. #60  Preview: Stop All clears the preview state and says so; so does an
 //           audition that plays to its end; stopAllStopsPreview:false spares it.
+//   E. #8   Wait before next: advanceDelay holds the auto-advance for that long
+//           after the cue ends, announces the wait, and Stop All cancels it.
 //
 // Generates its own short signals; needs an audio device (a Stopped/Playing
 // transition only happens while the render thread is running).
@@ -86,6 +88,8 @@ async function waitFor(pred, ms = 5000, step = 50) {
   const trim  = path.join(dir, 'trim.wav');   writeWav(trim, 6);
   const legacy = path.join(dir, 'legacy.wav'); writeWav(legacy, 20);
   const cut   = path.join(dir, 'cut.wav');    writeWav(cut, 20);
+  const dA    = path.join(dir, 'delay-a.wav'); writeWav(dA, 1.0);
+  const dB    = path.join(dir, 'delay-b.wav'); writeWav(dB, 20);
 
   const items = [
     // Trimmed 1.0 -> 2.0 s, no fades, stops at the out-point.
@@ -101,6 +105,11 @@ async function waitFor(pred, ms = 5000, step = 50) {
     { uuid: 'it-legacy', type: 'audio', displayName: 'Legacy', mediaServerPath: legacy,
       stopFade: 1.5, fadeOutDuration: 1.0, endBehavior: { action: 'nothing' } },
     { uuid: 'it-short',  type: 'audio', displayName: 'Short',  mediaServerPath: short,
+      fadeOutDuration: 0, endBehavior: { action: 'nothing' } },
+    // 1 s cue that advances to the next one 1.5 s after it ends.
+    { uuid: 'it-delay-a', type: 'audio', displayName: 'Delay A', mediaServerPath: dA,
+      fadeOutDuration: 0, advanceDelay: 1.5, endBehavior: { action: 'next' } },
+    { uuid: 'it-delay-b', type: 'audio', displayName: 'Delay B', mediaServerPath: dB,
       fadeOutDuration: 0, endBehavior: { action: 'nothing' } },
   ];
   let r = await rest('/api/project/document', {
@@ -214,6 +223,38 @@ async function waitFor(pred, ms = 5000, step = 50) {
   await sleep(200);
   ok('DELETE /api/preview still broadcasts exactly once', stoppedFrames === 1, `${stoppedFrames} frame(s)`);
   await rest('/api/project/settings', { method: 'PATCH', body: JSON.stringify({ stopAllStopsPreview: true }) });
+
+  // ---- E. Wait before next (#8) -------------------------------------------
+  const pendingFrames = [];
+  ws.on('message', raw => {
+    let m; try { m = JSON.parse(raw); } catch { return; }
+    if (m.type === 'doc_patch' && m.op === 'advance_pending') pendingFrames.push(m);
+  });
+  const bCue = await cueFor('it-delay-b');
+  const bPlaying = async () => {
+    const st = (await cueState(bCue.id)).transport;
+    return st === T.Playing || st === T.FadingIn;
+  };
+  await post('/api/project/items/it-delay-a/play');
+  const t0 = Date.now();
+  await sleep(1900);   // A ended ~1.0 s in; B is due at ~2.5 s
+  ok('the next cue waits: not started 0.9 s after the first ended', !(await bPlaying()),
+     `B transport ${(await cueState(bCue.id)).transport}`);
+  ok('the wait is announced to clients', pendingFrames.some(f => f.fromUuid === 'it-delay-a' && f.dueInMs > 1000),
+     JSON.stringify(pendingFrames[0] || null));
+  const started = await waitFor(bPlaying, 2500);
+  ok('...and starts once the wait is over', started, `after ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  ok('the countdown is cleared when it fires', pendingFrames.some(f => f.fromUuid === ''),
+     `${pendingFrames.length} advance_pending frame(s)`);
+  await post('/api/transport/stop_all', { fade_ms: 0 });
+  await sleep(200);
+
+  await post('/api/project/items/it-delay-a/play');
+  await sleep(1500);   // A has ended, the wait is running
+  await post('/api/transport/stop_all', { fade_ms: 0 });
+  await sleep(1800);   // past when B would have started
+  ok('Stop All during the wait cancels the advance', !(await bPlaying()),
+     `B transport ${(await cueState(bCue.id)).transport}`);
 
   ws.close();
   await rest('/api/project/close', { method: 'POST', body: '{}' });

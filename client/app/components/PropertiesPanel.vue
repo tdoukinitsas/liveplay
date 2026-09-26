@@ -256,6 +256,23 @@
             type="text"
           />
         </div>
+
+        <!-- Wait before next (#8): a gap between this cue ending and the
+             next one starting. -->
+        <div
+          class="property-field"
+          v-if="selectedItem.type === 'audio' && ['next', 'goto-item', 'goto-index'].includes(endBehaviorAction)"
+        >
+          <label>{{ t('properties.advanceDelay') }}</label>
+          <input
+            type="number"
+            min="0"
+            step="0.5"
+            :value="(selectedItem as AudioItem).advanceDelay ?? 0"
+            @change="handleAdvanceDelayChange"
+          />
+          <p class="field-hint">{{ t('properties.advanceDelayHint') }}</p>
+        </div>
       </div>
       
       <!-- Start Behavior Tab -->
@@ -861,6 +878,15 @@ const handleStopFadeUpdate = (value: number) => {
   });
 };
 
+const handleAdvanceDelayChange = (event: Event) => {
+  const seconds = parseFloat((event.target as HTMLInputElement).value);
+  const value = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  getSelectedItems().forEach(item => {
+    if (item.type === 'audio') (item as AudioItem).advanceDelay = value;
+  });
+  handleSave();
+};
+
 const handleLoopCrossfadeUpdate = (value: number) => {
   getSelectedItems().forEach(item => {
     if (item.type === 'audio') (item as AudioItem).loopCrossfade = value;
@@ -1103,6 +1129,12 @@ const formatTime = (seconds: number): string => {
 .property-field label {
   font-size: 13px;
   font-weight: 500;
+}
+
+.field-hint {
+  margin: 0;
+  font-size: 11px;
+  max-width: 320px;
 }
 
 .property-field input,

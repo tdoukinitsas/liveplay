@@ -270,7 +270,9 @@
     "manualStopFadeHint": "How long this cue fades out when you press Stop. 0 stops it instantly.",
     "loopCrossfade": "Loop Crossfade",
     "loopCrossfadeHint": "Blends the end of the loop into its start over this many seconds, so it fades back into itself. 0 loops without a blend.",
-    "loopCrossfadeNeedsLoop": "Set this cue's end behaviour to Loop to use a loop crossfade."
+    "loopCrossfadeNeedsLoop": "Set this cue's end behaviour to Loop to use a loop crossfade.",
+    "advanceDelay": "Wait before next (seconds)",
+    "advanceDelayHint": "After this cue ends, wait this long before its end behaviour starts the next cue. Ignored while a crossfade or Start Next is set."
   },
   "playback": {
     "panic": "Stop All Cues",
@@ -590,7 +592,8 @@
     "conflictMessage": "This MIDI control is already assigned to \"{action}\". Reassign it?",
     "playNext": "Play Next",
     "volumeMultiplier": "Volume Multiplier",
-    "volumeMultiplierHint": "dB changed per MIDI step. Increase for wheels that move slowly."
+    "volumeMultiplierHint": "dB changed per MIDI step. Increase for wheels that move slowly.",
+    "nextIn": "Next in {seconds}s"
   },
   "selectProject": {
     "title": "Select Project",

@@ -51,6 +51,10 @@ export interface AudioItem extends BaseItem {
   // = a plain loop. Only meaningful with endBehavior.action 'loop'. The
   // server caps it at half the trimmed length.
   loopCrossfade?: number;
+  // "Wait before next" (#8): seconds between this cue ending and its end
+  // behaviour starting the next / goto target. 0 or absent = straight away.
+  // Ignored while a crossfade or Start Next is set (they overlap on purpose).
+  advanceDelay?: number;
   // "Start Next" segue marker (radio-style transition): when the playhead
   // crosses startNextTime, the next item starts at its own volume/fades
   // while this one keeps playing. Independent of the fade-out markers.
