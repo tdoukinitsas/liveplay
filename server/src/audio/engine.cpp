@@ -862,7 +862,7 @@ void AudioEngine::ensure_default_routing() {
         //      mixer AND Main), so audio appeared in both outputs.
         // The LTC synthetic channel (always the last source channel on
         // LTC-enabled cues) is deliberately excluded — it has its own
-        // dedicated device routing managed by apply_ltc_device_routing().
+        // dedicated output routing managed by apply_ltc_output_routing().
         for (auto& [cue_id, item] : items_) {
             auto& srcs = pending_.item_sources[cue_id].by_source_channel;
             const auto src_count = item->source_channel_count();

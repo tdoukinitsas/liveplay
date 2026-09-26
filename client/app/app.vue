@@ -1,5 +1,10 @@
 <template>
   <div id="app" :data-theme="theme">
+    <!-- Outside the three window modes on purpose: every one of them opens its
+         own socket, so every one of them can be the window that finds the
+         server wants a login. Renders nothing until that happens. -->
+    <LoginScreen />
+
     <!-- Cart-window mode: standalone detached cart player -->
     <template v-if="isCartWindow">
       <div class="cart-window-root">
@@ -62,6 +67,11 @@
       </div>
     </div>
     
+    <!-- Settings: a full-window page, mounted here rather than inside the
+         header because it covers the workspace and outlives whichever
+         control opened it. Deep-linkable as #/settings/<section>. -->
+    <SettingsPage />
+
     <!-- About Modal -->
     <AboutModal v-if="showAboutModal" @close="showAboutModal = false" />
     
@@ -221,6 +231,10 @@ import AudioLoadProgress from './components/AudioLoadProgress.vue';
 import LocationChoiceModal from './components/LocationChoiceModal.vue';
 import ServerFilePickerModal from './components/ServerFilePickerModal.vue';
 const { currentLocale, setLocale, getDirection, t } = useLocalization();
+// The colour scheme belongs to the person at the desk, not to the show (U4).
+// `theme` stays a useState key so nothing that already binds to it has to
+// change; what moved is where its value comes from.
+const { theme: userTheme, setTheme } = usePreferences();
 const theme = useState('theme', () => 'dark');
 
 // Detect if this window is the detached cart player window
@@ -304,13 +318,12 @@ function applyDetachedWindowProjectData(projectData: any) {
   } else {
     currentProject.value = projectData;
   }
-  // Apply theme from project
-  if (projectData.theme?.mode) {
-    theme.value = projectData.theme.mode;
-  }
-  if (projectData.theme?.accentColor) {
-    document.documentElement.style.setProperty('--color-accent-custom', projectData.theme.accentColor);
-  }
+  // The theme deliberately does NOT come through here any more (U4). A
+  // detached window is the same person at the same desk, so it reads the same
+  // preferences the main window does — from their server profile if they are
+  // signed in, otherwise from this machine's own store, which the `storage`
+  // event keeps in step across windows. Routing it through the project data
+  // meant the colour scheme arrived as a property of whatever file was open.
 }
 
 // Listen to menu events
@@ -336,11 +349,9 @@ onMounted(() => {
     (window as any).electronAPI.app?.onRequestQuit?.(() => { void runQuitFlow(); });
 
     window.electronAPI.onMenuToggleDarkMode(() => {
-      theme.value = theme.value === 'dark' ? 'light' : 'dark';
-      if (currentProject.value) {
-        currentProject.value.theme.mode = theme.value as 'dark' | 'light';
-        saveProject();
-      }
+      // Straight to the person's preferences, and no saveProject() with it —
+      // flipping to light mode used to mark the show dirty (U4).
+      setTheme({ mode: userTheme.value.mode === 'dark' ? 'light' : 'dark' });
     });
 
     window.electronAPI.onMenuChangeAccentColor(() => {
@@ -495,12 +506,10 @@ async function runQuitFlow() {
 }
 
 const changeAccentColor = (color: string) => {
-  if (currentProject.value) {
-    currentProject.value.theme.accentColor = color;
-    document.documentElement.style.setProperty('--color-accent-custom', color);
-    saveProject();
-    showColorPicker.value = false;
-  }
+  // No saveProject(): an accent colour is not a change to the show, and making
+  // it one meant the file was dirty because somebody liked a different red.
+  setTheme({ accentColor: color });
+  showColorPicker.value = false;
 };
 
 // ---------------------------------------------------------------------------
@@ -643,17 +652,16 @@ const handleProjectSelectionCancel = () => {
   availableProjects.value = [];
 };
 
-// Set initial theme from project
-watch(currentProject, (project) => {
-  if (project) {
-    theme.value = project.theme.mode;
-    
-    // Set accent color
-    if (import.meta.client && project.theme.accentColor) {
-      document.documentElement.style.setProperty('--color-accent-custom', project.theme.accentColor);
-    }
+// Paint the operator's own theme, from wherever usePreferences resolved it.
+// Was `watch(currentProject, ...)` until U4, which is why opening a colleague's
+// show used to change your colours.
+watch(userTheme, (t) => {
+  if (!t) return;
+  theme.value = t.mode;
+  if (import.meta.client && t.accentColor) {
+    document.documentElement.style.setProperty('--color-accent-custom', t.accentColor);
   }
-}, { immediate: true });
+}, { immediate: true, deep: true });
 
 // Apply RTL direction when locale changes
 watch(currentLocale, () => {

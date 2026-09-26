@@ -34,8 +34,8 @@
         :class="{ 'btn--active': mixerOpen || mixerDetached }"
         @click="toggleMixer"
       />
-      <Btn icon="tune" :text="t('settings.title')" @click="showProjectSettings = true" />
-      <Btn icon="keyboard" :text="t('controls.shortcutBtn')" @click="showControlConfig = true" />
+      <Btn icon="tune" :text="t('settings.title')" @click="openSettings()" />
+      <Btn icon="keyboard" :text="t('controls.shortcutBtn')" @click="openSettings('keyboard')" />
 
       <!-- Autosave toggle: on by default; when off the project is only saved
            via File > Save and an "Unsaved Changes" pill appears by the title. -->
@@ -81,7 +81,7 @@
           <span class="clock-label">{{ t('project.clock') }}</span>
           <span class="clock-value">{{ currentTime }}</span>
         </div>
-        <div v-if="hasLtcDevice" class="digital-clock" :class="ltcTimecode ? 'clock--active' : 'clock--inactive'">
+        <div v-if="hasLtcOutput" class="digital-clock" :class="ltcTimecode ? 'clock--active' : 'clock--inactive'">
           <span class="clock-label">LTC</span>
           <span class="clock-value">{{ ltcTimecode ?? '--:--:--:--' }}</span>
         </div>
@@ -89,18 +89,9 @@
     </div>
   </div>
 
-  <ControlConfigModal
-    v-if="showControlConfig"
-    @close="showControlConfig = false"
-  />
-  <ProjectSettingsModal
-    :open="showProjectSettings"
-    @close="showProjectSettings = false"
-  />
 </template>
 
 <script setup lang="ts">
-import ProjectSettingsModal from './ProjectSettingsModal.vue';
 import Btn from './Btn.vue';
 import type { AudioItem } from '~/types/project';
 
@@ -109,8 +100,11 @@ const { t } = useLocalization();
 const { activeCues } = useAudioEngine();
 const { uiMode, toggleUiMode } = useUiMode();
 
-const showControlConfig = ref(false);
-const showProjectSettings = useState('showProjectSettings', () => false);
+// Settings is a full-window page mounted at app level, not a modal owned by
+// this header — these buttons only open it, the keyboard one straight to its
+// own section. It is deep-linkable, so the section is part of the URL rather
+// than a flag here.
+const { open: openSettings } = useSettingsPage();
 // Shared with MainWorkspace, which swaps the mixer in for the playlist/cart.
 const mixerOpen = useState<boolean>('liveplay:mixerOpen', () => false);
 const mixerDetached = useState<boolean>('liveplay:mixerDetached', () => false);
@@ -125,7 +119,8 @@ function toggleMixer() {
   mixerOpen.value = !mixerOpen.value;
 }
 
-const isDark = computed(() => currentProject.value?.theme.mode === 'dark');
+// The operator's own theme (U4), not the open document's.
+const isDark = computed(() => usePreferences().theme.value.mode === 'dark');
 const currentTime = ref('00:00:00');
 
 // ---- Silence warning -------------------------------------------------------
@@ -317,17 +312,16 @@ function framesToTc(totalFrames: number, fps: number): string {
   return [h, m, s, f].map(n => String(n).padStart(2, '0')).join(':');
 }
 
-// Whether the project has an LTC output device configured at all — the LTC
-// clock box is only rendered when this is true, so it doesn't sit in the
-// (increasingly crowded) header as permanent dead weight for projects that
-// never use timecode.
-const hasLtcDevice = computed(() => !!(currentProject.value as any)?.settings?.ltcDevice);
+// Whether the project names an LTC output at all — the LTC clock box is only
+// rendered when this is true, so it doesn't sit in the (increasingly crowded)
+// header as permanent dead weight for projects that never use timecode.
+const hasLtcOutput = computed(() => !!(currentProject.value as any)?.settings?.ltcOutput);
 
 // Returns the current LTC timecode string if any active cue is outputting LTC
-// to a configured LTC device, otherwise null (→ box shown grey with dashes).
+// to a configured LTC output, otherwise null (→ box shown grey with dashes).
 const ltcTimecode = computed<string | null>(() => {
-  const ltcDevice = (currentProject.value as any)?.settings?.ltcDevice;
-  if (!ltcDevice) return null;
+  const ltcOutput = (currentProject.value as any)?.settings?.ltcOutput;
+  if (!ltcOutput) return null;
 
   for (const [uuid, cue] of activeCues.value) {
     const item = findItemByUuid(uuid);

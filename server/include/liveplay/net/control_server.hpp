@@ -59,6 +59,29 @@
 //   POST   /api/project/load                 — { "path": "..." }
 //   POST   /api/project/save                 — { "path": "..." }
 //
+// Authentication (U3). Off entirely while users.json holds no accounts, which
+// is the pre-2.5 posture and the default; from the first account onward every
+// route below needs a bearer token, and the Server-tier ones need an admin.
+//   GET    /api/auth/status                  — public: { authRequired, userCount }
+//   POST   /api/auth/login                   — public: { name, password } → { token, user }
+//   GET    /api/auth/me                      — the caller's own principal
+//   POST   /api/auth/logout_all              — invalidate the caller's tokens
+//   GET    /api/users                        — admin
+//   POST   /api/users                        — admin, or anyone while the store is empty
+//   PATCH  /api/users/{id}                   — admin; or the caller's own password
+//   DELETE /api/users/{id}                   — admin
+//
+// User preferences (U4). The caller's OWN profile, always — there is no user
+// id in either path, so an admin cannot read or write somebody else's colours
+// or, more to the point, their transport keymap.
+//   GET    /api/prefs                        — seeded from the open project on
+//                                              first read, which is the whole
+//                                              theme/keymap migration
+//   PATCH  /api/prefs                        — merge; null clears a key
+// Both answer 409 when nobody is signed in: with no accounts configured there
+// is no person for a preference to belong to, and the client keeps these in
+// its own machine store instead.
+//
 // WebSocket: /ws — bidirectional JSON message stream.
 //   Server → Client: { "type": "meters", ... } @ ~60Hz, plus
 //                    { "type": "cue_state", ... } on transport transitions.
@@ -72,11 +95,15 @@
 
 #include "liveplay/audio/engine.hpp"
 #include "liveplay/core/project_state.hpp"
+#include "liveplay/core/server_config.hpp"
+#include "liveplay/core/user_prefs.hpp"
+#include "liveplay/core/user_store.hpp"
 
 #include <atomic>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <vector>
 
 namespace liveplay::net {
 
@@ -88,6 +115,38 @@ struct ControlServerConfig {
     // fluid the meters look, not what they catch.
     std::size_t   meter_broadcast_hz = 30;
     std::size_t   max_upload_bytes   = 256ull * 1024 * 1024;   // 256 MiB
+
+    // Directories the filesystem API may reach: /api/fs/list, /api/fs/mkdir,
+    // /api/metadata, /api/copy_to_media, the waveform readers and the project
+    // load/export/import paths. A request naming a path outside every root is
+    // refused with 403.
+    //
+    // EMPTY MEANS UNRESTRICTED, and empty is the default. That is not an
+    // oversight: every release so far has served the whole filesystem, shows
+    // legitimately live on other volumes, and silently jailing them on upgrade
+    // would break opening a project rather than protect it. The server logs a
+    // warning at boot while this is empty, so the posture is stated rather
+    // than assumed. Set it to lock an install down.
+    std::vector<std::string> fs_browse_roots{};
+
+    // Value sent as Access-Control-Allow-Origin on every response. "*" is what
+    // every release so far has hardcoded, and it stays the default so no
+    // existing deployment changes behaviour on upgrade; an integrator can pin
+    // it to one origin.
+    std::string   cors_allow_origin  = "*";
+
+    // What every schema key resolved to at boot, and which tier supplied each
+    // one ("file" / "env" / "cli"; absent means nobody set it and the built-in
+    // default stands). Filled by main.cpp, which is the only place that has
+    // watched all four tiers resolve, and reported verbatim by
+    // GET /api/server/config.
+    //
+    // The provenance half is not decoration. The desktop app always launches
+    // the server with --port, so a settings page that offered to edit the port
+    // without saying that would write the file, report success, and change
+    // nothing until somebody removed a flag they cannot see.
+    nlohmann::json boot_effective = nlohmann::json::object();
+    nlohmann::json boot_sources   = nlohmann::json::object();
 };
 
 class ControlServer {
@@ -95,6 +154,9 @@ public:
     ControlServer(audio::AudioEngine& engine,
                   core::ProjectState& state,
                   core::OutputMap&    outputs,
+                  core::UserStore&    users,
+                  core::UserPrefs&    prefs,
+                  core::ServerConfig& server_config,
                   ControlServerConfig cfg = {});
     ~ControlServer();   // defined in .cpp where Impl is complete
 
@@ -105,6 +167,9 @@ private:
     audio::AudioEngine& engine_;
     core::ProjectState& state_;
     core::OutputMap&    outputs_;
+    core::UserStore&    users_;
+    core::UserPrefs&    prefs_;
+    core::ServerConfig& server_config_;
     ControlServerConfig cfg_;
     std::atomic<bool>   running_{false};
 
@@ -121,6 +186,21 @@ private:
     // call this with a doc_patch payload so every connected client mirrors
     // the change. Defined in control_server.cpp where Impl is complete.
     void broadcast_doc_patch(const nlohmann::json& payload);
+
+    // ---- User preferences (U4) -------------------------------------------
+    // Collect the meter unit every connected session has chosen and hand the
+    // set to ProjectState, which unions it with the project's own implied unit
+    // to decide whether true-peak / loudness DSP runs. Called whenever the set
+    // can have moved: a connect, a disconnect, or a preferences patch.
+    void refresh_user_meter_modes();
+
+    // Send a doc_patch to the sessions belonging to ONE user, skipping the
+    // connection that caused it. Not a broadcast: a preference is one person's,
+    // and the other operators in the building have no business hearing about
+    // it. What this is actually for is the same person's other windows — the
+    // detached cart and mixer windows each hold their own socket, and without
+    // this they would sit on a stale theme until reconnect.
+    void broadcast_to_user(const std::string& user_id, const nlohmann::json& payload);
 };
 
 } // namespace liveplay::net

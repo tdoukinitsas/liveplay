@@ -26,7 +26,7 @@ import type {
   Theme,
   CartItem
 } from '~/types/project';
-import { DEFAULT_THEME, DEFAULT_CART_SLOT_KEYS, BUS_SCHEMA_VERSION, anchorStartNextMarker } from '~/types/project';
+import { DEFAULT_CART_SLOT_KEYS, BUS_SCHEMA_VERSION, anchorStartNextMarker } from '~/types/project';
 import { applyAutoProcessing, buildWaveformFromChannels } from '~/utils/audio';
 import {
   formatDisplayIndexPath,
@@ -595,7 +595,9 @@ export const useProject = () => {
         cartItems: [],
         cartSlotKeys: { ...DEFAULT_CART_SLOT_KEYS },
         cartOnlyItems: [],
-        theme: { ...DEFAULT_THEME },
+        // No `theme` here (U4): a new show inherits the desk it is being made
+        // at, and putting the current colours into a fresh document would be
+        // writing a personal preference into a portable file all over again.
         createdAt: new Date().toISOString(),
         lastModified: new Date().toISOString()
       };
@@ -878,14 +880,32 @@ export const useProject = () => {
       items:          [], // populated by streamItemPages
       cartItems:      header.cartItems ?? [],
       cartSlotKeys:   header.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS },
+      // Both legacy (U4): carried through only so adoptFromProject below can
+      // read them as a seed. Nothing in the app reads them for display any
+      // more, and neither is written back.
       playbackKeys:   header.playbackKeys,
       cartOnlyItems:  header.cartOnlyItems ?? [],
-      theme:          header.theme ?? { ...DEFAULT_THEME },
+      theme:          header.theme,
       createdAt:      header.createdAt ?? new Date().toISOString(),
       lastModified:   header.lastModified ?? new Date().toISOString(),
     };
     if (header.settings) (project as any).settings = header.settings;
     currentProject.value = project;
+    // The unauthenticated half of the U4 migration: a surface that has never
+    // chosen a theme or a keymap adopts whatever this document is still
+    // carrying, once. A signed-in operator's profile is seeded server-side
+    // instead, and this call is a no-op for them — it must not let a file
+    // decide what a person's profile says.
+    {
+      const prefs = usePreferences();
+      prefs.adoptFromProject({ ...header, settings: header.settings });
+      // ...and the signed-in half: re-read the profile now that a document is
+      // open, because that read is what seeds a profile which does not exist
+      // yet. On the ordinary startup order — socket up, then File > Open —
+      // the connect-time read happened against an empty desk. If a profile
+      // already exists this is one cheap GET that changes nothing.
+      void prefs.refresh();
+    }
     updateIndices(project.items);
     // Signal the reload to per-project memoisation elsewhere. Reopening the
     // same project leaves name and folderPath identical, so this counter is
@@ -949,9 +969,11 @@ export const useProject = () => {
       items:         itemsToJSON(currentProject.value.items) ?? [],
       cartItems:     toJSON(currentProject.value.cartItems) ?? [],
       cartSlotKeys:  toJSON((currentProject.value as any).cartSlotKeys),
-      playbackKeys:  toJSON((currentProject.value as any).playbackKeys),
+      // `theme` and `playbackKeys` are deliberately absent (U4). The server
+      // drops them on save regardless, so sending them would be this client
+      // asserting ownership of values it no longer owns — and R1 is the point
+      // of the exercise, not the erasure.
       cartOnlyItems: itemsToJSON(currentProject.value.cartOnlyItems) ?? [],
-      theme:         toJSON(currentProject.value.theme),
       settings:      toJSON((currentProject.value as any).settings),
       createdAt:     currentProject.value.createdAt,
       lastModified:  currentProject.value.lastModified,
@@ -1447,14 +1469,12 @@ export const useProject = () => {
     // Per-section debounced sync timers.
     let itemsTimer:    ReturnType<typeof setTimeout> | null = null;
     let cartTimer:     ReturnType<typeof setTimeout> | null = null;
-    let themeTimer:    ReturnType<typeof setTimeout> | null = null;
     let settingsTimer: ReturnType<typeof setTimeout> | null = null;
     // Diff baselines per section. Each is a plain (proxy-stripped) snapshot
     // of the section as it last left this client. Reset on hydrate.
     let lastItems:    any = null;
     let lastCart:     any = null;
     let lastCartOnly: any = null;
-    let lastTheme:    any = null;
     let lastSettings: any = null;
 
     // After hydrate, capture per-section baselines so the per-section
@@ -1466,7 +1486,6 @@ export const useProject = () => {
       lastItems    = itemsToJSON(p?.items);
       lastCart     = toJSON(p?.cartItems);
       lastCartOnly = itemsToJSON(p?.cartOnlyItems);
-      lastTheme    = toJSON(p?.theme);
       lastSettings = toJSON((p as any)?.settings);
     };
     watch(isHydrating, (h) => { if (!h) captureBaselines(); });
@@ -1619,12 +1638,9 @@ export const useProject = () => {
             p.cartItems = (p.cartItems ?? []).filter((c: any) => c.slot !== slot);
             break;
           }
-          case 'theme_patched': {
-            if (patch.theme && typeof patch.theme === 'object') {
-              p.theme = { ...p.theme, ...patch.theme };
-            }
-            break;
-          }
+          // `theme_patched` is gone with U4 — see PATCH /api/project/theme.
+          // The equivalent now is `prefs_changed`, handled by usePreferences,
+          // and it reaches only the sessions belonging to the same person.
           case 'settings_patched': {
             if (patch.settings && typeof patch.settings === 'object') {
               (p as any).settings = { ...(p as any).settings, ...patch.settings };
@@ -1769,17 +1785,11 @@ export const useProject = () => {
     });
 
     // ---- Theme ----
-    watch(() => currentProject.value?.theme, () => {
-      if (isHydrating.value || !currentProject.value) return;
-      if (themeTimer) clearTimeout(themeTimer);
-      themeTimer = setTimeout(async () => {
-        const next = toJSON(currentProject.value?.theme);
-        if (stableJson(next) === stableJson(lastTheme)) return;
-        lastTheme = next;
-        try { await server().patchTheme(next ?? {}); }
-        catch (e) { console.warn('[useProject] patchTheme failed:', e); }
-      }, 250);
-    }, { deep: true });
+    // Gone in U4. The colour scheme is the operator's, not the document's, so
+    // there is nothing here to push at the project any more — usePreferences
+    // owns it and writes it to their profile or this machine's store. What
+    // remains of `theme` on a loaded document is legacy, read once by
+    // adoptFromProject() below and dropped by the server on the next save.
 
     // ---- Settings ----
     watch(() => (currentProject.value as any)?.settings, () => {
@@ -1977,12 +1987,16 @@ export const useProject = () => {
 
     // ---- Fallback for keys without granular endpoints ----
     // Only fires when one of the specific "no-endpoint-yet" fields changes
-    // (hotkey bindings, project name). Critically does NOT fire on items
-    // / settings / theme — those have targeted watchers above.
+    // (cart slot bindings, project name). Critically does NOT fire on items
+    // or settings — those have targeted watchers above.
+    //
+    // playbackKeys left this list in U4: the transport keymap is the person's
+    // and goes to their profile. cartSlotKeys STAYS — a cart wall is the
+    // show's layout, and the slot that fires the door slam has to be the same
+    // slot for whoever is at the desk tonight.
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
     watch([
       () => (currentProject.value as any)?.cartSlotKeys,
-      () => (currentProject.value as any)?.playbackKeys,
       () => currentProject.value?.name,
     ], () => {
       if (isHydrating.value || !currentProject.value) return;

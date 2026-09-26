@@ -101,8 +101,13 @@ const handleCartKeydown = (e: KeyboardEvent) => {
 
 onMounted(() => {
   if (import.meta.client) {
-    mountHotkeys();
-    mountMidi();
+    // Only in the detached window, which has no MainWorkspace to own them.
+    // In the attached layout the workspace mounts these, so the transport keys
+    // and MIDI survive this pane being closed, collapsed or popped out.
+    if (props.isDetachedWindow) {
+      mountHotkeys();
+      mountMidi();
+    }
     // Initial setup
     updateGridColumns();
     if (props.isDetachedWindow) window.addEventListener('keydown', handleCartKeydown);
@@ -117,9 +122,11 @@ onMounted(() => {
     }
 
     onUnmounted(() => {
-      unmountHotkeys();
-      unmountMidi();
-      if (props.isDetachedWindow) window.removeEventListener('keydown', handleCartKeydown);
+      if (props.isDetachedWindow) {
+        unmountHotkeys();
+        unmountMidi();
+        window.removeEventListener('keydown', handleCartKeydown);
+      }
       resizeObserver.disconnect();
     });
   }

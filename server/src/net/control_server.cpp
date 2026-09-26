@@ -64,22 +64,144 @@ namespace liveplay::net {
 static nlohmann::json build_playback_snapshot(audio::AudioEngine& engine,
                                               core::ProjectState& state);
 
+// ---------------------------------------------------------------------------
+// AuthGuard — the single place a REST request is admitted or refused (U3)
+// ---------------------------------------------------------------------------
+// Crow middleware rather than a guard line at the top of each handler, and the
+// reason is the whole design: there are around ninety routes, and a check that
+// every future route has to REMEMBER to call is a check that will eventually
+// be forgotten — silently, on the one route where it matters. Here the default
+// is deny. access_for() lists what is public and what needs an administrator;
+// everything it does not name, including a path that matches no route at all,
+// requires a valid token. Adding a route without thinking about auth yields a
+// route that is protected, which is the failure mode worth having.
+//
+// It cannot be the whole story: Crow runs middleware for a WebSocket upgrade
+// but then hands the connection to the rule REGARDLESS of what the middleware
+// did to the response (http_connection.h calls the middlewares and proceeds to
+// handle_upgrade without consulting res). So res.end() here does not refuse a
+// socket, and /ws is deliberately Public below — the socket's credential is
+// checked in its .onaccept handler, which is the one hook that can actually
+// stop the handshake. Two enforcement points because there are two doors, not
+// because one was forgotten.
+struct AuthGuard {
+    // What a route needs. Named for the ownership model's tiers rather than
+    // invented alongside them: User is "an authenticated person running the
+    // show", Admin is "the machine's own state".
+    enum class Access { Public, User, Admin };
+
+    struct context {
+        bool                       authenticated = false;  // false when auth is off
+        core::UserStore::Principal principal;
+    };
+
+    // Set once, before the socket opens. Null only in the window before
+    // ControlServer::start(), during which no request can arrive.
+    core::UserStore* users = nullptr;
+
+    void before_handle(crow::request& req, crow::response& res, context& ctx);
+    void after_handle(crow::request&, crow::response&, context&) {}
+};
+
 // Pimpl: all Crow + WebSocket state lives here so crow.h stays out of the
 // public header.
 struct ControlServer::Impl {
-    crow::SimpleApp app;
+    // Not SimpleApp (= Crow<>) any more: the auth check has to run ahead of
+    // every route, and a middleware is the only hook Crow offers for that.
+    crow::App<AuthGuard> app;
     std::thread     app_thread;
     std::thread     broadcast_thread;
     std::mutex      ws_mutex;
     std::string     server_addr;
-    std::unordered_set<crow::websocket::connection*> ws_clients;
-    // Clients that need an initial playback_snapshot push. Populated by
-    // onopen, drained by broadcast_loop under ws_mutex — keeps all send_text
-    // calls on a single connection serialised through one mutex (Crow's
-    // websocket::connection is not safe under concurrent writes; calling
-    // send_text directly from onopen while broadcast_loop was concurrently
-    // sending meters to the same conn caused the crash on connect).
-    std::unordered_set<crow::websocket::connection*> ws_clients_pending_snapshot;
+    // What the server knows about one connected client (U1).
+    //
+    // A connection used to be an element of a set — a bare pointer, with no
+    // room to say who is on the other end. Everything the ownership model
+    // calls the User tier needs somewhere to hang: a locale that is this
+    // operator's rather than the server's, a meter rate this surface asked
+    // for, and eventually a principal that says what this client may do.
+    // This is that place; the tier is built on it rather than beside it.
+    //
+    // Deliberately holds no `crow::request` and no pointer into one. The
+    // request is gone by the time onopen runs, and a session that outlived a
+    // dangling reference to it would be a use-after-free waiting for the
+    // first client that disconnects mid-handshake.
+    struct ClientSession {
+        std::uint64_t id = 0;               // stable for the life of the connection
+        std::string   remote_ip;
+        std::chrono::steady_clock::time_point connected_at{};
+        // Needs an initial playback_snapshot push. Set by onopen, cleared by
+        // broadcast_loop under ws_mutex — which keeps every send_text on a
+        // single connection serialised through one mutex (Crow's
+        // websocket::connection is not safe under concurrent writes; calling
+        // send_text directly from onopen while broadcast_loop was concurrently
+        // sending meters to the same conn caused the crash on connect).
+        //
+        // This was a second parallel set until U1. Two containers keyed by the
+        // same pointer had to be kept in step by hand, and onclose had to
+        // remember to erase from both; per-connection state belongs in the
+        // per-connection record.
+        bool          wants_snapshot = false;
+
+        // ---- User tier (U2) ----------------------------------------------
+        // This operator's display language. Empty means "no preference" —
+        // the installation default stands, and a later change to that default
+        // reaches this connection. A session that HAS chosen is left alone by
+        // such a change, which is the whole override chain in one field.
+        std::string   locale;
+        // How often this connection wants meter frames, in Hz. 0 means "no
+        // preference": every tick of the server's own broadcast rate.
+        //
+        // Never faster than the server ticks — the loop is the only consumer
+        // of the consuming meter reads, so a per-connection rate can thin the
+        // stream but cannot conjure samples that were never taken. A tablet
+        // over Wi-Fi asking for 10 Hz is the case this exists for.
+        std::size_t   meter_hz = 0;
+        // Bresenham accumulator for the thinning. Carrying the remainder
+        // spreads the kept frames evenly instead of bunching them, which a
+        // simple "every Nth" counter does not do for rates that do not divide.
+        std::size_t   meter_accum = 0;
+
+        // ---- Principal (U3) ----------------------------------------------
+        // Who this connection turned out to be, decided once during the
+        // handshake and never revisited. Empty when the installation has no
+        // accounts, which is the default posture — an anonymous session is a
+        // real session here, not a rejected one.
+        //
+        // Stored by value: this records who the socket was opened as, which is
+        // what /api/clients reports and what a log line needs to stay true
+        // about a connection that has since ended.
+        //
+        // It is deliberately NOT the authority on what anyone may do. A token
+        // carries only a user id and an epoch, so every REST request looks the
+        // role up in the store as it stands at that moment — a demotion takes
+        // effect on the caller's very next request, not at their next login.
+        // No WebSocket message is admin-gated (the socket carries show control,
+        // which is the operator tier in full), so nothing reads is_admin to
+        // decide anything; if a Server-tier command ever arrives over the
+        // socket it must re-ask the store rather than trust this field.
+        std::string   user_id;
+        std::string   user_name;
+        bool          is_admin = false;
+
+        // ---- User tier, persistent half (U4) ------------------------------
+        // The meter display unit this operator's stored profile asks for, or
+        // empty for "no preference". Cached on the session rather than read
+        // from UserPrefs on demand because the thing that consumes it is a
+        // union across every connection (ProjectState::set_user_meter_modes),
+        // and computing that must not do a disk read per connection while
+        // holding ws_mutex.
+        //
+        // Only the meter unit is mirrored here. The other preferences are the
+        // client's business entirely — the server has no opinion about a
+        // colour or a keymap, and caching them would be inventing a second
+        // copy of a value that already has an owner.
+        std::string   meter_mode;
+    };
+    std::unordered_map<crow::websocket::connection*, ClientSession> ws_clients;
+    // Monotonic, never reused within a process run, so a session id in a log
+    // line always means one connection. Guarded by ws_mutex.
+    std::uint64_t next_client_id = 1;
 
     // Async waveform-generation queue. REST handler enqueues a task and
     // returns immediately; waveform_worker() processes them one at a time and
@@ -131,18 +253,162 @@ bool is_audio_file(const fs::path& p) {
     return audio_extensions().count(e) > 0;
 }
 
+// ---------------------------------------------------------------------------
+// Server policy: CORS origin and the filesystem allow-list
+// ---------------------------------------------------------------------------
+// json_ok / json_err are free functions called from ~90 route lambdas, so the
+// configured origin reaches them through file scope rather than by threading a
+// parameter through every one. Written once in the ControlServer constructor,
+// before start() opens the socket, and only read afterwards — there is one
+// ControlServer per process.
+std::string  g_cors_allow_origin = "*";
+// Same lifetime, same reason: the path guard is called from a dozen handlers.
+std::vector<std::string> g_fs_browse_roots{};
+
+// Comparable form of a path: case-folded and separator-normalised on Windows,
+// where the filesystem is case-insensitive and a case-sensitive prefix test
+// would let "c:\shows" escape a root configured as "C:\Shows".
+static std::string fs_compare_key(const fs::path& p) {
+    std::string s = liveplay::util::path_to_utf8(p);
+#if defined(_WIN32)
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
+    std::replace(s.begin(), s.end(), '\\', '/');
+#endif
+    while (s.size() > 1 && s.back() == '/') s.pop_back();
+    return s;
+}
+
+// Is this path inside one of the configured roots? No roots means unrestricted
+// (see ControlServerConfig::fs_browse_roots).
+//
+// weakly_canonical, not canonical: the path may not exist yet — mkdir and
+// export name their destination before creating it — and canonical() throws on
+// a missing path. It still resolves "..", symlinks and short names on the parts
+// that do exist, which is what stops "<root>/../../etc/passwd" escaping.
+//
+// The boundary test is deliberately "equal, or prefixed by root + separator",
+// so a root of /media does not also admit /mediaX.
+bool path_within_fs_roots(const fs::path& p) {
+    if (g_fs_browse_roots.empty()) return true;
+    std::error_code ec;
+    fs::path canon = fs::weakly_canonical(p, ec);
+    if (ec) canon = p.lexically_normal();
+    const std::string key = fs_compare_key(canon);
+
+    for (const auto& root : g_fs_browse_roots) {
+        std::error_code rec;
+        fs::path rp = liveplay::util::utf8_to_path(root);
+        fs::path rcanon = fs::weakly_canonical(rp, rec);
+        if (rec) rcanon = rp.lexically_normal();
+        const std::string rkey = fs_compare_key(rcanon);
+        if (rkey.empty()) continue;
+        if (key == rkey) return true;
+        if (key.starts_with(rkey + "/")) return true;
+    }
+    return false;
+}
+
+// May a WebSocket upgrade carrying this Origin proceed?
+//
+// CORS does not cover WebSockets. `Access-Control-Allow-Origin` is a rule the
+// browser applies to XHR and fetch; the WebSocket handshake is exempt from it,
+// and a page on any origin may open a socket to any host the user can reach.
+// So before U1 an installation started with --cors-origin https://console.here
+// had its REST surface restricted and its WebSocket wide open — and the socket
+// carries play, stop, bus gain, mute and selection. The lock was on the front
+// door while the side door stood open.
+//
+// The rules, in order:
+//   • `*` (the default) admits everything, because that is what S2's default
+//     posture means and no upgrade behaviour should change on upgrade.
+//   • No Origin header at all is admitted. Native clients, Companion, curl and
+//     the Electron app send none, and refusing them would break every control
+//     surface that is not a browser tab. This is not the hole it looks like: a
+//     browser cannot suppress its own Origin, which is the whole reason the
+//     check works, and an attacker who is not in a browser does not need the
+//     trick — they can reach the socket directly either way. The check exists
+//     to stop a page the operator merely VISITED from driving the rig.
+//   • Otherwise it must match the configured origin exactly.
+bool ws_origin_allowed(const std::string& origin) {
+    if (g_cors_allow_origin == "*") return true;
+    if (origin.empty())             return true;
+    return origin == g_cors_allow_origin;
+}
+
+// ---------------------------------------------------------------------------
+// Login throttling
+// ---------------------------------------------------------------------------
+// Argon2id at the interactive limits already costs ~100 ms per attempt, which
+// is a real brake, but it is not one on its own: a handful of parallel
+// connections still gets hundreds of guesses a minute against an 8-character
+// password. This adds a per-address backoff on top.
+//
+// Deliberately small and in-memory. It is a brake on guessing, not a security
+// boundary — an attacker with a /16 to spray from is not stopped by it, and
+// nothing here pretends otherwise. What it does stop is the realistic case:
+// one machine on the LAN grinding through a word list.
+struct LoginAttempts {
+    int                                   failures = 0;
+    std::chrono::steady_clock::time_point blocked_until{};
+};
+std::mutex                                  g_login_mutex;
+std::unordered_map<std::string, LoginAttempts> g_login_attempts;
+
+// After this many consecutive failures from one address, that address waits.
+constexpr int  kLoginFailuresBeforeDelay = 5;
+constexpr int  kLoginBlockSeconds        = 30;
+// Bound on the table, so a spray from many forged addresses cannot grow it
+// without limit. Reaching it clears the lot: the alternative is evicting an
+// entry an attacker chose, which hands them the eviction as a tool.
+constexpr std::size_t kLoginAttemptsMax  = 4096;
+
+// Seconds this address must wait, or 0 if it may try now.
+int login_block_remaining(const std::string& ip) {
+    std::lock_guard lock{g_login_mutex};
+    const auto it = g_login_attempts.find(ip);
+    if (it == g_login_attempts.end()) return 0;
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= it->second.blocked_until) return 0;
+    return static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(
+        it->second.blocked_until - now).count()) + 1;
+}
+
+void login_note_failure(const std::string& ip) {
+    std::lock_guard lock{g_login_mutex};
+    if (g_login_attempts.size() >= kLoginAttemptsMax) g_login_attempts.clear();
+    auto& a = g_login_attempts[ip];
+    if (++a.failures >= kLoginFailuresBeforeDelay) {
+        a.blocked_until = std::chrono::steady_clock::now() +
+                          std::chrono::seconds{kLoginBlockSeconds};
+        a.failures = 0;
+    }
+}
+
+void login_note_success(const std::string& ip) {
+    std::lock_guard lock{g_login_mutex};
+    g_login_attempts.erase(ip);
+}
+
 crow::response json_ok(const json& body) {
     crow::response r{200, body.dump()};
     r.add_header("Content-Type", "application/json");
-    r.add_header("Access-Control-Allow-Origin", "*");
+    r.add_header("Access-Control-Allow-Origin", g_cors_allow_origin);
     return r;
 }
 
 crow::response json_err(int status, std::string_view message) {
     crow::response r{status, json({{"error", message}}).dump()};
     r.add_header("Content-Type", "application/json");
-    r.add_header("Access-Control-Allow-Origin", "*");
+    r.add_header("Access-Control-Allow-Origin", g_cors_allow_origin);
     return r;
+}
+
+// Refusal for a path outside the allow-list. Deliberately does not echo the
+// path back: the caller already knows what it asked for, and reflecting it
+// turns the error into a probe that confirms what exists.
+crow::response json_fs_denied() {
+    return json_err(403, "path is outside the server's permitted directories");
 }
 
 // Why a bus output was refused, in words the operator can act on. Every one of
@@ -400,13 +666,145 @@ json cue_to_json(const core::CueMeta& c, audio::AudioEngine& engine) {
 } // namespace
 
 // ---------------------------------------------------------------------------
+// What each route needs (U3)
+// ---------------------------------------------------------------------------
+// The whole access-control policy, in one readable list, because a policy
+// spread across ninety handlers is not a policy anyone can check.
+//
+// Admin is the ownership model's SERVER tier and nothing else: state that
+// belongs to this machine rather than to the show or to the person at it. That
+// is why the list is short and why it can be justified rather than merely
+// asserted — "does an operator own this?" has an answer the docs already give.
+//
+//   /api/outputs   the logical-output map: what "FOH" is wired to here.
+//   /api/users     the accounts in this file.
+//   /api/clients   who else is connected, and from what address.
+//
+// Everything else is the Project and User tiers — running the show — and any
+// authenticated person may do it. An operator who cannot start a cue is not an
+// operator.
+//
+// Two calls in that "everything else" are worth stating rather than leaving to
+// be discovered as inconsistencies:
+//
+//   POST /api/ui/locale sets the INSTALLATION default language, which by the
+//   letter of the rule is machine state. It is left to operators because it
+//   behaves like Show Mode and selection — shared presentation state of the
+//   running installation, changeable by anyone running it, reversible in one
+//   click, and incapable of silencing anything. The output map can take the
+//   show off the air; a default language cannot.
+//
+//   PATCH /api/buses can WRITE to outputs.json, because O2 materialises a
+//   logical output when a bus is pointed at a device. That is not a way around
+//   the admin gate: choosing where your own bus goes is the show's routing, and
+//   the gate on /api/outputs is about editing the venue's named outputs —
+//   renaming them, repointing "FOH" at different hardware, deleting them —
+//   which is what an operator must not be able to do to everyone else.
+static AuthGuard::Access access_for(std::string_view path) {
+    // Trim a query string defensively. Crow hands us a path-only url, but this
+    // function decides who gets in and must not depend on that staying true.
+    if (const auto q = path.find('?'); q != std::string_view::npos)
+        path = path.substr(0, q);
+
+    // Public: exactly the three things a client must be able to ask BEFORE it
+    // holds a credential, and no more.
+    //   health  — a liveness probe, and what the client polls to find a server
+    //   status  — "do I need to log in at all?", which cannot itself need a login
+    //   login   — the door
+    if (path == "/api/health")      return AuthGuard::Access::Public;
+    if (path == "/api/auth/status") return AuthGuard::Access::Public;
+    if (path == "/api/auth/login")  return AuthGuard::Access::Public;
+
+    // Not really public — checked in .onaccept instead, because a middleware
+    // cannot refuse an upgrade (see the AuthGuard comment). Listed here so the
+    // exemption is a stated decision rather than a gap someone finds later.
+    if (path == "/ws")              return AuthGuard::Access::Public;
+
+    // The Server tier.
+    if (path.rfind("/api/outputs", 0) == 0) return AuthGuard::Access::Admin;
+    if (path.rfind("/api/users", 0)   == 0) return AuthGuard::Access::Admin;
+    if (path == "/api/clients")             return AuthGuard::Access::Admin;
+    // The machine's own configuration (P3): the port it binds, how wide the
+    // master bus is, where the filesystem API may reach, which origins may call
+    // in. Squarely the Server tier, and the last two are security policy — an
+    // operator who could widen fsRoots could read any file on the machine
+    // through /api/fs/list. --lock-server-config refuses writes even to an
+    // admin, which is R3.
+    if (path.rfind("/api/server", 0)  == 0) return AuthGuard::Access::Admin;
+
+    // Default deny. This is the load-bearing line: a route added next year is
+    // covered by it without anyone having to remember, and a path matching no
+    // route at all needs a token too — so an anonymous caller cannot map the
+    // route table by reading which 404s come back.
+    return AuthGuard::Access::User;
+}
+
+void AuthGuard::before_handle(crow::request& req, crow::response& res, context& ctx) {
+    if (!users) return;
+
+    // A CORS preflight carries no credentials by design — the browser strips
+    // them — so refusing it would only turn every cross-origin call into an
+    // opaque failure with the wrong cause on the console.
+    if (req.method == crow::HTTPMethod::Options) return;
+
+    const Access need = access_for(req.url);
+    if (need == Access::Public) return;
+
+    // The default posture, and the reason an upgrade changes nothing: with no
+    // accounts configured there is no one to be, so every request is admitted
+    // and ctx stays anonymous. main.cpp says so at boot.
+    if (!users->auth_required()) return;
+
+    // Header only, never a query parameter. A token in a URL ends up in
+    // proxy logs, in browser history and in the Referer of anything the page
+    // subsequently loads; the one place we cannot avoid it is the WebSocket
+    // upgrade, where a browser cannot set headers, and that is handled in
+    // .onaccept rather than by widening the rule here.
+    const std::string auth = req.get_header_value("Authorization");
+    std::optional<core::UserStore::Principal> principal;
+    if (auth.rfind("Bearer ", 0) == 0)
+        principal = users->verify_token(auth.substr(7));
+
+    if (!principal) {
+        // 401 with a challenge, so a client can tell "log in" apart from the
+        // 403 that means "you are logged in and this is still not yours".
+        res = json_err(401, "authentication required");
+        res.add_header("WWW-Authenticate", "Bearer");
+        res.end();
+        return;
+    }
+
+    ctx.authenticated = true;
+    ctx.principal     = *principal;
+
+    if (need == Access::Admin && !principal->is_admin()) {
+        Logger::warn("{} {} refused: '{}' is not an administrator",
+                     crow::method_name(req.method), req.url, principal->name);
+        res = json_err(403, "this requires an administrator");
+        res.end();
+    }
+}
+
+// ---------------------------------------------------------------------------
 
 ControlServer::ControlServer(audio::AudioEngine& engine,
                              core::ProjectState& state,
                              core::OutputMap&    outputs,
+                             core::UserStore&    users,
+                             core::UserPrefs&    prefs,
+                             core::ServerConfig& server_config,
                              ControlServerConfig cfg)
-    : engine_(engine), state_(state), outputs_(outputs), cfg_(std::move(cfg)),
-      impl_(std::make_unique<Impl>()) {}
+    : engine_(engine), state_(state), outputs_(outputs), users_(users),
+      prefs_(prefs), server_config_(server_config), cfg_(std::move(cfg)),
+      impl_(std::make_unique<Impl>()) {
+    // Publish policy to the file-scope copies the free helpers read. Done here,
+    // before start() opens the socket, so nothing can observe a half-set value.
+    g_cors_allow_origin = cfg_.cors_allow_origin.empty() ? "*" : cfg_.cors_allow_origin;
+    g_fs_browse_roots   = cfg_.fs_browse_roots;
+    // Same reasoning, same moment: the guard has to know where to look up a
+    // token before any request can arrive.
+    impl_->app.get_middleware<AuthGuard>().users = &users_;
+}
 
 ControlServer::~ControlServer() { stop(); }
 
@@ -665,7 +1063,8 @@ void ControlServer::broadcast_loop() {
         bool has_pending = false;
         {
             std::lock_guard lock{impl_->ws_mutex};
-            has_pending = !impl_->ws_clients_pending_snapshot.empty();
+            for (const auto& [_, s] : impl_->ws_clients)
+                if (s.wants_snapshot) { has_pending = true; break; }
         }
         std::string snapshot_serialized;
         if (has_pending) {
@@ -679,13 +1078,27 @@ void ControlServer::broadcast_loop() {
         // Fan out meters + cue_state events to all subscribed clients,
         // plus snapshots for any client still flagged as pending.
         std::lock_guard lock{impl_->ws_mutex};
-        for (auto* c : impl_->ws_clients) {
+        const std::size_t tick_hz = std::max<std::size_t>(1, cfg_.meter_broadcast_hz);
+        for (auto& [c, session] : impl_->ws_clients) {
             try {
-                if (!snapshot_serialized.empty() &&
-                    impl_->ws_clients_pending_snapshot.erase(c)) {
+                if (!snapshot_serialized.empty() && session.wants_snapshot) {
+                    session.wants_snapshot = false;
                     c->send_text(snapshot_serialized);
                 }
-                c->send_text(serialized);
+                // Meters are SAMPLES, so a connection that asked for fewer of
+                // them just gets fewer (U2). Everything else on this tick is an
+                // EDGE — the snapshot above, the cue_state events below — and
+                // edges are never thinned: dropping one does not cost
+                // resolution, it costs the client a transition it will never
+                // hear about again, and its transport display stays wrong until
+                // something else moves.
+                bool send_meters = true;
+                if (session.meter_hz > 0 && session.meter_hz < tick_hz) {
+                    session.meter_accum += session.meter_hz;
+                    if (session.meter_accum < tick_hz) send_meters = false;
+                    else                               session.meter_accum -= tick_hz;
+                }
+                if (send_meters) c->send_text(serialized);
                 for (const auto& e : cue_state_events) c->send_text(e);
             }
             catch (...) { /* connection will be cleaned up by onclose */ }
@@ -724,10 +1137,49 @@ void ControlServer::broadcast_doc_patch(const json& payload) {
         return;
     }
     std::lock_guard lock{impl_->ws_mutex};
-    for (auto* c : impl_->ws_clients) {
+    for (auto& [c, _] : impl_->ws_clients) {
         try { c->send_text(serialized); }
         catch (...) { /* onclose will clean up dead connections */ }
     }
+}
+
+void ControlServer::broadcast_to_user(const std::string& user_id, const json& payload) {
+    // No user id means nobody is signed in, and "every anonymous session" is
+    // not the same set as "this person's windows" — it is everyone. Refuse
+    // rather than fan out to the building.
+    if (user_id.empty()) return;
+
+    std::string serialized;
+    try { serialized = payload.dump(); }
+    catch (const std::exception& e) {
+        Logger::error("broadcast_to_user: serialization failed: {}", e.what());
+        return;
+    }
+    std::lock_guard lock{impl_->ws_mutex};
+    for (auto& [c, session] : impl_->ws_clients) {
+        if (session.user_id != user_id) continue;
+        try { c->send_text(serialized); }
+        catch (...) { /* onclose will clean up dead connections */ }
+    }
+}
+
+void ControlServer::refresh_user_meter_modes() {
+    std::vector<std::string> modes;
+    {
+        std::lock_guard lock{impl_->ws_mutex};
+        modes.reserve(impl_->ws_clients.size());
+        for (const auto& [_, session] : impl_->ws_clients) {
+            if (!session.meter_mode.empty()) modes.push_back(session.meter_mode);
+        }
+    }
+    // Sorted so an unchanged set compares equal regardless of the map's
+    // iteration order — otherwise a reconnect would look like a change and
+    // re-arm the metering DSP for no reason.
+    std::sort(modes.begin(), modes.end());
+    modes.erase(std::unique(modes.begin(), modes.end()), modes.end());
+    // Outside ws_mutex: this reaches into the engine, and the broadcast loop
+    // already establishes that ws_mutex is the inner lock.
+    state_.set_user_meter_modes(std::move(modes));
 }
 
 // Drains the waveform generation queue. Each task runs compute_waveform()
@@ -879,7 +1331,11 @@ static json build_playback_snapshot(audio::AudioEngine& engine,
         // imposing its own stale local one.
         {"selected_item_uuid",  state.selected_item_uuid()},
         {"show_mode",           state.show_mode()},
-        {"locale",              state.ui_locale()},
+        // The installation default. A connection that has chosen its own
+        // language does not learn it from here — it already knows, having
+        // asked for it — so the snapshot carries the value a client with no
+        // preference should adopt (U2).
+        {"locale",              state.default_ui_locale()},
         {"preview", json{
             {"item_uuid", state.current_preview_item_uuid()},
             {"cue_id",    state.current_preview_cue_id().value},
@@ -921,12 +1377,24 @@ static std::vector<std::string> selection_anchors(audio::AudioEngine& engine,
 // `broadcast` fans a doc_patch out to every connected client (see
 // ControlServer::broadcast_doc_patch); bus commands need it to converge a
 // second client the same way the REST endpoints they mirror do (D17).
+// Writes to the ClientSession this message arrived on (U2). Bound to the
+// connection by the onmessage lambda, because the sessions live in Impl and
+// this handler is a free function. Each returns the EFFECTIVE value after the
+// change, which is what the caller replies with — a request for 500 Hz meters
+// is not refused, it is honoured as far as the server actually ticks, and the
+// client is told what it really got rather than being left to assume.
+struct SessionOps {
+    std::function<std::string(const std::string&)> set_locale;
+    std::function<std::size_t(std::size_t)>        set_meter_hz;
+};
+
 static std::string handle_ws_message(crow::websocket::connection& conn,
                                      const std::string& msg,
                                      audio::AudioEngine& engine,
                                      core::ProjectState& state,
                                      const std::string& server_addr,
-                                     const std::function<void(const json&)>& broadcast) {
+                                     const std::function<void(const json&)>& broadcast,
+                                     const SessionOps& session) {
     Logger::api_request("Client ({}) -> Server ({}) : {}", conn.get_remote_ip(), server_addr, msg);
 
     json j;
@@ -1127,8 +1595,34 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
                 state.toggle_show_mode();
         }
         else if (type == "set_locale") {
-            if (j.contains("locale") && j["locale"].is_string())
-                state.set_ui_locale(j["locale"].get<std::string>());
+            // This connection's language, and nobody else's (U2). It used to
+            // set a server-global and broadcast it, so one operator switching
+            // to Greek switched every other client and every control surface
+            // with them — a presentation preference imposed across users,
+            // which is the leak rule R2 exists to catch.
+            //
+            // The reply goes back down this socket alone, through the same
+            // direct_reply path a pong takes. The sender's own UI already
+            // holds the value, so applying it is a no-op there; what matters
+            // is that nothing arrives at anyone else.
+            if (j.contains("locale") && j["locale"].is_string() && session.set_locale) {
+                const auto effective = session.set_locale(j["locale"].get<std::string>());
+                return json{{"type", "doc_patch"}, {"op", "locale_changed"},
+                            {"locale", effective}}.dump();
+            }
+        }
+        else if (type == "set_meter_hz") {
+            // How often THIS client wants meters. The spec's nominated first
+            // test of the User tier, and the one a tablet over Wi-Fi actually
+            // needs: the desk can run its meters at 60 Hz without every remote
+            // paying for it.
+            if (j.contains("hz") && j["hz"].is_number() && session.set_meter_hz) {
+                const auto asked = j["hz"].get<double>();
+                const auto effective = session.set_meter_hz(
+                    asked <= 0 ? 0 : static_cast<std::size_t>(asked));
+                return json{{"type", "doc_patch"}, {"op", "meter_hz_changed"},
+                            {"hz", effective}}.dump();
+            }
         }
         else if (type == "bus_gain") {
             // Same code path as PATCH /api/buses/<id>: persists to the
@@ -1274,7 +1768,7 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/<path>").methods(crow::HTTPMethod::Options)
         ([](const crow::request&, std::string){
             crow::response r{204};
-            r.add_header("Access-Control-Allow-Origin",  "*");
+            r.add_header("Access-Control-Allow-Origin",  g_cors_allow_origin);
             r.add_header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
             r.add_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
             return r;
@@ -1304,6 +1798,498 @@ void ControlServer::install_routes() {
                 ip == "::ffff:127.0.0.1" ||
                 ip.rfind("127.", 0) == 0;
             return json_ok(json{{"clientIp", ip}, {"isLocal", is_local}});
+        });
+
+    // Who is on this server right now (U1). One row per live WebSocket, which
+    // is what "a client" means here: REST is stateless and a curl against it
+    // is not a session, but anything driving the rig holds a socket open.
+    //
+    // The read surface for the per-connection record — without one, identity
+    // would be a structure nothing could observe, and the Server pane has
+    // nothing to show an operator asking who else is holding the desk.
+    // U2 added each session's locale and meter rate; U3 adds the principal and
+    // gates the route to administrators, so the addresses are no longer
+    // readable by anyone who can reach the port. On an installation with no
+    // accounts it stays open, because there is nobody to be an administrator —
+    // the same posture as every other route, and the reason the boot warning
+    // says so out loud.
+    CROW_ROUTE(app, "/api/clients").methods(crow::HTTPMethod::Get)
+        ([this]{
+            try {
+                const auto now = std::chrono::steady_clock::now();
+                // Read before taking ws_mutex: default_ui_locale() takes the
+                // project lock, and the broadcast loop's ABBA note applies to
+                // every ws_mutex → project-lock ordering, not just its own.
+                const std::string fallback_locale = state_.default_ui_locale();
+                const std::size_t tick_hz = std::max<std::size_t>(1, cfg_.meter_broadcast_hz);
+                json arr = json::array();
+                {
+                    std::lock_guard lock{impl_->ws_mutex};
+                    for (const auto& [_, s] : impl_->ws_clients) {
+                        arr.push_back(json{
+                            {"id",               s.id},
+                            {"remoteIp",         s.remote_ip},
+                            // Empty on an installation with no accounts. A
+                            // null user is reported as null rather than as a
+                            // name like "anonymous", so a caller cannot
+                            // confuse the open posture with someone who
+                            // happens to be called that.
+                            {"user",             s.user_name.empty()
+                                                     ? json(nullptr)
+                                                     : json(s.user_name)},
+                            {"userId",           s.user_id.empty()
+                                                     ? json(nullptr)
+                                                     : json(s.user_id)},
+                            {"isAdmin",          s.is_admin},
+                            // Effective values, not raw ones: an empty locale
+                            // and a zero rate both mean "no preference", and
+                            // reporting them as blanks would make the caller
+                            // re-derive the override chain to say anything
+                            // useful. `localeIsOwn` keeps the distinction that
+                            // actually matters — whether a change to the
+                            // default will reach this session.
+                            {"locale",           s.locale.empty() ? fallback_locale : s.locale},
+                            {"localeIsOwn",      !s.locale.empty()},
+                            {"meterHz",          s.meter_hz == 0 ? tick_hz : s.meter_hz},
+                            {"meterHzIsOwn",     s.meter_hz != 0},
+                            // Elapsed, not a wall-clock stamp: it is what an
+                            // operator actually wants ("that one has been on
+                            // for ten minutes"), it survives a clock step, and
+                            // it does not duplicate a timestamp formatter that
+                            // already has one owner elsewhere.
+                            {"connectedSeconds",
+                             std::chrono::duration_cast<std::chrono::seconds>(
+                                 now - s.connected_at).count()},
+                        });
+                    }
+                }
+                // Stable order, so a UI listing them does not reshuffle on
+                // every poll — the map's own order is a hash of pointers.
+                std::sort(arr.begin(), arr.end(), [](const json& a, const json& b) {
+                    return a.value("id", 0ULL) < b.value("id", 0ULL);
+                });
+                return json_ok(arr);
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
+    // ------------------------------------------------------------------
+    // Authentication (U3)
+    // ------------------------------------------------------------------
+    // What posture this installation is in. Public, and it has to be: a client
+    // cannot know whether to ask for a password until it has asked this, and
+    // requiring a token to find out whether a token is required is a loop.
+    //
+    // It reveals only that — whether there are accounts, and how many. Not who
+    // they are. A prospective attacker learns nothing they could not learn by
+    // watching whether /api/health and /api/cues disagree.
+    CROW_ROUTE(app, "/api/auth/status").methods(crow::HTTPMethod::Get)
+        ([this]{
+            return json_ok(json{
+                {"authRequired", users_.auth_required()},
+                {"userCount",    users_.user_count()},
+                // The bootstrap window, named rather than inferred. While this
+                // is true anyone who can reach the server may create the first
+                // account — which is exactly as open as the server already is
+                // with no accounts at all, and it closes the moment one exists.
+                {"setupRequired", users_.user_count() == 0},
+                {"tokenTtlSeconds", core::kTokenTtlSeconds},
+            });
+        });
+
+    CROW_ROUTE(app, "/api/auth/login").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                const auto body = json::parse(req.body, nullptr, false);
+                if (body.is_discarded() || !body.is_object())
+                    return json_err(400, "expected a JSON object");
+                const std::string name = body.value("name",     std::string{});
+                const std::string pass = body.value("password", std::string{});
+                if (name.empty() || pass.empty())
+                    return json_err(400, "name and password are required");
+
+                if (!users_.auth_required())
+                    return json_err(409, "this server has no accounts — "
+                                         "authentication is not in use");
+
+                if (const int wait = login_block_remaining(req.remote_ip_address); wait > 0) {
+                    auto r = json_err(429, "too many failed attempts — wait and try again");
+                    r.add_header("Retry-After", std::to_string(wait));
+                    return r;
+                }
+
+                const auto principal = users_.authenticate(name, pass);
+                if (!principal) {
+                    login_note_failure(req.remote_ip_address);
+                    // One message for a wrong name and a wrong password.
+                    // Distinguishing them would hand out the account list one
+                    // guess at a time, and authenticate() already spends the
+                    // same time on both so the reply cannot be told apart by
+                    // how long it took either.
+                    Logger::warn("Login failed for '{}' from {}", name, req.remote_ip_address);
+                    return json_err(401, "incorrect user name or password");
+                }
+                login_note_success(req.remote_ip_address);
+
+                const std::string token = users_.mint_token(*principal);
+                if (token.empty()) return json_err(500, "could not issue a token");
+                Logger::info("Login: '{}' ({}) from {}", principal->name,
+                             core::to_string(principal->role), req.remote_ip_address);
+                return json_ok(json{
+                    {"token",     token},
+                    {"expiresIn", core::kTokenTtlSeconds},
+                    {"user", json{
+                        {"id",   principal->id},
+                        {"name", principal->name},
+                        {"role", core::to_string(principal->role)},
+                    }},
+                });
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // Who the caller is according to their token. The client uses it to
+    // confirm a stored token is still good before it shows the desk, which is
+    // why it answers 401 rather than a body saying "not logged in" — the guard
+    // has already refused by the time this handler would run.
+    CROW_ROUTE(app, "/api/auth/me").methods(crow::HTTPMethod::Get)
+        ([this](const crow::request& req){
+            const auto& ctx = impl_->app.get_context<AuthGuard>(req);
+            if (!ctx.authenticated)
+                return json_ok(json{{"authRequired", false}, {"user", nullptr}});
+            return json_ok(json{
+                {"authRequired", true},
+                {"user", json{
+                    {"id",   ctx.principal.id},
+                    {"name", ctx.principal.name},
+                    {"role", core::to_string(ctx.principal.role)},
+                }},
+            });
+        });
+
+    // "Sign me out everywhere." Bumps the caller's token epoch, which
+    // invalidates every token ever issued to them — including the one making
+    // this request, and including the one on the tablet they left at the venue,
+    // which is the entire point.
+    CROW_ROUTE(app, "/api/auth/logout_all").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            const auto& ctx = impl_->app.get_context<AuthGuard>(req);
+            if (!ctx.authenticated) return json_err(400, "not authenticated");
+            const auto r = users_.bump_epoch(ctx.principal.id);
+            if (r != core::UserStore::Result::Ok)
+                return json_err(500, core::UserStore::describe(r));
+            Logger::info("'{}' invalidated all of their tokens", ctx.principal.name);
+            return json_ok(json{{"ok", true}});
+        });
+
+    // ---- The caller's own preferences (User tier — U4) ----
+    //
+    // Neither route names a user, and that is the access decision: the profile
+    // acted on is always the caller's, so there is no shape of request that
+    // reads or writes somebody else's. An administrator owns the machine, not
+    // the people using it — and playbackKeys in particular is a description of
+    // what one person's hands do, which nobody else has a reason to fetch.
+    //
+    // Note also what is NOT here: no entry in access_for(). These are covered
+    // by its default-deny, which is the middleware doing the job it was built
+    // for — a route added later is protected without anyone remembering.
+    CROW_ROUTE(app, "/api/prefs").methods(crow::HTTPMethod::Get)
+        ([this](const crow::request& req){
+            const auto& ctx = impl_->app.get_context<AuthGuard>(req);
+            if (!ctx.authenticated) {
+                // Not an error the client should retry, and not a 404 either:
+                // the route exists, there is simply nobody for it to be about.
+                // With no accounts configured the client keeps these values in
+                // its own machine store, which is the correct answer for a
+                // preference with no person attached.
+                return json_err(409, "no signed-in user — preferences are local "
+                                     "to this surface while authentication is off");
+            }
+            // THE MIGRATION, in one line. A profile that does not exist yet is
+            // created from whatever the open project is still carrying, at the
+            // first moment there is somewhere to put it — so the operator's
+            // theme and keymap survive the values leaving the document, and
+            // this can never run twice for the same person.
+            const json profile = prefs_.get_or_seed(ctx.principal.id,
+                                                    state_.legacy_user_prefs());
+            return json_ok(profile);
+        });
+
+    CROW_ROUTE(app, "/api/prefs").methods(crow::HTTPMethod::Patch)
+        ([this](const crow::request& req){
+            const auto& ctx = impl_->app.get_context<AuthGuard>(req);
+            if (!ctx.authenticated)
+                return json_err(409, "no signed-in user — preferences are local "
+                                     "to this surface while authentication is off");
+            try {
+                const auto patch = json::parse(req.body);
+                if (!patch.is_object()) return json_err(400, "expected an object");
+
+                json profile;
+                const auto r = prefs_.patch(ctx.principal.id, patch, &profile);
+                if (r != core::UserPrefs::Result::Ok)
+                    return json_err(500, std::string{core::UserPrefs::describe(r)});
+
+                // The meter unit is the one preference the server acts on, so
+                // it is the one that has to reach the engine. Every session
+                // this person has open is updated, not just the one that sent
+                // the patch: the desk and the detached mixer window are two
+                // sockets belonging to one operator.
+                const std::string mode = profile.value("meterMode", std::string{});
+                {
+                    std::lock_guard lock{impl_->ws_mutex};
+                    for (auto& [_, session] : impl_->ws_clients) {
+                        if (session.user_id == ctx.principal.id) session.meter_mode = mode;
+                    }
+                }
+                refresh_user_meter_modes();
+
+                // ...and the rest reaches this person's other windows so they
+                // do not sit on a stale theme until the next reconnect. Sent
+                // to them ONLY — the other operators in the building are not
+                // interested in somebody else's colour scheme.
+                broadcast_to_user(ctx.principal.id, json{
+                    {"type", "doc_patch"}, {"op", "prefs_changed"}, {"prefs", profile},
+                });
+                return json_ok(profile);
+            } catch (const std::exception& e) {
+                return json_err(400, e.what());
+            }
+        });
+
+    // ---- The machine's own configuration (Server tier — admins only) ----
+    //
+    // One response renders the whole settings form: every key in the schema,
+    // its range, what it is for, what is stored in the file, what is actually
+    // in force, and WHO SET IT. That last field is the one that keeps the page
+    // honest — the desktop app always launches with --port, so a page that
+    // offered to edit the port without saying so would write the file, report
+    // success and change nothing.
+    CROW_ROUTE(app, "/api/server/config").methods(crow::HTTPMethod::Get)
+        ([this]{
+            const json stored = server_config_.read();
+            json fields = json::array();
+            for (const auto& f : core::ServerConfig::schema()) {
+                const std::string key{f.key};
+                // Absent from the sources map means nobody set it: the built-in
+                // default stands, and the file is free to claim it.
+                const std::string source =
+                    cfg_.boot_sources.value(key, std::string{"default"});
+                json entry{
+                    {"key",     key},
+                    {"flag",    std::string{f.flag}},
+                    {"help",    std::string{f.help}},
+                    {"policy",  f.policy},
+                    {"source",  source},
+                    {"stored",  stored.contains(key) ? stored[key] : json(nullptr)},
+                    {"value",   cfg_.boot_effective.contains(key)
+                                    ? cfg_.boot_effective[key] : json(nullptr)},
+                    // Every one of these is read once, at boot. Saying so per
+                    // field rather than in prose somewhere is what stops an
+                    // operator believing a sample-rate change took hold in the
+                    // middle of a show.
+                    {"appliesAt", f.applies == core::ServerConfig::Applies::Live
+                                    ? "live" : "restart"},
+                    // A value the environment or a flag is supplying cannot be
+                    // changed by writing the file. The page greys the field and
+                    // says which tier is winning, instead of accepting an edit
+                    // that goes nowhere.
+                    {"overridden", source == "env" || source == "cli"},
+                };
+                switch (f.kind) {
+                    case core::ServerConfig::Kind::Int:      entry["type"] = "int";      break;
+                    case core::ServerConfig::Kind::Real:     entry["type"] = "real";     break;
+                    case core::ServerConfig::Kind::Text:     entry["type"] = "text";     break;
+                    case core::ServerConfig::Kind::Bool:     entry["type"] = "bool";     break;
+                    case core::ServerConfig::Kind::PathList: entry["type"] = "pathList"; break;
+                }
+                if (f.kind == core::ServerConfig::Kind::Int ||
+                    f.kind == core::ServerConfig::Kind::Real) {
+                    entry["min"] = f.min;
+                    entry["max"] = f.max;
+                }
+                fields.push_back(std::move(entry));
+            }
+            return json_ok(json{
+                {"path",          util::path_to_utf8(server_config_.path())},
+                {"schemaVersion", core::kConfigSchemaVersion},
+                {"locked",        server_config_.locked()},
+                {"fields",        std::move(fields)},
+            });
+        });
+
+    CROW_ROUTE(app, "/api/server/config").methods(crow::HTTPMethod::Patch)
+        ([this](const crow::request& req){
+            try {
+                const auto patch = json::parse(req.body);
+                if (!patch.is_object()) return json_err(400, "expected an object");
+
+                json file;
+                std::vector<std::string> dropped;
+                const auto r = server_config_.patch(patch, &file, &dropped);
+                using R = core::ServerConfig::Result;
+                if (r == R::Locked) {
+                    // 403 rather than 409: this is not a conflict to retry, it
+                    // is a refusal, and the client should render the page
+                    // read-only rather than offer the edit again.
+                    return json_err(403, std::string{core::ServerConfig::describe(r)});
+                }
+                if (r != R::Ok) return json_err(500, std::string{core::ServerConfig::describe(r)});
+
+                // What was written but is NOT in force, and why. Two separate
+                // reasons, and conflating them would be a lie either way: a
+                // value can be waiting on a restart, or it can be shadowed by a
+                // flag that will still be there after one.
+                json pending = json::array(), shadowed = json::array();
+                for (const auto& [k, v] : patch.items()) {
+                    const auto* f = core::ServerConfig::find(k);
+                    if (!f) continue;
+                    const std::string source = cfg_.boot_sources.value(k, std::string{"default"});
+                    if (source == "env" || source == "cli") shadowed.push_back(k);
+                    else if (f->applies == core::ServerConfig::Applies::Restart)
+                        pending.push_back(k);
+                }
+
+                Logger::info("Server configuration patched ({} key(s) stored, {} dropped)",
+                             file.size(), dropped.size());
+                return json_ok(json{
+                    {"stored",           file},
+                    {"dropped",          dropped},
+                    {"restartRequired",  pending},
+                    {"overriddenAtLaunch", shadowed},
+                });
+            } catch (const std::exception& e) {
+                return json_err(400, e.what());
+            }
+        });
+
+    // ---- Accounts (Server tier — administrators only) ----
+    CROW_ROUTE(app, "/api/users").methods(crow::HTTPMethod::Get)
+        ([this]{
+            json arr = json::array();
+            for (const auto& u : users_.users()) {
+                arr.push_back(json{
+                    {"id",        u.id},
+                    {"name",      u.name},
+                    {"role",      core::to_string(u.role)},
+                    {"createdAt", u.created_at},
+                });
+            }
+            return json_ok(arr);
+        });
+
+    // Admin-gated by access_for — EXCEPT while the store is empty, when the
+    // guard admits everything because there is nobody to be an administrator.
+    // That is the bootstrap: the first account creates itself, and it is forced
+    // to admin by the store so the installation cannot end up locked with no
+    // one able to manage it.
+    //
+    // The window is real and it is worth being plain about: until the first
+    // account exists, whoever reaches the port first can claim the rig. That is
+    // not a new exposure — it is the state every release so far has shipped in,
+    // permanently — and unlike that state it closes, the moment someone sets up.
+    CROW_ROUTE(app, "/api/users").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                const auto body = json::parse(req.body, nullptr, false);
+                if (body.is_discarded() || !body.is_object())
+                    return json_err(400, "expected a JSON object");
+                const std::string name = body.value("name",     std::string{});
+                const std::string pass = body.value("password", std::string{});
+                const auto role = core::role_from_string(
+                    body.value("role", std::string{"operator"}));
+                if (!role) return json_err(400, "role must be 'admin' or 'operator'");
+
+                const bool bootstrapping = users_.user_count() == 0;
+                std::string id;
+                const auto r = users_.add_user(name, pass, *role, &id);
+                if (r != core::UserStore::Result::Ok) {
+                    // 409 for a name clash (understood, refused), 400 for input
+                    // that was never going to work, 500 for a disk that would
+                    // not take it — the same split D6 uses everywhere else.
+                    const int code =
+                        r == core::UserStore::Result::NameTaken ? 409 :
+                        r == core::UserStore::Result::IoError   ? 500 :
+                        r == core::UserStore::Result::HashFailed? 500 : 400;
+                    return json_err(code, core::UserStore::describe(r));
+                }
+                if (bootstrapping) {
+                    Logger::warn("First account created — this server now requires "
+                                 "authentication. Anonymous clients will be refused.");
+                }
+                const auto created = users_.find_by_id(id);
+                return json_ok(json{
+                    {"id",   id},
+                    {"name", created ? created->name : name},
+                    {"role", core::to_string(created ? created->role : *role)},
+                });
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // Change a name, a role, or a password. Split from POST because "make this
+    // person an admin" and "create this person" are different mistakes to make
+    // by accident.
+    CROW_ROUTE(app, "/api/users/<string>").methods(crow::HTTPMethod::Patch)
+        ([this](const crow::request& req, const std::string& id){
+            try {
+                const auto body = json::parse(req.body, nullptr, false);
+                if (body.is_discarded() || !body.is_object())
+                    return json_err(400, "expected a JSON object");
+                if (!users_.find_by_id(id)) return json_err(404, "no such user");
+
+                using R = core::UserStore::Result;
+                const auto refuse = [](R r) {
+                    const int code = r == R::NameTaken ? 409
+                                   : r == R::LastAdmin ? 409
+                                   : r == R::IoError   ? 500 : 400;
+                    return json_err(code, core::UserStore::describe(r));
+                };
+
+                if (body.contains("name")) {
+                    if (!body["name"].is_string()) return json_err(400, "name must be a string");
+                    if (const auto r = users_.rename_user(id, body["name"].get<std::string>());
+                        r != R::Ok) return refuse(r);
+                }
+                if (body.contains("role")) {
+                    const auto role = core::role_from_string(body.value("role", std::string{}));
+                    if (!role) return json_err(400, "role must be 'admin' or 'operator'");
+                    if (const auto r = users_.set_role(id, *role); r != R::Ok) return refuse(r);
+                }
+                if (body.contains("password")) {
+                    if (!body["password"].is_string())
+                        return json_err(400, "password must be a string");
+                    if (const auto r = users_.set_password(id, body["password"].get<std::string>());
+                        r != R::Ok) return refuse(r);
+                    Logger::info("Password changed for user {} — their existing "
+                                 "tokens are now invalid", id);
+                }
+                const auto after = users_.find_by_id(id);
+                if (!after) return json_err(404, "no such user");
+                return json_ok(json{
+                    {"id",   after->id},
+                    {"name", after->name},
+                    {"role", core::to_string(after->role)},
+                });
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/users/<string>").methods(crow::HTTPMethod::Delete)
+        ([this](const std::string& id){
+            using R = core::UserStore::Result;
+            const auto r = users_.remove_user(id);
+            if (r == R::NoSuchUser) return json_err(404, "no such user");
+            // Refusing to remove the last administrator is not paternalism: the
+            // store would still require authentication and nobody left could
+            // manage it, so the only way back would be editing users.json by
+            // hand on the machine. Emptying the store deliberately is done by
+            // deleting the file, which is an unambiguous act.
+            if (r == R::LastAdmin)  return json_err(409, core::UserStore::describe(r));
+            if (r != R::Ok)         return json_err(500, core::UserStore::describe(r));
+            // The account is gone, so its preferences go with it. Ids are
+            // never reused, so this is not strictly required to stop a new
+            // account inheriting a stranger's keymap — it is required because
+            // leaving the file behind means deleting a user does not actually
+            // delete what the server knows about them.
+            prefs_.forget(id);
+            return json_ok(json{{"ok", true}});
         });
 
     // ---- Devices ----
@@ -1621,8 +2607,11 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // The installation's DEFAULT locale, not "the" locale (U2). REST is
+    // stateless, so there is no connection here to attach a preference to;
+    // what this addresses is the value a connection starts from.
     CROW_ROUTE(app, "/api/ui/locale").methods(crow::HTTPMethod::Get)
-        ([this]{ return json_ok(json({{"locale", state_.ui_locale()}})); });
+        ([this]{ return json_ok(json({{"locale", state_.default_ui_locale()}})); });
 
     CROW_ROUTE(app, "/api/ui/locale").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
@@ -1630,8 +2619,25 @@ void ControlServer::install_routes() {
                 auto j = json::parse(req.body.empty() ? std::string{"{}"} : req.body);
                 if (!j.contains("locale") || !j["locale"].is_string())
                     return json_err(400, "expected \"locale\"");
-                state_.set_ui_locale(j["locale"].get<std::string>());
-                return json_ok(json({{"ok", true}, {"locale", state_.ui_locale()}}));
+                state_.set_default_ui_locale(j["locale"].get<std::string>());
+                const auto now = state_.default_ui_locale();
+                // Fanned out HERE rather than from ProjectState, and only to
+                // the sessions that have expressed no preference — a client
+                // that chose Greek for itself must not be dragged back by the
+                // house changing its default. That selectivity is why
+                // set_default_ui_locale() does not broadcast: it cannot see
+                // the sessions, so it could only have gone all-or-nothing.
+                const std::string frame =
+                    json{{"type", "doc_patch"}, {"op", "locale_changed"},
+                         {"locale", now}}.dump();
+                {
+                    std::lock_guard lock{impl_->ws_mutex};
+                    for (auto& [c, s] : impl_->ws_clients) {
+                        if (!s.locale.empty()) continue;
+                        try { c->send_text(frame); } catch (...) { /* onclose cleans up */ }
+                    }
+                }
+                return json_ok(json({{"ok", true}, {"locale", now}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
@@ -1806,13 +2812,31 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req, std::string id){
             try {
                 using PR = core::ProjectState::PatchBusResult;
-                const auto r = state_.patch_bus(id, json::parse(req.body));
+                std::string materialised;
+                const auto r = state_.patch_bus(id, json::parse(req.body), &materialised);
                 if (r == PR::NotFound) return json_err(404, "not found");
                 if (r != PR::Ok) return json_err(409, bus_output_refusal_text(r));
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "buses_patched"},
                     {"buses", state_.full_document().value("buses", json::array())},
                 });
+                // Targeting a present device adds a logical output of that name
+                // to the map, so every other client's output-map view is now a
+                // row short. Same broadcast PUT /api/outputs sends.
+                if (!materialised.empty()) {
+                    auto out = outputs_.to_json();
+                    // Same shape PUT /api/outputs broadcasts, rewiredBuses
+                    // included: nothing was re-wired, because the entry
+                    // resolves to exactly what the identity fallback already
+                    // gave this bus, and a client that keys off the field
+                    // should see 0 rather than nothing.
+                    broadcast_doc_patch(json{
+                        {"type", "doc_patch"}, {"op", "outputs_changed"},
+                        {"version",      out.value("version", 1)},
+                        {"outputs",      out.value("outputs", json::array())},
+                        {"rewiredBuses", 0},
+                    });
+                }
                 return json_ok(json({{"ok", true}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
@@ -2161,6 +3185,25 @@ void ControlServer::install_routes() {
                         out["entries"].push_back(std::move(e));
                     };
 
+                    // With an allow-list configured, the computer root IS the
+                    // allow-list: offering Home and every drive letter would
+                    // just be a list of places the next request gets a 403
+                    // from. Unrestricted, this falls through to the original
+                    // native-file-dialog behaviour below.
+                    if (!g_fs_browse_roots.empty()) {
+                        for (const auto& root : g_fs_browse_roots) {
+                            const fs::path rp = liveplay::util::utf8_to_path(root);
+                            std::error_code rec;
+                            fs::path rc = fs::weakly_canonical(rp, rec);
+                            if (rec) rc = rp.lexically_normal();
+                            auto name = rc.filename().empty()
+                                          ? liveplay::util::path_to_utf8(rc)
+                                          : liveplay::util::path_to_utf8(rc.filename());
+                            add_entry(name, liveplay::util::path_to_utf8(rc), "drive");
+                        }
+                        return json_ok(out);
+                    }
+
                     // Home shortcut on every platform. The dialog used to open
                     // at "/" with no way to reach $HOME or a mounted USB stick,
                     // which made opening a project off removable media painful
@@ -2280,6 +3323,9 @@ void ControlServer::install_routes() {
                 std::error_code canon_ec;
                 fs::path canon = fs::weakly_canonical(p, canon_ec);
                 if (!canon_ec) p = canon;
+                // Before the existence check, so a refusal cannot be used to
+                // probe for what exists outside the roots.
+                if (!path_within_fs_roots(p)) return json_fs_denied();
                 if (!fs::exists(p)) return json_err(404, "no such path");
 
                 json out;
@@ -2366,6 +3412,7 @@ void ControlServer::install_routes() {
                     return json_err(400, "missing 'path'");
                 const fs::path dir = liveplay::util::utf8_to_path(j["path"].get<std::string>());
                 if (dir.empty()) return json_err(400, "empty path");
+                if (!path_within_fs_roots(dir)) return json_fs_denied();
                 std::error_code ec;
                 fs::create_directories(dir, ec);
                 if (ec) return json_err(400, ec.message());
@@ -2427,6 +3474,9 @@ void ControlServer::install_routes() {
                 if (src_str.empty()) return json_err(400, "missing source_path");
 
                 const fs::path src  = liveplay::util::utf8_to_path(src_str);
+                // Checked before the existence probe, so a denied path cannot
+                // be used to test whether a file exists outside the roots.
+                if (!path_within_fs_roots(src)) return json_fs_denied();
                 if (!fs::exists(src)) return json_err(404, "source file not found");
 
                 const fs::path media = state_.media_root();
@@ -2463,6 +3513,8 @@ void ControlServer::install_routes() {
                 const bool        force     = body.value("force", false);
                 if (path_str.empty() || item_uuid.empty())
                     return json_err(400, "missing path or item_uuid");
+                if (!path_within_fs_roots(liveplay::util::utf8_to_path(path_str)))
+                    return json_fs_denied();
 
                 const auto proj_path = state_.project_file_path();
                 const auto wdir = proj_path.empty()
@@ -2488,7 +3540,9 @@ void ControlServer::install_routes() {
         ([](const crow::request& req) {
             const char* path = req.url_params.get("path");
             if (!path) return json_err(400, "missing ?path=");
-            const auto md = liveplay::meta::read_metadata(liveplay::util::utf8_to_path(path));
+            const fs::path mp = liveplay::util::utf8_to_path(path);
+            if (!path_within_fs_roots(mp)) return json_fs_denied();
+            const auto md = liveplay::meta::read_metadata(mp);
             return json_ok(json{
                 {"valid",        md.valid},
                 {"artist",       md.artist},
@@ -2552,6 +3606,7 @@ void ControlServer::install_routes() {
 
                 const std::filesystem::path file_path =
                     liveplay::util::utf8_to_path(std::string{path_param});
+                if (!path_within_fs_roots(file_path)) return json_fs_denied();
 
                 const auto wf = liveplay::meta::compute_waveform(file_path, buckets);
                 if (!wf.ok) return json_err(500, "waveform decode failed");
@@ -2639,6 +3694,7 @@ void ControlServer::install_routes() {
                     Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/load path='{}'",
                                         req.remote_ip_address, impl_->server_addr, path_str);
                     const fs::path p = liveplay::util::utf8_to_path(path_str);
+                    if (!path_within_fs_roots(p)) return json_fs_denied();
                     if (!state_.load(p)) {
                         Logger::error("POST /api/project/load FAILED — load returned false for '{}'", path_str);
                         return json_err(400, "load failed");
@@ -2743,6 +3799,7 @@ void ControlServer::install_routes() {
                 }
                 const fs::path src = liveplay::util::utf8_to_path(
                     j["folderPath"].get<std::string>());
+                if (!path_within_fs_roots(src)) return json_fs_denied();
                 if (!fs::exists(src) || !fs::is_directory(src)) {
                     return json_err(400, "folderPath does not exist or is not a directory");
                 }
@@ -2754,6 +3811,9 @@ void ControlServer::install_routes() {
                 if (j.contains("outputPath") && j["outputPath"].is_string() &&
                     !j["outputPath"].get<std::string>().empty()) {
                     out = liveplay::util::utf8_to_path(j["outputPath"].get<std::string>());
+                    // Guard before create_directories, or a denied export would
+                    // still leave a directory tree behind wherever it pointed.
+                    if (!path_within_fs_roots(out)) return json_fs_denied();
                     if (out.has_parent_path()) fs::create_directories(out.parent_path());
                 } else {
                     // Stage in a temp directory; surface via download token.
@@ -2816,7 +3876,7 @@ void ControlServer::install_routes() {
                 r.add_header("Content-Disposition",
                              "attachment; filename=\""
                                  + liveplay::util::path_to_utf8(p.filename()) + "\"");
-                r.add_header("Access-Control-Allow-Origin", "*");
+                r.add_header("Access-Control-Allow-Origin", g_cors_allow_origin);
                 // The temp file has served its purpose; delete it to bound disk
                 // usage on the server.
                 std::error_code ec; fs::remove(p, ec);
@@ -2892,6 +3952,15 @@ void ControlServer::install_routes() {
                     extract_path = liveplay::util::utf8_to_path(j["extractPath"].get<std::string>());
                 }
 
+                // Both ends of an import: the archive being read and the
+                // directory it explodes into. The multipart form supplies the
+                // archive from a temp dir we chose, but extractPath is always
+                // caller-supplied.
+                if (!path_within_fs_roots(extract_path)) return json_fs_denied();
+                if (!archive_path.empty() && !path_within_fs_roots(archive_path)
+                    && !delete_archive_after) {
+                    return json_fs_denied();
+                }
                 if (!fs::exists(archive_path))
                     return json_err(400, "archive does not exist");
                 fs::create_directories(extract_path);
@@ -2967,6 +4036,10 @@ void ControlServer::install_routes() {
                 fs::path p;
                 if (j.contains("path") && j["path"].is_string()) {
                     p = liveplay::util::utf8_to_path(j["path"].get<std::string>());
+                    // Guard before set_project_file_path: adopting the path
+                    // would re-anchor media_root() outside the roots even if
+                    // the write itself were refused.
+                    if (!path_within_fs_roots(p)) return json_fs_denied();
                     state_.set_project_file_path(p);
                 } else {
                     p = state_.project_file_path();
@@ -3419,39 +4492,36 @@ void ControlServer::install_routes() {
             return json_ok(json({{"ok", true}}));
         });
 
-    // ---- Theme + settings patches ----
-    CROW_ROUTE(app, "/api/project/theme").methods(crow::HTTPMethod::Patch)
-        ([this](const crow::request& req){
-            try {
-                auto patch = json::parse(req.body);
-                Logger::api_request("Client ({}) -> Server ({}) : PATCH /api/project/theme",
-                                    req.remote_ip_address, impl_->server_addr);
-                state_.patch_theme(patch);
-                auto theme = state_.full_document()["theme"];
-                Logger::api_response("Client ({}) <- Server ({}) : PATCH /api/project/theme OK",
-                                     req.remote_ip_address, impl_->server_addr);
-                broadcast_doc_patch(json{
-                    {"type", "doc_patch"}, {"op", "theme_patched"}, {"theme", theme},
-                });
-                return json_ok(theme);
-            } catch (const std::exception& e) {
-                Logger::error("PATCH /api/project/theme threw: {}", e.what());
-                return json_err(400, e.what());
-            }
-        });
+    // ---- Settings patches ----
+    // PATCH /api/project/theme is GONE (U4). It wrote document_["theme"],
+    // which save() now drops on the way to disk — so keeping it would leave a
+    // route that answers 200, broadcasts a change, and quietly loses the value
+    // at the next save. A removed endpoint is a clear failure; a working-looking
+    // one that discards its input is the kind nobody finds until a show.
+    // Colours are a person's, and they are set through PATCH /api/prefs.
     CROW_ROUTE(app, "/api/project/settings").methods(crow::HTTPMethod::Patch)
         ([this](const crow::request& req){
             try {
                 auto patch = json::parse(req.body);
                 Logger::api_request("Client ({}) -> Server ({}) : PATCH /api/project/settings",
                                     req.remote_ip_address, impl_->server_addr);
-                state_.patch_settings(patch);
+                std::vector<std::string> dropped;
+                state_.patch_settings(patch, &dropped);
                 auto settings = state_.full_document()["settings"];
                 Logger::api_response("Client ({}) <- Server ({}) : PATCH /api/project/settings OK",
                                      req.remote_ip_address, impl_->server_addr);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "settings_patched"}, {"settings", settings},
                 });
+                // The response stays exactly the settings object it always was.
+                // Keys the registry refused are reported in the log rather than
+                // the body: the body's shape is the settings map itself, so
+                // there is no free field to hang a report on without making
+                // "droppedKeys" indistinguishable from a setting of that name.
+                if (!dropped.empty()) {
+                    Logger::warn("PATCH /api/project/settings from {}: {} key(s) not stored",
+                                 req.remote_ip_address, dropped.size());
+                }
                 return json_ok(settings);
             } catch (const std::exception& e) {
                 Logger::error("PATCH /api/project/settings threw: {}", e.what());
@@ -3463,24 +4533,131 @@ void ControlServer::install_routes() {
     // WebSocket
     // ------------------------------------------------------------------
     CROW_WEBSOCKET_ROUTE(app, "/ws")
+      // The one place an upgrade can be refused, and the seam the user tier
+      // is built on: it runs during the HTTP handshake, so it is the last
+      // point at which the request — headers, origin, and the credential — is
+      // still in hand. It enforces the origin policy and, since U3, the
+      // authentication policy.
+      //
+      // It has to. Crow does run the AuthGuard middleware for an upgrade
+      // request, but then calls handle_upgrade REGARDLESS of what the
+      // middleware left in the response — so a socket cannot be refused there,
+      // and everything the socket carries (play, stop, bus gain, mute,
+      // selection) would have been reachable without a token while REST was
+      // locked. That is the same shape of hole U1 found in the origin check,
+      // one layer down.
+      //
+      // The three-argument form, not the bool one, purely so a refusal can say
+      // 403 or 401 instead of Crow's bare 400: an operator reading a browser
+      // console should be able to tell a rejected origin from a missing login
+      // from a malformed request.
+      .onaccept([this](const crow::request& req,
+                       std::optional<crow::response>& res, void** userdata) {
+          const std::string origin = req.get_header_value("Origin");
+          if (!ws_origin_allowed(origin)) {
+              // Named in the log, not in the response — the caller already knows
+              // what it sent, and echoing it back only helps someone probing for
+              // what this server will accept. Same rule as json_fs_denied().
+              Logger::warn("WS upgrade refused from {} — origin '{}' is not '{}'",
+                           req.remote_ip_address, origin, g_cors_allow_origin);
+              res = crow::response{403};
+              return;
+          }
+
+          if (!users_.auth_required()) return;   // the open posture
+
+          // A browser cannot set headers on a WebSocket handshake — the API
+          // simply has no room for them — so the token comes in the query
+          // string here and nowhere else. Named access_token rather than
+          // token so it cannot be confused with the one-shot capability the
+          // export flow puts on /api/file/download.
+          //
+          // A token in a URL is normally a mistake because URLs get logged.
+          // Crow's per-request log line is not reached on this path (the
+          // upgrade branch returns before it), and this is a session token
+          // rather than a password, but the trade is real and it is why REST
+          // refuses to accept the same parameter.
+          const char* qp = req.url_params.get("access_token");
+          auto principal = qp ? users_.verify_token(qp)
+                              : std::optional<core::UserStore::Principal>{};
+          if (!principal) {
+              Logger::warn("WS upgrade refused from {} — no valid credential",
+                           req.remote_ip_address);
+              res = crow::response{401};
+              return;
+          }
+          // Hand the principal to onopen, which has the connection but not the
+          // request that authenticated it.
+          //
+          // Allocating here is safe ONLY because it happens after every
+          // refusal above: Crow assigns userdata to the connection only when
+          // this handler leaves the response empty (websocket.h sets it after
+          // the `if (res) { ...; return; }`), so an allocation on a path that
+          // then refuses would leak on every rejected handshake. Nothing is
+          // allocated when authentication is off either — that path returns
+          // early and leaves userdata null, which onopen reads as anonymous.
+          *userdata = new core::UserStore::Principal{*principal};
+      })
       .onopen([this](crow::websocket::connection& conn) {
-          std::lock_guard lock{impl_->ws_mutex};
-          impl_->ws_clients.insert(&conn);
+          // Taken and freed immediately: the session owns a copy, so the
+          // allocation's lifetime is this function rather than the socket's,
+          // and no cleanup depends on onclose firing.
+          std::unique_ptr<core::UserStore::Principal> principal{
+              static_cast<core::UserStore::Principal*>(conn.userdata())};
+          conn.userdata(nullptr);
+
+          // Read before ws_mutex is taken: this can touch the disk, and the
+          // broadcast loop wants that mutex sixty times a second.
+          std::string meter_mode;
+          if (principal) {
+              if (const auto profile = prefs_.find(principal->id)) {
+                  meter_mode = profile->value("meterMode", std::string{});
+              }
+          }
+
+          {
+              std::lock_guard lock{impl_->ws_mutex};
+              auto& session = impl_->ws_clients[&conn];
+              session.id           = impl_->next_client_id++;
+              session.remote_ip    = conn.get_remote_ip();
+              session.connected_at = std::chrono::steady_clock::now();
+              session.meter_mode   = std::move(meter_mode);
+              if (principal) {
+                  session.user_id   = principal->id;
+                  session.user_name = principal->name;
+                  session.is_admin  = principal->is_admin();
+              }
           // Mark this client for a playback_snapshot push on the next
           // broadcast tick. The snapshot can't be sent inline here because
           // build_playback_snapshot takes both engine and project locks
           // (potentially seconds, e.g. mid project mirror) and Crow's
           // connection is not safe to write from two threads at once —
           // direct send_text here races the broadcast thread.
-          impl_->ws_clients_pending_snapshot.insert(&conn);
-          Logger::info("WS client connected ({} total)", impl_->ws_clients.size());
+              session.wants_snapshot = true;
+              Logger::info("WS client #{} connected from {} as {} ({} total)",
+                           session.id, session.remote_ip,
+                           session.user_name.empty() ? "anonymous" : session.user_name,
+                           impl_->ws_clients.size());
+          }
+          // Outside the lock, and after the session exists: an operator whose
+          // profile asks for dBTP needs the true-peak DSP running before their
+          // first meter frame, not after they next touch a setting.
+          refresh_user_meter_modes();
       })
       .onclose([this](crow::websocket::connection& conn, const std::string& reason, std::uint16_t /*code*/) {
-          std::lock_guard lock{impl_->ws_mutex};
-          impl_->ws_clients.erase(&conn);
-          impl_->ws_clients_pending_snapshot.erase(&conn);
-          Logger::info("WS client disconnected ({}); {} remaining",
-                       reason, impl_->ws_clients.size());
+          {
+              std::lock_guard lock{impl_->ws_mutex};
+              std::uint64_t id = 0;
+              if (auto it = impl_->ws_clients.find(&conn); it != impl_->ws_clients.end()) {
+                  id = it->second.id;
+                  impl_->ws_clients.erase(it);
+              }
+              Logger::info("WS client #{} disconnected ({}); {} remaining",
+                           id, reason, impl_->ws_clients.size());
+          }
+          // The other half of the union: the last operator wanting loudness
+          // leaving is what lets the DSP stop again.
+          refresh_user_meter_modes();
       })
       .onmessage([this](crow::websocket::connection& conn,
                         const std::string& data,
@@ -3488,8 +4665,33 @@ void ControlServer::install_routes() {
           if (is_binary) return;
           std::string direct_reply;
           try {
+              SessionOps session;
+              // Both take ws_mutex to touch the session, and neither touches
+              // the project or engine locks — so they cannot re-enter the
+              // ABBA ordering the broadcast loop's comment describes.
+              session.set_locale = [this, &conn](const std::string& code) {
+                  std::lock_guard lock{impl_->ws_mutex};
+                  auto it = impl_->ws_clients.find(&conn);
+                  if (it == impl_->ws_clients.end()) return code;
+                  if (!code.empty()) it->second.locale = code;
+                  return it->second.locale;
+              };
+              session.set_meter_hz = [this, &conn](std::size_t hz) -> std::size_t {
+                  // Clamped to what the server actually ticks at: the loop is
+                  // the only consumer of the consuming meter reads, so a
+                  // faster request cannot be honoured by anyone.
+                  const std::size_t ceiling =
+                      std::max<std::size_t>(1, cfg_.meter_broadcast_hz);
+                  std::lock_guard lock{impl_->ws_mutex};
+                  auto it = impl_->ws_clients.find(&conn);
+                  if (it == impl_->ws_clients.end()) return hz;
+                  it->second.meter_hz    = (hz == 0) ? 0 : std::min(hz, ceiling);
+                  it->second.meter_accum = 0;
+                  return it->second.meter_hz == 0 ? ceiling : it->second.meter_hz;
+              };
               direct_reply = handle_ws_message(conn, data, engine_, state_, impl_->server_addr,
-                                               [this](const json& p) { broadcast_doc_patch(p); });
+                                               [this](const json& p) { broadcast_doc_patch(p); },
+                                               session);
           } catch (const std::exception& e) {
               Logger::error("WS onmessage threw past handler: {}", e.what());
           } catch (...) {

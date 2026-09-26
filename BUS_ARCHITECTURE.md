@@ -283,8 +283,9 @@ at them.
   `"Monitor"` in the output map and it wins — but the legacy field is still honoured, because
   dropping it would silently take pre-listen away from every project that has one configured.~~
   **`previewDevice` closed in round 2 (§0.7, D28):** it migrates onto the Preview bus's output on
-  load and is erased; nothing reads it after that. `ltcDevice` is untouched, being a separate
-  feature.
+  load and is erased; nothing reads it after that. **`ltcDevice` closed with D38:** it becomes
+  `settings.ltcOutput`, a logical output name resolved by the same rule as a bus target. No device
+  name survives in a portable document.
 - **The Bitfocus Companion module repo.** Not started. D16's northbound REST/WS semantics
   (persist-and-broadcast, `PATCH` over the live-drag endpoints) exist to make a Companion module
   straightforward to build, but nothing has been built against them yet.
@@ -617,7 +618,7 @@ closes that for good.
   wins; unmapped, `Main Out` is the platform default device (the empty device name, which is what
   `open_device_by_name` treats as the default) and `Preview Out` is no channels at all — silence
   is the safe answer for the bus PFL lands on, because the default device *is* the house. Any
-  other unmapped name keeps the identity fallback. `GET /api/outputs` lists the two in
+  other unmapped name keeps the identity fallback — **superseded, see §0.8**. `GET /api/outputs` lists the two in
   `builtin`. `bound` for an Output-kind bus is mapped ‖ `Main Out` ‖ a device of that name is
   present (a cached device list, refreshed on `/api/devices` and on device open, never on the
   render thread); the preview bus keeps Monitor's strict rule and is bound only when it actually
@@ -631,8 +632,8 @@ closes that for good.
 - **D28 — `settings.previewDevice` migrates.** On load, if the preview bus's target is not mapped,
   the device name becomes the preview bus's `output.target`; the key is erased either way and
   counted as `previewDeviceMigrated`. `resolve_monitor_channels`' previewDevice fallback and
-  `apply_preview_device_change` are gone; nothing reads the key after load. `ltcDevice` is
-  untouched.
+  `apply_preview_device_change` are gone; nothing reads the key after load. `ltcDevice` was left
+  for D38.
 
 **What round 2 also carried** (D29–D35, in brief): the strip's output picker offers Buses
 (master first), Outputs (built-ins first, each with its mapping spelled out — `FOH — Scarlett
@@ -691,6 +692,77 @@ read them with these substitutions:
   `Preview Out` by default; `"Monitor"` still resolves as a plain name if a map carries it.
 - §0.3's master-strip channel view and `previewDevice` migration items are closed (struck
   through above).
+
+---
+
+### 0.8 The identity fallback is gone (ownership round, 2026-09-07)
+
+D26's identity fallback — *any unmapped name is treated as a device name* — has been withdrawn
+for every bus. It now applies **only when a device of that name is actually present**.
+
+**Why.** `open_device_by_name()` warns and opens the **default** device when a name matches
+nothing ([engine.cpp](server/src/audio/engine.cpp)). So the fallback that kept a migrated
+`deviceOverride` working also meant a project whose sub-mix targeted a sound card the current
+venue does not have came out of the default device instead of going quiet. On a rig, the default
+device is the house. That is the accident PFL was chosen over solo to make impossible (§0.2),
+reached through routing rather than through monitoring — and it was invisible, because `bound`
+was true and the strip looked correct.
+
+This is exactly the rule the preview bus has had since §0.7, now applied to every hardware
+output. `resolve_preview_channels()` became `resolve_output_channels(name, allow_default_device)`
+and both paths share it; the flag carries the single remaining difference, which is that an
+unmapped **Main Out** is the platform default device for an ordinary or master bus (so a fresh
+install still makes sound with no configuration) and nothing at all for the preview bus (so PFL
+cannot reach the house).
+
+**What changes for a legacy project** whose `deviceOverride` migrated onto a bus and whose device
+has since been unplugged: it is now silent rather than playing out of whatever is default. The
+bus reports `bound: false`, the strip says so, and a banner in the workspace names the affected
+buses and offers the output map. Silence that is announced beats audio in the wrong room.
+
+The other half of the same round: picking a device from a strip's output picker now **adds a
+logical output of that name to `outputs.json`** rather than leaving a bare device reference in the
+document (D29's convenience, kept, with what it writes changed). `outputs_changed` is broadcast so
+a second client's map view converges.
+
+Pinned by `server/tests/e2e/absent-device-e2e.js` — measured on the meters, with a contrast phase
+so "silent" cannot pass on a dead harness — and `output-materialise-e2e.js`.
+
+---
+
+### 0.9 Timecode is an output too (D38, ownership round, 2026-09-07)
+
+`settings.ltcDevice` was the last device name a portable document carried — the one deliberate
+exception D21 left standing, on the grounds that LTC was a separate feature. It was not separate
+enough: the field went straight to `ensure_device_routing()`, which calls
+`open_device_by_name()`, which falls back to the **default** device. §0.8 removed that path for
+every bus and left it in place for timecode, so the accident §0.8 exists to prevent was still
+reachable — a show configured for an interface the venue does not have put an **LTC squeal into
+the house** instead of going quiet.
+
+**What it is now.** `settings.ltcOutput`, a logical output name in exactly the vocabulary a bus
+target uses (R4: shared vocabulary stays Project; the binding is the machine's). It resolves
+through `resolve_output_channels(name, /*allow_default_device=*/false)`. The `false` is the one
+place this differs from an ordinary bus, and it is deliberate: unmapped **Main Out** *is* the
+default device, and the default device is the house. Timecode in the house is a squeal over the
+programme — the same class of accident as PFL in the house, so it gets the same answer the
+preview bus gets.
+
+**Migration.** A non-empty `ltcDevice` becomes `ltcOutput` on load (unless `ltcOutput` is already
+set) and is erased either way, counted as `ltcDeviceMigrated` and broadcast in `project_migrated`.
+The string does not change, so a machine that really has that interface keeps working untouched —
+an unmapped name that names a *present* device still resolves to it. Only the venue that lacks the
+hardware sees a difference, and there the difference is silence instead of a squeal.
+`PATCH /api/project/settings` still accepts the old key from a pre-2.5 controller but applies it
+to `ltcOutput` and stores no second copy, so R1's one-writer-per-value holds.
+
+**One implementation note worth keeping.** The LTC feed holds a master pair from the same pool the
+buses draw from, so `materialise_buses()` — which rewinds that allocator — releases the feed
+before rewinding. Without it the allocator would hand the LTC pair to a bus while timecode was
+still assigned to those channels, and the squeal would arrive in that bus's output instead.
+
+Pinned by `server/tests/e2e/ltc-output-e2e.js`, measured on the meters with the cue's own bus
+pointed at absent hardware so that anything the meters see is the LTC channel alone.
 
 ---
 

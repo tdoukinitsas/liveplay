@@ -50,7 +50,7 @@ export interface AudioItem extends BaseItem {
   startNextTime?: number;     // absolute seconds within the file
   startNextFadeOut?: boolean; // also begin this item's fade-out at the marker
   // LTC (SMPTE Linear Timecode) output for this cue.
-  ltcEnabled?: boolean;         // output LTC on the project's ltcDevice when playing
+  ltcEnabled?: boolean;         // output LTC on the project's ltcOutput when playing
   ltcStartTimecode?: string;    // starting timecode "HH:MM:SS:FF" (default "00:00:00:00")
   ltcFrameRate?: number;        // 0=24, 1=25, 2=29.97NDF, 3=29.97DF, 4=30 (default 4)
 }
@@ -355,13 +355,30 @@ export interface Bus {
 export interface ProjectSettings {
   defaultOutputDevice?: string | null;
   previewDevice?: string | null;
-  ltcDevice?: string | null;
+  // Where this show's timecode goes, as a LOGICAL output name — the same
+  // vocabulary a bus target uses, bound to hardware by the machine's output
+  // map (D38). `ltcDevice` was its predecessor and named a sound card; the
+  // server migrates it on load and erases it, so it never appears here.
+  ltcOutput?: string | null;
   outputTarget?: string;
   outputTargetLevels?: Record<string, unknown>;
+  /** LEGACY as of U4 — see usePreferences().meterMode. Read as a seed only. */
   meterMode?: string;
+  /**
+   * Meter ballistics preset id, or "custom" to use `meterBallisticsCustom`.
+   * The server's settings registry is the authority on the accepted ids:
+   * digital-ppm | ppm-i | ppm-ii | vu | instant | custom.
+   */
+  meterBallistics?: string;
+  meterBallisticsCustom?: {
+    attackMs?: number;
+    releaseMs?: number;
+    rmsWindowMs?: number;
+  };
   defaultTransitionMode?: TransitionMode;
   autoCueNextWithoutEndBehavior?: boolean;
   stopAllFadeMs?: number;
+  /** LEGACY as of U4 — see usePreferences().scrollToPlaying. Seed only. */
   uiScrollToPlaying?: boolean;
   disableAutoVolumeAndTrim?: boolean;
   disableLimiter?: boolean;
@@ -390,6 +407,12 @@ export const BUS_SCHEMA_VERSION = 2;
 export interface Project {
   name: string;
   version: string;
+  // Where the project folder is ON THIS MACHINE. Derived by the server from the
+  // location of the .liveplay file, not stored in it — a saved project names no
+  // directory, so one that has been moved, mailed or unzipped elsewhere still
+  // finds its media. The client sets this exactly once, for a new project that
+  // has a chosen folder but no file yet; after that it is read-only, and every
+  // load and save-as replaces it.
   folderPath: string;
   // Mirrored from the server's header and handed straight back on save, so the
   // client never claims a version it wasn't given.
@@ -397,9 +420,20 @@ export interface Project {
   items: (AudioItem | GroupItem)[];
   cartItems: CartItem[];
   cartSlotKeys?: Record<number, CartSlotKeyBinding>;
+  /**
+   * LEGACY as of U4 — the transport keymap belongs to the person, not the
+   * show, and lives in their profile (usePreferences). Still typed because a
+   * 2.4 document carries it and it is read once as a seed for an operator who
+   * has never set one; the server drops it on the next save.
+   */
   playbackKeys?: Record<string, CartSlotKeyBinding | null>;
   cartOnlyItems: AudioItem[]; // Items that exist only in cart (not in playlist)
-  theme: Theme;
+  /**
+   * LEGACY as of U4, same as playbackKeys. Read usePreferences().theme for the
+   * colour scheme actually in force — a document's copy is a seed, and mailing
+   * a project no longer repaints the recipient's desk.
+   */
+  theme?: Theme;
   settings?: ProjectSettings;
   createdAt: string;
   lastModified: string;

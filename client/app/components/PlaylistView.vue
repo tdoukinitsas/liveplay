@@ -128,14 +128,13 @@ watch(
 );
 
 // ---------------------------------------------------------------------------
-// "UI scrolls to currently playing" (project setting, default off).
+// "UI scrolls to currently playing" (a preference of the person reading the
+// list, default off — it moved off the project in U4).
 // Keep the currently-playing row centred so long lists follow playback. The
 // server owns playback; this only mirrors it — we watch which item is playing
 // and, when enabled, scroll its row into the middle of the list container.
 // ---------------------------------------------------------------------------
-const scrollToPlayingEnabled = computed(
-  () => !!(currentProject.value as any)?.settings?.uiScrollToPlaying,
-);
+const { scrollToPlaying: scrollToPlayingEnabled } = usePreferences();
 // Follow the most-recently-started active cue (during a seamless advance the
 // incoming cue is the newer entry, which is the one worth centring on).
 const primaryPlayingUuid = computed<string | null>(() => {

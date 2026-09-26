@@ -155,8 +155,10 @@ All composables are Vue `setup()`-time helpers, typed in TypeScript.
 | `useProject`           | Project CRUD as exposed by the server (new, open, save, close, item add/remove/move/patch). Wraps `useLiveplayServer` calls into ergonomic methods. |
 | `useAudioEngine`       | Transport facade: `playCue`, `stopCue`, `stopAllCues`, `seek`, `setVolume`, ducking mode helpers. All implemented by forwarding to the server — no audio runs in the renderer. |
 | `useCartItems`         | The cart grid model (slot → cue mapping). |
-| `useCartHotkeys`       | Configurable keyboard shortcuts → cart triggers. See `CartHotkeyConfig.vue` for the UI. |
-| `useMidiController`    | Web MIDI bindings → cart triggers. See `ControlConfigModal.vue`. |
+| `useCartHotkeys`       | Configurable keyboard shortcuts → transport actions and cart triggers. UI: `SettingsPaneKeyboard.vue`. Mounted by `MainWorkspace` (and by `CartPlayer` in the detached cart window), so bindings do not depend on the cart pane being visible. |
+| `useMidiController`    | Web MIDI bindings → transport actions and cart triggers. UI: `SettingsPaneSurfaces.vue`. Mounted alongside `useCartHotkeys`. |
+| `useSettingsPage`      | Which Settings section is showing, and the `#/settings/<section>` deep link. |
+| `useProjectSettings`   | Reads `project.settings` and PATCHes it, for the Settings panes. |
 | `useStateViewer`       | Feeds the live diagnostics popup window (project doc + connection + server status). |
 | `useLocalization`      | i18n (20 languages, RTL). See [Localisation](#localisation-20-languages-rtl). |
 
