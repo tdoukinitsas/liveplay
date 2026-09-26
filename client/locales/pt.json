@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "Eliminar mesmo assim",
     "outputMapSave": "Guardar",
     "outputMapRevert": "Reverter",
+    "outputMapAdminOnly": "Apenas administradores podem alterar o mapa de saídas de hardware. As ligações desta máquina pertencem à máquina, não ao espetáculo.",
     "outputMapCancel": "Cancelar",
     "outputMapSaving": "A guardar…",
     "tabEq": "EQ",

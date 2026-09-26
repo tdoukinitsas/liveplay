@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "Trotzdem löschen",
     "outputMapSave": "Speichern",
     "outputMapRevert": "Zurücksetzen",
+    "outputMapAdminOnly": "Nur Administratoren können die Hardware-Ausgangszuordnung ändern. Welche Anschlüsse dieser Rechner hat, gehört zum Rechner, nicht zur Show.",
     "outputMapCancel": "Abbrechen",
     "outputMapSaving": "Speichern…",
     "tabEq": "EQ",

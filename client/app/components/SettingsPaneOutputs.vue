@@ -1,6 +1,15 @@
 <template>
   <div class="settings-pane outmap-pane">
       <h3 class="settings-pane-title">{{ t('settings.sectionOutputs') }}</h3>
+
+      <!-- An operator sees the pane but not the map: which sockets this rig
+           has is the machine's business, not the show's. Rendered as a
+           sentence for the same reason the Users pane renders its own refusal
+           that way — a raw 403 reads as something broken rather than as the
+           rule it is. -->
+      <p v-if="!canEdit" class="settings-help">{{ t('mixer.outputMapAdminOnly') }}</p>
+
+      <template v-else>
       <p class="settings-pane-intro">{{ t('mixer.remap.intro') }}</p>
 
       <div class="outmap-body">
@@ -310,11 +319,12 @@
           {{ saving ? t('mixer.outputMapSaving') : t('mixer.outputMapSave') }}
         </button>
       </div>
+      </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { Bus } from '~/types/project';
 import type { OutputMapChannel } from '~/composables/useLiveplayServer';
 
@@ -380,6 +390,16 @@ const builtinNames = ref<string[]>([]);
 let rowKeySeq = 0;
 function freshKey() { return rowKeySeq++; }
 
+// The output map is the machine's, so U3 gates GET/PUT /api/outputs to
+// administrators. Checked BEFORE fetching rather than by catching the 403:
+// letting the request go and rendering `String(e)` put a raw "403 Forbidden"
+// in front of an operator, which reads as a fault rather than as the rule it
+// is. An installation with no accounts has nobody to be an administrator, so
+// the routes are open there and so is this pane — the same posture every other
+// U3-gated surface takes.
+const canEdit = computed(() =>
+  !server.authRequired || server.authUser?.role === 'admin');
+
 const loaded = ref(false);
 const loadError = ref('');
 const saveError = ref('');
@@ -396,6 +416,9 @@ const advancedOpen = ref(false);
  * while the modal is open, so their change lands without eating ours.
  */
 async function loadAll(keepPending = false) {
+  // Nothing to load without the right to read it, and asking anyway would
+  // only produce the 403 this pane exists to state in words.
+  if (!canEdit.value) { loaded.value = false; return; }
   loadError.value = '';
   const carried = keepPending ? pendingChanges() : [];
   try {
@@ -887,6 +910,11 @@ async function onOpenDevice(d: { display_name: string; channel_count: number }) 
 // own map while this is open, and D17 requires this view to converge too, not
 // just the rail behind it. `loadAll(true)` re-applies this window's unsaved
 // edits on top of theirs.
+// Signing in as an administrator while this pane is open should fill it in
+// rather than leave the refusal on screen until it is navigated away from and
+// back. The guard in loadAll makes the other direction safe on its own.
+watch(canEdit, (allowed) => { if (allowed) void loadAll(); });
+
 let unsubDocPatch: (() => void) | null = null;
 onMounted(() => {
   void loadAll();

@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "그래도 삭제",
     "outputMapSave": "저장",
     "outputMapRevert": "되돌리기",
+    "outputMapAdminOnly": "하드웨어 출력 맵은 관리자만 변경할 수 있습니다. 이 장비에 어떤 단자가 있는지는 장비의 문제이지 공연의 문제가 아닙니다.",
     "outputMapCancel": "취소",
     "outputMapSaving": "저장 중…",
     "tabEq": "EQ",

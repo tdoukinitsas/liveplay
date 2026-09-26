@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "Yine de sil",
     "outputMapSave": "Kaydet",
     "outputMapRevert": "Geri al",
+    "outputMapAdminOnly": "Donanım çıkış haritasını yalnızca yöneticiler değiştirebilir. Bu makinede hangi bağlantıların olduğu makineye aittir, gösteriye değil.",
     "outputMapCancel": "İptal",
     "outputMapSaving": "Kaydediliyor…",
     "tabEq": "EQ",

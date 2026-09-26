@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "حذف على أي حال",
     "outputMapSave": "حفظ",
     "outputMapRevert": "استعادة",
+    "outputMapAdminOnly": "يمكن لمسؤولي النظام فقط تغيير خريطة مخارج العتاد. المقابس الموجودة على هذا الجهاز تخص الجهاز، لا العرض.",
     "outputMapCancel": "إلغاء",
     "outputMapSaving": "جارٍ الحفظ…",
     "tabEq": "EQ",

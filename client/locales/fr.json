@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "Supprimer quand même",
     "outputMapSave": "Enregistrer",
     "outputMapRevert": "Rétablir",
+    "outputMapAdminOnly": "Seuls les administrateurs peuvent modifier le plan des sorties matérielles. Les connecteurs de cette machine appartiennent à la machine, pas au spectacle.",
     "outputMapCancel": "Annuler",
     "outputMapSaving": "Enregistrement…",
     "tabEq": "EQ",

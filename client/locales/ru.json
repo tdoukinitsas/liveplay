@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "Всё равно удалить",
     "outputMapSave": "Сохранить",
     "outputMapRevert": "Отменить",
+    "outputMapAdminOnly": "Изменять карту аппаратных выходов могут только администраторы. Какие разъёмы есть у этой машины — дело машины, а не шоу.",
     "outputMapCancel": "Отмена",
     "outputMapSaving": "Сохранение…",
     "tabEq": "EQ",

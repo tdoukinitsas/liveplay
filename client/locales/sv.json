@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "Ta bort ändå",
     "outputMapSave": "Spara",
     "outputMapRevert": "Återställ",
+    "outputMapAdminOnly": "Endast administratörer kan ändra hårdvaruutgångarna. Vilka uttag den här maskinen har hör till maskinen, inte till föreställningen.",
     "outputMapCancel": "Avbryt",
     "outputMapSaving": "Sparar…",
     "tabEq": "EQ",

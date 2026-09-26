@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "फिर भी हटाएँ",
     "outputMapSave": "सहेजें",
     "outputMapRevert": "पूर्ववत करें",
+    "outputMapAdminOnly": "केवल प्रशासक ही हार्डवेयर आउटपुट मैप बदल सकते हैं। इस मशीन में कौन से सॉकेट हैं यह मशीन का विषय है, शो का नहीं।",
     "outputMapCancel": "रद्द करें",
     "outputMapSaving": "सहेजा जा रहा है…",
     "tabEq": "EQ",

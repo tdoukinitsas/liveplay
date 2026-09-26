@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "Διαγραφή ούτως ή άλλως",
     "outputMapSave": "Αποθήκευση",
     "outputMapRevert": "Επαναφορά",
+    "outputMapAdminOnly": "Μόνο οι διαχειριστές μπορούν να αλλάξουν τον χάρτη εξόδων υλικού. Ποιες υποδοχές έχει αυτό το μηχάνημα αφορά το μηχάνημα, όχι την παράσταση.",
     "outputMapCancel": "Ακύρωση",
     "outputMapSaving": "Αποθήκευση…",
     "tabEq": "EQ",

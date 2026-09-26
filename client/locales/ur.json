@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "پھر بھی حذف کریں",
     "outputMapSave": "محفوظ کریں",
     "outputMapRevert": "واپس کریں",
+    "outputMapAdminOnly": "صرف ایڈمنسٹریٹر ہارڈ ویئر آؤٹ پٹ میپ تبدیل کر سکتے ہیں۔ اس مشین میں کون سے ساکٹ ہیں یہ مشین کا معاملہ ہے، شو کا نہیں۔",
     "outputMapCancel": "منسوخ کریں",
     "outputMapSaving": "محفوظ ہو رہا ہے…",
     "tabEq": "EQ",

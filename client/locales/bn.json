@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "তবুও মুছুন",
     "outputMapSave": "সংরক্ষণ করুন",
     "outputMapRevert": "ফিরিয়ে আনুন",
+    "outputMapAdminOnly": "শুধুমাত্র প্রশাসকরাই হার্ডওয়্যার আউটপুট ম্যাপ পরিবর্তন করতে পারেন। এই মেশিনে কোন সকেট আছে তা মেশিনের ব্যাপার, শো-এর নয়।",
     "outputMapCancel": "বাতিল করুন",
     "outputMapSaving": "সংরক্ষণ হচ্ছে…",
     "tabEq": "EQ",

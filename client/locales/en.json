@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "Delete anyway",
     "outputMapSave": "Save",
     "outputMapRevert": "Revert",
+    "outputMapAdminOnly": "Only administrators can change the hardware output map. Which sockets this machine has belongs to the machine, not to the show.",
     "outputMapCancel": "Cancel",
     "outputMapSaving": "Saving…",
     "tabEq": "EQ",

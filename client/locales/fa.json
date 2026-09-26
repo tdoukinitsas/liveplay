@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "در هر صورت حذف شود",
     "outputMapSave": "ذخیره",
     "outputMapRevert": "بازگرداندن",
+    "outputMapAdminOnly": "فقط مدیران می‌توانند نقشهٔ خروجی‌های سخت‌افزاری را تغییر دهند. اینکه این دستگاه چه درگاه‌هایی دارد به دستگاه مربوط است، نه به اجرا.",
     "outputMapCancel": "لغو",
     "outputMapSaving": "در حال ذخیره…",
     "tabEq": "EQ",

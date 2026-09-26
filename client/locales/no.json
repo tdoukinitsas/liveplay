@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "Slett likevel",
     "outputMapSave": "Lagre",
     "outputMapRevert": "Tilbakestill",
+    "outputMapAdminOnly": "Bare administratorer kan endre maskinvareutgangene. Hvilke kontakter denne maskinen har hører til maskinen, ikke til forestillingen.",
     "outputMapCancel": "Avbryt",
     "outputMapSaving": "Lagrer…",
     "tabEq": "EQ",

@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "それでも削除",
     "outputMapSave": "保存",
     "outputMapRevert": "元に戻す",
+    "outputMapAdminOnly": "ハードウェア出力マップを変更できるのは管理者だけです。このマシンにどの端子があるかはマシンの領分であり、ショーの領分ではありません。",
     "outputMapCancel": "キャンセル",
     "outputMapSaving": "保存中…",
     "tabEq": "EQ",

@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "Șterge oricum",
     "outputMapSave": "Salvează",
     "outputMapRevert": "Revenire",
+    "outputMapAdminOnly": "Doar administratorii pot modifica harta ieșirilor hardware. Ce mufe are această mașină ține de mașină, nu de spectacol.",
     "outputMapCancel": "Anulează",
     "outputMapSaving": "Se salvează…",
     "tabEq": "EQ",

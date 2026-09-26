@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "Fshi gjithsesi",
     "outputMapSave": "Ruaj",
     "outputMapRevert": "Rikthe",
+    "outputMapAdminOnly": "Vetëm administratorët mund të ndryshojnë hartën e daljeve të harduerit. Cilat priza ka kjo makinë i përket makinës, jo shfaqjes.",
     "outputMapCancel": "Anulo",
     "outputMapSaving": "Duke ruajtur…",
     "tabEq": "EQ",

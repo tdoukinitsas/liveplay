@@ -792,6 +792,7 @@
     "outputMapDeleteConfirmDelete": "仍然删除",
     "outputMapSave": "保存",
     "outputMapRevert": "还原",
+    "outputMapAdminOnly": "只有管理员才能更改硬件输出映射。这台机器有哪些接口属于机器本身，而非演出。",
     "outputMapCancel": "取消",
     "outputMapSaving": "正在保存…",
     "tabEq": "EQ",
