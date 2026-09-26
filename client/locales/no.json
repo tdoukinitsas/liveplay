@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Egenskaper",
+    "resize": "Endre størrelse på egenskapspanelet",
     "multipleItemsSelected": "{count} elementer valgt",
     "peakWarning": "Lydnivået til dette elementet er betydelig over målnivået for det valgte utgangsmålet. Bruk 'Juster volum automatisk' for å normalisere, eller endre utgangsmålet.",
     "noSelection": "Velg et element for å vise egenskaper",

@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Eigenschaften",
+    "resize": "Größe des Eigenschaftenbereichs ändern",
     "multipleItemsSelected": "{count} Elemente ausgewählt",
     "peakWarning": "Die Lautheit dieses Elements liegt deutlich über dem Zielwert für das gewählte Ausgabeziel. Verwenden Sie 'Lautstärke automatisch anpassen' zur Normalisierung oder ändern Sie das Ausgabeziel.",
     "noSelection": "Wählen Sie ein Element aus, um die Eigenschaften anzuzeigen",

@@ -214,6 +214,7 @@
   },
   "properties": {
     "title": "Properties",
+    "resize": "Resize the properties panel",
     "multipleItemsSelected": "{count} items selected",
     "peakWarning": "This item's loudness is significantly above the target level for your selected output target. Use 'Auto-adjust volume' to normalise it, or change the Output Target.",
     "noSelection": "Select an item to view properties",

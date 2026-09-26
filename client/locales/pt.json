@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Propriedades",
+    "resize": "Redimensionar o painel de propriedades",
     "multipleItemsSelected": "{count} itens selecionados",
     "peakWarning": "O volume deste item está significativamente acima do nível alvo para o destino de saída selecionado. Use 'Ajustar volume automaticamente' para normalizar ou altere o destino de saída.",
     "noSelection": "Selecione um item para visualizar as propriedades",

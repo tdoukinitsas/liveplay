@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Egenskaper",
+    "resize": "Ändra storlek på egenskapspanelen",
     "multipleItemsSelected": "{count} objekt valda",
     "peakWarning": "Det här objektets volymnivå är betydligt över målnivån för det valda utgångsmålet. Använd 'Justera volymen automatiskt' för att normalisera det, eller byt utgångsmål.",
     "noSelection": "Välj ett objekt för att visa egenskaper",

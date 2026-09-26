@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Özellikler",
+    "resize": "Özellikler panelini yeniden boyutlandır",
     "multipleItemsSelected": "{count} öğe seçildi",
     "peakWarning": "Bu öğenin ses yüksekliği, seçilen çıkış hedefine göre önerilen seviyenin önemli ölçüde üzerinde. Normalleştirmek için 'Sesi otomatik ayarla' seçeneğini kullanın ya da Çıkış Hedefini değiştirin.",
     "noSelection": "Özellikleri görüntülemek için bir öğe seçin",

@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Vetitë",
+    "resize": "Ndrysho madhësinë e panelit të vetive",
     "multipleItemsSelected": "{count} artikuj të zgjedhur",
     "peakWarning": "Vëllimi i këtij artikulli është ndjeshëm mbi nivelin e targetuar për objektivin e daljes të zgjedhur. Përdorni 'Rregullim automatik i volumit' për ta normalizuar, ose ndryshoni Objektivin e Daljes.",
     "noSelection": "Zgjidh një artikull për të parë vetitë",

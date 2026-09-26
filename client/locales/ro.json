@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Proprietati",
+    "resize": "Redimensionează panoul de proprietăți",
     "multipleItemsSelected": "{count} elemente selectate",
     "peakWarning": "Volumul acestui element este semnificativ deasupra nivelului țintă pentru destinația de ieșire selectată. Folosiți 'Ajustare automată a volumului' pentru a-l normaliza sau schimbați destinația de ieșire.",
     "noSelection": "Selecteaza un fisier pentru a vedea proprietățile",

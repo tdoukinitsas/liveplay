@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "属性",
+    "resize": "调整属性面板大小",
     "multipleItemsSelected": "已选择 {count} 个项目",
     "peakWarning": "此项目的音量明显高于所选输出目标的目标级别。使用“自动调整音量”进行规格化，或更改输出目标。",
     "noSelection": "选择一个项目以查看属性",
