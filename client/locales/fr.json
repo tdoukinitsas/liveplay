@@ -100,7 +100,8 @@
     "attach": "Rattacher",
     "configureControls": "Configurer les contrôles",
     "tabKeyboard": "Clavier",
-    "tabMidi": "MIDI"
+    "tabMidi": "MIDI",
+    "groupSlot": "Un groupe de la liste de lecture : lit tout le groupe depuis cet emplacement"
   },
   "properties": {
     "title": "Propriétés",
@@ -165,7 +166,15 @@
     "ltcRequiresOutput": "Choisissez une sortie LTC dans Paramètres › Audio pour activer la sortie timecode.",
     "startNextEnable": "Démarrer le suivant au marqueur",
     "startNextTime": "Démarrer le suivant à",
-    "startNextFadeOut": "Fondu de sortie au marqueur"
+    "startNextFadeOut": "Fondu de sortie au marqueur",
+    "volumeDbInput": "Saisissez un niveau en dB, p. ex. -6.5 (ou -inf pour le silence)",
+    "manualStopFade": "Fondu du bouton Arrêt",
+    "manualStopFadeHint": "Durée du fondu de sortie de ce signal quand vous appuyez sur « Arrêt ». 0 l'arrête instantanément.",
+    "loopCrossfade": "Fondu de boucle",
+    "loopCrossfadeHint": "Enchaîne la fin de la boucle sur son début pendant ce nombre de secondes, pour qu'elle revienne sur elle-même en fondu. 0 boucle sans fondu.",
+    "loopCrossfadeNeedsLoop": "Réglez le comportement de fin de ce signal sur « Boucle » pour utiliser un fondu de boucle.",
+    "advanceDelay": "Attente avant le suivant (secondes)",
+    "advanceDelayHint": "Après la fin de ce signal, attend cette durée avant que son comportement de fin ne lance le signal suivant. Ignoré si un fondu enchaîné ou « Démarrer le suivant » est réglé."
   },
   "playback": {
     "panic": "Arrêter Tous les Signaux",
@@ -443,7 +452,8 @@
     "conflictMessage": "Ce contrôle MIDI est déjà assigné à \"{action}\". Réassigner?",
     "playNext": "Lire le suivant",
     "volumeMultiplier": "Multiplicateur de volume",
-    "volumeMultiplierHint": "dB modifiés par pas MIDI. Augmentez pour les molettes lentes."
+    "volumeMultiplierHint": "dB modifiés par pas MIDI. Augmentez pour les molettes lentes.",
+    "nextIn": "Suivant dans {seconds} s"
   },
   "status": {
     "playing": "En lecture",
@@ -509,7 +519,9 @@
     "sectionServer": "Serveur",
     "sectionServerHelp": "À quel serveur cette application parle et — pour un administrateur — ce que fait ce serveur.",
     "sectionUsers": "Comptes",
-    "sectionUsersHelp": "Qui peut utiliser ce serveur, et ce que chacun a le droit de modifier."
+    "sectionUsersHelp": "Qui peut utiliser ce serveur, et ce que chacun a le droit de modifier.",
+    "stopAllStopsPreview": "« Tout arrêter » arrête aussi l'aperçu",
+    "stopAllStopsPreviewHelp": "Désactivé, « Tout arrêter » laisse jouer le signal que vous pré-écoutez sur le bus Preview."
   },
   "common": {
     "default": "défaut",
@@ -796,5 +808,10 @@
     "busesFromOverrides": "{count} signaux ont été déplacés vers des bus créés à partir de leurs remplacements de périphérique.",
     "openMixer": "Ouvrir le Mixer",
     "dismiss": "Ignorer"
+  },
+  "group": {
+    "runTime": "Durée {time}",
+    "remaining": "Encore {time} dans ce groupe",
+    "containsLoop": "Contient un signal en boucle, donc sans fin fixe : la durée affichée est celle du reste"
   }
 }

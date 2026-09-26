@@ -100,7 +100,8 @@
     "attach": "Reintegrar",
     "configureControls": "Configurar controles",
     "tabKeyboard": "Teclado",
-    "tabMidi": "MIDI"
+    "tabMidi": "MIDI",
+    "groupSlot": "Um grupo da lista de reprodução: reproduz o grupo inteiro a partir deste slot"
   },
   "properties": {
     "title": "Propriedades",
@@ -165,7 +166,15 @@
     "ltcRequiresOutput": "Escolha uma saída LTC em Definições › Áudio para ativar a saída de timecode.",
     "startNextEnable": "Iniciar próximo no marcador",
     "startNextTime": "Iniciar próximo em",
-    "startNextFadeOut": "Esmaecer no marcador"
+    "startNextFadeOut": "Esmaecer no marcador",
+    "volumeDbInput": "Escreva um nível em dB, p. ex. -6.5 (ou -inf para silêncio)",
+    "manualStopFade": "Fade do botão Parar",
+    "manualStopFadeHint": "Quanto tempo este sinal demora a desvanecer ao premir «Parar». 0 para-o instantaneamente.",
+    "loopCrossfade": "Crossfade do loop",
+    "loopCrossfadeHint": "Funde o fim do loop com o seu início ao longo destes segundos, para que regresse a si próprio em fade. 0 repete sem fusão.",
+    "loopCrossfadeNeedsLoop": "Defina o comportamento ao terminar deste sinal como «Repetir» para usar um crossfade do loop.",
+    "advanceDelay": "Esperar antes do próximo (segundos)",
+    "advanceDelayHint": "Depois de este sinal terminar, espera este tempo antes de o comportamento ao terminar iniciar o sinal seguinte. Ignorado enquanto houver um crossfade ou «Iniciar próximo» definido."
   },
   "playback": {
     "panic": "Parar Todos os Sinais",
@@ -443,7 +452,8 @@
     "conflictMessage": "Este controle MIDI já está atribuído a \"{action}\". Reatribuir?",
     "playNext": "Reproduzir próximo",
     "volumeMultiplier": "Multiplicador de volume",
-    "volumeMultiplierHint": "dB alterados por passo MIDI. Aumente para rodas lentas."
+    "volumeMultiplierHint": "dB alterados por passo MIDI. Aumente para rodas lentas.",
+    "nextIn": "Próximo em {seconds} s"
   },
   "status": {
     "playing": "A reproduzir",
@@ -509,7 +519,9 @@
     "sectionServer": "Servidor",
     "sectionServerHelp": "Com que servidor esta aplicação fala e, para um administrador, o que esse servidor faz.",
     "sectionUsers": "Contas",
-    "sectionUsersHelp": "Quem pode usar este servidor e o que tem permissão para alterar."
+    "sectionUsersHelp": "Quem pode usar este servidor e o que tem permissão para alterar.",
+    "stopAllStopsPreview": "«Parar tudo» também para a pré-visualização",
+    "stopAllStopsPreviewHelp": "Quando desligado, «Parar tudo» deixa a tocar o sinal que estiver a pré-escutar no bus Preview."
   },
   "common": {
     "default": "padrão",
@@ -796,5 +808,10 @@
     "busesFromOverrides": "{count} sinais foram movidos para buses criados a partir das suas substituições de dispositivo.",
     "openMixer": "Abrir Mixer",
     "dismiss": "Dispensar"
+  },
+  "group": {
+    "runTime": "Duração {time}",
+    "remaining": "Faltam {time} neste grupo",
+    "containsLoop": "Contém um sinal em loop, por isso não tem fim fixo: o tempo mostrado é quanto dura o resto"
   }
 }

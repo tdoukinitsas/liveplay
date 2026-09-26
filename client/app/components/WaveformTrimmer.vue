@@ -287,7 +287,7 @@
         </div>
       </div>
     </div>
-    <div v-else class="fade-controls-section">
+    <div v-else class="fade-controls-section" style="--fade-columns: 3">
       <div class="fade-column">
         <div class="fade-control-group">
           <label>{{ t('properties.playFade') }}</label>
@@ -321,47 +321,6 @@
               @focus="($event.target as HTMLInputElement).select()"
             />
             <button class="time-increment" @click="adjustCrossFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">add</span>
-            </button>
-          </div>
-        </div>
-        <div class="fade-control-group" :title="t('properties.manualStopFadeHint')">
-          <label>{{ t('properties.manualStopFade') }}</label>
-          <div class="time-input-with-buttons">
-            <button class="time-decrement" @click="adjustManualStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">remove</span>
-            </button>
-            <input
-              type="text"
-              class="time-input fade-input"
-              :value="formatTimeDetailed(manualStopFade)"
-              @change="handleManualStopFadeTextChange"
-              @focus="($event.target as HTMLInputElement).select()"
-            />
-            <button class="time-increment" @click="adjustManualStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">add</span>
-            </button>
-          </div>
-        </div>
-        <div
-          class="fade-control-group"
-          :class="{ 'start-next-disabled': !isLooping }"
-          :title="isLooping ? t('properties.loopCrossfadeHint') : t('properties.loopCrossfadeNeedsLoop')"
-        >
-          <label>{{ t('properties.loopCrossfade') }}</label>
-          <div class="time-input-with-buttons">
-            <button class="time-decrement" :disabled="!isLooping" @click="adjustLoopCrossfade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">remove</span>
-            </button>
-            <input
-              type="text"
-              class="time-input fade-input"
-              :value="formatTimeDetailed(loopCrossfade)"
-              :disabled="!isLooping"
-              @change="handleLoopCrossfadeTextChange"
-              @focus="($event.target as HTMLInputElement).select()"
-            />
-            <button class="time-increment" :disabled="!isLooping" @click="adjustLoopCrossfade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
               <span class="material-symbols-rounded">add</span>
             </button>
           </div>
@@ -422,6 +381,50 @@
           />
           <span>{{ t('properties.startNextFadeOut') }}</span>
         </label>
+      </div>
+      <!-- The operator's own fades: the Stop button, and a loop turning round. -->
+      <div class="fade-column">
+        <div class="fade-control-group" :title="t('properties.manualStopFadeHint')">
+          <label>{{ t('properties.manualStopFade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" @click="adjustManualStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(manualStopFade)"
+              @change="handleManualStopFadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" @click="adjustManualStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
+        </div>
+        <div
+          class="fade-control-group"
+          :class="{ 'start-next-disabled': !isLooping }"
+          :title="isLooping ? t('properties.loopCrossfadeHint') : t('properties.loopCrossfadeNeedsLoop')"
+        >
+          <label>{{ t('properties.loopCrossfade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" :disabled="!isLooping" @click="adjustLoopCrossfade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(loopCrossfade)"
+              :disabled="!isLooping"
+              @change="handleLoopCrossfadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" :disabled="!isLooping" @click="adjustLoopCrossfade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1651,13 +1654,14 @@ onUnmounted(() => {
 /* Fade & Transition Controls Section */
 .fade-controls-section {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(var(--fade-columns, 2), minmax(0, 1fr));
   align-items: start;
   gap: var(--spacing-xs);
   padding: var(--spacing-xs);
   background: var(--color-surface);
   border-radius: var(--border-radius-sm);
-  width: 300px;
+  /* 150px per column: two for a cart item's single one, three for a cue. */
+  width: calc(150px * var(--fade-columns, 2));
 }
 
 .fade-column {

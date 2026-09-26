@@ -100,7 +100,8 @@
     "attach": "合并",
     "configureControls": "配置控制",
     "tabKeyboard": "键盘",
-    "tabMidi": "MIDI"
+    "tabMidi": "MIDI",
+    "groupSlot": "播放列表分组：从此槽位播放整个分组"
   },
   "properties": {
     "title": "属性",
@@ -165,7 +166,15 @@
     "ltcRequiresOutput": "在“设置 › 音频”中选择一个 LTC 输出以启用时间码输出。",
     "startNextEnable": "在标记处开始下一个",
     "startNextTime": "下一个开始于",
-    "startNextFadeOut": "在标记处淡出"
+    "startNextFadeOut": "在标记处淡出",
+    "volumeDbInput": "输入以 dB 为单位的电平，例如 -6.5（静音为 -inf）",
+    "manualStopFade": "停止按钮淡出",
+    "manualStopFadeHint": "按下「停止」时此信号淡出所需的时间。设为 0 立即停止。",
+    "loopCrossfade": "循环交叉淡化",
+    "loopCrossfadeHint": "在这段秒数内将循环的结尾与开头融合，使其淡化回到自身。设为 0 则不融合直接循环。",
+    "loopCrossfadeNeedsLoop": "将此信号的结束行为设为「循环」即可使用循环交叉淡化。",
+    "advanceDelay": "下一个前等待（秒）",
+    "advanceDelayHint": "此信号结束后，等待这段时间，再由其结束行为启动下一个信号。设置了交叉淡化或「开始下一个」时忽略此项。"
   },
   "playback": {
     "panic": "停止所有信号",
@@ -443,7 +452,8 @@
     "conflictMessage": "此MIDI控制器已分配给\"{action}\"。重新分配？",
     "playNext": "播放下一首",
     "volumeMultiplier": "音量倍数",
-    "volumeMultiplierHint": "每个MIDI步进改变的dB。对于移动缓慢的滚轮请调高。"
+    "volumeMultiplierHint": "每个MIDI步进改变的dB。对于移动缓慢的滚轮请调高。",
+    "nextIn": "{seconds} 秒后下一个"
   },
   "status": {
     "playing": "正在播放",
@@ -509,7 +519,9 @@
     "sectionServer": "服务器",
     "sectionServerHelp": "此应用连接哪个服务器，以及（对管理员而言）该服务器的运行设置。",
     "sectionUsers": "账户",
-    "sectionUsersHelp": "谁可以使用此服务器，以及各自被允许更改什么。"
+    "sectionUsersHelp": "谁可以使用此服务器，以及各自被允许更改什么。",
+    "stopAllStopsPreview": "「停止全部」也停止预听",
+    "stopAllStopsPreviewHelp": "关闭时，「停止全部」不会停止你正在 Preview 总线上预听的信号。"
   },
   "common": {
     "default": "默认",
@@ -796,5 +808,10 @@
     "busesFromOverrides": "{count} 个信号已移动到根据其设备覆盖创建的总线上。",
     "openMixer": "打开混音台",
     "dismiss": "关闭"
+  },
+  "group": {
+    "runTime": "运行时长 {time}",
+    "remaining": "本组剩余 {time}",
+    "containsLoop": "包含循环信号，因此没有固定结束时间：显示的时间是其余部分的时长"
   }
 }

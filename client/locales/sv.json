@@ -100,7 +100,8 @@
     "attach": "Koppla in",
     "configureControls": "Konfigurera kontroller",
     "tabKeyboard": "Tangentbord",
-    "tabMidi": "MIDI"
+    "tabMidi": "MIDI",
+    "groupSlot": "En spellistegrupp: spelar hela gruppen från den här platsen"
   },
   "properties": {
     "title": "Egenskaper",
@@ -165,7 +166,15 @@
     "ltcRequiresOutput": "Välj en LTC-utgång under Inställningar › Ljud för att aktivera tidkodsutgång.",
     "startNextEnable": "Starta nästa vid markör",
     "startNextTime": "Starta nästa vid",
-    "startNextFadeOut": "Tona ut vid markör"
+    "startNextFadeOut": "Tona ut vid markör",
+    "volumeDbInput": "Skriv en nivå i dB, t.ex. -6.5 (eller -inf för tystnad)",
+    "manualStopFade": "Uttoning för Stopp-knapp",
+    "manualStopFadeHint": "Hur länge den här signalen tonar ut när du trycker på ”Stoppa”. 0 stoppar den direkt.",
+    "loopCrossfade": "Loop-korsfadning",
+    "loopCrossfadeHint": "Blandar loopens slut in i dess början under så många sekunder, så att den tonar tillbaka in i sig själv. 0 loopar utan övertoning.",
+    "loopCrossfadeNeedsLoop": "Ställ in slutbeteendet för den här signalen på ”Upprepa” för att använda loop-korsfadning.",
+    "advanceDelay": "Vänta före nästa (sekunder)",
+    "advanceDelayHint": "När den här signalen har tagit slut väntar den så här länge innan slutbeteendet startar nästa signal. Ignoreras när en korsfadning eller ”Starta nästa” är inställd."
   },
   "playback": {
     "panic": "Stoppa alla signaler",
@@ -443,7 +452,8 @@
     "conflictMessage": "Denna MIDI-kontroll är redan tilldelad \"{action}\". Tilldela om?",
     "playNext": "Spela nästa",
     "volumeMultiplier": "Volymmultiplikator",
-    "volumeMultiplierHint": "dB som ändras per MIDI-steg. Öka för hjul som rör sig långsamt."
+    "volumeMultiplierHint": "dB som ändras per MIDI-steg. Öka för hjul som rör sig långsamt.",
+    "nextIn": "Nästa om {seconds} s"
   },
   "status": {
     "playing": "Spelas",
@@ -509,7 +519,9 @@
     "sectionServer": "Server",
     "sectionServerHelp": "Vilken server appen pratar med, och — för administratörer — vad den servern gör.",
     "sectionUsers": "Konton",
-    "sectionUsersHelp": "Vem som får använda den här servern, och vad de får ändra."
+    "sectionUsersHelp": "Vem som får använda den här servern, och vad de får ändra.",
+    "stopAllStopsPreview": "”Stoppa alla” stoppar även förhandsgranskningen",
+    "stopAllStopsPreviewHelp": "När detta är av låter ”Stoppa alla” en signal som du förlyssnar på i Preview-bussen fortsätta spela."
   },
   "common": {
     "default": "standard",
@@ -796,5 +808,10 @@
     "busesFromOverrides": "{count} signaler flyttades till bussar skapade från deras enhetsöverstyrningar.",
     "openMixer": "Öppna Mixer",
     "dismiss": "Avfärda"
+  },
+  "group": {
+    "runTime": "Speltid {time}",
+    "remaining": "{time} kvar i den här gruppen",
+    "containsLoop": "Innehåller en loopande signal, så den har inget fast slut: tiden som visas är hur länge resten varar"
   }
 }

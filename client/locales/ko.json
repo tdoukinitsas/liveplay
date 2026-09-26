@@ -100,7 +100,8 @@
     "attach": "통합",
     "configureControls": "컨트롤 설정",
     "tabKeyboard": "키보드",
-    "tabMidi": "MIDI"
+    "tabMidi": "MIDI",
+    "groupSlot": "재생 목록 그룹: 이 슬롯에서 그룹 전체를 재생합니다"
   },
   "properties": {
     "title": "속성",
@@ -165,7 +166,15 @@
     "ltcRequiresOutput": "타임코드 출력을 활성화하려면 설정 › 오디오에서 LTC 출력을 선택하세요.",
     "startNextEnable": "마커에서 다음 시작",
     "startNextTime": "다음 시작 위치",
-    "startNextFadeOut": "마커에서 페이드 아웃"
+    "startNextFadeOut": "마커에서 페이드 아웃",
+    "volumeDbInput": "dB 단위로 레벨 입력 (예: -6.5, 무음은 -inf)",
+    "manualStopFade": "정지 버튼 페이드",
+    "manualStopFadeHint": "「중지」를 누를 때 이 큐가 페이드아웃되는 시간입니다. 0이면 즉시 정지합니다.",
+    "loopCrossfade": "루프 크로스 페이드",
+    "loopCrossfadeHint": "루프의 끝을 이 초 동안 시작 부분과 섞어, 페이드되며 자기 자신으로 돌아가게 합니다. 0이면 섞지 않고 반복합니다.",
+    "loopCrossfadeNeedsLoop": "루프 크로스 페이드를 사용하려면 이 큐의 종료 동작을 「반복」으로 설정하세요.",
+    "advanceDelay": "다음 전 대기(초)",
+    "advanceDelayHint": "이 큐가 끝난 뒤, 종료 동작이 다음 큐를 시작하기 전에 이만큼 기다립니다. 크로스 페이드나 「다음 시작」이 설정된 동안에는 무시됩니다."
   },
   "playback": {
     "panic": "모든 신호 중지",
@@ -443,7 +452,8 @@
     "conflictMessage": "이 MIDI 컨트롤은 이미 \"{action}\"에 할당되어 있습니다. 재할당하시겠습니까?",
     "playNext": "다음 재생",
     "volumeMultiplier": "볼륨 배율",
-    "volumeMultiplierHint": "MIDI 단계당 변경되는 dB. 느리게 움직이는 휠은 값을 높이세요."
+    "volumeMultiplierHint": "MIDI 단계당 변경되는 dB. 느리게 움직이는 휠은 값을 높이세요.",
+    "nextIn": "{seconds}초 후 다음"
   },
   "status": {
     "playing": "재생 중",
@@ -509,7 +519,9 @@
     "sectionServer": "서버",
     "sectionServerHelp": "이 앱이 연결하는 서버, 그리고 관리자에게는 해당 서버의 동작 설정.",
     "sectionUsers": "계정",
-    "sectionUsersHelp": "이 서버를 누가 사용할 수 있고, 무엇을 변경할 수 있는지."
+    "sectionUsersHelp": "이 서버를 누가 사용할 수 있고, 무엇을 변경할 수 있는지.",
+    "stopAllStopsPreview": "「모두 정지」 시 미리 듣기도 정지",
+    "stopAllStopsPreviewHelp": "끄면 「모두 정지」를 눌러도 Preview 버스에서 미리 듣는 중인 큐는 계속 재생됩니다."
   },
   "common": {
     "default": "기본값",
@@ -796,5 +808,10 @@
     "busesFromOverrides": "{count}개의 큐가 장치 오버라이드에서 생성된 버스로 이동되었습니다.",
     "openMixer": "믹서 열기",
     "dismiss": "닫기"
+  },
+  "group": {
+    "runTime": "실행 시간 {time}",
+    "remaining": "이 그룹 남은 시간 {time}",
+    "containsLoop": "반복되는 큐가 있어 정해진 끝이 없습니다: 표시된 시간은 나머지 부분의 길이입니다"
   }
 }

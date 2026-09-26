@@ -100,7 +100,8 @@
     "attach": "元に戻す",
     "configureControls": "コントロール設定",
     "tabKeyboard": "キーボード",
-    "tabMidi": "MIDI"
+    "tabMidi": "MIDI",
+    "groupSlot": "プレイリストのグループ：このスロットからグループ全体を再生します"
   },
   "properties": {
     "title": "プロパティ",
@@ -165,7 +166,15 @@
     "ltcRequiresOutput": "タイムコード出力を有効にするには、設定 › オーディオでLTC出力を選択してください。",
     "startNextEnable": "マーカーで次を開始",
     "startNextTime": "次を開始する位置",
-    "startNextFadeOut": "マーカーでフェードアウト"
+    "startNextFadeOut": "マーカーでフェードアウト",
+    "volumeDbInput": "dB でレベルを入力（例：-6.5、無音は -inf）",
+    "manualStopFade": "停止ボタンのフェード",
+    "manualStopFadeHint": "「停止」を押したときにこのキューがフェードアウトする時間。0 で即時停止します。",
+    "loopCrossfade": "ループクロスフェード",
+    "loopCrossfadeHint": "ループの終わりをこの秒数かけて先頭にブレンドし、フェードしながら自身に戻るようにします。0 ではブレンドせずにループします。",
+    "loopCrossfadeNeedsLoop": "ループクロスフェードを使うには、このキューの終了時の動作を「ループ」に設定してください。",
+    "advanceDelay": "次までの待機（秒）",
+    "advanceDelayHint": "このキューが終わってから、終了時の動作が次のキューを開始するまでこの時間だけ待ちます。クロスフェードまたは「次を開始」が設定されている間は無視されます。"
   },
   "playback": {
     "panic": "すべての信号を停止",
@@ -443,7 +452,8 @@
     "conflictMessage": "このMIDIコントロールは既に「{action}」に割り当てられています。再割り当てしますか？",
     "playNext": "次を再生",
     "volumeMultiplier": "音量倍率",
-    "volumeMultiplierHint": "MIDIステップごとに変化するdB。ゆっくり動くホイールでは値を上げてください。"
+    "volumeMultiplierHint": "MIDIステップごとに変化するdB。ゆっくり動くホイールでは値を上げてください。",
+    "nextIn": "次まで {seconds} 秒"
   },
   "status": {
     "playing": "再生中",
@@ -509,7 +519,9 @@
     "sectionServer": "サーバー",
     "sectionServerHelp": "このアプリが接続するサーバーと、管理者向けにそのサーバーの動作設定。",
     "sectionUsers": "アカウント",
-    "sectionUsersHelp": "このサーバーを誰が使えるか、そして何を変更できるか。"
+    "sectionUsersHelp": "このサーバーを誰が使えるか、そして何を変更できるか。",
+    "stopAllStopsPreview": "「すべて停止」でプレビューも停止",
+    "stopAllStopsPreviewHelp": "オフの場合、「すべて停止」を押しても Previewバスでプレリスン中のキューは再生を続けます。"
   },
   "common": {
     "default": "デフォルト",
@@ -796,5 +808,10 @@
     "busesFromOverrides": "{count} 件のキューが、デバイスオーバーライドから作成されたバスに移動されました。",
     "openMixer": "ミキサーを開く",
     "dismiss": "閉じる"
+  },
+  "group": {
+    "runTime": "所要時間 {time}",
+    "remaining": "このグループの残り {time}",
+    "containsLoop": "ループするキューを含むため決まった終わりがありません：表示時間はそれ以外の部分の長さです"
   }
 }

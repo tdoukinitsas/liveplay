@@ -100,7 +100,8 @@
     "attach": "Integrar",
     "configureControls": "Configurar controles",
     "tabKeyboard": "Teclado",
-    "tabMidi": "MIDI"
+    "tabMidi": "MIDI",
+    "groupSlot": "Un grupo de la lista de reproducción: reproduce el grupo entero desde esta ranura"
   },
   "properties": {
     "title": "Propiedades",
@@ -165,7 +166,15 @@
     "ltcRequiresOutput": "Elija una salida LTC en Configuración › Audio para habilitar la salida de timecode.",
     "startNextEnable": "Iniciar siguiente en el marcador",
     "startNextTime": "Iniciar siguiente en",
-    "startNextFadeOut": "Atenuar en el marcador"
+    "startNextFadeOut": "Atenuar en el marcador",
+    "volumeDbInput": "Escribe un nivel en dB, p. ej. -6.5 (o -inf para silencio)",
+    "manualStopFade": "Fundido del botón Detener",
+    "manualStopFadeHint": "Cuánto tarda esta señal en desvanecerse al pulsar «Detener». 0 la detiene al instante.",
+    "loopCrossfade": "Fundido cruzado del bucle",
+    "loopCrossfadeHint": "Funde el final del bucle con su inicio durante estos segundos, para que vuelva sobre sí mismo con un fundido. Con 0 el bucle se repite sin fundido.",
+    "loopCrossfadeNeedsLoop": "Pon el comportamiento al finalizar de esta señal en «Repetir» para usar un fundido cruzado del bucle.",
+    "advanceDelay": "Espera antes de la siguiente (segundos)",
+    "advanceDelayHint": "Cuando termina esta señal, espera este tiempo antes de que su comportamiento al finalizar inicie la siguiente. Se ignora si hay un fundido cruzado o «Iniciar siguiente» activado."
   },
   "playback": {
     "panic": "Detener Todas las Señales",
@@ -443,7 +452,8 @@
     "conflictMessage": "Este control MIDI ya está asignado a \"{action}\". ¿Reasignar?",
     "playNext": "Reproducir siguiente",
     "volumeMultiplier": "Multiplicador de volumen",
-    "volumeMultiplierHint": "dB modificados por paso MIDI. Auméntelo para ruedas lentas."
+    "volumeMultiplierHint": "dB modificados por paso MIDI. Auméntelo para ruedas lentas.",
+    "nextIn": "Siguiente en {seconds} s"
   },
   "status": {
     "playing": "Reproduciendo",
@@ -509,7 +519,9 @@
     "sectionServer": "Servidor",
     "sectionServerHelp": "Con qué servidor habla esta aplicación y, para un administrador, qué hace ese servidor.",
     "sectionUsers": "Cuentas",
-    "sectionUsersHelp": "Quién puede usar este servidor y qué se le permite cambiar."
+    "sectionUsersHelp": "Quién puede usar este servidor y qué se le permite cambiar.",
+    "stopAllStopsPreview": "«Detener todo» también detiene la vista previa",
+    "stopAllStopsPreviewHelp": "Si está desactivado, «Detener todo» deja sonando la señal que estés preescuchando en el bus Preview."
   },
   "common": {
     "default": "predeterminado",
@@ -796,5 +808,10 @@
     "busesFromOverrides": "{count} señales se movieron a buses creados a partir de sus anulaciones de dispositivo.",
     "openMixer": "Abrir Mezclador",
     "dismiss": "Descartar"
+  },
+  "group": {
+    "runTime": "Duración {time}",
+    "remaining": "Quedan {time} en este grupo",
+    "containsLoop": "Contiene una señal en bucle, así que no tiene un final fijo: el tiempo mostrado es lo que dura el resto"
   }
 }

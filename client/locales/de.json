@@ -100,7 +100,8 @@
     "attach": "Einbetten",
     "configureControls": "Steuerung konfigurieren",
     "tabKeyboard": "Tastatur",
-    "tabMidi": "MIDI"
+    "tabMidi": "MIDI",
+    "groupSlot": "Eine Gruppe der Wiedergabeliste: spielt die ganze Gruppe von diesem Slot ab"
   },
   "properties": {
     "title": "Eigenschaften",
@@ -165,7 +166,15 @@
     "ltcRequiresOutput": "Wählen Sie unter Einstellungen › Audio einen LTC-Ausgang, um die Timecode-Ausgabe zu aktivieren.",
     "startNextEnable": "Nächsten am Marker starten",
     "startNextTime": "Nächsten starten bei",
-    "startNextFadeOut": "Am Marker ausblenden"
+    "startNextFadeOut": "Am Marker ausblenden",
+    "volumeDbInput": "Pegel in dB eingeben, z. B. -6.5 (oder -inf für Stille)",
+    "manualStopFade": "Ausblendung per Stopp-Taste",
+    "manualStopFadeHint": "Wie lange dieser Cue ausblendet, wenn du „Stoppen“ drückst. 0 stoppt ihn sofort.",
+    "loopCrossfade": "Schleifen-Überblendung",
+    "loopCrossfadeHint": "Blendet das Ende der Schleife über so viele Sekunden in ihren Anfang über, sodass sie in sich selbst zurückblendet. 0 wiederholt ohne Überblendung.",
+    "loopCrossfadeNeedsLoop": "Setze das Endverhalten dieses Cues auf „Wiederholen“, um eine Schleifen-Überblendung zu nutzen.",
+    "advanceDelay": "Warten vor Nächstem (Sekunden)",
+    "advanceDelayHint": "Nach dem Ende dieses Cues so lange warten, bevor sein Endverhalten den nächsten Cue startet. Wird ignoriert, solange eine Überblendung oder „Nächsten starten“ gesetzt ist."
   },
   "playback": {
     "panic": "Alle Signale stoppen",
@@ -443,7 +452,8 @@
     "conflictMessage": "Diese MIDI-Steuerung ist bereits \"{action}\" zugewiesen. Neu zuweisen?",
     "playNext": "Nächstes abspielen",
     "volumeMultiplier": "Lautstärke-Multiplikator",
-    "volumeMultiplierHint": "dB-Änderung pro MIDI-Schritt. Für langsame Regler erhöhen."
+    "volumeMultiplierHint": "dB-Änderung pro MIDI-Schritt. Für langsame Regler erhöhen.",
+    "nextIn": "Nächster in {seconds} s"
   },
   "status": {
     "playing": "Wird gespielt",
@@ -509,7 +519,9 @@
     "sectionServer": "Server",
     "sectionServerHelp": "Mit welchem Server diese App spricht und – für Administratoren – was dieser Server tut.",
     "sectionUsers": "Konten",
-    "sectionUsersHelp": "Wer diesen Server nutzen darf und was er ändern kann."
+    "sectionUsersHelp": "Wer diesen Server nutzen darf und was er ändern kann.",
+    "stopAllStopsPreview": "„Alle stoppen“ stoppt auch die Vorschau",
+    "stopAllStopsPreviewHelp": "Wenn aus, lässt „Alle stoppen“ einen Cue weiterlaufen, den du gerade auf dem Preview-Bus vorhörst."
   },
   "common": {
     "default": "Standard",
@@ -796,5 +808,10 @@
     "busesFromOverrides": "{count} Signale wurden auf Busse verschoben, die aus ihren Geräte-Overrides erstellt wurden.",
     "openMixer": "Mixer öffnen",
     "dismiss": "Verwerfen"
+  },
+  "group": {
+    "runTime": "Laufzeit {time}",
+    "remaining": "Noch {time} in dieser Gruppe",
+    "containsLoop": "Enthält einen Cue in Schleife und hat daher kein festes Ende: Die angezeigte Zeit ist die Dauer des Rests"
   }
 }

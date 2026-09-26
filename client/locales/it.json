@@ -100,7 +100,8 @@
     "attach": "Reinserisci",
     "configureControls": "Configura controlli",
     "tabKeyboard": "Tastiera",
-    "tabMidi": "MIDI"
+    "tabMidi": "MIDI",
+    "groupSlot": "Un gruppo della playlist: riproduce l'intero gruppo da questo slot"
   },
   "properties": {
     "title": "Proprietà",
@@ -165,7 +166,15 @@
     "ltcRequiresOutput": "Scegli un'uscita LTC in Impostazioni › Audio per abilitare l'uscita timecode.",
     "startNextEnable": "Avvia successivo al marcatore",
     "startNextTime": "Avvia successivo a",
-    "startNextFadeOut": "Dissolvenza in uscita al marcatore"
+    "startNextFadeOut": "Dissolvenza in uscita al marcatore",
+    "volumeDbInput": "Digita un livello in dB, ad es. -6.5 (o -inf per il silenzio)",
+    "manualStopFade": "Dissolvenza tasto Ferma",
+    "manualStopFadeHint": "Quanto dura la dissolvenza in uscita di questo segnale quando premi «Ferma». 0 lo ferma subito.",
+    "loopCrossfade": "Dissolvenza del loop",
+    "loopCrossfadeHint": "Fonde la fine del loop con il suo inizio in questo numero di secondi, così rientra in sé stesso con una dissolvenza. 0 ripete senza fusione.",
+    "loopCrossfadeNeedsLoop": "Imposta il comportamento di fine di questo segnale su «Ripeti» per usare la dissolvenza del loop.",
+    "advanceDelay": "Attesa prima del successivo (secondi)",
+    "advanceDelayHint": "Al termine di questo segnale, attende questo tempo prima che il suo comportamento di fine avvii il segnale successivo. Ignorato se è impostata una dissolvenza incrociata o «Avvia successivo»."
   },
   "playback": {
     "panic": "Ferma Tutti i Segnali",
@@ -443,7 +452,8 @@
     "conflictMessage": "Questo controllo MIDI è già assegnato a \"{action}\". Riassegnare?",
     "playNext": "Riproduci successivo",
     "volumeMultiplier": "Moltiplicatore volume",
-    "volumeMultiplierHint": "dB modificati per passo MIDI. Aumenta per le rotelle lente."
+    "volumeMultiplierHint": "dB modificati per passo MIDI. Aumenta per le rotelle lente.",
+    "nextIn": "Successivo tra {seconds} s"
   },
   "status": {
     "playing": "In riproduzione",
@@ -509,7 +519,9 @@
     "sectionServer": "Server",
     "sectionServerHelp": "A quale server parla questa applicazione e — per un amministratore — cosa fa quel server.",
     "sectionUsers": "Account",
-    "sectionUsersHelp": "Chi può usare questo server e cosa gli è permesso modificare."
+    "sectionUsersHelp": "Chi può usare questo server e cosa gli è permesso modificare.",
+    "stopAllStopsPreview": "«Ferma tutto» ferma anche l'anteprima",
+    "stopAllStopsPreviewHelp": "Se disattivato, «Ferma tutto» lascia in riproduzione il segnale che stai preascoltando sul bus Preview."
   },
   "common": {
     "default": "predefinito",
@@ -796,5 +808,10 @@
     "busesFromOverrides": "{count} segnali sono stati spostati su bus creati dai loro override del dispositivo.",
     "openMixer": "Apri Mixer",
     "dismiss": "Ignora"
+  },
+  "group": {
+    "runTime": "Durata {time}",
+    "remaining": "Restano {time} in questo gruppo",
+    "containsLoop": "Contiene un segnale in loop, quindi non ha una fine fissa: il tempo mostrato è la durata del resto"
   }
 }

@@ -100,7 +100,8 @@
     "attach": "Fest",
     "configureControls": "Konfigurer kontroller",
     "tabKeyboard": "Tastatur",
-    "tabMidi": "MIDI"
+    "tabMidi": "MIDI",
+    "groupSlot": "En gruppe fra spillelisten: spiller hele gruppen fra dette sporet"
   },
   "properties": {
     "title": "Egenskaper",
@@ -165,7 +166,15 @@
     "ltcRequiresOutput": "Velg en LTC-utgang under Innstillinger › Lyd for å aktivere tidskode-utgang.",
     "startNextEnable": "Start neste ved markør",
     "startNextTime": "Start neste ved",
-    "startNextFadeOut": "Ton ut ved markør"
+    "startNextFadeOut": "Ton ut ved markør",
+    "volumeDbInput": "Skriv inn et nivå i dB, f.eks. -6.5 (eller -inf for stillhet)",
+    "manualStopFade": "Uttoning for Stopp-knapp",
+    "manualStopFadeHint": "Hvor lenge dette signalet toner ut når du trykker «Stopp». 0 stopper det umiddelbart.",
+    "loopCrossfade": "Løkke-kryssfading",
+    "loopCrossfadeHint": "Blander slutten av løkken inn i starten over så mange sekunder, slik at den toner tilbake i seg selv. 0 gjentar uten overgang.",
+    "loopCrossfadeNeedsLoop": "Sett sluttadferden for dette signalet til «Gjenta» for å bruke løkke-kryssfading.",
+    "advanceDelay": "Vent før neste (sekunder)",
+    "advanceDelayHint": "Når dette signalet er ferdig, ventes det så lenge før sluttadferden starter neste signal. Ignoreres når kryssfading eller «Start neste» er satt."
   },
   "playback": {
     "panic": "Stopp alle signaler",
@@ -443,7 +452,8 @@
     "conflictMessage": "Denne MIDI-kontrollen er allerede tilordnet \"{action}\". Tilordne på nytt?",
     "playNext": "Spill neste",
     "volumeMultiplier": "Volummultiplikator",
-    "volumeMultiplierHint": "dB endret per MIDI-trinn. Øk for hjul som beveger seg sakte."
+    "volumeMultiplierHint": "dB endret per MIDI-trinn. Øk for hjul som beveger seg sakte.",
+    "nextIn": "Neste om {seconds} s"
   },
   "status": {
     "playing": "Spiller av",
@@ -509,7 +519,9 @@
     "sectionServer": "Tjener",
     "sectionServerHelp": "Hvilken tjener denne appen snakker med, og — for administratorer — hva den tjeneren gjør.",
     "sectionUsers": "Kontoer",
-    "sectionUsersHelp": "Hvem som kan bruke denne tjeneren, og hva de har lov til å endre."
+    "sectionUsersHelp": "Hvem som kan bruke denne tjeneren, og hva de har lov til å endre.",
+    "stopAllStopsPreview": "«Stopp alle» stopper også forhåndsvisningen",
+    "stopAllStopsPreviewHelp": "Når dette er av, lar «Stopp alle» et signal du forlytter på Preview-bussen fortsette å spille."
   },
   "common": {
     "default": "standard",
@@ -796,5 +808,10 @@
     "busesFromOverrides": "{count} signaler ble flyttet til busser opprettet fra deres enhetsoverstyringer.",
     "openMixer": "Åpne Mikser",
     "dismiss": "Avvis"
+  },
+  "group": {
+    "runTime": "Spilletid {time}",
+    "remaining": "{time} igjen i denne gruppen",
+    "containsLoop": "Inneholder et signal som går i løkke, så den har ingen fast slutt: tiden som vises er hvor lenge resten varer"
   }
 }

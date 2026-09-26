@@ -100,7 +100,8 @@
     "attach": "Ekle",
     "configureControls": "Kontrolleri yapılandır",
     "tabKeyboard": "Klavye",
-    "tabMidi": "MIDI"
+    "tabMidi": "MIDI",
+    "groupSlot": "Bir çalma listesi grubu: tüm grubu bu slottan çalar"
   },
   "properties": {
     "title": "Özellikler",
@@ -165,7 +166,15 @@
     "ltcRequiresOutput": "Zaman kodu çıkışını etkinleştirmek için Ayarlar › Ses bölümünde bir LTC çıkışı seçin.",
     "startNextEnable": "İşaretçide sonrakini başlat",
     "startNextTime": "Sonrakini başlatma",
-    "startNextFadeOut": "İşaretçide kıs"
+    "startNextFadeOut": "İşaretçide kıs",
+    "volumeDbInput": "dB cinsinden bir seviye yazın, ör. -6.5 (sessizlik için -inf)",
+    "manualStopFade": "Durdur Düğmesi Solması",
+    "manualStopFadeHint": "«Durdur»a bastığınızda bu cue'nun ne kadar sürede solacağı. 0 anında durdurur.",
+    "loopCrossfade": "Döngü Çapraz Solması",
+    "loopCrossfadeHint": "Döngünün sonunu bu kadar saniye boyunca başlangıcıyla harmanlar, böylece solarak kendi içine geri döner. 0 harmanlamadan döngüye sokar.",
+    "loopCrossfadeNeedsLoop": "Döngü çapraz solması kullanmak için bu cue'nun bitiş davranışını «Döngü» olarak ayarlayın.",
+    "advanceDelay": "Sonrakinden Önce Bekle (saniye)",
+    "advanceDelayHint": "Bu cue bittikten sonra, bitiş davranışı sonraki cue'yu başlatmadan önce bu kadar bekler. Çapraz solma veya «Sonrakini başlat» ayarlıyken yok sayılır."
   },
   "playback": {
     "panic": "Tüm Sinyalleri Durdur",
@@ -443,7 +452,8 @@
     "conflictMessage": "Bu MIDI kontrolü zaten \"{action}\" için atanmış. Yeniden ata?",
     "playNext": "Sonrakini oynat",
     "volumeMultiplier": "Ses çarpanı",
-    "volumeMultiplierHint": "Her MIDI adımında değişen dB. Yavaş hareket eden tekerlekler için artırın."
+    "volumeMultiplierHint": "Her MIDI adımında değişen dB. Yavaş hareket eden tekerlekler için artırın.",
+    "nextIn": "Sonraki: {seconds} sn"
   },
   "status": {
     "playing": "Çalıyor",
@@ -509,7 +519,9 @@
     "sectionServer": "Sunucu",
     "sectionServerHelp": "Bu uygulamanın hangi sunucuyla konuştuğu ve — yöneticiler için — o sunucunun ne yaptığı.",
     "sectionUsers": "Hesaplar",
-    "sectionUsersHelp": "Bu sunucuyu kimin kullanabileceği ve neyi değiştirmesine izin verildiği."
+    "sectionUsersHelp": "Bu sunucuyu kimin kullanabileceği ve neyi değiştirmesine izin verildiği.",
+    "stopAllStopsPreview": "«Tümünü Durdur» ön izlemeyi de durdurur",
+    "stopAllStopsPreviewHelp": "Kapalıyken «Tümünü Durdur», Preview bus'ında ön dinlediğiniz cue'yu çalmaya devam ettirir."
   },
   "common": {
     "default": "varsayılan",
@@ -796,5 +808,10 @@
     "busesFromOverrides": "{count} cue, cihaz geçersiz kılmalarından oluşturulan bus'lara taşındı.",
     "openMixer": "Mikseri Aç",
     "dismiss": "Kapat"
+  },
+  "group": {
+    "runTime": "Çalma süresi {time}",
+    "remaining": "Bu grupta {time} kaldı",
+    "containsLoop": "Döngüye giren bir cue içerir, bu yüzden sabit bir sonu yok: gösterilen süre geri kalanın ne kadar sürdüğüdür"
   }
 }

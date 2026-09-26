@@ -100,7 +100,8 @@
     "attach": "Ataşează",
     "configureControls": "Configurare controale",
     "tabKeyboard": "Tastatură",
-    "tabMidi": "MIDI"
+    "tabMidi": "MIDI",
+    "groupSlot": "Un grup din lista de redare: redă întregul grup din acest slot"
   },
   "properties": {
     "title": "Proprietati",
@@ -165,7 +166,15 @@
     "ltcRequiresOutput": "Alege o ieșire LTC în Setări › Audio pentru a activa ieșirea timecode.",
     "startNextEnable": "Pornește următorul la marcaj",
     "startNextTime": "Pornește următorul la",
-    "startNextFadeOut": "Estompare la marcaj"
+    "startNextFadeOut": "Estompare la marcaj",
+    "volumeDbInput": "Scrie un nivel în dB, de ex. -6.5 (sau -inf pentru liniște)",
+    "manualStopFade": "Fade la butonul Stop",
+    "manualStopFadeHint": "Cât durează fade-out-ul acestui cue când apeși Stop. 0 îl oprește instantaneu.",
+    "loopCrossfade": "Cross-fade la buclă",
+    "loopCrossfadeHint": "Îmbină finalul buclei cu începutul ei pe durata acestor secunde, astfel încât revine în ea însăși cu fade. 0 repetă fără îmbinare.",
+    "loopCrossfadeNeedsLoop": "Setează comportamentul la final al acestui cue pe „Buclă” pentru a folosi cross-fade la buclă.",
+    "advanceDelay": "Așteptare înainte de următorul (secunde)",
+    "advanceDelayHint": "După ce acest cue se termină, așteaptă atât înainte ca comportamentul la final să pornească următorul cue. Ignorat cât timp e setat un cross-fade sau „Pornește următorul”."
   },
   "playback": {
     "panic": "Oprește Toate Cues",
@@ -443,7 +452,8 @@
     "conflictMessage": "Acest control MIDI este deja atribuit la \"{action}\". Reatribuiți?",
     "playNext": "Redare următorul",
     "volumeMultiplier": "Multiplicator volum",
-    "volumeMultiplierHint": "dB modificați per pas MIDI. Măriți pentru rotițe care se mișcă lent."
+    "volumeMultiplierHint": "dB modificați per pas MIDI. Măriți pentru rotițe care se mișcă lent.",
+    "nextIn": "Următorul în {seconds} s"
   },
   "status": {
     "playing": "Se redă",
@@ -509,7 +519,9 @@
     "sectionServer": "Server",
     "sectionServerHelp": "Cu ce server vorbește această aplicație și — pentru administratori — ce face acel server.",
     "sectionUsers": "Conturi",
-    "sectionUsersHelp": "Cine poate folosi acest server și ce are voie să schimbe."
+    "sectionUsersHelp": "Cine poate folosi acest server și ce are voie să schimbe.",
+    "stopAllStopsPreview": "„Oprește tot” oprește și previzualizarea",
+    "stopAllStopsPreviewHelp": "Când e dezactivat, „Oprește tot” lasă să ruleze un cue pe care îl preasculți pe bus-ul Preview."
   },
   "common": {
     "default": "implicit",
@@ -796,5 +808,10 @@
     "busesFromOverrides": "{count} cues au fost mutate pe buses create din suprascrierile lor de dispozitiv.",
     "openMixer": "Deschide Mixerul",
     "dismiss": "Ignoră"
+  },
+  "group": {
+    "runTime": "Durată {time}",
+    "remaining": "Mai sunt {time} în acest grup",
+    "containsLoop": "Conține un cue în buclă, deci nu are un final fix: timpul afișat este cât durează restul"
   }
 }
