@@ -181,6 +181,14 @@ export function biquadHighShelf(
   );
 }
 
+/** Full cut at the centre, unity either side (mirrors biquad_notch). */
+export function biquadNotch(freqHz: number, sampleRate: number, q: number): BiquadCoeffs {
+  const w0 = (2.0 * PI * clampFreq(freqHz, sampleRate)) / sampleRate;
+  const cosw = Math.cos(w0);
+  const alpha = Math.sin(w0) / (2.0 * clampQ(q));
+  return normalise(1.0, -2.0 * cosw, 1.0, 1.0 + alpha, -2.0 * cosw, 1.0 - alpha);
+}
+
 /**
  * Magnitude response at one frequency, for drawing the EQ curve. Evaluates
  * |H(e^jw)| directly from the coefficients, matching the C++ side's approach

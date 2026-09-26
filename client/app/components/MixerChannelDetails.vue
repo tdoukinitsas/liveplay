@@ -462,7 +462,7 @@ function openMenuFromButton() {
    rack row instead would hand the leftover height to six empty slots. */
 .det__work {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.05fr) minmax(220px, 0.75fr);
+  grid-template-columns: minmax(300px, 1.4fr) minmax(300px, 1fr) minmax(240px, 0.8fr);
   grid-template-rows: minmax(0, 1fr) auto;
   gap: var(--spacing-sm);
   flex: 1;

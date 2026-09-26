@@ -86,6 +86,10 @@ export function useMixerMeter(mixerId: () => MixerChannelId | null | undefined,
   // Correlation between the strip's lanes: +1 mono-compatible, 0 wide,
   // negative means a mono sum will cancel part of it. Mono strips read +1.
   const correlation = ref(1);
+  // Peak level into and out of the dynamics since the last frame (dBFS),
+  // for the transfer-curve meter. -120 when silent or on an older server.
+  const dynIn       = ref(-120);
+  const dynOut      = ref(-120);
 
   const silence = () => {
     peak.value = SILENT.peak_db; rms.value = SILENT.rms_db;
@@ -93,6 +97,7 @@ export function useMixerMeter(mixerId: () => MixerChannelId | null | undefined,
     truePeak.value = SILENT.true_peak_db; truePeakMax.value = SILENT.true_peak_max_db;
     kwMs.value = 0; kwMsS.value = 0;
     gateGr.value = 0; compGr.value = 0; correlation.value = 1;
+    dynIn.value = -120; dynOut.value = -120;
   };
 
   const unsubscribe = server.onMeters((m) => {
@@ -119,11 +124,13 @@ export function useMixerMeter(mixerId: () => MixerChannelId | null | undefined,
     gateGr.value      = (frame as any)?.gate_gr_db ?? 0;
     compGr.value      = (frame as any)?.comp_gr_db ?? 0;
     correlation.value = (frame as any)?.correlation ?? 1;
+    dynIn.value       = (frame as any)?.dyn_in_db ?? -120;
+    dynOut.value      = (frame as any)?.dyn_out_db ?? -120;
   });
   onScopeDispose(() => unsubscribe());
 
   return { peak, rms, peakMax, truePeak, truePeakMax, kwMs, kwMsS,
-           gateGr, compGr, correlation };
+           gateGr, compGr, correlation, dynIn, dynOut };
 }
 
 // ---------------------------------------------------------------------

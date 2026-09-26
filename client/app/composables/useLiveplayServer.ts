@@ -153,6 +153,24 @@ function createClient() {
     return () => metersSubscribers.delete(cb);
   }
 
+  // Spectrum analyser (the channel view's EQ graph). One bus per window: the
+  // server sends {type:'analyser', busId, fLo, fHi, pre[], post[]} frames for
+  // it at the meter rate, to this connection only. Re-sent on every connect,
+  // because a subscription is per connection and a reconnect is a new one.
+  type AnalyserFrame = { busId: string; fLo: number; fHi: number; pre: number[]; post: number[] };
+  type AnalyserSubscriber = (f: AnalyserFrame) => void;
+  const analyserSubscribers = new Set<AnalyserSubscriber>();
+  let analyserBusId: string | null = null;
+  function onAnalyser(cb: AnalyserSubscriber): () => void {
+    analyserSubscribers.add(cb);
+    return () => analyserSubscribers.delete(cb);
+  }
+  function setAnalyser(busId: string | null) {
+    if (busId === analyserBusId) return;
+    analyserBusId = busId;
+    wsSend({ type: 'set_analyser', busId });
+  }
+
   // Subscribers for cue transport-state transitions emitted by the server.
   // Payload: { cue_id, transport (0=Stopped,1=Playing,2=FadingIn,3=FadingOut), playhead_seconds }
   type CueStatePayload = { cue_id: string; transport: number; playhead_seconds: number };
@@ -335,6 +353,7 @@ function createClient() {
       // machine — the URL might look remote (LAN IP) but route to loopback,
       // and /api/whoami is the only authoritative answer.
       void refreshIsLocalServer();
+      if (analyserBusId) wsSend({ type: 'set_analyser', busId: analyserBusId });
       if (!hasEverConnected) {
         hasEverConnected = true;
         void Promise.allSettled([fetchCues(), fetchMixerChannels(), fetchDevices(), fetchBuses()]);
@@ -378,6 +397,10 @@ function createClient() {
         case 'meters': {
           meters.value = payload as MetersBroadcast;
           for (const cb of metersSubscribers) cb(payload as MetersBroadcast);
+          break;
+        }
+        case 'analyser': {
+          for (const cb of analyserSubscribers) cb(payload as AnalyserFrame);
           break;
         }
         case 'playback_snapshot': {
@@ -1594,6 +1617,8 @@ function createClient() {
     forceReconnect,
     destroy,
     onMeters,
+    onAnalyser,
+    setAnalyser,
     onCueState,
     onDocPatch,
     onPlaybackSnapshot,

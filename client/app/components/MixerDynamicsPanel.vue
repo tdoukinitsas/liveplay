@@ -9,7 +9,7 @@
     show two halves of one answer. The GR meters are not shared, because how
     much each one is pulling is exactly what you need to tell them apart.
   -->
-  <section class="dyn det__panel" :class="{ 'dyn--bypassed': !dynIn }">
+  <section ref="sectionRef" class="dyn det__panel" :class="{ 'dyn--bypassed': !dynIn }">
     <h4 class="det__h">
       {{ t('mixer.tabDynamics') }}
       <button
@@ -22,12 +22,26 @@
     </h4>
 
     <div class="dyn__body">
+      <div class="dyn__inner">
+      <div class="dyn__viz">
       <!-- Transfer curve: input level across, output level down. Unity is the
            diagonal; the gate pulls the bottom-left down and the compressor
            flattens the top-right. Flat-unity until there is something to
            plot. -->
       <div class="dyn__graph">
         <svg viewBox="0 0 120 120" preserveAspectRatio="none" class="dyn__svg">
+          <defs>
+            <!-- The level meter's colours, left to right along the input axis:
+                 the same zones every other meter in the app uses. -->
+            <linearGradient :id="gradId" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="120" y2="0">
+              <stop v-for="s in gradientStops" :key="s.offset" :offset="s.offset" :stop-color="s.color" />
+            </linearGradient>
+          </defs>
+          <!-- The live input level, as the area under the curve up to where the
+               signal is now: its width is how loud the input is, its top edge is
+               what comes out. You see the signal meet the threshold, which is
+               what a threshold is set against. -->
+          <polygon v-if="levelPoints" class="dyn__level" :points="levelPoints" :fill="`url(#${gradId})`" />
           <line v-for="g in [30, 60, 90]" :key="'v' + g" class="dyn__grid" :x1="g" :x2="g" y1="0" y2="120" />
           <line v-for="g in [30, 60, 90]" :key="'h' + g" class="dyn__grid" x1="0" x2="120" :y1="g" :y2="g" />
           <!-- Unity, as a dashed guide: bottom-left is quiet in and quiet out,
@@ -41,6 +55,7 @@
                knobs, so the effect of a ratio, a range or a knee is visible
                while it is being set. -->
           <polyline class="dyn__curve" :points="curvePoints" />
+          <circle v-if="levelPoints" class="dyn__dot" :cx="xFor(shownIn)" :cy="yFor(outputFor(shownIn))" r="2.2" />
           <!-- Where each processor starts working. -->
           <line
             v-if="gateActive"
@@ -85,6 +100,7 @@
           </span>
         </div>
       </div>
+      </div>
 
       <div class="dyn__controls">
         <div class="dyn__group" :class="{ 'dyn__group--out': !gateOn }">
@@ -108,7 +124,7 @@
               v-for="p in gateParams" :key="p.field"
               :value="gateValues[p.field]" :min="p.min" :max="p.max" :origin="p.origin"
               :taper="p.taper" :decimals="p.decimals" :unit="p.unit" :label="t(p.key)"
-              :size="28" :disabled="!bus"
+              :size="knobSize" :disabled="!bus"
               @input="(v: number) => onGate(p.field, v)"
             />
           </div>
@@ -130,18 +146,20 @@
               v-for="p in compParams" :key="p.field"
               :value="compValues[p.field]" :min="p.min" :max="p.max" :origin="p.origin"
               :taper="p.taper" :decimals="p.decimals" :unit="p.unit" :label="t(p.key)"
-              :size="28" :disabled="!bus"
+              :size="knobSize" :disabled="!bus"
               @input="(v: number) => onComp(p.field, v)"
             />
           </div>
         </div>
+      </div>
       </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch, type Ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue';
+import { useOutputTarget } from '~/composables/useOutputTarget';
 import KnobField from './KnobField.vue';
 import type { Bus, BusComp, BusDsp, BusGate } from '~/types/project';
 import { useMixerMeter } from '~/composables/useLiveMeters';
@@ -394,6 +412,57 @@ const grPct = (gr: number, full: number) =>
   Math.min(100, (Math.abs(Math.min(0, gr)) / full) * 100);
 const gateGrPct = computed(() => grPct(meter.gateGr.value, GATE_FULL_DB));
 const compGrPct = computed(() => grPct(meter.compGr.value, COMP_FULL_DB));
+
+// ---- Input level on the curve --------------------------------------------
+// The server's peak-since-last-frame, with meter ballistics: rises at once,
+// falls at 20 dB/s, so it reads like the meters beside it instead of flicker.
+const FALL_DB_PER_S = 20;
+const shownIn = ref(-120);
+let lastAt = 0;
+watch(() => meter.dynIn.value, (db) => {
+  const now = performance.now();
+  const dt = lastAt ? (now - lastAt) / 1000 : 0;
+  lastAt = now;
+  shownIn.value = Math.max(db, shownIn.value - FALL_DB_PER_S * dt);
+});
+const levelPoints = computed(() => {
+  const inDb = shownIn.value;
+  if (inDb <= GRAPH_MIN_DB) return '';
+  const pts: string[] = [`0,120`];
+  const steps = 60;
+  for (let i = 0; i <= steps; i++) {
+    const db = GRAPH_MIN_DB + (i / steps) * (inDb - GRAPH_MIN_DB);
+    pts.push(`${xFor(db).toFixed(2)},${yFor(outputFor(db)).toFixed(2)}`);
+  }
+  pts.push(`${xFor(inDb).toFixed(2)},120`);
+  return pts.join(' ');
+});
+// The app's meter colours, sampled every 3 dB along the input axis.
+const { colorForLevel } = useOutputTarget();
+const gradId = `dynlvl-${Math.random().toString(36).slice(2, 9)}`;
+const gradientStops = computed(() => {
+  const out: { offset: string; color: string }[] = [];
+  for (let db = GRAPH_MIN_DB; db <= GRAPH_MAX_DB; db += 3) {
+    out.push({ offset: `${((db - GRAPH_MIN_DB) / (GRAPH_MAX_DB - GRAPH_MIN_DB) * 100).toFixed(1)}%`, color: colorForLevel(db) });
+  }
+  return out;
+});
+
+// Knobs grow with the panel, so a big screen gets bigger targets rather than
+// more empty space.
+const sectionRef = ref<HTMLElement | null>(null);
+const knobSize = ref(28);
+let knobRo: ResizeObserver | null = null;
+onMounted(() => {
+  if (!sectionRef.value) return;
+  knobRo = new ResizeObserver(([entry]) => {
+    const w = entry?.contentRect.width ?? 0;
+    const h = entry?.contentRect.height ?? 0;
+    knobSize.value = w > 760 && h > 420 ? 40 : w > 560 && h > 320 ? 34 : 28;
+  });
+  knobRo.observe(sectionRef.value);
+});
+onBeforeUnmount(() => knobRo?.disconnect());
 </script>
 
 <style scoped>
@@ -401,10 +470,15 @@ const compGrPct = computed(() => grPct(meter.compGr.value, COMP_FULL_DB));
 .dyn > .det__h { flex: 0 0 auto; }
 
 .dyn__body {
-  display: flex;
-  gap: var(--spacing-sm);
   flex: 1 1 auto;
   min-height: 0;
+  /* The graph and the GR meters size themselves against this box, so on a
+     large screen the curve grows instead of sitting in a sea of space. */
+  container-type: size;
+  /* container-type: size takes the box's height from its parent, not its
+     content — so in the stacked layouts, where rows size to content, it needs
+     a floor or it collapses. */
+  min-height: 220px;
 }
 
 /* Square, so the transfer curve keeps its 1:1 reading — a stretched dynamics
@@ -415,12 +489,21 @@ const compGrPct = computed(() => grPct(meter.compGr.value, COMP_FULL_DB));
    the only thing giving it height — and stretching is also what pinned it to
    the top of a panel taller than it. A definite height lets it centre against
    the controls beside it, which is where the eye expects the curve to sit. */
+.dyn__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md, 12px);
+  width: 100%;
+  height: 100%;
+}
+.dyn__viz { display: flex; align-items: center; gap: var(--spacing-sm); flex: 0 0 auto; }
 .dyn__graph {
   flex: 0 0 auto;
   align-self: center;
-  aspect-ratio: 1;
-  height: clamp(120px, 22vh, 170px);
-  max-height: 100%;
+  /* Square (a stretched transfer curve lies about the slope), as big as the
+     box allows: the full height, or half the width, whichever is smaller. */
+  width: max(110px, min(50cqw, 100cqh));
+  height: max(110px, min(50cqw, 100cqh));
   background: var(--color-background);
   border-radius: var(--border-radius-sm);
   overflow: hidden;
@@ -441,6 +524,13 @@ const compGrPct = computed(() => grPct(meter.compGr.value, COMP_FULL_DB));
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
   stroke-linejoin: round;
+}
+.dyn__level { opacity: 0.55; }
+.dyn__dot {
+  fill: var(--color-text-primary);
+  stroke: var(--color-background);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 .dyn__thresh {
   stroke: var(--color-text-secondary);
@@ -492,8 +582,7 @@ const compGrPct = computed(() => grPct(meter.compGr.value, COMP_FULL_DB));
   gap: var(--spacing-xs);
   flex: 0 0 auto;
   align-self: center;
-  height: clamp(100px, 15vh, 170px);
-  max-height: 100%;
+  height: max(100px, min(50cqw, 100cqh));
   min-height: 0;
 }
 .dyn__gr {
@@ -572,5 +661,17 @@ const compGrPct = computed(() => grPct(meter.compGr.value, COMP_FULL_DB));
   grid-template-columns: repeat(3, auto);
   justify-content: start;
   gap: 2px 10px;
+}
+
+/* Last, so it overrides the base sizes above (same specificity). */
+/* A panel taller than it is wide (the usual shape of this column on a big
+   screen) stacks the curve over the controls and gives it the full width,
+   instead of centring a small square in a tall, empty box. */
+@container (orientation: portrait) {
+  .dyn__inner { flex-direction: column; justify-content: center; }
+  .dyn__graph { width: max(110px, min(100cqw - 40px, 58cqh)); height: max(110px, min(100cqw - 40px, 58cqh)); }
+  .dyn__grmeters { height: max(100px, min(100cqw - 40px, 58cqh)); }
+  .dyn__controls { flex: 0 0 auto; width: 100%; }
+  .dyn__row { grid-template-columns: repeat(6, auto); justify-content: space-between; }
 }
 </style>

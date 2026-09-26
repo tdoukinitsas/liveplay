@@ -1,185 +1,179 @@
 <template>
   <!--
-    Four-band EQ.
+    Parametric EQ, graph first.
 
-    The grid runs bands across and parameters down: one column per band, rows
-    for frequency, gain and Q. That way a column is a band — the thing you
-    actually reach for — and comparing the same parameter across bands is a
-    glance along a row. The transpose (parameters across, bands down) reads
-    worse for both.
+    The graph is the instrument: every band is a numbered handle on the curve.
+    Drag sideways for frequency, up and down for gain, wheel for Q (or a
+    shelf's slope). Double-click empty graph to add a band there; Alt-click,
+    right-click or Delete removes one. Up to 32 bands — the engine runs only
+    the ones doing something, so there is no cost to having room.
 
-    Every cell is a knob and a typeable box, because an EQ set by ear and an EQ
-    set from a spec sheet are both real jobs.
+    Below it, one row of knobs and typeable boxes for the SELECTED band — an EQ
+    set by ear and one set from a spec sheet are both real jobs — plus its
+    type. Only one band's controls at a time, so the panel never has to scroll
+    however many bands there are.
 
-    The curve is live and includes the channel's high- and low-pass, which live
-    on the fader column but shape this same signal — an EQ display that ignored
-    them would be drawing a lie.
-
-    The handles on the curve are draggable: sideways sets frequency, up and
-    down sets gain, and the wheel over a handle sets Q (or a shelf's slope).
-    That is the same set of parameters the knobs below reach, addressed the
-    other way round — by pointing at the shape you want rather than by naming
-    the numbers that make it.
+    Behind the curve, when the analyser is on, the bus's live spectrum: after
+    the EQ (filled) and optionally before it (line), so a cut can be seen
+    doing its work. The curve includes the strip's HPF/LPF, which live on the
+    fader column but shape this same signal.
   -->
   <section class="eq det__panel" :class="{ 'eq--bypassed': !eqIn }">
     <h4 class="det__h">
       {{ t('mixer.tabEq') }}
-      <!-- Lights when the section is OUT, as a bypass button does on a desk:
-           the lamp means "this is not in circuit", which is the state worth
-           spotting from across a room. -->
-      <button
-        class="det__byp"
-        :class="{ 'det__byp--on': !eqIn }"
-        :disabled="!bus"
-        :title="t('mixer.bypassHint')"
-        @click="toggleEq"
-      >{{ t('mixer.bypass') }}</button>
+      <span class="eq__hdr-tools">
+        <!-- Analyser: off / after the EQ / before and after. -->
+        <span class="eq__seg" role="group" :aria-label="t('mixer.eq.analyser')">
+          <button
+            v-for="m in ANALYSER_MODES" :key="m"
+            class="eq__seg-btn"
+            :class="{ 'eq__seg-btn--on': analyserMode === m }"
+            :title="t('mixer.eq.analyserHint')"
+            @click="setAnalyserMode(m)"
+          >{{ t(`mixer.eq.analyser_${m}`) }}</button>
+        </span>
+        <button
+          class="det__byp"
+          :class="{ 'det__byp--on': !eqIn }"
+          :disabled="!bus"
+          :title="t('mixer.bypassHint')"
+          @click="toggleEq"
+        >{{ t('mixer.bypass') }}</button>
+      </span>
     </h4>
 
-    <!-- Response curve. Flat, with a handle per band at its frequency —
-         the shape the real curve will take, so the panel does not change
-         layout when it starts working. This is the part that grows into
-         spare height; the band controls below it are never squeezed. -->
-    <div ref="graphRef" class="eq__graph">
+    <div
+      ref="graphRef"
+      class="eq__graph"
+      tabindex="0"
+      :title="t('mixer.eq.graphHint')"
+      @dblclick="onGraphDblClick"
+      @keydown.delete.prevent="removeSelected"
+      @keydown.backspace.prevent="removeSelected"
+    >
+      <canvas ref="specRef" class="eq__spec"></canvas>
       <svg viewBox="0 0 400 120" preserveAspectRatio="none" class="eq__svg">
         <line
-          v-for="g in gridDb" :key="'g' + g"
+          v-for="f in GRID_HZ" :key="'v' + f"
+          class="eq__grid" :x1="xFor(f)" :x2="xFor(f)" y1="0" y2="120"
+        />
+        <line
+          v-for="g in GRID_DB" :key="'g' + g"
           class="eq__grid" x1="0" x2="400" :y1="yFor(g)" :y2="yFor(g)"
         />
         <line class="eq__zero" x1="0" x2="400" :y1="yFor(0)" :y2="yFor(0)" />
-        <!-- The grid lines are stretched with the box too; pinning their width
-             the same way stops them thickening as the panel grows. -->
+        <!-- The selected band's own contribution, faintly, so you can see
+             which part of the total curve it is responsible for. -->
+        <polyline v-if="selectedCurve" class="eq__band-curve" :points="selectedCurve"
+                  :style="{ stroke: bandColor(selected!) }" />
         <polyline class="eq__curve" :points="curvePoints" />
       </svg>
-      <!-- A handle sits at its band's frequency and rides its gain, so the
-           marker is on the part of the curve it made — and dragging it is how
-           you set both at once.
-
-           Pointer events rather than the mouse events Knob uses: they cover
-           pen and touch for free, and the window's resize handles already work
-           this way. Knob is not worth converting on its own account, but there
-           is no reason to add a second mouse-only control. -->
       <span
-        v-for="(b, i) in bands" :key="'h' + i"
-        class="eq__handle eq__handle--band"
-        :class="{ 'eq__handle--out': b.gain === 0, 'eq__handle--held': dragBand === i }"
+        v-for="f in LABEL_HZ" :key="'l' + f"
+        class="eq__axis eq__axis--x" :style="{ left: xPctFor(f) + '%' }"
+      >{{ f >= 1000 ? `${f / 1000}k` : f }}</span>
+      <span
+        v-for="g in LABEL_DB" :key="'d' + g"
+        class="eq__axis eq__axis--y" :style="{ top: (yFor(g) / 120 * 100) + '%' }"
+      >{{ g > 0 ? `+${g}` : g }}</span>
+
+      <span
+        v-for="i in liveIndexes" :key="'h' + i"
+        class="eq__handle"
+        :class="{
+          'eq__handle--sel': selected === i,
+          'eq__handle--idle': !bandDoesSomething(bands[i]!),
+          'eq__handle--held': dragBand === i,
+        }"
         :style="{
-          left: xPctFor(b.freq) + '%',
-          top: (yFor(Math.max(-GRAPH_DB, Math.min(GRAPH_DB, b.gain))) / 120 * 100) + '%',
-          background: handleColor(i),
+          left: xPctFor(bands[i]!.freq) + '%',
+          top: (yFor(handleDb(bands[i]!)) / 120 * 100) + '%',
+          background: bandColor(i),
         }"
         :title="handleTitle(i)"
         @pointerdown.stop="onHandleDown(i, $event)"
         @wheel.prevent.stop="onHandleWheel(i, $event)"
-        @dblclick.stop="onHandleReset(i)"
-      >{{ EQ_BAND_NAMES[i] }}</span>
-      <!-- The filters get markers too, so a corner in the curve can be traced
-           to the knob that put it there rather than looking like an EQ band
-           nobody moved. Only shown when the filter is in circuit. -->
-      <span
-        v-if="hpfIn"
-        class="eq__handle eq__handle--filter"
-        :style="{ left: xPctFor(bus!.dsp.hpf.freq) + '%' }"
-      >{{ t('mixer.hpf') }}</span>
-      <span
-        v-if="lpfIn"
-        class="eq__handle eq__handle--filter"
-        :style="{ left: xPctFor(bus!.dsp.lpf.freq) + '%' }"
-      >{{ t('mixer.lpf') }}</span>
+        @contextmenu.prevent.stop="removeBand(i)"
+        @dblclick.stop
+      >{{ i + 1 }}</span>
+      <span v-if="hpfIn" class="eq__marker" :style="{ left: xPctFor(bus!.dsp.hpf.freq) + '%' }">{{ t('mixer.hpf') }}</span>
+      <span v-if="lpfIn" class="eq__marker" :style="{ left: xPctFor(bus!.dsp.lpf.freq) + '%' }">{{ t('mixer.lpf') }}</span>
+      <p v-if="!liveIndexes.length" class="eq__empty">{{ t('mixer.eq.empty') }}</p>
     </div>
 
-    <div class="eq__grid-controls">
-      <!-- Header row: the bands. A band's name lights while it is in circuit,
-           which for a bell means its gain is off zero — the same rule the
-           engine uses to decide whether to run the section at all. -->
-      <span class="eq__rowlabel"></span>
-      <span
-        v-for="(b, i) in bands" :key="'n' + i"
-        class="eq__bandname"
-        :class="{ 'eq__bandname--in': b.gain !== 0 }"
-      >{{ EQ_BAND_NAMES[i] }}</span>
-
-      <!-- Frequency is logarithmic: what the ear hears is the ratio between
-           two frequencies, so an octave should take the same arc wherever it
-           sits. On a linear taper 1 kHz would land at 5% of travel. -->
-      <span class="eq__rowlabel">{{ t('mixer.freq') }}</span>
-      <KnobField
-        v-for="(b, i) in bands" :key="'f' + i"
-        :value="b.freq" :min="20" :max="20000" :origin="bandDefaults[i]!.freq"
-        taper="log"
-        :decimals="0" unit="Hz" :size="30" :show-label="false"
-        :disabled="!bus"
-        @input="(v: number) => onBand(i, 'freq', v)"
-      />
-
-      <span class="eq__rowlabel">{{ t('mixer.gain') }}</span>
-      <KnobField
-        v-for="(b, i) in bands" :key="'g' + i"
-        :value="b.gain" :min="-18" :max="18" :origin="0"
-        :decimals="1" unit="dB" :size="30" :show-label="false"
-        :disabled="!bus"
-        @input="(v: number) => onBand(i, 'gain', v)"
-      />
-
-      <!-- Q is logarithmic too: 0.5 to 1 is the same change of shape as 4 to
-           8, and a linear taper would waste most of the dial above Q 3 where
-           the differences stop being audible.
-
-           On a shelved band this knob drives SLOPE instead, which is a
-           different quantity on a different range — so the row label changes
-           with it, and the two values are stored separately. Switching a band
-           to a shelf and back leaves the bell exactly as it was. -->
-      <span class="eq__rowlabel">{{ anyShelf ? t('mixer.qOrSlope') : t('mixer.q') }}</span>
-      <KnobField
-        v-for="(b, i) in bands" :key="'q' + i"
-        :value="b.shelf ? b.slope : b.q"
-        :min="0.1" :max="b.shelf ? 2 : 10"
-        :origin="b.shelf ? 1 : bandDefaults[i]!.q"
-        taper="log"
-        :decimals="2" :size="30" :show-label="false"
-        :disabled="!bus"
-        :title="b.shelf ? t('mixer.slopeHint') : t('mixer.qHint')"
-        @input="(v: number) => onBand(i, b.shelf ? 'slope' : 'q', v)"
-      />
-
-      <!-- Bell or shelf, on the outer bands only. The middle two get a blank
-           cell rather than a disabled button: there is no decision to make
-           there, and an inert control invites the question of why it will not
-           press. -->
-      <span class="eq__rowlabel">{{ t('mixer.shape') }}</span>
-      <template v-for="(b, i) in bands" :key="'s' + i">
+    <!-- The selected band. -->
+    <div class="eq__bandbar">
+      <div class="eq__chips">
         <button
-          v-if="canShelve(i)"
-          class="eq__shape"
-          :class="{ 'eq__shape--shelf': b.shelf }"
-          :disabled="!bus"
-          :title="t('mixer.shapeHint')"
-          @click="onShape(i, !b.shelf)"
-        >{{ b.shelf ? (i === 0 ? t('mixer.lowShelf') : t('mixer.highShelf')) : t('mixer.bell') }}</button>
-        <span v-else class="eq__shapeblank">{{ t('mixer.bell') }}</span>
-      </template>
+          v-for="i in liveIndexes" :key="'c' + i"
+          class="eq__chip"
+          :class="{ 'eq__chip--sel': selected === i, 'eq__chip--idle': !bandDoesSomething(bands[i]!) }"
+          :style="{ '--chip': bandColor(i) }"
+          :title="handleTitle(i)"
+          @click="selected = i"
+        >{{ i + 1 }}</button>
+        <button
+          class="eq__chip eq__chip--add"
+          :disabled="!bus || liveIndexes.length >= EQ_MAX_BANDS"
+          :title="t('mixer.eq.addHint')"
+          @click="addBand()"
+        >+</button>
+      </div>
+
+      <div v-if="selected !== null && bands[selected]" class="eq__controls">
+        <label class="eq__type">
+          <span class="eq__lbl">{{ t('mixer.eq.type') }}</span>
+          <select :value="typeOf(bands[selected]!, selected)" :disabled="!bus"
+                  @change="onType(($event.target as HTMLSelectElement).value as BusEqType)">
+            <option v-for="ty in EQ_TYPES" :key="ty" :value="ty">{{ t(`mixer.eq.type_${ty}`) }}</option>
+          </select>
+        </label>
+        <KnobField
+          :value="bands[selected]!.freq" :min="20" :max="20000" :origin="1000"
+          taper="log" :decimals="0" unit="Hz" :size="32"
+          :label="t('mixer.freq')" :disabled="!bus"
+          @input="(v: number) => pushBand(selected!, { freq: v })"
+        />
+        <KnobField
+          :value="bands[selected]!.gain" :min="-18" :max="18" :origin="0"
+          :decimals="1" unit="dB" :size="32"
+          :label="t('mixer.gain')" :disabled="!bus || !usesGain(bands[selected]!, selected)"
+          @input="(v: number) => pushBand(selected!, { gain: v })"
+        />
+        <KnobField
+          v-if="isShelf(bands[selected]!, selected)"
+          :value="bands[selected]!.slope" :min="0.1" :max="2" :origin="1"
+          taper="log" :decimals="2" :size="32"
+          :label="t('mixer.slope')" :title="t('mixer.slopeHint')" :disabled="!bus"
+          @input="(v: number) => pushBand(selected!, { slope: v })"
+        />
+        <KnobField
+          v-else
+          :value="bands[selected]!.q" :min="0.1" :max="10" :origin="1"
+          taper="log" :decimals="2" :size="32"
+          :label="t('mixer.q')" :title="t('mixer.qHint')" :disabled="!bus"
+          @input="(v: number) => pushBand(selected!, { q: v })"
+        />
+        <button class="eq__remove" :disabled="!bus" :title="t('mixer.eq.removeHint')" @click="removeBand(selected!)">
+          <span class="material-symbols-rounded">delete</span>
+        </button>
+      </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import KnobField from './KnobField.vue';
-import { METER_COLORS } from '~/composables/useOutputTarget';
-import type { Bus, BusDsp, BusEqBand } from '~/types/project';
-import {
-  EQ_BAND_NAMES, EQ_SHELVABLE_BANDS, HPF_PARKED_HZ, LPF_PARKED_HZ,
-} from '~/types/project';
+import type { Bus, BusDsp, BusEqBand, BusEqType } from '~/types/project';
+import { EQ_MAX_BANDS, EQ_TYPES, HPF_PARKED_HZ, LPF_PARKED_HZ } from '~/types/project';
 import type { BiquadCoeffs } from '~/utils/filterResponse';
 import {
-  biquadHighpass, biquadHighShelf, biquadLowpass, biquadLowShelf, biquadPeaking,
+  biquadHighpass, biquadHighShelf, biquadLowpass, biquadLowShelf, biquadNotch, biquadPeaking,
   combinedMagnitudeDb,
 } from '~/utils/filterResponse';
 
-// The bus whose curve this is. Optional so the panel still renders (flat)
-// before the first bus fetch lands.
 const props = defineProps<{ bus?: Bus | null }>();
-
 const emit = defineEmits<{
   (e: 'patch', id: string, patch: Partial<Bus>): void;
   /** In-flight band values, so the curve tracks the knob. See the fader. */
@@ -189,216 +183,245 @@ const emit = defineEmits<{
 const { t } = useLocalization();
 const server = useLiveplayServer();
 
-// The conventional four-band starting layout. Doubles as each knob's origin,
-// so a double-click puts a band back where it started rather than at zero
-// Hertz — and it must match the server's defaults or a fresh bus would appear
-// to have been moved already.
-const bandDefaults: BusEqBand[] = [
-  { freq: 100,   gain: 0, q: 0.7, shelf: false, slope: 1 },
-  { freq: 500,   gain: 0, q: 1.0, shelf: false, slope: 1 },
-  { freq: 2500,  gain: 0, q: 1.0, shelf: false, slope: 1 },
-  { freq: 10000, gain: 0, q: 0.7, shelf: false, slope: 1 },
+// ---- Bands -----------------------------------------------------------------
+// Slots, not a list: a band keeps its index for life and a deleted one is
+// `on: false`, so deleting band 2 never turns band 3's filter into band 2's
+// (the engine would ramp between them — an audible morph). See server README.
+const DEFAULT_BANDS: BusEqBand[] = [
+  { freq: 100,   gain: 0, q: 0.7, shelf: false, slope: 1, type: 'bell', on: true },
+  { freq: 500,   gain: 0, q: 1.0, shelf: false, slope: 1, type: 'bell', on: true },
+  { freq: 2500,  gain: 0, q: 1.0, shelf: false, slope: 1, type: 'bell', on: true },
+  { freq: 10000, gain: 0, q: 0.7, shelf: false, slope: 1, type: 'bell', on: true },
 ];
 
-const canShelve = (i: number) => (EQ_SHELVABLE_BANDS as readonly number[]).includes(i);
-const anyShelf  = computed(() => bands.value.some(b => b.shelf));
-
-// The bands as displayed: the bus's, held locally while a knob is moving.
-//
-// Same live-then-persist shape as the filters and the fader. The strip gets
-// new coefficients on every drag event over a call that writes no document,
-// and the bus is written once the gesture settles. Binding straight to the bus
-// would PATCH and refetch per event, and the knob would fight the round trip.
+// Live-then-persist, like every other control on the strip: coefficients go
+// to the engine on every drag event over a call that writes no document, and
+// the bus is written once the gesture settles (250 ms).
 const localBands = ref<BusEqBand[] | null>(null);
 let   bandHold   = false;
 let   bandSettle: ReturnType<typeof setTimeout> | null = null;
 
-const bands = computed<BusEqBand[]>(() =>
-  localBands.value
-  ?? props.bus?.dsp?.eq
-  ?? bandDefaults);
-
-watch(() => props.bus?.dsp?.eq, () => { if (!bandHold) localBands.value = null; },
-      { deep: true });
-watch(() => props.bus?.id, () => { localBands.value = null; });
-
+const bands = computed<BusEqBand[]>(() => localBands.value ?? props.bus?.dsp?.eq ?? DEFAULT_BANDS);
+watch(() => props.bus?.dsp?.eq, () => { if (!bandHold) localBands.value = null; }, { deep: true });
+watch(() => props.bus?.id, () => { localBands.value = null; selected.value = null; });
 onBeforeUnmount(() => { if (bandSettle) clearTimeout(bandSettle); });
 
-// Whether the section is in circuit. Held locally through the round trip for
-// the same reason the bands are, so the button responds to the press.
-const localEqIn = ref<boolean | null>(null);
-const eqIn = computed(() => localEqIn.value ?? props.bus?.dsp?.eqEnabled ?? true);
-watch(() => props.bus?.dsp?.eqEnabled, () => { localEqIn.value = null; });
-watch(() => props.bus?.id, () => { localEqIn.value = null; });
+const liveIndexes = computed(() =>
+  bands.value.map((b, i) => (b.on === false ? -1 : i)).filter(i => i >= 0));
 
-function toggleEq() {
-  if (!props.bus) return;
-  const next = !eqIn.value;
-  localEqIn.value = next;
-  emit('dsp-live', { eqEnabled: next });
-  void server.setBusDsp(props.bus.id, { eqEnabled: next }).catch(() => {});
-  // Bypass is a discrete press rather than a gesture, so it persists straight
-  // away instead of waiting for a settle timer that will never be re-armed.
-  emit('patch', props.bus.id, { dsp: { eqEnabled: next } } as Partial<Bus>);
+// A pre-2.5 server has no `type`; its outer-band `shelf` means a shelf.
+function typeOf(b: BusEqBand, i: number): BusEqType {
+  if (b.type) return b.type;
+  if (b.shelf) return i === 0 ? 'lowShelf' : 'highShelf';
+  return 'bell';
+}
+const isShelf  = (b: BusEqBand, i: number) => { const ty = typeOf(b, i); return ty === 'lowShelf' || ty === 'highShelf'; };
+const usesGain = (b: BusEqBand, i: number) => { const ty = typeOf(b, i); return ty === 'bell' || ty === 'lowShelf' || ty === 'highShelf'; };
+// Same rule as the engine: a flat bell or shelf is an identity; a cut or a
+// notch always works.
+const bandDoesSomething = (b: BusEqBand) => {
+  const i = bands.value.indexOf(b);
+  return usesGain(b, i) ? b.gain !== 0 : true;
+};
+
+const selected = ref<number | null>(null);
+watch(liveIndexes, (idx) => {
+  if (selected.value === null || !idx.includes(selected.value)) selected.value = idx[0] ?? null;
+}, { immediate: true });
+
+// Always send `shelf` consistent with `type`, so the server never falls back
+// on the legacy positional reading.
+function normalised(b: BusEqBand, i: number): BusEqBand {
+  const type = typeOf(b, i);
+  return { ...b, type, shelf: type === 'lowShelf' || type === 'highShelf', on: b.on !== false };
 }
 
-// One band, several fields at once. Dragging a handle moves frequency and gain
-// together, so a single-key setter would have sent two calls per pointer move
-// and let the two settle timers race each other.
-function pushBand(index: number, patch: Partial<BusEqBand>, persistNow = false) {
+function sendBands(next: BusEqBand[], persistNow = false) {
   if (!props.bus) return;
-  const next = bands.value.map((b, i) => (i === index ? { ...b, ...patch } : { ...b }));
   localBands.value = next;
   bandHold = true;
-  // The curve is told first, so it tracks the knob rather than the round trip.
   emit('dsp-live', { eq: next });
   void server.setBusDsp(props.bus.id, { eq: next }).catch(() => {});
   if (bandSettle) clearTimeout(bandSettle);
   if (persistNow) {
-    // A switch is a discrete press, not a gesture: nothing later will re-arm a
-    // settle timer, so a settled write would never arrive.
     bandHold = false;
     emit('patch', props.bus.id, { dsp: { eq: next } } as Partial<Bus>);
     return;
   }
   bandSettle = setTimeout(() => {
     bandSettle = null;
-    bandHold   = false;
+    bandHold = false;
     emit('patch', props.bus!.id, { dsp: { eq: localBands.value ?? next } } as Partial<Bus>);
   }, 250);
 }
 
-function onBand(index: number, key: keyof BusEqBand, value: number) {
-  pushBand(index, { [key]: value } as Partial<BusEqBand>);
+function pushBand(index: number, patch: Partial<BusEqBand>, persistNow = false) {
+  const next = bands.value.map((b, i) => normalised(i === index ? { ...b, ...patch } : b, i));
+  sendBands(next, persistNow);
 }
 
-function onShape(index: number, shelf: boolean) {
-  if (!canShelve(index)) return;
-  pushBand(index, { shelf }, true);
+function onType(type: BusEqType) {
+  if (selected.value === null) return;
+  pushBand(selected.value, { type, shelf: type === 'lowShelf' || type === 'highShelf' }, true);
 }
 
-const GRAPH_DB = 18;               // curve spans +/- this
-const gridDb = [12, 6, -6, -12];
+// Reuses the first deleted slot, else appends — slots are identity.
+function addBand(freq = 1000, gain = 0) {
+  if (!props.bus || liveIndexes.value.length >= EQ_MAX_BANDS) return;
+  const fresh: BusEqBand = { freq: Math.round(freq), gain: Math.round(gain * 10) / 10, q: 1,
+                             shelf: false, slope: 1, type: 'bell', on: true };
+  const next = bands.value.map((b, i) => normalised(b, i));
+  const free = next.findIndex(b => b.on === false);
+  const at = free >= 0 ? free : next.length;
+  if (free >= 0) next[free] = fresh; else next.push(fresh);
+  selected.value = at;
+  sendBands(next, true);
+}
 
-// Frequency axis is logarithmic, as an EQ display always is: an octave takes
-// the same width everywhere, so 100-200 Hz reads as wide as 1-2 kHz.
+function removeBand(index: number) {
+  if (!props.bus) return;
+  const next = bands.value.map((b, i) => normalised(b, i));
+  if (!next[index]) return;
+  // Flatten as well as switch off, so the curve drops it at once even before
+  // the server trims or the round trip lands.
+  next[index] = { ...next[index]!, on: false, gain: 0 };
+  sendBands(next, true);
+}
+function removeSelected() { if (selected.value !== null) removeBand(selected.value); }
+
+// ---- Section bypass ----------------------------------------------------------
+const localEqIn = ref<boolean | null>(null);
+const eqIn = computed(() => localEqIn.value ?? props.bus?.dsp?.eqEnabled ?? true);
+watch(() => props.bus?.dsp?.eqEnabled, () => { localEqIn.value = null; });
+watch(() => props.bus?.id, () => { localEqIn.value = null; });
+function toggleEq() {
+  if (!props.bus) return;
+  const next = !eqIn.value;
+  localEqIn.value = next;
+  emit('dsp-live', { eqEnabled: next });
+  void server.setBusDsp(props.bus.id, { eqEnabled: next }).catch(() => {});
+  emit('patch', props.bus.id, { dsp: { eqEnabled: next } } as Partial<Bus>);
+}
+
+// ---- Geometry ------------------------------------------------------------------
+const GRAPH_DB = 18;
+const GRID_DB  = [12, 6, -6, -12];
+const LABEL_DB = [12, 6, 0, -6, -12];
+const GRID_HZ  = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
+const LABEL_HZ = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
 const LO = Math.log10(20);
 const HI = Math.log10(20000);
 const xPctFor = (hz: number) => ((Math.log10(hz) - LO) / (HI - LO)) * 100;
+const xFor = (hz: number) => xPctFor(hz) * 4;
 const yFor = (db: number) => 60 - (db / GRAPH_DB) * 60;
+const clampDb = (db: number) => Math.max(-GRAPH_DB, Math.min(GRAPH_DB, db));
+// Cuts and notches have no gain: their handle rides the 0 dB line.
+const handleDb = (b: BusEqBand) => {
+  const i = bands.value.indexOf(b);
+  return usesGain(b, i) ? clampDb(b.gain) : 0;
+};
 
-// The curve, including the channel's high- and low-pass.
-//
-// The filters live on the fader column, not in this panel, but they shape the
-// same signal and an EQ display that ignored them would be drawing a lie: turn
-// a 400 Hz high-pass in and the bottom of the band goes with it, whatever the
-// LF band says. Every section that touches the audio belongs in the picture.
-//
-// The maths mirrors the C++ engine (see utils/filterResponse.ts). It is a
-// second model of the same filters, so it is display-only and the two have to
-// be kept in step.
+// Eight colours, cycled: enough to tell neighbours apart.
+const BAND_COLORS = ['#3b82f6', '#22c55e', '#eab308', '#ef4444', '#a855f7', '#06b6d4', '#f97316', '#ec4899'];
+const bandColor = (i: number) => BAND_COLORS[i % BAND_COLORS.length]!;
+
+// ---- The curve -----------------------------------------------------------------
+// Mirrors the engine (utils/filterResponse.ts). Display-only.
 const SAMPLE_RATE = 48000;
-
+function bandSection(b: BusEqBand, i: number): BiquadCoeffs | null {
+  if (b.on === false || !bandDoesSomething(b)) return null;
+  switch (typeOf(b, i)) {
+    case 'lowShelf':  return biquadLowShelf(b.freq, SAMPLE_RATE, b.gain, b.slope);
+    case 'highShelf': return biquadHighShelf(b.freq, SAMPLE_RATE, b.gain, b.slope);
+    case 'lowCut':    return biquadHighpass(b.freq, SAMPLE_RATE, b.q);
+    case 'highCut':   return biquadLowpass(b.freq, SAMPLE_RATE, b.q);
+    case 'notch':     return biquadNotch(b.freq, SAMPLE_RATE, b.q);
+    default:          return biquadPeaking(b.freq, SAMPLE_RATE, b.gain, b.q);
+  }
+}
 const sections = computed<BiquadCoeffs[]>(() => {
   const out: BiquadCoeffs[] = [];
   const hpf = props.bus?.dsp?.hpf;
   const lpf = props.bus?.dsp?.lpf;
-  // Parked at the end of its travel is out of circuit — the same rule the
-  // server applies when it decides whether to run the section at all.
-  if (hpf && hpf.freq > HPF_PARKED_HZ) {
-    out.push(biquadHighpass(hpf.freq, SAMPLE_RATE, hpf.q || 0.7071));
-  }
-  if (lpf && lpf.freq < LPF_PARKED_HZ) {
-    out.push(biquadLowpass(lpf.freq, SAMPLE_RATE, lpf.q || 0.7071));
-  }
-  // A bypassed section contributes nothing to the curve. The filters still do:
-  // they are separate controls on the fader column and this button does not
-  // reach them. Without this the curve would keep drawing a shape the audio
-  // no longer has, which is worse than not drawing it at all.
-  if (eqIn.value) {
-    bands.value.forEach((b, i) => {
-      // 0 dB is an identity for a shelf as much as for a bell, so a flat band
-      // contributes nothing to draw — the same rule the engine uses to decide
-      // whether to run the section at all.
-      if (b.gain === 0) return;
-      if (b.shelf && canShelve(i)) {
-        out.push(i === 0
-          ? biquadLowShelf(b.freq, SAMPLE_RATE, b.gain, b.slope)
-          : biquadHighShelf(b.freq, SAMPLE_RATE, b.gain, b.slope));
-      } else {
-        out.push(biquadPeaking(b.freq, SAMPLE_RATE, b.gain, b.q));
-      }
-    });
-  }
+  if (hpf && hpf.freq > HPF_PARKED_HZ) out.push(biquadHighpass(hpf.freq, SAMPLE_RATE, hpf.q || 0.7071));
+  if (lpf && lpf.freq < LPF_PARKED_HZ) out.push(biquadLowpass(lpf.freq, SAMPLE_RATE, lpf.q || 0.7071));
+  if (eqIn.value) bands.value.forEach((b, i) => { const s = bandSection(b, i); if (s) out.push(s); });
   return out;
 });
-
-// Sampled along the same log axis the handles sit on, so a corner lands under
-// its knob rather than a few pixels off it.
-const CURVE_POINTS = 81;
-const curvePoints = computed(() => {
-  const secs = sections.value;
-  return Array.from({ length: CURVE_POINTS }, (_, i) => {
-    const x  = (i / (CURVE_POINTS - 1)) * 400;
-    const hz = Math.pow(10, LO + (i / (CURVE_POINTS - 1)) * (HI - LO));
+const CURVE_POINTS = 161;
+function polyline(secs: BiquadCoeffs[]) {
+  return Array.from({ length: CURVE_POINTS }, (_, k) => {
+    const x  = (k / (CURVE_POINTS - 1)) * 400;
+    const hz = Math.pow(10, LO + (k / (CURVE_POINTS - 1)) * (HI - LO));
     const db = secs.length ? combinedMagnitudeDb(secs, hz, SAMPLE_RATE) : 0;
-    // Clamped to the drawn range: a 24 dB/octave skirt heads for -80 dB and
-    // would otherwise draw a vertical spike off the bottom of the box.
-    const clamped = Math.max(-GRAPH_DB, Math.min(GRAPH_DB, db));
-    return `${x.toFixed(1)},${yFor(clamped).toFixed(1)}`;
+    return `${x.toFixed(1)},${yFor(clampDb(db)).toFixed(1)}`;
   }).join(' ');
+}
+const curvePoints = computed(() => polyline(sections.value));
+const selectedCurve = computed(() => {
+  if (selected.value === null || !eqIn.value) return '';
+  const b = bands.value[selected.value];
+  const s = b ? bandSection(b, selected.value) : null;
+  return s ? polyline([s]) : '';
 });
 
-// ---- Dragging a handle ---------------------------------------------------
-// Sideways is frequency, up and down is gain, and the wheel is Q — the three
-// things a band has, reached by pointing at the shape instead of naming the
-// numbers. The knobs below stay: setting an EQ by ear and setting one from a
-// spec sheet are both real jobs, and this only serves the first.
-//
-// Movement is measured as a DELTA from where the handle was grabbed rather
-// than by putting the handle under the pointer. Both feel identical at normal
-// sensitivity, but only the delta form has anywhere to put shift-for-fine —
-// which matters most here, where a whole decade of frequency can be a
-// centimetre of travel.
-const FREQ_MIN = 20;
-const FREQ_MAX = 20000;
-const graphRef  = ref<HTMLElement | null>(null);
-const dragBand  = ref<number | null>(null);
+const hpfIn = computed(() => !!props.bus?.dsp?.hpf && props.bus.dsp.hpf.freq > HPF_PARKED_HZ);
+const lpfIn = computed(() => !!props.bus?.dsp?.lpf && props.bus.dsp.lpf.freq < LPF_PARKED_HZ);
+
+const handleTitle = (i: number) => {
+  const b = bands.value[i]!;
+  const ty = typeOf(b, i);
+  const width = isShelf(b, i) ? `${t('mixer.slope')} ${b.slope.toFixed(2)}` : `Q ${b.q.toFixed(2)}`;
+  const gain = usesGain(b, i) ? `, ${b.gain > 0 ? '+' : ''}${b.gain.toFixed(1)} dB` : '';
+  return `${i + 1} · ${t(`mixer.eq.type_${ty}`)} — ${Math.round(b.freq)} Hz${gain}, ${width}\n${t('mixer.eq.handleHint')}`;
+};
+
+// ---- Pointer ---------------------------------------------------------------------
+const graphRef = ref<HTMLElement | null>(null);
+const dragBand = ref<number | null>(null);
+
+function pointToFreqGain(e: MouseEvent) {
+  const box = graphRef.value!.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - box.left) / box.width));
+  const yPct = Math.max(0, Math.min(1, (e.clientY - box.top) / box.height));
+  return { freq: Math.pow(10, LO + pct * (HI - LO)), gain: clampDb(GRAPH_DB - yPct * GRAPH_DB * 2) };
+}
+
+function onGraphDblClick(e: MouseEvent) {
+  if (!props.bus || !graphRef.value) return;
+  const { freq, gain } = pointToFreqGain(e);
+  addBand(freq, gain);
+}
 
 function onHandleDown(index: number, e: PointerEvent) {
+  selected.value = index;
+  graphRef.value?.focus({ preventScroll: true });
   if (!props.bus || e.button !== 0) return;
+  if (e.altKey) { removeBand(index); return; }
   const box = graphRef.value?.getBoundingClientRect();
   if (!box || box.width <= 0 || box.height <= 0) return;
-
   const start = bands.value[index]!;
-  const startX = e.clientX;
-  const startY = e.clientY;
-  // Where the band sits now, in the graph's own normalised coordinates.
-  const startFreqPct = xPctFor(start.freq) / 100;
-  const startGainDb  = Math.max(-GRAPH_DB, Math.min(GRAPH_DB, start.gain));
-
+  const startX = e.clientX, startY = e.clientY;
+  const startPct = xPctFor(start.freq) / 100;
+  const startDb = clampDb(start.gain);
+  const gainful = usesGain(start, index);
   dragBand.value = index;
   const el = e.currentTarget as HTMLElement;
-  try { el.setPointerCapture(e.pointerId); } catch { /* capture is best-effort */ }
-
+  try { el.setPointerCapture(e.pointerId); } catch { /* best effort */ }
   const move = (ev: PointerEvent) => {
+    // Delta from the grab point, so shift can make it fine.
     const fine = ev.shiftKey ? 0.25 : 1;
-    const dxPct = ((ev.clientX - startX) / box.width) * fine;
-    const dyDb  = -((ev.clientY - startY) / box.height) * (GRAPH_DB * 2) * fine;
-
-    const pct  = Math.max(0, Math.min(1, startFreqPct + dxPct));
-    const freq = Math.pow(10, LO + pct * (HI - LO));
-    const gain = Math.max(-GRAPH_DB, Math.min(GRAPH_DB, startGainDb + dyDb));
-
-    pushBand(index, {
-      // Whole hertz low down where a fraction is meaningless, and the same
-      // resolution the frequency knob reports so the two agree.
-      freq: Math.round(Math.max(FREQ_MIN, Math.min(FREQ_MAX, freq))),
-      gain: Math.round(gain * 10) / 10,
-    });
+    const pct  = Math.max(0, Math.min(1, startPct + ((ev.clientX - startX) / box.width) * fine));
+    const freq = Math.round(Math.max(20, Math.min(20000, Math.pow(10, LO + pct * (HI - LO)))));
+    const patch: Partial<BusEqBand> = { freq };
+    if (gainful) {
+      const gain = clampDb(startDb - ((ev.clientY - startY) / box.height) * GRAPH_DB * 2 * fine);
+      patch.gain = Math.round(gain * 10) / 10;
+    }
+    pushBand(index, patch);
   };
   const up = (ev: PointerEvent) => {
-    try { el.releasePointerCapture(ev.pointerId); } catch { /* already gone */ }
+    try { el.releasePointerCapture(ev.pointerId); } catch { /* gone */ }
     el.removeEventListener('pointermove', move);
     el.removeEventListener('pointerup', up);
     el.removeEventListener('pointercancel', up);
@@ -409,203 +432,302 @@ function onHandleDown(index: number, e: PointerEvent) {
   el.addEventListener('pointercancel', up);
 }
 
-// The wheel sets the band's width — Q on a bell, slope on a shelf. Multiplied
-// rather than added, because both are ratios: one notch should be the same
-// proportional change at 0.3 as at 8.
-//
-// No pinch gesture. Nothing else in this app handles multi-touch — Knob and
-// CanvasFader are mouse-event only, and the one touch-aware thing in the mixer
-// just makes controls bigger — so a pinch here would be the first and only
-// gesture of its kind, which is a worse outcome than not having it.
-const WHEEL_STEP = 1.15;
-
+// Wheel = Q (or slope on a shelf), multiplicative: both are ratios.
 function onHandleWheel(index: number, e: WheelEvent) {
   if (!props.bus) return;
+  selected.value = index;
   const b = bands.value[index]!;
-  const factor = e.deltaY < 0 ? WHEEL_STEP : 1 / WHEEL_STEP;
-  if (b.shelf) {
-    pushBand(index, { slope: clampRound(b.slope * factor, 0.1, 2) });
-  } else {
-    pushBand(index, { q: clampRound(b.q * factor, 0.1, 10) });
+  const f = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+  const clampRound = (v: number, lo: number, hi: number) => Math.round(Math.max(lo, Math.min(hi, v)) * 100) / 100;
+  if (isShelf(b, index)) pushBand(index, { slope: clampRound(b.slope * f, 0.1, 2) });
+  else pushBand(index, { q: clampRound(b.q * f, 0.1, 10) });
+}
+
+// ---- Analyser --------------------------------------------------------------------
+// Off, after the EQ, or before and after. Remembered per viewer (it is how
+// this operator likes to look, not a property of the show).
+type AnalyserMode = 'off' | 'post' | 'both';
+const ANALYSER_MODES: AnalyserMode[] = ['off', 'post', 'both'];
+const MODE_KEY = 'liveplay.eqAnalyser';
+const analyserMode = ref<AnalyserMode>('post');
+try { const m = localStorage.getItem(MODE_KEY); if (m === 'off' || m === 'post' || m === 'both') analyserMode.value = m; } catch { /* no storage */ }
+function setAnalyserMode(m: AnalyserMode) {
+  analyserMode.value = m;
+  try { localStorage.setItem(MODE_KEY, m); } catch { /* no storage */ }
+}
+
+const specRef = ref<HTMLCanvasElement | null>(null);
+// Displayed spectra with peak-fall ballistics, so the picture reads as a
+// shape rather than a flicker: rises at once, falls at FALL_DB_PER_S.
+const FALL_DB_PER_S = 36;
+const SPEC_FLOOR = -90;
+let dispPre: number[] = [];
+let dispPost: number[] = [];
+let lastFrameAt = 0;
+let lastDataAt = 0;
+let raf = 0;
+
+function subscribe() {
+  const want = analyserMode.value !== 'off' && props.bus ? props.bus.id : null;
+  server.setAnalyser(want);
+  if (!want) { dispPre = []; dispPost = []; drawSpectrum(); }
+}
+watch([analyserMode, () => props.bus?.id], subscribe);
+
+let offFrames: (() => void) | null = null;
+let ro: ResizeObserver | null = null;
+onMounted(() => {
+  subscribe();
+  offFrames = server.onAnalyser((f) => {
+    if (!props.bus || f.busId !== props.bus.id) return;
+    const now = performance.now();
+    const dt = lastFrameAt ? (now - lastFrameAt) / 1000 : 0;
+    lastFrameAt = now;
+    lastDataAt = now;
+    const fall = FALL_DB_PER_S * dt;
+    const step = (disp: number[], fresh: number[]) =>
+      fresh.map((v, k) => Math.max(v, (disp[k] ?? SPEC_FLOOR) - fall));
+    dispPre = step(dispPre, f.pre);
+    dispPost = step(dispPost, f.post);
+    if (!raf) raf = requestAnimationFrame(() => { raf = 0; drawSpectrum(); });
+  });
+  if (specRef.value) {
+    ro = new ResizeObserver(() => drawSpectrum());
+    ro.observe(specRef.value);
   }
+});
+onBeforeUnmount(() => {
+  offFrames?.();
+  ro?.disconnect();
+  if (raf) cancelAnimationFrame(raf);
+  server.setAnalyser(null);
+});
+
+function cssVar(el: Element, name: string, fallback: string) {
+  const v = getComputedStyle(el).getPropertyValue(name).trim();
+  return v || fallback;
 }
 
-const clampRound = (v: number, lo: number, hi: number) =>
-  Math.round(Math.max(lo, Math.min(hi, v)) * 100) / 100;
-
-// Double-click puts the band back where it started, the same gesture the knobs
-// use for the same thing. It resets shape too — a band you have reset should
-// be the band you started with, not a shelf sitting at its default frequency.
-function onHandleReset(index: number) {
-  const d = bandDefaults[index]!;
-  pushBand(index, { ...d }, true);
+function drawSpectrum() {
+  const c = specRef.value;
+  if (!c) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight;
+  if (!w || !h) return;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+    c.width = Math.round(w * dpr);
+    c.height = Math.round(h * dpr);
+  }
+  const ctx = c.getContext('2d');
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  if (analyserMode.value === 'off' || !dispPost.length) return;
+  // Stale data (playback stopped, nothing arriving) fades out instead of
+  // freezing on the last frame.
+  if (performance.now() - lastDataAt > 1500) return;
+  const n = dispPost.length;
+  const yOf = (db: number) => h * (1 - (Math.max(SPEC_FLOOR, Math.min(0, db)) - SPEC_FLOOR) / -SPEC_FLOOR);
+  const xOf = (k: number) => ((k + 0.5) / n) * w;
+  const accent = cssVar(c, '--color-accent', '#e11d48');
+  // After the EQ: a filled shape.
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  for (let k = 0; k < n; k++) ctx.lineTo(xOf(k), yOf(dispPost[k]!));
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = accent;
+  ctx.fill();
+  ctx.globalAlpha = 0.55;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // Before the EQ: a line, so the difference between the two is the EQ.
+  if (analyserMode.value === 'both' && dispPre.length === n) {
+    ctx.beginPath();
+    for (let k = 0; k < n; k++) {
+      const x = xOf(k), y = yOf(dispPre[k]!);
+      if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = cssVar(c, '--color-text-secondary', '#9ca3af');
+    ctx.setLineDash([3, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.globalAlpha = 1;
 }
-
-const handleTitle = (i: number) => {
-  const b = bands.value[i]!;
-  const width = b.shelf
-    ? `${t('mixer.slope')} ${b.slope.toFixed(2)}`
-    : `Q ${b.q.toFixed(2)}`;
-  return `${EQ_BAND_NAMES[i]} — ${Math.round(b.freq)} Hz, ` +
-         `${b.gain > 0 ? '+' : ''}${b.gain.toFixed(1)} dB, ${width}\n` +
-         t('mixer.eqHandleHint');
-};
-
-const hpfIn = computed(() =>
-  !!props.bus?.dsp?.hpf && props.bus.dsp.hpf.freq > HPF_PARKED_HZ);
-const lpfIn = computed(() =>
-  !!props.bus?.dsp?.lpf && props.bus.dsp.lpf.freq < LPF_PARKED_HZ);
-
-const handleColor = (i: number) =>
-  [METER_COLORS.blue, METER_COLORS.green, METER_COLORS.yellow, METER_COLORS.red][i]
-  ?? METER_COLORS.green;
+// Keep fading while frames have stopped arriving.
+let fadeTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
+  if (dispPost.length && performance.now() - lastDataAt > 1500) { dispPre = []; dispPost = []; drawSpectrum(); }
+}, 500);
+onBeforeUnmount(() => { if (fadeTimer) clearInterval(fadeTimer); fadeTimer = null; });
 </script>
 
 <style scoped>
-/* The controls never clip: they keep their natural height and the graph
-   absorbs whatever is left. If the panel still cannot fit, the work area
-   scrolls rather than the knobs disappearing off the bottom — an EQ you can
-   see but not adjust is worse than one you have to scroll to. */
 .eq { min-height: 0; }
 .eq > *:not(.eq__graph) { flex: 0 0 auto; }
+.eq--bypassed .eq__graph,
+.eq--bypassed .eq__bandbar { opacity: 0.45; }
 
-/* A band out of circuit still shows its handle, so you can find it to bring it
-   in, but it recedes rather than competing with the bands doing something. */
-.eq__handle--out { opacity: 0.4; }
-.eq__bandname--in { color: var(--color-accent); }
-
-/* Bypassed: the controls dim so the state is unmistakable at a glance, but
-   they stay readable and adjustable. Setting an EQ while listening past it and
-   then switching it in is a normal way to work. */
-.eq--bypassed .eq__grid-controls,
-.eq--bypassed .eq__graph { opacity: 0.45; }
-/* Filter markers read as fixtures rather than as a fifth and sixth band. */
-.eq__handle--filter {
-  background: var(--color-text-disabled);
-  opacity: 0.85;
+.eq__hdr-tools { display: inline-flex; align-items: center; gap: 6px; }
+.eq__seg { display: inline-flex; border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); overflow: hidden; }
+.eq__seg-btn {
+  padding: 1px 6px;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+  background: var(--color-background);
+  border: none;
+  cursor: pointer;
 }
+.eq__seg-btn + .eq__seg-btn { border-left: 1px solid var(--color-border); }
+.eq__seg-btn--on { color: #fff; background: var(--color-accent); }
 
-/* EQ owns a full-height column of its own now, so the graph goes back to
-   taking whatever the band controls below it do not. It was pinned to a
-   clamped height when EQ shared a row with dynamics — growing it there stole
-   from the panels underneath, which is no longer true. A curve display is one
-   of the few things that genuinely keeps improving with height, so there is no
-   ceiling; the floor is what stops it collapsing on a short window. */
+/* The graph takes every pixel the band bar does not: a curve and a spectrum
+   genuinely keep improving with size. */
 .eq__graph {
   position: relative;
   flex: 1 1 auto;
-  min-height: 140px;
+  min-height: 160px;
   background: var(--color-background);
   border-radius: var(--border-radius-sm);
   overflow: hidden;
+  outline: none;
+  cursor: crosshair;
 }
-.eq__svg { display: block; width: 100%; height: 100%; }
-.eq__grid  {
-  stroke: var(--color-border);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-  opacity: 0.5;
-}
-.eq__zero  {
-  stroke: var(--color-text-disabled);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-/* non-scaling-stroke matters here. The viewBox is stretched to the panel with
-   preserveAspectRatio="none", so an ordinary stroke is scaled with it and
-   renders far heavier than the number suggests. This pins the line to a real
-   device width, which is also what keeps it even as the panel resizes. */
+.eq__graph:focus-visible { box-shadow: 0 0 0 1px var(--color-accent); }
+.eq__spec, .eq__svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.eq__spec { pointer-events: none; }
+.eq__svg { pointer-events: none; }
+.eq__grid { stroke: var(--color-border); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: 0.45; }
+.eq__zero { stroke: var(--color-text-disabled); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .eq__curve {
   fill: none;
-  stroke: var(--color-accent);
-  stroke-width: 1.25;
+  stroke: var(--color-text-primary);
+  stroke-width: 1.75;
   vector-effect: non-scaling-stroke;
   stroke-linejoin: round;
 }
+.eq__band-curve {
+  fill: none;
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 4 3;
+  opacity: 0.8;
+}
+.eq__axis {
+  position: absolute;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--color-text-disabled);
+  pointer-events: none;
+  user-select: none;
+}
+.eq__axis--x { bottom: 2px; transform: translateX(-50%); }
+.eq__axis--y { left: 4px; transform: translateY(-50%); }
 
 .eq__handle {
   position: absolute;
-  top: 50%;
   transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: #000;
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  opacity: 0.9;
+  z-index: 2;
+}
+.eq__handle:hover { opacity: 1; }
+.eq__handle--idle { opacity: 0.45; }
+.eq__handle--sel { border-color: #fff; opacity: 1; z-index: 3; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5); }
+.eq__handle--held { cursor: grabbing; }
+.eq__marker {
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
   font-size: 8px;
   font-family: var(--font-mono);
-  line-height: 1;
-  padding: 2px 3px;
+  padding: 1px 3px;
   border-radius: 2px;
+  background: var(--color-text-disabled);
   color: #000;
-  opacity: 0.85;
   pointer-events: none;
 }
-/* Band handles are the draggable ones; the filter markers stay inert, because
-   the knobs that set them live on the fader column and dragging here would be
-   reaching into another component's controls. */
-.eq__handle--band {
-  pointer-events: auto;
-  cursor: grab;
-  /* Without this the browser claims the drag for panning on touch and pen, and
-     the handle only follows every other frame. */
-  touch-action: none;
-  /* A label-sized target is a hard thing to hit. The padding is invisible and
-     roughly doubles the grab area without moving the marker off its point. */
-  padding: 4px 5px;
-  user-select: none;
-}
-.eq__handle--band:hover { opacity: 1; }
-.eq__handle--held {
-  opacity: 1;
-  cursor: grabbing;
-  box-shadow: 0 0 0 2px var(--color-accent);
+.eq__empty {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  pointer-events: none;
 }
 
-/* Bands across, parameters down. auto-flow row so each declaration block above
-   fills one row left to right. */
-.eq__grid-controls {
-  display: grid;
-  grid-template-columns: auto repeat(4, 1fr);
-  align-items: center;
-  justify-items: center;
-  gap: 4px 2px;
+.eq__bandbar { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; }
+.eq__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.eq__chip {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: #000;
+  background: var(--chip, var(--color-surface));
+  border: 2px solid transparent;
+  cursor: pointer;
+  opacity: 0.8;
 }
-.eq__rowlabel {
-  justify-self: start;
+.eq__chip--idle { opacity: 0.4; }
+.eq__chip--sel { border-color: var(--color-text-primary); opacity: 1; }
+.eq__chip--add {
+  color: var(--color-text-secondary);
+  background: var(--color-background);
+  border: 1px dashed var(--color-border);
+  opacity: 1;
+}
+.eq__chip--add:disabled { opacity: 0.4; cursor: not-allowed; }
+.eq__controls { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.eq__type { display: flex; flex-direction: column; gap: 3px; }
+.eq__lbl {
   font-size: 9px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-text-secondary);
 }
-.eq__bandname {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--color-text-primary);
-}
-
-/* Bell / shelf. Sized like the row of knobs above it rather than like a button
-   in a dialog — it is one more per-band control, not an action. */
-.eq__shape {
-  min-width: 34px;
-  padding: 1px 4px;
-  font-size: 8px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-  color: var(--color-text-secondary);
+.eq__type select {
+  font-size: 11px;
+  padding: 3px 4px;
   background: var(--color-background);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+}
+.eq__remove {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  background: var(--color-background);
+  color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-sm);
   cursor: pointer;
 }
-.eq__shape:hover:not(:disabled) { color: var(--color-text-primary); }
-.eq__shape:disabled { opacity: 0.4; cursor: not-allowed; }
-.eq__shape--shelf {
-  color: #fff;
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-}
-/* The middle bands have no choice to make. Their cell says what they are and
-   stays quiet rather than offering a control that would not press. */
-.eq__shapeblank {
-  font-size: 8px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-  color: var(--color-text-disabled);
-}
+.eq__remove:hover:not(:disabled) { color: var(--color-danger); border-color: var(--color-danger); }
+.eq__remove .material-symbols-rounded { font-size: 16px; }
 </style>

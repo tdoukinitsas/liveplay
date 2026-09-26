@@ -854,6 +854,25 @@
       "inheritedDefault": "Plays here by default: nothing on the cue or its groups picks a bus",
       "groupSets": "This group sends its cues to this bus",
       "partial": "{n} of the {total} cues in this group feed this bus"
+    },
+    "eq": {
+      "analyser": "Spectrum analyser",
+      "analyserHint": "Show the bus's live spectrum behind the curve: after the EQ, or before and after (dashed line = before)",
+      "analyser_off": "OFF",
+      "analyser_post": "POST",
+      "analyser_both": "PRE+POST",
+      "graphHint": "Double-click to add a band. Drag a band to move it, scroll over it to change its width, Alt-click, right-click or Delete to remove it.",
+      "empty": "No EQ bands. Double-click to add one.",
+      "addHint": "Add a band",
+      "removeHint": "Remove this band",
+      "type": "Type",
+      "type_bell": "Bell",
+      "type_lowShelf": "Low shelf",
+      "type_highShelf": "High shelf",
+      "type_lowCut": "Low cut",
+      "type_highCut": "High cut",
+      "type_notch": "Notch",
+      "handleHint": "Drag to move · scroll for width · Alt-click or right-click to remove"
     }
   },
   "migration": {

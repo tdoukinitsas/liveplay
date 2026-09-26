@@ -194,16 +194,26 @@ export interface BusFilter {
  * One EQ band. All four are bells; a band at 0 dB gain is out of circuit,
  * because a peaking section at unity is an identity whatever its Q.
  */
+/** A band's shape (2.5+). Any band may be any type. */
+export type BusEqType = 'bell' | 'lowShelf' | 'highShelf' | 'lowCut' | 'highCut' | 'notch';
+export const EQ_TYPES: BusEqType[] = ['bell', 'lowShelf', 'highShelf', 'lowCut', 'highCut', 'notch'];
+/** Most bands a bus can have (the engine's capacity). */
+export const EQ_MAX_BANDS = 32;
+
 export interface BusEqBand {
   freq: number;
   gain: number;
   q: number;
   /**
-   * Switch this band from a bell to a shelf. Honoured only on the outer bands
-   * — LF shelves the bottom, HF the top; which end follows from the band's
-   * position and is not stored.
+   * Pre-2.5 shelf flag, still written by the server as `type` is a shelf.
+   * Send it consistent with `type`; on its own it keeps its old positional
+   * meaning (band 0 low shelf, band 3 high shelf).
    */
   shelf: boolean;
+  /** The band's shape. Absent on a pre-2.5 server: derive from `shelf`. */
+  type?: BusEqType;
+  /** false = deleted. The slot is kept so later bands never shift. */
+  on?: boolean;
   /**
    * A shelf's steepness, 0.1..2. Separate from `q` rather than sharing it,
    * because they are different quantities with barely overlapping ranges, and
