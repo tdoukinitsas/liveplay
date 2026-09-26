@@ -497,10 +497,17 @@ function openMenuFromButton() {
   padding: var(--spacing-sm);
   overflow: auto;
 }
-.det__eq      { grid-column: 1; grid-row: 1 / span 2; }
-.det__dyn     { grid-column: 2; grid-row: 1; }
-.det__plugins { grid-column: 2; grid-row: 2; }
-.det__io      { grid-column: 3; grid-row: 1 / span 2; }
+/* min-width:0 on every one of them is load-bearing, not tidiness. A grid item
+   defaults to `min-width: auto`, which means it will NOT shrink below its own
+   min-content width — it overflows its track instead, and an overflowing track
+   paints straight over the column beside it. That is exactly what put the
+   dynamics controls on top of "Feeding this bus". .det__work already had
+   min-width:0; the items inside it never did, and the container is not what
+   was overflowing. */
+.det__eq      { grid-column: 1; grid-row: 1 / span 2; min-width: 0; }
+.det__dyn     { grid-column: 2; grid-row: 1;          min-width: 0; }
+.det__plugins { grid-column: 2; grid-row: 2;          min-width: 0; }
+.det__io      { grid-column: 3; grid-row: 1 / span 2; min-width: 0; }
 
 /* Narrow: one column. Everything takes the height it needs and the work area
    scrolls, which is where the EQ graph gets its full height back rather than

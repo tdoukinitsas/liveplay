@@ -473,7 +473,19 @@ onBeforeUnmount(() => knobRo?.disconnect());
   width: 100%;
   height: 100%;
 }
-.dyn__viz { display: flex; align-items: center; gap: var(--spacing-sm); flex: 0 0 auto; }
+/* `flex: 0 1 auto` and min-width:0, not `0 0 auto`. The graph and GR meters are
+   sized from the container (50cqw / 100cqh), and at some widths that sum comes
+   out larger than the row has to give. Unshrinkable, the block simply took the
+   space and pushed the controls beside it out of the panel — which is the
+   overlap, seen from the other end. It may now give way; the graph's own
+   max(110px, …) floor stops it collapsing to nothing. */
+.dyn__viz {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 0 1 auto;
+  min-width: 0;
+}
 .dyn__graph {
   flex: 0 0 auto;
   align-self: center;
@@ -481,6 +493,10 @@ onBeforeUnmount(() => knobRo?.disconnect());
      box allows: the full height, or half the width, whichever is smaller. */
   width: max(110px, min(50cqw, 100cqh));
   height: max(110px, min(50cqw, 100cqh));
+  /* The width above is computed from the container, which does not know what
+     the GR meters beside it are taking. Capping at the space actually left
+     stops the pair adding up to more than the row has. */
+  max-width: 100%;
   background: var(--color-background);
   border-radius: var(--border-radius-sm);
   overflow: hidden;
@@ -632,10 +648,16 @@ onBeforeUnmount(() => knobRo?.disconnect());
    rather than reflowing into a ragged block as the panel resizes.
    Columns are sized to the knobs rather than to the panel: 1fr columns spread
    the six controls across whatever width was going, which left a group reading
-   as scattered dots instead of a block you can take in at once. */
+   as scattered dots instead of a block you can take in at once.
+
+   minmax(0, auto) rather than a bare auto: an `auto` track will not shrink
+   below its min-content, so when the row had less width than its three knobs
+   wanted it overflowed the panel rather than tightening up. The max stays
+   `auto`, so nothing about the sizing changes while there is room — this only
+   decides what happens when there is not. */
 .dyn__row {
   display: grid;
-  grid-template-columns: repeat(3, auto);
+  grid-template-columns: repeat(3, minmax(0, auto));
   justify-content: start;
   gap: 2px 10px;
 }
@@ -648,7 +670,9 @@ onBeforeUnmount(() => knobRo?.disconnect());
   .dyn__inner { flex-direction: column; justify-content: center; }
   .dyn__graph { width: max(110px, min(100cqw - 40px, 58cqh)); height: max(110px, min(100cqw - 40px, 58cqh)); }
   .dyn__grmeters { height: max(100px, min(100cqw - 40px, 58cqh)); }
-  .dyn__controls { flex: 0 0 auto; width: 100%; }
-  .dyn__row { grid-template-columns: repeat(6, auto); justify-content: space-between; }
+  .dyn__controls { flex: 0 0 auto; width: 100%; min-width: 0; }
+  /* Same minmax(0, …) reasoning as the three-across rule above, and it matters
+     more here: six tracks that cannot tighten overflow a good deal sooner. */
+  .dyn__row { grid-template-columns: repeat(6, minmax(0, auto)); justify-content: space-between; }
 }
 </style>
