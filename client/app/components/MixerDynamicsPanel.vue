@@ -448,14 +448,22 @@ onBeforeUnmount(() => knobRo?.disconnect());
 
 .dyn__body {
   flex: 1 1 auto;
-  min-height: 0;
   /* The graph and the GR meters size themselves against this box, so on a
      large screen the curve grows instead of sitting in a sea of space. */
   container-type: size;
   /* container-type: size takes the box's height from its parent, not its
      content — so in the stacked layouts, where rows size to content, it needs
-     a floor or it collapses. */
-  min-height: 220px;
+     a floor or it collapses.
+
+     300px, raised from 220px. 220 was below what the controls actually
+     occupy: two groups, each a heading over two rows of knob fields, is
+     ~266px at the smallest knob size and ~290px at the middle one. The box
+     was therefore routinely shorter than its own contents, and because the
+     height comes from the parent it had no way to grow — so the controls
+     spilled out of it instead. .det__work already scrolls, so an honest floor
+     here means the work area scrolls when the window is short, which is the
+     behaviour that was intended all along. */
+  min-height: 300px;
 }
 
 /* Square, so the transfer curve keeps its 1:1 reading — a stretched dynamics
@@ -466,9 +474,15 @@ onBeforeUnmount(() => knobRo?.disconnect());
    the only thing giving it height — and stretching is also what pinned it to
    the top of a panel taller than it. A definite height lets it centre against
    the controls beside it, which is where the eye expects the curve to sit. */
+/* `safe center`, not plain `center`. Centring content that is TALLER than its
+   box overflows it equally at both ends — and the end that overflows upwards
+   goes over the panel's own "DYNAMICS" heading, while the bottom goes over the
+   plugin rack below. That is the overlap seen in a short window. `safe` says
+   centre it while it fits and fall back to flex-start when it does not, so the
+   spill can only ever go one way, downward, into a work area that scrolls. */
 .dyn__inner {
   display: flex;
-  align-items: center;
+  align-items: safe center;
   gap: var(--spacing-md, 12px);
   width: 100%;
   height: 100%;
@@ -488,7 +502,9 @@ onBeforeUnmount(() => knobRo?.disconnect());
 }
 .dyn__graph {
   flex: 0 0 auto;
-  align-self: center;
+  /* safe: the 110px floor below can exceed a short row, and a centred item
+     that overflows does so at both ends. */
+  align-self: safe center;
   /* Square (a stretched transfer curve lies about the slope), as big as the
      box allows: the full height, or half the width, whichever is smaller. */
   width: max(110px, min(50cqw, 100cqh));
@@ -574,7 +590,9 @@ onBeforeUnmount(() => knobRo?.disconnect());
   flex-direction: column;
   gap: var(--spacing-xs);
   flex: 0 0 auto;
-  align-self: center;
+  /* safe: same as the graph beside it — the 100px floor can outgrow a short
+     row, and centring an overflow spills it upward as well as down. */
+  align-self: safe center;
   height: max(100px, min(50cqw, 100cqh));
   min-height: 0;
 }
@@ -626,7 +644,9 @@ onBeforeUnmount(() => knobRo?.disconnect());
 .dyn__controls {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* safe, as above: two groups taller than the column must stack downward
+     rather than be centred out through the top of the panel. */
+  justify-content: safe center;
   gap: 8px;
   flex: 1 1 auto;
   min-width: 0;
@@ -667,7 +687,10 @@ onBeforeUnmount(() => knobRo?.disconnect());
    screen) stacks the curve over the controls and gives it the full width,
    instead of centring a small square in a tall, empty box. */
 @container (orientation: portrait) {
-  .dyn__inner { flex-direction: column; justify-content: center; }
+  /* safe, for the same reason as align-items above: once the column is the
+     main axis it is justify-content that would centre an over-tall stack into
+     the heading. */
+  .dyn__inner { flex-direction: column; justify-content: safe center; }
   .dyn__graph { width: max(110px, min(100cqw - 40px, 58cqh)); height: max(110px, min(100cqw - 40px, 58cqh)); }
   .dyn__grmeters { height: max(100px, min(100cqw - 40px, 58cqh)); }
   .dyn__controls { flex: 0 0 auto; width: 100%; min-width: 0; }

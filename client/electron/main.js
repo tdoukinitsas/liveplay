@@ -1148,11 +1148,20 @@ let mixerWindow = null;       // Detached mixer window
 // CSS breakpoint and vh unit in the layout is measured against the page, not
 // the frame. With it, the numbers mean what the stylesheets assume.
 //
-// Measured on Windows: this yields an outer window of about 1295x784, so the
-// app needs a display with roughly 800px of usable height. A 1366x768 panel
-// cannot fit it; dropping to 1280x640 content would, at the cost of the
-// channel view falling back to its stacked, scrolling layout.
-const MIN_WINDOW = { minWidth: 1280, minHeight: 720, useContentSize: true };
+// Raised from 1280x720 to 1366x768 (Sep 2026): the channel view has three
+// columns of real controls in it now, and below this the panels were being
+// squeezed until their contents overlapped rather than the work area
+// scrolling.
+//
+// NOTE, because the number is easy to misread: this is the CONTENT size, so on
+// Windows it yields an outer window of roughly 1381x832 — the app now needs a
+// display with about 840px of usable height. It therefore does NOT run on a
+// 1366x768 panel, and neither did the old 1280x720 (which already measured
+// ~1295x784 outer). If the goal is ever to support that panel specifically,
+// the number to set is around 1350x690 content, not 1366x768 — on a 768px
+// screen the taskbar leaves roughly 720px, so any outer height at or above 768
+// is already too tall.
+const MIN_WINDOW = { minWidth: 1366, minHeight: 768, useContentSize: true };
 
 // Flatten all audio items from a nested project items array
 function flattenAudioItems(items) {
