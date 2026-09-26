@@ -4,15 +4,30 @@
     <div class="volume-control-section">
       <div class="volume-label">
         <span>{{ t('properties.volume') }}</span>
-        <span class="db-value">{{ volumeDB.toFixed(1) }} dB</span>
+        <!-- Typed level (#56): the slider is small, and a precise trim is a
+             number, not a drag. Commits on Enter/blur, Escape reverts. -->
+        <span class="db-entry">
+          <input
+            type="text"
+            inputmode="decimal"
+            class="db-input"
+            :value="volumeDB <= VOLUME_MIN_DB ? '-inf' : volumeDB.toFixed(1)"
+            :title="t('properties.volumeDbInput')"
+            @focus="($event.target as HTMLInputElement).select()"
+            @keydown.enter="($event.target as HTMLInputElement).blur()"
+            @keydown.esc="cancelVolumeText"
+            @change="handleVolumeTextChange"
+          />
+          <span class="db-unit">dB</span>
+        </span>
       </div>
       <div class="volume-slider-container">
         <input
           type="range"
           orient="vertical"
           class="volume-slider-vertical"
-          :min="-60"
-          :max="10"
+          :min="VOLUME_MIN_DB"
+          :max="VOLUME_MAX_DB"
           step="0.1"
           :value="volumeDB"
           @input="handleVolumeInput"
@@ -248,8 +263,31 @@
       </div>
     </div>
 
-    <!-- Fade & Transition Controls (hidden for cart items) -->
-    <div v-if="!isCartItem" class="fade-controls-section">
+    <!-- Fade & Transition Controls. A cart item has no segue or pre-end
+         fades, only the fade its Stop button uses. -->
+    <div v-if="isCartItem" class="fade-controls-section">
+      <div class="fade-column">
+        <div class="fade-control-group" :title="t('properties.manualStopFadeHint')">
+          <label>{{ t('properties.manualStopFade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" @click="adjustManualStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(manualStopFade)"
+              @change="handleManualStopFadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" @click="adjustManualStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div v-else class="fade-controls-section">
       <div class="fade-column">
         <div class="fade-control-group">
           <label>{{ t('properties.playFade') }}</label>
@@ -283,6 +321,24 @@
               @focus="($event.target as HTMLInputElement).select()"
             />
             <button class="time-increment" @click="adjustCrossFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
+        </div>
+        <div class="fade-control-group" :title="t('properties.manualStopFadeHint')">
+          <label>{{ t('properties.manualStopFade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" @click="adjustManualStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(manualStopFade)"
+              @change="handleManualStopFadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" @click="adjustManualStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
               <span class="material-symbols-rounded">add</span>
             </button>
           </div>
@@ -351,6 +407,7 @@
 
 <script setup lang="ts">
 import type { AudioItem } from '~/types/project';
+import { manualStopFadeOf } from '~/types/project';
 import { calculatePerceivedLoudness, calculateNormalizationGain } from '~/utils/audio';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
@@ -374,6 +431,7 @@ const emit = defineEmits<{
   'update:stopFade': [value: number];
   'update:pauseFade': [value: number];
   'update:crossFade': [value: number];
+  'update:manualStopFade': [value: number];
   'update:startNextEnabled': [value: boolean];
   'update:startNextTime': [value: number];
   'update:startNextFadeOut': [value: boolean];
@@ -403,6 +461,13 @@ const isCartItem = computed(() => {
 const playFade = computed(() => props.audioItem.playFade || 0);
 const stopFade = computed(() => props.audioItem.stopFade || 0);
 const crossFade = computed(() => props.audioItem.crossFade || 0);
+const manualStopFade = computed(() => manualStopFadeOf(props.audioItem));
+
+// Fades have no fixed ceiling (#56): a scene-change ambience can fade over
+// minutes. The one real bound is the audio itself — a fade into or out of the
+// trimmed region cannot be longer than the region.
+const trimmedLength = computed(() => Math.max(0, outPoint.value - inPoint.value));
+const clampFade = (v: number) => Math.max(0, Math.min(v, trimmedLength.value));
 
 // Start Next marker (absolute seconds within the file)
 const startNextEnabled = computed(() => !!props.audioItem.startNextEnabled);
@@ -529,19 +594,40 @@ watch(hasWaveform, (has) => {
   }
 });
 
-// Volume in dB
+// Volume in dB. The slider's floor is silence; +10 dB matches what Normalize
+// may apply.
+const VOLUME_MIN_DB = -60;
+const VOLUME_MAX_DB = 10;
 const volumeDB = computed({
   get: () => {
     // Convert linear volume (0-2+) to dB
     const linear = props.audioItem?.volume ?? 1;
-    if (linear <= 0) return -60; // -infinity
+    if (linear <= 0) return VOLUME_MIN_DB; // -infinity
     return 20 * Math.log10(linear);
   },
   set: (db: number) => {
-    const linear = db <= -60 ? 0 : Math.pow(10, db / 20);
+    const linear = db <= VOLUME_MIN_DB ? 0 : Math.pow(10, db / 20);
     emit('update:volume', linear);
   }
 });
+
+// Typed dB level. Accepts "-6", "-6.5 dB", "+3", or "-inf" for silence.
+const handleVolumeTextChange = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const raw = input.value.trim().toLowerCase().replace(/db$/, '').trim();
+  const db = /^-?inf/.test(raw) ? VOLUME_MIN_DB : parseFloat(raw);
+  if (Number.isNaN(db)) {
+    input.value = volumeDB.value <= VOLUME_MIN_DB ? '-inf' : volumeDB.value.toFixed(1);
+    return;
+  }
+  volumeDB.value = Math.max(VOLUME_MIN_DB, Math.min(VOLUME_MAX_DB, db));
+  emit('change');
+};
+const cancelVolumeText = (event: KeyboardEvent) => {
+  const input = event.target as HTMLInputElement;
+  input.value = volumeDB.value <= VOLUME_MIN_DB ? '-inf' : volumeDB.value.toFixed(1);
+  input.blur();
+};
 
 // Compute handle color based on dB level
 const volumeHandleColor = computed(() => {
@@ -693,16 +779,13 @@ const startDragFade = (fadeType: 'play' | 'stop' | 'cross' | 'startNext', event:
     
     if (dragState.value.handle === 'play') {
       // Play fade: drag right increases fade duration
-      const newValue = Math.max(0, Math.min(10, dragState.value.startValue + deltaTime));
-      emit('update:playFade', newValue);
+      emit('update:playFade', clampFade(dragState.value.startValue + deltaTime));
     } else if (dragState.value.handle === 'stop') {
       // Stop fade: drag left increases fade duration (moving the start point earlier)
-      const newValue = Math.max(0, Math.min(10, dragState.value.startValue - deltaTime));
-      emit('update:stopFade', newValue);
+      emit('update:stopFade', clampFade(dragState.value.startValue - deltaTime));
     } else if (dragState.value.handle === 'cross') {
       // Cross fade: drag left increases fade duration (moving the start point earlier)
-      const newValue = Math.max(0, Math.min(10, dragState.value.startValue - deltaTime));
-      emit('update:crossFade', newValue);
+      emit('update:crossFade', clampFade(dragState.value.startValue - deltaTime));
     } else if (dragState.value.handle === 'startNext') {
       // Start Next marker: absolute position, clamped to the trimmed region.
       const newValue = Math.max(inPoint.value, Math.min(outPoint.value, dragState.value.startValue + deltaTime));
@@ -794,18 +877,20 @@ const formatTimeDetailed = (seconds: number): string => {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
 };
 
-// Parse time from HH:MM:SS.mmm format
+// Parse a typed time. Accepts the displayed HH:MM:SS.mmm, and the shorter
+// forms people actually type: "90" or "90.5" (seconds), "1:30" (MM:SS),
+// "1:02:30" (HH:MM:SS). Anything else (the old parser's only answer for
+// everything but the full form) is 0.
 const parseTimeDetailed = (timeStr: string): number => {
-  const parts = timeStr.split(':');
-  if (parts.length !== 3) return 0;
-
-  const hours = parseInt(parts[0]) || 0;
-  const minutes = parseInt(parts[1]) || 0;
-  const secondsParts = parts[2].split('.');
-  const seconds = parseInt(secondsParts[0]) || 0;
-  const milliseconds = parseInt(secondsParts[1]) || 0;
-
-  return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+  const parts = timeStr.trim().split(':');
+  if (parts.length === 0 || parts.length > 3) return 0;
+  let total = 0;
+  for (const part of parts) {
+    const n = parseFloat(part);
+    if (Number.isNaN(n) || n < 0) return 0;
+    total = total * 60 + n;
+  }
+  return total;
 };
 
 // Handle time input changes
@@ -837,20 +922,17 @@ const adjustOutPoint = (delta: number) => {
 };
 
 const adjustPlayFade = (delta: number) => {
-  const newValue = Math.max(0, Math.min(playFade.value + delta, 10));
-  emit('update:playFade', newValue);
+  emit('update:playFade', clampFade(playFade.value + delta));
   emit('change');
 };
 
 const adjustStopFade = (delta: number) => {
-  const newValue = Math.max(0, Math.min(stopFade.value + delta, 10));
-  emit('update:stopFade', newValue);
+  emit('update:stopFade', clampFade(stopFade.value + delta));
   emit('change');
 };
 
 const adjustCrossFade = (delta: number) => {
-  const newValue = Math.max(0, Math.min(crossFade.value + delta, 10));
-  emit('update:crossFade', newValue);
+  emit('update:crossFade', clampFade(crossFade.value + delta));
   emit('change');
 };
 
@@ -858,21 +940,32 @@ const adjustCrossFade = (delta: number) => {
 const handlePlayFadeTextChange = (event: Event) => {
   const value = (event.target as HTMLInputElement).value;
   const parsed = parseTimeDetailed(value);
-  emit('update:playFade', Math.max(0, Math.min(parsed, 10)));
+  emit('update:playFade', clampFade(parsed));
   emit('change');
 };
 
 const handleStopFadeTextChange = (event: Event) => {
   const value = (event.target as HTMLInputElement).value;
   const parsed = parseTimeDetailed(value);
-  emit('update:stopFade', Math.max(0, Math.min(parsed, 10)));
+  emit('update:stopFade', clampFade(parsed));
   emit('change');
 };
 
 const handleCrossFadeTextChange = (event: Event) => {
   const value = (event.target as HTMLInputElement).value;
   const parsed = parseTimeDetailed(value);
-  emit('update:crossFade', Math.max(0, Math.min(parsed, 10)));
+  emit('update:crossFade', clampFade(parsed));
+  emit('change');
+};
+
+// The Stop button's fade is not bounded by the trim: stopping a cue that is
+// halfway through a long bed can reasonably take longer than what is left.
+const adjustManualStopFade = (delta: number) => {
+  emit('update:manualStopFade', Math.max(0, manualStopFade.value + delta));
+  emit('change');
+};
+const handleManualStopFadeTextChange = (event: Event) => {
+  emit('update:manualStopFade', Math.max(0, parseTimeDetailed((event.target as HTMLInputElement).value)));
   emit('change');
 };
 
@@ -1383,10 +1476,32 @@ onUnmounted(() => {
   color: var(--color-text-secondary);
 }
 
-.db-value {
+.db-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.db-input {
+  width: 52px;
+  padding: 2px 4px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-primary);
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.db-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.db-unit {
+  font-size: 11px;
 }
 
 .volume-slider-container {

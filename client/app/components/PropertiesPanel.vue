@@ -104,12 +104,13 @@
           v-if="audioItem && audioItem.mediaPath && audioItem.duration > 0"
           :audio-item="audioItem"
           :multi-select="selectedItems.size > 1"
-          @update:volume="(v) => { beginItemBatch(); audioItem.volume = v; }"
+          @update:volume="handleVolumeUpdate"
           @update:in-point="(v) => { beginItemBatch(); audioItem.inPoint = v; }"
           @update:out-point="(v) => { beginItemBatch(); audioItem.outPoint = v; }"
           @update:play-fade="(v) => { beginItemBatch(); handlePlayFadeUpdate(v); }"
           @update:stop-fade="(v) => { beginItemBatch(); handleStopFadeUpdate(v); }"
           @update:cross-fade="(v) => { beginItemBatch(); handleCrossFadeUpdate(v); }"
+          @update:manual-stop-fade="(v) => { beginItemBatch(); handleManualStopFadeUpdate(v); }"
           @update:start-next-enabled="(v) => { beginItemBatch(); handleStartNextEnabledUpdate(v); }"
           @update:start-next-time="(v) => { beginItemBatch(); handleStartNextTimeUpdate(v); }"
           @update:start-next-fade-out="(v) => { beginItemBatch(); handleStartNextFadeOutUpdate(v); }"
@@ -857,6 +858,27 @@ const handleStopFadeUpdate = (value: number) => {
       (item as AudioItem).stopFade = value;
     }
   });
+};
+
+const handleManualStopFadeUpdate = (value: number) => {
+  getSelectedItems().forEach(item => {
+    if (item.type === 'audio') (item as AudioItem).manualStopFade = value;
+  });
+};
+
+// The per-cue fader. The document edit stays batched until release (so a drag
+// is one PATCH, not sixty), but every move also sets the engine gain live:
+// before this, a playing cue sat at its old level for the whole drag and
+// jumped when the mouse let go (#56). A multi-selection lands the anchor's
+// level on every selected cue at release, so they follow it live too.
+const handleVolumeUpdate = (linear: number) => {
+  beginItemBatch();
+  audioItem.value.volume = linear;
+  const db = linear <= 0.0001 ? -120 : 20 * Math.log10(linear);
+  const targets = selectedItems.value.size > 1 ? getSelectedItems() : [audioItem.value];
+  for (const it of targets) {
+    if (it?.type === 'audio') _server.setItemGainDb(it.uuid, db);
+  }
 };
 
 const handleCrossFadeUpdate = (value: number) => {

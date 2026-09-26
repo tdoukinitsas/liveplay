@@ -39,10 +39,14 @@ export interface AudioItem extends BaseItem {
   customActions: CustomAction[];
   duckingBehavior: DuckingBehavior;
   duration: number; // total duration in seconds
-  fadeOutDuration: number; // fade out duration in seconds when stopping (default: 1)
+  fadeOutDuration: number; // legacy stop fade, seconds (default: 1); see manualStopFade
   playFade: number; // fade in duration when playing (default: 0)
   stopFade: number; // fade out duration before end (default: 0)
   crossFade: number; // cross-fade duration to next track (default: 0)
+  // Seconds the Stop button fades this cue over, 0 = cut (#56). Absent on
+  // items saved before 2.5.0, which keep the old rule: the larger of stopFade
+  // and fadeOutDuration. manualStopFadeOf() reads either.
+  manualStopFade?: number;
   // "Start Next" segue marker (radio-style transition): when the playhead
   // crosses startNextTime, the next item starts at its own volume/fades
   // while this one keeps playing. Independent of the fade-out markers.
@@ -378,6 +382,8 @@ export interface ProjectSettings {
   defaultTransitionMode?: TransitionMode;
   autoCueNextWithoutEndBehavior?: boolean;
   stopAllFadeMs?: number;
+  // Absent = true: Stop All silences the preview audition too (#60).
+  stopAllStopsPreview?: boolean;
   /** LEGACY as of U4 — see usePreferences().scrollToPlaying. Seed only. */
   uiScrollToPlaying?: boolean;
   disableAutoVolumeAndTrim?: boolean;
@@ -532,6 +538,7 @@ export const DEFAULT_AUDIO_ITEM: Partial<AudioItem> = {
     duckFadeOut: 1.0
   },
   fadeOutDuration: 1.0,
+  manualStopFade: 1.0,
   playFade: 0,
   stopFade: 0,
   crossFade: 0,
@@ -558,6 +565,7 @@ export const DEFAULT_CART_AUDIO_ITEM: Partial<AudioItem> = {
     duckFadeOut: 1.0
   },
   fadeOutDuration: 1.0,
+  manualStopFade: 1.0,
   playFade: 0,
   stopFade: 0,
   crossFade: 0,
@@ -565,6 +573,13 @@ export const DEFAULT_CART_AUDIO_ITEM: Partial<AudioItem> = {
   startNextTime: 0,
   startNextFadeOut: false
 };
+
+// The fade the Stop button uses for this item: its manualStopFade, or for an
+// item saved before 2.5.0 the rule the server still applies to it.
+export const manualStopFadeOf = (item: Partial<AudioItem>): number =>
+  typeof item.manualStopFade === 'number'
+    ? item.manualStopFade
+    : Math.max(item.stopFade || 0, item.fadeOutDuration || 0);
 
 export const DEFAULT_GROUP_ITEM: Partial<GroupItem> = {
   color: PRESET_COLORS[8],

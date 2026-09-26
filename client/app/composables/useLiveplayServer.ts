@@ -943,7 +943,19 @@ function createClient() {
   // and inPoint semantics on the server side). The server routes `play` for
   // a group uuid through trigger_item so group startBehavior fires.
   function playItem(uuid: string)  { wsSend({ type: 'play', item_uuid: uuid }); }
-  function stopItem(uuid: string)  { wsSend({ type: 'stop', item_uuid: uuid }); }
+  // Omit fadeMs for the item's own manual-stop fade; a number (0 = cut)
+  // overrides it for this one stop.
+  function stopItem(uuid: string, fadeMs?: number) {
+    wsSend(fadeMs === undefined
+      ? { type: 'stop', item_uuid: uuid }
+      : { type: 'stop', item_uuid: uuid, fade_ms: Math.max(0, Math.round(fadeMs)) });
+  }
+  // Live level of an item's engine cue, without touching the document: the
+  // per-cue fader sends this on every move and persists on release, so a
+  // playing cue follows the drag instead of jumping when the mouse lets go.
+  function setItemGainDb(uuid: string, db: number) {
+    wsSend({ type: 'gain', item_uuid: uuid, db });
+  }
   function pauseItem(uuid: string) { wsSend({ type: 'pause',  item_uuid: uuid }); }
   function resumeItem(uuid: string){ wsSend({ type: 'resume', item_uuid: uuid }); }
   // Tell the server which item to play when the currently-playing item's
@@ -1654,6 +1666,7 @@ function createClient() {
 
     // transport by item uuid
     playItem,
+    setItemGainDb,
     stopItem,
     pauseItem,
     resumeItem,

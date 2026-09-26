@@ -11,7 +11,7 @@
         <span class="material-symbols-rounded">fast_forward</span>
         <span>{{ t('controls.playNext') }}</span>
       </button>
-      <button class="control-btn panic-btn" @click="handlePanic" :disabled="activeCues.size === 0" :title="stopAllTooltip">
+      <button class="control-btn panic-btn" @click="handlePanic" :disabled="activeCues.size === 0 && !previewingItem" :title="stopAllTooltip">
         <span class="icon">⚠</span>
         <span>{{ t('playback.panic') }}</span>
       </button>
@@ -128,7 +128,12 @@ const showMode = computed(() => uiMode.value === 'playback');
 // Subscribe to the preview cue's per-item meter stream so we can display an
 // accurate playhead, elapsed time, and remaining time in the preview card.
 const previewMeter = useCueMeters(() => previewCueId.value || null);
-const previewCurrentTime = computed(() => previewMeter.playhead.value);
+// The meter reports the absolute file playhead; the card counts from the
+// in-point, as the duration below does.
+const previewCurrentTime = computed(() => {
+  const inPoint = (previewingItem.value as any)?.inPoint ?? 0;
+  return Math.max(0, previewMeter.playhead.value - inPoint);
+});
 const previewDuration = computed(() => {
   if (!previewingItem.value) return 0;
   const item = previewingItem.value as any;

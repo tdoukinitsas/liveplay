@@ -130,7 +130,9 @@
     "sectionServer": "Server",
     "sectionServerHelp": "Which server this app talks to, and — for an administrator — what that server does.",
     "sectionUsers": "Accounts",
-    "sectionUsersHelp": "Who may use this server, and what they are allowed to change."
+    "sectionUsersHelp": "Who may use this server, and what they are allowed to change.",
+    "stopAllStopsPreview": "Stop All also stops the preview",
+    "stopAllStopsPreviewHelp": "When off, Stop All leaves a cue you are pre-listening to on the preview bus playing."
   },
   "common": {
     "default": "default",
@@ -262,7 +264,10 @@
     "regeneratingWaveform": "Regenerating...",
     "noWaveformData": "No waveform data available",
     "multiSelectWaveform": "Multiple items selected — choose a single item to display its waveform.",
-    "multiSelectOutPointDisabled": "Disabled for multiple selection (out point depends on each item's duration)."
+    "multiSelectOutPointDisabled": "Disabled for multiple selection (out point depends on each item's duration).",
+    "volumeDbInput": "Type a level in dB, e.g. -6.5 (or -inf for silence)",
+    "manualStopFade": "Stop Button Fade",
+    "manualStopFadeHint": "How long this cue fades out when you press Stop. 0 stops it instantly."
   },
   "playback": {
     "panic": "Stop All Cues",

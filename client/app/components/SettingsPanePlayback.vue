@@ -55,6 +55,18 @@
       <label class="settings-label settings-label--checkbox">
         <input
           type="checkbox"
+          :checked="stopAllStopsPreview"
+          @change="onStopAllStopsPreviewChange"
+        />
+        {{ t('settings.stopAllStopsPreview') }}
+      </label>
+      <p class="settings-help">{{ t('settings.stopAllStopsPreviewHelp') }}</p>
+    </section>
+
+    <section class="settings-field">
+      <label class="settings-label settings-label--checkbox">
+        <input
+          type="checkbox"
           :checked="disableAutoVolumeAndTrim"
           @change="onDisableAutoVolumeAndTrimChange"
         />
@@ -90,6 +102,8 @@ const disableSilenceWarning = computed(() => !!settings.value.disableSilenceWarn
 const autoCueNextWithoutEndBehavior = computed(
   () => settings.value.autoCueNextWithoutEndBehavior !== false
 );
+// Defaults ON: Stop All is a panic button. (#60)
+const stopAllStopsPreview = computed(() => settings.value.stopAllStopsPreview !== false);
 const stopAllFadeSeconds = computed(() => {
   const ms = settings.value.stopAllFadeMs;
   return (typeof ms === 'number' ? ms : 1000) / 1000;
@@ -105,6 +119,9 @@ function onStopAllFadeChange(e: Event) {
   const seconds = parseFloat((e.target as HTMLInputElement).value);
   const ms = Number.isFinite(seconds) ? Math.max(0, Math.round(seconds * 1000)) : 1000;
   applyPatch({ stopAllFadeMs: ms });
+}
+function onStopAllStopsPreviewChange(e: Event) {
+  applyPatch({ stopAllStopsPreview: (e.target as HTMLInputElement).checked });
 }
 function onDisableAutoVolumeAndTrimChange(e: Event) {
   applyPatch({ disableAutoVolumeAndTrim: (e.target as HTMLInputElement).checked });
