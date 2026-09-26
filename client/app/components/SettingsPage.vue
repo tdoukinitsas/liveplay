@@ -29,6 +29,7 @@
       <div class="settings-panes">
         <SettingsPanePlayback v-if="section === 'playback'" />
         <SettingsPaneAudio v-else-if="section === 'audio'" />
+        <SettingsPaneOutputs v-else-if="section === 'outputs'" />
         <SettingsPaneKeyboard v-else-if="section === 'keyboard'" />
         <SettingsPaneSurfaces v-else-if="section === 'surfaces'" />
         <SettingsPaneProject v-else-if="section === 'project'" />
@@ -42,6 +43,7 @@
 <script setup lang="ts">
 import SettingsPanePlayback from './SettingsPanePlayback.vue';
 import SettingsPaneAudio from './SettingsPaneAudio.vue';
+import SettingsPaneOutputs from './SettingsPaneOutputs.vue';
 import SettingsPaneKeyboard from './SettingsPaneKeyboard.vue';
 import SettingsPaneSurfaces from './SettingsPaneSurfaces.vue';
 import SettingsPaneProject from './SettingsPaneProject.vue';

@@ -25,6 +25,11 @@ export interface SettingsSection {
 export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: 'playback', icon: 'play_circle',    labelKey: 'settings.sectionPlayback' },
   { id: 'audio',    icon: 'graphic_eq',     labelKey: 'settings.sectionAudio'    },
+  // Beside Audio rather than beside Server, though it is the machine's: an
+  // operator looking for where the sound physically goes looks under audio,
+  // and the map is the other half of what the Audio pane's output target and
+  // LTC picker are talking about.
+  { id: 'outputs',  icon: 'settings_input_hdmi', labelKey: 'settings.sectionOutputs' },
   { id: 'keyboard', icon: 'keyboard',       labelKey: 'settings.sectionKeyboard' },
   { id: 'surfaces', icon: 'piano',          labelKey: 'settings.sectionSurfaces' },
   { id: 'project',  icon: 'folder_managed', labelKey: 'settings.sectionProject'  },

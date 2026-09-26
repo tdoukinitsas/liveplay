@@ -26,7 +26,7 @@
         @mode="$emit('mode', $event)"
         @close="$emit('close')"
         @clear-pfl="clearPfl"
-        @output-map="outputMapOpen = true"
+        @output-map="openOutputMap()"
       />
     </header>
 
@@ -46,7 +46,7 @@
       @set-role="onSetRole"
       @select="showChannel"
       @close="detailsId = ''"
-      @open-output-map="outputMapOpen = true"
+      @open-output-map="openOutputMap()"
     />
 
     <div v-else class="mixer__body">
@@ -68,7 +68,7 @@
           @delete="onDelete"
           @set-role="onSetRole"
           @drag-start="onDragStart"
-          @open-output-map="outputMapOpen = true"
+          @open-output-map="openOutputMap()"
         />
         <p v-if="railBuses.length === 0" class="mixer__empty">{{ t('mixer.empty') }}</p>
         <div
@@ -99,15 +99,10 @@
           @patch="onPatch"
           @delete="onDelete"
           @set-role="onSetRole"
-          @open-output-map="outputMapOpen = true"
+          @open-output-map="openOutputMap()"
         />
       </div>
     </div>
-
-    <!-- Outside the rail/details v-if branch so it works from either mode,
-         and in the detached mixer window, which has its own socket but the
-         same component tree. -->
-    <OutputMapModal :open="outputMapOpen" @close="outputMapOpen = false" />
   </div>
 </template>
 
@@ -118,7 +113,6 @@ import type { OutputMap } from '~/composables/useLiveplayServer';
 import MixerStrip from './MixerStrip.vue';
 import MixerChannelDetails from './MixerChannelDetails.vue';
 import MixerActions from './MixerActions.vue';
-import OutputMapModal from './OutputMapModal.vue';
 
 const props = withDefaults(
   defineProps<{ mode?: 'side' | 'full'; detached?: boolean }>(),
@@ -168,14 +162,12 @@ const selectedId  = useState<string>('liveplay:mixerSelectedBus', () => '');
 const detailsId   = useState<string>('liveplay:mixerDetailsBus', () => '');
 // The machine's output map, for the strips' pickers; null until fetched.
 const outputMap   = ref<OutputMap | null>(null);
-// Pure view state (invariant 1's one allowance): whether the output-map
-// editor is open. Everything the modal shows and saves comes from the
-// server, never from anything held here.
-//
-// Shared rather than local for the same reason selectedId is — the docked and
-// full instances swap — and because the unbound-output banner in
-// MainWorkspace opens it, which it cannot do through a ref that lives here.
-const outputMapOpen = useState<boolean>('liveplay:outputMapOpen', () => false);
+// The output map is a Settings pane now, not a modal this panel owns, so
+// "edit hardware outputs" is a deep link rather than a local flag. Outputs are
+// configuration and belong with the rest of it; the mixer keeps the way IN,
+// because the mixer is where an unbound bus is visible, but it is no longer
+// the only place the map can be reached.
+const openOutputMap = () => useSettingsPage().open('outputs');
 
 const buses = computed<Bus[]>(() => server.buses ?? []);
 

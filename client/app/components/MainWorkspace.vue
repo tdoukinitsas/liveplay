@@ -764,14 +764,14 @@ const unboundSignatureDismissed = ref('');
 const unboundDismissed = computed(
   () => unboundSignature.value !== '' && unboundSignature.value === unboundSignatureDismissed.value
 );
-// The output map lives in the mixer panel, so the panel has to be up for the
-// modal to render. When the map moves into Settings this becomes a plain deep
-// link to that section instead.
+// Exactly what the note here predicted: the map has moved into Settings, so
+// this is a plain deep link to that section. It no longer has to force the
+// mixer panel open first — the banner used to need the panel up because the
+// modal was rendered inside it, which meant reporting an unbound output also
+// rearranged the operator's workspace.
 function openOutputMap() {
-  mixerOpen.value = true;
-  outputMapOpen.value = true;
+  useSettingsPage().open('outputs');
 }
-const outputMapOpen = useState<boolean>('liveplay:outputMapOpen', () => false);
 
 // Transport keys and MIDI belong to the workspace, not to the cart pane.
 //
