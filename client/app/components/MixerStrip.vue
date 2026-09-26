@@ -15,6 +15,7 @@
   -->
   <div
     class="strip"
+    :style="{ '--bus': bus.color || 'var(--color-accent)' }"
     :class="{
       'strip--selected': selected,
       'strip--muted': bus.mute,
@@ -50,16 +51,12 @@
       </button>
     </div>
 
-    <!-- Inserts: scaffolding until the plugin rack exists. -->
-    <div class="strip__inserts">
-      <button
-        v-for="n in 2"
-        :key="n"
-        class="strip__insert"
-        :title="t('mixer.insertsComingSoon')"
-        disabled
-      >—</button>
-    </div>
+    <!-- What the channel's processing is doing: EQ / GATE / COMP lamps, the
+         EQ response and the dynamics curve in miniature, with the live input
+         level and gain reduction — readable across the whole rail without
+         opening a channel. It replaced two "—" insert placeholders that did
+         nothing. Clicking it opens the channel view. -->
+    <MixerStripProcessing :bus="bus" @open="$emit('open', bus.id)" />
 
     <!-- Output assignment: the most consequential control on the strip. The
          picker (BusOutputSelect.vue) is the same one the channel view uses;
@@ -243,6 +240,7 @@ import MeterScale from './MeterScale.vue';
 import BusOutputSelect from './BusOutputSelect.vue';
 import BusColorPicker from './BusColorPicker.vue';
 import BusMenu from './BusMenu.vue';
+import MixerStripProcessing from './MixerStripProcessing.vue';
 import { useMixerMeter, lufsFromKwMs } from '~/composables/useLiveMeters';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 import {
@@ -449,6 +447,9 @@ function onGripDown(e: PointerEvent) {
 
 <style scoped>
 .strip {
+  /* The bus colour across the top, as a console's scribble strip carries it,
+     so a channel can be found by colour from across the room. */
+  border-top: 4px solid var(--bus) !important;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);

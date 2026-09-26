@@ -809,8 +809,8 @@
     "bypassHint": "Tar denne seksjonen ut av kretsen. Innstillingene beholdes, så å slå den på igjen gjenoppretter nøyaktig det som var der.",
     "gateToggle": "Slår expander/gate inn eller ut av kretsen. Separat fra seksjons-bypassen over.",
     "compToggle": "Slår compressor/limiter inn eller ut av kretsen. Separat fra seksjons-bypassen over.",
-    "inCircuit": "INN",
-    "outOfCircuit": "UT",
+    "inCircuit": "PÅ",
+    "outOfCircuit": "AV",
     "freq": "Frek",
     "gain": "Gain",
     "q": "Q",
@@ -907,6 +907,17 @@
       "type_highCut": "Høykutt",
       "type_notch": "Notch",
       "handleHint": "Dra for å flytte · rull for bredde · Alt-klikk eller høyreklikk for å fjerne"
+    },
+    "miniMixerHint": "Vis hele mikseren i miniatyr under kanalvisningen",
+    "proc": {
+      "eq": "EQ",
+      "gate": "GATE",
+      "comp": "COMP",
+      "gateShort": "G",
+      "compShort": "C",
+      "openHint": "Åpne kanalens EQ og dynamikk",
+      "gateGr": "Gatens gain-reduksjon",
+      "compGr": "Kompressorens gain-reduksjon"
     }
   },
   "migration": {

@@ -809,8 +809,8 @@
     "bypassHint": "Scoate această secțiune din circuit. Setările sunt păstrate, deci reactivarea restaurează exact ce era acolo.",
     "gateToggle": "Comută expander/gate în sau din circuit. Separat de bypass-ul secțiunii de mai sus.",
     "compToggle": "Comută compressor/limiter în sau din circuit. Separat de bypass-ul secțiunii de mai sus.",
-    "inCircuit": "IN",
-    "outOfCircuit": "OUT",
+    "inCircuit": "ON",
+    "outOfCircuit": "OFF",
     "freq": "Frec",
     "gain": "Gain",
     "q": "Q",
@@ -907,6 +907,17 @@
       "type_highCut": "Tăiere înalte",
       "type_notch": "Notch",
       "handleHint": "Trage pentru a muta · derulează pentru lățime · Alt-clic sau clic dreapta pentru a elimina"
+    },
+    "miniMixerHint": "Afișează întregul mixer în miniatură sub vizualizarea canalului",
+    "proc": {
+      "eq": "EQ",
+      "gate": "GATE",
+      "comp": "COMP",
+      "gateShort": "G",
+      "compShort": "C",
+      "openHint": "Deschide EQ-ul și dinamica acestui canal",
+      "gateGr": "Reducerea câștigului porții",
+      "compGr": "Reducerea câștigului compresorului"
     }
   },
   "migration": {

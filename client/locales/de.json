@@ -809,8 +809,8 @@
     "bypassHint": "Nimmt diesen Abschnitt aus dem Signalweg. Die Einstellungen bleiben erhalten, sodass beim Wiedereinschalten genau das zurückkommt, was da war.",
     "gateToggle": "Schaltet den Expander/Gate ein oder aus. Getrennt vom Sektions-Bypass oben.",
     "compToggle": "Schaltet den Compressor/Limiter ein oder aus. Getrennt vom Sektions-Bypass oben.",
-    "inCircuit": "IN",
-    "outOfCircuit": "OUT",
+    "inCircuit": "EIN",
+    "outOfCircuit": "AUS",
     "freq": "Freq",
     "gain": "Gain",
     "q": "Q",
@@ -907,6 +907,17 @@
       "type_highCut": "High-Cut",
       "type_notch": "Notch",
       "handleHint": "Ziehen zum Verschieben · Scrollen für die Breite · Alt-Klick oder Rechtsklick zum Entfernen"
+    },
+    "miniMixerHint": "Den ganzen Mixer verkleinert unter der Kanalansicht zeigen",
+    "proc": {
+      "eq": "EQ",
+      "gate": "GATE",
+      "comp": "COMP",
+      "gateShort": "G",
+      "compShort": "C",
+      "openHint": "EQ und Dynamik dieses Kanals öffnen",
+      "gateGr": "Gain-Reduktion des Gates",
+      "compGr": "Gain-Reduktion des Kompressors"
     }
   },
   "migration": {

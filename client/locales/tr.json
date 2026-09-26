@@ -907,6 +907,17 @@
       "type_highCut": "Yüksek kesim",
       "type_notch": "Çentik",
       "handleHint": "Taşımak için sürükleyin · genişlik için kaydırın · kaldırmak için Alt-tıklayın veya sağ tıklayın"
+    },
+    "miniMixerHint": "Tüm mikseri kanal görünümünün altında küçük boyutta göster",
+    "proc": {
+      "eq": "EQ",
+      "gate": "GATE",
+      "comp": "COMP",
+      "gateShort": "G",
+      "compShort": "C",
+      "openHint": "Bu kanalın EQ ve dinamik ayarlarını aç",
+      "gateGr": "Gate kazanç azaltımı",
+      "compGr": "Kompresör kazanç azaltımı"
     }
   },
   "migration": {

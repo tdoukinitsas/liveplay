@@ -160,6 +160,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue';
 import { useOutputTarget } from '~/composables/useOutputTarget';
+import { gateOutput, compOutput } from '~/utils/dspCurves';
 import KnobField from './KnobField.vue';
 import type { Bus, BusComp, BusDsp, BusGate } from '~/types/project';
 import { useMixerMeter } from '~/composables/useLiveMeters';
@@ -351,36 +352,12 @@ const compActive = computed(() => compOn.value && dynIn.value);
 // The gate's half. Mirrors the engine's static curve: below the threshold every
 // decibel down costs (ratio - 1) more, until the range floor stops it going
 // further.
-function gated(db: number): number {
-  const g = gateValues.value;
-  if (db >= g.threshold) return db;
-  return db - Math.min(Math.abs(g.range),
-                       (Math.max(1, g.ratio) - 1) * (g.threshold - db));
-}
+// The static curves live in utils/dspCurves.ts, shared with the mixer strip's
+// miniature so the two can never draw different shapes for the same settings
+// (both mirror dynamics.hpp).
+const gated      = (db: number) => gateOutput(gateValues.value, db);
+const compressed = (db: number) => compOutput(compValues.value, db);
 
-// The compressor's half, knee included — mirroring dynamics.hpp, which is the
-// only copy that matters and which this has to be kept in step with by hand.
-// Three regions: unity below the knee, a quadratic through it, the full ratio
-// above. Makeup is part of the picture because it is part of what comes out.
-function compressed(db: number): number {
-  const c = compValues.value;
-  const slope = 1 - 1 / Math.max(1, c.ratio);
-  const w     = Math.max(0, c.knee);
-  const over  = db - c.threshold;
-  let reduction = 0;
-  if (w > 0 && over > -w / 2 && over < w / 2) {
-    const k = over + w / 2;
-    reduction = (slope * k * k) / (2 * w);
-  } else if (over > 0) {
-    reduction = slope * over;
-  }
-  return db - reduction + c.makeup;
-}
-
-// The two in chain order, which is also the order the engine runs them: the
-// compressor sees what the gate left, not the original input. Drawing them
-// independently and adding the reductions would misdraw every setting where
-// their thresholds overlap.
 function outputFor(inputDb: number): number {
   let db = inputDb;
   if (gateActive.value) db = gated(db);

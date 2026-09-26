@@ -809,8 +809,8 @@
     "bypassHint": "이 섹션을 회로에서 제외합니다. 설정은 유지되므로 다시 켜면 그대로 복원됩니다.",
     "gateToggle": "익스팬더/게이트를 켜거나 끕니다. 위의 섹션 바이패스와는 별개입니다.",
     "compToggle": "컴프레서/리미터를 켜거나 끕니다. 위의 섹션 바이패스와는 별개입니다.",
-    "inCircuit": "켬",
-    "outOfCircuit": "끔",
+    "inCircuit": "켜짐",
+    "outOfCircuit": "꺼짐",
     "freq": "주파수",
     "gain": "게인",
     "q": "Q",
@@ -907,6 +907,17 @@
       "type_highCut": "하이 컷",
       "type_notch": "노치",
       "handleHint": "드래그하여 이동 · 스크롤로 폭 조절 · Alt-클릭 또는 오른쪽 클릭으로 제거"
+    },
+    "miniMixerHint": "채널 보기 아래에 전체 믹서를 작게 표시",
+    "proc": {
+      "eq": "EQ",
+      "gate": "GATE",
+      "comp": "COMP",
+      "gateShort": "G",
+      "compShort": "C",
+      "openHint": "이 채널의 EQ와 다이내믹스 열기",
+      "gateGr": "게이트 게인 리덕션",
+      "compGr": "컴프레서 게인 리덕션"
     }
   },
   "migration": {

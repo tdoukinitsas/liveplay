@@ -907,6 +907,17 @@
       "type_highCut": "ハイカット",
       "type_notch": "ノッチ",
       "handleHint": "ドラッグで移動 · スクロールで幅 · Alt+クリックまたは右クリックで削除"
+    },
+    "miniMixerHint": "チャンネル表示の下にミキサー全体を縮小表示する",
+    "proc": {
+      "eq": "EQ",
+      "gate": "GATE",
+      "comp": "COMP",
+      "gateShort": "G",
+      "compShort": "C",
+      "openHint": "このチャンネルの EQ とダイナミクスを開く",
+      "gateGr": "ゲートのゲインリダクション",
+      "compGr": "コンプレッサーのゲインリダクション"
     }
   },
   "migration": {

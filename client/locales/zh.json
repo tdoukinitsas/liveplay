@@ -907,6 +907,17 @@
       "type_highCut": "高切",
       "type_notch": "陷波",
       "handleHint": "拖动以移动 · 滚动调宽度 · Alt 点击或右键删除"
+    },
+    "miniMixerHint": "在通道视图下方以缩略形式显示整个调音台",
+    "proc": {
+      "eq": "EQ",
+      "gate": "GATE",
+      "comp": "COMP",
+      "gateShort": "G",
+      "compShort": "C",
+      "openHint": "打开此通道的均衡器和动态处理",
+      "gateGr": "门限器增益衰减",
+      "compGr": "压缩器增益衰减"
     }
   },
   "migration": {

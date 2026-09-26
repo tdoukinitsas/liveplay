@@ -187,7 +187,17 @@
          a desk that judgement is made by watching level, not by reading names.
          No scale — at this size it would be unreadable — but the same meter
          component as everywhere else, so the colours mean the same thing. -->
-    <footer class="det__bank">
+    <footer class="det__bank" :class="{ 'det__bank--mini': miniMixer }">
+      <!-- Compact channel buttons, or the whole desk in miniature under the
+           channel being edited (a per-viewer choice, remembered). -->
+      <button
+        class="det__minitoggle"
+        :class="{ 'det__minitoggle--on': miniMixer }"
+        :title="t('mixer.miniMixerHint')"
+        @click="toggleMiniMixer"
+      >
+        <span class="material-symbols-rounded">view_week</span>
+      </button>
       <button
         class="det__nav"
         :disabled="!prevId"
@@ -197,7 +207,13 @@
         <span class="material-symbols-rounded">chevron_left</span>
       </button>
 
-      <div class="det__banklist">
+      <MixerMiniRail
+        v-if="miniMixer"
+        :buses="buses"
+        :active-id="bus.id"
+        @select="(id: string) => $emit('select', id)"
+      />
+      <div v-else class="det__banklist">
         <button
           v-for="b in buses"
           :key="b.id"
@@ -250,6 +266,7 @@
 </template>
 
 <script setup lang="ts">
+import MixerMiniRail from './MixerMiniRail.vue';
 import { computed, nextTick, ref, watch } from 'vue';
 import type { Bus, BusDsp } from '~/types/project';
 import type { OutputMap } from '~/composables/useLiveplayServer';
@@ -269,6 +286,16 @@ const props = defineProps<{
   /** The machine's output map, null until fetched. */
   outputs: OutputMap | null;
 }>();
+
+// The mini mixer along the bottom: on by default, remembered per viewer
+// (how this operator likes to look, not a property of the show).
+const MINI_KEY = 'liveplay.channelMiniMixer';
+const miniMixer = ref(true);
+try { const v = localStorage.getItem(MINI_KEY); if (v === '0') miniMixer.value = false; } catch { /* no storage */ }
+function toggleMiniMixer() {
+  miniMixer.value = !miniMixer.value;
+  try { localStorage.setItem(MINI_KEY, miniMixer.value ? '1' : '0'); } catch { /* no storage */ }
+}
 
 const emit = defineEmits<{
   (e: 'patch', id: string, patch: Partial<Bus>): void;
@@ -674,6 +701,21 @@ function openMenuFromButton() {
   background: var(--color-surface);
 }
 .det__banklist { display: flex; gap: 3px; flex: 1; min-width: 0; overflow-x: auto; }
+.det__bank--mini { height: clamp(170px, 24vh, 260px); align-items: stretch; }
+.det__minitoggle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  align-self: flex-start;
+  color: var(--color-text-secondary);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+}
+.det__minitoggle--on { color: #fff; background: var(--color-accent); border-color: var(--color-accent); }
 .det__nav {
   display: flex;
   align-items: center;

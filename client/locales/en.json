@@ -809,8 +809,8 @@
     "bypassHint": "Take this section out of circuit. The settings are kept, so switching it back in restores exactly what was there.",
     "gateToggle": "Switch the expander/gate in or out. Separate from the section bypass above.",
     "compToggle": "Switch the compressor/limiter in or out. Separate from the section bypass above.",
-    "inCircuit": "IN",
-    "outOfCircuit": "OUT",
+    "inCircuit": "ON",
+    "outOfCircuit": "OFF",
     "freq": "Freq",
     "gain": "Gain",
     "q": "Q",
@@ -907,6 +907,17 @@
       "type_highCut": "High cut",
       "type_notch": "Notch",
       "handleHint": "Drag to move · scroll for width · Alt-click or right-click to remove"
+    },
+    "miniMixerHint": "Show the whole mixer in miniature under the channel view",
+    "proc": {
+      "eq": "EQ",
+      "gate": "GATE",
+      "comp": "COMP",
+      "gateShort": "G",
+      "compShort": "C",
+      "openHint": "Open this channel's EQ and dynamics",
+      "gateGr": "Gate gain reduction",
+      "compGr": "Compressor gain reduction"
     }
   },
   "migration": {

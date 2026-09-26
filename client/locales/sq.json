@@ -809,8 +809,8 @@
     "bypassHint": "E nxjerr këtë seksion jashtë qarkut. Cilësimet ruhen, kështu që rikthimi restauron saktësisht atë që ishte aty.",
     "gateToggle": "Aktivizon ose çaktivizon expander/gate. I ndarë nga bypass-i i seksionit më sipër.",
     "compToggle": "Aktivizon ose çaktivizon compressor/limiter. I ndarë nga bypass-i i seksionit më sipër.",
-    "inCircuit": "BRENDA",
-    "outOfCircuit": "JASHTË",
+    "inCircuit": "ON",
+    "outOfCircuit": "OFF",
     "freq": "Frek",
     "gain": "Fitimi",
     "q": "Q",
@@ -907,6 +907,17 @@
       "type_highCut": "Prerje e lartë",
       "type_notch": "Prerje e ngushtë",
       "handleHint": "Tërhiq për ta zhvendosur · rrotullo për gjerësinë · Alt-klik ose klik i djathtë për ta hequr"
+    },
+    "miniMixerHint": "Shfaq të gjithë mikserin në miniaturë nën pamjen e kanalit",
+    "proc": {
+      "eq": "EQ",
+      "gate": "GATE",
+      "comp": "COMP",
+      "gateShort": "G",
+      "compShort": "C",
+      "openHint": "Hap EQ-në dhe dinamikën e këtij kanali",
+      "gateGr": "Reduktimi i fitimit të gate-it",
+      "compGr": "Reduktimi i fitimit të kompresorit"
     }
   },
   "migration": {

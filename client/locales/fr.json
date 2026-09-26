@@ -809,8 +809,8 @@
     "bypassHint": "Retire cette section du circuit. Les réglages sont conservés, donc la réactiver restaure exactement ce qui était là.",
     "gateToggle": "Active ou désactive l'expander/gate. Séparé du bypass de section ci-dessus.",
     "compToggle": "Active ou désactive le compressor/limiter. Séparé du bypass de section ci-dessus.",
-    "inCircuit": "IN",
-    "outOfCircuit": "OUT",
+    "inCircuit": "ON",
+    "outOfCircuit": "OFF",
     "freq": "Fréq",
     "gain": "Gain",
     "q": "Q",
@@ -907,6 +907,17 @@
       "type_highCut": "Coupe-haut",
       "type_notch": "Coupe-bande",
       "handleHint": "Glisser pour déplacer · molette pour la largeur · Alt-clic ou clic droit pour supprimer"
+    },
+    "miniMixerHint": "Afficher la console entière en miniature sous la vue de tranche",
+    "proc": {
+      "eq": "EQ",
+      "gate": "GATE",
+      "comp": "COMP",
+      "gateShort": "G",
+      "compShort": "C",
+      "openHint": "Ouvrir l'EQ et la dynamique de cette tranche",
+      "gateGr": "Réduction de gain du gate",
+      "compGr": "Réduction de gain du compresseur"
     }
   },
   "migration": {
