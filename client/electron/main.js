@@ -1148,20 +1148,23 @@ let mixerWindow = null;       // Detached mixer window
 // CSS breakpoint and vh unit in the layout is measured against the page, not
 // the frame. With it, the numbers mean what the stylesheets assume.
 //
-// Raised from 1280x720 to 1366x768 (Sep 2026): the channel view has three
-// columns of real controls in it now, and below this the panels were being
-// squeezed until their contents overlapped rather than the work area
-// scrolling.
+// Sized so the app FITS a 1366x768 laptop panel, which is the smallest screen
+// it is expected to run on.
 //
-// NOTE, because the number is easy to misread: this is the CONTENT size, so on
-// Windows it yields an outer window of roughly 1381x832 — the app now needs a
-// display with about 840px of usable height. It therefore does NOT run on a
-// 1366x768 panel, and neither did the old 1280x720 (which already measured
-// ~1295x784 outer). If the goal is ever to support that panel specifically,
-// the number to set is around 1350x690 content, not 1366x768 — on a 768px
-// screen the taskbar leaves roughly 720px, so any outer height at or above 768
-// is already too tall.
-const MIN_WINDOW = { minWidth: 1366, minHeight: 768, useContentSize: true };
+// These are CONTENT dimensions (useContentSize), which is the whole reason the
+// numbers look odd: on Windows the frame and title bar add roughly 15x64, so
+// 1350x690 content is about 1365x754 outer, and a 768px-tall screen leaves
+// roughly 720px once the taskbar is out. Setting the minimum to 1366x768
+// content — the obvious-looking choice, and what was briefly here — yields a
+// ~1381x832 window and locks that laptop out entirely. So does the 1280x720
+// this replaced, which measured ~1295x784.
+//
+// 690px of content height is below the channel view's comfortable three-column
+// height, and that is fine rather than an oversight: the work area scrolls and
+// the dynamics panel scrolls inside it, so a short window is cramped instead of
+// broken. The floor exists to keep the layout usable, not to guarantee every
+// panel its full height.
+const MIN_WINDOW = { minWidth: 1350, minHeight: 690, useContentSize: true };
 
 // Flatten all audio items from a nested project items array
 function flattenAudioItems(items) {
