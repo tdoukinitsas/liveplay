@@ -65,6 +65,15 @@
           </span>
           <span>-{{ formatTime(cue.duration - cue.currentTime) }}</span>
         </div>
+        <div
+          v-if="groupRemaining"
+          class="group-remaining"
+          :title="t('group.remaining', { time: formatTime(groupRemaining.remaining) })"
+        >
+          <span class="material-symbols-rounded">folder</span>
+          <span class="group-remaining-name">{{ groupRemaining.name }}</span>
+          <span>-{{ formatTime(groupRemaining.remaining) }}{{ groupRemaining.indefinite ? '+' : '' }}</span>
+        </div>
 
         <div class="progress-bar" @click="handleSeek">
           <div class="progress-fill" :style="progressStyle"></div>
@@ -129,7 +138,8 @@ const props = defineProps<{
   cue: ActiveCueState;
 }>();
 
-const { stopCue, pauseCue, resumeCue, seekCue, queueLoopContinuation, jumpCue } = useAudioEngine();
+const { stopCue, pauseCue, resumeCue, seekCue, queueLoopContinuation, jumpCue,
+        findParentGroup, activeGroups } = useAudioEngine();
 const { t } = useLocalization();
 const { findItemByUuid } = useProject();
 
@@ -152,6 +162,17 @@ const startNextTime = computed<number | null>(() => {
 
 // Seconds until the marker fires; null once passed (or when not armed).
 // currentTime is relative to the in point, the marker is absolute file time.
+// Time left in the group this cue is playing from (discussion #61: "2:53 on
+// the track, 16:47 on the playlist"). The nearest group, which for a walk-in
+// or interval playlist is the playlist itself.
+const groupRemaining = computed(() => {
+  const group = findParentGroup(props.cue.uuid);
+  if (!group) return null;
+  const live = activeGroups.value.get(group.uuid);
+  if (!live) return null;
+  return { name: group.displayName, remaining: live.remaining, indefinite: live.indefinite };
+});
+
 const segueCountdown = computed<number | null>(() => {
   if (startNextTime.value === null) return null;
   const absolutePos = props.cue.currentTime + (props.cue.inPoint || 0);
@@ -392,6 +413,28 @@ const formatTime = (seconds: number): string => {
   justify-content: space-between;
   font-size: 12px;
   color: var(--color-text-secondary);
+}
+
+.group-remaining {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+
+  .material-symbols-rounded {
+    font-size: 13px;
+  }
+
+  .group-remaining-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .segue-countdown {

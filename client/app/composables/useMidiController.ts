@@ -112,7 +112,7 @@ const preferredDevice = computed(() => config.value.preferredDevice ?? null);
 
 export const useMidiController = () => {
   const { getCartItem } = useCartItems();
-  const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, setMasterGain, masterGainDb, nextItemOverrideUuid, autoNextItemUuid, setNextItem, triggerGroup, queueLoopContinuation, jumpCue } = useAudioEngine();
+  const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, setMasterGain, masterGainDb, nextItemOverrideUuid, autoNextItemUuid, setNextItem, triggerGroup, queueLoopContinuation, jumpCue, isItemPlaying, fireItem, stopItemAny } = useAudioEngine();
   const { selectedItem, selectedItems, saveProject, currentProject, getAllItemsFlat, toggleItemSelection, findItemByUuid: findProjectItem, findItemByIndex } = useProject();
 
   // Same active-cue-then-selection fallback toggle-loop/pause-resume use
@@ -143,6 +143,11 @@ export const useMidiController = () => {
       const slot = parseInt(actionId.replace('trigger-slot-', ''), 10);
       const item = getCartItem(slot);
       if (!item) return;
+      if (item.type === 'group') {
+        if (isItemPlaying(item)) stopItemAny(item);
+        else fireItem(item);
+        return;
+      }
       if (activeCues.value.has(item.uuid)) {
         const cue = activeCues.value.get(item.uuid);
         if (cue && cue.isPaused) {

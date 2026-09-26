@@ -48,6 +48,11 @@
       <!-- Item info section -->
       <div class="slot-header" @click="handleSelect($event)">
         <span class="slot-number">{{ slot + 1 }}</span>
+        <span
+          v-if="isGroup"
+          class="material-symbols-rounded group-icon"
+          :title="t('cart.groupSlot')"
+        >folder</span>
         <span class="slot-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
         <span
           v-if="isPeaking"
@@ -175,7 +180,7 @@
           </div>
           
           <!-- Duration -->
-          <span class="slot-duration">{{ isPlaying ? "-" + formatTime(duration - currentTime) : formatDuration(item) }}</span>
+          <span class="slot-duration">{{ isPlaying ? "-" + formatTime(duration - currentTime) + indefiniteMark : formatDuration(item) }}</span>
         </div>
       </div>
     </div>
@@ -185,8 +190,9 @@
 <script setup lang="ts">
 import { triggerRef } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
-import type { AudioItem } from '~/types/project';
+import type { AudioItem, GroupItem } from '~/types/project';
 import ActionButton from './ActionButton.vue';
+import { runTime, formatRunTime } from '~/utils/groupTiming';
 import AudioImportModal from './AudioImportModal.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { calculatePerceivedLoudness, parseWaveformFileData } from '~/utils/audio';
@@ -194,7 +200,7 @@ import { isSecondaryWindow } from '~/composables/useProject';
 
 const props = defineProps<{
   slot: number;
-  item: AudioItem | null;
+  item: AudioItem | GroupItem | null;
   keyLabel?: string;
 }>();
 
@@ -207,7 +213,8 @@ const showImportModal = ref(false);
 
 const { currentProject, selectedItem, selectedItems, selectionContext, requestDeleteFromButton, findItemByUuid, triggerWaveformUpdate, markPendingAutoProcess, resolveProjectPath } = useProject();
 const { levels: outputTargetLevels } = useOutputTarget();
-const { playCue, stopCue, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem } = useAudioEngine();
+const { activeCues, activeGroups, nextItemOverrideUuid, autoNextItemUuid, setNextItem,
+        isItemPlaying, fireItem, stopItemAny } = useAudioEngine();
 const { t } = useLocalization();
 const { addCartOnlyItem, updateCartOnlyItem, removeCartOnlyItem } = useCartItems();
 const { uiMode } = useUiMode();
@@ -264,7 +271,12 @@ const isPeaking = computed(() => {
 
   return effectiveLoudness > outputTargetLevels.value.autoVolumeTargetDb + 3;
 });
-const isPlaying = computed(() => props.item ? activeCues.value.has(props.item.uuid) : false);
+// A slot can hold a playlist group (discussion #61): it fires the group, and
+// its time and progress are the whole group's.
+const isGroup = computed(() => props.item?.type === 'group');
+const isPlaying = computed(() => isItemPlaying(props.item));
+const indefiniteMark = computed(() =>
+  isGroup.value && props.item && activeGroups.value.get(props.item.uuid)?.indefinite ? '+' : '');
 const isSelected = computed(() => props.item ? selectedItems.value.has(props.item.uuid) : false);
 const isManuallyQueued = computed(() => props.item ? nextItemOverrideUuid.value === props.item.uuid : false);
 const isQueuedNext = computed(() => {
@@ -309,12 +321,21 @@ const progressStyle = computed(() => {
 let progressInterval: any = null;
 watch(isPlaying, (playing) => {
   if (playing && props.item) {
-    const cue = activeCues.value.get(props.item.uuid);
+    // The same shape for a cue and for a group: how long, and how far in.
+    const timing = () => {
+      if (!props.item) return null;
+      if (props.item.type === 'group') {
+        const g = activeGroups.value.get(props.item.uuid);
+        return g ? { duration: g.totalDuration, currentTime: g.currentTime } : null;
+      }
+      return activeCues.value.get(props.item.uuid) ?? null;
+    };
+    const cue = timing();
     if (cue) {
       duration.value = cue.duration;
       progressInterval = setInterval(() => {
         if (!props.item) return;
-        const cue = activeCues.value.get(props.item.uuid);
+        const cue = timing();
         if (cue) {
           currentTime.value = cue.currentTime;
           duration.value = cue.duration;
@@ -490,12 +511,12 @@ const handleSelect = (event?: MouseEvent) => {
 
 const handlePlay = () => {
   if (!props.item) return;
-  playCue(props.item);
+  fireItem(props.item);
 };
 
 const handleStop = () => {
   if (!props.item) return;
-  stopCue(props.item.uuid);
+  stopItemAny(props.item);
 };
 
 const handleSetAsNext = () => {
@@ -569,8 +590,12 @@ const formatTime = (seconds: number): string => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
-const formatDuration = (item: AudioItem | null): string => {
+const formatDuration = (item: AudioItem | GroupItem | null): string => {
   if (!item) return '';
+  if (item.type === 'group') {
+    const total = runTime(item as GroupItem);
+    return formatRunTime(total.seconds) + (total.indefinite ? '+' : '');
+  }
   
   // Calculate trimmed duration based on in/out points
   const totalDuration = item.duration;
@@ -866,6 +891,29 @@ const handleDrop = async (e: DragEvent) => {
   const sourceUuid = e.dataTransfer.getData('item-uuid');
   if (!sourceUuid) return;
 
+  // A playlist group is bound by reference: the slot fires the group itself
+  // (its start behaviour, then its cues in turn), and edits to the group show
+  // up here. Nothing is cloned, so nothing is duplicated.
+  const sourceGroup = findItemByUuid(sourceUuid);
+  if (sourceGroup && sourceGroup.type === 'group') {
+    const at = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === props.slot);
+    if (at !== -1) {
+      const prev = currentProject.value.cartItems[at];
+      if (prev?.itemUuid) removeCartOnlyItem(prev.itemUuid);
+      prev.itemUuid = sourceUuid;
+      prev.index = [-1, props.slot];
+    } else {
+      currentProject.value.cartItems.push({ slot: props.slot, itemUuid: sourceUuid, index: [-1, props.slot] });
+    }
+    if (isSecondaryWindow) {
+      useLiveplayServer().setCartSlot(props.slot, sourceUuid).catch((err: unknown) =>
+        console.warn('[cart] could not bind the group to the slot on the server:', err));
+    }
+    const { saveProject } = useProject();
+    saveProject();
+    return;
+  }
+
   // Clone the source item into a cart-only item with its OWN uuid so the cart
   // copy can carry independent name / attenuation / in-out points without
   // mutating the playlist source (or any other cart copy of the same file).
@@ -1041,7 +1089,13 @@ const handleDrop = async (e: DragEvent) => {
     flex-shrink: 0;
   }
   
-  .slot-name {
+  .group-icon {
+  font-size: 16px;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.slot-name {
     font-size: 14px;
     font-weight: 600;
     color: var(--color-text-primary);

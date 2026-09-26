@@ -48,7 +48,7 @@ export const eventToBinding = (e: KeyboardEvent): CartSlotKeyBinding => ({
 export const useCartHotkeys = () => {
   const { currentProject, selectedItem, selectedItems, saveProject, getAllItemsFlat, toggleItemSelection, findItemByUuid } = useProject();
   const { getCartItem } = useCartItems();
-  const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem, triggerGroup, queueLoopContinuation, jumpCue } = useAudioEngine();
+  const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem, triggerGroup, queueLoopContinuation, jumpCue, isItemPlaying, fireItem, stopItemAny } = useAudioEngine();
 
   const keyMappings = computed(() =>
     currentProject.value?.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS }
@@ -103,11 +103,8 @@ export const useCartHotkeys = () => {
   const triggerSlot = (slotIndex: number) => {
     const item = getCartItem(slotIndex);
     if (!item) return;
-    if (activeCues.value.has(item.uuid)) {
-      stopCue(item.uuid);
-    } else {
-      playCue(item);
-    }
+    if (isItemPlaying(item)) stopItemAny(item);
+    else fireItem(item);
   };
 
   const findSlotForEvent = (e: KeyboardEvent): number => {

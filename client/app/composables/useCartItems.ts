@@ -1,4 +1,4 @@
-import type { AudioItem } from '~/types/project';
+import type { AudioItem, GroupItem } from '~/types/project';
 
 export const useCartItems = () => {
   // Store cart-only items separately (not in the playlist). Held via
@@ -18,8 +18,10 @@ export const useCartItems = () => {
     cartOnlyItems.value.set(item.uuid, item);
   };
 
-  // Get cart item - checks both cart-only items and project items
-  const getCartItem = (slot: number): AudioItem | null => {
+  // Get cart item - checks both cart-only items and project items. A slot may
+  // also hold a playlist GROUP, bound by reference rather than cloned (a copy
+  // would duplicate every cue inside it) — discussion #61.
+  const getCartItem = (slot: number): AudioItem | GroupItem | null => {
     if (!currentProject.value) return null;
 
     const cartItem = currentProject.value.cartItems.find(ci => ci.slot === slot);
@@ -34,7 +36,8 @@ export const useCartItems = () => {
     // Fallback to project items (for items dragged from playlist)
     const { findItemByUuid } = useProject();
     const item = findItemByUuid(cartItem.itemUuid);
-    return item && item.type === 'audio' ? item as AudioItem : null;
+    if (!item) return null;
+    return item.type === 'group' ? item as GroupItem : item as AudioItem;
   };
 
   // Update a cart-only item

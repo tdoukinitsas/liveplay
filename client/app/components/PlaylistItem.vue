@@ -142,6 +142,14 @@
         </div>
         
         <span v-if="item.type === 'audio'" class="item-duration">{{ durationDisplay }}</span>
+        <!-- A group's run time, the sum of what it will play (#63): visible
+             collapsed, so a walk-in or interval playlist can be sized at a
+             glance. While it plays, the time left in the whole group. -->
+        <span
+          v-else-if="item.type === 'group' && groupDurationDisplay"
+          class="item-duration group-duration"
+          :title="groupDurationTitle"
+        >{{ groupDurationDisplay }}</span>
 
         <!-- In Show Mode the live-playback actions (play/stop, set-as-next)
              and preview remain — preview is useful pre-show too; edit and
@@ -213,6 +221,7 @@ import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
 import ActionButton from './ActionButton.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { calculatePerceivedLoudness } from '~/utils/audio';
+import { runTime, formatRunTime } from '~/utils/groupTiming';
 
 const props = defineProps<{
   item: AudioItem | GroupItem;
@@ -317,6 +326,26 @@ const isPeaking = computed(() => {
   const effectiveLoudness = intrinsicLoudness + volumeDb;
 
   return effectiveLoudness > outputTargetLevels.value.autoVolumeTargetDb + 3;
+});
+
+const groupRunTime = computed(() =>
+  props.item.type === 'group' ? runTime(props.item as GroupItem) : null);
+const groupDurationDisplay = computed(() => {
+  const total = groupRunTime.value;
+  if (!total) return '';
+  const live = activeGroups.value.get(props.item.uuid);
+  if (live) return `-${formatRunTime(live.remaining)}${live.indefinite ? '+' : ''}`;
+  if (total.seconds <= 0 && !total.indefinite) return '';
+  return `${formatRunTime(total.seconds)}${total.indefinite ? '+' : ''}`;
+});
+const groupDurationTitle = computed(() => {
+  const total = groupRunTime.value;
+  if (!total) return '';
+  const live = activeGroups.value.get(props.item.uuid);
+  const parts = [t('group.runTime', { time: formatRunTime(total.seconds) })];
+  if (live) parts.push(t('group.remaining', { time: formatRunTime(live.remaining) }));
+  if (total.indefinite) parts.push(t('group.containsLoop'));
+  return parts.join(' · ');
 });
 
 const durationDisplay = computed(() => {

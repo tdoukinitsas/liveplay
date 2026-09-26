@@ -180,7 +180,8 @@
     "resetDefaults": "Reset to Defaults",
     "close": "Close",
     "detach": "Detach",
-    "attach": "Attach"
+    "attach": "Attach",
+    "groupSlot": "A playlist group: plays the whole group from this slot"
   },
   "behaviors": {
     "startPlayNext": "Start: Play Next",
@@ -820,5 +821,10 @@
     "busesFromOverrides": "{count} cues were moved onto buses created from their device overrides.",
     "openMixer": "Open Mixer",
     "dismiss": "Dismiss"
+  },
+  "group": {
+    "runTime": "Run time {time}",
+    "remaining": "{time} left in this group",
+    "containsLoop": "Contains a looping cue, so it has no fixed end: the time shown is how long the rest lasts"
   }
 }
