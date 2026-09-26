@@ -658,6 +658,10 @@ const handleProjectSelectionCancel = () => {
 watch(userTheme, (t) => {
   if (!t) return;
   theme.value = t.mode;
+  // Mirror onto <html> too: the theme variables are scoped to [data-theme],
+  // and with it only on #app, `body { background: var(--color-background) }`
+  // resolved to nothing and anything transparent showed the window's white.
+  if (import.meta.client) document.documentElement.setAttribute('data-theme', t.mode);
   if (import.meta.client && t.accentColor) {
     document.documentElement.style.setProperty('--color-accent-custom', t.accentColor);
   }

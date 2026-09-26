@@ -82,7 +82,7 @@
         class="resize-handle"
         :class="{ 'collapsed-left': cartFullscreen, 'collapsed-right': cartClosed, dragging: isResizing }"
         @pointerdown="startResize"
-      ></div>
+      ><span class="resize-grip" aria-hidden="true"></span></div>
 
       <div
         v-if="!cartClosed && !cartDetached && !mixerFull"
@@ -103,7 +103,7 @@
           class="resize-handle mixer-resize-handle"
           :class="{ 'collapsed-left': mixerFull, 'collapsed-right': mixerCollapsed, dragging: isMixerResizing }"
           @pointerdown="startMixerResize"
-        ></div>
+        ><span class="resize-grip" aria-hidden="true"></span></div>
         <div
           v-if="!mixerCollapsed"
           class="mixer-section"
@@ -211,8 +211,8 @@ const workspaceEl = ref<HTMLElement | null>(null);
 const PLAYLIST_MIN_PX = 240;      // the flexible pane never shrinks below this
 const CART_MIN_PX = 300;
 const MIXER_MIN_PX = 220;
-const HANDLE_PX = 5;              // an open separator
-const COLLAPSED_HANDLE_PX = 8;    // a separator standing in for a collapsed pane
+const HANDLE_PX = 10;             // an open separator (keep in step with .resize-handle)
+const COLLAPSED_HANDLE_PX = 12;   // a separator standing in for a collapsed pane
 const SNAP_PX = 100;              // drag this far past an edge/limit to snap
 
 // How much of the row the cart side (pane + its handle) takes up, as seen by
@@ -304,10 +304,17 @@ function startMixerResize(e: PointerEvent) {
     const width = rect.right - ev.clientX;
     const maxWidth = maxMixerWidth(rect.width);
 
-    // Full mode: the handle is on the left edge; dragging it right past the
-    // threshold brings the pane back down to a side pane at the pointer.
+    // Full mode: the handle is on the left edge; dragging it right brings the
+    // pane back down to a side pane at the pointer — but only once the pointer
+    // is back inside the width a side pane can actually have. Leaving at a
+    // different threshold from the one that entered (it used to leave 100px
+    // from the left edge, but enter at maxWidth + 100) made a band several
+    // hundred px wide in which every pointermove flipped side <-> full, each
+    // flip unmounting and remounting the playlist and cart: the flicker as the
+    // mixer approached full width. Enter at maxWidth + SNAP_PX, leave below
+    // maxWidth: a SNAP_PX-wide dead band, never an oscillation.
     if (mixerMode.value === 'full') {
-      if (width > rect.width - SNAP_PX) return;
+      if (width >= maxWidth) return;
       mixerMode.value = 'side';
       mixerCollapsed.value = false;
       mixerWidth.value = clampWidth(width, MIXER_MIN_PX, maxWidth);
@@ -315,7 +322,9 @@ function startMixerResize(e: PointerEvent) {
     }
 
     // Dragged off the right edge: collapse, keeping mixerWidth so the pane
-    // comes back at a sensible size when dragged out again.
+    // comes back at a sensible size when dragged out again. Once collapsed it
+    // stays so until the pointer is clearly back out (same dead-band idea).
+    if (mixerCollapsed.value && width < SNAP_PX * 1.5) return;
     if (width < SNAP_PX) {
       mixerCollapsed.value = true;
       return;
@@ -388,6 +397,13 @@ const startResize = (e: PointerEvent) => {
     // docked mixer keeps its width — so the fullscreen snap below is measured
     // against what is actually reachable, not the raw container width.
     const maxWidth = maxCartWidth(rect.width);
+
+    // Hysteresis, as for the mixer: a fullscreen cart stays so until the
+    // pointer is back inside the width a docked cart can have, and a closed
+    // one until it is clearly dragged back out. A single shared threshold let
+    // a pointer resting on it flip the playlist's mount on every move.
+    if (cartFullscreen.value && newWidth >= maxWidth) return;
+    if (cartClosed.value && newWidth < SNAP_PX * 1.5) return;
 
     // Close snap: dragged off the cart's right edge.
     if (newWidth < SNAP_PX) {
@@ -805,6 +821,9 @@ onUnmounted(() => {
   display: flex;
   overflow: hidden;
   position: relative;
+  /* Paint the row: anything transparent above it would otherwise show
+     the window's default white. */
+  background-color: var(--color-background);
 }
 
 // D12 migration banner. Same warn tint used elsewhere (e.g. ProjectHeader's
@@ -902,13 +921,21 @@ onUnmounted(() => {
 }
 
 .resize-handle {
-  width: 5px;
-  background-color: var(--color-border);
+  /* Keep in step with HANDLE_PX / COLLAPSED_HANDLE_PX in the script: the
+     splitter maths reserves exactly these widths. */
+  width: 10px;
+  box-sizing: border-box;
+  background-color: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
   cursor: col-resize;
-  transition: background-color var(--transition-fast);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
   position: relative;
   z-index: 10;
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   /* Claim the gesture outright: without this the browser treats a touch-drag
      on the bar as a pan and never delivers pointermove to us. */
   touch-action: none;
@@ -916,11 +943,9 @@ onUnmounted(() => {
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 
-  /* Invisible grab zone. A 5px bar is a fine mouse target but far below the
-     ~24px a finger can reliably hit, so widen the *hit* area without moving the
-     pixels the user sees. Only on touch-capable displays — on a pure mouse
-     setup the extra 20px would sit over the playlist's scrollbar for no gain,
-     and mouse dragging already works at 5px. */
+  /* Invisible grab zone, widened on touch displays only (a finger needs
+     ~24px; on a mouse rig the extra width would sit over the playlist's
+     scrollbar for no gain). */
   &::before {
     content: '';
     position: absolute;
@@ -937,78 +962,57 @@ onUnmounted(() => {
     }
   }
 
-  &:hover {
-    background-color: var(--color-accent);
+  /* Six-dot grip in the middle: says "drag me" without a label. */
+  .resize-grip {
+    width: 4px;
+    height: 16px;
+    background-image: radial-gradient(circle, var(--color-text-secondary) 1px, transparent 1.4px);
+    background-size: 4px 5.33px;
+    background-position: center;
+    opacity: 0.8;
+    pointer-events: none;
   }
 
+  &:hover,
   &:active,
   &.dragging {
-    background-color: var(--color-accent);
+    background-color: var(--color-surface-hover, var(--color-surface));
+    border-color: var(--color-accent);
+
+    .resize-grip {
+      background-image: radial-gradient(circle, var(--color-accent) 1px, transparent 1.4px);
+      opacity: 1;
+    }
   }
 
-  /* Collapsed states: the handle stays in its flex slot as a thin transparent
-     bar (8px, the line drawn by ::after) on the edge of the pane it reopens —
-     left edge for a pane that filled the row, right edge for one that closed.
-     Staying in flow (rather than position: absolute against the row) is what
-     keeps a closed cart's handle between the playlist and a docked mixer
-     instead of floating over the mixer's own handle. */
-  &.collapsed-left {
-    width: 8px;
-    background-color: transparent;
+  /* Collapsed states: the handle stays in its flex slot, a little wider, on
+     the edge of the pane it reopens (left edge for a pane that filled the
+     row, right edge for one that closed). Staying in flow (rather than
+     position: absolute against the row) is what keeps a closed cart's handle
+     between the playlist and a docked mixer. It is painted solid: it used to
+     be transparent over a row with no background of its own, which let the
+     window's default white show through as a white edge. */
+  &.collapsed-left,
+  &.collapsed-right {
+    width: 12px;
+  }
 
-    /* The grab zone may only grow inward, over the open pane beside it —
-       growing outward too would sit over the neighbouring separator. */
+  /* The grab zone may only grow inward, over the open pane beside it. */
+  &.collapsed-left {
     @media (any-pointer: coarse) {
       &::before {
         left: 0;
         right: -16px;
       }
     }
-
-    &::after {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background-color: var(--color-border);
-      opacity: 0.5;
-    }
-    
-    &:hover::after {
-      width: 4px;
-      background-color: var(--color-accent);
-      opacity: 1;
-    }
   }
-  
-  &.collapsed-right {
-    width: 8px;
-    background-color: transparent;
 
+  &.collapsed-right {
     @media (any-pointer: coarse) {
       &::before {
         left: -16px;
         right: 0;
       }
-    }
-
-    &::after {
-      content: '';
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background-color: var(--color-border);
-      opacity: 0.5;
-    }
-    
-    &:hover::after {
-      width: 4px;
-      background-color: var(--color-accent);
-      opacity: 1;
     }
   }
 }
