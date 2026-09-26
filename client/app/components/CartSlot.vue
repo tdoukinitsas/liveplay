@@ -193,6 +193,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { AudioItem, GroupItem } from '~/types/project';
 import ActionButton from './ActionButton.vue';
 import { runTime, formatRunTime } from '~/utils/groupTiming';
+import { drawRowWaveform } from '~/utils/rowWaveform';
 import AudioImportModal from './AudioImportModal.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { calculatePerceivedLoudness, parseWaveformFileData } from '~/utils/audio';
@@ -615,54 +616,10 @@ const formatDuration = (item: AudioItem | GroupItem | null): string => {
   }
 };
 
-// Draw waveform
+// Draw waveform (the shared row drawing, utils/rowWaveform.ts)
 const drawWaveform = () => {
   if (!waveformCanvas.value || !props.item || props.item.type !== 'audio') return;
-  
-  const audioItem = props.item as AudioItem;
-  if (!audioItem.waveform || !audioItem.waveform.peaks || audioItem.waveform.peaks.length === 0) return;
-  
-  const canvas = waveformCanvas.value;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  
-  // Set canvas size to match element size
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-  ctx.scale(dpr, dpr);
-  
-  ctx.clearRect(0, 0, rect.width, rect.height);
-
-  // Use the item's own colour; opacity:0.3 in CSS gives a natural dark tint.
-  ctx.fillStyle = audioItem.color || '#ffffff';
-
-  const peaks = audioItem.waveform.peaks;
-  
-  // Calculate trimmed region if in/out points are set
-  const totalDuration = audioItem.duration;
-  const inPoint = audioItem.inPoint || 0;
-  const outPoint = audioItem.outPoint || totalDuration;
-  const trimmedDuration = outPoint - inPoint;
-  
-  // Calculate which peaks to show (slice based on in/out ratios)
-  const startIndex = Math.floor((inPoint / totalDuration) * peaks.length);
-  const endIndex = Math.ceil((outPoint / totalDuration) * peaks.length);
-  const trimmedPeaks = peaks.slice(startIndex, endIndex);
-  
-  const barWidth = rect.width / trimmedPeaks.length;
-  const centerY = rect.height / 2;
-
-  trimmedPeaks.forEach((value, i) => {
-    const clamped = Math.min(1, Math.max(0, value));
-    const shaped = clamped * clamped;
-    const barHeight = shaped * rect.height * 0.8;
-    const x = i * barWidth;
-    const y = centerY - barHeight / 2;
-
-    ctx.fillRect(x, y, Math.max(barWidth, 1), barHeight);
-  });
+  drawRowWaveform(waveformCanvas.value, props.item as AudioItem);
 };
 
 // Watch for item changes and redraw

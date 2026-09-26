@@ -124,11 +124,10 @@
               {{ t('mixer.feedingThis') }}
               <span class="det__count">{{ bus.itemUuids.length }}</span>
             </h4>
+            <!-- A mini playlist of what feeds the bus: numbers, colours,
+                 groups and waveforms, as the operator knows the cues. -->
             <div class="det__contriblist">
-              <ul v-if="bus.itemUuids.length" class="det__items">
-                <li v-for="uuid in bus.itemUuids" :key="uuid">{{ itemName(uuid) }}</li>
-              </ul>
-              <p v-else class="det__none">{{ t('mixer.nothingAssigned') }}</p>
+              <MixerFeedingList :bus="bus" />
             </div>
           </section>
 
