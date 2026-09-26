@@ -443,7 +443,14 @@ onBeforeUnmount(() => knobRo?.disconnect());
 </script>
 
 <style scoped>
-.dyn { min-height: 0; }
+/* The panel is what scrolls when its grid row is shorter than the controls
+   need. It has to be here rather than on .dyn__body: `container-type: size`
+   means the body contributes nothing to intrinsic height, so a floor set
+   inside it is invisible to an `auto` grid row and the short-window rule
+   (grid-template-rows: auto auto) would collapse this panel to its heading.
+   Scrolling one level out keeps the body's honest floor working in both the
+   `auto` and the `1fr` cases, and nothing can paint outside the panel. */
+.dyn { min-height: 0; overflow-y: auto; }
 .dyn > .det__h { flex: 0 0 auto; }
 
 .dyn__body {
@@ -455,14 +462,16 @@ onBeforeUnmount(() => knobRo?.disconnect());
      content — so in the stacked layouts, where rows size to content, it needs
      a floor or it collapses.
 
-     300px, raised from 220px. 220 was below what the controls actually
-     occupy: two groups, each a heading over two rows of knob fields, is
-     ~266px at the smallest knob size and ~290px at the middle one. The box
-     was therefore routinely shorter than its own contents, and because the
-     height comes from the parent it had no way to grow — so the controls
-     spilled out of it instead. .det__work already scrolls, so an honest floor
-     here means the work area scrolls when the window is short, which is the
-     behaviour that was intended all along. */
+     300px is what the controls actually occupy, not a round number: two
+     groups, each a heading over two rows of knob fields, come to ~266px at the
+     smallest knob size and ~290px at the middle one. The previous attempt set
+     this floor and stopped there, which made the overlap MORE certain rather
+     than less — the box insisted on 300px inside a panel that might only have
+     200, and since the height comes from the parent and not the content, the
+     surplus had nowhere to go but downward over the plugin rack. A floor with
+     nowhere to scroll is just a taller overflow. The scroll now lives on .dyn
+     above, so this floor does what it was meant to: the controls always have
+     the room they need, and the panel scrolls to reach them. */
   min-height: 300px;
 }
 

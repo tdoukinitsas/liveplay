@@ -497,17 +497,23 @@ function openMenuFromButton() {
   padding: var(--spacing-sm);
   overflow: auto;
 }
-/* min-width:0 on every one of them is load-bearing, not tidiness. A grid item
-   defaults to `min-width: auto`, which means it will NOT shrink below its own
-   min-content width — it overflows its track instead, and an overflowing track
-   paints straight over the column beside it. That is exactly what put the
-   dynamics controls on top of "Feeding this bus". .det__work already had
-   min-width:0; the items inside it never did, and the container is not what
-   was overflowing. */
-.det__eq      { grid-column: 1; grid-row: 1 / span 2; min-width: 0; }
-.det__dyn     { grid-column: 2; grid-row: 1;          min-width: 0; }
-.det__plugins { grid-column: 2; grid-row: 2;          min-width: 0; }
-.det__io      { grid-column: 3; grid-row: 1 / span 2; min-width: 0; }
+/* min-width:0 AND min-height:0 on every one of them is load-bearing, not
+   tidiness. A grid item defaults to `min-width: auto` / `min-height: auto`,
+   meaning it will NOT shrink below its own min-content size on that axis — it
+   overflows its track instead, and an overflowing track paints straight over
+   whatever is next to it. .det__work already had min-width:0; the items inside
+   it never did, and the container was never what overflowed.
+
+   Both axes matter and they were two separate bugs. Width: the dynamics
+   controls landing on "Feeding this bus" in the column beside them. Height:
+   .det__dyn sits in row 1 and .det__plugins in row 2, so a dynamics panel that
+   would not shrink into its row simply grew down through the plugin rack
+   underneath it. Fixing only the inline axis left the block axis doing exactly
+   the same thing one direction over. */
+.det__eq      { grid-column: 1; grid-row: 1 / span 2; min-width: 0; min-height: 0; }
+.det__dyn     { grid-column: 2; grid-row: 1;          min-width: 0; min-height: 0; }
+.det__plugins { grid-column: 2; grid-row: 2;          min-width: 0; min-height: 0; }
+.det__io      { grid-column: 3; grid-row: 1 / span 2; min-width: 0; min-height: 0; }
 
 /* Narrow: one column. Everything takes the height it needs and the work area
    scrolls, which is where the EQ graph gets its full height back rather than
