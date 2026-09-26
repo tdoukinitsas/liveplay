@@ -261,8 +261,96 @@
         <p class="api-subtitle">{{ t('api.subtitle') }}</p>
 
         <div class="api-block">
-          <h3>{{ t('api.surface.title') }}</h3>
-          <p>{{ t('api.surface.description') }}</p>
+          <h3>{{ t('api.intro.title') }}</h3>
+          <p>{{ t('api.intro.description') }}</p>
+          <p>
+            <strong>{{ t('api.intro.baseUrlLabel') }}:</strong>
+            <code class="api-inline-code">{{ apiBaseUrl }}</code>
+          </p>
+          <p>{{ t('api.intro.getVsPost') }}</p>
+          <p class="api-callout">{{ t('api.intro.stopWarning') }}</p>
+        </div>
+
+        <div class="api-block">
+          <h3>{{ t('api.controls.title') }}</h3>
+          <p>{{ t('api.controls.description') }}</p>
+          <div class="api-table-wrap">
+            <table class="api-table">
+              <thead>
+                <tr>
+                  <th scope="col">{{ t('api.controls.colMethod') }}</th>
+                  <th scope="col">{{ t('api.controls.colPath') }}</th>
+                  <th scope="col">{{ t('api.controls.colAction') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in apiControls" :key="row.key">
+                  <td class="api-table-methods">
+                    <span
+                      v-for="m in row.methods"
+                      :key="m"
+                      class="api-method"
+                      :class="m === 'POST' ? 'api-method-post' : 'api-method-get'"
+                    >{{ m }}</span>
+                  </td>
+                  <td class="api-table-path"><code>{{ row.path }}</code></td>
+                  <td class="api-table-action">
+                    <span class="api-action">{{ t(`api.controls.${row.key}.description`) }}</span>
+                    <span class="api-notes">{{ t(`api.controls.${row.key}.notes`) }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="api-block">
+          <h3>{{ t('api.examples.title') }}</h3>
+          <p>{{ t('api.examples.description') }}</p>
+          <pre class="api-code"><code>{{ t('api.examples.curl') }}</code></pre>
+        </div>
+
+        <div class="api-block">
+          <h3>{{ t('api.more.title') }}</h3>
+          <p>{{ t('api.more.description') }}</p>
+          <ul class="api-endpoint-list">
+            <li><code>{{ t('api.more.selection.path') }}</code> — {{ t('api.more.selection.description') }}</li>
+            <li><code>{{ t('api.more.buses.path') }}</code> — {{ t('api.more.buses.description') }}</li>
+            <li><code>{{ t('api.more.limiter.path') }}</code> — {{ t('api.more.limiter.description') }}</li>
+            <li><code>{{ t('api.more.showMode.path') }}</code> — {{ t('api.more.showMode.description') }}</li>
+          </ul>
+        </div>
+
+        <div class="api-block">
+          <h3>{{ t('api.auth.title') }}</h3>
+          <p>{{ t('api.auth.description') }}</p>
+          <pre class="api-code"><code>{{ t('api.auth.login') }}</code></pre>
+          <p>{{ t('api.auth.headerNote') }}</p>
+          <p>{{ t('api.auth.cors') }}</p>
+        </div>
+
+        <div class="api-block">
+          <h3>{{ t('api.websocket.title') }}</h3>
+          <p>{{ t('api.websocket.description') }}</p>
+          <pre class="api-code"><code>{{ t('api.websocket.frames') }}</code></pre>
+          <p class="api-caveat">{{ t('api.websocket.framesNote') }}</p>
+          <p>{{ t('api.websocket.pushTitle') }}</p>
+          <ul class="api-endpoint-list">
+            <li><code>{{ t('api.websocket.snapshot.name') }}</code> — {{ t('api.websocket.snapshot.description') }}</li>
+            <li><code>{{ t('api.websocket.cueState.name') }}</code> — {{ t('api.websocket.cueState.description') }}</li>
+            <li><code>{{ t('api.websocket.meters.name') }}</code> — {{ t('api.websocket.meters.description') }}</li>
+            <li><code>{{ t('api.websocket.docPatch.name') }}</code> — {{ t('api.websocket.docPatch.description') }}</li>
+          </ul>
+        </div>
+
+        <div class="api-block">
+          <h3>{{ t('api.companion.title') }}</h3>
+          <p>{{ t('api.companion.description') }}</p>
+          <p>
+            <a href="https://github.com/aspinwalld/companion-module-liveplay" target="_blank" rel="noopener noreferrer">
+              {{ t('api.companion.linkText') }}
+            </a>
+          </p>
         </div>
 
         <div class="api-block">
@@ -270,30 +358,6 @@
           <p>{{ t('api.discovery.description') }}</p>
           <pre class="api-code"><code>{{ t('api.discovery.payload') }}</code></pre>
           <p>{{ t('api.discovery.note') }}</p>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.endpoints.title') }}</h3>
-          <p>{{ t('api.endpoints.description') }}</p>
-          <ul class="api-endpoint-list">
-            <li><code>{{ t('api.endpoints.stateSummary.path') }}</code> — {{ t('api.endpoints.stateSummary.description') }}</li>
-            <li><code>{{ t('api.endpoints.transport.path') }}</code> — {{ t('api.endpoints.transport.description') }}</li>
-            <li><code>{{ t('api.endpoints.selection.path') }}</code> — {{ t('api.endpoints.selection.description') }}</li>
-            <li><code>{{ t('api.endpoints.buses.path') }}</code> — {{ t('api.endpoints.buses.description') }}</li>
-            <li><code>{{ t('api.endpoints.master.path') }}</code> — {{ t('api.endpoints.master.description') }}</li>
-          </ul>
-          <p class="api-caveat">{{ t('api.endpoints.busesCaveat') }}</p>
-          <p class="api-caveat">{{ t('api.endpoints.dragWarning') }}</p>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.websocket.title') }}</h3>
-          <p>{{ t('api.websocket.description') }}</p>
-          <ul class="api-endpoint-list">
-            <li><code>{{ t('api.websocket.cueState.name') }}</code> — {{ t('api.websocket.cueState.description') }}</li>
-            <li><code>{{ t('api.websocket.meters.name') }}</code> — {{ t('api.websocket.meters.description') }}</li>
-            <li><code>{{ t('api.websocket.docPatch.name') }}</code> — {{ t('api.websocket.docPatch.description') }}</li>
-          </ul>
         </div>
 
         <div class="api-reference">
@@ -387,6 +451,28 @@ const baseURL = useRuntimeConfig().app.baseURL;
 const asset = (path: string) => `${baseURL}${path.replace(/^\/+/, '')}`;
 
 const version = ref('2.5.0');
+
+// External control / API section. Methods and paths are literal protocol, not
+// prose, so they live here rather than in the locale files; each row's
+// description and notes come from api.controls.<key>.* in en.json. Every
+// method/path pair is checked against server/src/net/control_server.cpp.
+const apiBaseUrl = 'http://<server>:4480';
+const apiControls: { key: string; methods: ('GET' | 'POST')[]; path: string }[] = [
+  { key: 'go',           methods: ['GET', 'POST'], path: '/api/transport/go' },
+  { key: 'stopAll',      methods: ['POST'],        path: '/api/transport/stop_all' },
+  { key: 'playItem',     methods: ['GET', 'POST'], path: '/api/project/items/<uuid>/play' },
+  { key: 'playIndex',    methods: ['GET', 'POST'], path: '/api/project/items/by-index/<path>' },
+  { key: 'stopItem',     methods: ['POST'],        path: '/api/project/items/<uuid>/stop' },
+  { key: 'pauseItem',    methods: ['POST'],        path: '/api/project/items/<uuid>/pause' },
+  { key: 'resumeItem',   methods: ['POST'],        path: '/api/project/items/<uuid>/resume' },
+  { key: 'playSelected', methods: ['GET', 'POST'], path: '/api/transport/play_selected' },
+  { key: 'pauseToggle',  methods: ['GET', 'POST'], path: '/api/transport/pause_toggle' },
+  { key: 'armSelected',  methods: ['GET', 'POST'], path: '/api/transport/arm_selected' },
+  { key: 'cart',         methods: ['GET', 'POST'], path: '/api/transport/cart/<n>/play' },
+  { key: 'masterGain',   methods: ['GET', 'POST'], path: '/api/master/gain' },
+  { key: 'stateSummary', methods: ['GET'],         path: '/api/state/summary' },
+  { key: 'listItems',    methods: ['GET'],         path: '/api/project/items' }
+];
 const contributors = ref<{ name: string; link: string }[]>([]);
 
 // Platform download cards. When we can detect the visitor's OS we surface only
@@ -967,6 +1053,136 @@ useSeoMeta({
       color: rgba(255, 255, 255, 0.55);
       font-size: 0.9rem;
     }
+
+    strong {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    a {
+      color: #DA1E28;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
+  .api-inline-code {
+    background: rgba(218, 30, 40, 0.1);
+    color: #DA1E28;
+    padding: 0.15rem 0.5rem;
+    border-radius: 5px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  // Same treatment as the ports disclaimer: a quiet box with a red rule.
+  .api-block .api-callout {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-inline-start: 3px solid rgba(218, 30, 40, 0.5);
+    border-radius: 8px;
+    padding: 0.85rem 1.25rem;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+  }
+
+  // Safety net: the table reflows into cards on phones (see the media query
+  // at the bottom), but if anything is still too wide it scrolls here rather
+  // than scrolling the whole page sideways.
+  .api-table-wrap {
+    overflow-x: auto;
+    margin: 1rem 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+  }
+
+  .api-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+
+    th,
+    td {
+      text-align: start;
+      vertical-align: top;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    th {
+      background: rgba(0, 0, 0, 0.25);
+      color: rgba(255, 255, 255, 0.85);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .api-table-methods {
+      white-space: nowrap;
+    }
+
+    // Paths stay on one line at desktop widths so they read as one token;
+    // the phone layout below lets them wrap.
+    .api-table-path {
+      white-space: nowrap;
+    }
+
+    .api-table-path code {
+      color: #DA1E28;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .api-action {
+      display: block;
+      color: rgba(255, 255, 255, 0.9);
+      line-height: 1.5;
+    }
+
+    .api-notes {
+      display: block;
+      margin-top: 0.3rem;
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 0.85rem;
+      line-height: 1.55;
+    }
+  }
+
+  .api-method {
+    display: inline-block;
+    margin: 0 0 0.3rem;
+    margin-inline-end: 0.3rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
+  .api-method-get {
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .api-method-post {
+    color: #DA1E28;
+    background: rgba(218, 30, 40, 0.15);
   }
 
   .api-code {
@@ -1237,6 +1453,57 @@ useSeoMeta({
 
   .readme-section .readme-content {
     padding: 1.5rem;
+  }
+
+  .api-section h2 {
+    font-size: 2rem;
+  }
+}
+
+// On a phone the three-column controls table becomes one card per call:
+// methods and path on top, the description underneath.
+@media (max-width: 640px) {
+  .api-section {
+    .api-table {
+      thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+
+      tr,
+      td {
+        display: block;
+      }
+
+      tr {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      tbody tr:last-child {
+        border-bottom: none;
+      }
+
+      td,
+      tbody tr:nth-child(even) td {
+        padding: 0;
+        border-bottom: none;
+        background: none;
+      }
+
+      tbody tr:nth-child(even) {
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .api-table-path {
+        margin: 0.1rem 0 0.4rem;
+        white-space: normal;
+      }
+    }
   }
 }
 </style>

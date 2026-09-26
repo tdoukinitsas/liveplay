@@ -336,7 +336,7 @@ Supported frame rates: 24, 25, 29.97 NDF, 29.97 DF, 30. Drop-frame handling is i
 
 ### Real-time metering
 
-Every tier has its own [`Meter`](include/liveplay/audio/meter.hpp) — VU-style attack/release peak envelope plus a leaky-integrator RMS over ~300 ms. The audio thread pushes blocks via `push_block()`; the meter publishes lock-free atomics. A dedicated broadcast thread snapshots all meters at ~60 Hz and fans them out to every WebSocket client. See [WebSocket frames](#websocket-frames) below.
+Every tier has its own [`Meter`](include/liveplay/audio/meter.hpp) — VU-style attack/release peak envelope plus a leaky-integrator RMS over ~300 ms. The audio thread pushes blocks via `push_block()`; the meter publishes lock-free atomics. A dedicated broadcast thread snapshots all meters at 30 Hz by default (`--meter-hz`, 1–120) and fans them out to every WebSocket client. See [WebSocket frames](#websocket-frames) below.
 
 ### Manual-stop fade-out contract
 
@@ -362,7 +362,7 @@ The authoritative endpoint list is the table of `CROW_ROUTE` registrations in [`
 - Every error follows `{ "error": "<message>" }` with an appropriate 4xx/5xx status code. `400` covers malformed bodies; `404` covers unknown ids/paths; `409` covers a request that's understood but refused (e.g. a bus routing rule); `413` covers oversize uploads; `500` covers internal failures.
 - `OPTIONS` on any route (a CORS preflight) returns `204` with `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS`, `Access-Control-Allow-Headers: Content-Type, Authorization` and `Access-Control-Max-Age: 600`. Crow answers preflights itself, before any route runs, so these headers are added by the `AuthGuard` middleware's `after_handle` — not by a route (#62). `OPTIONS` on a path matching no route is `404`.
 - All IDs are opaque strings unless typed otherwise. `<int>` path parameters are 32-bit signed.
-- `cue_id` (engine-level) ≠ `item_uuid` (project-document level). The server maintains the mapping in `ProjectState`; most transport endpoints accept either.
+- `cue_id` (engine-level) ≠ `item_uuid` (project-document level). The server maintains the mapping in `ProjectState`. The WebSocket transport frames accept either (`cue_id` or `item_uuid`); REST routes are split by path — `/api/cues/<id>/…` takes a cue id, `/api/project/items/<uuid>/…` an item uuid.
 
 ### Authentication
 
@@ -610,7 +610,7 @@ This is the low-level cue surface — for normal use, prefer the project-item su
 | `POST /api/transport/stop_all` | `{ "fade_ms": 0 }` (optional; empty body permitted) | `{ "ok": true }` |
 | `POST /api/master/ceiling` | `{ "db": -0.3 }` | `{ "ok": true }` |
 | `GET /api/master/gain` | — | `{ "db": float }` |
-| `POST /api/master/gain` | `{ "db": float }` sets an absolute gain, or `{ "delta": float }` nudges the current gain (no read-modify-write race for a control surface). `db` wins if both are present. | `{ "ok": true, "db": float }` · also broadcasts `master_gain_changed` |
+| `POST /api/master/gain` | `{ "db": float }` sets an absolute gain, or `{ "delta": float }` nudges the current gain (no read-modify-write race for a control surface). `db` wins if both are present. | `{ "ok": true, "db": float }` · `400` when the body has neither · also broadcasts `master_gain_changed` |
 | `GET /api/master/limiter` | — | `{ "enabled": bool }` |
 | `POST /api/master/limiter` | `{ "enabled": bool }` (omit to toggle — single-button surfaces) | `{ "ok": true, "enabled": bool }` · also broadcasts `limiter_changed` |
 | `GET /api/master/channels/<int>/gain` | — | `{ "channel": int, "db": float }` |
@@ -901,7 +901,7 @@ Mutating routes return `{ ok: true, ... }` only — the full document is **not**
 | `PATCH /api/project/items/<uuid>`      | partial item JSON (sparse update) | `{ "ok": true, "uuid": "…" }` · `404` if missing | `item_updated` |
 | `DELETE /api/project/items/<uuid>`     | — | `{ "ok": true, "uuid": "…" }` · `404` if missing | `item_removed` |
 | `POST /api/project/items/reorder`      | `{ "parentUuid": "" or "<group>", "uuids": [string, …] }` | `{ "ok": true }` | `items_reordered` |
-| `POST` or `GET /api/project/items/<uuid>/play` | — | `{ "ok": true }` · `404` if not loaded | — (transport edge fires `cue_state` instead) |
+| `POST` or `GET /api/project/items/<uuid>/play` | — | `{ "ok": true }` · `404` if not loaded | — (transport edge fires `cue_state` instead) · Routes through `trigger_item`, so a **group** uuid starts the group per its `startBehavior` (it used to 404). `…/stop` on a group stops whatever is playing inside it. `stop`/`pause`/`resume`/`seek` are POST-only. |
 | `POST` or `GET /api/project/items/by-index/<path>` | — | `{ "ok": true, "uuid": "…", "index": [int, …] }` · `400` invalid path · `404` no item / not loaded | — (transport edge fires `cue_state` instead) |
 | `POST /api/project/items/<uuid>/stop`  | `{ "fade_ms": 3000 }` (optional; empty body permitted) | `{ "ok": true }` · `404` if not loaded · `400` if the body is not JSON | — · Fades over the item's `manualStopFade` (see below); `fade_ms` overrides it for this stop, `0` = cut. |
 | `POST /api/project/items/<uuid>/pause` | — | `{ "ok": true }` · `404` if not loaded | — (REST mirror of the WS `pause` message, for stateless control surfaces) |
@@ -967,7 +967,7 @@ On connect, the server adds the connection to the broadcast set and queues a one
 
 | `type`                | Cadence            | Payload |
 |-----------------------|--------------------|---------|
-| `meters`              | ~60 Hz             | per-cue / per-mixer / per-master meters (see below) |
+| `meters`              | 30 Hz default      | per-cue / per-mixer / per-master meters (see below) |
 | `cue_state`           | On transport edge  | `{ "type": "cue_state", "cue_id": "…", "transport": 0\|1\|2\|3, "playhead_seconds": float, "item_uuid": "…" (when known) }` |
 | `playback_snapshot`   | On WS connect      | `{ "type": "playback_snapshot", "cues": [{cue_id,transport,playhead_seconds,item_uuid?}], "next_item_uuid": "…", "master_gain_db": float, "output_channel_gains": [{channel,db}], "preview": {item_uuid, cue_id} }` — lets a freshly-reconnected client mirror state without waiting for the next transport edge. `master_gain_db` / `output_channel_gains` are the engine-wide trims (see [Transport & master](#transport--master)); bus faders are in `GET /api/buses`. |
 | `doc_patch`           | On every server-side document mutation | `{ "type": "doc_patch", "op": "<op-name>", …op-specific fields }` — see the `op` table below |
@@ -1180,7 +1180,7 @@ The server runs ~5 threads:
 |--------------------|------------------------------------------------------------------|
 | Main               | Crow's I/O reactor, REST handlers, lifecycle, signal handling.   |
 | Engine render      | `AudioEngine::render_block()` driven by miniaudio per-device callbacks. Lock-free; no allocations, no exceptions, no syscalls. |
-| Meter broadcast    | Snapshots meters at ~60 Hz and pushes JSON to every WS client.    |
+| Meter broadcast    | Snapshots meters at 30 Hz by default and pushes JSON to every WS client. |
 | Waveform worker    | Drains an async queue of `/api/waveform_generate` requests off-thread (so REST stays responsive). |
 | Discovery          | UDP broadcaster announcing this server on the LAN.                |
 

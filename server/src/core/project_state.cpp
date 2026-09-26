@@ -3328,11 +3328,38 @@ bool ProjectState::play_item(const std::string& uuid,
 
 bool ProjectState::stop_item(const std::string& uuid, std::optional<long long> fade_ms) {
     audio::CueId cue;
+    std::vector<std::string> group_members;
     {
         std::lock_guard lock{mutex_};
         auto it = item_uuid_to_cue_.find(uuid);
-        if (it == item_uuid_to_cue_.end()) return false;
-        cue = it->second;
+        if (it != item_uuid_to_cue_.end()) {
+            cue = it->second;
+        } else {
+            // A group has no cue of its own. Stopping it stops whatever is
+            // playing inside it, at any depth — which is also what ends its
+            // run, since a manual stop fires no end behaviour.
+            std::function<void(const json&)> collect = [&](const json& g) {
+                if (!g.contains("children") || !g["children"].is_array()) return;
+                for (const auto& c : g["children"]) {
+                    if (!c.is_object()) continue;
+                    if (c.value("type", std::string{}) == "group") collect(c);
+                    else group_members.push_back(c.value("uuid", std::string{}));
+                }
+            };
+            bool found = false;
+            for_each_item(document_, [&](json& item, const std::string&) {
+                if (found || item.value("uuid", std::string{}) != uuid) return;
+                if (item.value("type", std::string{}) != "group") return;
+                found = true;
+                collect(item);
+            });
+            if (!found) return false;
+        }
+    }
+    if (cue.empty()) {
+        for (const auto& member : group_members)
+            if (item_on_air(member)) stop_item(member, fade_ms);
+        return true;
     }
 
     // Remove from sequencer and restore any ducked gains.

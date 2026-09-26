@@ -2763,10 +2763,14 @@ void ControlServer::install_routes() {
                 // (control-surface increment/decrement without a read-modify-
                 // write race on the caller's side). "db" wins if both present.
                 float db;
-                if (!j.contains("db") && j.contains("delta") && j["delta"].is_number())
+                if (j.contains("db") && j["db"].is_number())
+                    db = j["db"].get<float>();
+                else if (j.contains("delta") && j["delta"].is_number())
                     db = engine_.master_gain_db() + j["delta"].get<float>();
                 else
-                    db = j.value("db", 0.0f);
+                    // Neither: refuse, rather than read a typo'd body as
+                    // "set the whole show to 0 dB".
+                    return json_err(400, "body needs a numeric \"db\" or \"delta\"");
                 engine_.set_master_gain_db(db);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "master_gain_changed"},
@@ -4317,7 +4321,10 @@ void ControlServer::install_routes() {
             Logger::api_request("Client ({}) -> Server ({}) : {} /api/project/items/{}/play",
                                 req.remote_ip_address, impl_->server_addr, m, uuid);
             Logger::playback("PLAY: {}", item_playback_info(uuid, state_));
-            if (!state_.play_item(uuid)) {
+            // trigger_item, not play_item: a group uuid dispatches its start
+            // behaviour, as the WS "play" frame and by-index already did —
+            // play_item only knows audio items and answered 404 for a group.
+            if (!state_.trigger_item(uuid)) {
                 Logger::warn("PLAY item_uuid={} — item not loaded into engine", uuid);
                 return json_err(404, "item not loaded into engine");
             }

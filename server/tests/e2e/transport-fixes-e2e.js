@@ -14,6 +14,9 @@
 //           audition that plays to its end; stopAllStopsPreview:false spares it.
 //   E. #8   Wait before next: advanceDelay holds the auto-advance for that long
 //           after the cue ends, announces the wait, and Stop All cancels it.
+//   F. #64  REST by uuid works for a group (play fires its start behaviour,
+//           stop stops what is playing inside it); master gain with no db or
+//           delta is refused instead of resetting to 0 dB.
 //
 // Generates its own short signals; needs an audio device (a Stopped/Playing
 // transition only happens while the render thread is running).
@@ -90,6 +93,8 @@ async function waitFor(pred, ms = 5000, step = 50) {
   const cut   = path.join(dir, 'cut.wav');    writeWav(cut, 20);
   const dA    = path.join(dir, 'delay-a.wav'); writeWav(dA, 1.0);
   const dB    = path.join(dir, 'delay-b.wav'); writeWav(dB, 20);
+  const g1    = path.join(dir, 'grp-1.wav');   writeWav(g1, 20);
+  const g2    = path.join(dir, 'grp-2.wav');   writeWav(g2, 20);
 
   const items = [
     // Trimmed 1.0 -> 2.0 s, no fades, stops at the out-point.
@@ -111,6 +116,13 @@ async function waitFor(pred, ms = 5000, step = 50) {
       fadeOutDuration: 0, advanceDelay: 1.5, endBehavior: { action: 'next' } },
     { uuid: 'it-delay-b', type: 'audio', displayName: 'Delay B', mediaServerPath: dB,
       fadeOutDuration: 0, endBehavior: { action: 'nothing' } },
+    { uuid: 'it-group', type: 'group', displayName: 'Group', startBehavior: { action: 'play-first' },
+      endBehavior: { action: 'nothing' }, children: [
+        { uuid: 'it-g1', type: 'audio', displayName: 'G1', mediaServerPath: g1,
+          manualStopFade: 0, fadeOutDuration: 0, endBehavior: { action: 'next' } },
+        { uuid: 'it-g2', type: 'audio', displayName: 'G2', mediaServerPath: g2,
+          manualStopFade: 0, fadeOutDuration: 0, endBehavior: { action: 'nothing' } },
+      ] },
   ];
   let r = await rest('/api/project/document', {
     method: 'PUT', body: JSON.stringify({ name: 'transport-fixes-e2e', items }),
@@ -255,6 +267,27 @@ async function waitFor(pred, ms = 5000, step = 50) {
   await sleep(1800);   // past when B would have started
   ok('Stop All during the wait cancels the advance', !(await bPlaying()),
      `B transport ${(await cueState(bCue.id)).transport}`);
+
+  // ---- F. Groups over REST by uuid, master gain (#64) ----------------------
+  const g1Cue = await cueFor('it-g1');
+  r = await rest('/api/project/items/it-group/play', { method: 'GET' });
+  await sleep(300);
+  let g1State = (await cueState(g1Cue.id)).transport;
+  ok('GET /api/project/items/<group>/play starts the group', r.status === 200 && g1State === T.Playing,
+     `status ${r.status}, first child transport ${g1State}`);
+  r = await post('/api/project/items/it-group/stop');
+  await sleep(200);
+  g1State = (await cueState(g1Cue.id)).transport;
+  ok('POST /api/project/items/<group>/stop stops what plays inside it', r.status === 200 && g1State === T.Stopped,
+     `status ${r.status}, first child transport ${g1State}`);
+  const before = (await rest('/api/master/gain')).body;
+  await post('/api/master/gain', { db: -3 });
+  r = await post('/api/master/gain', {});
+  const after = (await rest('/api/master/gain')).body;
+  ok('master gain with neither db nor delta is refused and changes nothing',
+     r.status === 400 && Math.abs((after.db ?? after.gainDb ?? after) - -3) < 0.01,
+     `status ${r.status}, gain ${JSON.stringify(after)}`);
+  await post('/api/master/gain', { db: typeof before.db === 'number' ? before.db : 0 });
 
   ws.close();
   await rest('/api/project/close', { method: 'POST', body: '{}' });
