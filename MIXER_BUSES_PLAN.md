@@ -1236,3 +1236,45 @@ received the defaults; `PATCH {order}` renumbers the rail 1..N with holders pinn
 - Round-1 finding 3 (`pfl-e2e` intermittent) did not recur in five runs this round; the suite
   now prints every comparison, so the next occurrence will say what failed.
 - The e2e scripts' README run list says port 4500 / `/tmp` paths; on Windows pass real paths.
+
+---
+
+## 11. Round 3 (2026-09-26): outputs, EQ, analyser, dynamics metering
+
+Maintainer's round-3 list: a simpler remap dialog, renumbered Windows devices not recognised,
+a richer "Feeding this bus", mixer rebalance + unlimited EQ bands + a real-time analyser + a
+dynamics level indicator, splitter flicker / white edge, more obvious splitters. Decisions:
+
+- **D39 — Device names match modulo Windows renumbering.** Exact first, then
+  `audio::normalise_device_name` (drops "N- " after "(" or at the start, case, whitespace
+  runs), accepted only when exactly one present device matches. One owner:
+  `ProjectState::present_device_locked`. A named device that cannot be found is **never** the
+  default device (`open_device_by_name` returns empty); mapped channels on absent devices are
+  dropped, and `bound` uses the same resolution — the old "mapped ⇒ bound" played a stale
+  mapping into the house. Buses report `outputDevices`; clients never string-match.
+- **D40 — Remap is drag-and-drop of physical pairs onto missing slots.** Left: unbound targets
+  (server truth) + other outputs; right: present devices split into stereo pairs. Writes this
+  machine's `outputs.json` only; the show is untouched. The per-channel editor survives under
+  Advanced.
+- **D41 — EQ bands are slots, up to 32, any type.** `dsp.eq[]` of
+  `{freq,gain,q,slope,type,on}`; types bell / lowShelf / highShelf / lowCut / highCut / notch.
+  Index-wise merge; delete = `on:false` on the slot (trailing ones trimmed), never a shift
+  (the engine would morph each later band into its neighbour's filter). The legacy `shelf`
+  flag is still written and, when it contradicts `type`, keeps its positional meaning.
+  The engine keeps a live-band list so capacity costs nothing. This supersedes
+  `BUS_ARCHITECTURE.md`'s four-column band layout: the UI is graph-first with ONE row of
+  controls for the selected band, which keeps "EQ never scrolls its controls" true.
+- **D42 — Analyser is per-connection view state (D17 allows it).** WS `set_analyser {busId}`;
+  a pool of 4 engine taps (overwrite rings, armed by one atomic store) for the union of
+  subscriptions; 4096-point Hann FFT on the broadcast thread; 96 log bands pre-EQ and
+  post-EQ (before dynamics) to subscribed connections only. Extends D23 by decision.
+- **D43 — Dynamics metering.** `dyn_in_db` / `dyn_out_db` (peak since last frame, pre-fader,
+  also while the chain is idle) join the meters frame; `gate_gr_db` / `comp_gr_db` become
+  deepest-since-last-frame with the same names. Unit tests still read the last-block getters.
+- **D44 — Splitters have hysteresis.** Enter full/closed at one threshold, leave at another
+  (a SNAP_PX dead band); handles are painted solid (10 px / 12 px collapsed, six-dot grip) and
+  `data-theme` is mirrored onto `<html>` so nothing transparent shows the window's white.
+
+Verification: ctest 9/9 (new `device_name`); new e2e `device-match-e2e.js`,
+`eq-analyser-e2e.js`; filters, comp, gate, pfl, reroute, width, busbus, roles,
+absent-device, output-materialise all pass; UI checked in the built client via CDP.
