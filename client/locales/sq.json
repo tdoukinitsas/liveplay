@@ -930,6 +930,8 @@
   "group": {
     "runTime": "Kohëzgjatja {time}",
     "remaining": "Mbeten {time} në këtë grup",
-    "containsLoop": "Përmban një cue në buklë, ndaj nuk ka fund të caktuar: koha e shfaqur është sa zgjat pjesa tjetër"
+    "containsLoop": "Përmban një cue në buklë, ndaj nuk ka fund të caktuar: koha e shfaqur është sa zgjat pjesa tjetër",
+    "nowPlaying": "Duke u luajtur: {name}",
+    "trackPosition": "Pjesa {position} nga {total}"
   }
 }

@@ -930,6 +930,8 @@
   "group": {
     "runTime": "실행 시간 {time}",
     "remaining": "이 그룹 남은 시간 {time}",
-    "containsLoop": "반복되는 큐가 있어 정해진 끝이 없습니다: 표시된 시간은 나머지 부분의 길이입니다"
+    "containsLoop": "반복되는 큐가 있어 정해진 끝이 없습니다: 표시된 시간은 나머지 부분의 길이입니다",
+    "nowPlaying": "재생 중: {name}",
+    "trackPosition": "트랙 {position} / {total}"
   }
 }

@@ -930,6 +930,8 @@
   "group": {
     "runTime": "Run time {time}",
     "remaining": "{time} left in this group",
-    "containsLoop": "Contains a looping cue, so it has no fixed end: the time shown is how long the rest lasts"
+    "containsLoop": "Contains a looping cue, so it has no fixed end: the time shown is how long the rest lasts",
+    "nowPlaying": "Now playing: {name}",
+    "trackPosition": "Track {position} of {total}"
   }
 }

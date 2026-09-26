@@ -930,6 +930,8 @@
   "group": {
     "runTime": "Durată {time}",
     "remaining": "Mai sunt {time} în acest grup",
-    "containsLoop": "Conține un cue în buclă, deci nu are un final fix: timpul afișat este cât durează restul"
+    "containsLoop": "Conține un cue în buclă, deci nu are un final fix: timpul afișat este cât durează restul",
+    "nowPlaying": "Se redă acum: {name}",
+    "trackPosition": "Pista {position} din {total}"
   }
 }

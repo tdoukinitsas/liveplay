@@ -930,6 +930,8 @@
   "group": {
     "runTime": "Speltid {time}",
     "remaining": "{time} kvar i den här gruppen",
-    "containsLoop": "Innehåller en loopande signal, så den har inget fast slut: tiden som visas är hur länge resten varar"
+    "containsLoop": "Innehåller en loopande signal, så den har inget fast slut: tiden som visas är hur länge resten varar",
+    "nowPlaying": "Spelas nu: {name}",
+    "trackPosition": "Spår {position} av {total}"
   }
 }

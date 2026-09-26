@@ -930,6 +930,8 @@
   "group": {
     "runTime": "Laufzeit {time}",
     "remaining": "Noch {time} in dieser Gruppe",
-    "containsLoop": "Enthält einen Cue in Schleife und hat daher kein festes Ende: Die angezeigte Zeit ist die Dauer des Rests"
+    "containsLoop": "Enthält einen Cue in Schleife und hat daher kein festes Ende: Die angezeigte Zeit ist die Dauer des Rests",
+    "nowPlaying": "Läuft gerade: {name}",
+    "trackPosition": "Titel {position} von {total}"
   }
 }

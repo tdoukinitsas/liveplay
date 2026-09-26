@@ -930,6 +930,8 @@
   "group": {
     "runTime": "Durée {time}",
     "remaining": "Encore {time} dans ce groupe",
-    "containsLoop": "Contient un signal en boucle, donc sans fin fixe : la durée affichée est celle du reste"
+    "containsLoop": "Contient un signal en boucle, donc sans fin fixe : la durée affichée est celle du reste",
+    "nowPlaying": "Lecture en cours : {name}",
+    "trackPosition": "Piste {position} sur {total}"
   }
 }

@@ -930,6 +930,8 @@
   "group": {
     "runTime": "Duração {time}",
     "remaining": "Faltam {time} neste grupo",
-    "containsLoop": "Contém um sinal em loop, por isso não tem fim fixo: o tempo mostrado é quanto dura o resto"
+    "containsLoop": "Contém um sinal em loop, por isso não tem fim fixo: o tempo mostrado é quanto dura o resto",
+    "nowPlaying": "A reproduzir agora: {name}",
+    "trackPosition": "Faixa {position} de {total}"
   }
 }

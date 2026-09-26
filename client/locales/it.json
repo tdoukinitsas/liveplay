@@ -930,6 +930,8 @@
   "group": {
     "runTime": "Durata {time}",
     "remaining": "Restano {time} in questo gruppo",
-    "containsLoop": "Contiene un segnale in loop, quindi non ha una fine fissa: il tempo mostrato è la durata del resto"
+    "containsLoop": "Contiene un segnale in loop, quindi non ha una fine fissa: il tempo mostrato è la durata del resto",
+    "nowPlaying": "In riproduzione: {name}",
+    "trackPosition": "Traccia {position} di {total}"
   }
 }

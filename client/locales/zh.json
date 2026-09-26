@@ -930,6 +930,8 @@
   "group": {
     "runTime": "运行时长 {time}",
     "remaining": "本组剩余 {time}",
-    "containsLoop": "包含循环信号，因此没有固定结束时间：显示的时间是其余部分的时长"
+    "containsLoop": "包含循环信号，因此没有固定结束时间：显示的时间是其余部分的时长",
+    "nowPlaying": "正在播放：{name}",
+    "trackPosition": "第 {position} 首，共 {total} 首"
   }
 }

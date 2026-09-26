@@ -930,6 +930,8 @@
   "group": {
     "runTime": "Çalma süresi {time}",
     "remaining": "Bu grupta {time} kaldı",
-    "containsLoop": "Döngüye giren bir cue içerir, bu yüzden sabit bir sonu yok: gösterilen süre geri kalanın ne kadar sürdüğüdür"
+    "containsLoop": "Döngüye giren bir cue içerir, bu yüzden sabit bir sonu yok: gösterilen süre geri kalanın ne kadar sürdüğüdür",
+    "nowPlaying": "Şimdi çalıyor: {name}",
+    "trackPosition": "Parça {position} / {total}"
   }
 }

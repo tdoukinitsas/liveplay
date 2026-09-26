@@ -930,6 +930,8 @@
   "group": {
     "runTime": "所要時間 {time}",
     "remaining": "このグループの残り {time}",
-    "containsLoop": "ループするキューを含むため決まった終わりがありません：表示時間はそれ以外の部分の長さです"
+    "containsLoop": "ループするキューを含むため決まった終わりがありません：表示時間はそれ以外の部分の長さです",
+    "nowPlaying": "再生中: {name}",
+    "trackPosition": "トラック {position} / {total}"
   }
 }
