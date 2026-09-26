@@ -269,11 +269,16 @@
              appears to the system once something has claimed it. -->
         <section class="outmap-devices">
           <h3 class="outmap-h3">{{ t('serverSettings.outputDevices') }}</h3>
-          <p v-if="!server.devices.value.length" class="outmap-none">
+          <!-- No `.value`: useLiveplayServer returns reactive({...}), which
+               unwraps its refs, so server.devices IS the array. Reaching for
+               .value on it yields undefined, and `.length` on that throws
+               during render — which does not fail politely, it takes down the
+               whole pane subtree, so every OTHER settings pane goes blank too. -->
+          <p v-if="!server.devices.length" class="outmap-none">
             {{ t('serverSettings.noDevices') }}
           </p>
           <ul v-else class="outmap-devlist">
-            <li v-for="d in server.devices.value" :key="d.id" class="outmap-dev">
+            <li v-for="d in server.devices" :key="d.id" class="outmap-dev">
               <span class="outmap-dev__name" :title="d.display_name">{{ d.display_name }}</span>
               <span v-if="d.is_default" class="hw__badge">{{ t('mixer.remap.defaultBadge') }}</span>
               <span class="outmap-dev__count">
