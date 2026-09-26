@@ -16,8 +16,10 @@
 // render_block() is audio-thread-only.
 //
 // Manual-stop fade contract:
-//   stop()        → if the configured fade-out duration is non-zero, transition
-//                   into FadingOut for that duration, then Stopped.
+//   stop()        → if the manual-stop fade is non-zero, transition into
+//                   FadingOut for that duration, then Stopped.
+//   stop(dur)     → the same, over an explicit duration (Stop All, a caller's
+//                   fade_ms, "stop-all" ducking).
 //   stop_now()    → immediate stop, ignoring fade duration (panic button).
 //   master_stop() → goes through stop() (so fades are honoured).
 //   natural end-of-file → also funnels through stop() with the fade.
@@ -112,8 +114,13 @@ public:
     void unload();
 
     // ---- Transport (control thread) --------------------------------------
+    // From Stopped, play() always starts at the start frame (the in-point
+    // prime() or a stopped-state seek recorded), never wherever a fade-out or
+    // a natural end left the decoder — a bare engine play() of a cue that had
+    // run to its end used to resume at EOF, i.e. play silence (issue #65).
     void play();
-    void stop();                                  // honours fade_out_duration
+    void stop();                                  // honours the manual-stop fade
+    void stop(std::chrono::milliseconds dur);     // explicit fade, 0 = cut
     void stop_now();                              // hard stop, ignores fade
     void pause();
     void resume();
@@ -128,9 +135,20 @@ public:
         desc_.fade_in_duration  = d;
         fade_in_ms_.store(d.count(), std::memory_order_release);
     }
+    // The fade applied when the cue reaches EOF / its out-point. Also resets
+    // the manual-stop fade to the same value, so a caller that only knows one
+    // fade-out gets it everywhere; set_stop_fade() afterwards to separate them.
     void set_fade_out(std::chrono::milliseconds d) noexcept {
         desc_.fade_out_duration = d;
         fade_out_ms_.store(d.count(), std::memory_order_release);
+        stop_fade_ms_.store(d.count(), std::memory_order_release);
+    }
+    // The fade stop() uses — the operator's Stop button, per cue.
+    void set_stop_fade(std::chrono::milliseconds d) noexcept {
+        stop_fade_ms_.store(d.count(), std::memory_order_release);
+    }
+    std::chrono::milliseconds stop_fade() const noexcept {
+        return std::chrono::milliseconds{stop_fade_ms_.load(std::memory_order_acquire)};
     }
     void set_ltc_enabled(bool enabled);
     void set_ltc_frame_rate(LTCFrameRate fr);
@@ -253,12 +271,18 @@ private:
     // from the audio thread. Written by set_fade_in()/set_fade_out().
     std::atomic<long long>      fade_in_ms_{0};
     std::atomic<long long>      fade_out_ms_{0};
+    // Manual-stop fade (stop()). Control-thread only, atomic for symmetry.
+    std::atomic<long long>      stop_fade_ms_{0};
 
     // Set by render_block() on an unexpected decoder error (see had_decode_error).
     std::atomic<bool>           decode_error_{false};
 
     // Playhead in mix-rate frames. Audio thread is the only writer.
     std::atomic<std::uint64_t>  playhead_frames_{0};
+
+    // Where play() from Stopped begins: prime()'s start, or a seek made while
+    // stopped. Control thread only.
+    std::atomic<std::uint64_t>  start_frames_{0};
 
     // Out-point: when playhead_frames_ reaches this value, render_block
     // triggers the natural-EOF code path (fade-out then Stopped). 0 disables

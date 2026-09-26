@@ -477,13 +477,17 @@ public:
     bool play_item(const std::string& uuid,
                    double fade_in_override_sec = -1.0,
                    const audio::CueId& exclude_from_ducking = audio::CueId{});
-    bool stop_item(const std::string& uuid);
+    // `fade_ms`, when given, replaces the item's own manual-stop fade for this
+    // one stop (0 = cut) — a controller's "stop over 8 s" (#56).
+    bool stop_item(const std::string& uuid,
+                   std::optional<long long> fade_ms = std::nullopt);
 
     // Stop every cue for the global "Stop All" command. When `fade_ms` is
     // provided it is used directly; when omitted the project-wide
     // settings.stopAllFadeMs (default 1000 ms) applies. The resolved fade wins
     // over every per-track fade-out (global fade always wins); a resolved fade
-    // of 0 is an instant panic stop.
+    // of 0 is an instant panic stop. The preview audition fades with the rest
+    // unless settings.stopAllStopsPreview is false (#60).
     void stop_all_cues(std::optional<long long> fade_ms = std::nullopt);
 
     // Trigger an item by uuid: audio items go through play_item; group items
@@ -659,6 +663,9 @@ public:
     // active at a time; starting a new one replaces the old. Returns true
     // on success.
     bool start_preview(const std::string& item_uuid);
+    // Stops the audition and — when there was one — announces it through the
+    // preview-stopped broadcaster, whoever asked: the DELETE route, a moved
+    // preview role, Stop All, or the audition simply reaching its end.
     bool stop_preview();
     // uuid of the currently-previewing item, or empty if no preview active.
     std::string current_preview_item_uuid() const;
@@ -1230,6 +1237,19 @@ private:
     // is left is just which cue is being auditioned.
     audio::CueId           preview_cue_;
     std::string            preview_item_uuid_;
+    // Auditions Stop All has released but that are still fading out; the
+    // sequencer thread unloads each once it reaches Stopped. Under mutex_.
+    std::vector<audio::CueId> retired_preview_cues_;
+    // Clears the preview only if `expected` is still the live one, so an
+    // end-of-audition noticed on the sequencer thread cannot stop a preview
+    // started a moment later. Empty `expected` = whatever is live.
+    // `fade`, when given, fades the audition out instead of cutting it, and
+    // leaves the cue to the sequencer to unload.
+    bool stop_preview_if(const audio::CueId& expected,
+                         std::optional<std::chrono::milliseconds> fade = std::nullopt);
+    // Sequencer tick: notices an audition that played to its end, and unloads
+    // retired ones that have gone silent.
+    void poll_preview();
 
     // ---- Sequencer: server-side auto-advance, crossfade, ducking restore ----
     struct DuckedEntry {
@@ -1326,7 +1346,12 @@ public:
     // no ProjectState lock held.
     void set_next_item_broadcaster(std::function<void(const std::string&)> cb);
 
+    // Invoked (no lock held) whenever an active preview stops for any reason,
+    // so every client drops its "previewing" state (#60).
+    void set_preview_stopped_broadcaster(std::function<void()> cb);
+
 private:
+    std::function<void()> preview_stopped_broadcaster_;
     std::function<void(const json&)> external_action_handler_;
     std::function<void(const std::string&)> next_item_broadcaster_;
     std::function<void(const json&)> ui_state_broadcaster_;

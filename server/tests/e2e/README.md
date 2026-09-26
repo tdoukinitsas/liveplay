@@ -36,6 +36,10 @@ node server/tests/e2e/migration-e2e.js  4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/save-churn.js     4500 /tmp/liveplay-test-signal.wav <projDir> <serverLog>
 node server/tests/e2e/materialise-skip.js 4500
 
+# CORS preflight, REST cue play/stop, manual stop fades, preview state (#56 #60
+# #62 #65). Writes its own short signals to a temp dir; closes the project.
+node server/tests/e2e/transport-fixes-e2e.js 4500
+
 # Needs no audio device and no signal — nothing here plays.
 node server/tests/e2e/settings-registry-e2e.js 4500
 

@@ -716,34 +716,23 @@ void AudioEngine::stop(const CueId& id) {
     }
 }
 
-void AudioEngine::stop_all(std::chrono::milliseconds fade, bool force_fade) {
+void AudioEngine::stop(const CueId& id, std::chrono::milliseconds fade) {
+    if (auto* item = find_cue(id)) {
+        Logger::info("stop() cue='{}' fade={}ms", id.value, fade.count());
+        item->stop(fade);
+    }
+}
+
+void AudioEngine::stop_all(std::chrono::milliseconds fade, bool force_fade,
+                           const CueId& except) {
     std::lock_guard lock{mutex_};
-    for (auto& [_, item] : items_) {
-        if (force_fade) {
-            // Global fade wins: apply `fade` to EVERY item, ignoring its own
-            // fade-out. fade == 0 → hard stop for all. Restore the item's
-            // configured fade-out afterwards so a later single stop still uses
-            // the per-cue value.
-            const auto item_fade = item->desc().fade_out_duration;
-            if (fade.count() > 0) item->set_fade_out(fade);
-            else                  item->set_fade_out(std::chrono::milliseconds{0});
-            item->stop();
-            item->set_fade_out(item_fade);
-            continue;
-        }
-        // Default rule: each item's own fade_out_duration wins when non-zero;
-        // only when an item is configured for a hard stop (fade-out == 0) do we
-        // fall back to the caller-provided `fade`.
-        const auto item_fade = item->desc().fade_out_duration;
-        if (item_fade.count() > 0) {
-            item->stop();
-        } else if (fade.count() > 0) {
-            item->set_fade_out(fade);
-            item->stop();
-            item->set_fade_out(std::chrono::milliseconds{0});
-        } else {
-            item->stop();
-        }
+    for (auto& [id, item] : items_) {
+        if (!except.empty() && item->id() == except) continue;
+        // Global fade wins: `fade` for EVERY item, ignoring its own manual-stop
+        // fade (fade == 0 -> hard stop for all). Otherwise each item's own
+        // fade wins when non-zero, and `fade` only covers hard-stop items.
+        if (force_fade || item->stop_fade().count() == 0) item->stop(fade);
+        else                                              item->stop();
     }
 }
 

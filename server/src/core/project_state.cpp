@@ -39,6 +39,27 @@ T json_get_or(const nlohmann::json& j, const char* key, const T& def) noexcept {
     return def;
 }
 
+// An item's two fade-outs, from its document fields. One owner for the rule,
+// because three mirror paths each carried their own copy and one had drifted.
+//
+//   end fade  (EOF / out-point) = max(stopFade, fadeOutDuration) -- unchanged
+//             from 2.4, so an existing show ends every cue exactly as before.
+//   stop fade (the Stop button) = manualStopFade when the item has one (#56),
+//             else the same legacy max -- so a show that relied on stopFade to
+//             make its Stop button fade keeps doing so until someone sets the
+//             new field.
+void apply_item_fade_outs(audio::PlaybackItem& cue, const nlohmann::json& item) {
+    const double stop_fade = std::max(0.0, json_get_or(item, "stopFade", 0.0));
+    const double fade_out  = std::max(0.0, json_get_or(item, "fadeOutDuration", 0.0));
+    const double end_fade  = std::max(stop_fade, fade_out);
+    const auto to_ms = [](double sec) {
+        return std::chrono::milliseconds{static_cast<long long>(sec * 1000.0)};
+    };
+    cue.set_fade_out(to_ms(end_fade));
+    if (auto it = item.find("manualStopFade"); it != item.end() && it->is_number())
+        cue.set_stop_fade(to_ms(std::max(0.0, it->get<double>())));
+}
+
 // Convert a Unix timestamp (seconds since epoch) to an ISO 8601 UTC string.
 inline std::string unix_ts_to_iso(std::int64_t unix_sec) {
     const std::time_t t = static_cast<std::time_t>(unix_sec);
@@ -433,6 +454,10 @@ static const std::unordered_map<std::string, SettingSpec>& settings_registry() {
         // 60 s is well past any musical fade and still finite, so a typo'd
         // value cannot wedge Stop-All into an unstoppable ramp.
         {"stopAllFadeMs",                 {SettingKind::Integer, 0.0, 60'000.0}},
+        // Absent = true: Stop All is a panic button and silences the preview
+        // audition too. False lets an operator keep pre-listening through a
+        // stop-all (#60).
+        {"stopAllStopsPreview",           {SettingKind::Bool}},
         {"disableAutoVolumeAndTrim",      {SettingKind::Bool}},
         {"disableSilenceWarning",         {SettingKind::Bool}},
 
@@ -1040,10 +1065,7 @@ void ProjectState::start_async_mirror() {
                             cue->set_fade_in(std::chrono::milliseconds{
                                 static_cast<long long>(it["playFade"].get<double>() * 1000.0)});
                         }
-                        if (it.contains("fadeOutDuration") && it["fadeOutDuration"].is_number()) {
-                            cue->set_fade_out(std::chrono::milliseconds{
-                                static_cast<long long>(it["fadeOutDuration"].get<double>() * 1000.0)});
-                        }
+                        apply_item_fade_outs(*cue, it);
                         if (it.contains("outPoint") && it["outPoint"].is_number()) {
                             cue->set_out_point_seconds(it["outPoint"].get<double>());
                         }
@@ -1251,12 +1273,17 @@ void ProjectState::reset() {
     for (auto& [_, id] : item_uuid_to_cue_) engine_.unload_cue(id);
 
     // Tear down any active preview cue too (its decoder outlives the maps).
-    if (!preview_cue_.empty()) {
+    const bool had_preview = !preview_cue_.empty();
+    if (had_preview) {
         engine_.stop(preview_cue_);
         engine_.unload_cue(preview_cue_);
         preview_cue_ = {};
     }
     preview_item_uuid_.clear();
+    for (const auto& id : retired_preview_cues_) engine_.unload_cue(id);
+    retired_preview_cues_.clear();
+    auto preview_stopped_cb = had_preview ? preview_stopped_broadcaster_
+                                          : std::function<void()>{};
 
     cues_.clear();
     mixers_.clear();
@@ -1290,6 +1317,7 @@ void ProjectState::reset() {
     pending_bus_migration_ = {};
     apply_to_engine_locked();
     lock.unlock();
+    if (preview_stopped_cb) preview_stopped_cb();
     // Strips for the default desk, with the house pair wired (round-1
     // finding 7: a closed project used to leave the rail empty until the
     // next load). Outside the lock: every engine call takes its own.
@@ -1559,23 +1587,7 @@ void ProjectState::apply_item_properties_locked(const json& item,
         cue->set_fade_in(std::chrono::milliseconds{
             static_cast<long long>(item["playFade"].get<double>() * 1000.0)});
     }
-    // Manual-stop fade-out: the UI's "STOP FADE OUT" slider writes to
-    // `stopFade`, which is also used by the sequencer to begin fading
-    // before natural end. We expose the larger of the two as the
-    // PlaybackItem's fade_out_duration so the stop button (and global
-    // stop) honour whichever value the user actually configured —
-    // without breaking legacy projects that only set fadeOutDuration.
-    {
-        double stop_fade_sec = 0.0;
-        double fade_out_dur  = 0.0;
-        if (item.contains("stopFade") && item["stopFade"].is_number())
-            stop_fade_sec = item["stopFade"].get<double>();
-        if (item.contains("fadeOutDuration") && item["fadeOutDuration"].is_number())
-            fade_out_dur = item["fadeOutDuration"].get<double>();
-        const double effective = std::max(stop_fade_sec, fade_out_dur);
-        cue->set_fade_out(std::chrono::milliseconds{
-            static_cast<long long>(effective * 1000.0)});
-    }
+    apply_item_fade_outs(*cue, item);
     // outPoint: when set (> 0), engine fades out as the playhead reaches
     // that time instead of running to the file end.
     if (item.contains("outPoint") && item["outPoint"].is_number()) {
@@ -2569,19 +2581,7 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                         cue->set_fade_in(std::chrono::milliseconds{
                             static_cast<long long>(it["playFade"].get<double>() * 1000.0)});
                     }
-                    // Same max(stopFade, fadeOutDuration) rule as
-                    // mirror_items_to_engine_locked() — keep them in sync.
-                    {
-                        double stop_fade_sec = 0.0;
-                        double fade_out_dur  = 0.0;
-                        if (it.contains("stopFade") && it["stopFade"].is_number())
-                            stop_fade_sec = it["stopFade"].get<double>();
-                        if (it.contains("fadeOutDuration") && it["fadeOutDuration"].is_number())
-                            fade_out_dur = it["fadeOutDuration"].get<double>();
-                        const double effective = std::max(stop_fade_sec, fade_out_dur);
-                        cue->set_fade_out(std::chrono::milliseconds{
-                            static_cast<long long>(effective * 1000.0)});
-                    }
+                    apply_item_fade_outs(*cue, it);
                     if (it.contains("outPoint") && it["outPoint"].is_number()) {
                         cue->set_out_point_seconds(it["outPoint"].get<double>());
                     }
@@ -3094,12 +3094,7 @@ bool ProjectState::play_item(const std::string& uuid,
             // started its engine-owned fade-out. Stopping it here would (since
             // it's FadingOut) route through stop_now() and hard-cut it.
             if (!exclude_from_ducking.empty() && cid == exclude_from_ducking) continue;
-            if (auto* pi = engine_.find_cue(cid)) {
-                const auto prev_fade = pi->desc().fade_out_duration;
-                pi->set_fade_out(fade_ms);
-                pi->stop();
-                pi->set_fade_out(prev_fade);
-            }
+            if (auto* pi = engine_.find_cue(cid)) pi->stop(fade_ms);
         }
     } else if (ducking_mode == "duck-others") {
         const float lin = std::clamp(duck_level, 0.0f, 1.0f);
@@ -3317,7 +3312,7 @@ bool ProjectState::play_item(const std::string& uuid,
   }
 }
 
-bool ProjectState::stop_item(const std::string& uuid) {
+bool ProjectState::stop_item(const std::string& uuid, std::optional<long long> fade_ms) {
     audio::CueId cue;
     {
         std::lock_guard lock{mutex_};
@@ -3340,7 +3335,8 @@ bool ProjectState::stop_item(const std::string& uuid) {
         }
     }
 
-    engine_.stop(cue);
+    if (fade_ms) engine_.stop(cue, std::chrono::milliseconds{std::max<long long>(0, *fade_ms)});
+    else         engine_.stop(cue);
 
     // Server-authoritative "Up Next" arming: a manual stop of a cue with no end
     // behaviour advances the arming to the next sibling (but never wraps at the
@@ -3366,8 +3362,22 @@ void ProjectState::stop_all_cues(std::optional<long long> fade_ms) {
         }
         resolved_ms = std::max<long long>(0, setting_ms);
     }
+    const auto fade = std::chrono::milliseconds{resolved_ms};
+    bool stops_preview = true;
+    audio::CueId preview;
+    {
+        std::lock_guard lock{mutex_};
+        if (document_.contains("settings") && document_["settings"].is_object())
+            stops_preview = document_["settings"].value("stopAllStopsPreview", true);
+        preview = preview_cue_;
+    }
     // Global fade always wins over any per-track fade-out (force_fade = true).
-    engine_.stop_all(std::chrono::milliseconds{resolved_ms}, /*force_fade=*/true);
+    // The audition is left out here either way: when it goes too it is faded
+    // by stop_preview_if below, which is what also clears the preview state
+    // and tells every client — the engine fade alone left the card stuck on
+    // "previewing" (#60).
+    engine_.stop_all(fade, /*force_fade=*/true, preview);
+    if (stops_preview && !preview.empty()) stop_preview_if(preview, fade);
 }
 
 void ProjectState::set_next_item_override(const std::string& uuid, bool manual) {
@@ -3386,6 +3396,11 @@ void ProjectState::set_next_item_override(const std::string& uuid, bool manual) 
     // Fan the change out to every connected client (server- or client-
     // initiated), outside the lock so the broadcast can't deadlock on mutex_.
     if (cb) cb(uuid);
+}
+
+void ProjectState::set_preview_stopped_broadcaster(std::function<void()> cb) {
+    std::lock_guard lock{mutex_};
+    preview_stopped_broadcaster_ = std::move(cb);
 }
 
 void ProjectState::set_next_item_broadcaster(std::function<void(const std::string&)> cb) {
@@ -6216,6 +6231,7 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
     //    more. The preview bus is wired when the project is materialised.
     std::filesystem::path file_path;
     double in_point  = 0.0;
+    double out_point = 0.0;
     float  gain_db   = 0.0f;
     audio::MixerChannelId preview_mixer;
     {
@@ -6226,7 +6242,8 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
                 auto p = resolve_media_path(
                     it, document_.value("folderPath", std::string{}));
                 if (!p.empty()) file_path = std::move(p);
-                in_point = it.value("inPoint", 0.0);
+                in_point  = it.value("inPoint", 0.0);
+                out_point = it.value("outPoint", 0.0);
                 // The item's own level, same 0..2 linear field playback uses.
                 // Auditioning is meant to answer "what will this sound like
                 // when I fire it", and a preview that ignored the trim you
@@ -6286,6 +6303,9 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
             engine_.route_item_source_to_mixer(cue_id, 0, preview_mixer, 0.0f,
                                                audio::kAllMixerLanes);
         }
+        // The trim, too: the preview card counts down to the out-point, and an
+        // audition that ran on past it played audio the show never will.
+        pi->set_out_point_seconds(out_point);
         pi->prime(audio::kPrimeSeconds, in_point);
     }
     engine_.play(cue_id);
@@ -6300,18 +6320,67 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
 }
 
 bool ProjectState::stop_preview() {
+    return stop_preview_if(audio::CueId{});
+}
+
+bool ProjectState::stop_preview_if(const audio::CueId& expected,
+                                   std::optional<std::chrono::milliseconds> fade) {
+    const bool faded = fade && fade->count() > 0;
     audio::CueId cue;
+    std::function<void()> cb;
     {
         std::lock_guard lock{mutex_};
+        if (preview_cue_.empty()) return false;
+        if (!expected.empty() && preview_cue_ != expected) return false;
         cue = preview_cue_;
         preview_cue_ = audio::CueId{};
         preview_item_uuid_.clear();
+        // A faded audition keeps its decoder until it is silent.
+        if (faded) retired_preview_cues_.push_back(cue);
+        cb = preview_stopped_broadcaster_;
     }
-    if (cue.empty()) return false;
-    engine_.stop(cue);
-    engine_.unload_cue(cue);
+    if (faded) {
+        engine_.stop(cue, *fade);
+    } else {
+        engine_.stop(cue, std::chrono::milliseconds{0});
+        engine_.unload_cue(cue);
+    }
     Logger::info("preview: stopped");
+    if (cb) cb();
     return true;
+}
+
+void ProjectState::poll_preview() {
+    audio::CueId live;
+    std::vector<audio::CueId> retired;
+    {
+        std::lock_guard lock{mutex_};
+        live = preview_cue_;
+        retired.swap(retired_preview_cues_);
+    }
+    std::vector<audio::CueId> still_fading;
+    for (const auto& id : retired) {
+        auto* pi = engine_.find_cue(id);
+        if (pi && pi->stats().transport != audio::TransportState::Stopped) {
+            still_fading.push_back(id);
+            continue;
+        }
+        if (pi) engine_.unload_cue(id);
+    }
+    if (!still_fading.empty()) {
+        std::lock_guard lock{mutex_};
+        retired_preview_cues_.insert(retired_preview_cues_.end(),
+                                     still_fading.begin(), still_fading.end());
+    }
+    // The audition reached its end (or anything else stopped the voice: an
+    // engine-wide stop from a custom action, a failed play). Nothing else
+    // notices: the preview cue is not sequenced and not in list_cues(), so
+    // without this the client kept a frozen preview card forever (#60).
+    if (!live.empty()) {
+        auto* pi = engine_.find_cue(live);
+        if (!pi || pi->stats().transport == audio::TransportState::Stopped)
+            stop_preview_if(live);
+    }
 }
 
 std::string ProjectState::current_preview_item_uuid() const {
@@ -6958,6 +7027,8 @@ void ProjectState::sequencer_loop() {
         std::this_thread::sleep_for(kPollInterval);
         if (!sequencer_running_.load(std::memory_order_acquire)) break;
 
+        poll_preview();
+
         struct PendingAction {
             SequencedItem item;
             enum class Kind {
@@ -7266,7 +7337,17 @@ void ProjectState::execute_custom_action(const json& action) {
         if (!target_uuid.empty()) trigger_item(target_uuid);
     }
     else if (type == "stop-all") {
-        engine_.stop_all(std::chrono::milliseconds{0});
+        // Per-cue fades (not forced), as before. The audition obeys the same
+        // stopAllStopsPreview setting as the button; when it is stopped,
+        // poll_preview() notices and clears the preview state.
+        audio::CueId spare;
+        {
+            std::lock_guard lock{mutex_};
+            if (document_.contains("settings") && document_["settings"].is_object() &&
+                !document_["settings"].value("stopAllStopsPreview", true))
+                spare = preview_cue_;
+        }
+        engine_.stop_all(std::chrono::milliseconds{0}, /*force_fade=*/false, spare);
     }
     else if (type == "http-request") {
         // Hand off to whoever subscribed via set_external_action_handler.

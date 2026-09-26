@@ -352,15 +352,15 @@ All three stop paths funnel through the same fade-out envelope:
 
 ## Control surface
 
-`ControlServer` (in [`net/control_server.cpp`](src/net/control_server.cpp)) hosts a Crow app on the configured port. CORS is wide-open by design (it's a LAN service).
+`ControlServer` (in [`net/control_server.cpp`](src/net/control_server.cpp)) hosts a Crow app on the configured port. CORS allows any origin by default (it's a LAN service); `--cors-origin` / `corsOrigin` pins it to one.
 
 The authoritative endpoint list is the table of `CROW_ROUTE` registrations in [`src/net/control_server.cpp`](src/net/control_server.cpp). What follows is the same surface with request/response schemas.
 
 ### Conventions
 
-- Every JSON response carries `Content-Type: application/json` and `Access-Control-Allow-Origin: *`.
+- Every response — including Crow's own `404`/`405` and the `401`/`403` from authentication — carries `Access-Control-Allow-Origin` (the configured origin, `*` by default). JSON responses carry `Content-Type: application/json`.
 - Every error follows `{ "error": "<message>" }` with an appropriate 4xx/5xx status code. `400` covers malformed bodies; `404` covers unknown ids/paths; `409` covers a request that's understood but refused (e.g. a bus routing rule); `413` covers oversize uploads; `500` covers internal failures.
-- `OPTIONS` on any path returns `204` with permissive CORS headers (preflight).
+- `OPTIONS` on any route (a CORS preflight) returns `204` with `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS`, `Access-Control-Allow-Headers: Content-Type, Authorization` and `Access-Control-Max-Age: 600`. Crow answers preflights itself, before any route runs, so these headers are added by the `AuthGuard` middleware's `after_handle` — not by a route (#62). `OPTIONS` on a path matching no route is `404`.
 - All IDs are opaque strings unless typed otherwise. `<int>` path parameters are 32-bit signed.
 - `cue_id` (engine-level) ≠ `item_uuid` (project-document level). The server maintains the mapping in `ProjectState`; most transport endpoints accept either.
 
@@ -574,8 +574,8 @@ This is the low-level cue surface — for normal use, prefer the project-item su
 | `POST /api/cues` | `{ "file_path": "/abs/path.wav", "display_name": "…" (optional) }` | cue object · `400` on load failure |
 | `GET /api/cues/<id>` | — | cue object · `404` if unknown |
 | `DELETE /api/cues/<id>` | — | `{ "ok": true }` |
-| `POST /api/cues/<id>/play` | — | `{ "ok": true }` |
-| `POST /api/cues/<id>/stop` | — | `{ "ok": true }` |
+| `POST /api/cues/<id>/play` | — | `{ "ok": true }` · a cue that belongs to a project item plays through the item, exactly like `POST /api/project/items/<uuid>/play` (in-point, trim, fades, ducking, end behaviour); only an ad-hoc cue with no item is played raw. Either way a cue that had stopped starts again at its start point, never where it last stopped. |
+| `POST /api/cues/<id>/stop` | `{ "fade_ms": 3000 }` (optional; empty body permitted) | `{ "ok": true }` · as `/play`: an item's cue stops through the item. `fade_ms` overrides the cue's manual-stop fade for this stop (`0` = cut). |
 | `POST /api/cues/<id>/gain` | `{ "db": 0.0 }` | `{ "ok": true }` |
 | `POST /api/cues/<id>/fade` | `{ "in_ms": 0, "out_ms": 0 }` | `{ "ok": true }` |
 | `POST /api/cues/<id>/ltc`  | `{ "enabled": bool, "fps": 0..4, "start_timecode": "HH:MM:SS:FF" (preferred) or "offset_ns": int64 }` | `{ "ok": true }` |
@@ -865,7 +865,7 @@ Plays an item into the **Preview bus** — the same strip PFL lands on, under th
 |---------------|------|----------|-------------|
 | `GET /api/preview` | — | `{ "active": bool, "itemUuid": "…", "cueId": "…" }` | — |
 | `POST /api/preview` | `{ "itemUuid": "<uuid>" }` | `{ "ok": true, "itemUuid": "…", "cueId": "…" }` · `400` if the item is missing or the Preview bus has no strip | broadcasts `preview_started` |
-| `DELETE /api/preview` | — | `{ "ok": true }` | broadcasts `preview_stopped` |
+| `DELETE /api/preview` | — | `{ "ok": true }` | broadcasts `preview_stopped` (when a preview was running) |
 
 #### Project document
 
@@ -903,7 +903,7 @@ Mutating routes return `{ ok: true, ... }` only — the full document is **not**
 | `POST /api/project/items/reorder`      | `{ "parentUuid": "" or "<group>", "uuids": [string, …] }` | `{ "ok": true }` | `items_reordered` |
 | `POST` or `GET /api/project/items/<uuid>/play` | — | `{ "ok": true }` · `404` if not loaded | — (transport edge fires `cue_state` instead) |
 | `POST` or `GET /api/project/items/by-index/<path>` | — | `{ "ok": true, "uuid": "…", "index": [int, …] }` · `400` invalid path · `404` no item / not loaded | — (transport edge fires `cue_state` instead) |
-| `POST /api/project/items/<uuid>/stop`  | — | `{ "ok": true }` · `404` if not loaded | — |
+| `POST /api/project/items/<uuid>/stop`  | `{ "fade_ms": 3000 }` (optional; empty body permitted) | `{ "ok": true }` · `404` if not loaded · `400` if the body is not JSON | — · Fades over the item's `manualStopFade` (see below); `fade_ms` overrides it for this stop, `0` = cut. |
 | `POST /api/project/items/<uuid>/pause` | — | `{ "ok": true }` · `404` if not loaded | — (REST mirror of the WS `pause` message, for stateless control surfaces) |
 | `POST /api/project/items/<uuid>/resume`| — | `{ "ok": true }` · `404` if not loaded | — (REST mirror of the WS `resume` message) |
 | `POST /api/project/items/<uuid>/seek`  | `{ "seconds": float }` | `{ "ok": true }` · `404` if not loaded | — |
@@ -911,6 +911,13 @@ Mutating routes return `{ ok: true, ... }` only — the full document is **not**
 **Triggering by index** — `…/by-index/<path>` triggers an item by its position instead of its uuid. The `<path>` is an **index path**: a zero-based list of child indices that descends into groups at each level, mirroring the client's `findItemByIndex` / `endBehavior.targetIndex`. A single number (`5`) targets the 6th top-level item; multiple components descend into groups — `1,11` means top-level item `1` (the 2nd item, a group) then its child `11` (the 12th item inside it). Both **comma- and slash-separated** forms are accepted and equivalent, so the same target can be written `…/by-index/1,11` or `…/by-index/1/11` (mixed forms like `1,2/0` work too). Like `/play`, it accepts `GET` so it can be fired from a browser or `curl`, and it routes through `trigger_item` — audio items play, group items dispatch per their `startBehavior`. Returns `400` for a malformed path, `404` when no item exists at that index or the resolved item isn't loaded into the engine.
 
 Project UI settings such as `settings.indexDisplayStart` only change the numbers shown and entered in the client. REST by-index paths stay zero-based for backwards compatibility.
+
+**Stop fades** — an audio item has two fade-outs, kept apart since 2.5.0 (#56):
+
+- The **manual stop fade** is what `stop` (the Stop button, `…/stop`, the WS `stop` frame) fades over: the item's `manualStopFade` in seconds, `0` = cut. An item without the field — anything saved before 2.5.0 — keeps the old rule, `max(stopFade, fadeOutDuration)`, so an existing show's Stop button behaves exactly as it did. A stop's `fade_ms` overrides either for that one stop.
+- The **end fade** is what runs when a cue reaches its out-point or the end of its file: `max(stopFade, fadeOutDuration)`, unchanged. `stopFade` still also starts that many seconds before the out-point.
+
+Stop All ignores both and uses its own fade (`fade_ms`, else `settings.stopAllFadeMs`, default 1000 ms). It also stops the preview audition unless `settings.stopAllStopsPreview` is `false` (absent = `true`).
 
 #### Cart slots
 
@@ -1028,7 +1035,7 @@ Stopped cues are omitted from `items`. Silent master channels (`peak_db <= -119 
 | `locale_changed`                | `locale`                                                   | WS `set_locale` (to the sending connection alone); `POST /api/ui/locale` (to connections with no locale of their own) |
 | `meter_hz_changed`              | `hz` (the effective rate after clamping)                   | WS `set_meter_hz`, to the sending connection alone |
 | `preview_started`               | `itemUuid`, `cueId`                                        | `POST /api/preview` |
-| `preview_stopped`               | (none)                                                     | `DELETE /api/preview` |
+| `preview_stopped`               | (none)                                                     | any way a preview ends: `DELETE /api/preview`, Stop All (unless `settings.stopAllStopsPreview` is `false`), the audition reaching its end, the preview role moving, the project closing |
 | `next_item_set`                 | `itemUuid` (empty string clears)                           | WS `set_next_item`, and server-armed "Up Next" (auto-cue / first-item / end-of-list wrap) |
 | `waveform_ready`                | `item_uuid`, `bucket_count`, `duration_ms`, `sample_rate`, `source_channels`, `channels` | waveform worker, after `/api/waveform_generate` finishes |
 | `waveform_failed`               | `item_uuid`                                                | waveform worker on decode failure |
@@ -1043,13 +1050,13 @@ Mostly mirror the REST surface so transport commands can skip the HTTP request/r
 | `type`           | Payload | Effect |
 |------------------|---------|--------|
 | `play`           | `{ "item_uuid": "…" }` or `{ "cue_id": "…" }` | Starts playback. For groups (when `item_uuid` is a group), walks `startBehavior`. |
-| `stop`           | same shape as `play` | Stops with the cue's `fade_out_duration`. |
+| `stop`           | same shape as `play`, plus optional `fade_ms` | Stops with the item's manual-stop fade, or over `fade_ms` when given (`0` = cut). |
 | `pause`          | same shape as `play` | Holds the playhead; cue stays loaded. No-op on Stopped cues. |
 | `resume`         | same shape as `play` | Resumes from the paused playhead. |
 | `seek`           | `{ "item_uuid"\|"cue_id": "…", "seconds": float }` | Sets the playhead. |
 | `gain`           | `{ "item_uuid"\|"cue_id": "…", "db": float }` | Sets the per-cue gain. |
 | `fade`           | `{ "item_uuid"\|"cue_id": "…", "in_ms": int, "out_ms": int }` | Sets fade durations. |
-| `stop_all`       | `{ "fade_ms": 0 }` | Stops every active cue. |
+| `stop_all`       | `{ "fade_ms": 0 }` | Stops every active cue — and the preview audition, unless `settings.stopAllStopsPreview` is `false`. |
 | `go`             | `{}` | Same semantics as `GET /api/transport/go`. Replies with an `error` frame if nothing is armed or derivable. |
 | `set_next_item`  | `{ "item_uuid": "…" }` (empty/missing clears) | Sets the user-overridden "Up Next" target. Echoed to all clients as `next_item_set`. |
 | `set_selection`  | `{ "item_uuid": "…" }` (empty/missing clears) | Sets the shared playlist selection. Broadcasts `selection_changed`, including back to the sender — that's what keeps two clients from diverging. |

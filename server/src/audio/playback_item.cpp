@@ -52,6 +52,7 @@ PlaybackItem::PlaybackItem(PlaybackItemDesc desc)
     gain_current_linear_.store(1.0f);
     fade_in_ms_.store(desc_.fade_in_duration.count());
     fade_out_ms_.store(desc_.fade_out_duration.count());
+    stop_fade_ms_.store(desc_.fade_out_duration.count());
     ltc_enabled_atomic_.store(desc_.ltc_enabled);
     ltc_offset_ns_.store(desc_.ltc_offset.count());
     if (desc_.ltc_enabled) {
@@ -67,6 +68,7 @@ PlaybackItem::~PlaybackItem() {
 bool PlaybackItem::load() {
     // Never swap the decoder out from under active playback — reset transport,
     // playhead and fade state first (mirrors unload()'s stop_now()).
+    start_frames_.store(0, std::memory_order_relaxed);
     stop_now();
     std::lock_guard lock{decoder_mutex_};
 
@@ -180,6 +182,19 @@ void PlaybackItem::play() {
     // would snap the gain and re-run the fade-in).
     if (st == TransportState::Paused) { resume(); return; }
 
+    // From Stopped, rewind to the start frame if a fade-out or natural end
+    // left the decoder elsewhere. The audio thread does not touch a Stopped
+    // item, so the playhead can be written here without racing it.
+    if (st == TransportState::Stopped) {
+        const auto start = start_frames_.load(std::memory_order_relaxed);
+        if (playhead_frames_.load(std::memory_order_relaxed) != start) {
+            std::lock_guard lock{decoder_mutex_};
+            if (decoder_) ma_decoder_seek_to_pcm_frame(decoder_.get(), start);
+            playhead_frames_.store(start, std::memory_order_release);
+            if (ltc_) ltc_->reset(std::chrono::nanoseconds{ltc_offset_ns_.load()});
+        }
+    }
+
     // Reset natural-end flags so take_natural_end() doesn't fire for a
     // stale previous play on this same item.
     stopped_naturally_.store(false, std::memory_order_release);
@@ -208,6 +223,10 @@ void PlaybackItem::play() {
 }
 
 void PlaybackItem::stop() {
+    stop(std::chrono::milliseconds{stop_fade_ms_.load(std::memory_order_acquire)});
+}
+
+void PlaybackItem::stop(std::chrono::milliseconds fade) {
     const TransportState st = transport_.load(std::memory_order_acquire);
     if (st == TransportState::Stopped) return;
     if (st == TransportState::FadingOut) {
@@ -222,7 +241,6 @@ void PlaybackItem::stop() {
     // doesn't auto-advance after this explicit stop.
     fading_out_naturally_.store(false, std::memory_order_release);
 
-    const auto fade = desc_.fade_out_duration;
     if (fade.count() > 0) {
         start_fade(/*from*/ gain_current_linear_.load(),
                    /*to*/   0.0f,
@@ -241,10 +259,11 @@ void PlaybackItem::stop_now() {
     gain_current_linear_.store(gain_target_linear_.load(), std::memory_order_release);
     fade_duration_samples_.store(0, std::memory_order_relaxed);
     fade_elapsed_samples_.store(0, std::memory_order_relaxed);
-    playhead_frames_.store(0, std::memory_order_relaxed);
+    const auto start = start_frames_.load(std::memory_order_relaxed);
+    playhead_frames_.store(start, std::memory_order_relaxed);
 
     std::lock_guard lock{decoder_mutex_};
-    if (decoder_) ma_decoder_seek_to_pcm_frame(decoder_.get(), 0);
+    if (decoder_) ma_decoder_seek_to_pcm_frame(decoder_.get(), start);
     if (ltc_) ltc_->reset(std::chrono::nanoseconds{ltc_offset_ns_.load()});
 }
 
@@ -281,6 +300,9 @@ void PlaybackItem::seek_seconds(double seconds) {
         // Store inside the lock so the audio thread can't decode from the new
         // decoder position while still reading the pre-seek playhead value.
         playhead_frames_.store(frame, std::memory_order_release);
+        // A seek while stopped is where the next play() should begin.
+        if (transport_.load(std::memory_order_acquire) == TransportState::Stopped)
+            start_frames_.store(frame, std::memory_order_relaxed);
     }
     if (ltc_) {
         // LTC resyncs lazily inside render_block(), but a hint here keeps the
@@ -405,6 +427,7 @@ bool PlaybackItem::prime(double seconds, double start_seconds) noexcept {
     // continues playing even though the UI thinks the cue stopped" and
     // the up-next item never triggers because the fade gets clipped.
     playhead_frames_.store(start_frame, std::memory_order_release);
+    start_frames_.store(start_frame, std::memory_order_relaxed);
     // Also clear any stale natural-end flags from a prior playthrough so
     // the sequencer doesn't immediately consume one before we even play.
     stopped_naturally_.store(false, std::memory_order_release);

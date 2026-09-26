@@ -100,7 +100,13 @@ struct AuthGuard {
     core::UserStore* users = nullptr;
 
     void before_handle(crow::request& req, crow::response& res, context& ctx);
-    void after_handle(crow::request&, crow::response&, context&) {}
+    // Stamps the CORS headers on EVERY response. It has to live here rather
+    // than in a route: Crow answers every OPTIONS request itself inside
+    // handle_initial() (a 204 with only an Allow header) before any user rule
+    // could run, and skips before_handle for it — after_handle is the one hook
+    // that still sees a preflight (issue #62). It also covers Crow's own
+    // 404/405 bodies and AuthGuard's early 401/403.
+    void after_handle(crow::request& req, crow::response& res, context&);
 };
 
 // Pimpl: all Crow + WebSocket state lives here so crow.h stays out of the
@@ -388,6 +394,15 @@ void login_note_failure(const std::string& ip) {
 void login_note_success(const std::string& ip) {
     std::lock_guard lock{g_login_mutex};
     g_login_attempts.erase(ip);
+}
+
+// A stop's optional "fade_ms" (a non-negative number), or nullopt when the
+// caller left it out and the cue's own manual-stop fade should apply.
+std::optional<long long> optional_fade_ms(const json& j) {
+    if (!j.is_object()) return std::nullopt;
+    auto it = j.find("fade_ms");
+    if (it == j.end() || !it->is_number()) return std::nullopt;
+    return std::max<long long>(0, static_cast<long long>(it->get<double>()));
 }
 
 crow::response json_ok(const json& body) {
@@ -739,6 +754,22 @@ static AuthGuard::Access access_for(std::string_view path) {
     return AuthGuard::Access::User;
 }
 
+void AuthGuard::after_handle(crow::request& req, crow::response& res, context&) {
+    // Never overrides: json_ok/json_err and the download route already set the
+    // origin, and a duplicate header is rejected by browsers.
+    const auto set_once = [&res](const char* key, const std::string& value) {
+        if (res.get_header_value(key).empty()) res.add_header(key, value);
+    };
+    set_once("Access-Control-Allow-Origin", g_cors_allow_origin);
+    if (req.method == crow::HTTPMethod::Options) {
+        // Explicit lists, not "*": a wildcard Allow-Headers does not cover
+        // Authorization, which every call carries once accounts exist.
+        set_once("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+        set_once("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        set_once("Access-Control-Max-Age", "600");
+    }
+}
+
 void AuthGuard::before_handle(crow::request& req, crow::response& res, context& ctx) {
     if (!users) return;
 
@@ -827,6 +858,16 @@ bool ControlServer::start() {
     // Fan out every "Up Next" change — whether requested by a client or armed
     // by the server itself (#28 auto-cue / first-item / end-of-list wrap) — so
     // all clients mirror the authoritative override instead of each deciding.
+    // Every way a preview can stop (DELETE, Stop All, the audition reaching its
+    // end, a moved preview role, a closed project) lands here, so no client is
+    // left showing a preview that is no longer playing (#60).
+    state_.set_preview_stopped_broadcaster([this] {
+        broadcast_doc_patch(json{
+            {"type", "doc_patch"},
+            {"op",   "preview_stopped"},
+        });
+    });
+
     state_.set_next_item_broadcaster([this](const std::string& uuid) {
         broadcast_doc_patch(json{
             {"type", "doc_patch"},
@@ -1447,19 +1488,23 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
             }
         }
         else if (type == "stop") {
+            // Optional fade_ms overrides the cue's own manual-stop fade for
+            // this one stop (0 = cut) (#56).
+            const auto fade_ms = optional_fade_ms(j);
             if (j.contains("item_uuid") && j["item_uuid"].is_string()) {
                 const auto uuid = j["item_uuid"].get<std::string>();
                 Logger::playback("STOP: {}", item_playback_info(uuid, state));
-                state.stop_item(uuid);
+                state.stop_item(uuid, fade_ms);
             } else {
                 auto cue = resolve_cue(j);
                 if (cue) {
                     if (auto uuid = state.cue_to_item_uuid(*cue)) {
                         Logger::playback("STOP: {}", item_playback_info(*uuid, state));
-                        state.stop_item(*uuid);
+                        state.stop_item(*uuid, fade_ms);
                     } else {
                         Logger::playback("STOP: cue_id={} (orphan)", cue->value);
-                        engine.stop(*cue);
+                        if (fade_ms) engine.stop(*cue, std::chrono::milliseconds{*fade_ms});
+                        else         engine.stop(*cue);
                     }
                 } else {
                     Logger::warn("WS stop: no valid cue target in message");
@@ -1763,16 +1808,8 @@ void ControlServer::install_routes() {
         res = json_err(500, message);
     });
 
-    // Permissive CORS preflight for everything (the Electron client is on a
-    // different origin).
-    CROW_ROUTE(app, "/<path>").methods(crow::HTTPMethod::Options)
-        ([](const crow::request&, std::string){
-            crow::response r{204};
-            r.add_header("Access-Control-Allow-Origin",  g_cors_allow_origin);
-            r.add_header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-            r.add_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-            return r;
-        });
+    // No OPTIONS route: Crow answers preflights itself and never dispatches
+    // them to a rule, so the CORS headers are added in AuthGuard::after_handle.
 
     // ---- Health ----
     CROW_ROUTE(app, "/api/health").methods(crow::HTTPMethod::Get)
@@ -2367,16 +2404,42 @@ void ControlServer::install_routes() {
             return json_ok(json({{"ok", true}}));
         });
 
+    // A cue that belongs to a project item plays and stops through the item,
+    // exactly as the UI and the WS "play"/"stop" frames do: in-point, trim,
+    // fades, ducking, routing, end behaviour. These two called the engine
+    // directly, so a second play resumed wherever the last one stopped (past
+    // the trim, or at EOF = silence) and nothing auto-advanced (#65). Only an
+    // ad-hoc cue with no item is left to the engine.
     CROW_ROUTE(app, "/api/cues/<string>/play").methods(crow::HTTPMethod::Post)
         ([this](std::string id) {
-            if (!engine_.find_cue(audio::CueId{id})) return json_err(404, "not found");
-            engine_.play(audio::CueId{id});
+            const audio::CueId cid{id};
+            if (!engine_.find_cue(cid)) return json_err(404, "not found");
+            if (auto uuid = state_.cue_to_item_uuid(cid)) {
+                Logger::playback("PLAY: {}", item_playback_info(*uuid, state_));
+                state_.play_item(*uuid);
+            } else {
+                engine_.play(cid);
+            }
             return json_ok(json({{"ok", true}}));
         });
     CROW_ROUTE(app, "/api/cues/<string>/stop").methods(crow::HTTPMethod::Post)
-        ([this](std::string id) {
-            if (!engine_.find_cue(audio::CueId{id})) return json_err(404, "not found");
-            engine_.stop(audio::CueId{id});
+        ([this](const crow::request& req, std::string id) {
+            const audio::CueId cid{id};
+            if (!engine_.find_cue(cid)) return json_err(404, "not found");
+            std::optional<long long> fade_ms;
+            if (!req.body.empty()) {
+                const auto j = json::parse(req.body, nullptr, /*allow_exceptions=*/false);
+                if (j.is_discarded()) return json_err(400, "body must be JSON");
+                fade_ms = optional_fade_ms(j);
+            }
+            if (auto uuid = state_.cue_to_item_uuid(cid)) {
+                Logger::playback("STOP: {}", item_playback_info(*uuid, state_));
+                state_.stop_item(*uuid, fade_ms);
+            } else if (fade_ms) {
+                engine_.stop(cid, std::chrono::milliseconds{*fade_ms});
+            } else {
+                engine_.stop(cid);
+            }
             return json_ok(json({{"ok", true}}));
         });
 
@@ -4321,8 +4384,15 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req, std::string uuid){
             Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items/{}/stop",
                                 req.remote_ip_address, impl_->server_addr, uuid);
+            // Optional body {"fade_ms": n}: this stop only, 0 = cut (#56).
+            std::optional<long long> fade_ms;
+            if (!req.body.empty()) {
+                const auto j = json::parse(req.body, nullptr, /*allow_exceptions=*/false);
+                if (j.is_discarded()) return json_err(400, "body must be JSON");
+                fade_ms = optional_fade_ms(j);
+            }
             Logger::playback("STOP: {}", item_playback_info(uuid, state_));
-            if (!state_.stop_item(uuid)) {
+            if (!state_.stop_item(uuid, fade_ms)) {
                 Logger::warn("STOP item_uuid={} — item not loaded into engine", uuid);
                 return json_err(404, "item not loaded into engine");
             }
@@ -4482,13 +4552,11 @@ void ControlServer::install_routes() {
             Logger::api_request("Client ({}) -> Server ({}) : DELETE /api/preview",
                                 req.remote_ip_address, impl_->server_addr);
             Logger::playback("PREVIEW STOP");
+            // stop_preview() announces preview_stopped itself (see the
+            // broadcaster installed in start()), and only when there was one.
             state_.stop_preview();
             Logger::api_response("Client ({}) <- Server ({}) : DELETE /api/preview OK",
                                  req.remote_ip_address, impl_->server_addr);
-            broadcast_doc_patch(json{
-                {"type", "doc_patch"},
-                {"op",   "preview_stopped"},
-            });
             return json_ok(json({{"ok", true}}));
         });
 
