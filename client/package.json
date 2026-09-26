@@ -104,20 +104,12 @@
       "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
       "extraResources": [
         {
-          "from": "../server/build/Release/liveplay-server.exe",
-          "to": "server-bin/liveplay-server.exe"
-        },
-        {
-          "from": "../server/build/Release/tag.dll",
-          "to": "server-bin/tag.dll"
-        },
-        {
-          "from": "../server/build/Release/z.dll",
-          "to": "server-bin/z.dll"
-        },
-        {
-          "from": "../server/build/Release/miniz.dll",
-          "to": "server-bin/miniz.dll"
+          "from": "../server/build/Release",
+          "to": "server-bin",
+          "filter": [
+            "liveplay-server.exe",
+            "*.dll"
+          ]
         }
       ]
     },
