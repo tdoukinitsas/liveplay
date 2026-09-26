@@ -28,6 +28,7 @@
 
 #include <crow.h>
 #include <crow/middlewares/cors.h>
+#include "liveplay/audio/spectrum.hpp"
 #include <miniz.h>
 
 #include <algorithm>
@@ -119,6 +120,13 @@ struct ControlServer::Impl {
     std::thread     broadcast_thread;
     std::mutex      ws_mutex;
     std::string     server_addr;
+    // Spectrum analyser (channel view). Which bus each engine tap is armed
+    // for, and the strip it resolved to — re-resolved every tick so a bus
+    // rebuilt by a project load re-arms on its new strip. Under analyser_mutex,
+    // which is never held together with ws_mutex.
+    std::mutex analyser_mutex;
+    std::array<std::string, audio::kMaxAnalyserTaps>           analyser_bus{};
+    std::array<audio::MixerChannelId, audio::kMaxAnalyserTaps> analyser_strip{};
     // What the server knows about one connected client (U1).
     //
     // A connection used to be an element of a set — a bare pointer, with no
@@ -203,6 +211,11 @@ struct ControlServer::Impl {
         // colour or a keymap, and caching them would be inventing a second
         // copy of a value that already has an owner.
         std::string   meter_mode;
+
+        // The bus whose spectrum this connection's channel view is showing,
+        // or empty. View state (D17 allows it, like the meter rate): each
+        // operator can look at a different bus.
+        std::string   analyser_bus;
     };
     std::unordered_map<crow::websocket::connection*, ClientSession> ws_clients;
     // Monotonic, never reused within a process run, so a session id in a log
@@ -1022,8 +1035,15 @@ void ControlServer::broadcast_loop() {
                     // panel's GR meters. Zero when idle or switched out. One
                     // figure each rather than per lane: both detectors are
                     // linked across the strip's lanes.
-                    {"gate_gr_db",       m->dsp().gate_reduction_db()},
-                    {"comp_gr_db",       m->dsp().comp_reduction_db()},
+                    // Deepest since the last tick, not the last block: a 30 Hz
+                    // reader of a last-block value misses most of what a fast
+                    // compressor does between ticks.
+                    {"gate_gr_db",       m->dsp().take_gate_gr_db()},
+                    {"comp_gr_db",       m->dsp().take_comp_gr_db()},
+                    // Peak level into and out of the dynamics since the last
+                    // tick (dBFS), for the transfer-curve meter. Pre-fader.
+                    {"dyn_in_db",        m->dsp().take_dyn_in_db()},
+                    {"dyn_out_db",       m->dsp().take_dyn_out_db()},
                     // Inter-channel correlation: +1 mono-compatible, 0 wide,
                     // negative means the lanes are cancelling and material will
                     // disappear the moment anything sums the strip to mono.
@@ -1119,6 +1139,45 @@ void ControlServer::broadcast_loop() {
             }
         }
 
+        // Spectrum analyser frames, one per armed tap, built outside ws_mutex
+        // (the FFT is the most expensive thing on this tick). Each goes only
+        // to the connections watching that bus.
+        std::vector<std::pair<std::string, std::string>> analyser_frames;
+        try {
+            static audio::SpectrumAnalyser fft(4096);
+            static std::vector<float> pre(4096), post(4096);
+            constexpr std::size_t kBins = 96;
+            std::array<float, kBins> pre_db{}, post_db{};
+            std::lock_guard alock{impl_->analyser_mutex};
+            for (std::size_t slot = 0; slot < audio::kMaxAnalyserTaps; ++slot) {
+                const auto& bus = impl_->analyser_bus[slot];
+                if (bus.empty()) continue;
+                const auto strip = state_.bus_strip(bus);
+                if (strip != impl_->analyser_strip[slot]) {
+                    engine_.set_analyser_tap(slot, strip);
+                    impl_->analyser_strip[slot] = strip;
+                    continue;                      // let the new tap fill first
+                }
+                if (!engine_.read_analyser_tap(slot, pre.data(), post.data(), fft.size())) continue;
+                const double fs = static_cast<double>(engine_.config().mix_sample_rate);
+                fft.analyse(pre.data(),  fs, kBins, 20.0, 20000.0, pre_db.data());
+                fft.analyse(post.data(), fs, kBins, 20.0, 20000.0, post_db.data());
+                json a = json::array(), b = json::array();
+                // One decimal is finer than any screen draws it.
+                for (std::size_t k = 0; k < kBins; ++k) {
+                    a.push_back(std::round(pre_db[k] * 10.0f) / 10.0f);
+                    b.push_back(std::round(post_db[k] * 10.0f) / 10.0f);
+                }
+                analyser_frames.emplace_back(bus, json{
+                    {"type", "analyser"}, {"busId", bus},
+                    {"fLo", 20}, {"fHi", 20000},
+                    {"pre", std::move(a)}, {"post", std::move(b)},
+                }.dump());
+            }
+        } catch (const std::exception& e) {
+            Logger::warn("broadcast_loop: analyser frame failed: {}", e.what());
+        }
+
         // Fan out meters + cue_state events to all subscribed clients,
         // plus snapshots for any client still flagged as pending.
         std::lock_guard lock{impl_->ws_mutex};
@@ -1143,6 +1202,10 @@ void ControlServer::broadcast_loop() {
                     else                               session.meter_accum -= tick_hz;
                 }
                 if (send_meters) c->send_text(serialized);
+                if (send_meters && !session.analyser_bus.empty()) {
+                    for (const auto& [bus, frame] : analyser_frames)
+                        if (bus == session.analyser_bus) c->send_text(frame);
+                }
                 for (const auto& e : cue_state_events) c->send_text(e);
             }
             catch (...) { /* connection will be cleaned up by onclose */ }
@@ -1204,6 +1267,38 @@ void ControlServer::broadcast_to_user(const std::string& user_id, const json& pa
         if (session.user_id != user_id) continue;
         try { c->send_text(serialized); }
         catch (...) { /* onclose will clean up dead connections */ }
+    }
+}
+
+void ControlServer::refresh_analyser_taps() {
+    // The union of what connections are watching, capped at the tap pool.
+    std::vector<std::string> wanted;
+    {
+        std::lock_guard lock{impl_->ws_mutex};
+        for (const auto& [_, s] : impl_->ws_clients) {
+            if (s.analyser_bus.empty()) continue;
+            if (std::find(wanted.begin(), wanted.end(), s.analyser_bus) != wanted.end()) continue;
+            if (wanted.size() < audio::kMaxAnalyserTaps) wanted.push_back(s.analyser_bus);
+        }
+    }
+    std::lock_guard alock{impl_->analyser_mutex};
+    // Keep a bus on the slot it already has, so a second viewer arriving does
+    // not reset the first one's window; fill free slots with the newcomers.
+    std::array<std::string, audio::kMaxAnalyserTaps> next{};
+    for (std::size_t i = 0; i < next.size(); ++i) {
+        const auto& cur = impl_->analyser_bus[i];
+        if (!cur.empty() && std::find(wanted.begin(), wanted.end(), cur) != wanted.end()) next[i] = cur;
+    }
+    for (const auto& w : wanted) {
+        if (std::find(next.begin(), next.end(), w) != next.end()) continue;
+        for (auto& slot : next) if (slot.empty()) { slot = w; break; }
+    }
+    for (std::size_t i = 0; i < next.size(); ++i) {
+        if (next[i] == impl_->analyser_bus[i]) continue;
+        impl_->analyser_bus[i] = next[i];
+        const auto strip = next[i].empty() ? audio::MixerChannelId{} : state_.bus_strip(next[i]);
+        engine_.set_analyser_tap(i, strip);
+        impl_->analyser_strip[i] = strip;
     }
 }
 
@@ -1430,6 +1525,7 @@ static std::vector<std::string> selection_anchors(audio::AudioEngine& engine,
 struct SessionOps {
     std::function<std::string(const std::string&)> set_locale;
     std::function<std::size_t(std::size_t)>        set_meter_hz;
+    std::function<void(const std::string&)>        set_analyser;
 };
 
 static std::string handle_ws_message(crow::websocket::connection& conn,
@@ -1657,6 +1753,17 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
                 const auto effective = session.set_locale(j["locale"].get<std::string>());
                 return json{{"type", "doc_patch"}, {"op", "locale_changed"},
                             {"locale", effective}}.dump();
+            }
+        }
+        else if (type == "set_analyser") {
+            // Which bus's spectrum this connection wants ("busId": null or ""
+            // for none). Spectra then arrive as {"type":"analyser",...}
+            // frames for that bus only, at the meter rate.
+            if (session.set_analyser) {
+                const std::string bus = (j.contains("busId") && j["busId"].is_string())
+                                            ? j["busId"].get<std::string>() : std::string{};
+                session.set_analyser(bus);
+                return json{{"type", "analyser_subscribed"}, {"busId", bus}}.dump();
             }
         }
         else if (type == "set_meter_hz") {
@@ -4736,6 +4843,8 @@ void ControlServer::install_routes() {
           // The other half of the union: the last operator wanting loudness
           // leaving is what lets the DSP stop again.
           refresh_user_meter_modes();
+          // Likewise the last viewer of an analyser disarms its tap.
+          refresh_analyser_taps();
       })
       .onmessage([this](crow::websocket::connection& conn,
                         const std::string& data,
@@ -4753,6 +4862,15 @@ void ControlServer::install_routes() {
                   if (it == impl_->ws_clients.end()) return code;
                   if (!code.empty()) it->second.locale = code;
                   return it->second.locale;
+              };
+              session.set_analyser = [this, &conn](const std::string& bus) {
+                  {
+                      std::lock_guard lock{impl_->ws_mutex};
+                      auto it = impl_->ws_clients.find(&conn);
+                      if (it == impl_->ws_clients.end()) return;
+                      it->second.analyser_bus = bus;
+                  }
+                  refresh_analyser_taps();
               };
               session.set_meter_hz = [this, &conn](std::size_t hz) -> std::size_t {
                   // Clamped to what the server actually ticks at: the loop is

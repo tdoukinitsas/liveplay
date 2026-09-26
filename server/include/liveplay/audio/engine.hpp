@@ -28,6 +28,7 @@
 // ============================================================================
 #pragma once
 
+#include "liveplay/audio/analyser_tap.hpp"
 #include "liveplay/audio/drift_resampler.hpp"
 #include "liveplay/audio/limiter.hpp"
 #include "liveplay/audio/meter.hpp"
@@ -36,6 +37,7 @@
 #include "liveplay/audio/playback_item.hpp"
 #include "liveplay/audio/types.hpp"
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -508,6 +510,15 @@ public:
     // dragging an EQ knob does not re-walk every route on the desk.
     void set_mixer_dsp(const MixerChannelId& id, const StripDspParams& params);
 
+    // ---- Spectrum analyser taps (the channel view's analyser) ------------
+    // Point tap `slot` (< kMaxAnalyserTaps) at a strip, or disarm it with an
+    // empty id. Control thread; one atomic store, so arming costs the audio
+    // path nothing. See analyser_tap.hpp.
+    void set_analyser_tap(std::size_t slot, const MixerChannelId& id);
+    // The newest `n` samples of tap `slot`, before and after the EQ. False
+    // when the tap is unarmed, has not filled yet, or was overrun mid-copy.
+    bool read_analyser_tap(std::size_t slot, float* pre, float* post, std::size_t n) const;
+
     // ---- Routing matrix --------------------------------------------------
     // `lane` selects which mixer strip lane the source channel feeds
     // (0 = L, 1 = R). kAllMixerLanes fans the channel across every lane —
@@ -817,6 +828,12 @@ private:
 
     // Scratch buffers reused by the render thread (allocated once at start()).
     std::vector<std::vector<Sample>> mixer_accumulators_;  // [mixer_index * kMixerLanes + lane][frame]
+    // Analyser taps: a fixed pool, allocated with the engine (half a megabyte,
+    // so on the heap rather than inside this object). any_tap_armed_ lets the
+    // render loop skip the per-strip target check when nobody is looking.
+    std::unique_ptr<std::array<AnalyserTap, kMaxAnalyserTaps>> analyser_taps_ =
+        std::make_unique<std::array<AnalyserTap, kMaxAnalyserTaps>>();
+    std::atomic<bool> any_tap_armed_{false};
     std::vector<std::vector<Sample>> master_accumulators_; // [master_index][frame]
     // Per-item per-source-channel deinterleaved buffers. Indexed by item index
     // in the current topology snapshot; reallocated when topology changes.

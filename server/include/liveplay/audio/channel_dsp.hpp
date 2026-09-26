@@ -3,7 +3,7 @@
 // ----------------------------------------------------------------------------
 // The channel strip's fixed processing chain, in console order:
 //
-//     HPF -> LPF -> EQ (4 bands) -> gate -> compressor -> width
+//     HPF -> LPF -> EQ (up to kEqBands bands) -> gate -> compressor -> width
 //
 // Fixed, not a plugin rack. These are known blocks that every strip has,
 // exactly as a console channel does, so they are laid out as fields rather
@@ -45,21 +45,36 @@
 // ============================================================================
 #pragma once
 
+#include "liveplay/audio/analyser_tap.hpp"
 #include "liveplay/audio/biquad.hpp"
 #include "liveplay/audio/dynamics.hpp"
 #include "liveplay/audio/stereo_width.hpp"
 #include "liveplay/audio/types.hpp"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 
 namespace liveplay::audio {
 
-// How many EQ bands a strip has. Matches the four the channel view lays out
-// (LF / LMF / HMF / HF).
-inline constexpr std::size_t kEqBands = 4;
+// How many EQ bands a strip CAN have — capacity, preallocated in every array
+// below so nothing is ever allocated on the render thread. A project starts
+// with the classic four (LF / LMF / HMF / HF) and may add up to this many.
+//
+// Capacity costs nothing at run time: the render loop keeps a list of the
+// bands that are actually doing something (see advance_coeffs) and runs only
+// those, so a strip with four bands in use pays for four, not thirty-two.
+inline constexpr std::size_t kEqBands = 32;
+
+// What shape an EQ band is. `Auto` is the pre-2.5 reading of the two flags
+// below (a bell, or a shelf whose end `low_shelf` picks), so existing callers
+// and tests that never heard of `kind` behave exactly as before.
+enum class EqKind : std::uint8_t {
+    Auto = 0, Bell, LowShelf, HighShelf, LowCut, HighCut, Notch,
+};
 
 // Every filter section on one strip, in chain order. One set of coefficients
 // is shared by both lanes; the per-lane STATE is what must stay separate.
@@ -104,7 +119,23 @@ struct EqBandParams {
     float gain_db   = 0.0f;
     float q         = 1.0f;
     float slope     = 1.0f;
+    // Last, so designated initialisers written before it existed still work.
+    EqKind kind     = EqKind::Auto;
 };
+
+// Cuts and notches do their work at any gain setting; bells and shelves are
+// identities at 0 dB. One rule, used by both set_params and needs_processing.
+inline EqKind resolved_kind(const EqBandParams& b) noexcept {
+    if (b.kind != EqKind::Auto) return b.kind;
+    if (!b.shelf) return EqKind::Bell;
+    return b.low_shelf ? EqKind::LowShelf : EqKind::HighShelf;
+}
+inline bool eq_band_active(const EqBandParams& b) noexcept {
+    if (!b.enabled) return false;
+    const EqKind k = resolved_kind(b);
+    if (k == EqKind::LowCut || k == EqKind::HighCut || k == EqKind::Notch) return true;
+    return b.gain_db != 0.0f;
+}
 
 struct StripDspParams {
     GateParams       gate;
@@ -145,17 +176,27 @@ public:
                               : biquad_passthrough();
         for (std::size_t i = 0; i < kEqBands; ++i) {
             const auto& b = p.eq[i];
-            // A band sitting at 0 dB is a no-op; make it literally one so four
-            // flat bands in circuit cannot colour the desk. That holds for a
-            // shelf as much as a bell — both are identities at unity gain.
-            if (!b.enabled || b.gain_db == 0.0f) {
+            // A band sitting at 0 dB is a no-op; make it literally one so flat
+            // bands in circuit cannot colour the desk. That holds for a shelf
+            // as much as a bell — both are identities at unity gain. Cuts and
+            // notches have no gain and are never idle while enabled.
+            if (!eq_band_active(b)) {
                 c.eq[i] = biquad_passthrough();
-            } else if (b.shelf) {
-                c.eq[i] = b.low_shelf
-                              ? biquad_lowshelf(b.freq_hz, fs, b.gain_db, b.slope)
-                              : biquad_highshelf(b.freq_hz, fs, b.gain_db, b.slope);
-            } else {
-                c.eq[i] = biquad_peaking(b.freq_hz, fs, b.gain_db, b.q);
+                continue;
+            }
+            switch (resolved_kind(b)) {
+                case EqKind::LowShelf:
+                    c.eq[i] = biquad_lowshelf(b.freq_hz, fs, b.gain_db, b.slope); break;
+                case EqKind::HighShelf:
+                    c.eq[i] = biquad_highshelf(b.freq_hz, fs, b.gain_db, b.slope); break;
+                case EqKind::LowCut:
+                    c.eq[i] = biquad_highpass(b.freq_hz, fs, b.q); break;
+                case EqKind::HighCut:
+                    c.eq[i] = biquad_lowpass(b.freq_hz, fs, b.q); break;
+                case EqKind::Notch:
+                    c.eq[i] = biquad_notch(b.freq_hz, fs, b.q); break;
+                default:
+                    c.eq[i] = biquad_peaking(b.freq_hz, fs, b.gain_db, b.q); break;
             }
         }
         c.gate  = gate_coeffs(p.gate, fs);
@@ -196,7 +237,24 @@ public:
         constexpr float kRamp = 0.25f;
         lerp(active_.hpf, target.hpf, kRamp);
         lerp(active_.lpf, target.lpf, kRamp);
-        for (std::size_t i = 0; i < kEqBands; ++i) lerp(active_.eq[i], target.eq[i], kRamp);
+        // EQ: ramp only the bands that are, or are becoming, something. A band
+        // idle on both sides is skipped outright; one that has ramped out to
+        // within a hair of identity is snapped onto it exactly and its memory
+        // dropped, like the width snap below. What remains is the list the
+        // per-sample loop runs — so thirty-two slots of capacity cost the same
+        // as the four in use.
+        eq_live_count_ = 0;
+        for (std::size_t i = 0; i < kEqBands; ++i) {
+            const bool target_idle = is_passthrough(target.eq[i]);
+            if (target_idle && is_passthrough(active_.eq[i])) continue;
+            lerp(active_.eq[i], target.eq[i], kRamp);
+            if (target_idle && near_passthrough(active_.eq[i])) {
+                active_.eq[i] = biquad_passthrough();
+                for (auto& lane : state_) lane.eq[i].reset();
+                continue;
+            }
+            eq_live_[eq_live_count_++] = static_cast<std::uint8_t>(i);
+        }
         // Taken whole, not ramped. These are thresholds and time constants
         // rather than filter coefficients: interpolating them would mean a
         // threshold crawling to where it was set, and the gate's own attack
@@ -238,7 +296,10 @@ public:
             float x = buf[s];
             x = st.hpf.process(active_.hpf, x);
             x = st.lpf.process(active_.lpf, x);
-            for (std::size_t b = 0; b < kEqBands; ++b) x = st.eq[b].process(active_.eq[b], x);
+            for (std::size_t k = 0; k < eq_live_count_; ++k) {
+                const std::uint8_t b = eq_live_[k];
+                x = st.eq[b].process(active_.eq[b], x);
+            }
             buf[s] = x;
         }
     }
@@ -256,14 +317,28 @@ public:
     // not asked to work on noise the gate is about to remove anyway. Reversed,
     // a compressor's makeup gain lifts that noise up over the gate's threshold
     // and holds it open.
-    void process(Sample* const* lanes, ChannelCount count, std::size_t frames) noexcept {
+    //
+    // `tap`, when this strip is being analysed, receives the strip's input and
+    // its post-EQ signal (before the dynamics) for the channel view's
+    // spectrum analyser. Null for every other strip.
+    void process(Sample* const* lanes, ChannelCount count, std::size_t frames,
+                 AnalyserTap* tap = nullptr) noexcept {
         advance_coeffs();
         const auto lc = std::min<ChannelCount>(count, kMixerLanes);
+        if (tap) tap->write_pre(lanes, lc, frames);
         for (ChannelCount l = 0; l < lc; ++l) {
             process_tone(l, lanes[l], frames);
         }
+        if (tap) { tap->write_post(lanes, lc, frames); tap->commit(frames); }
+        // What reaches the dynamics, and what leaves them: the channel view
+        // draws the input on the transfer curve, where the operator can see it
+        // meet the threshold.
+        fold_peak(dyn_in_peak_, block_peak(lanes, lc, frames));
         gate_.process(active_.gate, lanes, lc, frames);
         comp_.process(active_.comp, lanes, lc, frames);
+        fold_peak(dyn_out_peak_, block_peak(lanes, lc, frames));
+        fold_min(gate_gr_min_, gate_.gain_reduction_db());
+        fold_min(comp_gr_min_, comp_.gain_reduction_db());
         // Last, and only on a strip that actually has an image. A mono strip
         // carries nothing on lane 1, so a matrix across the pair would read
         // silence as the right channel and hard-pan the strip left.
@@ -273,8 +348,30 @@ public:
     }
 
     // How far each processor is pulling the strip down, for their meters.
+    // Last block only — what the unit tests read.
     float gate_reduction_db() const noexcept { return gate_.gain_reduction_db(); }
     float comp_reduction_db() const noexcept { return comp_.gain_reduction_db(); }
+
+    // Render thread, for a block the chain skipped (nothing in circuit): the
+    // dynamics' input and output are then both the strip's input, and the
+    // transfer-curve meter should still show it — an operator sets the
+    // threshold against the signal BEFORE switching the compressor in.
+    void note_idle_block(Sample* const* lanes, ChannelCount count, std::size_t frames) noexcept {
+        const auto lc = std::min<ChannelCount>(count, kMixerLanes);
+        const float pk = block_peak(lanes, lc, frames);
+        fold_peak(dyn_in_peak_, pk);
+        fold_peak(dyn_out_peak_, pk);
+    }
+
+    // ---- Broadcast thread: consuming reads --------------------------------
+    // Peak level into / out of the dynamics since the last read, in dBFS, and
+    // the deepest gain reduction of each processor since the last read. Each
+    // read resets, so every meter tick sees the loudest thing since the one
+    // before — a 30 Hz reader of a last-block value misses most peaks.
+    float take_dyn_in_db()  noexcept { return lin_to_db(dyn_in_peak_.exchange(0.0f, std::memory_order_acq_rel)); }
+    float take_dyn_out_db() noexcept { return lin_to_db(dyn_out_peak_.exchange(0.0f, std::memory_order_acq_rel)); }
+    float take_gate_gr_db() noexcept { return gate_gr_min_.exchange(0.0f, std::memory_order_acq_rel); }
+    float take_comp_gr_db() noexcept { return comp_gr_min_.exchange(0.0f, std::memory_order_acq_rel); }
 
     // Drop every section's memory. For when a strip's signal source changes
     // underneath it and the old tail is no longer meaningful.
@@ -303,8 +400,37 @@ private:
         // other block here — the coefficient form needs a sample rate this has
         // no reason to know.
         if (p.width.width != 1.0f || p.width.bass_mono_hz > kBassMonoParkedHz) return true;
-        for (const auto& b : p.eq) if (b.enabled && b.gain_db != 0.0f) return true;
+        for (const auto& b : p.eq) if (eq_band_active(b)) return true;
         return false;
+    }
+
+    static bool is_passthrough(const BiquadCoeffs& c) noexcept {
+        return c.b0 == 1.0f && c.b1 == 0.0f && c.b2 == 0.0f && c.a1 == 0.0f && c.a2 == 0.0f;
+    }
+    // Within 1e-6 of identity on every coefficient: 0.75 per block gets there
+    // from a full ±24 dB band in about fifty blocks — a clean ramp-out, then
+    // an exact stop.
+    static bool near_passthrough(const BiquadCoeffs& c) noexcept {
+        constexpr float e = 1e-6f;
+        return std::fabs(c.b0 - 1.0f) < e && std::fabs(c.b1) < e && std::fabs(c.b2) < e &&
+               std::fabs(c.a1) < e && std::fabs(c.a2) < e;
+    }
+    static float block_peak(Sample* const* lanes, ChannelCount lc, std::size_t frames) noexcept {
+        float pk = 0.0f;
+        for (ChannelCount l = 0; l < lc; ++l)
+            for (std::size_t s = 0; s < frames; ++s) pk = std::max(pk, std::fabs(lanes[l][s]));
+        return pk;
+    }
+    static void fold_peak(std::atomic<float>& a, float v) noexcept {
+        float cur = a.load(std::memory_order_relaxed);
+        while (v > cur && !a.compare_exchange_weak(cur, v, std::memory_order_acq_rel)) {}
+    }
+    static void fold_min(std::atomic<float>& a, float v) noexcept {
+        float cur = a.load(std::memory_order_relaxed);
+        while (v < cur && !a.compare_exchange_weak(cur, v, std::memory_order_acq_rel)) {}
+    }
+    static float lin_to_db(float lin) noexcept {
+        return lin > 1e-6f ? 20.0f * std::log10(lin) : -120.0f;
     }
 
     static void lerp(BiquadCoeffs& cur, const BiquadCoeffs& to, float t) noexcept {
@@ -349,6 +475,15 @@ private:
     bool                              width_active_{false}; // render thread only
     std::uint32_t                     seen_generation_{0}; // render thread only
     int                               settle_blocks_{0};   // render thread only
+    // The EQ bands to run this block, ascending — rebuilt by advance_coeffs.
+    std::array<std::uint8_t, kEqBands> eq_live_{};        // render thread only
+    std::size_t                        eq_live_count_{0}; // render thread only
+
+    // Dynamics metering, max/min since the last consuming read (above).
+    std::atomic<float> dyn_in_peak_{0.0f};
+    std::atomic<float> dyn_out_peak_{0.0f};
+    std::atomic<float> gate_gr_min_{0.0f};
+    std::atomic<float> comp_gr_min_{0.0f};
 };
 
 } // namespace liveplay::audio

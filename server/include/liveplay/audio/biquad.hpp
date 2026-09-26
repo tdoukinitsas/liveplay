@@ -193,6 +193,16 @@ inline BiquadCoeffs biquad_highshelf(double freq_hz, double sample_rate,
         (A + 1.0) - (A - 1.0) * cosw - tsa);
 }
 
+// A notch: full cut at the centre, unity either side. Q sets how narrow.
+inline BiquadCoeffs biquad_notch(double freq_hz, double sample_rate, float q) noexcept {
+    const double w0    = 2.0 * kPi * detail::clamp_freq(freq_hz, sample_rate) / sample_rate;
+    const double cosw  = std::cos(w0);
+    const double alpha = std::sin(w0) / (2.0 * detail::clamp_q(q));
+    return detail::normalise(
+        1.0, -2.0 * cosw, 1.0,
+        1.0 + alpha, -2.0 * cosw, 1.0 - alpha);
+}
+
 // ---------------------------------------------------------------------------
 // Magnitude response at one frequency, for tests and for drawing the EQ curve.
 // Evaluates |H(e^jw)| directly from the coefficients, so it describes the

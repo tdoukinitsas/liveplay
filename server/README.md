@@ -687,7 +687,7 @@ A project has **exactly one** of each, never the same bus. Both are otherwise or
 {
   "id": "…", "name": "…", "color": "…", "order": 0, "width": 2,
   "gainDb": 0.0, "mute": false, "pan": 0.0,
-  "dsp": { "eqEnabled", "dynEnabled", "hpf", "lpf", "eq": [...], "gate": {...}, "comp": {...}, "... " },
+  "dsp": { "eqEnabled", "dynEnabled", "hpf", "lpf", "eq": [ { "freq", "gain", "q", "slope", "type", "on", "shelf" } ], "gate": {...}, "comp": {...}, "... " },
   "pfl": false,
   "monoCheck": false,
   "bound": true,
@@ -921,6 +921,8 @@ Project UI settings such as `settings.indexDisplayStart` only change the numbers
 
 **Wait before next** — an audio item may set `advanceDelay` (seconds, absent/`0` = straight away): after the cue ends, its `next` / `goto-item` / `goto-index` end behaviour waits that long before starting the target (#8). The gapless pre-roll is off for such an item, and the delay is ignored while a crossfade or Start Next is set (they overlap the next cue on purpose). While a wait runs every client is sent `advance_pending`; Stop All and closing the project cancel it. A target already on air when the wait ends is not restarted.
 
+**EQ bands** — `dsp.eq` holds up to **32** bands (a new bus starts with the classic four bells at 100 / 500 / 2500 / 10000 Hz). Each has a `type`: `bell`, `lowShelf`, `highShelf`, `lowCut`, `highCut` or `notch` — any band may be any type; `gain` applies to bells and shelves, `q` to bells, cuts and notches, `slope` to shelves. A patch's `eq` array merges **index-wise** onto the existing bands: an element merges onto the band in the same slot, a shorter array leaves the rest alone, and an element past the end adds a band. A band keeps its slot for life; to delete one send `{"on": false}` for its slot (trailing switched-off bands are trimmed) — shifting the bands after it would ramp each into its neighbour's filter. The engine runs only bands that are doing something, so capacity costs nothing. The pre-2.5 `shelf` flag is still written and read: when it contradicts `type` it keeps its old positional meaning (band 0 → low shelf, band 3 → high shelf, refused elsewhere).
+
 **Loop crossfade** — an item whose `endBehavior.action` is `loop` may set `loopCrossfade` (seconds, absent/`0` = a plain loop). The last N seconds before the loop end are blended equal-power with the first N after the in-point, and playback carries on from in-point + N, so the loop fades back into itself. N is capped at half the trimmed length. The head is decoded on a background job the first time the cue plays with a given in/out/length; until it is ready (normally milliseconds) the loop wraps without the blend. A plain loop also now fills the block that crosses the loop point from the in-point, instead of leaving the rest of it silent.
 
 Stop All ignores both and uses its own fade (`fade_ms`, else `settings.stopAllFadeMs`, default 1000 ms). It also stops the preview audition unless `settings.stopAllStopsPreview` is `false` (absent = `true`).
@@ -994,7 +996,7 @@ On connect, the server adds the connection to the broadcast set and queues a one
   ],
   "mixer_channels": [
     {
-      "mixer_id": "…", "gate_gr_db": 0.0, "comp_gr_db": -1.2, "correlation": 0.8,
+      "mixer_id": "…", "gate_gr_db": 0.0, "comp_gr_db": -1.2, "dyn_in_db": -6.0, "dyn_out_db": -8.1, "correlation": 0.8,
       "peak_db": -6.0, "rms_db": -12.0, "peak_max_db": -4.0,
       "true_peak_db": -5.8, "true_peak_max_db": -3.9, "kw_ms": 0.001, "kw_ms_s": 2.0,
       "lanes": [ { "peak_db", "rms_db", "peak_max_db", "true_peak_db", "true_peak_max_db", "kw_ms", "kw_ms_s" } ]
@@ -1008,7 +1010,7 @@ On connect, the server adds the connection to the broadcast set and queues a one
 }
 ```
 
-Every `*_db` reading pairs a live value (`peak_db`, `rms_db`) with a held maximum (`peak_max_db`) plus true-peak (inter-sample) equivalents (`true_peak_db`, `true_peak_max_db`), and `kw_ms`/`kw_ms_s` are K-weighted (BS.1770) momentary/short-term loudness accumulators. `mixer_channels` covers every engine strip — which is what a bus's meters ride on: match a bus's `mixerId` (from `GET /api/buses`) against `mixer_channels[].mixer_id` to get its meters, gain-reduction and correlation. `lanes` gives one entry per physical channel of the strip (so a stereo strip reports separate L/R) with the combined fields above it derived as their per-field maxima (and `kw_ms`/`kw_ms_s` summed across lanes, per BS.1770). `gate_gr_db`/`comp_gr_db` are single figures per strip (both detectors are linked across its lanes), and `correlation` is inter-channel correlation: `+1` mono-compatible, `0` wide, negative means the lanes are cancelling and material will disappear if anything sums the strip to mono.
+Every `*_db` reading pairs a live value (`peak_db`, `rms_db`) with a held maximum (`peak_max_db`) plus true-peak (inter-sample) equivalents (`true_peak_db`, `true_peak_max_db`), and `kw_ms`/`kw_ms_s` are K-weighted (BS.1770) momentary/short-term loudness accumulators. `mixer_channels` covers every engine strip — which is what a bus's meters ride on: match a bus's `mixerId` (from `GET /api/buses`) against `mixer_channels[].mixer_id` to get its meters, gain-reduction and correlation. `lanes` gives one entry per physical channel of the strip (so a stereo strip reports separate L/R) with the combined fields above it derived as their per-field maxima (and `kw_ms`/`kw_ms_s` summed across lanes, per BS.1770). `gate_gr_db`/`comp_gr_db` are single figures per strip (both detectors are linked across its lanes) and are the **deepest reduction since the previous frame**, not the last render block; `dyn_in_db`/`dyn_out_db` are the peak level (dBFS) going into and out of the dynamics since the previous frame — pre-fader, and reported even while the chain is idle (then both equal the strip input), so the transfer-curve meter shows the signal before anything is switched in; and `correlation` is inter-channel correlation: `+1` mono-compatible, `0` wide, negative means the lanes are cancelling and material will disappear if anything sums the strip to mono.
 
 Stopped cues are omitted from `items`. Silent master channels (`peak_db <= -119 dB` and `peak_max_db <= -119 dB` and gain reduction `> -0.05 dB`) are omitted from `master_channels` to keep the frame small.
 
@@ -1070,6 +1072,7 @@ Mostly mirror the REST surface so transport commands can skip the HTTP request/r
 | `select_step`    | `{ "delta": int }` | Steps the shared selection through the flattened playlist. With nothing selected, steps from whatever is currently sounding instead of snapping to the top of the show; an explicit selection always wins. Broadcasts `selection_changed`. |
 | `set_show_mode`  | `{ "enabled": bool }` (omit to toggle) | Broadcasts `show_mode_changed`. |
 | `set_locale`     | `{ "locale": "en" }` | **This connection only.** Replies `locale_changed` down the same socket and to nobody else. |
+| `set_analyser`   | `{ "busId": "<id>" }` or `{ "busId": null }` | **This connection only.** Subscribes this client to a bus's spectrum analyser; replies `{"type":"analyser_subscribed","busId"}`. While subscribed it receives `{"type":"analyser","busId","fLo":20,"fHi":20000,"pre":[96],"post":[96]}` at the meter rate: 96 log-spaced bands (20 Hz–20 kHz), each the peak FFT line in dBFS (a full-scale sine reads 0) of the strip's input (`pre`) and its signal after HPF/LPF/EQ, before the dynamics (`post`). 4096-point Hann FFT on the server's broadcast thread; the engine keeps a pool of 4 taps, armed for the union of subscribed buses and costing nothing while none are. |
 | `set_meter_hz`   | `{ "hz": 5 }` (`0` = follow the server's rate) | **This connection only.** Thins the `meters` stream for this client; replies `meter_hz_changed` with the *effective* rate, clamped to the server's own tick rate. `cue_state` and `playback_snapshot` are never thinned. |
 | `bus_gain`       | `{ "busId": "…", "gainDb": float }` | Same code path as `PATCH /api/buses/<id>`, so it persists and broadcasts `buses_patched` identically. `error` frame to the sender only (no broadcast) if `busId` is missing or unknown. |
 | `bus_mute`       | `{ "busId": "…", "mute": bool }` (omit `mute` to toggle the bus's current state) | Same code path as `PATCH /api/buses/<id>`; broadcasts `buses_patched`. `error` frame to the sender only if unknown. |

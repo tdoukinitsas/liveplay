@@ -4217,30 +4217,77 @@ void merge_bus_dsp(const json& src, BusDsp& out) {
         o.bass_mono_q  = std::clamp(w.value("bassMonoQ",  o.bass_mono_q),   0.1f, 4.0f);
     }
     if (src.contains("eq") && src["eq"].is_array()) {
+        // Index-wise, as it always was: an element merges onto the band in the
+        // same slot, a shorter array leaves the rest alone, and an element past
+        // the end adds a band. Removing one is `on: false` on its slot.
         const auto& arr = src["eq"];
-        for (std::size_t i = 0; i < kBusEqBands && i < arr.size(); ++i) {
+        const std::size_t n = std::min(arr.size(), kBusEqBands);
+        if (out.eq.size() < n) out.eq.resize(n);
+        for (std::size_t i = 0; i < n; ++i) {
             if (!arr[i].is_object()) continue;
             auto& b = out.eq[i];
-            b.freq_hz = arr[i].value("freq", b.freq_hz);
-            b.gain_db = std::clamp(arr[i].value("gain", b.gain_db), -24.0f, 24.0f);
-            b.q       = std::clamp(arr[i].value("q", b.q), 0.1f, 40.0f);
-            // Only the outer bands can be shelves. Refused here rather than
-            // ignored downstream, so what the document says and what the desk
-            // does cannot drift apart.
-            b.shelf   = (i == 0 || i == kBusEqBands - 1) &&
-                        arr[i].value("shelf", b.shelf);
+            const auto& e = arr[i];
+            b.freq_hz = std::clamp(e.value("freq", b.freq_hz), 10.0f, 24000.0f);
+            b.gain_db = std::clamp(e.value("gain", b.gain_db), -24.0f, 24.0f);
+            b.q       = std::clamp(e.value("q", b.q), 0.1f, 40.0f);
             // Past 2 a shelf overshoots into a resonant peak at the corner,
             // which is not what the control means; the engine clamps too.
-            b.slope   = std::clamp(arr[i].value("slope", b.slope), 0.1f, 2.0f);
+            b.slope   = std::clamp(e.value("slope", b.slope), 0.1f, 2.0f);
+            b.on      = e.value("on", b.on);
+            BusEqType t = b.type;
+            if (e.contains("type") && e["type"].is_string()) t = eq_type_from_string(e["type"].get<std::string>(), t);
+            // The pre-2.5 `shelf` flag, when it disagrees with the type: a
+            // client that only knows the flag (or re-sent a band with only the
+            // flag changed). It keeps its positional meaning — band 0 turns up
+            // the bottom, band 3 the top — and is refused on any other band,
+            // as it always was.
+            if (e.contains("shelf") && e["shelf"].is_boolean()) {
+                const bool want = e["shelf"].get<bool>();
+                const bool is_shelf = t == BusEqType::LowShelf || t == BusEqType::HighShelf;
+                if (want && !is_shelf) {
+                    if (i == 0)                       t = BusEqType::LowShelf;
+                    else if (i == kLegacyEqBands - 1) t = BusEqType::HighShelf;
+                } else if (!want && is_shelf) {
+                    t = BusEqType::Bell;
+                }
+            }
+            b.type = t;
         }
+        // Switched-off bands at the end have nothing after them to shift, so
+        // they can go.
+        while (!out.eq.empty() && !out.eq.back().on) out.eq.pop_back();
     }
+}
+
+const char* eq_type_name(BusEqType t) {
+    switch (t) {
+        case BusEqType::LowShelf:  return "lowShelf";
+        case BusEqType::HighShelf: return "highShelf";
+        case BusEqType::LowCut:    return "lowCut";
+        case BusEqType::HighCut:   return "highCut";
+        case BusEqType::Notch:     return "notch";
+        default:                   return "bell";
+    }
+}
+
+BusEqType eq_type_from_string(const std::string& s, BusEqType fallback) {
+    if (s == "bell")      return BusEqType::Bell;
+    if (s == "lowShelf")  return BusEqType::LowShelf;
+    if (s == "highShelf") return BusEqType::HighShelf;
+    if (s == "lowCut")    return BusEqType::LowCut;
+    if (s == "highCut")   return BusEqType::HighCut;
+    if (s == "notch")     return BusEqType::Notch;
+    return fallback;
 }
 
 json bus_dsp_to_json(const BusDsp& d) {
     json eq = json::array();
     for (const auto& b : d.eq) {
+        // `shelf` is written alongside `type` for clients that predate it.
+        const bool shelf = b.type == BusEqType::LowShelf || b.type == BusEqType::HighShelf;
         eq.push_back(json{{"freq",  b.freq_hz}, {"gain",  b.gain_db}, {"q", b.q},
-                          {"shelf", b.shelf},   {"slope", b.slope}});
+                          {"shelf", shelf},     {"slope", b.slope},
+                          {"type",  eq_type_name(b.type)}, {"on", b.on}});
     }
     return json{
         {"eqEnabled",  d.eq_enabled},
@@ -4938,18 +4985,24 @@ audio::StripDspParams ProjectState::dsp_params_for(const BusDef& bus) const {
     //
     // A bypassed section takes every band out while leaving the parameters
     // untouched, so switching it back in restores exactly what was there.
-    for (std::size_t i = 0; i < kBusEqBands && i < audio::kEqBands; ++i) {
+    for (std::size_t i = 0; i < bus.dsp.eq.size() && i < audio::kEqBands; ++i) {
         const auto& src = bus.dsp.eq[i];
         auto&       dst = p.eq[i];
         dst.freq_hz = src.freq_hz;
         dst.gain_db = src.gain_db;
         dst.q       = src.q;
         dst.slope   = src.slope;
-        // Outer bands only, and which end follows from which band it is —
-        // the low band shelves the bottom, the high band the top.
-        dst.shelf     = src.shelf && (i == 0 || i + 1 == kBusEqBands);
-        dst.low_shelf = i == 0;
-        dst.enabled = bus.dsp.eq_enabled && src.gain_db != 0.0f;
+        switch (src.type) {
+            case BusEqType::LowShelf:  dst.kind = audio::EqKind::LowShelf;  break;
+            case BusEqType::HighShelf: dst.kind = audio::EqKind::HighShelf; break;
+            case BusEqType::LowCut:    dst.kind = audio::EqKind::LowCut;    break;
+            case BusEqType::HighCut:   dst.kind = audio::EqKind::HighCut;   break;
+            case BusEqType::Notch:     dst.kind = audio::EqKind::Notch;     break;
+            default:                   dst.kind = audio::EqKind::Bell;      break;
+        }
+        // eq_band_active() then leaves a flat bell or shelf out of circuit;
+        // a cut or notch works at any gain.
+        dst.enabled = bus.dsp.eq_enabled && src.on;
     }
 
     // The gate needs both switches: its own, and the dynamics section's

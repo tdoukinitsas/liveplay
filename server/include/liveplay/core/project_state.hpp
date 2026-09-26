@@ -118,19 +118,33 @@ struct BusFilter {
 // band to shelf and back silently changed the bell, which is the same thing
 // the section bypasses exist to avoid.
 //
-// Which END a shelf turns up is not stored: it follows from the band's
-// position, so band 0 is a low shelf and band 3 a high one. Storing it would
-// allow a low shelf on the HF band, which is a way of building a broken EQ
-// rather than a feature.
+// Since 2.5 a band says what shape it is (`type`), and there may be up to
+// kBusEqBands of them. The pre-2.5 document had exactly four bands and a bare
+// `shelf` flag whose END followed from position (band 0 low, band 3 high);
+// that flag is still read, with that meaning, so an older client or document
+// keeps working — see merge_bus_dsp.
+//
+// A band's slot is its identity for its whole life. Deleting a band switches
+// it off (`on: false`) rather than removing it from the middle of the list,
+// because shifting the bands after it would ramp each one from its neighbour's
+// filter into its own — an audible morph for an edit that touched none of
+// them. Trailing switched-off bands are trimmed.
+enum class BusEqType : std::uint8_t { Bell, LowShelf, HighShelf, LowCut, HighCut, Notch };
+
 struct BusEqBand {
-    float freq_hz = 1000.0f;
-    float gain_db = 0.0f;
-    float q       = 1.0f;
-    bool  shelf   = false;   // honoured only on the outer bands
-    float slope   = 1.0f;    // shelf steepness; 1 is the steepest without peaking
+    float     freq_hz = 1000.0f;
+    float     gain_db = 0.0f;
+    float     q       = 1.0f;
+    float     slope   = 1.0f;    // shelf steepness; 1 is the steepest without peaking
+    BusEqType type    = BusEqType::Bell;
+    bool      on      = true;    // false = deleted (the slot is kept, see above)
 };
 
-inline constexpr std::size_t kBusEqBands = 4;
+// Capacity, matching the engine's (audio::kEqBands).
+inline constexpr std::size_t kBusEqBands = 32;
+// The pre-2.5 layout, whose band positions still give the legacy `shelf`
+// flag its meaning.
+inline constexpr std::size_t kLegacyEqBands = 4;
 
 // The expander / gate, as the project stores it. Defaults match what the
 // surface shows so a fresh bus does not look pre-adjusted.
@@ -189,12 +203,12 @@ struct BusDsp {
     BusFilter hpf{20.0f};       // parked at the bottom: out of circuit
     BusFilter lpf{20000.0f};    // parked at the top: out of circuit
     // Conventional four-band starting layout, matching what the surface shows.
-    std::array<BusEqBand, kBusEqBands> eq{{
+    std::vector<BusEqBand> eq{
         {100.0f,   0.0f, 0.7f},
         {500.0f,   0.0f, 1.0f},
         {2500.0f,  0.0f, 1.0f},
         {10000.0f, 0.0f, 0.7f},
-    }};
+    };
 };
 
 // Where the filters sit when they are doing nothing. Shared with the client,
@@ -208,6 +222,9 @@ inline constexpr float kLpfParkedHz = 20000.0f;
 // list — and a partial update has to be partial in all of them.
 void merge_bus_dsp(const json& src, BusDsp& out);
 json bus_dsp_to_json(const BusDsp& d);
+// The wire names of BusEqType ("bell", "lowShelf", ...). Unknown -> fallback.
+const char* eq_type_name(BusEqType t);
+BusEqType   eq_type_from_string(const std::string& s, BusEqType fallback);
 
 struct BusDef {
     std::string   id;
@@ -746,6 +763,12 @@ public:
         bool                     mono_check = false;
     };
     std::vector<BusInfo> list_buses() const;
+    // Engine strip for a bus id (takes the lock), or empty. Cheap: for a
+    // caller that polls it, like the analyser re-resolving its target.
+    audio::MixerChannelId bus_strip(const std::string& bus_id) const {
+        std::lock_guard lock{mutex_};
+        return mixer_for_bus(bus_id);
+    }
 
     // ---- Bus mutation ----------------------------------------------------
     // All three write document_["buses"] so the change survives a save, and

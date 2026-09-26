@@ -23,6 +23,7 @@ server/build/Release/liveplay-server.exe --port 4500 &
 node server/tests/e2e/pfl-e2e.js        4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/roles-e2e.js      4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/filters-e2e.js    4500 /tmp/liveplay-test-signal.wav
+node server/tests/e2e/eq-analyser-e2e.js 4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/gate-e2e.js       4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/comp-e2e.js       4500 /tmp/liveplay-test-signal.wav
 

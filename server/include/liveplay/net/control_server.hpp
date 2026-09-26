@@ -193,6 +193,10 @@ private:
     // to decide whether true-peak / loudness DSP runs. Called whenever the set
     // can have moved: a connect, a disconnect, or a preferences patch.
     void refresh_user_meter_modes();
+    // Arm the engine's analyser taps for the buses connections are watching
+    // (the union, at most kMaxAnalyserTaps). Takes ws_mutex, then the
+    // analyser lock; call with neither held.
+    void refresh_analyser_taps();
 
     // Send a doc_patch to the sessions belonging to ONE user, skipping the
     // connection that caused it. Not a broadcast: a preference is one person's,

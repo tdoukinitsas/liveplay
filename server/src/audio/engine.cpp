@@ -1069,6 +1069,34 @@ void AudioEngine::remove_mixer_channel(const MixerChannelId& id) {
     rebuild_topology_locked();
 }
 
+void AudioEngine::set_analyser_tap(std::size_t slot, const MixerChannelId& id) {
+    if (slot >= kMaxAnalyserTaps) return;
+    const MixerChannel* strip = nullptr;
+    if (!id.empty()) {
+        std::lock_guard lock{mutex_};
+        auto it = mixers_.find(id.value);
+        if (it != mixers_.end()) strip = it->second.get();
+    }
+    auto& tap = (*analyser_taps_)[slot];
+    if (tap.target.load(std::memory_order_acquire) == strip) return;
+    // Off first, then clear the history, then on: a reader never mixes the old
+    // strip's samples into the new strip's window.
+    tap.target.store(nullptr, std::memory_order_release);
+    tap.written.store(0, std::memory_order_release);
+    tap.target.store(strip, std::memory_order_release);
+    bool any = false;
+    for (const auto& t : *analyser_taps_) any = any || t.target.load(std::memory_order_acquire);
+    any_tap_armed_.store(any, std::memory_order_release);
+}
+
+bool AudioEngine::read_analyser_tap(std::size_t slot, float* pre, float* post,
+                                    std::size_t n) const {
+    if (slot >= kMaxAnalyserTaps) return false;
+    const auto& tap = (*analyser_taps_)[slot];
+    if (!tap.target.load(std::memory_order_acquire)) return false;
+    return tap.read_latest(pre, post, n);
+}
+
 MixerChannel* AudioEngine::find_mixer_channel(const MixerChannelId& id) const {
     std::lock_guard lock{mutex_};
     auto it = mixers_.find(id.value);
@@ -1665,9 +1693,9 @@ void AudioEngine::render_one_block(const Topology& topo) {
     //
     // Every lane goes in together rather than one at a time: the gate's
     // detector is linked across them, so it has to see the whole strip.
+    const bool taps_armed = any_tap_armed_.load(std::memory_order_acquire);
     const auto run_strip_dsp = [&](MixerChannel& m, std::size_t i) {
         auto& dsp = m.dsp();
-        if (!dsp.needs_processing()) return;
         Sample* lanes[kMixerLanes];
         for (ChannelIndex lane = 0; lane < kMixerLanes; ++lane) {
             lanes[lane] = mixer_accumulators_[i * kMixerLanes + lane].data();
@@ -1676,7 +1704,23 @@ void AudioEngine::render_one_block(const Topology& topo) {
         // would hold the detector at silence and shut the strip down.
         const ChannelCount used = std::min<ChannelCount>(
             std::max<ChannelCount>(1, m.width()), kMixerLanes);
-        dsp.process(lanes, used, block);
+        // Is someone looking at this strip's spectrum? A handful of pointer
+        // compares, and only while any analyser is open at all.
+        AnalyserTap* tap = nullptr;
+        if (taps_armed) {
+            for (auto& t : *analyser_taps_) {
+                if (t.target.load(std::memory_order_acquire) == &m) { tap = &t; break; }
+            }
+        }
+        if (!dsp.needs_processing()) {
+            // Nothing in circuit: the strip is its own input and output. Still
+            // metered, so the transfer curve shows the signal before anything
+            // is switched in, and still fed to an open analyser.
+            dsp.note_idle_block(lanes, used, block);
+            if (tap) { tap->write_pre(lanes, used, block); tap->write_post(lanes, used, block); tap->commit(block); }
+            return;
+        }
+        dsp.process(lanes, used, block, tap);
     };
 
     // Fader, mute, fade envelope, meters and correlation for one strip — in
