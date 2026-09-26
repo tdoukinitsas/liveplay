@@ -164,7 +164,7 @@
           <p class="property-help">
             {{ ltcOutputConfigured
                 ? t('properties.ltcOutputTimecodeHelp')
-                : (t('properties.ltcRequiresOutput') || 'Choose an LTC output in Settings > Audio to enable timecode output.') }}
+                : t('properties.ltcRequiresOutput') }}
           </p>
         </div>
 

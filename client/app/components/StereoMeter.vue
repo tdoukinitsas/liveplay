@@ -33,7 +33,7 @@
           <div
             class="stereo-meter__clip"
             :class="{ 'is-clipped': holdL.clipped.value || holdR.clipped.value }"
-            :title="'Clip (click to reset)'"
+            :title="t('playback.clipReset')"
             @click="resetClips"
           />
           <div class="stereo-meter__bar-group">
@@ -53,7 +53,7 @@
           <div
             class="stereo-meter__clip"
             :class="{ 'is-clipped': holdL.clipped.value || holdR.clipped.value }"
-            :title="'Clip (click to reset)'"
+            :title="t('playback.clipReset')"
             @click="resetClips"
           />
           <div class="stereo-meter__bar-group">
@@ -88,6 +88,8 @@ import { useMasterMeter, useCueMeters, useMixerMeter, usePeakHold, lufsFromKwMs 
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { useProject } from '~/composables/useProject';
 import { formatMeterLabel, formatShortTermLabel } from '~/utils/meterScale';
+
+const { t } = useLocalization();
 
 const props = withDefaults(defineProps<{
   leftIndex?: number | null;

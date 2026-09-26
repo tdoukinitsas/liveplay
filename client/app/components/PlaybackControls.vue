@@ -226,7 +226,7 @@ const outputPairs = computed<OutputPair[]>(() => {
     if (claimed.has(i) || claimed.has(i + 1)) continue;
     if (i === previewL || i === previewR) continue;
     if (!(activeIdx.has(i) || activeIdx.has(i + 1))) continue;
-    pairs.push({ key: `out-${i}`, leftIndex: i, rightIndex: i + 1, label: `Out ${i / 2}`, bus: null });
+    pairs.push({ key: `out-${i}`, leftIndex: i, rightIndex: i + 1, label: t('playback.outputPair', { n: i / 2 }), bus: null });
   }
 
   return pairs;

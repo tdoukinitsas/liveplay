@@ -58,7 +58,12 @@
     "rescan": "Rescan",
     "scanning": "Scanning…",
     "noServersFound": "No servers found yet — make sure a server is running on this network.",
-    "forget": "Forget"
+    "forget": "Forget",
+    "localServerFailed": "Local server failed to start",
+    "localServerFailedWithError": "Local server failed to start: {error}",
+    "openProjectFailed": "Failed to open project",
+    "createProjectFailed": "Failed to create project",
+    "openRecentFailed": "Failed to open project.\n\nLivePlay could not load this recent project from the current server. The file may exist, but it may be unavailable, locked, not fully synced, or not readable by the server.\n\nRecent entry:\n{path}\n\nThe entry was not removed. You can remove it manually with the X button."
   },
   "settings": {
     "title": "Project Settings",
@@ -151,7 +156,9 @@
     "seconds": "SECONDS",
     "clock": "Clock",
     "autosave": "Autosave",
-    "unsavedChanges": "Unsaved Changes"
+    "unsavedChanges": "Unsaved Changes",
+    "creating": "Creating project…",
+    "loading": "Loading project…"
   },
   "playlist": {
     "title": "Playlist",
@@ -161,7 +168,8 @@
     "importAudio": "Import Audio",
     "importHint": "Use the import buttons or drag files here",
     "busRouted": "Routed to {name}",
-    "busRoutedMissing": "Routed to a missing bus"
+    "busRoutedMissing": "Routed to a missing bus",
+    "newGroup": "New Group"
   },
   "cart": {
     "title": "Cart Player",
@@ -200,7 +208,8 @@
     "playFadeTitle": "Play Fade: {seconds}s",
     "stopFadeTitle": "Stop Fade: {seconds}s",
     "crossFadeTitle": "Cross Fade: {seconds}s",
-    "startNextTitle": "Start Next: {time}"
+    "startNextTitle": "Start Next: {time}",
+    "loadingWaveform": "loading waveform…"
   },
   "properties": {
     "title": "Properties",
@@ -283,7 +292,9 @@
     "delete": "Delete",
     "edit": "Edit",
     "masterMix": "Master",
-    "startNextCountdown": "Time until the next track starts"
+    "startNextCountdown": "Time until the next track starts",
+    "clipReset": "Clip (click to reset)",
+    "outputPair": "Out {n}"
   },
   "endBehavior": {
     "nothing": "Nothing",
@@ -512,7 +523,8 @@
     "statusConverting": "Converting to MP3...",
     "statusCompleted": "Completed",
     "statusError": "Error",
-    "downloadError": "Download failed. Please try again."
+    "downloadError": "Download failed. Please try again.",
+    "noProjectOpen": "No project is currently open. Please open or create a project first."
   },
   "update": {
     "updateAvailable": "Update Available",
@@ -642,6 +654,28 @@
     "uploadedCount": "Uploaded {count} file(s).",
     "uploadFailed": "Upload failed: {error}",
     "orFromComputer": "Or pick from this computer"
+  },
+  "fileBrowser": {
+    "back": "Back",
+    "upOneLevel": "Up one level",
+    "up": "Up",
+    "go": "Go",
+    "serverPathPlaceholder": "Server path (Enter to browse)",
+    "pathPlaceholder": "Type a path and press Enter",
+    "computerDrives": "Computer / drives",
+    "noAudioOrFolders": "(no audio files or subdirectories)",
+    "noMatchingItems": "{filter} — no matching items in this folder.",
+    "fileLabel": "File:",
+    "selectFilePlaceholder": "(select a file above)",
+    "newFolder": "New folder",
+    "newFolderName": "New folder name",
+    "create": "Create",
+    "selectFolder": "Select folder",
+    "open": "Open",
+    "filterAudio": "Audio files",
+    "filterAll": "All files",
+    "filterLiveplay": "LivePlay projects (.liveplay)",
+    "filterLiveplayAll": "LivePlay projects"
   },
   "unsavedModal": {
     "title": "Unsaved Changes",

@@ -236,6 +236,7 @@ export const useProject = () => {
   // loading overlay. `loadingMessage` is the title shown in the overlay.
   const isLoading = useState<boolean>('useProject.isLoading', () => false);
   const loadingMessage = useState<string>('useProject.loadingMessage', () => '');
+  const { t } = useLocalization();
   // Background audio-loading progress (polled while the server is still
   // mirroring cues into the engine in a worker thread). loading=false means
   // every audio cue is ready to play.
@@ -583,7 +584,7 @@ export const useProject = () => {
   // to write the .liveplay file.
   const createNewProject = async (name: string, folderPath: string): Promise<boolean> => {
     isLoading.value = true;
-    loadingMessage.value = 'Creating project…';
+    loadingMessage.value = t('project.creating');
     try {
       const server = useLiveplayServer();
       // Ensure server is reachable; without it we can't actually own state.
@@ -702,7 +703,7 @@ export const useProject = () => {
   //      audio-mirror phase still running on the server.
   const openProject = async (projectFilePath: string): Promise<boolean> => {
     isLoading.value = true;
-    loadingMessage.value = 'Loading project…';
+    loadingMessage.value = t('project.loading');
     try {
       const server = useLiveplayServer();
       if (!server.connected) {

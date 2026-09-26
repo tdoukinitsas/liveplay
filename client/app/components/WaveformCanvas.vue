@@ -1,7 +1,7 @@
 <template>
   <div class="waveform-canvas" :style="{ height: height + 'px' }">
     <canvas ref="canvasEl" class="waveform-canvas__draw" />
-    <div v-if="loading" class="waveform-canvas__overlay">loading waveform…</div>
+    <div v-if="loading" class="waveform-canvas__overlay">{{ t('waveform.loadingWaveform') }}</div>
     <div v-else-if="error" class="waveform-canvas__overlay error">{{ error }}</div>
   </div>
 </template>
@@ -33,6 +33,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
 import type { ServerWaveform } from '~/types/server';
+
+const { t } = useLocalization();
 
 const props = withDefaults(defineProps<{
   cueId: string | null;

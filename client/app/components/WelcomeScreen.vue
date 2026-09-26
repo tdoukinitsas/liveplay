@@ -345,7 +345,7 @@ onMounted(async () => {
       stage.value = 'project';
       nextTick(async () => {
         const ok = await openProject(welcomeOpenPath!);
-        if (!ok) alert('Failed to open project');
+        if (!ok) alert(t('welcome.openProjectFailed'));
       });
     } else if (welcomeIntent === 'new' || welcomeIntent === 'open') {
       try { sessionStorage.removeItem('liveplay:welcomeIntent'); } catch {}
@@ -494,8 +494,8 @@ async function ensureLocalServer(): Promise<boolean> {
       const res = await api.ensureRunning();
       if (!res?.ok) {
         connectionError.value = res?.error
-          ? `Local server failed to start: ${res.error}`
-          : 'Local server failed to start';
+          ? t('welcome.localServerFailedWithError', { error: res.error })
+          : t('welcome.localServerFailed');
         return false;
       }
     }
@@ -693,13 +693,7 @@ async function openRecentProject(project: RecentProject) {
 
   if (!ok) {
     console.warn('[welcome] failed to open recent project:', project.path);
-    alert(
-      `Failed to open project.\n\n` +
-      `LivePlay could not load this recent project from the current server. ` +
-      `The file may exist, but it may be unavailable, locked, not fully synced, or not readable by the server.\n\n` +
-      `Recent entry:\n${project.path}\n\n` +
-      `The entry was not removed. You can remove it manually with the X button.`
-    );
+    alert(t('welcome.openRecentFailed', { path: project.path }));
   }
 }
 
@@ -740,10 +734,10 @@ const onPickerPick = async (fullPath: string) => {
     const projectName = await getProjectName();
     if (!projectName) return;
     const ok = await createNewProject(projectName, fullPath);
-    if (!ok) alert('Failed to create project');
+    if (!ok) alert(t('welcome.createProjectFailed'));
   } else {
     const ok = await openProject(fullPath);
-    if (!ok) alert('Failed to open project');
+    if (!ok) alert(t('welcome.openProjectFailed'));
   }
 };
 
@@ -790,7 +784,7 @@ if (import.meta.client && (window as any).electronAPI) {
   (window as any).electronAPI.onMenuOpenRecentProject(async (_e: any, projectPath: string) => {
     if (stage.value !== 'project' || !projectPath) return;
     const ok = await openProject(projectPath);
-    if (!ok) alert('Failed to open project');
+    if (!ok) alert(t('welcome.openProjectFailed'));
   });
 }
 </script>

@@ -576,7 +576,7 @@ const handleAddGroup = () => {
     ...DEFAULT_GROUP_ITEM,
     uuid: uuidv4(),
     index: [currentProject.value.items.length],
-    displayName: 'New Group',
+    displayName: t('playlist.newGroup'),
     type: 'group',
     children: [] // Create a new array for each group to avoid shared references
   } as GroupItem;

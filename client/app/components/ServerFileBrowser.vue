@@ -1,21 +1,21 @@
 <template>
   <div class="server-file-browser">
     <div class="server-file-browser__bar">
-      <button class="btn" :disabled="!canGoUp" @click="goUp" title="Up one level">
+      <button class="btn" :disabled="!canGoUp" @click="goUp" :title="t('fileBrowser.upOneLevel')">
         <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">arrow_upward</span>
-        Up
+        {{ t('fileBrowser.up') }}
       </button>
       <input
         v-model="pathInput"
         class="path-input"
         @keydown.enter="goTo(pathInput)"
-        placeholder="Server path (Enter to browse)"
+        :placeholder="t('fileBrowser.serverPathPlaceholder')"
       />
-      <button class="btn primary" @click="goTo(pathInput)">Go</button>
+      <button class="btn primary" @click="goTo(pathInput)">{{ t('fileBrowser.go') }}</button>
     </div>
 
     <div v-if="error" class="error">{{ error }}</div>
-    <div v-else-if="loading" class="status">Loading…</div>
+    <div v-else-if="loading" class="status">{{ t('common.loading') }}</div>
 
     <ul v-else class="entries">
       <li v-for="(entry, idx) in sortedEntries"
@@ -30,7 +30,7 @@
               class="size">{{ formatBytes(entry.size) }}</span>
       </li>
       <li v-if="(listing?.entries?.length ?? 0) === 0" class="empty">
-        (no audio files or subdirectories)
+        {{ t('fileBrowser.noAudioOrFolders') }}
       </li>
     </ul>
 

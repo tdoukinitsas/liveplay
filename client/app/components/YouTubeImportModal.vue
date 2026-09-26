@@ -182,7 +182,7 @@ const downloadVideo = async (video: YouTubeVideo) => {
     console.log('Project folderPath:', currentProject.value?.folderPath);
     
     if (!currentProject.value || !currentProject.value.folderPath) {
-      throw new Error('No project is currently open. Please open or create a project first.');
+      throw new Error(t('youtube.noProjectOpen'));
     }
     
     console.log('Downloading to project:', currentProject.value.folderPath);
