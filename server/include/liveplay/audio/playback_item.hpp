@@ -38,6 +38,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 // Forward-declare to keep miniaudio.h out of this public header.
@@ -176,8 +177,18 @@ public:
     // seeks the decoder back to `in_seconds` and continues playing without
     // transitioning to FadingOut/Stopped — so the broadcast loop never emits a
     // transient "Stopped" cue_state edge mid-loop and the client UI keeps the
-    // cue visible the whole time. Safe to call while playing.
-    void set_loop(bool enabled, double in_seconds = 0.0) noexcept;
+    // cue visible the whole time. The block that crosses the loop point is
+    // filled from the in-point, so there is no gap at the seam. Safe to call
+    // while playing.
+    //
+    // `crossfade_seconds` > 0 makes the loop fade back into itself (#56): the
+    // last N seconds before the loop end are blended, equal-power, with the
+    // first N after the in-point, then playback carries on from in + N. N is
+    // capped at half the loop. The head is decoded on a background job with a
+    // decoder of its own — never on the audio thread, never disturbing the
+    // playing decoder — and until it arrives the loop wraps without a blend.
+    void set_loop(bool enabled, double in_seconds = 0.0,
+                  double crossfade_seconds = 0.0) noexcept;
 
     // Returns true (and clears the flag) if this item finished playing
     // naturally (reached EOF or out-point, including any configured
@@ -295,6 +306,36 @@ private:
     // writes, read by the audio thread per block.
     std::atomic<bool>           loop_enabled_{false};
     std::atomic<std::uint64_t>  loop_in_frames_{0};
+    std::atomic<std::uint64_t>  loop_xfade_frames_{0};   // requested length
+
+    // Loop crossfade head: the audio just after the loop-in, decoded ahead of
+    // time. A head is only used while its key (in, out-point, requested
+    // length) still matches the live settings; a stale one is ignored.
+    struct LoopHead {
+        std::uint64_t in_frames  = 0;   // key
+        std::uint64_t out_frames = 0;   // key: out-point clamped against, 0 = EOF
+        std::uint64_t req_frames = 0;   // key
+        std::uint64_t loop_end   = 0;   // out-point, else the file's length
+        std::uint64_t frames     = 0;   // actual blend length
+        ChannelCount  channels   = 0;
+        std::vector<Sample> samples;    // interleaved, frames x channels
+    };
+    // Owned by the audio thread (touched only inside render_block).
+    std::unique_ptr<LoopHead>   loop_head_;
+    // Mailbox between the head job and the audio thread. The audio thread only
+    // ever try_locks head_mutex_, and never frees a head: the one it replaces
+    // goes to head_retired_ for the control thread to drop.
+    std::mutex                  head_mutex_;
+    std::unique_ptr<LoopHead>   head_incoming_;
+    std::unique_ptr<LoopHead>   head_retired_;
+    std::atomic<bool>           head_incoming_ready_{false};
+    std::thread                 head_job_;
+    std::atomic<bool>           head_job_cancel_{false};
+    // Control thread: the key of the last head requested, so a repeated
+    // set_loop() with unchanged settings (every play) starts no new job.
+    std::uint64_t               head_requested_in_  = ~std::uint64_t{0};
+    std::uint64_t               head_requested_out_ = 0;
+    std::uint64_t               head_requested_len_ = 0;
 
     // Set to true inside render_block() when the natural-end fade-out
     // starts (EOF or out-point triggered). Cleared on explicit stop().
@@ -325,6 +366,14 @@ private:
     void start_fade(float from_lin, float to_lin, std::chrono::milliseconds dur,
                     TransportState during, TransportState after_complete) noexcept;
     void resize_meters(ChannelCount n);
+    void join_head_job() noexcept;
+    void request_loop_head(std::uint64_t in_frames, std::uint64_t out_frames,
+                           std::uint64_t req_frames) noexcept;
+    // Audio thread: fill `frame_count` frames of interleave_buf_ for a looping
+    // cue, wrapping (and blending, when a head is ready) at the loop end.
+    // `playhead` is the block's start on entry and where it ended on return.
+    std::size_t render_loop_block(std::size_t frame_count, bool& decode_error,
+                                  std::uint64_t& playhead) noexcept;
 };
 
 } // namespace liveplay::audio

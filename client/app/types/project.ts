@@ -47,6 +47,10 @@ export interface AudioItem extends BaseItem {
   // items saved before 2.5.0, which keep the old rule: the larger of stopFade
   // and fadeOutDuration. manualStopFadeOf() reads either.
   manualStopFade?: number;
+  // Seconds a looping cue's end blends back into its start (#56); 0 or absent
+  // = a plain loop. Only meaningful with endBehavior.action 'loop'. The
+  // server caps it at half the trimmed length.
+  loopCrossfade?: number;
   // "Start Next" segue marker (radio-style transition): when the playhead
   // crosses startNextTime, the next item starts at its own volume/fades
   // while this one keeps playing. Independent of the fade-out markers.

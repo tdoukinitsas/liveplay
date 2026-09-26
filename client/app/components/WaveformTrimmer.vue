@@ -343,6 +343,29 @@
             </button>
           </div>
         </div>
+        <div
+          class="fade-control-group"
+          :class="{ 'start-next-disabled': !isLooping }"
+          :title="isLooping ? t('properties.loopCrossfadeHint') : t('properties.loopCrossfadeNeedsLoop')"
+        >
+          <label>{{ t('properties.loopCrossfade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" :disabled="!isLooping" @click="adjustLoopCrossfade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="formatTimeDetailed(loopCrossfade)"
+              :disabled="!isLooping"
+              @change="handleLoopCrossfadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" :disabled="!isLooping" @click="adjustLoopCrossfade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
+        </div>
       </div>
       <div class="fade-column">
         <div class="fade-control-group">
@@ -432,6 +455,7 @@ const emit = defineEmits<{
   'update:pauseFade': [value: number];
   'update:crossFade': [value: number];
   'update:manualStopFade': [value: number];
+  'update:loopCrossfade': [value: number];
   'update:startNextEnabled': [value: boolean];
   'update:startNextTime': [value: number];
   'update:startNextFadeOut': [value: boolean];
@@ -462,6 +486,8 @@ const playFade = computed(() => props.audioItem.playFade || 0);
 const stopFade = computed(() => props.audioItem.stopFade || 0);
 const crossFade = computed(() => props.audioItem.crossFade || 0);
 const manualStopFade = computed(() => manualStopFadeOf(props.audioItem));
+const loopCrossfade = computed(() => props.audioItem.loopCrossfade || 0);
+const isLooping = computed(() => props.audioItem.endBehavior?.action === 'loop');
 
 // Fades have no fixed ceiling (#56): a scene-change ambience can fade over
 // minutes. The one real bound is the audio itself — a fade into or out of the
@@ -962,6 +988,16 @@ const handleCrossFadeTextChange = (event: Event) => {
 // halfway through a long bed can reasonably take longer than what is left.
 const adjustManualStopFade = (delta: number) => {
   emit('update:manualStopFade', Math.max(0, manualStopFade.value + delta));
+  emit('change');
+};
+// Half the loop at most: the blended head and tail must not overlap.
+const clampLoopCrossfade = (v: number) => Math.max(0, Math.min(v, trimmedLength.value / 2));
+const adjustLoopCrossfade = (delta: number) => {
+  emit('update:loopCrossfade', clampLoopCrossfade(loopCrossfade.value + delta));
+  emit('change');
+};
+const handleLoopCrossfadeTextChange = (event: Event) => {
+  emit('update:loopCrossfade', clampLoopCrossfade(parseTimeDetailed((event.target as HTMLInputElement).value)));
   emit('change');
 };
 const handleManualStopFadeTextChange = (event: Event) => {

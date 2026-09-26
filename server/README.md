@@ -917,6 +917,8 @@ Project UI settings such as `settings.indexDisplayStart` only change the numbers
 - The **manual stop fade** is what `stop` (the Stop button, `…/stop`, the WS `stop` frame) fades over: the item's `manualStopFade` in seconds, `0` = cut. An item without the field — anything saved before 2.5.0 — keeps the old rule, `max(stopFade, fadeOutDuration)`, so an existing show's Stop button behaves exactly as it did. A stop's `fade_ms` overrides either for that one stop.
 - The **end fade** is what runs when a cue reaches its out-point or the end of its file: `max(stopFade, fadeOutDuration)`, unchanged. `stopFade` still also starts that many seconds before the out-point.
 
+**Loop crossfade** — an item whose `endBehavior.action` is `loop` may set `loopCrossfade` (seconds, absent/`0` = a plain loop). The last N seconds before the loop end are blended equal-power with the first N after the in-point, and playback carries on from in-point + N, so the loop fades back into itself. N is capped at half the trimmed length. The head is decoded on a background job the first time the cue plays with a given in/out/length; until it is ready (normally milliseconds) the loop wraps without the blend. A plain loop also now fills the block that crosses the loop point from the in-point, instead of leaving the rest of it silent.
+
 Stop All ignores both and uses its own fade (`fade_ms`, else `settings.stopAllFadeMs`, default 1000 ms). It also stops the preview audition unless `settings.stopAllStopsPreview` is `false` (absent = `true`).
 
 #### Cart slots

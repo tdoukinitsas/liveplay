@@ -39,6 +39,8 @@ node server/tests/e2e/materialise-skip.js 4500
 # CORS preflight, REST cue play/stop, manual stop fades, preview state (#56 #60
 # #62 #65). Writes its own short signals to a temp dir; closes the project.
 node server/tests/e2e/transport-fixes-e2e.js 4500
+# Loop crossfade, measured on the cue meter against a plain-loop control.
+node server/tests/e2e/loop-xfade-e2e.js 4500
 
 # Needs no audio device and no signal — nothing here plays.
 node server/tests/e2e/settings-registry-e2e.js 4500

@@ -2517,6 +2517,7 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     double       seq_sn_time      = 0.0;
     bool         seq_sn_fade_out  = false;
     double       seq_fade_out_dur = 1.0;
+    double       seq_loop_xfade   = 0.0;
     std::string  seq_end_action;
     {
         std::lock_guard lock{mutex_};
@@ -2655,6 +2656,7 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                 seq_sn_time      = json_get_or(it, "startNextTime",    0.0);
                 seq_sn_fade_out  = json_get_or(it, "startNextFadeOut", false);
                 seq_fade_out_dur = json_get_or(it, "fadeOutDuration",  1.0);
+                seq_loop_xfade   = json_get_or(it, "loopCrossfade",    0.0);
                 if (it.contains("endBehavior") && it["endBehavior"].is_object())
                     seq_end_action = json_get_or(it["endBehavior"], "action", std::string{});
                 auto cm_it = cues_.find(cit->second.value);
@@ -2673,7 +2675,7 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     if (have_seq_cue) {
         const bool looping = (seq_end_action == "loop");
         if (auto* pi = engine_.find_cue(seq_cue))
-            pi->set_loop(looping, seq_in_point);
+            pi->set_loop(looping, seq_in_point, seq_loop_xfade);
         const double effective_end = looping
             ? 0.0
             : ((seq_out_point > 0.0) ? seq_out_point : seq_file_duration);
@@ -2989,6 +2991,7 @@ bool ProjectState::play_item(const std::string& uuid,
     double       fade_out_dur  = 1.0;
     double       crossfade_sec = 0.0;
     double       stop_fade_sec = 0.0;
+    double       loop_xfade_sec = 0.0;
     bool         start_next_enabled  = false;
     double       start_next_time     = 0.0;
     bool         start_next_fade_out = false;
@@ -3031,6 +3034,7 @@ bool ProjectState::play_item(const std::string& uuid,
             fade_out_dur  = json_get_or(*found, "fadeOutDuration",  1.0);
             crossfade_sec = json_get_or(*found, "crossFade",        0.0);
             stop_fade_sec = json_get_or(*found, "stopFade",         0.0);
+            loop_xfade_sec = json_get_or(*found, "loopCrossfade",   0.0);
             start_next_enabled  = json_get_or(*found, "startNextEnabled",  false);
             start_next_time     = json_get_or(*found, "startNextTime",     0.0);
             start_next_fade_out = json_get_or(*found, "startNextFadeOut",  false);
@@ -3176,7 +3180,7 @@ bool ProjectState::play_item(const std::string& uuid,
         // thread used to observe between the natural-end and the sequencer's
         // re-trigger — that flap caused the client UI to drop the cue from
         // "currently playing" and grey out its stop button mid-loop.
-        pi->set_loop(end_behavior_action == "loop", in_point);
+        pi->set_loop(end_behavior_action == "loop", in_point, loop_xfade_sec);
         pi->prime(audio::kPrimeSeconds, in_point);
 
         // Crossfade-in: fade the incoming cue up over the crossfade window

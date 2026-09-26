@@ -111,6 +111,7 @@
           @update:stop-fade="(v) => { beginItemBatch(); handleStopFadeUpdate(v); }"
           @update:cross-fade="(v) => { beginItemBatch(); handleCrossFadeUpdate(v); }"
           @update:manual-stop-fade="(v) => { beginItemBatch(); handleManualStopFadeUpdate(v); }"
+          @update:loop-crossfade="(v) => { beginItemBatch(); handleLoopCrossfadeUpdate(v); }"
           @update:start-next-enabled="(v) => { beginItemBatch(); handleStartNextEnabledUpdate(v); }"
           @update:start-next-time="(v) => { beginItemBatch(); handleStartNextTimeUpdate(v); }"
           @update:start-next-fade-out="(v) => { beginItemBatch(); handleStartNextFadeOutUpdate(v); }"
@@ -857,6 +858,12 @@ const handleStopFadeUpdate = (value: number) => {
     if (item.type === 'audio') {
       (item as AudioItem).stopFade = value;
     }
+  });
+};
+
+const handleLoopCrossfadeUpdate = (value: number) => {
+  getSelectedItems().forEach(item => {
+    if (item.type === 'audio') (item as AudioItem).loopCrossfade = value;
   });
 };
 

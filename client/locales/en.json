@@ -267,7 +267,10 @@
     "multiSelectOutPointDisabled": "Disabled for multiple selection (out point depends on each item's duration).",
     "volumeDbInput": "Type a level in dB, e.g. -6.5 (or -inf for silence)",
     "manualStopFade": "Stop Button Fade",
-    "manualStopFadeHint": "How long this cue fades out when you press Stop. 0 stops it instantly."
+    "manualStopFadeHint": "How long this cue fades out when you press Stop. 0 stops it instantly.",
+    "loopCrossfade": "Loop Crossfade",
+    "loopCrossfadeHint": "Blends the end of the loop into its start over this many seconds, so it fades back into itself. 0 loops without a blend.",
+    "loopCrossfadeNeedsLoop": "Set this cue's end behaviour to Loop to use a loop crossfade."
   },
   "playback": {
     "panic": "Stop All Cues",
