@@ -551,7 +551,7 @@ watch(pendingLpaImportReady, async (lpaPath) => {
 function startImportFlow() {
   const server = useLiveplayServer();
   importServerPickerStage.value = 'archive';
-  if (server.isLocalServer.value) {
+  if (server.isLocalServer) {
     importServerPickerOpen.value = true;
   } else {
     importChoiceVisible.value = true;

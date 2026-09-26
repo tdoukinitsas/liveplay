@@ -577,7 +577,7 @@ const exportServerPickerOpen = ref(false);
 
 async function startExportFlow() {
   if (!currentProject.value) return;
-  if (server.isLocalServer.value) {
+  if (server.isLocalServer) {
     // Local: skip the choice modal and go straight to the server picker
     // (the "server" here is this same computer, so this matches the user's
     // expectation of a familiar OS-style directory chooser).
