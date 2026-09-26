@@ -504,8 +504,23 @@ function openMenuFromButton() {
 
 /* Narrow: one column. Everything takes the height it needs and the work area
    scrolls, which is where the EQ graph gets its full height back rather than
-   being squeezed into a fraction of a small window. */
-@media (max-width: 1180px) {
+   being squeezed into a fraction of a small window.
+
+   AGAINST THE MIXER, NOT THE VIEWPORT. This was a viewport `@media` query, and
+   the mixer is not the viewport: docked, it is a flex child whose width comes
+   from a splitter, so a 1400px window with the mixer docked at 700px kept the
+   three-column rule while the container sat far below what it needs. The
+   columns have `minmax()` floors, and a floor overflows rather than shrinks —
+   which is what put the controls on top of each other. MixerPanel.vue already
+   declares `container: mixer / inline-size` and says why in its own comment;
+   MixerActions.vue already queries it. This view simply never followed the
+   rule the panel around it had already established.
+
+   1040px is the measured floor, not a guess: the fader column is 148px
+   (border-box), and .det__work needs 16px padding + 2 × 8px gap + the three
+   column floors of 300 + 300 + 240 = 872px. That is 1020px, plus ~16px so the
+   work area's own scrollbar cannot push it back over the edge. */
+@container mixer (max-width: 1040px) {
   .det__work {
     grid-template-columns: 1fr;
     grid-template-rows: none;
@@ -525,7 +540,15 @@ function openMenuFromButton() {
    while leaving the explicit columns in place, which handed placement back to
    auto-flow: the cursor never moves backwards, so after EQ and plugins filled
    column 1 rows 1 and 2, dynamics landed in column 2 *row 2* beside plugins
-   instead of at the top, with the connection panels pushed to row 3. */
+   instead of at the top, with the connection panels pushed to row 3.
+
+   This one stays a viewport @media query, deliberately. Height is the axis
+   where the mixer really does track the window: docked it takes the full
+   workspace height, and detached it is the window. Width is the axis a
+   splitter can change independently, which is why only that query moved to the
+   container. Making this a container query too would mean `container-type:
+   size` on .mixer, which adds block-axis containment the panel does not need
+   and MixerActions' inline-size query never asked for. */
 @media (max-height: 660px) {
   .det__work { grid-template-rows: auto auto; }
 }
