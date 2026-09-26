@@ -405,29 +405,6 @@ async function loadAll(keepPending = false) {
   }
 }
 
-// Re-fetch on open, and keep listening for as long as the modal stays open —
-// a second connected client (another mixer window, Companion, curl) may PUT
-// its own map while this one is up, and D17 requires this view to converge
-// too, not just the rail behind it.
-let unsubDocPatch: (() => void) | null = null;
-watch(() => props.open, (isOpen) => {
-  if (isOpen) {
-    saveError.value = '';
-    pendingDelete.value = null;
-    selectedSlot.value = null;
-    selectedCard.value = null;
-    advancedOpen.value = false;
-    loaded.value = false;
-    void loadAll();
-    unsubDocPatch = server.onDocPatch((payload: any) => {
-      if (payload?.op === 'outputs_changed' && !saving.value) void loadAll(true);
-    });
-  } else {
-    unsubDocPatch?.();
-    unsubDocPatch = null;
-    onDragEnd();
-  }
-}, { immediate: true });
 
 // ---------------------------------------------------------------------------
 // Draft helpers
@@ -832,6 +809,36 @@ function requestClose() {
   if (saving.value) return;
   emit('close');
 }
+
+// Registered LAST, after every ref it touches: it runs immediately, and on a
+// modal that starts closed (the detached mixer window mounts it that way) its
+// close branch reaches the drag state declared further up — registered before
+// those consts, it threw "Cannot access before initialization" and took the
+// whole window down with a 500.
+//
+// Re-fetch on open, and keep listening for as long as the modal stays open —
+// a second connected client (another mixer window, Companion, curl) may PUT
+// its own map while this one is up, and D17 requires this view to converge
+// too, not just the rail behind it.
+let unsubDocPatch: (() => void) | null = null;
+watch(() => props.open, (isOpen) => {
+  if (isOpen) {
+    saveError.value = '';
+    pendingDelete.value = null;
+    selectedSlot.value = null;
+    selectedCard.value = null;
+    advancedOpen.value = false;
+    loaded.value = false;
+    void loadAll();
+    unsubDocPatch = server.onDocPatch((payload: any) => {
+      if (payload?.op === 'outputs_changed' && !saving.value) void loadAll(true);
+    });
+  } else {
+    unsubDocPatch?.();
+    unsubDocPatch = null;
+    onDragEnd();
+  }
+}, { immediate: true });
 </script>
 
 <style scoped>
