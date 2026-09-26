@@ -245,8 +245,30 @@ onMounted(async () => {
   await refreshOutputs();
 });
 
+// Every mutation below goes through this after the server has taken it.
+//
+// The mixer was the only editing surface in the app that never asked for a
+// save. The playlist, the properties panel, the cart wall and the keyboard
+// pane all call saveProject(); this panel did not even import useProject. So a
+// bus rename, colour, fade, route, width or DSP change lived in the server's
+// in-memory document and reached disk only if some UNRELATED edit happened to
+// trigger a save afterwards and carry it along. Rename a bus and close the
+// project and the name was simply gone; rename one, then touch a cue, and both
+// survived — which is exactly the "sometimes it persists" this looked like.
+//
+// saveProject() is debounced and honours the autosave setting, so this is the
+// same contract every other surface has: with autosave on it coalesces (a
+// fader drag patches continuously and still costs one write), and with it off
+// it marks the project unsaved instead of writing. Buses are not sent in
+// buildDocumentSnapshot() — they are the server's copy, kept across a save by
+// busSchema (D11) — so this asks the server to persist what it already holds
+// rather than pushing a client-side list back over it.
+const { saveProject } = useProject();
+function persist() { void saveProject(); }
+
 async function onPatch(id: string, patch: Partial<Bus>) {
   await server.patchBus(id, patch);
+  persist();
 }
 async function onDelete(id: string) {
   // A role holder cannot be deleted (D24); the menu already says so and
@@ -254,16 +276,21 @@ async function onDelete(id: string) {
   const b = buses.value.find(x => x.id === id);
   if (!b || b.master || b.preview) return;
   await server.deleteBus(id);
+  persist();
   if (selectedId.value === id) selectedId.value = '';
   // Deleting the channel you are looking at drops you back to the rail rather
   // than leaving the view pointed at something that no longer exists.
   if (detailsId.value === id) detailsId.value = '';
 }
 async function onSetRole(id: string, role: 'master' | 'preview') {
-  try { await server.setBusRole(id, role); } catch { /* refused; the list refetches on the next broadcast */ }
+  // Only on success: a refused role change altered nothing, so there is
+  // nothing to write.
+  try { await server.setBusRole(id, role); persist(); }
+  catch { /* refused; the list refetches on the next broadcast */ }
 }
 async function addBus() {
   const id = await server.createBus({ name: t('mixer.newBusName'), width: 2 });
+  persist();
   selectedId.value = id;
   // Back to the rail, where the new strip actually is.
   detailsId.value = '';
@@ -381,6 +408,9 @@ async function dropBus(id: string, dropIndex: number) {
         if (seq[i]!.order !== i) await server.reorderBus(seq[i]!.id, i);
       }
     }
+    // The rail's order is part of the show, so a drag has to survive a reopen
+    // like any other edit. Inside the try: a refused reorder changed nothing.
+    persist();
   } catch { /* refused or offline; the rail stays as the server has it */ }
 }
 </script>
