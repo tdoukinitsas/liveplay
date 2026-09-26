@@ -194,9 +194,17 @@ const srcR = computed<Reading>(() =>
   : props.mixerId != null ? readStream(mixerR)
   : readStream(rightStream));
 
-// Gain reduction is reported by master channels today; a bus has no dynamics
-// of its own until Stage 5, so it reads zero. The caller can still ask for the
-// track, and the mixer does, so every strip in the rail is the same width.
+// Gain reduction comes from whichever source is driving this meter: a master
+// channel's brickwall limiter, or — since the channel DSP shipped — a bus's own
+// gate and compressor.
+//
+// This used to read master channels ONLY, with a note saying a bus had no
+// dynamics "until Stage 5". Stage 5 arrived: buses have a gate and a
+// compressor, and the server reports gate_gr_db and comp_gr_db per mixer
+// channel. Nothing here was updated to read them, so every strip in the rail
+// asked for a GR track (the mixer passes show-gr) and got one that could never
+// move — the master stream it read is keyed by leftIndex, which a strip does
+// not set, so it sat on the `index == null` branch returning a hard zero.
 const grVisible = computed(() =>
   props.showGr ?? (props.leftIndex != null || props.rightIndex != null));
 
@@ -276,8 +284,8 @@ const rmsStyleL  = computed(() => fillStyle(rawRmsL.value,  0.4));
 const peakStyleR = computed(() => fillStyle(displayR.value, 1));
 const rmsStyleR  = computed(() => fillStyle(rawRmsR.value,  0.4));
 
-// Gain-reduction fill: grows downward from the top of the GR track,
-// sized by how much the brickwall limiter is currently reducing the signal.
+// Gain-reduction fill: grows downward from the top of the GR track, sized by
+// how much the signal is currently being reduced.
 function grStyle(grDb: number): Record<string, string> {
   const range = props.maxDb - props.minDb;
   const pct = range > 0 ? Math.min(100, (Math.abs(grDb) / range) * 100) : 0;
@@ -287,8 +295,21 @@ function grStyle(grDb: number): Record<string, string> {
   };
 }
 
-const grStyleL = computed(() => grStyle(leftStream.gainReduction.value));
-const grStyleR = computed(() => grStyle(rightStream.gainReduction.value));
+// A strip's two processors are in SERIES, so their reductions add: a gate
+// holding 6 dB down while the compressor takes another 4 is a signal 10 dB
+// down, and showing only the deeper of the two would under-report it. Both are
+// already ≤ 0, so this sums rather than subtracts.
+//
+// Read off mixerL for both sides on purpose. The server sends one figure per
+// processor for the whole strip because the two detectors are LINKED across
+// its lanes — that is what stops either one pulling the stereo image sideways
+// — so there is no per-lane value to show and both tracks read the same.
+const mixerGr = computed(() => mixerL.gateGr.value + mixerL.compGr.value);
+
+const grStyleL = computed(() => grStyle(
+  props.mixerId != null ? mixerGr.value : leftStream.gainReduction.value));
+const grStyleR = computed(() => grStyle(
+  props.mixerId != null ? mixerGr.value : rightStream.gainReduction.value));
 
 // Peak-hold line: thin marker at the held level, coloured by zone.
 function holdStyle(db: number): Record<string, string> {
