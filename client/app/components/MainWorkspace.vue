@@ -227,10 +227,15 @@ const { mixerMode, mixerOpen, mixerDetached, setMixerMode: persistMixerMode } = 
 const mixerWidth = ref(420);
 const isMixerResizing = ref(false);
 // Collapsed by dragging its separator to the right edge: the pane is not
-// rendered but mixerOpen stays true, so the header toggle still reads as
-// "open" and only the thin handle remains to drag it back out. Pure view
-// state, like cartClosed — the server never hears about pane layout.
-const mixerCollapsed = ref(false);
+// rendered but mixerOpen stays true, and only the thin handle remains to drag
+// it back out. Pure view state, like cartClosed — the server never hears about
+// pane layout.
+//
+// SHARED, because ProjectHeader's Mixer button now appears whenever the pane is
+// not on screen rather than being a permanent toggle, and "collapsed" is one of
+// the two ways that happens. While this was local the header could only see
+// `mixerOpen`, so a collapsed mixer would offer no button at all.
+const mixerCollapsed = useState<boolean>('liveplay:mixerCollapsed', () => false);
 // Handy alias for the template/handlers: the mixer is rendered full-width.
 const mixerFull = computed(() => mixerOpen.value && !mixerDetached.value && mixerMode.value === 'full');
 

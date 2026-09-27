@@ -28,11 +28,30 @@
       <!-- Appears the moment the socket drops; spins for as long as we retry. -->
       <ConnectionStatusPill />
 
+      <!-- Two panes, ONE RULE: each button appears exactly when its pane is not
+           on screen, and brings it back. Closing is the pane's own business —
+           both headers carry a Close button — so neither of these is a toggle.
+
+           The mixer's used to be a permanent toggle that ALSO raised the
+           detached window, while the cart had nothing at all. That left the two
+           detachable panes working differently from each other, which is the
+           thing to avoid: whichever one an operator learns should teach them the
+           other. Raising a window that is already open is now one gesture for
+           both, in the OS Window menu, where a window belongs.
+
+           Neither shows while its pane is detached: it is on screen in its own
+           window, so there is nothing here to restore. -->
       <Btn
+        v-if="cartClosed && !cartDetached"
+        icon="grid_view"
+        :text="t('cart.title')"
+        @click="showCart"
+      />
+      <Btn
+        v-if="mixerAway && !mixerDetached"
         icon="graphic_eq"
         :text="t('mixer.title')"
-        :class="{ 'btn--active': mixerOpen || mixerDetached }"
-        @click="toggleMixer"
+        @click="showMixer"
       />
       <!-- One button for all of it. There was a second one beside this opening
            `openSettings('keyboard')` directly, from when the shortcuts editor
@@ -115,15 +134,31 @@ const { open: openSettings } = useSettingsPage();
 // Shared with MainWorkspace, which swaps the mixer in for the playlist/cart.
 const mixerOpen = useState<boolean>('liveplay:mixerOpen', () => false);
 const mixerDetached = useState<boolean>('liveplay:mixerDetached', () => false);
+// Collapsed by dragging the mixer's separator off the right edge: the pane is
+// not drawn but `mixerOpen` stays true. Shared so this header can tell "not on
+// screen" from "not asked for" — without it a collapsed mixer would show no
+// button and the only way back would be a 12px handle, which is exactly the
+// stranding the cart's Close button was held back over.
+const mixerCollapsed = useState<boolean>('liveplay:mixerCollapsed', () => false);
+// Shared with MainWorkspace. The cart's own close snap and Close button set it.
+const cartClosed = useState<boolean>('liveplay:cartClosed', () => false);
+const cartFullscreen = useState<boolean>('liveplay:cartFullscreen', () => false);
+const cartDetached = useState<boolean>('liveplay:cartDetached', () => false);
 
-// While the mixer is popped out, this button raises that window rather than
-// toggling a panel that MainWorkspace is deliberately not drawing.
-function toggleMixer() {
-  if (mixerDetached.value) {
-    void (window as any).electronAPI?.openMixerWindow?.();
-    return;
-  }
-  mixerOpen.value = !mixerOpen.value;
+/** The mixer pane is not being drawn — closed outright, or collapsed to a handle. */
+const mixerAway = computed(() => !mixerOpen.value || mixerCollapsed.value);
+
+function showMixer() {
+  mixerOpen.value = true;
+  mixerCollapsed.value = false;
+}
+
+function showCart() {
+  cartClosed.value = false;
+  // Comes back as a docked pane, not filling the workspace. Reopening should
+  // land somewhere predictable rather than in whatever state it was left in
+  // several minutes ago — the same rule the cart's own Close button follows.
+  cartFullscreen.value = false;
 }
 
 // The operator's own theme (U4), not the open document's. The RESOLVED mode,

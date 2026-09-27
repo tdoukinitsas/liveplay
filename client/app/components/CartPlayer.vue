@@ -2,17 +2,16 @@
   <div class="cart-player" ref="cartPlayerRef" :class="{ 'show-mode': showMode }">
     <div class="cart-header">
       <h2>{{ t('cart.title') }}</h2>
-      <!-- The three views asked for, in the order the mixer's own action bar
-           uses: undock, then expand/dock. Neither is shown in the detached
-           window — there is no docked pane to resize there, so the only move
-           that means anything is coming home.
+      <!-- The mixer's four moves, in the order its own action bar uses them:
+           undock, expand/dock, close. None is shown in the detached window —
+           there is no docked pane to resize there, so the only move that means
+           anything is coming home.
 
-           NO CLOSE BUTTON, deliberately, even though `cartClosed` exists and
-           the mixer has one. The mixer's Close is safe because the header has a
-           Mixer toggle to bring it back; the cart has no such toggle, so a
-           Close here would leave a thin splitter handle as the only way back
-           and read as having lost the cart wall. Closing stays what it already
-           was — dragging the separator off the edge — and that is unchanged. -->
+           Close was held back when the rest of these landed, because the mixer's
+           is only safe thanks to the header's Mixer toggle and the cart had no
+           equivalent — closing would have left a thin splitter handle as the only
+           way back. ProjectHeader now grows a Cart Player button whenever the
+           cart is closed, so the way back is as visible as the mixer's. -->
       <div class="cart-header-actions">
         <template v-if="!isDetachedWindow">
           <Btn
@@ -29,6 +28,7 @@
             :text="cartFullscreen ? t('cart.dock') : t('cart.expand')"
             @click="toggleFullscreen"
           />
+          <Btn icon="close" :text="t('cart.close')" @click="closeCart" />
         </template>
         <Btn
           v-else
@@ -96,10 +96,18 @@ function toggleFullscreen() {
   cartFullscreen.value = !cartFullscreen.value;
   // Filling the workspace and being closed are mutually exclusive — the
   // splitter's own snap handlers already clear each when setting the other, and
-  // the same has to hold from here. Unreachable from this button today (a closed
-  // cart is not rendered, so it has no header to press), and kept because the
+  // the same has to hold from here. Unreachable from this button (a closed cart
+  // is not rendered, so it has no header to press), and kept because the
   // invariant belongs with the write rather than with who happens to call it.
   cartClosed.value = false;
+}
+
+function closeCart() {
+  cartClosed.value = true;
+  // Dropped on the way out, so reopening from the header gives back the docked
+  // pane rather than a full-workspace cart the operator last saw minutes ago.
+  // The splitter's close snap already does exactly this.
+  cartFullscreen.value = false;
 }
 
 const cartPlayerRef = ref<HTMLElement | null>(null);
