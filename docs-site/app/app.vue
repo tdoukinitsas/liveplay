@@ -296,117 +296,11 @@
       <div class="container">
         <h2>{{ t('api.title') }}</h2>
         <p class="api-subtitle">{{ t('api.subtitle') }}</p>
-
         <div class="api-block">
-          <h3>{{ t('api.intro.title') }}</h3>
-          <p>{{ t('api.intro.description') }}</p>
-          <p>
-            <strong>{{ t('api.intro.baseUrlLabel') }}:</strong>
-            <code class="api-inline-code">{{ apiBaseUrl }}</code>
-          </p>
-          <p>{{ t('api.intro.getVsPost') }}</p>
-          <p class="api-callout">{{ t('api.intro.stopWarning') }}</p>
+          <p>{{ t('api.description') }}</p>
         </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.controls.title') }}</h3>
-          <p>{{ t('api.controls.description') }}</p>
-          <div class="api-table-wrap">
-            <table class="api-table">
-              <thead>
-                <tr>
-                  <th scope="col">{{ t('api.controls.colMethod') }}</th>
-                  <th scope="col">{{ t('api.controls.colPath') }}</th>
-                  <th scope="col">{{ t('api.controls.colAction') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in apiControls" :key="row.key">
-                  <td class="api-table-methods">
-                    <span
-                      v-for="m in row.methods"
-                      :key="m"
-                      class="api-method"
-                      :class="m === 'POST' ? 'api-method-post' : 'api-method-get'"
-                    >{{ m }}</span>
-                  </td>
-                  <td class="api-table-path"><code>{{ row.path }}</code></td>
-                  <td class="api-table-action">
-                    <span class="api-action">{{ t(`api.controls.${row.key}.description`) }}</span>
-                    <span class="api-notes">{{ t(`api.controls.${row.key}.notes`) }}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.examples.title') }}</h3>
-          <p>{{ t('api.examples.description') }}</p>
-          <pre class="api-code"><code>{{ t('api.examples.curl') }}</code></pre>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.more.title') }}</h3>
-          <p>{{ t('api.more.description') }}</p>
-          <ul class="api-endpoint-list">
-            <li><code>{{ t('api.more.selection.path') }}</code> — {{ t('api.more.selection.description') }}</li>
-            <li><code>{{ t('api.more.buses.path') }}</code> — {{ t('api.more.buses.description') }}</li>
-            <li><code>{{ t('api.more.limiter.path') }}</code> — {{ t('api.more.limiter.description') }}</li>
-            <li><code>{{ t('api.more.showMode.path') }}</code> — {{ t('api.more.showMode.description') }}</li>
-          </ul>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.auth.title') }}</h3>
-          <p>{{ t('api.auth.description') }}</p>
-          <pre class="api-code"><code>{{ t('api.auth.login') }}</code></pre>
-          <p>{{ t('api.auth.headerNote') }}</p>
-          <!-- The paragraph an integrator needs before they paste anything into
-               a rack: a person's login is the wrong credential for a machine. -->
-          <p>{{ t('api.auth.tokens') }}</p>
-          <p>{{ t('api.auth.cors') }}</p>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.websocket.title') }}</h3>
-          <p>{{ t('api.websocket.description') }}</p>
-          <pre class="api-code"><code>{{ t('api.websocket.frames') }}</code></pre>
-          <p class="api-caveat">{{ t('api.websocket.framesNote') }}</p>
-          <p>{{ t('api.websocket.pushTitle') }}</p>
-          <ul class="api-endpoint-list">
-            <li><code>{{ t('api.websocket.snapshot.name') }}</code> — {{ t('api.websocket.snapshot.description') }}</li>
-            <li><code>{{ t('api.websocket.cueState.name') }}</code> — {{ t('api.websocket.cueState.description') }}</li>
-            <li><code>{{ t('api.websocket.meters.name') }}</code> — {{ t('api.websocket.meters.description') }}</li>
-            <li><code>{{ t('api.websocket.docPatch.name') }}</code> — {{ t('api.websocket.docPatch.description') }}</li>
-          </ul>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.companion.title') }}</h3>
-          <p>{{ t('api.companion.description') }}</p>
-          <p>
-            <a href="https://github.com/aspinwalld/companion-module-liveplay" target="_blank" rel="noopener noreferrer">
-              {{ t('api.companion.linkText') }}
-            </a>
-          </p>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.discovery.title') }}</h3>
-          <p>{{ t('api.discovery.description') }}</p>
-          <pre class="api-code"><code>{{ t('api.discovery.payload') }}</code></pre>
-          <p>{{ t('api.discovery.note') }}</p>
-        </div>
-
         <div class="api-reference">
-          <p>
-            {{ t('api.reference.text') }}
-            <a href="https://github.com/tdoukinitsas/liveplay/blob/main/server/README.md" target="_blank" rel="noopener noreferrer">
-              {{ t('api.reference.linkText') }}
-            </a>
-          </p>
+          <a :href="asset('api/')">{{ t('api.referenceLabel') }}</a>
         </div>
       </div>
     </section>
@@ -509,27 +403,6 @@ const settingsTiers: { key: string; files: string[] }[] = [
   { key: 'machine', files: ['userData/', 'localStorage'] },
 ];
 
-// External control / API section. Methods and paths are literal protocol, not
-// prose, so they live here rather than in the locale files; each row's
-// description and notes come from api.controls.<key>.* in en.json. Every
-// method/path pair is checked against server/src/net/control_server.cpp.
-const apiBaseUrl = 'http://<server>:4480';
-const apiControls: { key: string; methods: ('GET' | 'POST')[]; path: string }[] = [
-  { key: 'go',           methods: ['GET', 'POST'], path: '/api/transport/go' },
-  { key: 'stopAll',      methods: ['POST'],        path: '/api/transport/stop_all' },
-  { key: 'playItem',     methods: ['GET', 'POST'], path: '/api/project/items/<uuid>/play' },
-  { key: 'playIndex',    methods: ['GET', 'POST'], path: '/api/project/items/by-index/<path>' },
-  { key: 'stopItem',     methods: ['POST'],        path: '/api/project/items/<uuid>/stop' },
-  { key: 'pauseItem',    methods: ['POST'],        path: '/api/project/items/<uuid>/pause' },
-  { key: 'resumeItem',   methods: ['POST'],        path: '/api/project/items/<uuid>/resume' },
-  { key: 'playSelected', methods: ['GET', 'POST'], path: '/api/transport/play_selected' },
-  { key: 'pauseToggle',  methods: ['GET', 'POST'], path: '/api/transport/pause_toggle' },
-  { key: 'armSelected',  methods: ['GET', 'POST'], path: '/api/transport/arm_selected' },
-  { key: 'cart',         methods: ['GET', 'POST'], path: '/api/transport/cart/<n>/play' },
-  { key: 'masterGain',   methods: ['GET', 'POST'], path: '/api/master/gain' },
-  { key: 'stateSummary', methods: ['GET'],         path: '/api/state/summary' },
-  { key: 'listItems',    methods: ['GET'],         path: '/api/project/items' }
-];
 const contributors = ref<{ name: string; link: string }[]>([]);
 
 // Platform download cards. When we can detect the visitor's OS we surface only
