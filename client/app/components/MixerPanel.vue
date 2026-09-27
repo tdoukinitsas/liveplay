@@ -60,7 +60,6 @@
           :buses="buses"
           :outputs="outputMap"
           :selected="bus.id === selectedId"
-          :touch="touch"
           :dragging="drag?.id === bus.id"
           @select="selectedId = $event"
           @open="openDetails"
@@ -93,7 +92,6 @@
           :buses="buses"
           :outputs="outputMap"
           :selected="bus.id === selectedId"
-          :touch="touch"
           @select="selectedId = $event"
           @open="openDetails"
           @patch="onPatch"
@@ -150,8 +148,10 @@ function showChannel(id: string) {
 
 const server = useLiveplayServer();
 const { t } = useLocalization();
-const { uiMode } = useUiMode();
-const touch = computed(() => uiMode.value === 'playback');
+// The mixer deliberately does NOT read useUiMode(). Show Mode hides edit
+// affordances and enlarges touch targets elsewhere, but a mixer strip is not
+// a target you hit once — it is a position you learn, and the rail has to
+// stay the same rail in both modes.
 
 // Shared rather than local: switching between docked and full swaps which
 // MixerPanel instance is mounted, so a local ref would be destroyed with the
