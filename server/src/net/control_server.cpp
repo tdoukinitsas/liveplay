@@ -482,7 +482,7 @@ static std::string_view bus_output_refusal_text(core::ProjectState::PatchBusResu
 // The full mixer view of one bus, shared by GET /api/buses and
 // GET /api/buses/<id> so the two can never drift apart.
 static json bus_info_to_json(const core::ProjectState::BusInfo& b) {
-    const char* kind = b.def.output_kind == core::BusOutputKind::Bus ? "bus" : "output";
+    const char* kind = core::output_kind_name(b.def.output_kind);
     return json{
         {"id",       b.def.id},
         {"name",     b.def.display_name},

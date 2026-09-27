@@ -174,9 +174,16 @@ export interface CartItem {
  * device of that name is present. There is no `master` kind any more (D25):
  * the master-role bus is an ordinary Output-kind bus on "Main Out", and a
  * sub-mix reaches the house by targeting it as a `bus`.
+ *
+ * `none` means the bus has no output edge at all and leaves only by its aux
+ * sends (M1) — a stem feeding several destinations at several post-fader
+ * levels belongs at unity in none of them, and before this existed the only
+ * way to say so was to point it at a bus that did not want it. `target` is
+ * empty and ignored. Neither role holder may be `none`: the master bus is the
+ * house and the preview bus is the phones.
  */
 export interface BusOutput {
-  type: 'bus' | 'output';
+  type: 'bus' | 'output' | 'none';
   target: string;
 }
 

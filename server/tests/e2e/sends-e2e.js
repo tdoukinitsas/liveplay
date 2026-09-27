@@ -54,6 +54,15 @@ class Meters {
         if (c.mixer_id === mixerId) best = Math.max(best, c.peak_db ?? -200);
     return best;
   }
+  master(ch) {
+    let best = -200;
+    for (const f of this.frames)
+      for (const c of (f.master_channels || []))
+        if (c.index === ch) best = Math.max(best, c.peak_db ?? -200);
+    return best;
+  }
+  // The house pair, which is where a send into the master-role bus lands.
+  house() { return Math.max(this.master(0), this.master(1)); }
 }
 async function measure(m, ms) { m.reset(); await sleep(ms); }
 
@@ -299,6 +308,61 @@ const setSends = (id, sends) => patchBus(id, { sends });
   const after = (await bus(SRC)).sends;
   ok('deleting a bus DROPS sends to it rather than retargeting them',
      Array.isArray(after) && after.length === 0, JSON.stringify(after));
+
+  // =========================================================================
+  // 8. output.type = "none": a bus that leaves only by its sends.
+  // =========================================================================
+  // The reason this exists: a stem feeding several destinations at several
+  // post-fader levels belongs at unity in none of them, and before it the only
+  // way to say so was to point the output at a bus that did not want it.
+  const NONE = await mk('NoOut');
+  const DEST = await mk('Dest');
+  const mNone = await mixerIdOf(NONE);
+  const mDest = await mixerIdOf(DEST);
+
+  r = await patchBus(NONE, { output: { type: 'none', target: '' } });
+  ok('a bus may have no output at all', r.status === 200, `HTTP ${r.status} ${refusal(r)}`);
+  ok('"none" round-trips as "none"', (await bus(NONE)).output.type === 'none',
+     JSON.stringify((await bus(NONE)).output));
+
+  // With no output and no sends, nothing carries it: `bound` must say so,
+  // because that is what puts the "this bus is silent" warning on the strip.
+  ok('a bus with no output and no sends is unbound',
+     (await bus(NONE)).bound === false, `bound ${(await bus(NONE)).bound}`);
+
+  // ...and the moment a send reaches hardware, it must stop saying so. This is
+  // the assertion that catches a `bound` that still only walks output edges:
+  // the bus is audible and the strip would be warning that it is silent.
+  await setSends(NONE, [{ id: masterId, levelDb: -6, tap: 'post' }]);
+  ok('a send that reaches hardware makes the bus bound',
+     (await bus(NONE)).bound === true, `bound ${(await bus(NONE)).bound}`);
+
+  // And it really is audible, not just labelled so.
+  await setBus('item-s', NONE);
+  await play('item-s');
+  await sleep(SETTLE);
+  await measure(m, 900);
+  const noneOwn = m.peak(mNone);
+  ok('a bus with no output still carries signal on its own strip',
+     noneOwn > -20, `${noneOwn.toFixed(1)} dBFS`);
+  ok('and its send reaches the house', m.house() > -30, `${m.house().toFixed(1)} dBFS`);
+  await stop('item-s');
+  await sleep(400);
+
+  // A send into a bus that itself goes nowhere does NOT make the source bound.
+  await patchBus(DEST, { output: { type: 'none', target: '' } });
+  await setSends(NONE, [{ id: DEST, levelDb: 0, tap: 'post' }]);
+  ok('a send into a dead end leaves the bus unbound',
+     (await bus(NONE)).bound === false, `bound ${(await bus(NONE)).bound}`);
+
+  // Neither role holder may go nowhere: the master bus IS the house and the
+  // preview bus IS the phones.
+  r = await patchBus(masterId, { output: { type: 'none', target: '' } });
+  ok('the Master bus may not have "no output"',
+     r.status === 409, `HTTP ${r.status} ${refusal(r)}`);
+  r = await patchBus(previewId, { output: { type: 'none', target: '' } });
+  ok('the Preview bus may not have "no output"',
+     r.status === 409, `HTTP ${r.status} ${refusal(r)}`);
 
   ws.close();
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nALL PASS (0 failures)');
