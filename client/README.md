@@ -68,6 +68,7 @@ client/
 ├── public/                       Static assets — screenshots, fonts, icons
 ├── assets/                       Bundled styles (main.scss, variables.scss)
 ├── scripts/                      Workspace-local utilities (locale sync, etc.)
+├── tests/                        Standalone node assertions for main-process logic
 ├── nuxt.config.ts                Nuxt configuration
 ├── tsconfig.json
 └── package.json                  Electron + electron-builder configuration
@@ -92,6 +93,16 @@ npm run build:electron        # in client/, or `npm run build:client:electron` a
 ```
 
 Outputs land in `client/dist-electron/`. The root `npm run build` script copies the installers from there into `build/` at the repo root.
+
+### Tests
+
+There is no renderer test runner — the production build is the type and template check available (there is no `vue-tsc` here, so `nuxt typecheck` does not work). What `client/tests/` holds is assertions for **main-process** logic that is pure enough to check without launching Electron, in the same shape as the server's suites: a standalone node script that prints PASS/FAIL and exits non-zero.
+
+```sh
+node client/tests/window-bounds-tests.js     # from the repo root
+```
+
+Because `electron/main.js` cannot be `require`d — it pulls in `electron` and starts an app — these lift the function under test out of the file by name and evaluate it with the Electron surfaces injected. That keeps the assertions pointed at the shipped source instead of a copy, which is the only version worth testing; rename the function and the lift throws by name rather than quietly passing.
 
 ---
 
