@@ -2050,10 +2050,40 @@ const menuTranslations = Object.entries(localeFiles).reduce((acc, [code, data]) 
     fullscreen: data.menu.fullscreen,
     language: data.menu.language,
     help: data.menu.help,
-    about: data.menu.about
+    about: data.menu.about,
+    // The Settings menu borrows the PAGE's own strings rather than getting
+    // `menu.*` copies of them: `settings.title` is what the page calls itself
+    // and `settings.section*` are the labels already on its rail. Two spellings
+    // of "Outputs" that can drift apart is exactly the split this menu exists
+    // to close, and it means the menu needed no new locale keys at all.
+    settings: data.settings.title,
+    settingsSections: data.settings
   };
   return acc;
 }, {});
+
+// The Settings menu's items, in the rail's order.
+//
+// ⚠️ THIS LIST MIRRORS `SETTINGS_SECTIONS` in client/app/composables/
+// useSettingsPage.ts, WHICH IS THE SOURCE OF TRUTH. The main process cannot
+// import a TS composable out of the renderer, so a new pane is two edits: there
+// and here. The labels cannot drift (they are resolved from the same
+// `settings.section*` keys the rail uses), but the LIST can — and an id offered
+// here that the registry does not know opens the default pane instead, because
+// `useSettingsPage().open()` validates against the registry. Ten panes as of
+// P3e; keep the order the same as the rail's so the menu reads like the page.
+const SETTINGS_MENU_SECTIONS = [
+  { id: 'appearance', labelKey: 'sectionAppearance' },
+  { id: 'playback',   labelKey: 'sectionPlayback'   },
+  { id: 'audio',      labelKey: 'sectionAudio'      },
+  { id: 'outputs',    labelKey: 'sectionOutputs'    },
+  { id: 'keyboard',   labelKey: 'sectionKeyboard'   },
+  { id: 'surfaces',   labelKey: 'sectionSurfaces'   },
+  { id: 'project',    labelKey: 'sectionProject'    },
+  { id: 'server',     labelKey: 'sectionServer'     },
+  { id: 'users',      labelKey: 'sectionUsers'      },
+  { id: 'about',      labelKey: 'sectionAbout'      },
+];
 
 let currentLocale = 'en';
 
@@ -2215,6 +2245,39 @@ function createMenu(locale = 'en', isDev = false) {
           }
         }
         ] : [])
+      ]
+    },
+    // Asked for 2026-09-27: a settings/preferences menu carrying every pane, so
+    // the configuration has an OS-level way in and not only a header button.
+    // Each item is a deep link — the same move P3d made for the mixer's output
+    // map and P3e for About and the accent swatches — so the page stays the one
+    // home for all of it and the menu is an address book, not a second surface.
+    //
+    // `CmdOrCtrl+,` is the conventional preferences accelerator on both
+    // platforms, and it is free here: no other menu item claims it and the
+    // client has no comma-key handling.
+    {
+      label: t.settings,
+      submenu: [
+        {
+          label: t.settings,
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            // No id: the renderer opens whatever DEFAULT_SETTINGS_SECTION is,
+            // rather than this process holding a second opinion about it.
+            mainWindow.webContents.send('menu-open-settings');
+          }
+        },
+        { type: 'separator' },
+        ...SETTINGS_MENU_SECTIONS.map((s) => ({
+          // Same `|| fallback` shape the File menu's newer keys use: a label
+          // that resolved to undefined would put a blank row in the menu, and
+          // the id is at least a word the operator can act on.
+          label: t.settingsSections[s.labelKey] || s.id,
+          click: () => {
+            mainWindow.webContents.send('menu-open-settings', s.id);
+          }
+        }))
       ]
     },
     {

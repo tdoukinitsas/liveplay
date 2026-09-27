@@ -343,6 +343,18 @@ onMounted(() => {
     window.electronAPI.onMenuShowAbout(() => {
       openSettings('about');
     });
+
+    // The Settings menu. One channel for all ten panes, with the section id as
+    // its argument; no id means "open Settings", and `open()` falls back to
+    // DEFAULT_SETTINGS_SECTION on its own.
+    //
+    // It also VALIDATES the id against SETTINGS_SECTIONS, which is what makes
+    // the menu's mirrored list safe to be a mirror: a pane the main process
+    // still offers after this side stopped registering it opens the default
+    // pane rather than a blank one.
+    window.electronAPI.onMenuOpenSettings((_event: any, section?: string) => {
+      openSettings(section);
+    });
     
     // File > Import Project. When the server is on this same machine the
     // .lpa already lives somewhere we can reach — show the server file
