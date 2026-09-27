@@ -183,7 +183,11 @@
             <!-- Inline, non-blocking: the server's own 409 text for the last
                  rejected route, so the reason is legible without a dialog. -->
             <p v-if="outputErrorMsg" class="det__warn">{{ outputErrorMsg }}</p>
-            <p class="det__none">{{ t('mixer.auxSendsPending') }}</p>
+
+            <!-- Aux sends (M1), under the output because that is signal order:
+                 where the whole thing goes, then the copies taken off it. -->
+            <h5 class="det__sub">{{ t('mixer.auxSends') }}</h5>
+            <BusSendList :bus="bus" :buses="buses" />
           </section>
         </div>
       </div>
@@ -282,6 +286,7 @@ import MixerEqPanel from './MixerEqPanel.vue';
 import MixerDynamicsPanel from './MixerDynamicsPanel.vue';
 import StereoMeter from './StereoMeter.vue';
 import BusOutputSelect from './BusOutputSelect.vue';
+import BusSendList from './BusSendList.vue';
 import BusColorPicker from './BusColorPicker.vue';
 import BusMenu from './BusMenu.vue';
 import { FADER_MIN_DB, METER_MAX_DB } from '~/utils/meterScale';
@@ -714,6 +719,18 @@ function openMenuFromButton() {
 }
 .det__warnbtn:hover { color: var(--color-danger, var(--color-warning)); }
 .det__none { list-style: none; margin: 0; font-size: 11px; color: var(--color-text-disabled); }
+
+/* A second-level heading inside a panel, for the sends list under the output.
+   Quieter than .det__h: the panel already has one heading, and this divides it
+   rather than introducing a new section. */
+.det__sub {
+  margin: 4px 0 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
 
 /* Contributions above, sends below, in one full-height column.
    Sends has fixed content and takes only what it needs; contributions takes
