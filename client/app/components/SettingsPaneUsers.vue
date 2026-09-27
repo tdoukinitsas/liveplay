@@ -14,10 +14,26 @@
         <span class="material-symbols-rounded">lock_open</span>
         {{ t('users.authOff') }}
       </p>
-      <p class="settings-help">{{ t('users.authOffHelp') }}</p>
-      <button class="settings-btn settings-btn--primary" @click="showAdd = true">
-        {{ t('users.createFirst') }}
-      </button>
+
+      <!-- Accounts exist and the login is switched off. A DIFFERENT state from
+           having no accounts, and it must not read the same: somebody chose
+           this, the team is still here, and an operator looking at an empty
+           pane would reasonably assume a password was being asked for. This is
+           the branch that tells them it is not. -->
+      <template v-if="server.authUserCount > 0">
+        <p class="settings-help settings-help--warn">{{ t('users.authOffExplicit') }}</p>
+        <button class="settings-btn settings-btn--primary" @click="startAuthChange(true)">
+          {{ t('users.authTurnOn') }}
+        </button>
+      </template>
+
+      <!-- The ordinary state of a fresh installation. -->
+      <template v-else>
+        <p class="settings-help">{{ t('users.authOffHelp') }}</p>
+        <button class="settings-btn settings-btn--primary" @click="showAdd = true">
+          {{ t('users.createFirst') }}
+        </button>
+      </template>
     </section>
 
     <p v-else-if="loadError" class="settings-help settings-help--warn">{{ loadError }}</p>
@@ -82,6 +98,24 @@
             {{ t('users.add') }}
           </button>
         </div>
+
+        <!-- Turning the login off. Last on the pane and its own group, because
+             it is a posture for the whole server rather than a change to an
+             account — and because until now there was NO way back: the store
+             refuses to delete the last administrator, so authentication became
+             permanent the moment the first account existed, and the recovery on
+             the login screen's own note was deleting a file by hand. The
+             accounts survive this. -->
+        <h4 class="settings-group-title">{{ t('users.authPosture') }}</h4>
+        <section class="settings-field">
+          <p class="settings-help">{{ t('users.authOnNow') }}</p>
+          <p class="settings-help settings-help--muted">{{ t('users.authTurnOffHelp') }}</p>
+          <div class="settings-actions">
+            <button class="settings-btn settings-btn--danger" @click="startAuthChange(false)">
+              {{ t('users.authTurnOff') }}
+            </button>
+          </div>
+        </section>
       </template>
       <p v-else class="settings-help">{{ t('users.adminOnly') }}</p>
     </template>
@@ -142,6 +176,37 @@
       </div>
     </div>
 
+    <!-- ---- Turning the login off, or back on ------------------------- -->
+    <!-- The password is asked for in BOTH directions, and that is the server's
+         rule rather than this form's caution: while authentication is off there
+         is no session to gate the change with, so the password IS the gate.
+         Re-entry rather than the token because a token here is long-lived,
+         signed, and crosses the LAN with no TLS anywhere in this server.
+
+         The NAME is only asked for when there is no session to take it from —
+         which is exactly the case where this check is doing the protecting. -->
+    <div v-if="authChange !== null" class="settings-inline-form">
+      <h4>{{ authChange ? t('users.authTurnOn') : t('users.authTurnOff') }}</h4>
+      <p>{{ authChange ? t('users.authTurnOnConfirm') : t('users.authTurnOffConfirm') }}</p>
+      <template v-if="!server.authUser">
+        <label class="settings-label">{{ t('users.adminName') }}</label>
+        <input class="settings-input" type="text" v-model="authName" autocomplete="username" />
+      </template>
+      <label class="settings-label">{{ t('users.confirmPassword') }}</label>
+      <input class="settings-input" type="password" v-model="authPassword"
+             autocomplete="current-password" @keydown.enter="applyAuthChange" />
+      <p class="settings-help settings-help--muted">{{ t('users.authKeepsAccounts') }}</p>
+      <div class="settings-actions">
+        <button class="settings-btn"
+                :class="authChange ? 'settings-btn--primary' : 'settings-btn--danger'"
+                :disabled="!canApplyAuthChange || busy"
+                @click="applyAuthChange">
+          {{ authChange ? t('users.authTurnOn') : t('users.authTurnOff') }}
+        </button>
+        <button class="settings-btn" @click="cancelAuthChange">{{ t('users.cancel') }}</button>
+      </div>
+    </div>
+
     <div v-if="confirmSignOutEverywhere" class="settings-inline-form">
       <p>{{ t('users.signOutEverywhereConfirm') }}</p>
       <div class="settings-actions">
@@ -197,9 +262,21 @@ const passwordFor   = ref<string | null>(null);
 const pendingRemove = ref<any | null>(null);
 const confirmSignOutEverywhere = ref(false);
 
+// null = not asking. true/false = the posture being confirmed. Kept separate
+// from the add/password drafts so an abandoned half-typed password from one form
+// can never be submitted by another.
+const authChange   = ref<boolean | null>(null);
+const authName     = ref('');
+const authPassword = ref('');
+
 const isAdmin = computed(() => server.authUser?.role === 'admin');
 const canAdd  = computed(() =>
   draftName.value.trim().length > 0 && draftPassword.value.length >= MIN_PASSWORD_LENGTH);
+// No MIN_PASSWORD_LENGTH floor here, deliberately: this is an EXISTING password
+// being confirmed, not a new one being chosen, and refusing to submit a short
+// one would lock out an account created before the floor existed.
+const canApplyAuthChange = computed(() =>
+  authPassword.value.length > 0 && (!!server.authUser || authName.value.trim().length > 0));
 
 const roleLabel = (role?: string) =>
   role === 'admin' ? t('users.roleAdmin') : t('users.roleOperator');
@@ -223,6 +300,45 @@ async function load() {
   } catch (e: any) {
     loadError.value = /40[13]/.test(String(e?.message ?? e))
       ? t('users.adminOnly') : t('users.loadFailed');
+  }
+}
+
+function startAuthChange(required: boolean) {
+  authChange.value = required;
+  authName.value = '';
+  authPassword.value = '';
+  notice.value = '';
+}
+
+function cancelAuthChange() {
+  authChange.value = null;
+  // Cleared on the way out as well as the way in: a password left in a ref is a
+  // password sitting in memory for no reason.
+  authName.value = '';
+  authPassword.value = '';
+}
+
+async function applyAuthChange() {
+  if (authChange.value === null || !canApplyAuthChange.value) return;
+  const required = authChange.value;
+  busy.value = true;
+  try {
+    await server.setAuthRequired(required, authPassword.value,
+                                 server.authUser ? undefined : authName.value.trim());
+    cancelAuthChange();
+    notice.value = required ? t('users.authTurnedOn') : t('users.authTurnedOff');
+    noticeIsError.value = false;
+    // The list is admin-only and only exists while authentication is on, so it
+    // has to be re-read either way: turning off empties it, turning on fills it.
+    await load();
+  } catch (e: any) {
+    // The password field is cleared but the form stays open — a wrong password
+    // should cost a retype, not the whole gesture. The server's own wording is
+    // what gets shown, including its 429 when the shared login throttle bites.
+    authPassword.value = '';
+    report(e, 'users.authChangeFailed');
+  } finally {
+    busy.value = false;
   }
 }
 

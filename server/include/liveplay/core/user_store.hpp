@@ -114,6 +114,7 @@ public:
         WeakPassword,     // shorter than kMinPasswordLength
         NoSuchUser,
         LastAdmin,        // would leave the store with no way in
+        NoAccounts,       // cannot demand a login when there is nobody to be
         HashFailed,       // libsodium refused (out of memory, essentially)
         IoError,          // the file could not be written
     };
@@ -134,10 +135,40 @@ public:
     // refuses to serve in this state rather than falling open (see main.cpp).
     bool corrupt() const;
 
-    // Is authentication in force? False for an empty store.
+    // Is authentication in force? False for an empty store, and false when
+    // somebody has explicitly turned it off — see set_auth_required.
     bool        auth_required() const;
     std::size_t user_count() const;
     bool        has_admin() const;
+
+    // Turn authentication off (or back on) WITHOUT touching the accounts.
+    //
+    // Until this existed there was no route back: auth_required() was simply
+    // "the store is not empty", and remove_user refuses to delete the last
+    // admin, so the guard that stops an operator locking themselves out of
+    // administration also made authentication permanent. The documented recovery
+    // was deleting this file by hand, which throws the team away to undo a
+    // posture change.
+    //
+    // A stored `false` is a DECISION and is deliberately distinguishable from
+    // the absence of one, the same way U4's preferences treat "system" as
+    // different from unset: an installation that has never chosen keeps taking
+    // whatever the default is (on, once there are accounts), while one that has
+    // chosen keeps its answer even as accounts come and go.
+    //
+    // Turning it ON with no accounts is refused (NoAccounts) — that state is a
+    // server demanding a login nobody can satisfy. Turning it OFF is always
+    // allowed, because the open posture is what every release before 2.5 did.
+    //
+    // NOTE FOR THE ROUTE, NOT FOR THIS CLASS: nothing here authenticates the
+    // caller. The store cannot know who is asking, so the admin gate and the
+    // password re-entry both live at the REST layer.
+    Result set_auth_required(bool required);
+
+    // Has somebody explicitly chosen, either way? Distinct from what
+    // auth_required() answers, and the boot warning needs it: "off while
+    // accounts exist" is a state an operator must never be in unknowingly.
+    bool auth_choice_recorded() const;
 
     std::vector<User>   users() const;              // never includes hashes
     std::optional<User> find_by_id(const std::string& id) const;
@@ -198,6 +229,11 @@ private:
     std::vector<Record>   users_;
     std::string           token_secret_;   // base64; generated on first save
     bool                  corrupt_ = false;
+    // Unset = nobody has chosen; see set_auth_required. Sparse on disk, so a
+    // file written before this field existed reads back identically and a build
+    // that predates it ignores the key and keeps authentication ON — the
+    // fail-safe direction.
+    std::optional<bool>   auth_required_override_;
 };
 
 } // namespace liveplay::core

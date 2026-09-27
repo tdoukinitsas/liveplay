@@ -376,6 +376,26 @@ out of their own rigs, quite possibly mid-show.
 From the **first account onward**, every route needs a bearer token and the Server-tier routes need
 an administrator.
 
+**And it can be turned back off, without losing the accounts.** `PATCH /api/auth/required` stores an
+explicit choice in `users.json`, so an installation can go back to the open posture and return to a
+required login without setting the team up again. It is worth being precise about what protects it,
+because the obvious answer is wrong: the admin entry in the access table is *not* the boundary, since
+while authentication is off the guard short-circuits and every admin route is open. The route
+verifies **an administrator's name and password in the body itself, in both directions**, and shares
+the login throttle. Re-entry rather than the token because a token here is long-lived, signed, and
+crosses the LAN with no TLS — it can be read off the wire; a password is asked for at the moment of
+the act. Requiring it to turn the login *on* as well closes a denial of service: otherwise anyone on
+an open LAN could lock a desk mid-show.
+
+A stored `false` is a decision and stays distinguishable from never having chosen: an installation
+that has never touched this keeps taking the default (on, once accounts exist), and the field is
+written only when someone has chosen, so a file from an older build round-trips unchanged and an
+older build ignores the key and keeps authentication **on** — the fail-safe direction. Turning it on
+with no accounts is refused; an empty store is always open, so "a login nobody can satisfy" is not a
+state this can reach. Boot says which of the two open postures it is in, because "accounts exist and
+the door is off" is not the same as "nobody has set this up" and an operator must not be in the
+first one unknowingly.
+
 #### The two roles
 
 The split is the ownership model's own tier boundary, not an access scheme invented alongside it —
@@ -457,7 +477,8 @@ nothing here pretends otherwise.
 | `GET /api/users` | — | `[ { "id", "name", "role", "createdAt" }, … ]` | **Admin.** Never returns hashes. |
 | `POST /api/users` | `{ "name", "password", "role" }` | `{ "id", "name", "role" }` · `409` name taken · `400` bad name / short password | **Admin**, except while the store is empty — see Bootstrapping. Passwords must be at least 8 characters. |
 | `PATCH /api/users/{id}` | any of `{ "name", "role", "password" }` | `{ "id", "name", "role" }` · `409` name taken or last admin | **Admin.** A `password` change bumps that user's `tokenEpoch`. |
-| `DELETE /api/users/{id}` | — | `{ "ok": true }` · `404` · `409` last admin | **Admin.** The last administrator cannot be deleted: that would leave a server still requiring a login with nobody able to manage it, recoverable only by editing `users.json` on the machine. Deletes that user's preferences too. |
+| `DELETE /api/users/{id}` | — | `{ "ok": true }` · `404` · `409` last admin | **Admin.** The last administrator cannot be deleted: that would leave a server still requiring a login with nobody able to manage it, recoverable only by editing `users.json` on the machine. Turning the login *off* is a separate, explicit act (`PATCH /api/auth/required`) that keeps the accounts — emptying the store is no longer the way to change a posture. Deletes that user's preferences too. |
+| `PATCH /api/auth/required` | `{ "required": false, "password": "…", "name": "sam" }` | `{ "authRequired", "userCount" }` · `400` no password · `401` wrong password · `403` not an administrator · `409` no accounts at all · `429` throttled | **Admin — but the gate is the body, not the table.** An administrator's name and password every time, in both directions; `name` defaults to the caller when there is a session. While authentication is off there is no session to gate this with, so this check *is* the boundary. Shares `/api/auth/login`'s throttle. Accounts are never deleted and tokens are never revoked either way — a posture change is not a revocation. |
 
 ## Server configuration
 

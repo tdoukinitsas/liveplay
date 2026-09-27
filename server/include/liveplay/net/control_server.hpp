@@ -62,8 +62,12 @@
 // Authentication (U3). Off entirely while users.json holds no accounts, which
 // is the pre-2.5 posture and the default; from the first account onward every
 // route below needs a bearer token, and the Server-tier ones need an admin.
+// It can also be turned off explicitly, keeping the accounts — see
+// /api/auth/required, where the PASSWORD in the body is the gate rather than the
+// access table, because while authentication is off the guard short-circuits.
 //   GET    /api/auth/status                  — public: { authRequired, userCount }
 //   POST   /api/auth/login                   — public: { name, password } → { token, user }
+//   PATCH  /api/auth/required                — admin + their password, both ways
 //   GET    /api/auth/me                      — the caller's own principal
 //   POST   /api/auth/logout_all              — invalidate the caller's tokens
 //   GET    /api/users                        — admin

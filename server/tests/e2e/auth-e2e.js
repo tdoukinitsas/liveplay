@@ -403,6 +403,195 @@ const close = c => { try { c && c.ws && c.ws.close(); } catch { /* already gone 
     r = await req('/api/cues');
     ok('...while no token is still refused', r.status === 401, `${r.status}`);
 
+    // =====================================================================
+    // 8. Turning authentication OFF, and back on, without losing the team
+    // =====================================================================
+    // Before this existed there was no route back: auth_required() was "the
+    // store is not empty" and the last administrator cannot be deleted (asserted
+    // in section 6), so the first account made authentication permanent and the
+    // documented recovery was deleting users.json by hand.
+    //
+    // The whole point is that the accounts SURVIVE, so most of these assertions
+    // are about what is still there afterwards rather than about the flag.
+    r = await req('/api/users', {
+      method: 'POST', token: adminToken,
+      body: { name: OP_NAME, password: OP_PASS, role: 'operator' },
+    });
+    const op2Id = (r.body && r.body.id) || '';
+    ok('a fresh operator exists to test the role gate with',
+       r.status === 200 && op2Id.length > 0, `${r.status}`);
+    r = await req('/api/auth/login', {
+      method: 'POST', body: { name: OP_NAME, password: OP_PASS },
+    });
+    const op2Token = (r.body && r.body.token) || '';
+
+    // ---- What protects the switch ----
+    r = await req('/api/auth/required', {
+      method: 'PATCH', token: adminToken, body: { required: false },
+    });
+    ok('turning authentication off WITHOUT a password is refused',
+       r.status === 400,
+       `${r.status} — the session alone must not be enough: tokens here are ` +
+       `long-lived, signed, and cross the LAN with no TLS`);
+
+    r = await req('/api/auth/required', {
+      method: 'PATCH', token: adminToken, body: { required: false, password: 'not-it' },
+    });
+    ok('...and so is a WRONG password, even from a signed-in administrator',
+       r.status === 401, `${r.status}`);
+
+    r = await req('/api/auth/required', {
+      method: 'PATCH', token: op2Token, body: { required: false, password: OP_PASS },
+    });
+    ok('...and an OPERATOR is refused (by the middleware, while the door is shut)',
+       r.status === 403,
+       `${r.status} — 403 not 401: telling somebody their password was wrong ` +
+       `when it was right teaches them to distrust the message that matters`);
+
+    // ---- Off ----
+    r = await req('/api/auth/required', {
+      method: 'PATCH', token: adminToken, body: { required: false, password: ADMIN_PASS },
+    });
+    ok('an administrator with their password CAN turn authentication off',
+       r.status === 200 && r.body && r.body.authRequired === false,
+       `${r.status} authRequired=${r.body && r.body.authRequired}`);
+
+    r = await req('/api/auth/status');
+    ok('...and the server says so',
+       r.status === 200 && r.body && r.body.authRequired === false,
+       `authRequired=${r.body && r.body.authRequired}`);
+    ok('...WITHOUT throwing the accounts away, which is the whole point',
+       r.body && r.body.userCount === 2,
+       `userCount=${r.body && r.body.userCount} — 2 expected (admin + operator)`);
+    ok('...and it is NOT reported as a fresh installation needing setup',
+       r.body && r.body.setupRequired === false,
+       `setupRequired=${r.body && r.body.setupRequired} — accounts exist, so ` +
+       `the client must not offer to create a first one`);
+
+    r = await req('/api/cues');
+    ok('an ordinary route now works with no token, as it did before 2.5',
+       r.status === 200, `${r.status}`);
+    r = await req('/api/users');
+    ok('...and so does an admin-tier route, because the guard is off entirely',
+       r.status === 200,
+       `${r.status} — stated rather than assumed: this is WHY the switch cannot ` +
+       `rely on access_for and checks a password itself`);
+
+    // THE ROLE CHECK THAT ACTUALLY MATTERS, and it is only reachable here.
+    // With the door shut, an operator aiming at this route is stopped by the
+    // middleware and the handler never runs — so the assertion above proves
+    // access_for, not the handler. With the door OPEN there is no middleware
+    // gate and no token at all: an operator's password is the only thing between
+    // them and locking the building out of its own desk. (This assertion is here
+    // because disabling the handler's is_admin() check turned NOTHING red.)
+    r = await req('/api/auth/required', {
+      method: 'PATCH', body: { required: true, name: OP_NAME, password: OP_PASS },
+    });
+    ok('...but an OPERATOR still cannot turn the login ON with the door open',
+       r.status === 403,
+       `${r.status} — 403 expected. A 200 here means any account on the rig can ` +
+       `change the server's posture once somebody has opened it`);
+
+    r = await req('/api/auth/status');
+    ok('...and the refusal changed nothing',
+       r.status === 200 && r.body && r.body.authRequired === false,
+       `authRequired=${r.body && r.body.authRequired}`);
+
+    // ---- It survives a restart, which is the difference between a posture
+    //      and a runtime flag ----
+    await stopServer();
+    startServer();
+    ok('the server comes back up with authentication still off',
+       await waitForHealth(), `port ${PORT}`);
+    r = await req('/api/auth/status');
+    ok('...read back from users.json, not defaulted',
+       r.status === 200 && r.body && r.body.authRequired === false &&
+       r.body.userCount === 2,
+       `authRequired=${r.body && r.body.authRequired} ` +
+       `userCount=${r.body && r.body.userCount}`);
+
+    // ---- Back on ----
+    r = await req('/api/auth/required', { method: 'PATCH', body: { required: true } });
+    ok('turning it back ON without a password is refused too',
+       r.status === 400,
+       `${r.status} — otherwise anyone on the LAN could lock the desk mid-show ` +
+       `while the door was open`);
+
+    r = await req('/api/auth/required', {
+      method: 'PATCH', body: { required: true, name: ADMIN_NAME, password: 'not-it' },
+    });
+    ok('...and a wrong password is refused with no session to fall back on',
+       r.status === 401, `${r.status}`);
+
+    r = await req('/api/auth/required', {
+      method: 'PATCH', body: { required: true, name: ADMIN_NAME, password: ADMIN_PASS },
+    });
+    ok('an administrator\'s NAME and password turn it back on with no token at all',
+       r.status === 200 && r.body && r.body.authRequired === true,
+       `${r.status} authRequired=${r.body && r.body.authRequired}`);
+
+    r = await req('/api/cues');
+    ok('...and the door is shut again', r.status === 401, `${r.status}`);
+
+    r = await req('/api/cues', { token: adminToken });
+    ok('...while the token issued BEFORE all of this still works',
+       r.status === 200,
+       `${r.status} — a posture change is not a revocation, and signing every ` +
+       `surface out to flip a switch would be its own outage`);
+
+    r = await req('/api/users', { token: adminToken });
+    ok('...and both accounts came through unchanged',
+       r.status === 200 && Array.isArray(r.body) && r.body.length === 2 &&
+       r.body.some(u => u.name === ADMIN_NAME && u.role === 'admin') &&
+       r.body.some(u => u.name === OP_NAME && u.role === 'operator'),
+       `${r.status} ${Array.isArray(r.body)
+          ? r.body.map(u => `${u.name}/${u.role}`).join(' ') : typeof r.body}`);
+
+    // ---- The shared login throttle ----
+    // LAST, because it deliberately leaves this address blocked for 30 seconds.
+    //
+    // The claim being tested: this route cannot be used as an unthrottled
+    // password oracle sitting beside a throttled front door.
+    //
+    // Run with authentication ON and a valid admin token, which is what makes
+    // the guesses reach the handler at all. Two things learned by getting this
+    // wrong first:
+    //   * While auth is ON, an UNAUTHENTICATED call here is refused by the
+    //     middleware before the handler runs, so those attempts never reach the
+    //     throttle — they are middleware 401s, not wrong passwords.
+    //   * While auth is OFF, /api/auth/login answers 409 ("no accounts in use")
+    //     before it consults the throttle, so the shared counter cannot be
+    //     OBSERVED from the front door in that state.
+    // Both directions are reachable at once only here, with the door shut and a
+    // token in hand.
+    let throttled = 0;
+    for (let i = 0; i < 6; i++) {
+      r = await req('/api/auth/required', {
+        method: 'PATCH', token: adminToken, body: { required: false, password: `guess-${i}` },
+      });
+      if (r.status === 429) { throttled = i + 1; break; }
+    }
+    ok('repeated wrong confirmations on this route are RATE LIMITED',
+       throttled > 0 && throttled <= 6,
+       throttled > 0 ? `429 on attempt ${throttled}`
+                     : 'never throttled — this route would be an unthrottled ' +
+                       'password oracle sitting beside a throttled front door');
+
+    r = await req('/api/auth/login', {
+      method: 'POST', body: { name: ADMIN_NAME, password: ADMIN_PASS },
+    });
+    ok('...by the SAME counter the login uses — a CORRECT password is refused too',
+       r.status === 429,
+       `${r.status} — one brake per address, not one per route`);
+
+    r = await req('/api/auth/required', {
+      method: 'PATCH', token: adminToken, body: { required: false, password: ADMIN_PASS },
+    });
+    ok('...and the right password does not get past the block here either',
+       r.status === 429,
+       `${r.status} — the throttle is checked before the password, so guessing ` +
+       `cannot be laundered through a correct attempt`);
+
   } finally {
     close(wsAuthed);
     close(wsOpen);

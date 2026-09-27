@@ -771,6 +771,15 @@ static AuthGuard::Access access_for(std::string_view path) {
     if (path.rfind("/api/outputs", 0) == 0) return AuthGuard::Access::Admin;
     if (path.rfind("/api/users", 0)   == 0) return AuthGuard::Access::Admin;
     if (path == "/api/clients")             return AuthGuard::Access::Admin;
+    // Turning authentication off, and back on. Admin, obviously — but this gate
+    // is NOT what protects it, and that is worth being explicit about: when
+    // authentication is off the whole guard short-circuits (see before_handle),
+    // so every Admin path including this one is wide open. The route therefore
+    // verifies an administrator's NAME AND PASSWORD in the body itself, in both
+    // directions, and that check is the real boundary. Listed here anyway so the
+    // path is covered while authentication IS on, and so nobody later reads the
+    // absence of an entry as an oversight.
+    if (path == "/api/auth/required")       return AuthGuard::Access::Admin;
     // The machine's own configuration (P3): the port it binds, how wide the
     // master bus is, where the filesystem API may reach, which origins may call
     // in. Squarely the Server tier, and the last two are security policy — an
@@ -2059,6 +2068,106 @@ void ControlServer::install_routes() {
             });
         });
 
+    // ------------------------------------------------------------------
+    // Turn authentication off, or back on, without throwing the accounts away.
+    //
+    // WHY THIS EXISTS: `auth_required()` used to be "the store is not empty",
+    // and `remove_user` refuses to delete the last administrator — so the guard
+    // that stops an operator locking themselves out of account management also
+    // made authentication PERMANENT. The documented recovery was deleting
+    // users.json by hand on the machine, which discards the whole team to undo a
+    // posture change. The accounts survive this.
+    //
+    // WHAT PROTECTS IT — read this before changing anything here:
+    //
+    //  1. An ADMINISTRATOR'S NAME AND PASSWORD, in the body, every time, in BOTH
+    //     directions. Not the session, and not only when turning it off. The
+    //     access_for entry cannot be what protects this route, because while
+    //     authentication is off the guard short-circuits and every admin path is
+    //     open — so anyone on the LAN could otherwise flip it. Turning it ON
+    //     needs the password too, or an anonymous caller could lock a desk mid
+    //     show; that is a denial of service rather than a breach, but it is free
+    //     to close and so it is closed.
+    //  2. RE-ENTRY RATHER THAN THE TOKEN, deliberately, because tokens here are
+    //     stateless, signed, long-lived and cross the LAN with no TLS anywhere in
+    //     this server. A token can be read off the wire; a password is asked for
+    //     at the moment of the act.
+    //  3. THE LOGIN THROTTLE, shared with /api/auth/login. Without it this is an
+    //     unthrottled password oracle that walks straight past the brake on the
+    //     front door — the same guess, the same rate limit.
+    //  4. An operator role is refused even with the right password, and it is
+    //     reported as a role refusal, not as a bad password: telling somebody
+    //     their password was wrong when it was right teaches them to distrust
+    //     the message that matters.
+    CROW_ROUTE(app, "/api/auth/required").methods(crow::HTTPMethod::Patch)
+        ([this](const crow::request& req){
+            try {
+                const auto body = json::parse(req.body, nullptr, false);
+                if (body.is_discarded() || !body.is_object())
+                    return json_err(400, "expected a JSON object");
+                if (!body.contains("required") || !body["required"].is_boolean())
+                    return json_err(400, "\"required\" must be true or false");
+                const bool required = body["required"].get<bool>();
+
+                // Nothing to authenticate against and nothing to protect: say so
+                // plainly rather than failing the password check, which would
+                // read as "you typed it wrong" on a server that has no accounts.
+                if (users_.user_count() == 0)
+                    return json_err(409, "this server has no accounts — "
+                                         "authentication is already off");
+
+                const auto& ctx = impl_->app.get_context<AuthGuard>(req);
+                // Defaulted from the session when there is one, so a signed-in
+                // administrator confirms with their password alone. When
+                // authentication is off there is no session and the name is
+                // required, which is also the case where this check IS the gate.
+                const std::string name = body.value(
+                    "name", ctx.authenticated ? ctx.principal.name : std::string{});
+                const std::string pass = body.value("password", std::string{});
+                if (name.empty() || pass.empty())
+                    return json_err(400, "an administrator's name and password "
+                                         "are required to change this");
+
+                if (const int wait = login_block_remaining(req.remote_ip_address); wait > 0) {
+                    auto r = json_err(429, "too many failed attempts — wait and try again");
+                    r.add_header("Retry-After", std::to_string(wait));
+                    return r;
+                }
+
+                const auto principal = users_.authenticate(name, pass);
+                if (!principal) {
+                    login_note_failure(req.remote_ip_address);
+                    Logger::warn("Auth posture change refused for '{}' from {} "
+                                 "(bad credentials)", name, req.remote_ip_address);
+                    return json_err(401, "incorrect user name or password");
+                }
+                if (!principal->is_admin()) {
+                    // Counted as a failure as well: the throttle exists to slow
+                    // guessing, and an operator account is still a valid guess.
+                    login_note_failure(req.remote_ip_address);
+                    Logger::warn("Auth posture change refused for '{}' from {} "
+                                 "(not an administrator)", name, req.remote_ip_address);
+                    return json_err(403, "only an administrator can change "
+                                         "whether this server requires a login");
+                }
+                login_note_success(req.remote_ip_address);
+
+                using R = core::UserStore::Result;
+                const auto r = users_.set_auth_required(required);
+                if (r == R::NoAccounts) return json_err(409, core::UserStore::describe(r));
+                if (r != R::Ok)        return json_err(500, core::UserStore::describe(r));
+
+                Logger::warn("Authentication turned {} by '{}' from {} — "
+                             "{} account(s) kept",
+                             required ? "ON" : "OFF", principal->name,
+                             req.remote_ip_address, users_.user_count());
+                return json_ok(json{
+                    {"authRequired", users_.auth_required()},
+                    {"userCount",    users_.user_count()},
+                });
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
     CROW_ROUTE(app, "/api/auth/login").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
@@ -2442,8 +2551,9 @@ void ControlServer::install_routes() {
             // Refusing to remove the last administrator is not paternalism: the
             // store would still require authentication and nobody left could
             // manage it, so the only way back would be editing users.json by
-            // hand on the machine. Emptying the store deliberately is done by
-            // deleting the file, which is an unambiguous act.
+            // hand on the machine. Turning authentication OFF is a separate,
+            // explicit act — PATCH /api/auth/required — which keeps the accounts
+            // rather than asking anyone to empty the store to change a posture.
             if (r == R::LastAdmin)  return json_err(409, core::UserStore::describe(r));
             if (r != R::Ok)         return json_err(500, core::UserStore::describe(r));
             // The account is gone, so its preferences go with it. Ids are

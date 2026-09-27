@@ -123,6 +123,7 @@ std::string_view UserStore::describe(Result r) {
         case Result::WeakPassword: return "the password is too short";
         case Result::NoSuchUser:   return "no such user";
         case Result::LastAdmin:    return "this is the only administrator — promote another first";
+        case Result::NoAccounts:   return "create an account before requiring a login";
         case Result::HashFailed:   return "the password could not be hashed";
         case Result::IoError:      return "the user store could not be written";
     }
@@ -233,7 +234,40 @@ bool UserStore::save_locked() const {
 
 bool UserStore::auth_required() const {
     std::lock_guard lock{mutex_};
-    return !users_.empty();
+    // An empty store is open, unconditionally and before the override is even
+    // consulted. This ordering is what makes the feature lockout-proof: a
+    // stored `true` over an empty store would be a server demanding a login
+    // that nobody on earth could satisfy, and it is reachable by deleting
+    // accounts after choosing "on". set_auth_required refuses to create that
+    // state; this makes it unrepresentable.
+    if (users_.empty()) return false;
+    return auth_required_override_.value_or(true);
+}
+
+UserStore::Result UserStore::set_auth_required(bool required) {
+    std::lock_guard lock{mutex_};
+    // See the header: on with nobody to be is the one combination that bricks
+    // the server, so it is refused here rather than merely rendered harmless.
+    if (required && users_.empty()) return Result::NoAccounts;
+
+    const auto previous = auth_required_override_;
+    auth_required_override_ = required;
+    if (!save_locked()) { auth_required_override_ = previous; return Result::IoError; }
+
+    // Tokens are NOT invalidated either way, and both directions are deliberate.
+    // Turning it off: every token stops being asked for, so revoking them would
+    // be busywork. Turning it on: the sessions that were open while the door was
+    // unlocked were never anybody in particular — they hold no token at all, so
+    // there is nothing to revoke and they will be asked to log in on their next
+    // request like any other unauthenticated caller.
+    Logger::warn("UserStore: authentication explicitly turned {} ({} account(s) kept)",
+                 required ? "ON" : "OFF", users_.size());
+    return Result::Ok;
+}
+
+bool UserStore::auth_choice_recorded() const {
+    std::lock_guard lock{mutex_};
+    return auth_required_override_.has_value();
 }
 
 std::size_t UserStore::user_count() const {
@@ -586,11 +620,19 @@ json UserStore::to_json_locked() const {
             {"createdAt",  r.user.created_at},
         });
     }
-    return json{
+    json out{
         {"schema_version", kUserStoreSchemaVersion},
         {"tokenSecret",    token_secret_},
         {"users",          std::move(arr)},
     };
+    // Written only when somebody has chosen. Sparse for the same reason U4's
+    // profiles are: absent has its own meaning here ("never decided, keep taking
+    // the default"), and a file that has never been touched by this feature must
+    // round-trip byte-identically. No schema_version bump either — the key is
+    // additive, and a build that predates it ignores an unknown field and keeps
+    // authentication ON, which is the fail-safe direction to be wrong in.
+    if (auth_required_override_) out["authRequired"] = *auth_required_override_;
+    return out;
 }
 
 bool UserStore::from_json(const json& j) {
@@ -629,9 +671,18 @@ bool UserStore::from_json(const json& j) {
         sodium_memzero(key.data(), key.size());
     }
 
+    // Only a real boolean counts as a choice. Anything else — a string "false",
+    // a number, null — is treated as "never chose", because the alternative is
+    // letting a malformed value decide whether the door is locked, and the
+    // truthiness of `"false"` is exactly the accident that would open it.
+    std::optional<bool> auth_override;
+    const auto auth_it = j.find("authRequired");
+    if (auth_it != j.end() && auth_it->is_boolean()) auth_override = auth_it->get<bool>();
+
     std::lock_guard lock{mutex_};
     users_        = std::move(parsed);
     token_secret_ = std::move(secret);
+    auth_required_override_ = auth_override;
     return true;
 }
 
