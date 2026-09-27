@@ -77,9 +77,10 @@ const LICENSE_URL = 'https://www.gnu.org/licenses/agpl-3.0.en.html';
 
 const { t } = useLocalization();
 // The modal read the `theme` useState mirror app.vue maintains. A pane reads
-// the preference itself (U4) — one fewer thing depending on that mirror.
-const { theme } = usePreferences();
-const isDark = computed(() => theme.value.mode === 'dark');
+// the preference itself (U4) — one fewer thing depending on that mirror. The
+// RESOLVED mode, since "system" is a choice and not a palette.
+const { resolvedThemeMode } = usePreferences();
+const isDark = computed(() => resolvedThemeMode.value === 'dark');
 
 const contributors = computed(() =>
   Object.values(contributorsJson.contributors) as { name: string; link: string }[]

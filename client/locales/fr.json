@@ -551,6 +551,8 @@
     "themeModeHelp": "Sombre par défaut : un écran allumé dans une régie plongée dans le noir est le cas courant.",
     "themeModeDark": "Sombre",
     "themeModeLight": "Clair",
+    "themeModeSystem": "Suivre le système",
+    "themeModeSystemNow": "Suit le réglage de cet ordinateur, actuellement {mode}. Il change avec le bureau, y compris en plein spectacle.",
     "accentColor": "Couleur d’accentuation",
     "accentColorHelp": "Utilisée pour la sélection, les tops en lecture et tout ce qui appelle le regard. Elle ne change rien au son du spectacle.",
     "accentColorSwatch": "Couleur d’accentuation {color}",

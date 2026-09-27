@@ -28,8 +28,18 @@
       <select class="settings-select" :value="themeMode" @change="onThemeModeChange">
         <option value="dark">{{ t('settings.themeModeDark') }}</option>
         <option value="light">{{ t('settings.themeModeLight') }}</option>
+        <option value="system">{{ t('settings.themeModeSystem') }}</option>
       </select>
-      <p class="settings-help">{{ t('settings.themeModeHelp') }}</p>
+      <!-- On "system", say which one that is right now. Otherwise the only way
+           to find out is to look at the screen and guess whether it is
+           following or has simply been set that way. -->
+      <p class="settings-help">
+        {{ themeMode === 'system'
+             ? t('settings.themeModeSystemNow', {
+                 mode: resolvedThemeMode === 'dark' ? t('settings.themeModeDark')
+                                                    : t('settings.themeModeLight') })
+             : t('settings.themeModeHelp') }}
+      </p>
     </section>
 
     <!-- The swatch grid from the retired picker dialog, with one addition: it
@@ -95,13 +105,15 @@
 // server gates the true-peak / loudness DSP on the UNION of what every
 // connected session asks for. U4 admitted that against R2 because the union can
 // only reach a state one project setting could already reach alone.
+import type { Theme } from '~/types/project';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 
 // `availableLocales` had no caller anywhere in the client until now — the
 // Electron menu was the only way to change language, which is precisely the
 // split this page exists to end.
 const { t, currentLocale, setLocale, availableLocales } = useLocalization();
-const { theme, setTheme, scrollToPlaying, setScrollToPlaying, setMeterMode } = usePreferences();
+const { theme, resolvedThemeMode, setTheme, scrollToPlaying, setScrollToPlaying,
+        setMeterMode } = usePreferences();
 // The effective unit, which is "their choice, else the project's output target
 // recommends one" — only useOutputTarget can resolve that, so the control shows
 // its answer and writes the preference.
@@ -128,7 +140,7 @@ function onLocaleChange(e: Event) {
   setLocale((e.target as HTMLSelectElement).value);
 }
 function onThemeModeChange(e: Event) {
-  setTheme({ mode: (e.target as HTMLSelectElement).value as 'light' | 'dark' });
+  setTheme({ mode: (e.target as HTMLSelectElement).value as Theme['mode'] });
 }
 function onMeterModeChange(e: Event) {
   setMeterMode((e.target as HTMLSelectElement).value);

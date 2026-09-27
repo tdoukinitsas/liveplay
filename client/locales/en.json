@@ -147,6 +147,8 @@
     "themeModeHelp": "Dark is the default: a lit screen in a dark control room is the usual case.",
     "themeModeDark": "Dark",
     "themeModeLight": "Light",
+    "themeModeSystem": "Follow the system",
+    "themeModeSystemNow": "Following this computer’s setting, which is currently {mode}. It changes with the desktop, including mid-show.",
     "accentColor": "Accent colour",
     "accentColorHelp": "Used for selection, playing cues and anything that wants your eye. It changes nothing about how the show sounds.",
     "accentColorSwatch": "Accent colour {color}",

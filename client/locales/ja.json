@@ -551,6 +551,8 @@
     "themeModeHelp": "既定はダークです。暗い調整室で光る画面が通常の状態だからです。",
     "themeModeDark": "ダーク",
     "themeModeLight": "ライト",
+    "themeModeSystem": "システムに合わせる",
+    "themeModeSystemNow": "このコンピューターの設定に従います（現在は{mode}）。デスクトップに合わせて、ショーの最中でも切り替わります。",
     "accentColor": "アクセントカラー",
     "accentColorHelp": "選択、再生中のキュー、目を引くべきものすべてに使われます。ショーの音は一切変わりません。",
     "accentColorSwatch": "アクセントカラー {color}",

@@ -551,6 +551,8 @@
     "themeModeHelp": "Mörkt är standard: en upplyst skärm i ett mörkt kontrollrum är det vanliga.",
     "themeModeDark": "Mörkt",
     "themeModeLight": "Ljust",
+    "themeModeSystem": "Följ systemet",
+    "themeModeSystemNow": "Följer inställningen på den här datorn, just nu {mode}. Den ändras med skrivbordet, även mitt i föreställningen.",
     "accentColor": "Accentfärg",
     "accentColorHelp": "Används för markering, cuer som spelas och allt som vill ha din blick. Den ändrar inget i hur föreställningen låter.",
     "accentColorSwatch": "Accentfärg {color}",

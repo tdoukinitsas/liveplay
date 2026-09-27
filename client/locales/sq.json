@@ -551,6 +551,8 @@
     "themeModeHelp": "E errëta është parazgjedhja: një ekran i ndezur në një dhomë kontrolli të errët është rasti i zakonshëm.",
     "themeModeDark": "E errët",
     "themeModeLight": "E çelët",
+    "themeModeSystem": "Ndiq sistemin",
+    "themeModeSystemNow": "Ndjek cilësimin e këtij kompjuteri, aktualisht {mode}. Ndryshon bashkë me desktopin, edhe në mes të shfaqjes.",
     "accentColor": "Ngjyra e theksit",
     "accentColorHelp": "Përdoret për përzgjedhjen, cue-të që po luajnë dhe gjithçka që kërkon syrin tuaj. Nuk ndryshon asgjë në tingullin e shfaqjes.",
     "accentColorSwatch": "Ngjyra e theksit {color}",

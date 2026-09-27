@@ -551,6 +551,8 @@
     "themeModeHelp": "Oscuro es el valor predeterminado: una pantalla iluminada en una cabina a oscuras es lo habitual.",
     "themeModeDark": "Oscuro",
     "themeModeLight": "Claro",
+    "themeModeSystem": "Seguir al sistema",
+    "themeModeSystemNow": "Sigue la configuración de este equipo, actualmente {mode}. Cambia con el escritorio, incluso durante el espectáculo.",
     "accentColor": "Color de acento",
     "accentColorHelp": "Se usa para la selección, las señales en reproducción y todo lo que busca su mirada. No cambia nada de cómo suena el espectáculo.",
     "accentColorSwatch": "Color de acento {color}",

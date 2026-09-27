@@ -551,6 +551,8 @@
     "themeModeHelp": "Escuro é a predefinição: um ecrã aceso numa régie às escuras é o caso habitual.",
     "themeModeDark": "Escuro",
     "themeModeLight": "Claro",
+    "themeModeSystem": "Seguir o sistema",
+    "themeModeSystemNow": "Segue a definição deste computador, atualmente {mode}. Muda com o ambiente de trabalho, mesmo a meio do espetáculo.",
     "accentColor": "Cor de destaque",
     "accentColorHelp": "Usada para a seleção, as deixas em reprodução e tudo o que procura o seu olhar. Não altera nada no som do espetáculo.",
     "accentColorSwatch": "Cor de destaque {color}",

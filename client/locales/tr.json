@@ -551,6 +551,8 @@
     "themeModeHelp": "Varsayılan koyudur: karanlık bir kontrol odasındaki aydınlık ekran olağan durumdur.",
     "themeModeDark": "Koyu",
     "themeModeLight": "Açık",
+    "themeModeSystem": "Sistemi izle",
+    "themeModeSystemNow": "Bu bilgisayarın ayarını izler; şu anda {mode}. Masaüstüyle birlikte, gösterinin ortasında bile değişir.",
     "accentColor": "Vurgu rengi",
     "accentColorHelp": "Seçim, çalan cue’lar ve gözünüzü arayan her şey için kullanılır. Gösterinin sesiyle ilgili hiçbir şeyi değiştirmez.",
     "accentColorSwatch": "Vurgu rengi {color}",

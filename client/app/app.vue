@@ -214,7 +214,7 @@ const { currentLocale, setLocale, getDirection, t } = useLocalization();
 // The colour scheme belongs to the person at the desk, not to the show (U4).
 // `theme` stays a useState key so nothing that already binds to it has to
 // change; what moved is where its value comes from.
-const { theme: userTheme, setTheme } = usePreferences();
+const { theme: userTheme, resolvedThemeMode, setTheme } = usePreferences();
 const theme = useState('theme', () => 'dark');
 // The Help and View menus open Settings at a section rather than raising
 // modals of their own; see the listeners below.
@@ -319,7 +319,13 @@ onMounted(() => {
     window.electronAPI.onMenuToggleDarkMode(() => {
       // Straight to the person's preferences, and no saveProject() with it —
       // flipping to light mode used to mark the show dirty (U4).
-      setTheme({ mode: userTheme.value.mode === 'dark' ? 'light' : 'dark' });
+      //
+      // Toggles against what is SHOWING, not against the preference, so that
+      // from "system" it goes to the opposite of what is on screen rather than
+      // to whichever branch the preference happens to read as. Landing on an
+      // explicit mode is correct: asking for dark is asking for dark, not for
+      // "follow the OS and hope".
+      setTheme({ mode: resolvedThemeMode.value === 'dark' ? 'light' : 'dark' });
     });
 
     // Both of these used to raise a modal of their own. They are panes now, so
@@ -620,17 +626,23 @@ const handleProjectSelectionCancel = () => {
 // Paint the operator's own theme, from wherever usePreferences resolved it.
 // Was `watch(currentProject, ...)` until U4, which is why opening a colleague's
 // show used to change your colours.
-watch(userTheme, (t) => {
-  if (!t) return;
-  theme.value = t.mode;
+//
+// Watches the RESOLVED mode, not the preference: "system" is not a palette, and
+// the stylesheet only defines [data-theme='light'] and [data-theme='dark'].
+// Because the resolved value also depends on the OS, this fires on its own when
+// the desktop flips at sunset mid-show — which is the whole point of the
+// setting, and would not happen if this watched the preference.
+watch([resolvedThemeMode, () => userTheme.value?.accentColor], ([mode, accent]) => {
+  if (!mode) return;
+  theme.value = mode;
   // Mirror onto <html> too: the theme variables are scoped to [data-theme],
   // and with it only on #app, `body { background: var(--color-background) }`
   // resolved to nothing and anything transparent showed the window's white.
-  if (import.meta.client) document.documentElement.setAttribute('data-theme', t.mode);
-  if (import.meta.client && t.accentColor) {
-    document.documentElement.style.setProperty('--color-accent-custom', t.accentColor);
+  if (import.meta.client) document.documentElement.setAttribute('data-theme', mode);
+  if (import.meta.client && accent) {
+    document.documentElement.style.setProperty('--color-accent-custom', accent);
   }
-}, { immediate: true, deep: true });
+}, { immediate: true });
 
 // Apply RTL direction when locale changes
 watch(currentLocale, () => {

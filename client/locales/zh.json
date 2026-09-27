@@ -551,6 +551,8 @@
     "themeModeHelp": "默认深色：昏暗控制室里一块发亮的屏幕才是常态。",
     "themeModeDark": "深色",
     "themeModeLight": "浅色",
+    "themeModeSystem": "跟随系统",
+    "themeModeSystemNow": "跟随这台电脑的设置，当前为{mode}。它会随桌面改变，演出途中也不例外。",
     "accentColor": "强调色",
     "accentColorHelp": "用于选中项、正在播放的提示以及一切需要抓住视线的地方。它不会改变演出的声音。",
     "accentColorSwatch": "强调色 {color}",

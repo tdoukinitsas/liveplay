@@ -469,7 +469,12 @@ export interface Project {
 
 // Theme configuration
 export interface Theme {
-  mode: 'light' | 'dark';
+  // 'system' follows the OS, resolved by the client at paint time — the server
+  // stores the choice and never resolves it, because the same profile is read
+  // from machines whose desktops disagree. Read
+  // usePreferences().resolvedThemeMode for what is actually on screen; this is
+  // the preference, which is a different question.
+  mode: 'light' | 'dark' | 'system';
   accentColor: string;
 }
 

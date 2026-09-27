@@ -551,6 +551,8 @@
     "themeModeHelp": "Mørk er standard: en opplyst skjerm i et mørkt kontrollrom er det vanlige.",
     "themeModeDark": "Mørk",
     "themeModeLight": "Lys",
+    "themeModeSystem": "Følg systemet",
+    "themeModeSystemNow": "Følger innstillingen på denne maskinen, nå {mode}. Den endrer seg med skrivebordet, også midt i forestillingen.",
     "accentColor": "Aksentfarge",
     "accentColorHelp": "Brukes til markering, cuer som spilles og alt som vil ha blikket ditt. Den endrer ingenting ved hvordan forestillingen låter.",
     "accentColorSwatch": "Aksentfarge {color}",

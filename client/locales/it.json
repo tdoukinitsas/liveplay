@@ -551,6 +551,8 @@
     "themeModeHelp": "Scuro è l’impostazione predefinita: uno schermo acceso in una regia al buio è il caso normale.",
     "themeModeDark": "Scuro",
     "themeModeLight": "Chiaro",
+    "themeModeSystem": "Segui il sistema",
+    "themeModeSystemNow": "Segue l’impostazione di questo computer, attualmente {mode}. Cambia con il desktop, anche durante lo spettacolo.",
     "accentColor": "Colore d’accento",
     "accentColorHelp": "Usato per la selezione, i cue in riproduzione e tutto ciò che cerca il tuo sguardo. Non cambia nulla di come suona lo spettacolo.",
     "accentColorSwatch": "Colore d’accento {color}",

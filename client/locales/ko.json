@@ -551,6 +551,8 @@
     "themeModeHelp": "기본값은 어둡게입니다. 어두운 조정실에서 빛나는 화면이 일반적인 상황이기 때문입니다.",
     "themeModeDark": "어둡게",
     "themeModeLight": "밝게",
+    "themeModeSystem": "시스템 설정 따름",
+    "themeModeSystemNow": "이 컴퓨터의 설정을 따릅니다. 현재는 {mode}입니다. 공연 중에도 바탕화면 설정에 따라 바뀝니다.",
     "accentColor": "강조 색",
     "accentColorHelp": "선택 표시, 재생 중인 큐, 눈길을 끌어야 하는 모든 것에 쓰입니다. 공연의 소리는 전혀 바뀌지 않습니다.",
     "accentColorSwatch": "강조 색 {color}",

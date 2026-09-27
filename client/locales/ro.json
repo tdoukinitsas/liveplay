@@ -551,6 +551,8 @@
     "themeModeHelp": "Întunecat este valoarea implicită: un ecran luminat într-o cabină întunecată este cazul obișnuit.",
     "themeModeDark": "Întunecat",
     "themeModeLight": "Luminos",
+    "themeModeSystem": "Urmează sistemul",
+    "themeModeSystemNow": "Urmează setarea acestui calculator, în prezent {mode}. Se schimbă odată cu desktopul, inclusiv în timpul spectacolului.",
     "accentColor": "Culoare de accent",
     "accentColorHelp": "Folosită pentru selecție, pentru cue-urile în redare și pentru tot ce vă caută privirea. Nu schimbă nimic din felul în care sună spectacolul.",
     "accentColorSwatch": "Culoare de accent {color}",
