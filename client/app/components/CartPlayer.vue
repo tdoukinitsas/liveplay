@@ -2,14 +2,34 @@
   <div class="cart-player" ref="cartPlayerRef" :class="{ 'show-mode': showMode }">
     <div class="cart-header">
       <h2>{{ t('cart.title') }}</h2>
+      <!-- The three views asked for, in the order the mixer's own action bar
+           uses: undock, then expand/dock. Neither is shown in the detached
+           window — there is no docked pane to resize there, so the only move
+           that means anything is coming home.
+
+           NO CLOSE BUTTON, deliberately, even though `cartClosed` exists and
+           the mixer has one. The mixer's Close is safe because the header has a
+           Mixer toggle to bring it back; the cart has no such toggle, so a
+           Close here would leave a thin splitter handle as the only way back
+           and read as having lost the cart wall. Closing stays what it already
+           was — dragging the separator off the edge — and that is unchanged. -->
       <div class="cart-header-actions">
-        <Btn
-          v-if="!isDetachedWindow"
-          icon="open_in_new"
-          :text="t('cart.detach')"
-          :disabled="!currentProject"
-          @click="handleDetach"
-        />
+        <template v-if="!isDetachedWindow">
+          <Btn
+            icon="open_in_new"
+            :text="t('cart.detach')"
+            :disabled="!currentProject"
+            @click="handleDetach"
+          />
+          <!-- One button, two directions, like the mixer's: the state under the
+               pointer decides which. A pair of buttons where only one can ever
+               apply is the thing this replaces. -->
+          <Btn
+            :icon="cartFullscreen ? 'picture_in_picture_alt' : 'open_in_full'"
+            :text="cartFullscreen ? t('cart.dock') : t('cart.expand')"
+            @click="toggleFullscreen"
+          />
+        </template>
         <Btn
           v-else
           icon="picture_in_picture_alt"
@@ -57,6 +77,30 @@ const handleAttach = () => {
   if (!import.meta.client || !window.electronAPI) return;
   window.electronAPI.attachCartPlayerWindow();
 };
+
+// The docked view, shared with MainWorkspace, which is what actually renders
+// from these. Asked for 2026-09-27: the cart should get the mixer's treatment —
+// dock to the side, fill the workspace, or go to its own window. The flags and
+// the splitter's snap logic were all already here; only a way to say so from
+// the panel was missing.
+//
+// Deliberately NOT persisted, unlike the mixer's mode: the mixer's view became
+// a machine-store setting because it has a Settings pane that has to report it.
+// Nothing asks the cart's view what it is between launches, and cart WIDTH is
+// not persisted either — both belong to P4's layout work, together, rather than
+// half of it arriving here.
+const cartFullscreen = useState<boolean>('liveplay:cartFullscreen', () => false);
+const cartClosed = useState<boolean>('liveplay:cartClosed', () => false);
+
+function toggleFullscreen() {
+  cartFullscreen.value = !cartFullscreen.value;
+  // Filling the workspace and being closed are mutually exclusive — the
+  // splitter's own snap handlers already clear each when setting the other, and
+  // the same has to hold from here. Unreachable from this button today (a closed
+  // cart is not rendered, so it has no header to press), and kept because the
+  // invariant belongs with the write rather than with who happens to call it.
+  cartClosed.value = false;
+}
 
 const cartPlayerRef = ref<HTMLElement | null>(null);
 const gridClass = ref('grid-cols-2');

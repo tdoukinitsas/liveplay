@@ -26,6 +26,7 @@
     "changeAccentColor": "Change Accent Color",
     "fullscreen": "Fullscreen",
     "language": "Language",
+    "window": "Window",
     "help": "Help",
     "about": "About LivePlay"
   },
@@ -213,6 +214,8 @@
     "close": "Close",
     "detach": "Detach",
     "attach": "Attach",
+    "expand": "Expand to full width",
+    "dock": "Dock to the side",
     "groupSlot": "A playlist group: plays the whole group from this slot"
   },
   "behaviors": {

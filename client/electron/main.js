@@ -2049,6 +2049,11 @@ const menuTranslations = Object.entries(localeFiles).reduce((acc, [code, data]) 
     changeAccentColor: data.menu.changeAccentColor,
     fullscreen: data.menu.fullscreen,
     language: data.menu.language,
+    window: data.menu.window || 'Window',
+    // The two detachable panels name themselves, rather than getting `menu.*`
+    // copies — same reasoning as the Settings menu borrowing the page's strings.
+    mixerTitle: data.mixer.title,
+    cartTitle: data.cart.title,
     help: data.menu.help,
     about: data.menu.about,
     // The Settings menu borrows the PAGE's own strings rather than getting
@@ -2280,6 +2285,33 @@ function createMenu(locale = 'en', isDev = false) {
             mainWindow.webContents.send('menu-open-settings', s.id);
           }
         }))
+      ]
+    },
+    // Asked for 2026-09-27 alongside the cart's docking controls: an OS-level
+    // way to put either detachable panel into its own window.
+    //
+    // These call the window factories DIRECTLY rather than asking the renderer
+    // to, because both already focus an existing window instead of making a
+    // second one, and both already tell the main window they opened
+    // (`cart-player-window-opened` / `mixer-window-opened`) — which is what sets
+    // `cartDetached` / `mixerDetached` there. So one path serves the menu, the
+    // panel's own Detach button and a reopen after closing, and the renderer
+    // never has to be asked where the project folder is.
+    {
+      label: t.window,
+      submenu: [
+        {
+          label: t.mixerTitle,
+          click: () => {
+            createMixerWindow();
+          }
+        },
+        {
+          label: t.cartTitle,
+          click: () => {
+            createCartPlayerWindow();
+          }
+        }
       ]
     },
     {

@@ -26,6 +26,7 @@
     "changeAccentColor": "Schimba accentul de culoare",
     "fullscreen": "Ecran întreg",
     "language": "Limba",
+    "window": "Fereastră",
     "help": "Ajutor",
     "about": "Despre LivePlay"
   },
@@ -106,6 +107,8 @@
     "close": "Închide",
     "detach": "Separă",
     "attach": "Ataşează",
+    "expand": "Extinde la lățime completă",
+    "dock": "Andochează pe lateral",
     "configureControls": "Configurare controale",
     "tabKeyboard": "Tastatură",
     "tabMidi": "MIDI",

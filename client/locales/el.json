@@ -25,6 +25,7 @@
     "changeAccentColor": "Αλλαγή Χρώματος Έμφασης",
     "fullscreen": "Πλήρης Οθόνη",
     "language": "Γλώσσα",
+    "window": "Παράθυρο",
     "exit": "Έξοδος",
     "help": "Βοήθεια",
     "about": "Σχετικά με το LivePlay"
@@ -106,6 +107,8 @@
     "close": "Κλείσιμο",
     "detach": "Αποσύνδεση",
     "attach": "Επισύνδεση",
+    "expand": "Επέκταση σε πλήρες πλάτος",
+    "dock": "Αγκύρωση στο πλάι",
     "configureControls": "Ρύθμιση ελέγχων",
     "tabKeyboard": "Πληκτρολόγιο",
     "tabMidi": "MIDI",

@@ -26,6 +26,7 @@
     "changeAccentColor": "تغيير لون التمييز",
     "fullscreen": "ملء الشاشة",
     "language": "اللغة",
+    "window": "نافذة",
     "help": "مساعدة",
     "about": "حول LivePlay"
   },
@@ -106,6 +107,8 @@
     "close": "إغلاق",
     "detach": "فصل",
     "attach": "إرفاق",
+    "expand": "توسيع لعرض كامل",
+    "dock": "تثبيت على الجانب",
     "configureControls": "تكوين الضوابط",
     "tabKeyboard": "لوحة المفاتيح",
     "tabMidi": "MIDI",

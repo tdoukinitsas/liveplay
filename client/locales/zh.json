@@ -26,6 +26,7 @@
     "changeAccentColor": "更改强调色",
     "fullscreen": "全屏",
     "language": "语言",
+    "window": "窗口",
     "help": "帮助",
     "about": "关于LivePlay"
   },
@@ -106,6 +107,8 @@
     "close": "关闭",
     "detach": "分离",
     "attach": "合并",
+    "expand": "展开为全宽",
+    "dock": "停靠到侧边",
     "configureControls": "配置控制",
     "tabKeyboard": "键盘",
     "tabMidi": "MIDI",

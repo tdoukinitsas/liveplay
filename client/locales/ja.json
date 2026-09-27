@@ -26,6 +26,7 @@
     "changeAccentColor": "アクセントカラーの変更",
     "fullscreen": "フルスクリーン",
     "language": "言語",
+    "window": "ウィンドウ",
     "help": "ヘルプ",
     "about": "LivePlayについて"
   },
@@ -106,6 +107,8 @@
     "close": "閉じる",
     "detach": "切り離す",
     "attach": "元に戻す",
+    "expand": "全幅に展開",
+    "dock": "側面にドッキング",
     "configureControls": "コントロール設定",
     "tabKeyboard": "キーボード",
     "tabMidi": "MIDI",

@@ -26,6 +26,7 @@
     "changeAccentColor": "Ndrysho Ngjyrën e Theksuar",
     "fullscreen": "Ekran i Plotë",
     "language": "Gjuha",
+    "window": "Dritare",
     "help": "Ndihmë",
     "about": "Rreth LivePlay"
   },
@@ -106,6 +107,8 @@
     "close": "Mbyll",
     "detach": "Shkëput",
     "attach": "Bashko",
+    "expand": "Zgjero në gjerësi të plotë",
+    "dock": "Ankoro në anë",
     "configureControls": "Konfiguro kontrollet",
     "tabKeyboard": "Tastierë",
     "tabMidi": "MIDI",

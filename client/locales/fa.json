@@ -25,6 +25,7 @@
     "changeAccentColor": "تغییر رنگ برجسته",
     "fullscreen": "تمام صفحه",
     "language": "زبان",
+    "window": "پنجره",
     "exit": "خروج",
     "help": "راهنما",
     "about": "درباره LivePlay"
@@ -106,6 +107,8 @@
     "close": "بستن",
     "detach": "جداسازی",
     "attach": "ضمیمه",
+    "expand": "بزرگ‌نمایی به عرض کامل",
+    "dock": "پهلوگیری در کنار",
     "configureControls": "پیکربندی کنترل‌ها",
     "tabKeyboard": "صفحه‌کلید",
     "tabMidi": "MIDI",

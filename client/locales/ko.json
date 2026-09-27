@@ -26,6 +26,7 @@
     "changeAccentColor": "강조 색상 변경",
     "fullscreen": "전체 화면",
     "language": "언어",
+    "window": "창",
     "help": "도움말",
     "about": "LivePlay 정보"
   },
@@ -106,6 +107,8 @@
     "close": "닫기",
     "detach": "분리",
     "attach": "통합",
+    "expand": "전체 너비로 확장",
+    "dock": "옆으로 도킹",
     "configureControls": "컨트롤 설정",
     "tabKeyboard": "키보드",
     "tabMidi": "MIDI",

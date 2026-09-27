@@ -26,6 +26,7 @@
     "changeAccentColor": "অ্যাক্সেন্ট রঙ পরিবর্তন করুন",
     "fullscreen": "পূর্ণ স্ক্রীন",
     "language": "ভাষা",
+    "window": "উইন্ডো",
     "help": "সাহায্য",
     "about": "LivePlay সম্পর্কে"
   },
@@ -106,6 +107,8 @@
     "close": "বন্ধ করুন",
     "detach": "আলাদা করুন",
     "attach": "সংযুক্ত করুন",
+    "expand": "পূর্ণ প্রস্থে প্রসারিত করুন",
+    "dock": "পাশে ডক করুন",
     "configureControls": "নিয়ন্ত্রণ কনফিগার করুন",
     "tabKeyboard": "কীবোর্ড",
     "tabMidi": "MIDI",

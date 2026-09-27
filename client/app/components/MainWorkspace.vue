@@ -453,9 +453,14 @@ const startPropsResize = (e: PointerEvent) => {
 
 const cartWidth = ref(500);
 const isResizing = ref(false);
-const cartClosed = ref(false);
-const cartFullscreen = ref(false);
-const cartDetached = ref(false);
+// Shared, not local, so CartPlayer's own header can offer the same three views
+// the mixer's does. They were plain refs while the splitter was the only way to
+// reach them — which is exactly why the cart had no Expand, Dock or Close
+// button: the state existed and nothing outside this component could see it.
+// `cartWidth` stays local; it is geometry the splitter owns, like mixerWidth.
+const cartClosed = useState<boolean>('liveplay:cartClosed', () => false);
+const cartFullscreen = useState<boolean>('liveplay:cartFullscreen', () => false);
+const cartDetached = useState<boolean>('liveplay:cartDetached', () => false);
 
 // Pointer events (not mouse events) so the splitter is draggable by touch and
 // pen as well as mouse. Pointer capture keeps the drag alive when the finger

@@ -26,6 +26,7 @@
     "changeAccentColor": "Изменить цвет акцента",
     "fullscreen": "Полноэкранный режим",
     "language": "Язык",
+    "window": "Окно",
     "help": "Справка",
     "about": "О LivePlay"
   },
@@ -106,6 +107,8 @@
     "close": "Закрыть",
     "detach": "Открепить",
     "attach": "Прикрепить",
+    "expand": "Развернуть на всю ширину",
+    "dock": "Закрепить сбоку",
     "configureControls": "Настройка управления",
     "tabKeyboard": "Клавиатура",
     "tabMidi": "MIDI",

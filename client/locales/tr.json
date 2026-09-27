@@ -26,6 +26,7 @@
     "changeAccentColor": "Vurgu Rengini Değiştir",
     "fullscreen": "Tam Ekran",
     "language": "Dil",
+    "window": "Pencere",
     "help": "Yardım",
     "about": "LivePlay Hakkında"
   },
@@ -106,6 +107,8 @@
     "close": "Kapat",
     "detach": "Ayır",
     "attach": "Ekle",
+    "expand": "Tam genişliğe genişlet",
+    "dock": "Kenara sabitle",
     "configureControls": "Kontrolleri yapılandır",
     "tabKeyboard": "Klavye",
     "tabMidi": "MIDI",

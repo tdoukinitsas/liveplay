@@ -26,6 +26,7 @@
     "changeAccentColor": "ایکسینٹ رنگ تبدیل کریں",
     "fullscreen": "مکمل اسکرین",
     "language": "زبان",
+    "window": "ونڈو",
     "help": "مدد",
     "about": "LivePlay کے بارے میں"
   },
@@ -106,6 +107,8 @@
     "close": "بند کریں",
     "detach": "الگ کریں",
     "attach": "منسلک کریں",
+    "expand": "مکمل چوڑائی تک پھیلائیں",
+    "dock": "کنارے پر لنگر انداز کریں",
     "configureControls": "کنٹرولز ترتیب دیں",
     "tabKeyboard": "کی بورڈ",
     "tabMidi": "MIDI",

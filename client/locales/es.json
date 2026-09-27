@@ -25,6 +25,7 @@
     "changeAccentColor": "Cambiar Color de Acento",
     "fullscreen": "Pantalla Completa",
     "language": "Idioma",
+    "window": "Ventana",
     "exit": "Salir",
     "help": "Ayuda",
     "about": "Acerca de LivePlay"
@@ -106,6 +107,8 @@
     "close": "Cerrar",
     "detach": "Separar",
     "attach": "Integrar",
+    "expand": "Expandir a ancho completo",
+    "dock": "Anclar al lateral",
     "configureControls": "Configurar controles",
     "tabKeyboard": "Teclado",
     "tabMidi": "MIDI",

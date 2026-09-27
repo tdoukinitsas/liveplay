@@ -26,6 +26,7 @@
     "changeAccentColor": "एक्सेंट रंग बदलें",
     "fullscreen": "पूर्ण स्क्रीन",
     "language": "भाषा",
+    "window": "विंडो",
     "help": "सहायता",
     "about": "LivePlay के बारे में"
   },
@@ -106,6 +107,8 @@
     "close": "बंद करें",
     "detach": "अलग करें",
     "attach": "जोड़ें",
+    "expand": "पूरी चौड़ाई तक फैलाएँ",
+    "dock": "साइड में डॉक करें",
     "configureControls": "नियंत्रण कॉन्फ़िगर करें",
     "tabKeyboard": "कीबोर्ड",
     "tabMidi": "MIDI",

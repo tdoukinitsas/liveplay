@@ -25,6 +25,7 @@
     "changeAccentColor": "Alterar Cor de Destaque",
     "fullscreen": "Tela Cheia",
     "language": "Idioma",
+    "window": "Janela",
     "exit": "Sair",
     "help": "Ajuda",
     "about": "Sobre o LivePlay"
@@ -106,6 +107,8 @@
     "close": "Fechar",
     "detach": "Destacar",
     "attach": "Reintegrar",
+    "expand": "Expandir para largura total",
+    "dock": "Ancorar na lateral",
     "configureControls": "Configurar controles",
     "tabKeyboard": "Teclado",
     "tabMidi": "MIDI",

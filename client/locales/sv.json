@@ -26,6 +26,7 @@
     "changeAccentColor": "Ändra accentfärg",
     "fullscreen": "Helskärm",
     "language": "Språk",
+    "window": "Fönster",
     "help": "Hjälp",
     "about": "Om LivePlay"
   },
@@ -106,6 +107,8 @@
     "close": "Stäng",
     "detach": "Koppla loss",
     "attach": "Koppla in",
+    "expand": "Expandera till full bredd",
+    "dock": "Docka vid sidan",
     "configureControls": "Konfigurera kontroller",
     "tabKeyboard": "Tangentbord",
     "tabMidi": "MIDI",
