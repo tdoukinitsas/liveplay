@@ -223,8 +223,17 @@ const progressModal = ref({
 // while this is true. It is deliberately NOT persisted — restoring windows is
 // P4's job, and spawning one at boot because of a setting nobody remembers
 // choosing is a worse first impression than opening docked.
-const { mixerMode, mixerOpen, mixerDetached, setMixerMode: persistMixerMode } = useMixerView();
-const mixerWidth = ref(420);
+const { mixerMode, mixerDetached, setMixerMode: persistMixerMode } = useMixerView();
+// P4. Everything the splitters below move, plus which panes are showing, read
+// back from the machine store on mount and written after each change. The refs
+// themselves live there so this component's existing assignments are all that is
+// needed to change a boundary — persistence is a watcher, not a call at every
+// site that moves something.
+const {
+  cartWidth, mixerWidth, propertiesHeight,
+  cartClosed, cartFullscreen, mixerOpen, mixerCollapsed,
+  persistLayout, flushLayout,
+} = useWorkspaceLayout();
 const isMixerResizing = ref(false);
 // Collapsed by dragging its separator to the right edge: the pane is not
 // rendered but mixerOpen stays true, and only the thin handle remains to drag
@@ -235,7 +244,7 @@ const isMixerResizing = ref(false);
 // not on screen rather than being a permanent toggle, and "collapsed" is one of
 // the two ways that happens. While this was local the header could only see
 // `mixerOpen`, so a collapsed mixer would offer no button at all.
-const mixerCollapsed = useState<boolean>('liveplay:mixerCollapsed', () => false);
+// Declared in useWorkspaceLayout with the rest of the layout (P4).
 // Handy alias for the template/handlers: the mixer is rendered full-width.
 const mixerFull = computed(() => mixerOpen.value && !mixerDetached.value && mixerMode.value === 'full');
 
@@ -413,12 +422,12 @@ function startMixerResize(e: PointerEvent) {
 // in PropertiesPanel changes — the variable is simply set on .main-workspace
 // from here instead of being a constant in the stylesheet.
 const PROPERTIES_MIN_PX     = 160;
-const PROPERTIES_DEFAULT_PX = 300;
+// PROPERTIES_DEFAULT_PX comes from useWorkspaceLayout, which owns the splitter
+// defaults now that it has to seed them before any drag (O5: one owner).
 // What the workspace above has to keep. The ceiling is measured against the
 // window rather than being a second constant, so the panel can take most of a
 // tall screen without being able to swallow the playlist on a short one.
 const PROPERTIES_TOP_MIN_PX = 220;
-const propertiesHeight  = ref(PROPERTIES_DEFAULT_PX);
 const isResizingProps   = ref(false);
 
 function maxPropertiesHeight(): number {
@@ -456,15 +465,14 @@ const startPropsResize = (e: PointerEvent) => {
   document.addEventListener('pointercancel', onUp);
 };
 
-const cartWidth = ref(500);
 const isResizing = ref(false);
-// Shared, not local, so CartPlayer's own header can offer the same three views
-// the mixer's does. They were plain refs while the splitter was the only way to
+// Shared, not local, so CartPlayer's own header can offer the same views the
+// mixer's does. They were plain refs while the splitter was the only way to
 // reach them — which is exactly why the cart had no Expand, Dock or Close
 // button: the state existed and nothing outside this component could see it.
-// `cartWidth` stays local; it is geometry the splitter owns, like mixerWidth.
-const cartClosed = useState<boolean>('liveplay:cartClosed', () => false);
-const cartFullscreen = useState<boolean>('liveplay:cartFullscreen', () => false);
+// `cartClosed` / `cartFullscreen` are declared in useWorkspaceLayout with the
+// rest of the layout (P4); `cartDetached` deliberately is NOT persisted — see
+// the note there about restoring a flag without the window it names.
 const cartDetached = useState<boolean>('liveplay:cartDetached', () => false);
 
 // Pointer events (not mouse events) so the splitter is draggable by touch and
@@ -895,10 +903,38 @@ function openOutputMap() {
 const { mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
 const { mount: mountMidi, unmount: unmountMidi } = useMidiController();
 
+// P4. One watcher for the whole layout, so every existing site that moves a
+// boundary persists it without knowing that it does — the drag handlers, the
+// snap thresholds, the panel buttons and the header buttons alike. The write is
+// debounced inside the composable, which is what stops a pointermove stream
+// becoming a localStorage write per frame.
+watch(
+  [cartWidth, mixerWidth, propertiesHeight,
+   cartClosed, cartFullscreen, mixerOpen, mixerCollapsed],
+  () => persistLayout(),
+);
+
+// Re-clamp when a pane APPEARS, not only when the window resizes. A width that
+// was stored while its pane was hidden has never been measured against this
+// row — reopen a cart last dragged wide on a bigger screen and it would
+// over-request, and the playlist is what gives. reclampPanes is idempotent, so
+// the write it may make settles immediately rather than chasing itself.
+watch([cartClosed, cartFullscreen, mixerOpen, mixerCollapsed], () => {
+  if (import.meta.client) nextTick(reclampPanes);
+});
+
 onMounted(() => {
   if (import.meta.client) {
     window.addEventListener('keydown', handleKeydown);
     window.addEventListener('resize', reclampPanes);
+    // The restored widths are the raw numbers last dragged to, on whatever
+    // screen that was. Clamp them against THIS window before anyone sees them:
+    // a layout saved on a 4K display would otherwise over-request on a laptop
+    // and the playlist would be what gave. nextTick so the row has been laid
+    // out and getBoundingClientRect has a width to measure.
+    nextTick(reclampPanes);
+    // A pending debounce dies with the page, taking the last drag with it.
+    window.addEventListener('pagehide', flushLayout);
     mountHotkeys();
     mountMidi();
   }
@@ -908,6 +944,10 @@ onUnmounted(() => {
   if (import.meta.client) {
     window.removeEventListener('keydown', handleKeydown);
     window.removeEventListener('resize', reclampPanes);
+    window.removeEventListener('pagehide', flushLayout);
+    // Same reason as pagehide, for the case where this component goes away
+    // while the page stays — a detached window taking the panel over, say.
+    flushLayout();
     unmountHotkeys();
     unmountMidi();
   }

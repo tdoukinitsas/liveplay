@@ -89,8 +89,11 @@ const handleAttach = () => {
 // Nothing asks the cart's view what it is between launches, and cart WIDTH is
 // not persisted either — both belong to P4's layout work, together, rather than
 // half of it arriving here.
-const cartFullscreen = useState<boolean>('liveplay:cartFullscreen', () => false);
-const cartClosed = useState<boolean>('liveplay:cartClosed', () => false);
+// From the composable that owns the layout (P4), not a second `useState` call
+// per key — one declaration means one default. Reached in the detached window
+// too, where it only ever reads: both writers below are behind
+// `!isDetachedWindow`, and that window has no docked pane to lay out.
+const { cartFullscreen, cartClosed } = useWorkspaceLayout();
 
 function toggleFullscreen() {
   cartFullscreen.value = !cartFullscreen.value;

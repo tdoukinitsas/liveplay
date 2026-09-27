@@ -40,7 +40,10 @@ export const useMixerView = () => {
   // them. A second source of truth for "is the mixer full width" is exactly the
   // bug this codebase has already paid for once.
   const mixerMode     = useState<MixerMode>('liveplay:mixerMode', () => 'side');
-  const mixerOpen     = useState<boolean>('liveplay:mixerOpen', () => false);
+  // `mixerOpen` belongs to useWorkspaceLayout (P4), which persists it along with
+  // the rest of the pane layout. Taken from there rather than re-declared, so
+  // there is one default for it and setMixerView's write below is remembered.
+  const { mixerOpen } = useWorkspaceLayout();
   const mixerDetached = useState<boolean>('liveplay:mixerDetached', () => false);
 
   if (import.meta.client && !_hydrated) {

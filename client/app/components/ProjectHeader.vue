@@ -131,18 +131,19 @@ const { uiMode, toggleUiMode } = useUiMode();
 // own section. It is deep-linkable, so the section is part of the URL rather
 // than a flag here.
 const { open: openSettings } = useSettingsPage();
-// Shared with MainWorkspace, which swaps the mixer in for the playlist/cart.
-const mixerOpen = useState<boolean>('liveplay:mixerOpen', () => false);
+// The pane layout, from the composable that owns it (P4) rather than from a
+// second `useState` call per key here. Same refs either way — but a duplicate
+// declaration is a duplicate DEFAULT, and whichever component's setup ran first
+// would win if the two ever drifted.
+//
+// `mixerCollapsed` is the mixer dragged off the right edge: the pane is not
+// drawn but `mixerOpen` stays true. This header needs it to tell "not on screen"
+// from "not asked for" — without it a collapsed mixer would show no button and
+// the only way back would be a 12px handle, which is exactly the stranding the
+// cart's Close button was held back over.
+const { mixerOpen, mixerCollapsed, cartClosed, cartFullscreen } = useWorkspaceLayout();
+// Not persisted, and not part of the layout store — see the note there.
 const mixerDetached = useState<boolean>('liveplay:mixerDetached', () => false);
-// Collapsed by dragging the mixer's separator off the right edge: the pane is
-// not drawn but `mixerOpen` stays true. Shared so this header can tell "not on
-// screen" from "not asked for" — without it a collapsed mixer would show no
-// button and the only way back would be a 12px handle, which is exactly the
-// stranding the cart's Close button was held back over.
-const mixerCollapsed = useState<boolean>('liveplay:mixerCollapsed', () => false);
-// Shared with MainWorkspace. The cart's own close snap and Close button set it.
-const cartClosed = useState<boolean>('liveplay:cartClosed', () => false);
-const cartFullscreen = useState<boolean>('liveplay:cartFullscreen', () => false);
 const cartDetached = useState<boolean>('liveplay:cartDetached', () => false);
 
 /** The mixer pane is not being drawn — closed outright, or collapsed to a handle. */
