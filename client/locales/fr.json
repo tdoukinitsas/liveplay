@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "Configurer les contrôles",
-    "shortcutBtn": "Raccourcis",
     "tabKeyboard": "Clavier",
     "tabMidi": "MIDI",
     "sectionCartSlots": "Emplacements",
@@ -470,7 +469,7 @@
     "previewing": "Aperçu"
   },
   "settings": {
-    "title": "Paramètres du Projet",
+    "title": "Paramètres",
     "ltcOutput": "Sortie LTC",
     "ltcOutputHelp": "Où ce spectacle envoie le timecode SMPTE. C'est un nom, pas une carte son — la table de sortie de cette machine décide de ce qu'il désigne ici.",
     "ltcOutputGroupOutputs": "Sorties",

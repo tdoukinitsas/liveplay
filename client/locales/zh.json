@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "配置控制",
-    "shortcutBtn": "快捷键",
     "tabKeyboard": "键盘",
     "tabMidi": "MIDI",
     "sectionCartSlots": "音频插槽",
@@ -470,7 +469,7 @@
     "previewing": "预听中"
   },
   "settings": {
-    "title": "项目设置",
+    "title": "设置",
     "ltcOutput": "LTC 输出",
     "ltcOutputHelp": "本演出的 SMPTE 时间码送往何处。这是一个名称，不是声卡——本机的输出映射决定它在这里指向什么。",
     "ltcOutputGroupOutputs": "输出",

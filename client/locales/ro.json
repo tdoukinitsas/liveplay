@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "Configurare controale",
-    "shortcutBtn": "Comenzi rapide",
     "tabKeyboard": "Tastatură",
     "tabMidi": "MIDI",
     "sectionCartSlots": "Sloturi cart",
@@ -470,7 +469,7 @@
     "previewing": "Previzualizare"
   },
   "settings": {
-    "title": "Setări Proiect",
+    "title": "Setări",
     "ltcOutput": "Ieșire LTC",
     "ltcOutputHelp": "Unde trimite acest spectacol codul de timp SMPTE. Este un nume, nu o placă de sunet — harta de ieșiri a acestei mașini decide ce înseamnă aici.",
     "ltcOutputGroupOutputs": "Ieșiri",

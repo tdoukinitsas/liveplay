@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "Kontrolleri yapılandır",
-    "shortcutBtn": "Kısayollar",
     "tabKeyboard": "Klavye",
     "tabMidi": "MIDI",
     "sectionCartSlots": "Sepet yuvaları",
@@ -470,7 +469,7 @@
     "previewing": "Ön İzleme"
   },
   "settings": {
-    "title": "Proje Ayarları",
+    "title": "Ayarlar",
     "ltcOutput": "LTC Çıkışı",
     "ltcOutputHelp": "Bu gösterinin SMPTE zaman kodunu nereye gönderdiği. Bu bir ad, ses kartı değil — burada neyi işaret ettiğine bu makinenin çıkış haritası karar verir.",
     "ltcOutputGroupOutputs": "Çıkışlar",

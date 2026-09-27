@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "Configurar controles",
-    "shortcutBtn": "Atajos",
     "tabKeyboard": "Teclado",
     "tabMidi": "MIDI",
     "sectionCartSlots": "Ranuras del carrito",
@@ -470,7 +469,7 @@
     "previewing": "Vista previa"
   },
   "settings": {
-    "title": "Configuración del Proyecto",
+    "title": "Configuración",
     "ltcOutput": "Salida LTC",
     "ltcOutputHelp": "Adónde envía este espectáculo el código de tiempo SMPTE. Es un nombre, no una tarjeta de sonido: el mapa de salidas de esta máquina decide qué significa aquí.",
     "ltcOutputGroupOutputs": "Salidas",

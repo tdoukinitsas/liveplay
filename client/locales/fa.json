@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "پیکربندی کنترل‌ها",
-    "shortcutBtn": "میانبرها",
     "tabKeyboard": "صفحه‌کلید",
     "tabMidi": "MIDI",
     "sectionCartSlots": "شکاف‌های سبد",
@@ -470,7 +469,7 @@
     "previewing": "پیش‌نمایش"
   },
   "settings": {
-    "title": "تنظیمات پروژه",
+    "title": "تنظیمات",
     "ltcOutput": "خروجی LTC",
     "ltcOutputHelp": "این اجرا کد زمانی SMPTE خود را کجا می‌فرستد. این یک نام است، نه کارت صدا — نقشهٔ خروجی این دستگاه تعیین می‌کند اینجا به چه معناست.",
     "ltcOutputGroupOutputs": "خروجی‌ها",

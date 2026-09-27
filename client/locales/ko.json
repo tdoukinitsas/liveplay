@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "컨트롤 설정",
-    "shortcutBtn": "단축키",
     "tabKeyboard": "키보드",
     "tabMidi": "MIDI",
     "sectionCartSlots": "카트 슬롯",
@@ -470,7 +469,7 @@
     "previewing": "미리 듣기"
   },
   "settings": {
-    "title": "프로젝트 설정",
+    "title": "설정",
     "ltcOutput": "LTC 출력",
     "ltcOutputHelp": "이 공연의 SMPTE 타임코드를 보낼 곳입니다. 사운드 카드가 아니라 이름이며, 여기서 무엇을 가리키는지는 이 컴퓨터의 출력 맵이 정합니다.",
     "ltcOutputGroupOutputs": "출력",

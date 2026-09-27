@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "नियंत्रण कॉन्फ़िगर करें",
-    "shortcutBtn": "शॉर्टकट",
     "tabKeyboard": "कीबोर्ड",
     "tabMidi": "MIDI",
     "sectionCartSlots": "कार्ट स्लॉट",
@@ -470,7 +469,7 @@
     "previewing": "पूर्वावलोकन"
   },
   "settings": {
-    "title": "प्रोजेक्ट सेटिंग",
+    "title": "सेटिंग",
     "ltcOutput": "LTC आउटपुट",
     "ltcOutputHelp": "यह शो अपना SMPTE टाइमकोड कहाँ भेजता है। यह एक नाम है, साउंड कार्ड नहीं — यहाँ इसका क्या अर्थ है, यह इस मशीन का आउटपुट मैप तय करता है।",
     "ltcOutputGroupOutputs": "आउटपुट",

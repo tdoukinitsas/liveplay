@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "کنٹرولز ترتیب دیں",
-    "shortcutBtn": "شارٹ کٹس",
     "tabKeyboard": "کی بورڈ",
     "tabMidi": "MIDI",
     "sectionCartSlots": "کارٹ سلاٹس",
@@ -470,7 +469,7 @@
     "previewing": "پیش نظارہ"
   },
   "settings": {
-    "title": "پروجیکٹ سیٹنگز",
+    "title": "سیٹنگز",
     "ltcOutput": "LTC آؤٹ پٹ",
     "ltcOutputHelp": "یہ شو اپنا SMPTE ٹائم کوڈ کہاں بھیجتا ہے۔ یہ ایک نام ہے، ساؤنڈ کارڈ نہیں — یہاں اس کا کیا مطلب ہے، یہ اس مشین کا آؤٹ پٹ نقشہ طے کرتا ہے۔",
     "ltcOutputGroupOutputs": "آؤٹ پٹس",

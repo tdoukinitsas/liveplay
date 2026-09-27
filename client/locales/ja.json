@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "コントロール設定",
-    "shortcutBtn": "ショートカット",
     "tabKeyboard": "キーボード",
     "tabMidi": "MIDI",
     "sectionCartSlots": "カートスロット",
@@ -470,7 +469,7 @@
     "previewing": "プレビュー"
   },
   "settings": {
-    "title": "プロジェクト設定",
+    "title": "設定",
     "ltcOutput": "LTC出力",
     "ltcOutputHelp": "この公演のSMPTEタイムコードの送り先。サウンドカードではなく名前であり、それがここで何を指すかはこのマシンの出力マップが決めます。",
     "ltcOutputGroupOutputs": "出力",

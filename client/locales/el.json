@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "Ρύθμιση ελέγχων",
-    "shortcutBtn": "Συντομεύσεις",
     "tabKeyboard": "Πληκτρολόγιο",
     "tabMidi": "MIDI",
     "sectionCartSlots": "Θέσεις καρτ",
@@ -470,7 +469,7 @@
     "previewing": "Προεπισκόπηση"
   },
   "settings": {
-    "title": "Ρυθμίσεις Εκδήλωσης",
+    "title": "Ρυθμίσεις",
     "ltcOutput": "Έξοδος LTC",
     "ltcOutputHelp": "Πού στέλνει αυτή η παράσταση το SMPTE timecode. Είναι όνομα, όχι κάρτα ήχου — ο χάρτης εξόδων αυτού του μηχανήματος ορίζει τι σημαίνει εδώ.",
     "ltcOutputGroupOutputs": "Έξοδοι",

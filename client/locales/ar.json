@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "تكوين الضوابط",
-    "shortcutBtn": "اختصارات",
     "tabKeyboard": "لوحة المفاتيح",
     "tabMidi": "MIDI",
     "sectionCartSlots": "فتحات العربة",
@@ -470,7 +469,7 @@
     "previewing": "معاينة"
   },
   "settings": {
-    "title": "إعدادات المشروع",
+    "title": "إعدادات",
     "ltcOutput": "مخرج LTC",
     "ltcOutputHelp": "إلى أين يرسل هذا العرض رمز الوقت SMPTE. إنه اسم لا بطاقة صوت — خريطة المخارج في هذا الجهاز هي التي تحدد ما يعنيه هنا.",
     "ltcOutputGroupOutputs": "المخارج",

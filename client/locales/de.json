@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "Steuerung konfigurieren",
-    "shortcutBtn": "Tastenkürzel",
     "tabKeyboard": "Tastatur",
     "tabMidi": "MIDI",
     "sectionCartSlots": "Cart-Plätze",
@@ -470,7 +469,7 @@
     "previewing": "Vorschau"
   },
   "settings": {
-    "title": "Projekteinstellungen",
+    "title": "Einstellungen",
     "ltcOutput": "LTC-Ausgang",
     "ltcOutputHelp": "Wohin diese Show SMPTE-Timecode sendet. Ein Name, kein Audiogerät — die Ausgangszuordnung dieses Rechners legt fest, was er hier bedeutet.",
     "ltcOutputGroupOutputs": "Ausgänge",

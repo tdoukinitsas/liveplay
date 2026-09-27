@@ -66,7 +66,7 @@
     "openRecentFailed": "Failed to open project.\n\nLivePlay could not load this recent project from the current server. The file may exist, but it may be unavailable, locked, not fully synced, or not readable by the server.\n\nRecent entry:\n{path}\n\nThe entry was not removed. You can remove it manually with the X button."
   },
   "settings": {
-    "title": "Project Settings",
+    "title": "Settings",
     "ltcOutput": "LTC Output",
     "ltcOutputHelp": "Where this show sends SMPTE timecode. It is a name, not a sound card — this machine's output map decides what it means here.",
     "ltcOutputGroupOutputs": "Outputs",
@@ -585,7 +585,6 @@
   },
   "controls": {
     "title": "Configure Controls",
-    "shortcutBtn": "Shortcuts",
     "tabKeyboard": "Keyboard",
     "tabMidi": "MIDI",
     "sectionCartSlots": "Cart Slots",

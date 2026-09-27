@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "নিয়ন্ত্রণ কনফিগার করুন",
-    "shortcutBtn": "শর্টকাট",
     "tabKeyboard": "কীবোর্ড",
     "tabMidi": "MIDI",
     "sectionCartSlots": "কার্ট স্লট",
@@ -470,7 +469,7 @@
     "previewing": "পূর্বশ্রবণ"
   },
   "settings": {
-    "title": "প্রকল্প সেটিংস",
+    "title": "সেটিংস",
     "ltcOutput": "LTC আউটপুট",
     "ltcOutputHelp": "এই শো তার SMPTE টাইমকোড কোথায় পাঠায়। এটি একটি নাম, সাউন্ড কার্ড নয় — এখানে এর অর্থ কী তা এই মেশিনের আউটপুট ম্যাপ ঠিক করে।",
     "ltcOutputGroupOutputs": "আউটপুট",

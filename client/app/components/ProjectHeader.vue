@@ -34,8 +34,15 @@
         :class="{ 'btn--active': mixerOpen || mixerDetached }"
         @click="toggleMixer"
       />
+      <!-- One button for all of it. There was a second one beside this opening
+           `openSettings('keyboard')` directly, from when the shortcuts editor
+           was its own modal; P2 moved that editor into the page as the Keyboard
+           pane, so the button was a header-level shortcut to one of ten panes
+           that the rail already lists. The page's own name is `settings.title`
+           too, which is why that key stopped saying "Project Settings" — it has
+           not been project-only since P1, and it titles the window that now
+           holds the server's and the venue's settings as well. -->
       <Btn icon="tune" :text="t('settings.title')" @click="openSettings()" />
-      <Btn icon="keyboard" :text="t('controls.shortcutBtn')" @click="openSettings('keyboard')" />
 
       <!-- Autosave toggle: on by default; when off the project is only saved
            via File > Save and an "Unsaved Changes" pill appears by the title. -->

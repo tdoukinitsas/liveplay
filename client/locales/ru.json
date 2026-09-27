@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "Настройка управления",
-    "shortcutBtn": "Ярлыки",
     "tabKeyboard": "Клавиатура",
     "tabMidi": "MIDI",
     "sectionCartSlots": "Слоты карты",
@@ -470,7 +469,7 @@
     "previewing": "Предпросмотр"
   },
   "settings": {
-    "title": "Настройки проекта",
+    "title": "Настройки",
     "ltcOutput": "Выход LTC",
     "ltcOutputHelp": "Куда это шоу отправляет тайм-код SMPTE. Это имя, а не звуковая карта: что оно означает здесь, решает карта выходов этой машины.",
     "ltcOutputGroupOutputs": "Выходы",

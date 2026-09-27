@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "Konfigurera kontroller",
-    "shortcutBtn": "Genvägar",
     "tabKeyboard": "Tangentbord",
     "tabMidi": "MIDI",
     "sectionCartSlots": "Kortplatser",
@@ -470,7 +469,7 @@
     "previewing": "Förhandsgranskning"
   },
   "settings": {
-    "title": "Projektinställningar",
+    "title": "Inställningar",
     "ltcOutput": "LTC-utgång",
     "ltcOutputHelp": "Vart den här föreställningen skickar SMPTE-tidkod. Det är ett namn, inte ett ljudkort — utgångskartan på den här maskinen avgör vad det betyder här.",
     "ltcOutputGroupOutputs": "Utgångar",

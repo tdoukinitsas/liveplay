@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "Konfiguro kontrollet",
-    "shortcutBtn": "Shkurtore",
     "tabKeyboard": "Tastierë",
     "tabMidi": "MIDI",
     "sectionCartSlots": "Slotët e karrocës",
@@ -470,7 +469,7 @@
     "previewing": "Paraparim"
   },
   "settings": {
-    "title": "Cilësimet e Projektit",
+    "title": "Cilësimet",
     "ltcOutput": "Dalja LTC",
     "ltcOutputHelp": "Ku e dërgon ky shfaqje kodin kohor SMPTE. Është një emër, jo një kartë zëri — harta e daljeve e kësaj makine vendos se çfarë do të thotë këtu.",
     "ltcOutputGroupOutputs": "Daljet",

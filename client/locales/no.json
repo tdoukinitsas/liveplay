@@ -427,7 +427,6 @@
   },
   "controls": {
     "title": "Konfigurer kontroller",
-    "shortcutBtn": "Snarveier",
     "tabKeyboard": "Tastatur",
     "tabMidi": "MIDI",
     "sectionCartSlots": "Sporsplasser",
@@ -470,7 +469,7 @@
     "previewing": "Forhåndsvisning"
   },
   "settings": {
-    "title": "Prosjektinnstillinger",
+    "title": "Innstillinger",
     "ltcOutput": "LTC-utgang",
     "ltcOutputHelp": "Hvor denne forestillingen sender SMPTE-tidskode. Det er et navn, ikke et lydkort — utgangskartet på denne maskinen avgjør hva det betyr her.",
     "ltcOutputGroupOutputs": "Utganger",
