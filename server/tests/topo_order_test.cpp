@@ -103,8 +103,12 @@ void test_chains() {
 
 // --- 2. Diamonds ------------------------------------------------------------
 void test_diamond() {
-    // 0 feeds 1 and 2; both feed 3. (The engine only mints one output per
-    // strip — D5 — but the sort must stay correct for the general graph.)
+    // 0 feeds 1 and 2; both feed 3. This is fan-out as well as fan-in, and it
+    // stopped being hypothetical with aux sends (M1): a bus still has one
+    // OUTPUT (D5) but may now have any number of sends, and every one of them
+    // is an edge in this graph. The helper was always written for the general
+    // case, which is why the feature needed no change here — but what used to
+    // be defensive generality is now the thing the desk actually does.
     {
         const Edges edges{{1, 3}, {0, 1}, {2, 3}, {0, 2}};
         const auto res = compute_strip_order(4, edges);

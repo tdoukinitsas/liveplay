@@ -267,6 +267,28 @@ struct StripRouteEntry {
         float        gain     = 1.0f;
     };
     std::vector<LaneSend> lane_sends;
+
+    // ---- Aux sends (M1) ---------------------------------------------------
+    // Separate from dst_strip above, and deliberately so: that edge is the
+    // bus's OUTPUT — where its whole signal goes, at unity, one destination
+    // (D5). A send is a tapped COPY at its own level, and a bus may have any
+    // number of them. Two different things in the document (`bus.output` vs
+    // `bus.sends`), two different things here.
+    //
+    // `pre_fader` picks where the copy is taken from the strip's accumulators:
+    //   * false — after the fader and mute, the same point dst_strip uses.
+    //   * true  — after the DSP chain but before the fader and mute, the same
+    //             point the PFL monitor tap uses (see monitor_tap.hpp). A
+    //             foldback send is normally this one: it should not fall away
+    //             when the house fader comes down.
+    // Both points exist in the render pass already; a send only chooses
+    // between them.
+    struct Send {
+        std::size_t           dst_strip = npos;
+        bool                  pre_fader = false;
+        std::vector<LaneSend> lane_sends;
+    };
+    std::vector<Send> sends;
 };
 
 // ---------------------------------------------------------------------------
@@ -284,11 +306,24 @@ struct StripRouteEntry {
 //     nor is fed by a bus) or out of range are ignored, not dropped;
 //     self-loops are cycles and land in `dropped`.
 //
-// With at most one outgoing edge per node (D5), a stalled remainder is only
-// ever cycle members — a chain into a cycle drains first, and a cycle member's
-// single output stays inside the cycle — so the dropped edge is always a real
-// cycle edge. The helper stays general (multi-out graphs sort correctly) so it
-// can be exercised in a unit test without an engine.
+// The helper is general and always was: multi-out graphs sort correctly, which
+// is what let it be exercised in a unit test without an engine.
+//
+// WHAT AUX SENDS CHANGED (M1) is not the sort but the precision of the drop.
+// While a node had at most one outgoing edge (D5), a stalled remainder could
+// only be cycle members — a chain into a cycle drains first, and a cycle
+// member's single output stays inside the cycle — so the edge dropped to free
+// a victim was always a real cycle edge. With fan-out that no longer holds: an
+// innocent edge into a cycle member can be dropped alongside the guilty one.
+// Both still reach `dropped` and both are logged, and the sort is still safe,
+// which is all the render thread needs. But it means THIS IS A DEFENCE, NOT
+// THE DIAGNOSIS — the API rejects a cycle before it is ever stored, so an
+// operator is told which send they may not make rather than finding a
+// different one silently gone.
+//
+// `dropped` reports (source, destination) pairs rather than edge identities on
+// purpose: every edge between the same pair closes the same cycle, so the
+// caller drops all of them, which is what it wants anyway.
 struct StripOrderResult {
     std::vector<std::size_t>                          order;
     std::vector<std::pair<std::size_t, std::size_t>>  dropped;
@@ -585,6 +620,34 @@ public:
     // Remove the strip's bus→bus send (there is at most one). No-op when none.
     void unroute_mixer_to_mixer(const MixerChannelId& src);
 
+    // ---- Aux sends (M1) ---------------------------------------------------
+    // A tapped copy of `src` summed into `dst` at the caller's lane gains,
+    // taken either before the fader and mute (`pre_fader`) or after them.
+    // Distinct from route_mixer_to_mixer in every way that matters: a strip
+    // may have MANY sends, they carry their own level, and they do not
+    // describe where the bus's output goes.
+    //
+    // Re-issuing a send to the same destination replaces it in place — a level
+    // drag re-states the gains rather than tearing the edge down, which would
+    // drop audio mid-show. Changing only the tap point replaces it too.
+    //
+    // The same refusals as the output edge, and for the same reasons: never
+    // into itself, never to or from the Monitor strip (that is what PFL is),
+    // and unknown ids are ignored. CYCLES ARE THE CALLER'S JOB to refuse at
+    // the API, where the operator can be told; one that slips through anyway
+    // is dropped at topology build so the render thread cannot see it.
+    void route_mixer_send(const MixerChannelId& src,
+                          const MixerChannelId& dst,
+                          bool pre_fader,
+                          const std::vector<MixerLaneGain>& lane_gains);
+
+    // Remove one send. No-op when the strip does not make it.
+    void unroute_mixer_send(const MixerChannelId& src, const MixerChannelId& dst);
+
+    // Remove every send a strip makes. Used when its bus definition no longer
+    // lists any, which is one call rather than a diff against what it had.
+    void clear_mixer_sends(const MixerChannelId& src);
+
     void assign_master_to_device(MasterChannelIndex master,
                                  const DeviceId& device,
                                  ChannelIndex hw_channel);
@@ -728,6 +791,19 @@ private:
             std::vector<Lane> lanes;
         };
         std::unordered_map<std::string, MixerToMixer> mixer_to_mixer;
+
+        // Aux sends (M1): srcMixerId → every send it makes. Unlike
+        // mixer_to_mixer above there is no "one per source" rule — that rule
+        // is about a bus's output, and this is not its output. Keyed by
+        // destination within the vector, so re-issuing a send replaces it in
+        // place the way the output edge does and a level drag does not tear
+        // the edge down and drop audio.
+        struct MixerSend {
+            MixerChannelId          dst;
+            bool                    pre_fader = false;
+            std::vector<MixerToMixer::Lane> lanes;
+        };
+        std::unordered_map<std::string, std::vector<MixerSend>> mixer_sends;
 
         // master-to-device: masterIdx → MasterDestination
         std::vector<std::optional<MasterDestination>> master_destinations;

@@ -33,6 +33,10 @@ node server/tests/e2e/gen-wide-signal.js /tmp/liveplay-wide-signal.wav
 node server/tests/e2e/width-e2e.js      4500 /tmp/liveplay-wide-signal.wav
 node server/tests/e2e/reroute-e2e.js    4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/busbus-e2e.js     4500 /tmp/liveplay-test-signal.wav /tmp/liveplay-wide-signal.wav
+# Aux sends (M1). The claim it exists for is the tap point: a pre-fader send
+# must NOT follow the source's fader or mute, which is what a foldback depends
+# on and what no amount of reading the code can confirm.
+node server/tests/e2e/sends-e2e.js      4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/migration-e2e.js  4500 /tmp/liveplay-test-signal.wav
 node server/tests/e2e/save-churn.js     4500 /tmp/liveplay-test-signal.wav <projDir> <serverLog>
 node server/tests/e2e/materialise-skip.js 4500
