@@ -25,6 +25,34 @@
         <button class="settings-btn settings-btn--primary" @click="startAuthChange(true)">
           {{ t('users.authTurnOn') }}
         </button>
+
+        <!-- Turning the login back ON.
+             The password is asked for in BOTH directions, and that is the
+             server's rule rather than this form's caution: while authentication
+             is off there is no session to gate the change with, so the password
+             IS the gate. Re-entry rather than the token because a token here is
+             long-lived, signed, and crosses the LAN with no TLS anywhere in this
+             server. The NAME is asked for the same way and for the same reason —
+             there is no session to take it from. -->
+        <div v-if="authChange === true" v-reveal class="settings-inline-form">
+          <h4>{{ t('users.authTurnOn') }}</h4>
+          <p>{{ t('users.authTurnOnConfirm') }}</p>
+          <template v-if="!server.authUser">
+            <label class="settings-label">{{ t('users.adminName') }}</label>
+            <input class="settings-input" type="text" v-model="authName" autocomplete="username" />
+          </template>
+          <label class="settings-label">{{ t('users.confirmPassword') }}</label>
+          <input class="settings-input" type="password" v-model="authPassword"
+                 autocomplete="current-password" @keydown.enter="applyAuthChange" />
+          <p class="settings-help settings-help--muted">{{ t('users.authKeepsAccounts') }}</p>
+          <div class="settings-actions">
+            <button class="settings-btn settings-btn--primary"
+                    :disabled="!canApplyAuthChange || busy"
+                    @click="applyAuthChange">{{ t('users.authTurnOn') }}</button>
+            <button class="settings-btn" @click="cancelAuthChange">{{ t('users.cancel') }}</button>
+          </div>
+        </div>
+
         <!-- Tokens outlive the posture: turning the login off does not revoke
              them, and turning it back on makes every one of them live again.
              An administrator standing in this state needs to know they are
@@ -42,6 +70,28 @@
         <button class="settings-btn settings-btn--primary" @click="showAdd = true">
           {{ t('users.createFirst') }}
         </button>
+
+        <!-- The FIRST account. A different form from "add a colleague" below,
+             and not only in where it sits: creating this one turns
+             authentication ON for every client of this server, and no role is
+             offered because the server overrides the request anyway — a store
+             whose only account cannot manage accounts is a locked room with the
+             key inside. -->
+        <div v-if="showAdd" v-reveal class="settings-inline-form">
+          <h4>{{ t('users.addTitle') }}</h4>
+          <label class="settings-label">{{ t('users.name') }}</label>
+          <input class="settings-input" type="text" v-model="draftName" autocomplete="off" />
+          <label class="settings-label">{{ t('users.password') }}</label>
+          <input class="settings-input" type="password" v-model="draftPassword"
+                 autocomplete="new-password" />
+          <p class="settings-help">{{ t('users.firstIsAdmin') }}</p>
+          <p class="settings-help">{{ t('users.passwordRule', { min: MIN_PASSWORD_LENGTH }) }}</p>
+          <div class="settings-actions">
+            <button class="settings-btn settings-btn--primary" :disabled="!canAdd || busy"
+                    @click="addUser">{{ t('users.add') }}</button>
+            <button class="settings-btn" @click="cancelAdd">{{ t('users.cancel') }}</button>
+          </div>
+        </div>
       </template>
     </section>
 
@@ -69,6 +119,39 @@
           </button>
         </div>
         <p class="settings-help settings-help--muted">{{ t('users.signOutEverywhereHelp') }}</p>
+
+        <div v-if="confirmSignOutEverywhere" v-reveal class="settings-inline-form">
+          <p>{{ t('users.signOutEverywhereConfirm') }}</p>
+          <div class="settings-actions">
+            <button class="settings-btn settings-btn--danger" :disabled="busy"
+                    @click="signOutEverywhere">{{ t('users.signOutEverywhere') }}</button>
+            <button class="settings-btn" @click="confirmSignOutEverywhere = false">
+              {{ t('users.cancel') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Changing a password, for this account and for anybody else's.
+             It lives HERE rather than beside the account list because an
+             operator has no list — they reach this form from the button above
+             and nowhere else — so the one copy has to sit outside the admin
+             branch. That makes it the one form on the pane that can be opened
+             from somewhere other than where it appears, which is why it names
+             the account it is about. -->
+        <div v-if="passwordFor" v-reveal class="settings-inline-form">
+          <h4>{{ t('users.changePasswordTitle') }}</h4>
+          <p class="settings-help"><strong>{{ passwordForName }}</strong></p>
+          <input class="settings-input" type="password" v-model="draftPassword"
+                 autocomplete="new-password" />
+          <p class="settings-help">{{ t('users.passwordRule', { min: MIN_PASSWORD_LENGTH }) }}</p>
+          <p class="settings-help settings-help--muted">{{ t('users.passwordRevokes') }}</p>
+          <div class="settings-actions">
+            <button class="settings-btn settings-btn--primary"
+                    :disabled="draftPassword.length < MIN_PASSWORD_LENGTH || busy"
+                    @click="savePassword">{{ t('users.save') }}</button>
+            <button class="settings-btn" @click="cancelPassword">{{ t('users.cancel') }}</button>
+          </div>
+        </div>
       </section>
 
       <!-- The account list. Admins only — an operator gets the 403 branch
@@ -106,6 +189,39 @@
           <button class="settings-btn settings-btn--primary" @click="showAdd = true">
             {{ t('users.add') }}
           </button>
+        </div>
+
+        <!-- Adding a colleague. The role IS offered here, unlike the first
+             account above: authentication is already on, so the server has no
+             reason to override the request. -->
+        <div v-if="showAdd" v-reveal class="settings-inline-form">
+          <h4>{{ t('users.addTitle') }}</h4>
+          <label class="settings-label">{{ t('users.name') }}</label>
+          <input class="settings-input" type="text" v-model="draftName" autocomplete="off" />
+          <label class="settings-label">{{ t('users.password') }}</label>
+          <input class="settings-input" type="password" v-model="draftPassword"
+                 autocomplete="new-password" />
+          <label class="settings-label">{{ t('users.role') }}</label>
+          <select class="settings-select" v-model="draftRole">
+            <option value="operator">{{ t('users.roleOperator') }}</option>
+            <option value="admin">{{ t('users.roleAdmin') }}</option>
+          </select>
+          <p class="settings-help">{{ t('users.passwordRule', { min: MIN_PASSWORD_LENGTH }) }}</p>
+          <div class="settings-actions">
+            <button class="settings-btn settings-btn--primary" :disabled="!canAdd || busy"
+                    @click="addUser">{{ t('users.add') }}</button>
+            <button class="settings-btn" @click="cancelAdd">{{ t('users.cancel') }}</button>
+          </div>
+        </div>
+
+        <div v-if="pendingRemove" v-reveal class="settings-inline-form">
+          <p>{{ t('users.removeConfirm', { name: pendingRemove.name }) }}</p>
+          <p class="settings-help">{{ t('users.removeHelp') }}</p>
+          <div class="settings-actions">
+            <button class="settings-btn settings-btn--danger" :disabled="busy"
+                    @click="removeUser">{{ t('users.remove') }}</button>
+            <button class="settings-btn" @click="pendingRemove = null">{{ t('users.cancel') }}</button>
+          </div>
         </div>
 
         <!-- API tokens. Below the accounts because they answer the same
@@ -148,6 +264,48 @@
           </button>
         </div>
 
+        <!-- ---- The one and only sight of the secret -------------------- -->
+        <!-- Deliberately not a toast and not dismissed by clicking away: the
+             string exists in exactly one response and the server kept only a
+             hash of it, so losing this dialogue loses the token. It stays until
+             the person says they have it. -->
+        <div v-if="issuedToken" v-reveal class="settings-inline-form settings-inline-form--secret">
+          <h4>{{ t('apiTokens.issuedTitle', { name: issuedName }) }}</h4>
+          <p class="settings-help settings-help--warn">{{ t('apiTokens.shownOnce') }}</p>
+          <input ref="secretInput" class="settings-input settings-input--secret" type="text"
+                 readonly :value="issuedToken" @focus="selectSecret" />
+          <div class="settings-actions">
+            <button class="settings-btn settings-btn--primary" @click="copyToken">
+              {{ copied ? t('apiTokens.copied') : t('apiTokens.copy') }}
+            </button>
+            <button class="settings-btn" @click="dismissIssued">{{ t('apiTokens.done') }}</button>
+          </div>
+        </div>
+
+        <!-- ---- Rename a token ------------------------------------------ -->
+        <div v-if="renameFor" v-reveal class="settings-inline-form">
+          <h4>{{ t('apiTokens.renameTitle') }}</h4>
+          <input class="settings-input" type="text" v-model="renameDraft" autocomplete="off"
+                 @keydown.enter="saveTokenRename" />
+          <p class="settings-help settings-help--muted">{{ t('apiTokens.renameHelp') }}</p>
+          <div class="settings-actions">
+            <button class="settings-btn settings-btn--primary"
+                    :disabled="!renameDraft.trim() || busy"
+                    @click="saveTokenRename">{{ t('users.save') }}</button>
+            <button class="settings-btn" @click="renameFor = null">{{ t('users.cancel') }}</button>
+          </div>
+        </div>
+
+        <div v-if="pendingRevoke" v-reveal class="settings-inline-form">
+          <p>{{ t('apiTokens.revokeConfirm', { name: pendingRevoke.name }) }}</p>
+          <p class="settings-help">{{ t('apiTokens.revokeHelp') }}</p>
+          <div class="settings-actions">
+            <button class="settings-btn settings-btn--danger" :disabled="busy"
+                    @click="revokeToken">{{ t('apiTokens.revoke') }}</button>
+            <button class="settings-btn" @click="pendingRevoke = null">{{ t('users.cancel') }}</button>
+          </div>
+        </div>
+
         <!-- Turning the login off. Last of the account groups, and its own, because
              it is a posture for the whole server rather than a change to an
              account — and because until now there was NO way back: the store
@@ -164,10 +322,38 @@
               {{ t('users.authTurnOff') }}
             </button>
           </div>
+
+          <!-- Turning the login OFF. The other half of the form at the top of
+               this pane, and a separate one rather than a ternary: the password
+               is asked for in both directions, but only that much is shared —
+               the wording, the danger the button carries, and whether there is
+               a session to take a name from all differ. There always is one
+               here, since this group only exists for a signed-in administrator. -->
+          <div v-if="authChange === false" v-reveal class="settings-inline-form">
+            <h4>{{ t('users.authTurnOff') }}</h4>
+            <p>{{ t('users.authTurnOffConfirm') }}</p>
+            <label class="settings-label">{{ t('users.confirmPassword') }}</label>
+            <input class="settings-input" type="password" v-model="authPassword"
+                   autocomplete="current-password" @keydown.enter="applyAuthChange" />
+            <p class="settings-help settings-help--muted">{{ t('users.authKeepsAccounts') }}</p>
+            <div class="settings-actions">
+              <button class="settings-btn settings-btn--danger"
+                      :disabled="!canApplyAuthChange || busy"
+                      @click="applyAuthChange">{{ t('users.authTurnOff') }}</button>
+              <button class="settings-btn" @click="cancelAuthChange">{{ t('users.cancel') }}</button>
+            </div>
+          </div>
         </section>
       </template>
       <p v-else class="settings-help">{{ t('users.adminOnly') }}</p>
     </template>
+
+    <!-- What the last action did. Above the connected list rather than below
+         it, because it answers something the person just did and the list
+         below reflows every five seconds. -->
+    <p v-if="notice" class="settings-help" :class="noticeIsError ? 'settings-help--warn' : ''">
+      {{ notice }}
+    </p>
 
     <!-- ================================================================
          Who is connected right now.
@@ -201,165 +387,6 @@
         </div>
       </section>
     </template>
-
-    <p v-if="notice" class="settings-help" :class="noticeIsError ? 'settings-help--warn' : ''">
-      {{ notice }}
-    </p>
-
-    <!-- ---- Add an account ------------------------------------------- -->
-    <div v-if="showAdd" class="settings-inline-form">
-      <h4>{{ t('users.addTitle') }}</h4>
-      <label class="settings-label">{{ t('users.name') }}</label>
-      <input class="settings-input" type="text" v-model="draftName" autocomplete="off" />
-      <label class="settings-label">{{ t('users.password') }}</label>
-      <input class="settings-input" type="password" v-model="draftPassword"
-             autocomplete="new-password" />
-      <label class="settings-label">{{ t('users.role') }}</label>
-      <!-- Forced to admin, and not offered as a choice, while the store is
-           empty: the server overrides the request anyway (a store whose only
-           account cannot manage accounts is a locked room with the key inside),
-           so offering "operator" here would be a control that lies. -->
-      <select v-if="server.authRequired" class="settings-select" v-model="draftRole">
-        <option value="operator">{{ t('users.roleOperator') }}</option>
-        <option value="admin">{{ t('users.roleAdmin') }}</option>
-      </select>
-      <p v-else class="settings-help">{{ t('users.firstIsAdmin') }}</p>
-      <p class="settings-help">{{ t('users.passwordRule', { min: MIN_PASSWORD_LENGTH }) }}</p>
-      <div class="settings-actions">
-        <button class="settings-btn settings-btn--primary" :disabled="!canAdd || busy"
-                @click="addUser">{{ t('users.add') }}</button>
-        <button class="settings-btn" @click="cancelAdd">{{ t('users.cancel') }}</button>
-      </div>
-    </div>
-
-    <!-- ---- Change a password ---------------------------------------- -->
-    <div v-if="passwordFor" class="settings-inline-form">
-      <h4>{{ t('users.changePasswordTitle') }}</h4>
-      <input class="settings-input" type="password" v-model="draftPassword"
-             autocomplete="new-password" />
-      <p class="settings-help">{{ t('users.passwordRule', { min: MIN_PASSWORD_LENGTH }) }}</p>
-      <p class="settings-help settings-help--muted">{{ t('users.passwordRevokes') }}</p>
-      <div class="settings-actions">
-        <button class="settings-btn settings-btn--primary"
-                :disabled="draftPassword.length < MIN_PASSWORD_LENGTH || busy"
-                @click="savePassword">{{ t('users.save') }}</button>
-        <button class="settings-btn" @click="cancelPassword">{{ t('users.cancel') }}</button>
-      </div>
-    </div>
-
-    <!-- ---- Issue an API token ---------------------------------------- -->
-    <div v-if="showAddToken" class="settings-inline-form">
-      <h4>{{ t('apiTokens.addTitle') }}</h4>
-      <!-- users.name, not a key of its own: the same word on the same pane,
-           already settled in 21 languages. -->
-      <label class="settings-label">{{ t('users.name') }}</label>
-      <input class="settings-input" type="text" v-model="tokenName" autocomplete="off" />
-      <p class="settings-help">{{ t('apiTokens.nameHelp') }}</p>
-      <label class="settings-label">{{ t('users.confirmPassword') }}</label>
-      <input class="settings-input" type="password" v-model="tokenPassword"
-             autocomplete="current-password" @keydown.enter="issueToken" />
-      <p class="settings-help settings-help--muted">{{ t('apiTokens.passwordWhy') }}</p>
-      <div class="settings-actions">
-        <button class="settings-btn settings-btn--primary" :disabled="!canIssueToken || busy"
-                @click="issueToken">{{ t('apiTokens.issue') }}</button>
-        <button class="settings-btn" @click="cancelAddToken">{{ t('users.cancel') }}</button>
-      </div>
-    </div>
-
-    <!-- ---- The one and only sight of the secret ---------------------- -->
-    <!-- Deliberately not a toast and not dismissed by clicking away: the
-         string exists in exactly one response and the server kept only a hash
-         of it, so losing this dialogue loses the token. It stays until the
-         person says they have it. -->
-    <div v-if="issuedToken" class="settings-inline-form settings-inline-form--secret">
-      <h4>{{ t('apiTokens.issuedTitle', { name: issuedName }) }}</h4>
-      <p class="settings-help settings-help--warn">{{ t('apiTokens.shownOnce') }}</p>
-      <input ref="secretInput" class="settings-input settings-input--secret" type="text"
-             readonly :value="issuedToken" @focus="selectSecret" />
-      <div class="settings-actions">
-        <button class="settings-btn settings-btn--primary" @click="copyToken">
-          {{ copied ? t('apiTokens.copied') : t('apiTokens.copy') }}
-        </button>
-        <button class="settings-btn" @click="dismissIssued">{{ t('apiTokens.done') }}</button>
-      </div>
-    </div>
-
-    <!-- ---- Rename a token -------------------------------------------- -->
-    <div v-if="renameFor" class="settings-inline-form">
-      <h4>{{ t('apiTokens.renameTitle') }}</h4>
-      <input class="settings-input" type="text" v-model="renameDraft" autocomplete="off"
-             @keydown.enter="saveTokenRename" />
-      <p class="settings-help settings-help--muted">{{ t('apiTokens.renameHelp') }}</p>
-      <div class="settings-actions">
-        <button class="settings-btn settings-btn--primary"
-                :disabled="!renameDraft.trim() || busy"
-                @click="saveTokenRename">{{ t('users.save') }}</button>
-        <button class="settings-btn" @click="renameFor = null">{{ t('users.cancel') }}</button>
-      </div>
-    </div>
-
-    <div v-if="pendingRevoke" class="settings-inline-form">
-      <p>{{ t('apiTokens.revokeConfirm', { name: pendingRevoke.name }) }}</p>
-      <p class="settings-help">{{ t('apiTokens.revokeHelp') }}</p>
-      <div class="settings-actions">
-        <button class="settings-btn settings-btn--danger" :disabled="busy"
-                @click="revokeToken">{{ t('apiTokens.revoke') }}</button>
-        <button class="settings-btn" @click="pendingRevoke = null">{{ t('users.cancel') }}</button>
-      </div>
-    </div>
-
-    <!-- ---- Confirmations -------------------------------------------- -->
-    <div v-if="pendingRemove" class="settings-inline-form">
-      <p>{{ t('users.removeConfirm', { name: pendingRemove.name }) }}</p>
-      <p class="settings-help">{{ t('users.removeHelp') }}</p>
-      <div class="settings-actions">
-        <button class="settings-btn settings-btn--danger" :disabled="busy"
-                @click="removeUser">{{ t('users.remove') }}</button>
-        <button class="settings-btn" @click="pendingRemove = null">{{ t('users.cancel') }}</button>
-      </div>
-    </div>
-
-    <!-- ---- Turning the login off, or back on ------------------------- -->
-    <!-- The password is asked for in BOTH directions, and that is the server's
-         rule rather than this form's caution: while authentication is off there
-         is no session to gate the change with, so the password IS the gate.
-         Re-entry rather than the token because a token here is long-lived,
-         signed, and crosses the LAN with no TLS anywhere in this server.
-
-         The NAME is only asked for when there is no session to take it from —
-         which is exactly the case where this check is doing the protecting. -->
-    <div v-if="authChange !== null" class="settings-inline-form">
-      <h4>{{ authChange ? t('users.authTurnOn') : t('users.authTurnOff') }}</h4>
-      <p>{{ authChange ? t('users.authTurnOnConfirm') : t('users.authTurnOffConfirm') }}</p>
-      <template v-if="!server.authUser">
-        <label class="settings-label">{{ t('users.adminName') }}</label>
-        <input class="settings-input" type="text" v-model="authName" autocomplete="username" />
-      </template>
-      <label class="settings-label">{{ t('users.confirmPassword') }}</label>
-      <input class="settings-input" type="password" v-model="authPassword"
-             autocomplete="current-password" @keydown.enter="applyAuthChange" />
-      <p class="settings-help settings-help--muted">{{ t('users.authKeepsAccounts') }}</p>
-      <div class="settings-actions">
-        <button class="settings-btn"
-                :class="authChange ? 'settings-btn--primary' : 'settings-btn--danger'"
-                :disabled="!canApplyAuthChange || busy"
-                @click="applyAuthChange">
-          {{ authChange ? t('users.authTurnOn') : t('users.authTurnOff') }}
-        </button>
-        <button class="settings-btn" @click="cancelAuthChange">{{ t('users.cancel') }}</button>
-      </div>
-    </div>
-
-    <div v-if="confirmSignOutEverywhere" class="settings-inline-form">
-      <p>{{ t('users.signOutEverywhereConfirm') }}</p>
-      <div class="settings-actions">
-        <button class="settings-btn settings-btn--danger" :disabled="busy"
-                @click="signOutEverywhere">{{ t('users.signOutEverywhere') }}</button>
-        <button class="settings-btn" @click="confirmSignOutEverywhere = false">
-          {{ t('users.cancel') }}
-        </button>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -440,7 +467,40 @@ const CLIENTS_POLL_MS = 5000;
 const clients = ref<any[]>([]);
 let clientsTimer: ReturnType<typeof setInterval> | null = null;
 
+// A form that opens out of sight reads as a button that did nothing.
+//
+// Every form on this pane used to be rendered together at the FOOT of it, which
+// was reasonable while the pane was an account list and stopped being reasonable
+// the moment it grew a token group, a posture group and a live list of
+// connections below them: "Issue a token" opened a form a screen and a half
+// away, and the button looked broken. The forms now sit where their control is.
+//
+// This is the other half of that, for the case where the control itself is near
+// the bottom of a short window: bring the form into view and put the cursor in
+// its first field. `nearest` scrolls the least that will do, so a form already
+// on screen does not move. Focus first with the scroll suppressed, because
+// focus() does its own scrolling and the two fight.
+const vReveal = {
+  mounted(el: HTMLElement) {
+    (el.querySelector('input, select') as HTMLElement | null)?.focus({ preventScroll: true });
+    el.scrollIntoView({
+      block: 'nearest',
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    });
+  },
+};
+
 const isAdmin = computed(() => server.authUser?.role === 'admin');
+// Whose password is being changed. The password form is the one on this pane
+// that can be opened from somewhere other than where it appears (an operator
+// has no account list to open it from), so it says the name rather than leaving
+// an administrator to remember which row they clicked.
+const passwordForName = computed(() => {
+  const id = passwordFor.value;
+  if (!id) return '';
+  if (id === server.authUser?.id) return server.authUser?.name ?? '';
+  return users.value.find((u: any) => u.id === id)?.name ?? '';
+});
 const canAdd  = computed(() =>
   draftName.value.trim().length > 0 && draftPassword.value.length >= MIN_PASSWORD_LENGTH);
 // No MIN_PASSWORD_LENGTH floor here, deliberately: this is an EXISTING password
