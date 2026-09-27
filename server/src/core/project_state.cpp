@@ -4922,15 +4922,6 @@ void ProjectState::sanitise_bus_sends_locked(BusMigrationSummary& summary) {
     }
 }
 
-const char* output_kind_name(BusOutputKind k) {
-    switch (k) {
-        case BusOutputKind::Bus:    return "bus";
-        case BusOutputKind::Output: return "output";
-        case BusOutputKind::None:   return "none";
-    }
-    return "bus";   // unreachable; the old default if a kind is ever added
-}
-
 json bus_sends_to_json(const BusDef& b) {
     json arr = json::array();
     for (const auto& s : b.sends) {
