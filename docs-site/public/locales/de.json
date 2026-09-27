@@ -141,6 +141,35 @@
     },
     "note": "Eine Installation auf einem einzigen Rechner benötigt keine Konfiguration — Client und Server kommunizieren über 127.0.0.1, und das Windows-Installationsprogramm fügt die Firewall-Regeln für Sie hinzu. Diese Ports sind nur relevant, wenn Sie die Steuerposition über ein LAN von der Audio-Hardware trennen."
   },
+  "settings": {
+    "title": "Wo Einstellungen liegen",
+    "subtitle": "LivePlay bewahrt Konfiguration an vier Orten auf. Wo ein Wert liegt, entscheidet, ob er mit Ihrer Show reist, der Person folgt oder auf der Maschine bleibt.",
+    "colTier": "Ebene",
+    "colOwns": "Besitzt",
+    "colFile": "Gespeichert in",
+    "colTravels": "Reist mit der Show?",
+    "server": {
+      "name": "Server",
+      "owns": "Wie die Engine läuft und bindet, die benannten Ausgänge des Hauses, und die Konten",
+      "travels": "Nein — er gehört zum Rack"
+    },
+    "user": {
+      "name": "Benutzer",
+      "owns": "Sprache, Thema, Metereinheit und Transporttasten",
+      "travels": "Nein — folgt der Person auf jede Maschine, an der sie sich anmeldet"
+    },
+    "project": {
+      "name": "Projekt",
+      "owns": "Die Show: Cues, Busse, Routing, Blenden und alles, was das Publikum hört",
+      "travels": "Ja — das ist die Show-Datei"
+    },
+    "machine": {
+      "name": "Maschine",
+      "owns": "Fenster- und Bereichslayout, Show-Modus, und mit welchem Server dieses Gerät spricht",
+      "travels": "Nein — und nichts an der Show darf davon abhängen"
+    },
+    "note": "Ein Wert, der ändert, was das Publikum hört, wird niemals außerhalb der Show-Datei gespeichert. Diese eine Regel ist der Grund, warum eine Show in einem anderen Haus gleich klingt."
+  },
   "contribute": {
     "title": "Mitwirken",
     "subtitle": "LivePlay ist kostenlos und quelloffen — und wird es immer bleiben.",

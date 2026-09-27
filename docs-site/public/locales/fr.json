@@ -141,6 +141,35 @@
     },
     "note": "Une installation sur une seule machine ne nécessite aucune configuration — le client et le serveur communiquent via 127.0.0.1 et l'installateur Windows ajoute les règles de pare-feu pour vous. Ces ports ne comptent que lorsque vous séparez la position de contrôle du matériel audio à travers un LAN."
   },
+  "settings": {
+    "title": "Où vivent les réglages",
+    "subtitle": "LivePlay conserve la configuration à quatre endroits. L’endroit où vit une valeur décide si elle voyage avec votre spectacle, suit la personne, ou reste sur la machine.",
+    "colTier": "Niveau",
+    "colOwns": "Possède",
+    "colFile": "Stocké dans",
+    "colTravels": "Voyage avec le spectacle ?",
+    "server": {
+      "name": "Serveur",
+      "owns": "Comment le moteur tourne et se lie, les sorties nommées de la salle, et les comptes",
+      "travels": "Non — il appartient au rack"
+    },
+    "user": {
+      "name": "Utilisateur",
+      "owns": "Langue, thème, unité de mesure et touches de transport",
+      "travels": "Non — suit la personne sur toute machine où elle se connecte"
+    },
+    "project": {
+      "name": "Projet",
+      "owns": "Le spectacle : cues, bus, routage, fondus et tout ce que le public entend",
+      "travels": "Oui — c’est le fichier du spectacle"
+    },
+    "machine": {
+      "name": "Machine",
+      "owns": "Disposition des fenêtres et panneaux, Mode Spectacle, et à quel serveur parle cette installation",
+      "travels": "Non — et rien du spectacle ne doit en dépendre"
+    },
+    "note": "Une valeur qui change ce que le public entend n’est jamais stockée hors du fichier du spectacle. Cette seule règle explique pourquoi un spectacle sonne pareil dans un autre bâtiment."
+  },
   "contribute": {
     "title": "Contribuer",
     "subtitle": "LivePlay est gratuit et open source — et le restera toujours.",

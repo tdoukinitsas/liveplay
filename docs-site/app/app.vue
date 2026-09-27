@@ -255,6 +255,43 @@
       </div>
     </section>
 
+    <!-- Where configuration lives. Aimed at whoever is deploying LivePlay into
+         a rack: which file to back up, which to bake into an image, and which
+         values travel with a show file and which stay behind. The pane-by-pane
+         detail deliberately is NOT here — it belongs in the app, beside the
+         panes — and the full model lives in docs/OWNERSHIP_MODEL.md. -->
+    <section id="settings" class="settings-section">
+      <div class="container">
+        <h2>{{ t('settings.title') }}</h2>
+        <p class="settings-subtitle">{{ t('settings.subtitle') }}</p>
+
+        <div class="settings-table-wrap">
+          <table class="settings-table">
+            <thead>
+              <tr>
+                <th scope="col">{{ t('settings.colTier') }}</th>
+                <th scope="col">{{ t('settings.colOwns') }}</th>
+                <th scope="col">{{ t('settings.colFile') }}</th>
+                <th scope="col">{{ t('settings.colTravels') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="tier in settingsTiers" :key="tier.key">
+                <td class="settings-tier">{{ t(`settings.${tier.key}.name`) }}</td>
+                <td>{{ t(`settings.${tier.key}.owns`) }}</td>
+                <td class="settings-file">
+                  <code v-for="f in tier.files" :key="f">{{ f }}</code>
+                </td>
+                <td class="settings-travels">{{ t(`settings.${tier.key}.travels`) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="settings-note">{{ t('settings.note') }}</p>
+      </div>
+    </section>
+
     <section id="api" class="api-section">
       <div class="container">
         <h2>{{ t('api.title') }}</h2>
@@ -451,6 +488,23 @@ const baseURL = useRuntimeConfig().app.baseURL;
 const asset = (path: string) => `${baseURL}${path.replace(/^\/+/, '')}`;
 
 const version = ref('2.5.0');
+
+// The ownership tiers, in the order the model states them: the three
+// authorities, then the store that is deliberately not one. Order is the
+// content here — Server outranks User outranks Project down the override chain,
+// and Machine sits outside it — so it is a list rather than an object.
+//
+// Filenames are literal, not prose, so they live here rather than in the locale
+// files, for the same reason the API paths below do: translating `users.json`
+// into twenty languages would produce twenty wrong answers. Each tier's name,
+// what it owns and whether it travels come from settings.<tier>.* in en.json.
+// See docs/OWNERSHIP_MODEL.md §2 and §5.
+const settingsTiers: { key: string; files: string[] }[] = [
+  { key: 'server',  files: ['liveplay.json', 'outputs.json', 'users.json'] },
+  { key: 'user',    files: ['prefs/<id>.json'] },
+  { key: 'project', files: ['<show>.liveplay'] },
+  { key: 'machine', files: ['userData/', 'localStorage'] },
+];
 
 // External control / API section. Methods and paths are literal protocol, not
 // prose, so they live here rather than in the locale files; each row's
@@ -1098,6 +1152,96 @@ useSeoMeta({
     margin: 1rem 0;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
+  }
+
+  /* Settings / ownership tiers. Same table treatment as the API reference —
+     they are both reference material and should not look like two systems. */
+  .settings-section {
+    padding: 4rem 0;
+
+    h2 {
+      text-align: center;
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      color: #DA1E28;
+    }
+  }
+
+  .settings-subtitle {
+    text-align: center;
+    font-size: 1.25rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 auto 2.5rem;
+    max-width: 820px;
+  }
+
+  .settings-table-wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    overflow-x: auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+  }
+
+  .settings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+
+    th,
+    td {
+      text-align: start;
+      vertical-align: top;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    th {
+      background: rgba(0, 0, 0, 0.25);
+      color: rgba(255, 255, 255, 0.85);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .settings-tier {
+      font-weight: 600;
+      color: #ffffff;
+      white-space: nowrap;
+    }
+
+    /* One tier can hold several files, so they stack rather than running on. */
+    .settings-file code {
+      display: block;
+      font-size: 0.82rem;
+      word-break: break-word;
+    }
+
+    .settings-file code + code {
+      margin-top: 0.3rem;
+    }
+
+    .settings-travels {
+      color: rgba(255, 255, 255, 0.75);
+    }
+  }
+
+  .settings-note {
+    max-width: 820px;
+    margin: 1.5rem auto 0;
+    text-align: center;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.6);
   }
 
   .api-table {

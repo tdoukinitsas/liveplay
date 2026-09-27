@@ -141,6 +141,35 @@
     },
     "note": "Tek makineye kurulum yapılandırma gerektirmez — istemci ve sunucu 127.0.0.1 üzerinden konuşur ve Windows yükleyicisi güvenlik duvarı kurallarını sizin için ekler. Bu bağlantı noktaları yalnızca kontrol konumunu bir LAN üzerinden ses donanımından ayırdığınızda önemlidir."
   },
+  "settings": {
+    "title": "Ayarlar nerede tutulur",
+    "subtitle": "LivePlay yapılandırmayı dört yerde tutar. Bir değerin nerede durduğu, gösterinizle birlikte gidip gitmeyeceğini, kişiyi takip edip etmeyeceğini veya makinede kalıp kalmayacağını belirler.",
+    "colTier": "Katman",
+    "colOwns": "Sahibi",
+    "colFile": "Saklandığı yer",
+    "colTravels": "Gösteriyle gider mi?",
+    "server": {
+      "name": "Sunucu",
+      "owns": "Motorun nasıl çalıştığı ve bağlandığı, mekânın adlandırılmış çıkışları, ve hesaplar",
+      "travels": "Hayır — rafa aittir"
+    },
+    "user": {
+      "name": "Kullanıcı",
+      "owns": "Dil, tema, ölçü birimi ve aktarma tuşları",
+      "travels": "Hayır — oturum açtığı her makinede kişiyi takip eder"
+    },
+    "project": {
+      "name": "Proje",
+      "owns": "Gösteri: işaretler, veri yolları, yönlendirme, kısılmalar ve izleyicinin duyduğu her şey",
+      "travels": "Evet — gösteri dosyası budur"
+    },
+    "machine": {
+      "name": "Makine",
+      "owns": "Pencere ve bölme düzeni, Gösteri Modu, ve bu kurulumun hangi sunucuyla konuştuğu",
+      "travels": "Hayır — ve gösterinin hiçbir yanı buna bağlı olamaz"
+    },
+    "note": "İzleyicinin duyduğunu değiştiren bir değer asla gösteri dosyasının dışında saklanmaz. Bir gösterinin başka bir binada aynı duyulmasının nedeni yalnızca bu kuraldır."
+  },
   "contribute": {
     "title": "Katkıda bulunun",
     "subtitle": "LivePlay ücretsiz ve açık kaynaklıdır — ve her zaman öyle kalacaktır.",

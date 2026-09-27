@@ -141,6 +141,35 @@
     },
     "note": "En installation på en enda maskin behöver ingen konfiguration — klient och server pratar över 127.0.0.1 och Windows-installationsprogrammet lägger till brandväggsreglerna åt dig. Dessa portar spelar bara roll när du skiljer kontrollpositionen från ljudhårdvaran över ett LAN."
   },
+  "settings": {
+    "title": "Var inställningarna bor",
+    "subtitle": "LivePlay håller konfiguration på fyra ställen. Var ett värde bor avgör om det reser med din show, följer personen, eller stannar på maskinen.",
+    "colTier": "Nivå",
+    "colOwns": "Äger",
+    "colFile": "Lagras i",
+    "colTravels": "Reser med showen?",
+    "server": {
+      "name": "Server",
+      "owns": "Hur motorn körs och binder, husets namngivna utgångar, och kontona",
+      "travels": "Nej — den hör till racket"
+    },
+    "user": {
+      "name": "Användare",
+      "owns": "Språk, tema, mätarenhet och transporttangenter",
+      "travels": "Nej — följer personen till varje maskin de loggar in på"
+    },
+    "project": {
+      "name": "Projekt",
+      "owns": "Showen: cues, bussar, routing, toningar och allt publiken hör",
+      "travels": "Ja — det här är showfilen"
+    },
+    "machine": {
+      "name": "Maskin",
+      "owns": "Fönster- och panellayout, Show-läge, och vilken server den här installationen pratar med",
+      "travels": "Nej — och inget i showen får bero på det"
+    },
+    "note": "Ett värde som ändrar vad publiken hör lagras aldrig utanför showfilen. Just den regeln är skälet till att en show låter likadant i en annan byggnad."
+  },
   "contribute": {
     "title": "Bidra",
     "subtitle": "LivePlay är gratis och öppen källkod — och kommer alltid att vara det.",

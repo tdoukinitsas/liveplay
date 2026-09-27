@@ -145,6 +145,35 @@
     },
     "note": "A single-machine install needs no configuration — the client and server talk over 127.0.0.1 and the Windows installer adds the firewall rules for you. These ports only matter when separating the control position from the audio hardware across a LAN."
   },
+  "settings": {
+    "title": "Where settings live",
+    "subtitle": "LivePlay keeps configuration in four places. Which one a value lives in decides whether it travels with your show, follows the person, or stays on the machine.",
+    "colTier": "Tier",
+    "colOwns": "Owns",
+    "colFile": "Stored in",
+    "colTravels": "Travels with a show?",
+    "server": {
+      "name": "Server",
+      "owns": "How the engine runs and binds, the venue’s named outputs, and the accounts",
+      "travels": "No — it belongs to the rack"
+    },
+    "user": {
+      "name": "User",
+      "owns": "Language, theme, meter unit and transport keys",
+      "travels": "No — it follows the person to any machine they sign in on"
+    },
+    "project": {
+      "name": "Project",
+      "owns": "The show: cues, buses, routing, fades and everything the audience hears",
+      "travels": "Yes — this is the show file"
+    },
+    "machine": {
+      "name": "Machine",
+      "owns": "Window and pane layout, Show Mode, and which server this install talks to",
+      "travels": "No — and nothing about the show may depend on it"
+    },
+    "note": "A value that changes what the audience hears is never stored outside the show file. That one rule is why a show sounds the same in another building."
+  },
   "api": {
     "title": "External control / API",
     "subtitle": "Drive LivePlay from lighting consoles, Stream Deck, Companion, or your own scripts.",
