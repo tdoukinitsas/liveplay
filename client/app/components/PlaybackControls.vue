@@ -287,6 +287,11 @@ function onBusFader(bus: Bus, db: number) {
     // patchBus refetches the bus list before resolving, so by the time the
     // held value is released bus.gainDb already carries what we sent.
     void server.patchBus(id, { gainDb: db })
+      // Already settled behind a 250 ms timer, so this is one save per gesture
+      // rather than one per fader frame — and saveProject debounces again on
+      // top of that. Without it a level set from the transport bar lived only
+      // in the server's memory.
+      .then(() => { void useProject().saveProject(); })
       .catch(() => {})
       .finally(() => { if (!settleTimers[id]) delete heldDb[id]; });
   }, 250);

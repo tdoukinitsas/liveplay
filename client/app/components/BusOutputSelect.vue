@@ -226,6 +226,11 @@ async function onChange(e: Event) {
     : { output: { type: 'output' as const, target: v.slice(4) } };
   try {
     await server.patchBus(props.bus.id, patch);
+    // Where a bus sends its audio is part of the show. This picker patches the
+    // server directly rather than emitting up to MixerPanel, so it has to ask
+    // for the save itself — otherwise a route change reached disk only if some
+    // other edit happened to save afterwards.
+    void useProject().saveProject();
     setError('');
   } catch (err) {
     // Rejected: put the select back where the server still has it. Vue won't

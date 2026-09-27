@@ -113,16 +113,32 @@ function createClient() {
     needsLogin.value = authRequired.value;
   }
 
+  // Trailing slashes and surrounding space are not a different server; httpBase
+  // already strips them off everything we actually send.
+  const sameServer = (a: string, b: string) =>
+    a.trim().replace(/\/+$/, '') === b.trim().replace(/\/+$/, '');
+
   function setServerUrl(url: string) {
+    // Is this a RE-TARGET or just someone naming the server we are already on?
+    // Most callers are the latter: the startup plugin hands us whatever the
+    // Electron config says on every window's boot, and the welcome screen does
+    // the same on its way into a project. Only a genuine change may touch the
+    // credential below, which is why this is measured before anything moves.
+    const retarget = !sameServer(url, serverUrl.value);
+
     serverUrl.value = url;
     if (typeof window !== 'undefined') {
       window.localStorage?.setItem('liveplay.serverUrl', url);
     }
-    // A different server is a different account list, so the token we hold is
-    // meaningless there — and worse than meaningless, since presenting it
-    // would fail in a way that looks like the new server is broken.
-    storeToken('');
-    authUser.value = null;
+    if (retarget) {
+      // A different server is a different account list, so the token we hold is
+      // meaningless there — and worse than meaningless, since presenting it
+      // would fail in a way that looks like the new server is broken.
+      storeToken('');
+      authUser.value = null;
+    }
+    // Ask this server what it expects either way: same URL does not mean the
+    // same posture, since accounts can have been added or removed since.
     authChecked.value = false;
     // URL change → treat as a brand-new session. Force re-fetch on next
     // onopen by clearing the first-connect guard.

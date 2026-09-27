@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "属性",
+    "resize": "调整属性面板大小",
     "multipleItemsSelected": "已选择 {count} 个项目",
     "peakWarning": "此项目的音量明显高于所选输出目标的目标级别。使用“自动调整音量”进行规格化，或更改输出目标。",
     "noSelection": "选择一个项目以查看属性",
@@ -357,9 +358,6 @@
     "save": "保存",
     "cancel": "取消"
   },
-  "colors": {
-    "chooseAccent": "选择强调色"
-  },
   "youtube": {
     "importFromYouTube": "从YouTube导入",
     "searchPlaceholder": "搜索音乐或音频...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "播放",
     "sectionPlaybackHelp": "信号如何开始、结束以及相互交接。这些设置随演出一起保存。",
     "sectionAudio": "音频与电平表",
+    "sectionOutputs": "硬件输出",
     "sectionAudioHelp": "本演出的输出电平标准、限幅、电平表和时间码。",
     "sectionKeyboard": "键盘",
     "sectionKeyboardHelp": "走带控制和盒式播放器插槽的按键。点击一行，然后按下想要的组合键。",
@@ -543,7 +542,22 @@
     "sectionUsers": "账户",
     "sectionUsersHelp": "谁可以使用此服务器，以及各自被允许更改什么。",
     "stopAllStopsPreview": "「停止全部」也停止预听",
-    "stopAllStopsPreviewHelp": "关闭时，「停止全部」不会停止你正在 Preview 总线上预听的信号。"
+    "stopAllStopsPreviewHelp": "关闭时，「停止全部」不会停止你正在 Preview 总线上预听的信号。",
+    "sectionAppearance": "外观",
+    "sectionAppearanceHelp": "LivePlay 在这块屏幕上的外观与可读性。这些设置属于你，而非演出——它们跟着你走，不跟着文件走。",
+    "language": "语言",
+    "languageHelp": "只属于你，也只在这块屏幕上——不会改变连到这场演出的其他人看到的内容。",
+    "themeMode": "主题",
+    "themeModeHelp": "默认深色：昏暗控制室里一块发亮的屏幕才是常态。",
+    "themeModeDark": "深色",
+    "themeModeLight": "浅色",
+    "themeModeSystem": "跟随系统",
+    "themeModeSystemNow": "跟随这台电脑的设置，当前为{mode}。它会随桌面改变，演出途中也不例外。",
+    "accentColor": "强调色",
+    "accentColorHelp": "用于选中项、正在播放的提示以及一切需要抓住视线的地方。它不会改变演出的声音。",
+    "accentColorSwatch": "强调色 {color}",
+    "sectionAbout": "关于",
+    "sectionAboutHelp": "正在运行的版本、作者，以及所用的许可证。"
   },
   "common": {
     "default": "默认",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "取消",
     "outputMapDeleteConfirmDelete": "仍然删除",
     "outputMapSave": "保存",
+    "outputMapRevert": "还原",
+    "outputMapAdminOnly": "只有管理员才能更改硬件输出映射。这台机器有哪些接口属于机器本身，而非演出。",
     "outputMapCancel": "取消",
     "outputMapSaving": "正在保存…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "空",
     "plugins": "插件",
     "sends": "发送",
-    "auxSendsPending": "辅助发送是未来功能——尚未实现。",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "扩展器 / 噪声门",
     "compressor": "压缩器 / 限制器",
     "gateShort": "噪声门",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "运行时长 {time}",
     "remaining": "本组剩余 {time}",
-    "containsLoop": "包含循环信号，因此没有固定结束时间：显示的时间是其余部分的时长"
+    "containsLoop": "包含循环信号，因此没有固定结束时间：显示的时间是其余部分的时长",
+    "nowPlaying": "正在播放：{name}",
+    "trackPosition": "第 {position} 首，共 {total} 首"
   }
 }

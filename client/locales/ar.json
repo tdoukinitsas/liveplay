@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "الخصائص",
+    "resize": "تغيير حجم لوحة الخصائص",
     "multipleItemsSelected": "تم تحديد {count} عناصر",
     "peakWarning": "مستوى صوت هذا العنصر أعلى بكثير من المستوى المستهدف لهدف الإخراج المحدد. استخدم 'ضبط الصوت تلقائياً' لتطبيع المستوى أو قم بتغيير هدف الإخراج.",
     "noSelection": "حدد عنصرًا لعرض الخصائص",
@@ -357,9 +358,6 @@
     "save": "حفظ",
     "cancel": "إلغاء"
   },
-  "colors": {
-    "chooseAccent": "اختيار لون التمييز"
-  },
   "youtube": {
     "importFromYouTube": "استيراد من YouTube",
     "searchPlaceholder": "البحث عن موسيقى أو صوت...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "التشغيل",
     "sectionPlaybackHelp": "كيف تبدأ الإشارات وتنتهي وتسلّم إحداها إلى الأخرى. تُحفظ هذه الإعدادات مع العرض.",
     "sectionAudio": "الصوت والقياس",
+    "sectionOutputs": "مخارج العتاد",
     "sectionAudioHelp": "معيار مستوى الخرج والتحديد والقياس والكود الزمني لهذا العرض.",
     "sectionKeyboard": "لوحة المفاتيح",
     "sectionKeyboardHelp": "مفاتيح لإجراءات التحكم بالتشغيل ولفتحات مشغل الخراطيش. انقر على صف، ثم اضغط توليفة المفاتيح التي تريدها.",
@@ -543,7 +542,22 @@
     "sectionUsers": "الحسابات",
     "sectionUsersHelp": "من يمكنه استخدام هذا الخادم، وما المسموح له بتغييره.",
     "stopAllStopsPreview": "«إيقاف الكل» يوقف المعاينة أيضًا",
-    "stopAllStopsPreviewHelp": "عند تعطيل هذا الخيار، يترك «إيقاف الكل» الإشارة التي تستمع إليها مسبقًا على باص Preview قيد التشغيل."
+    "stopAllStopsPreviewHelp": "عند تعطيل هذا الخيار، يترك «إيقاف الكل» الإشارة التي تستمع إليها مسبقًا على باص Preview قيد التشغيل.",
+    "sectionAppearance": "المظهر",
+    "sectionAppearanceHelp": "كيف يبدو LivePlay ويُقرأ على هذه الشاشة. هذه الإعدادات لك، لا للعرض — فهي تتبعك أنت، لا الملف.",
+    "language": "اللغة",
+    "languageHelp": "خاصة بك وحدك، وعلى هذه الشاشة فقط — لا تغيّر ما يراه الآخرون المتصلون بهذا العرض.",
+    "themeMode": "السمة",
+    "themeModeHelp": "الداكن هو الافتراضي: شاشة مضيئة في غرفة تحكم مظلمة هي الحالة المعتادة.",
+    "themeModeDark": "داكن",
+    "themeModeLight": "فاتح",
+    "themeModeSystem": "حسب النظام",
+    "themeModeSystemNow": "يتبع إعداد هذا الجهاز، وهو حاليًا {mode}. يتغيّر مع سطح المكتب، حتى في منتصف العرض.",
+    "accentColor": "لون التمييز",
+    "accentColorHelp": "يُستخدم للتحديد وللمقاطع قيد التشغيل ولكل ما يستدعي نظرك. لا يغيّر شيئًا في صوت العرض.",
+    "accentColorSwatch": "لون التمييز {color}",
+    "sectionAbout": "حول",
+    "sectionAboutHelp": "أي إصدار يعمل، ومَن كتبه، وتحت أي رخصة."
   },
   "common": {
     "default": "افتراضي",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "إلغاء",
     "outputMapDeleteConfirmDelete": "حذف على أي حال",
     "outputMapSave": "حفظ",
+    "outputMapRevert": "استعادة",
+    "outputMapAdminOnly": "يمكن لمسؤولي النظام فقط تغيير خريطة مخارج العتاد. المقابس الموجودة على هذا الجهاز تخص الجهاز، لا العرض.",
     "outputMapCancel": "إلغاء",
     "outputMapSaving": "جارٍ الحفظ…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "فارغ",
     "plugins": "الإضافات",
     "sends": "الإرسالات",
-    "auxSendsPending": "الإرسالات الإضافية ميزة مستقبلية — لم تُنفَّذ بعد.",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "موسِّع / بوابة",
     "compressor": "ضاغط / محدِّد",
     "gateShort": "موسِّع",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "مدة التشغيل {time}",
     "remaining": "متبقٍ {time} في هذه المجموعة",
-    "containsLoop": "تحتوي على إشارة متكررة، لذا ليس لها نهاية ثابتة: الوقت المعروض هو مدة الباقي"
+    "containsLoop": "تحتوي على إشارة متكررة، لذا ليس لها نهاية ثابتة: الوقت المعروض هو مدة الباقي",
+    "nowPlaying": "قيد التشغيل الآن: {name}",
+    "trackPosition": "المقطع {position} من {total}"
   }
 }

@@ -89,9 +89,16 @@ json UserPrefs::sanitise(const json& in) {
     if (in.contains("theme") && in["theme"].is_object()) {
         const json& t = in["theme"];
         json theme = json::object();
+        // "system" is a stored CHOICE, not the absence of one, and the two
+        // must stay distinguishable: absent means "never chose, keep taking
+        // whatever the default becomes", while "system" means "resolve this
+        // against the OS every time you paint". The server does not resolve it
+        // — it has no idea what the operator's desktop is set to, and the same
+        // profile is read from machines that disagree. Only the client can,
+        // and only at the moment it paints.
         if (t.contains("mode") && t["mode"].is_string()) {
             const auto m = t["mode"].get<std::string>();
-            if (m == "light" || m == "dark") theme["mode"] = m;
+            if (m == "light" || m == "dark" || m == "system") theme["mode"] = m;
         }
         if (t.contains("accentColor") && t["accentColor"].is_string()) {
             const auto c = t["accentColor"].get<std::string>();

@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Eigenschaften",
+    "resize": "Größe des Eigenschaftenbereichs ändern",
     "multipleItemsSelected": "{count} Elemente ausgewählt",
     "peakWarning": "Die Lautheit dieses Elements liegt deutlich über dem Zielwert für das gewählte Ausgabeziel. Verwenden Sie 'Lautstärke automatisch anpassen' zur Normalisierung oder ändern Sie das Ausgabeziel.",
     "noSelection": "Wählen Sie ein Element aus, um die Eigenschaften anzuzeigen",
@@ -357,9 +358,6 @@
     "save": "Speichern",
     "cancel": "Abbrechen"
   },
-  "colors": {
-    "chooseAccent": "Akzentfarbe wählen"
-  },
   "youtube": {
     "importFromYouTube": "Von YouTube importieren",
     "searchPlaceholder": "Musik oder Audio suchen...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "Wiedergabe",
     "sectionPlaybackHelp": "Wie Cues starten, enden und aneinander übergeben. Diese Einstellungen gehören zur Show.",
     "sectionAudio": "Audio & Pegelmessung",
+    "sectionOutputs": "Hardware-Ausgänge",
     "sectionAudioHelp": "Ausgangspegel-Standard, Limiting, Pegelmessung und Timecode für diese Show.",
     "sectionKeyboard": "Tastatur",
     "sectionKeyboardHelp": "Tasten für Transportfunktionen und Cart-Plätze. Zeile anklicken, dann die gewünschte Tastenkombination drücken.",
@@ -543,7 +542,22 @@
     "sectionUsers": "Konten",
     "sectionUsersHelp": "Wer diesen Server nutzen darf und was er ändern kann.",
     "stopAllStopsPreview": "„Alle stoppen“ stoppt auch die Vorschau",
-    "stopAllStopsPreviewHelp": "Wenn aus, lässt „Alle stoppen“ einen Cue weiterlaufen, den du gerade auf dem Preview-Bus vorhörst."
+    "stopAllStopsPreviewHelp": "Wenn aus, lässt „Alle stoppen“ einen Cue weiterlaufen, den du gerade auf dem Preview-Bus vorhörst.",
+    "sectionAppearance": "Darstellung",
+    "sectionAppearanceHelp": "Wie LivePlay auf diesem Bildschirm aussieht und sich liest. Diese Einstellungen gehören Ihnen, nicht der Show — sie folgen Ihnen, nicht der Datei.",
+    "language": "Sprache",
+    "languageHelp": "Nur Ihre, und nur auf diesem Bildschirm — für andere, die mit dieser Show verbunden sind, ändert sich nichts.",
+    "themeMode": "Design",
+    "themeModeHelp": "Dunkel ist die Voreinstellung: ein leuchtender Bildschirm in einer dunklen Regie ist der Normalfall.",
+    "themeModeDark": "Dunkel",
+    "themeModeLight": "Hell",
+    "themeModeSystem": "Systemeinstellung folgen",
+    "themeModeSystemNow": "Folgt der Einstellung dieses Rechners, derzeit {mode}. Sie ändert sich mit dem Desktop, auch mitten in der Show.",
+    "accentColor": "Akzentfarbe",
+    "accentColorHelp": "Wird für Auswahl, laufende Cues und alles verwendet, was Ihren Blick sucht. Am Klang der Show ändert sie nichts.",
+    "accentColorSwatch": "Akzentfarbe {color}",
+    "sectionAbout": "Über",
+    "sectionAboutHelp": "Welche Version läuft, wer sie geschrieben hat und unter welcher Lizenz sie steht."
   },
   "common": {
     "default": "Standard",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "Abbrechen",
     "outputMapDeleteConfirmDelete": "Trotzdem löschen",
     "outputMapSave": "Speichern",
+    "outputMapRevert": "Zurücksetzen",
+    "outputMapAdminOnly": "Nur Administratoren können die Hardware-Ausgangszuordnung ändern. Welche Anschlüsse dieser Rechner hat, gehört zum Rechner, nicht zur Show.",
     "outputMapCancel": "Abbrechen",
     "outputMapSaving": "Speichern…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "Leer",
     "plugins": "Plugins",
     "sends": "Sends",
-    "auxSendsPending": "Aux-Sends sind ein zukünftiges Feature — noch nicht implementiert.",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "Expander / Gate",
     "compressor": "Kompressor / Limiter",
     "gateShort": "EXP",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "Laufzeit {time}",
     "remaining": "Noch {time} in dieser Gruppe",
-    "containsLoop": "Enthält einen Cue in Schleife und hat daher kein festes Ende: Die angezeigte Zeit ist die Dauer des Rests"
+    "containsLoop": "Enthält einen Cue in Schleife und hat daher kein festes Ende: Die angezeigte Zeit ist die Dauer des Rests",
+    "nowPlaying": "Läuft gerade: {name}",
+    "trackPosition": "Titel {position} von {total}"
   }
 }

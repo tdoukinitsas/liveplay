@@ -443,19 +443,36 @@ onBeforeUnmount(() => knobRo?.disconnect());
 </script>
 
 <style scoped>
-.dyn { min-height: 0; }
+/* The panel is what scrolls when its grid row is shorter than the controls
+   need. It has to be here rather than on .dyn__body: `container-type: size`
+   means the body contributes nothing to intrinsic height, so a floor set
+   inside it is invisible to an `auto` grid row and the short-window rule
+   (grid-template-rows: auto auto) would collapse this panel to its heading.
+   Scrolling one level out keeps the body's honest floor working in both the
+   `auto` and the `1fr` cases, and nothing can paint outside the panel. */
+.dyn { min-height: 0; overflow-y: auto; }
 .dyn > .det__h { flex: 0 0 auto; }
 
 .dyn__body {
   flex: 1 1 auto;
-  min-height: 0;
   /* The graph and the GR meters size themselves against this box, so on a
      large screen the curve grows instead of sitting in a sea of space. */
   container-type: size;
   /* container-type: size takes the box's height from its parent, not its
      content — so in the stacked layouts, where rows size to content, it needs
-     a floor or it collapses. */
-  min-height: 220px;
+     a floor or it collapses.
+
+     300px is what the controls actually occupy, not a round number: two
+     groups, each a heading over two rows of knob fields, come to ~266px at the
+     smallest knob size and ~290px at the middle one. The previous attempt set
+     this floor and stopped there, which made the overlap MORE certain rather
+     than less — the box insisted on 300px inside a panel that might only have
+     200, and since the height comes from the parent and not the content, the
+     surplus had nowhere to go but downward over the plugin rack. A floor with
+     nowhere to scroll is just a taller overflow. The scroll now lives on .dyn
+     above, so this floor does what it was meant to: the controls always have
+     the room they need, and the panel scrolls to reach them. */
+  min-height: 300px;
 }
 
 /* Square, so the transfer curve keeps its 1:1 reading — a stretched dynamics
@@ -466,21 +483,45 @@ onBeforeUnmount(() => knobRo?.disconnect());
    the only thing giving it height — and stretching is also what pinned it to
    the top of a panel taller than it. A definite height lets it centre against
    the controls beside it, which is where the eye expects the curve to sit. */
+/* `safe center`, not plain `center`. Centring content that is TALLER than its
+   box overflows it equally at both ends — and the end that overflows upwards
+   goes over the panel's own "DYNAMICS" heading, while the bottom goes over the
+   plugin rack below. That is the overlap seen in a short window. `safe` says
+   centre it while it fits and fall back to flex-start when it does not, so the
+   spill can only ever go one way, downward, into a work area that scrolls. */
 .dyn__inner {
   display: flex;
-  align-items: center;
+  align-items: safe center;
   gap: var(--spacing-md, 12px);
   width: 100%;
   height: 100%;
 }
-.dyn__viz { display: flex; align-items: center; gap: var(--spacing-sm); flex: 0 0 auto; }
+/* `flex: 0 1 auto` and min-width:0, not `0 0 auto`. The graph and GR meters are
+   sized from the container (50cqw / 100cqh), and at some widths that sum comes
+   out larger than the row has to give. Unshrinkable, the block simply took the
+   space and pushed the controls beside it out of the panel — which is the
+   overlap, seen from the other end. It may now give way; the graph's own
+   max(110px, …) floor stops it collapsing to nothing. */
+.dyn__viz {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 0 1 auto;
+  min-width: 0;
+}
 .dyn__graph {
   flex: 0 0 auto;
-  align-self: center;
+  /* safe: the 110px floor below can exceed a short row, and a centred item
+     that overflows does so at both ends. */
+  align-self: safe center;
   /* Square (a stretched transfer curve lies about the slope), as big as the
      box allows: the full height, or half the width, whichever is smaller. */
   width: max(110px, min(50cqw, 100cqh));
   height: max(110px, min(50cqw, 100cqh));
+  /* The width above is computed from the container, which does not know what
+     the GR meters beside it are taking. Capping at the space actually left
+     stops the pair adding up to more than the row has. */
+  max-width: 100%;
   background: var(--color-background);
   border-radius: var(--border-radius-sm);
   overflow: hidden;
@@ -558,7 +599,9 @@ onBeforeUnmount(() => knobRo?.disconnect());
   flex-direction: column;
   gap: var(--spacing-xs);
   flex: 0 0 auto;
-  align-self: center;
+  /* safe: same as the graph beside it — the 100px floor can outgrow a short
+     row, and centring an overflow spills it upward as well as down. */
+  align-self: safe center;
   height: max(100px, min(50cqw, 100cqh));
   min-height: 0;
 }
@@ -610,7 +653,9 @@ onBeforeUnmount(() => knobRo?.disconnect());
 .dyn__controls {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* safe, as above: two groups taller than the column must stack downward
+     rather than be centred out through the top of the panel. */
+  justify-content: safe center;
   gap: 8px;
   flex: 1 1 auto;
   min-width: 0;
@@ -632,10 +677,16 @@ onBeforeUnmount(() => knobRo?.disconnect());
    rather than reflowing into a ragged block as the panel resizes.
    Columns are sized to the knobs rather than to the panel: 1fr columns spread
    the six controls across whatever width was going, which left a group reading
-   as scattered dots instead of a block you can take in at once. */
+   as scattered dots instead of a block you can take in at once.
+
+   minmax(0, auto) rather than a bare auto: an `auto` track will not shrink
+   below its min-content, so when the row had less width than its three knobs
+   wanted it overflowed the panel rather than tightening up. The max stays
+   `auto`, so nothing about the sizing changes while there is room — this only
+   decides what happens when there is not. */
 .dyn__row {
   display: grid;
-  grid-template-columns: repeat(3, auto);
+  grid-template-columns: repeat(3, minmax(0, auto));
   justify-content: start;
   gap: 2px 10px;
 }
@@ -645,10 +696,15 @@ onBeforeUnmount(() => knobRo?.disconnect());
    screen) stacks the curve over the controls and gives it the full width,
    instead of centring a small square in a tall, empty box. */
 @container (orientation: portrait) {
-  .dyn__inner { flex-direction: column; justify-content: center; }
+  /* safe, for the same reason as align-items above: once the column is the
+     main axis it is justify-content that would centre an over-tall stack into
+     the heading. */
+  .dyn__inner { flex-direction: column; justify-content: safe center; }
   .dyn__graph { width: max(110px, min(100cqw - 40px, 58cqh)); height: max(110px, min(100cqw - 40px, 58cqh)); }
   .dyn__grmeters { height: max(100px, min(100cqw - 40px, 58cqh)); }
-  .dyn__controls { flex: 0 0 auto; width: 100%; }
-  .dyn__row { grid-template-columns: repeat(6, auto); justify-content: space-between; }
+  .dyn__controls { flex: 0 0 auto; width: 100%; min-width: 0; }
+  /* Same minmax(0, …) reasoning as the three-across rule above, and it matters
+     more here: six tracks that cannot tighten overflow a good deal sooner. */
+  .dyn__row { grid-template-columns: repeat(6, minmax(0, auto)); justify-content: space-between; }
 }
 </style>

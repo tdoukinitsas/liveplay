@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "خصوصیات",
+    "resize": "پراپرٹیز پینل کا سائز تبدیل کریں",
     "multipleItemsSelected": "{count} آئٹمز منتخب",
     "peakWarning": "اس آئٹم کی آواز منتخب آؤٹ پٹ ٹارگٹ کی ہدف سطح سے نمایاں طور پر زیادہ ہے۔ اسے نارمل کرنے کے لیے 'والیوم خودکار ایڈجسٹ کریں' استعمال کریں یا آؤٹ پٹ ٹارگٹ تبدیل کریں۔",
     "noSelection": "خصوصیات دیکھنے کے لیے ایک آئٹم منتخب کریں",
@@ -357,9 +358,6 @@
     "save": "محفوظ کریں",
     "cancel": "منسوخ"
   },
-  "colors": {
-    "chooseAccent": "ایکسینٹ رنگ منتخب کریں"
-  },
   "youtube": {
     "importFromYouTube": "YouTube سے درآمد کریں",
     "searchPlaceholder": "موسیقی یا آڈیو تلاش کریں...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "پلے بیک",
     "sectionPlaybackHelp": "کیوز کیسے شروع ہوتے ہیں، ختم ہوتے ہیں اور ایک دوسرے کو باری سونپتے ہیں۔ یہ ترتیبات شو کے ساتھ محفوظ رہتی ہیں۔",
     "sectionAudio": "آڈیو اور میٹرنگ",
+    "sectionOutputs": "ہارڈ ویئر آؤٹ پٹس",
     "sectionAudioHelp": "اس شو کے لیے آؤٹ پٹ لیول کا معیار، لمیٹنگ، میٹرنگ اور ٹائم کوڈ۔",
     "sectionKeyboard": "کی بورڈ",
     "sectionKeyboardHelp": "ٹرانسپورٹ کارروائیوں اور کارٹ سلاٹس کے لیے کیز۔ کسی قطار پر کلک کریں، پھر اپنی مطلوبہ کی کومبی نیشن دبائیں۔",
@@ -543,7 +542,22 @@
     "sectionUsers": "اکاؤنٹس",
     "sectionUsersHelp": "یہ سرور کون استعمال کر سکتا ہے، اور کسے کیا بدلنے کی اجازت ہے۔",
     "stopAllStopsPreview": "«سب روکیں» پیش نظارہ بھی روکتا ہے",
-    "stopAllStopsPreviewHelp": "بند ہونے پر، «سب روکیں» اس کیو کو چلتا رہنے دیتا ہے جسے آپ Preview بس پر پری لسن کر رہے ہیں۔"
+    "stopAllStopsPreviewHelp": "بند ہونے پر، «سب روکیں» اس کیو کو چلتا رہنے دیتا ہے جسے آپ Preview بس پر پری لسن کر رہے ہیں۔",
+    "sectionAppearance": "ظاہری شکل",
+    "sectionAppearanceHelp": "اس اسکرین پر LivePlay کیسا دکھتا اور پڑھا جاتا ہے۔ یہ ترتیبات آپ کی ہیں، شو کی نہیں — یہ فائل کے نہیں، آپ کے ساتھ چلتی ہیں۔",
+    "language": "زبان",
+    "languageHelp": "صرف آپ کی، اور صرف اس اسکرین پر — اس شو سے جڑے دوسرے لوگ جو دیکھتے ہیں اس میں کوئی تبدیلی نہیں آتی۔",
+    "themeMode": "تھیم",
+    "themeModeHelp": "ڈارک پہلے سے طے شدہ ہے: تاریک کنٹرول روم میں روشن اسکرین معمول کی بات ہے۔",
+    "themeModeDark": "ڈارک",
+    "themeModeLight": "لائٹ",
+    "themeModeSystem": "سسٹم کے مطابق",
+    "themeModeSystemNow": "اس کمپیوٹر کی ترتیب کے مطابق، اِس وقت {mode}۔ یہ ڈیسک ٹاپ کے ساتھ بدلتی ہے، شو کے دوران بھی۔",
+    "accentColor": "ایکسنٹ رنگ",
+    "accentColorHelp": "انتخاب، چلنے والے کیوز اور ہر اُس چیز کے لیے جو نظر کھینچے۔ شو کی آواز میں اس سے کوئی فرق نہیں پڑتا۔",
+    "accentColorSwatch": "ایکسنٹ رنگ {color}",
+    "sectionAbout": "تعارف",
+    "sectionAboutHelp": "کون سا ورژن چل رہا ہے، کس نے لکھا اور کس لائسنس کے تحت ہے۔"
   },
   "common": {
     "default": "پہلے سے طے شدہ",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "منسوخ کریں",
     "outputMapDeleteConfirmDelete": "پھر بھی حذف کریں",
     "outputMapSave": "محفوظ کریں",
+    "outputMapRevert": "واپس کریں",
+    "outputMapAdminOnly": "صرف ایڈمنسٹریٹر ہارڈ ویئر آؤٹ پٹ میپ تبدیل کر سکتے ہیں۔ اس مشین میں کون سے ساکٹ ہیں یہ مشین کا معاملہ ہے، شو کا نہیں۔",
     "outputMapCancel": "منسوخ کریں",
     "outputMapSaving": "محفوظ ہو رہا ہے…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "خالی",
     "plugins": "پلگ انز",
     "sends": "سینڈز",
-    "auxSendsPending": "اوکس سینڈز ایک مستقبل کی خصوصیت ہیں — ابھی تک نافذ نہیں۔",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "ایکسپینڈر / گیٹ",
     "compressor": "کمپریسر / لمیٹر",
     "gateShort": "ایکسپینڈر",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "رن ٹائم {time}",
     "remaining": "اس گروپ میں {time} باقی",
-    "containsLoop": "اس میں ایک لوپ ہونے والا کیو ہے، اس لیے اس کا کوئی مقررہ اختتام نہیں: دکھایا گیا وقت باقی حصے کا دورانیہ ہے"
+    "containsLoop": "اس میں ایک لوپ ہونے والا کیو ہے، اس لیے اس کا کوئی مقررہ اختتام نہیں: دکھایا گیا وقت باقی حصے کا دورانیہ ہے",
+    "nowPlaying": "ابھی چل رہا ہے: {name}",
+    "trackPosition": "ٹریک {position} از {total}"
   }
 }

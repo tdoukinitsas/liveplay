@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "خصوصیات",
+    "resize": "تغییر اندازه پنل ویژگی‌ها",
     "multipleItemsSelected": "{count} مورد انتخاب شده",
     "peakWarning": "صدای این مورد به‌طور قابل‌توجهی بالاتر از سطح هدف برای هدف خروجی انتخاب‌شده است. از 'تنظیم خودکار صدا' برای نرمال‌سازی استفاده کنید یا هدف خروجی را تغییر دهید.",
     "noSelection": "برای مشاهده خصوصیات یک مورد را انتخاب کنید",
@@ -357,9 +358,6 @@
     "save": "ذخیره",
     "cancel": "انصراف"
   },
-  "colors": {
-    "chooseAccent": "انتخاب رنگ برجسته"
-  },
   "youtube": {
     "importFromYouTube": "وارد کردن از YouTube",
     "searchPlaceholder": "جستجوی موسیقی یا صدا...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "پخش",
     "sectionPlaybackHelp": "سیگنال‌ها چگونه شروع می‌شوند، پایان می‌یابند و نوبت را به یکدیگر می‌سپارند. این تنظیمات همراه نمایش ذخیره می‌شوند.",
     "sectionAudio": "صدا و سنجش",
+    "sectionOutputs": "خروجی‌های سخت‌افزاری",
     "sectionAudioHelp": "استاندارد سطح خروجی، محدودسازی، سنجش و کد زمانی برای این نمایش.",
     "sectionKeyboard": "صفحه‌کلید",
     "sectionKeyboardHelp": "کلیدهای کنترل پخش و اسلات‌های کارتریج. روی یک ردیف کلیک کنید، سپس ترکیب کلید دلخواه را فشار دهید.",
@@ -543,7 +542,22 @@
     "sectionUsers": "حساب‌ها",
     "sectionUsersHelp": "چه کسانی می‌توانند از این سرور استفاده کنند و مجاز به تغییر چه چیزی هستند.",
     "stopAllStopsPreview": "«توقف همه» پیش‌نمایش را هم متوقف می‌کند",
-    "stopAllStopsPreviewHelp": "وقتی خاموش است، «توقف همه» سیگنالی را که روی باس Preview پیش‌شنود می‌کنید در حال پخش نگه می‌دارد."
+    "stopAllStopsPreviewHelp": "وقتی خاموش است، «توقف همه» سیگنالی را که روی باس Preview پیش‌شنود می‌کنید در حال پخش نگه می‌دارد.",
+    "sectionAppearance": "ظاهر",
+    "sectionAppearanceHelp": "اینکه LivePlay در این صفحه چگونه دیده و خوانده می‌شود. این تنظیمات از آنِ شماست، نه اجرا — به دنبال شما می‌آیند، نه پرونده.",
+    "language": "زبان",
+    "languageHelp": "فقط از آنِ شما و فقط در این صفحه — آنچه دیگرانِ متصل به این اجرا می‌بینند را تغییر نمی‌دهد.",
+    "themeMode": "پوسته",
+    "themeModeHelp": "حالت تیره پیش‌فرض است: صفحهٔ روشن در اتاق فرمان تاریک حالت معمول است.",
+    "themeModeDark": "تیره",
+    "themeModeLight": "روشن",
+    "themeModeSystem": "مطابق سیستم",
+    "themeModeSystemNow": "از تنظیم این رایانه پیروی می‌کند؛ اکنون {mode}. همراه با میزکار تغییر می‌کند، حتی وسط اجرا.",
+    "accentColor": "رنگ تأکید",
+    "accentColorHelp": "برای انتخاب، کیوهای در حال پخش و هر چیزی که باید چشم را بگیرد به کار می‌رود. در صدای اجرا هیچ تغییری نمی‌دهد.",
+    "accentColorSwatch": "رنگ تأکید {color}",
+    "sectionAbout": "درباره",
+    "sectionAboutHelp": "چه نسخه‌ای در حال اجراست، چه کسی آن را نوشته و با چه پروانه‌ای."
   },
   "common": {
     "default": "پیش‌فرض",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "لغو",
     "outputMapDeleteConfirmDelete": "در هر صورت حذف شود",
     "outputMapSave": "ذخیره",
+    "outputMapRevert": "بازگرداندن",
+    "outputMapAdminOnly": "فقط مدیران می‌توانند نقشهٔ خروجی‌های سخت‌افزاری را تغییر دهند. اینکه این دستگاه چه درگاه‌هایی دارد به دستگاه مربوط است، نه به اجرا.",
     "outputMapCancel": "لغو",
     "outputMapSaving": "در حال ذخیره…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "خالی",
     "plugins": "پلاگین‌ها",
     "sends": "سندها",
-    "auxSendsPending": "سندهای کمکی یک ویژگی آینده هستند — هنوز پیاده‌سازی نشده‌اند.",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "اکسپندر / گیت",
     "compressor": "کمپرسور / لیمیتر",
     "gateShort": "اکسپندر",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "زمان اجرا {time}",
     "remaining": "{time} از این گروه باقی مانده",
-    "containsLoop": "شامل یک سیگنال تکرارشونده است، پس پایان ثابتی ندارد: زمان نشان‌داده‌شده مدت بقیه است"
+    "containsLoop": "شامل یک سیگنال تکرارشونده است، پس پایان ثابتی ندارد: زمان نشان‌داده‌شده مدت بقیه است",
+    "nowPlaying": "در حال پخش: {name}",
+    "trackPosition": "قطعه {position} از {total}"
   }
 }

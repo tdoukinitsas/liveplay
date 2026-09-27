@@ -1102,6 +1102,13 @@ const formatTime = (seconds: number): string => {
   overflow-y: auto;
   padding: var(--spacing-lg);
   min-height: 0;
+  /* A column so the active tab panel can be handed the leftover height
+     directly. A percentage would have to resolve against this box, and with
+     24px of padding on a flex item that is exactly the sum that goes wrong —
+     the panel came out a padding taller than the space it had and ran off the
+     bottom of the window. Nothing here is measured in percent now. */
+  display: flex;
+  flex-direction: column;
 }
 
 .tab-panel {
@@ -1112,9 +1119,23 @@ const formatTime = (seconds: number): string => {
   min-height: min-content;
 }
 
-/* Special handling for playback tab with waveform trimmer */
+/* Special handling for playback tab with waveform trimmer.
+   Takes the leftover height of .properties-content rather than sitting at its
+   natural height, so the trimmer inside has somewhere to grow when the panel
+   is dragged taller. `min-height: 0` lets it be handed LESS than its contents
+   want; the trimmer's own floor then wins and .properties-content scrolls,
+   which is the honest failure — a scrollbar instead of a crushed canvas.
+   Every other tab keeps `flex: 0 1 auto`, so they still size to content.
+
+   min-height stays `min-content` from the rule above, which here resolves to
+   the trimmer's own floor: grow to the space when there is space, never below
+   the floor when there is not, and either way report an honest height to the
+   scroll container above. */
 .tab-panel:has(.waveform-trimmer) {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  flex: 1;
 }
 
 .property-field {

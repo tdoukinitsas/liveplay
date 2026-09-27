@@ -102,6 +102,24 @@ export const usePreferences = () => {
     mode:        (prefs.value.theme?.mode as Theme['mode']) ?? DEFAULT_THEME.mode,
     accentColor: prefs.value.theme?.accentColor ?? DEFAULT_THEME.accentColor,
   }));
+
+  // What the OS is currently asking for. A ref rather than a bare matchMedia
+  // read because the desktop can change under a running app — at sunset, on a
+  // schedule, or because somebody flipped it — and a show that started in the
+  // afternoon is still running then.
+  const systemPrefersDark = useState<boolean>('liveplay.prefs.systemDark', () =>
+    import.meta.client && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : true);   // no matchMedia → the app's own default, which is dark
+
+  // THE COLOUR SCHEME ACTUALLY ON SCREEN, and the only thing that should ever
+  // reach a [data-theme] attribute or an isDark test. `theme.mode` is the
+  // PREFERENCE and can say "system", which is not a palette; resolving it in
+  // one place is what keeps every surface agreeing about which one is showing.
+  const resolvedThemeMode = computed<'light' | 'dark'>(() =>
+    theme.value.mode === 'system'
+      ? (systemPrefersDark.value ? 'dark' : 'light')
+      : theme.value.mode);
   const scrollToPlaying = computed<boolean>(() => prefs.value.uiScrollToPlaying === true);
   // Deliberately `string | null` rather than a default: absent means "follow
   // the project's output target", which only useOutputTarget can resolve.
@@ -218,13 +236,27 @@ export const usePreferences = () => {
   };
 
   const api = {
-    prefs, theme, meterMode, scrollToPlaying, playbackKeys,
+    prefs, theme, resolvedThemeMode, meterMode, scrollToPlaying, playbackKeys,
     patch, setTheme, setMeterMode, setScrollToPlaying, setPlaybackKeys,
     adoptFromProject, applyFromServer, hydrated, refresh,
   };
 
   if (_wired || !import.meta.client) return api;
   _wired = true;
+
+  // Follow the OS while the app runs. Only meaningful when the mode is
+  // "system", but the listener is unconditional: the alternative is attaching
+  // and detaching it as the preference changes, which is more moving parts for
+  // a media query that costs nothing to watch.
+  if (typeof window.matchMedia === 'function') {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onSchemeChange = (e: MediaQueryListEvent) => { systemPrefersDark.value = e.matches; };
+    // addEventListener over the deprecated addListener, with the older spelling
+    // as a fallback: this runs in Electron's Chromium, but the app is also
+    // served to plain browsers on the LAN.
+    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onSchemeChange);
+    else if (typeof (mq as any).addListener === 'function') (mq as any).addListener(onSchemeChange);
+  }
 
   // Re-read on every connect, not just the first. A reconnect can be a
   // different server, or the same one after somebody signed in elsewhere.

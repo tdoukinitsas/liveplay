@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "プロパティ",
+    "resize": "プロパティパネルのサイズを変更",
     "multipleItemsSelected": "{count}件選択中",
     "peakWarning": "このアイテムの音量レベルが、選択した出力ターゲットの目標レベルを大きく超えています。'音量を自動調整'を使用して正規化するか、出力ターゲットを変更してください。",
     "noSelection": "プロパティを表示するアイテムを選択してください",
@@ -357,9 +358,6 @@
     "save": "保存",
     "cancel": "キャンセル"
   },
-  "colors": {
-    "chooseAccent": "アクセントカラーを選択"
-  },
   "youtube": {
     "importFromYouTube": "YouTubeからインポート",
     "searchPlaceholder": "音楽またはオーディオを検索...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "再生",
     "sectionPlaybackHelp": "キューの開始・終了と、次のキューへの受け渡し方法。これらの設定は公演と一緒に保存されます。",
     "sectionAudio": "オーディオとメーター",
+    "sectionOutputs": "ハードウェア出力",
     "sectionAudioHelp": "この公演の出力レベル基準、リミッター、メーター、タイムコード。",
     "sectionKeyboard": "キーボード",
     "sectionKeyboardHelp": "トランスポート操作とカートスロットのキー。行をクリックしてから、割り当てたいキーの組み合わせを押してください。",
@@ -543,7 +542,22 @@
     "sectionUsers": "アカウント",
     "sectionUsersHelp": "このサーバーを誰が使えるか、そして何を変更できるか。",
     "stopAllStopsPreview": "「すべて停止」でプレビューも停止",
-    "stopAllStopsPreviewHelp": "オフの場合、「すべて停止」を押しても Previewバスでプレリスン中のキューは再生を続けます。"
+    "stopAllStopsPreviewHelp": "オフの場合、「すべて停止」を押しても Previewバスでプレリスン中のキューは再生を続けます。",
+    "sectionAppearance": "外観",
+    "sectionAppearanceHelp": "この画面で LivePlay がどう見え、どう読めるか。これらはショーのものではなくあなたのもので、ファイルではなくあなたに付いてきます。",
+    "language": "言語",
+    "languageHelp": "あなただけのもので、この画面だけのものです。このショーに接続している他の人の表示は変わりません。",
+    "themeMode": "テーマ",
+    "themeModeHelp": "既定はダークです。暗い調整室で光る画面が通常の状態だからです。",
+    "themeModeDark": "ダーク",
+    "themeModeLight": "ライト",
+    "themeModeSystem": "システムに合わせる",
+    "themeModeSystemNow": "このコンピューターの設定に従います（現在は{mode}）。デスクトップに合わせて、ショーの最中でも切り替わります。",
+    "accentColor": "アクセントカラー",
+    "accentColorHelp": "選択、再生中のキュー、目を引くべきものすべてに使われます。ショーの音は一切変わりません。",
+    "accentColorSwatch": "アクセントカラー {color}",
+    "sectionAbout": "このアプリについて",
+    "sectionAboutHelp": "動作中のバージョン、開発者、そしてライセンス。"
   },
   "common": {
     "default": "デフォルト",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "キャンセル",
     "outputMapDeleteConfirmDelete": "それでも削除",
     "outputMapSave": "保存",
+    "outputMapRevert": "元に戻す",
+    "outputMapAdminOnly": "ハードウェア出力マップを変更できるのは管理者だけです。このマシンにどの端子があるかはマシンの領分であり、ショーの領分ではありません。",
     "outputMapCancel": "キャンセル",
     "outputMapSaving": "保存中…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "空",
     "plugins": "プラグイン",
     "sends": "センド",
-    "auxSendsPending": "Auxセンドは将来の機能です — まだ実装されていません。",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "エキスパンダー / ゲート",
     "compressor": "コンプレッサー / リミッター",
     "gateShort": "ゲート",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "所要時間 {time}",
     "remaining": "このグループの残り {time}",
-    "containsLoop": "ループするキューを含むため決まった終わりがありません：表示時間はそれ以外の部分の長さです"
+    "containsLoop": "ループするキューを含むため決まった終わりがありません：表示時間はそれ以外の部分の長さです",
+    "nowPlaying": "再生中: {name}",
+    "trackPosition": "トラック {position} / {total}"
   }
 }

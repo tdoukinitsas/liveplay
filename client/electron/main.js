@@ -1148,11 +1148,23 @@ let mixerWindow = null;       // Detached mixer window
 // CSS breakpoint and vh unit in the layout is measured against the page, not
 // the frame. With it, the numbers mean what the stylesheets assume.
 //
-// Measured on Windows: this yields an outer window of about 1295x784, so the
-// app needs a display with roughly 800px of usable height. A 1366x768 panel
-// cannot fit it; dropping to 1280x640 content would, at the cost of the
-// channel view falling back to its stacked, scrolling layout.
-const MIN_WINDOW = { minWidth: 1280, minHeight: 720, useContentSize: true };
+// Sized so the app FITS a 1366x768 laptop panel, which is the smallest screen
+// it is expected to run on.
+//
+// These are CONTENT dimensions (useContentSize), which is the whole reason the
+// numbers look odd: on Windows the frame and title bar add roughly 15x64, so
+// 1350x690 content is about 1365x754 outer, and a 768px-tall screen leaves
+// roughly 720px once the taskbar is out. Setting the minimum to 1366x768
+// content — the obvious-looking choice, and what was briefly here — yields a
+// ~1381x832 window and locks that laptop out entirely. So does the 1280x720
+// this replaced, which measured ~1295x784.
+//
+// 690px of content height is below the channel view's comfortable three-column
+// height, and that is fine rather than an oversight: the work area scrolls and
+// the dynamics panel scrolls inside it, so a short window is cramped instead of
+// broken. The floor exists to keep the layout usable, not to guarantee every
+// panel its full height.
+const MIN_WINDOW = { minWidth: 1350, minHeight: 690, useContentSize: true };
 
 // Flatten all audio items from a nested project items array
 function flattenAudioItems(items) {

@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Ιδιότητες",
+    "resize": "Αλλαγή μεγέθους του πίνακα ιδιοτήτων",
     "multipleItemsSelected": "{count} στοιχεία επιλεγμένα",
     "peakWarning": "Η ένταση αυτού του στοιχείου είναι σημαντικά πάνω από το επίπεδο-στόχο για τον επιλεγμένο στόχο εξόδου. Χρησιμοποιήστε 'Αυτόματη ρύθμιση έντασης' για κανονικοποίηση ή αλλάξτε τον Στόχο Εξόδου.",
     "noSelection": "Επιλέξτε ένα στοιχείο για να δείτε τις ιδιότητες",
@@ -357,9 +358,6 @@
     "save": "Αποθήκευση",
     "cancel": "Άκυρο"
   },
-  "colors": {
-    "chooseAccent": "Επιλέξτε Χρώμα Έμφασης"
-  },
   "youtube": {
     "importFromYouTube": "Εισαγωγή από YouTube",
     "searchPlaceholder": "Αναζήτηση μουσικής ή ήχου...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "Αναπαραγωγή",
     "sectionPlaybackHelp": "Πώς ξεκινούν, τελειώνουν και διαδέχονται το ένα το άλλο τα cues. Οι ρυθμίσεις αυτές ταξιδεύουν μαζί με την παράσταση.",
     "sectionAudio": "Ήχος & Μέτρηση",
+    "sectionOutputs": "Έξοδοι υλικού",
     "sectionAudioHelp": "Πρότυπο στάθμης εξόδου, περιορισμός, μέτρηση και timecode για αυτή την παράσταση.",
     "sectionKeyboard": "Πληκτρολόγιο",
     "sectionKeyboardHelp": "Πλήκτρα για τις εντολές αναπαραγωγής και τις θέσεις καρτ. Κάντε κλικ σε μια γραμμή και πατήστε τον συνδυασμό που θέλετε.",
@@ -543,7 +542,22 @@
     "sectionUsers": "Λογαριασμοί",
     "sectionUsersHelp": "Ποιος μπορεί να χρησιμοποιεί αυτόν τον διακομιστή και τι επιτρέπεται να αλλάζει.",
     "stopAllStopsPreview": "Η «Διακοπή όλων» σταματά και την προεπισκόπηση",
-    "stopAllStopsPreviewHelp": "Όταν είναι ανενεργό, η «Διακοπή όλων» αφήνει να παίζει ένα cue που προακούτε στο bus Preview."
+    "stopAllStopsPreviewHelp": "Όταν είναι ανενεργό, η «Διακοπή όλων» αφήνει να παίζει ένα cue που προακούτε στο bus Preview.",
+    "sectionAppearance": "Εμφάνιση",
+    "sectionAppearanceHelp": "Πώς φαίνεται και πώς διαβάζεται το LivePlay σε αυτήν την οθόνη. Αυτές οι ρυθμίσεις είναι δικές σας, όχι της παράστασης — ακολουθούν εσάς, όχι το αρχείο.",
+    "language": "Γλώσσα",
+    "languageHelp": "Μόνο δική σας, και μόνο σε αυτήν την οθόνη — δεν αλλάζει αυτό που βλέπουν οι άλλοι που είναι συνδεδεμένοι στην παράσταση.",
+    "themeMode": "Θέμα",
+    "themeModeHelp": "Σκούρο εξ ορισμού: μια φωτισμένη οθόνη σε σκοτεινό θάλαμο ελέγχου είναι η συνήθης περίπτωση.",
+    "themeModeDark": "Σκούρο",
+    "themeModeLight": "Φωτεινό",
+    "themeModeSystem": "Όπως το σύστημα",
+    "themeModeSystemNow": "Ακολουθεί τη ρύθμιση αυτού του υπολογιστή, αυτή τη στιγμή {mode}. Αλλάζει μαζί με την επιφάνεια εργασίας, ακόμη και στη μέση της παράστασης.",
+    "accentColor": "Χρώμα τονισμού",
+    "accentColorHelp": "Χρησιμοποιείται για την επιλογή, τα cue που παίζουν και ό,τι ζητά το βλέμμα σας. Δεν αλλάζει τίποτα στον ήχο της παράστασης.",
+    "accentColorSwatch": "Χρώμα τονισμού {color}",
+    "sectionAbout": "Σχετικά",
+    "sectionAboutHelp": "Ποια έκδοση εκτελείται, ποιος την έγραψε και υπό ποια άδεια."
   },
   "common": {
     "default": "προεπιλογή",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "Ακύρωση",
     "outputMapDeleteConfirmDelete": "Διαγραφή ούτως ή άλλως",
     "outputMapSave": "Αποθήκευση",
+    "outputMapRevert": "Επαναφορά",
+    "outputMapAdminOnly": "Μόνο οι διαχειριστές μπορούν να αλλάξουν τον χάρτη εξόδων υλικού. Ποιες υποδοχές έχει αυτό το μηχάνημα αφορά το μηχάνημα, όχι την παράσταση.",
     "outputMapCancel": "Ακύρωση",
     "outputMapSaving": "Αποθήκευση…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "Κενό",
     "plugins": "Πρόσθετα",
     "sends": "Αποστολές",
-    "auxSendsPending": "Τα aux sends είναι μελλοντικό χαρακτηριστικό — δεν έχει υλοποιηθεί ακόμα.",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "Επεκτατής / Πύλη",
     "compressor": "Συμπιεστής / Περιοριστής",
     "gateShort": "ΕΠΕΚ",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "Διάρκεια {time}",
     "remaining": "Απομένουν {time} σε αυτή την ομάδα",
-    "containsLoop": "Περιέχει cue σε βρόχο, οπότε δεν έχει σταθερό τέλος: ο χρόνος που εμφανίζεται είναι η διάρκεια των υπολοίπων"
+    "containsLoop": "Περιέχει cue σε βρόχο, οπότε δεν έχει σταθερό τέλος: ο χρόνος που εμφανίζεται είναι η διάρκεια των υπολοίπων",
+    "nowPlaying": "Αναπαράγεται τώρα: {name}",
+    "trackPosition": "Κομμάτι {position} από {total}"
   }
 }

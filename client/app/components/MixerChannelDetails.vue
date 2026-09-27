@@ -13,9 +13,11 @@
     dynamics beneath it), then what is inserted into it (plugins), then what is
     connected to it in either direction (contributions in, sends out).
 
-    EQ, dynamics, filters and plugins are labelled shells until the DSP stage
-    lands. They are laid out at full size rather than hidden so that stage fills
-    panels instead of inventing navigation late.
+    A panel with nothing behind it yet is laid out at full size rather than
+    hidden, so the stage that fills it fills a panel instead of inventing
+    navigation late. The plugin rack is the exception and the reason the rule
+    has one: inserts are far enough off that six disabled slots read as a
+    feature the operator has failed to find. See SHOW_PLUGIN_RACK.
   -->
   <div class="det">
     <header class="det__head" @contextmenu.prevent="openMenuAt($event.clientX, $event.clientY)">
@@ -76,11 +78,11 @@
         @dsp-live="onDspLive"
       />
 
-      <!-- Two columns. EQ takes the height on the left with the plugin rack
-           tucked beneath it; dynamics takes the height on the right with the
-           connection panels beneath. EQ and dynamics are side by side rather
-           than stacked because stacking them made both too short to use. -->
-      <div class="det__work">
+      <!-- Three columns: EQ, then dynamics with the plugin rack tucked beneath
+           it when there is one, then the connection panels. EQ and dynamics are
+           side by side rather than stacked because stacking them made both too
+           short to use. -->
+      <div class="det__work" :class="{ 'det__work--norack': !SHOW_PLUGIN_RACK }">
         <!-- The curve needs the bus: it draws the channel's high- and low-pass
            alongside the EQ bands, and those live on the fader column. It gets
            the live-merged copy so it tracks a filter knob while it is moving,
@@ -94,8 +96,13 @@
 
         <!-- Static height, packed as tight as the slots allow: the rack is a
              list of six things, not a workspace, so it should never take room
-             the EQ could use. -->
-        <section class="det__panel det__panel--pending det__plugins">
+             the EQ could use.
+
+             HIDDEN until inserts actually exist — see SHOW_PLUGIN_RACK. Kept
+             rather than deleted so the markup, the CSS and the three locale
+             keys stay in step with each other instead of rotting apart while
+             nothing renders them. -->
+        <section v-if="SHOW_PLUGIN_RACK" class="det__panel det__panel--pending det__plugins">
           <h4 class="det__h">
             {{ t('mixer.plugins') }}
             <span class="det__pending">{{ t('mixer.notImplemented') }}</span>
@@ -176,7 +183,11 @@
             <!-- Inline, non-blocking: the server's own 409 text for the last
                  rejected route, so the reason is legible without a dialog. -->
             <p v-if="outputErrorMsg" class="det__warn">{{ outputErrorMsg }}</p>
-            <p class="det__none">{{ t('mixer.auxSendsPending') }}</p>
+
+            <!-- Aux sends (M1), under the output because that is signal order:
+                 where the whole thing goes, then the copies taken off it. -->
+            <h5 class="det__sub">{{ t('mixer.auxSends') }}</h5>
+            <BusSendList :bus="bus" :buses="buses" />
           </section>
         </div>
       </div>
@@ -275,9 +286,16 @@ import MixerEqPanel from './MixerEqPanel.vue';
 import MixerDynamicsPanel from './MixerDynamicsPanel.vue';
 import StereoMeter from './StereoMeter.vue';
 import BusOutputSelect from './BusOutputSelect.vue';
+import BusSendList from './BusSendList.vue';
 import BusColorPicker from './BusColorPicker.vue';
 import BusMenu from './BusMenu.vue';
 import { FADER_MIN_DB, METER_MAX_DB } from '~/utils/meterScale';
+
+// The insert rack is not built, and six disabled slots labelled "not
+// implemented" are a promise the mixer cannot keep — an operator reads them as
+// a feature they have failed to find rather than one that does not exist. Flip
+// this to true in the same change that gives the slots something to hold.
+const SHOW_PLUGIN_RACK = false;
 
 const props = defineProps<{
   bus: Bus;
@@ -497,15 +515,52 @@ function openMenuFromButton() {
   padding: var(--spacing-sm);
   overflow: auto;
 }
-.det__eq      { grid-column: 1; grid-row: 1 / span 2; }
-.det__dyn     { grid-column: 2; grid-row: 1; }
-.det__plugins { grid-column: 2; grid-row: 2; }
-.det__io      { grid-column: 3; grid-row: 1 / span 2; }
+/* min-width:0 AND min-height:0 on every one of them is load-bearing, not
+   tidiness. A grid item defaults to `min-width: auto` / `min-height: auto`,
+   meaning it will NOT shrink below its own min-content size on that axis — it
+   overflows its track instead, and an overflowing track paints straight over
+   whatever is next to it. .det__work already had min-width:0; the items inside
+   it never did, and the container was never what overflowed.
+
+   Both axes matter and they were two separate bugs. Width: the dynamics
+   controls landing on "Feeding this bus" in the column beside them. Height:
+   .det__dyn sits in row 1 and .det__plugins in row 2, so a dynamics panel that
+   would not shrink into its row simply grew down through the plugin rack
+   underneath it. Fixing only the inline axis left the block axis doing exactly
+   the same thing one direction over. */
+.det__eq      { grid-column: 1; grid-row: 1 / span 2; min-width: 0; min-height: 0; }
+.det__dyn     { grid-column: 2; grid-row: 1;          min-width: 0; min-height: 0; }
+.det__plugins { grid-column: 2; grid-row: 2;          min-width: 0; min-height: 0; }
+.det__io      { grid-column: 3; grid-row: 1 / span 2; min-width: 0; min-height: 0; }
+
+/* With the rack hidden there is no second row to hold, so the grid drops to
+   one. Leaving the two-row template in place would collapse row 2 to nothing
+   but still lay its gap, and dynamics — the only item not spanning both rows —
+   would finish 8px above the columns either side of it. */
+.det__work--norack { grid-template-rows: minmax(0, 1fr); }
+.det__work--norack .det__eq,
+.det__work--norack .det__dyn,
+.det__work--norack .det__io { grid-row: 1; }
 
 /* Narrow: one column. Everything takes the height it needs and the work area
    scrolls, which is where the EQ graph gets its full height back rather than
-   being squeezed into a fraction of a small window. */
-@media (max-width: 1180px) {
+   being squeezed into a fraction of a small window.
+
+   AGAINST THE MIXER, NOT THE VIEWPORT. This was a viewport `@media` query, and
+   the mixer is not the viewport: docked, it is a flex child whose width comes
+   from a splitter, so a 1400px window with the mixer docked at 700px kept the
+   three-column rule while the container sat far below what it needs. The
+   columns have `minmax()` floors, and a floor overflows rather than shrinks —
+   which is what put the controls on top of each other. MixerPanel.vue already
+   declares `container: mixer / inline-size` and says why in its own comment;
+   MixerActions.vue already queries it. This view simply never followed the
+   rule the panel around it had already established.
+
+   1040px is the measured floor, not a guess: the fader column is 148px
+   (border-box), and .det__work needs 16px padding + 2 × 8px gap + the three
+   column floors of 300 + 300 + 240 = 872px. That is 1020px, plus ~16px so the
+   work area's own scrollbar cannot push it back over the edge. */
+@container mixer (max-width: 1040px) {
   .det__work {
     grid-template-columns: 1fr;
     grid-template-rows: none;
@@ -525,7 +580,15 @@ function openMenuFromButton() {
    while leaving the explicit columns in place, which handed placement back to
    auto-flow: the cursor never moves backwards, so after EQ and plugins filled
    column 1 rows 1 and 2, dynamics landed in column 2 *row 2* beside plugins
-   instead of at the top, with the connection panels pushed to row 3. */
+   instead of at the top, with the connection panels pushed to row 3.
+
+   This one stays a viewport @media query, deliberately. Height is the axis
+   where the mixer really does track the window: docked it takes the full
+   workspace height, and detached it is the window. Width is the axis a
+   splitter can change independently, which is why only that query moved to the
+   container. Making this a container query too would mean `container-type:
+   size` on .mixer, which adds block-axis containment the panel does not need
+   and MixerActions' inline-size query never asked for. */
 @media (max-height: 660px) {
   .det__work { grid-template-rows: auto auto; }
 }
@@ -656,6 +719,18 @@ function openMenuFromButton() {
 }
 .det__warnbtn:hover { color: var(--color-danger, var(--color-warning)); }
 .det__none { list-style: none; margin: 0; font-size: 11px; color: var(--color-text-disabled); }
+
+/* A second-level heading inside a panel, for the sends list under the output.
+   Quieter than .det__h: the panel already has one heading, and this divides it
+   rather than introducing a new section. */
+.det__sub {
+  margin: 4px 0 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
 
 /* Contributions above, sends below, in one full-height column.
    Sends has fixed content and takes only what it needs; contributions takes

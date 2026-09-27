@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Vetitë",
+    "resize": "Ndrysho madhësinë e panelit të vetive",
     "multipleItemsSelected": "{count} artikuj të zgjedhur",
     "peakWarning": "Vëllimi i këtij artikulli është ndjeshëm mbi nivelin e targetuar për objektivin e daljes të zgjedhur. Përdorni 'Rregullim automatik i volumit' për ta normalizuar, ose ndryshoni Objektivin e Daljes.",
     "noSelection": "Zgjidh një artikull për të parë vetitë",
@@ -357,9 +358,6 @@
     "save": "Ruaj",
     "cancel": "Anulo"
   },
-  "colors": {
-    "chooseAccent": "Zgjidh Ngjyrën e Theksuar"
-  },
   "youtube": {
     "importFromYouTube": "Importo nga YouTube",
     "searchPlaceholder": "Kërko muzikë ose audio...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "Luajtja",
     "sectionPlaybackHelp": "Si nisin, si mbarojnë dhe si ia kalojnë radhën njëri-tjetrit cues. Këto udhëtojnë bashkë me shfaqjen.",
     "sectionAudio": "Audio & Matja",
+    "sectionOutputs": "Daljet e harduerit",
     "sectionAudioHelp": "Standardi i nivelit të daljes, kufizimi, matja dhe kodi kohor për këtë shfaqje.",
     "sectionKeyboard": "Tastiera",
     "sectionKeyboardHelp": "Tastet për komandat e luajtjes dhe slotët e kartelave. Klikoni një rresht, pastaj shtypni kombinimin që dëshironi.",
@@ -543,7 +542,22 @@
     "sectionUsers": "Llogaritë",
     "sectionUsersHelp": "Kush mund ta përdorë këtë server dhe çfarë i lejohet të ndryshojë.",
     "stopAllStopsPreview": "«Ndalo të gjitha» ndalon edhe paraparimin",
-    "stopAllStopsPreviewHelp": "Kur është joaktive, «Ndalo të gjitha» e lë në luajtje një cue që po e paradëgjoni në bus-in Preview."
+    "stopAllStopsPreviewHelp": "Kur është joaktive, «Ndalo të gjitha» e lë në luajtje një cue që po e paradëgjoni në bus-in Preview.",
+    "sectionAppearance": "Pamja",
+    "sectionAppearanceHelp": "Si duket dhe si lexohet LivePlay në këtë ekran. Këto cilësime janë tuajat, jo të shfaqjes — ju ndjekin ju, jo skedarin.",
+    "language": "Gjuha",
+    "languageHelp": "Vetëm e juaja, dhe vetëm në këtë ekran — nuk ndryshon atë që shohin të tjerët e lidhur me këtë shfaqje.",
+    "themeMode": "Tema",
+    "themeModeHelp": "E errëta është parazgjedhja: një ekran i ndezur në një dhomë kontrolli të errët është rasti i zakonshëm.",
+    "themeModeDark": "E errët",
+    "themeModeLight": "E çelët",
+    "themeModeSystem": "Ndiq sistemin",
+    "themeModeSystemNow": "Ndjek cilësimin e këtij kompjuteri, aktualisht {mode}. Ndryshon bashkë me desktopin, edhe në mes të shfaqjes.",
+    "accentColor": "Ngjyra e theksit",
+    "accentColorHelp": "Përdoret për përzgjedhjen, cue-të që po luajnë dhe gjithçka që kërkon syrin tuaj. Nuk ndryshon asgjë në tingullin e shfaqjes.",
+    "accentColorSwatch": "Ngjyra e theksit {color}",
+    "sectionAbout": "Rreth",
+    "sectionAboutHelp": "Cili version po funksionon, kush e ka shkruar dhe nën cilën licencë."
   },
   "common": {
     "default": "e paracaktuar",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "Anulo",
     "outputMapDeleteConfirmDelete": "Fshi gjithsesi",
     "outputMapSave": "Ruaj",
+    "outputMapRevert": "Rikthe",
+    "outputMapAdminOnly": "Vetëm administratorët mund të ndryshojnë hartën e daljeve të harduerit. Cilat priza ka kjo makinë i përket makinës, jo shfaqjes.",
     "outputMapCancel": "Anulo",
     "outputMapSaving": "Duke ruajtur…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "Bosh",
     "plugins": "Shtojca",
     "sends": "Dërgimet",
-    "auxSendsPending": "Aux sends janë një veçori e ardhshme — ende e paimplementuar.",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "Ekspander / Portë",
     "compressor": "Kompresor / Limitues",
     "gateShort": "EKSP",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "Kohëzgjatja {time}",
     "remaining": "Mbeten {time} në këtë grup",
-    "containsLoop": "Përmban një cue në buklë, ndaj nuk ka fund të caktuar: koha e shfaqur është sa zgjat pjesa tjetër"
+    "containsLoop": "Përmban një cue në buklë, ndaj nuk ka fund të caktuar: koha e shfaqur është sa zgjat pjesa tjetër",
+    "nowPlaying": "Duke u luajtur: {name}",
+    "trackPosition": "Pjesa {position} nga {total}"
   }
 }

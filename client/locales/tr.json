@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Özellikler",
+    "resize": "Özellikler panelini yeniden boyutlandır",
     "multipleItemsSelected": "{count} öğe seçildi",
     "peakWarning": "Bu öğenin ses yüksekliği, seçilen çıkış hedefine göre önerilen seviyenin önemli ölçüde üzerinde. Normalleştirmek için 'Sesi otomatik ayarla' seçeneğini kullanın ya da Çıkış Hedefini değiştirin.",
     "noSelection": "Özellikleri görüntülemek için bir öğe seçin",
@@ -357,9 +358,6 @@
     "save": "Kaydet",
     "cancel": "İptal"
   },
-  "colors": {
-    "chooseAccent": "Vurgu Rengini Seç"
-  },
   "youtube": {
     "importFromYouTube": "YouTube'dan İçe Aktar",
     "searchPlaceholder": "Müzik veya ses ara...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "Oynatma",
     "sectionPlaybackHelp": "Cue'ların nasıl başladığı, bittiği ve birbirine devrettiği. Bu ayarlar gösteriyle birlikte taşınır.",
     "sectionAudio": "Ses ve Ölçüm",
+    "sectionOutputs": "Donanım çıkışları",
     "sectionAudioHelp": "Bu gösteri için çıkış seviyesi standardı, sınırlama, ölçüm ve zaman kodu.",
     "sectionKeyboard": "Klavye",
     "sectionKeyboardHelp": "Oynatma kontrolleri ve kartuş yuvaları için tuşlar. Bir satıra tıklayın, ardından istediğiniz tuş kombinasyonuna basın.",
@@ -543,7 +542,22 @@
     "sectionUsers": "Hesaplar",
     "sectionUsersHelp": "Bu sunucuyu kimin kullanabileceği ve neyi değiştirmesine izin verildiği.",
     "stopAllStopsPreview": "«Tümünü Durdur» ön izlemeyi de durdurur",
-    "stopAllStopsPreviewHelp": "Kapalıyken «Tümünü Durdur», Preview bus'ında ön dinlediğiniz cue'yu çalmaya devam ettirir."
+    "stopAllStopsPreviewHelp": "Kapalıyken «Tümünü Durdur», Preview bus'ında ön dinlediğiniz cue'yu çalmaya devam ettirir.",
+    "sectionAppearance": "Görünüm",
+    "sectionAppearanceHelp": "LivePlay’in bu ekranda nasıl göründüğü ve okunduğu. Bu ayarlar gösterinin değil sizindir — dosyayı değil sizi takip eder.",
+    "language": "Dil",
+    "languageHelp": "Yalnızca sizin ve yalnızca bu ekranda — bu gösteriye bağlı diğerlerinin gördüğünü değiştirmez.",
+    "themeMode": "Tema",
+    "themeModeHelp": "Varsayılan koyudur: karanlık bir kontrol odasındaki aydınlık ekran olağan durumdur.",
+    "themeModeDark": "Koyu",
+    "themeModeLight": "Açık",
+    "themeModeSystem": "Sistemi izle",
+    "themeModeSystemNow": "Bu bilgisayarın ayarını izler; şu anda {mode}. Masaüstüyle birlikte, gösterinin ortasında bile değişir.",
+    "accentColor": "Vurgu rengi",
+    "accentColorHelp": "Seçim, çalan cue’lar ve gözünüzü arayan her şey için kullanılır. Gösterinin sesiyle ilgili hiçbir şeyi değiştirmez.",
+    "accentColorSwatch": "Vurgu rengi {color}",
+    "sectionAbout": "Hakkında",
+    "sectionAboutHelp": "Hangi sürümün çalıştığı, kimin yazdığı ve hangi lisans altında olduğu."
   },
   "common": {
     "default": "varsayılan",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "İptal",
     "outputMapDeleteConfirmDelete": "Yine de sil",
     "outputMapSave": "Kaydet",
+    "outputMapRevert": "Geri al",
+    "outputMapAdminOnly": "Donanım çıkış haritasını yalnızca yöneticiler değiştirebilir. Bu makinede hangi bağlantıların olduğu makineye aittir, gösteriye değil.",
     "outputMapCancel": "İptal",
     "outputMapSaving": "Kaydediliyor…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "Boş",
     "plugins": "Eklentiler",
     "sends": "Gönderimler",
-    "auxSendsPending": "Aux send'ler gelecekteki bir özellik — henüz uygulanmadı.",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "Ekspander / Gate",
     "compressor": "Kompresör / Limiter",
     "gateShort": "EKSP",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "Çalma süresi {time}",
     "remaining": "Bu grupta {time} kaldı",
-    "containsLoop": "Döngüye giren bir cue içerir, bu yüzden sabit bir sonu yok: gösterilen süre geri kalanın ne kadar sürdüğüdür"
+    "containsLoop": "Döngüye giren bir cue içerir, bu yüzden sabit bir sonu yok: gösterilen süre geri kalanın ne kadar sürdüğüdür",
+    "nowPlaying": "Şimdi çalıyor: {name}",
+    "trackPosition": "Parça {position} / {total}"
   }
 }

@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "속성",
+    "resize": "속성 패널 크기 조정",
     "multipleItemsSelected": "{count}개 항목 선택됨",
     "peakWarning": "이 항목의 음량이 선택된 출력 대상의 목표 레벨보다 크게 높습니다. '음량 자동 조절'을 사용하여 정규화하거나 출력 대상을 변경하세요.",
     "noSelection": "속성을 보려면 항목을 선택하세요",
@@ -357,9 +358,6 @@
     "save": "저장",
     "cancel": "취소"
   },
-  "colors": {
-    "chooseAccent": "강조 색상 선택"
-  },
   "youtube": {
     "importFromYouTube": "YouTube에서 가져오기",
     "searchPlaceholder": "음악 또는 오디오 검색...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "재생",
     "sectionPlaybackHelp": "큐가 시작하고 끝나며 다음 큐로 넘어가는 방식입니다. 이 설정은 공연과 함께 저장됩니다.",
     "sectionAudio": "오디오 및 미터",
+    "sectionOutputs": "하드웨어 출력",
     "sectionAudioHelp": "이 공연의 출력 레벨 표준, 리미팅, 미터 및 타임코드입니다.",
     "sectionKeyboard": "키보드",
     "sectionKeyboardHelp": "트랜스포트 동작과 카트 슬롯에 쓰는 키입니다. 행을 클릭한 다음 원하는 키 조합을 누르세요.",
@@ -543,7 +542,22 @@
     "sectionUsers": "계정",
     "sectionUsersHelp": "이 서버를 누가 사용할 수 있고, 무엇을 변경할 수 있는지.",
     "stopAllStopsPreview": "「모두 정지」 시 미리 듣기도 정지",
-    "stopAllStopsPreviewHelp": "끄면 「모두 정지」를 눌러도 Preview 버스에서 미리 듣는 중인 큐는 계속 재생됩니다."
+    "stopAllStopsPreviewHelp": "끄면 「모두 정지」를 눌러도 Preview 버스에서 미리 듣는 중인 큐는 계속 재생됩니다.",
+    "sectionAppearance": "모양",
+    "sectionAppearanceHelp": "이 화면에서 LivePlay가 어떻게 보이고 읽히는지에 대한 설정입니다. 공연이 아니라 당신의 것이며, 파일이 아니라 당신을 따라다닙니다.",
+    "language": "언어",
+    "languageHelp": "당신만의 것이며 이 화면에만 적용됩니다. 이 공연에 연결된 다른 사람에게 보이는 것은 바뀌지 않습니다.",
+    "themeMode": "테마",
+    "themeModeHelp": "기본값은 어둡게입니다. 어두운 조정실에서 빛나는 화면이 일반적인 상황이기 때문입니다.",
+    "themeModeDark": "어둡게",
+    "themeModeLight": "밝게",
+    "themeModeSystem": "시스템 설정 따름",
+    "themeModeSystemNow": "이 컴퓨터의 설정을 따릅니다. 현재는 {mode}입니다. 공연 중에도 바탕화면 설정에 따라 바뀝니다.",
+    "accentColor": "강조 색",
+    "accentColorHelp": "선택 표시, 재생 중인 큐, 눈길을 끌어야 하는 모든 것에 쓰입니다. 공연의 소리는 전혀 바뀌지 않습니다.",
+    "accentColorSwatch": "강조 색 {color}",
+    "sectionAbout": "정보",
+    "sectionAboutHelp": "실행 중인 버전, 만든 사람, 그리고 라이선스."
   },
   "common": {
     "default": "기본값",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "취소",
     "outputMapDeleteConfirmDelete": "그래도 삭제",
     "outputMapSave": "저장",
+    "outputMapRevert": "되돌리기",
+    "outputMapAdminOnly": "하드웨어 출력 맵은 관리자만 변경할 수 있습니다. 이 장비에 어떤 단자가 있는지는 장비의 문제이지 공연의 문제가 아닙니다.",
     "outputMapCancel": "취소",
     "outputMapSaving": "저장 중…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "비어 있음",
     "plugins": "플러그인",
     "sends": "센드",
-    "auxSendsPending": "Aux 센드는 향후 기능입니다 — 아직 구현되지 않았습니다.",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "익스팬더 / 게이트",
     "compressor": "컴프레서 / 리미터",
     "gateShort": "게이트",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "실행 시간 {time}",
     "remaining": "이 그룹 남은 시간 {time}",
-    "containsLoop": "반복되는 큐가 있어 정해진 끝이 없습니다: 표시된 시간은 나머지 부분의 길이입니다"
+    "containsLoop": "반복되는 큐가 있어 정해진 끝이 없습니다: 표시된 시간은 나머지 부분의 길이입니다",
+    "nowPlaying": "재생 중: {name}",
+    "trackPosition": "트랙 {position} / {total}"
   }
 }

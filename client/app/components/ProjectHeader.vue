@@ -119,8 +119,9 @@ function toggleMixer() {
   mixerOpen.value = !mixerOpen.value;
 }
 
-// The operator's own theme (U4), not the open document's.
-const isDark = computed(() => usePreferences().theme.value.mode === 'dark');
+// The operator's own theme (U4), not the open document's. The RESOLVED mode,
+// because the preference can say "system" and a logo cannot be drawn in that.
+const isDark = computed(() => usePreferences().resolvedThemeMode.value === 'dark');
 const currentTime = ref('00:00:00');
 
 // ---- Silence warning -------------------------------------------------------

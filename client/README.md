@@ -179,13 +179,15 @@ The component tree is intentionally flat — every SFC lives directly in [`compo
 - `WaveformCanvas.vue` — canvas-rendered waveform fetched from `GET /api/waveform/<cueId>`.
 - `WaveformTrimmer.vue` — interactive in/out trimming + normalise.
 - `MixerPanel.vue`, `MixerStrip.vue`, `MixerChannelDetails.vue` — the mixer: one channel strip per bus, with a per-bus detail view. Docks as a side pane, takes the full workspace, or pops out into its own window (`?mixerWindow=1`).
+- `BusOutputSelect.vue`, `BusSendList.vue` — where a bus goes. The select is its one **output**, the whole signal at unity; the list is its **aux sends**, a copy each at its own level, taken before or after the bus's fader. Both ask the server rather than predicting it: the rules about cycles and the preview bus live there, and a 409 surfaces inline in the server's own words.
 - `StereoMeter.vue`, `VUMeter.vue` — meter widgets driven by `useLiveMeters`. `StereoMeter` covers every source (cue, mixer strip, master pair) so zone colours, peak hold, the clip latch and the project's meter mode are identical wherever a level is shown.
-- `ServerSettingsModal.vue`, `LocalServerStatus.vue`, `ConnectionLostModal.vue` — server connection management.
+- `SettingsPage.vue` + `SettingsPane*.vue` — the Settings page: a persistent section rail and one pane per section, deep-linkable as `#/settings/<section>`. Every user- and project-configurable value lives here; the modals that used to hold them (`ProjectSettingsModal`, `ControlConfigModal`, `ServerSettingsModal`, `OutputMapModal`, `AboutModal`) have all been retired into panes.
+- `LocalServerStatus.vue`, `ConnectionLostModal.vue` — server connection management.
 - `ServerFileBrowser.vue`, `ServerFilePickerModal.vue` — `GET /api/fs/list` browser, used when the client and server live on different machines.
 - `AudioImportModal.vue`, `YouTubeImportModal.vue` — media import surfaces.
-- `ProjectSelectionModal.vue`, `ProjectSettingsModal.vue`, `ProjectRepairModal.vue` — project management.
+- `ProjectSelectionModal.vue`, `ProjectRepairModal.vue` — project management.
 - `UpdateModal.vue` — auto-update UI.
-- `AboutModal.vue`, `ProgressModal.vue`, `LoadingOverlay.vue`, `LocationChoiceModal.vue` — misc.
+- `ProgressModal.vue`, `LoadingOverlay.vue`, `LocationChoiceModal.vue` — misc.
 
 Style: Composition API + `<script setup lang="ts">`, scoped SCSS, CSS variables for theming (see [Theming](#theming)).
 

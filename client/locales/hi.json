@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "गुण",
+    "resize": "गुण पैनल का आकार बदलें",
     "multipleItemsSelected": "{count} आइटम चुने गए",
     "peakWarning": "इस आइटम की ध्वनि आपके चुने हुए आउटपुट लक्ष्य के लक्ष्य स्तर से काफी ऊपर है। इसे सामान्य बनाने के लिए 'वॉल्यूम स्वचालित रूप से समायोजित करें' का उपयोग करें, या आउटपुट लक्ष्य बदलें।",
     "noSelection": "गुण देखने के लिए एक आइटम चुनें",
@@ -357,9 +358,6 @@
     "save": "सहेजें",
     "cancel": "रद्द करें"
   },
-  "colors": {
-    "chooseAccent": "एक्सेंट रंग चुनें"
-  },
   "youtube": {
     "importFromYouTube": "YouTube से आयात करें",
     "searchPlaceholder": "संगीत या ऑडियो खोजें...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "प्लेबैक",
     "sectionPlaybackHelp": "क्यू कैसे शुरू होते हैं, समाप्त होते हैं और एक-दूसरे को आगे सौंपते हैं। ये सेटिंग्स शो के साथ सहेजी जाती हैं।",
     "sectionAudio": "ऑडियो और मीटरिंग",
+    "sectionOutputs": "हार्डवेयर आउटपुट",
     "sectionAudioHelp": "इस शो के लिए आउटपुट स्तर मानक, लिमिटिंग, मीटरिंग और टाइमकोड।",
     "sectionKeyboard": "कीबोर्ड",
     "sectionKeyboardHelp": "ट्रांसपोर्ट क्रियाओं और कार्ट स्लॉट के लिए कुंजियाँ। किसी पंक्ति पर क्लिक करें, फिर वह कुंजी संयोजन दबाएँ जो आप चाहते हैं।",
@@ -543,7 +542,22 @@
     "sectionUsers": "खाते",
     "sectionUsersHelp": "इस सर्वर का उपयोग कौन कर सकता है, और किसे क्या बदलने की अनुमति है।",
     "stopAllStopsPreview": "«सभी रोकें» पूर्वावलोकन भी रोकता है",
-    "stopAllStopsPreviewHelp": "बंद होने पर, «सभी रोकें» उस क्यू को चलता रहने देता है जिसे आप Preview बस पर प्री-लिसन कर रहे हैं।"
+    "stopAllStopsPreviewHelp": "बंद होने पर, «सभी रोकें» उस क्यू को चलता रहने देता है जिसे आप Preview बस पर प्री-लिसन कर रहे हैं।",
+    "sectionAppearance": "दिखावट",
+    "sectionAppearanceHelp": "इस स्क्रीन पर LivePlay कैसा दिखता और पढ़ा जाता है। ये सेटिंग्स आपकी हैं, शो की नहीं — ये फ़ाइल के नहीं, आपके साथ चलती हैं।",
+    "language": "भाषा",
+    "languageHelp": "केवल आपकी, और केवल इस स्क्रीन पर — इस शो से जुड़े दूसरे लोग जो देखते हैं वह नहीं बदलता।",
+    "themeMode": "थीम",
+    "themeModeHelp": "डार्क डिफ़ॉल्ट है: अँधेरे कंट्रोल रूम में रोशन स्क्रीन ही आम बात है।",
+    "themeModeDark": "गहरा",
+    "themeModeLight": "हल्का",
+    "themeModeSystem": "सिस्टम के अनुसार",
+    "themeModeSystemNow": "इस कंप्यूटर की सेटिंग के अनुसार, अभी {mode}। यह डेस्कटॉप के साथ बदलती है, शो के बीच में भी।",
+    "accentColor": "एक्सेंट रंग",
+    "accentColorHelp": "चयन, चल रहे क्यू और हर उस चीज़ के लिए जो आपकी नज़र चाहती है। शो की आवाज़ पर इसका कोई असर नहीं।",
+    "accentColorSwatch": "एक्सेंट रंग {color}",
+    "sectionAbout": "परिचय",
+    "sectionAboutHelp": "कौन-सा संस्करण चल रहा है, इसे किसने लिखा और यह किस लाइसेंस के अंतर्गत है।"
   },
   "common": {
     "default": "डिफ़ॉल्ट",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "रद्द करें",
     "outputMapDeleteConfirmDelete": "फिर भी हटाएँ",
     "outputMapSave": "सहेजें",
+    "outputMapRevert": "पूर्ववत करें",
+    "outputMapAdminOnly": "केवल प्रशासक ही हार्डवेयर आउटपुट मैप बदल सकते हैं। इस मशीन में कौन से सॉकेट हैं यह मशीन का विषय है, शो का नहीं।",
     "outputMapCancel": "रद्द करें",
     "outputMapSaving": "सहेजा जा रहा है…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "खाली",
     "plugins": "प्लगइन्स",
     "sends": "सेंड्स",
-    "auxSendsPending": "ऑक्स सेंड्स एक भविष्य की सुविधा हैं — अभी लागू नहीं हैं।",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "एक्सपैंडर / गेट",
     "compressor": "कंप्रेसर / लिमिटर",
     "gateShort": "एक्सपैंडर",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "रन टाइम {time}",
     "remaining": "इस समूह में {time} बाकी",
-    "containsLoop": "इसमें एक लूप होने वाला क्यू है, इसलिए इसका कोई निश्चित अंत नहीं: दिखाया गया समय बाकी हिस्से की अवधि है"
+    "containsLoop": "इसमें एक लूप होने वाला क्यू है, इसलिए इसका कोई निश्चित अंत नहीं: दिखाया गया समय बाकी हिस्से की अवधि है",
+    "nowPlaying": "अभी चल रहा है: {name}",
+    "trackPosition": "ट्रैक {position} / {total}"
   }
 }

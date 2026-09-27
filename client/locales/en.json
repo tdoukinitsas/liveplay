@@ -124,6 +124,7 @@
     "sectionPlayback": "Playback",
     "sectionPlaybackHelp": "How cues start, end and hand over to one another. These travel with the show.",
     "sectionAudio": "Audio & Metering",
+    "sectionOutputs": "Hardware outputs",
     "sectionAudioHelp": "Output level standard, limiting, metering and timecode for this show.",
     "sectionKeyboard": "Keyboard",
     "sectionKeyboardHelp": "Keys for transport actions and cart slots. Click a row, then press the combination you want.",
@@ -137,7 +138,22 @@
     "sectionUsers": "Accounts",
     "sectionUsersHelp": "Who may use this server, and what they are allowed to change.",
     "stopAllStopsPreview": "Stop All also stops the preview",
-    "stopAllStopsPreviewHelp": "When off, Stop All leaves a cue you are pre-listening to on the preview bus playing."
+    "stopAllStopsPreviewHelp": "When off, Stop All leaves a cue you are pre-listening to on the preview bus playing.",
+    "sectionAppearance": "Appearance",
+    "sectionAppearanceHelp": "How LivePlay looks and reads on this screen. These are yours, not the show’s — they follow you rather than the file.",
+    "language": "Language",
+    "languageHelp": "Yours alone, and only on this screen — it does not change what anyone else connected to this show sees.",
+    "themeMode": "Theme",
+    "themeModeHelp": "Dark is the default: a lit screen in a dark control room is the usual case.",
+    "themeModeDark": "Dark",
+    "themeModeLight": "Light",
+    "themeModeSystem": "Follow the system",
+    "themeModeSystemNow": "Following this computer’s setting, which is currently {mode}. It changes with the desktop, including mid-show.",
+    "accentColor": "Accent colour",
+    "accentColorHelp": "Used for selection, playing cues and anything that wants your eye. It changes nothing about how the show sounds.",
+    "accentColorSwatch": "Accent colour {color}",
+    "sectionAbout": "About",
+    "sectionAboutHelp": "Which version is running, who wrote it, and the licence it is under."
   },
   "common": {
     "default": "default",
@@ -213,6 +229,7 @@
   },
   "properties": {
     "title": "Properties",
+    "resize": "Resize the properties panel",
     "multipleItemsSelected": "{count} items selected",
     "peakWarning": "This item's loudness is significantly above the target level for your selected output target. Use 'Auto-adjust volume' to normalise it, or change the Output Target.",
     "noSelection": "Select an item to view properties",
@@ -505,9 +522,6 @@
     "save": "Save",
     "cancel": "Cancel"
   },
-  "colors": {
-    "chooseAccent": "Choose Accent Color"
-  },
   "youtube": {
     "importFromYouTube": "Import from YouTube",
     "searchPlaceholder": "Search for music or audio...",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "Cancel",
     "outputMapDeleteConfirmDelete": "Delete anyway",
     "outputMapSave": "Save",
+    "outputMapRevert": "Revert",
+    "outputMapAdminOnly": "Only administrators can change the hardware output map. Which sockets this machine has belongs to the machine, not to the show.",
     "outputMapCancel": "Cancel",
     "outputMapSaving": "Saving…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "Empty",
     "plugins": "Plugins",
     "sends": "Sends",
-    "auxSendsPending": "Aux sends are a future feature — not implemented yet.",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "Expander / Gate",
     "compressor": "Compressor / Limiter",
     "gateShort": "EXP",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "Run time {time}",
     "remaining": "{time} left in this group",
-    "containsLoop": "Contains a looping cue, so it has no fixed end: the time shown is how long the rest lasts"
+    "containsLoop": "Contains a looping cue, so it has no fixed end: the time shown is how long the rest lasts",
+    "nowPlaying": "Now playing: {name}",
+    "trackPosition": "Track {position} of {total}"
   }
 }

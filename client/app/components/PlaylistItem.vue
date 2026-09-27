@@ -66,7 +66,19 @@
           <span class="material-symbols-rounded">folder</span>
         </span>
         
-        <span class="item-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
+        <span v-if="item.type !== 'group'" class="item-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
+        <!-- A playing group says what is playing inside it without being
+             opened: its own name, with the sounding cue under it. Collapsed
+             only — once the group is open the child row states both, and
+             repeating it in the header reads as two separate claims. -->
+        <span v-else class="item-namecol">
+          <span class="item-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
+          <span
+            v-if="groupNowPlaying && !isExpanded"
+            class="item-nowplaying"
+            :title="t('group.nowPlaying', { name: groupNowPlaying.name })"
+          >{{ groupNowPlaying.name }}</span>
+        </span>
         <span
           v-if="busBadge"
           class="bus-badge"
@@ -145,11 +157,25 @@
         <!-- A group's run time, the sum of what it will play (#63): visible
              collapsed, so a walk-in or interval playlist can be sized at a
              glance. While it plays, the time left in the whole group. -->
+        <!-- The time left over its position in the list, so the two numbers a
+             collapsed group can answer — how long, and how far through — read
+             as one block rather than competing for the same slot. -->
         <span
-          v-else-if="item.type === 'group' && groupDurationDisplay"
-          class="item-duration group-duration"
-          :title="groupDurationTitle"
-        >{{ groupDurationDisplay }}</span>
+          v-else-if="item.type === 'group' && (groupDurationDisplay || groupNowPlaying)"
+          class="item-timecol"
+        >
+          <span
+            v-if="groupDurationDisplay"
+            class="item-duration group-duration"
+            :title="groupDurationTitle"
+          >{{ groupDurationDisplay }}</span>
+          <span
+            v-if="groupNowPlaying && !isExpanded"
+            class="item-counter"
+            :title="t('group.trackPosition', {
+              position: groupNowPlaying.position, total: groupNowPlaying.total })"
+          >{{ groupNowPlaying.position }}/{{ groupNowPlaying.total }}</span>
+        </span>
 
         <!-- In Show Mode the live-playback actions (play/stop, set-as-next)
              and preview remain — preview is useful pre-show too; edit and
@@ -347,6 +373,31 @@ const groupDurationTitle = computed(() => {
   if (live) parts.push(t('group.remaining', { time: formatRunTime(live.remaining) }));
   if (total.indefinite) parts.push(t('group.containsLoop'));
   return parts.join(' · ');
+});
+
+// Which of a playing group's children is the one making the sound, and where
+// it sits in the list. A collapsed group otherwise says only that something
+// inside it is playing, which on a twenty-cue interval playlist is most of the
+// question left unanswered.
+//
+// Counted over DIRECT children rather than audio descendants, because the
+// number is there to be read against the list the operator sees when they open
+// the group — "4 / 11" has to mean the fourth row, not the fourth audio file
+// somewhere inside a nested one. A nested group therefore counts as one entry
+// and is located by whether anything inside it is playing.
+//
+// First match in list order wins. A play-all group has several children going
+// at once, and the first is the one the operator queued.
+const groupNowPlaying = computed(() => {
+  if (props.item.type !== 'group' || !isGroupPlaying.value) return null;
+  const children = (props.item as GroupItem).children;
+  const sounding = (it: AudioItem | GroupItem): boolean =>
+    it.type === 'group'
+      ? (it as GroupItem).children.some(sounding)
+      : activeCues.value.has(it.uuid);
+  const i = children.findIndex(sounding);
+  if (i < 0) return null;
+  return { position: i + 1, total: children.length, name: children[i]!.displayName };
 });
 
 const durationDisplay = computed(() => {
@@ -958,6 +1009,45 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   flex: 1;
   z-index: 5;
   min-width: 0;
+}
+
+/* A collapsed, playing group stacks two lines on each side: its own name over
+   the cue that is sounding, and the time left over that cue's position in the
+   list. The columns carry the flex behaviour the single elements used to have
+   — flex:1 and min-width:0 on the left so the names still ellipsis rather than
+   push the row wide, and the duration's horizontal margin moved out to the
+   column so the two lines share one gutter instead of one line owning it. */
+.item-namecol {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+}
+.item-namecol .item-name { flex: 0 0 auto; }
+.item-nowplaying {
+  font-size: 1em;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-timecol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  margin: 0 var(--spacing-sm);
+}
+.item-timecol .item-duration { margin: 0; }
+/* tabular-nums so the counter does not jitter sideways as it counts up, the
+   same reason the duration beside it is a fixed-width column. */
+.item-counter {
+  font-size: 1em;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .expand-btn {

@@ -50,31 +50,11 @@
       <WelcomeScreen v-if="!currentProject" />
       <MainWorkspace v-else />
     
-    <!-- Accent Color Picker Modal -->
-    <div v-if="showColorPicker" class="color-picker-overlay" @click="showColorPicker = false">
-      <div class="color-picker-dialog" @click.stop>
-        <h3>{{ t('colors.chooseAccent') }}</h3>
-        <div class="color-grid">
-          <button
-            v-for="color in accentColors"
-            :key="color"
-            class="color-option"
-            :style="{ backgroundColor: color }"
-            @click="changeAccentColor(color)"
-          ></button>
-        </div>
-        <button class="close-dialog" @click="showColorPicker = false">{{ t('common.cancel') }}</button>
-      </div>
-    </div>
-    
     <!-- Settings: a full-window page, mounted here rather than inside the
          header because it covers the workspace and outlives whichever
          control opened it. Deep-linkable as #/settings/<section>. -->
     <SettingsPage />
 
-    <!-- About Modal -->
-    <AboutModal v-if="showAboutModal" @close="showAboutModal = false" />
-    
     <!-- Update Modal -->
     <UpdateModal
       v-if="showUpdateModal"
@@ -234,8 +214,11 @@ const { currentLocale, setLocale, getDirection, t } = useLocalization();
 // The colour scheme belongs to the person at the desk, not to the show (U4).
 // `theme` stays a useState key so nothing that already binds to it has to
 // change; what moved is where its value comes from.
-const { theme: userTheme, setTheme } = usePreferences();
+const { theme: userTheme, resolvedThemeMode, setTheme } = usePreferences();
 const theme = useState('theme', () => 'dark');
+// The Help and View menus open Settings at a section rather than raising
+// modals of their own; see the listeners below.
+const { open: openSettings } = useSettingsPage();
 
 // Detect if this window is the detached cart player window
 const isCartWindow = import.meta.client
@@ -270,12 +253,6 @@ const showProjectSelection = ref(false);
 const availableProjects = ref<string[]>([]);
 const pendingImportPath = ref<string>('');
 
-// Color picker for accent color
-const showColorPicker = ref(false);
-
-// About modal
-const showAboutModal = ref(false);
-
 // Update modal
 const showUpdateModal = ref(false);
 const updateInfo = ref({
@@ -286,15 +263,6 @@ const updateInfo = ref({
   isManualUpdate: false,
   downloadUrl: ''
 });
-
-const accentColors = [
-  '#0f62fe', '#0353e9', '#002d9c', // Blues
-  '#da1e28', '#a2191f', '#750e13', // Reds
-  '#24a148', '#198038', '#0e6027', // Greens
-  '#f1c21b', '#d2a106', '#b28600', // Yellows
-  '#8a3ffc', '#6929c4', '#491d8b', // Purples
-  '#ff7eb6', '#ee5396', '#d02670', // Pinks
-];
 
 // Detached windows: fetch project data from the main process and keep in sync.
 // The mixer window takes this too — not because it needs the cue list, but for
@@ -351,11 +319,21 @@ onMounted(() => {
     window.electronAPI.onMenuToggleDarkMode(() => {
       // Straight to the person's preferences, and no saveProject() with it —
       // flipping to light mode used to mark the show dirty (U4).
-      setTheme({ mode: userTheme.value.mode === 'dark' ? 'light' : 'dark' });
+      //
+      // Toggles against what is SHOWING, not against the preference, so that
+      // from "system" it goes to the opposite of what is on screen rather than
+      // to whichever branch the preference happens to read as. Landing on an
+      // explicit mode is correct: asking for dark is asking for dark, not for
+      // "follow the OS and hope".
+      setTheme({ mode: resolvedThemeMode.value === 'dark' ? 'light' : 'dark' });
     });
 
+    // Both of these used to raise a modal of their own. They are panes now, so
+    // the menu item is a deep link — the same move the mixer's output-map
+    // action made in P3d, and the reason the accent swatches and the About
+    // panel each have exactly one home.
     window.electronAPI.onMenuChangeAccentColor(() => {
-      showColorPicker.value = true;
+      openSettings('appearance');
     });
 
     window.electronAPI.onMenuChangeLanguage((event: any, locale: string) => {
@@ -363,7 +341,7 @@ onMounted(() => {
     });
     
     window.electronAPI.onMenuShowAbout(() => {
-      showAboutModal.value = true;
+      openSettings('about');
     });
     
     // File > Import Project. When the server is on this same machine the
@@ -505,13 +483,6 @@ async function runQuitFlow() {
   }
 }
 
-const changeAccentColor = (color: string) => {
-  // No saveProject(): an accent colour is not a change to the show, and making
-  // it one meant the file was dirty because somebody liked a different red.
-  setTheme({ accentColor: color });
-  showColorPicker.value = false;
-};
-
 // ---------------------------------------------------------------------------
 // Import project flow (dual-dialog when client and server are on different
 // machines). The extraction ALWAYS happens server-side because the
@@ -551,7 +522,7 @@ watch(pendingLpaImportReady, async (lpaPath) => {
 function startImportFlow() {
   const server = useLiveplayServer();
   importServerPickerStage.value = 'archive';
-  if (server.isLocalServer.value) {
+  if (server.isLocalServer) {
     importServerPickerOpen.value = true;
   } else {
     importChoiceVisible.value = true;
@@ -655,17 +626,23 @@ const handleProjectSelectionCancel = () => {
 // Paint the operator's own theme, from wherever usePreferences resolved it.
 // Was `watch(currentProject, ...)` until U4, which is why opening a colleague's
 // show used to change your colours.
-watch(userTheme, (t) => {
-  if (!t) return;
-  theme.value = t.mode;
+//
+// Watches the RESOLVED mode, not the preference: "system" is not a palette, and
+// the stylesheet only defines [data-theme='light'] and [data-theme='dark'].
+// Because the resolved value also depends on the OS, this fires on its own when
+// the desktop flips at sunset mid-show — which is the whole point of the
+// setting, and would not happen if this watched the preference.
+watch([resolvedThemeMode, () => userTheme.value?.accentColor], ([mode, accent]) => {
+  if (!mode) return;
+  theme.value = mode;
   // Mirror onto <html> too: the theme variables are scoped to [data-theme],
   // and with it only on #app, `body { background: var(--color-background) }`
   // resolved to nothing and anything transparent showed the window's white.
-  if (import.meta.client) document.documentElement.setAttribute('data-theme', t.mode);
-  if (import.meta.client && t.accentColor) {
-    document.documentElement.style.setProperty('--color-accent-custom', t.accentColor);
+  if (import.meta.client) document.documentElement.setAttribute('data-theme', mode);
+  if (import.meta.client && accent) {
+    document.documentElement.style.setProperty('--color-accent-custom', accent);
   }
-}, { immediate: true, deep: true });
+}, { immediate: true });
 
 // Apply RTL direction when locale changes
 watch(currentLocale, () => {
@@ -696,66 +673,6 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   overflow: hidden;
-}
-
-.color-picker-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal);
-}
-
-.color-picker-dialog {
-  background: var(--color-surface);
-  padding: var(--spacing-xl);
-  border-radius: var(--border-radius-lg);
-  min-width: 400px;
-  color: var(--color-text-primary);
-}
-
-.color-picker-dialog h3 {
-  margin-bottom: var(--spacing-md);
-  color: var(--color-text-primary);
-}
-
-.color-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-md);
-}
-
-.color-option {
-  width: 50px;
-  height: 50px;
-  border: 2px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  cursor: pointer;
-  transition: transform var(--transition-fast);
-}
-
-.color-option:hover {
-  transform: scale(1.1);
-  border-color: var(--color-text-primary);
-}
-
-.close-dialog {
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  color: var(--color-text-primary);
-}
-
-.close-dialog:hover {
-  background: var(--color-surface-hover);
 }
 
 .cart-window-root {

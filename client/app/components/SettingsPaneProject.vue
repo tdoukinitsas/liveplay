@@ -39,13 +39,9 @@
       <p class="settings-help">{{ t('settings.indexDisplayStartHelp') }}</p>
     </section>
 
-    <section class="settings-field">
-      <label class="settings-label settings-label--checkbox">
-        <input type="checkbox" :checked="scrollToPlaying" @change="onScrollToPlayingChange" />
-        {{ t('settings.scrollToPlaying') }}
-      </label>
-      <p class="settings-help">{{ t('settings.scrollToPlayingHelp') }}</p>
-    </section>
+    <!-- "Scroll to the playing cue" is not here any more: it is a preference of
+         whoever is reading the playlist, not a property of the show, so it
+         moved to the Appearance pane with the rest of them (U4). -->
   </div>
 </template>
 
@@ -58,10 +54,6 @@ const { settings, applyPatch } = useProjectSettings();
 const { currentProject, autoSaveEnabled, setAutoSave } = useProject();
 
 const indexDisplayStart = computed(() => normalizeIndexDisplayStart(settings.value.indexDisplayStart));
-// Whose playlist chases the playing cue is a preference of the person reading
-// it, not a property of the show (U4). The control stays on this pane — P3
-// does the relocation into Appearance — but it writes to their profile.
-const { scrollToPlaying, setScrollToPlaying } = usePreferences();
 
 function onAutoSaveChange(e: Event) {
   setAutoSave((e.target as HTMLInputElement).checked);
@@ -71,8 +63,5 @@ function onIndexDisplayStartChange(e: Event) {
   const value = normalizeIndexDisplayStart(input.value);
   input.value = String(value);
   applyPatch({ indexDisplayStart: value });
-}
-function onScrollToPlayingChange(e: Event) {
-  setScrollToPlaying((e.target as HTMLInputElement).checked);
 }
 </script>

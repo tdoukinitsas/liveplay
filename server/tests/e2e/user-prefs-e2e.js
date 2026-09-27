@@ -383,6 +383,34 @@ const login = async (name, password) => {
        r.body && r.body.somethingNobodyHasHeardOf === undefined,
        `profile keys: [${Object.keys(r.body || {}).join(', ')}]`);
 
+    // "system" is a third theme mode, and the server has to STORE it without
+    // resolving it: it cannot see the operator's desktop, and the same profile
+    // is read from machines whose desktops disagree. Stored as the choice it
+    // is; the client resolves it at paint time.
+    r = await req('/api/prefs', {
+      method: 'PATCH', token: adminToken, body: { theme: { mode: 'system' } },
+    });
+    ok('"system" is a storable theme mode, not a rejected one',
+       r.status === 200 && r.body.theme && r.body.theme.mode === 'system',
+       `mode=${r.body && r.body.theme && r.body.theme.mode}`);
+    ok('...and it did not cost the accent colour, which the merge rule protects',
+       r.body && r.body.theme && r.body.theme.accentColor !== undefined,
+       JSON.stringify(r.body && r.body.theme));
+
+    // The widened enum is still an enum. Without this, "accept system" could be
+    // implemented as "accept any string" and every assertion above would pass.
+    r = await req('/api/prefs', {
+      method: 'PATCH', token: adminToken, body: { theme: { mode: 'chartreuse' } },
+    });
+    ok('a mode that is none of the three is still dropped, leaving the last good one',
+       r.status === 200 && r.body.theme && r.body.theme.mode === 'system',
+       `mode=${r.body && r.body.theme && r.body.theme.mode}`);
+
+    // Put it back, so the sections after this see the profile they expect.
+    await req('/api/prefs', {
+      method: 'PATCH', token: adminToken, body: { theme: { mode: 'dark' } },
+    });
+
     r = await req('/api/prefs', {
       method: 'PATCH', token: adminToken,
       body: { playbackKeys: {

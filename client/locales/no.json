@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Egenskaper",
+    "resize": "Endre størrelse på egenskapspanelet",
     "multipleItemsSelected": "{count} elementer valgt",
     "peakWarning": "Lydnivået til dette elementet er betydelig over målnivået for det valgte utgangsmålet. Bruk 'Juster volum automatisk' for å normalisere, eller endre utgangsmålet.",
     "noSelection": "Velg et element for å vise egenskaper",
@@ -357,9 +358,6 @@
     "save": "Lagre",
     "cancel": "Avbryt"
   },
-  "colors": {
-    "chooseAccent": "Velg aksentfarge"
-  },
   "youtube": {
     "importFromYouTube": "Importer fra YouTube",
     "searchPlaceholder": "Søk etter musikk eller lyd...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "Avspilling",
     "sectionPlaybackHelp": "Hvordan signaler starter, slutter og tar over for hverandre. Disse innstillingene følger forestillingen.",
     "sectionAudio": "Lyd og måling",
+    "sectionOutputs": "Maskinvareutganger",
     "sectionAudioHelp": "Standard for utgangsnivå, begrensning, måling og tidskode for denne forestillingen.",
     "sectionKeyboard": "Tastatur",
     "sectionKeyboardHelp": "Taster for transporthandlinger og spor i kartspilleren. Klikk på en rad, og trykk deretter kombinasjonen du vil bruke.",
@@ -543,7 +542,22 @@
     "sectionUsers": "Kontoer",
     "sectionUsersHelp": "Hvem som kan bruke denne tjeneren, og hva de har lov til å endre.",
     "stopAllStopsPreview": "«Stopp alle» stopper også forhåndsvisningen",
-    "stopAllStopsPreviewHelp": "Når dette er av, lar «Stopp alle» et signal du forlytter på Preview-bussen fortsette å spille."
+    "stopAllStopsPreviewHelp": "Når dette er av, lar «Stopp alle» et signal du forlytter på Preview-bussen fortsette å spille.",
+    "sectionAppearance": "Utseende",
+    "sectionAppearanceHelp": "Hvordan LivePlay ser ut og leses på denne skjermen. Disse innstillingene er dine, ikke forestillingens — de følger deg, ikke filen.",
+    "language": "Språk",
+    "languageHelp": "Bare din, og bare på denne skjermen — det endrer ikke hva andre som er koblet til forestillingen ser.",
+    "themeMode": "Tema",
+    "themeModeHelp": "Mørk er standard: en opplyst skjerm i et mørkt kontrollrom er det vanlige.",
+    "themeModeDark": "Mørk",
+    "themeModeLight": "Lys",
+    "themeModeSystem": "Følg systemet",
+    "themeModeSystemNow": "Følger innstillingen på denne maskinen, nå {mode}. Den endrer seg med skrivebordet, også midt i forestillingen.",
+    "accentColor": "Aksentfarge",
+    "accentColorHelp": "Brukes til markering, cuer som spilles og alt som vil ha blikket ditt. Den endrer ingenting ved hvordan forestillingen låter.",
+    "accentColorSwatch": "Aksentfarge {color}",
+    "sectionAbout": "Om",
+    "sectionAboutHelp": "Hvilken versjon som kjører, hvem som har skrevet den, og hvilken lisens den har."
   },
   "common": {
     "default": "standard",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "Avbryt",
     "outputMapDeleteConfirmDelete": "Slett likevel",
     "outputMapSave": "Lagre",
+    "outputMapRevert": "Tilbakestill",
+    "outputMapAdminOnly": "Bare administratorer kan endre maskinvareutgangene. Hvilke kontakter denne maskinen har hører til maskinen, ikke til forestillingen.",
     "outputMapCancel": "Avbryt",
     "outputMapSaving": "Lagrer…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "Tom",
     "plugins": "Plugins",
     "sends": "Sends",
-    "auxSendsPending": "Aux-sends er en fremtidig funksjon — ikke implementert ennå.",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "Expander / Gate",
     "compressor": "Kompressor / Limiter",
     "gateShort": "EXP",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "Spilletid {time}",
     "remaining": "{time} igjen i denne gruppen",
-    "containsLoop": "Inneholder et signal som går i løkke, så den har ingen fast slutt: tiden som vises er hvor lenge resten varer"
+    "containsLoop": "Inneholder et signal som går i løkke, så den har ingen fast slutt: tiden som vises er hvor lenge resten varer",
+    "nowPlaying": "Spilles nå: {name}",
+    "trackPosition": "Spor {position} av {total}"
   }
 }

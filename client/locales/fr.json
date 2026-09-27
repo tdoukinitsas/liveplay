@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Propriétés",
+    "resize": "Redimensionner le panneau des propriétés",
     "multipleItemsSelected": "{count} éléments sélectionnés",
     "peakWarning": "Le volume de cet élément est nettement au-dessus du niveau cible pour la cible de sortie sélectionnée. Utilisez 'Ajustement automatique du volume' pour le normaliser ou changez la cible de sortie.",
     "noSelection": "Sélectionnez un élément pour afficher les propriétés",
@@ -357,9 +358,6 @@
     "save": "Enregistrer",
     "cancel": "Annuler"
   },
-  "colors": {
-    "chooseAccent": "Choisir la Couleur d'Accentuation"
-  },
   "youtube": {
     "importFromYouTube": "Importer depuis YouTube",
     "searchPlaceholder": "Rechercher de la musique ou de l'audio...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "Lecture",
     "sectionPlaybackHelp": "Comment les signaux démarrent, se terminent et s'enchaînent. Ces réglages voyagent avec le spectacle.",
     "sectionAudio": "Audio et mesure",
+    "sectionOutputs": "Sorties matérielles",
     "sectionAudioHelp": "Norme de niveau de sortie, limitation, mesure et timecode pour ce spectacle.",
     "sectionKeyboard": "Clavier",
     "sectionKeyboardHelp": "Touches des commandes de transport et des emplacements de cartouches. Cliquez sur une ligne, puis appuyez sur la combinaison souhaitée.",
@@ -543,7 +542,22 @@
     "sectionUsers": "Comptes",
     "sectionUsersHelp": "Qui peut utiliser ce serveur, et ce que chacun a le droit de modifier.",
     "stopAllStopsPreview": "« Tout arrêter » arrête aussi l'aperçu",
-    "stopAllStopsPreviewHelp": "Désactivé, « Tout arrêter » laisse jouer le signal que vous pré-écoutez sur le bus Preview."
+    "stopAllStopsPreviewHelp": "Désactivé, « Tout arrêter » laisse jouer le signal que vous pré-écoutez sur le bus Preview.",
+    "sectionAppearance": "Apparence",
+    "sectionAppearanceHelp": "L’aspect et la lisibilité de LivePlay sur cet écran. Ces réglages sont les vôtres, pas ceux du spectacle : ils vous suivent, pas le fichier.",
+    "language": "Langue",
+    "languageHelp": "La vôtre seule, et seulement sur cet écran : cela ne change rien à ce que voient les autres connectés au spectacle.",
+    "themeMode": "Thème",
+    "themeModeHelp": "Sombre par défaut : un écran allumé dans une régie plongée dans le noir est le cas courant.",
+    "themeModeDark": "Sombre",
+    "themeModeLight": "Clair",
+    "themeModeSystem": "Suivre le système",
+    "themeModeSystemNow": "Suit le réglage de cet ordinateur, actuellement {mode}. Il change avec le bureau, y compris en plein spectacle.",
+    "accentColor": "Couleur d’accentuation",
+    "accentColorHelp": "Utilisée pour la sélection, les tops en lecture et tout ce qui appelle le regard. Elle ne change rien au son du spectacle.",
+    "accentColorSwatch": "Couleur d’accentuation {color}",
+    "sectionAbout": "À propos",
+    "sectionAboutHelp": "Quelle version tourne, qui l’a écrite et sous quelle licence."
   },
   "common": {
     "default": "défaut",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "Annuler",
     "outputMapDeleteConfirmDelete": "Supprimer quand même",
     "outputMapSave": "Enregistrer",
+    "outputMapRevert": "Rétablir",
+    "outputMapAdminOnly": "Seuls les administrateurs peuvent modifier le plan des sorties matérielles. Les connecteurs de cette machine appartiennent à la machine, pas au spectacle.",
     "outputMapCancel": "Annuler",
     "outputMapSaving": "Enregistrement…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "Vide",
     "plugins": "Plugins",
     "sends": "Départs",
-    "auxSendsPending": "Les départs auxiliaires sont une fonctionnalité future — pas encore implémentée.",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "Expandeur / Gate",
     "compressor": "Compresseur / Limiteur",
     "gateShort": "EXP",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "Durée {time}",
     "remaining": "Encore {time} dans ce groupe",
-    "containsLoop": "Contient un signal en boucle, donc sans fin fixe : la durée affichée est celle du reste"
+    "containsLoop": "Contient un signal en boucle, donc sans fin fixe : la durée affichée est celle du reste",
+    "nowPlaying": "Lecture en cours : {name}",
+    "trackPosition": "Piste {position} sur {total}"
   }
 }

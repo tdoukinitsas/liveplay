@@ -3820,6 +3820,10 @@ json ProjectState::state_summary() const {
             {"preview", b.def.preview},
             {"masters", b.masters ? json{b.masters->first, b.masters->second} : json{}},
             {"output",  json{{"type", kind}, {"target", b.def.output_target}}},
+            // Sends ride the compact snapshot too: a control surface that can
+            // set a send level needs to know the sends exist, and there is no
+            // other broadcast that would carry them.
+            {"sends",   bus_sends_to_json(b.def)},
         };
         if (b.def.preview) entry["monoCheck"] = b.mono_check;
         buses_arr.push_back(std::move(entry));
@@ -4428,6 +4432,25 @@ void ProjectState::load_buses_locked() {
             }
             d.output_kind   = out.kind;
             d.output_target = out.target;
+            // Aux sends (M1). Absent in every pre-M1 document, which reads as
+            // none — additive, so no busSchema bump and nothing to migrate.
+            // Destinations are NOT validated here: the bus list is still being
+            // built, so half of them do not exist yet. sanitise_bus_sends_locked
+            // runs once the list is whole.
+            if (b.contains("sends") && b["sends"].is_array()) {
+                for (const auto& s : b["sends"]) {
+                    if (!s.is_object()) continue;
+                    BusDef::Send snd;
+                    snd.id = s.value("id", std::string{});
+                    if (snd.id.empty()) continue;
+                    snd.level_db  = std::clamp(s.value("levelDb", 0.0f), -120.0f, 12.0f);
+                    // An unknown tap reads as post rather than being dropped:
+                    // a send at the wrong tap is audible and fixable, a send
+                    // that vanished is neither.
+                    snd.pre_fader = s.value("tap", std::string{"post"}) == "pre";
+                    d.sends.push_back(std::move(snd));
+                }
+            }
             if (out.legacy_master) legacy_master_kind.insert(d.id);
             seen.insert(d.id);
             buses_.push_back(std::move(d));
@@ -4704,6 +4727,17 @@ void ProjectState::load_buses_locked() {
 
     std::stable_sort(buses_.begin(), buses_.end(), by_order);
 
+    // Aux sends (M1), now that every bus exists and the roles are settled —
+    // none of the questions a send has to answer could be asked while the list
+    // was still being built. The API refuses an illegal send before it is ever
+    // stored, so anything dropped here came off disk: a hand-edited file, or
+    // one whose destination bus was deleted by an older build.
+    //
+    // Dropped and logged rather than repaired. There is no right guess about
+    // where a send was meant to go, and inventing one would put show audio
+    // somewhere nobody asked for it.
+    sanitise_bus_sends_locked(summary);
+
     if (summary.roles_migrated) {
         Logger::warn("bus roles settled for this document: master = '{}', preview = '{}'",
                      master_bus_locked()->display_name, preview_bus_locked()->display_name);
@@ -4822,6 +4856,79 @@ void ProjectState::migrate_device_overrides_locked(BusMigrationSummary& summary)
     }
 }
 
+void ProjectState::sanitise_bus_sends_locked(BusMigrationSummary& summary) {
+    // In list order, and one send at a time, because the answer to "would this
+    // close a loop" depends on the sends already kept. Validating them all
+    // against the document as loaded could keep both halves of a cycle: each
+    // looks innocent while the other is assumed gone.
+    //
+    // So: empty every list, then offer each send back one by one and keep the
+    // ones that stand. The first send of a mutually-looping pair survives and
+    // the second is refused, which is arbitrary but deterministic — the same
+    // file always loads the same way, and the operator is told.
+    std::vector<std::pair<std::string, std::vector<BusDef::Send>>> proposed;
+    proposed.reserve(buses_.size());
+    for (auto& b : buses_) {
+        if (b.sends.empty()) continue;
+        proposed.emplace_back(b.id, std::move(b.sends));
+        b.sends.clear();
+    }
+
+    const auto find = [&](const std::string& id) -> BusDef* {
+        for (auto& b : buses_) if (b.id == id) return &b;
+        return nullptr;
+    };
+
+    for (auto& [bus_id, list] : proposed) {
+        BusDef* src = find(bus_id);
+        if (!src) continue;
+        for (auto& snd : list) {
+            // A second send to the same destination is not two sends; it is
+            // the same one written twice, and the engine keys sends by
+            // destination anyway. Keep the first.
+            const bool dupe = std::any_of(
+                src->sends.begin(), src->sends.end(),
+                [&](const BusDef::Send& s) { return s.id == snd.id; });
+            if (dupe) {
+                Logger::warn("bus '{}': dropping a duplicate send to '{}'",
+                             src->display_name, snd.id);
+                ++summary.sends_dropped;
+                continue;
+            }
+            const auto r = validate_bus_send_locked(bus_id, snd.id);
+            if (r != PatchBusResult::Ok) {
+                Logger::warn("bus '{}': dropping its send to '{}' — {}",
+                             src->display_name, snd.id,
+                             r == PatchBusResult::SendUnknownTarget ? "no such bus"
+                             : r == PatchBusResult::SendIllegalTarget ? "nothing may feed the Preview bus"
+                             : r == PatchBusResult::RefusedPreviewSend ? "the Preview bus cannot send"
+                             : "it would close a loop");
+                ++summary.sends_dropped;
+                continue;
+            }
+            src->sends.push_back(std::move(snd));
+        }
+    }
+
+    if (summary.sends_dropped > 0) {
+        Logger::warn("{} aux send(s) in this document could not be loaded and were "
+                     "dropped; the buses they fed will be quieter than the file intended",
+                     summary.sends_dropped);
+    }
+}
+
+json bus_sends_to_json(const BusDef& b) {
+    json arr = json::array();
+    for (const auto& s : b.sends) {
+        arr.push_back(json{
+            {"id",      s.id},
+            {"levelDb", s.level_db},
+            {"tap",     s.pre_fader ? "pre" : "post"},
+        });
+    }
+    return arr;
+}
+
 void ProjectState::write_buses_to_document_locked() {
     json arr = json::array();
     for (const auto& b : buses_) {
@@ -4839,6 +4946,7 @@ void ProjectState::write_buses_to_document_locked() {
             {"preview", b.preview},
             {"dsp",     bus_dsp_to_json(b.dsp)},
             {"output",  json{{"type", kind}, {"target", b.output_target}}},
+            {"sends",   bus_sends_to_json(b)},
         });
     }
     document_["buses"] = std::move(arr);
@@ -5198,9 +5306,63 @@ void ProjectState::apply_bus_pan(const BusDef& bus, const BusRouting& routing,
     engine_.route_mixer_to_master(routing.mixer, routing.master_r, g.right, lane_r);
 }
 
+void ProjectState::wire_bus_sends(const BusDef& bus, BusRouting& routing,
+                                  const std::unordered_map<std::string, BusRouting>* strips) {
+    if (routing.mixer.empty()) return;
+
+    std::vector<std::string> now;
+    now.reserve(bus.sends.size());
+    for (const auto& s : bus.sends) {
+        int  dst_width   = 2;
+        bool dst_preview = false;
+        const auto dst = resolve_bus_strip(s.id, strips, &dst_width, &dst_preview);
+        // Both of these are refused by the API and by the load sanitiser, so
+        // reaching them means a strip went away underneath a send that was
+        // legal when it was made. Silent, named, and left in the document —
+        // the destination may come back with the next project load.
+        if (dst_preview) {
+            Logger::warn("bus '{}': send to '{}' is the preview bus and cannot be fed; "
+                         "leaving it silent", bus.display_name, s.id);
+            continue;
+        }
+        if (dst.empty()) {
+            Logger::warn("bus '{}': send to '{}' has no strip; leaving it silent",
+                         bus.display_name, s.id);
+            continue;
+        }
+        // The send lands in the destination by exactly the law its output
+        // would (D8): width-aware pan/balance, with the 2->1 fold where the
+        // destination is mono. The send's own level rides on top of that, so a
+        // send at 0 dB is the same signal the output edge would carry and the
+        // two cannot drift apart as the pan law is refined.
+        auto gains = bus_to_bus_lane_gains(bus, dst_width);
+        for (auto& g : gains) g.gain_db += s.level_db;
+        engine_.route_mixer_send(routing.mixer, dst, s.pre_fader, gains);
+        now.push_back(s.id);
+    }
+
+    // Only what is no longer wanted comes down. Everything still in the list
+    // was re-issued above, which replaces it in place rather than tearing the
+    // edge down — so a level drag does not gap the foldback it is adjusting.
+    for (const auto& gone : routing.wired_sends) {
+        if (std::find(now.begin(), now.end(), gone) != now.end()) continue;
+        int dst_width = 2;
+        const auto dst = resolve_bus_strip(gone, strips, &dst_width);
+        if (!dst.empty()) engine_.unroute_mixer_send(routing.mixer, dst);
+    }
+    routing.wired_sends = std::move(now);
+}
+
 void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing,
                             const std::unordered_map<std::string, BusRouting>* strips) {
     if (routing.mixer.empty()) return;
+
+    // Sends first, and outside everything below, because a send has nothing to
+    // do with where the bus's own output goes: an Output-kind bus feeding the
+    // house can still send to a foldback bus. Doing it here rather than at the
+    // end also means every one of the branches below is free to return early,
+    // as several of them do when a destination cannot be resolved.
+    wire_bus_sends(bus, routing, strips);
 
     // Only the Output branch below consults the map; anything else is wired
     // from nothing the map can change, so it records no resolution.
@@ -5599,23 +5761,80 @@ ProjectState::PatchBusResult ProjectState::validate_bus_output_locked(
     // is how a sub-mix reaches the house.
     if (dst->preview) return PatchBusResult::IllegalTarget;
 
-    // Walk the output chain forward from the destination. If it comes back to
-    // the source, this edge would close the loop. A bus routed into itself
-    // falls out of the same walk on its first step, which is why self is not a
-    // separate case. The hop cap makes a cycle already present in a
-    // hand-edited document terminate rather than spin.
-    const std::string* cur = &target;
-    for (std::size_t hops = 0; hops <= buses_.size(); ++hops) {
-        if (!source_id.empty() && *cur == source_id) return PatchBusResult::Cycle;
-        const BusDef* b = find(*cur);
-        if (!b || b->output_kind != BusOutputKind::Bus || b->output_target.empty())
-            return PatchBusResult::Ok;
-        cur = &b->output_target;
+    // Can the destination already reach the source? Then this edge closes the
+    // loop. A bus routed into itself is the same question answered on the
+    // first step, which is why self is not a separate case.
+    //
+    // This used to be a linear walk of the output chain, which was exact while
+    // a bus had exactly one output and no other way to pass audio on. Aux
+    // sends (M1) make the graph a DAG, and a cycle can now run through a send:
+    // A sends to B, then B is given A as its output, and the linear walk along
+    // outputs from A never meets B. bus_reaches_locked follows both.
+    if (!source_id.empty() && bus_reaches_locked(target, source_id))
+        return PatchBusResult::Cycle;
+    return PatchBusResult::Ok;
+}
+
+bool ProjectState::bus_reaches_locked(const std::string& from,
+                                      const std::string& to) const {
+    // Every edge that carries audio counts, whichever kind it is: a bus's
+    // output and each of its sends are both summed into the destination's
+    // accumulator before that strip renders, so both constrain the render
+    // order and both can close a loop. A send at -60 dB still closes one.
+    if (from == to) return true;
+    std::unordered_set<std::string> seen;
+    std::vector<std::string>        stack{from};
+    seen.insert(from);
+    while (!stack.empty()) {
+        const std::string cur = std::move(stack.back());
+        stack.pop_back();
+        const BusDef* b = nullptr;
+        for (const auto& x : buses_) if (x.id == cur) { b = &x; break; }
+        if (!b) continue;                       // a destination that went away
+        const auto step = [&](const std::string& next) {
+            if (next.empty()) return false;
+            if (next == to) return true;
+            if (seen.insert(next).second) stack.push_back(next);
+            return false;
+        };
+        if (b->output_kind == BusOutputKind::Bus && step(b->output_target)) return true;
+        for (const auto& s : b->sends) if (step(s.id)) return true;
     }
-    // Only reachable if the stored graph already loops, which the API cannot
-    // produce. Refusing to add to it is the safe answer.
-    Logger::warn("validate_bus_output: the stored bus graph already loops at '{}'", target);
-    return PatchBusResult::Cycle;
+    // `seen` bounds this: every bus is expanded at most once, so a graph that
+    // already loops terminates rather than spinning. No hop cap needed.
+    return false;
+}
+
+ProjectState::PatchBusResult ProjectState::validate_bus_send_locked(
+        const std::string& source_id, const std::string& target) const {
+    const auto find = [&](const std::string& id) -> const BusDef* {
+        for (const auto& b : buses_) if (b.id == id) return &b;
+        return nullptr;
+    };
+    if (!source_id.empty() && source_id == target) return PatchBusResult::SendCycle;
+
+    // The preview bus may not SEND either, for the reason it may not be routed
+    // (§2.4): its content is every PFL'd channel, and a send is still a path
+    // into the house. A tapped copy at -20 dB is PFL in the house quietly.
+    if (const BusDef* src = source_id.empty() ? nullptr : find(source_id)) {
+        if (src->preview) return PatchBusResult::RefusedPreviewSend;
+        // The MASTER bus may send, and deliberately — settled with the user
+        // 2026-09-27. A record, broadcast or delay-tower feed off the house is
+        // ordinary practice, and D27 gives the master bus the house pair
+        // regardless of what else it feeds. This is the one rule sends do not
+        // share with outputs, which is why they have their own validator.
+    }
+
+    const BusDef* dst = find(target);
+    if (!dst) return PatchBusResult::SendUnknownTarget;
+    // D25 again, and the harder direction: nothing may feed the preview bus.
+    // PFL is how a bus is auditioned; a send into preview would put show audio
+    // under the operator's headphones permanently.
+    if (dst->preview) return PatchBusResult::SendIllegalTarget;
+
+    if (!source_id.empty() && bus_reaches_locked(target, source_id))
+        return PatchBusResult::SendCycle;
+    return PatchBusResult::Ok;
 }
 
 bool ProjectState::bus_reaches_hardware_locked(const std::string& bus_id) const {
@@ -5779,6 +5998,27 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
     }
     if (take_master && take_preview) return PatchBusResult::RoleConflict;
 
+    // Aux sends (M1). The whole list, not a delta: a send has no identity the
+    // caller could address apart from its destination, and "here is what this
+    // bus sends to now" is both what the UI has and what leaves no room for a
+    // partial apply. Parsed here, validated under the lock below, and only
+    // then stored — the same order the output edge follows, so a refused send
+    // leaves the bus exactly as it was.
+    bool                     sends_patched = false;
+    std::vector<BusDef::Send> new_sends;
+    if (patch.contains("sends") && patch["sends"].is_array()) {
+        sends_patched = true;
+        for (const auto& s : patch["sends"]) {
+            if (!s.is_object()) continue;
+            BusDef::Send snd;
+            snd.id = s.value("id", std::string{});
+            if (snd.id.empty()) continue;
+            snd.level_db  = std::clamp(s.value("levelDb", 0.0f), -120.0f, 12.0f);
+            snd.pre_fader = s.value("tap", std::string{"post"}) == "pre";
+            new_sends.push_back(std::move(snd));
+        }
+    }
+
     std::string old_master_id, old_preview_id;   // previous holders, when a role moves
     {
         std::lock_guard lock{mutex_};
@@ -5865,6 +6105,34 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
                 materialise_device = present_device_locked(new_target);
             }
         }
+
+        // Sends, validated against the graph as it stands. The bus's OWN sends
+        // — the ones about to be replaced — cannot affect the answer: the
+        // question is "can the destination reach this bus", and a walk that
+        // reaches this bus has already found the cycle and stopped, so it
+        // never follows this bus's out-edges. That is why each candidate can
+        // be checked independently and why the old list being still in place
+        // does not skew it.
+        if (sends_patched) {
+            std::vector<BusDef::Send> accepted;
+            accepted.reserve(new_sends.size());
+            for (const auto& snd : new_sends) {
+                // Two entries for one destination is a malformed request whose
+                // intent is unambiguous, and the engine keys sends by
+                // destination anyway. Keep the first rather than refuse.
+                if (std::any_of(accepted.begin(), accepted.end(),
+                                [&](const BusDef::Send& a) { return a.id == snd.id; }))
+                    continue;
+                const auto v = validate_bus_send_locked(id, snd.id);
+                if (v != PatchBusResult::Ok) {
+                    Logger::warn("patch_bus: refusing a send from bus '{}' to '{}'",
+                                 id, snd.id);
+                    return v;
+                }
+                accepted.push_back(snd);
+            }
+            new_sends = std::move(accepted);
+        }
     }
 
     // Outside the lock: save() is file I/O, and OutputMap takes its own.
@@ -5893,6 +6161,7 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
     bool       pan_moved    = false;
     bool       dsp_moved    = false;
     bool       order_moved  = false;
+    bool       sends_moved  = false;
     {
         std::lock_guard lock{mutex_};
         for (auto& b : buses_) {
@@ -5923,6 +6192,15 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
                 b.output_kind   = new_kind;
                 b.output_target = new_target;
                 needs_rewire    = true;
+            }
+            if (sends_patched) {
+                b.sends = std::move(new_sends);
+                // Not `needs_rewire`: that tears the output edge down and
+                // builds it again, and nothing about the output changed.
+                // wire_bus_sends reconciles instead, re-issuing what is still
+                // wanted in place so a level change does not gap the send it
+                // is changing.
+                sends_moved = true;
             }
             // The role lands here, atomically with the previous holder losing
             // it: one write, one broadcast (D24).
@@ -6020,6 +6298,18 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
             // Send gains only — a pan drag must not tear the routing down.
             apply_bus_pan(updated, routing);
         }
+        // Aux sends (M1). Reconciled rather than rewired, and on three
+        // triggers: the send list itself changed, or pan or width moved —
+        // both of which are half of the lane law a send rides on, exactly as
+        // they are for the output edge. Skipped where a branch above already
+        // went through wire_bus (needs_rewire) or rewire_role_move (a role
+        // change), since both reconcile the sends themselves.
+        if ((sends_moved || pan_moved || width_moved) &&
+            !needs_rewire && !take_master && !take_preview) {
+            wire_bus_sends(updated, routing);
+            std::lock_guard lock{mutex_};
+            bus_routings_[id] = routing;
+        }
         // Tone controls never touch routing: new coefficients into the strip's
         // own slot and nothing else moves. After a role move the strip may
         // have just become the preview bus, whose mono-check rides on these.
@@ -6104,19 +6394,31 @@ void ProjectState::rewire_role_move(bool master_role, const std::string& old_id,
 
 void ProjectState::rewire_bus_feeders(const std::string& target_id) {
     std::vector<std::pair<BusDef, BusRouting>> feeders;
+    std::vector<std::pair<BusDef, BusRouting>> senders;
     {
         std::lock_guard lock{mutex_};
         for (const auto& b : buses_) {
-            if (b.output_kind != BusOutputKind::Bus || b.output_target != target_id) continue;
             const auto rit = bus_routings_.find(b.id);
             if (rit == bus_routings_.end() || rit->second.mixer.empty()) continue;
-            feeders.emplace_back(b, rit->second);
+            if (b.output_kind == BusOutputKind::Bus && b.output_target == target_id)
+                feeders.emplace_back(b, rit->second);
+            // A SEND into this bus rides the same width-aware law (D8), so a
+            // bus that has just become mono has to fold everything arriving on
+            // a send as well as everything arriving on an output. Collected
+            // separately because the two are re-issued by different calls.
+            if (std::any_of(b.sends.begin(), b.sends.end(),
+                            [&](const BusDef::Send& s) { return s.id == target_id; }))
+                senders.emplace_back(b, rit->second);
         }
     }
     // route_mixer_to_mixer replaces the send in place, so the edge never goes
     // away and nothing recorded in the routing changes — there is nothing to
     // write back.
     for (const auto& [def, routing] : feeders) apply_bus_pan(def, routing);
+    // Same property for route_mixer_send, so the copy of the routing these
+    // take is written back nowhere either: every send in the list is re-issued
+    // and none is removed, so wired_sends comes out identical.
+    for (auto& [def, routing] : senders) wire_bus_sends(def, routing);
 }
 
 bool ProjectState::set_bus_pfl(const std::string& id, bool on) {
@@ -6164,14 +6466,41 @@ bool ProjectState::delete_bus(const std::string& id, std::string* why) {
         // the operator can see and undo; a strip that quietly stops reaching
         // an output is one they find out about from the room.
         const std::string master_id = master_bus_id_locked();
+        std::unordered_set<std::string> touched;
         for (auto& b : buses_) {
             if (b.output_kind != BusOutputKind::Bus || b.output_target != id) continue;
             b.output_kind   = BusOutputKind::Bus;
             b.output_target = master_id;
-            const auto rit = bus_routings_.find(b.id);
-            retargeted.emplace_back(b, rit == bus_routings_.end() ? BusRouting{} : rit->second);
+            touched.insert(b.id);
             Logger::info("delete_bus: bus '{}' fed '{}'; re-routed to the master bus",
                          b.display_name, id);
+        }
+
+        // A SEND to the deleted bus is DROPPED, not retargeted, which is the
+        // opposite of what D9 does for an output above — and deliberately.
+        // An output is the whole signal and must land somewhere or the bus
+        // goes silent, so the master bus is the safe answer. A send is an
+        // extra copy at a chosen level for a chosen purpose: a foldback, a
+        // record feed. Moving one to the master bus would put a monitor mix
+        // into the house, which is the accident, not the recovery.
+        for (auto& b : buses_) {
+            const auto before = b.sends.size();
+            b.sends.erase(std::remove_if(b.sends.begin(), b.sends.end(),
+                                         [&](const BusDef::Send& s) { return s.id == id; }),
+                          b.sends.end());
+            if (b.sends.size() == before) continue;
+            touched.insert(b.id);
+            Logger::info("delete_bus: dropped bus '{}'s send to '{}'", b.display_name, id);
+        }
+
+        // Copied only now that both edits have landed. Taking the definition
+        // during either loop above would capture a bus mid-edit — one that had
+        // its output moved but still listed the send that is about to go, and
+        // would then be re-wired from that stale copy.
+        for (const auto& b : buses_) {
+            if (!touched.count(b.id)) continue;
+            const auto rit = bus_routings_.find(b.id);
+            retargeted.emplace_back(b, rit == bus_routings_.end() ? BusRouting{} : rit->second);
         }
 
         // Items pointing at the bus that just went away fall back to the

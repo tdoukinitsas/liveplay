@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "বৈশিষ্ট্য",
+    "resize": "বৈশিষ্ট্য প্যানেলের আকার পরিবর্তন করুন",
     "multipleItemsSelected": "{count}টি আইটেম নির্বাচিত",
     "peakWarning": "এই আইটেমের লাউডনেস নির্বাচিত আউটপুট লক্ষ্যের টার্গেট লেভেলের চেয়ে উল্লেখযোগ্যভাবে বেশি। এটি স্বাভাবিক করতে 'ভলিউম স্বয়ংক্রিয়ভাবে সামঞ্জস্য করুন' ব্যবহার করুন বা আউটপুট লক্ষ্য পরিবর্তন করুন।",
     "noSelection": "বৈশিষ্ট্য দেখতে একটি আইটেম নির্বাচন করুন",
@@ -357,9 +358,6 @@
     "save": "সংরক্ষণ",
     "cancel": "বাতিল"
   },
-  "colors": {
-    "chooseAccent": "অ্যাক্সেন্ট রঙ নির্বাচন করুন"
-  },
   "youtube": {
     "importFromYouTube": "YouTube থেকে আমদানি করুন",
     "searchPlaceholder": "সঙ্গীত বা অডিও অনুসন্ধান করুন...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "প্লেব্যাক",
     "sectionPlaybackHelp": "কিউ কীভাবে শুরু হয়, শেষ হয় এবং একে অপরের হাতে দায়িত্ব তুলে দেয়। এগুলো শো-এর সঙ্গেই সংরক্ষিত থাকে।",
     "sectionAudio": "অডিও ও মিটারিং",
+    "sectionOutputs": "হার্ডওয়্যার আউটপুট",
     "sectionAudioHelp": "এই শো-এর আউটপুট লেভেল মান, লিমিটিং, মিটারিং এবং টাইমকোড।",
     "sectionKeyboard": "কীবোর্ড",
     "sectionKeyboardHelp": "ট্রান্সপোর্ট অ্যাকশন ও কার্ট স্লটের কী। একটি সারিতে ক্লিক করুন, তারপর আপনার পছন্দের কী সমন্বয় চাপুন।",
@@ -543,7 +542,22 @@
     "sectionUsers": "অ্যাকাউন্ট",
     "sectionUsersHelp": "কারা এই সার্ভার ব্যবহার করতে পারে এবং কী পরিবর্তন করার অনুমতি আছে।",
     "stopAllStopsPreview": "«সব বন্ধ করুন» পূর্বশ্রবণও বন্ধ করে",
-    "stopAllStopsPreviewHelp": "বন্ধ থাকলে, Preview বাসে আপনি যে কিউ পূর্বশ্রবণ করছেন «সব বন্ধ করুন» সেটি বাজতে দেয়।"
+    "stopAllStopsPreviewHelp": "বন্ধ থাকলে, Preview বাসে আপনি যে কিউ পূর্বশ্রবণ করছেন «সব বন্ধ করুন» সেটি বাজতে দেয়।",
+    "sectionAppearance": "চেহারা",
+    "sectionAppearanceHelp": "এই স্ক্রিনে LivePlay কেমন দেখায় ও পড়া যায়। এই সেটিংস আপনার, শো-এর নয় — এগুলি ফাইলের সঙ্গে নয়, আপনার সঙ্গে চলে।",
+    "language": "ভাষা",
+    "languageHelp": "কেবল আপনার, এবং কেবল এই স্ক্রিনে — এই শো-তে যুক্ত অন্যরা যা দেখেন তা বদলায় না।",
+    "themeMode": "থিম",
+    "themeModeHelp": "ডার্ক ডিফল্ট: অন্ধকার কন্ট্রোল রুমে আলোকিত স্ক্রিনই স্বাভাবিক।",
+    "themeModeDark": "ডার্ক",
+    "themeModeLight": "লাইট",
+    "themeModeSystem": "সিস্টেম অনুযায়ী",
+    "themeModeSystemNow": "এই কম্পিউটারের সেটিং অনুসরণ করে, এখন {mode}। ডেস্কটপের সঙ্গে বদলায়, শো চলাকালীনও।",
+    "accentColor": "অ্যাকসেন্ট রং",
+    "accentColorHelp": "নির্বাচন, চলমান কিউ এবং যা কিছু আপনার চোখ টানতে চায় তার জন্য ব্যবহৃত হয়। শো কেমন শোনায় তাতে কিছুই বদলায় না।",
+    "accentColorSwatch": "অ্যাকসেন্ট রং {color}",
+    "sectionAbout": "পরিচিতি",
+    "sectionAboutHelp": "কোন সংস্করণ চলছে, কে লিখেছেন এবং কোন লাইসেন্সের অধীনে।"
   },
   "common": {
     "default": "ডিফল্ট",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "বাতিল করুন",
     "outputMapDeleteConfirmDelete": "তবুও মুছুন",
     "outputMapSave": "সংরক্ষণ করুন",
+    "outputMapRevert": "ফিরিয়ে আনুন",
+    "outputMapAdminOnly": "শুধুমাত্র প্রশাসকরাই হার্ডওয়্যার আউটপুট ম্যাপ পরিবর্তন করতে পারেন। এই মেশিনে কোন সকেট আছে তা মেশিনের ব্যাপার, শো-এর নয়।",
     "outputMapCancel": "বাতিল করুন",
     "outputMapSaving": "সংরক্ষণ হচ্ছে…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "খালি",
     "plugins": "প্লাগইন",
     "sends": "সেন্ড",
-    "auxSendsPending": "অক্স সেন্ড একটি ভবিষ্যৎ বৈশিষ্ট্য — এখনও বাস্তবায়িত হয়নি।",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "এক্সপ্যান্ডার / গেট",
     "compressor": "কম্প্রেসর / লিমিটার",
     "gateShort": "গেট",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "চলার সময় {time}",
     "remaining": "এই গ্রুপে বাকি {time}",
-    "containsLoop": "একটি লুপিং কিউ আছে, তাই এর কোনো নির্দিষ্ট শেষ নেই: দেখানো সময়টি বাকি অংশের দৈর্ঘ্য"
+    "containsLoop": "একটি লুপিং কিউ আছে, তাই এর কোনো নির্দিষ্ট শেষ নেই: দেখানো সময়টি বাকি অংশের দৈর্ঘ্য",
+    "nowPlaying": "এখন চলছে: {name}",
+    "trackPosition": "ট্র্যাক {position} / {total}"
   }
 }

@@ -1,5 +1,13 @@
 <template>
-  <div class="main-workspace" :class="{ 'show-mode': uiMode === 'playback' }">
+  <!-- The properties panel's height rides on the CSS variable it already reads
+       (PropertiesPanel.vue: `height: var(--properties-panel-height)`), set here
+       rather than in main.scss so the drag can change it without the panel
+       needing to know it is resizable. -->
+  <div
+    class="main-workspace"
+    :class="{ 'show-mode': uiMode === 'playback' }"
+    :style="{ '--properties-panel-height': propertiesHeight + 'px' }"
+  >
     <!-- Show Mode reuses the full editor layout (header, transport, resizable/
          detachable playlist⇄cart split). It is not a separate view: the child
          components read useUiMode() and hide their edit affordances + enlarge
@@ -115,8 +123,23 @@
       </template>
     </div>
 
-    <!-- Properties panel is an edit affordance — never surfaced in Show Mode. -->
-    <PropertiesPanel v-if="uiMode !== 'playback' && propertiesPanelOpen && selectedItem" />
+    <!-- Properties panel is an edit affordance — never surfaced in Show Mode.
+         Its handle is a sibling above it rather than part of the panel, for the
+         same reason the vertical ones are: the thing being dragged is the
+         boundary between two panes, and it has to keep working while the pane
+         below it is at its minimum. -->
+    <template v-if="uiMode !== 'playback' && propertiesPanelOpen && selectedItem">
+      <div
+        class="resize-handle-h"
+        :class="{ dragging: isResizingProps }"
+        role="separator"
+        aria-orientation="horizontal"
+        :aria-label="t('properties.resize')"
+        @pointerdown="startPropsResize"
+        @dblclick="propertiesHeight = PROPERTIES_DEFAULT_PX"
+      ><span class="resize-grip-h" aria-hidden="true"></span></div>
+      <PropertiesPanel />
+    </template>
 
     <ProgressModal
       :visible="progressModal.visible"
@@ -271,6 +294,12 @@ function reclampPanes() {
   if (!cartDetached.value && !cartClosed.value && !cartFullscreen.value) {
     cartWidth.value = clampWidth(cartWidth.value, CART_MIN_PX, maxCartWidth(width));
   }
+  // The properties panel is clamped against the WINDOW, not this row's width,
+  // because it is the one pane that competes with the row for height rather
+  // than sitting inside it. Shortening the window otherwise leaves a panel
+  // taller than the space above it and pushes the playlist off the bottom.
+  propertiesHeight.value =
+    clampWidth(propertiesHeight.value, PROPERTIES_MIN_PX, maxPropertiesHeight());
 }
 
 // Migration banner's "Open Mixer" action (D12): open the panel and dismiss
@@ -353,6 +382,58 @@ function startMixerResize(e: PointerEvent) {
   document.addEventListener('pointerup', onUp);
   document.addEventListener('pointercancel', onUp);
 }
+
+// ---- Properties panel height ---------------------------------------------
+// The waveform editor inside the panel is why this is adjustable at all: at
+// the fixed 300px it inherited from main.scss it had a few dozen pixels to
+// draw in, and setting trim points by eye needs the height.
+//
+// The panel reads `height: var(--properties-panel-height)` already, so nothing
+// in PropertiesPanel changes — the variable is simply set on .main-workspace
+// from here instead of being a constant in the stylesheet.
+const PROPERTIES_MIN_PX     = 160;
+const PROPERTIES_DEFAULT_PX = 300;
+// What the workspace above has to keep. The ceiling is measured against the
+// window rather than being a second constant, so the panel can take most of a
+// tall screen without being able to swallow the playlist on a short one.
+const PROPERTIES_TOP_MIN_PX = 220;
+const propertiesHeight  = ref(PROPERTIES_DEFAULT_PX);
+const isResizingProps   = ref(false);
+
+function maxPropertiesHeight(): number {
+  // Measured from the top of the workspace row: the header, transport and any
+  // banner above it are fixed furniture this drag must not eat into.
+  const top = workspaceEl.value?.getBoundingClientRect().top ?? 0;
+  return Math.max(PROPERTIES_MIN_PX, window.innerHeight - top - PROPERTIES_TOP_MIN_PX);
+}
+
+// Same pointer-capture shape as the vertical handles, and for the same reason:
+// without capture a touch drag dies the moment the finger leaves the bar.
+const startPropsResize = (e: PointerEvent) => {
+  if (isResizingProps.value || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  const handle = e.currentTarget as HTMLElement | null;
+  isResizingProps.value = true;
+  e.preventDefault();
+  try { handle?.setPointerCapture(e.pointerId); } catch { /* capture is best-effort */ }
+
+  const onMove = (ev: PointerEvent) => {
+    if (!isResizingProps.value) return;
+    // Distance from the pointer to the bottom of the window, so dragging up
+    // grows the panel — the direction the gesture implies.
+    propertiesHeight.value =
+      clampWidth(window.innerHeight - ev.clientY, PROPERTIES_MIN_PX, maxPropertiesHeight());
+  };
+  const onUp = (ev: PointerEvent) => {
+    isResizingProps.value = false;
+    try { handle?.releasePointerCapture(ev.pointerId); } catch { /* best-effort */ }
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+  };
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointercancel', onUp);
+};
 
 const cartWidth = ref(500);
 const isResizing = ref(false);
@@ -577,7 +658,7 @@ const exportServerPickerOpen = ref(false);
 
 async function startExportFlow() {
   if (!currentProject.value) return;
-  if (server.isLocalServer.value) {
+  if (server.isLocalServer) {
     // Local: skip the choice modal and go straight to the server picker
     // (the "server" here is this same computer, so this matches the user's
     // expectation of a familiar OS-style directory chooser).
@@ -764,14 +845,14 @@ const unboundSignatureDismissed = ref('');
 const unboundDismissed = computed(
   () => unboundSignature.value !== '' && unboundSignature.value === unboundSignatureDismissed.value
 );
-// The output map lives in the mixer panel, so the panel has to be up for the
-// modal to render. When the map moves into Settings this becomes a plain deep
-// link to that section instead.
+// Exactly what the note here predicted: the map has moved into Settings, so
+// this is a plain deep link to that section. It no longer has to force the
+// mixer panel open first — the banner used to need the panel up because the
+// modal was rendered inside it, which meant reporting an unbound output also
+// rearranged the operator's workspace.
 function openOutputMap() {
-  mixerOpen.value = true;
-  outputMapOpen.value = true;
+  useSettingsPage().open('outputs');
 }
-const outputMapOpen = useState<boolean>('liveplay:outputMapOpen', () => false);
 
 // Transport keys and MIDI belong to the workspace, not to the cart pane.
 //
@@ -917,6 +998,69 @@ onUnmounted(() => {
   &.mixer-section--fill {
     flex: 1 1 0;
     border-left: none;
+  }
+}
+
+/* The properties panel's top edge. The same object as the vertical handles
+   turned through ninety degrees: same grab zone, same coarse-pointer widening,
+   same grip, row-resize instead of col-resize. It is flex:0 0 auto in the
+   workspace column, so it holds its 10px while the panel below it changes
+   height.
+
+   Double-click restores PROPERTIES_DEFAULT_PX — the usual escape hatch for a
+   splitter dragged somewhere unhelpful, and the only way back to the height
+   the panel used to have. */
+.resize-handle-h {
+  height: 10px;
+  box-sizing: border-box;
+  background-color: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  cursor: row-resize;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  position: relative;
+  z-index: 10;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+  /* A finger needs ~24px; on a mouse rig the extra height would sit over the
+     panel's own header for no gain. */
+  @media (any-pointer: coarse) {
+    &::before {
+      top: -10px;
+      bottom: -10px;
+    }
+  }
+
+  /* The grip runs the other way: wide and short rather than tall and narrow. */
+  .resize-grip-h {
+    width: 16px;
+    height: 4px;
+    background-image: radial-gradient(circle, var(--color-text-secondary) 1px, transparent 1.4px);
+    background-size: 5.33px 4px;
+    background-position: center;
+    opacity: 0.8;
+    pointer-events: none;
+  }
+
+  &:hover,
+  &.dragging {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
   }
 }
 

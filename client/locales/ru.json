@@ -113,6 +113,7 @@
   },
   "properties": {
     "title": "Свойства",
+    "resize": "Изменить размер панели свойств",
     "multipleItemsSelected": "Выбрано элементов: {count}",
     "peakWarning": "Громкость этого элемента значительно превышает целевой уровень для выбранного стандарта вывода. Используйте 'Автоматически настроить громкость' для нормализации или измените стандарт вывода.",
     "noSelection": "Выберите элемент для просмотра св��йств",
@@ -357,9 +358,6 @@
     "save": "Сохранить",
     "cancel": "Отмена"
   },
-  "colors": {
-    "chooseAccent": "Выбрать цвет акцента"
-  },
   "youtube": {
     "importFromYouTube": "Импортировать из YouTube",
     "searchPlaceholder": "Поиск музыки или аудио...",
@@ -530,6 +528,7 @@
     "sectionPlayback": "Воспроизведение",
     "sectionPlaybackHelp": "Как сигналы начинаются, заканчиваются и сменяют друг друга. Эти настройки хранятся вместе с шоу.",
     "sectionAudio": "Аудио и измерения",
+    "sectionOutputs": "Аппаратные выходы",
     "sectionAudioHelp": "Стандарт выходного уровня, лимитирование, измерения и тайм-код для этого шоу.",
     "sectionKeyboard": "Клавиатура",
     "sectionKeyboardHelp": "Клавиши для транспортных команд и слотов картридж-плеера. Щёлкните строку, затем нажмите нужное сочетание.",
@@ -543,7 +542,22 @@
     "sectionUsers": "Учётные записи",
     "sectionUsersHelp": "Кто может пользоваться этим сервером и что ему разрешено менять.",
     "stopAllStopsPreview": "«Остановить всё» также останавливает предпросмотр",
-    "stopAllStopsPreviewHelp": "Если выключено, «Остановить всё» не останавливает сигнал, который вы предпрослушиваете на шине Preview."
+    "stopAllStopsPreviewHelp": "Если выключено, «Остановить всё» не останавливает сигнал, который вы предпрослушиваете на шине Preview.",
+    "sectionAppearance": "Оформление",
+    "sectionAppearanceHelp": "Как LivePlay выглядит и читается на этом экране. Эти настройки ваши, а не шоу — они следуют за вами, а не за файлом.",
+    "language": "Язык",
+    "languageHelp": "Только ваш, и только на этом экране — для остальных, кто подключён к этому шоу, ничего не меняется.",
+    "themeMode": "Тема",
+    "themeModeHelp": "По умолчанию тёмная: светящийся экран в тёмной аппаратной — обычное дело.",
+    "themeModeDark": "Тёмная",
+    "themeModeLight": "Светлая",
+    "themeModeSystem": "Как в системе",
+    "themeModeSystemNow": "Следует настройке этого компьютера — сейчас {mode}. Меняется вместе с системой, в том числе посреди шоу.",
+    "accentColor": "Акцентный цвет",
+    "accentColorHelp": "Используется для выделения, играющих реплик и всего, что должно привлечь взгляд. На звучание шоу не влияет.",
+    "accentColorSwatch": "Акцентный цвет {color}",
+    "sectionAbout": "О программе",
+    "sectionAboutHelp": "Какая версия запущена, кто её написал и под какой лицензией."
   },
   "common": {
     "default": "по умолчанию",
@@ -789,6 +803,8 @@
     "outputMapDeleteConfirmCancel": "Отмена",
     "outputMapDeleteConfirmDelete": "Всё равно удалить",
     "outputMapSave": "Сохранить",
+    "outputMapRevert": "Отменить",
+    "outputMapAdminOnly": "Изменять карту аппаратных выходов могут только администраторы. Какие разъёмы есть у этой машины — дело машины, а не шоу.",
     "outputMapCancel": "Отмена",
     "outputMapSaving": "Сохранение…",
     "tabEq": "EQ",
@@ -797,7 +813,15 @@
     "emptySlot": "Пусто",
     "plugins": "Плагины",
     "sends": "Посылы",
-    "auxSendsPending": "Aux sends — функция будущего, пока не реализована.",
+    "auxSends": "Aux sends",
+    "sendsNone": "No sends",
+    "sendAdd": "Send to…",
+    "sendLevel": "Send level to {name}",
+    "sendRemove": "Remove the send to {name}",
+    "sendTapPre": "Pre",
+    "sendTapPost": "Post",
+    "sendTapPreHelp": "Taken before this bus’s fader and mute, so the send stays up when they come down. Click for post-fader.",
+    "sendTapPostHelp": "Taken after this bus’s fader and mute, so the send follows them. Click for pre-fader.",
     "gate": "Экспандер / Гейт",
     "compressor": "Компрессор / Лимитер",
     "gateShort": "ЭКСП",
@@ -930,6 +954,8 @@
   "group": {
     "runTime": "Длительность {time}",
     "remaining": "В группе осталось {time}",
-    "containsLoop": "Содержит зацикленный сигнал, поэтому не имеет фиксированного конца: показано время звучания остальной части"
+    "containsLoop": "Содержит зацикленный сигнал, поэтому не имеет фиксированного конца: показано время звучания остальной части",
+    "nowPlaying": "Сейчас играет: {name}",
+    "trackPosition": "Трек {position} из {total}"
   }
 }

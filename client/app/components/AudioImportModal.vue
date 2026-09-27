@@ -10,7 +10,7 @@
         <!-- Source mode toggle. Only rendered when the server is on a
              different machine; otherwise "upload" makes no sense and we
              skip the tabs entirely. -->
-        <div v-if="!server.isLocalServer.value" class="tabs">
+        <div v-if="!server.isLocalServer" class="tabs">
           <button class="tab" :class="{ active: tab === 'server' }" @click="tab = 'server'">
             {{ t('importAudio.tabServer') }}
           </button>
@@ -25,7 +25,7 @@
           <p class="hint">{{ t('importAudio.serverHint') }}</p>
 
           <!-- Local file picker: only shown on local server (Electron only) -->
-          <template v-if="server.isLocalServer.value && hasElectron">
+          <template v-if="server.isLocalServer && hasElectron">
             <div class="divider">{{ t('importAudio.orFromComputer') }}</div>
             <div class="row">
               <button class="btn primary" :disabled="pickingLocal" @click="pickLocal">

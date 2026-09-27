@@ -262,13 +262,53 @@ void AudioEngine::rebuild_topology_locked() {
         }
         strip_edges.emplace_back(sit->second, dit->second);
     }
+    // Aux sends (M1) are edges in the same graph. A send is a real signal path
+    // — it is summed into the destination's accumulator before that strip runs
+    // — so it constrains the order exactly as the output edge does, and it can
+    // close a cycle exactly as readily.
+    for (const auto& [src_str, sends] : pending_.mixer_sends) {
+        const auto sit = strip_index.find(src_str);
+        if (sit == strip_index.end()) continue;
+        for (const auto& ps : sends) {
+            const auto dit = strip_index.find(ps.dst.value);
+            if (dit == strip_index.end()) continue;
+            if (sit->second == monitor_idx || dit->second == monitor_idx) {
+                Logger::warn("topology: dropping send '{}' -> '{}' — the monitor "
+                             "strip neither feeds nor is fed by a bus",
+                             snap->strips[sit->second].strip->display_name(),
+                             snap->strips[dit->second].strip->display_name());
+                continue;
+            }
+            StripRouteEntry::Send se;
+            se.dst_strip = dit->second;
+            se.pre_fader = ps.pre_fader;
+            se.lane_sends.reserve(ps.lanes.size());
+            for (const auto& l : ps.lanes) {
+                if (l.src_lane >= kMixerLanes || l.dst_lane >= kMixerLanes) continue;
+                se.lane_sends.push_back({l.src_lane, l.dst_lane, l.gain_lin});
+            }
+            snap->strips[sit->second].sends.push_back(std::move(se));
+            strip_edges.emplace_back(sit->second, dit->second);
+        }
+    }
     auto ordered = compute_strip_order(snap->strips.size(), strip_edges, monitor_idx);
     for (const auto& [s, d] : ordered.dropped) {
         Logger::warn("topology: dropping bus route '{}' -> '{}' — it closes a cycle",
                      snap->strips[s].strip->display_name(),
                      snap->strips[d].strip->display_name());
-        snap->strips[s].dst_strip = StripRouteEntry::npos;
-        snap->strips[s].lane_sends.clear();
+        // Every edge from s to d, output and sends alike: they all close the
+        // same cycle, so none of them may survive. The API refuses a cycle
+        // before it is stored, so reaching here means one was minted around it.
+        if (snap->strips[s].dst_strip == d) {
+            snap->strips[s].dst_strip = StripRouteEntry::npos;
+            snap->strips[s].lane_sends.clear();
+        }
+        auto& sl = snap->strips[s].sends;
+        sl.erase(std::remove_if(sl.begin(), sl.end(),
+                                [d = d](const StripRouteEntry::Send& x) {
+                                    return x.dst_strip == d;
+                                }),
+                 sl.end());
     }
     snap->strip_order = std::move(ordered.order);
 
@@ -1053,6 +1093,19 @@ void AudioEngine::remove_mixer_channel(const MixerChannelId& id) {
         if (it->second.dst == id) it = pending_.mixer_to_mixer.erase(it);
         else ++it;
     }
+    // Its aux sends (M1) go the same way, in both directions. A send TO a
+    // deleted bus has to be removed one level deeper than the output edge —
+    // the source strip survives and keeps its other sends, so the entry is
+    // pruned from its list rather than the whole list being erased.
+    pending_.mixer_sends.erase(id.value);
+    for (auto it = pending_.mixer_sends.begin(); it != pending_.mixer_sends.end();) {
+        auto& list = it->second;
+        list.erase(std::remove_if(list.begin(), list.end(),
+                                  [&](const PendingRoute::MixerSend& s) { return s.dst == id; }),
+                   list.end());
+        if (list.empty()) it = pending_.mixer_sends.erase(it);
+        else ++it;
+    }
     // A dangling monitor designation would survive a project reload and point
     // at a strip that no longer exists, quietly disabling PFL. Same for the
     // master designation: ensure_default_routing() checks the strip exists,
@@ -1218,6 +1271,61 @@ void AudioEngine::route_mixer_to_mixer(const MixerChannelId& src,
 void AudioEngine::unroute_mixer_to_mixer(const MixerChannelId& src) {
     std::lock_guard lock{mutex_};
     if (pending_.mixer_to_mixer.erase(src.value) == 0) return;
+    rebuild_topology_locked();
+}
+
+void AudioEngine::route_mixer_send(const MixerChannelId& src,
+                                   const MixerChannelId& dst,
+                                   bool pre_fader,
+                                   const std::vector<MixerLaneGain>& lane_gains) {
+    std::lock_guard lock{mutex_};
+    if (src == dst) {
+        Logger::warn("route_mixer_send: refusing to send strip '{}' into itself",
+                     src.value);
+        return;
+    }
+    if (mixers_.find(src.value) == mixers_.end()) return;
+    if (mixers_.find(dst.value) == mixers_.end()) return;
+    if (!monitor_mixer_.empty() && (src == monitor_mixer_ || dst == monitor_mixer_)) {
+        Logger::warn("route_mixer_send: refusing '{}' -> '{}' — the monitor "
+                     "strip neither feeds nor is fed by a bus",
+                     src.value, dst.value);
+        return;
+    }
+    // Keyed by destination: re-issuing replaces in place, so dragging a send
+    // level re-states its gains instead of tearing the edge down and back up.
+    auto& list = pending_.mixer_sends[src.value];
+    auto  it   = std::find_if(list.begin(), list.end(),
+                              [&](const PendingRoute::MixerSend& s) { return s.dst == dst; });
+    if (it == list.end()) { list.push_back({}); it = list.end() - 1; }
+    it->dst       = dst;
+    it->pre_fader = pre_fader;
+    it->lanes.clear();
+    it->lanes.reserve(lane_gains.size());
+    for (const auto& lg : lane_gains) {
+        if (lg.src_lane >= kMixerLanes || lg.dst_lane >= kMixerLanes) continue;
+        it->lanes.push_back({lg.src_lane, lg.dst_lane, db_to_lin(lg.gain_db)});
+    }
+    rebuild_topology_locked();
+}
+
+void AudioEngine::unroute_mixer_send(const MixerChannelId& src, const MixerChannelId& dst) {
+    std::lock_guard lock{mutex_};
+    const auto lit = pending_.mixer_sends.find(src.value);
+    if (lit == pending_.mixer_sends.end()) return;
+    auto& list = lit->second;
+    const auto before = list.size();
+    list.erase(std::remove_if(list.begin(), list.end(),
+                              [&](const PendingRoute::MixerSend& s) { return s.dst == dst; }),
+               list.end());
+    if (list.size() == before) return;
+    if (list.empty()) pending_.mixer_sends.erase(lit);
+    rebuild_topology_locked();
+}
+
+void AudioEngine::clear_mixer_sends(const MixerChannelId& src) {
+    std::lock_guard lock{mutex_};
+    if (pending_.mixer_sends.erase(src.value) == 0) return;
     rebuild_topology_locked();
 }
 
@@ -1772,6 +1880,34 @@ void AudioEngine::render_one_block(const Topology& topo) {
     }();
     const bool monitor_live = topo.monitor && monitor_index < usable_mixers;
 
+    // One strip's aux sends at one tap point (M1). Called twice per strip, on
+    // either side of its fader, so a send picks its tap by which call folds it.
+    //
+    // The arithmetic is the output edge's, deliberately identical: add the
+    // source lane into the destination lane at the stored gain. What differs is
+    // only WHEN it runs and that there can be many of them. The destination is
+    // downstream in strip_order, so it has not run yet and will carry this.
+    const auto mix_strip_sends = [&](const StripRouteEntry& se, std::size_t i,
+                                     bool pre_fader) {
+        for (const auto& snd : se.sends) {
+            if (snd.pre_fader != pre_fader) continue;
+            if (snd.dst_strip >= topo.strips.size() || snd.lane_sends.empty()) continue;
+            const auto& de = topo.strips[snd.dst_strip];
+            if (!de.strip) continue;
+            const auto dit = mixer_index.find(de.strip->id().value);
+            if (dit == mixer_index.end() || dit->second >= usable_mixers) continue;
+            if (dit->second == monitor_index || dit->second == i) continue;
+            for (const auto& ls : snd.lane_sends) {
+                if (ls.src_lane >= kMixerLanes || ls.dst_lane >= kMixerLanes) continue;
+                const Sample* src =
+                    mixer_accumulators_[i * kMixerLanes + ls.src_lane].data();
+                Sample* dst =
+                    mixer_accumulators_[dit->second * kMixerLanes + ls.dst_lane].data();
+                for (std::size_t s = 0; s < block; ++s) dst[s] += src[s] * ls.gain;
+            }
+        }
+    };
+
     // ---- The ordered strip pass ----
     // Strips run one at a time, in the topological order the control thread
     // computed (strip_order, monitor excluded): chain → PFL tap → fader →
@@ -1803,7 +1939,17 @@ void AudioEngine::render_one_block(const Topology& topo) {
             mix_strip_monitor_taps(monitor_index, &m, i, topo.monitor_taps,
                                    mixer_accumulators_, block);
         }
+        // Pre-fader sends, at the same point and for the same reason as the
+        // PFL tap immediately above: the chain has run, the fader and mute have
+        // not. A foldback send lives here so it does not fall away when the
+        // house fader comes down.
+        mix_strip_sends(se, i, /*pre_fader=*/true);
+
         run_strip_fader(m, i);
+
+        // Post-fader sends, off the finalised lanes — the same signal the
+        // output edge below carries, just tapped at each send's own level.
+        mix_strip_sends(se, i, /*pre_fader=*/false);
 
         // Bus→bus send: the strip's finalised lanes into its destination
         // strip's accumulator, at the control-thread-computed lane gains. The
