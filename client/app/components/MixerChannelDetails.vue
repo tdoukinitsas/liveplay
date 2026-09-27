@@ -13,9 +13,11 @@
     dynamics beneath it), then what is inserted into it (plugins), then what is
     connected to it in either direction (contributions in, sends out).
 
-    EQ, dynamics, filters and plugins are labelled shells until the DSP stage
-    lands. They are laid out at full size rather than hidden so that stage fills
-    panels instead of inventing navigation late.
+    A panel with nothing behind it yet is laid out at full size rather than
+    hidden, so the stage that fills it fills a panel instead of inventing
+    navigation late. The plugin rack is the exception and the reason the rule
+    has one: inserts are far enough off that six disabled slots read as a
+    feature the operator has failed to find. See SHOW_PLUGIN_RACK.
   -->
   <div class="det">
     <header class="det__head" @contextmenu.prevent="openMenuAt($event.clientX, $event.clientY)">
@@ -76,11 +78,11 @@
         @dsp-live="onDspLive"
       />
 
-      <!-- Two columns. EQ takes the height on the left with the plugin rack
-           tucked beneath it; dynamics takes the height on the right with the
-           connection panels beneath. EQ and dynamics are side by side rather
-           than stacked because stacking them made both too short to use. -->
-      <div class="det__work">
+      <!-- Three columns: EQ, then dynamics with the plugin rack tucked beneath
+           it when there is one, then the connection panels. EQ and dynamics are
+           side by side rather than stacked because stacking them made both too
+           short to use. -->
+      <div class="det__work" :class="{ 'det__work--norack': !SHOW_PLUGIN_RACK }">
         <!-- The curve needs the bus: it draws the channel's high- and low-pass
            alongside the EQ bands, and those live on the fader column. It gets
            the live-merged copy so it tracks a filter knob while it is moving,
@@ -94,8 +96,13 @@
 
         <!-- Static height, packed as tight as the slots allow: the rack is a
              list of six things, not a workspace, so it should never take room
-             the EQ could use. -->
-        <section class="det__panel det__panel--pending det__plugins">
+             the EQ could use.
+
+             HIDDEN until inserts actually exist — see SHOW_PLUGIN_RACK. Kept
+             rather than deleted so the markup, the CSS and the three locale
+             keys stay in step with each other instead of rotting apart while
+             nothing renders them. -->
+        <section v-if="SHOW_PLUGIN_RACK" class="det__panel det__panel--pending det__plugins">
           <h4 class="det__h">
             {{ t('mixer.plugins') }}
             <span class="det__pending">{{ t('mixer.notImplemented') }}</span>
@@ -278,6 +285,12 @@ import BusOutputSelect from './BusOutputSelect.vue';
 import BusColorPicker from './BusColorPicker.vue';
 import BusMenu from './BusMenu.vue';
 import { FADER_MIN_DB, METER_MAX_DB } from '~/utils/meterScale';
+
+// The insert rack is not built, and six disabled slots labelled "not
+// implemented" are a promise the mixer cannot keep — an operator reads them as
+// a feature they have failed to find rather than one that does not exist. Flip
+// this to true in the same change that gives the slots something to hold.
+const SHOW_PLUGIN_RACK = false;
 
 const props = defineProps<{
   bus: Bus;
@@ -514,6 +527,15 @@ function openMenuFromButton() {
 .det__dyn     { grid-column: 2; grid-row: 1;          min-width: 0; min-height: 0; }
 .det__plugins { grid-column: 2; grid-row: 2;          min-width: 0; min-height: 0; }
 .det__io      { grid-column: 3; grid-row: 1 / span 2; min-width: 0; min-height: 0; }
+
+/* With the rack hidden there is no second row to hold, so the grid drops to
+   one. Leaving the two-row template in place would collapse row 2 to nothing
+   but still lay its gap, and dynamics — the only item not spanning both rows —
+   would finish 8px above the columns either side of it. */
+.det__work--norack { grid-template-rows: minmax(0, 1fr); }
+.det__work--norack .det__eq,
+.det__work--norack .det__dyn,
+.det__work--norack .det__io { grid-row: 1; }
 
 /* Narrow: one column. Everything takes the height it needs and the work area
    scrolls, which is where the EQ graph gets its full height back rather than
