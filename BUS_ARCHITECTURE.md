@@ -250,13 +250,17 @@ decision (D21, `MIXER_BUSES_PLAN.md` §3) rather than found late. None of these 
 is a scope line drawn on purpose, most with a reason recorded where the UI copy already gestures
 at them.
 
-- **Aux sends** (a parallel send-at-a-level, as distinct from Stage 4's single-output routing).
+- ~~**Aux sends** (a parallel send-at-a-level, as distinct from Stage 4's single-output routing).
   Stage 4 shipped *output routing only* (D5): a bus's one output may target another bus, which
   covers the issue's motivating cases (PreShow → Master, Beds → Master, SFX → hardware) but not
   a bus feeding two destinations at once at independent levels. The Sends-panel copy says so
-  plainly rather than implying it is coming imminently.
-- **Plugins.** The six-slot rack is still a shell and stays one — deferred deliberately. The
-  fixed chain (§0.4) is complete and is not a plugin host.
+  plainly rather than implying it is coming imminently.~~ **Shipped as M1 — see §0.11.** Pre and
+  post fade only; the richer tap set (input, post-EQ, post-dynamics) is still deferred, and the
+  schema leaves room for it.
+- **Plugins.** The six-slot rack is still a shell — and as of the settings round it is **hidden**
+  rather than displayed empty, behind `SHOW_PLUGIN_RACK = false`. Deferred deliberately; the fixed
+  chain (§0.4) is complete and is not a plugin host. Advertising six insert slots that cannot hold
+  an insert is a promise the UI was making and the engine was not.
 - **Keyboard accessibility of `Knob` and `CanvasFader`.** Deliberately deferred again this
   release (maintainer decision, 2026-08-21) rather than added piecemeal — the two need to behave
   identically, and neither has tabindex/keydown handling, so the mixer still cannot be driven
@@ -608,7 +612,8 @@ closes that for good.
   first"). Defaults: ids `master` / `preview`, names "Master" / "Preview". A role holder is in
   every other respect an ordinary bus — renamed, recoloured, re-routed, reordered, given DSP,
   opened in the channel view.
-- **D25 — `output.type:"master"` is retired.** Types are `output` and `bus`. A sub-mix reaches
+- **D25 — `output.type:"master"` is retired.** Types are `output` and `bus` — **and `none` since
+  M1, see §0.11**. A sub-mix reaches
   the house by targeting the master bus bus→bus; the master bus itself sends to an output. The
   master-role and preview-role buses must both be Output-kind (409 otherwise), and nothing may
   feed the preview bus (409). The API still accepts `type:"master"` on `POST`/`PATCH` for one
@@ -621,8 +626,8 @@ closes that for good.
   other unmapped name keeps the identity fallback — **superseded, see §0.8**. `GET /api/outputs` lists the two in
   `builtin`. `bound` for an Output-kind bus is mapped ‖ `Main Out` ‖ a device of that name is
   present (a cached device list, refreshed on `/api/devices` and on device open, never on the
-  render thread); the preview bus keeps Monitor's strict rule and is bound only when it actually
-  resolved.
+  render thread) — **`bound` now follows sends as well, see §0.11**; the preview bus keeps
+  Monitor's strict rule and is bound only when it actually resolved.
 - **D27 — the house pair.** The master-role bus resolves its target like any Output-kind bus but
   is wired on masters 0/1 via `assign_master_to_device(0/1, …)`, not from the pool; the pool
   starts at 2 as before; the preview-role bus wires on the reserved pair exactly as
@@ -641,7 +646,9 @@ closes that for good.
 device writes `{type:"output", target:<device name>}` and D26 makes it `bound`, no
 `outputs.json` write. The Audio Device and Preview Device sections left project settings for a
 one-paragraph pointer and an Open Mixer button; the cue preview buttons gate on the preview bus
-being `bound` and open the mixer when it is not. Bus JSON gained `masters: [l, r] | null`, and the
+being `bound` and open the mixer when it is not. **"Edit hardware outputs…" is a deep link to a
+Settings pane now, not a modal, and "project settings" is the Settings page's Audio pane — see
+§0.10.** Bus JSON gained `masters: [l, r] | null`, and the
 transport bar builds its output meters and faders from buses that have one — label is the bus
 name, fader is that bus's `gainDb`; `outputChannelGains` stays at unity and lost its UI.
 `/api/monitor/mono` is aliased at `/api/preview/mono`. `busSchema` is 2; a `< 2` document gets
@@ -763,6 +770,92 @@ still assigned to those channels, and the squeal would arrive in that bus's outp
 
 Pinned by `server/tests/e2e/ltc-output-e2e.js`, measured on the meters with the cue's own bus
 pointed at absent hardware so that anything the meters see is the LTC channel alone.
+
+---
+
+### 0.10 Hardware outputs moved into Settings (settings consolidation, 2026-09-26)
+
+§0.7 describes the output map as a modal the mixer opens. **It is a Settings pane now**, and the
+mixer's entry point is a deep link to it. Nothing about the routing model changed; what changed is
+where the surface lives, so the parts of §0.7 that name a modal are the parts to read with this
+substitution.
+
+**Why it moved.** The map had grown into a genuine venue-changeover tool — two columns, what this
+show needs against what this machine has, drag a physical output onto a missing one, pending changes
+with an undo, and chips naming which buses each repair affects. That was an argument for keeping it
+*reachable* from the mixer, where the fault is visible. It was never an argument for the mixer being
+its **only** home: outputs are configuration, and configuration reachable only from a mixer modal is
+exactly the split the Settings page exists to end.
+
+**What changed concretely.**
+
+- `OutputMapModal.vue` is `SettingsPaneOutputs.vue`, moved by `git mv` rather than rewritten — the
+  surface is ~1100 lines and retyping it would have lost its history and its comments.
+- **Both entry points are deep links** to `#/settings/outputs`: the strip picker's "Edit hardware
+  outputs…" action (§0.7's D29 list) and the workspace's unbound-output banner. The banner no
+  longer force-opens the mixer panel as a side effect of being about outputs.
+- **Cancel became Revert.** A modal can be closed without applying; a pane cannot, so the undo has
+  to be explicit rather than implied by dismissal.
+- The pane also took the output-device list and its "Open" button, which had been left behind when
+  the Server pane was built — hardware belongs with hardware.
+
+**§0.7's "the Audio Device and Preview Device sections left project settings for a one-paragraph
+pointer and an Open Mixer button"** still describes the right shape, but "project settings" is now
+the **Audio pane** of the Settings page, and the pointer sits beside the rest of this show's audio
+configuration rather than in a modal of its own. The cue preview buttons still gate on the preview
+bus being `bound` and still open the mixer when it is not — that behaviour is unchanged, and it is
+correct: an unbound preview bus is a routing fault, and the mixer is where you see routing.
+
+### 0.11 A bus may send, and may go nowhere (M1, 2026-09-27)
+
+Two changes to what §0.7's **D25** says about `output.type`, and one addition beside it.
+
+**`output.type` is `"bus" | "output" | "none"`.** D25 says "Types are `output` and `bus`", which is
+now short by one. `"none"` means the bus has no output at all and leaves only by its sends — a stem
+feeding three destinations at three different post-fader levels belongs at unity in none of them, so
+it has nothing to put in `output`. A target supplied alongside `"none"` is **discarded** rather than
+kept: a stored destination nothing reads would come back the next time the kind changed, and route
+the bus somewhere the operator had stopped choosing.
+
+**Neither role holder may be `"none"`.** The master bus *is* the house and the preview bus *is* the
+phones; a role holder that goes nowhere is not a quiet bus, it is a desk with no house or no
+headphones. Sends do not rescue it either — D27 gives the master bus the house pair specifically,
+and a copy at some level somewhere else is not that. Refused as the role rule it is ("a bus must
+send to an output to hold the Master or Preview role"), so the operator is told to move the role
+rather than that their output is malformed.
+
+**Sends are a second kind of edge, not a widening of the first.** `bus.sends` is a new array beside
+`output`, each entry `{ id, levelDb, preFader }`. The existing single bus→bus edge *is* `output`, so
+sends had to be separate rather than `output` becoming a list. Both tap points already existed in
+the engine as one-off edges — post-fader as the strip-to-strip route, pre-fader as the monitor tap —
+so the engine work was **fan-out**, not new DSP.
+
+**What this does to the rest of §0.7:**
+
+- **D25's "a sub-mix reaches the house by targeting the master bus bus→bus"** — still true, and now
+  one of two ways. A sub-mix may also reach the house by a send, at its own level and tap point,
+  while its `output` goes somewhere else entirely or nowhere at all.
+- **D25's "nothing may feed the preview bus (409)"** — still true, and now true of sends as well.
+  That is what PFL is; the engine already refused it as a route and refuses it as a send.
+- **D26's `bound`** — **superseded in one respect.** It walked the output chain to its one terminal,
+  which was the whole story while that was a bus's only way onward. A bus with no output but a
+  post-fader send into the house is perfectly audible, so `bound` is a **search over outputs and
+  sends together** now, and both tap points count: a pre-fader send carries audio whatever the fader
+  is doing. Reporting such a bus unbound would have put "this bus never reaches the master, so it is
+  silent" on a bus the room can hear — which is how operators learn to ignore a warning, and take
+  the true ones with it.
+- **D9's delete-retarget** — sends to a deleted bus are **dropped**, not retargeted to master.
+  D9 retargets *outputs* because an output must land somewhere or the bus goes silent; moving a
+  foldback onto the house is the accident, not the recovery. Counted as `sendsDropped`.
+- **Cycle checking** — a send closes a loop as surely as a route does, even at −60 dB, so the
+  reachability walk covers both edge kinds. The master bus **may** send (master → delay tower,
+  broadcast, recorder is ordinary) while still never being a bus→bus *target*'s source of a loop.
+
+**No `busSchema` bump.** `bus.sends` is additive and absent means no sends; `"none"` is a new value
+in a field that already existed, and no document written before this can contain it.
+
+Pinned by `server/tests/e2e/sends-e2e.js` — 34 assertions, including that a bus with no output
+really is audible through its send rather than merely labelled so.
 
 ---
 
