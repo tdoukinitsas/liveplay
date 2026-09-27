@@ -463,6 +463,17 @@ static std::string_view bus_output_refusal_text(core::ProjectState::PatchBusResu
             return "one bus cannot hold both the Master and Preview roles";
         case PR::RoleTargetFed:
             return "buses feed this bus; re-route them before making it the Preview bus";
+        // Aux sends (M1). Worded for a send rather than reusing the routing
+        // texts above: what the operator tried was to add a send, and being
+        // told the bus "cannot be routed" would send them to the wrong control.
+        case PR::RefusedPreviewSend:
+            return "the Preview bus cannot send to another bus";
+        case PR::SendUnknownTarget:
+            return "no such bus to send to";
+        case PR::SendIllegalTarget:
+            return "a bus cannot send to the Preview bus";
+        case PR::SendCycle:
+            return "this send would create a cycle";
         default:
             return "the bus output was refused";
     }
@@ -498,6 +509,11 @@ static json bus_info_to_json(const core::ProjectState::BusInfo& b) {
         // The master pair its hardware output occupies, or null (D32).
         {"masters",  b.masters ? json{b.masters->first, b.masters->second} : json{}},
         {"output",   json{{"type", kind}, {"target", b.def.output_target}}},
+        // Aux sends (M1). Where this bus ALSO sends a copy of itself, at what
+        // level, and whether that copy is taken before or after its fader —
+        // distinct from `output` above, which is the one place its whole
+        // signal goes.
+        {"sends",    core::bus_sends_to_json(b.def)},
         {"mixerId",  b.mixer.value},
         {"itemUuids", b.item_uuids},
     };
