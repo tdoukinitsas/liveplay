@@ -404,6 +404,13 @@
     "issueFailed": "Tokenet kunne ikke utstedes.",
     "revokeFailed": "Tokenet kunne ikke trekkes tilbake."
   },
+  "clients": {
+    "title": "Tilkoblet nå",
+    "help": "Alle klienter med en aktiv forbindelse til denne serveren – både mennesker og maskiner.",
+    "anonymous": "Anonym",
+    "token": "Token",
+    "connected": "tilkoblet {when}"
+  },
   "youtube": {
     "importFromYouTube": "Importer fra YouTube",
     "searchPlaceholder": "Søk etter musikk eller lyd...",

@@ -404,6 +404,13 @@
     "issueFailed": "Das Token konnte nicht ausgegeben werden.",
     "revokeFailed": "Das Token konnte nicht widerrufen werden."
   },
+  "clients": {
+    "title": "Jetzt verbunden",
+    "help": "Jeder Client mit einer aktiven Verbindung zu diesem Server – Menschen wie Maschinen.",
+    "anonymous": "Anonym",
+    "token": "Token",
+    "connected": "verbunden {when}"
+  },
   "youtube": {
     "importFromYouTube": "Von YouTube importieren",
     "searchPlaceholder": "Musik oder Audio suchen...",

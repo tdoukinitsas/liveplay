@@ -404,6 +404,13 @@
     "issueFailed": "Token-i nuk mund të lëshohej.",
     "revokeFailed": "Token-i nuk mund të revokohej."
   },
+  "clients": {
+    "title": "Të lidhur tani",
+    "help": "Çdo klient me një lidhje aktive me këtë server — njerëz dhe makina njëlloj.",
+    "anonymous": "Anonim",
+    "token": "Token",
+    "connected": "i lidhur {when}"
+  },
   "youtube": {
     "importFromYouTube": "Importo nga YouTube",
     "searchPlaceholder": "Kërko muzikë ose audio...",

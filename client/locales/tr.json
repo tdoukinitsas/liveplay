@@ -404,6 +404,13 @@
     "issueFailed": "Belirteç verilemedi.",
     "revokeFailed": "Belirteç iptal edilemedi."
   },
+  "clients": {
+    "title": "Şu anda bağlı",
+    "help": "Bu sunucuya etkin bağlantısı olan her istemci — hem insanlar hem makineler.",
+    "anonymous": "Anonim",
+    "token": "Belirteç",
+    "connected": "bağlandı {when}"
+  },
   "youtube": {
     "importFromYouTube": "YouTube'dan İçe Aktar",
     "searchPlaceholder": "Müzik veya ses ara...",

@@ -404,6 +404,13 @@
     "issueFailed": "토큰을 발급하지 못했습니다.",
     "revokeFailed": "토큰을 취소하지 못했습니다."
   },
+  "clients": {
+    "title": "현재 연결됨",
+    "help": "이 서버에 연결된 모든 클라이언트 — 사람과 기기 모두.",
+    "anonymous": "익명",
+    "token": "토큰",
+    "connected": "연결 {when}"
+  },
   "youtube": {
     "importFromYouTube": "YouTube에서 가져오기",
     "searchPlaceholder": "음악 또는 오디오 검색...",

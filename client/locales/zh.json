@@ -404,6 +404,13 @@
     "issueFailed": "无法签发令牌。",
     "revokeFailed": "无法撤销令牌。"
   },
+  "clients": {
+    "title": "当前连接",
+    "help": "与本服务器保持连接的所有客户端 — 包括人和设备。",
+    "anonymous": "匿名",
+    "token": "令牌",
+    "connected": "连接于 {when}"
+  },
   "youtube": {
     "importFromYouTube": "从YouTube导入",
     "searchPlaceholder": "搜索音乐或音频...",

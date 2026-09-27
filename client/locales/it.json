@@ -404,6 +404,13 @@
     "issueFailed": "Non è stato possibile emettere il token.",
     "revokeFailed": "Non è stato possibile revocare il token."
   },
+  "clients": {
+    "title": "Connessi adesso",
+    "help": "Ogni client con una connessione attiva a questo server: persone e macchine.",
+    "anonymous": "Anonimo",
+    "token": "Token",
+    "connected": "connesso {when}"
+  },
   "youtube": {
     "importFromYouTube": "Importa da YouTube",
     "searchPlaceholder": "Cerca musica o audio...",

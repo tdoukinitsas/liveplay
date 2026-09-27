@@ -404,6 +404,13 @@
     "issueFailed": "トークンを発行できませんでした。",
     "revokeFailed": "トークンを失効できませんでした。"
   },
+  "clients": {
+    "title": "現在の接続",
+    "help": "このサーバーに接続中のすべてのクライアント — 人も機器も含みます。",
+    "anonymous": "匿名",
+    "token": "トークン",
+    "connected": "接続 {when}"
+  },
   "youtube": {
     "importFromYouTube": "YouTubeからインポート",
     "searchPlaceholder": "音楽またはオーディオを検索...",

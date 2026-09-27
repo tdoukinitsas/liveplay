@@ -576,6 +576,13 @@
     "issueFailed": "The token could not be issued.",
     "revokeFailed": "The token could not be revoked."
   },
+  "clients": {
+    "title": "Connected now",
+    "help": "Every client with a live connection to this server — people and machines both.",
+    "anonymous": "Anonymous",
+    "token": "Token",
+    "connected": "connected {when}"
+  },
   "youtube": {
     "importFromYouTube": "Import from YouTube",
     "searchPlaceholder": "Search for music or audio...",

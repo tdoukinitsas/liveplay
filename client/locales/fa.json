@@ -404,6 +404,13 @@
     "issueFailed": "صدور توکن ممکن نشد.",
     "revokeFailed": "ابطال توکن ممکن نشد."
   },
+  "clients": {
+    "title": "متصل‌های کنونی",
+    "help": "هر کلاینت با اتصال فعال به این سرور — هم افراد و هم دستگاه‌ها.",
+    "anonymous": "ناشناس",
+    "token": "توکن",
+    "connected": "متصل {when}"
+  },
   "youtube": {
     "importFromYouTube": "وارد کردن از YouTube",
     "searchPlaceholder": "جستجوی موسیقی یا صدا...",

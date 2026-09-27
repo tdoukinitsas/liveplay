@@ -404,6 +404,13 @@
     "issueFailed": "Token kunde inte utfärdas.",
     "revokeFailed": "Token kunde inte återkallas."
   },
+  "clients": {
+    "title": "Anslutna nu",
+    "help": "Alla klienter med en aktiv anslutning till servern – både människor och maskiner.",
+    "anonymous": "Anonym",
+    "token": "Token",
+    "connected": "ansluten {when}"
+  },
   "youtube": {
     "importFromYouTube": "Importera från YouTube",
     "searchPlaceholder": "Sök musik eller ljud...",

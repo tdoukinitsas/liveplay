@@ -404,6 +404,13 @@
     "issueFailed": "ٹوکن جاری نہیں ہو سکا۔",
     "revokeFailed": "ٹوکن منسوخ نہیں ہو سکا۔"
   },
+  "clients": {
+    "title": "ابھی منسلک",
+    "help": "اس سرور سے فعال کنکشن رکھنے والا ہر کلائنٹ — لوگ اور مشینیں دونوں۔",
+    "anonymous": "گمنام",
+    "token": "ٹوکن",
+    "connected": "منسلک {when}"
+  },
   "youtube": {
     "importFromYouTube": "YouTube سے درآمد کریں",
     "searchPlaceholder": "موسیقی یا آڈیو تلاش کریں...",

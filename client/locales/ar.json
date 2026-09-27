@@ -404,6 +404,13 @@
     "issueFailed": "تعذّر إصدار الرمز.",
     "revokeFailed": "تعذّر إبطال الرمز."
   },
+  "clients": {
+    "title": "المتصلون الآن",
+    "help": "كل عميل متصل بهذا الخادم — أشخاصًا وأجهزة.",
+    "anonymous": "مجهول",
+    "token": "رمز",
+    "connected": "اتصل {when}"
+  },
   "youtube": {
     "importFromYouTube": "استيراد من YouTube",
     "searchPlaceholder": "البحث عن موسيقى أو صوت...",

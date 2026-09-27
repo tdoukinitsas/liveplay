@@ -148,7 +148,7 @@
           </button>
         </div>
 
-        <!-- Turning the login off. Last on the pane and its own group, because
+        <!-- Turning the login off. Last of the account groups, and its own, because
              it is a posture for the whole server rather than a change to an
              account — and because until now there was NO way back: the store
              refuses to delete the last administrator, so authentication became
@@ -167,6 +167,39 @@
         </section>
       </template>
       <p v-else class="settings-help">{{ t('users.adminOnly') }}</p>
+    </template>
+
+    <!-- ================================================================
+         Who is connected right now.
+         Outside the authentication split on purpose: "is the tablet still
+         on?" is the same question whether or not this server asks for a
+         login, and with no accounts every session is anonymous rather than
+         absent. Hidden from an operator, because /api/clients reports remote
+         addresses and that is the machine's business (U3 made it admin-only
+         for exactly that reason).
+         ================================================================ -->
+    <template v-if="clients.length">
+      <h4 class="settings-group-title">{{ t('clients.title') }}</h4>
+      <p class="settings-help">{{ t('clients.help') }}</p>
+
+      <section v-for="c in clients" :key="c.id" class="settings-field settings-row">
+        <div class="settings-row-main">
+          <span class="settings-row-name">
+            {{ c.user || t('clients.anonymous') }}
+            <span v-if="c.kind === 'token'" class="settings-badge">{{ t('clients.token') }}</span>
+            <span v-else-if="c.userId && c.userId === server.authUser?.id" class="settings-badge">
+              {{ t('users.you') }}
+            </span>
+          </span>
+          <span class="settings-row-sub">
+            {{ c.remoteIp }}
+            ·
+            {{ t('clients.connected', { when: sinceLabel(c.connectedSeconds) }) }}
+            ·
+            {{ c.locale }}
+          </span>
+        </div>
+      </section>
     </template>
 
     <p v-if="notice" class="settings-help" :class="noticeIsError ? 'settings-help--warn' : ''">
@@ -396,6 +429,17 @@ const issuedName    = ref('');
 const copied        = ref(false);
 const secretInput   = ref<HTMLInputElement | null>(null);
 
+// ---- Who is connected -------------------------------------------------
+// Polled while this pane is open, because there is no push for it: the server
+// broadcasts meters, cue state and document patches, and nothing for a socket
+// opening or closing. Adding one would mean a fan-out to every client each
+// time any client connects, which is a real cost for a list almost nobody is
+// looking at — whereas this costs one request every few seconds, and only
+// while somebody has the pane in front of them.
+const CLIENTS_POLL_MS = 5000;
+const clients = ref<any[]>([]);
+let clientsTimer: ReturnType<typeof setInterval> | null = null;
+
 const isAdmin = computed(() => server.authUser?.role === 'admin');
 const canAdd  = computed(() =>
   draftName.value.trim().length > 0 && draftPassword.value.length >= MIN_PASSWORD_LENGTH);
@@ -415,6 +459,20 @@ function shortDate(seconds?: number | null): string {
   return new Date(seconds * 1000).toLocaleDateString(currentLocale.value, {
     year: 'numeric', month: 'short', day: 'numeric',
   });
+}
+
+// How long ago a session started, as "5 minutes ago" in the language in force.
+// Intl does the words, for the same reason toLocaleDateString does the dates:
+// "minute", "hour" and their plurals are grammar, and twenty-one hand-written
+// unit strings is twenty-one chances to get one wrong. The server sends
+// ELAPSED seconds rather than a timestamp (it survives a clock step), so the
+// sign is negative here — the instant being described is in the past.
+function sinceLabel(elapsed?: number): string {
+  const s = Math.max(0, Math.floor(elapsed ?? 0));
+  const rtf = new Intl.RelativeTimeFormat(currentLocale.value, { numeric: 'auto' });
+  if (s < 60)   return rtf.format(-s, 'second');
+  if (s < 3600) return rtf.format(-Math.round(s / 60), 'minute');
+  return rtf.format(-Math.round(s / 3600), 'hour');
 }
 
 const roleLabel = (role?: string) =>
@@ -546,6 +604,20 @@ async function revokeToken() {
     pendingRevoke.value = null;
   } finally {
     busy.value = false;
+  }
+}
+
+async function loadClients() {
+  // Admin-gated while the login is on. An operator being refused is not a
+  // fault — remote addresses belong to the machine — so the section simply
+  // does not appear rather than showing them a refusal they cannot act on.
+  if (server.authRequired && !isAdmin.value) { clients.value = []; return; }
+  try {
+    clients.value = await server.fetchClients();
+  } catch {
+    // A poll that fails leaves the list as it was rather than blanking it:
+    // one dropped request during a reconnect should not make the room look
+    // empty for five seconds.
   }
 }
 
@@ -704,11 +776,19 @@ async function signOutEverywhere() {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  void load();
+  void loadClients();
+  clientsTimer = setInterval(() => { void loadClients(); }, CLIENTS_POLL_MS);
+});
+onBeforeUnmount(() => {
+  if (clientsTimer) clearInterval(clientsTimer);
+  clientsTimer = null;
+});
 // A reconnect can be a different server with a different account list, and a
 // sign-in changes what this client is allowed to see.
-watch(() => server.connected, (up) => { if (up) void load(); });
-watch(() => server.authUser?.id, () => { void load(); });
+watch(() => server.connected, (up) => { if (up) { void load(); void loadClients(); } });
+watch(() => server.authUser?.id, () => { void load(); void loadClients(); });
 </script>
 
 <style lang="scss" scoped>

@@ -404,6 +404,13 @@
     "issueFailed": "Le jeton n’a pas pu être émis.",
     "revokeFailed": "Le jeton n’a pas pu être révoqué."
   },
+  "clients": {
+    "title": "Connectés maintenant",
+    "help": "Tous les clients ayant une connexion active à ce serveur : personnes comme machines.",
+    "anonymous": "Anonyme",
+    "token": "Jeton",
+    "connected": "connecté {when}"
+  },
   "youtube": {
     "importFromYouTube": "Importer depuis YouTube",
     "searchPlaceholder": "Rechercher de la musique ou de l'audio...",

@@ -404,6 +404,13 @@
     "issueFailed": "Tokenul nu a putut fi emis.",
     "revokeFailed": "Tokenul nu a putut fi revocat."
   },
+  "clients": {
+    "title": "Conectați acum",
+    "help": "Fiecare client cu o conexiune activă la acest server — atât oameni, cât și mașini.",
+    "anonymous": "Anonim",
+    "token": "Token",
+    "connected": "conectat {when}"
+  },
   "youtube": {
     "importFromYouTube": "Importa din YouTube",
     "searchPlaceholder": "Caută muzica sau audio",

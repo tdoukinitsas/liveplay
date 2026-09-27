@@ -172,6 +172,14 @@ const close = c => { try { c && c.ws && c.ws.close(); } catch { /* already gone 
     wsOpen = await connect();
     ok('...and the socket opens with no credential',
        wsOpen.opened === true, wsOpen.opened ? 'open' : `refused ${wsOpen.status}`);
+    await sleep(400);
+    r = await req('/api/clients');
+    const anon = Array.isArray(r.body) ? r.body[0] : null;
+    ok('...and reports as ANONYMOUS rather than as nobody',
+       !!anon && anon.kind === 'anonymous' && anon.user === null,
+       anon ? `kind=${anon.kind} user=${JSON.stringify(anon.user)}`
+            : `no session in ${JSON.stringify(r.body)} — with no accounts there ` +
+              `is nobody to be, and a session with no name is still a session`);
     close(wsOpen);
     await sleep(300);
 
@@ -269,6 +277,16 @@ const close = c => { try { c && c.ws && c.ws.close(); } catch { /* already gone 
     ok('and the connected client is reported as that person, not as a number',
        !!me && me.user === ADMIN_NAME && me.isAdmin === true,
        JSON.stringify(me && { user: me.user, isAdmin: me.isAdmin }));
+    // Shape, for the pane that renders this list. It branches on `kind` to tell
+    // a person from a machine, and reads remoteIp, locale and connectedSeconds
+    // into one line per session — so a dropped field here would blank part of
+    // that row while every assertion above still passed.
+    ok('...with the fields the connected list binds to',
+       !!me && me.kind === 'user' && typeof me.remoteIp === 'string' &&
+       typeof me.locale === 'string' && typeof me.connectedSeconds === 'number' &&
+       typeof me.userId === 'string',
+       me ? `kind=${me.kind} ip=${me.remoteIp} locale=${me.locale} ` +
+            `secs=${me.connectedSeconds}` : 'no session');
     close(wsAuthed);
     wsAuthed = null;
     await sleep(300);

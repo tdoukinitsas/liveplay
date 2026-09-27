@@ -404,6 +404,13 @@
     "issueFailed": "टोकन जारी नहीं किया जा सका।",
     "revokeFailed": "टोकन रद्द नहीं किया जा सका।"
   },
+  "clients": {
+    "title": "अभी जुड़े हुए",
+    "help": "इस सर्वर से सक्रिय कनेक्शन वाला हर क्लाइंट — लोग और मशीनें दोनों।",
+    "anonymous": "अनाम",
+    "token": "टोकन",
+    "connected": "जुड़ा {when}"
+  },
   "youtube": {
     "importFromYouTube": "YouTube से आयात करें",
     "searchPlaceholder": "संगीत या ऑडियो खोजें...",
