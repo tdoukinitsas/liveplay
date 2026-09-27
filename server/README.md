@@ -405,7 +405,7 @@ if it changes state belonging to the **machine** rather than to the show or to t
 | Role | May |
 |------|-----|
 | `operator` | Run the show. Everything in the Project and User tiers: cues, buses, transport, project settings, media, uploads, their own locale and meter rate. |
-| `admin`    | The above, plus the Server tier: `/api/outputs` (the logical-output map), `/api/users` (accounts), `/api/clients` (who is connected, and from where). |
+| `admin`    | The above, plus the Server tier: `/api/outputs` (the logical-output map), `/api/users` (accounts), `/api/tokens` (API tokens), `/api/clients` (who is connected, and from where). |
 
 Everything not on that short list is operator-level. Anything *unlisted* — including a path
 matching no route at all — requires a token: the guard **defaults to deny**, so a route added later
@@ -453,6 +453,44 @@ A corrupt `users.json` **stops the server booting**. Falling back to "no users" 
 everyone in", turning a damaged file into an unlocked door; an operator who wants the server open
 can delete the file and mean it.
 
+#### API tokens — a credential for a machine
+
+A Companion instance, a cue in somebody else's show-control system, a script that arms the next
+item: none of them can hold a password, and giving one an operator account means a human account
+whose password lives in a config file. A token is a **different kind of principal**, not a user with
+no face — `Principal::Kind` says which, and `is_admin()` answers false for a token whatever else is
+true of it.
+
+Issued from the Accounts pane, or `POST /api/tokens`. The string looks like
+`lpk1_<id>_<secret>` and is carried exactly like a session token: `Authorization: Bearer …` on REST,
+`?access_token=` on the socket. One verification path handles both kinds, dispatching on the prefix.
+
+| | |
+|---|---|
+| **May** | Everything an operator does on the desk — transport, cues, buses, mixer, selection, state — over REST *and* the socket. Plus `POST /api/project/load` and `/api/project/save`. |
+| **May not** | The filesystem: `/api/fs/*`, `/api/upload`, `/api/file/download`, `/api/copy_to_media`, project import/export. And anything only true of a person: `/api/prefs`, `/api/auth/logout_all`, `/api/auth/required`, `/api/tokens`. Admin routes are refused as well, since a token is never an administrator. |
+
+The deny list is `api_token_forbidden()` in `control_server.cpp`, beside `access_for()`. It is a
+second axis rather than a third access level on purpose: a token is not a lesser operator, and what
+it may not do does not sit anywhere on the tier ladder. Loading and saving projects is the one
+departure — that automation is the whole point, and both routes are bounded by `--fs-root` where one
+is set.
+
+**Issuing needs the caller's password re-entered**, shares the login throttle, and is **refused
+entirely while authentication is off**: with the door open every admin route is open, so anyone on
+the LAN could otherwise mint a credential that kept working after an administrator shut it. Existing
+tokens are not revoked by turning the login off — nothing is asked for a credential in that state,
+and they work again when it comes back on.
+
+**Stored in `users.json` beside the accounts**, sparse under `apiTokens`, because a token is the
+same kind of secret as a password hash and deserves the same "corrupt means do not serve" rule. The
+secret is 32 random bytes, **shown once**, kept only as an unsalted BLAKE2b hash — unsalted because
+32 CSPRNG bytes are not guessable, and fast because this is verified on every request where Argon2id
+is not. `lastUsedAt` is tracked on every request and written at most hourly.
+
+There is **no expiry**. A Companion install runs for seasons, and a credential that dies between the
+matinee and the evening is the failure this is meant to avoid; revoking is immediate and per-token.
+
 #### Bootstrapping
 
 While the store is empty there is nobody to be an administrator, so `POST /api/users` is reachable
@@ -472,12 +510,16 @@ nothing here pretends otherwise.
 |---------------|------|----------|-------|
 | `GET /api/auth/status` | — | `{ "authRequired": false, "userCount": 0, "setupRequired": true, "tokenTtlSeconds": 2592000 }` | **Public.** It has to be: a client cannot know whether to ask for a password until it has asked this, and requiring a token to find out whether a token is required is a loop. Reveals only whether accounts exist, never who they are. |
 | `POST /api/auth/login` | `{ "name": "sam", "password": "…" }` | `{ "token": "lp1.…", "expiresIn": 2592000, "user": { "id", "name", "role" } }` · `401` · `429` when throttled (with `Retry-After`) · `409` if the server has no accounts | **Public.** A wrong password and an unknown user give the *same* message and take the *same* time (an unknown name is verified against a decoy hash), so the reply cannot be used to enumerate accounts. |
-| `GET /api/auth/me` | — | `{ "authRequired": true, "user": { … } }` | Who the caller is according to their token. |
+| `GET /api/auth/me` | — | `{ "authRequired": true, "user": { "id", "name", "role", "kind" } }` | Who the caller is according to their token. `kind` is `"user"` or `"token"` — an automation client pointed here is told which it is holding rather than inferring it from a role it never had. |
 | `POST /api/auth/logout_all` | — | `{ "ok": true }` | Bumps the caller's `tokenEpoch`: invalidates every token ever issued to them, including the one making the request and the one on the tablet left at the venue. |
 | `GET /api/users` | — | `[ { "id", "name", "role", "createdAt" }, … ]` | **Admin.** Never returns hashes. |
 | `POST /api/users` | `{ "name", "password", "role" }` | `{ "id", "name", "role" }` · `409` name taken · `400` bad name / short password | **Admin**, except while the store is empty — see Bootstrapping. Passwords must be at least 8 characters. |
 | `PATCH /api/users/{id}` | any of `{ "name", "role", "password" }` | `{ "id", "name", "role" }` · `409` name taken or last admin | **Admin.** A `password` change bumps that user's `tokenEpoch`. |
 | `DELETE /api/users/{id}` | — | `{ "ok": true }` · `404` · `409` last admin | **Admin.** The last administrator cannot be deleted: that would leave a server still requiring a login with nobody able to manage it, recoverable only by editing `users.json` on the machine. Turning the login *off* is a separate, explicit act (`PATCH /api/auth/required`) that keeps the accounts — emptying the store is no longer the way to change a posture. Deletes that user's preferences too. |
+| `GET /api/tokens` | — | `[ { "id", "name", "createdBy", "createdAt", "lastUsedAt" }, … ]` | **Admin.** No secret and no hash — there is nothing here to leak. `lastUsedAt` is `null` for a token that has never been used. |
+| `POST /api/tokens` | `{ "name": "Companion — FOH", "password": "…" }` | `{ "id", "name", "createdAt", "token": "lpk1_…" }` · `400` no name or no password · `401` wrong password · `409` name taken, or authentication is off · `429` throttled | **Admin, plus the caller's own password.** `token` is the only copy that will ever exist. Refused outright while authentication is off. |
+| `PATCH /api/tokens/{id}` | `{ "name": "…" }` | `{ "id", "name" }` · `404` · `409` name taken | **Admin.** The label is for the human; renaming does not change the credential. |
+| `DELETE /api/tokens/{id}` | — | `{ "ok": true }` · `404` | **Admin.** Immediate and total: verification is a lookup, so the next request carrying it is a 401. No password needed — friction on the way out costs security. |
 | `PATCH /api/auth/required` | `{ "required": false, "password": "…", "name": "sam" }` | `{ "authRequired", "userCount" }` · `400` no password · `401` wrong password · `403` not an administrator · `409` no accounts at all · `429` throttled | **Admin — but the gate is the body, not the table.** An administrator's name and password every time, in both directions; `name` defaults to the caller when there is a session. While authentication is off there is no session to gate this with, so this check *is* the boundary. Shares `/api/auth/login`'s throttle. Accounts are never deleted and tokens are never revoked either way — a posture change is not a revocation. |
 
 ## Server configuration
@@ -575,7 +617,7 @@ That means a User-tier value spends CPU on the audio thread, which R2 would norm
 |--------------------|------|----------|-------|
 | `GET /api/health`  | —    | `{ "ok": true, "name": "liveplay-server" }` | Liveness probe. |
 | `GET /api/whoami`  | —    | `{ "clientIp": "192.168.1.10", "isLocal": false }` | `isLocal` is true for loopback callers (127.0.0.0/8, `::1`). |
-| `GET /api/clients` | —    | `[ { "id": 3, "remoteIp": "192.168.1.10", "user": "sam", "userId": "9f2…", "isAdmin": false, "connectedSeconds": 412, "locale": "el", "localeIsOwn": true, "meterHz": 5, "meterHzIsOwn": true }, … ]`, lowest `id` first | **Administrators only** (see [Authentication](#authentication)), because it reports the address every connected client came from. Who is connected **right now**: one row per live WebSocket. REST is stateless, so a `curl` against it is not a session — anything driving the rig holds a socket open. `id` is monotonic within a process run and never reused, so an id in a log line always means one connection. `user`/`userId` are `null` on an installation with no accounts — reported as null rather than as a name like "anonymous", so the open posture can't be confused with someone called that. |
+| `GET /api/clients` | —    | `[ { "id": 3, "remoteIp": "192.168.1.10", "user": "sam", "userId": "9f2…", "isAdmin": false, "kind": "user", "connectedSeconds": 412, "locale": "el", "localeIsOwn": true, "meterHz": 5, "meterHzIsOwn": true }, … ]`, lowest `id` first | **Administrators only** (see [Authentication](#authentication)), because it reports the address every connected client came from. Who is connected **right now**: one row per live WebSocket. REST is stateless, so a `curl` against it is not a session — anything driving the rig holds a socket open. `id` is monotonic within a process run and never reused, so an id in a log line always means one connection. `user`/`userId` are `null` on an installation with no accounts — reported as null rather than as a name like "anonymous", so the open posture can't be confused with someone called that. `kind` is `"user"`, `"token"` or `"anonymous"`: a name alone cannot carry that distinction, and a machine that will still be there tomorrow must not be mistaken for a colleague who could be asked to close a window. The Accounts pane renders this list. |
 
 #### Devices
 
@@ -642,6 +684,8 @@ These are engine-wide trims, not the Master bus. `/api/master/gain` is a global 
 #### External control surface (Companion, custom remotes)
 
 Everything below is the surface a stateless control surface (Bitfocus Companion, a Stream Deck plugin, a curl script) drives. Every mutation is broadcast as a `doc_patch`, so a control surface, the desktop client and a second control surface can never disagree about what is selected, armed or in Show Mode.
+
+**On a server that requires a login, drive this with an [API token](#api-tokens--a-credential-for-a-machine), not an account.** An admin issues one from the Accounts pane; it does not expire, it is revocable on its own, and it reaches everything in this section. A person's session token works too and is the wrong thing to paste into a rack: it expires in 30 days, and changing that person's password takes the rig's automation down with their laptop.
 
 | Method · Path | Body | Response | Notes |
 |---------------|------|----------|-------|

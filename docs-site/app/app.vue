@@ -363,6 +363,9 @@
           <p>{{ t('api.auth.description') }}</p>
           <pre class="api-code"><code>{{ t('api.auth.login') }}</code></pre>
           <p>{{ t('api.auth.headerNote') }}</p>
+          <!-- The paragraph an integrator needs before they paste anything into
+               a rack: a person's login is the wrong credential for a machine. -->
+          <p>{{ t('api.auth.tokens') }}</p>
           <p>{{ t('api.auth.cors') }}</p>
         </div>
 

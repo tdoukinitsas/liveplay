@@ -621,7 +621,7 @@ order is deliberate rather than alphabetical:
 | Control Surfaces | Server *(client-side today)* | MIDI bindings and devices |
 | Project | Project | Autosave, cue numbering, silence warning |
 | Server | **Server** | Port, bind, policy, meter rate — with each field's provenance |
-| Accounts | **Server** | Users, roles, and whether a login is required at all |
+| Accounts | **Server** | Users, roles, API tokens, who is connected, and whether a login is required at all |
 | About | — | Version and licence |
 
 Two of those are worth their own note:
@@ -636,6 +636,11 @@ Two of those are worth their own note:
 - **The Mixer pane is the only Machine-tier pane on the client side**, and it is not on Appearance
   for exactly that reason: everything on Appearance follows the operator between desks, and a mixer
   view must not.
+- **The Accounts pane answers one question in three parts** — who may talk to this server. People
+  (accounts), machines (API tokens, §6.2), and whether a credential is asked for at all. The list of
+  who is connected *right now* sits below them because it is the same question in the present tense,
+  and it is the only part that shows with no accounts configured, where every session is anonymous
+  rather than absent.
 
 ### 5.7 Adding a project setting — the registry
 
@@ -789,7 +794,7 @@ server and somebody's laptop.
 | Principal | Transport | Authenticates with | Typical permissions |
 |---|---|---|---|
 | **User** | HTTP/WS | Password → signed token | Per role |
-| **API client** (Companion, automation) | HTTP/WS over IP | Revocable long-lived token — **not built** | Scoped: transport and state read, never filesystem |
+| **API client** (Companion, automation) | HTTP/WS over IP | Revocable long-lived token — **built**, see below | Operator tier minus the filesystem, and never an administrator |
 | **Physical surface** (MIDI DIN/USB, GPIO) | Wire | Nothing — no handshake exists | Fixed by an admin at configuration time |
 | **OSC / UDP inbound** | IP, but unauthenticatable | Nothing meaningful | Config-gated, not authenticated |
 
@@ -801,6 +806,49 @@ needing *authenticated* network control should use the HTTP/WS API with a token.
 
 Attribution should record the **principal**, not just a user id, so "who fired that cue" can answer
 "the booth controller" as readily as "Dave".
+
+##### API tokens, as built
+
+`Principal` carries a `Kind` — `User` or `ApiToken` — and `is_admin()` answers false for a token
+whatever else becomes true of it. That one field is what makes a machine a principal in its own
+right rather than a stand-in for whoever created it, and it is the model a surface principal (step
+12) would slot into rather than a special case beside it.
+
+**What a token may do.** Everything an operator does on the desk — transport, cues, buses, the
+mixer, selection, state — over REST and over the socket, since play/stop/bus-gain is the operator
+tier in full. **Plus opening and saving projects**, which is the one departure from the row above's
+"never filesystem": a Companion button that loads tomorrow's set is the automation people actually
+ask for, and both routes are already bounded by `--fs-root` where an administrator set one.
+
+**What it may not.** `api_token_forbidden()` sits beside `access_for()` in `control_server.cpp` and
+is a SECOND axis rather than a third `Access` value — a token is not a lesser operator, and what it
+may not do does not sit anywhere on the tier ladder. Two groups:
+
+- **The filesystem** — `/api/fs/*`, `/api/upload`, `/api/file/download`, `/api/copy_to_media`, and
+  project import/export. A token is a string in somebody else's configuration file, a cue list, a
+  repository; it leaks in ways a password does not.
+- **Things only true of a person** — `/api/prefs` (preferences belong to somebody), `logout_all`
+  (nothing to sign out), `/api/auth/required` (a posture change asks for a password at the moment of
+  the act, which a token cannot answer), and `/api/tokens` itself (a credential that can issue more
+  of itself is one nobody can revoke).
+
+**Issuing one** needs the admin gate, the caller's password re-entered, and the shared login
+throttle. The password is §6.2's own rule applied where it bites harder: what is being minted does
+not expire, and tokens cross the LAN with no TLS, so a sniffed admin session must not convert into
+permanent access. Revoking needs only the admin gate — friction on the way out costs security.
+
+**Issuing is refused while authentication is off**, by the store rather than by the route. That is
+the one way a token could be an escalation rather than a convenience: with the door open every admin
+route is open, so anyone on the LAN could mint a credential that kept working after an administrator
+shut it. Existing tokens are neither revoked nor consulted in that state, and the pane says so.
+
+**Storage.** `apiTokens` in `users.json` — the same file as the password hashes, because it is the
+same kind of secret and deserves the same "corrupt means do not serve" rule. Sparse, no schema bump.
+The secret is 32 bytes from the CSPRNG, shown once, stored as an **unsalted BLAKE2b hash**: a
+password is low-entropy and needs Argon2id to make guessing expensive, while this is not guessable,
+and a fast hash is what allows verification on every request. `last_used_at` is in memory on every
+request and on disk at most hourly, because rewriting the credential file on every Companion press
+would be a worse trade than a timestamp that lags.
 
 #### Southbound credentials need a secret store
 
@@ -887,14 +935,16 @@ The original's fourteen ordered steps, with what actually happened.
 | 7 | Users file + auth middleware + `.onaccept` | ✅ **U3** — no accounts means no auth, rather than a loopback exemption (§6.3) |
 | 8 | Per-connection identity; per-connection locale and meter rate | ✅ **U1 + U2** |
 | 9 | Move theme / meterMode / uiScrollToPlaying → User; migrate `playbackKeys` | ✅ **U4** |
-| 10 | API tokens for northbound automation; local mode binds loopback | ❌ **Not built** |
+| 10 | API tokens for northbound automation; local mode binds loopback | ✅ **Tokens built** (§6.2). Loopback binding **not built** — and no longer needed for auth, see §6.3 |
 | 11 | Server-side control I/O — MIDI in/out, MIDI Learn as a server flow | ❌ **Not built.** Needs a MIDI dependency |
-| 12 | Surface principals — per-surface permission sets | ❌ **Not built** (depends on 10, 11) |
+| 12 | Surface principals — per-surface permission sets | ❌ **Not built** (depends on 11) |
 | 13 | Server admin UI | ✅ **P1–P3e** — a whole Settings page, not a modal |
 | 14 | OSC and further surfaces | ❌ **Not built** (depends on 11, 12) |
 
-Steps 1–9 and 13 are done. **What remains is control I/O and the principals that come with it** —
-steps 10, 11, 12 and 14, which are one body of work with MIDI at its root.
+Steps 1–10 and 13 are done. **What remains is control I/O and the surface principals that come with
+it** — steps 11, 12 and 14, which are one body of work with MIDI at its root. Step 12 used to depend
+on step 10 as well; it no longer does, because the principal model a surface would slot into is the
+one API tokens now occupy.
 
 > **Step 9's data migration had a timing hole that the test suite found, not review.** Seeding a
 > profile happens on the first read of `/api/prefs`, from whatever project is open — but a client

@@ -277,6 +277,7 @@
       "description": "Out of the box a LivePlay server asks for no login. Once an administrator creates user accounts, every request must carry a token in an \"Authorization: Bearer <token>\" header. Get one by logging in — tokens last 30 days:",
       "login": "curl -X POST http://<server>:4480/api/auth/login \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"name\": \"sam\", \"password\": \"…\"}'\n# → { \"token\": \"lp1.…\", \"expiresIn\": 2592000, \"user\": { … } }\n\ncurl -H \"Authorization: Bearer lp1.…\" http://<server>:4480/api/transport/go",
       "headerNote": "The token is only accepted in that header, never in the URL, so a plain \"open URL\" button cannot trigger a server that has accounts — use a tool that can send headers. The WebSocket is the one exception: connect to /ws?access_token=<token>.",
+      "tokens": "For a Companion instance or a script, issue an API token instead of using somebody’s login: Settings › Accounts › Issue a token. It never expires, it is revoked on its own rather than by changing a person’s password, and it can run the show but can never read or write this machine’s files. Carry it in the same Authorization header.",
       "cors": "Browser-based remotes (a web page calling the API with fetch) work: the server answers CORS preflight requests and accepts any origin by default. To allow only your own remote, start the server with --cors-origin https://your-remote.example — this also restricts which web pages may open the WebSocket."
     },
     "websocket": {
