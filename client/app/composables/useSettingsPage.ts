@@ -29,6 +29,11 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: 'appearance', icon: 'palette',      labelKey: 'settings.sectionAppearance' },
   { id: 'playback', icon: 'play_circle',    labelKey: 'settings.sectionPlayback' },
   { id: 'audio',    icon: 'graphic_eq',     labelKey: 'settings.sectionAudio'    },
+  // Next to Audio because that is where somebody goes looking for the word
+  // "mixer", even though what the pane settles is layout rather than sound. Its
+  // one value is the MACHINE's — see SettingsPaneMixer — so it could not go on
+  // Appearance, where everything follows the operator between desks.
+  { id: 'mixer',    icon: 'tune',           labelKey: 'settings.sectionMixer'    },
   // Beside Audio rather than beside Server, though it is the machine's: an
   // operator looking for where the sound physically goes looks under audio,
   // and the map is the other half of what the Audio pane's output target and

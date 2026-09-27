@@ -209,15 +209,21 @@ const progressModal = ref({
 // Resizable cart width
 // Shared with ProjectHeader's toggle. There is no router, so views are panel
 // swaps driven by a flag — the same shape cartFullscreen / cartClosed use.
-const mixerOpen = useState<boolean>('liveplay:mixerOpen', () => false);
 // 'side' docks it as a resizable right-hand pane (good for a few buses, can
 // stay up permanently); 'full' gives it the whole workspace. Per-device, so it
-// is remembered locally rather than travelling in the project.
-const mixerMode = useState<'side' | 'full'>('liveplay:mixerMode', () => 'side');
-// Popped out into its own window: the in-app panel steps aside rather than
-// drawing a second copy of the same faders. Shared with ProjectHeader, whose
-// toggle focuses the window instead of opening the panel while this is true.
-const mixerDetached = useState<boolean>('liveplay:mixerDetached', () => false);
+// is remembered locally rather than travelling in the project — and as of the
+// Mixer settings pane it genuinely IS remembered: useMixerView holds the same
+// three flags and writes the mode to the machine store. This comment promised
+// that long before anything wrote it down, so every launch came up docked
+// whatever had been chosen.
+//
+// `mixerDetached` is popped out into its own window: the in-app panel steps
+// aside rather than drawing a second copy of the same faders. Shared with
+// ProjectHeader, whose toggle focuses the window instead of opening the panel
+// while this is true. It is deliberately NOT persisted — restoring windows is
+// P4's job, and spawning one at boot because of a setting nobody remembers
+// choosing is a worse first impression than opening docked.
+const { mixerMode, mixerOpen, mixerDetached, setMixerMode: persistMixerMode } = useMixerView();
 const mixerWidth = ref(420);
 const isMixerResizing = ref(false);
 // Collapsed by dragging its separator to the right edge: the pane is not
@@ -268,7 +274,10 @@ function maxMixerWidth(containerWidth: number): number {
 const clampWidth = (w: number, min: number, max: number) => Math.max(min, Math.min(w, max));
 
 function setMixerMode(mode: 'side' | 'full') {
-  mixerMode.value = mode;
+  // Through the composable, so pressing the panel's own Expand/Dock button is
+  // remembered for the next launch exactly as choosing it on the Settings pane
+  // is. One writer for the value (R1); this is just the other door to it.
+  persistMixerMode(mode);
   // A mode button can only be pressed on a rendered panel, but the header
   // toggle and the watcher below also route through here in spirit: any
   // explicit mode/open change brings a collapsed mixer back.
@@ -344,7 +353,11 @@ function startMixerResize(e: PointerEvent) {
     // maxWidth: a SNAP_PX-wide dead band, never an oscillation.
     if (mixerMode.value === 'full') {
       if (width >= maxWidth) return;
-      mixerMode.value = 'side';
+      // Persisted, like the panel's Dock button: dragging out of full width is
+      // choosing side just as deliberately as pressing for it. Only ever one
+      // write per drag — the guard above returns early once the mode has
+      // flipped, so a pointermove stream cannot pound the store.
+      persistMixerMode('side');
       mixerCollapsed.value = false;
       mixerWidth.value = clampWidth(width, MIXER_MIN_PX, maxWidth);
       return;
@@ -362,7 +375,10 @@ function startMixerResize(e: PointerEvent) {
     // Dragged past the room the playlist and cart can spare: go full width.
     if (width > maxWidth + SNAP_PX) {
       mixerCollapsed.value = false;
-      mixerMode.value = 'full';
+      // Same as above: snapping to full is a choice, so it is remembered. The
+      // `mixerMode === 'full'` branch at the top of this handler is what stops
+      // this firing again while the pointer stays out past the threshold.
+      persistMixerMode('full');
       return;
     }
 

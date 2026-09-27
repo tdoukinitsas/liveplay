@@ -2070,12 +2070,14 @@ const menuTranslations = Object.entries(localeFiles).reduce((acc, [code, data]) 
 // and here. The labels cannot drift (they are resolved from the same
 // `settings.section*` keys the rail uses), but the LIST can — and an id offered
 // here that the registry does not know opens the default pane instead, because
-// `useSettingsPage().open()` validates against the registry. Ten panes as of
-// P3e; keep the order the same as the rail's so the menu reads like the page.
+// `useSettingsPage().open()` validates against the registry. Eleven panes as of
+// the Mixer pane; keep the order the same as the rail's so the menu reads like
+// the page.
 const SETTINGS_MENU_SECTIONS = [
   { id: 'appearance', labelKey: 'sectionAppearance' },
   { id: 'playback',   labelKey: 'sectionPlayback'   },
   { id: 'audio',      labelKey: 'sectionAudio'      },
+  { id: 'mixer',      labelKey: 'sectionMixer'      },
   { id: 'outputs',    labelKey: 'sectionOutputs'    },
   { id: 'keyboard',   labelKey: 'sectionKeyboard'   },
   { id: 'surfaces',   labelKey: 'sectionSurfaces'   },
