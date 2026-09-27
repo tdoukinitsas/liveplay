@@ -1188,6 +1188,43 @@ function createClient() {
     return rest<any>(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
   }
 
+  // ---- API tokens ------------------------------------------------------
+  // The credential a Companion instance or a script carries. Administrators
+  // only, and issuing one asks for the caller's own password: what is being
+  // minted does not expire, and tokens here cross the LAN with no TLS, so a
+  // sniffed session must not convert into permanent access. Same reasoning as
+  // setAuthRequired above, applied where it bites harder.
+  async function fetchApiTokens(): Promise<any[]> {
+    return rest<any[]>('/api/tokens');
+  }
+  /**
+   * Issue one. The returned object carries `token` — THE ONLY COPY. The server
+   * kept a hash, so a caller that drops this string has destroyed the token and
+   * the answer is to revoke it and issue another.
+   */
+  async function createApiToken(name: string, password: string) {
+    return rest<any>('/api/tokens', {
+      method: 'POST',
+      body: JSON.stringify({ name, password }),
+    });
+  }
+  async function renameApiToken(id: string, name: string) {
+    return rest<any>(`/api/tokens/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+  }
+  async function revokeApiToken(id: string) {
+    return rest<any>(`/api/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+
+  // Who is connected to this server right now — people and machines both
+  // (U1's route; each row carries a `kind`). Administrators only: who else is
+  // on the rig, and from what address, is the machine's business.
+  async function fetchClients(): Promise<any[]> {
+    return rest<any[]>('/api/clients');
+  }
+
   /**
    * Turn the server's login requirement off, or back on, keeping the accounts.
    *
@@ -1800,6 +1837,11 @@ function createClient() {
     createUser,
     updateUser,
     deleteUser,
+    fetchApiTokens,
+    createApiToken,
+    renameApiToken,
+    revokeApiToken,
+    fetchClients,
     setAuthRequired,
     logoutAll,
     patchSettings,

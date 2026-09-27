@@ -25,6 +25,15 @@
         <button class="settings-btn settings-btn--primary" @click="startAuthChange(true)">
           {{ t('users.authTurnOn') }}
         </button>
+        <!-- Tokens outlive the posture: turning the login off does not revoke
+             them, and turning it back on makes every one of them live again.
+             An administrator standing in this state needs to know they are
+             there. No controls here — issuing is refused while the door is
+             open (a credential minted through it would survive it closing),
+             and the rest belongs on the pane this state does not show. -->
+        <p v-if="apiTokens.length" class="settings-help settings-help--muted">
+          {{ t('apiTokens.dormant', { count: apiTokens.length }) }}
+        </p>
       </template>
 
       <!-- The ordinary state of a fresh installation. -->
@@ -99,6 +108,46 @@
           </button>
         </div>
 
+        <!-- API tokens. Below the accounts because they answer the same
+             question — who may talk to this server — for the half of the
+             answer that is not a person: a Companion instance, a cue in
+             somebody else's show-control system, a script. They are NOT
+             accounts, and the help text says what they may do rather than
+             leaving somebody to assume a token is an operator with no face. -->
+        <h4 class="settings-group-title">{{ t('apiTokens.title') }}</h4>
+        <p class="settings-help">{{ t('apiTokens.help') }}</p>
+        <p class="settings-help settings-help--muted">{{ t('apiTokens.scope') }}</p>
+
+        <section v-for="k in apiTokens" :key="k.id" class="settings-field settings-row">
+          <div class="settings-row-main">
+            <span class="settings-row-name">{{ k.name }}</span>
+            <span class="settings-row-sub">
+              {{ t('apiTokens.created', { date: shortDate(k.createdAt) }) }}
+              ·
+              {{ k.lastUsedAt
+                   ? t('apiTokens.lastUsed', { date: shortDate(k.lastUsedAt) })
+                   : t('apiTokens.neverUsed') }}
+            </span>
+          </div>
+          <div class="settings-actions">
+            <button class="settings-btn" @click="startTokenRename(k)">
+              {{ t('apiTokens.rename') }}
+            </button>
+            <button class="settings-btn settings-btn--danger" @click="pendingRevoke = k">
+              {{ t('apiTokens.revoke') }}
+            </button>
+          </div>
+        </section>
+        <p v-if="!apiTokens.length" class="settings-help settings-help--muted">
+          {{ t('apiTokens.none') }}
+        </p>
+
+        <div class="settings-actions">
+          <button class="settings-btn settings-btn--primary" @click="showAddToken = true">
+            {{ t('apiTokens.add') }}
+          </button>
+        </div>
+
         <!-- Turning the login off. Last on the pane and its own group, because
              it is a posture for the whole server rather than a change to an
              account — and because until now there was NO way back: the store
@@ -162,6 +211,67 @@
                 :disabled="draftPassword.length < MIN_PASSWORD_LENGTH || busy"
                 @click="savePassword">{{ t('users.save') }}</button>
         <button class="settings-btn" @click="cancelPassword">{{ t('users.cancel') }}</button>
+      </div>
+    </div>
+
+    <!-- ---- Issue an API token ---------------------------------------- -->
+    <div v-if="showAddToken" class="settings-inline-form">
+      <h4>{{ t('apiTokens.addTitle') }}</h4>
+      <!-- users.name, not a key of its own: the same word on the same pane,
+           already settled in 21 languages. -->
+      <label class="settings-label">{{ t('users.name') }}</label>
+      <input class="settings-input" type="text" v-model="tokenName" autocomplete="off" />
+      <p class="settings-help">{{ t('apiTokens.nameHelp') }}</p>
+      <label class="settings-label">{{ t('users.confirmPassword') }}</label>
+      <input class="settings-input" type="password" v-model="tokenPassword"
+             autocomplete="current-password" @keydown.enter="issueToken" />
+      <p class="settings-help settings-help--muted">{{ t('apiTokens.passwordWhy') }}</p>
+      <div class="settings-actions">
+        <button class="settings-btn settings-btn--primary" :disabled="!canIssueToken || busy"
+                @click="issueToken">{{ t('apiTokens.issue') }}</button>
+        <button class="settings-btn" @click="cancelAddToken">{{ t('users.cancel') }}</button>
+      </div>
+    </div>
+
+    <!-- ---- The one and only sight of the secret ---------------------- -->
+    <!-- Deliberately not a toast and not dismissed by clicking away: the
+         string exists in exactly one response and the server kept only a hash
+         of it, so losing this dialogue loses the token. It stays until the
+         person says they have it. -->
+    <div v-if="issuedToken" class="settings-inline-form settings-inline-form--secret">
+      <h4>{{ t('apiTokens.issuedTitle', { name: issuedName }) }}</h4>
+      <p class="settings-help settings-help--warn">{{ t('apiTokens.shownOnce') }}</p>
+      <input ref="secretInput" class="settings-input settings-input--secret" type="text"
+             readonly :value="issuedToken" @focus="selectSecret" />
+      <div class="settings-actions">
+        <button class="settings-btn settings-btn--primary" @click="copyToken">
+          {{ copied ? t('apiTokens.copied') : t('apiTokens.copy') }}
+        </button>
+        <button class="settings-btn" @click="dismissIssued">{{ t('apiTokens.done') }}</button>
+      </div>
+    </div>
+
+    <!-- ---- Rename a token -------------------------------------------- -->
+    <div v-if="renameFor" class="settings-inline-form">
+      <h4>{{ t('apiTokens.renameTitle') }}</h4>
+      <input class="settings-input" type="text" v-model="renameDraft" autocomplete="off"
+             @keydown.enter="saveTokenRename" />
+      <p class="settings-help settings-help--muted">{{ t('apiTokens.renameHelp') }}</p>
+      <div class="settings-actions">
+        <button class="settings-btn settings-btn--primary"
+                :disabled="!renameDraft.trim() || busy"
+                @click="saveTokenRename">{{ t('users.save') }}</button>
+        <button class="settings-btn" @click="renameFor = null">{{ t('users.cancel') }}</button>
+      </div>
+    </div>
+
+    <div v-if="pendingRevoke" class="settings-inline-form">
+      <p>{{ t('apiTokens.revokeConfirm', { name: pendingRevoke.name }) }}</p>
+      <p class="settings-help">{{ t('apiTokens.revokeHelp') }}</p>
+      <div class="settings-actions">
+        <button class="settings-btn settings-btn--danger" :disabled="busy"
+                @click="revokeToken">{{ t('apiTokens.revoke') }}</button>
+        <button class="settings-btn" @click="pendingRevoke = null">{{ t('users.cancel') }}</button>
       </div>
     </div>
 
@@ -239,7 +349,7 @@
 // remove the last administrator", "that password is too short" — the store has
 // better wording for all of them than this pane could invent, and inventing one
 // would eventually contradict it. The pane shows what came back.
-const { t } = useLocalization();
+const { t, currentLocale } = useLocalization();
 const server = useLiveplayServer();
 
 // Mirrors kMinPasswordLength in user_store.hpp. Duplicated on purpose rather
@@ -269,6 +379,23 @@ const authChange   = ref<boolean | null>(null);
 const authName     = ref('');
 const authPassword = ref('');
 
+// ---- API tokens ------------------------------------------------------
+// Same rule as above about separate drafts, and it matters more here: this
+// form asks for the administrator's OWN password, so sharing a ref with the
+// "set someone's new password" form would be a way to send one as the other.
+const apiTokens     = ref<any[]>([]);
+const showAddToken  = ref(false);
+const tokenName     = ref('');
+const tokenPassword = ref('');
+const renameFor     = ref<any | null>(null);
+const renameDraft   = ref('');
+const pendingRevoke = ref<any | null>(null);
+// The secret, for as long as it is on screen and no longer.
+const issuedToken   = ref('');
+const issuedName    = ref('');
+const copied        = ref(false);
+const secretInput   = ref<HTMLInputElement | null>(null);
+
 const isAdmin = computed(() => server.authUser?.role === 'admin');
 const canAdd  = computed(() =>
   draftName.value.trim().length > 0 && draftPassword.value.length >= MIN_PASSWORD_LENGTH);
@@ -277,6 +404,18 @@ const canAdd  = computed(() =>
 // one would lock out an account created before the floor existed.
 const canApplyAuthChange = computed(() =>
   authPassword.value.length > 0 && (!!server.authUser || authName.value.trim().length > 0));
+const canIssueToken = computed(() =>
+  tokenName.value.trim().length > 0 && tokenPassword.value.length > 0);
+
+// Unix seconds from the server, in the browser's own format for the language
+// in force. A date format is one of the few things every locale already has an
+// opinion about, so inventing one here would be 21 wrong answers.
+function shortDate(seconds?: number | null): string {
+  if (!seconds) return '';
+  return new Date(seconds * 1000).toLocaleDateString(currentLocale.value, {
+    year: 'numeric', month: 'short', day: 'numeric',
+  });
+}
 
 const roleLabel = (role?: string) =>
   role === 'admin' ? t('users.roleAdmin') : t('users.roleOperator');
@@ -291,6 +430,9 @@ function report(e: any, fallbackKey: string) {
 
 async function load() {
   loadError.value = null;
+  // Before the early return below, not after: tokens exist and matter in the
+  // authentication-off state too, where the accounts list does not.
+  await loadTokens();
   if (!server.authRequired) { users.value = []; return; }
   // An operator is refused this list, which is correct and not a fault: who
   // else has an account on this rig belongs to the machine, not to the show.
@@ -300,6 +442,110 @@ async function load() {
   } catch (e: any) {
     loadError.value = /40[13]/.test(String(e?.message ?? e))
       ? t('users.adminOnly') : t('users.loadFailed');
+  }
+}
+
+// ---- API tokens ------------------------------------------------------
+
+async function loadTokens() {
+  // Admin-gated while the login is on; open while it is off, along with every
+  // other admin route — which is exactly why issuing one is refused in that
+  // state. Reading the list is not the danger, and hiding it would be.
+  if (server.authRequired && !isAdmin.value) { apiTokens.value = []; return; }
+  try {
+    apiTokens.value = await server.fetchApiTokens();
+  } catch {
+    // An operator being refused is not a fault, and this pane already has a
+    // branch that says so. Nothing to report here.
+    apiTokens.value = [];
+  }
+}
+
+function cancelAddToken() {
+  showAddToken.value = false;
+  tokenName.value = '';
+  // On the way out as well as the way in: an administrator's password left in
+  // a ref is a password sitting in memory for no reason.
+  tokenPassword.value = '';
+}
+
+async function issueToken() {
+  if (!canIssueToken.value) return;
+  busy.value = true;
+  notice.value = '';
+  try {
+    const created = await server.createApiToken(tokenName.value.trim(), tokenPassword.value);
+    issuedName.value  = created?.name ?? tokenName.value.trim();
+    issuedToken.value = created?.token ?? '';
+    copied.value = false;
+    cancelAddToken();
+    await loadTokens();
+  } catch (e) {
+    // The form stays open with the password cleared — a wrong password should
+    // cost a retype, not the name that was typed with it. The server's wording
+    // is what gets shown, including its 429 when the shared throttle bites.
+    tokenPassword.value = '';
+    report(e, 'apiTokens.issueFailed');
+  } finally {
+    busy.value = false;
+  }
+}
+
+function selectSecret(e: Event) { (e.target as HTMLInputElement).select(); }
+
+async function copyToken() {
+  try {
+    await navigator.clipboard.writeText(issuedToken.value);
+    copied.value = true;
+  } catch {
+    // Clipboard access can be refused, and losing this string is expensive —
+    // so select it instead and let the person copy it themselves rather than
+    // reporting a failure they can do nothing about.
+    secretInput.value?.select();
+  }
+}
+
+function dismissIssued() {
+  issuedToken.value = '';
+  issuedName.value = '';
+  copied.value = false;
+}
+
+function startTokenRename(k: any) {
+  renameFor.value = k;
+  renameDraft.value = k.name;
+  notice.value = '';
+}
+
+async function saveTokenRename() {
+  const k = renameFor.value;
+  if (!k || !renameDraft.value.trim()) return;
+  busy.value = true;
+  try {
+    await server.renameApiToken(k.id, renameDraft.value.trim());
+    renameFor.value = null;
+    await loadTokens();
+  } catch (e) {
+    report(e, 'users.saveFailed');
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function revokeToken() {
+  busy.value = true;
+  try {
+    const k = pendingRevoke.value;
+    await server.revokeApiToken(k.id);
+    pendingRevoke.value = null;
+    notice.value = t('apiTokens.revoked', { name: k.name });
+    noticeIsError.value = false;
+    await loadTokens();
+  } catch (e) {
+    report(e, 'apiTokens.revokeFailed');
+    pendingRevoke.value = null;
+  } finally {
+    busy.value = false;
   }
 }
 
@@ -529,4 +775,15 @@ watch(() => server.authUser?.id, () => { void load(); });
 }
 .settings-help--muted { opacity: 0.6; font-size: 12px; }
 .settings-help--warn  { color: #ffc400; }
+// The secret's own form is marked out, because it is the one thing on this
+// pane that cannot be recovered by looking again.
+.settings-inline-form--secret { border-color: rgba(255, 196, 0, 0.5); }
+.settings-input--secret {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  // A token is 80-odd characters with no spaces, so it cannot fit and cannot
+  // wrap inside an input. It scrolls, and selecting the whole string on focus
+  // is what makes copying it by hand reliable.
+  text-overflow: ellipsis;
+}
 </style>
