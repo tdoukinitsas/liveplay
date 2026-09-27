@@ -81,6 +81,13 @@ inline constexpr std::int64_t kTokenTtlSeconds = 30LL * 24 * 60 * 60;   // 30 da
 // Shortest password the store will accept. Not a policy engine — a floor.
 inline constexpr std::size_t kMinPasswordLength = 8;
 
+// What an API token starts with. Recognisable on sight, which is the point: a
+// string that says what it is can be spotted in a pasted config, a log line or
+// a repository before it is used against the desk it belongs to. `lp1.` remains
+// the session token, so one look distinguishes a credential that expires in 30
+// days from one that does not expire at all.
+inline constexpr std::string_view kApiTokenPrefix = "lpk1_";
+
 class UserStore {
 public:
     UserStore();
@@ -96,15 +103,53 @@ public:
         std::int64_t  created_at  = 0;    // unix seconds, for display only
     };
 
+    // What kind of thing authenticated. A token issued to Companion is a
+    // principal in its own right and NOT a stand-in for the administrator who
+    // created it — §6.2 of the ownership model calls these "principals that are
+    // not people", and naming the kind is what lets one rule cover them all
+    // instead of each route remembering.
+    enum class Kind { User, ApiToken };
+
     // Who a request turned out to be. Copied out of the store at
     // authenticate/verify time, so a handler holding one is not holding a
     // reference into a container another thread may be editing.
     struct Principal {
-        std::string id;
-        std::string name;
+        std::string id;      // user id, or token id
+        std::string name;    // login name, or the token's label
         UserRole    role = UserRole::Operator;
+        Kind        kind = Kind::User;
 
-        bool is_admin() const { return role == UserRole::Admin; }
+        // An API token is never an administrator, whatever else becomes true of
+        // it. Tokens are issued at the operator tier and carry no role of their
+        // own; the kind check is here so that stays true if one ever does.
+        bool is_admin() const { return kind == Kind::User && role == UserRole::Admin; }
+        bool is_api()   const { return kind == Kind::ApiToken; }
+    };
+
+    // ---- API tokens: a credential for a thing rather than a person --------
+    //
+    // A Companion button, a show-control cue, a script that arms the next item.
+    // NOT an account: no password, no preferences, no role, and no reach into
+    // the filesystem or the Server tier however it is used — the deny list that
+    // says so lives beside access_for(), because it is the same kind of rule.
+    //
+    // The secret is shown ONCE, at creation, and stored only as a BLAKE2b hash.
+    // Unsalted, deliberately: a password is low-entropy and needs Argon2id to
+    // make guessing expensive, while this is 32 bytes straight from the CSPRNG
+    // and guessing it is not a thing anyone can do. What the fast hash buys is
+    // verification on EVERY request without spending Argon2id's ~100 ms on each
+    // one — which is the whole reason tokens are not just stored passwords.
+    //
+    // These do not expire. A Companion install runs for seasons, and a token
+    // that dies between the matinee and the evening is exactly the failure this
+    // exists to prevent; revoking one is immediate and per-token, which is the
+    // ending that was actually wanted.
+    struct ApiToken {
+        std::string  id;             // stable; travels inside the token string
+        std::string  name;           // label, unique case-insensitively
+        std::string  created_by;     // user id of the administrator who issued it
+        std::int64_t created_at   = 0;
+        std::int64_t last_used_at = 0;   // 0 = never seen
     };
 
     enum class Result {
@@ -117,6 +162,8 @@ public:
         NoAccounts,       // cannot demand a login when there is nobody to be
         HashFailed,       // libsodium refused (out of memory, essentially)
         IoError,          // the file could not be written
+        NoSuchToken,
+        AuthOff,          // issuing a credential through an open door
     };
     static std::string_view describe(Result r);
 
@@ -201,10 +248,40 @@ public:
     // Mint a token for a principal already established by authenticate().
     std::string mint_token(const Principal& p) const;
 
-    // The reverse. Returns nothing for a token that is malformed, unsigned by
-    // us, expired, issued to a user who has since been deleted, or stamped
-    // with an epoch the user has moved past.
+    // The reverse, for BOTH kinds of credential — a session token minted above,
+    // and an API token issued below. One entry point on purpose: there are two
+    // doors into this server (REST and the WebSocket upgrade) and each should
+    // ask "who is this?" once rather than once per kind.
+    //
+    // Returns nothing for a token that is malformed, unsigned by us, expired,
+    // issued to a user who has since been deleted, stamped with an epoch the
+    // user has moved past, or — for an API token — revoked.
     std::optional<Principal> verify_token(const std::string& token) const;
+
+    // ---- API tokens -------------------------------------------------------
+    std::vector<ApiToken> api_tokens() const;        // never includes hashes
+
+    // Issue one. The record comes back through `out` and the ONE AND ONLY copy
+    // of the secret through `out_secret`: nothing stores it, so a caller that
+    // drops it has destroyed it, and the only way back is another token.
+    //
+    // Refused while authentication is off (AuthOff), and that is an escalation
+    // rather than tidiness: with the door open anyone on the LAN could mint a
+    // credential that kept working after an administrator shut it. The STORE
+    // refuses it rather than the route, so no future caller can miss the rule.
+    Result create_api_token(const std::string& name, const std::string& created_by,
+                            ApiToken* out, std::string* out_secret);
+    Result rename_api_token(const std::string& id, const std::string& name);
+    Result revoke_api_token(const std::string& id);
+
+    // Record that a token was just used, for "is anything still using this?"
+    // before someone revokes it.
+    //
+    // Separate from verify_token so verification stays const and free of disk
+    // writes. Called by the one place that admits a request, and it writes the
+    // file at most once an hour per token: a credential file rewritten on every
+    // automation call would be a far worse trade than a timestamp that lags.
+    void note_api_token_use(const std::string& id);
 
     json to_json() const;   // includes hashes and the secret — for save() only
     bool from_json(const json& j);
@@ -215,6 +292,15 @@ private:
         std::string hash;      // libsodium's self-describing Argon2id string
     };
 
+    struct TokenRecord {
+        ApiToken    token;
+        std::string hash;      // base64 BLAKE2b of the secret; the secret is gone
+        // What last_used_at was when the file was last written. Not serialised:
+        // it exists only to rate-limit the writes, and on the next boot it
+        // starts from whatever is on disk.
+        std::int64_t saved_use = 0;
+    };
+
     // Callers already holding mutex_ use these; the public methods lock and
     // delegate. Kept explicit rather than relying on a recursive mutex, so the
     // lock discipline is visible at every call site.
@@ -223,10 +309,15 @@ private:
     const Record*       find_locked(const std::string& id) const;
     Record*             find_locked(const std::string& id);
     std::size_t         admin_count_locked() const;
+    bool                auth_required_locked() const;
+    const TokenRecord*  find_token_locked(const std::string& id) const;
+    TokenRecord*        find_token_locked(const std::string& id);
+    std::optional<Principal> verify_api_token(const std::string& token) const;
 
-    mutable std::mutex    mutex_;
-    std::filesystem::path path_;
-    std::vector<Record>   users_;
+    mutable std::mutex       mutex_;
+    std::filesystem::path    path_;
+    std::vector<Record>      users_;
+    std::vector<TokenRecord> tokens_;
     std::string           token_secret_;   // base64; generated on first save
     bool                  corrupt_ = false;
     // Unset = nobody has chosen; see set_auth_required. Sparse on disk, so a

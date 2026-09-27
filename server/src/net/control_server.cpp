@@ -197,6 +197,12 @@ struct ControlServer::Impl {
         std::string   user_id;
         std::string   user_name;
         bool          is_admin = false;
+        // An API token rather than a person. Kept because the two read very
+        // differently in a list of who is connected: "Companion — FOH rack" is
+        // a machine that will still be there tomorrow, and an operator looking
+        // at the list must not take it for a colleague who could be asked to
+        // close a window.
+        bool          is_api   = false;
 
         // ---- User tier, persistent half (U4) ------------------------------
         // The meter display unit this operator's stored profile asks for, or
@@ -771,6 +777,11 @@ static AuthGuard::Access access_for(std::string_view path) {
     if (path.rfind("/api/outputs", 0) == 0) return AuthGuard::Access::Admin;
     if (path.rfind("/api/users", 0)   == 0) return AuthGuard::Access::Admin;
     if (path == "/api/clients")             return AuthGuard::Access::Admin;
+    // API tokens, which are Server-tier for the same reason accounts are: they
+    // decide who may talk to this machine. A token may not reach this path even
+    // so — see api_token_forbidden() — because a credential that can mint
+    // another credential is a credential nobody can revoke.
+    if (path.rfind("/api/tokens", 0)  == 0) return AuthGuard::Access::Admin;
     // Turning authentication off, and back on. Admin, obviously — but this gate
     // is NOT what protects it, and that is worth being explicit about: when
     // authentication is off the whole guard short-circuits (see before_handle),
@@ -793,6 +804,53 @@ static AuthGuard::Access access_for(std::string_view path) {
     // route at all needs a token too — so an anonymous caller cannot map the
     // route table by reading which 404s come back.
     return AuthGuard::Access::User;
+}
+
+// What an API TOKEN may not reach, on top of everything access_for() already
+// says. The second axis, and it is deliberately a separate list rather than a
+// third Access value: a token is not a lesser operator, it is a different KIND
+// of principal, and what it may not do does not sit anywhere on the tier ladder.
+//
+// Two groups, and the reasons are different:
+//
+//  1. THE FILESYSTEM. A token is a string in somebody else's configuration
+//     file — in a Companion instance, a cue list, a shell script, a repository.
+//     It leaks in ways a password does not, and §6.2 of the ownership model
+//     promises in writing that this principal never reaches the filesystem.
+//     Browsing directories, reading a file out, writing bytes in, and copying
+//     media around are all refused. Opening and SAVING the show is not: that is
+//     the automation everybody actually wants (a Companion button that loads
+//     tomorrow's set, a script that saves before the house opens), and both
+//     routes are already bounded by --fs-root where an administrator set one.
+//
+//  2. THINGS THAT ARE ONLY TRUE OF A PERSON. Preferences belong to somebody —
+//     a theme, a keymap, what one pair of hands does — and a token has no
+//     somebody. "Sign me out everywhere" has nothing to sign out. Changing
+//     whether this server requires a login is a posture decision that asks for
+//     a password at the moment of the act, which a token cannot answer. And
+//     /api/tokens itself: a credential that can issue more of itself is one
+//     nobody can fully revoke.
+//
+// Everything else is the show, and a token exists to run the show.
+static bool api_token_forbidden(std::string_view path) {
+    if (const auto q = path.find('?'); q != std::string_view::npos)
+        path = path.substr(0, q);
+
+    // 1 — the filesystem
+    if (path.rfind("/api/fs", 0) == 0)   return true;   // list, mkdir
+    if (path == "/api/upload")           return true;
+    if (path == "/api/file/download")    return true;
+    if (path == "/api/copy_to_media")    return true;
+    if (path == "/api/project/import")   return true;   // an archive in…
+    if (path == "/api/project/export")   return true;   // …and a copy of the show out
+
+    // 2 — things that are only true of a person
+    if (path == "/api/prefs")            return true;
+    if (path == "/api/auth/logout_all")  return true;
+    if (path == "/api/auth/required")    return true;
+    if (path.rfind("/api/tokens", 0) == 0) return true;
+
+    return false;
 }
 
 void AuthGuard::after_handle(crow::request& req, crow::response& res, context&) {
@@ -848,6 +906,26 @@ void AuthGuard::before_handle(crow::request& req, crow::response& res, context& 
 
     ctx.authenticated = true;
     ctx.principal     = *principal;
+
+    if (principal->is_api()) {
+        // Recorded here rather than in verify_token so that verification stays
+        // const and touches no disk. This is the one place every REST request
+        // is admitted, which makes it the one place that can say "last used".
+        users->note_api_token_use(principal->id);
+
+        // Checked BEFORE the admin gate so the refusal says what is actually
+        // true. A token reaching /api/tokens is not an operator who needs
+        // promoting, and telling it so would send somebody looking for a role
+        // to change that would not help.
+        if (api_token_forbidden(req.url)) {
+            Logger::warn("{} {} refused: API token '{}' may not reach this",
+                         crow::method_name(req.method), req.url, principal->name);
+            res = json_err(403, "an API token may not use this — it runs the show, "
+                                "it does not administer the machine or reach the disk");
+            res.end();
+            return;
+        }
+    }
 
     if (need == Access::Admin && !principal->is_admin()) {
         Logger::warn("{} {} refused: '{}' is not an administrator",
@@ -2013,6 +2091,14 @@ void ControlServer::install_routes() {
                                                      ? json(nullptr)
                                                      : json(s.user_id)},
                             {"isAdmin",          s.is_admin},
+                            // "user", "token", or "anonymous" while the server
+                            // has no accounts. A name alone cannot carry this:
+                            // a token's label and a login name are both just
+                            // text, and they mean entirely different things in
+                            // a list of who is connected right now.
+                            {"kind",             s.is_api    ? "token"
+                                                 : s.user_id.empty() ? "anonymous"
+                                                                     : "user"},
                             // Effective values, not raw ones: an empty locale
                             // and a zero rate both mean "no preference", and
                             // reporting them as blanks would make the caller
@@ -2233,6 +2319,10 @@ void ControlServer::install_routes() {
                     {"id",   ctx.principal.id},
                     {"name", ctx.principal.name},
                     {"role", core::to_string(ctx.principal.role)},
+                    // Which kind of credential asked. A Companion instance
+                    // pointed at this route should be told it is a token rather
+                    // than left to infer it from a role it never had.
+                    {"kind", ctx.principal.is_api() ? "token" : "user"},
                 }},
             });
         });
@@ -2562,6 +2652,135 @@ void ControlServer::install_routes() {
             // leaving the file behind means deleting a user does not actually
             // delete what the server knows about them.
             prefs_.forget(id);
+            return json_ok(json{{"ok", true}});
+        });
+
+    // ---- API tokens (Server tier — administrators only) ----
+    //
+    // The credential a Companion instance, a show-control cue or a script
+    // carries. §6.2 of the ownership model called this "a principal that is not
+    // a person" and listed it as not built; this is it.
+    //
+    // WHAT PROTECTS ISSUING ONE — three things, none of them redundant:
+    //
+    //  1. THE ADMIN GATE, via access_for. Ordinary here, unlike
+    //     /api/auth/required: issuing is refused outright while authentication
+    //     is off (the store enforces that, not this route), so there is no
+    //     state in which the middleware has short-circuited and an anonymous
+    //     caller reaches this handler.
+    //  2. THE CALLER'S PASSWORD, re-entered. The same reasoning U3 recorded for
+    //     the posture switch, and it applies harder here: tokens cross the LAN
+    //     with no TLS anywhere in this server, and what is being minted is a
+    //     credential that does not expire. A sniffed admin session should not be
+    //     convertible into permanent access.
+    //  3. THE SHARED LOGIN THROTTLE, because (2) makes this another place a
+    //     password can be guessed, and a brake on one door is not a brake.
+    //
+    // Revoking needs none of that beyond the admin gate: friction on the way out
+    // costs security, and a revocation only ever removes access.
+    CROW_ROUTE(app, "/api/tokens").methods(crow::HTTPMethod::Get)
+        ([this]{
+            json arr = json::array();
+            for (const auto& t : users_.api_tokens()) {
+                arr.push_back(json{
+                    {"id",        t.id},
+                    {"name",      t.name},
+                    {"createdBy", t.created_by.empty() ? json(nullptr) : json(t.created_by)},
+                    {"createdAt", t.created_at},
+                    // 0 means never used — reported as null so a listing cannot
+                    // render the epoch as a date and call it 1970.
+                    {"lastUsedAt", t.last_used_at == 0 ? json(nullptr)
+                                                       : json(t.last_used_at)},
+                });
+            }
+            // No hash, and no secret: there is no secret here to leak. It exists
+            // for exactly one response, below, and was never stored.
+            return json_ok(arr);
+        });
+
+    CROW_ROUTE(app, "/api/tokens").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                const auto body = json::parse(req.body, nullptr, false);
+                if (body.is_discarded() || !body.is_object())
+                    return json_err(400, "expected a JSON object");
+                const std::string name = body.value("name",     std::string{});
+                const std::string pass = body.value("password", std::string{});
+                if (name.empty()) return json_err(400, "a token needs a name");
+
+                const auto& ctx = impl_->app.get_context<AuthGuard>(req);
+                if (!ctx.authenticated)
+                    return json_err(409, core::UserStore::describe(
+                                             core::UserStore::Result::AuthOff));
+                if (pass.empty())
+                    return json_err(400, "your password is required to issue a token");
+
+                if (const int wait = login_block_remaining(req.remote_ip_address); wait > 0) {
+                    auto r = json_err(429, "too many failed attempts — wait and try again");
+                    r.add_header("Retry-After", std::to_string(wait));
+                    return r;
+                }
+                // The caller's OWN password, taken from the session's name — an
+                // administrator confirming who they are, not naming somebody.
+                if (!users_.authenticate(ctx.principal.name, pass)) {
+                    login_note_failure(req.remote_ip_address);
+                    Logger::warn("API token refused for '{}' from {} (bad password)",
+                                 ctx.principal.name, req.remote_ip_address);
+                    return json_err(401, "incorrect password");
+                }
+                login_note_success(req.remote_ip_address);
+
+                core::UserStore::ApiToken created;
+                std::string secret;
+                using R = core::UserStore::Result;
+                const auto r = users_.create_api_token(name, ctx.principal.id,
+                                                       &created, &secret);
+                if (r != R::Ok) {
+                    const int code = r == R::NameTaken ? 409
+                                   : r == R::AuthOff   ? 409
+                                   : r == R::IoError   ? 500 : 400;
+                    return json_err(code, core::UserStore::describe(r));
+                }
+                Logger::warn("API token '{}' issued by '{}' from {}",
+                             created.name, ctx.principal.name, req.remote_ip_address);
+                return json_ok(json{
+                    {"id",        created.id},
+                    {"name",      created.name},
+                    {"createdAt", created.created_at},
+                    // The one and only time this string exists anywhere. The
+                    // store kept a hash; if the client drops this, the token is
+                    // unrecoverable and the answer is to revoke and issue again.
+                    {"token",     secret},
+                });
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/tokens/<string>").methods(crow::HTTPMethod::Patch)
+        ([this](const crow::request& req, const std::string& id){
+            try {
+                const auto body = json::parse(req.body, nullptr, false);
+                if (body.is_discarded() || !body.is_object())
+                    return json_err(400, "expected a JSON object");
+                if (!body.contains("name") || !body["name"].is_string())
+                    return json_err(400, "name must be a string");
+                using R = core::UserStore::Result;
+                const auto r = users_.rename_api_token(id, body["name"].get<std::string>());
+                if (r == R::NoSuchToken) return json_err(404, core::UserStore::describe(r));
+                if (r == R::NameTaken)   return json_err(409, core::UserStore::describe(r));
+                if (r != R::Ok)          return json_err(400, core::UserStore::describe(r));
+                return json_ok(json{{"id", id}, {"name", body["name"].get<std::string>()}});
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/tokens/<string>").methods(crow::HTTPMethod::Delete)
+        ([this](const std::string& id){
+            using R = core::UserStore::Result;
+            const auto r = users_.revoke_api_token(id);
+            if (r == R::NoSuchToken) return json_err(404, core::UserStore::describe(r));
+            if (r != R::Ok)          return json_err(500, core::UserStore::describe(r));
+            // Immediate and total: the record is gone, and verification is a
+            // lookup, so the next request carrying that token is a 401. Nothing
+            // has to time out and nothing is left to revoke later.
             return json_ok(json{{"ok", true}});
         });
 
@@ -4897,6 +5116,13 @@ void ControlServer::install_routes() {
               res = crow::response{401};
               return;
           }
+          // An API token may open a socket: play, stop, bus gain and selection
+          // are the operator tier in full, which is exactly what this principal
+          // is for. Nothing the socket carries touches the filesystem, so the
+          // deny list that guards REST has nothing to say here — stated rather
+          // than left to be noticed, because a new socket op that DID touch the
+          // disk would need this re-examined.
+          if (principal->is_api()) users_.note_api_token_use(principal->id);
           // Hand the principal to onopen, which has the connection but not the
           // request that authenticated it.
           //
@@ -4937,6 +5163,7 @@ void ControlServer::install_routes() {
                   session.user_id   = principal->id;
                   session.user_name = principal->name;
                   session.is_admin  = principal->is_admin();
+                  session.is_api    = principal->is_api();
               }
           // Mark this client for a playback_snapshot push on the next
           // broadcast tick. The snapshot can't be sent inline here because
