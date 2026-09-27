@@ -327,7 +327,7 @@
     "authOffExplicit": "Ky server ka llogari, por hyrja është çaktivizuar — kushdo që arrin te ai mund të drejtojë shfaqjen.",
     "authPosture": "Kërkesa e hyrjes",
     "authOnNow": "Ky server kërkon hyrje. Çdo klient kërkon një fjalëkalim përpara se të drejtojë shfaqjen.",
-    "authTurnOn": "Kërko hyrje",
+    "authTurnOn": "Aktivizo hyrjen",
     "authTurnOff": "Çaktivizo hyrjen",
     "authTurnOffHelp": "Llogaritë ruhen, kështu që mund të riaktivizoni hyrjen pa krijuar sërish asnjë.",
     "authTurnOnConfirm": "Çdo klienti i këtij serveri do t’i kërkohet fjalëkalim, përfshirë këtë.",

@@ -327,7 +327,7 @@
     "authOffExplicit": "Ce serveur a des comptes, mais la connexion est désactivée — quiconque peut l’atteindre peut mener le spectacle.",
     "authPosture": "Connexion obligatoire",
     "authOnNow": "Ce serveur exige une connexion. Chaque client demande un mot de passe avant de pouvoir mener le spectacle.",
-    "authTurnOn": "Exiger une connexion",
+    "authTurnOn": "Activer la connexion",
     "authTurnOff": "Désactiver la connexion",
     "authTurnOffHelp": "Les comptes sont conservés : vous pouvez réactiver la connexion sans recréer personne.",
     "authTurnOnConfirm": "Un mot de passe sera demandé à tous les clients de ce serveur, y compris celui-ci.",

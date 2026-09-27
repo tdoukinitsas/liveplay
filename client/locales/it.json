@@ -327,7 +327,7 @@
     "authOffExplicit": "Questo server ha account, ma l’accesso è disattivato: chiunque possa raggiungerlo può condurre lo spettacolo.",
     "authPosture": "Accesso obbligatorio",
     "authOnNow": "Questo server richiede l’accesso. Ogni client chiede una password prima di poter condurre lo spettacolo.",
-    "authTurnOn": "Richiedi l’accesso",
+    "authTurnOn": "Attiva l’accesso",
     "authTurnOff": "Disattiva l’accesso",
     "authTurnOffHelp": "Gli account vengono conservati, quindi può riattivare l’accesso senza ricreare nessuno.",
     "authTurnOnConfirm": "A ogni client di questo server verrà chiesta una password, compreso questo.",
