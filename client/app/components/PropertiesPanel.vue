@@ -1112,9 +1112,17 @@ const formatTime = (seconds: number): string => {
   min-height: min-content;
 }
 
-/* Special handling for playback tab with waveform trimmer */
+/* Special handling for playback tab with waveform trimmer.
+   A column that FILLS the content box rather than sitting at its natural
+   height, so the trimmer inside has a height to grow into when the panel is
+   dragged taller. `min-height` rather than `height`: when the panel is short
+   the trimmer's own floor wins and .properties-content scrolls, which is the
+   honest failure — a scrollbar instead of a crushed canvas. */
 .tab-panel:has(.waveform-trimmer) {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  min-height: 100%;
 }
 
 .property-field {

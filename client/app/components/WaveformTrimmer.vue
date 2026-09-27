@@ -682,7 +682,13 @@ const duration = computed(() =>
 const containerWidth = ref(800);
 const canvasWidth = computed(() => containerWidth.value);
 
-const canvasHeight = 120; // Fixed height for waveform (reduced from 200)
+// MEASURED, not a constant. The properties panel is resizable, so the drawing
+// surface has to follow the box it is drawn into: with a fixed 120 the bitmap
+// was scaled by CSS to whatever height the container actually had, which is
+// what made the waveform read as blurred and squashed. Seeded with the old
+// constant so the first draw — before the container has been measured — is
+// sane rather than zero-height.
+const containerHeight = ref(120);
 
 // Calculate visible range based on zoom and scroll
 const visibleDuration = computed(() => duration.value / zoomLevel.value);
@@ -1078,12 +1084,21 @@ const drawWaveform = () => {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
+  // Read once and lay the whole frame out against it. Everything below — the
+  // lanes, the grid, the fade diagonals, the playhead arrows — is positioned
+  // from this, so a resize landing mid-draw would tear the frame.
+  const canvasHeight = containerHeight.value;
+
   // Set canvas dimensions with device pixel ratio
   const dpr = window.devicePixelRatio || 1;
   canvas.width = canvasWidth.value * dpr;
   canvas.height = canvasHeight * dpr;
   canvas.style.width = `${canvasWidth.value}px`;
-  //canvas.style.height = `${canvasHeight}px`; - commented out to fix height issue
+  // The displayed height deliberately stays with the stylesheet (height: 100%)
+  // rather than being pinned here. Now that the backing store is measured from
+  // the same box, the two agree; leaving CSS in charge also means a splitter
+  // drag rescales the last bitmap for the frame before the redraw lands,
+  // instead of opening a gap under the canvas.
   ctx.scale(dpr, dpr);
 
   // Clear canvas with background color
@@ -1440,13 +1455,22 @@ watch(() => props.audioItem?.waveform, () => {
 watch(() => props.multiSelect, (multi) => {
   if (multi) return;
   nextTick(() => requestAnimationFrame(() => {
-    if (waveformContainer.value) containerWidth.value = waveformContainer.value.clientWidth;
+    measureContainer();
     drawWaveform();
     ensureWaveform();
   }));
 });
 
-// Watch for canvas width changes
+// Watch for canvas size changes. clientWidth/clientHeight are the container's
+// CONTENT box — its 1px border is excluded — which is exactly the area the
+// canvas element fills, so the backing store matches it 1:1.
+const measureContainer = () => {
+  const el = waveformContainer.value;
+  if (!el) return;
+  containerWidth.value = el.clientWidth;
+  containerHeight.value = el.clientHeight;
+};
+
 const resizeObserver = ref<ResizeObserver | null>(null);
 
 onMounted(() => {
@@ -1454,9 +1478,7 @@ onMounted(() => {
   // ensures the browser has committed the layout pass so clientWidth is real).
   nextTick(() => {
     requestAnimationFrame(() => {
-      if (waveformContainer.value) {
-        containerWidth.value = waveformContainer.value.clientWidth;
-      }
+      measureContainer();
       drawWaveform();
 
       // If waveform data is missing, ask the server to (re)generate it.
@@ -1465,10 +1487,10 @@ onMounted(() => {
   });
 
   if (waveformContainer.value) {
+    // Fires for height as well as width, so dragging the panel's splitter
+    // redraws at the new size instead of stretching the last bitmap.
     resizeObserver.value = new ResizeObserver(() => {
-      if (waveformContainer.value) {
-        containerWidth.value = waveformContainer.value.clientWidth;
-      }
+      measureContainer();
       throttledDraw();
     });
     resizeObserver.value.observe(waveformContainer.value);
@@ -1490,13 +1512,31 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Fills the tab panel rather than being capped at a constant. The old
+   `max-height: 149px` with `overflow: hidden` predates the panel being
+   resizable: it clipped the horizontal scrollbar outright, and squeezed the
+   120px canvas box to ~97px while the bitmap was still drawn at 120 — so the
+   waveform was scaled by CSS and read as blurred.
+
+   The floor is what fits in the panel at its 300px default (~152px of content
+   after the header, tabs and padding), so nothing scrolls at the height the
+   panel has always had; below that .properties-content takes over. */
 .waveform-trimmer {
   display: flex;
   gap: var(--spacing-sm);
   padding: 0;
   background: transparent;
-  max-height: 149px;
-  overflow: hidden;
+  flex: 1;
+  min-height: 150px;
+}
+
+/* The fader and its scale earn the height — a taller throw is a finer trim —
+   so these stretch with the row. The time and fade columns do not: they hold a
+   fixed number of fields, and stretching them would leave a tall empty slab of
+   --color-surface beside the waveform. */
+.time-display-section,
+.fade-controls-section {
+  align-self: flex-start;
 }
 
 /* Volume Control */
@@ -1741,6 +1781,9 @@ onUnmounted(() => {
   flex-direction: column;
   gap: var(--spacing-xs);
   min-width: 0;
+  /* Lets the canvas container shrink to the column rather than overflowing it,
+     which is what used to push the zoom row and scrollbar out of the clip. */
+  min-height: 0;
 }
 
 .waveform-controls {
@@ -1751,6 +1794,8 @@ onUnmounted(() => {
   background: var(--color-surface);
   border-radius: var(--border-radius-sm);
   gap: var(--spacing-md);
+  /* Fixed furniture: the height goes to the canvas, not to these. */
+  flex: 0 0 auto;
 }
 
 .zoom-control {
@@ -1841,11 +1886,14 @@ onUnmounted(() => {
   text-align: right;
 }
 
-/* Waveform Container */
+/* Waveform Container — the one thing in the column that takes the slack. Its
+   measured height drives the canvas backing store (see containerHeight), so
+   the drawing surface and the box always agree. */
 .waveform-container {
   position: relative;
   width: 100%;
-  height: 120px;
+  flex: 1;
+  min-height: 72px;
   background: var(--color-background);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-sm);
@@ -2067,6 +2115,7 @@ onUnmounted(() => {
 /* Scrollbar */
 .waveform-scrollbar {
   width: 100%;
+  flex: 0 0 auto;
 }
 
 .scroll-slider {
