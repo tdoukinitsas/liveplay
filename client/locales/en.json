@@ -138,7 +138,18 @@
     "sectionUsers": "Accounts",
     "sectionUsersHelp": "Who may use this server, and what they are allowed to change.",
     "stopAllStopsPreview": "Stop All also stops the preview",
-    "stopAllStopsPreviewHelp": "When off, Stop All leaves a cue you are pre-listening to on the preview bus playing."
+    "stopAllStopsPreviewHelp": "When off, Stop All leaves a cue you are pre-listening to on the preview bus playing.",
+    "sectionAppearance": "Appearance",
+    "sectionAppearanceHelp": "How LivePlay looks and reads on this screen. These are yours, not the show’s — they follow you rather than the file.",
+    "themeMode": "Theme",
+    "themeModeHelp": "Dark is the default: a lit screen in a dark control room is the usual case.",
+    "themeModeDark": "Dark",
+    "themeModeLight": "Light",
+    "accentColor": "Accent colour",
+    "accentColorHelp": "Used for selection, playing cues and anything that wants your eye. It changes nothing about how the show sounds.",
+    "accentColorSwatch": "Accent colour {color}",
+    "sectionAbout": "About",
+    "sectionAboutHelp": "Which version is running, who wrote it, and the licence it is under."
   },
   "common": {
     "default": "default",
@@ -506,9 +517,6 @@
     "signOutEverywhereConfirm": "Sign out of every device, including this one?",
     "save": "Save",
     "cancel": "Cancel"
-  },
-  "colors": {
-    "chooseAccent": "Choose Accent Color"
   },
   "youtube": {
     "importFromYouTube": "Import from YouTube",

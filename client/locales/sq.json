@@ -358,9 +358,6 @@
     "save": "Ruaj",
     "cancel": "Anulo"
   },
-  "colors": {
-    "chooseAccent": "Zgjidh Ngjyrën e Theksuar"
-  },
   "youtube": {
     "importFromYouTube": "Importo nga YouTube",
     "searchPlaceholder": "Kërko muzikë ose audio...",
@@ -545,7 +542,18 @@
     "sectionUsers": "Llogaritë",
     "sectionUsersHelp": "Kush mund ta përdorë këtë server dhe çfarë i lejohet të ndryshojë.",
     "stopAllStopsPreview": "«Ndalo të gjitha» ndalon edhe paraparimin",
-    "stopAllStopsPreviewHelp": "Kur është joaktive, «Ndalo të gjitha» e lë në luajtje një cue që po e paradëgjoni në bus-in Preview."
+    "stopAllStopsPreviewHelp": "Kur është joaktive, «Ndalo të gjitha» e lë në luajtje një cue që po e paradëgjoni në bus-in Preview.",
+    "sectionAppearance": "Pamja",
+    "sectionAppearanceHelp": "Si duket dhe si lexohet LivePlay në këtë ekran. Këto cilësime janë tuajat, jo të shfaqjes — ju ndjekin ju, jo skedarin.",
+    "themeMode": "Tema",
+    "themeModeHelp": "E errëta është parazgjedhja: një ekran i ndezur në një dhomë kontrolli të errët është rasti i zakonshëm.",
+    "themeModeDark": "E errët",
+    "themeModeLight": "E çelët",
+    "accentColor": "Ngjyra e theksit",
+    "accentColorHelp": "Përdoret për përzgjedhjen, cue-të që po luajnë dhe gjithçka që kërkon syrin tuaj. Nuk ndryshon asgjë në tingullin e shfaqjes.",
+    "accentColorSwatch": "Ngjyra e theksit {color}",
+    "sectionAbout": "Rreth",
+    "sectionAboutHelp": "Cili version po funksionon, kush e ka shkruar dhe nën cilën licencë."
   },
   "common": {
     "default": "e paracaktuar",

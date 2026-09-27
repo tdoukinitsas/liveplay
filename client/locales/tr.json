@@ -358,9 +358,6 @@
     "save": "Kaydet",
     "cancel": "İptal"
   },
-  "colors": {
-    "chooseAccent": "Vurgu Rengini Seç"
-  },
   "youtube": {
     "importFromYouTube": "YouTube'dan İçe Aktar",
     "searchPlaceholder": "Müzik veya ses ara...",
@@ -545,7 +542,18 @@
     "sectionUsers": "Hesaplar",
     "sectionUsersHelp": "Bu sunucuyu kimin kullanabileceği ve neyi değiştirmesine izin verildiği.",
     "stopAllStopsPreview": "«Tümünü Durdur» ön izlemeyi de durdurur",
-    "stopAllStopsPreviewHelp": "Kapalıyken «Tümünü Durdur», Preview bus'ında ön dinlediğiniz cue'yu çalmaya devam ettirir."
+    "stopAllStopsPreviewHelp": "Kapalıyken «Tümünü Durdur», Preview bus'ında ön dinlediğiniz cue'yu çalmaya devam ettirir.",
+    "sectionAppearance": "Görünüm",
+    "sectionAppearanceHelp": "LivePlay’in bu ekranda nasıl göründüğü ve okunduğu. Bu ayarlar gösterinin değil sizindir — dosyayı değil sizi takip eder.",
+    "themeMode": "Tema",
+    "themeModeHelp": "Varsayılan koyudur: karanlık bir kontrol odasındaki aydınlık ekran olağan durumdur.",
+    "themeModeDark": "Koyu",
+    "themeModeLight": "Açık",
+    "accentColor": "Vurgu rengi",
+    "accentColorHelp": "Seçim, çalan cue’lar ve gözünüzü arayan her şey için kullanılır. Gösterinin sesiyle ilgili hiçbir şeyi değiştirmez.",
+    "accentColorSwatch": "Vurgu rengi {color}",
+    "sectionAbout": "Hakkında",
+    "sectionAboutHelp": "Hangi sürümün çalıştığı, kimin yazdığı ve hangi lisans altında olduğu."
   },
   "common": {
     "default": "varsayılan",

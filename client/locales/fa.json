@@ -358,9 +358,6 @@
     "save": "ذخیره",
     "cancel": "انصراف"
   },
-  "colors": {
-    "chooseAccent": "انتخاب رنگ برجسته"
-  },
   "youtube": {
     "importFromYouTube": "وارد کردن از YouTube",
     "searchPlaceholder": "جستجوی موسیقی یا صدا...",
@@ -545,7 +542,18 @@
     "sectionUsers": "حساب‌ها",
     "sectionUsersHelp": "چه کسانی می‌توانند از این سرور استفاده کنند و مجاز به تغییر چه چیزی هستند.",
     "stopAllStopsPreview": "«توقف همه» پیش‌نمایش را هم متوقف می‌کند",
-    "stopAllStopsPreviewHelp": "وقتی خاموش است، «توقف همه» سیگنالی را که روی باس Preview پیش‌شنود می‌کنید در حال پخش نگه می‌دارد."
+    "stopAllStopsPreviewHelp": "وقتی خاموش است، «توقف همه» سیگنالی را که روی باس Preview پیش‌شنود می‌کنید در حال پخش نگه می‌دارد.",
+    "sectionAppearance": "ظاهر",
+    "sectionAppearanceHelp": "اینکه LivePlay در این صفحه چگونه دیده و خوانده می‌شود. این تنظیمات از آنِ شماست، نه اجرا — به دنبال شما می‌آیند، نه پرونده.",
+    "themeMode": "پوسته",
+    "themeModeHelp": "حالت تیره پیش‌فرض است: صفحهٔ روشن در اتاق فرمان تاریک حالت معمول است.",
+    "themeModeDark": "تیره",
+    "themeModeLight": "روشن",
+    "accentColor": "رنگ تأکید",
+    "accentColorHelp": "برای انتخاب، کیوهای در حال پخش و هر چیزی که باید چشم را بگیرد به کار می‌رود. در صدای اجرا هیچ تغییری نمی‌دهد.",
+    "accentColorSwatch": "رنگ تأکید {color}",
+    "sectionAbout": "درباره",
+    "sectionAboutHelp": "چه نسخه‌ای در حال اجراست، چه کسی آن را نوشته و با چه پروانه‌ای."
   },
   "common": {
     "default": "پیش‌فرض",

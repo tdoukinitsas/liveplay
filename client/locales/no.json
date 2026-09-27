@@ -358,9 +358,6 @@
     "save": "Lagre",
     "cancel": "Avbryt"
   },
-  "colors": {
-    "chooseAccent": "Velg aksentfarge"
-  },
   "youtube": {
     "importFromYouTube": "Importer fra YouTube",
     "searchPlaceholder": "Søk etter musikk eller lyd...",
@@ -545,7 +542,18 @@
     "sectionUsers": "Kontoer",
     "sectionUsersHelp": "Hvem som kan bruke denne tjeneren, og hva de har lov til å endre.",
     "stopAllStopsPreview": "«Stopp alle» stopper også forhåndsvisningen",
-    "stopAllStopsPreviewHelp": "Når dette er av, lar «Stopp alle» et signal du forlytter på Preview-bussen fortsette å spille."
+    "stopAllStopsPreviewHelp": "Når dette er av, lar «Stopp alle» et signal du forlytter på Preview-bussen fortsette å spille.",
+    "sectionAppearance": "Utseende",
+    "sectionAppearanceHelp": "Hvordan LivePlay ser ut og leses på denne skjermen. Disse innstillingene er dine, ikke forestillingens — de følger deg, ikke filen.",
+    "themeMode": "Tema",
+    "themeModeHelp": "Mørk er standard: en opplyst skjerm i et mørkt kontrollrom er det vanlige.",
+    "themeModeDark": "Mørk",
+    "themeModeLight": "Lys",
+    "accentColor": "Aksentfarge",
+    "accentColorHelp": "Brukes til markering, cuer som spilles og alt som vil ha blikket ditt. Den endrer ingenting ved hvordan forestillingen låter.",
+    "accentColorSwatch": "Aksentfarge {color}",
+    "sectionAbout": "Om",
+    "sectionAboutHelp": "Hvilken versjon som kjører, hvem som har skrevet den, og hvilken lisens den har."
   },
   "common": {
     "default": "standard",

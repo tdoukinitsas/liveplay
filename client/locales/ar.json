@@ -358,9 +358,6 @@
     "save": "حفظ",
     "cancel": "إلغاء"
   },
-  "colors": {
-    "chooseAccent": "اختيار لون التمييز"
-  },
   "youtube": {
     "importFromYouTube": "استيراد من YouTube",
     "searchPlaceholder": "البحث عن موسيقى أو صوت...",
@@ -545,7 +542,18 @@
     "sectionUsers": "الحسابات",
     "sectionUsersHelp": "من يمكنه استخدام هذا الخادم، وما المسموح له بتغييره.",
     "stopAllStopsPreview": "«إيقاف الكل» يوقف المعاينة أيضًا",
-    "stopAllStopsPreviewHelp": "عند تعطيل هذا الخيار، يترك «إيقاف الكل» الإشارة التي تستمع إليها مسبقًا على باص Preview قيد التشغيل."
+    "stopAllStopsPreviewHelp": "عند تعطيل هذا الخيار، يترك «إيقاف الكل» الإشارة التي تستمع إليها مسبقًا على باص Preview قيد التشغيل.",
+    "sectionAppearance": "المظهر",
+    "sectionAppearanceHelp": "كيف يبدو LivePlay ويُقرأ على هذه الشاشة. هذه الإعدادات لك، لا للعرض — فهي تتبعك أنت، لا الملف.",
+    "themeMode": "السمة",
+    "themeModeHelp": "الداكن هو الافتراضي: شاشة مضيئة في غرفة تحكم مظلمة هي الحالة المعتادة.",
+    "themeModeDark": "داكن",
+    "themeModeLight": "فاتح",
+    "accentColor": "لون التمييز",
+    "accentColorHelp": "يُستخدم للتحديد وللمقاطع قيد التشغيل ولكل ما يستدعي نظرك. لا يغيّر شيئًا في صوت العرض.",
+    "accentColorSwatch": "لون التمييز {color}",
+    "sectionAbout": "حول",
+    "sectionAboutHelp": "أي إصدار يعمل، ومَن كتبه، وتحت أي رخصة."
   },
   "common": {
     "default": "افتراضي",

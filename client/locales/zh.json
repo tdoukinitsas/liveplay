@@ -358,9 +358,6 @@
     "save": "保存",
     "cancel": "取消"
   },
-  "colors": {
-    "chooseAccent": "选择强调色"
-  },
   "youtube": {
     "importFromYouTube": "从YouTube导入",
     "searchPlaceholder": "搜索音乐或音频...",
@@ -545,7 +542,18 @@
     "sectionUsers": "账户",
     "sectionUsersHelp": "谁可以使用此服务器，以及各自被允许更改什么。",
     "stopAllStopsPreview": "「停止全部」也停止预听",
-    "stopAllStopsPreviewHelp": "关闭时，「停止全部」不会停止你正在 Preview 总线上预听的信号。"
+    "stopAllStopsPreviewHelp": "关闭时，「停止全部」不会停止你正在 Preview 总线上预听的信号。",
+    "sectionAppearance": "外观",
+    "sectionAppearanceHelp": "LivePlay 在这块屏幕上的外观与可读性。这些设置属于你，而非演出——它们跟着你走，不跟着文件走。",
+    "themeMode": "主题",
+    "themeModeHelp": "默认深色：昏暗控制室里一块发亮的屏幕才是常态。",
+    "themeModeDark": "深色",
+    "themeModeLight": "浅色",
+    "accentColor": "强调色",
+    "accentColorHelp": "用于选中项、正在播放的提示以及一切需要抓住视线的地方。它不会改变演出的声音。",
+    "accentColorSwatch": "强调色 {color}",
+    "sectionAbout": "关于",
+    "sectionAboutHelp": "正在运行的版本、作者，以及所用的许可证。"
   },
   "common": {
     "default": "默认",

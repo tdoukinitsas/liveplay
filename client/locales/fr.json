@@ -358,9 +358,6 @@
     "save": "Enregistrer",
     "cancel": "Annuler"
   },
-  "colors": {
-    "chooseAccent": "Choisir la Couleur d'Accentuation"
-  },
   "youtube": {
     "importFromYouTube": "Importer depuis YouTube",
     "searchPlaceholder": "Rechercher de la musique ou de l'audio...",
@@ -545,7 +542,18 @@
     "sectionUsers": "Comptes",
     "sectionUsersHelp": "Qui peut utiliser ce serveur, et ce que chacun a le droit de modifier.",
     "stopAllStopsPreview": "« Tout arrêter » arrête aussi l'aperçu",
-    "stopAllStopsPreviewHelp": "Désactivé, « Tout arrêter » laisse jouer le signal que vous pré-écoutez sur le bus Preview."
+    "stopAllStopsPreviewHelp": "Désactivé, « Tout arrêter » laisse jouer le signal que vous pré-écoutez sur le bus Preview.",
+    "sectionAppearance": "Apparence",
+    "sectionAppearanceHelp": "L’aspect et la lisibilité de LivePlay sur cet écran. Ces réglages sont les vôtres, pas ceux du spectacle : ils vous suivent, pas le fichier.",
+    "themeMode": "Thème",
+    "themeModeHelp": "Sombre par défaut : un écran allumé dans une régie plongée dans le noir est le cas courant.",
+    "themeModeDark": "Sombre",
+    "themeModeLight": "Clair",
+    "accentColor": "Couleur d’accentuation",
+    "accentColorHelp": "Utilisée pour la sélection, les tops en lecture et tout ce qui appelle le regard. Elle ne change rien au son du spectacle.",
+    "accentColorSwatch": "Couleur d’accentuation {color}",
+    "sectionAbout": "À propos",
+    "sectionAboutHelp": "Quelle version tourne, qui l’a écrite et sous quelle licence."
   },
   "common": {
     "default": "défaut",

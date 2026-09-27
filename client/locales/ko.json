@@ -358,9 +358,6 @@
     "save": "저장",
     "cancel": "취소"
   },
-  "colors": {
-    "chooseAccent": "강조 색상 선택"
-  },
   "youtube": {
     "importFromYouTube": "YouTube에서 가져오기",
     "searchPlaceholder": "음악 또는 오디오 검색...",
@@ -545,7 +542,18 @@
     "sectionUsers": "계정",
     "sectionUsersHelp": "이 서버를 누가 사용할 수 있고, 무엇을 변경할 수 있는지.",
     "stopAllStopsPreview": "「모두 정지」 시 미리 듣기도 정지",
-    "stopAllStopsPreviewHelp": "끄면 「모두 정지」를 눌러도 Preview 버스에서 미리 듣는 중인 큐는 계속 재생됩니다."
+    "stopAllStopsPreviewHelp": "끄면 「모두 정지」를 눌러도 Preview 버스에서 미리 듣는 중인 큐는 계속 재생됩니다.",
+    "sectionAppearance": "모양",
+    "sectionAppearanceHelp": "이 화면에서 LivePlay가 어떻게 보이고 읽히는지에 대한 설정입니다. 공연이 아니라 당신의 것이며, 파일이 아니라 당신을 따라다닙니다.",
+    "themeMode": "테마",
+    "themeModeHelp": "기본값은 어둡게입니다. 어두운 조정실에서 빛나는 화면이 일반적인 상황이기 때문입니다.",
+    "themeModeDark": "어둡게",
+    "themeModeLight": "밝게",
+    "accentColor": "강조 색",
+    "accentColorHelp": "선택 표시, 재생 중인 큐, 눈길을 끌어야 하는 모든 것에 쓰입니다. 공연의 소리는 전혀 바뀌지 않습니다.",
+    "accentColorSwatch": "강조 색 {color}",
+    "sectionAbout": "정보",
+    "sectionAboutHelp": "실행 중인 버전, 만든 사람, 그리고 라이선스."
   },
   "common": {
     "default": "기본값",

@@ -358,9 +358,6 @@
     "save": "Guardar",
     "cancel": "Cancelar"
   },
-  "colors": {
-    "chooseAccent": "Elegir Color de Acento"
-  },
   "youtube": {
     "importFromYouTube": "Importar desde YouTube",
     "searchPlaceholder": "Buscar música o audio...",
@@ -545,7 +542,18 @@
     "sectionUsers": "Cuentas",
     "sectionUsersHelp": "Quién puede usar este servidor y qué se le permite cambiar.",
     "stopAllStopsPreview": "«Detener todo» también detiene la vista previa",
-    "stopAllStopsPreviewHelp": "Si está desactivado, «Detener todo» deja sonando la señal que estés preescuchando en el bus Preview."
+    "stopAllStopsPreviewHelp": "Si está desactivado, «Detener todo» deja sonando la señal que estés preescuchando en el bus Preview.",
+    "sectionAppearance": "Apariencia",
+    "sectionAppearanceHelp": "Cómo se ve y se lee LivePlay en esta pantalla. Estos ajustes son suyos, no del espectáculo: le siguen a usted, no al archivo.",
+    "themeMode": "Tema",
+    "themeModeHelp": "Oscuro es el valor predeterminado: una pantalla iluminada en una cabina a oscuras es lo habitual.",
+    "themeModeDark": "Oscuro",
+    "themeModeLight": "Claro",
+    "accentColor": "Color de acento",
+    "accentColorHelp": "Se usa para la selección, las señales en reproducción y todo lo que busca su mirada. No cambia nada de cómo suena el espectáculo.",
+    "accentColorSwatch": "Color de acento {color}",
+    "sectionAbout": "Acerca de",
+    "sectionAboutHelp": "Qué versión se está ejecutando, quién la ha escrito y bajo qué licencia."
   },
   "common": {
     "default": "predeterminado",

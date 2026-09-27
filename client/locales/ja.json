@@ -358,9 +358,6 @@
     "save": "保存",
     "cancel": "キャンセル"
   },
-  "colors": {
-    "chooseAccent": "アクセントカラーを選択"
-  },
   "youtube": {
     "importFromYouTube": "YouTubeからインポート",
     "searchPlaceholder": "音楽またはオーディオを検索...",
@@ -545,7 +542,18 @@
     "sectionUsers": "アカウント",
     "sectionUsersHelp": "このサーバーを誰が使えるか、そして何を変更できるか。",
     "stopAllStopsPreview": "「すべて停止」でプレビューも停止",
-    "stopAllStopsPreviewHelp": "オフの場合、「すべて停止」を押しても Previewバスでプレリスン中のキューは再生を続けます。"
+    "stopAllStopsPreviewHelp": "オフの場合、「すべて停止」を押しても Previewバスでプレリスン中のキューは再生を続けます。",
+    "sectionAppearance": "外観",
+    "sectionAppearanceHelp": "この画面で LivePlay がどう見え、どう読めるか。これらはショーのものではなくあなたのもので、ファイルではなくあなたに付いてきます。",
+    "themeMode": "テーマ",
+    "themeModeHelp": "既定はダークです。暗い調整室で光る画面が通常の状態だからです。",
+    "themeModeDark": "ダーク",
+    "themeModeLight": "ライト",
+    "accentColor": "アクセントカラー",
+    "accentColorHelp": "選択、再生中のキュー、目を引くべきものすべてに使われます。ショーの音は一切変わりません。",
+    "accentColorSwatch": "アクセントカラー {color}",
+    "sectionAbout": "このアプリについて",
+    "sectionAboutHelp": "動作中のバージョン、開発者、そしてライセンス。"
   },
   "common": {
     "default": "デフォルト",

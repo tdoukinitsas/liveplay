@@ -358,9 +358,6 @@
     "save": "Salva",
     "cancel": "Annulla"
   },
-  "colors": {
-    "chooseAccent": "Scegli Colore Accento"
-  },
   "youtube": {
     "importFromYouTube": "Importa da YouTube",
     "searchPlaceholder": "Cerca musica o audio...",
@@ -545,7 +542,18 @@
     "sectionUsers": "Account",
     "sectionUsersHelp": "Chi può usare questo server e cosa gli è permesso modificare.",
     "stopAllStopsPreview": "«Ferma tutto» ferma anche l'anteprima",
-    "stopAllStopsPreviewHelp": "Se disattivato, «Ferma tutto» lascia in riproduzione il segnale che stai preascoltando sul bus Preview."
+    "stopAllStopsPreviewHelp": "Se disattivato, «Ferma tutto» lascia in riproduzione il segnale che stai preascoltando sul bus Preview.",
+    "sectionAppearance": "Aspetto",
+    "sectionAppearanceHelp": "Come appare e si legge LivePlay su questo schermo. Queste impostazioni sono tue, non dello spettacolo: seguono te, non il file.",
+    "themeMode": "Tema",
+    "themeModeHelp": "Scuro è l’impostazione predefinita: uno schermo acceso in una regia al buio è il caso normale.",
+    "themeModeDark": "Scuro",
+    "themeModeLight": "Chiaro",
+    "accentColor": "Colore d’accento",
+    "accentColorHelp": "Usato per la selezione, i cue in riproduzione e tutto ciò che cerca il tuo sguardo. Non cambia nulla di come suona lo spettacolo.",
+    "accentColorSwatch": "Colore d’accento {color}",
+    "sectionAbout": "Informazioni",
+    "sectionAboutHelp": "Quale versione è in esecuzione, chi l’ha scritta e con quale licenza."
   },
   "common": {
     "default": "predefinito",

@@ -358,9 +358,6 @@
     "save": "محفوظ کریں",
     "cancel": "منسوخ"
   },
-  "colors": {
-    "chooseAccent": "ایکسینٹ رنگ منتخب کریں"
-  },
   "youtube": {
     "importFromYouTube": "YouTube سے درآمد کریں",
     "searchPlaceholder": "موسیقی یا آڈیو تلاش کریں...",
@@ -545,7 +542,18 @@
     "sectionUsers": "اکاؤنٹس",
     "sectionUsersHelp": "یہ سرور کون استعمال کر سکتا ہے، اور کسے کیا بدلنے کی اجازت ہے۔",
     "stopAllStopsPreview": "«سب روکیں» پیش نظارہ بھی روکتا ہے",
-    "stopAllStopsPreviewHelp": "بند ہونے پر، «سب روکیں» اس کیو کو چلتا رہنے دیتا ہے جسے آپ Preview بس پر پری لسن کر رہے ہیں۔"
+    "stopAllStopsPreviewHelp": "بند ہونے پر، «سب روکیں» اس کیو کو چلتا رہنے دیتا ہے جسے آپ Preview بس پر پری لسن کر رہے ہیں۔",
+    "sectionAppearance": "ظاہری شکل",
+    "sectionAppearanceHelp": "اس اسکرین پر LivePlay کیسا دکھتا اور پڑھا جاتا ہے۔ یہ ترتیبات آپ کی ہیں، شو کی نہیں — یہ فائل کے نہیں، آپ کے ساتھ چلتی ہیں۔",
+    "themeMode": "تھیم",
+    "themeModeHelp": "ڈارک پہلے سے طے شدہ ہے: تاریک کنٹرول روم میں روشن اسکرین معمول کی بات ہے۔",
+    "themeModeDark": "ڈارک",
+    "themeModeLight": "لائٹ",
+    "accentColor": "ایکسنٹ رنگ",
+    "accentColorHelp": "انتخاب، چلنے والے کیوز اور ہر اُس چیز کے لیے جو نظر کھینچے۔ شو کی آواز میں اس سے کوئی فرق نہیں پڑتا۔",
+    "accentColorSwatch": "ایکسنٹ رنگ {color}",
+    "sectionAbout": "تعارف",
+    "sectionAboutHelp": "کون سا ورژن چل رہا ہے، کس نے لکھا اور کس لائسنس کے تحت ہے۔"
   },
   "common": {
     "default": "پہلے سے طے شدہ",

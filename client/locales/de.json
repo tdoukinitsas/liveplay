@@ -358,9 +358,6 @@
     "save": "Speichern",
     "cancel": "Abbrechen"
   },
-  "colors": {
-    "chooseAccent": "Akzentfarbe wählen"
-  },
   "youtube": {
     "importFromYouTube": "Von YouTube importieren",
     "searchPlaceholder": "Musik oder Audio suchen...",
@@ -545,7 +542,18 @@
     "sectionUsers": "Konten",
     "sectionUsersHelp": "Wer diesen Server nutzen darf und was er ändern kann.",
     "stopAllStopsPreview": "„Alle stoppen“ stoppt auch die Vorschau",
-    "stopAllStopsPreviewHelp": "Wenn aus, lässt „Alle stoppen“ einen Cue weiterlaufen, den du gerade auf dem Preview-Bus vorhörst."
+    "stopAllStopsPreviewHelp": "Wenn aus, lässt „Alle stoppen“ einen Cue weiterlaufen, den du gerade auf dem Preview-Bus vorhörst.",
+    "sectionAppearance": "Darstellung",
+    "sectionAppearanceHelp": "Wie LivePlay auf diesem Bildschirm aussieht und sich liest. Diese Einstellungen gehören Ihnen, nicht der Show — sie folgen Ihnen, nicht der Datei.",
+    "themeMode": "Design",
+    "themeModeHelp": "Dunkel ist die Voreinstellung: ein leuchtender Bildschirm in einer dunklen Regie ist der Normalfall.",
+    "themeModeDark": "Dunkel",
+    "themeModeLight": "Hell",
+    "accentColor": "Akzentfarbe",
+    "accentColorHelp": "Wird für Auswahl, laufende Cues und alles verwendet, was Ihren Blick sucht. Am Klang der Show ändert sie nichts.",
+    "accentColorSwatch": "Akzentfarbe {color}",
+    "sectionAbout": "Über",
+    "sectionAboutHelp": "Welche Version läuft, wer sie geschrieben hat und unter welcher Lizenz sie steht."
   },
   "common": {
     "default": "Standard",

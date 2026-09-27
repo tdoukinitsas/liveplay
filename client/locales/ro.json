@@ -358,9 +358,6 @@
     "save": "Salvează",
     "cancel": "Anulează"
   },
-  "colors": {
-    "chooseAccent": "Alege accentul de culoare"
-  },
   "youtube": {
     "importFromYouTube": "Importa din YouTube",
     "searchPlaceholder": "Caută muzica sau audio",
@@ -545,7 +542,18 @@
     "sectionUsers": "Conturi",
     "sectionUsersHelp": "Cine poate folosi acest server și ce are voie să schimbe.",
     "stopAllStopsPreview": "„Oprește tot” oprește și previzualizarea",
-    "stopAllStopsPreviewHelp": "Când e dezactivat, „Oprește tot” lasă să ruleze un cue pe care îl preasculți pe bus-ul Preview."
+    "stopAllStopsPreviewHelp": "Când e dezactivat, „Oprește tot” lasă să ruleze un cue pe care îl preasculți pe bus-ul Preview.",
+    "sectionAppearance": "Aspect",
+    "sectionAppearanceHelp": "Cum arată și cum se citește LivePlay pe acest ecran. Aceste setări sunt ale dumneavoastră, nu ale spectacolului — vă urmează pe dumneavoastră, nu fișierul.",
+    "themeMode": "Temă",
+    "themeModeHelp": "Întunecat este valoarea implicită: un ecran luminat într-o cabină întunecată este cazul obișnuit.",
+    "themeModeDark": "Întunecat",
+    "themeModeLight": "Luminos",
+    "accentColor": "Culoare de accent",
+    "accentColorHelp": "Folosită pentru selecție, pentru cue-urile în redare și pentru tot ce vă caută privirea. Nu schimbă nimic din felul în care sună spectacolul.",
+    "accentColorSwatch": "Culoare de accent {color}",
+    "sectionAbout": "Despre",
+    "sectionAboutHelp": "Ce versiune rulează, cine a scris-o și sub ce licență."
   },
   "common": {
     "default": "implicit",

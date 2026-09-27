@@ -358,9 +358,6 @@
     "save": "Guardar",
     "cancel": "Cancelar"
   },
-  "colors": {
-    "chooseAccent": "Escolher Cor de Destaque"
-  },
   "youtube": {
     "importFromYouTube": "Importar do YouTube",
     "searchPlaceholder": "Pesquisar música ou áudio...",
@@ -545,7 +542,18 @@
     "sectionUsers": "Contas",
     "sectionUsersHelp": "Quem pode usar este servidor e o que tem permissão para alterar.",
     "stopAllStopsPreview": "«Parar tudo» também para a pré-visualização",
-    "stopAllStopsPreviewHelp": "Quando desligado, «Parar tudo» deixa a tocar o sinal que estiver a pré-escutar no bus Preview."
+    "stopAllStopsPreviewHelp": "Quando desligado, «Parar tudo» deixa a tocar o sinal que estiver a pré-escutar no bus Preview.",
+    "sectionAppearance": "Aparência",
+    "sectionAppearanceHelp": "Como o LivePlay se apresenta e se lê neste ecrã. Estas definições são suas, não do espetáculo — seguem-no a si, não o ficheiro.",
+    "themeMode": "Tema",
+    "themeModeHelp": "Escuro é a predefinição: um ecrã aceso numa régie às escuras é o caso habitual.",
+    "themeModeDark": "Escuro",
+    "themeModeLight": "Claro",
+    "accentColor": "Cor de destaque",
+    "accentColorHelp": "Usada para a seleção, as deixas em reprodução e tudo o que procura o seu olhar. Não altera nada no som do espetáculo.",
+    "accentColorSwatch": "Cor de destaque {color}",
+    "sectionAbout": "Acerca de",
+    "sectionAboutHelp": "Que versão está em execução, quem a escreveu e sob que licença."
   },
   "common": {
     "default": "padrão",

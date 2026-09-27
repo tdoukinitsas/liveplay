@@ -358,9 +358,6 @@
     "save": "Spara",
     "cancel": "Avbryt"
   },
-  "colors": {
-    "chooseAccent": "Välj accentfärg"
-  },
   "youtube": {
     "importFromYouTube": "Importera från YouTube",
     "searchPlaceholder": "Sök musik eller ljud...",
@@ -545,7 +542,18 @@
     "sectionUsers": "Konton",
     "sectionUsersHelp": "Vem som får använda den här servern, och vad de får ändra.",
     "stopAllStopsPreview": "”Stoppa alla” stoppar även förhandsgranskningen",
-    "stopAllStopsPreviewHelp": "När detta är av låter ”Stoppa alla” en signal som du förlyssnar på i Preview-bussen fortsätta spela."
+    "stopAllStopsPreviewHelp": "När detta är av låter ”Stoppa alla” en signal som du förlyssnar på i Preview-bussen fortsätta spela.",
+    "sectionAppearance": "Utseende",
+    "sectionAppearanceHelp": "Hur LivePlay ser ut och läses på den här skärmen. De här inställningarna är dina, inte föreställningens — de följer dig, inte filen.",
+    "themeMode": "Tema",
+    "themeModeHelp": "Mörkt är standard: en upplyst skärm i ett mörkt kontrollrum är det vanliga.",
+    "themeModeDark": "Mörkt",
+    "themeModeLight": "Ljust",
+    "accentColor": "Accentfärg",
+    "accentColorHelp": "Används för markering, cuer som spelas och allt som vill ha din blick. Den ändrar inget i hur föreställningen låter.",
+    "accentColorSwatch": "Accentfärg {color}",
+    "sectionAbout": "Om",
+    "sectionAboutHelp": "Vilken version som körs, vem som skrivit den och vilken licens den har."
   },
   "common": {
     "default": "standard",
