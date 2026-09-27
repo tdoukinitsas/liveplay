@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "关闭时，「停止全部」不会停止你正在 Preview 总线上预听的信号。",
     "sectionAppearance": "外观",
     "sectionAppearanceHelp": "LivePlay 在这块屏幕上的外观与可读性。这些设置属于你，而非演出——它们跟着你走，不跟着文件走。",
+    "language": "语言",
+    "languageHelp": "只属于你，也只在这块屏幕上——不会改变连到这场演出的其他人看到的内容。",
     "themeMode": "主题",
     "themeModeHelp": "默认深色：昏暗控制室里一块发亮的屏幕才是常态。",
     "themeModeDark": "深色",

@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "Wenn aus, lässt „Alle stoppen“ einen Cue weiterlaufen, den du gerade auf dem Preview-Bus vorhörst.",
     "sectionAppearance": "Darstellung",
     "sectionAppearanceHelp": "Wie LivePlay auf diesem Bildschirm aussieht und sich liest. Diese Einstellungen gehören Ihnen, nicht der Show — sie folgen Ihnen, nicht der Datei.",
+    "language": "Sprache",
+    "languageHelp": "Nur Ihre, und nur auf diesem Bildschirm — für andere, die mit dieser Show verbunden sind, ändert sich nichts.",
     "themeMode": "Design",
     "themeModeHelp": "Dunkel ist die Voreinstellung: ein leuchtender Bildschirm in einer dunklen Regie ist der Normalfall.",
     "themeModeDark": "Dunkel",

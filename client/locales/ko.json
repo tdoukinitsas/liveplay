@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "끄면 「모두 정지」를 눌러도 Preview 버스에서 미리 듣는 중인 큐는 계속 재생됩니다.",
     "sectionAppearance": "모양",
     "sectionAppearanceHelp": "이 화면에서 LivePlay가 어떻게 보이고 읽히는지에 대한 설정입니다. 공연이 아니라 당신의 것이며, 파일이 아니라 당신을 따라다닙니다.",
+    "language": "언어",
+    "languageHelp": "당신만의 것이며 이 화면에만 적용됩니다. 이 공연에 연결된 다른 사람에게 보이는 것은 바뀌지 않습니다.",
     "themeMode": "테마",
     "themeModeHelp": "기본값은 어둡게입니다. 어두운 조정실에서 빛나는 화면이 일반적인 상황이기 때문입니다.",
     "themeModeDark": "어둡게",

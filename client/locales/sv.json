@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "När detta är av låter ”Stoppa alla” en signal som du förlyssnar på i Preview-bussen fortsätta spela.",
     "sectionAppearance": "Utseende",
     "sectionAppearanceHelp": "Hur LivePlay ser ut och läses på den här skärmen. De här inställningarna är dina, inte föreställningens — de följer dig, inte filen.",
+    "language": "Språk",
+    "languageHelp": "Bara din, och bara på den här skärmen — det ändrar inte vad andra som är anslutna till föreställningen ser.",
     "themeMode": "Tema",
     "themeModeHelp": "Mörkt är standard: en upplyst skärm i ett mörkt kontrollrum är det vanliga.",
     "themeModeDark": "Mörkt",

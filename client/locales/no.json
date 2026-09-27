@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "Når dette er av, lar «Stopp alle» et signal du forlytter på Preview-bussen fortsette å spille.",
     "sectionAppearance": "Utseende",
     "sectionAppearanceHelp": "Hvordan LivePlay ser ut og leses på denne skjermen. Disse innstillingene er dine, ikke forestillingens — de følger deg, ikke filen.",
+    "language": "Språk",
+    "languageHelp": "Bare din, og bare på denne skjermen — det endrer ikke hva andre som er koblet til forestillingen ser.",
     "themeMode": "Tema",
     "themeModeHelp": "Mørk er standard: en opplyst skjerm i et mørkt kontrollrom er det vanlige.",
     "themeModeDark": "Mørk",

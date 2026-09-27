@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "Se disattivato, «Ferma tutto» lascia in riproduzione il segnale che stai preascoltando sul bus Preview.",
     "sectionAppearance": "Aspetto",
     "sectionAppearanceHelp": "Come appare e si legge LivePlay su questo schermo. Queste impostazioni sono tue, non dello spettacolo: seguono te, non il file.",
+    "language": "Lingua",
+    "languageHelp": "Solo tua, e solo su questo schermo: non cambia ciò che vedono gli altri collegati a questo spettacolo.",
     "themeMode": "Tema",
     "themeModeHelp": "Scuro è l’impostazione predefinita: uno schermo acceso in una regia al buio è il caso normale.",
     "themeModeDark": "Scuro",

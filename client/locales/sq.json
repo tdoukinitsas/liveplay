@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "Kur është joaktive, «Ndalo të gjitha» e lë në luajtje një cue që po e paradëgjoni në bus-in Preview.",
     "sectionAppearance": "Pamja",
     "sectionAppearanceHelp": "Si duket dhe si lexohet LivePlay në këtë ekran. Këto cilësime janë tuajat, jo të shfaqjes — ju ndjekin ju, jo skedarin.",
+    "language": "Gjuha",
+    "languageHelp": "Vetëm e juaja, dhe vetëm në këtë ekran — nuk ndryshon atë që shohin të tjerët e lidhur me këtë shfaqje.",
     "themeMode": "Tema",
     "themeModeHelp": "E errëta është parazgjedhja: një ekran i ndezur në një dhomë kontrolli të errët është rasti i zakonshëm.",
     "themeModeDark": "E errët",

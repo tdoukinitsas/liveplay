@@ -141,6 +141,8 @@
     "stopAllStopsPreviewHelp": "When off, Stop All leaves a cue you are pre-listening to on the preview bus playing.",
     "sectionAppearance": "Appearance",
     "sectionAppearanceHelp": "How LivePlay looks and reads on this screen. These are yours, not the show’s — they follow you rather than the file.",
+    "language": "Language",
+    "languageHelp": "Yours alone, and only on this screen — it does not change what anyone else connected to this show sees.",
     "themeMode": "Theme",
     "themeModeHelp": "Dark is the default: a lit screen in a dark control room is the usual case.",
     "themeModeDark": "Dark",

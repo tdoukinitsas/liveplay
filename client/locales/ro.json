@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "Când e dezactivat, „Oprește tot” lasă să ruleze un cue pe care îl preasculți pe bus-ul Preview.",
     "sectionAppearance": "Aspect",
     "sectionAppearanceHelp": "Cum arată și cum se citește LivePlay pe acest ecran. Aceste setări sunt ale dumneavoastră, nu ale spectacolului — vă urmează pe dumneavoastră, nu fișierul.",
+    "language": "Limbă",
+    "languageHelp": "Doar a dumneavoastră și doar pe acest ecran — nu schimbă ce văd ceilalți conectați la acest spectacol.",
     "themeMode": "Temă",
     "themeModeHelp": "Întunecat este valoarea implicită: un ecran luminat într-o cabină întunecată este cazul obișnuit.",
     "themeModeDark": "Întunecat",

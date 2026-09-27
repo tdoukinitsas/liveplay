@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "Si está desactivado, «Detener todo» deja sonando la señal que estés preescuchando en el bus Preview.",
     "sectionAppearance": "Apariencia",
     "sectionAppearanceHelp": "Cómo se ve y se lee LivePlay en esta pantalla. Estos ajustes son suyos, no del espectáculo: le siguen a usted, no al archivo.",
+    "language": "Idioma",
+    "languageHelp": "Solo suyo, y solo en esta pantalla: no cambia lo que ven los demás conectados a este espectáculo.",
     "themeMode": "Tema",
     "themeModeHelp": "Oscuro es el valor predeterminado: una pantalla iluminada en una cabina a oscuras es lo habitual.",
     "themeModeDark": "Oscuro",

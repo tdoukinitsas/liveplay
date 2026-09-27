@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "Quando desligado, «Parar tudo» deixa a tocar o sinal que estiver a pré-escutar no bus Preview.",
     "sectionAppearance": "Aparência",
     "sectionAppearanceHelp": "Como o LivePlay se apresenta e se lê neste ecrã. Estas definições são suas, não do espetáculo — seguem-no a si, não o ficheiro.",
+    "language": "Idioma",
+    "languageHelp": "Só sua, e só neste ecrã — não altera o que veem os outros ligados a este espetáculo.",
     "themeMode": "Tema",
     "themeModeHelp": "Escuro é a predefinição: um ecrã aceso numa régie às escuras é o caso habitual.",
     "themeModeDark": "Escuro",

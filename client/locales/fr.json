@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "Désactivé, « Tout arrêter » laisse jouer le signal que vous pré-écoutez sur le bus Preview.",
     "sectionAppearance": "Apparence",
     "sectionAppearanceHelp": "L’aspect et la lisibilité de LivePlay sur cet écran. Ces réglages sont les vôtres, pas ceux du spectacle : ils vous suivent, pas le fichier.",
+    "language": "Langue",
+    "languageHelp": "La vôtre seule, et seulement sur cet écran : cela ne change rien à ce que voient les autres connectés au spectacle.",
     "themeMode": "Thème",
     "themeModeHelp": "Sombre par défaut : un écran allumé dans une régie plongée dans le noir est le cas courant.",
     "themeModeDark": "Sombre",

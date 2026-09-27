@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "オフの場合、「すべて停止」を押しても Previewバスでプレリスン中のキューは再生を続けます。",
     "sectionAppearance": "外観",
     "sectionAppearanceHelp": "この画面で LivePlay がどう見え、どう読めるか。これらはショーのものではなくあなたのもので、ファイルではなくあなたに付いてきます。",
+    "language": "言語",
+    "languageHelp": "あなただけのもので、この画面だけのものです。このショーに接続している他の人の表示は変わりません。",
     "themeMode": "テーマ",
     "themeModeHelp": "既定はダークです。暗い調整室で光る画面が通常の状態だからです。",
     "themeModeDark": "ダーク",

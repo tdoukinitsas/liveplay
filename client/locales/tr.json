@@ -545,6 +545,8 @@
     "stopAllStopsPreviewHelp": "Kapalıyken «Tümünü Durdur», Preview bus'ında ön dinlediğiniz cue'yu çalmaya devam ettirir.",
     "sectionAppearance": "Görünüm",
     "sectionAppearanceHelp": "LivePlay’in bu ekranda nasıl göründüğü ve okunduğu. Bu ayarlar gösterinin değil sizindir — dosyayı değil sizi takip eder.",
+    "language": "Dil",
+    "languageHelp": "Yalnızca sizin ve yalnızca bu ekranda — bu gösteriye bağlı diğerlerinin gördüğünü değiştirmez.",
     "themeMode": "Tema",
     "themeModeHelp": "Varsayılan koyudur: karanlık bir kontrol odasındaki aydınlık ekran olağan durumdur.",
     "themeModeDark": "Koyu",

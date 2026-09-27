@@ -3,6 +3,23 @@
     <h3 class="settings-pane-title">{{ t('settings.sectionAppearance') }}</h3>
     <p class="settings-pane-intro">{{ t('settings.sectionAppearanceHelp') }}</p>
 
+    <!-- Hidden rather than empty when the list has not arrived: the locale
+         catalogue comes from the Electron main process, so outside it there is
+         genuinely nothing to choose between and a blank select would read as a
+         fault. It appears on its own when the load resolves. -->
+    <section v-if="availableLocales.length" class="settings-field">
+      <label class="settings-label">
+        <span class="material-symbols-rounded">translate</span>
+        {{ t('settings.language') }}
+      </label>
+      <select class="settings-select" :value="currentLocale" @change="onLocaleChange">
+        <!-- Native names, always: somebody hunting for their own language
+             cannot read the one currently on screen. -->
+        <option v-for="l in availableLocales" :key="l.code" :value="l.code">{{ l.name }}</option>
+      </select>
+      <p class="settings-help">{{ t('settings.languageHelp') }}</p>
+    </section>
+
     <section class="settings-field">
       <label class="settings-label">
         <span class="material-symbols-rounded">contrast</span>
@@ -80,7 +97,10 @@
 // only reach a state one project setting could already reach alone.
 import { useOutputTarget } from '~/composables/useOutputTarget';
 
-const { t } = useLocalization();
+// `availableLocales` had no caller anywhere in the client until now — the
+// Electron menu was the only way to change language, which is precisely the
+// split this page exists to end.
+const { t, currentLocale, setLocale, availableLocales } = useLocalization();
 const { theme, setTheme, scrollToPlaying, setScrollToPlaying, setMeterMode } = usePreferences();
 // The effective unit, which is "their choice, else the project's output target
 // recommends one" — only useOutputTarget can resolve that, so the control shows
@@ -104,6 +124,9 @@ const themeMode = computed(() => theme.value.mode);
 const isCurrentAccent = (color: string) =>
   (theme.value.accentColor || '').toLowerCase() === color.toLowerCase();
 
+function onLocaleChange(e: Event) {
+  setLocale((e.target as HTMLSelectElement).value);
+}
 function onThemeModeChange(e: Event) {
   setTheme({ mode: (e.target as HTMLSelectElement).value as 'light' | 'dark' });
 }
