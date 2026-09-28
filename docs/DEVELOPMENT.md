@@ -56,6 +56,7 @@ The `debug` preset writes to `server/build-debug`. The root `server:configure` c
 | Client generation | `npm run build:client` |
 | Window geometry | `node client/tests/window-bounds-tests.js` |
 | Settings placement | `node client/tests/settings-form-placement-tests.js` |
+| Mixer regressions | `node client/tests/mixer-regression-tests.js` |
 | Server unit suites | Configure with `-DLIVEPLAY_BUILD_TESTS=ON`, build, then run CTest |
 | Audio integration | [E2E guide](../server/tests/e2e/README.md); many suites require an audio device |
 | Documentation site | `npm run generate` from `docs-site/` |

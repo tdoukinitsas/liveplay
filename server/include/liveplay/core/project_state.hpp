@@ -283,6 +283,12 @@ struct BusDef {
     std::vector<Send> sends;
 };
 
+// The wire name of an output kind: "bus", "output" or "none". One function
+// because three separate ternaries — the document writer, the compact
+// snapshot and the REST view — is three places for a new kind to be written
+// out as the wrong one, which is exactly what adding None would have done.
+const char* output_kind_name(BusOutputKind k);
+
 // A bus's aux sends as the document and the API both carry them. A free
 // function beside bus_dsp_to_json, and for the same reason: the document
 // writer and the REST view must produce the same shape, and one function is

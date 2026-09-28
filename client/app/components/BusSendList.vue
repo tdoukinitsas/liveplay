@@ -89,6 +89,7 @@ const props = defineProps<{
 
 const { t } = useLocalization();
 const server = useLiveplayServer();
+const { saveProject } = useProject();
 
 const sends = computed<BusSend[]>(() => props.bus.sends ?? []);
 
@@ -139,6 +140,7 @@ const fmtDb = (db: number) => (db <= -120 ? '-inf' : db.toFixed(1));
 async function commit(next: BusSend[]) {
   try {
     await server.patchBus(props.bus.id, { sends: next });
+    void saveProject();
     setError('');
   } catch (e) {
     setError(serverErrorText(e));

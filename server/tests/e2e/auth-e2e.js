@@ -113,12 +113,19 @@ function connect(token) {
     setTimeout(() => done({ opened: false, status: 'timeout', ws }), 6000);
   });
 }
+async function waitClosed(c) {
+  for (let i = 0; i < 80; i++) {
+    if (c.ws.readyState === WebSocket.CLOSED) return true;
+    await sleep(25);
+  }
+  return false;
+}
 const close = c => { try { c && c.ws && c.ws.close(); } catch { /* already gone */ } };
 
 (async () => {
   let proc = null;
   const startServer = () => {
-    proc = spawn(EXE, ['--port', String(PORT)], { stdio: 'ignore' });
+    proc = spawn(EXE, ['--port', String(PORT)], { stdio: 'ignore', windowsHide: true });
     return proc;
   };
   const stopServer = async () => {
@@ -551,6 +558,8 @@ const close = c => { try { c && c.ws && c.ws.close(); } catch { /* already gone 
        `authRequired=${r.body && r.body.authRequired} ` +
        `userCount=${r.body && r.body.userCount}`);
 
+    const anonymousLive = await connect();
+    ok('an anonymous socket is open before login is enabled', anonymousLive.opened, 'open posture');
     // ---- Back on ----
     r = await req('/api/auth/required', { method: 'PATCH', body: { required: true } });
     ok('turning it back ON without a password is refused too',
@@ -573,6 +582,9 @@ const close = c => { try { c && c.ws && c.ws.close(); } catch { /* already gone 
 
     r = await req('/api/cues');
     ok('...and the door is shut again', r.status === 401, `${r.status}`);
+    ok('enabling login closes an ALREADY OPEN anonymous socket',
+       await waitClosed(anonymousLive), 'idle connections must lose access too');
+    close(anonymousLive);
 
     r = await req('/api/cues', { token: adminToken });
     ok('...while the token issued BEFORE all of this still works',
@@ -769,9 +781,25 @@ const close = c => { try { c && c.ws && c.ws.close(); } catch { /* already gone 
        !!after && after.name === 'e2e-companion-foh' && typeof after.lastUsedAt === 'number',
        after ? JSON.stringify(after) : JSON.stringify(r.body));
 
+    const liveToken = await connect(apiToken);
+    const liveAdmin = await connect(adminToken);
+    const busBefore = (await req('/api/buses', { token: adminToken })).body.find(b => b.master);
+    ok('both sockets are open before revocation', liveToken.opened && liveAdmin.opened, 'token and admin');
     // ---- Revocation, which is the only way one ends ----
     r = await req(`/api/tokens/${apiTokenId}`, { method: 'DELETE', token: adminToken });
     ok('an administrator revokes it', r.status === 200, `${r.status}`);
+    if (liveToken.ws.readyState === WebSocket.OPEN) {
+      liveToken.ws.send(JSON.stringify({ type: 'bus_gain', busId: busBefore.id, gainDb: -37 }));
+    }
+    ok('revocation closes an ALREADY OPEN token socket',
+       await waitClosed(liveToken), 'no reconnect needed for revocation');
+    const busAfter = (await req(`/api/buses/${busBefore.id}`, { token: adminToken })).body;
+    ok('a revoked socket cannot change bus gain', busAfter.gainDb === busBefore.gainDb,
+       `${busBefore.gainDb} -> ${busAfter.gainDb}`);
+    ok('revoking a token leaves another authenticated socket open',
+       liveAdmin.ws.readyState === WebSocket.OPEN, 'admin connection survives');
+    close(liveToken);
+    close(liveAdmin);
 
     r = await req('/api/cues', { token: apiToken });
     ok('...and it stops working IMMEDIATELY',

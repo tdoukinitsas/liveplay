@@ -264,6 +264,25 @@
           </button>
         </div>
 
+        <!-- ---- Issue an API token ---------------------------------------- -->
+        <div v-if="showAddToken" v-reveal class="settings-inline-form">
+          <h4>{{ t('apiTokens.addTitle') }}</h4>
+          <!-- users.name, not a key of its own: the same word on the same pane,
+               already settled in 21 languages. -->
+          <label class="settings-label">{{ t('users.name') }}</label>
+          <input class="settings-input" type="text" v-model="tokenName" autocomplete="off" />
+          <p class="settings-help">{{ t('apiTokens.nameHelp') }}</p>
+          <label class="settings-label">{{ t('users.confirmPassword') }}</label>
+          <input class="settings-input" type="password" v-model="tokenPassword"
+                 autocomplete="current-password" @keydown.enter="issueToken" />
+          <p class="settings-help settings-help--muted">{{ t('apiTokens.passwordWhy') }}</p>
+          <div class="settings-actions">
+            <button class="settings-btn settings-btn--primary" :disabled="!canIssueToken || busy"
+                    @click="issueToken">{{ t('apiTokens.issue') }}</button>
+            <button class="settings-btn" @click="cancelAddToken">{{ t('users.cancel') }}</button>
+          </div>
+        </div>
+
         <!-- ---- The one and only sight of the secret -------------------- -->
         <!-- Deliberately not a toast and not dismissed by clicking away: the
              string exists in exactly one response and the server kept only a

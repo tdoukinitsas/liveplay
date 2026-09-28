@@ -63,7 +63,7 @@ That script is a pattern-based consistency check, not a C++ parser. It needs rev
 |---|---|
 | Action GETs also execute on HEAD | Crow maps HEAD to GET and runs the handler. Use POST for actions; a HEAD probe can trigger playback. |
 | Authentication disabled permits administration | Middleware bypasses role checks when auth is off. The first account can bootstrap administration; individual password/profile checks still apply. |
-| Established sockets retain access | Credentials are checked on upgrade. Token revocation/expiry, account changes or enabling auth do not evict/revalidate an established WebSocket. |
+| Established socket authorization | While login is required, credentials are rechecked before commands and broadcasts. Invalid credentials and anonymous sessions are closed with code 1008; the client rechecks login before reconnecting. |
 | API tokens are not a filesystem sandbox | Tokens deny selected file/archive/preferences paths, but other permitted project/cue operations can access disk. |
 | Filesystem-root checks are selective | Direct cue loading and media references embedded in project documents do not all pass through the same path guard. |
 | Item creation can report success without insertion | Missing/duplicate UUID or failed media loading is not reliably an HTTP error; `item_added` echoes submitted content. Re-read state. |

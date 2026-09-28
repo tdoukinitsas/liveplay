@@ -52,7 +52,7 @@
           <tr><td>User session token (<code>lp1.</code>)</td><td>Expires after 30 days. Password change, account deletion or logout-all invalidates subsequent requests. Each HTTP request looks up the current role.</td></tr>
           <tr><td>API token (<code>lpk1_</code>)</td><td>Non-expiring operator credential for automation. Secret shown once. Explicitly denied filesystem browsing, uploads, copying, archive import/export/download, user preferences, logout-all, auth posture and token management; administrator routes are also denied.</td></tr>
         </tbody></table>
-        <p>API-token permission is listed per endpoint. These restrictions are the implemented path checks, not a complete filesystem isolation guarantee: some permitted project/cue operations also access disk. WebSocket credentials are checked at connection time only; expiry, revocation or enabling authentication does not evict an established socket.</p>
+        <p>API-token permission is listed per endpoint. These restrictions are the implemented path checks, not a complete filesystem isolation guarantee: some permitted project/cue operations also access disk. While authentication is required, WebSocket credentials are rechecked before commands and broadcasts. Expired or revoked sessions and anonymous sockets left open when login is enabled are closed with code 1008; reconnect with a valid credential.</p>
         <p>Default CORS origin is <code>*</code>. A configured origin is returned for HTTP and checked exactly on WebSocket upgrades; a native WebSocket request without Origin is accepted by the origin check. Authentication still applies. Keep credentials out of saved URLs and shared logs.</p>
       </section>
       <section id="quick-start"><h2>Quick example</h2>

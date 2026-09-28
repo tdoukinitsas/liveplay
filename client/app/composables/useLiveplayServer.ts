@@ -386,7 +386,9 @@ function createClient() {
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      // A policy close means this session needs authorization again.
+      if (event.code === 1008) authChecked.value = false;
       const wasConnected = connected.value;
       connected.value = false;
       // Count pre-handshake closes — the socket bounced straight to close

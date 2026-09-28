@@ -5,6 +5,9 @@
          server wants a login. Renders nothing until that happens. -->
     <LoginScreen />
 
+    <!-- Each window can open Settings, including the detached mixer's outputs editor. -->
+    <SettingsPage />
+
     <!-- Cart-window mode: standalone detached cart player -->
     <template v-if="isCartWindow">
       <div class="cart-window-root">
@@ -50,11 +53,6 @@
       <WelcomeScreen v-if="!currentProject" />
       <MainWorkspace v-else />
     
-    <!-- Settings: a full-window page, mounted here rather than inside the
-         header because it covers the workspace and outlives whichever
-         control opened it. Deep-linkable as #/settings/<section>. -->
-    <SettingsPage />
-
     <!-- Update Modal -->
     <UpdateModal
       v-if="showUpdateModal"

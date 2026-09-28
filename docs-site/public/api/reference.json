@@ -685,7 +685,7 @@
       "response": {
         "ok": true
       },
-      "notes": "Path: token record id. Subsequent HTTP requests and new WebSocket handshakes fail; established sockets remain open. Storage failure: 500.",
+      "notes": "Path: token record id. While authentication is required, subsequent HTTP requests and new WebSocket handshakes fail; established sockets stop accepting commands and close with code 1008. Storage failure: 500.",
       "errors": [
         [
           "404",

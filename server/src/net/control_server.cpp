@@ -178,7 +178,7 @@ struct ControlServer::Impl {
 
         // ---- Principal (U3) ----------------------------------------------
         // Who this connection turned out to be, decided once during the
-        // handshake and never revisited. Empty when the installation has no
+        // handshake. Authorization is rechecked below. Empty when the installation has no
         // accounts, which is the default posture — an anonymous session is a
         // real session here, not a rejected one.
         //
@@ -203,6 +203,12 @@ struct ControlServer::Impl {
         // at the list must not take it for a colleague who could be asked to
         // close a window.
         bool          is_api   = false;
+        // Kept only in memory, never included in /api/clients or logs. Recheck
+        // it against the store before commands and broadcasts, so revocation,
+        // expiry, password changes and enabling login affect open sockets too.
+        std::string   credential;
+        bool          auth_rejected = false;
+        bool          close_requested = false;
 
         // ---- User tier, persistent half (U4) ------------------------------
         // The meter display unit this operator's stored profile asks for, or
@@ -223,7 +229,24 @@ struct ControlServer::Impl {
         // operator can look at a different bus.
         std::string   analyser_bus;
     };
+    struct WebSocketAuth {
+        core::UserStore::Principal principal;
+        std::string credential;
+    };
     std::unordered_map<crow::websocket::connection*, ClientSession> ws_clients;
+
+    // Caller holds ws_mutex. UserStore never calls back into the server while
+    // holding its lock. Rejection sticks until onclose removes the connection.
+    bool authorize_ws_locked(crow::websocket::connection* conn, core::UserStore& users) {
+        const auto it = ws_clients.find(conn);
+        if (it == ws_clients.end()) return false;
+        auto& s = it->second;
+        if (s.auth_rejected) return false;
+        if (!users.auth_required()) return true;
+        if (!s.credential.empty() && users.verify_token(s.credential)) return true;
+        s.auth_rejected = true;
+        return false;
+    }
     // Monotonic, never reused within a process run, so a session id in a log
     // line always means one connection. Guarded by ws_mutex.
     std::uint64_t next_client_id = 1;
@@ -1287,6 +1310,15 @@ void ControlServer::broadcast_loop() {
         const std::size_t tick_hz = std::max<std::size_t>(1, cfg_.meter_broadcast_hz);
         for (auto& [c, session] : impl_->ws_clients) {
             try {
+                if (!impl_->authorize_ws_locked(c, users_)) {
+                    // This thread is outside Crow's I/O context: close posts
+                    // asynchronously, and onclose owns removal from the map.
+                    if (!session.close_requested) {
+                        session.close_requested = true;
+                        c->close("authentication required", 1008);
+                    }
+                    continue;
+                }
                 if (!snapshot_serialized.empty() && session.wants_snapshot) {
                     session.wants_snapshot = false;
                     c->send_text(snapshot_serialized);
@@ -1348,6 +1380,7 @@ void ControlServer::broadcast_doc_patch(const json& payload) {
     }
     std::lock_guard lock{impl_->ws_mutex};
     for (auto& [c, _] : impl_->ws_clients) {
+        if (!impl_->authorize_ws_locked(c, users_)) continue;
         try { c->send_text(serialized); }
         catch (...) { /* onclose will clean up dead connections */ }
     }
@@ -1368,6 +1401,7 @@ void ControlServer::broadcast_to_user(const std::string& user_id, const json& pa
     std::lock_guard lock{impl_->ws_mutex};
     for (auto& [c, session] : impl_->ws_clients) {
         if (session.user_id != user_id) continue;
+        if (!impl_->authorize_ws_locked(c, users_)) continue;
         try { c->send_text(serialized); }
         catch (...) { /* onclose will clean up dead connections */ }
     }
@@ -3151,6 +3185,7 @@ void ControlServer::install_routes() {
                 {
                     std::lock_guard lock{impl_->ws_mutex};
                     for (auto& [c, s] : impl_->ws_clients) {
+                        if (!impl_->authorize_ws_locked(c, users_)) continue;
                         if (!s.locale.empty()) continue;
                         try { c->send_text(frame); } catch (...) { /* onclose cleans up */ }
                     }
@@ -5133,15 +5168,16 @@ void ControlServer::install_routes() {
           // then refuses would leak on every rejected handshake. Nothing is
           // allocated when authentication is off either — that path returns
           // early and leaves userdata null, which onopen reads as anonymous.
-          *userdata = new core::UserStore::Principal{*principal};
+          *userdata = new Impl::WebSocketAuth{*principal, qp};
       })
       .onopen([this](crow::websocket::connection& conn) {
           // Taken and freed immediately: the session owns a copy, so the
           // allocation's lifetime is this function rather than the socket's,
           // and no cleanup depends on onclose firing.
-          std::unique_ptr<core::UserStore::Principal> principal{
-              static_cast<core::UserStore::Principal*>(conn.userdata())};
+          std::unique_ptr<Impl::WebSocketAuth> auth{
+              static_cast<Impl::WebSocketAuth*>(conn.userdata())};
           conn.userdata(nullptr);
+          const auto* principal = auth ? &auth->principal : nullptr;
 
           // Read before ws_mutex is taken: this can touch the disk, and the
           // broadcast loop wants that mutex sixty times a second.
@@ -5160,6 +5196,7 @@ void ControlServer::install_routes() {
               session.connected_at = std::chrono::steady_clock::now();
               session.meter_mode   = std::move(meter_mode);
               if (principal) {
+                  session.credential = std::move(auth->credential);
                   session.user_id   = principal->id;
                   session.user_name = principal->name;
                   session.is_admin  = principal->is_admin();
@@ -5203,6 +5240,10 @@ void ControlServer::install_routes() {
                         const std::string& data,
                         bool is_binary) {
           if (is_binary) return;
+          {
+              std::lock_guard lock{impl_->ws_mutex};
+              if (!impl_->authorize_ws_locked(&conn, users_)) return;
+          }
           std::string direct_reply;
           try {
               SessionOps session;

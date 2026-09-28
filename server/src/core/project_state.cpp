@@ -4922,6 +4922,15 @@ void ProjectState::sanitise_bus_sends_locked(BusMigrationSummary& summary) {
     }
 }
 
+const char* output_kind_name(BusOutputKind k) {
+    switch (k) {
+        case BusOutputKind::Bus:    return "bus";
+        case BusOutputKind::Output: return "output";
+        case BusOutputKind::None:   return "none";
+    }
+    return "bus";   // unreachable; the old default if a kind is ever added
+}
+
 json bus_sends_to_json(const BusDef& b) {
     json arr = json::array();
     for (const auto& s : b.sends) {
@@ -6089,10 +6098,17 @@ ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
         if (take_preview && !self->preview) {
             if (self->master)                        return PatchBusResult::RoleConflict;
             if (kind_after != BusOutputKind::Output) return PatchBusResult::RoleNeedsOutput;
+            // Validate the resulting send list, so clearing sends and moving
+            // the role can be one atomic edit.
+            if (!(sends_patched ? new_sends : self->sends).empty())
+                return PatchBusResult::RefusedPreviewSend;
             // Nothing may feed the preview bus (D25). Refused rather than
             // re-pointed: the feeders are routing the operator chose.
             for (const auto& b : buses_) {
                 if (b.id != id && b.output_kind == BusOutputKind::Bus && b.output_target == id)
+                    return PatchBusResult::RoleTargetFed;
+                if (b.id != id && std::any_of(b.sends.begin(), b.sends.end(),
+                        [&](const BusDef::Send& send) { return send.id == id; }))
                     return PatchBusResult::RoleTargetFed;
             }
             old_preview_id = preview_bus_id_locked();
