@@ -48,6 +48,10 @@
     <optgroup v-if="deviceOptions.length" :label="t('mixer.devicesGroup')">
       <option v-for="d in deviceOptions" :key="'out:' + d" :value="'out:' + d">{{ d }}</option>
     </optgroup>
+    <!-- No output at all: the bus leaves only by its aux sends. Not offered on
+         a role holder, where the server refuses it — the master bus is the
+         house and the preview bus is the phones. -->
+    <option v-if="!bus.master && !bus.preview" :value="VALUE_NONE">{{ t('mixer.outputNone') }}</option>
     <option :value="ACTION_EDIT">{{ t('mixer.editOutputs') }}</option>
   </select>
 </template>
@@ -77,9 +81,13 @@ const server = useLiveplayServer();
 const ACTION_EDIT = '__edit_outputs__';
 const BUILTIN_MAIN = 'Main Out';
 
-// The <select> carries "out:<name>" or "bus:<bus id>".
+// The <select> carries "out:<name>", "bus:<bus id>", or the bare sentinel for
+// no output at all — which has no target to carry, so it is not a prefix.
+const VALUE_NONE = '__no_output__';
+
 const value = computed(() => {
   const o = props.bus.output;
+  if (o.type === 'none') return VALUE_NONE;
   return (o.type === 'bus' ? 'bus:' : 'out:') + o.target;
 });
 
@@ -179,6 +187,11 @@ const title = computed(() => {
   if (props.bus.output.type === 'bus') {
     return warn.value ? t('mixer.busRouteUnbound') : t('mixer.output');
   }
+  if (props.bus.output.type === 'none') {
+    // Unbound here does not mean a mapping is missing; it means nothing is
+    // carrying the bus onward, sends included.
+    return warn.value ? t('mixer.outputNoneSilent') : t('mixer.outputNoneHelp');
+  }
   // Unmapped means something different on the preview bus. Every other bus
   // falls back to treating the name as a device and usually still plays; the
   // preview bus never falls back, so unmapped means PFL and pre-listen are
@@ -221,11 +234,18 @@ async function onChange(e: Event) {
     emit('open-output-map');
     return;
   }
-  const patch = v.startsWith('bus:')
-    ? { output: { type: 'bus' as const, target: v.slice(4) } }
-    : { output: { type: 'output' as const, target: v.slice(4) } };
+  const patch = v === VALUE_NONE
+    ? { output: { type: 'none' as const, target: '' } }
+    : v.startsWith('bus:')
+      ? { output: { type: 'bus' as const, target: v.slice(4) } }
+      : { output: { type: 'output' as const, target: v.slice(4) } };
   try {
     await server.patchBus(props.bus.id, patch);
+    // Where a bus sends its audio is part of the show. This picker patches the
+    // server directly rather than emitting up to MixerPanel, so it has to ask
+    // for the save itself — otherwise a route change reached disk only if some
+    // other edit happened to save afterwards.
+    void useProject().saveProject();
     setError('');
   } catch (err) {
     // Rejected: put the select back where the server still has it. Vue won't

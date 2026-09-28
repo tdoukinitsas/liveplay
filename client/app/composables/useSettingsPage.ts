@@ -23,8 +23,22 @@ export interface SettingsSection {
 // The rail, in order. Sections are registered as their panes land, so the nav
 // never advertises a pane that does not exist yet.
 export const SETTINGS_SECTIONS: SettingsSection[] = [
+  // First: it is the only pane that belongs to the person rather than to the
+  // show or the machine, and it is the one somebody opens Settings for without
+  // being sent there by a problem.
+  { id: 'appearance', icon: 'palette',      labelKey: 'settings.sectionAppearance' },
   { id: 'playback', icon: 'play_circle',    labelKey: 'settings.sectionPlayback' },
   { id: 'audio',    icon: 'graphic_eq',     labelKey: 'settings.sectionAudio'    },
+  // Next to Audio because that is where somebody goes looking for the word
+  // "mixer", even though what the pane settles is layout rather than sound. Its
+  // one value is the MACHINE's — see SettingsPaneMixer — so it could not go on
+  // Appearance, where everything follows the operator between desks.
+  { id: 'mixer',    icon: 'tune',           labelKey: 'settings.sectionMixer'    },
+  // Beside Audio rather than beside Server, though it is the machine's: an
+  // operator looking for where the sound physically goes looks under audio,
+  // and the map is the other half of what the Audio pane's output target and
+  // LTC picker are talking about.
+  { id: 'outputs',  icon: 'settings_input_hdmi', labelKey: 'settings.sectionOutputs' },
   { id: 'keyboard', icon: 'keyboard',       labelKey: 'settings.sectionKeyboard' },
   { id: 'surfaces', icon: 'piano',          labelKey: 'settings.sectionSurfaces' },
   { id: 'project',  icon: 'folder_managed', labelKey: 'settings.sectionProject'  },
@@ -34,6 +48,10 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   // Beside Server rather than under it: accounts are the same tier — the
   // machine's, not the show's — and an operator sees the pane but not the list.
   { id: 'users',    icon: 'group',          labelKey: 'settings.sectionUsers'    },
+  // Last, and after Server on purpose: it settles no setting at all. It is here
+  // because a version number and a licence are things you go looking for in
+  // Settings, and because the Help menu's About item needs somewhere to land.
+  { id: 'about',    icon: 'info',           labelKey: 'settings.sectionAbout'    },
 ];
 
 export const DEFAULT_SETTINGS_SECTION = 'playback';

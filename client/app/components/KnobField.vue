@@ -97,11 +97,16 @@ function onEntry(e: Event) {
 </script>
 
 <style scoped>
+/* min-width:0 so a knob field can be given less room than it would like and
+   tighten instead of pushing its way out of whatever row it is in. Without it
+   the fixed 44px box below sets a floor that no grid or flex track can go
+   under, and the overflow just reappears one level further in. */
 .kf {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  min-width: 0;
 }
 .kf--disabled { opacity: 0.55; }
 
@@ -109,9 +114,16 @@ function onEntry(e: Event) {
   display: flex;
   align-items: baseline;
   gap: 2px;
+  min-width: 0;
+  max-width: 100%;
 }
 .kf__input {
+  /* 44px is the width it wants, not a floor it must have: min-width:0 lets it
+     give way in a cramped row rather than forcing the row to overflow. The
+     value stays centred and readable as it narrows. */
   width: 44px;
+  min-width: 0;
+  max-width: 100%;
   font-family: var(--font-mono);
   font-size: 10px;
   text-align: center;

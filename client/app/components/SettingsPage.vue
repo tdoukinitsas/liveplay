@@ -27,26 +27,34 @@
       </nav>
 
       <div class="settings-panes">
-        <SettingsPanePlayback v-if="section === 'playback'" />
+        <SettingsPaneAppearance v-if="section === 'appearance'" />
+        <SettingsPanePlayback v-else-if="section === 'playback'" />
         <SettingsPaneAudio v-else-if="section === 'audio'" />
+    <SettingsPaneMixer v-else-if="section === 'mixer'" />
+        <SettingsPaneOutputs v-else-if="section === 'outputs'" />
         <SettingsPaneKeyboard v-else-if="section === 'keyboard'" />
         <SettingsPaneSurfaces v-else-if="section === 'surfaces'" />
         <SettingsPaneProject v-else-if="section === 'project'" />
         <SettingsPaneServer v-else-if="section === 'server'" />
         <SettingsPaneUsers v-else-if="section === 'users'" />
+        <SettingsPaneAbout v-else-if="section === 'about'" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import SettingsPaneAppearance from './SettingsPaneAppearance.vue';
 import SettingsPanePlayback from './SettingsPanePlayback.vue';
 import SettingsPaneAudio from './SettingsPaneAudio.vue';
+import SettingsPaneMixer from './SettingsPaneMixer.vue';
+import SettingsPaneOutputs from './SettingsPaneOutputs.vue';
 import SettingsPaneKeyboard from './SettingsPaneKeyboard.vue';
 import SettingsPaneSurfaces from './SettingsPaneSurfaces.vue';
 import SettingsPaneProject from './SettingsPaneProject.vue';
 import SettingsPaneServer from './SettingsPaneServer.vue';
 import SettingsPaneUsers from './SettingsPaneUsers.vue';
+import SettingsPaneAbout from './SettingsPaneAbout.vue';
 
 const { t } = useLocalization();
 const { section, isOpen, show, close, sections } = useSettingsPage();

@@ -19,7 +19,6 @@
     :class="{
       'strip--selected': selected,
       'strip--muted': bus.mute,
-      'strip--touch': touch,
       'strip--role': bus.master || bus.preview,
       'strip--dragging': dragging,
     }"
@@ -105,7 +104,7 @@
         :min="-1"
         :max="1"
         :origin="0"
-        :size="touch ? 40 : 30"
+        :size="30"
         :title="bus.width >= 2 ? t('mixer.balanceHint') : t('mixer.panHint')"
         @input="onPan"
         @reset="onPan(0)"
@@ -171,7 +170,7 @@
         :db="gainDb"
         :min-db="FADER_MIN_DB"
         :max-db="FADER_MAX_DB"
-        :width="touch ? 32 : 20"
+        :width="20"
         @input="onFader"
         @reset="onFader(0)"
       />
@@ -254,7 +253,6 @@ const props = defineProps<{
   /** The machine's output map, null until fetched. */
   outputs: OutputMap | null;
   selected?: boolean;
-  touch?: boolean;
   /** Set by MixerPanel while this strip is the one being dragged. */
   dragging?: boolean;
 }>();
@@ -470,7 +468,6 @@ function onGripDown(e: PointerEvent) {
   min-height: 0;
   overflow: hidden;
 }
-.strip--touch { width: 140px; }
 .strip:hover { border-color: var(--color-text-disabled); }
 .strip--selected { border-color: var(--color-accent); }
 .strip--muted .strip__meterfader { opacity: 0.45; }

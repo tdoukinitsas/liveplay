@@ -141,6 +141,35 @@
     },
     "note": "O instalare pe o singură mașină nu necesită configurare — clientul și serverul comunică prin 127.0.0.1, iar programul de instalare Windows adaugă regulile de firewall pentru tine. Aceste porturi contează doar când separi poziția de control de hardware-ul audio printr-un LAN."
   },
+  "settings": {
+    "title": "Unde se află setările",
+    "subtitle": "LivePlay păstrează configurația în patru locuri. Unde se află o valoare decide dacă aceasta călătorește cu spectacolul dumneavoastră, urmează persoana sau rămâne pe mașină.",
+    "colTier": "Nivel",
+    "colOwns": "Deține",
+    "colFile": "Stocat în",
+    "colTravels": "Călătorește cu spectacolul?",
+    "server": {
+      "name": "Server",
+      "owns": "Cum rulează și se leagă motorul, ieșirile denumite ale sălii, și conturile",
+      "travels": "Nu — aparține rack-ului"
+    },
+    "user": {
+      "name": "Utilizator",
+      "owns": "Limba, tema, unitatea de măsură și tastele de transport",
+      "travels": "Nu — urmează persoana pe orice mașină pe care se autentifică"
+    },
+    "project": {
+      "name": "Proiect",
+      "owns": "Spectacolul: cue-uri, magistrale, rutare, estompări și tot ce aude publicul",
+      "travels": "Da — acesta este fișierul spectacolului"
+    },
+    "machine": {
+      "name": "Mașină",
+      "owns": "Aranjarea ferestrelor și panourilor, Modul Spectacol, și cu ce server vorbește această instalare",
+      "travels": "Nu — și nimic din spectacol nu poate depinde de asta"
+    },
+    "note": "O valoare care schimbă ceea ce aude publicul nu este niciodată stocată în afara fișierului spectacolului. Această singură regulă este motivul pentru care un spectacol sună la fel în altă clădire."
+  },
   "contribute": {
     "title": "Contribuie",
     "subtitle": "LivePlay este gratuit și open-source — și va fi întotdeauna.",

@@ -174,9 +174,16 @@ export interface CartItem {
  * device of that name is present. There is no `master` kind any more (D25):
  * the master-role bus is an ordinary Output-kind bus on "Main Out", and a
  * sub-mix reaches the house by targeting it as a `bus`.
+ *
+ * `none` means the bus has no output edge at all and leaves only by its aux
+ * sends (M1) — a stem feeding several destinations at several post-fader
+ * levels belongs at unity in none of them, and before this existed the only
+ * way to say so was to point it at a bus that did not want it. `target` is
+ * empty and ignored. Neither role holder may be `none`: the master bus is the
+ * house and the preview bus is the phones.
  */
 export interface BusOutput {
-  type: 'bus' | 'output';
+  type: 'bus' | 'output' | 'none';
   target: string;
 }
 
@@ -310,6 +317,23 @@ export const BASS_MONO_PARKED_HZ = 20;
  * via `busId` and carry no other routing; the bus alone decides where the
  * audio goes, and it is edited from the mixer rather than per item.
  */
+/**
+ * One aux send: a tapped copy of a bus into another bus, at its own level.
+ *
+ * `tap` is where the copy is taken from the source strip, and it is the whole
+ * reason a send is not just a second output:
+ * - `'post'` — after the source's fader and mute, so it follows them.
+ * - `'pre'`  — after the source's processing but before its fader and mute.
+ *   A foldback or monitor send is normally this one: the wedges must not die
+ *   when the house fader comes down at the end of a number.
+ */
+export interface BusSend {
+  /** Destination bus id. Never the preview-role bus, which only PFL feeds. */
+  id: string;
+  levelDb: number;
+  tap: 'pre' | 'post';
+}
+
 export interface Bus {
   id: string;
   name: string;
@@ -372,6 +396,15 @@ export interface Bus {
    */
   masters: [number, number] | null;
   output: BusOutput;
+  /**
+   * Aux sends (M1): where this bus ALSO sends a copy of itself. Distinct from
+   * `output` above, which is the one place its whole signal goes at unity —
+   * a bus has exactly one of those (D5) and any number of these.
+   *
+   * Absent on a document written before M1, and on any bus that makes none,
+   * so read it as `bus.sends ?? []`.
+   */
+  sends?: BusSend[];
   /** Engine strip backing this bus; empty only while the engine is rebuilding. */
   mixerId: string;
   /** Items resolving to this bus, including ones inheriting it from a group. */
@@ -469,7 +502,12 @@ export interface Project {
 
 // Theme configuration
 export interface Theme {
-  mode: 'light' | 'dark';
+  // 'system' follows the OS, resolved by the client at paint time — the server
+  // stores the choice and never resolves it, because the same profile is read
+  // from machines whose desktops disagree. Read
+  // usePreferences().resolvedThemeMode for what is actually on screen; this is
+  // the preference, which is a different question.
+  mode: 'light' | 'dark' | 'system';
   accentColor: string;
 }
 

@@ -77,6 +77,22 @@ bool b64_decode(const std::string& text, std::vector<unsigned char>& out) {
     return true;
 }
 
+// How stale a token's "last used" stamp is allowed to get on disk. The value
+// is written at most this often per token, because the alternative is
+// rewriting the file that holds every password hash on this machine each time
+// a Companion button is pressed.
+constexpr std::int64_t kApiTokenUseWriteSeconds = 3600;
+
+// 32 bytes from the CSPRNG. Long enough that the hash below needs no salt and
+// no work factor, short enough to paste into a Companion field by hand.
+constexpr std::size_t kApiTokenSecretBytes = 32;
+
+std::string blake2b_b64(const unsigned char* data, std::size_t len) {
+    unsigned char out[crypto_generichash_BYTES];
+    crypto_generichash(out, sizeof(out), data, len, nullptr, 0);
+    return b64_encode(out, sizeof(out));
+}
+
 std::string random_hex(std::size_t bytes) {
     std::vector<unsigned char> buf(bytes);
     randombytes_buf(buf.data(), buf.size());
@@ -123,8 +139,13 @@ std::string_view UserStore::describe(Result r) {
         case Result::WeakPassword: return "the password is too short";
         case Result::NoSuchUser:   return "no such user";
         case Result::LastAdmin:    return "this is the only administrator — promote another first";
+        case Result::NoAccounts:   return "create an account before requiring a login";
         case Result::HashFailed:   return "the password could not be hashed";
         case Result::IoError:      return "the user store could not be written";
+        case Result::NoSuchToken:  return "no such API token";
+        case Result::AuthOff:      return "turn the login on before issuing an API token — "
+                                          "while it is off, anyone on the network could issue "
+                                          "one and keep it";
     }
     return "the request was refused";
 }
@@ -233,7 +254,44 @@ bool UserStore::save_locked() const {
 
 bool UserStore::auth_required() const {
     std::lock_guard lock{mutex_};
-    return !users_.empty();
+    return auth_required_locked();
+}
+
+bool UserStore::auth_required_locked() const {
+    // An empty store is open, unconditionally and before the override is even
+    // consulted. This ordering is what makes the feature lockout-proof: a
+    // stored `true` over an empty store would be a server demanding a login
+    // that nobody on earth could satisfy, and it is reachable by deleting
+    // accounts after choosing "on". set_auth_required refuses to create that
+    // state; this makes it unrepresentable.
+    if (users_.empty()) return false;
+    return auth_required_override_.value_or(true);
+}
+
+UserStore::Result UserStore::set_auth_required(bool required) {
+    std::lock_guard lock{mutex_};
+    // See the header: on with nobody to be is the one combination that bricks
+    // the server, so it is refused here rather than merely rendered harmless.
+    if (required && users_.empty()) return Result::NoAccounts;
+
+    const auto previous = auth_required_override_;
+    auth_required_override_ = required;
+    if (!save_locked()) { auth_required_override_ = previous; return Result::IoError; }
+
+    // Tokens are NOT invalidated either way, and both directions are deliberate.
+    // Turning it off: every token stops being asked for, so revoking them would
+    // be busywork. Turning it on: the sessions that were open while the door was
+    // unlocked were never anybody in particular — they hold no token at all, so
+    // there is nothing to revoke and they will be asked to log in on their next
+    // request like any other unauthenticated caller.
+    Logger::warn("UserStore: authentication explicitly turned {} ({} account(s) kept)",
+                 required ? "ON" : "OFF", users_.size());
+    return Result::Ok;
+}
+
+bool UserStore::auth_choice_recorded() const {
+    std::lock_guard lock{mutex_};
+    return auth_required_override_.has_value();
 }
 
 std::size_t UserStore::user_count() const {
@@ -260,6 +318,16 @@ const UserStore::Record* UserStore::find_locked(const std::string& id) const {
 
 UserStore::Record* UserStore::find_locked(const std::string& id) {
     for (auto& r : users_) if (r.user.id == id) return &r;
+    return nullptr;
+}
+
+const UserStore::TokenRecord* UserStore::find_token_locked(const std::string& id) const {
+    for (const auto& t : tokens_) if (t.token.id == id) return &t;
+    return nullptr;
+}
+
+UserStore::TokenRecord* UserStore::find_token_locked(const std::string& id) {
+    for (auto& t : tokens_) if (t.token.id == id) return &t;
     return nullptr;
 }
 
@@ -517,6 +585,11 @@ std::string UserStore::mint_token(const Principal& p) const {
 
 std::optional<UserStore::Principal> UserStore::verify_token(
         const std::string& token) const {
+    // Which kind of credential this is, decided by its prefix and nowhere else.
+    // The two verifications share no code and must not: one checks a signature
+    // over a payload we minted, the other a hash of a secret we never kept.
+    if (token.rfind(kApiTokenPrefix, 0) == 0) return verify_api_token(token);
+
     if (token.size() < 8 || token.rfind("lp1.", 0) != 0) return std::nullopt;
 
     const auto first  = token.find('.');
@@ -569,6 +642,153 @@ std::optional<UserStore::Principal> UserStore::verify_token(
     return Principal{r->user.id, r->user.name, r->user.role};
 }
 
+// ---------------------------------------------------------------------------
+// API tokens — principals that are not people
+// ---------------------------------------------------------------------------
+
+std::vector<UserStore::ApiToken> UserStore::api_tokens() const {
+    std::lock_guard lock{mutex_};
+    std::vector<ApiToken> out;
+    out.reserve(tokens_.size());
+    for (const auto& t : tokens_) out.push_back(t.token);
+    std::sort(out.begin(), out.end(), [](const ApiToken& a, const ApiToken& b) {
+        return lower_ascii(a.name) < lower_ascii(b.name);
+    });
+    return out;
+}
+
+UserStore::Result UserStore::create_api_token(const std::string& name_in,
+                                              const std::string& created_by,
+                                              ApiToken* out,
+                                              std::string* out_secret) {
+    const std::string name = trim(name_in);
+    if (!name_is_valid(name)) return Result::BadName;
+    if (!ensure_sodium())     return Result::HashFailed;
+
+    std::lock_guard lock{mutex_};
+    // See the header: issuing a credential through an open door would survive
+    // the door being shut, which is the one way a token can be an escalation
+    // rather than a convenience.
+    if (!auth_required_locked()) return Result::AuthOff;
+
+    // Names are unique so that revoking one from a list is unambiguous. Two
+    // tokens called "Companion" is exactly the state in which somebody revokes
+    // the wrong one during a show.
+    const std::string key = lower_ascii(name);
+    for (const auto& t : tokens_)
+        if (lower_ascii(t.token.name) == key) return Result::NameTaken;
+
+    unsigned char secret[kApiTokenSecretBytes];
+    randombytes_buf(secret, sizeof(secret));
+
+    TokenRecord rec;
+    rec.token.id         = random_hex(16);
+    rec.token.name       = name;
+    rec.token.created_by = created_by;
+    rec.token.created_at = now_unix();
+    rec.hash             = blake2b_b64(secret, sizeof(secret));
+
+    // The id travels in the clear inside the token. That is what makes
+    // verification a lookup plus one hash rather than a scan over every record,
+    // and it gives away nothing: the id is already in every listing.
+    const std::string presented = std::string{kApiTokenPrefix} + rec.token.id + "_" +
+                                  b64_encode(secret, sizeof(secret));
+    sodium_memzero(secret, sizeof(secret));
+
+    tokens_.push_back(rec);
+    if (!save_locked()) { tokens_.pop_back(); return Result::IoError; }
+
+    if (out)        *out = rec.token;
+    if (out_secret) *out_secret = presented;
+    // warn, not info: a long-lived credential now exists on this machine, and
+    // that belongs in a log an administrator reads rather than one they enable.
+    Logger::warn("UserStore: API token '{}' issued ({} in total)", name, tokens_.size());
+    return Result::Ok;
+}
+
+UserStore::Result UserStore::rename_api_token(const std::string& id,
+                                              const std::string& name_in) {
+    const std::string name = trim(name_in);
+    if (!name_is_valid(name)) return Result::BadName;
+
+    std::lock_guard lock{mutex_};
+    TokenRecord* r = find_token_locked(id);
+    if (!r) return Result::NoSuchToken;
+
+    const std::string key = lower_ascii(name);
+    for (const auto& t : tokens_)
+        if (t.token.id != id && lower_ascii(t.token.name) == key) return Result::NameTaken;
+
+    const std::string previous = r->token.name;
+    r->token.name = name;
+    if (!save_locked()) { r->token.name = previous; return Result::IoError; }
+    Logger::info("UserStore: API token '{}' renamed to '{}'", previous, name);
+    return Result::Ok;
+}
+
+UserStore::Result UserStore::revoke_api_token(const std::string& id) {
+    std::lock_guard lock{mutex_};
+    const auto it = std::find_if(tokens_.begin(), tokens_.end(),
+                                 [&](const TokenRecord& t) { return t.token.id == id; });
+    if (it == tokens_.end()) return Result::NoSuchToken;
+
+    const TokenRecord removed = *it;
+    tokens_.erase(it);
+    if (!save_locked()) { tokens_.push_back(removed); return Result::IoError; }
+    // Erasing the record IS the revocation, and it is immediate: verification
+    // looks the token up every time, so there is no epoch to bump and no window
+    // in which a revoked token still answers. Unlike a user's session tokens,
+    // there is also nothing left behind to revoke later.
+    Logger::warn("UserStore: API token '{}' revoked", removed.token.name);
+    return Result::Ok;
+}
+
+std::optional<UserStore::Principal> UserStore::verify_api_token(
+        const std::string& token) const {
+    // lpk1_<id>_<secret>
+    const auto sep = token.find('_', kApiTokenPrefix.size());
+    if (sep == std::string::npos) return std::nullopt;
+    const std::string id     = token.substr(kApiTokenPrefix.size(),
+                                            sep - kApiTokenPrefix.size());
+    const std::string secret = token.substr(sep + 1);
+    if (id.empty() || secret.empty()) return std::nullopt;
+
+    std::vector<unsigned char> raw;
+    if (!b64_decode(secret, raw) || raw.size() != kApiTokenSecretBytes) return std::nullopt;
+    const std::string presented = blake2b_b64(raw.data(), raw.size());
+    sodium_memzero(raw.data(), raw.size());
+
+    std::lock_guard lock{mutex_};
+    const TokenRecord* r = find_token_locked(id);
+    if (!r) return std::nullopt;
+    // Constant time. Both sides are a base64 BLAKE2b digest, so a length
+    // mismatch means the stored value is not one and there is nothing to
+    // compare — sodium_memcmp requires equal lengths to be meaningful.
+    if (r->hash.size() != presented.size()) return std::nullopt;
+    if (sodium_memcmp(r->hash.data(), presented.data(), presented.size()) != 0)
+        return std::nullopt;
+
+    // Operator tier, always. A token has no role of its own to raise.
+    return Principal{r->token.id, r->token.name, UserRole::Operator, Kind::ApiToken};
+}
+
+void UserStore::note_api_token_use(const std::string& id) {
+    std::lock_guard lock{mutex_};
+    TokenRecord* r = find_token_locked(id);
+    if (!r) return;
+    const std::int64_t now = now_unix();
+    r->token.last_used_at = now;
+    // In memory every time, on disk at most hourly. A timestamp that lags by an
+    // hour still answers the question it exists for — "is anything still using
+    // this?" — and the write it avoids is to the file holding every password
+    // hash on the machine.
+    if (now - r->saved_use < kApiTokenUseWriteSeconds) return;
+    r->saved_use = now;
+    // Best effort: failing a request because a timestamp could not be written
+    // would turn a full disk into an outage of the thing automation depends on.
+    save_locked();
+}
+
 json UserStore::to_json() const {
     std::lock_guard lock{mutex_};
     return to_json_locked();
@@ -586,11 +806,38 @@ json UserStore::to_json_locked() const {
             {"createdAt",  r.user.created_at},
         });
     }
-    return json{
+    json out{
         {"schema_version", kUserStoreSchemaVersion},
         {"tokenSecret",    token_secret_},
         {"users",          std::move(arr)},
     };
+    // Written only when somebody has chosen. Sparse for the same reason U4's
+    // profiles are: absent has its own meaning here ("never decided, keep taking
+    // the default"), and a file that has never been touched by this feature must
+    // round-trip byte-identically. No schema_version bump either — the key is
+    // additive, and a build that predates it ignores an unknown field and keeps
+    // authentication ON, which is the fail-safe direction to be wrong in.
+    if (auth_required_override_) out["authRequired"] = *auth_required_override_;
+
+    // Same rule, same reasoning: absent means no tokens have ever been issued,
+    // and a build that predates this key ignores it — which stops honouring
+    // those tokens rather than honouring something it does not understand.
+    // Refusing a credential is the safe direction to be wrong in.
+    if (!tokens_.empty()) {
+        json tarr = json::array();
+        for (const auto& t : tokens_) {
+            tarr.push_back(json{
+                {"id",         t.token.id},
+                {"name",       t.token.name},
+                {"hash",       t.hash},
+                {"createdBy",  t.token.created_by},
+                {"createdAt",  t.token.created_at},
+                {"lastUsedAt", t.token.last_used_at},
+            });
+        }
+        out["apiTokens"] = std::move(tarr);
+    }
+    return out;
 }
 
 bool UserStore::from_json(const json& j) {
@@ -629,9 +876,47 @@ bool UserStore::from_json(const json& j) {
         sodium_memzero(key.data(), key.size());
     }
 
+    // Only a real boolean counts as a choice. Anything else — a string "false",
+    // a number, null — is treated as "never chose", because the alternative is
+    // letting a malformed value decide whether the door is locked, and the
+    // truthiness of `"false"` is exactly the accident that would open it.
+    std::optional<bool> auth_override;
+    const auto auth_it = j.find("authRequired");
+    if (auth_it != j.end() && auth_it->is_boolean()) auth_override = auth_it->get<bool>();
+
+    // API tokens. Absent is the ordinary state; present and malformed is a
+    // refusal, because this whole function's failure means "corrupt store, do
+    // not serve" — and a token array we could not read is a set of credentials
+    // whose membership we do not know. Dropping the ones we could not parse
+    // would silently revoke them; guessing would be worse.
+    std::vector<TokenRecord> parsed_tokens;
+    const auto tokens_it = j.find("apiTokens");
+    if (tokens_it != j.end()) {
+        if (!tokens_it->is_array()) return false;
+        for (const auto& e : *tokens_it) {
+            if (!e.is_object()) return false;
+            TokenRecord t;
+            t.token.id   = e.value("id",   std::string{});
+            t.token.name = e.value("name", std::string{});
+            t.hash       = e.value("hash", std::string{});
+            // As with a user record: every one of these is load-bearing, and a
+            // token with no hash is not a token with no secret — it is a record
+            // nothing can ever match, which would read as a working credential
+            // in every listing.
+            if (t.token.id.empty() || t.token.name.empty() || t.hash.empty()) return false;
+            t.token.created_by   = e.value("createdBy",  std::string{});
+            t.token.created_at   = e.value("createdAt",  std::int64_t{0});
+            t.token.last_used_at = e.value("lastUsedAt", std::int64_t{0});
+            t.saved_use          = t.token.last_used_at;
+            parsed_tokens.push_back(std::move(t));
+        }
+    }
+
     std::lock_guard lock{mutex_};
     users_        = std::move(parsed);
+    tokens_       = std::move(parsed_tokens);
     token_secret_ = std::move(secret);
+    auth_required_override_ = auth_override;
     return true;
 }
 

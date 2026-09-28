@@ -1,17 +1,18 @@
 <template>
-  <!-- Note: NOT inside <Teleport> — Vue scoped styles don't reach teleported
-       nodes, which would leave the modal unstyled in production builds
-       (same reasoning as ProjectSettingsModal.vue). -->
-  <div v-if="open" class="outmap-backdrop" @click.self="requestClose">
-    <div class="outmap-modal" role="dialog" aria-modal="true" :aria-label="t('mixer.outputMapTitle')">
-      <header class="modal-header">
-        <h2>{{ t('mixer.outputMapTitle') }}</h2>
-        <button class="close-x" :aria-label="t('mixer.outputMapCancel')" @click="requestClose">✕</button>
-      </header>
+  <div class="settings-pane outmap-pane">
+      <h3 class="settings-pane-title">{{ t('settings.sectionOutputs') }}</h3>
 
-      <div class="modal-body">
-        <p class="outmap-intro">{{ t('mixer.remap.intro') }}</p>
+      <!-- An operator sees the pane but not the map: which sockets this rig
+           has is the machine's business, not the show's. Rendered as a
+           sentence for the same reason the Users pane renders its own refusal
+           that way — a raw 403 reads as something broken rather than as the
+           rule it is. -->
+      <p v-if="!canEdit" class="settings-help">{{ t('mixer.outputMapAdminOnly') }}</p>
 
+      <template v-else>
+      <p class="settings-pane-intro">{{ t('mixer.remap.intro') }}</p>
+
+      <div class="outmap-body">
         <p v-if="loadError" class="outmap-error">{{ loadError }}</p>
 
         <div class="remap-cols">
@@ -268,22 +269,62 @@
         </section>
 
         <p v-if="saveError" class="outmap-error">{{ saveError }}</p>
+
+        <!-- The hardware this machine actually has. P3b deliberately left this
+             out of the Server pane and reserved its three keys for here: a
+             device list belongs beside the map that points at it, not with the
+             machine's ports and origins. Read-only except for Open, which asks
+             the server to hold the device open — useful when an interface only
+             appears to the system once something has claimed it. -->
+        <section class="outmap-devices">
+          <h3 class="outmap-h3">{{ t('serverSettings.outputDevices') }}</h3>
+          <!-- No `.value`: useLiveplayServer returns reactive({...}), which
+               unwraps its refs, so server.devices IS the array. Reaching for
+               .value on it yields undefined, and `.length` on that throws
+               during render — which does not fail politely, it takes down the
+               whole pane subtree, so every OTHER settings pane goes blank too. -->
+          <p v-if="!server.devices.length" class="outmap-none">
+            {{ t('serverSettings.noDevices') }}
+          </p>
+          <ul v-else class="outmap-devlist">
+            <li v-for="d in server.devices" :key="d.id" class="outmap-dev">
+              <span class="outmap-dev__name" :title="d.display_name">{{ d.display_name }}</span>
+              <span v-if="d.is_default" class="hw__badge">{{ t('mixer.remap.defaultBadge') }}</span>
+              <span class="outmap-dev__count">
+                {{ t('mixer.remap.channelCount', { n: d.channel_count }) }}
+              </span>
+              <button
+                type="button"
+                class="outmap-iconbtn"
+                :title="t('serverSettings.open')"
+                @click="onOpenDevice(d)"
+              >
+                <span class="material-symbols-rounded">power_settings_new</span>
+              </button>
+            </li>
+          </ul>
+        </section>
       </div>
 
-      <footer class="modal-footer">
-        <button class="modal-btn" :disabled="saving" @click="requestClose">
-          {{ t('mixer.outputMapCancel') }}
+      <!-- A pane has no "cancel and close", so Cancel becomes Revert: it
+           re-reads the server's map and throws this draft away. Both are
+           disabled until something is actually different, because a Save that
+           would send the map back unchanged invites the question of whether it
+           did anything. -->
+      <div class="settings-actions outmap-actions">
+        <button class="modal-btn" :disabled="saving || !isDirty" @click="revert">
+          {{ t('mixer.outputMapRevert') }}
         </button>
-        <button class="modal-btn modal-btn--primary" :disabled="saving" @click="save">
+        <button class="modal-btn modal-btn--primary" :disabled="saving || !isDirty" @click="save">
           {{ saving ? t('mixer.outputMapSaving') : t('mixer.outputMapSave') }}
         </button>
-      </footer>
-    </div>
+      </div>
+      </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { Bus } from '~/types/project';
 import type { OutputMapChannel } from '~/composables/useLiveplayServer';
 
@@ -339,9 +380,6 @@ const BUILTIN_MAIN = 'Main Out';
 const BUILTIN_PREVIEW = 'Preview Out';
 const DRAG_MIME = 'application/x-liveplay-hwpair';
 
-const props = defineProps<{ open: boolean }>();
-const emit = defineEmits<{ (e: 'close'): void }>();
-
 const { t } = useLocalization();
 const server = useLiveplayServer();
 
@@ -351,6 +389,16 @@ const baseline = ref<Map<string, DraftChannel[]>>(new Map());
 const builtinNames = ref<string[]>([]);
 let rowKeySeq = 0;
 function freshKey() { return rowKeySeq++; }
+
+// The output map is the machine's, so U3 gates GET/PUT /api/outputs to
+// administrators. Checked BEFORE fetching rather than by catching the 403:
+// letting the request go and rendering `String(e)` put a raw "403 Forbidden"
+// in front of an operator, which reads as a fault rather than as the rule it
+// is. An installation with no accounts has nobody to be an administrator, so
+// the routes are open there and so is this pane — the same posture every other
+// U3-gated surface takes.
+const canEdit = computed(() =>
+  !server.authRequired || server.authUser?.role === 'admin');
 
 const loaded = ref(false);
 const loadError = ref('');
@@ -368,6 +416,9 @@ const advancedOpen = ref(false);
  * while the modal is open, so their change lands without eating ours.
  */
 async function loadAll(keepPending = false) {
+  // Nothing to load without the right to read it, and asking anyway would
+  // only produce the 403 this pane exists to state in words.
+  if (!canEdit.value) { loaded.value = false; return; }
   loadError.value = '';
   const carried = keepPending ? pendingChanges() : [];
   try {
@@ -400,10 +451,24 @@ async function loadAll(keepPending = false) {
     }
     for (const c of carried) setRowChannels(c.name, c.channels);
     loaded.value = true;
+    // Re-baseline the dirty check against what was just loaded. Done here
+    // rather than in save() so it is also correct after a revert and after
+    // another client's outputs_changed lands.
+    loadedSignature.value = draftSignature.value;
   } catch (e) {
     loadError.value = String(e);
   }
 }
+
+// Has this draft diverged from the map as loaded? Compared on the SAVED shape
+// — trimmed names and cleaned channels — rather than the raw rows, so typing a
+// space into a name or adding an empty channel row does not arm Save for a
+// change that would not survive being sent.
+const draftSignature = computed(() => JSON.stringify(
+  rows.value.map(r => ({ n: r.name.trim(), c: cleanChannels(r.channels) })),
+));
+const loadedSignature = ref('');
+const isDirty = computed(() => loaded.value && draftSignature.value !== loadedSignature.value);
 
 
 // ---------------------------------------------------------------------------
@@ -795,9 +860,14 @@ async function save() {
     // Single whole-map PUT — the endpoint is a full replace, so there is no
     // partial-save path. On success the server's outputs_changed broadcast is
     // what every window (this one included, via MixerPanel) actually renders
-    // from; we don't apply anything locally beyond closing the modal.
+    // from; we don't apply anything locally.
+    //
+    // The pane stays open afterwards, unlike the modal it replaces, so it
+    // re-reads rather than closing: that both re-baselines the dirty check and
+    // shows the operator the map as the server now holds it, which is the
+    // thing they were editing towards.
     await server.saveOutputs(payload);
-    emit('close');
+    await loadAll();
   } catch (e) {
     saveError.value = String(e);
   } finally {
@@ -805,92 +875,75 @@ async function save() {
   }
 }
 
-function requestClose() {
+/** Throw this draft away and re-read the server's map. */
+function revert() {
   if (saving.value) return;
-  emit('close');
+  saveError.value = '';
+  pendingDelete.value = null;
+  selectedSlot.value = null;
+  selectedCard.value = null;
+  void loadAll();
 }
 
-// Registered LAST, after every ref it touches: it runs immediately, and on a
-// modal that starts closed (the detached mixer window mounts it that way) its
-// close branch reaches the drag state declared further up — registered before
-// those consts, it threw "Cannot access before initialization" and took the
-// whole window down with a 500.
-//
-// Re-fetch on open, and keep listening for as long as the modal stays open —
-// a second connected client (another mixer window, Companion, curl) may PUT
-// its own map while this one is up, and D17 requires this view to converge
-// too, not just the rail behind it.
-let unsubDocPatch: (() => void) | null = null;
-watch(() => props.open, (isOpen) => {
-  if (isOpen) {
-    saveError.value = '';
-    pendingDelete.value = null;
-    selectedSlot.value = null;
-    selectedCard.value = null;
-    advancedOpen.value = false;
-    loaded.value = false;
-    void loadAll();
-    unsubDocPatch = server.onDocPatch((payload: any) => {
-      if (payload?.op === 'outputs_changed' && !saving.value) void loadAll(true);
-    });
-  } else {
-    unsubDocPatch?.();
-    unsubDocPatch = null;
-    onDragEnd();
+// Ask the server to hold a device open. Reported through saveError rather than
+// silently, for the same reason every refusal in this pane is: a button that
+// does nothing visible is indistinguishable from one that failed.
+async function onOpenDevice(d: { display_name: string; channel_count: number }) {
+  saveError.value = '';
+  try {
+    await server.openDevice(d.display_name, Math.max(2, d.channel_count));
+    await server.fetchDevices();
+  } catch (e) {
+    saveError.value = String(e);
   }
-}, { immediate: true });
+}
+
+// As a pane this is mounted only while it is on screen, so the modal's
+// `watch(() => props.open)` becomes a plain mount/unmount pair. The ordering
+// hazard that comment recorded is gone with it: the close branch used to run
+// immediately on a modal that starts closed and reach drag state declared
+// further down the file, which threw "Cannot access before initialization" and
+// took the detached mixer window down with a 500. onMounted cannot run early.
+//
+// The subscription stays for the pane's lifetime for the original reason: a
+// second connected client (another mixer window, Companion, curl) may PUT its
+// own map while this is open, and D17 requires this view to converge too, not
+// just the rail behind it. `loadAll(true)` re-applies this window's unsaved
+// edits on top of theirs.
+// Signing in as an administrator while this pane is open should fill it in
+// rather than leave the refusal on screen until it is navigated away from and
+// back. The guard in loadAll makes the other direction safe on its own.
+watch(canEdit, (allowed) => { if (allowed) void loadAll(); });
+
+let unsubDocPatch: (() => void) | null = null;
+onMounted(() => {
+  void loadAll();
+  unsubDocPatch = server.onDocPatch((payload: any) => {
+    if (payload?.op === 'outputs_changed' && !saving.value) void loadAll(true);
+  });
+});
+onBeforeUnmount(() => {
+  unsubDocPatch?.();
+  unsubDocPatch = null;
+  onDragEnd();
+});
 </script>
 
 <style scoped>
-.outmap-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+/* This pane overrides the 620px measure SettingsPage gives every other pane.
+   That figure is there because settings read like prose and a full-width field
+   on a 2560px display looks unfinished — but this is not prose. It is two
+   columns you drag between, and squeezing them into a reading measure would
+   make the one interaction the pane exists for harder for no gain. */
+.outmap-pane {
+  max-width: 1100px;
 }
 
-.outmap-modal {
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  width: min(940px, 94vw);
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-  color: var(--color-text-primary);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--color-border);
-}
-.modal-header h2 { margin: 0; font-size: 18px; }
-.close-x {
-  background: none;
-  border: none;
-  color: var(--color-text-secondary);
-  font-size: 18px;
-  cursor: pointer;
-}
-.close-x:hover { color: var(--color-text-primary); }
-
-.modal-body {
-  padding: 16px 20px;
+.outmap-body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  overflow-y: auto;
 }
-
-.outmap-intro { margin: 0; font-size: 12px; color: var(--color-text-secondary); line-height: 1.45; }
 .outmap-error {
   margin: 0;
   font-size: 12px;
@@ -1272,12 +1325,42 @@ watch(() => props.open, (isOpen) => {
 }
 .outmap-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-.modal-footer {
-  padding: 12px 20px;
-  border-top: 1px solid var(--color-border);
+/* The hardware this machine has, under the map that points at it. */
+.outmap-devices { display: flex; flex-direction: column; gap: 8px; }
+.outmap-devlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.outmap-dev {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+/* The name is the only part that may grow, so a long interface name
+   ellipsises instead of pushing the channel count and the button off the row. */
+.outmap-dev__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+.outmap-dev__count {
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Right-aligned like the footer they replace, but inside the pane's flow
+   rather than pinned to the bottom of a modal. */
+.outmap-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  margin-top: 4px;
 }
 .modal-btn {
   background: var(--color-surface);

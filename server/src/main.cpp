@@ -1235,11 +1235,28 @@ int main(int argc, char** argv) {
                      "to pin it.", opts.bind_addr);
     }
     if (!users->auth_required()) {
-        Logger::warn("NO ACCOUNTS configured — this server is UNAUTHENTICATED. Anyone "
-                     "who can reach {}:{} can run the show. Create the first account "
-                     "(POST /api/users, or the client's setup screen) to require a "
-                     "login; it is stored in '{}'.",
-                     opts.bind_addr, opts.port, util::path_to_utf8(users->path()));
+        // Two different open postures, and they must not read the same. "Nobody
+        // has set this up yet" is the ordinary state of a fresh installation;
+        // "there are accounts and somebody switched the door off" is a choice
+        // that an operator could otherwise be living with unknowingly — they
+        // would see accounts listed in the Users pane and reasonably assume a
+        // login was being asked for. Naming it is the whole point of storing the
+        // decision rather than emptying the store.
+        if (users->user_count() > 0) {
+            Logger::warn("Authentication is EXPLICITLY OFF while {} account(s) exist in "
+                         "'{}' — this server is UNAUTHENTICATED and anyone who can reach "
+                         "{}:{} can run the show. The accounts are intact; turn the login "
+                         "back on from the client's Accounts pane, or with "
+                         "PATCH /api/auth/required.",
+                         users->user_count(), util::path_to_utf8(users->path()),
+                         opts.bind_addr, opts.port);
+        } else {
+            Logger::warn("NO ACCOUNTS configured — this server is UNAUTHENTICATED. Anyone "
+                         "who can reach {}:{} can run the show. Create the first account "
+                         "(POST /api/users, or the client's setup screen) to require a "
+                         "login; it is stored in '{}'.",
+                         opts.bind_addr, opts.port, util::path_to_utf8(users->path()));
+        }
     } else {
         Logger::info("Authentication is ON — {} account(s) in '{}'",
                      users->user_count(), util::path_to_utf8(users->path()));

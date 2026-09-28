@@ -72,20 +72,10 @@
       <p class="settings-help">{{ t('settings.disableLimiterHelp') }}</p>
     </section>
 
-    <section class="settings-field">
-      <label class="settings-label">
-        <span class="material-symbols-rounded">straighten</span>
-        {{ t('settings.meterMode') }}
-      </label>
-      <select class="settings-select" :value="meterMode" @change="onMeterModeChange">
-        <option value="LUFS">{{ t('settings.meterModeLufs') }}</option>
-        <option value="dBFS">{{ t('settings.meterModeDbfs') }}</option>
-        <option value="dBTP">{{ t('settings.meterModeDbtp') }}</option>
-        <option value="RMS">{{ t('settings.meterModeRms') }}</option>
-      </select>
-      <p class="settings-help">{{ t('settings.meterModeHelp') }}</p>
-    </section>
-
+    <!-- The meter UNIT is not here: it belongs to whoever is reading the meter
+         rather than to the show, so it sits on the Appearance pane with the
+         other per-person choices (U4). Ballistics stay, because they change the
+         numbers everybody sees and are therefore the project's (Q5). -->
     <section class="settings-field">
       <label class="settings-label">
         <span class="material-symbols-rounded">monitoring</span>
@@ -104,7 +94,6 @@
 </template>
 
 <script setup lang="ts">
-import { useOutputTarget } from '~/composables/useOutputTarget';
 import { useProjectSettings } from '~/composables/useProjectSettings';
 import Btn from './Btn.vue';
 
@@ -129,11 +118,6 @@ const ltcOutputMissing = computed(() =>
   !devices.value.some(d => d.display_name === ltcOutput.value));
 const outputTarget = computed(() => settings.value.outputTarget || 'ebu-r128');
 const disableLimiter = computed(() => !!settings.value.disableLimiter);
-// The display unit is this operator's, not the show's (U4) — useOutputTarget
-// already resolves "their choice, else the output target's recommendation",
-// so the control just shows and sets that.
-const { meterMode } = useOutputTarget();
-const { setMeterMode } = usePreferences();
 const meterBallistics = computed(() => settings.value.meterBallistics || 'digital-ppm');
 
 // Both lists back the LTC select, so load them whenever this pane is shown
@@ -158,9 +142,6 @@ function onOutputTargetChange(e: Event) {
 }
 function onDisableLimiterChange(e: Event) {
   applyPatch({ disableLimiter: (e.target as HTMLInputElement).checked });
-}
-function onMeterModeChange(e: Event) {
-  setMeterMode((e.target as HTMLSelectElement).value);
 }
 function onMeterBallisticsChange(e: Event) {
   applyPatch({ meterBallistics: (e.target as HTMLSelectElement).value });

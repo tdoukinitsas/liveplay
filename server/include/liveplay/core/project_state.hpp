@@ -90,6 +90,16 @@ struct MixerChannelMeta {
 enum class BusOutputKind {
     Bus,      // submix feeding another bus
     Output,   // direct to a named logical output
+    // Nowhere. The bus has no output edge at all, and whatever leaves it
+    // leaves by its aux sends (M1) or not at all.
+    //
+    // This is a real topology, not a broken one: a stem that feeds three
+    // destinations at three different post-fader levels and belongs at unity
+    // in none of them has nothing to put in `output`, and before this existed
+    // the only way to express it was to point the output at a bus that did not
+    // want it. A role holder may never be None — the master bus IS the house
+    // and the preview bus IS the phones, so both must reach hardware (D25).
+    None,
 };
 
 // The strip's tone controls, as the project stores them.
@@ -252,7 +262,38 @@ struct BusDef {
     // is an ordinary bus — renamed, recoloured, re-routed, given DSP.
     bool          master     = false;
     bool          preview    = false;
+
+    // Aux sends (M1). A tapped COPY of this bus into another, at its own
+    // level — not to be confused with output_target above, which is where the
+    // bus's whole signal goes at unity and of which there is exactly one (D5).
+    // A bus may have any number of sends, including from a master-role bus: a
+    // record or broadcast feed off the house is ordinary, and D27 gives that
+    // bus the house pair regardless of what else it feeds.
+    //
+    // Absent in every document written before M1, which reads as no sends —
+    // the field is additive, so this is NOT a busSchema reinterpretation the
+    // way widening output_target to a list would have been.
+    struct Send {
+        std::string id;          // destination bus id
+        float       level_db = 0.0f;
+        // Where the copy is taken. Pre-fader is the foldback case: a monitor
+        // send should not fall away when the house fader comes down.
+        bool        pre_fader = false;
+    };
+    std::vector<Send> sends;
 };
+
+// The wire name of an output kind: "bus", "output" or "none". One function
+// because three separate ternaries — the document writer, the compact
+// snapshot and the REST view — is three places for a new kind to be written
+// out as the wrong one, which is exactly what adding None would have done.
+const char* output_kind_name(BusOutputKind k);
+
+// A bus's aux sends as the document and the API both carry them. A free
+// function beside bus_dsp_to_json, and for the same reason: the document
+// writer and the REST view must produce the same shape, and one function is
+// how they are kept from drifting.
+json bus_sends_to_json(const BusDef& b);
 
 // Version stamped into the document as top-level "busSchema" whenever the bus
 // list is written back. Its presence is what tells a client round-trip of a
@@ -341,11 +382,22 @@ struct BusMigrationSummary {
     // synthesised.
     bool roles_migrated = false;
 
+    // Aux sends (M1) the loaded document carried that could not stand: an
+    // unknown or deleted destination, the preview bus at either end, or one
+    // that would have closed a loop. The API refuses all of these before they
+    // are stored, so a non-zero count means the file was hand-edited or
+    // written by a build that has since been fixed.
+    //
+    // Counted and surfaced like every other change to the document, because it
+    // IS one: audio that used to go somewhere now does not, and the operator
+    // should hear that from the banner rather than from the show.
+    int  sends_dropped = 0;
+
     bool any() const {
         return items_to_main > 0 || buses_from_device_override > 0 ||
                main_output_migrated || preview_device_migrated > 0 ||
                ltc_device_migrated > 0 || user_prefs_migrated > 0 ||
-               roles_migrated;
+               roles_migrated || sends_dropped > 0;
     }
     json to_json() const {
         return json{
@@ -354,6 +406,7 @@ struct BusMigrationSummary {
             {"mainOutputMigrated",      main_output_migrated},
             {"previewDeviceMigrated",   preview_device_migrated},
             {"ltcDeviceMigrated",       ltc_device_migrated},
+            {"sendsDropped",            sends_dropped},
             {"userPrefsMigrated",       user_prefs_migrated},
             {"rolesMigrated",           roles_migrated},
         };
@@ -805,6 +858,22 @@ public:
         // target the preview bus (D25); the caller re-routes the feeders
         // first rather than having them silently re-pointed.
         RoleTargetFed,
+        // ---- Aux sends (M1) ----
+        // Their own values rather than reusing the four above, because the
+        // operator is told what was refused and "the Preview bus cannot be
+        // routed to another bus" is not true of the thing they just tried.
+        // The rules differ too: the master bus may send but may not be routed.
+        //
+        // The preview bus tried to send. Its content is every PFL'd channel,
+        // and a send is still a path into the house (§2.4).
+        RefusedPreviewSend,
+        // The send names no bus at all.
+        SendUnknownTarget,
+        // The send names the preview bus, which nothing may feed (D25).
+        SendIllegalTarget,
+        // The send would close a loop, counting BOTH edge kinds — a cycle can
+        // run through a send and out of an output.
+        SendCycle,
     };
     // `why`, when given, receives Ok on success or the refusal that stopped
     // it, so the REST layer can answer 409 rather than "no strip available".
@@ -1058,6 +1127,12 @@ private:
         // edge it is taking down, and a bus that changed kind must drop the
         // send it used to hold rather than leave it feeding the old strip.
         std::string wired_bus_target;
+        // Destination bus ids of the aux sends (M1) currently in the engine
+        // for this strip. Kept so wire_bus_sends can RECONCILE rather than
+        // rebuild: a send that is still wanted is re-issued in place, and only
+        // one that has gone is torn down. Clearing them all and re-adding
+        // would drop a block of audio out of every foldback on every pan drag.
+        std::vector<std::string> wired_sends;
         // The preview bus sits on the master pair the engine reserves at the
         // top of the bus, not on one drawn from the pool. Flagged so unwiring
         // releases the routing without handing that pair out to a bus that
@@ -1188,6 +1263,12 @@ private:
     // already been removed from the engine.
     void wire_bus(const BusDef& bus, BusRouting& routing,
                   const std::unordered_map<std::string, BusRouting>* strips = nullptr);
+    // Reconcile the engine's aux sends for this strip against what the bus
+    // definition now lists. Separate from the output wiring above because a
+    // send is independent of it: a bus feeding the house can still send to a
+    // foldback. Caller must NOT hold mutex_ — same contract as wire_bus.
+    void wire_bus_sends(const BusDef& bus, BusRouting& routing,
+                        const std::unordered_map<std::string, BusRouting>* strips = nullptr);
     // The lane mapping for a bus→bus send, by the mixer→master laws (D8):
     // width-aware pan/balance, kDefaultDownmixDb for a 2→1 fold.
     static std::vector<audio::AudioEngine::MixerLaneGain>
@@ -1198,6 +1279,22 @@ private:
     PatchBusResult validate_bus_output_locked(const std::string& source_id,
                                               BusOutputKind kind,
                                               const std::string& target) const;
+    // Whether a proposed SEND from `source_id` to `target` is allowed (M1).
+    // Separate from the output validator rather than a flag on it, because the
+    // rules genuinely differ: the master bus may send but may not be routed.
+    // Caller holds mutex_.
+    PatchBusResult validate_bus_send_locked(const std::string& source_id,
+                                            const std::string& target) const;
+    // Can `from` reach `to` by any signal edge — an output or a send? Both
+    // kinds are summed into the destination before it renders, so both can
+    // close a loop, and a cycle check that walked only one kind would miss the
+    // ones that run through the other. Caller holds mutex_.
+    bool bus_reaches_locked(const std::string& from, const std::string& to) const;
+    // Drop sends a loaded document carried that cannot stand, counting them
+    // into the migration summary so the operator is told. Runs once the bus
+    // list is whole — none of its questions can be asked earlier. Caller
+    // holds mutex_.
+    void sanitise_bus_sends_locked(BusMigrationSummary& summary);
     // Does this bus reach hardware (D10/D26)? Output-kind is bound when its
     // target is mapped, is the built-in Main Out, or names a device that is
     // present — the preview bus only when it actually resolved to channels;

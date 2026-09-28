@@ -255,118 +255,52 @@
       </div>
     </section>
 
+    <!-- Where configuration lives. Aimed at whoever is deploying LivePlay into
+         a rack: which file to back up, which to bake into an image, and which
+         values travel with a show file and which stay behind. The pane-by-pane
+         detail deliberately is NOT here — it belongs in the app, beside the
+         panes — and the full model lives in docs/OWNERSHIP_MODEL.md. -->
+    <section id="settings" class="settings-section">
+      <div class="container">
+        <h2>{{ t('settings.title') }}</h2>
+        <p class="settings-subtitle">{{ t('settings.subtitle') }}</p>
+
+        <div class="settings-table-wrap">
+          <table class="settings-table">
+            <thead>
+              <tr>
+                <th scope="col">{{ t('settings.colTier') }}</th>
+                <th scope="col">{{ t('settings.colOwns') }}</th>
+                <th scope="col">{{ t('settings.colFile') }}</th>
+                <th scope="col">{{ t('settings.colTravels') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="tier in settingsTiers" :key="tier.key">
+                <td class="settings-tier">{{ t(`settings.${tier.key}.name`) }}</td>
+                <td>{{ t(`settings.${tier.key}.owns`) }}</td>
+                <td class="settings-file">
+                  <code v-for="f in tier.files" :key="f">{{ f }}</code>
+                </td>
+                <td class="settings-travels">{{ t(`settings.${tier.key}.travels`) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="settings-note">{{ t('settings.note') }}</p>
+      </div>
+    </section>
+
     <section id="api" class="api-section">
       <div class="container">
         <h2>{{ t('api.title') }}</h2>
         <p class="api-subtitle">{{ t('api.subtitle') }}</p>
-
         <div class="api-block">
-          <h3>{{ t('api.intro.title') }}</h3>
-          <p>{{ t('api.intro.description') }}</p>
-          <p>
-            <strong>{{ t('api.intro.baseUrlLabel') }}:</strong>
-            <code class="api-inline-code">{{ apiBaseUrl }}</code>
-          </p>
-          <p>{{ t('api.intro.getVsPost') }}</p>
-          <p class="api-callout">{{ t('api.intro.stopWarning') }}</p>
+          <p>{{ t('api.description') }}</p>
         </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.controls.title') }}</h3>
-          <p>{{ t('api.controls.description') }}</p>
-          <div class="api-table-wrap">
-            <table class="api-table">
-              <thead>
-                <tr>
-                  <th scope="col">{{ t('api.controls.colMethod') }}</th>
-                  <th scope="col">{{ t('api.controls.colPath') }}</th>
-                  <th scope="col">{{ t('api.controls.colAction') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in apiControls" :key="row.key">
-                  <td class="api-table-methods">
-                    <span
-                      v-for="m in row.methods"
-                      :key="m"
-                      class="api-method"
-                      :class="m === 'POST' ? 'api-method-post' : 'api-method-get'"
-                    >{{ m }}</span>
-                  </td>
-                  <td class="api-table-path"><code>{{ row.path }}</code></td>
-                  <td class="api-table-action">
-                    <span class="api-action">{{ t(`api.controls.${row.key}.description`) }}</span>
-                    <span class="api-notes">{{ t(`api.controls.${row.key}.notes`) }}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.examples.title') }}</h3>
-          <p>{{ t('api.examples.description') }}</p>
-          <pre class="api-code"><code>{{ t('api.examples.curl') }}</code></pre>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.more.title') }}</h3>
-          <p>{{ t('api.more.description') }}</p>
-          <ul class="api-endpoint-list">
-            <li><code>{{ t('api.more.selection.path') }}</code> — {{ t('api.more.selection.description') }}</li>
-            <li><code>{{ t('api.more.buses.path') }}</code> — {{ t('api.more.buses.description') }}</li>
-            <li><code>{{ t('api.more.limiter.path') }}</code> — {{ t('api.more.limiter.description') }}</li>
-            <li><code>{{ t('api.more.showMode.path') }}</code> — {{ t('api.more.showMode.description') }}</li>
-          </ul>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.auth.title') }}</h3>
-          <p>{{ t('api.auth.description') }}</p>
-          <pre class="api-code"><code>{{ t('api.auth.login') }}</code></pre>
-          <p>{{ t('api.auth.headerNote') }}</p>
-          <p>{{ t('api.auth.cors') }}</p>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.websocket.title') }}</h3>
-          <p>{{ t('api.websocket.description') }}</p>
-          <pre class="api-code"><code>{{ t('api.websocket.frames') }}</code></pre>
-          <p class="api-caveat">{{ t('api.websocket.framesNote') }}</p>
-          <p>{{ t('api.websocket.pushTitle') }}</p>
-          <ul class="api-endpoint-list">
-            <li><code>{{ t('api.websocket.snapshot.name') }}</code> — {{ t('api.websocket.snapshot.description') }}</li>
-            <li><code>{{ t('api.websocket.cueState.name') }}</code> — {{ t('api.websocket.cueState.description') }}</li>
-            <li><code>{{ t('api.websocket.meters.name') }}</code> — {{ t('api.websocket.meters.description') }}</li>
-            <li><code>{{ t('api.websocket.docPatch.name') }}</code> — {{ t('api.websocket.docPatch.description') }}</li>
-          </ul>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.companion.title') }}</h3>
-          <p>{{ t('api.companion.description') }}</p>
-          <p>
-            <a href="https://github.com/aspinwalld/companion-module-liveplay" target="_blank" rel="noopener noreferrer">
-              {{ t('api.companion.linkText') }}
-            </a>
-          </p>
-        </div>
-
-        <div class="api-block">
-          <h3>{{ t('api.discovery.title') }}</h3>
-          <p>{{ t('api.discovery.description') }}</p>
-          <pre class="api-code"><code>{{ t('api.discovery.payload') }}</code></pre>
-          <p>{{ t('api.discovery.note') }}</p>
-        </div>
-
         <div class="api-reference">
-          <p>
-            {{ t('api.reference.text') }}
-            <a href="https://github.com/tdoukinitsas/liveplay/blob/main/server/README.md" target="_blank" rel="noopener noreferrer">
-              {{ t('api.reference.linkText') }}
-            </a>
-          </p>
+          <a :href="asset('api/')">{{ t('api.referenceLabel') }}</a>
         </div>
       </div>
     </section>
@@ -452,27 +386,23 @@ const asset = (path: string) => `${baseURL}${path.replace(/^\/+/, '')}`;
 
 const version = ref('2.5.0');
 
-// External control / API section. Methods and paths are literal protocol, not
-// prose, so they live here rather than in the locale files; each row's
-// description and notes come from api.controls.<key>.* in en.json. Every
-// method/path pair is checked against server/src/net/control_server.cpp.
-const apiBaseUrl = 'http://<server>:4480';
-const apiControls: { key: string; methods: ('GET' | 'POST')[]; path: string }[] = [
-  { key: 'go',           methods: ['GET', 'POST'], path: '/api/transport/go' },
-  { key: 'stopAll',      methods: ['POST'],        path: '/api/transport/stop_all' },
-  { key: 'playItem',     methods: ['GET', 'POST'], path: '/api/project/items/<uuid>/play' },
-  { key: 'playIndex',    methods: ['GET', 'POST'], path: '/api/project/items/by-index/<path>' },
-  { key: 'stopItem',     methods: ['POST'],        path: '/api/project/items/<uuid>/stop' },
-  { key: 'pauseItem',    methods: ['POST'],        path: '/api/project/items/<uuid>/pause' },
-  { key: 'resumeItem',   methods: ['POST'],        path: '/api/project/items/<uuid>/resume' },
-  { key: 'playSelected', methods: ['GET', 'POST'], path: '/api/transport/play_selected' },
-  { key: 'pauseToggle',  methods: ['GET', 'POST'], path: '/api/transport/pause_toggle' },
-  { key: 'armSelected',  methods: ['GET', 'POST'], path: '/api/transport/arm_selected' },
-  { key: 'cart',         methods: ['GET', 'POST'], path: '/api/transport/cart/<n>/play' },
-  { key: 'masterGain',   methods: ['GET', 'POST'], path: '/api/master/gain' },
-  { key: 'stateSummary', methods: ['GET'],         path: '/api/state/summary' },
-  { key: 'listItems',    methods: ['GET'],         path: '/api/project/items' }
+// The ownership tiers, in the order the model states them: the three
+// authorities, then the store that is deliberately not one. Order is the
+// content here — Server outranks User outranks Project down the override chain,
+// and Machine sits outside it — so it is a list rather than an object.
+//
+// Filenames are literal, not prose, so they live here rather than in the locale
+// files, for the same reason the API paths below do: translating `users.json`
+// into twenty languages would produce twenty wrong answers. Each tier's name,
+// what it owns and whether it travels come from settings.<tier>.* in en.json.
+// See docs/OWNERSHIP_MODEL.md §2 and §5.
+const settingsTiers: { key: string; files: string[] }[] = [
+  { key: 'server',  files: ['liveplay.json', 'outputs.json', 'users.json'] },
+  { key: 'user',    files: ['prefs/<id>.json'] },
+  { key: 'project', files: ['<show>.liveplay'] },
+  { key: 'machine', files: ['userData/', 'localStorage'] },
 ];
+
 const contributors = ref<{ name: string; link: string }[]>([]);
 
 // Platform download cards. When we can detect the visitor's OS we surface only
@@ -1098,6 +1028,96 @@ useSeoMeta({
     margin: 1rem 0;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
+  }
+
+  /* Settings / ownership tiers. Same table treatment as the API reference —
+     they are both reference material and should not look like two systems. */
+  .settings-section {
+    padding: 4rem 0;
+
+    h2 {
+      text-align: center;
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      color: #DA1E28;
+    }
+  }
+
+  .settings-subtitle {
+    text-align: center;
+    font-size: 1.25rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 auto 2.5rem;
+    max-width: 820px;
+  }
+
+  .settings-table-wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    overflow-x: auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+  }
+
+  .settings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+
+    th,
+    td {
+      text-align: start;
+      vertical-align: top;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    th {
+      background: rgba(0, 0, 0, 0.25);
+      color: rgba(255, 255, 255, 0.85);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .settings-tier {
+      font-weight: 600;
+      color: #ffffff;
+      white-space: nowrap;
+    }
+
+    /* One tier can hold several files, so they stack rather than running on. */
+    .settings-file code {
+      display: block;
+      font-size: 0.82rem;
+      word-break: break-word;
+    }
+
+    .settings-file code + code {
+      margin-top: 0.3rem;
+    }
+
+    .settings-travels {
+      color: rgba(255, 255, 255, 0.75);
+    }
+  }
+
+  .settings-note {
+    max-width: 820px;
+    margin: 1.5rem auto 0;
+    text-align: center;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.6);
   }
 
   .api-table {

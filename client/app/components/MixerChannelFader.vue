@@ -413,6 +413,11 @@ const meterLabel = computed(() => {
   width: 148px;
   flex: 0 0 auto;
   min-height: 0;
+  /* Everything below the meter is `flex: 0 0 auto`, so in a short window this
+     column wants more height than it is given and the filters at the bottom
+     were simply cut off by the mixer's overflow:hidden — present, but
+     unreachable. Scrolling keeps them reachable instead. */
+  overflow-y: auto;
   padding: var(--spacing-sm);
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
