@@ -575,7 +575,11 @@ function openMenuFromButton() {
     grid-template-rows: none;
     grid-auto-rows: min-content;
   }
-  .det__eq, .det__dyn, .det__plugins, .det__io {
+  /* Qualified by .det__work so this outranks the --norack rule above, which
+     pins all three panels to `grid-row: 1`. Unqualified it lost on
+     specificity, and in one column "row 1" is the same cell for all three —
+     EQ, dynamics and the connection panels were drawn on top of each other. */
+  .det__work .det__eq, .det__work .det__dyn, .det__work .det__plugins, .det__work .det__io {
     grid-column: 1;
     grid-row: auto;
   }

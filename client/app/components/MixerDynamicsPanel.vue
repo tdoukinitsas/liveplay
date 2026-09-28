@@ -2,14 +2,15 @@
   <!--
     Dynamics: an expander/gate and a compressor/limiter.
 
-    Left to right: the transfer graph at full height, then a gain-reduction
-    meter for each processor, then their controls. The graph is shared because
+    The transfer graph with a gain-reduction meter for each processor beside
+    it, then their controls — to the right of the graph, or under it in a tall
+    column (see relayout() for how that is chosen). The graph is shared because
     both act on the same axis — input level in, output level out — and one
     curve is how you see what the two together do to a signal; two graphs would
     show two halves of one answer. The GR meters are not shared, because how
     much each one is pulling is exactly what you need to tell them apart.
   -->
-  <section ref="sectionRef" class="dyn det__panel" :class="{ 'dyn--bypassed': !dynIn }">
+  <section class="dyn det__panel" :class="[`dyn--${layout}`, { 'dyn--bypassed': !dynIn }]">
     <h4 class="det__h">
       {{ t('mixer.tabDynamics') }}
       <button
@@ -21,7 +22,7 @@
       >{{ t('mixer.bypass') }}</button>
     </h4>
 
-    <div class="dyn__body">
+    <div ref="bodyRef" class="dyn__body" :style="{ '--dyn-graph': graphPx + 'px' }">
       <div class="dyn__inner">
       <div class="dyn__viz">
       <!-- Transfer curve: input level across, output level down. Unity is the
@@ -102,7 +103,7 @@
       </div>
       </div>
 
-      <div class="dyn__controls">
+      <div ref="controlsRef" class="dyn__controls">
         <div class="dyn__group" :class="{ 'dyn__group--out': !gateOn }">
           <h5 class="dyn__h">
             {{ t('mixer.gate') }}
@@ -425,21 +426,158 @@ const gradientStops = computed(() => {
   return out;
 });
 
+// ---- Layout ----------------------------------------------------------------
+// Three arrangements, and the panel picks whichever gives the transfer curve
+// the most room while every control is shown at its natural size:
+//
+//   side    the curve on the left, each processor three knobs across on the
+//           right. Wins when the panel is wider than it is tall by more than
+//           the controls column takes.
+//   stack6  the curve on top, each processor one row of six below it. Wins in
+//           a tall column that is wide enough for six fields.
+//   stack3  the curve on top, three across below. For a column too narrow
+//           for six fields in a row.
+//
+// This used to be CSS alone — an `orientation: portrait` container query, with
+// the knob columns allowed to shrink below their content — and both halves of
+// that were the wonkiness. The orientation flip happens where the box is
+// square, which is not where the two arrangements give the curve the same
+// size, so dragging a splitter across it made the curve jump (a 281px graph
+// became a 242px one as the panel got WIDER) and the controls reflow at the
+// same moment. And shrinkable columns meant a cramped panel squeezed the value
+// boxes until "-40.0" read "-40.", while the curve and meters slid in under
+// the controls. CSS can compare the box's width with a length, but not with
+// its own height plus the controls' size, which is the comparison this needs.
+//
+// Deciding it here, from the controls' real measured size, fixes both. Where
+// two arrangements both fit, the switch lands where the curve would be the
+// same size either way, so the only thing that changes at the crossover is
+// where the knobs sit (the one remaining step is six-across becoming possible
+// at all, which is a question of whether it fits, not of taste). And the
+// fields are never given less than their content.
+//
+// No feedback loop: .dyn__body is size-contained (container-type: size), so
+// its box comes from the panel and never from what is laid out inside it, and
+// the field sizes this measures do not depend on the arrangement. The panel's
+// scrollbar gutter is reserved in CSS for the same reason — a scrollbar that
+// came and went with the arrangement would change the width this reads.
+type DynLayout = 'side' | 'stack6' | 'stack3';
+const layout = ref<DynLayout>('side');
+const graphPx = ref(160);
 // Knobs grow with the panel, so a big screen gets bigger targets rather than
-// more empty space.
-const sectionRef = ref<HTMLElement | null>(null);
+// more empty space — but only where the arrangement still fits with them.
 const knobSize = ref(28);
-let knobRo: ResizeObserver | null = null;
-onMounted(() => {
-  if (!sectionRef.value) return;
-  knobRo = new ResizeObserver(([entry]) => {
-    const w = entry?.contentRect.width ?? 0;
-    const h = entry?.contentRect.height ?? 0;
-    knobSize.value = w > 760 && h > 420 ? 40 : w > 560 && h > 320 ? 34 : 28;
+const KNOB_SIZES = [40, 34, 28] as const;
+// Below this the curve stops being readable. The fitter will scroll the panel
+// before it draws one smaller. Deliberately low: in a narrow, short column
+// (the three-column channel view in a 1100-wide, 800-tall window) the choice
+// is a small curve beside every control, or a bigger one with the compressor
+// scrolled out of sight — and mid-show, the control you cannot see is the
+// worse of the two. 60 is what side-by-side leaves at the grid's narrowest
+// dynamics column (300px, MixerChannelDetails), so that column still gets it.
+const GRAPH_MIN = 60;
+// And past this it stops telling you anything more, and just swallows the
+// panel on a tall screen. Capping it is also what lets the knobs grow there:
+// once every arrangement's curve is at the cap, the tie goes to bigger knobs.
+const GRAPH_MAX = 480;
+
+const bodyRef = ref<HTMLElement | null>(null);
+const controlsRef = ref<HTMLElement | null>(null);
+
+function relayout() {
+  const body = bodyRef.value;
+  const ctl = controlsRef.value;
+  if (!body || !ctl) return;
+  const W = body.clientWidth;
+  const H = body.clientHeight;
+  if (!W || !H) return;   // hidden, or not laid out yet
+
+  // The widest and tallest knob field, and how much of that height is the
+  // dial itself, so a different knob size can be priced in without rendering
+  // it first.
+  let fw = 0, fh = 0;
+  ctl.querySelectorAll<HTMLElement>('.kf').forEach((f) => {
+    fw = Math.max(fw, f.offsetWidth);
+    fh = Math.max(fh, f.offsetHeight);
   });
-  knobRo.observe(sectionRef.value);
+  const dial = ctl.querySelector<HTMLElement>('.knob')?.offsetHeight ?? knobSize.value;
+  const fhBare = fh - dial;
+  if (!fw || !fh) return;
+
+  // Every gap is read from the stylesheet rather than repeated here, so the
+  // CSS stays the one place spacing is decided.
+  const px = (el: Element | null, prop: 'rowGap' | 'columnGap') =>
+    (el ? parseFloat(getComputedStyle(el)[prop]) : 0) || 0;
+  const row = ctl.querySelector('.dyn__row');
+  const group = ctl.querySelector('.dyn__group');
+  const colGap = px(row, 'columnGap');
+  const rowGap = px(row, 'rowGap');
+  const headGap = px(group, 'rowGap');
+  const groupGap = px(ctl, 'rowGap');
+  const headH = ctl.querySelector<HTMLElement>('.dyn__h')?.offsetHeight ?? 0;
+  const innerGap = px(ctl.parentElement, 'columnGap');
+  const gr = body.querySelector<HTMLElement>('.dyn__grmeters');
+  const beside = (gr?.offsetWidth ?? 0) + px(gr?.parentElement ?? null, 'columnGap');
+
+  const colsW = (n: number) => n * fw + (n - 1) * colGap;
+  const ctlH = (rows: number, k: number) =>
+    2 * (headH + headGap + rows * (fhBare + k) + (rows - 1) * rowGap) + groupGap;
+
+  interface Fit { layout: DynLayout; k: number; graph: number; over: number }
+  const fits: Fit[] = [];
+  // Only offer a bigger knob where there is plainly room for one; the fit
+  // below still has to agree.
+  const kMax = W > 760 && H > 400 ? 40 : W > 560 && H > 300 ? 34 : 28;
+  for (const k of KNOB_SIZES) {
+    if (k > kMax) continue;
+    // Side by side: the curve is as tall as the box, or as wide as what the
+    // controls column leaves. Anything narrower than GRAPH_MIN would have to
+    // overflow sideways, which is never offered.
+    const sideG = Math.min(GRAPH_MAX, H, W - colsW(3) - innerGap - beside);
+    if (sideG >= GRAPH_MIN) {
+      fits.push({ layout: 'side', k, graph: sideG, over: Math.max(sideG, ctlH(2, k)) - H });
+    }
+    // Stacked: the curve takes what the controls below leave, down to its
+    // floor, and past that the panel scrolls.
+    for (const [name, cols, rows] of [['stack6', 6, 1], ['stack3', 3, 2]] as const) {
+      if (W < colsW(cols) || W - beside < GRAPH_MIN) continue;
+      const below = innerGap + ctlH(rows, k);
+      const g = Math.max(GRAPH_MIN, Math.min(GRAPH_MAX, W - beside, H - below));
+      fits.push({ layout: name, k, graph: g, over: g + below - H });
+    }
+  }
+  // Nothing fits (a panel far narrower than the grid ever makes it): stack,
+  // and let the curve shrink rather than push everything sideways.
+  if (!fits.length) {
+    fits.push({ layout: 'stack3', k: 28, graph: Math.max(40, W - beside), over: 0 });
+  }
+
+  // Everything visible first, then the biggest curve, then the biggest knobs.
+  // Overflow within a couple of pixels counts as a tie, so rounding cannot
+  // decide the arrangement.
+  fits.sort((a, b) => {
+    const oa = Math.max(0, a.over), ob = Math.max(0, b.over);
+    if (Math.abs(oa - ob) > 2) return oa - ob;
+    if (Math.abs(a.graph - b.graph) > 0.5) return b.graph - a.graph;
+    return b.k - a.k;
+  });
+  const best = fits[0]!;
+  layout.value = best.layout;
+  graphPx.value = Math.floor(best.graph);
+  knobSize.value = best.k;
+}
+
+// The body for the space on offer; the controls because their size changes
+// with no change to the panel at all — the locale arriving and lengthening
+// the labels, or the knob size just chosen here landing in the DOM.
+let layoutRo: ResizeObserver | null = null;
+onMounted(() => {
+  layoutRo = new ResizeObserver(() => relayout());
+  if (bodyRef.value) layoutRo.observe(bodyRef.value);
+  if (controlsRef.value) layoutRo.observe(controlsRef.value);
+  relayout();
 });
-onBeforeUnmount(() => knobRo?.disconnect());
+onBeforeUnmount(() => layoutRo?.disconnect());
 </script>
 
 <style scoped>
@@ -449,14 +587,22 @@ onBeforeUnmount(() => knobRo?.disconnect());
    inside it is invisible to an `auto` grid row and the short-window rule
    (grid-template-rows: auto auto) would collapse this panel to its heading.
    Scrolling one level out keeps the body's honest floor working in both the
-   `auto` and the `1fr` cases, and nothing can paint outside the panel. */
-.dyn { min-height: 0; overflow-y: auto; }
+   `auto` and the `1fr` cases, and nothing can paint outside the panel.
+
+   The gutter is reserved whether or not there is anything to scroll. The
+   layout is fitted to the body's width (see relayout()), and a scrollbar that
+   appeared only when the controls overran would take that width away, which
+   can change the arrangement, which can take the overrun away again — a panel
+   that flickers between two layouts at one window size. Even without the
+   fitter, a scrollbar arriving mid-drag nudged every control sideways. */
+.dyn { min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
 .dyn > .det__h { flex: 0 0 auto; }
 
 .dyn__body {
   flex: 1 1 auto;
-  /* The graph and the GR meters size themselves against this box, so on a
-     large screen the curve grows instead of sitting in a sea of space. */
+  /* Size containment is what lets relayout() read this box as the space on
+     offer: its size comes from the panel, never from what is laid out inside
+     it, so choosing an arrangement cannot change the box it was chosen for. */
   container-type: size;
   /* container-type: size takes the box's height from its parent, not its
      content — so in the stacked layouts, where rows size to content, it needs
@@ -475,53 +621,43 @@ onBeforeUnmount(() => knobRo?.disconnect());
   min-height: 300px;
 }
 
-/* Square, so the transfer curve keeps its 1:1 reading — a stretched dynamics
-   graph lies about the slope. Capped, because square plus full panel height
-   means it grows without limit on a tall window and swallows the panel; past
-   this size it stops telling you anything more. */
-/* Sized, not stretched: the box has no content of its own, so stretching was
-   the only thing giving it height — and stretching is also what pinned it to
-   the top of a panel taller than it. A definite height lets it centre against
-   the controls beside it, which is where the eye expects the curve to sit. */
 /* `safe center`, not plain `center`. Centring content that is TALLER than its
    box overflows it equally at both ends — and the end that overflows upwards
    goes over the panel's own "DYNAMICS" heading, while the bottom goes over the
    plugin rack below. That is the overlap seen in a short window. `safe` says
    centre it while it fits and fall back to flex-start when it does not, so the
-   spill can only ever go one way, downward, into a work area that scrolls. */
+   spill can only ever go one way, downward, into a work area that scrolls.
+
+   Centred on the other axis too: the curve and the controls read as one
+   block, and when the curve is held to the box's height the spare width is
+   split either side of that block instead of pooling at the right. */
 .dyn__inner {
   display: flex;
   align-items: safe center;
+  justify-content: safe center;
   gap: var(--spacing-md, 12px);
   width: 100%;
   height: 100%;
 }
-/* `flex: 0 1 auto` and min-width:0, not `0 0 auto`. The graph and GR meters are
-   sized from the container (50cqw / 100cqh), and at some widths that sum comes
-   out larger than the row has to give. Unshrinkable, the block simply took the
-   space and pushed the controls beside it out of the panel — which is the
-   overlap, seen from the other end. It may now give way; the graph's own
-   max(110px, …) floor stops it collapsing to nothing. */
+.dyn--stack6 .dyn__inner,
+.dyn--stack3 .dyn__inner { flex-direction: column; }
+
+/* Neither the curve block nor the controls shrink. relayout() sizes the curve
+   to what the controls leave, so the two always add up to the box — and
+   anything allowed to give way here gave way by sliding under its neighbour,
+   which is how the GR meters ended up beneath the threshold boxes. */
 .dyn__viz {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  flex: 0 1 auto;
-  min-width: 0;
+  flex: 0 0 auto;
 }
 .dyn__graph {
   flex: 0 0 auto;
-  /* safe: the 110px floor below can exceed a short row, and a centred item
-     that overflows does so at both ends. */
-  align-self: safe center;
-  /* Square (a stretched transfer curve lies about the slope), as big as the
-     box allows: the full height, or half the width, whichever is smaller. */
-  width: max(110px, min(50cqw, 100cqh));
-  height: max(110px, min(50cqw, 100cqh));
-  /* The width above is computed from the container, which does not know what
-     the GR meters beside it are taking. Capping at the space actually left
-     stops the pair adding up to more than the row has. */
-  max-width: 100%;
+  /* Square, because a stretched transfer curve lies about the slope, at the
+     size relayout() worked out. */
+  width: var(--dyn-graph, 160px);
+  height: var(--dyn-graph, 160px);
   background: var(--color-background);
   border-radius: var(--border-radius-sm);
   overflow: hidden;
@@ -558,9 +694,13 @@ onBeforeUnmount(() => knobRo?.disconnect());
   opacity: 0.7;
 }
 
-/* The in/out switch beside each processor's name. */
+/* The in/out switch beside each processor's name. Wide enough for the longer
+   of its two words, so pressing it does not shift its own left edge — the one
+   place the pointer is. */
 .dyn__in {
   margin-left: auto;
+  min-width: calc(4ch + 10px);
+  text-align: center;
   padding: 0 4px;
   font-size: 8px;
   font-family: var(--font-mono);
@@ -593,17 +733,13 @@ onBeforeUnmount(() => knobRo?.disconnect());
   opacity: 0.35;
 }
 
-/* Sized and centred to match the graph, so the two read as one block. */
+/* Sized to match the graph, so the two read as one block. */
 .dyn__grmeters {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
   flex: 0 0 auto;
-  /* safe: same as the graph beside it — the 100px floor can outgrow a short
-     row, and centring an overflow spills it upward as well as down. */
-  align-self: safe center;
-  height: max(100px, min(50cqw, 100cqh));
-  min-height: 0;
+  height: var(--dyn-graph, 160px);
 }
 .dyn__gr {
   display: flex;
@@ -648,17 +784,14 @@ onBeforeUnmount(() => knobRo?.disconnect());
 .dyn--bypassed .dyn__controls,
 .dyn--bypassed .dyn__grmeters { opacity: 0.45; }
 
-/* The two groups sit centred in whatever height the panel has, packed to the
-   left rather than stretched across it. */
+/* The two groups, one over the other, exactly as wide as their knobs. Not
+   stretched: extra width spread through the columns left a group reading as
+   scattered dots instead of a block you can take in at once. */
 .dyn__controls {
   display: flex;
   flex-direction: column;
-  /* safe, as above: two groups taller than the column must stack downward
-     rather than be centred out through the top of the panel. */
-  justify-content: safe center;
   gap: 8px;
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 0 0 auto;
 }
 .dyn__group { display: flex; flex-direction: column; gap: 1px; }
 /* Flex so the in/out switch can sit at the far end of the heading rather than
@@ -673,38 +806,26 @@ onBeforeUnmount(() => knobRo?.disconnect());
   text-transform: uppercase;
   color: var(--color-text-disabled);
 }
-/* Six controls, always three across, so each processor reads as two tidy rows
-   rather than reflowing into a ragged block as the panel resizes.
-   Columns are sized to the knobs rather than to the panel: 1fr columns spread
-   the six controls across whatever width was going, which left a group reading
-   as scattered dots instead of a block you can take in at once.
+/* Three across (two tidy rows per processor), or six across in the stack6
+   arrangement — relayout() picks, and only ever picks one that fits.
 
-   minmax(0, auto) rather than a bare auto: an `auto` track will not shrink
-   below its min-content, so when the row had less width than its three knobs
-   wanted it overflowed the panel rather than tightening up. The max stays
-   `auto`, so nothing about the sizing changes while there is room — this only
-   decides what happens when there is not. */
+   max-content, never shrinkable. These were minmax(0, auto) so a cramped row
+   would tighten instead of overflowing, and what tightened was the value box:
+   "-40.0" was cut to "-40." and the column could no longer be read. The
+   fitter guarantees the room now, so there is nothing for the tracks to give
+   way to — and a track that cannot change size is also what lets the fitter
+   measure the fields and trust the number. */
 .dyn__row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, auto));
-  justify-content: start;
-  gap: 2px 10px;
+  grid-template-columns: repeat(3, max-content);
+  gap: 2px 6px;
 }
+.dyn--stack6 .dyn__row { grid-template-columns: repeat(6, max-content); }
 
-/* Last, so it overrides the base sizes above (same specificity). */
-/* A panel taller than it is wide (the usual shape of this column on a big
-   screen) stacks the curve over the controls and gives it the full width,
-   instead of centring a small square in a tall, empty box. */
-@container (orientation: portrait) {
-  /* safe, for the same reason as align-items above: once the column is the
-     main axis it is justify-content that would centre an over-tall stack into
-     the heading. */
-  .dyn__inner { flex-direction: column; justify-content: safe center; }
-  .dyn__graph { width: max(110px, min(100cqw - 40px, 58cqh)); height: max(110px, min(100cqw - 40px, 58cqh)); }
-  .dyn__grmeters { height: max(100px, min(100cqw - 40px, 58cqh)); }
-  .dyn__controls { flex: 0 0 auto; width: 100%; min-width: 0; }
-  /* Same minmax(0, …) reasoning as the three-across rule above, and it matters
-     more here: six tracks that cannot tighten overflow a good deal sooner. */
-  .dyn__row { grid-template-columns: repeat(6, minmax(0, auto)); justify-content: space-between; }
-}
+/* The value box, sized to what it holds. KnobField's 44px default is set for
+   the EQ's "20000"; the widest thing here is five characters ("-80.0",
+   "300.0"), and the spare few pixels a field, times three, are what let the
+   side-by-side arrangement hold on down to a 1280-wide window instead of
+   stacking. In `ch` so it follows the mono face rather than guessing it. */
+.dyn__row :deep(.kf__input) { width: calc(5ch + 8px); }
 </style>
