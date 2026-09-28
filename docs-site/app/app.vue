@@ -150,6 +150,34 @@
         </FeatureHighlight>
 
         <FeatureHighlight
+          :title="t('features.mixer.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_mixer.jpg')"
+        >
+          <p>{{ t('features.mixer.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.eqDynamics.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_mixer_channel.jpg')"
+        >
+          <p>{{ t('features.eqDynamics.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.routing.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_hardware_outputs.jpg')"
+        >
+          <p>{{ t('features.routing.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.previewLtc.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_preview.jpg')"
+        >
+          <p>{{ t('features.previewLtc.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
           :title="t('features.audioEngine.title')"
           :image-src="asset('screenshots/liveplay_screenshot_audio_engine.jpg')"
         >
@@ -171,17 +199,10 @@
         </FeatureHighlight>
 
         <FeatureHighlight
-          :title="t('features.routing.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_routing.jpg')"
+          :title="t('features.fades.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_fades.jpg')"
         >
-          <p>{{ t('features.routing.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
-          :title="t('features.previewLtc.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_preview.jpg')"
-        >
-          <p>{{ t('features.previewLtc.description') }}</p>
+          <p>{{ t('features.fades.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
@@ -189,13 +210,6 @@
           :image-src="asset('screenshots/liveplay_screenshot_waveformtrimmer.jpg')"
         >
           <p>{{ t('features.waveform.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
-          :title="t('features.youtube.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_youtube.jpg')"
-        >
-          <p>{{ t('features.youtube.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
@@ -210,6 +224,34 @@
           :image-src="asset('screenshots/liveplay_screenshot_ducking.jpg')"
         >
           <p>{{ t('features.ducking.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.showMode.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_showmode.jpg')"
+        >
+          <p>{{ t('features.showMode.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.youtube.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_youtube.jpg')"
+        >
+          <p>{{ t('features.youtube.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.settingsPage.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_settings.jpg')"
+        >
+          <p>{{ t('features.settingsPage.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.accounts.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_users.jpg')"
+        >
+          <p>{{ t('features.accounts.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight

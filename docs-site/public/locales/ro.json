@@ -8,8 +8,7 @@
   "header": {
     "tagline": "Redare Audio pentru Evenimente Live",
     "version": "Versiune",
-    "logoAlt": "Logo LivePlay",
-    "screenshotAlt": "Interfața principală LivePlay cu editorul de playlist, cart-ul de cue-uri și panoul de proprietăți"
+    "logoAlt": "Logo LivePlay"
   },
   "download": {
     "title": "Descarcă LivePlay",
@@ -71,10 +70,6 @@
       "title": "Motor audio robust în C++",
       "description": "În inima LivePlay se află un motor audio dedicat și performant scris în C++ care comunică direct cu hardware-ul tău audio — WASAPI pe Windows, Core Audio pe macOS și ALSA pe Linux. Fiecare cue rulează ca o instanță de redare complet independentă, cu propriul decodor și propria anvelopă de fade, astfel încât redarea aceluiași fișier de două ori la volume diferite se comportă întotdeauna exact cum te aștepți. Motorul rulează ca un proces server de sine stătător: poate funcționa în interiorul aplicației desktop sau fără interfață pe o mașină dedicată din culise, conectată la interfețele tale audio."
     },
-    "routing": {
-      "title": "Rutare audio pe mai multe dispozitive",
-      "description": "Rutează audio de la orice cue către orice combinație de canale de ieșire pe mai multe plăci de sunet simultan, cu atribuire independentă a ieșirii pentru fiecare element. Matricea de rutare îți permite să împarți un fișier stereo în canale individuale și să trimiți fiecare către un dispozitiv diferit cu propriul gain — perfect pentru a alimenta front-of-house, un mix de monitoare și o ieșire de înregistrare dintr-un singur cue, totul deodată."
-    },
     "waveform": {
       "title": "Editor de formă de undă",
       "description": "Tăiați audio-ul cu precizie folosind editorul de formă de undă integrat. Setați punctele de intrare și ieșire, ajustați volumul și configurați timpii de estompare vizual. De asemenea, puteți tăia automat pe baza tăcerii sau ajusta automat volumul astfel încât toate nivelurile audio să fie consecvente."
@@ -106,10 +101,6 @@
     "meters": {
       "title": "Măsurare la calitate broadcast",
       "description": "Ai încredere în ceea ce auzi datorită măsurării în timp real, la calitate broadcast, în fiecare etapă a traseului semnalului — pe cue, pe canal de mixaj și pe ieșirea master. Zonele de măsurare codate pe culori urmează ținta de loudness pe care ai selectat-o, ca să vezi dintr-o privire dacă te încadrezi confortabil în specificații sau intri în roșu."
-    },
-    "previewLtc": {
-      "title": "Pre-ascultare dedicată și timecode LTC",
-      "description": "Pre-ascultă cue-urile în liniște pe un dispozitiv de pre-ascultare dedicat — căști sau o magistrală de cue — fără să atingi vreodată ieșirile principale, ca să pregătești următorul cue în timp ce spectacolul continuă. Un generator separat de timecode SMPTE LTC emite un semnal de timecode liniar continuu pe propriul canal, permițându-ți să sincronizezi pupitre de lumini, redare video și alte dispozitive externe cu LivePlay."
     },
     "discovery": {
       "title": "Descoperire automată și fiabilitate de neclintit",

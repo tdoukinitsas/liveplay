@@ -8,8 +8,7 @@
   "header": {
     "tagline": "Canlı Etkinlikler için Ses İpucu Oynatma",
     "version": "Sürüm",
-    "logoAlt": "LivePlay logosu",
-    "screenshotAlt": "Çalma listesi düzenleyicisi, cue cart’ı ve özellikler panelini gösteren LivePlay ana arayüzü"
+    "logoAlt": "LivePlay logosu"
   },
   "download": {
     "title": "LivePlay'i İndirin",
@@ -71,10 +70,6 @@
       "title": "Sağlam C++ Ses Motoru",
       "description": "LivePlay’in kalbinde, ses donanımınızla doğrudan konuşan, C++ ile yazılmış özel ve yüksek performanslı bir ses motoru bulunur — Windows’ta WASAPI, macOS’ta Core Audio ve Linux’ta ALSA. Her cue, kendi kod çözücüsü ve fade zarfıyla tamamen bağımsız bir oynatma örneği olarak çalışır; böylece aynı dosyayı farklı seviyelerde iki kez çalmak her zaman tam beklendiği gibi davranır. Motor bağımsız bir sunucu süreci olarak çalışır: masaüstü uygulamasının içinde yaşayabilir veya ses arabirimlerinize bağlı, sahne arkasındaki özel bir makinede arayüzsüz çalışabilir."
     },
-    "routing": {
-      "title": "Çoklu Cihaz Ses Yönlendirme",
-      "description": "Herhangi bir cue’nun sesini, birden fazla ses kartındaki çıkış kanallarının herhangi bir kombinasyonuna aynı anda yönlendirin; her öğe için bağımsız çıkış ataması yapın. Yönlendirme matrisi, bir stereo dosyayı tek tek kanallara bölüp her birini kendi kazancıyla farklı bir cihaza göndermenizi sağlar — tek bir cue’dan front-of-house’u, bir monitör miksini ve bir kayıt çıkışını aynı anda beslemek için mükemmel."
-    },
     "waveform": {
       "title": "Dalga Formu Düzenleyici",
       "description": "Yerleşik dalga formu düzenleyiciyi kullanarak sesinizi hassas bir şekilde kırpın. Giriş ve çıkış noktalarını ayarlayın, ses seviyesini ayarlayın ve solma sürelerini görsel olarak yapılandırın. Ayrıca sessizliğe göre otomatik olarak kırpabilir veya tüm ses seviyelerinin tutarlı olması için ses seviyesini otomatik olarak ayarlayabilirsiniz."
@@ -106,10 +101,6 @@
     "meters": {
       "title": "Yayın Kalitesinde Ölçüm",
       "description": "Sinyal yolunun her aşamasında — cue başına, mikser kanalı başına ve master çıkışında — gerçek zamanlı, yayın kalitesinde ölçümle duyduğunuza güvenin. Renk kodlu ölçüm bölgeleri seçtiğiniz ses yüksekliği hedefini izler; böylece spesifikasyon içinde rahatça mı durduğunuzu yoksa kırmızıya mı girdiğinizi bir bakışta görürsünüz."
-    },
-    "previewLtc": {
-      "title": "Özel Ön Dinleme ve LTC Zaman Kodu",
-      "description": "Cue’ları, ana çıkışlarınıza hiç dokunmadan özel bir ön dinleme cihazında — kulaklık veya bir cue veri yolu — sessizce dinleyin; böylece gösteri devam ederken bir sonraki cue’yu hazırlayabilirsiniz. Ayrı bir SMPTE LTC zaman kodu üreteci, kendi kanalında sürekli doğrusal bir zaman kodu sinyali verir; ışık masalarını, video oynatmayı ve diğer harici cihazları LivePlay ile senkronize etmenizi sağlar."
     },
     "discovery": {
       "title": "Otomatik Keşif ve Kaya Gibi Sağlam Güvenilirlik",

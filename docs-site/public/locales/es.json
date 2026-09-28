@@ -8,8 +8,7 @@
   "header": {
     "tagline": "Reproducción de Audio para Eventos en Vivo",
     "version": "Versión",
-    "logoAlt": "Logotipo de LivePlay",
-    "screenshotAlt": "Interfaz principal de LivePlay con el editor de listas de reproducción, el cart de cues y el panel de propiedades"
+    "logoAlt": "Logotipo de LivePlay"
   },
   "download": {
     "title": "Descargar LivePlay",
@@ -71,10 +70,6 @@
       "title": "Robusto motor de audio en C++",
       "description": "En el corazón de LivePlay hay un motor de audio dedicado y de alto rendimiento escrito en C++ que se comunica directamente con tu hardware de sonido — WASAPI en Windows, Core Audio en macOS y ALSA en Linux. Cada cue se ejecuta como una instancia de reproducción totalmente independiente con su propio decodificador y envolvente de fundido, de modo que reproducir el mismo archivo dos veces a volúmenes distintos siempre se comporta exactamente como se espera. El motor funciona como un proceso de servidor independiente: puede vivir dentro de la aplicación de escritorio o ejecutarse sin interfaz en una máquina dedicada entre bastidores conectada a tus interfaces de audio."
     },
-    "routing": {
-      "title": "Enrutamiento de audio multidispositivo",
-      "description": "Envía el audio de cualquier cue a cualquier combinación de canales de salida en varias tarjetas de sonido simultáneamente, con asignación de salida independiente por elemento. La matriz de enrutamiento te permite dividir un archivo estéreo en canales individuales y enviar cada uno a un dispositivo distinto con su propia ganancia — perfecto para alimentar el front-of-house, una mezcla de monitores y una salida de grabación desde un solo cue, todo a la vez."
-    },
     "waveform": {
       "title": "Editor de Forma de Onda",
       "description": "Recorta tu audio con precisión usando el editor de forma de onda integrado. Establece puntos de entrada y salida, ajusta el volumen y configura tiempos de fundido visualmente. También puedes recortar automáticamente basándote en silencio, o ajustar automáticamente el volumen para que todos los niveles de audio sean consistentes."
@@ -106,10 +101,6 @@
     "meters": {
       "title": "Medición de calidad de difusión",
       "description": "Confía en lo que oyes con medición en tiempo real y calidad de difusión en cada etapa de la cadena de señal — por cue, por canal de mezcla y en la salida master. Las zonas de medición codificadas por color siguen el objetivo de sonoridad que has seleccionado, para que veas de un vistazo si te mantienes cómodamente dentro de la norma o entras en rojo."
-    },
-    "previewLtc": {
-      "title": "Pre-escucha dedicada y timecode LTC",
-      "description": "Pre-escucha los cues en silencio en un dispositivo de pre-escucha dedicado — auriculares o un bus de cue — sin tocar nunca tus salidas principales, para que puedas preparar el siguiente cue mientras el espectáculo continúa. Un generador de timecode SMPTE LTC independiente emite una señal de timecode lineal continua en su propio canal, permitiéndote sincronizar mesas de luces, reproducción de vídeo y otros dispositivos externos con LivePlay."
     },
     "discovery": {
       "title": "Descubrimiento automático y fiabilidad a prueba de todo",

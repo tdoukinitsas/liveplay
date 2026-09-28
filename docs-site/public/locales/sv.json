@@ -8,8 +8,7 @@
   "header": {
     "tagline": "Ljuduppspelning för Live-evenemang",
     "version": "Version",
-    "logoAlt": "LivePlay-logotyp",
-    "screenshotAlt": "LivePlays huvudgränssnitt med spellisteredigerare, cue-cart och egenskapspanel"
+    "logoAlt": "LivePlay-logotyp"
   },
   "download": {
     "title": "Ladda ner LivePlay",
@@ -71,10 +70,6 @@
       "title": "Robust C++-ljudmotor",
       "description": "I hjärtat av LivePlay finns en dedikerad, högpresterande ljudmotor skriven i C++ som kommunicerar direkt med din ljudhårdvara — WASAPI på Windows, Core Audio på macOS och ALSA på Linux. Varje cue körs som en helt oberoende uppspelningsinstans med egen avkodare och fade-kurva, så att spela samma fil två gånger vid olika volym beter sig alltid exakt som förväntat. Motorn körs som en fristående serverprocess: den kan ligga inuti skrivbordsappen eller köras utan gränssnitt på en dedikerad backstage-dator kopplad till dina ljudgränssnitt."
     },
-    "routing": {
-      "title": "Ljudrouting för flera enheter",
-      "description": "Routa ljud från valfri cue till valfri kombination av utgångskanaler på flera ljudkort samtidigt, med oberoende utgångstilldelning per objekt. Routningsmatrisen låter dig dela upp en stereofil i enskilda kanaler och skicka var och en till en egen enhet med egen förstärkning — perfekt för att mata front-of-house, en monitormix och en inspelningsutgång från en enda cue, allt på en gång."
-    },
     "waveform": {
       "title": "Vågformsredigerare",
       "description": "Trimma ditt ljud med precision med den inbyggda vågformsredigeraren. Ställ in in- och utpunkter, justera volymen och konfigurera fade-tider visuellt. Du kan också automatiskt trimma baserat på tystnad eller automatiskt justera volymen så att alla ljudnivåer är konsekventa."
@@ -106,10 +101,6 @@
     "meters": {
       "title": "Mätning i sändningskvalitet",
       "description": "Lita på det du hör med realtidsmätning i sändningskvalitet i varje steg av signalvägen — per cue, per mixerkanal och på masterutgången. Färgkodade mätzoner följer det ljudnivåmål du har valt, så att du med en blick ser om du ligger bekvämt inom specifikationen eller går in i rött."
-    },
-    "previewLtc": {
-      "title": "Dedikerad förlyssning och LTC-tidkod",
-      "description": "Förlyssna cues ljudlöst på en dedikerad förlyssningsenhet — hörlurar eller en cue-buss — utan att någonsin röra dina huvudutgångar, så att du kan ställa i ordning nästa cue medan föreställningen pågår. En separat SMPTE LTC-tidkodsgenerator skickar en kontinuerlig linjär tidkodssignal på sin egen kanal, vilket låter dig synkronisera ljusbord, videouppspelning och andra externa enheter med LivePlay."
     },
     "discovery": {
       "title": "Automatisk upptäckt och bergfast tillförlitlighet",

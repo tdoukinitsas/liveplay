@@ -8,8 +8,7 @@
   "header": {
     "tagline": "Lydavspilling for Live-arrangementer",
     "version": "Versjon",
-    "logoAlt": "LivePlay-logo",
-    "screenshotAlt": "LivePlays hovedgrensesnitt med spillelisteredigerer, cue-cart og egenskapspanel"
+    "logoAlt": "LivePlay-logo"
   },
   "download": {
     "title": "Last ned LivePlay",
@@ -71,10 +70,6 @@
       "title": "Robust C++-lydmotor",
       "description": "I hjertet av LivePlay ligger en dedikert, høytytende lydmotor skrevet i C++ som kommuniserer direkte med lydmaskinvaren din — WASAPI på Windows, Core Audio på macOS og ALSA på Linux. Hver cue kjører som en helt uavhengig avspillingsinstans med egen dekoder og fade-kurve, slik at å spille av samme fil to ganger med ulikt volum alltid oppfører seg nøyaktig som forventet. Motoren kjører som en frittstående serverprosess: den kan ligge inne i skrivebordsappen, eller kjøre uten grensesnitt på en dedikert backstage-maskin koblet til lydgrensesnittene dine."
     },
-    "routing": {
-      "title": "Lydruting for flere enheter",
-      "description": "Rut lyd fra hvilken som helst cue til hvilken som helst kombinasjon av utgangskanaler på flere lydkort samtidig, med uavhengig utgangstildeling per element. Rutematrisen lar deg dele en stereofil opp i enkeltkanaler og sende hver til en egen enhet med eget nivå — perfekt for å mate front-of-house, en monitormiks og en opptaksutgang fra én enkelt cue, alt samtidig."
-    },
     "waveform": {
       "title": "Bølgeform-trimmer",
       "description": "Trim lyden din med presisjon ved hjelp av den innebygde bølgeform-editoren. Sett inn- og ut-punkter, juster volumet og konfigurer fade-tider visuelt. Du kan også automatisk trimme basert på stillhet, eller automatisk justere volumet slik at alle lydnivåer er konsistente."
@@ -106,10 +101,6 @@
     "meters": {
       "title": "Måling i kringkastingskvalitet",
       "description": "Stol på det du hører med sanntidsmåling i kringkastingskvalitet i hvert ledd av signalkjeden — per cue, per mikserkanal og på masterutgangen. Fargekodede målesoner følger lydstyrkemålet du har valgt, slik at du med et blikk ser om du ligger komfortabelt innenfor spesifikasjonen eller går i rødt."
-    },
-    "previewLtc": {
-      "title": "Dedikert forhåndslytting og LTC-tidskode",
-      "description": "Forhåndslytt cues lydløst på en dedikert forhåndslyttingsenhet — hodetelefoner eller en cue-buss — uten å berøre hovedutgangene, slik at du kan stille opp neste cue mens forestillingen går. En egen SMPTE LTC-tidskodegenerator sender et kontinuerlig lineært tidskodesignal på sin egen kanal, slik at du kan synkronisere lyspulter, videoavspilling og andre eksterne enheter med LivePlay."
     },
     "discovery": {
       "title": "Automatisk oppdagelse og bunnsolid pålitelighet",

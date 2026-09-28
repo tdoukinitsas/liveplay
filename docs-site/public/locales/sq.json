@@ -8,8 +8,7 @@
   "header": {
     "tagline": "Luajtja e Sinjaleve Audio për Ngjarje të Drejtpërdrejta",
     "version": "Versioni",
-    "logoAlt": "Logoja e LivePlay",
-    "screenshotAlt": "Ndërfaqja kryesore e LivePlay që tregon redaktuesin e listës, cart-in e cue-ve dhe panelin e vetive"
+    "logoAlt": "Logoja e LivePlay"
   },
   "download": {
     "title": "Shkarko LivePlay",
@@ -71,10 +70,6 @@
       "title": "Motor audio i fuqishëm në C++",
       "description": "Në zemër të LivePlay është një motor audio i dedikuar dhe me performancë të lartë i shkruar në C++ që komunikon drejtpërdrejt me harduerin tënd të zërit — WASAPI në Windows, Core Audio në macOS dhe ALSA në Linux. Çdo cue ekzekutohet si një instancë riprodhimi krejtësisht e pavarur me dekoderin dhe zarfin e vet të fade-it, kështu që riprodhimi i të njëjtit skedar dy herë me volume të ndryshme sillet gjithmonë saktësisht siç pritet. Motori funksionon si një proces serveri i pavarur: mund të jetojë brenda aplikacionit desktop, ose të ekzekutohet pa ndërfaqe në një makinë të dedikuar prapaskenë të lidhur me ndërfaqet e tua audio."
     },
-    "routing": {
-      "title": "Drejtim audio shumë-pajisjesh",
-      "description": "Drejto audion nga çdo cue në çdo kombinim kanalesh dalëse nëpër disa karta zëri njëkohësisht, me caktim të pavarur daljeje për çdo element. Matrica e drejtimit të lejon të ndash një skedar stereo në kanale individuale dhe të dërgosh secilin në një pajisje tjetër me fitimin e vet — perfekte për të ushqyer front-of-house, një miks monitori dhe një dalje regjistrimi nga një cue i vetëm, të gjitha njëherësh."
-    },
     "waveform": {
       "title": "Redaktuesi i Formës së Valës",
       "description": "Pritni audion tuaj me precizion duke përdorur redaktuesin e integruar të formës së valës. Vendosni pikat e hyrjes dhe daljes, rregulloni volumin dhe konfiguroni kohët e zbehjeve vizualisht. Gjithashtu mund të pritni automatikisht bazuar në heshtjen ose të rregulloni automatikisht volumin në mënyrë që të gjitha nivelet e audios të jenë të qëndrueshme."
@@ -106,10 +101,6 @@
     "meters": {
       "title": "Matje në cilësi transmetimi",
       "description": "Beso atë që dëgjon me matje në kohë reale dhe cilësi transmetimi në çdo fazë të rrugës së sinjalit — për cue, për kanal mikseri dhe në daljen master. Zonat e matjes të koduara me ngjyra ndjekin objektivin e zhurmshmërisë që ke zgjedhur, kështu që sheh me një shikim nëse je rehat brenda specifikimeve apo po hyn në të kuqe."
-    },
-    "previewLtc": {
-      "title": "Parapamje e dedikuar dhe timecode LTC",
-      "description": "Dëgjo paraprakisht cue-të në heshtje në një pajisje parapamjeje të dedikuar — kufje ose një bus cue — pa prekur kurrë daljet e tua kryesore, që të përgatitësh cue-në tjetër ndërsa shfaqja vazhdon. Një gjenerator i veçantë timecode SMPTE LTC nxjerr një sinjal timecode linear të vazhdueshëm në kanalin e vet, duke të lejuar të sinkronizosh tavolinat e dritave, riprodhimin e videos dhe pajisje të tjera të jashtme me LivePlay."
     },
     "discovery": {
       "title": "Zbulim automatik dhe besueshmëri si shkëmb",

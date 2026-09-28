@@ -8,8 +8,7 @@
   "header": {
     "tagline": "Audio-Cue-Wiedergabe für Live-Events",
     "version": "Version",
-    "logoAlt": "LivePlay-Logo",
-    "screenshotAlt": "LivePlay-Hauptoberfläche mit Playlist-Editor, Cue-Cart und Eigenschaften-Panel"
+    "logoAlt": "LivePlay-Logo"
   },
   "download": {
     "title": "LivePlay Herunterladen",
@@ -71,10 +70,6 @@
       "title": "Robuste C++-Audio-Engine",
       "description": "Im Herzen von LivePlay steckt eine dedizierte, leistungsstarke Audio-Engine in C++, die direkt mit Ihrer Audio-Hardware kommuniziert — WASAPI unter Windows, Core Audio unter macOS und ALSA unter Linux. Jeder Cue läuft als völlig unabhängige Wiedergabe-Instanz mit eigenem Decoder und eigener Fade-Hüllkurve, sodass das zweimalige Abspielen derselben Datei bei unterschiedlicher Lautstärke immer genau wie erwartet funktioniert. Die Engine läuft als eigenständiger Serverprozess: Sie kann in der Desktop-App laufen oder headless auf einem dedizierten Backstage-Rechner, der mit Ihren Audio-Interfaces verbunden ist."
     },
-    "routing": {
-      "title": "Multi-Geräte-Audio-Routing",
-      "description": "Leiten Sie Audio von jedem Cue an jede Kombination von Ausgangskanälen über mehrere Soundkarten gleichzeitig, mit unabhängiger Ausgangszuweisung pro Element. Die Routing-Matrix ermöglicht es, eine Stereodatei in einzelne Kanäle aufzuteilen und jeden mit eigener Verstärkung an ein anderes Gerät zu senden — perfekt, um Front-of-House, einen Monitor-Mix und einen Aufnahme-Ausgang aus einem einzigen Cue gleichzeitig zu speisen."
-    },
     "waveform": {
       "title": "Wellenform-Editor",
       "description": "Schneiden Sie Ihr Audio präzise mit dem integrierten Wellenform-Editor. Setzen Sie Ein- und Ausstiegspunkte, passen Sie die Lautstärke an und konfigurieren Sie Fade-Zeiten visuell. Sie können auch automatisch basierend auf Stille schneiden oder die Lautstärke automatisch anpassen, damit alle Audiopegel konsistent sind."
@@ -106,10 +101,6 @@
     "meters": {
       "title": "Metering in Broadcast-Qualität",
       "description": "Vertrauen Sie dem, was Sie hören, mit Echtzeit-Metering in Broadcast-Qualität an jeder Stufe des Signalwegs — pro Cue, pro Mixer-Kanal und am Master-Ausgang. Farbcodierte Metering-Zonen folgen dem von Ihnen gewählten Lautheitsziel, sodass Sie auf einen Blick sehen, ob Sie komfortabel in der Spezifikation liegen oder in den roten Bereich geraten."
-    },
-    "previewLtc": {
-      "title": "Dediziertes Vorhören & LTC-Timecode",
-      "description": "Hören Sie Cues lautlos auf einem dedizierten Vorhör-Gerät vor — Kopfhörer oder ein Cue-Bus — ohne Ihre Hauptausgänge zu berühren, sodass Sie den nächsten Cue vorbereiten können, während die Show läuft. Ein separater SMPTE-LTC-Timecode-Generator gibt ein kontinuierliches lineares Timecode-Signal auf einem eigenen Kanal aus, mit dem Sie Lichtpulte, Videowiedergabe und andere externe Geräte mit LivePlay synchronisieren."
     },
     "discovery": {
       "title": "Automatische Erkennung & felsenfeste Zuverlässigkeit",

@@ -9,7 +9,7 @@
     "tagline": "Audio Cue Playback for Live Events",
     "version": "Version",
     "logoAlt": "LivePlay logo",
-    "screenshotAlt": "LivePlay main interface showing the playlist editor, cue cart, and properties panel"
+    "screenshotAlt": "LivePlay main window with the playlist, cart player and mixer side by side"
   },
   "common": {
     "changeLanguage": "Change language"
@@ -78,8 +78,24 @@
   "features": {
     "title": "Key Features",
     "interface": {
-      "title": "Intuitive Interface",
-      "description": "LivePlay features a clean, simple and modern interface designed specifically for live sound operators. Organize your main sound files in playlists, and add sounds to a cart player for quick access or announcements. Audio files added to the cart will automatically behave as announcements, ducking any background audio when played."
+      "title": "Your Show, Your Layout",
+      "description": "LivePlay puts your playlist, cart player and mixer side by side. The Playlist, Cart Player and Mixer buttons at the top of the window show or hide each pane, and any pane can expand to fill the screen, return to your previous layout, or close. In the desktop app, the cart player and the mixer can each open in a window of their own, perfect for a second screen. Organise cues into groups: a closed group still shows which cue is playing and how far through it is, and a cart slot can hold a single sound or a whole group. Each computer remembers its own layout, so everything is where you left it."
+    },
+    "mixer": {
+      "title": "A Real Mixer for Your Show",
+      "description": "Send cues to buses, such as Music, Effects, Announcements, a subwoofer or the foyer, and mix them on channel strips with faders, mute, pan and meters. Any bus can be your Master, which feeds the main speakers, or your Preview, which feeds your headphones. A bus can feed another bus, go straight to a hardware output, or be heard only through its aux sends, which can be taken before or after the fader. Press PFL on any bus to hear it in your headphones, even while it is muted, without changing what the audience hears. Cues follow the bus of their group, so a whole scene can be assigned at once."
+    },
+    "eqDynamics": {
+      "title": "EQ and Dynamics on Every Bus",
+      "description": "Open any bus to shape its sound. The EQ is a graph you can drag, with up to 32 bands of bell, shelf, cut or notch filters, plus separate high-pass and low-pass filters. A live spectrum analyser draws the sound behind the curve, before and after the EQ. Alongside sit an expander/gate and a compressor/limiter, with a curve that shows the signal passing through and gain-reduction meters, while stereo buses add width and bass-mono controls. The same view lists every cue feeding the bus, with its sends beside them and a mini mixer underneath for moving between buses."
+    },
+    "routing": {
+      "title": "Hardware Outputs That Travel With You",
+      "description": "Your show refers to outputs by name, such as Main Out, Preview Out, Foyer or Sub. Each LivePlay server links those names to real sound card channels in Settings under Hardware Outputs, and one show can play through several sound cards at once. Take the show to another venue and anything that computer does not have is listed as missing: drag one of its outputs onto the missing one, save, and the show is ready to play. Main Out uses the computer's default sound card until you choose another. The links belong to the server rather than the show file, so every show in the same room uses them."
+    },
+    "previewLtc": {
+      "title": "Headphone Preview & LTC Timecode",
+      "description": "Line up the next cue while the show rolls on. The headphone button on any cue plays it through the Preview bus, and PFL on a mixer strip does the same for a whole bus, without touching your main outputs. The Preview bus has its own fader for your headphone level and a Mono button to check how a mix sounds when summed to mono. A built-in SMPTE LTC timecode generator sends timecode to the output of your choice, keeping lighting desks, video playback and other equipment in sync with LivePlay."
     },
     "audioEngine": {
       "title": "Robust C++ Audio Engine",
@@ -93,29 +109,37 @@
       "title": "Broadcast-Grade Metering",
       "description": "Trust what you hear with real-time, broadcast-quality metering at every stage of the signal path — per-cue, per mixer channel, and on the master output. Colour-coded meter zones follow the loudness target you've selected, so you can see at a glance whether you're sitting comfortably within spec or pushing into the red."
     },
-    "routing": {
-      "title": "Multi-Device Audio Routing",
-      "description": "Every cue plays through a mixer bus, and every bus sends to a hardware output, to another bus, or to the Preview bus for headphones — across multiple sound cards at once. The Master bus is the house: it sends to \"Main Out\", which is your default sound card until you map it to something else. Pick a device or output straight from a strip, or open \"Remap hardware outputs\" in the mixer header to bind logical outputs like FOH or Foyer to real channels — so a show travels between venues without being rewired."
-    },
-    "previewLtc": {
-      "title": "Dedicated Preview & LTC Timecode",
-      "description": "Audition cues silently through the mixer's Preview bus — the strip PFL and the headphone preview button both land on — without ever touching your main outputs, so you can line up the next cue while the show rolls on. Give the Preview bus a device or output on its strip and it is ready; its fader is your headphone level. A separate SMPTE LTC timecode generator outputs a continuous linear timecode signal on its own channel, letting you synchronise lighting desks, video playback and other external devices to LivePlay."
+    "fades": {
+      "title": "Fades, Loops and Timing",
+      "description": "Every cue has its own fade in, end fade and Stop button fade, and a fade can be as long as the sound itself. Looping cues can crossfade their end into their start, so ambiences and beds loop without a seam. A cue can wait a few seconds before the next one starts, crossfade into it, or start it at a marker. Groups show how long they run and, while they play, how much time is left."
     },
     "waveform": {
       "title": "Waveform Trimmer",
       "description": "Trim your audio with precision using the built-in waveform editor. Set in and out points, adjust volume, and configure fade times visually. You can also automatically trim based on silence, or automatically adjust the volume so that all audio levels are consistent."
     },
-    "youtube": {
-      "title": "YouTube Integration",
-      "description": "Download audio directly from YouTube with our built-in downloader! Perfect for quickly adding music, sound effects, or backing tracks to your show (please make sure you have the rights to use the content or are using public domain content)."
-    },
     "properties": {
       "title": "Easy to use Properties Panel",
-      "description": "Change the name, color, and playback properties of your audio files with ease. Set files to loop, adjust their volume, start and end behaviours, and configure automatic silence trimming all from one convenient location. You are in control of your show's flow!"
+      "description": "Change the name, colour and playback settings of each cue in one place. Set cues to loop, adjust their volume, choose the bus they play through, set start and end behaviours and trim silence automatically. You are in control of your show's flow!"
     },
     "ducking": {
       "title": "Automatic Ducking",
       "description": "Configure automatic ducking to lower the volume of background music when announcements or dialogue play. Perfect for smooth transitions in live productions."
+    },
+    "showMode": {
+      "title": "Show Mode",
+      "description": "Switch on Show Mode from the header for a simplified, touch-friendly view made for running the show. Buttons and text grow larger, and editing controls are hidden so nothing can be changed by accident. Tap a cart slot to play it and tap again to stop it. It works well on a touch screen beside the desk or on a tablet connected over the network."
+    },
+    "youtube": {
+      "title": "YouTube Integration",
+      "description": "Download audio directly from YouTube with our built-in downloader! Perfect for quickly adding music, sound effects, or backing tracks to your show (please make sure you have the rights to use the content or are using public domain content)."
+    },
+    "settingsPage": {
+      "title": "All Your Settings in One Place",
+      "description": "Every setting is now on a single Settings page: appearance, playback, audio and metering, the mixer, hardware outputs, keyboard shortcuts, MIDI control surfaces, the project, the server and accounts. Your own preferences, such as language, a dark, light or automatic theme, accent colour and meter display, are not saved in the show, and when you sign in they follow you to any computer connected to the same server."
+    },
+    "accounts": {
+      "title": "Accounts and Roles for Your Team",
+      "description": "Add user accounts and everyone signs in before they can control the show. Operators run and edit the show; administrators also manage accounts, hardware outputs and the server. Each person can add a profile picture, and administrators can export every account to a file and import it on another LivePlay server. Login stays off until you create the first account, and can be turned off again without losing anyone. Administrators can also see every person and device connected at that moment."
     },
     "discovery": {
       "title": "Automatic Discovery & Rock-Solid Reliability",
@@ -123,7 +147,7 @@
     },
     "remoteOperation": {
       "title": "Local or Remote Operation",
-      "description": "The LivePlay audio server launches automatically alongside the application, or can be run on a dedicated backstage machine with your audio interfaces plugged in. Connect from any computer on the same network and take full control — transport, properties, routing, and live metering all work remotely, giving you the flexibility to separate your control position from your audio hardware."
+      "description": "The LivePlay audio server launches automatically alongside the application, or can run on a dedicated backstage machine with your audio interfaces plugged in. Connect from any computer on the same network and take full control: transport, properties, the mixer and live metering all work remotely. Several people can work on the same show at once, and every screen shows the same selected cue and the same Up Next cue, while each person keeps their own language and layout."
     },
     "firstLaunch": {
       "title": "Quick Setup",
@@ -177,7 +201,7 @@
   "api": {
     "title": "API & Automation",
     "subtitle": "Connect LivePlay to your show-control tools.",
-    "description": "Control playback, edit projects and routing, and monitor live state over HTTP and WebSocket. The developer reference covers authentication, every endpoint, commands, events and integration examples.",
+    "description": "Control playback, edit projects and routing, and monitor live state over HTTP and WebSocket. When login is on, give Companion, a show-control system or a script its own API token from Settings, under Accounts, instead of sharing someone's password. The developer reference covers authentication, every endpoint, commands, events and integration examples.",
     "referenceLabel": "Developer API Reference"
   },
   "footer": {
