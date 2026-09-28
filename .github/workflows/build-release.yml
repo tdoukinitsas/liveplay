@@ -110,7 +110,7 @@ jobs:
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
-      - name: Install Linux audio dev packages
+      - name: Install Linux build and audio dependencies
         if: runner.os == 'Linux'
         run: |
           # The GitHub-hosted runners ship extra Microsoft apt repos
@@ -121,13 +121,17 @@ jobs:
                      /etc/apt/sources.list.d/azure-cli.list \
                      /etc/apt/sources.list.d/azure-cli.sources
           sudo apt-get update
+          # libsodium's vcpkg port runs autoreconf on Unix platforms.
           sudo apt-get install -y --no-install-recommends \
             ninja-build pkg-config \
+            autoconf autoconf-archive automake libtool \
             libasound2-dev libpulse-dev libjack-jackd2-dev libx11-dev
 
       - name: Install macOS build tools
         if: runner.os == 'macOS'
-        run: brew install ninja pkg-config
+        run: |
+          # Required for libsodium on both arm64 and cross-compiled x64 builds.
+          brew install ninja pkg-config autoconf autoconf-archive automake libtool
 
       - name: Install Windows build tools
         if: runner.os == 'Windows'
