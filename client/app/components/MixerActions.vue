@@ -1,7 +1,8 @@
 <template>
   <!--
-    The mixer's own controls: add a bus, the output map, clear PFL, and the
-    window buttons. Rendered as the action group of the mixer's header bar.
+    The mixer's own controls: add a bus, the output map, clear PFL. Rendered as
+    the action group of the mixer's header bar; the window controls beside
+    them are PaneControls, shared with every other pane.
 
     They were a footer of icon-only buttons once, on the argument that a mixer
     is judged on how much of the window is fader. That made the mixer the one
@@ -45,30 +46,6 @@
       @click="$emit('clear-pfl')"
     />
 
-    <!-- Detached: the window IS the mixer, so the side/full toggle has nothing
-         to toggle between and the only exit is back to the main window. -->
-    <template v-if="!detached">
-      <Btn
-        v-if="canDetach"
-        icon="open_in_new"
-        :text="t('mixer.detach')"
-        :title="t('mixer.detach')"
-        @click="$emit('detach')"
-      />
-      <Btn
-        :icon="mode === 'side' ? 'open_in_full' : 'close_fullscreen'"
-        :text="mode === 'side' ? t('mixer.expand') : t('mixer.dock')"
-        :title="mode === 'side' ? t('mixer.expand') : t('mixer.dock')"
-        @click="$emit('mode', mode === 'side' ? 'full' : 'side')"
-      />
-    </template>
-
-    <Btn
-      :icon="detached ? 'dock_to_left' : 'close'"
-      :text="detached ? t('mixer.dockToMain') : t('mixer.close')"
-      :title="detached ? t('mixer.dockToMain') : t('mixer.close')"
-      @click="$emit('close')"
-    />
   </div>
 </template>
 
@@ -77,9 +54,6 @@ import Btn from './Btn.vue';
 
 withDefaults(
   defineProps<{
-    mode: 'side' | 'full';
-    detached?: boolean;
-    canDetach?: boolean;
     /** How many buses are currently PFL'd. Zero hides the clear control. */
     pflCount?: number;
   }>(),
@@ -88,9 +62,6 @@ withDefaults(
 
 defineEmits<{
   (e: 'add'): void;
-  (e: 'detach'): void;
-  (e: 'mode', mode: 'side' | 'full'): void;
-  (e: 'close'): void;
   (e: 'clear-pfl'): void;
   (e: 'output-map'): void;
 }>();

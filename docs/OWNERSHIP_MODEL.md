@@ -59,8 +59,7 @@ Supported compatibility fields are accepted/constrained by the current loaders a
 | Local/remote server mode, URL and local port | `userData/liveplay-server.json` |
 | Recent servers/projects | `userData/liveplay-recent-*.json` |
 | Window positions, dimensions, maximized state | `userData/liveplay-window-bounds.json` |
-| Pane sizes and visibility | `localStorage['liveplay-workspace-layout']` |
-| Mixer dock mode | `localStorage['liveplay-mixer-mode']` |
+| Pane visibility, expanded pane (restore set) and pane sizes — including the mixer's docked/expanded view | `localStorage['liveplay-workspace-layout']` |
 | Show Mode | `localStorage['liveplay-ui-mode']` |
 | Locale fallback | `localStorage['liveplay-locale']` |
 | MIDI configuration | `userData/midi-config.json` |

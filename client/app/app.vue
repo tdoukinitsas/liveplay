@@ -40,7 +40,7 @@
          socket is up, whether or not the main window has a project open. -->
     <template v-else-if="isMixerWindow">
       <div class="mixer-window-root">
-        <MixerPanel mode="full" :detached="true" @close="attachMixerWindow" />
+        <MixerPanel mode="full" :detached="true" />
       </div>
 
       <!-- Faders here move the live rig, so the same lockout applies: without
@@ -227,13 +227,6 @@ const isCartWindow = import.meta.client
 const isMixerWindow = import.meta.client
   ? new URLSearchParams(window.location.search).get('mixerWindow') === '1'
   : false;
-
-// The mixer window's own close/dock button. Closing the window is what
-// re-docks it: the main window flips its panel back on when it hears
-// `mixer-window-closed`, so the X button and this do the same thing.
-function attachMixerWindow() {
-  if (import.meta.client) window.electronAPI?.attachMixerWindow?.();
-}
 
 // Initialize state viewer for dev mode
 useStateViewer();

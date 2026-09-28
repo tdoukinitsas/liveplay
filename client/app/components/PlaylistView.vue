@@ -2,11 +2,15 @@
   <div class="playlist-view">
     <div class="playlist-header">
       <h2>{{ t('playlist.title') }}</h2>
-      <!-- Import / add-group are edit actions — hidden in Show Mode. -->
-      <div v-if="!showMode" class="playlist-actions">
-        <Btn icon="audio_file" :text="t('playlist.importAudio')" :disabled="!currentProject" @click="handleImport" />
-        <Btn icon="youtube_activity" :text="t('youtube.importFromYouTube')" bg-style="youtube" :disabled="!currentProject" @click="showYouTubeModal = true" />
-        <Btn icon="folder" :text="t('playlist.addGroup')" :disabled="!currentProject" @click="handleAddGroup" />
+      <div class="playlist-header-right">
+        <!-- Import / add-group are edit actions — hidden in Show Mode. Titles
+             carry the names once a narrow pane has dropped the labels. -->
+        <div v-if="!showMode" class="playlist-actions">
+          <Btn icon="audio_file" :text="t('playlist.importAudio')" :title="t('playlist.importAudio')" :disabled="!currentProject" @click="handleImport" />
+          <Btn icon="youtube_activity" :text="t('youtube.importFromYouTube')" :title="t('youtube.importFromYouTube')" bg-style="youtube" :disabled="!currentProject" @click="showYouTubeModal = true" />
+          <Btn icon="folder" :text="t('playlist.addGroup')" :title="t('playlist.addGroup')" :disabled="!currentProject" @click="handleAddGroup" />
+        </div>
+        <PaneControls pane="playlist" :divided="!showMode" />
       </div>
     </div>
     
@@ -48,6 +52,7 @@ import { ref } from 'vue';
 import YouTubeImportModal from './YouTubeImportModal.vue';
 import AudioImportModal from './AudioImportModal.vue';
 import Btn from './Btn.vue';
+import PaneControls from './PaneControls.vue';
 import { triggerRef } from 'vue';
 import type { AudioItem, GroupItem } from '~/types/project';
 import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM, transitionDefaultsForImport, anchorStartNextMarker } from '~/types/project';
@@ -635,14 +640,20 @@ const handleDrop = async (e: DragEvent) => {
   display: flex;
   flex-direction: column;
   background-color: var(--color-background);
+  /* Named container for the header's label-collapsing query. */
+  container: playlist / inline-size;
 }
 
 .playlist-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-md) var(--spacing-lg);
-  min-height: 56px;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-lg);
+  /* One fixed height for all three pane headers, so they line up side by
+     side whatever buttons each carries (or hides in Show Mode). */
+  height: 60px;
+  flex: 0 0 auto;
   box-sizing: border-box;
   border-bottom: 1px solid var(--color-border);
   background-color: var(--color-surface);
@@ -651,11 +662,27 @@ const handleDrop = async (e: DragEvent) => {
 .playlist-header h2 {
   font-size: 18px;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.playlist-header-right {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
 }
 
 .playlist-actions {
   display: flex;
   gap: var(--spacing-sm);
+}
+
+/* A narrow pane keeps the icons and drops the labels, the same way the mixer
+   and cart headers do — measured against the pane, not the window. */
+@container playlist (max-width: 720px) {
+  .playlist-actions :deep(.btn > span:not(.material-symbols-rounded)) { display: none; }
 }
 
 

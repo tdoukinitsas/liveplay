@@ -149,9 +149,9 @@ function onMeterBallisticsChange(e: Event) {
 
 // The mixer is a workspace pane, not part of Settings: flip the shared flag
 // ProjectHeader / MainWorkspace already watch, and get out of its way.
-const mixerOpen = useState<boolean>('liveplay:mixerOpen', () => false);
+const { showPane } = useWorkspaceLayout();
 function openMixer() {
-  mixerOpen.value = true;
+  showPane('mixer');
   close();
 }
 </script>

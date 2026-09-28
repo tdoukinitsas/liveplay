@@ -1,7 +1,7 @@
 // The Settings page: which section is showing, and the deep link to it.
 //
 // There is no router in this app. Views are panel swaps driven by shared flags
-// (`liveplay:mixerOpen`, `cartFullscreen`), and the query string is already
+// (`liveplay:panes`), and the query string is already
 // spoken for by *window identity* — `?mixerWindow=1` and `?cartWindow=1` are
 // how Electron decides what a window IS, so a settings section cannot live
 // there without confusing the two jobs. The hash is free, survives a reload,

@@ -15,19 +15,16 @@
          the channel view, which keeps its own bus header below this one. -->
     <header class="mixer-header">
       <h2>{{ t('mixer.title') }}</h2>
-      <MixerActions
-        class="mixer-header-actions"
-        :mode="mode"
-        :detached="detached"
-        :can-detach="canDetach"
-        :pfl-count="pflCount"
-        @add="addBus"
-        @detach="detach"
-        @mode="$emit('mode', $event)"
-        @close="$emit('close')"
-        @clear-pfl="clearPfl"
-        @output-map="openOutputMap()"
-      />
+      <div class="mixer-header-right">
+        <MixerActions
+          class="mixer-header-actions"
+          :pfl-count="pflCount"
+          @add="addBus"
+          @clear-pfl="clearPfl"
+          @output-map="openOutputMap()"
+        />
+        <PaneControls pane="mixer" :in-window="detached" />
+      </div>
     </header>
 
     <!-- The channel view replaces the rail rather than sharing the window with
@@ -111,28 +108,17 @@ import type { OutputMap } from '~/composables/useLiveplayServer';
 import MixerStrip from './MixerStrip.vue';
 import MixerChannelDetails from './MixerChannelDetails.vue';
 import MixerActions from './MixerActions.vue';
+import PaneControls from './PaneControls.vue';
 
 const props = withDefaults(
   defineProps<{ mode?: 'side' | 'full'; detached?: boolean }>(),
   { mode: 'side', detached: false },
 );
-const emit = defineEmits<{ (e: 'close'): void; (e: 'mode', mode: 'side' | 'full'): void }>();
+const emit = defineEmits<{ (e: 'mode', mode: 'side' | 'full'): void }>();
 
-// Detaching is an Electron affordance — in a browser there is no second
-// window to open, so the button simply isn't offered there.
-const canDetach = computed(() =>
-  import.meta.client && !!(window as any).electronAPI?.openMixerWindow);
-
-// The main window flips its own panel off when it hears `mixer-window-opened`,
-// so we don't touch mixerOpen here — that keeps the detach path identical
-// whether the window is spawned from this button or reopened later.
-function detach() {
-  void (window as any).electronAPI?.openMixerWindow?.();
-}
-
-// Opening the channel view from a docked pane switches to full width first —
-// it needs the whole window, and silently rendering it crushed was worse than
-// not showing it.
+// Opening the channel view from a docked pane expands the mixer first — it
+// needs the whole workspace, and silently rendering it crushed was worse than
+// not showing it. The workspace's Restore brings the other panes back.
 function openDetails(id: string) {
   selectedId.value = id;
   detailsId.value  = id;
@@ -442,9 +428,11 @@ async function dropBus(id: string, dropIndex: number) {
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-sm);
+  padding: 0 var(--spacing-lg);
+  /* One fixed height for all three pane headers, so they line up side by
+     side whatever buttons each carries (or hides in Show Mode). */
+  height: 60px;
   flex: 0 0 auto;
-  padding: var(--spacing-md) var(--spacing-lg);
-  min-height: 56px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--color-border);
   background-color: var(--color-surface);
@@ -457,6 +445,13 @@ async function dropBus(id: string, dropIndex: number) {
 /* The action group itself is MixerActions; this only stops it wrapping under
    the title when the docked pane is narrow — the container query in
    MixerActions.vue drops the labels instead. */
+.mixer-header-right { display: flex; align-items: center; flex: 0 0 auto; }
+/* At its narrowest the docked pane gives the title up before any control —
+   the workspace bar and the strips already say this is the mixer. */
+@container mixer (max-width: 400px) {
+  .mixer-header { padding: 0 var(--spacing-sm); justify-content: flex-end; }
+  .mixer-header h2 { display: none; }
+}
 .mixer-header-actions { flex: 0 0 auto; }
 
 .mixer__body { display: flex; flex: 1; min-height: 0; min-width: 0; }

@@ -645,11 +645,11 @@ const isPreviewing = computed(() =>
 // one click away (D30); the class name `no-device` is kept for the CSS hook.
 const previewBusStore = useLiveplayServer();
 const previewReady = computed(() => !!previewBusStore.buses.find(b => b.preview)?.bound);
-const mixerOpen = useState<boolean>('liveplay:mixerOpen', () => false);
+const { showPane } = useWorkspaceLayout();
 const handleStartPreview = () => {
   if (props.item.type !== 'audio') return;
   if (!previewReady.value) {
-    mixerOpen.value = true;
+    showPane('mixer');
     return;
   }
   startPreview(props.item.uuid);
