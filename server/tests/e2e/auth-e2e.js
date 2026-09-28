@@ -49,7 +49,7 @@ const fs   = require('fs');
 const EXE = process.argv[2] || path.join('server', 'build', 'Release',
   process.platform === 'win32' ? 'liveplay-server.exe' : 'liveplay-server');
 
-const PORT       = 4573;
+const PORT       = Number(process.env.LIVEPLAY_E2E_PORT) || 4573;
 const EXE_DIR    = path.dirname(path.resolve(EXE));
 const USERS_JSON = path.join(EXE_DIR, 'users.json');
 const BACKUP     = USERS_JSON + '.e2e-backup';

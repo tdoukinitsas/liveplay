@@ -6,23 +6,23 @@ Scope: the repository's 2.5.0 implementation. Source is authoritative; these fin
 
 | Surface | Discovered | Documented |
 |---|---:|---:|
-| Application HTTP method/path combinations | 118 | 118 |
+| Application HTTP method/path combinations | 122 | 122 |
 | Crow implicit static-file GET route | 1 | 1 |
-| Total HTTP method/path combinations | **119** | **119** |
+| Total HTTP method/path combinations | **123** | **123** |
 | WebSocket client command types | **20** | **20** |
 | WebSocket server frame types | **8** | **8** |
 | Operations within server `doc_patch` frames | **29** | **29** |
 
-Application routes comprise 111 registrations across 88 distinct paths. Including Crow's static route gives 112 registrations and 89 paths. Compatible GET/POST aliases are grouped into one catalog entry. There are 28 distinct directional WebSocket frame types; the 29 patch operations are subtypes of one of the eight server frames.
+Application routes comprise 115 registrations across 91 distinct paths. Including Crow's static route gives 116 registrations and 92 paths. Compatible GET/POST aliases are grouped into one catalog entry. There are 28 distinct directional WebSocket frame types; the 29 patch operations are subtypes of one of the eight server frames.
 
-Crow's automatic HEAD/OPTIONS handling and the `/ws` upgrade are documented separately from the 119 count. No discovered route is intentionally omitted. No duplicate application method/path registration was found.
+Crow's automatic HEAD/OPTIONS handling and the `/ws` upgrade are documented separately from the 123 count. No discovered route is intentionally omitted. No duplicate application method/path registration was found.
 
 ## HTTP categories
 
 | Category | Method/path combinations |
 |---|---:|
-| Server and authentication | 8 |
-| Users and API tokens | 8 |
+| Server and authentication | 10 |
+| Users and API tokens | 10 |
 | Configuration and preferences | 8 |
 | Transport and selection | 15 |
 | Projects | 10 |
@@ -62,9 +62,9 @@ That script is a pattern-based consistency check, not a C++ parser. It needs rev
 | Finding | Current behavior / integration consequence |
 |---|---|
 | Action GETs also execute on HEAD | Crow maps HEAD to GET and runs the handler. Use POST for actions; a HEAD probe can trigger playback. |
-| Authentication disabled permits administration | Middleware bypasses role checks when auth is off. The first account can bootstrap administration; individual password/profile checks still apply. |
+| Authentication disabled permits administration | Middleware bypasses role checks when auth is off. The first account (or an account import) can bootstrap administration; individual password/profile checks still apply. Account export is the exception: it needs a signed-in administrator in every posture, because it carries password hashes. |
 | Established socket authorization | While login is required, credentials are rechecked before commands and broadcasts. Invalid credentials and anonymous sessions are closed with code 1008; the client rechecks login before reconnecting. |
-| API tokens are not a filesystem sandbox | Tokens deny selected file/archive/preferences paths, but other permitted project/cue operations can access disk. |
+| API tokens are not a filesystem sandbox | Tokens deny selected file/archive/preferences/picture/account-file paths, but other permitted project/cue operations can access disk. |
 | Filesystem-root checks are selective | Direct cue loading and media references embedded in project documents do not all pass through the same path guard. |
 | Item creation can report success without insertion | Missing/duplicate UUID or failed media loading is not reliably an HTTP error; `item_added` echoes submitted content. Re-read state. |
 | Out-of-range cart slot can report success | The route accepts a nonnegative slot, state rejects slots 64+, and the route still sends 200 plus `cart_slot_set`. UUID existence is not checked. |

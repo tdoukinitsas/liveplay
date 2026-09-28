@@ -88,6 +88,20 @@ inline constexpr std::size_t kMinPasswordLength = 8;
 // days from one that does not expire at all.
 inline constexpr std::string_view kApiTokenPrefix = "lpk1_";
 
+// The largest profile picture the store will keep, DECODED. An avatar lives
+// inline in users.json — so an export carries it and there is no second file
+// to lose — and that file is rewritten whole on every account change, so this
+// is a budget for the file as much as for the picture. The client sends a
+// 128×128 WebP of a few kilobytes; the cap is headroom for a browser that can
+// only encode PNG or JPEG, not an invitation to store photographs.
+inline constexpr std::size_t kMaxAvatarBytes = 128 * 1024;
+
+// What an exported account file says it is. Checked on the way back in before
+// anything else, so a project file or a stray JSON document dropped on the
+// import button is refused by name rather than half-understood.
+inline constexpr std::string_view kUserExportFormat  = "liveplay-users";
+inline constexpr int              kUserExportVersion = 1;
+
 class UserStore {
 public:
     UserStore();
@@ -101,6 +115,10 @@ public:
         UserRole      role = UserRole::Operator;
         std::uint64_t token_epoch = 1;    // bumped to revoke this user's tokens
         std::int64_t  created_at  = 0;    // unix seconds, for display only
+        // A small square picture as a data: URL (PNG, JPEG or WebP), or empty
+        // for none. Validated by validate_avatar() on every way in, so what is
+        // stored can be handed straight to an <img> without a second look.
+        std::string   avatar;
     };
 
     // What kind of thing authenticated. A token issued to Companion is a
@@ -164,6 +182,10 @@ public:
         IoError,          // the file could not be written
         NoSuchToken,
         AuthOff,          // issuing a credential through an open door
+        BadAvatar,        // not a PNG/JPEG/WebP data: URL, or not what it claims
+        AvatarTooLarge,   // decoded size over kMaxAvatarBytes
+        BadImport,        // an account file that does not validate; see detail
+        NoAdmin,          // an import whose result nobody could administer
     };
     static std::string_view describe(Result r);
 
@@ -234,6 +256,70 @@ public:
 
     Result set_role(const std::string& id, UserRole role);
     Result rename_user(const std::string& id, const std::string& name);
+
+    // Set or clear (empty string) a user's picture. Does NOT bump the epoch:
+    // a new face is not a new credential. Who may call it is the route's
+    // business — an administrator for anyone, a person for themselves.
+    Result set_avatar(const std::string& id, const std::string& avatar);
+
+    // Is this a picture the store will keep? Ok for an empty string (none).
+    // Checks the declared type, that the base64 decodes, that the decoded size
+    // is under kMaxAvatarBytes, and that the bytes really start like the type
+    // they claim — so a data URL cannot smuggle an SVG (script) or anything
+    // else an <img> elsewhere might be persuaded to treat differently.
+    static Result validate_avatar(const std::string& avatar);
+
+    // ---- Moving accounts between machines --------------------------------
+    //
+    // The export carries the Argon2id hashes, the roles, the ids, the pictures
+    // and the API tokens' hashes — everything needed for the same people and
+    // the same Companion buttons to work on another rig without anybody
+    // choosing a new password. It does NOT carry:
+    //
+    //   tokenSecret   — the key session tokens are signed with. Sessions are a
+    //                   fact about THIS machine; carrying the key would make
+    //                   every tablet signed in here signed in there too, and
+    //                   would put the one secret that can mint a session for
+    //                   any account into a file people email around.
+    //   authRequired  — whether this machine asks for a login is a posture
+    //                   decision made about this machine. The importing side
+    //                   keeps its own (on, by default, once accounts exist).
+    //
+    // The file is still sensitive — offline guessing against Argon2id is slow,
+    // not impossible — and the UI says so beside the button.
+    json export_json() const;
+
+    enum class ImportMode { Merge, Replace };
+    struct ImportReport {
+        std::vector<std::string> users_added;      // names
+        std::vector<std::string> users_skipped;    // names already here (merge)
+        std::vector<std::string> tokens_added;
+        std::vector<std::string> tokens_skipped;   // name or id already here
+        std::size_t              ids_regenerated = 0;
+        // Ids that existed before and do not after (replace). The route uses
+        // them to forget those people's preferences, as DELETE does.
+        std::vector<std::string> users_removed;
+    };
+
+    // Read an export_json() document back in. Validated COMPLETELY before
+    // anything changes — a file with one bad record changes nothing, and
+    // `detail` says which record and why.
+    //
+    //   Merge   — add every account and token whose name is not already on
+    //             this server; skip the ones that are. A colliding user id is
+    //             regenerated (ids are internal); a colliding TOKEN id is
+    //             skipped instead, because the id is spelled inside the token
+    //             string a Companion install holds, and a new one would never
+    //             match it.
+    //   Replace — the file becomes the account list: every account and token
+    //             here is removed. Refused for a file with no accounts, since
+    //             an empty store is an OPEN one and "restore a backup" must
+    //             never quietly mean "unlock the building".
+    //
+    // Either way, a result with accounts and no administrator is refused
+    // (NoAdmin) — the LastAdmin rule, applied to a whole file at once.
+    Result import_json(const json& file, ImportMode mode,
+                       ImportReport* report, std::string* detail);
 
     // Invalidate every token issued to this user without changing anything
     // else — "sign me out everywhere".

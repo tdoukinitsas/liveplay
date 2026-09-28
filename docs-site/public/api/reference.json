@@ -135,7 +135,8 @@
         "user": {
           "id": "user-id",
           "name": "Operator",
-          "role": "operator"
+          "role": "operator",
+          "avatar": null
         }
       },
       "notes": "Login is refused with 409 whenever authentication is disabled, including when accounts still exist. Five failed attempts per address cause a 30-second delay; 429 includes Retry-After in seconds.",
@@ -188,12 +189,107 @@
           "id": "user-id",
           "name": "Operator",
           "role": "operator",
-          "kind": "user"
+          "kind": "user",
+          "avatar": null
         }
       },
-      "notes": "With authentication disabled: {\"authRequired\":false,\"user\":null}. kind is user or token.",
+      "notes": "With authentication disabled: {\"authRequired\":false,\"user\":null}. kind is user or token. avatar is the account's picture as a data URL, or null (always null for an API token).",
       "errors": [],
       "sourceLine": 2311
+    },
+    {
+      "methods": [
+        "PUT"
+      ],
+      "path": "/api/auth/me/avatar",
+      "title": "Set your own picture",
+      "category": "Server and authentication",
+      "auth": "Operator",
+      "apiToken": "No",
+      "fields": [
+        [
+          "avatar",
+          "string",
+          "Yes",
+          "-",
+          "PNG, JPEG or WebP data URL; decoded at most 128 KB; bytes must match the declared type. SVG is refused."
+        ]
+      ],
+      "request": {
+        "avatar": "data:image/webp;base64,UklGR…"
+      },
+      "response": {
+        "id": "user-id",
+        "avatar": "data:image/webp;base64,UklGR…"
+      },
+      "notes": "Always acts on the signed-in caller, so any person may change their own picture without being an administrator. Needs a signed-in person: 409 while authentication is off. Does not end the caller's sessions.",
+      "errors": [
+        [
+          "400",
+          "expected a JSON object"
+        ],
+        [
+          "400",
+          "\"avatar\" must be an image data URL — DELETE removes the picture"
+        ],
+        [
+          "409",
+          "no signed-in user — sign in to change your own picture"
+        ],
+        [
+          "400",
+          "the picture must be a PNG, JPEG or WebP image"
+        ],
+        [
+          "413",
+          "the picture is too large"
+        ],
+        [
+          "404",
+          "no such user"
+        ],
+        [
+          "500",
+          "the user store could not be written"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing, type conversion or operation failure); message varies."
+        ]
+      ],
+      "sourceLine": 2424
+    },
+    {
+      "methods": [
+        "DELETE"
+      ],
+      "path": "/api/auth/me/avatar",
+      "title": "Remove your own picture",
+      "category": "Server and authentication",
+      "auth": "Operator",
+      "apiToken": "No",
+      "fields": [],
+      "request": null,
+      "response": {
+        "id": "user-id",
+        "avatar": null
+      },
+      "notes": "Same rules as PUT /api/auth/me/avatar.",
+      "errors": [
+        [
+          "409",
+          "no signed-in user — sign in to change your own picture"
+        ],
+        [
+          "404",
+          "no such user"
+        ],
+        [
+          "500",
+          "the user store could not be written"
+        ]
+      ],
+      "sourceLine": 2437
     },
     {
       "methods": [
@@ -323,10 +419,11 @@
           "id": "user-id",
           "name": "Operator",
           "role": "operator",
-          "createdAt": 1780000000
+          "createdAt": 1780000000,
+          "avatar": null
         }
       ],
-      "notes": "createdAt is Unix seconds. Password hashes and token epochs are not exposed.",
+      "notes": "createdAt is Unix seconds. Password hashes and token epochs are not exposed. avatar is a PNG, JPEG or WebP data URL, or null.",
       "errors": [],
       "sourceLine": 2527
     },
@@ -431,6 +528,13 @@
           "No",
           "Unchanged",
           "At least 8 bytes; invalidates that user's session tokens."
+        ],
+        [
+          "avatar",
+          "string|null",
+          "No",
+          "Unchanged",
+          "PNG, JPEG or WebP data URL (decoded at most 128 KB; bytes must match the declared type); null clears. Checked before any other field is applied; does not end the user's sessions."
         ]
       ],
       "request": {
@@ -439,7 +543,8 @@
       "response": {
         "id": "user-id",
         "name": "Stage operator",
-        "role": "operator"
+        "role": "operator",
+        "avatar": null
       },
       "notes": "Path: account id. Duplicate name or removing the last administrator role: 409. Validation: 400; storage: 500. Fields are applied sequentially, not transactionally.",
       "errors": [
@@ -466,6 +571,14 @@
         [
           "400",
           "Handler exception (JSON parsing, type conversion or operation failure); message varies."
+        ],
+        [
+          "413",
+          "the picture is too large"
+        ],
+        [
+          "400",
+          "the picture must be a PNG, JPEG or WebP image"
         ],
         [
           "400",
@@ -512,6 +625,137 @@
         ]
       ],
       "sourceLine": 2636
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/users/export",
+      "title": "Export accounts",
+      "category": "Users and API tokens",
+      "auth": "Administrator",
+      "apiToken": "No",
+      "fields": [],
+      "request": null,
+      "response": {
+        "format": "liveplay-users",
+        "version": 1,
+        "exportedAt": 1780000000,
+        "users": [
+          {
+            "id": "user-id",
+            "name": "Operator",
+            "role": "operator",
+            "hash": "$argon2id$v=19$m=65536,t=2,p=1$…",
+            "tokenEpoch": 1,
+            "createdAt": 1780000000,
+            "avatar": null
+          }
+        ],
+        "apiTokens": [
+          {
+            "id": "token-id",
+            "name": "Companion",
+            "hash": "base64url-blake2b",
+            "createdBy": "user-id",
+            "createdAt": 1780000000,
+            "lastUsedAt": 0
+          }
+        ]
+      },
+      "notes": "Contains password and API token hashes: store it securely. Never includes the session-signing secret (sessions do not transfer between machines) or the login on/off choice (that stays with each machine). Needs a signed-in administrator even when authentication is off (409 otherwise). Sent with Cache-Control: no-store.",
+      "errors": [
+        [
+          "409",
+          "turn the login on and sign in as an administrator to export accounts — the file contains password hashes"
+        ]
+      ],
+      "sourceLine": 2810
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/users/import",
+      "title": "Import accounts",
+      "category": "Users and API tokens",
+      "auth": "Administrator",
+      "apiToken": "No",
+      "fields": [
+        [
+          "mode",
+          "string",
+          "Yes",
+          "-",
+          "merge (add accounts and tokens whose names are new here; skip the rest) or replace (the file becomes the account and token list)."
+        ],
+        [
+          "data",
+          "object",
+          "Yes",
+          "-",
+          "A file produced by GET /api/users/export."
+        ]
+      ],
+      "request": {
+        "mode": "merge",
+        "data": {
+          "format": "liveplay-users",
+          "version": 1,
+          "users": [],
+          "apiTokens": []
+        }
+      },
+      "response": {
+        "mode": "merge",
+        "usersAdded": [
+          "Operator"
+        ],
+        "usersSkipped": [],
+        "usersRemoved": 0,
+        "tokensAdded": [],
+        "tokensSkipped": [],
+        "idsRegenerated": 0,
+        "authRequired": true,
+        "userCount": 2,
+        "sessionValid": true
+      },
+      "notes": "The whole file is validated before anything changes (format and version, Argon2id hashes, names, roles, unique ids, pictures, token hashes). Merge gives an account a new id if its id is taken here; a token whose id is taken is skipped, because the id is part of the token string. Replace refuses a file with no accounts. Either mode refuses a result with accounts and no administrator (409), and adding API tokens while the login would stay off (409). Open while authentication is off, like the other /api/users routes, so a fresh server can take accounts; the login is on as soon as they land. sessionValid says whether the caller's own session survived (a replace can remove or change their account). Removed accounts' preferences are deleted.",
+      "errors": [
+        [
+          "400",
+          "expected a JSON object"
+        ],
+        [
+          "400",
+          "mode must be 'merge' or 'replace'"
+        ],
+        [
+          "400",
+          "\"data\" is required"
+        ],
+        [
+          "400",
+          "Validation failure naming the file problem or record, e.g. account 'Operator' does not have a valid password hash."
+        ],
+        [
+          "409",
+          "the result would have no administrator — nobody could manage the accounts afterwards"
+        ],
+        [
+          "409",
+          "turn the login on before issuing an API token — while it is off, anyone on the network could issue one and keep it"
+        ],
+        [
+          "500",
+          "the user store could not be written"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing, type conversion or operation failure); message varies."
+        ]
+      ],
+      "sourceLine": 2837
     },
     {
       "methods": [

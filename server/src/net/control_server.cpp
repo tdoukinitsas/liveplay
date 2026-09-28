@@ -798,7 +798,16 @@ static AuthGuard::Access access_for(std::string_view path) {
 
     // The Server tier.
     if (path.rfind("/api/outputs", 0) == 0) return AuthGuard::Access::Admin;
+    // Moving the whole account list in or out. Already covered by the prefix
+    // below, and listed anyway: the export carries every password hash on the
+    // machine, and these two must stay admin-only even if somebody later
+    // narrows the prefix to let a person read their own row.
+    if (path == "/api/users/export")        return AuthGuard::Access::Admin;
+    if (path == "/api/users/import")        return AuthGuard::Access::Admin;
     if (path.rfind("/api/users", 0)   == 0) return AuthGuard::Access::Admin;
+    // NOT here: /api/auth/me/avatar. A person's own picture is the User tier,
+    // like their own preferences — the default below — and the route acts only
+    // on the caller, so there is no request shape that reaches somebody else's.
     if (path == "/api/clients")             return AuthGuard::Access::Admin;
     // API tokens, which are Server-tier for the same reason accounts are: they
     // decide who may talk to this machine. A token may not reach this path even
@@ -834,7 +843,8 @@ static AuthGuard::Access access_for(std::string_view path) {
 // third Access value: a token is not a lesser operator, it is a different KIND
 // of principal, and what it may not do does not sit anywhere on the tier ladder.
 //
-// Two groups, and the reasons are different:
+// Two groups, and the reasons are different (plus a third, belt-and-braces,
+// for the account file — see the list itself):
 //
 //  1. THE FILESYSTEM. A token is a string in somebody else's configuration
 //     file — in a Companion instance, a cue list, a shell script, a repository.
@@ -872,6 +882,16 @@ static bool api_token_forbidden(std::string_view path) {
     if (path == "/api/auth/logout_all")  return true;
     if (path == "/api/auth/required")    return true;
     if (path.rfind("/api/tokens", 0) == 0) return true;
+    // A face. A token has none, and changing the picture of whoever issued it
+    // is not something a Companion button should be able to do.
+    if (path == "/api/auth/me/avatar")   return true;
+
+    // 3 — the account file itself. A token is never an administrator, so the
+    // admin gate refuses these already; they are named here as well because
+    // the export is every password hash on the machine, and "a token can never
+    // fetch it" should not rest on one check.
+    if (path == "/api/users/export")     return true;
+    if (path == "/api/users/import")     return true;
 
     return false;
 }
@@ -2326,6 +2346,7 @@ void ControlServer::install_routes() {
                 if (token.empty()) return json_err(500, "could not issue a token");
                 Logger::info("Login: '{}' ({}) from {}", principal->name,
                              core::to_string(principal->role), req.remote_ip_address);
+                const auto account = users_.find_by_id(principal->id);
                 return json_ok(json{
                     {"token",     token},
                     {"expiresIn", core::kTokenTtlSeconds},
@@ -2333,6 +2354,8 @@ void ControlServer::install_routes() {
                         {"id",   principal->id},
                         {"name", principal->name},
                         {"role", core::to_string(principal->role)},
+                        {"avatar", account && !account->avatar.empty()
+                                       ? json(account->avatar) : json(nullptr)},
                     }},
                 });
             } catch (const std::exception& e) { return json_err(400, e.what()); }
@@ -2347,6 +2370,13 @@ void ControlServer::install_routes() {
             const auto& ctx = impl_->app.get_context<AuthGuard>(req);
             if (!ctx.authenticated)
                 return json_ok(json{{"authRequired", false}, {"user", nullptr}});
+            // Looked up rather than carried in the principal: the picture is not
+            // part of who somebody IS, and keeping it out of Principal keeps a
+            // copy of it out of every request that authenticates. A token has
+            // no account and so no picture — null, not absent, so the shape is
+            // the same for both kinds.
+            std::optional<core::UserStore::User> account;
+            if (!ctx.principal.is_api()) account = users_.find_by_id(ctx.principal.id);
             return json_ok(json{
                 {"authRequired", true},
                 {"user", json{
@@ -2357,8 +2387,56 @@ void ControlServer::install_routes() {
                     // pointed at this route should be told it is a token rather
                     // than left to infer it from a role it never had.
                     {"kind", ctx.principal.is_api() ? "token" : "user"},
+                    {"avatar", account && !account->avatar.empty()
+                                   ? json(account->avatar) : json(nullptr)},
                 }},
             });
+        });
+
+    // ---- The caller's own picture (User tier) ----
+    //
+    // Like /api/prefs, neither route names a user: the account changed is
+    // always the caller's, so an operator can change their own face and has no
+    // way to ask for anybody else's. An administrator changes other people's
+    // through PATCH /api/users/<id>, which is the Server tier.
+    //
+    // An API token is refused by the deny list before this runs — a machine has
+    // no face — and with authentication off there is nobody to be, so the
+    // answer is the same 409 /api/prefs gives rather than a guess about whose
+    // picture was meant. (Every /api/users route is open in that posture, which
+    // is how the pane still sets pictures there.)
+    const auto own_avatar = [this](const crow::request& req, const std::string& avatar) {
+        const auto& ctx = impl_->app.get_context<AuthGuard>(req);
+        if (!ctx.authenticated || ctx.principal.is_api())
+            return json_err(409, "no signed-in user — sign in to change your own picture");
+        using R = core::UserStore::Result;
+        const auto r = users_.set_avatar(ctx.principal.id, avatar);
+        if (r == R::NoSuchUser) return json_err(404, "no such user");
+        if (r == R::AvatarTooLarge) return json_err(413, core::UserStore::describe(r));
+        if (r == R::BadAvatar)  return json_err(400, core::UserStore::describe(r));
+        if (r != R::Ok)         return json_err(500, core::UserStore::describe(r));
+        return json_ok(json{
+            {"id",     ctx.principal.id},
+            {"avatar", avatar.empty() ? json(nullptr) : json(avatar)},
+        });
+    };
+
+    CROW_ROUTE(app, "/api/auth/me/avatar").methods(crow::HTTPMethod::Put)
+        ([own_avatar](const crow::request& req){
+            try {
+                const auto body = json::parse(req.body, nullptr, false);
+                if (body.is_discarded() || !body.is_object())
+                    return json_err(400, "expected a JSON object");
+                if (!body.contains("avatar") || !body["avatar"].is_string())
+                    return json_err(400, "\"avatar\" must be an image data URL — "
+                                         "DELETE removes the picture");
+                return own_avatar(req, body["avatar"].get<std::string>());
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    CROW_ROUTE(app, "/api/auth/me/avatar").methods(crow::HTTPMethod::Delete)
+        ([own_avatar](const crow::request& req){
+            return own_avatar(req, std::string{});
         });
 
     // "Sign me out everywhere." Bumps the caller's token epoch, which
@@ -2567,6 +2645,11 @@ void ControlServer::install_routes() {
                     {"name",      u.name},
                     {"role",      core::to_string(u.role)},
                     {"createdAt", u.created_at},
+                    // Inline, as a data URL, because it is small by
+                    // construction (kMaxAvatarBytes) and because the list is
+                    // the one place a pane needs every face at once — a second
+                    // request per row would be worse than the bytes.
+                    {"avatar",    u.avatar.empty() ? json(nullptr) : json(u.avatar)},
                 });
             }
             return json_ok(arr);
@@ -2639,6 +2722,16 @@ void ControlServer::install_routes() {
                     return json_err(code, core::UserStore::describe(r));
                 };
 
+                // The picture is checked BEFORE anything is applied. The other
+                // fields are applied one at a time, so a bad picture found last
+                // would otherwise leave a renamed account and an error saying
+                // nothing happened.
+                if (body.contains("avatar") && body["avatar"].is_string()) {
+                    const auto v = core::UserStore::validate_avatar(body["avatar"].get<std::string>());
+                    if (v == R::AvatarTooLarge) return json_err(413, core::UserStore::describe(v));
+                    if (v != R::Ok) return json_err(400, core::UserStore::describe(v));
+                }
+
                 if (body.contains("name")) {
                     if (!body["name"].is_string()) return json_err(400, "name must be a string");
                     if (const auto r = users_.rename_user(id, body["name"].get<std::string>());
@@ -2657,12 +2750,25 @@ void ControlServer::install_routes() {
                     Logger::info("Password changed for user {} — their existing "
                                  "tokens are now invalid", id);
                 }
+                // A picture: a data URL to set, null to clear. An administrator
+                // may set anyone's; a person setting their own goes through
+                // /api/auth/me/avatar instead, which needs no admin.
+                if (body.contains("avatar")) {
+                    const auto& a = body["avatar"];
+                    if (!a.is_null() && !a.is_string())
+                        return json_err(400, "avatar must be an image data URL or null");
+                    const auto r = users_.set_avatar(id, a.is_null() ? std::string{}
+                                                                      : a.get<std::string>());
+                    if (r == R::AvatarTooLarge) return json_err(413, core::UserStore::describe(r));
+                    if (r != R::Ok) return refuse(r);
+                }
                 const auto after = users_.find_by_id(id);
                 if (!after) return json_err(404, "no such user");
                 return json_ok(json{
-                    {"id",   after->id},
-                    {"name", after->name},
-                    {"role", core::to_string(after->role)},
+                    {"id",     after->id},
+                    {"name",   after->name},
+                    {"role",   core::to_string(after->role)},
+                    {"avatar", after->avatar.empty() ? json(nullptr) : json(after->avatar)},
                 });
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
@@ -2687,6 +2793,105 @@ void ControlServer::install_routes() {
             // delete what the server knows about them.
             prefs_.forget(id);
             return json_ok(json{{"ok", true}});
+        });
+
+    // ---- Moving the account list to another machine ----
+    //
+    // Both routes are admin-only three times over: access_for names them, the
+    // /api/users prefix covers them, and api_token_forbidden refuses a token
+    // before the role is even asked about.
+    //
+    // THE EXPORT needs a SIGNED-IN administrator, even in the open posture
+    // where every other /api/users route is admitted without one. It is the
+    // only route that hands out password hashes, and with the login off anyone
+    // on the network would otherwise be able to take them away and guess at
+    // them offline. The other open routes can change accounts but cannot
+    // reveal a password; this one could. So: turn the login on to export.
+    CROW_ROUTE(app, "/api/users/export").methods(crow::HTTPMethod::Get)
+        ([this](const crow::request& req){
+            const auto& ctx = impl_->app.get_context<AuthGuard>(req);
+            if (!ctx.authenticated || !ctx.principal.is_admin())
+                return json_err(409, "turn the login on and sign in as an administrator "
+                                     "to export accounts — the file contains password hashes");
+            Logger::warn("Account list exported by '{}' from {} ({} account(s))",
+                         ctx.principal.name, req.remote_ip_address, users_.user_count());
+            auto res = json_ok(users_.export_json());
+            // Hashes do not belong in a browser or proxy cache.
+            res.add_header("Cache-Control", "no-store");
+            return res;
+        });
+
+    // THE IMPORT follows the rest of /api/users: admin while the login is on,
+    // open while it is off — which is what lets a FRESH machine, with no
+    // accounts and so no administrator, take the team from another one. That
+    // is the bootstrap window POST /api/users already opens, and it closes the
+    // same way: the moment the import lands, there are accounts and the login
+    // is on.
+    //
+    //   { "mode": "merge" | "replace", "data": <the exported file> }
+    //
+    // After a replace the caller's own session may no longer be anybody's (the
+    // id is gone, or the password changed and the epoch moved). The reply says
+    // so in `sessionValid`, the client then shows the login, and every open
+    // socket that no longer verifies is closed on the next broadcast tick.
+    CROW_ROUTE(app, "/api/users/import").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                const auto body = json::parse(req.body, nullptr, false);
+                if (body.is_discarded() || !body.is_object())
+                    return json_err(400, "expected a JSON object");
+                const std::string mode_s = body.contains("mode") && body["mode"].is_string()
+                                               ? body["mode"].get<std::string>() : std::string{};
+                using M = core::UserStore::ImportMode;
+                if (mode_s != "merge" && mode_s != "replace")
+                    return json_err(400, "mode must be 'merge' or 'replace'");
+                if (!body.contains("data")) return json_err(400, "\"data\" is required");
+                const M mode = mode_s == "replace" ? M::Replace : M::Merge;
+
+                const bool was_open = !users_.auth_required();
+                core::UserStore::ImportReport rep;
+                std::string detail;
+                using R = core::UserStore::Result;
+                const auto r = users_.import_json(body["data"], mode, &rep, &detail);
+                if (r == R::BadImport) return json_err(400, detail);
+                if (r == R::NoAdmin || r == R::AuthOff)
+                    return json_err(409, core::UserStore::describe(r));
+                if (r != R::Ok) return json_err(500, core::UserStore::describe(r));
+
+                // Removed accounts take their preferences with them, as DELETE does.
+                for (const auto& id : rep.users_removed) prefs_.forget(id);
+
+                const auto& ctx = impl_->app.get_context<AuthGuard>(req);
+                if (was_open && users_.auth_required()) {
+                    Logger::warn("Accounts imported into an open server — it now requires "
+                                 "authentication. Anonymous clients will be refused.");
+                }
+                // Is the credential that made this request still one? Asked of
+                // the store directly rather than inferred, because the answer
+                // depends on ids, epochs and hashes the client cannot see.
+                bool session_valid = true;
+                if (ctx.authenticated) {
+                    const std::string auth = req.get_header_value("Authorization");
+                    session_valid = auth.rfind("Bearer ", 0) == 0 &&
+                                    users_.verify_token(auth.substr(7)).has_value();
+                }
+                Logger::warn("Accounts {} by '{}' from {}",
+                             mode == M::Replace ? "REPLACED" : "merged",
+                             ctx.authenticated ? ctx.principal.name : std::string{"(open server)"},
+                             req.remote_ip_address);
+                return json_ok(json{
+                    {"mode",           mode_s},
+                    {"usersAdded",     rep.users_added},
+                    {"usersSkipped",   rep.users_skipped},
+                    {"usersRemoved",   rep.users_removed.size()},
+                    {"tokensAdded",    rep.tokens_added},
+                    {"tokensSkipped",  rep.tokens_skipped},
+                    {"idsRegenerated", rep.ids_regenerated},
+                    {"authRequired",   users_.auth_required()},
+                    {"userCount",      users_.user_count()},
+                    {"sessionValid",   session_valid},
+                });
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
     // ---- API tokens (Server tier — administrators only) ----

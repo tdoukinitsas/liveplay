@@ -7,6 +7,7 @@
 #include <sodium.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstring>
 #include <fstream>
@@ -75,6 +76,18 @@ bool b64_decode(const std::string& text, std::vector<unsigned char>& out) {
     }
     out.resize(written);
     return true;
+}
+
+// The one place a session-signing key is made. Shared by the first add_user
+// and by an import into an empty store, which are the two ways a store can
+// acquire its first account — and a store with accounts and no key cannot
+// verify anything it issues (from_json refuses to load one).
+std::string new_token_secret() {
+    unsigned char key_buf[crypto_auth_KEYBYTES];
+    randombytes_buf(key_buf, sizeof(key_buf));
+    std::string out = b64_encode(key_buf, sizeof(key_buf));
+    sodium_memzero(key_buf, sizeof(key_buf));
+    return out;
 }
 
 // How stale a token's "last used" stamp is allowed to get on disk. The value
@@ -146,6 +159,11 @@ std::string_view UserStore::describe(Result r) {
         case Result::AuthOff:      return "turn the login on before issuing an API token — "
                                           "while it is off, anyone on the network could issue "
                                           "one and keep it";
+        case Result::BadAvatar:    return "the picture must be a PNG, JPEG or WebP image";
+        case Result::AvatarTooLarge: return "the picture is too large";
+        case Result::BadImport:    return "that is not a LivePlay account file this server can read";
+        case Result::NoAdmin:      return "the result would have no administrator — nobody could "
+                                          "manage the accounts afterwards";
     }
     return "the request was refused";
 }
@@ -400,12 +418,7 @@ UserStore::Result UserStore::add_user(const std::string& name_in,
     rec.hash             = hash;
     sodium_memzero(hash, sizeof(hash));
 
-    if (token_secret_.empty()) {
-        unsigned char key_buf[crypto_auth_KEYBYTES];
-        randombytes_buf(key_buf, sizeof(key_buf));
-        token_secret_ = b64_encode(key_buf, sizeof(key_buf));
-        sodium_memzero(key_buf, sizeof(key_buf));
-    }
+    if (token_secret_.empty()) token_secret_ = new_token_secret();
 
     users_.push_back(rec);
     if (!save_locked()) {
@@ -481,6 +494,63 @@ UserStore::Result UserStore::rename_user(const std::string& id,
     const std::string previous = r->user.name;
     r->user.name = name;
     if (!save_locked()) { r->user.name = previous; return Result::IoError; }
+    return Result::Ok;
+}
+
+UserStore::Result UserStore::validate_avatar(const std::string& avatar) {
+    if (avatar.empty()) return Result::Ok;   // "no picture" is always valid
+
+    // An allow-list of three raster types, spelled exactly as a canvas writes
+    // them. Not SVG, ever: an SVG is a document that can carry script, and this
+    // string is rendered on every surface that lists accounts.
+    static constexpr std::string_view kPrefixes[] = {
+        "data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,",
+    };
+    std::string_view kind;
+    for (const auto p : kPrefixes)
+        if (avatar.rfind(p, 0) == 0) { kind = p; break; }
+    if (kind.empty()) return Result::BadAvatar;
+
+    // Refuse on the ENCODED length before decoding anything, so an oversized
+    // upload costs a comparison rather than an allocation of its own size.
+    const std::string_view b64 = std::string_view{avatar}.substr(kind.size());
+    if (b64.size() > (kMaxAvatarBytes + 2) / 3 * 4) return Result::AvatarTooLarge;
+    if (b64.empty()) return Result::BadAvatar;
+
+    std::vector<unsigned char> raw(b64.size());
+    std::size_t written = 0;
+    if (sodium_base642bin(raw.data(), raw.size(), b64.data(), b64.size(),
+                          nullptr, &written, nullptr,
+                          sodium_base64_VARIANT_ORIGINAL) != 0) {
+        return Result::BadAvatar;
+    }
+    raw.resize(written);
+    if (raw.size() > kMaxAvatarBytes) return Result::AvatarTooLarge;
+
+    // The bytes have to be what the label says. Cheap, and it is what stops a
+    // data URL that claims to be a PNG from being anything else at all.
+    const auto starts = [&](std::initializer_list<unsigned char> sig, std::size_t at = 0) {
+        if (raw.size() < at + sig.size()) return false;
+        return std::equal(sig.begin(), sig.end(), raw.begin() + static_cast<std::ptrdiff_t>(at));
+    };
+    bool magic = false;
+    if (kind == kPrefixes[0]) magic = starts({0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A});
+    if (kind == kPrefixes[1]) magic = starts({0xFF, 0xD8, 0xFF});
+    if (kind == kPrefixes[2]) magic = starts({'R', 'I', 'F', 'F'}) && starts({'W', 'E', 'B', 'P'}, 8);
+    return magic ? Result::Ok : Result::BadAvatar;
+}
+
+UserStore::Result UserStore::set_avatar(const std::string& id, const std::string& avatar) {
+    if (const auto v = validate_avatar(avatar); v != Result::Ok) return v;
+
+    std::lock_guard lock{mutex_};
+    Record* r = find_locked(id);
+    if (!r) return Result::NoSuchUser;
+    if (r->user.avatar == avatar) return Result::Ok;
+
+    std::string previous = std::move(r->user.avatar);
+    r->user.avatar = avatar;
+    if (!save_locked()) { r->user.avatar = std::move(previous); return Result::IoError; }
     return Result::Ok;
 }
 
@@ -789,6 +859,334 @@ void UserStore::note_api_token_use(const std::string& id) {
     save_locked();
 }
 
+// ---------------------------------------------------------------------------
+// Export / import — moving the team to another rig
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// Ids are ours (random hex), but an import is somebody else's file. Anything
+// outside plain alphanumerics is refused rather than escaped: a user id travels
+// inside every session token and a token id is spelled between the two
+// underscores of an API token, so an '_' there would split it in the wrong place.
+bool import_id_is_valid(const std::string& id) {
+    if (id.empty() || id.size() > 64) return false;
+    return std::all_of(id.begin(), id.end(),
+                       [](unsigned char c) { return std::isalnum(c) != 0; });
+}
+
+// libsodium's own reader is the judge of an Argon2id string, not a regex:
+// needs_rehash parses every parameter and answers -1 for anything it cannot.
+// The prefix check keeps out Argon2i (which it would also accept) — this store
+// has only ever written Argon2id, so an Argon2i hash is a sign of a file that
+// did not come from here.
+bool hash_is_argon2id(const std::string& h) {
+    if (h.size() >= crypto_pwhash_STRBYTES) return false;
+    if (h.rfind("$argon2id$", 0) != 0) return false;
+    for (const unsigned char c : h)
+        if (c < 0x21 || c > 0x7E) return false;
+    return crypto_pwhash_str_needs_rehash(h.c_str(),
+                                          crypto_pwhash_OPSLIMIT_INTERACTIVE,
+                                          crypto_pwhash_MEMLIMIT_INTERACTIVE) != -1;
+}
+
+// Type-checked reads. nlohmann's value() throws on a type mismatch, and an
+// import must say WHICH record was wrong rather than surface a library message.
+bool read_string(const json& o, const char* key, std::string& out) {
+    const auto it = o.find(key);
+    if (it == o.end() || !it->is_string()) return false;
+    out = it->get<std::string>();
+    return true;
+}
+// Absent is fine (the default stands); present and not a whole number >= min
+// is not.
+bool read_int(const json& o, const char* key, std::int64_t min, std::int64_t& out) {
+    const auto it = o.find(key);
+    if (it == o.end() || it->is_null()) return true;
+    if (!it->is_number_integer()) return false;
+    const auto v = it->get<std::int64_t>();
+    if (v < min) return false;
+    out = v;
+    return true;
+}
+
+} // namespace
+
+json UserStore::export_json() const {
+    std::lock_guard lock{mutex_};
+    json users = json::array();
+    for (const auto& r : users_) {
+        users.push_back(json{
+            {"id",         r.user.id},
+            {"name",       r.user.name},
+            {"role",       to_string(r.user.role)},
+            {"hash",       r.hash},
+            {"tokenEpoch", r.user.token_epoch},
+            {"createdAt",  r.user.created_at},
+            {"avatar",     r.user.avatar.empty() ? json(nullptr) : json(r.user.avatar)},
+        });
+    }
+    json tokens = json::array();
+    for (const auto& t : tokens_) {
+        tokens.push_back(json{
+            {"id",         t.token.id},
+            {"name",       t.token.name},
+            {"hash",       t.hash},
+            {"createdBy",  t.token.created_by},
+            {"createdAt",  t.token.created_at},
+            {"lastUsedAt", t.token.last_used_at},
+        });
+    }
+    // No tokenSecret and no authRequired — see the header for why each one
+    // belongs to this machine rather than to the people on it.
+    return json{
+        {"format",     std::string{kUserExportFormat}},
+        {"version",    kUserExportVersion},
+        {"exportedAt", now_unix()},
+        {"users",      std::move(users)},
+        {"apiTokens",  std::move(tokens)},
+    };
+}
+
+UserStore::Result UserStore::import_json(const json& file, ImportMode mode,
+                                         ImportReport* report, std::string* detail) {
+    const auto fail = [&](std::string why) {
+        if (detail) *detail = std::move(why);
+        return Result::BadImport;
+    };
+    if (!ensure_sodium()) return Result::HashFailed;
+    if (!file.is_object()) return fail("the file is not a JSON object");
+
+    std::string format;
+    if (!read_string(file, "format", format) || format != kUserExportFormat)
+        return fail("this is not a LivePlay account file");
+    const auto ver = file.find("version");
+    if (ver == file.end() || !ver->is_number_integer() ||
+        ver->get<std::int64_t>() != kUserExportVersion)
+        return fail("this account file was made by a version of LivePlay this server cannot read");
+
+    // ---- Validate every record before touching anything ----------------
+    const auto users_it = file.find("users");
+    if (users_it == file.end() || !users_it->is_array())
+        return fail("the file has no account list");
+
+    std::vector<Record> in_users;
+    std::vector<std::string> seen_ids, seen_names;
+    const auto seen = [](const std::vector<std::string>& v, const std::string& k) {
+        return std::find(v.begin(), v.end(), k) != v.end();
+    };
+    std::size_t index = 0;
+    for (const auto& e : *users_it) {
+        ++index;
+        std::string where = "account " + std::to_string(index);
+        if (!e.is_object()) return fail(where + " is not an object");
+        Record r;
+        if (!read_string(e, "id", r.user.id) || !import_id_is_valid(r.user.id))
+            return fail(where + " has no valid id");
+        std::string name;
+        if (!read_string(e, "name", name)) return fail(where + " has no name");
+        r.user.name = trim(name);
+        if (!name_is_valid(r.user.name))
+            return fail(where + ": the name is empty, too long or unprintable");
+        where = "account '" + r.user.name + "'";
+
+        std::string role_s;
+        const auto role = read_string(e, "role", role_s) ? role_from_string(role_s)
+                                                          : std::nullopt;
+        if (!role) return fail(where + " has no valid role");
+        r.user.role = *role;
+
+        if (!read_string(e, "hash", r.hash) || !hash_is_argon2id(r.hash))
+            return fail(where + " does not have a valid password hash");
+
+        std::int64_t epoch = 1, created = 0;
+        if (!read_int(e, "tokenEpoch", 1, epoch)) return fail(where + " has a bad tokenEpoch");
+        if (!read_int(e, "createdAt",  0, created)) return fail(where + " has a bad createdAt");
+        r.user.token_epoch = static_cast<std::uint64_t>(epoch);
+        r.user.created_at  = created;
+
+        // Unlike load(), a bad picture here IS a refusal: this is a file somebody
+        // chose to import, it is better to say it is damaged than to take most
+        // of it and quietly drop a face.
+        if (const auto a = e.find("avatar"); a != e.end() && !a->is_null()) {
+            if (!a->is_string()) return fail(where + " has a picture that is not an image");
+            r.user.avatar = a->get<std::string>();
+            if (validate_avatar(r.user.avatar) != Result::Ok)
+                return fail(where + " has a picture that is not a small PNG, JPEG or WebP image");
+        }
+
+        if (seen(seen_ids, r.user.id)) return fail(where + " repeats an id already in the file");
+        const std::string key = lower_ascii(r.user.name);
+        if (seen(seen_names, key)) return fail(where + " appears in the file twice");
+        seen_ids.push_back(r.user.id);
+        seen_names.push_back(key);
+        in_users.push_back(std::move(r));
+    }
+
+    std::vector<TokenRecord> in_tokens;
+    seen_ids.clear();
+    seen_names.clear();
+    if (const auto tokens_it = file.find("apiTokens");
+        tokens_it != file.end() && !tokens_it->is_null()) {
+        if (!tokens_it->is_array()) return fail("the API token list is not a list");
+        index = 0;
+        for (const auto& e : *tokens_it) {
+            ++index;
+            std::string where = "API token " + std::to_string(index);
+            if (!e.is_object()) return fail(where + " is not an object");
+            TokenRecord t;
+            if (!read_string(e, "id", t.token.id) || !import_id_is_valid(t.token.id))
+                return fail(where + " has no valid id");
+            std::string name;
+            if (!read_string(e, "name", name)) return fail(where + " has no name");
+            t.token.name = trim(name);
+            if (!name_is_valid(t.token.name))
+                return fail(where + ": the name is empty, too long or unprintable");
+            where = "API token '" + t.token.name + "'";
+
+            // A base64 BLAKE2b digest, which is all this store ever keeps of a
+            // token. Anything else is a record no presented token could match.
+            std::vector<unsigned char> digest;
+            if (!read_string(e, "hash", t.hash) || !b64_decode(t.hash, digest) ||
+                digest.size() != crypto_generichash_BYTES)
+                return fail(where + " does not have a valid hash");
+
+            const auto by = e.find("createdBy");
+            if (by != e.end() && !by->is_null()) {
+                if (!by->is_string()) return fail(where + " has a bad createdBy");
+                t.token.created_by = by->get<std::string>();
+            }
+            std::int64_t created = 0, used = 0;
+            if (!read_int(e, "createdAt",  0, created)) return fail(where + " has a bad createdAt");
+            if (!read_int(e, "lastUsedAt", 0, used))    return fail(where + " has a bad lastUsedAt");
+            t.token.created_at   = created;
+            t.token.last_used_at = used;
+            t.saved_use          = used;
+
+            if (seen(seen_ids, t.token.id)) return fail(where + " repeats an id already in the file");
+            const std::string key = lower_ascii(t.token.name);
+            if (seen(seen_names, key)) return fail(where + " appears in the file twice");
+            seen_ids.push_back(t.token.id);
+            seen_names.push_back(key);
+            in_tokens.push_back(std::move(t));
+        }
+    }
+
+    // ---- Work out the result, still without touching anything ----------
+    std::lock_guard lock{mutex_};
+    ImportReport rep;
+    std::vector<Record>      users_next;
+    std::vector<TokenRecord> tokens_next;
+
+    if (mode == ImportMode::Replace) {
+        // An empty file would leave an empty store, and an empty store is an
+        // OPEN one. Restoring a backup must never quietly unlock the building;
+        // turning the login off is its own act, with its own password prompt.
+        if (in_users.empty())
+            return fail("the file has no accounts — replacing with it would switch the login off");
+
+        for (auto& r : in_users) {
+            // Same person, same machine (restoring a backup here): carry the
+            // epoch FORWARD, never back, or a session revoked since the backup
+            // was taken would come back to life. And if the password is not the
+            // one they have now, bump it — the set_password rule, for the same
+            // reason: a different password means the sessions opened with the
+            // current one should end.
+            if (const Record* cur = find_locked(r.user.id)) {
+                r.user.token_epoch = std::max(cur->user.token_epoch, r.user.token_epoch) +
+                                     (cur->hash != r.hash ? 1 : 0);
+            }
+            rep.users_added.push_back(r.user.name);
+        }
+        for (const auto& cur : users_)
+            if (std::none_of(in_users.begin(), in_users.end(),
+                             [&](const Record& r) { return r.user.id == cur.user.id; }))
+                rep.users_removed.push_back(cur.user.id);
+        for (const auto& t : in_tokens) rep.tokens_added.push_back(t.token.name);
+        users_next  = std::move(in_users);
+        tokens_next = std::move(in_tokens);
+    } else {
+        users_next  = users_;
+        tokens_next = tokens_;
+        const auto name_taken = [&](const std::string& n) {
+            const std::string key = lower_ascii(n);
+            return std::any_of(users_next.begin(), users_next.end(),
+                               [&](const Record& x) { return lower_ascii(x.user.name) == key; });
+        };
+        const auto id_taken = [&](const std::string& id) {
+            return std::any_of(users_next.begin(), users_next.end(),
+                               [&](const Record& x) { return x.user.id == id; });
+        };
+        // old id → new id, for the few users whose id collided here. Tokens'
+        // createdBy points at a user id, so it follows the rename.
+        std::vector<std::pair<std::string, std::string>> renamed;
+        for (auto& r : in_users) {
+            if (name_taken(r.user.name)) { rep.users_skipped.push_back(r.user.name); continue; }
+            if (id_taken(r.user.id)) {
+                std::string fresh;
+                do { fresh = random_hex(16); } while (id_taken(fresh));
+                renamed.emplace_back(r.user.id, fresh);
+                r.user.id = fresh;
+                ++rep.ids_regenerated;
+            }
+            rep.users_added.push_back(r.user.name);
+            users_next.push_back(std::move(r));
+        }
+        for (auto& t : in_tokens) {
+            const std::string key = lower_ascii(t.token.name);
+            const bool clash = std::any_of(tokens_next.begin(), tokens_next.end(),
+                [&](const TokenRecord& x) {
+                    return x.token.id == t.token.id || lower_ascii(x.token.name) == key;
+                });
+            // Skipped, NOT given a new id: the id is spelled inside the token
+            // string the Companion install holds, so a renumbered record would
+            // be a token nothing can ever present.
+            if (clash) { rep.tokens_skipped.push_back(t.token.name); continue; }
+            for (const auto& [from, to] : renamed)
+                if (t.token.created_by == from) t.token.created_by = to;
+            rep.tokens_added.push_back(t.token.name);
+            tokens_next.push_back(std::move(t));
+        }
+    }
+
+    // The LastAdmin rule, for a whole file at once.
+    if (!users_next.empty() &&
+        std::none_of(users_next.begin(), users_next.end(),
+                     [](const Record& r) { return r.user.role == UserRole::Admin; }))
+        return Result::NoAdmin;
+
+    // The AuthOff rule, for the same reason create_api_token has it: a token
+    // added while the door is open survives the door being shut. An import
+    // that ENDS with the login on — the ordinary case, including a fresh
+    // machine taking its first accounts — is not that.
+    const bool auth_after = !users_next.empty() && auth_required_override_.value_or(true);
+    if (!auth_after && !rep.tokens_added.empty()) return Result::AuthOff;
+
+    // ---- Commit, or put everything back ------------------------------------
+    std::vector<Record>      users_prev  = std::move(users_);
+    std::vector<TokenRecord> tokens_prev = std::move(tokens_);
+    const std::string        secret_prev = token_secret_;
+    users_  = std::move(users_next);
+    tokens_ = std::move(tokens_next);
+    // The first accounts on this machine need a signing key of their own —
+    // the exporting machine's was deliberately left behind.
+    if (!users_.empty() && token_secret_.empty()) token_secret_ = new_token_secret();
+    if (!save_locked()) {
+        users_        = std::move(users_prev);
+        tokens_       = std::move(tokens_prev);
+        token_secret_ = secret_prev;
+        return Result::IoError;
+    }
+
+    Logger::warn("UserStore: {} import — {} account(s) added, {} skipped, {} removed; "
+                 "{} API token(s) added, {} skipped",
+                 mode == ImportMode::Replace ? "replacing" : "merging",
+                 rep.users_added.size(), rep.users_skipped.size(), rep.users_removed.size(),
+                 rep.tokens_added.size(), rep.tokens_skipped.size());
+    if (report) *report = std::move(rep);
+    return Result::Ok;
+}
+
 json UserStore::to_json() const {
     std::lock_guard lock{mutex_};
     return to_json_locked();
@@ -797,14 +1195,19 @@ json UserStore::to_json() const {
 json UserStore::to_json_locked() const {
     json arr = json::array();
     for (const auto& r : users_) {
-        arr.push_back(json{
+        json u{
             {"id",         r.user.id},
             {"name",       r.user.name},
             {"role",       to_string(r.user.role)},
             {"hash",       r.hash},
             {"tokenEpoch", r.user.token_epoch},
             {"createdAt",  r.user.created_at},
-        });
+        };
+        // Sparse, like authRequired below: a store nobody has given a picture
+        // round-trips byte-identically, and a build that predates the key
+        // simply ignores it.
+        if (!r.user.avatar.empty()) u["avatar"] = r.user.avatar;
+        arr.push_back(std::move(u));
     }
     json out{
         {"schema_version", kUserStoreSchemaVersion},
@@ -862,6 +1265,16 @@ bool UserStore::from_json(const json& j) {
         r.user.role        = *role;
         r.user.token_epoch = e.value("tokenEpoch", std::uint64_t{1});
         r.user.created_at  = e.value("createdAt",  std::int64_t{0});
+        // A picture that does not validate is DROPPED rather than failing the
+        // load. Everything else in this record decides who gets in, which is
+        // why a malformed field there refuses the whole file; a bad avatar
+        // decides nothing, and refusing to serve over one would turn a
+        // cosmetic fault into a locked-out rig.
+        if (const auto a = e.find("avatar"); a != e.end() && a->is_string()) {
+            std::string avatar = a->get<std::string>();
+            if (validate_avatar(avatar) == Result::Ok) r.user.avatar = std::move(avatar);
+            else Logger::warn("UserStore: ignoring an unreadable picture for '{}'", r.user.name);
+        }
         parsed.push_back(std::move(r));
     }
 

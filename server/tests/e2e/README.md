@@ -64,7 +64,8 @@ Each accepts an optional server executable path. Their default points at the Win
 | `fs-jail-e2e.js` | Configured filesystem roots |
 | `boot-config-e2e.js` | Launch configuration |
 | `client-session-e2e.js` | Connection tracking and handshake behavior |
-| `auth-e2e.js` | Accounts, roles, tokens and restart; temporarily owns users file |
+| `auth-e2e.js` | Accounts, roles, tokens and restart; temporarily owns users file (`LIVEPLAY_E2E_PORT` overrides port 4573) |
+| `users-e2e.js` | Profile pictures and account export/import; runs two servers (`LIVEPLAY_E2E_PORT`, default 4491, and the next port) from a temporary copy of the binary, so it never touches the real users file |
 | `user-prefs-e2e.js` | Profiles and restart; temporarily owns users and prefs |
 | `server-config-e2e.js` | Stored/effective configuration and lock; temporarily owns configuration |
 
