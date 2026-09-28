@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, protocol, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -212,6 +212,191 @@ function writeRecentProjects(list) {
   } catch (e) {
     console.warn('[liveplay-projects] could not persist recent projects:', e);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Window bounds (P4, Electron half)
+// ---------------------------------------------------------------------------
+// Where each window was and how big, remembered in <userData> so it follows the
+// machine rather than the project — the same tier and the same file shape as the
+// recent-projects list above, and as the client-side pane layout in
+// useWorkspaceLayout. All four windows were hardcoded before this: the main one
+// opened 1400x900 in the middle of the primary display every launch, however the
+// operator had arranged their desk the day before.
+//
+// THE TRAP HERE IS `useContentSize`. The main and mixer windows are created with
+// it (it rides in MIN_WINDOW), so their constructor `width`/`height` mean the
+// CONTENT box, while getBounds() reports the OUTER frame — about 15x64 larger on
+// Windows. Save the outer size and feed it back as a content size and the window
+// grows by one frame on every single launch. So each tracked window declares
+// which it is, and its size is read from the matching getter.
+//
+// WHAT IS NOT RESTORED: which windows were open. Only their geometry. Recreating
+// the detached mixer or cart at boot would need the renderer to learn about a
+// window it did not ask for, and it would put a window on screen because of a
+// choice made days ago — see the note in useWorkspaceLayout about why the
+// detached flags are not persisted either.
+const LIVEPLAY_WINDOW_BOUNDS_FILENAME = 'liveplay-window-bounds.json';
+// A resize or move is a stream of events while the mouse is down; only the last
+// one matters. Also flushed on close, where a pending timer would be lost.
+const WINDOW_BOUNDS_DEBOUNCE_MS = 500;
+
+function liveplayWindowBoundsPath() {
+  return path.join(app.getPath('userData'), LIVEPLAY_WINDOW_BOUNDS_FILENAME);
+}
+
+function readWindowBoundsStore() {
+  try {
+    const raw = fs.readFileSync(liveplayWindowBoundsPath(), 'utf-8');
+    const obj = JSON.parse(raw);
+    return obj && typeof obj === 'object' && !Array.isArray(obj) ? obj : {};
+  } catch {
+    // No file yet, or unreadable. Every caller falls back to its own defaults.
+    return {};
+  }
+}
+
+function writeWindowBoundsStore(store) {
+  try {
+    fs.writeFileSync(liveplayWindowBoundsPath(), JSON.stringify(store, null, 2));
+  } catch (e) {
+    console.warn('[liveplay-window] could not persist window bounds:', e);
+  }
+}
+
+const isPositiveInt = (v) => Number.isInteger(v) && v > 0;
+
+/**
+ * The saved geometry for `key`, merged over `defaults`, or `defaults` alone when
+ * nothing usable is stored.
+ *
+ * Two things are checked rather than trusted, because both produce a window the
+ * operator cannot get at:
+ *   * the size must fit the display it will land on — a window saved on a 4K
+ *     panel is taller than a laptop's work area, and a title bar dragged above
+ *     the top of the screen cannot be grabbed back;
+ *   * the position must still be ON a display. Unplug the second monitor and
+ *     yesterday's x of 2800 is off the edge of the world. Dropping x/y lets
+ *     Electron centre it, which is the same thing that happened before any of
+ *     this existed.
+ */
+function savedWindowBounds(key, defaults) {
+  const saved = readWindowBoundsStore()[key];
+  if (!saved || typeof saved !== 'object') return { ...defaults };
+  if (!isPositiveInt(saved.width) || !isPositiveInt(saved.height)) return { ...defaults };
+
+  const out = { ...defaults, width: saved.width, height: saved.height };
+
+  const hasPos = Number.isInteger(saved.x) && Number.isInteger(saved.y);
+  // `getDisplayMatching` answers with the display that overlaps a rect most, and
+  // falls back to the nearest one — so compare its work area against the rect to
+  // find out whether there was any overlap at all.
+  const area = hasPos
+    ? screen.getDisplayMatching({ x: saved.x, y: saved.y, width: saved.width, height: saved.height }).workArea
+    : screen.getPrimaryDisplay().workArea;
+
+  // Never larger than the work area it is going onto. A content-sized window is
+  // compared slightly generously (the frame is outside the number being stored),
+  // which is fine: this is a sanity bound, not a layout.
+  out.width  = Math.min(out.width,  area.width);
+  out.height = Math.min(out.height, area.height);
+
+  if (hasPos) {
+    const onScreen =
+      saved.x < area.x + area.width  && saved.x + saved.width  > area.x &&
+      saved.y < area.y + area.height && saved.y + saved.height > area.y;
+    if (onScreen) {
+      out.x = saved.x;
+      out.y = saved.y;
+    }
+  }
+  if (saved.maximized === true) out.maximized = true;
+  return out;
+}
+
+/**
+ * What to store for a window, given what it currently reports and what was
+ * stored for it last time. Pure, and separate from the window so it can be
+ * tested — the maximized case below is subtle enough to be worth it.
+ *
+ * `prev` is the existing entry (or undefined), and `w` supplies the readings:
+ *   { maximized, normalBounds, bounds, contentBounds, contentSize }
+ */
+function windowBoundsEntry(prev, w) {
+  // While maximized, getBounds() is the maximized rectangle. Restoring THAT as a
+  // normal size would give a window that fills the screen without being
+  // maximized, so un-maximizing it would appear to do nothing.
+  //
+  // And the size is deliberately NOT taken from getNormalBounds() either, even
+  // though that is the right rectangle: it is an OUTER rectangle, and a window
+  // created with `useContentSize` would read it back as a content size and grow
+  // by one window frame on every launch. There is no getNormalContentBounds().
+  //
+  // So maximizing records no new size at all — which is correct rather than a
+  // workaround, because maximizing does not CHANGE the size the window would
+  // return to. The previous entry's size is still the right answer; when there
+  // is none (maximized before ever being resized) the size is simply omitted and
+  // the caller's defaults apply underneath the maximize.
+  if (w.maximized) {
+    const out = { x: w.normalBounds.x, y: w.normalBounds.y, maximized: true };
+    if (prev && Number.isInteger(prev.width) && Number.isInteger(prev.height)) {
+      out.width = prev.width;
+      out.height = prev.height;
+    }
+    return out;
+  }
+
+  const size = w.contentSize ? w.contentBounds : w.bounds;
+  return {
+    x: w.bounds.x, y: w.bounds.y,
+    width: size.width, height: size.height,
+    maximized: false,
+  };
+}
+
+/**
+ * Record this window's geometry as it changes.
+ *
+ * `contentSize` must match how the window was CREATED (see the note above): true
+ * for a window built with `useContentSize`, so the number saved is the number the
+ * constructor will read back, or the window gains a frame per launch.
+ */
+function trackWindowBounds(key, win, { contentSize = false } = {}) {
+  let timer = null;
+
+  const save = () => {
+    timer = null;
+    if (!win || win.isDestroyed()) return;
+    // Minimized bounds are not the layout, and on some platforms not even
+    // meaningful. Whatever was recorded a moment ago is still right.
+    if (win.isMinimized()) return;
+
+    const store = readWindowBoundsStore();
+    store[key] = windowBoundsEntry(store[key], {
+      maximized:     win.isMaximized(),
+      normalBounds:  win.getNormalBounds(),
+      bounds:        win.getBounds(),
+      contentBounds: win.getContentBounds(),
+      contentSize,
+    });
+    writeWindowBoundsStore(store);
+  };
+
+  const schedule = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(save, WINDOW_BOUNDS_DEBOUNCE_MS);
+  };
+
+  win.on('resize', schedule);
+  win.on('move', schedule);
+  win.on('maximize', schedule);
+  win.on('unmaximize', schedule);
+  // Synchronously on the way out: 'closed' is too late to ask a window where it
+  // was, and a debounce still pending here would be dropped with the window.
+  win.on('close', () => {
+    if (timer) { clearTimeout(timer); timer = null; }
+    save();
+  });
 }
 
 function addRecentProject(entry) {
@@ -1534,9 +1719,13 @@ function compareVersions(v1, v2) {
 }
 
 function createWindow() {
+  // `useContentSize: true` rides in MIN_WINDOW, so these are CONTENT dimensions
+  // and the saved size has to be a content size too — see trackWindowBounds.
+  // A stored size below MIN_WINDOW needs no guarding here: Electron clamps a
+  // requested size up to minWidth/minHeight itself.
+  const { maximized, ...geom } = savedWindowBounds('main', { width: 1400, height: 900 });
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    ...geom,
     // The floor the layouts are designed against. The mixer's channel view in
     // particular assumes it can put a channel column, an EQ and a dynamics
     // section side by side; below this it degrades to stacked, scrolling
@@ -1551,6 +1740,8 @@ function createWindow() {
     },
     show: false
   });
+  if (maximized) mainWindow.maximize();
+  trackWindowBounds('main', mainWindow, { contentSize: true });
 
   // Use the global isDevMode flag
   if (isDevMode) {
@@ -1614,9 +1805,11 @@ function createCartPlayerWindow() {
     return;
   }
 
+  // No `useContentSize` on this one, so its numbers are OUTER bounds and it is
+  // tracked that way. Mixing the two up is what makes a window creep.
+  const { maximized, ...geom } = savedWindowBounds('cart', { width: 900, height: 700 });
   cartPlayerWindow = new BrowserWindow({
-    width: 900,
-    height: 700,
+    ...geom,
     minWidth: 380,
     minHeight: 400,
     title: 'LivePlay - Cart Player',
@@ -1628,6 +1821,8 @@ function createCartPlayerWindow() {
       webSecurity: false
     }
   });
+  if (maximized) cartPlayerWindow.maximize();
+  trackWindowBounds('cart', cartPlayerWindow);
 
   if (isDevMode) {
     cartPlayerWindow.loadURL('http://localhost:3000/?cartWindow=1');
@@ -1668,9 +1863,10 @@ function createMixerWindow() {
     return;
   }
 
+  // MIN_WINDOW again, so content dimensions again.
+  const { maximized, ...geom } = savedWindowBounds('mixer', { width: 1440, height: 860 });
   mixerWindow = new BrowserWindow({
-    width: 1440,
-    height: 860,
+    ...geom,
     ...MIN_WINDOW,
     title: 'LivePlay - Mixer',
     icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
@@ -1681,6 +1877,8 @@ function createMixerWindow() {
       webSecurity: false
     }
   });
+  if (maximized) mixerWindow.maximize();
+  trackWindowBounds('mixer', mixerWindow, { contentSize: true });
 
   if (isDevMode) {
     mixerWindow.loadURL('http://localhost:3000/?mixerWindow=1');
@@ -1714,9 +1912,13 @@ function createStateViewerWindow() {
     return;
   }
 
+  // Tracked like the rest, even though it is a dev-only debug window: somebody
+  // watching state while reproducing a bug drags it out of the way of the thing
+  // they are watching, and having to do that again on every open is the same
+  // annoyance as the main window's, just to a smaller audience. Outer bounds.
+  const { maximized, ...geom } = savedWindowBounds('stateViewer', { width: 1200, height: 800 });
   stateViewerWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    ...geom,
     title: 'LivePlay - Current State Viewer',
     icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
     webPreferences: {
@@ -1725,6 +1927,8 @@ function createStateViewerWindow() {
       preload: path.join(__dirname, 'preload-state-viewer.js')
     }
   });
+  if (maximized) stateViewerWindow.maximize();
+  trackWindowBounds('stateViewer', stateViewerWindow);
 
   // Create a simple HTML page for the state viewer
   const stateViewerHTML = `
@@ -2049,11 +2253,48 @@ const menuTranslations = Object.entries(localeFiles).reduce((acc, [code, data]) 
     changeAccentColor: data.menu.changeAccentColor,
     fullscreen: data.menu.fullscreen,
     language: data.menu.language,
+    window: data.menu.window || 'Window',
+    // The two detachable panels name themselves, rather than getting `menu.*`
+    // copies — same reasoning as the Settings menu borrowing the page's strings.
+    mixerTitle: data.mixer.title,
+    cartTitle: data.cart.title,
     help: data.menu.help,
-    about: data.menu.about
+    about: data.menu.about,
+    // The Settings menu borrows the PAGE's own strings rather than getting
+    // `menu.*` copies of them: `settings.title` is what the page calls itself
+    // and `settings.section*` are the labels already on its rail. Two spellings
+    // of "Outputs" that can drift apart is exactly the split this menu exists
+    // to close, and it means the menu needed no new locale keys at all.
+    settings: data.settings.title,
+    settingsSections: data.settings
   };
   return acc;
 }, {});
+
+// The Settings menu's items, in the rail's order.
+//
+// ⚠️ THIS LIST MIRRORS `SETTINGS_SECTIONS` in client/app/composables/
+// useSettingsPage.ts, WHICH IS THE SOURCE OF TRUTH. The main process cannot
+// import a TS composable out of the renderer, so a new pane is two edits: there
+// and here. The labels cannot drift (they are resolved from the same
+// `settings.section*` keys the rail uses), but the LIST can — and an id offered
+// here that the registry does not know opens the default pane instead, because
+// `useSettingsPage().open()` validates against the registry. Eleven panes as of
+// the Mixer pane; keep the order the same as the rail's so the menu reads like
+// the page.
+const SETTINGS_MENU_SECTIONS = [
+  { id: 'appearance', labelKey: 'sectionAppearance' },
+  { id: 'playback',   labelKey: 'sectionPlayback'   },
+  { id: 'audio',      labelKey: 'sectionAudio'      },
+  { id: 'mixer',      labelKey: 'sectionMixer'      },
+  { id: 'outputs',    labelKey: 'sectionOutputs'    },
+  { id: 'keyboard',   labelKey: 'sectionKeyboard'   },
+  { id: 'surfaces',   labelKey: 'sectionSurfaces'   },
+  { id: 'project',    labelKey: 'sectionProject'    },
+  { id: 'server',     labelKey: 'sectionServer'     },
+  { id: 'users',      labelKey: 'sectionUsers'      },
+  { id: 'about',      labelKey: 'sectionAbout'      },
+];
 
 let currentLocale = 'en';
 
@@ -2215,6 +2456,66 @@ function createMenu(locale = 'en', isDev = false) {
           }
         }
         ] : [])
+      ]
+    },
+    // Asked for 2026-09-27: a settings/preferences menu carrying every pane, so
+    // the configuration has an OS-level way in and not only a header button.
+    // Each item is a deep link — the same move P3d made for the mixer's output
+    // map and P3e for About and the accent swatches — so the page stays the one
+    // home for all of it and the menu is an address book, not a second surface.
+    //
+    // `CmdOrCtrl+,` is the conventional preferences accelerator on both
+    // platforms, and it is free here: no other menu item claims it and the
+    // client has no comma-key handling.
+    {
+      label: t.settings,
+      submenu: [
+        {
+          label: t.settings,
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            // No id: the renderer opens whatever DEFAULT_SETTINGS_SECTION is,
+            // rather than this process holding a second opinion about it.
+            mainWindow.webContents.send('menu-open-settings');
+          }
+        },
+        { type: 'separator' },
+        ...SETTINGS_MENU_SECTIONS.map((s) => ({
+          // Same `|| fallback` shape the File menu's newer keys use: a label
+          // that resolved to undefined would put a blank row in the menu, and
+          // the id is at least a word the operator can act on.
+          label: t.settingsSections[s.labelKey] || s.id,
+          click: () => {
+            mainWindow.webContents.send('menu-open-settings', s.id);
+          }
+        }))
+      ]
+    },
+    // Asked for 2026-09-27 alongside the cart's docking controls: an OS-level
+    // way to put either detachable panel into its own window.
+    //
+    // These call the window factories DIRECTLY rather than asking the renderer
+    // to, because both already focus an existing window instead of making a
+    // second one, and both already tell the main window they opened
+    // (`cart-player-window-opened` / `mixer-window-opened`) — which is what sets
+    // `cartDetached` / `mixerDetached` there. So one path serves the menu, the
+    // panel's own Detach button and a reopen after closing, and the renderer
+    // never has to be asked where the project folder is.
+    {
+      label: t.window,
+      submenu: [
+        {
+          label: t.mixerTitle,
+          click: () => {
+            createMixerWindow();
+          }
+        },
+        {
+          label: t.cartTitle,
+          click: () => {
+            createCartPlayerWindow();
+          }
+        }
       ]
     },
     {

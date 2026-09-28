@@ -67,6 +67,8 @@ declare global {
       onMenuChangeAccentColor: (callback: () => void) => void;
       onMenuChangeLanguage: (callback: (event: any, locale: string) => void) => void;
       onMenuShowAbout: (callback: () => void) => void;
+      /** `section` is a SETTINGS_SECTIONS id; absent means "open Settings". */
+      onMenuOpenSettings: (callback: (event: any, section?: string) => void) => void;
       openExternal: (url: string) => Promise<void>;
       updateMenuLanguage: (locale: string) => Promise<{ success: boolean }>;
       getSystemLocale: () => Promise<string>;

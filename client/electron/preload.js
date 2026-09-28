@@ -102,6 +102,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuChangeAccentColor: (callback) => replaceIpcListener('menu-change-accent-color', callback),
   onMenuChangeLanguage: (callback) => replaceIpcListener('menu-change-language', callback),
   onMenuShowAbout: (callback) => replaceIpcListener('menu-show-about', callback),
+  // Carries the section id as its argument, so one channel serves all ten
+  // panes rather than a channel per pane.
+  onMenuOpenSettings: (callback) => replaceIpcListener('menu-open-settings', callback),
 
   // External links
   openExternal: (url) => ipcRenderer.invoke('open-external', url),

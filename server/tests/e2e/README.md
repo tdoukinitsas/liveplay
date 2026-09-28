@@ -1,15 +1,10 @@
-# End-to-end audio checks
+# Audio and server integration checks
 
-Unlike the other test binaries here, these drive a **running server** over REST and WebSocket and
-assert on what the meters read. They exist because the claims they check are behavioural — "PFL
-never reaches the house", "the tap is pre-fader" — and nothing short of real audio through the
-real render loop can confirm them. Both times PFL leaked into the house on this branch, the code
-read correctly and the meters did not (see `BUS_ARCHITECTURE.md` §0.2b).
+These scripts drive server HTTP/WebSocket interfaces. Many measure real rendered audio and need a working playback device; a silent render path cannot validate routing or dynamics.
 
-They need an audio device. There is no null backend, so on a machine with no playback device the
-render thread idles and every level assertion reads silence.
+Use a dedicated test server and disposable projects. Suites can change the active project, routing, output maps, users, preferences or boot files. Keep their console output to diagnose failures.
 
-## Running
+## Setup
 
 ```sh
 # 1. Build the server.
@@ -270,104 +265,76 @@ its configuration: the ring's depth is the latency, the device overrides the per
 for, and whether any of it is safe depends on how long a render block actually takes.
 
 ```sh
-# Output latency and headroom, ramping up to 8 files, then a 90 s soak.
-node server/tests/e2e/latency-probe.js 4500 /tmp/liveplay-test-signal.wav 8 90
-
-# The control path: one REST call per pointer event, at 60/s for 3 s.
-node server/tests/e2e/control-latency-probe.js 4500 60 3
+npm run server:build
+node server/tests/e2e/gen-signal.js test-signal.wav
+node server/tests/e2e/gen-wide-signal.js test-wide.wav
+npm run server:run -- --port 4500
 ```
 
-`ui-churn-probe.js` asks a different question: does editing item properties disturb playing audio?
+In another terminal, supply the port and absolute signal path:
 
 ```sh
-# 6 edits/s for 8 s per window, against a 60-item project, one file looping.
-node server/tests/e2e/ui-churn-probe.js 4500 /tmp/liveplay-test-signal.wav 6 8 60
+node server/tests/e2e/pfl-e2e.js 4500 /absolute/path/test-signal.wav
+node server/tests/e2e/width-e2e.js 4500 /absolute/path/test-wide.wav
 ```
 
-It watches for both failure modes, which is the lesson from writing it. The first version tracked
-only the *maximum* master peak, looking for the overshoot a step discontinuity makes — and reported
-everything clean. **A dropout is silence, and silence is not loud.** It now tracks the minimum
-per-frame peak too, so a gap is as visible as a click. Any probe for "did the audio glitch" that
-only looks upward is blind to half of it.
+On Windows, use a path such as `C:/Tests/test-signal.wav`. The ordinary signal has identical stereo lanes; width checks need the separate wide signal. Do not commit generated audio.
 
-Both read `GET /api/engine/stats`, which reports queued frames, the device's *actual* period,
-render-block time against its budget, and underruns. `?reset=1` clears the peak so a probe can
-bound a window.
+## Suites using a running server
 
-Two things to know before reading the output. **The ramp's per-step window is far too short to
-justify a latency default** — a stall that happens once a minute will not appear in two seconds, so
-use the soak for that. And **the shallowest queue depth is the number that matters**, not the
-average: it is how close the device came to running dry, which an average hides completely.
+Unless shown otherwise, arguments are `<port> <wavPath>`.
 
-## Measuring DSP, specifically
+| Script | Coverage / special arguments |
+|---|---|
+| `pfl-e2e.js` | Pre-fader/pre-mute listening and program isolation |
+| `roles-e2e.js` | Master/Preview roles, binding and role moves |
+| `filters-e2e.js` | Filter processing |
+| `eq-analyser-e2e.js` | EQ and analyser delivery |
+| `gate-e2e.js` | Gate behavior and timing |
+| `comp-e2e.js` | Compression and gain reduction |
+| `width-e2e.js` | Stereo width, balance and mono-check; use wide signal |
+| `reroute-e2e.js` | Cue rerouting |
+| `busbus-e2e.js` | Bus graph; `<port> <wavPath> <widePath>` |
+| `sends-e2e.js` | Auxiliary send taps |
+| `migration-e2e.js` | Supported project compatibility paths |
+| `absent-device-e2e.js` | Missing hardware stays unbound |
+| `ltc-output-e2e.js` | LTC destination binding; saves/restores output map |
+| `project-folder-e2e.js` | Project folder/media resolution; creates and moves temp files |
+| `session-prefs-e2e.js` | Per-connection locale/meter settings |
+| `materialise-skip.js` | Bus materialization; `<port>` |
+| `settings-registry-e2e.js` | Settings validation; `<port>`, no audio needed |
+| `output-materialise-e2e.js` | Output materialization; `<port>`, skips without a device |
+| `device-match-e2e.js` | Device identity; `<port>`, saves/restores output map |
+| `transport-fixes-e2e.js` | Transport, manual fades, preview and CORS; `<port>`, creates signals |
+| `loop-xfade-e2e.js` | Loop crossfade; `<port>`, creates signals |
 
-Every "the processor is broken" result in this directory so far has turned out to be the
-measurement. In order of how much time each one cost:
+These scripts generally assume an unauthenticated test server unless they explicitly manage authentication.
 
-- **Average POWER, never decibels.** A mean of dB readings is a geometric mean and weights quiet
-  frames far too heavily. Two identical flat chains read 0.4 dB apart until this was fixed.
-- **Wait 1.5 s after a change before believing the meter.** The engine ramps coefficients over
-  ~340 ms and the RMS meter integrates on top of that. At 700 ms the window still caught the tail
-  of a +12 dB boost and read 0.3 dB hot — which looks exactly like a band failing to flatten.
-- **The signal is a 1-second triangle sweep for a reason.** A whole number of sweep periods covers
-  identical spectral content wherever the window starts; at five seconds a 1.2 s window sampled a
-  different slice each time. It is a triangle rather than a sawtooth because a sawtooth's
-  2 kHz → 200 Hz wrap is a broadband click a window can catch.
-- **Choose thresholds with margin.** The gate closes 3 dB below its threshold, so a threshold of
-  −3 dB against a −6 dBFS signal puts the close point exactly on the signal level, inside the
-  hysteresis window. The gate correctly held open; the test called it a failure to gate.
-- **Pick a corner that actually puts the signal in the stopband.** A 1 kHz low-pass leaves 44% of
-  a 200 Hz–2 kHz sweep in the passband and takes about 2 dB off the total, which is the right
-  answer and a poor test.
-- **Wait out the PROCESSOR's own time constants too, not just the meter's.** Only transitions
-  *out* of gain reduction are slow — attack is milliseconds — so a step down from 9 dB of
-  reduction with a 1000 ms release was still 0.6 dB down when a 2 s settle expired. That read as a
-  hard knee doing 0.7 dB of work it should not have been doing. Either settle for several time
-  constants or set a release the harness can afford to wait for.
-- **`peak_db` is not the peak a dynamics detector sees.** It is ballistically released, so a
-  threshold compared against it is being compared against the wrong quantity; `peak_max_db` is the
-  raw sample maximum and cannot miss a transient however slowly the harness polls. On a
-  constant-amplitude signal the two agree and it does not matter — which is exactly why it is
-  worth fixing before a test uses a signal where they do not.
-- **Measure a control where it is actually applied.** Width is per-sample DSP inside the strip, so
-  it shows on the BUS meter; balance is nothing but the two sends to the master, so it shows on the
-  MASTER meter and not on the bus meter at all. Checking either in the other's place reads as the
-  control doing nothing.
-- **Relative assertions can all shift together.** Every balance check in `width-e2e.js` was
-  measured against the centre reading, so swapping in the pan law moved the whole set 3 dB down
-  and only one assertion noticed. One absolute check — the bus's own peak against the house — pins
-  the law rather than its symmetry.
-- **`POST /api/buses/<id>/dsp` does not persist.** It is the in-gesture path: it merges onto the
-  *stored* bus and writes no document. Send the whole section, and `PATCH` first if a later
-  assertion depends on the value being stored.
+## Suites that start their own server
 
-## Things worth knowing before adding assertions
+Each accepts an optional server executable path. Their default points at the Windows Release build; pass `server/build/liveplay-server` for a Ninja build.
 
-- **"The house" is masters 0/1 specifically.** Maxing over every master channel silently stops
-  meaning the house once the preview bus is bound, because the reserved pair at the top of the
-  bus is a master channel too. `Meters.housePeak()` and `Meters.monitorOutPeak()` are separate
-  for that reason. Bus JSON now says which pair each hardware-bound bus occupies (`masters`),
-  so a script can assert the house pair is `[0,1]` on the master-role bus directly.
-- **Find the role holders by role, never by id.** `buses.find(b => b.master)` /
-  `find(b => b.preview)`. The stock ids are `master` and `preview` for a fresh document, but a
-  migrated round-1 project keeps `main` / `monitor`, and a role can be moved onto any bus.
-- **Establish the starting state; do not assume it.** Scripts run back to back against one
-  server. `pfl-e2e.js` and `roles-e2e.js` clear PFL, stop any pre-listen, and wait for the
-  preview strip to actually read silent before taking a baseline; every script PUTs a fresh
-  document with no `buses` key so nothing carries over.
-- **Every FAIL line prints the values it compared.** An intermittent that says only FAIL
-  captures nothing. `ok(name, pass, detail)` — always pass `detail`.
-- **Master and strip meters fall back slowly (~4 dB/s).** Assert on level *changes* over a settle,
-  not on an absolute floor a decaying meter will not reach inside the window. Running the script
-  twice in a row leaves the previous run's tail on the reserved pair for tens of seconds.
-- **The signal is a sweep, not a fixed tone.** The "PFL and pre-listen sum" assertion feeds the
-  same file into the monitor twice; with a fixed tone the two are perfectly correlated and their
-  sum depends on the arbitrary phase between two independently-started playbacks — it measured
-  +3.9 dB one run and +0.6 dB the next. A sweep puts the two playback positions at different
-  frequencies. The peak is unchanged, so every level assertion still reads −6 dBFS.
-- **The script mutates server config.** `PUT /api/outputs` persists to `outputs.json` next to the
-  binary, so the script puts the map back at the end. Without that, the second run disagrees with
-  the first for reasons that have nothing to do with the code. `pfl-e2e.js` and `roles-e2e.js`
-  map `Preview Out` (not the old `Monitor` name) while they need the reserved pair driven.
-- **Prove a new assertion can fail.** Break the thing deliberately, rebuild, and watch it go red
-  before trusting it. Every safety assertion here was confirmed that way.
+| Script | Coverage / affected state |
+|---|---|
+| `fs-jail-e2e.js` | Configured filesystem roots |
+| `boot-config-e2e.js` | Launch configuration |
+| `client-session-e2e.js` | Connection tracking and handshake behavior |
+| `auth-e2e.js` | Accounts, roles, tokens and restart; temporarily owns users file |
+| `user-prefs-e2e.js` | Profiles and restart; temporarily owns users and prefs |
+| `server-config-e2e.js` | Stored/effective configuration and lock; temporarily owns configuration |
+
+Run these serially. Read their setup/cleanup code before using a binary directory that contains real installation data.
+
+## Diagnostic probes
+
+Probes print measurements for investigation; their results depend on hardware and workload.
+
+| Script | Arguments |
+|---|---|
+| `control-latency-probe.js` | `<port> [eventsPerSec] [seconds]` |
+| `latency-probe.js` | `<port> <wavPath> [maxItems] [soakSeconds]` |
+| `ui-churn-probe.js` | `<port> <wavPath> [editsPerSec] [seconds] [items]` |
+| `seam-bisect.js` | `<port> <wavPath> [repeats]` |
+| `save-churn.js` | `<port> <wavPath> <projectDir> <serverLog>` |
+
+For deterministic C++ checks, see the [CTest instructions](../../../docs/DEVELOPMENT.md#checks). Protocol contracts live in the [API reference](https://tdoukinitsas.github.io/liveplay/api/), not this test guide.

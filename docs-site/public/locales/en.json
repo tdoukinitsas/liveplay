@@ -145,149 +145,40 @@
     },
     "note": "A single-machine install needs no configuration — the client and server talk over 127.0.0.1 and the Windows installer adds the firewall rules for you. These ports only matter when separating the control position from the audio hardware across a LAN."
   },
+  "settings": {
+    "title": "Where settings live",
+    "subtitle": "LivePlay keeps configuration in four places. Which one a value lives in decides whether it travels with your show, follows the person, or stays on the machine.",
+    "colTier": "Tier",
+    "colOwns": "Owns",
+    "colFile": "Stored in",
+    "colTravels": "Travels with a show?",
+    "server": {
+      "name": "Server",
+      "owns": "How the engine runs and binds, the venue’s named outputs, and the accounts",
+      "travels": "No — it belongs to the rack"
+    },
+    "user": {
+      "name": "User",
+      "owns": "Language, theme, meter unit and transport keys",
+      "travels": "No — it follows the person to any machine they sign in on"
+    },
+    "project": {
+      "name": "Project",
+      "owns": "The show: cues, buses, routing, fades and everything the audience hears",
+      "travels": "Yes — this is the show file"
+    },
+    "machine": {
+      "name": "Machine",
+      "owns": "Window and pane layout, Show Mode, and which server this install talks to",
+      "travels": "No — and nothing about the show may depend on it"
+    },
+    "note": "A value that changes what the audience hears is never stored outside the show file. That one rule is why a show sounds the same in another building."
+  },
   "api": {
-    "title": "External control / API",
-    "subtitle": "Drive LivePlay from lighting consoles, Stream Deck, Companion, or your own scripts.",
-    "intro": {
-      "title": "The basics",
-      "description": "Every LivePlay server answers plain HTTP on TCP port 4480 — the same interface the LivePlay app itself uses — so anything that can send a web request can run a show. Requests and replies are JSON. Replace <server> below with the server's IP address or host name (127.0.0.1 on the machine running LivePlay).",
-      "baseUrlLabel": "Base URL",
-      "getVsPost": "Anything that accepts GET can be fired by simply opening the URL — from a browser, a Stream Deck \"Open URL\" button or a lighting console's HTTP action. Calls that are POST only must be sent as a POST request: opening them in a browser sends a GET, and the server refuses it.",
-      "stopWarning": "That is why changing \"play\" to \"stop\" in the API Trigger URL from the Properties panel doesn't work in a browser: …/play accepts GET, but …/stop, …/pause, …/resume and …/seek are POST only. Send them with curl, Companion, or any tool that can make a POST request."
-    },
-    "controls": {
-      "title": "Common controls",
-      "description": "The calls show-control users reach for most. <uuid> is an item's id: it is part of the API Trigger URL in the Properties panel, and GET /api/project/items lists every item's uuid.",
-      "colMethod": "Method",
-      "colPath": "Path",
-      "colAction": "What it does",
-      "go": {
-        "description": "GO — play whatever is armed as Up Next, exactly like the GO button in the app.",
-        "notes": "Returns 404 if nothing is armed."
-      },
-      "stopAll": {
-        "description": "Stop all cues.",
-        "notes": "Optional body {\"fade_ms\": n}. Without it the project's Stop All fade is used (1000 ms unless changed); 0 = cut. Also stops the preview audition unless the project is set not to."
-      },
-      "playItem": {
-        "description": "Play one item — an audio item, or a group (which starts according to its start behaviour).",
-        "notes": "This is the API Trigger URL from the Properties panel. Honours the item's in-point, fades, ducking and end behaviour. Works with a group's uuid too."
-      },
-      "playIndex": {
-        "description": "Play an item by its position in the playlist — audio item or group.",
-        "notes": "The path is zero-based and descends into groups: 0 = the first item, 5 = the sixth, 1,2 = the third item inside the second top-level item (a group); 1/2 works too. It stays zero-based even if the app is set to number cues from 1."
-      },
-      "stopItem": {
-        "description": "Stop one item. For a group, stops whatever is playing inside it.",
-        "notes": "POST only. Fades over the item's Stop fade; optional body {\"fade_ms\": n} overrides it for this stop, 0 = cut."
-      },
-      "pauseItem": {
-        "description": "Pause one item, holding its playhead.",
-        "notes": "POST only."
-      },
-      "resumeItem": {
-        "description": "Resume a paused item from where it was paused.",
-        "notes": "POST only."
-      },
-      "playSelected": {
-        "description": "Play the item selected in the playlist (the app's Enter key).",
-        "notes": "Returns 404 if nothing is selected."
-      },
-      "pauseToggle": {
-        "description": "Pause everything on air — or, if anything is paused, resume it.",
-        "notes": "One button that is never ambiguous about which way it will go."
-      },
-      "armSelected": {
-        "description": "Set the selected item as Up Next, so the next GO plays it.",
-        "notes": "Same as \"Set As Next\" in the app."
-      },
-      "cart": {
-        "description": "Fire a cart slot.",
-        "notes": "Zero-based: cart button 1 is /cart/0/play, button 2 is /cart/1/play. Returns 404 if the slot is empty."
-      },
-      "masterGain": {
-        "description": "Read or set the engine-wide output trim, in dB.",
-        "notes": "GET reads it. POST {\"db\": -6} sets it; {\"delta\": -1} nudges it. This is not the Master bus fader — that is PATCH /api/buses/<id> {\"gainDb\": …} on the bus whose master flag is true."
-      },
-      "stateSummary": {
-        "description": "One compact snapshot of the show.",
-        "notes": "What is playing (with elapsed and remaining time), what is Up Next, the selection, cart slots, buses, the master trim and Show Mode. Fetch it once on connect, then follow the WebSocket instead of polling."
-      },
-      "listItems": {
-        "description": "List the playlist items with their uuid, name and type.",
-        "notes": "Top-level items, paged with ?offset=0&limit=100; groups carry their children inline."
-      }
-    },
-    "examples": {
-      "title": "Try it with curl",
-      "description": "GO, stop one item with a 3-second fade, then stop everything:",
-      "curl": "curl http://<server>:4480/api/transport/go\n\ncurl -X POST http://<server>:4480/api/project/items/<uuid>/stop \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"fade_ms\": 3000}'\n\ncurl -X POST http://<server>:4480/api/transport/stop_all"
-    },
-    "more": {
-      "title": "Beyond the basics",
-      "description": "A few more calls controllers commonly use:",
-      "selection": {
-        "path": "GET · POST /api/selection",
-        "description": "read the shared playlist selection, or move it: {\"delta\": 1} steps down, {\"delta\": -1} steps up, {\"itemUuid\": \"…\"} selects one item."
-      },
-      "buses": {
-        "path": "GET /api/buses · PATCH /api/buses/<id>",
-        "description": "list the mixer buses and change one — for example {\"gainDb\": -3} or {\"mute\": true}."
-      },
-      "limiter": {
-        "path": "GET · POST /api/master/limiter",
-        "description": "read or switch the master limiter; a POST without \"enabled\" toggles it."
-      },
-      "showMode": {
-        "path": "GET · POST /api/ui/showmode",
-        "description": "read or switch Show Mode; a POST without \"enabled\" toggles it."
-      }
-    },
-    "auth": {
-      "title": "Logins and browser remotes",
-      "description": "Out of the box a LivePlay server asks for no login. Once an administrator creates user accounts, every request must carry a token in an \"Authorization: Bearer <token>\" header. Get one by logging in — tokens last 30 days:",
-      "login": "curl -X POST http://<server>:4480/api/auth/login \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"name\": \"sam\", \"password\": \"…\"}'\n# → { \"token\": \"lp1.…\", \"expiresIn\": 2592000, \"user\": { … } }\n\ncurl -H \"Authorization: Bearer lp1.…\" http://<server>:4480/api/transport/go",
-      "headerNote": "The token is only accepted in that header, never in the URL, so a plain \"open URL\" button cannot trigger a server that has accounts — use a tool that can send headers. The WebSocket is the one exception: connect to /ws?access_token=<token>.",
-      "cors": "Browser-based remotes (a web page calling the API with fetch) work: the server answers CORS preflight requests and accepts any origin by default. To allow only your own remote, start the server with --cors-origin https://your-remote.example — this also restricts which web pages may open the WebSocket."
-    },
-    "websocket": {
-      "title": "The WebSocket",
-      "description": "For two-way control without polling, connect to ws://<server>:4480/ws. Every frame is a JSON object with a \"type\". Frames you can send:",
-      "frames": "{ \"type\": \"go\" }\n{ \"type\": \"play\", \"item_uuid\": \"<uuid>\" }\n{ \"type\": \"stop\", \"item_uuid\": \"<uuid>\", \"fade_ms\": 3000 }\n{ \"type\": \"pause\", \"item_uuid\": \"<uuid>\" }\n{ \"type\": \"resume\", \"item_uuid\": \"<uuid>\" }\n{ \"type\": \"stop_all\", \"fade_ms\": 0 }",
-      "framesNote": "play with a group's uuid starts the group according to its start behaviour. Leave out fade_ms to use the item's own Stop fade (or, for stop_all, the project's Stop All fade).",
-      "pushTitle": "The server pushes, without being asked:",
-      "snapshot": {
-        "name": "playback_snapshot",
-        "description": "once, right after you connect: every cue on air and what is Up Next."
-      },
-      "cueState": {
-        "name": "cue_state",
-        "description": "on every transport change of a cue — playing, fading out, paused or stopped."
-      },
-      "meters": {
-        "name": "meters",
-        "description": "a continuous stream of per-cue, per-bus and per-output levels for metering (30 times a second by default)."
-      },
-      "docPatch": {
-        "name": "doc_patch",
-        "description": "on every change to the show — items, buses, selection, Up Next, Show Mode and more — so your copy of the state never drifts."
-      }
-    },
-    "companion": {
-      "title": "Bitfocus Companion",
-      "description": "A community-built Companion module drives LivePlay from Stream Deck and every other surface Companion supports. It isn't in the official Companion module store yet, so it has to be sideloaded — follow the instructions in its repository:",
-      "linkText": "companion-module-liveplay on GitHub"
-    },
-    "discovery": {
-      "title": "Finding a server",
-      "description": "The server periodically broadcasts (and multicasts) a JSON beacon on UDP 4481, and answers a unicast solicitation immediately. The payload:",
-      "payload": "{\n  \"type\": \"liveplay-beacon\",\n  \"name\": \"<hostname>\",\n  \"version\": \"<server version>\",\n  \"port\": 4480,\n  \"projectName\": \"<name or empty>\",\n  \"hasOpenProject\": false,\n  \"itemCount\": 2,\n  \"instanceId\": \"<per-run id>\"\n}",
-      "note": "Send {\"type\":\"liveplay-solicit\"} to UDP 4481 to provoke an immediate unicast reply instead of waiting for the next periodic broadcast."
-    },
-    "reference": {
-      "text": "This is a summary, not the spec. For every endpoint, the request and response shapes and the complete doc_patch vocabulary, see",
-      "linkText": "server/README.md"
-    }
+    "title": "API & Automation",
+    "subtitle": "Connect LivePlay to your show-control tools.",
+    "description": "Control playback, edit projects and routing, and monitor live state over HTTP and WebSocket. The developer reference covers authentication, every endpoint, commands, events and integration examples.",
+    "referenceLabel": "Developer API Reference"
   },
   "footer": {
     "license": "is licensed under the",

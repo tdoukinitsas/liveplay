@@ -79,6 +79,8 @@ function createClient() {
   // behaves exactly as it did before 2.5, which is the whole point: none of
   // this appears until someone turns it on.
   const authRequired  = ref(false);
+  // How many accounts the server holds, whether or not it is asking for one.
+  const authUserCount = ref(0);
   const authUser      = ref<{ id: string; name: string; role: string } | null>(null);
   // True when the server wants a login and we cannot supply one. The socket
   // stays shut while it is set — see connect(). Without that guard an
@@ -609,6 +611,13 @@ function createClient() {
       const s = await res.json();
       authRequired.value = !!s.authRequired;
       needsSetup.value   = !!s.setupRequired;
+      // Kept so the Accounts pane can tell the two OPEN postures apart. They
+      // look identical through `authRequired` alone and mean opposite things:
+      // zero accounts is a fresh installation nobody has set up, while accounts
+      // with no login required is somebody's explicit choice — and an operator
+      // seeing a list of accounts would otherwise reasonably assume a password
+      // was being asked for.
+      authUserCount.value = Number(s.userCount) || 0;
     } catch {
       // Unreachable server. Deliberately NOT treated as "needs a login": the
       // reconnect machinery already handles a server that isn't there, and
@@ -1178,6 +1187,70 @@ function createClient() {
   async function deleteUser(id: string) {
     return rest<any>(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
   }
+
+  // ---- API tokens ------------------------------------------------------
+  // The credential a Companion instance or a script carries. Administrators
+  // only, and issuing one asks for the caller's own password: what is being
+  // minted does not expire, and tokens here cross the LAN with no TLS, so a
+  // sniffed session must not convert into permanent access. Same reasoning as
+  // setAuthRequired above, applied where it bites harder.
+  async function fetchApiTokens(): Promise<any[]> {
+    return rest<any[]>('/api/tokens');
+  }
+  /**
+   * Issue one. The returned object carries `token` — THE ONLY COPY. The server
+   * kept a hash, so a caller that drops this string has destroyed the token and
+   * the answer is to revoke it and issue another.
+   */
+  async function createApiToken(name: string, password: string) {
+    return rest<any>('/api/tokens', {
+      method: 'POST',
+      body: JSON.stringify({ name, password }),
+    });
+  }
+  async function renameApiToken(id: string, name: string) {
+    return rest<any>(`/api/tokens/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+  }
+  async function revokeApiToken(id: string) {
+    return rest<any>(`/api/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+
+  // Who is connected to this server right now — people and machines both
+  // (U1's route; each row carries a `kind`). Administrators only: who else is
+  // on the rig, and from what address, is the machine's business.
+  async function fetchClients(): Promise<any[]> {
+    return rest<any[]>('/api/clients');
+  }
+
+  /**
+   * Turn the server's login requirement off, or back on, keeping the accounts.
+   *
+   * An administrator's NAME and PASSWORD every time, in both directions — the
+   * server insists, and the reason is worth carrying in the client too: while
+   * authentication is off there is no session to gate this with, so the password
+   * IS the gate. Re-entry rather than the token because tokens here are
+   * long-lived, signed and cross the LAN with no TLS.
+   *
+   * `name` is optional when signed in; the server defaults it to the caller.
+   * Throws on refusal, like the rest of these — the server's wording for "only
+   * an administrator can change this" is better than anything the pane could
+   * invent, and inventing one would eventually contradict it.
+   */
+  async function setAuthRequired(required: boolean, password: string, name?: string) {
+    const out = await rest<any>('/api/auth/required', {
+      method: 'PATCH',
+      body: JSON.stringify(name ? { required, password, name } : { required, password }),
+    });
+    // Re-ask rather than trusting the reply: turning it ON means this client now
+    // needs a login it may not have, and turning it OFF means the one it holds
+    // stopped being asked for. checkAuth settles both, and it is the one place
+    // that decides whether to show the login screen.
+    await checkAuth();
+    return out;
+  }
   // "Sign me out everywhere." Bumps this user's token epoch, which invalidates
   // every token ever issued to them — including the one making the request and
   // the one on the tablet they left at the venue, which is the entire point. So
@@ -1617,6 +1690,7 @@ function createClient() {
 
     // authentication (U3)
     authRequired,
+    authUserCount,
     authUser,
     needsLogin,
     needsSetup,
@@ -1763,6 +1837,12 @@ function createClient() {
     createUser,
     updateUser,
     deleteUser,
+    fetchApiTokens,
+    createApiToken,
+    renameApiToken,
+    revokeApiToken,
+    fetchClients,
+    setAuthRequired,
     logoutAll,
     patchSettings,
 

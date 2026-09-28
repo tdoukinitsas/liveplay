@@ -3805,7 +3805,7 @@ json ProjectState::state_summary() const {
     // it in", not the mixer's internals.
     json buses_arr = json::array();
     for (const auto& b : list_buses()) {
-        const char* kind = b.def.output_kind == BusOutputKind::Bus ? "bus" : "output";
+        const char* kind = output_kind_name(b.def.output_kind);
         json entry{
             {"id",      b.def.id},
             {"name",    b.def.display_name},
@@ -4356,6 +4356,11 @@ ParsedOutput parse_output_spec(const json& out) {
     p.target = out.value("target", std::string{});
     if (kind == "bus")         { p.kind = BusOutputKind::Bus;    return p; }
     if (kind == "output")      { p.kind = BusOutputKind::Output; return p; }
+    // "none": the bus goes nowhere by itself and leaves only by its sends.
+    // Any target sent with it is discarded rather than kept — a stored
+    // destination that nothing reads would come back the next time the kind
+    // changed and route the bus somewhere the operator had stopped choosing.
+    if (kind == "none")        { p.kind = BusOutputKind::None; p.target.clear(); return p; }
     // "master", or anything unrecognised: the old default.
     p.kind          = BusOutputKind::Bus;
     p.target.clear();
@@ -4932,7 +4937,7 @@ json bus_sends_to_json(const BusDef& b) {
 void ProjectState::write_buses_to_document_locked() {
     json arr = json::array();
     for (const auto& b : buses_) {
-        const char* kind = b.output_kind == BusOutputKind::Bus ? "bus" : "output";
+        const char* kind = output_kind_name(b.output_kind);
         arr.push_back(json{
             {"id",      b.id},
             {"name",    b.display_name},
@@ -5369,6 +5374,12 @@ void ProjectState::wire_bus(const BusDef& bus, BusRouting& routing,
     routing.wired_channels.clear();
     routing.wired_bus_target.clear();
 
+    // No output at all: the sends above are the whole of this bus's wiring.
+    // Nothing further to do, and deliberately nothing to warn about — a bus
+    // with no output is a choice, not a fault. Whether it is AUDIBLE is a
+    // different question, and `bound` answers it by following the sends.
+    if (bus.output_kind == BusOutputKind::None) return;
+
     if (bus.output_kind == BusOutputKind::Bus) {
         // The API refuses an illegal or looping destination before it is ever
         // stored (D6), so anything that gets here is either legal or came off
@@ -5752,6 +5763,15 @@ ProjectState::PatchBusResult ProjectState::validate_bus_output_locked(
             if (src->preview) return PatchBusResult::RefusedPreviewToBus;
             if (src->master)  return PatchBusResult::RefusedMasterToBus;
         }
+        // Neither role holder may have NO output. The master bus IS the house
+        // and the preview bus IS the phones; a role holder that goes nowhere
+        // is not a quiet bus, it is a desk with no house or no headphones.
+        // Sends do not rescue it either — D27 gives the master bus the house
+        // pair specifically, and a copy at some level somewhere else is not
+        // that. Reported as the role rule it is, so the operator is told they
+        // must move the role first rather than that the output is malformed.
+        if (kind == BusOutputKind::None && (src->preview || src->master))
+            return PatchBusResult::RoleNeedsOutput;
     }
     if (kind != BusOutputKind::Bus) return PatchBusResult::Ok;
 
@@ -5838,13 +5858,29 @@ ProjectState::PatchBusResult ProjectState::validate_bus_send_locked(
 }
 
 bool ProjectState::bus_reaches_hardware_locked(const std::string& bus_id) const {
-    // D10: walk the output chain to its terminal and ask whether THAT reaches
-    // hardware. A submix is bound exactly when the bus it feeds is.
-    std::string cur = bus_id;
-    for (std::size_t hops = 0; hops <= buses_.size(); ++hops) {
+    // D10: does anything this bus produces reach hardware? A submix is bound
+    // exactly when something downstream of it is.
+    //
+    // A SEARCH, not a walk, since M1. It used to follow the output chain to
+    // its one terminal, which was the whole story while that was a bus's only
+    // way onward. Now a bus can have no output at all and still be perfectly
+    // audible through a post-fader send into the house — and reporting THAT
+    // as unbound would put "this bus never reaches the master, so it is
+    // silent" on a bus the room can hear, which is how operators learn to
+    // ignore a warning and take the true ones with it.
+    //
+    // Both tap points count. A pre-fader send carries audio whatever the
+    // fader is doing, so it binds the bus just as completely.
+    std::unordered_set<std::string> seen;
+    std::vector<std::string>        stack{bus_id};
+    seen.insert(bus_id);
+    while (!stack.empty()) {
+        const std::string cur = std::move(stack.back());
+        stack.pop_back();
         const BusDef* def = nullptr;
         for (const auto& b : buses_) if (b.id == cur) { def = &b; break; }
-        if (!def) return false;                 // a destination that went away
+        if (!def) continue;                     // a destination that went away
+
         if (def->output_kind == BusOutputKind::Output) {
             // The preview bus keeps the strict rule: bound only when it
             // actually resolved to channels, because it never falls back to
@@ -5853,20 +5889,27 @@ bool ProjectState::bus_reaches_hardware_locked(const std::string& bus_id) const 
             // a device that is present (D26).
             if (def->preview) {
                 const auto rit = bus_routings_.find(def->id);
-                return rit != bus_routings_.end() && !rit->second.wired_channels.empty();
+                if (rit != bus_routings_.end() && !rit->second.wired_channels.empty())
+                    return true;
+            } else if (!resolve_output_channels_locked(def->output_target, true).empty()) {
+                // Resolved exactly as wiring will: a mapped output is bound
+                // only if one of its devices is here — reporting a mapping to
+                // an absent device as bound is what hid the default-device
+                // leak.
+                return true;
             }
-            // Resolved exactly as wiring will: a mapped output is bound only if
-            // one of its devices is here — reporting a mapping to an absent
-            // device as bound is what hid the default-device leak.
-            return !resolve_output_channels_locked(def->output_target, true).empty();
+            // Falls through: an output that resolves to nothing is a dead end
+            // for this path, but the bus's sends still carry audio onward.
+        } else if (def->output_kind == BusOutputKind::Bus &&
+                   !def->output_target.empty() &&
+                   seen.insert(def->output_target).second) {
+            stack.push_back(def->output_target);
         }
-        if (def->output_target.empty()) return false;
-        cur = def->output_target;
+        for (const auto& s : def->sends)
+            if (seen.insert(s.id).second) stack.push_back(s.id);
     }
-    // Hop-capped rather than visited-set: the cap costs nothing and answers
-    // the same question. The API refuses cycles, so reaching this means the
-    // document was hand-edited — and a loop reaches no hardware.
-    Logger::warn("bus '{}': its output chain loops, so it reaches no output", bus_id);
+    // `seen` bounds this, so a hand-edited loop terminates rather than
+    // spinning — and a loop that reaches no output reaches no hardware.
     return false;
 }
 

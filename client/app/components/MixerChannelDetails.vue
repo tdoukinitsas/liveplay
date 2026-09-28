@@ -180,6 +180,8 @@
             <!-- A bus-kind route that never reaches hardware: not a mapping
                  problem, so no click affordance, just the warning. -->
             <p v-if="busUnbound" class="det__warn">{{ t('mixer.busRouteUnbound') }}</p>
+            <!-- Chose "no output" and has no send reaching one either. -->
+            <p v-if="noneSilent" class="det__warn">{{ t('mixer.outputNoneSilent') }}</p>
             <!-- Inline, non-blocking: the server's own 409 text for the last
                  rejected route, so the reason is legible without a dialog. -->
             <p v-if="outputErrorMsg" class="det__warn">{{ outputErrorMsg }}</p>
@@ -387,6 +389,13 @@ const unmapped = computed(() =>
 // server-computed and just rendered here, not re-derived.
 const busUnbound = computed(() =>
   props.bus.output.type === 'bus' && props.bus.bound === false);
+
+// No output AND no send that reaches one. Its own warning rather than
+// busRouteUnbound's, which talks about a route this bus does not have — the
+// operator chose "no output" deliberately, and what they need to be told is
+// that the sends are not carrying it either.
+const noneSilent = computed(() =>
+  props.bus.output.type === 'none' && props.bus.bound === false);
 
 // The server's 409 text for the last rejected route, handed up by the picker
 // and shown inline; it clears itself.

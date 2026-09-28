@@ -1122,20 +1122,34 @@ const formatTime = (seconds: number): string => {
 /* Special handling for playback tab with waveform trimmer.
    Takes the leftover height of .properties-content rather than sitting at its
    natural height, so the trimmer inside has somewhere to grow when the panel
-   is dragged taller. `min-height: 0` lets it be handed LESS than its contents
-   want; the trimmer's own floor then wins and .properties-content scrolls,
-   which is the honest failure — a scrollbar instead of a crushed canvas.
-   Every other tab keeps `flex: 0 1 auto`, so they still size to content.
+   is dragged taller. Every other tab keeps `flex: 0 1 auto` and so still
+   sizes to content.
 
-   min-height stays `min-content` from the rule above, which here resolves to
-   the trimmer's own floor: grow to the space when there is space, never below
-   the floor when there is not, and either way report an honest height to the
-   scroll container above. */
+   `min-height: 0` OVERRIDES the `min-content` in the rule above, and it is the
+   whole fix for the waveform that would not scale. Measured, not reasoned:
+   the trimmer row's min-content height is 797px, because .volume-slider-
+   vertical is `height: 100%` and a percentage height on a vertical range
+   input in an INDEFINITE-height context resolves against the viewport (758px
+   here) instead of falling back to the input's 129px intrinsic throw. With
+   `min-height: min-content` that 797px became the panel's FLOOR, so the
+   canvas measured 732px whether the panel was dragged to 180px, 300px or
+   600px — very tall, and completely static.
+
+   With this at 0 the panel's height is what decides: 300px gives a 150px row
+   and an 85px canvas (what it always had), 600px gives 449px and 384px. Below
+   the trimmer's own 150px floor the row stops shrinking and .properties-
+   content scrolls, which is the honest failure — a scrollbar rather than a
+   collapsed canvas.
+
+   Not cleaned up here, deliberately: the `height: 100%` pair in
+   WaveformTrimmer is the real defect and would want `align-self: stretch`
+   instead. That is a visible change to the fader, so it is a separate job. */
 .tab-panel:has(.waveform-trimmer) {
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
   flex: 1;
+  min-height: 0;
 }
 
 .property-field {

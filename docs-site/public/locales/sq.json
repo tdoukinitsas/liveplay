@@ -141,6 +141,35 @@
     },
     "note": "Një instalim në një makinë të vetme nuk ka nevojë për konfigurim — klienti dhe serveri komunikojnë përmes 127.0.0.1 dhe instaluesi i Windows shton rregullat e murit të zjarrit për ty. Këto porta kanë rëndësi vetëm kur ndan pozicionin e kontrollit nga hardueri audio përmes një LAN-i."
   },
+  "settings": {
+    "title": "Ku ruhen cilësimet",
+    "subtitle": "LivePlay i mban cilësimet në katër vende. Aty ku ndodhet një vlerë vendoset nëse ajo udhëton me shfaqjen tuaj, ndjek personin, apo mbetet në makinë.",
+    "colTier": "Niveli",
+    "colOwns": "Zotëron",
+    "colFile": "Ruhet në",
+    "colTravels": "Udhëton me shfaqjen?",
+    "server": {
+      "name": "Serveri",
+      "owns": "Si funksionon dhe lidhet motori, daljet e emërtuara të sallës, dhe llogaritë",
+      "travels": "Jo — i përket rack-ut"
+    },
+    "user": {
+      "name": "Përdoruesi",
+      "owns": "Gjuha, tema, njësia e matjes dhe tastet e transportit",
+      "travels": "Jo — ndjek personin në çdo makinë ku hyn"
+    },
+    "project": {
+      "name": "Projekti",
+      "owns": "Shfaqja: sinjalet, busat, rrugëtimi, shuarjet dhe gjithçka që dëgjon publiku",
+      "travels": "Po — ky është skedari i shfaqjes"
+    },
+    "machine": {
+      "name": "Makina",
+      "owns": "Vendosja e dritareve dhe paneleve, Modaliteti i Shfaqjes, dhe me cilin server flet ky instalim",
+      "travels": "Jo — dhe asgjë e shfaqjes nuk mund të varet prej saj"
+    },
+    "note": "Një vlerë që ndryshon atë që dëgjon publiku nuk ruhet kurrë jashtë skedarit të shfaqjes. Vetëm ai rregull është arsyeja pse një shfaqje tingëllon njësoj në një ndërtesë tjetër."
+  },
   "contribute": {
     "title": "Kontribuo",
     "subtitle": "LivePlay është falas dhe me kod të hapur — dhe gjithmonë do të jetë.",

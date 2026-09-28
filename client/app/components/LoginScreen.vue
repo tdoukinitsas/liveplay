@@ -38,8 +38,11 @@
           </label>
 
           <!-- Setup only. A typo in the password that creates the rig's only
-               administrator locks the machine, and the recovery is deleting a
-               file on it by hand — so it is worth typing twice exactly once. -->
+               administrator locks the machine, and the recovery is still
+               deleting a file on it by hand — the Accounts pane can now turn
+               authentication off without losing the accounts, but that itself
+               needs the password nobody can type. So it is worth typing twice
+               exactly once. -->
           <label v-if="isSetup" class="lgn-field">
             <span>{{ t('login.confirmPassword') }}</span>
             <input

@@ -90,6 +90,16 @@ struct MixerChannelMeta {
 enum class BusOutputKind {
     Bus,      // submix feeding another bus
     Output,   // direct to a named logical output
+    // Nowhere. The bus has no output edge at all, and whatever leaves it
+    // leaves by its aux sends (M1) or not at all.
+    //
+    // This is a real topology, not a broken one: a stem that feeds three
+    // destinations at three different post-fader levels and belongs at unity
+    // in none of them has nothing to put in `output`, and before this existed
+    // the only way to express it was to point the output at a bus that did not
+    // want it. A role holder may never be None — the master bus IS the house
+    // and the preview bus IS the phones, so both must reach hardware (D25).
+    None,
 };
 
 // The strip's tone controls, as the project stores them.

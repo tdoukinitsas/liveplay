@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LivePlay Developer API Reference</title>
+  <meta name="description" content="LivePlay HTTP endpoints, WebSocket commands, events, metering and integration examples.">
+  <link rel="stylesheet" href="./reference.css">
+  <link rel="icon" href="../favicon.ico">
+  <script type="module" src="./reference.js"></script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to reference</a>
+  <header><a href="../">← LivePlay</a><h1>Developer API Reference</h1>
+    <p>HTTP and WebSocket control for automation, external applications and custom control surfaces.</p>
+    <p>Describes the repository’s 2.5.0 implementation. Examples use illustrative IDs, paths and measurements. This page does not send commands to a server.</p>
+  </header>
+  <div class="layout">
+    <nav aria-label="Reference sections">
+      <a href="#connect">Connect</a><a href="#authentication">Authentication</a>
+      <a href="#quick-start">Quick example</a><a href="#http">HTTP conventions</a>
+      <a href="#websocket">WebSocket lifecycle</a><a href="#rest">REST endpoints</a>
+      <div id="categories"></div>
+      <a href="#commands">WebSocket commands</a><a href="#events">WebSocket events</a>
+      <a href="#patches">Document notifications</a><a href="#schemas">Shared schemas</a>
+      <a href="#coverage">Coverage and maintenance</a>
+    </nav>
+    <main id="content">
+      <section id="connect"><h2>Connect</h2>
+        <table><thead><tr><th>Interface</th><th>Address</th><th>Purpose</th></tr></thead><tbody>
+          <tr><td>HTTP</td><td><code>http://&lt;server&gt;:4480/api/…</code></td><td>Read and edit projects, configuration and transport</td></tr>
+          <tr><td>WebSocket</td><td><code>ws://&lt;server&gt;:4480/ws</code></td><td>Commands, state changes and meters</td></tr>
+          <tr><td>Discovery</td><td>UDP 4481; multicast 239.255.69.80</td><td>LAN discovery; optional when address is known</td></tr>
+        </tbody></table>
+        <p>Use the audio server address, not this GitHub Pages website. The desktop app and server may run on different machines. Filesystem paths always name files on the server. LivePlay does not stream audio over these interfaces. HTTP and WebSocket share the configured TCP port; no application TLS listener is configured.</p>
+        <p>Resources: a project item's <code>uuid</code> is its stable document identity; <code>cueId</code>/<code>cue_id</code> is a live engine identity. Read pages from <code>GET /api/project/items</code> to map them, including nested children. Fetch again after loading a project. Bus <code>id</code> and engine <code>mixerId</code> are separate. Playlist indices and cart slots are zero-based regardless of display numbering.</p>
+        <details><summary>Optional LAN discovery</summary><div class="detail-body">
+          <p>Listen for UTF-8 JSON UDP beacons on port 4481, sent about every three seconds through broadcast and multicast. Sending <code>{"type":"liveplay-solicit"}</code> to that port requests a unicast reply. Use the sender address and advertised <code>port</code> to connect; discovery does not authenticate a server.</p>
+          <pre><code>{"type":"liveplay-beacon","name":"Stage-PC","version":"2.5.0","port":4480,"projectName":"Show","hasOpenProject":true,"itemCount":12,"instanceId":"per-run-id"}</code></pre>
+          <p><code>name</code> is the host name; <code>instanceId</code> identifies the running server instance; <code>itemCount</code> counts top-level items. If project-header serialization fails, the fallback beacon contains only type, name, port and instanceId. These UDP messages are separate from the WebSocket catalog.</p>
+        </div></details>
+      </section>
+      <section id="authentication"><h2>Authentication</h2>
+        <ol><li>Read <code>GET /api/auth/status</code>.</li>
+          <li>If <code>authRequired</code> is true, use a user login token or an administrator-issued API token.</li>
+          <li>Send HTTP <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+          <li>Connect WebSocket with <code>/ws?access_token=&lt;URL-encoded-token&gt;</code>. The handshake does not read the Bearer header.</li></ol>
+        <table><thead><tr><th>Credential / role</th><th>Behavior</th></tr></thead><tbody>
+          <tr><td>Authentication off</td><td>Middleware permits anonymous access, including administrator routes. Individual password/profile checks still apply. No accounts is the default; creating the first account makes it an administrator and enables authentication.</td></tr>
+          <tr><td>Operator</td><td>Show control and project editing. Administrator routes are refused.</td></tr>
+          <tr><td>Administrator</td><td>Also manages users, API tokens, output mappings, server settings and connected-client listing.</td></tr>
+          <tr><td>User session token (<code>lp1.</code>)</td><td>Expires after 30 days. Password change, account deletion or logout-all invalidates subsequent requests. Each HTTP request looks up the current role.</td></tr>
+          <tr><td>API token (<code>lpk1_</code>)</td><td>Non-expiring operator credential for automation. Secret shown once. Explicitly denied filesystem browsing, uploads, copying, archive import/export/download, user preferences, logout-all, auth posture and token management; administrator routes are also denied.</td></tr>
+        </tbody></table>
+        <p>API-token permission is listed per endpoint. These restrictions are the implemented path checks, not a complete filesystem isolation guarantee: some permitted project/cue operations also access disk. WebSocket credentials are checked at connection time only; expiry, revocation or enabling authentication does not evict an established socket.</p>
+        <p>Default CORS origin is <code>*</code>. A configured origin is returned for HTTP and checked exactly on WebSocket upgrades; a native WebSocket request without Origin is accepted by the origin check. Authentication still applies. Keep credentials out of saved URLs and shared logs.</p>
+      </section>
+      <section id="quick-start"><h2>Quick example</h2>
+        <p>Use an already loaded show. This JavaScript example connects for state, finds its first loaded audio item and triggers it. Set <code>token</code> when login is required. Run in a native client or a browser origin allowed by the server; HTTPS pages cannot directly use insecure HTTP/WS in browsers.</p>
+        <pre><code>const base = 'http://127.0.0.1:4480';
+const token = ''; // Operator session or automation token, when required.
+const headers = token ? { Authorization: `Bearer ${token}` } : {};
+async function api(path, method = 'GET', body) {
+  const r = await fetch(base + path, {
+    method, headers: { ...headers, 'Content-Type': 'application/json' },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) })
+  });
+  const value = await r.json();
+  if (!r.ok) throw new Error(value.error || `HTTP ${r.status}`);
+  return value;
+}
+const url = new URL('/ws', base.replace(/^http/, 'ws'));
+if (token) url.searchParams.set('access_token', token);
+const ws = new WebSocket(url);
+ws.onmessage = ({ data }) =&gt; {
+  const event = JSON.parse(data);
+  if (event.type !== 'meters') console.log(event);
+};
+await new Promise((resolve, reject) =&gt; {
+  ws.onopen = resolve;
+  ws.onerror = reject;
+});
+ws.send(JSON.stringify({ type: 'set_meter_hz', hz: 10 }));
+const doc = await api('/api/project');
+const flatten = items =&gt; items.flatMap(i =&gt; [i, ...flatten(i.children || [])]);
+const cue = flatten(doc.items || []).find(i =&gt; i.type === 'audio' &amp;&amp; i.cueId);
+if (!cue) throw new Error('Load a project and wait for its audio first.');
+await api(`/api/project/items/${encodeURIComponent(cue.uuid)}/play`, 'POST');
+
+// Separate operator actions; invoke when needed:
+const seek = seconds =&gt; api(`/api/project/items/${encodeURIComponent(cue.uuid)}/seek`, 'POST', { seconds });
+const stop = () =&gt; api(`/api/project/items/${encodeURIComponent(cue.uuid)}/stop`, 'POST', { fade_ms: 250 });
+const stopAll = () =&gt; api('/api/transport/stop_all', 'POST', { fade_ms: 0 });</code></pre>
+        <p>For durable edits, PATCH the item/bus/settings and then POST <code>/api/project/save</code> with <code>{}</code> after a project path is set. Live pan/DSP endpoints do not store edits. Poll <code>/api/state/summary</code> for a compact control view; use WebSocket for meter delivery.</p>
+      </section>
+      <section id="http"><h2>HTTP conventions</h2>
+        <ul><li>JSON requests use <code>Content-Type: application/json</code>; multipart uploads are explicitly marked. GET/DELETE and no-body actions need no JSON header.</li>
+          <li>Successful application handlers return <strong>200</strong>, including creates and queue acknowledgments. JSON errors are <code>{"error":"message"}</code>. File downloads/static files return bytes.</li>
+          <li>Authentication adds 401 (with <code>WWW-Authenticate: Bearer</code>) and authorization adds 403. Uncaught handler exceptions become JSON 500; malformed inputs do not uniformly produce 400. Framework 404/405 bodies are not guaranteed JSON.</li>
+          <li>Path placeholders <code>&lt;string&gt;</code> identify the resource named in each entry; encode the segment. <code>&lt;int&gt;</code> is an integer. <code>&lt;path&gt;</code> can contain slash-separated segments. Parameters beginning with <code>?</code> are query parameters; other table fields are request-body fields.</li>
+          <li>Some actions support GET as well as POST. Prefer POST. Crow maps HEAD to GET and executes the handler, so <strong>HEAD can also trigger these actions</strong>.</li>
+          <li>OPTIONS is handled by Crow: matched paths return 204 and Allow; unknown paths return 404. <code>OPTIONS /*</code> lists globally allowed methods. CORS preflight headers allow Content-Type and Authorization and have a 600-second max age.</li>
+          <li>No revision/ETag or transaction protocol is implemented for project edits. Coordinate multiple writers and re-fetch authoritative state after broad changes.</li></ul>
+        <p>Examples below use curl syntax for a POSIX shell. In PowerShell use <code>curl.exe</code> and adapt quoting or use <code>Invoke-RestMethod</code>. Substitute real resource IDs and paths. Example responses may be abbreviated where explicitly stated; use the linked shared schema for the complete shape.</p>
+      </section>
+      <section id="websocket"><h2>WebSocket lifecycle</h2>
+        <ul><li>Open <code>/ws</code> on the HTTP port; authenticated handshakes use <code>access_token</code>. Origin rejection is 403; missing/invalid token is 401.</li>
+          <li>The next broadcast tick sends <code>playback_snapshot</code>. Meters arrive automatically; default server cadence is 30 Hz, configurable 1–120 Hz. No project-document subscription is required.</li>
+          <li>Send JSON text objects with a string <code>type</code>. Binary application frames are ignored. No request IDs or universal success acknowledgments are defined.</li>
+          <li><code>ping</code> → <code>pong</code> is an optional JSON liveness exchange, separate from WebSocket protocol control frames. No application heartbeat timeout is enforced.</li>
+          <li>On reconnect, obtain the new snapshot, re-fetch project/header/items/buses, and restore per-connection meter/analyser/locale preferences. There is no event replay, sequence number or resume token. Choose a reconnect delay/backoff in your client.</li>
+          <li>Most state events broadcast to every socket. Preferences are user-scoped; locale and meter-rate replies can be connection-scoped. The event catalog states the exceptions.</li>
+          <li>Commands control the show; events are notifications. Do not echo notifications back as commands. State changes from every low-level engine operation are not guaranteed to emit a document notification.</li></ul>
+      </section>
+      <div class="tools"><label for="filter">Find an endpoint, message or field</label><input id="filter" type="search" placeholder="e.g. seek, bus, waveform_ready"><button id="expand" type="button">Expand results</button><button id="collapse" type="button">Collapse results</button><p id="status" role="status">Loading reference…</p></div>
+      <section id="rest"><h2>REST endpoints</h2><div id="endpoint-list"></div></section>
+      <section id="commands"><h2>WebSocket commands · Client → Server</h2><p>Bus control commands cover gain, mute and PFL. DSP parameters use the <a href="#http-patch-api-buses-string">HTTP bus update methods</a>; no WebSocket DSP read/write command is implemented. Stored changes arrive as <a href="#patch-buses-patched">buses_patched</a> notifications.</p><div id="command-list"></div></section>
+      <section id="events"><h2>WebSocket events · Server → Client</h2><div id="event-list"></div></section>
+      <section id="patches"><h2>Document notifications · Server → Client</h2><p>Every entry uses <code>{"type":"doc_patch","op":"…",…}</code>. All payload fields are top-level.</p><div id="patch-list"></div></section>
+      <section id="schemas"><h2>Shared schemas</h2><p>Required/default columns on response-only schemas describe emitted fields, not request defaults. For simple endpoint responses, the field table is derived from the example and the notes describe conditional fields.</p><div id="schema-list"></div></section>
+      <section id="coverage"><h2>Coverage and maintenance</h2><p id="counts"></p>
+        <p>The endpoint count treats each registered HTTP method/path combination separately; compatible GET/POST aliases are shown together. Automatic HEAD/OPTIONS handling and the WebSocket upgrade are documented separately. The static-file route comes from the installed Crow dependency.</p>
+        <p><a href="./reference.json">Reference data</a> is the single contract catalog used by this page. Repository developer guides link here. Source evidence: <a href="https://github.com/tdoukinitsas/liveplay/blob/main/server/src/net/control_server.cpp">control handlers</a>, <a href="https://github.com/tdoukinitsas/liveplay/blob/main/server/src/core/project_state.cpp">project state and serialization</a>. Runtime findings are tracked in <a href="https://github.com/tdoukinitsas/liveplay/blob/main/docs/API_AUDIT.md">the repository API audit</a>.</p>
+      </section>
+      <noscript><p>The catalog needs JavaScript. <a href="./reference.json">Download the full reference data</a>; connection instructions and examples above remain available without JavaScript.</p></noscript>
+    </main>
+  </div>
+</body>
+</html>
