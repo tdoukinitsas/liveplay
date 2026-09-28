@@ -81,7 +81,10 @@ function createClient() {
   const authRequired  = ref(false);
   // How many accounts the server holds, whether or not it is asking for one.
   const authUserCount = ref(0);
-  const authUser      = ref<{ id: string; name: string; role: string } | null>(null);
+  // `avatar` is the account's picture as a data URL, or null — carried by
+  // /api/auth/me and the login reply so the Users pane can show the signed-in
+  // person's face without a second request.
+  const authUser      = ref<{ id: string; name: string; role: string; avatar?: string | null } | null>(null);
   // True when the server wants a login and we cannot supply one. The socket
   // stays shut while it is set — see connect(). Without that guard an
   // unauthenticated client would sit in a reconnect loop against a server
@@ -1180,7 +1183,8 @@ function createClient() {
       body: JSON.stringify({ name, password, role }),
     });
   }
-  async function updateUser(id: string, patch: Record<string, string>) {
+  // `avatar: null` clears a picture, which is why the values may be null.
+  async function updateUser(id: string, patch: Record<string, string | null>) {
     return rest<any>(`/api/users/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
@@ -1188,6 +1192,34 @@ function createClient() {
   }
   async function deleteUser(id: string) {
     return rest<any>(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+
+  // The signed-in person's OWN picture. No id crosses the wire — like the
+  // preferences routes, the server acts on whoever the token says we are, so
+  // an operator can change their own face and nobody else's. Refused for an
+  // API token and while authentication is off (there is no "own" then; the
+  // pane uses updateUser in that posture, as it does for everything else).
+  async function setOwnAvatar(dataUrl: string) {
+    return rest<any>('/api/auth/me/avatar', {
+      method: 'PUT',
+      body: JSON.stringify({ avatar: dataUrl }),
+    });
+  }
+  async function clearOwnAvatar() {
+    return rest<any>('/api/auth/me/avatar', { method: 'DELETE' });
+  }
+
+  // Moving the account list between machines. Administrators only. The export
+  // carries every password hash (never the session-signing secret), so the
+  // caller should treat what comes back as sensitive.
+  async function exportUsers(): Promise<any> {
+    return rest<any>('/api/users/export');
+  }
+  async function importUsers(mode: 'merge' | 'replace', data: any): Promise<any> {
+    return rest<any>('/api/users/import', {
+      method: 'POST',
+      body: JSON.stringify({ mode, data }),
+    });
   }
 
   // ---- API tokens ------------------------------------------------------
@@ -1839,6 +1871,10 @@ function createClient() {
     createUser,
     updateUser,
     deleteUser,
+    setOwnAvatar,
+    clearOwnAvatar,
+    exportUsers,
+    importUsers,
     fetchApiTokens,
     createApiToken,
     renameApiToken,

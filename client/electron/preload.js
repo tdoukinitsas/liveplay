@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Dialogs + binary helpers used by the dual-dialog import/export flows.
   showSaveArchiveDialog: (defaultName) => ipcRenderer.invoke('show-save-archive-dialog', defaultName),
   showOpenArchiveDialog: () => ipcRenderer.invoke('show-open-archive-dialog'),
+  // Save dialog filtered to .json; pair with writeFile. Returns a path or null.
+  showSaveJsonDialog: (defaultName, title) => ipcRenderer.invoke('show-save-json-dialog', defaultName, title),
   writeBinaryFile: (filePath, data) => ipcRenderer.invoke('write-binary-file', filePath, data),
   copyFile: (source, destination) => ipcRenderer.invoke('copy-file', source, destination),
   ensureDirectory: (dirPath) => ipcRenderer.invoke('ensure-directory', dirPath),

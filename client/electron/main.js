@@ -2614,6 +2614,19 @@ ipcMain.handle('show-save-archive-dialog', async (event, defaultName) => {
   return result.filePath;
 });
 
+// Save dialog for a JSON file the renderer then writes with write-file (the
+// account export, for one). Generic rather than per-feature, so the next JSON
+// export does not need a channel of its own. Returns the path or null.
+ipcMain.handle('show-save-json-dialog', async (event, defaultName, title) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: title || 'Save',
+    defaultPath: defaultName || 'export.json',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (result.canceled || !result.filePath) return null;
+  return result.filePath;
+});
+
 // Open dialog for the .lpa upload flow (client picks a .lpa from local disk
 // to upload to a remote server for extraction). Returns the absolute path or
 // null on cancel.
@@ -3390,13 +3403,13 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
 
           let hint = '';
           if (/Sign in to confirm|not a bot|cookies/i.test(stderrBuffer)) {
-            hint = ' (YouTube is requiring sign-in/bot verification for this video.)';
+            hint = ' (YouTube requires sign-in or bot verification for this video.)';
           } else if (/Video unavailable|Private video|members-only|age/i.test(stderrBuffer)) {
             hint = ' (This video is unavailable, private, age-restricted, or members-only.)';
           } else if (/Requested format is not available/i.test(stderrBuffer)) {
             hint = ' (No downloadable audio format was found for this video.)';
           } else if (/Unable to extract|nsig|player|update.*yt-dlp/i.test(stderrBuffer)) {
-            hint = ' (yt-dlp may be out of date — YouTube changed something. Restart the app to fetch the latest yt-dlp.)';
+            hint = ' (yt-dlp may be out of date. Restart the app to update it.)';
           }
 
           reject(new Error(`yt-dlp exited with code ${code}.${hint}${detail ? '\n\n' + detail : ''}`));

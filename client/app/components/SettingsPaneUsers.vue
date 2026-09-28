@@ -67,9 +67,17 @@
       <!-- The ordinary state of a fresh installation. -->
       <template v-else>
         <p class="settings-help">{{ t('users.authOffHelp') }}</p>
-        <button class="settings-btn settings-btn--primary" @click="showAdd = true">
-          {{ t('users.createFirst') }}
-        </button>
+        <div class="settings-actions">
+          <button class="settings-btn settings-btn--primary" @click="showAdd = true">
+            {{ t('users.createFirst') }}
+          </button>
+          <!-- The other way to set up a fresh machine: take the team from the
+               old one. Offered here, with nobody signed in, for the same reason
+               "Create First Account" is — there is no administrator yet, and the
+               server opens exactly this window until the first account lands. -->
+          <button class="settings-btn" @click="pickImportFile">{{ t('accountFile.import') }}</button>
+        </div>
+        <p class="settings-help settings-help--muted">{{ t('accountFile.firstImport') }}</p>
 
         <!-- The FIRST account. A different form from "add a colleague" below,
              and not only in where it sits: creating this one turns
@@ -105,11 +113,25 @@
           <span class="material-symbols-rounded">badge</span>
           {{ t('users.signedInAs') }}
         </label>
-        <p class="settings-help">
-          <strong>{{ server.authUser?.name }}</strong>
-          — {{ roleLabel(server.authUser?.role) }}
-        </p>
+        <div class="settings-me">
+          <UserAvatar :name="server.authUser?.name" :src="server.authUser?.avatar" :size="48"
+                      :label="t('avatar.alt', { name: server.authUser?.name ?? '' })" />
+          <p class="settings-help">
+            <strong>{{ server.authUser?.name }}</strong>
+            — {{ roleLabel(server.authUser?.role) }}
+          </p>
+        </div>
         <div class="settings-actions">
+          <!-- Your own picture is yours to change whatever your role, like your
+               own password. It goes through /api/auth/me/avatar, which acts
+               only on the caller, so an operator gets this and nothing more. -->
+          <button class="settings-btn" @click="pickAvatar(server.authUser?.id, true)">
+            {{ server.authUser?.avatar ? t('avatar.change') : t('avatar.add') }}
+          </button>
+          <button v-if="server.authUser?.avatar" class="settings-btn"
+                  :disabled="busy" @click="clearAvatar(server.authUser?.id, true)">
+            {{ t('avatar.remove') }}
+          </button>
           <button class="settings-btn" @click="startPasswordChange(server.authUser?.id)">
             {{ t('users.changePassword') }}
           </button>
@@ -161,14 +183,18 @@
         <h4 class="settings-group-title">{{ t('users.accounts') }}</h4>
 
         <section v-for="u in users" :key="u.id" class="settings-field settings-row">
-          <div class="settings-row-main">
-            <span class="settings-row-name">
-              {{ u.name }}
-              <span v-if="u.id === server.authUser?.id" class="settings-badge">
-                {{ t('users.you') }}
+          <div class="settings-row-lead">
+            <UserAvatar :name="u.name" :src="u.avatar" :size="36"
+                        :label="t('avatar.alt', { name: u.name })" />
+            <div class="settings-row-main">
+              <span class="settings-row-name">
+                {{ u.name }}
+                <span v-if="u.id === server.authUser?.id" class="settings-badge">
+                  {{ t('users.you') }}
+                </span>
               </span>
-            </span>
-            <span class="settings-row-sub">{{ roleLabel(u.role) }}</span>
+              <span class="settings-row-sub">{{ roleLabel(u.role) }}</span>
+            </div>
           </div>
           <div class="settings-actions">
             <select class="settings-select settings-select--inline"
@@ -176,6 +202,13 @@
               <option value="operator">{{ t('users.roleOperator') }}</option>
               <option value="admin">{{ t('users.roleAdmin') }}</option>
             </select>
+            <button class="settings-btn" @click="pickAvatar(u.id, false)">
+              {{ u.avatar ? t('avatar.change') : t('avatar.add') }}
+            </button>
+            <button v-if="u.avatar" class="settings-btn" :disabled="busy"
+                    @click="clearAvatar(u.id, false)">
+              {{ t('avatar.remove') }}
+            </button>
             <button class="settings-btn" @click="startPasswordChange(u.id)">
               {{ t('users.changePassword') }}
             </button>
@@ -363,9 +396,70 @@
             </div>
           </div>
         </section>
+
+        <!-- Moving the team to another server. Last, because it is the one
+             group here that is about a different machine, and because its
+             import form renders just below this pane's branches (the fresh-
+             install state opens the same form from its own button). The
+             warning is not small print: the file holds every password hash on
+             this server, and the server gives it only to a signed-in
+             administrator for that reason. -->
+        <h4 class="settings-group-title">{{ t('accountFile.title') }}</h4>
+        <section class="settings-field">
+          <p class="settings-help">{{ t('accountFile.help') }}</p>
+          <p class="settings-help settings-help--warn">{{ t('accountFile.warning') }}</p>
+          <div class="settings-actions">
+            <button class="settings-btn" :disabled="busy" @click="exportAccounts">
+              {{ t('accountFile.export') }}
+            </button>
+            <button class="settings-btn" :disabled="busy" @click="pickImportFile">
+              {{ t('accountFile.import') }}
+            </button>
+          </div>
+        </section>
       </template>
       <p v-else class="settings-help">{{ t('users.adminOnly') }}</p>
     </template>
+
+    <!-- ---- Import: what is in the file, and what to do with it ---------- -->
+    <!-- Nothing is sent until a mode is chosen, and Replace asks twice: it is
+         the one action on this pane that removes every account at once,
+         including, possibly, the one doing it. -->
+    <div v-if="importData" v-reveal class="settings-inline-form">
+      <h4>{{ t('accountFile.previewTitle') }}</h4>
+      <p>{{ t('accountFile.previewCounts', { users: importCounts.users, tokens: importCounts.tokens }) }}</p>
+      <p v-if="importData.exportedAt" class="settings-help settings-help--muted">
+        {{ t('accountFile.previewDate', { date: shortDate(importData.exportedAt) }) }}
+      </p>
+      <template v-if="!importConfirmReplace">
+        <p class="settings-help">{{ t('accountFile.mergeHelp') }}</p>
+        <p v-if="server.authUserCount > 0" class="settings-help">{{ t('accountFile.replaceHelp') }}</p>
+        <div class="settings-actions">
+          <button class="settings-btn settings-btn--primary" :disabled="busy"
+                  @click="runImport('merge')">{{ t('accountFile.merge') }}</button>
+          <!-- Replacing an empty server is the same as adding to it, so the
+               dangerous button is only offered when there is something to lose. -->
+          <button v-if="server.authUserCount > 0" class="settings-btn settings-btn--danger"
+                  :disabled="busy" @click="importConfirmReplace = true">
+            {{ t('accountFile.replace') }}
+          </button>
+          <button class="settings-btn" @click="cancelImport">{{ t('users.cancel') }}</button>
+        </div>
+      </template>
+      <template v-else>
+        <p class="settings-help settings-help--warn">{{ t('accountFile.replaceConfirm') }}</p>
+        <div class="settings-actions">
+          <button class="settings-btn settings-btn--danger" :disabled="busy"
+                  @click="runImport('replace')">{{ t('accountFile.replaceConfirmButton') }}</button>
+          <button class="settings-btn" @click="importConfirmReplace = false">{{ t('users.cancel') }}</button>
+        </div>
+      </template>
+    </div>
+
+    <!-- The two file pickers. Hidden, and opened by the buttons above, so one
+         input serves every row's "Change Picture" and both "Import…" buttons. -->
+    <input ref="avatarInput" type="file" accept="image/*" hidden @change="onAvatarFile" />
+    <input ref="importInput" type="file" accept=".json,application/json" hidden @change="onImportFile" />
 
     <!-- What the last action did. Above the connected list rather than below
          it, because it answers something the person just did and the list
@@ -388,21 +482,28 @@
       <p class="settings-help">{{ t('clients.help') }}</p>
 
       <section v-for="c in clients" :key="c.id" class="settings-field settings-row">
-        <div class="settings-row-main">
-          <span class="settings-row-name">
-            {{ c.user || t('clients.anonymous') }}
-            <span v-if="c.kind === 'token'" class="settings-badge">{{ t('clients.token') }}</span>
-            <span v-else-if="c.userId && c.userId === server.authUser?.id" class="settings-badge">
-              {{ t('users.you') }}
+        <div class="settings-row-lead">
+          <!-- The face comes from the account list rather than from this poll:
+               both are administrator-only, so whoever can see this list already
+               has the pictures, and five-second polls need not carry them. -->
+          <UserAvatar :name="c.user || '?'" :src="c.userId ? avatarById[c.userId] : null" :size="28"
+                      :label="c.user || t('clients.anonymous')" />
+          <div class="settings-row-main">
+            <span class="settings-row-name">
+              {{ c.user || t('clients.anonymous') }}
+              <span v-if="c.kind === 'token'" class="settings-badge">{{ t('clients.token') }}</span>
+              <span v-else-if="c.userId && c.userId === server.authUser?.id" class="settings-badge">
+                {{ t('users.you') }}
+              </span>
             </span>
-          </span>
-          <span class="settings-row-sub">
-            {{ c.remoteIp }}
-            ·
-            {{ t('clients.connected', { when: sinceLabel(c.connectedSeconds) }) }}
-            ·
-            {{ c.locale }}
-          </span>
+            <span class="settings-row-sub">
+              {{ c.remoteIp }}
+              ·
+              {{ t('clients.connected', { when: sinceLabel(c.connectedSeconds) }) }}
+              ·
+              {{ c.locale }}
+            </span>
+          </div>
         </div>
       </section>
     </template>
@@ -474,6 +575,35 @@ const issuedToken   = ref('');
 const issuedName    = ref('');
 const copied        = ref(false);
 const secretInput   = ref<HTMLInputElement | null>(null);
+
+// ---- Pictures ------------------------------------------------------------
+// Whose picture the hidden file input is about to set. `self` chooses the
+// route: a person's own goes through /api/auth/me/avatar (no admin needed), an
+// administrator changing somebody else's goes through PATCH /api/users/<id>.
+const avatarInput  = ref<HTMLInputElement | null>(null);
+const avatarTarget = ref<{ id: string; self: boolean } | null>(null);
+// Square, and small on purpose: every picture travels inline in the account
+// list and in users.json (the server caps them at 128 KB), and this is drawn at
+// 48px at most. Twice that is sharp on a high-density screen.
+const AVATAR_PX = 128;
+
+// For the connected list, which carries a user id but not a picture.
+const avatarById = computed<Record<string, string | null>>(() => {
+  const out: Record<string, string | null> = {};
+  for (const u of users.value) out[u.id] = u.avatar ?? null;
+  if (server.authUser?.id) out[server.authUser.id] = server.authUser.avatar ?? null;
+  return out;
+});
+
+// ---- Moving accounts ---------------------------------------------------------
+const importInput = ref<HTMLInputElement | null>(null);
+// The parsed file, held between choosing it and choosing what to do with it.
+const importData  = ref<any | null>(null);
+const importConfirmReplace = ref(false);
+const importCounts = computed(() => ({
+  users:  Array.isArray(importData.value?.users) ? importData.value.users.length : 0,
+  tokens: Array.isArray(importData.value?.apiTokens) ? importData.value.apiTokens.length : 0,
+}));
 
 // ---- Who is connected -------------------------------------------------
 // Polled while this pane is open, because there is no push for it: the server
@@ -855,6 +985,223 @@ async function signOutEverywhere() {
   }
 }
 
+// ---- Pictures ------------------------------------------------------------
+
+function pickAvatar(id: string | undefined, self: boolean) {
+  if (!id) return;
+  avatarTarget.value = { id, self };
+  notice.value = '';
+  avatarInput.value?.click();
+}
+
+// Any image the browser can decode, cropped to its centre square and redrawn at
+// AVATAR_PX. Re-encoding is the point, not a side effect: whatever was picked —
+// a 12-megapixel photo, an animated GIF, a PNG with a colour profile — what
+// leaves here is one small still image in a format the server accepts. WebP
+// where the browser can write it (Chromium, so Electron always can), PNG where
+// it cannot; PNG rather than JPEG so a transparent logo stays transparent.
+function toAvatarDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        if (!side) throw new Error('empty image');
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = AVATAR_PX;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('no canvas');
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img,
+          (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side,
+          0, 0, AVATAR_PX, AVATAR_PX);
+        let out = canvas.toDataURL('image/webp', 0.85);
+        if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/png');
+        resolve(out);
+      } catch (e) {
+        reject(e);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('not an image')); };
+    img.src = url;
+  });
+}
+
+async function onAvatarFile(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  // Cleared at once so choosing the same file twice still fires a change.
+  input.value = '';
+  const target = avatarTarget.value;
+  avatarTarget.value = null;
+  if (!file || !target) return;
+
+  let dataUrl: string;
+  try {
+    dataUrl = await toAvatarDataUrl(file);
+  } catch {
+    notice.value = t('avatar.notImage');
+    noticeIsError.value = true;
+    return;
+  }
+  busy.value = true;
+  try {
+    if (target.self) await server.setOwnAvatar(dataUrl);
+    else             await server.updateUser(target.id, { avatar: dataUrl });
+    notice.value = t('avatar.changed');
+    noticeIsError.value = false;
+    await afterAvatarChange(target.id);
+  } catch (err) {
+    report(err, 'avatar.failed');
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function clearAvatar(id: string | undefined, self: boolean) {
+  if (!id) return;
+  busy.value = true;
+  notice.value = '';
+  try {
+    if (self) await server.clearOwnAvatar();
+    else      await server.updateUser(id, { avatar: null });
+    notice.value = t('avatar.removed');
+    noticeIsError.value = false;
+    await afterAvatarChange(id);
+  } catch (err) {
+    report(err, 'avatar.failed');
+  } finally {
+    busy.value = false;
+  }
+}
+
+// The signed-in person's own picture lives on authUser, which only /api/auth/me
+// refreshes — so a change to it (from either route: an administrator can reach
+// their own row in the list too) re-asks, and the list is re-read either way.
+async function afterAvatarChange(id: string) {
+  if (id === server.authUser?.id) await server.checkAuth();
+  await load();
+}
+
+// ---- Moving accounts ---------------------------------------------------------
+
+// Local date, not UTC: the name is for the person looking at a folder of these,
+// and an export made in the evening should not be dated tomorrow.
+function exportFileName(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `liveplay-users-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.json`;
+}
+
+async function exportAccounts() {
+  busy.value = true;
+  notice.value = '';
+  try {
+    const data = await server.exportUsers();
+    const text = JSON.stringify(data, null, 2);
+    const name = exportFileName();
+    // In the desktop app, a real save dialog and a real file. In a browser,
+    // the ordinary download — which is also the fallback for a desktop shell
+    // older than the dialog.
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    if (api?.showSaveJsonDialog) {
+      const dest = await api.showSaveJsonDialog(name, t('accountFile.saveTitle'));
+      if (!dest) return;   // cancelled — not an error, and nothing to say
+      const w = await api.writeFile(dest, text);
+      if (!w.success) throw new Error(w.error || 'write failed');
+      notice.value = t('accountFile.exportedTo', { file: dest });
+    } else {
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Revoked on the next tick, not immediately: some browsers start the
+      // download asynchronously and a revoked URL downloads nothing.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      notice.value = t('accountFile.exported');
+    }
+    noticeIsError.value = false;
+  } catch (e) {
+    report(e, 'accountFile.exportFailed');
+  } finally {
+    busy.value = false;
+  }
+}
+
+function pickImportFile() {
+  notice.value = '';
+  importInput.value?.click();
+}
+
+// Read and sanity-check the file HERE, before anything is sent, so a wrong
+// file is caught with a plain message rather than a round trip — but only
+// enough to show a preview. The server validates every record again and is
+// the one whose refusal counts.
+async function onImportFile(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (data?.format !== 'liveplay-users' || !Array.isArray(data.users)) throw new Error('format');
+    importData.value = data;
+    importConfirmReplace.value = false;
+  } catch {
+    importData.value = null;
+    notice.value = t('accountFile.notAFile');
+    noticeIsError.value = true;
+  }
+}
+
+function cancelImport() {
+  // Dropped rather than kept: the file holds password hashes, and there is no
+  // reason for them to sit in memory once the person has said no.
+  importData.value = null;
+  importConfirmReplace.value = false;
+}
+
+async function runImport(mode: 'merge' | 'replace') {
+  if (!importData.value) return;
+  busy.value = true;
+  notice.value = '';
+  try {
+    const res = await server.importUsers(mode, importData.value);
+    cancelImport();
+    notice.value = mode === 'replace'
+      ? t('accountFile.resultReplace', { count: res?.userCount ?? 0 })
+      : t('accountFile.resultMerge', {
+          added:   res?.usersAdded?.length ?? 0,
+          skipped: res?.usersSkipped?.length ?? 0,
+          tokens:  res?.tokensAdded?.length ?? 0,
+        });
+    noticeIsError.value = false;
+    // A replace can remove the account doing it, or give it a different
+    // password; the server says which. Signing out now shows the login screen
+    // straight away, instead of leaving the pane to fail on its next request.
+    if (res?.sessionValid === false) {
+      notice.value = t('accountFile.signedOut');
+      server.logout();
+      return;
+    }
+    // Re-ask the posture either way: importing into an empty server turns the
+    // login on (and this client, anonymous until now, will need to sign in),
+    // and a replace can change the caller's role or picture.
+    await server.checkAuth();
+    await load();
+  } catch (e) {
+    report(e, 'accountFile.importFailed');
+  } finally {
+    busy.value = false;
+  }
+}
+
 onMounted(() => {
   void load();
   void loadClients();
@@ -888,9 +1235,23 @@ watch(() => server.authUser?.id, () => { void load(); void loadClients(); });
   border-bottom: 1px solid var(--color-border, #2a2a2a);
 }
 .settings-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+// The picture beside the name and role, as one unit that wraps as one.
+.settings-row-lead { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.settings-me {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 8px;
+  .settings-help { margin: 0; }
+}
 .settings-row-name { font-weight: 600; font-size: 14px; }
 .settings-row-sub  { font-size: 12px; opacity: 0.6; }
-.settings-select--inline { width: auto; min-width: 120px; }
+// SettingsPage's shared `.settings-field` (a column) and full-width
+// `.settings-select` win over the two rules above on source order alone, which
+// stacked every row — name centred, the role select a full-width bar, buttons
+// on a line of their own. A little more specificity puts the row back.
+.settings-pane .settings-field.settings-row { flex-direction: row; }
+.settings-pane .settings-actions .settings-select--inline { width: auto; min-width: 120px; padding: 6px 10px; }
 .settings-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .settings-btn {
   padding: 6px 14px;
