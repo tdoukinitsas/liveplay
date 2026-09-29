@@ -51,7 +51,7 @@
             target="_blank"
             rel="noopener noreferrer"
           >
-            <h3>{{ t(`download.${key}.title`) }}</h3>
+            <h3 dir="auto">{{ t(`download.${key}.title`) }}</h3>
             <p>{{ t(`download.${key}.description`) }}</p>
             <div class="download-button">
               <span>{{ t(`download.${key}.buttonText`) }}</span>
@@ -99,7 +99,7 @@
               target="_blank"
               rel="noopener noreferrer"
             >
-              <h3>{{ t(`download.${key}.title`) }}</h3>
+              <h3 dir="auto">{{ t(`download.${key}.title`) }}</h3>
               <p>{{ t(`download.${key}.description`) }}</p>
               <div class="download-button">
                 <span>{{ t(`download.${key}.buttonText`) }}</span>
@@ -150,14 +150,14 @@
 
         <FeatureHighlight
           :title="t('features.playlist.title')"
-          :image-src="asset('screenshots/liveplay_screenshot.jpg')"
+          :image-src="asset('screenshots/liveplay_screenshot_playlist.jpg')"
         >
           <p>{{ t('features.playlist.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
           :title="t('features.cart.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_ducking.jpg')"
+          :image-src="asset('screenshots/liveplay_screenshot_cart.jpg')"
         >
           <p>{{ t('features.cart.description') }}</p>
         </FeatureHighlight>
@@ -171,7 +171,7 @@
 
         <FeatureHighlight
           :title="t('features.interface.title')"
-          :image-src="asset('screenshots/liveplay_screenshot.jpg')"
+          :image-src="asset('screenshots/liveplay_screenshot_workspace.jpg')"
         >
           <p>{{ t('features.interface.description') }}</p>
         </FeatureHighlight>
@@ -239,7 +239,7 @@
 
         <FeatureHighlight
           :title="t('features.meters.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_mixer.jpg')"
+          :image-src="asset('screenshots/liveplay_screenshot_meters.jpg')"
         >
           <p>{{ t('features.meters.description') }}</p>
         </FeatureHighlight>
@@ -307,7 +307,7 @@
 
         <FeatureHighlight
           :title="t('features.ltc.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_settings.jpg')"
+          :image-src="asset('screenshots/liveplay_screenshot_ltc.jpg')"
         >
           <p>{{ t('features.ltc.description') }}</p>
         </FeatureHighlight>
@@ -321,11 +321,11 @@
           <p class="ports-subtitle">{{ t('ports.subtitle') }}</p>
           <ul class="ports-list">
             <li>
-              <code class="port-number">{{ t('ports.control.port') }}</code>
+              <code class="port-number" dir="auto">{{ t('ports.control.port') }}</code>
               <span><strong>{{ t('ports.control.title') }}</strong> — {{ t('ports.control.description') }}</span>
             </li>
             <li>
-              <code class="port-number">{{ t('ports.discovery.port') }}</code>
+              <code class="port-number" dir="auto">{{ t('ports.discovery.port') }}</code>
               <span><strong>{{ t('ports.discovery.title') }}</strong> — {{ t('ports.discovery.description') }}</span>
             </li>
           </ul>

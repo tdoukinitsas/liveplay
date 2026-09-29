@@ -1,6 +1,6 @@
 # LivePlay
 
-![LivePlay playlist, cart grid and cue properties](client/public/screenshots/liveplay_screenshot.jpg)
+![LivePlay main window with the playlist, cart player and mixer side by side while cues play](client/public/screenshots/liveplay_screenshot.jpg)
 
 **LivePlay is a free, open-source audio playback app for live shows.** Build cue lists, trigger sound effects, mix and route audio, and operate a show from the audio computer or another computer on the local network.
 
