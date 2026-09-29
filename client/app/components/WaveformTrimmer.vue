@@ -11,7 +11,8 @@
             type="text"
             inputmode="decimal"
             class="db-input"
-            :value="volumeDB <= VOLUME_MIN_DB ? '-inf' : volumeDB.toFixed(1)"
+            :value="isMixed('volume') ? '' : (volumeDB <= VOLUME_MIN_DB ? '-inf' : volumeDB.toFixed(1))"
+            :placeholder="isMixed('volume') ? t('properties.multipleValues') : ''"
             :title="t('properties.volumeDbInput')"
             @focus="($event.target as HTMLInputElement).select()"
             @keydown.enter="($event.target as HTMLInputElement).blur()"
@@ -44,7 +45,7 @@
       </div>
     </div>
 
-    
+
 
     <!-- Waveform Display -->
     <div class="waveform-section">
@@ -71,7 +72,7 @@
             <span class="material-symbols-rounded">content_cut</span>
             <span>{{ t('properties.trimSilence') }}</span>
           </button>
-          
+
           <!-- Normalize Button -->
           <button class="normalize-btn" @click="normalizeAudio" :title="t('properties.normalize')">
             <span class="material-symbols-rounded">tune</span>
@@ -112,8 +113,8 @@
             <span class="material-symbols-rounded">arrow_forward</span>
           </div>
         </div>
-        
-        <div 
+
+        <div
           class="trim-handle trim-handle-out"
           :style="{ left: outPointPosition + 'px' }"
           @mousedown.prevent="startDragHandle('out', $event)"
@@ -125,19 +126,19 @@
         </div>
 
         <!-- Trim Region Overlay -->
-        <div 
+        <div
           class="trim-overlay trim-overlay-left"
           :style="{ width: inPointPosition + 'px' }"
         ></div>
-        <div 
+        <div
           class="trim-overlay trim-overlay-right"
           :style="{ left: outPointPosition + 'px' }"
         ></div>
-        
+
         <!-- Fade Handles (hidden for cart items) -->
         <template v-if="!isCartItem">
           <!-- Play Fade Handle (fade in end) -->
-          <div 
+          <div
             v-if="playFade > 0"
             class="fade-handle fade-handle-play"
             :style="{ left: playFadePosition + 'px' }"
@@ -149,9 +150,9 @@
               <span class="material-symbols-rounded">trending_up</span>
             </div>
           </div>
-          
+
           <!-- Stop Fade Handle (fade out start) -->
-          <div 
+          <div
             v-if="stopFade > 0"
             class="fade-handle fade-handle-stop"
             :style="{ left: stopFadePosition + 'px' }"
@@ -163,7 +164,7 @@
               <span class="material-symbols-rounded">trending_down</span>
             </div>
           </div>
-          
+
           <!-- Cross Fade Handle (crossfade start) -->
           <div
             v-if="crossFade > 0"
@@ -216,10 +217,10 @@
           <button class="time-decrement" @click="adjustInPoint(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">remove</span>
           </button>
-          <input 
+          <input
             type="text"
             class="time-input"
-            :value="formatTimeDetailed(inPoint)"
+            :value="isMixed('inPoint') ? '' : formatTimeDetailed(inPoint)" :placeholder="isMixed('inPoint') ? t('properties.multipleValues') : ''"
             @change="handleInPointTextChange"
             @focus="($event.target as HTMLInputElement).select()"
           />
@@ -228,36 +229,32 @@
           </button>
         </div>
       </div>
-      <div
-        class="time-field"
-        :class="{ 'time-field-disabled': multiSelect }"
-        :title="multiSelect ? t('properties.multiSelectOutPointDisabled') : undefined"
-      >
+      <div class="time-field">
         <label>{{ t('properties.outPoint') }}</label>
         <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustOutPoint(-0.5)" :disabled="multiSelect" :title="multiSelect ? t('properties.multiSelectOutPointDisabled') : t('waveform.decreaseBy', { seconds: '0.5' })">
+          <button class="time-decrement" @click="adjustOutPoint(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">remove</span>
           </button>
           <input
             type="text"
             class="time-input"
-            :value="multiSelect ? '—' : formatTimeDetailed(outPoint)"
-            :disabled="multiSelect"
-            :title="multiSelect ? t('properties.multiSelectOutPointDisabled') : undefined"
+            :value="isMixed('outPoint') ? '' : formatTimeDetailed(outPoint)"
+            :placeholder="isMixed('outPoint') ? t('properties.multipleValues') : ''"
             @change="handleOutPointTextChange"
             @focus="($event.target as HTMLInputElement).select()"
           />
-          <button class="time-increment" @click="adjustOutPoint(0.5)" :disabled="multiSelect" :title="multiSelect ? t('properties.multiSelectOutPointDisabled') : t('waveform.increaseBy', { seconds: '0.5' })">
+          <button class="time-increment" @click="adjustOutPoint(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">add</span>
           </button>
         </div>
       </div>
       <div class="time-field">
         <label>{{ t('properties.duration') }}</label>
-        <input 
+        <input
           type="text"
           class="time-input"
-          :value="formatTimeDetailed(duration)"
+          :value="multiSelect ? '' : formatTimeDetailed(duration)"
+          :placeholder="multiSelect ? t('properties.multipleValues') : ''"
           readonly
         />
       </div>
@@ -276,7 +273,7 @@
             <input
               type="text"
               class="time-input fade-input"
-              :value="formatTimeDetailed(manualStopFade)"
+              :value="isMixed('manualStopFade') ? '' : formatTimeDetailed(manualStopFade)" :placeholder="isMixed('manualStopFade') ? t('properties.multipleValues') : ''"
               @change="handleManualStopFadeTextChange"
               @focus="($event.target as HTMLInputElement).select()"
             />
@@ -298,7 +295,7 @@
             <input
               type="text"
               class="time-input fade-input"
-              :value="formatTimeDetailed(playFade)"
+              :value="isMixed('playFade') ? '' : formatTimeDetailed(playFade)" :placeholder="isMixed('playFade') ? t('properties.multipleValues') : ''"
               @change="handlePlayFadeTextChange"
               @focus="($event.target as HTMLInputElement).select()"
             />
@@ -316,7 +313,7 @@
             <input
               type="text"
               class="time-input fade-input"
-              :value="formatTimeDetailed(crossFade)"
+              :value="isMixed('crossFade') ? '' : formatTimeDetailed(crossFade)" :placeholder="isMixed('crossFade') ? t('properties.multipleValues') : ''"
               @change="handleCrossFadeTextChange"
               @focus="($event.target as HTMLInputElement).select()"
             />
@@ -336,7 +333,7 @@
             <input
               type="text"
               class="time-input fade-input"
-              :value="formatTimeDetailed(stopFade)"
+              :value="isMixed('stopFade') ? '' : formatTimeDetailed(stopFade)" :placeholder="isMixed('stopFade') ? t('properties.multipleValues') : ''"
               @change="handleStopFadeTextChange"
               @focus="($event.target as HTMLInputElement).select()"
             />
@@ -348,7 +345,8 @@
         <label class="start-next-toggle">
           <input
             type="checkbox"
-            :checked="startNextEnabled"
+            :checked="!isMixed('startNextEnabled') && startNextEnabled"
+              :indeterminate="isMixed('startNextEnabled')"
             @change="handleStartNextEnabledChange"
           />
           <span>{{ t('properties.startNextEnable') }}</span>
@@ -362,7 +360,7 @@
             <input
               type="text"
               class="time-input fade-input"
-              :value="formatTimeDetailed(startNextTime)"
+              :value="isMixed('startNextTime') ? '' : formatTimeDetailed(startNextTime)" :placeholder="isMixed('startNextTime') ? t('properties.multipleValues') : ''"
               :disabled="!startNextEnabled"
               @change="handleStartNextTimeTextChange"
               @focus="($event.target as HTMLInputElement).select()"
@@ -375,7 +373,8 @@
         <label class="start-next-toggle" :class="{ 'start-next-disabled': !startNextEnabled }">
           <input
             type="checkbox"
-            :checked="startNextFadeOut"
+            :checked="!isMixed('startNextFadeOut') && startNextFadeOut"
+              :indeterminate="isMixed('startNextFadeOut')"
             :disabled="!startNextEnabled"
             @change="handleStartNextFadeOutChange"
           />
@@ -393,7 +392,7 @@
             <input
               type="text"
               class="time-input fade-input"
-              :value="formatTimeDetailed(manualStopFade)"
+              :value="isMixed('manualStopFade') ? '' : formatTimeDetailed(manualStopFade)" :placeholder="isMixed('manualStopFade') ? t('properties.multipleValues') : ''"
               @change="handleManualStopFadeTextChange"
               @focus="($event.target as HTMLInputElement).select()"
             />
@@ -415,7 +414,7 @@
             <input
               type="text"
               class="time-input fade-input"
-              :value="formatTimeDetailed(loopCrossfade)"
+              :value="isMixed('loopCrossfade') ? '' : formatTimeDetailed(loopCrossfade)" :placeholder="isMixed('loopCrossfade') ? t('properties.multipleValues') : ''"
               :disabled="!isLooping"
               @change="handleLoopCrossfadeTextChange"
               @focus="($event.target as HTMLInputElement).select()"
@@ -447,7 +446,13 @@ const props = defineProps<{
   // items selected that re-request fires per displayed anchor and races the
   // batch edit, which is what made auto-trim / auto-volume revert.
   multiSelect?: boolean;
+  /**
+   * Which of these fields differ across the selection. A mixed field shows
+   * "Multiple values" until it is set, and setting it sets every selected cue.
+   */
+  mixed?: Record<string, boolean>;
 }>();
+const isMixed = (field: string) => !!props.mixed?.[field];
 
 const emit = defineEmits<{
   'update:volume': [value: number];
@@ -799,7 +804,7 @@ const startDragFade = (fadeType: 'play' | 'stop' | 'cross' | 'startNext', event:
     : fadeType === 'stop' ? stopFade.value
     : fadeType === 'cross' ? crossFade.value
     : startNextTime.value;
-  
+
   dragState.value = {
     handle: fadeType,
     startX: event.clientX,
@@ -811,7 +816,7 @@ const startDragFade = (fadeType: 'play' | 'stop' | 'cross' | 'startNext', event:
 
     const deltaX = e.clientX - dragState.value.startX;
     const deltaTime = (deltaX / canvasWidth.value) * visibleDuration.value;
-    
+
     if (dragState.value.handle === 'play') {
       // Play fade: drag right increases fade duration
       emit('update:playFade', clampFade(dragState.value.startValue + deltaTime));
@@ -1118,19 +1123,19 @@ const drawWaveform = () => {
   // Goal: Show grid lines every ~50-100 pixels
   const pixelsPerSecond = canvasWidth.value / visibleDuration.value;
   const targetPixelsPerGrid = 75; // Ideal spacing between grid lines
-  
+
   // Calculate initial time step
   let timeStep = targetPixelsPerGrid / pixelsPerSecond;
-  
+
   // Round to nice intervals: 0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600 seconds
   const niceIntervals = [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600];
-  timeStep = niceIntervals.reduce((prev, curr) => 
+  timeStep = niceIntervals.reduce((prev, curr) =>
     Math.abs(curr - timeStep) < Math.abs(prev - timeStep) ? curr : prev
   );
 
   for (let time = Math.ceil(visibleStart.value / timeStep) * timeStep; time <= visibleEnd.value; time += timeStep) {
     const x = (time - visibleStart.value) * pixelsPerSecond;
-    
+
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, canvasHeight);
@@ -1423,10 +1428,10 @@ const throttledDraw = () => {
 
 // Watch for changes and redraw
 watch([
-  zoomLevel, 
-  scrollPosition, 
-  () => props.audioItem?.volume, 
-  () => props.audioItem?.inPoint, 
+  zoomLevel,
+  scrollPosition,
+  () => props.audioItem?.volume,
+  () => props.audioItem?.inPoint,
   () => props.audioItem?.outPoint,
   () => props.audioItem?.playFade,
   () => props.audioItem?.stopFade,
@@ -1501,7 +1506,7 @@ onUnmounted(() => {
   // Clear any pending draw / self-heal operations
   if (drawTimeout) clearTimeout(drawTimeout);
   if (ensureWaveformTimer) clearTimeout(ensureWaveformTimer);
-  
+
   // Clean up resize observer
   if (resizeObserver.value && waveformContainer.value) {
     resizeObserver.value.unobserve(waveformContainer.value);
@@ -1624,7 +1629,7 @@ onUnmounted(() => {
   );
   border-radius: 4px;
   /* Add horizontal lines for dB steps */
-  background-image: 
+  background-image:
     repeating-linear-gradient(0deg,
       rgba(0, 0, 0, 0.3) 0px,
       rgba(0, 0, 0, 0.3) 1px,
@@ -1651,7 +1656,7 @@ onUnmounted(() => {
     #991b1b 100%
   );
   border-radius: 4px;
-  background-image: 
+  background-image:
     repeating-linear-gradient(0deg,
       rgba(0, 0, 0, 0.3) 0px,
       rgba(0, 0, 0, 0.3) 1px,
@@ -1844,12 +1849,12 @@ onUnmounted(() => {
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
-  
+
   &:hover {
     background: var(--color-surface-hover);
     border-color: var(--color-accent);
   }
-  
+
   .material-symbols-rounded {
     font-size: 18px;
   }
