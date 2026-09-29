@@ -228,6 +228,7 @@
 </template>
 
 <script setup lang="ts">
+import { version as buildVersion } from '~~/package.json';
 import ServerFilePickerModal from './ServerFilePickerModal.vue';
 
 const { createNewProject, openProject, tryRejoinExistingProject } = useProject();
@@ -295,7 +296,9 @@ const pickerStart         = ref<string>('');
 const pickerIntent        = ref<'new' | 'open'>('open');
 
 // Get app version
-const appVersion = ref('1.1.3');
+// The build's own version, so a browser (or the moment before Electron answers)
+// shows the real number rather than a constant nobody remembers to bump.
+const appVersion = ref<string>(buildVersion);
 onMounted(async () => {
   if (import.meta.client && (window as any).electronAPI?.getAppVersion) {
     appVersion.value = await (window as any).electronAPI.getAppVersion();

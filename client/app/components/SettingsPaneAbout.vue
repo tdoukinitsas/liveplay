@@ -67,6 +67,7 @@
 </template>
 
 <script setup lang="ts">
+import { version as buildVersion } from '~~/package.json';
 // Folded in from AboutModal.vue, which this retires. Same content; what goes is
 // the overlay, the close button and its own Escape handler, all of which the
 // Settings page already provides.
@@ -88,7 +89,9 @@ const contributors = computed(() =>
 
 // Falls back to the last version that shipped without this call answering,
 // which is what a browser-only session (no Electron) sees.
-const appVersion = ref('1.1.3');
+// The build's own version, so a browser (or the moment before Electron answers)
+// shows the real number rather than a constant nobody remembers to bump.
+const appVersion = ref<string>(buildVersion);
 onMounted(async () => {
   if (import.meta.client && window.electronAPI?.getAppVersion) {
     appVersion.value = await window.electronAPI.getAppVersion();

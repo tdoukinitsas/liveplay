@@ -15,6 +15,10 @@ const FILES_TO_UPDATE = [
   { path: 'package.json', key: 'version', type: 'json' },
   { path: 'client/package.json', key: 'version', type: 'json' },
   { path: 'docs-site/package.json', key: 'version', type: 'json' },
+  // The homepage reads its version from this copy at runtime. CI overwrites it
+  // with the root package.json on deploy, but it is committed too, and a stale
+  // one is what showed 2.0.0 on a local build.
+  { path: 'docs-site/public/package.json', key: 'version', type: 'json' },
   { path: 'server/vcpkg.json', key: 'version-string', type: 'json' },
   { path: 'docs-site/app/app.vue', key: null, type: 'vue' }
 ];
