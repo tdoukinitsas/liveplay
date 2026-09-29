@@ -957,6 +957,19 @@ export const useProject = () => {
   }
 
 
+  // Settings that used to live in the show file but belong to the person now
+  // (U4). An older project still carries them in this in-memory copy, and
+  // sending them back on every save made the server count them as a fresh
+  // migration each time — which re-raised the "earlier version" banner after
+  // every save. The server reads them once, at load, as the seed for a
+  // profile; it has no use for them after that.
+  const PERSONAL_SETTING_KEYS = ['meterMode', 'uiScrollToPlaying'] as const;
+  const showSettingsOnly = (settings: any) => {
+    const out = toJSON(settings);
+    if (out && typeof out === 'object') for (const k of PERSONAL_SETTING_KEYS) delete out[k];
+    return out;
+  };
+
   // Serialise the in-memory project into the wire shape the server expects.
   // Shared by saveProject (which sends it alongside the target path) and
   // resumeProjectOnServer (which replaces the server's document wholesale).
@@ -979,7 +992,7 @@ export const useProject = () => {
       // asserting ownership of values it no longer owns — and R1 is the point
       // of the exercise, not the erasure.
       cartOnlyItems: itemsToJSON(currentProject.value.cartOnlyItems) ?? [],
-      settings:      toJSON((currentProject.value as any).settings),
+      settings:      showSettingsOnly((currentProject.value as any).settings),
       createdAt:     currentProject.value.createdAt,
       lastModified:  currentProject.value.lastModified,
     };

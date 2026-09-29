@@ -249,6 +249,10 @@ function createClient() {
     itemsToMain: number;
     busesFromDeviceOverride: number;
     mainOutputMigrated: boolean;
+    previewDeviceMigrated: boolean;
+    ltcDeviceMigrated: boolean;
+    rolesMigrated: boolean;
+    sendsDropped: number;
   };
   const migrationBanner = ref<MigrationBannerState | null>(null);
   function dismissMigrationBanner() {
@@ -492,11 +496,24 @@ function createClient() {
           // even issue the load that triggered it. Counts arrive flat on the
           // frame, not nested under a `migration` key.
           if (payload.op === 'project_migrated') {
-            migrationBanner.value = {
+            const m: MigrationBannerState = {
               itemsToMain: Number(payload.itemsToMain) || 0,
               busesFromDeviceOverride: Number(payload.busesFromDeviceOverride) || 0,
               mainOutputMigrated: !!payload.mainOutputMigrated,
+              previewDeviceMigrated: Number(payload.previewDeviceMigrated) > 0,
+              ltcDeviceMigrated: Number(payload.ltcDeviceMigrated) > 0,
+              rolesMigrated: !!payload.rolesMigrated,
+              sendsDropped: Number(payload.sendsDropped) || 0,
             };
+            // `userPrefsMigrated` on its own is deliberately NOT a banner: the
+            // theme and meter preferences moving into the person's profile
+            // changes nothing about how the show sounds, and "Open Mixer" is
+            // no answer to it. Raising it anyway is what made the banner
+            // reappear after every save of an older project.
+            const soundChanged = m.itemsToMain > 0 || m.busesFromDeviceOverride > 0 ||
+              m.mainOutputMigrated || m.previewDeviceMigrated || m.ltcDeviceMigrated ||
+              m.rolesMigrated || m.sendsDropped > 0;
+            if (soundChanged) migrationBanner.value = m;
             void fetchBuses();
           }
           // PFL isn't in the document, so it arrives as its own op and is

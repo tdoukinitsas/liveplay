@@ -4841,6 +4841,11 @@ void ControlServer::install_routes() {
                 // drained, so a migration reported here can't leak into the
                 // response of some later, unrelated load.
                 auto migration = state_.consume_bus_migration_summary();
+                // A save is the show's own round trip, not a load: the person's
+                // settings it may still carry were reported when the file was
+                // opened, and save() has just dropped them. Reporting them again
+                // raised the "earlier version" banner after every save.
+                migration.user_prefs_migrated = 0;
                 json body{{"ok", true}, {"path", path_str}};
                 if (migration.any()) {
                     body["migration"] = migration.to_json();
