@@ -89,8 +89,9 @@
     <p v-if="configError" class="settings-help settings-help--warn">{{ configError }}</p>
 
     <template v-else-if="config">
-      <p class="settings-pane-intro">
-        {{ t('serverConfig.intro') }}
+      <p class="settings-pane-intro">{{ t('serverConfig.intro') }}</p>
+      <p class="settings-help">
+        {{ t('serverConfig.storedIn') }}
         <code class="settings-path">{{ config.path }}</code>
       </p>
 

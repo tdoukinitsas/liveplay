@@ -26,7 +26,7 @@
       :class="[silenceWarningClass, { 'silence-warning--left': warningMode === 'left' }]"
       :style="warningStyle"
     >
-      {{ t('project.silenceWarning') }} {{ Math.ceil(silenceWarning) }} {{ t('project.seconds') }}
+      {{ t('project.silenceCountdown', { seconds: Math.ceil(silenceWarning) }) }}
     </div>
 
     <!-- `fit-N` is how far the right-hand block has had to compact itself to
