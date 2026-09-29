@@ -347,7 +347,7 @@
     "stop": "रोकें",
     "pause": "पॉज़",
     "resume": "फिर चलाएँ",
-    "cueToContinue": "Cue to Continue: यह लूप पूरा करें, फिर आगे बढ़ें",
+    "cueToContinue": "क्यू पर आगे बढ़ें: यह लूप पूरा करें, फिर आगे बढ़ें",
     "jumpCue": "Jump Cue: अभी रोकें और तुरंत आगे बढ़ें",
     "edit": "संपादित करें",
     "remove": "हटाएं",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "अनुवाद योगदानकर्ता",
-    "name": "AI Translated with Claude Sonnet 4.6",
+    "name": "AI Translated with Claude Sonnet 4.6, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "कार्ट स्लॉट {n}",
     "pauseResume": "पॉज़ / फिर चलाएँ",
     "toggleLoop": "लूप टॉगल करें",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "क्यू पर आगे बढ़ें",
     "jumpCue": "Jump Cue",
     "stopAll": "सभी रोकें",
     "selectUp": "ऊपर चुनें",

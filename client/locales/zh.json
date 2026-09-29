@@ -347,7 +347,7 @@
     "stop": "停止",
     "pause": "暂停",
     "resume": "继续",
-    "cueToContinue": "Cue to Continue：播完本次循环后前进",
+    "cueToContinue": "按 Cue 继续：播完本次循环后前进",
     "jumpCue": "Jump Cue：立即停止并前进",
     "edit": "编辑",
     "remove": "移除",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "翻译贡献者",
-    "name": "AI Translated with Claude Sonnet 4.5",
+    "name": "AI Translated with Claude Sonnet 4.5, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "槽位 {n}",
     "pauseResume": "暂停 / 继续",
     "toggleLoop": "切换循环",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "按 Cue 继续",
     "jumpCue": "Jump Cue",
     "stopAll": "全部停止",
     "selectUp": "向上选择",

@@ -347,7 +347,7 @@
     "stop": "Stop",
     "pause": "Pauză",
     "resume": "Reia",
-    "cueToContinue": "Cue to Continue: termină bucla curentă, apoi avansează",
+    "cueToContinue": "Continuă la cue: termină bucla curentă, apoi avansează",
     "jumpCue": "Jump Cue: oprește acum și avansează imediat",
     "edit": "Editează",
     "remove": "Elimină",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "Traducere realizată de",
-    "name": "Dragan Dan Adrian",
+    "name": "Dragan Dan Adrian · AI: Claude Opus 5.5",
     "contributeLink": "contact@forumthassos.ro"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "Slot cart {n}",
     "pauseResume": "Pauză / reluare",
     "toggleLoop": "Comută bucla",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "Continuă la cue",
     "jumpCue": "Jump Cue",
     "stopAll": "Oprește tot",
     "selectUp": "Selectează în sus",

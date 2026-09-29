@@ -347,7 +347,7 @@
     "stop": "Durdur",
     "pause": "Duraklat",
     "resume": "Devam Et",
-    "cueToContinue": "Cue to Continue: bu döngüyü bitir, sonra ilerle",
+    "cueToContinue": "Cue ile devam: bu döngüyü bitir, sonra ilerle",
     "jumpCue": "Jump Cue: şimdi durdur ve hemen ilerle",
     "edit": "Düzenle",
     "remove": "Kaldır",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "Çeviri Katkıda Bulunan",
-    "name": "AI Translated with Claude Sonnet 4.5",
+    "name": "AI Translated with Claude Sonnet 4.5, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "Kartuş Yuvası {n}",
     "pauseResume": "Duraklat / Devam et",
     "toggleLoop": "Döngüyü aç/kapat",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "Cue ile devam",
     "jumpCue": "Jump Cue",
     "stopAll": "Tümünü durdur",
     "selectUp": "Yukarı seç",

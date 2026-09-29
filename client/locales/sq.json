@@ -347,7 +347,7 @@
     "stop": "Ndalo",
     "pause": "Pauzë",
     "resume": "Vazhdo",
-    "cueToContinue": "Cue to Continue: përfundo përsëritjen aktuale, pastaj kalo më tej",
+    "cueToContinue": "Vazhdo me cue: përfundo përsëritjen aktuale, pastaj kalo më tej",
     "jumpCue": "Jump Cue: ndalo tani dhe kalo menjëherë më tej",
     "edit": "Përpuno",
     "remove": "Hiq",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "Përkthimi",
-    "name": "AI Translated with Claude Sonnet 4.5",
+    "name": "AI Translated with Claude Sonnet 4.5, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "Vendi {n} i cart-it",
     "pauseResume": "Pauzë / vazhdo",
     "toggleLoop": "Aktivizo/çaktivizo përsëritjen",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "Vazhdo me cue",
     "jumpCue": "Jump Cue",
     "stopAll": "Ndalo të gjitha",
     "selectUp": "Përzgjidh lart",

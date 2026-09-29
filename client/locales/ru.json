@@ -347,7 +347,7 @@
     "stop": "Остановить",
     "pause": "Пауза",
     "resume": "Возобновить",
-    "cueToContinue": "Cue to Continue: доиграть этот цикл, затем перейти дальше",
+    "cueToContinue": "Продолжить по реплике: доиграть этот цикл, затем перейти дальше",
     "jumpCue": "Jump Cue: остановить сейчас и сразу перейти дальше",
     "edit": "Редактировать",
     "remove": "Убрать",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "Автор перевода",
-    "name": "AI Translated with Claude Sonnet 4.5",
+    "name": "AI Translated with Claude Sonnet 4.5, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "Слот {n}",
     "pauseResume": "Пауза / продолжить",
     "toggleLoop": "Вкл/выкл цикл",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "Продолжить по реплике",
     "jumpCue": "Jump Cue",
     "stopAll": "Остановить всё",
     "selectUp": "Выбрать выше",

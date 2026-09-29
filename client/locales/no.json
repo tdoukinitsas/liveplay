@@ -347,7 +347,7 @@
     "stop": "Stopp",
     "pause": "Pause",
     "resume": "Fortsett",
-    "cueToContinue": "Cue to Continue: spill ferdig loopen, og gå så videre",
+    "cueToContinue": "Fortsett på cue: spill ferdig loopen, og gå så videre",
     "jumpCue": "Jump Cue: stopp nå og gå videre med en gang",
     "edit": "Rediger",
     "remove": "Fjern",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "Oversettelse",
-    "name": "AI Translated with Claude Sonnet 4.5",
+    "name": "AI Translated with Claude Sonnet 4.5, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "Cartplass {n}",
     "pauseResume": "Pause/fortsett",
     "toggleLoop": "Loop av/på",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "Fortsett på cue",
     "jumpCue": "Jump Cue",
     "stopAll": "Stopp alt",
     "selectUp": "Velg opp",

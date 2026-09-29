@@ -347,7 +347,7 @@
     "stop": "روکیں",
     "pause": "موقوف کریں",
     "resume": "دوبارہ جاری کریں",
-    "cueToContinue": "Cue to Continue: یہ لوپ مکمل کریں، پھر آگے بڑھیں",
+    "cueToContinue": "کیو پر جاری رکھیں: یہ لوپ مکمل کریں، پھر آگے بڑھیں",
     "jumpCue": "Jump Cue: ابھی روکیں اور فوراً آگے بڑھیں",
     "edit": "ترمیم کریں",
     "remove": "ہٹائیں",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "ترجمہ معاون",
-    "name": "AI Translated with Claude Sonnet 4.5",
+    "name": "AI Translated with Claude Sonnet 4.5, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "کارٹ سلاٹ {n}",
     "pauseResume": "موقوف / دوبارہ جاری",
     "toggleLoop": "لوپ ٹوگل کریں",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "کیو پر جاری رکھیں",
     "jumpCue": "Jump Cue",
     "stopAll": "سب روکیں",
     "selectUp": "اوپر منتخب کریں",

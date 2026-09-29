@@ -347,7 +347,7 @@
     "stop": "정지",
     "pause": "일시정지",
     "resume": "재개",
-    "cueToContinue": "Cue to Continue: 이 루프를 끝까지 재생한 뒤 다음으로 진행",
+    "cueToContinue": "큐로 계속: 이 루프를 끝까지 재생한 뒤 다음으로 진행",
     "jumpCue": "Jump Cue: 지금 정지하고 즉시 다음으로 진행",
     "edit": "편집",
     "remove": "제거",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "번역 기여자",
-    "name": "AI Translated with Claude Sonnet 4.5",
+    "name": "AI Translated with Claude Sonnet 4.5, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "카트 슬롯 {n}",
     "pauseResume": "일시정지 / 재개",
     "toggleLoop": "반복 켜기/끄기",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "큐로 계속",
     "jumpCue": "Jump Cue",
     "stopAll": "모두 정지",
     "selectUp": "위로 선택",

@@ -347,7 +347,7 @@
     "stop": "থামান",
     "pause": "বিরতি",
     "resume": "আবার চালান",
-    "cueToContinue": "Cue to Continue: এই লুপটি শেষ করুন, তারপর এগিয়ে যান",
+    "cueToContinue": "কিউ দিলে এগিয়ে যান: এই লুপটি শেষ করুন, তারপর এগিয়ে যান",
     "jumpCue": "Jump Cue: এখনই থামুন এবং সঙ্গে সঙ্গে এগিয়ে যান",
     "edit": "সম্পাদনা করুন",
     "remove": "সরান",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "অনুবাদ অবদানকারী",
-    "name": "AI Translated with Claude Sonnet 4.6",
+    "name": "AI Translated with Claude Sonnet 4.6, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "কার্ট স্লট {n}",
     "pauseResume": "বিরতি / আবার চালান",
     "toggleLoop": "লুপ টগল করুন",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "কিউ দিলে এগিয়ে যান",
     "jumpCue": "Jump Cue",
     "stopAll": "সব থামান",
     "selectUp": "উপরে নির্বাচন করুন",

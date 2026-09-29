@@ -347,7 +347,7 @@
     "stop": "Ferma",
     "pause": "Pausa",
     "resume": "Riprendi",
-    "cueToContinue": "Cue to Continue: termina questo loop, poi avanza",
+    "cueToContinue": "Prosegui al cue: termina questo loop, poi avanza",
     "jumpCue": "Jump Cue: ferma ora e avanza subito",
     "edit": "Modifica",
     "remove": "Rimuovi",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "Traduzione",
-    "name": "AI Translated with Claude Sonnet 4.5",
+    "name": "AI Translated with Claude Sonnet 4.5, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "Slot {n}",
     "pauseResume": "Pausa / Riprendi",
     "toggleLoop": "Attiva/disattiva loop",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "Prosegui al cue",
     "jumpCue": "Jump Cue",
     "stopAll": "Ferma tutto",
     "selectUp": "Seleziona su",

@@ -347,7 +347,7 @@
     "stop": "إيقاف",
     "pause": "إيقاف مؤقت",
     "resume": "استئناف",
-    "cueToContinue": "Cue to Continue: إنهاء هذه الحلقة، ثم الانتقال",
+    "cueToContinue": "المتابعة عند الإشارة: إنهاء هذه الحلقة، ثم الانتقال",
     "jumpCue": "Jump Cue: الإيقاف الآن والانتقال فورًا",
     "edit": "تحرير",
     "remove": "إزالة",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "المساهم في الترجمة",
-    "name": "AI Translated with Claude Sonnet 4.6",
+    "name": "AI Translated with Claude Sonnet 4.6, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "فتحة الخرطوشة {n}",
     "pauseResume": "إيقاف مؤقت / متابعة",
     "toggleLoop": "تبديل التكرار",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "المتابعة عند الإشارة",
     "jumpCue": "Jump Cue",
     "stopAll": "إيقاف الكل",
     "selectUp": "اختيار للأعلى",

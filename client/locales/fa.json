@@ -347,7 +347,7 @@
     "stop": "توقف",
     "pause": "مکث",
     "resume": "ادامه",
-    "cueToContinue": "Cue to Continue: این حلقه را تمام کن، سپس جلو برو",
+    "cueToContinue": "ادامه با کیو: این حلقه را تمام کن، سپس جلو برو",
     "jumpCue": "Jump Cue: همین حالا متوقف کن و بلافاصله جلو برو",
     "edit": "ویرایش",
     "remove": "حذف",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "همکار ترجمه",
-    "name": "AI Translated with Claude Sonnet 4.6",
+    "name": "AI Translated with Claude Sonnet 4.6, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "اسلات کارتریج {n}",
     "pauseResume": "مکث / ادامه",
     "toggleLoop": "روشن/خاموش کردن حلقه",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "ادامه با کیو",
     "jumpCue": "Jump Cue",
     "stopAll": "توقف همه",
     "selectUp": "انتخاب بالا",

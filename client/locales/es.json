@@ -347,7 +347,7 @@
     "stop": "Detener",
     "pause": "Pausar",
     "resume": "Reanudar",
-    "cueToContinue": "Cue to Continue: terminar este bucle y luego avanzar",
+    "cueToContinue": "Continuar con cue: terminar este bucle y luego avanzar",
     "jumpCue": "Jump Cue: detener ahora y avanzar de inmediato",
     "edit": "Editar",
     "remove": "Quitar",
@@ -651,7 +651,7 @@
   },
   "translationContributor": {
     "title": "Traducción",
-    "name": "AI Translated with Claude Sonnet 4.6",
+    "name": "AI Translated with Claude Sonnet 4.6, Claude Opus 5.5",
     "contributeLink": "https://www.anthropic.com/claude/sonnet"
   },
   "exportProgress": {
@@ -685,7 +685,7 @@
     "cartSlot": "Ranura {n}",
     "pauseResume": "Pausa / Reanudar",
     "toggleLoop": "Activar/desactivar bucle",
-    "cueToContinue": "Cue to Continue",
+    "cueToContinue": "Continuar con cue",
     "jumpCue": "Jump Cue",
     "stopAll": "Detener todo",
     "selectUp": "Seleccionar arriba",
