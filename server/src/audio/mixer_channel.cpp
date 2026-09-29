@@ -16,6 +16,17 @@ void MixerChannel::configure(SampleRate sample_rate, FrameCount render_block) no
     sample_rate_  = sample_rate;
     render_block_ = render_block;
     for (auto& m : meters_) m.configure(sample_rate);
+    dsp_.configure(sample_rate);
+}
+
+void MixerChannel::set_pan(float pan) noexcept {
+    pan_.store(std::clamp(pan, -1.0f, 1.0f), std::memory_order_relaxed);
+}
+
+void MixerChannel::update_correlation(const Sample* left, const Sample* right,
+                                      std::size_t frame_count) noexcept {
+    correlation_meter_.process(left, right, frame_count);
+    correlation_.store(correlation_meter_.value(), std::memory_order_relaxed);
 }
 
 void MixerChannel::set_gain_db(float db) noexcept {
@@ -29,8 +40,12 @@ void MixerChannel::set_mute(bool muted) noexcept {
     muted_.store(muted, std::memory_order_relaxed);
 }
 
-void MixerChannel::set_solo(bool soloed) noexcept {
-    soloed_.store(soloed, std::memory_order_relaxed);
+void MixerChannel::set_pfl(bool on) noexcept {
+    pfl_.store(on, std::memory_order_relaxed);
+}
+
+void MixerChannel::set_width(ChannelCount w) noexcept {
+    width_.store(std::clamp<ChannelCount>(w, 1, kMixerLanes), std::memory_order_relaxed);
 }
 
 void MixerChannel::begin_fade(float target_db, std::chrono::milliseconds duration) noexcept {
@@ -135,6 +150,14 @@ MeterSnapshot MixerChannel::meter_snapshot() const noexcept {
 MeterSnapshot MixerChannel::meter_snapshot(ChannelIndex lane) const noexcept {
     if (lane >= meters_.size()) return {};
     return meters_[lane].snapshot();
+}
+
+std::array<MeterSnapshot, kMixerLanes> MixerChannel::meter_snapshot_consume_lanes() noexcept {
+    std::array<MeterSnapshot, kMixerLanes> out{};
+    for (std::size_t i = 0; i < meters_.size() && i < out.size(); ++i) {
+        out[i] = meters_[i].snapshot_consume_max();
+    }
+    return out;
 }
 
 MeterSnapshot MixerChannel::meter_snapshot_consume() noexcept {

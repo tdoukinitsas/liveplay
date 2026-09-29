@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "liveplay-server",
-  "version-string": "2.4.3",
+  "version-string": "2.5.0",
   "description": "LivePlay headless audio engine and control server.",
   "homepage": "https://github.com/tdoukinitsas/liveplay",
   "license": "AGPL-3.0-only",
@@ -25,6 +25,10 @@
     {
       "name": "miniz",
       "version>=": "3.0.2"
+    },
+    {
+      "name": "libsodium",
+      "version>=": "1.0.19"
     }
   ],
   "builtin-baseline": "22d9c655dc24ad24c6cac27607005e619ce46740"

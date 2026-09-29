@@ -66,7 +66,25 @@
           <span class="material-symbols-rounded">folder</span>
         </span>
         
-        <span class="item-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
+        <span v-if="item.type !== 'group'" class="item-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
+        <!-- A playing group says what is playing inside it without being
+             opened: its own name, with the sounding cue under it. Collapsed
+             only — once the group is open the child row states both, and
+             repeating it in the header reads as two separate claims. -->
+        <span v-else class="item-namecol">
+          <span class="item-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
+          <span
+            v-if="groupNowPlaying && !isExpanded"
+            class="item-nowplaying"
+            :title="t('group.nowPlaying', { name: groupNowPlaying.name })"
+          >{{ groupNowPlaying.name }}</span>
+        </span>
+        <span
+          v-if="busBadge"
+          class="bus-badge"
+          :style="{ backgroundColor: busBadge.color }"
+          :title="busBadge.title"
+        ></span>
         <span
           v-if="isPeaking"
           class="material-symbols-rounded peak-warning-icon"
@@ -136,6 +154,28 @@
         </div>
         
         <span v-if="item.type === 'audio'" class="item-duration">{{ durationDisplay }}</span>
+        <!-- A group's run time, the sum of what it will play (#63): visible
+             collapsed, so a walk-in or interval playlist can be sized at a
+             glance. While it plays, the time left in the whole group. -->
+        <!-- The time left over its position in the list, so the two numbers a
+             collapsed group can answer — how long, and how far through — read
+             as one block rather than competing for the same slot. -->
+        <span
+          v-else-if="item.type === 'group' && (groupDurationDisplay || groupNowPlaying)"
+          class="item-timecol"
+        >
+          <span
+            v-if="groupDurationDisplay"
+            class="item-duration group-duration"
+            :title="groupDurationTitle"
+          >{{ groupDurationDisplay }}</span>
+          <span
+            v-if="groupNowPlaying && !isExpanded"
+            class="item-counter"
+            :title="t('group.trackPosition', {
+              position: groupNowPlaying.position, total: groupNowPlaying.total })"
+          >{{ groupNowPlaying.position }}/{{ groupNowPlaying.total }}</span>
+        </span>
 
         <!-- In Show Mode the live-playback actions (play/stop, set-as-next)
              and preview remain — preview is useful pre-show too; edit and
@@ -147,10 +187,10 @@
             :icon="'headphones'"
             :highlight-color="isPreviewing ? 'var(--color-accent)' : 'var(--color-success)'"
             :is-active="isPreviewing"
-            :class="{ 'no-device': !hasPreviewDevice }"
+            :class="{ 'no-device': !previewReady }"
             context="Playlist"
             @click.stop="isPreviewing ? handleStopPreview() : handleStartPreview()"
-            :title="isPreviewing ? t('actions.stopPreview') : (hasPreviewDevice ? t('actions.preview') : t('actions.previewNoDevice'))"
+            :title="isPreviewing ? t('actions.stopPreview') : (previewReady ? t('actions.preview') : t('actions.previewNoBus'))"
           />
           <ActionButton
             :icon="isPlaying ? 'stop' : 'play_arrow'"
@@ -207,6 +247,8 @@ import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
 import ActionButton from './ActionButton.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { calculatePerceivedLoudness } from '~/utils/audio';
+import { runTime, formatRunTime } from '~/utils/groupTiming';
+import { drawRowWaveform } from '~/utils/rowWaveform';
 
 const props = defineProps<{
   item: AudioItem | GroupItem;
@@ -242,6 +284,25 @@ const { uiMode } = useUiMode();
 // row up for touch, while keeping waveform, colour, duration, behaviour flags
 // and warnings identical to edit mode.
 const showMode = computed(() => uiMode.value === 'playback');
+
+// D19: rows with an EXPLICIT busId of their own get a small coloured dot.
+// Inherited routing is intentionally not badged here — it shows in
+// PropertiesPanel's "Inheriting: ..." readout instead. Reads colour straight
+// from the shared server-broadcast `buses` state (not a local copy), so a
+// recolour elsewhere (G1) or a `buses_patched` refresh repaints this badge
+// automatically with no extra wiring.
+const _server = useLiveplayServer();
+const busBadge = computed(() => {
+  const busId = (props.item as any).busId;
+  if (!busId) return null;
+  const bus = (_server.buses ?? []).find((b: any) => b.id === busId);
+  if (!bus) {
+    // Stale assignment — the bus was deleted. Never block rendering; just
+    // show it as unrouted rather than throwing or hiding the row.
+    return { color: 'var(--color-text-disabled)', title: t('playlist.busRoutedMissing') };
+  }
+  return { color: bus.color, title: t('playlist.busRouted', { name: bus.name }) };
+});
 
 const { isRevealed, forgetReveal } = usePlaylistReveal();
 
@@ -294,6 +355,51 @@ const isPeaking = computed(() => {
   return effectiveLoudness > outputTargetLevels.value.autoVolumeTargetDb + 3;
 });
 
+const groupRunTime = computed(() =>
+  props.item.type === 'group' ? runTime(props.item as GroupItem) : null);
+const groupDurationDisplay = computed(() => {
+  const total = groupRunTime.value;
+  if (!total) return '';
+  const live = activeGroups.value.get(props.item.uuid);
+  if (live) return `-${formatRunTime(live.remaining)}${live.indefinite ? '+' : ''}`;
+  if (total.seconds <= 0 && !total.indefinite) return '';
+  return `${formatRunTime(total.seconds)}${total.indefinite ? '+' : ''}`;
+});
+const groupDurationTitle = computed(() => {
+  const total = groupRunTime.value;
+  if (!total) return '';
+  const live = activeGroups.value.get(props.item.uuid);
+  const parts = [t('group.runTime', { time: formatRunTime(total.seconds) })];
+  if (live) parts.push(t('group.remaining', { time: formatRunTime(live.remaining) }));
+  if (total.indefinite) parts.push(t('group.containsLoop'));
+  return parts.join(' · ');
+});
+
+// Which of a playing group's children is the one making the sound, and where
+// it sits in the list. A collapsed group otherwise says only that something
+// inside it is playing, which on a twenty-cue interval playlist is most of the
+// question left unanswered.
+//
+// Counted over DIRECT children rather than audio descendants, because the
+// number is there to be read against the list the operator sees when they open
+// the group — "4 / 11" has to mean the fourth row, not the fourth audio file
+// somewhere inside a nested one. A nested group therefore counts as one entry
+// and is located by whether anything inside it is playing.
+//
+// First match in list order wins. A play-all group has several children going
+// at once, and the first is the one the operator queued.
+const groupNowPlaying = computed(() => {
+  if (props.item.type !== 'group' || !isGroupPlaying.value) return null;
+  const children = (props.item as GroupItem).children;
+  const sounding = (it: AudioItem | GroupItem): boolean =>
+    it.type === 'group'
+      ? (it as GroupItem).children.some(sounding)
+      : activeCues.value.has(it.uuid);
+  const i = children.findIndex(sounding);
+  if (i < 0) return null;
+  return { position: i + 1, total: children.length, name: children[i]!.displayName };
+});
+
 const durationDisplay = computed(() => {
   if (props.item.type !== 'audio') return '';
   
@@ -332,57 +438,10 @@ const durationDisplay = computed(() => {
   }
 });
 
-// Draw waveform
+// Draw waveform (the shared row drawing, utils/rowWaveform.ts)
 const drawWaveform = () => {
   if (!waveformCanvas.value || props.item.type !== 'audio') return;
-  
-  const audioItem = props.item as AudioItem;
-  if (!audioItem.waveform || !audioItem.waveform.peaks || audioItem.waveform.peaks.length === 0) return;
-  
-  const canvas = waveformCanvas.value;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  
-  // Set canvas size to match element size (use actual pixels for clarity)
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-  ctx.scale(dpr, dpr);
-  
-  // Clear canvas
-  ctx.clearRect(0, 0, rect.width, rect.height);
-
-  // Use the item's own colour so the waveform tints to match the row.
-  // The canvas has opacity:0.1 applied in CSS, giving a naturally dark tint.
-  ctx.fillStyle = audioItem.color || '#ffffff';
-
-  const peaks = audioItem.waveform.peaks;
-  
-  // Calculate trimmed region if in/out points are set
-  const totalDuration = audioItem.duration;
-  const inPoint = audioItem.inPoint || 0;
-  const outPoint = audioItem.outPoint || totalDuration;
-  const trimmedDuration = outPoint - inPoint;
-  
-  // Calculate which peaks to show (slice based on in/out ratios)
-  const startIndex = Math.floor((inPoint / totalDuration) * peaks.length);
-  const endIndex = Math.ceil((outPoint / totalDuration) * peaks.length);
-  const trimmedPeaks = peaks.slice(startIndex, endIndex);
-  
-  const barWidth = rect.width / trimmedPeaks.length;
-  const centerY = rect.height / 2;
-
-  trimmedPeaks.forEach((value, i) => {
-    // Gamma 2 expansion: shows dynamics without blowing up loud tracks.
-    const clamped = Math.min(1, Math.max(0, value));
-    const shaped = clamped * clamped;
-    const barHeight = shaped * rect.height * 0.8;
-    const x = i * barWidth;
-    const y = centerY - barHeight / 2;
-
-    ctx.fillRect(x, y, Math.max(barWidth, 1), barHeight);
-  });
+  drawRowWaveform(waveformCanvas.value, props.item as AudioItem);
 };
 
 // Redraw waveform when component mounts or updates.
@@ -579,12 +638,18 @@ const { previewItemUuid, startPreview, stopPreview } = useProject();
 const isPreviewing = computed(() =>
   previewItemUuid.value === props.item.uuid,
 );
-const hasPreviewDevice = computed(() => !!(currentProject.value as any)?.settings?.previewDevice);
-const showProjectSettings = useState('showProjectSettings', () => false);
+// Pre-listen lands on the preview-role bus (D24), so the button is live only
+// when that bus reaches hardware. Before the first /api/buses fetch the list
+// is empty, which reads as "not ready" — the composable fetches on connect.
+// When there is nowhere to listen, the button opens the mixer so the fix is
+// one click away (D30); the class name `no-device` is kept for the CSS hook.
+const previewBusStore = useLiveplayServer();
+const previewReady = computed(() => !!previewBusStore.buses.find(b => b.preview)?.bound);
+const { showPane } = useWorkspaceLayout();
 const handleStartPreview = () => {
   if (props.item.type !== 'audio') return;
-  if (!hasPreviewDevice.value) {
-    showProjectSettings.value = true;
+  if (!previewReady.value) {
+    showPane('mixer');
     return;
   }
   startPreview(props.item.uuid);
@@ -946,6 +1011,45 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   min-width: 0;
 }
 
+/* A collapsed, playing group stacks two lines on each side: its own name over
+   the cue that is sounding, and the time left over that cue's position in the
+   list. The columns carry the flex behaviour the single elements used to have
+   — flex:1 and min-width:0 on the left so the names still ellipsis rather than
+   push the row wide, and the duration's horizontal margin moved out to the
+   column so the two lines share one gutter instead of one line owning it. */
+.item-namecol {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+}
+.item-namecol .item-name { flex: 0 0 auto; }
+.item-nowplaying {
+  font-size: 1em;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-timecol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  margin: 0 var(--spacing-sm);
+}
+.item-timecol .item-duration { margin: 0; }
+/* tabular-nums so the counter does not jitter sideways as it counts up, the
+   same reason the duration beside it is a fixed-width column. */
+.item-counter {
+  font-size: 1em;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .expand-btn {
   width: 20px;
   height: 20px;
@@ -999,6 +1103,16 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   flex-shrink: 0;
   cursor: help;
   line-height: 1;
+}
+
+/* D19: bus-routing badge — a small coloured dot shown only when the row
+   carries an EXPLICIT busId of its own (never for inherited routing). */
+.bus-badge {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  cursor: help;
 }
 
 .item-duration {

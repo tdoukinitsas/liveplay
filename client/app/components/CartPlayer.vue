@@ -2,21 +2,9 @@
   <div class="cart-player" ref="cartPlayerRef" :class="{ 'show-mode': showMode }">
     <div class="cart-header">
       <h2>{{ t('cart.title') }}</h2>
-      <div class="cart-header-actions">
-        <Btn
-          v-if="!isDetachedWindow"
-          icon="open_in_new"
-          :text="t('cart.detach')"
-          :disabled="!currentProject"
-          @click="handleDetach"
-        />
-        <Btn
-          v-else
-          icon="picture_in_picture_alt"
-          :text="t('cart.attach')"
-          @click="handleAttach"
-        />
-      </div>
+      <!-- Window controls only: the cart's pads are its content. The same
+           component every pane uses, so the moves are the same everywhere. -->
+      <PaneControls pane="cart" :in-window="isDetachedWindow" :divided="false" />
     </div>
 
     <div class="cart-grid" :class="gridClass">
@@ -34,7 +22,7 @@
 <script setup lang="ts">
 import type { AudioItem } from '~/types/project';
 import { formatKeyLabel } from '~/composables/useCartHotkeys';
-import Btn from './Btn.vue';
+import PaneControls from './PaneControls.vue';
 
 const props = defineProps<{
   isDetachedWindow?: boolean;
@@ -47,16 +35,6 @@ const { mount: mountMidi, unmount: unmountMidi } = useMidiController();
 const { t } = useLocalization();
 const { uiMode } = useUiMode();
 const showMode = computed(() => uiMode.value === 'playback');
-
-const handleDetach = () => {
-  if (!currentProject.value || !import.meta.client || !window.electronAPI) return;
-  window.electronAPI.openCartPlayerWindow(currentProject.value.folderPath);
-};
-
-const handleAttach = () => {
-  if (!import.meta.client || !window.electronAPI) return;
-  window.electronAPI.attachCartPlayerWindow();
-};
 
 const cartPlayerRef = ref<HTMLElement | null>(null);
 const gridClass = ref('grid-cols-2');
@@ -101,8 +79,13 @@ const handleCartKeydown = (e: KeyboardEvent) => {
 
 onMounted(() => {
   if (import.meta.client) {
-    mountHotkeys();
-    mountMidi();
+    // Only in the detached window, which has no MainWorkspace to own them.
+    // In the attached layout the workspace mounts these, so the transport keys
+    // and MIDI survive this pane being closed, collapsed or popped out.
+    if (props.isDetachedWindow) {
+      mountHotkeys();
+      mountMidi();
+    }
     // Initial setup
     updateGridColumns();
     if (props.isDetachedWindow) window.addEventListener('keydown', handleCartKeydown);
@@ -117,9 +100,11 @@ onMounted(() => {
     }
 
     onUnmounted(() => {
-      unmountHotkeys();
-      unmountMidi();
-      if (props.isDetachedWindow) window.removeEventListener('keydown', handleCartKeydown);
+      if (props.isDetachedWindow) {
+        unmountHotkeys();
+        unmountMidi();
+        window.removeEventListener('keydown', handleCartKeydown);
+      }
       resizeObserver.disconnect();
     });
   }
@@ -139,8 +124,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-md) var(--spacing-lg);
-  min-height: 68px;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-lg);
+  /* One fixed height for all three pane headers, so they line up side by
+     side whatever buttons each carries (or hides in Show Mode). */
+  height: 60px;
+  flex: 0 0 auto;
   box-sizing: border-box;
   border-bottom: 1px solid var(--color-border);
   background-color: var(--color-surface);
@@ -149,11 +138,10 @@ onMounted(() => {
 .cart-header h2 {
   font-size: 18px;
   font-weight: 600;
-}
-
-.cart-header-actions {
-  display: flex;
-  gap: var(--spacing-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 

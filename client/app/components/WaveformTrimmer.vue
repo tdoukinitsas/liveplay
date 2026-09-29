@@ -4,15 +4,31 @@
     <div class="volume-control-section">
       <div class="volume-label">
         <span>{{ t('properties.volume') }}</span>
-        <span class="db-value">{{ volumeDB.toFixed(1) }} dB</span>
+        <!-- Typed level (#56): the slider is small, and a precise trim is a
+             number, not a drag. Commits on Enter/blur, Escape reverts. -->
+        <span class="db-entry">
+          <input
+            type="text"
+            inputmode="decimal"
+            class="db-input"
+            :value="isMixed('volume') ? '' : (volumeDB <= VOLUME_MIN_DB ? '-inf' : volumeDB.toFixed(1))"
+            :placeholder="isMixed('volume') ? t('properties.multipleValues') : ''"
+            :title="t('properties.volumeDbInput')"
+            @focus="($event.target as HTMLInputElement).select()"
+            @keydown.enter="($event.target as HTMLInputElement).blur()"
+            @keydown.esc="cancelVolumeText"
+            @change="handleVolumeTextChange"
+          />
+          <span class="db-unit">dB</span>
+        </span>
       </div>
       <div class="volume-slider-container">
         <input
           type="range"
           orient="vertical"
           class="volume-slider-vertical"
-          :min="-60"
-          :max="10"
+          :min="VOLUME_MIN_DB"
+          :max="VOLUME_MAX_DB"
           step="0.1"
           :value="volumeDB"
           @input="handleVolumeInput"
@@ -29,7 +45,7 @@
       </div>
     </div>
 
-    
+
 
     <!-- Waveform Display -->
     <div class="waveform-section">
@@ -56,7 +72,7 @@
             <span class="material-symbols-rounded">content_cut</span>
             <span>{{ t('properties.trimSilence') }}</span>
           </button>
-          
+
           <!-- Normalize Button -->
           <button class="normalize-btn" @click="normalizeAudio" :title="t('properties.normalize')">
             <span class="material-symbols-rounded">tune</span>
@@ -97,8 +113,8 @@
             <span class="material-symbols-rounded">arrow_forward</span>
           </div>
         </div>
-        
-        <div 
+
+        <div
           class="trim-handle trim-handle-out"
           :style="{ left: outPointPosition + 'px' }"
           @mousedown.prevent="startDragHandle('out', $event)"
@@ -110,19 +126,19 @@
         </div>
 
         <!-- Trim Region Overlay -->
-        <div 
+        <div
           class="trim-overlay trim-overlay-left"
           :style="{ width: inPointPosition + 'px' }"
         ></div>
-        <div 
+        <div
           class="trim-overlay trim-overlay-right"
           :style="{ left: outPointPosition + 'px' }"
         ></div>
-        
+
         <!-- Fade Handles (hidden for cart items) -->
         <template v-if="!isCartItem">
           <!-- Play Fade Handle (fade in end) -->
-          <div 
+          <div
             v-if="playFade > 0"
             class="fade-handle fade-handle-play"
             :style="{ left: playFadePosition + 'px' }"
@@ -134,9 +150,9 @@
               <span class="material-symbols-rounded">trending_up</span>
             </div>
           </div>
-          
+
           <!-- Stop Fade Handle (fade out start) -->
-          <div 
+          <div
             v-if="stopFade > 0"
             class="fade-handle fade-handle-stop"
             :style="{ left: stopFadePosition + 'px' }"
@@ -148,7 +164,7 @@
               <span class="material-symbols-rounded">trending_down</span>
             </div>
           </div>
-          
+
           <!-- Cross Fade Handle (crossfade start) -->
           <div
             v-if="crossFade > 0"
@@ -201,10 +217,10 @@
           <button class="time-decrement" @click="adjustInPoint(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">remove</span>
           </button>
-          <input 
+          <input
             type="text"
             class="time-input"
-            :value="formatTimeDetailed(inPoint)"
+            :value="isMixed('inPoint') ? '' : formatTimeDetailed(inPoint)" :placeholder="isMixed('inPoint') ? t('properties.multipleValues') : ''"
             @change="handleInPointTextChange"
             @focus="($event.target as HTMLInputElement).select()"
           />
@@ -213,43 +229,62 @@
           </button>
         </div>
       </div>
-      <div
-        class="time-field"
-        :class="{ 'time-field-disabled': multiSelect }"
-        :title="multiSelect ? t('properties.multiSelectOutPointDisabled') : undefined"
-      >
+      <div class="time-field">
         <label>{{ t('properties.outPoint') }}</label>
         <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustOutPoint(-0.5)" :disabled="multiSelect" :title="multiSelect ? t('properties.multiSelectOutPointDisabled') : t('waveform.decreaseBy', { seconds: '0.5' })">
+          <button class="time-decrement" @click="adjustOutPoint(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">remove</span>
           </button>
           <input
             type="text"
             class="time-input"
-            :value="multiSelect ? '—' : formatTimeDetailed(outPoint)"
-            :disabled="multiSelect"
-            :title="multiSelect ? t('properties.multiSelectOutPointDisabled') : undefined"
+            :value="isMixed('outPoint') ? '' : formatTimeDetailed(outPoint)"
+            :placeholder="isMixed('outPoint') ? t('properties.multipleValues') : ''"
             @change="handleOutPointTextChange"
             @focus="($event.target as HTMLInputElement).select()"
           />
-          <button class="time-increment" @click="adjustOutPoint(0.5)" :disabled="multiSelect" :title="multiSelect ? t('properties.multiSelectOutPointDisabled') : t('waveform.increaseBy', { seconds: '0.5' })">
+          <button class="time-increment" @click="adjustOutPoint(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
             <span class="material-symbols-rounded">add</span>
           </button>
         </div>
       </div>
       <div class="time-field">
         <label>{{ t('properties.duration') }}</label>
-        <input 
+        <input
           type="text"
           class="time-input"
-          :value="formatTimeDetailed(duration)"
+          :value="multiSelect ? '' : formatTimeDetailed(duration)"
+          :placeholder="multiSelect ? t('properties.multipleValues') : ''"
           readonly
         />
       </div>
     </div>
 
-    <!-- Fade & Transition Controls (hidden for cart items) -->
-    <div v-if="!isCartItem" class="fade-controls-section">
+    <!-- Fade & Transition Controls. A cart item has no segue or pre-end
+         fades, only the fade its Stop button uses. -->
+    <div v-if="isCartItem" class="fade-controls-section">
+      <div class="fade-column">
+        <div class="fade-control-group" :title="t('properties.manualStopFadeHint')">
+          <label>{{ t('properties.manualStopFade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" @click="adjustManualStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="isMixed('manualStopFade') ? '' : formatTimeDetailed(manualStopFade)" :placeholder="isMixed('manualStopFade') ? t('properties.multipleValues') : ''"
+              @change="handleManualStopFadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" @click="adjustManualStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div v-else class="fade-controls-section" style="--fade-columns: 3">
       <div class="fade-column">
         <div class="fade-control-group">
           <label>{{ t('properties.playFade') }}</label>
@@ -260,7 +295,7 @@
             <input
               type="text"
               class="time-input fade-input"
-              :value="formatTimeDetailed(playFade)"
+              :value="isMixed('playFade') ? '' : formatTimeDetailed(playFade)" :placeholder="isMixed('playFade') ? t('properties.multipleValues') : ''"
               @change="handlePlayFadeTextChange"
               @focus="($event.target as HTMLInputElement).select()"
             />
@@ -278,7 +313,7 @@
             <input
               type="text"
               class="time-input fade-input"
-              :value="formatTimeDetailed(crossFade)"
+              :value="isMixed('crossFade') ? '' : formatTimeDetailed(crossFade)" :placeholder="isMixed('crossFade') ? t('properties.multipleValues') : ''"
               @change="handleCrossFadeTextChange"
               @focus="($event.target as HTMLInputElement).select()"
             />
@@ -298,7 +333,7 @@
             <input
               type="text"
               class="time-input fade-input"
-              :value="formatTimeDetailed(stopFade)"
+              :value="isMixed('stopFade') ? '' : formatTimeDetailed(stopFade)" :placeholder="isMixed('stopFade') ? t('properties.multipleValues') : ''"
               @change="handleStopFadeTextChange"
               @focus="($event.target as HTMLInputElement).select()"
             />
@@ -310,7 +345,8 @@
         <label class="start-next-toggle">
           <input
             type="checkbox"
-            :checked="startNextEnabled"
+            :checked="!isMixed('startNextEnabled') && startNextEnabled"
+              :indeterminate="isMixed('startNextEnabled')"
             @change="handleStartNextEnabledChange"
           />
           <span>{{ t('properties.startNextEnable') }}</span>
@@ -324,7 +360,7 @@
             <input
               type="text"
               class="time-input fade-input"
-              :value="formatTimeDetailed(startNextTime)"
+              :value="isMixed('startNextTime') ? '' : formatTimeDetailed(startNextTime)" :placeholder="isMixed('startNextTime') ? t('properties.multipleValues') : ''"
               :disabled="!startNextEnabled"
               @change="handleStartNextTimeTextChange"
               @focus="($event.target as HTMLInputElement).select()"
@@ -337,12 +373,57 @@
         <label class="start-next-toggle" :class="{ 'start-next-disabled': !startNextEnabled }">
           <input
             type="checkbox"
-            :checked="startNextFadeOut"
+            :checked="!isMixed('startNextFadeOut') && startNextFadeOut"
+              :indeterminate="isMixed('startNextFadeOut')"
             :disabled="!startNextEnabled"
             @change="handleStartNextFadeOutChange"
           />
           <span>{{ t('properties.startNextFadeOut') }}</span>
         </label>
+      </div>
+      <!-- The operator's own fades: the Stop button, and a loop turning round. -->
+      <div class="fade-column">
+        <div class="fade-control-group" :title="t('properties.manualStopFadeHint')">
+          <label>{{ t('properties.manualStopFade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" @click="adjustManualStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="isMixed('manualStopFade') ? '' : formatTimeDetailed(manualStopFade)" :placeholder="isMixed('manualStopFade') ? t('properties.multipleValues') : ''"
+              @change="handleManualStopFadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" @click="adjustManualStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
+        </div>
+        <div
+          class="fade-control-group"
+          :class="{ 'start-next-disabled': !isLooping }"
+          :title="isLooping ? t('properties.loopCrossfadeHint') : t('properties.loopCrossfadeNeedsLoop')"
+        >
+          <label>{{ t('properties.loopCrossfade') }}</label>
+          <div class="time-input-with-buttons">
+            <button class="time-decrement" :disabled="!isLooping" @click="adjustLoopCrossfade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">remove</span>
+            </button>
+            <input
+              type="text"
+              class="time-input fade-input"
+              :value="isMixed('loopCrossfade') ? '' : formatTimeDetailed(loopCrossfade)" :placeholder="isMixed('loopCrossfade') ? t('properties.multipleValues') : ''"
+              :disabled="!isLooping"
+              @change="handleLoopCrossfadeTextChange"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <button class="time-increment" :disabled="!isLooping" @click="adjustLoopCrossfade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
+              <span class="material-symbols-rounded">add</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -351,6 +432,7 @@
 
 <script setup lang="ts">
 import type { AudioItem } from '~/types/project';
+import { manualStopFadeOf } from '~/types/project';
 import { calculatePerceivedLoudness, calculateNormalizationGain } from '~/utils/audio';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
@@ -364,7 +446,13 @@ const props = defineProps<{
   // items selected that re-request fires per displayed anchor and races the
   // batch edit, which is what made auto-trim / auto-volume revert.
   multiSelect?: boolean;
+  /**
+   * Which of these fields differ across the selection. A mixed field shows
+   * "Multiple values" until it is set, and setting it sets every selected cue.
+   */
+  mixed?: Record<string, boolean>;
 }>();
+const isMixed = (field: string) => !!props.mixed?.[field];
 
 const emit = defineEmits<{
   'update:volume': [value: number];
@@ -374,6 +462,8 @@ const emit = defineEmits<{
   'update:stopFade': [value: number];
   'update:pauseFade': [value: number];
   'update:crossFade': [value: number];
+  'update:manualStopFade': [value: number];
+  'update:loopCrossfade': [value: number];
   'update:startNextEnabled': [value: boolean];
   'update:startNextTime': [value: number];
   'update:startNextFadeOut': [value: boolean];
@@ -403,6 +493,15 @@ const isCartItem = computed(() => {
 const playFade = computed(() => props.audioItem.playFade || 0);
 const stopFade = computed(() => props.audioItem.stopFade || 0);
 const crossFade = computed(() => props.audioItem.crossFade || 0);
+const manualStopFade = computed(() => manualStopFadeOf(props.audioItem));
+const loopCrossfade = computed(() => props.audioItem.loopCrossfade || 0);
+const isLooping = computed(() => props.audioItem.endBehavior?.action === 'loop');
+
+// Fades have no fixed ceiling (#56): a scene-change ambience can fade over
+// minutes. The one real bound is the audio itself — a fade into or out of the
+// trimmed region cannot be longer than the region.
+const trimmedLength = computed(() => Math.max(0, outPoint.value - inPoint.value));
+const clampFade = (v: number) => Math.max(0, Math.min(v, trimmedLength.value));
 
 // Start Next marker (absolute seconds within the file)
 const startNextEnabled = computed(() => !!props.audioItem.startNextEnabled);
@@ -529,19 +628,40 @@ watch(hasWaveform, (has) => {
   }
 });
 
-// Volume in dB
+// Volume in dB. The slider's floor is silence; +10 dB matches what Normalize
+// may apply.
+const VOLUME_MIN_DB = -60;
+const VOLUME_MAX_DB = 10;
 const volumeDB = computed({
   get: () => {
     // Convert linear volume (0-2+) to dB
     const linear = props.audioItem?.volume ?? 1;
-    if (linear <= 0) return -60; // -infinity
+    if (linear <= 0) return VOLUME_MIN_DB; // -infinity
     return 20 * Math.log10(linear);
   },
   set: (db: number) => {
-    const linear = db <= -60 ? 0 : Math.pow(10, db / 20);
+    const linear = db <= VOLUME_MIN_DB ? 0 : Math.pow(10, db / 20);
     emit('update:volume', linear);
   }
 });
+
+// Typed dB level. Accepts "-6", "-6.5 dB", "+3", or "-inf" for silence.
+const handleVolumeTextChange = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const raw = input.value.trim().toLowerCase().replace(/db$/, '').trim();
+  const db = /^-?inf/.test(raw) ? VOLUME_MIN_DB : parseFloat(raw);
+  if (Number.isNaN(db)) {
+    input.value = volumeDB.value <= VOLUME_MIN_DB ? '-inf' : volumeDB.value.toFixed(1);
+    return;
+  }
+  volumeDB.value = Math.max(VOLUME_MIN_DB, Math.min(VOLUME_MAX_DB, db));
+  emit('change');
+};
+const cancelVolumeText = (event: KeyboardEvent) => {
+  const input = event.target as HTMLInputElement;
+  input.value = volumeDB.value <= VOLUME_MIN_DB ? '-inf' : volumeDB.value.toFixed(1);
+  input.blur();
+};
 
 // Compute handle color based on dB level
 const volumeHandleColor = computed(() => {
@@ -567,7 +687,13 @@ const duration = computed(() =>
 const containerWidth = ref(800);
 const canvasWidth = computed(() => containerWidth.value);
 
-const canvasHeight = 120; // Fixed height for waveform (reduced from 200)
+// MEASURED, not a constant. The properties panel is resizable, so the drawing
+// surface has to follow the box it is drawn into: with a fixed 120 the bitmap
+// was scaled by CSS to whatever height the container actually had, which is
+// what made the waveform read as blurred and squashed. Seeded with the old
+// constant so the first draw — before the container has been measured — is
+// sane rather than zero-height.
+const containerHeight = ref(120);
 
 // Calculate visible range based on zoom and scroll
 const visibleDuration = computed(() => duration.value / zoomLevel.value);
@@ -678,7 +804,7 @@ const startDragFade = (fadeType: 'play' | 'stop' | 'cross' | 'startNext', event:
     : fadeType === 'stop' ? stopFade.value
     : fadeType === 'cross' ? crossFade.value
     : startNextTime.value;
-  
+
   dragState.value = {
     handle: fadeType,
     startX: event.clientX,
@@ -690,19 +816,16 @@ const startDragFade = (fadeType: 'play' | 'stop' | 'cross' | 'startNext', event:
 
     const deltaX = e.clientX - dragState.value.startX;
     const deltaTime = (deltaX / canvasWidth.value) * visibleDuration.value;
-    
+
     if (dragState.value.handle === 'play') {
       // Play fade: drag right increases fade duration
-      const newValue = Math.max(0, Math.min(10, dragState.value.startValue + deltaTime));
-      emit('update:playFade', newValue);
+      emit('update:playFade', clampFade(dragState.value.startValue + deltaTime));
     } else if (dragState.value.handle === 'stop') {
       // Stop fade: drag left increases fade duration (moving the start point earlier)
-      const newValue = Math.max(0, Math.min(10, dragState.value.startValue - deltaTime));
-      emit('update:stopFade', newValue);
+      emit('update:stopFade', clampFade(dragState.value.startValue - deltaTime));
     } else if (dragState.value.handle === 'cross') {
       // Cross fade: drag left increases fade duration (moving the start point earlier)
-      const newValue = Math.max(0, Math.min(10, dragState.value.startValue - deltaTime));
-      emit('update:crossFade', newValue);
+      emit('update:crossFade', clampFade(dragState.value.startValue - deltaTime));
     } else if (dragState.value.handle === 'startNext') {
       // Start Next marker: absolute position, clamped to the trimmed region.
       const newValue = Math.max(inPoint.value, Math.min(outPoint.value, dragState.value.startValue + deltaTime));
@@ -794,18 +917,20 @@ const formatTimeDetailed = (seconds: number): string => {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
 };
 
-// Parse time from HH:MM:SS.mmm format
+// Parse a typed time. Accepts the displayed HH:MM:SS.mmm, and the shorter
+// forms people actually type: "90" or "90.5" (seconds), "1:30" (MM:SS),
+// "1:02:30" (HH:MM:SS). Anything else (the old parser's only answer for
+// everything but the full form) is 0.
 const parseTimeDetailed = (timeStr: string): number => {
-  const parts = timeStr.split(':');
-  if (parts.length !== 3) return 0;
-
-  const hours = parseInt(parts[0]) || 0;
-  const minutes = parseInt(parts[1]) || 0;
-  const secondsParts = parts[2].split('.');
-  const seconds = parseInt(secondsParts[0]) || 0;
-  const milliseconds = parseInt(secondsParts[1]) || 0;
-
-  return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+  const parts = timeStr.trim().split(':');
+  if (parts.length === 0 || parts.length > 3) return 0;
+  let total = 0;
+  for (const part of parts) {
+    const n = parseFloat(part);
+    if (Number.isNaN(n) || n < 0) return 0;
+    total = total * 60 + n;
+  }
+  return total;
 };
 
 // Handle time input changes
@@ -837,20 +962,17 @@ const adjustOutPoint = (delta: number) => {
 };
 
 const adjustPlayFade = (delta: number) => {
-  const newValue = Math.max(0, Math.min(playFade.value + delta, 10));
-  emit('update:playFade', newValue);
+  emit('update:playFade', clampFade(playFade.value + delta));
   emit('change');
 };
 
 const adjustStopFade = (delta: number) => {
-  const newValue = Math.max(0, Math.min(stopFade.value + delta, 10));
-  emit('update:stopFade', newValue);
+  emit('update:stopFade', clampFade(stopFade.value + delta));
   emit('change');
 };
 
 const adjustCrossFade = (delta: number) => {
-  const newValue = Math.max(0, Math.min(crossFade.value + delta, 10));
-  emit('update:crossFade', newValue);
+  emit('update:crossFade', clampFade(crossFade.value + delta));
   emit('change');
 };
 
@@ -858,21 +980,42 @@ const adjustCrossFade = (delta: number) => {
 const handlePlayFadeTextChange = (event: Event) => {
   const value = (event.target as HTMLInputElement).value;
   const parsed = parseTimeDetailed(value);
-  emit('update:playFade', Math.max(0, Math.min(parsed, 10)));
+  emit('update:playFade', clampFade(parsed));
   emit('change');
 };
 
 const handleStopFadeTextChange = (event: Event) => {
   const value = (event.target as HTMLInputElement).value;
   const parsed = parseTimeDetailed(value);
-  emit('update:stopFade', Math.max(0, Math.min(parsed, 10)));
+  emit('update:stopFade', clampFade(parsed));
   emit('change');
 };
 
 const handleCrossFadeTextChange = (event: Event) => {
   const value = (event.target as HTMLInputElement).value;
   const parsed = parseTimeDetailed(value);
-  emit('update:crossFade', Math.max(0, Math.min(parsed, 10)));
+  emit('update:crossFade', clampFade(parsed));
+  emit('change');
+};
+
+// The Stop button's fade is not bounded by the trim: stopping a cue that is
+// halfway through a long bed can reasonably take longer than what is left.
+const adjustManualStopFade = (delta: number) => {
+  emit('update:manualStopFade', Math.max(0, manualStopFade.value + delta));
+  emit('change');
+};
+// Half the loop at most: the blended head and tail must not overlap.
+const clampLoopCrossfade = (v: number) => Math.max(0, Math.min(v, trimmedLength.value / 2));
+const adjustLoopCrossfade = (delta: number) => {
+  emit('update:loopCrossfade', clampLoopCrossfade(loopCrossfade.value + delta));
+  emit('change');
+};
+const handleLoopCrossfadeTextChange = (event: Event) => {
+  emit('update:loopCrossfade', clampLoopCrossfade(parseTimeDetailed((event.target as HTMLInputElement).value)));
+  emit('change');
+};
+const handleManualStopFadeTextChange = (event: Event) => {
+  emit('update:manualStopFade', Math.max(0, parseTimeDetailed((event.target as HTMLInputElement).value)));
   emit('change');
 };
 
@@ -946,12 +1089,21 @@ const drawWaveform = () => {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
+  // Read once and lay the whole frame out against it. Everything below — the
+  // lanes, the grid, the fade diagonals, the playhead arrows — is positioned
+  // from this, so a resize landing mid-draw would tear the frame.
+  const canvasHeight = containerHeight.value;
+
   // Set canvas dimensions with device pixel ratio
   const dpr = window.devicePixelRatio || 1;
   canvas.width = canvasWidth.value * dpr;
   canvas.height = canvasHeight * dpr;
   canvas.style.width = `${canvasWidth.value}px`;
-  //canvas.style.height = `${canvasHeight}px`; - commented out to fix height issue
+  // The displayed height deliberately stays with the stylesheet (height: 100%)
+  // rather than being pinned here. Now that the backing store is measured from
+  // the same box, the two agree; leaving CSS in charge also means a splitter
+  // drag rescales the last bitmap for the frame before the redraw lands,
+  // instead of opening a gap under the canvas.
   ctx.scale(dpr, dpr);
 
   // Clear canvas with background color
@@ -971,19 +1123,19 @@ const drawWaveform = () => {
   // Goal: Show grid lines every ~50-100 pixels
   const pixelsPerSecond = canvasWidth.value / visibleDuration.value;
   const targetPixelsPerGrid = 75; // Ideal spacing between grid lines
-  
+
   // Calculate initial time step
   let timeStep = targetPixelsPerGrid / pixelsPerSecond;
-  
+
   // Round to nice intervals: 0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600 seconds
   const niceIntervals = [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600];
-  timeStep = niceIntervals.reduce((prev, curr) => 
+  timeStep = niceIntervals.reduce((prev, curr) =>
     Math.abs(curr - timeStep) < Math.abs(prev - timeStep) ? curr : prev
   );
 
   for (let time = Math.ceil(visibleStart.value / timeStep) * timeStep; time <= visibleEnd.value; time += timeStep) {
     const x = (time - visibleStart.value) * pixelsPerSecond;
-    
+
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, canvasHeight);
@@ -1276,10 +1428,10 @@ const throttledDraw = () => {
 
 // Watch for changes and redraw
 watch([
-  zoomLevel, 
-  scrollPosition, 
-  () => props.audioItem?.volume, 
-  () => props.audioItem?.inPoint, 
+  zoomLevel,
+  scrollPosition,
+  () => props.audioItem?.volume,
+  () => props.audioItem?.inPoint,
   () => props.audioItem?.outPoint,
   () => props.audioItem?.playFade,
   () => props.audioItem?.stopFade,
@@ -1308,13 +1460,22 @@ watch(() => props.audioItem?.waveform, () => {
 watch(() => props.multiSelect, (multi) => {
   if (multi) return;
   nextTick(() => requestAnimationFrame(() => {
-    if (waveformContainer.value) containerWidth.value = waveformContainer.value.clientWidth;
+    measureContainer();
     drawWaveform();
     ensureWaveform();
   }));
 });
 
-// Watch for canvas width changes
+// Watch for canvas size changes. clientWidth/clientHeight are the container's
+// CONTENT box — its 1px border is excluded — which is exactly the area the
+// canvas element fills, so the backing store matches it 1:1.
+const measureContainer = () => {
+  const el = waveformContainer.value;
+  if (!el) return;
+  containerWidth.value = el.clientWidth;
+  containerHeight.value = el.clientHeight;
+};
+
 const resizeObserver = ref<ResizeObserver | null>(null);
 
 onMounted(() => {
@@ -1322,9 +1483,7 @@ onMounted(() => {
   // ensures the browser has committed the layout pass so clientWidth is real).
   nextTick(() => {
     requestAnimationFrame(() => {
-      if (waveformContainer.value) {
-        containerWidth.value = waveformContainer.value.clientWidth;
-      }
+      measureContainer();
       drawWaveform();
 
       // If waveform data is missing, ask the server to (re)generate it.
@@ -1333,10 +1492,10 @@ onMounted(() => {
   });
 
   if (waveformContainer.value) {
+    // Fires for height as well as width, so dragging the panel's splitter
+    // redraws at the new size instead of stretching the last bitmap.
     resizeObserver.value = new ResizeObserver(() => {
-      if (waveformContainer.value) {
-        containerWidth.value = waveformContainer.value.clientWidth;
-      }
+      measureContainer();
       throttledDraw();
     });
     resizeObserver.value.observe(waveformContainer.value);
@@ -1347,7 +1506,7 @@ onUnmounted(() => {
   // Clear any pending draw / self-heal operations
   if (drawTimeout) clearTimeout(drawTimeout);
   if (ensureWaveformTimer) clearTimeout(ensureWaveformTimer);
-  
+
   // Clean up resize observer
   if (resizeObserver.value && waveformContainer.value) {
     resizeObserver.value.unobserve(waveformContainer.value);
@@ -1358,13 +1517,31 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Fills the tab panel rather than being capped at a constant. The old
+   `max-height: 149px` with `overflow: hidden` predates the panel being
+   resizable: it clipped the horizontal scrollbar outright, and squeezed the
+   120px canvas box to ~97px while the bitmap was still drawn at 120 — so the
+   waveform was scaled by CSS and read as blurred.
+
+   The floor is what fits in the panel at its 300px default (~152px of content
+   after the header, tabs and padding), so nothing scrolls at the height the
+   panel has always had; below that .properties-content takes over. */
 .waveform-trimmer {
   display: flex;
   gap: var(--spacing-sm);
   padding: 0;
   background: transparent;
-  max-height: 149px;
-  overflow: hidden;
+  flex: 1;
+  min-height: 150px;
+}
+
+/* The fader and its scale earn the height — a taller throw is a finer trim —
+   so these stretch with the row. The time and fade columns do not: they hold a
+   fixed number of fields, and stretching them would leave a tall empty slab of
+   --color-surface beside the waveform. */
+.time-display-section,
+.fade-controls-section {
+  align-self: flex-start;
 }
 
 /* Volume Control */
@@ -1383,10 +1560,32 @@ onUnmounted(() => {
   color: var(--color-text-secondary);
 }
 
-.db-value {
+.db-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.db-input {
+  width: 52px;
+  padding: 2px 4px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-primary);
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.db-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.db-unit {
+  font-size: 11px;
 }
 
 .volume-slider-container {
@@ -1430,7 +1629,7 @@ onUnmounted(() => {
   );
   border-radius: 4px;
   /* Add horizontal lines for dB steps */
-  background-image: 
+  background-image:
     repeating-linear-gradient(0deg,
       rgba(0, 0, 0, 0.3) 0px,
       rgba(0, 0, 0, 0.3) 1px,
@@ -1457,7 +1656,7 @@ onUnmounted(() => {
     #991b1b 100%
   );
   border-radius: 4px;
-  background-image: 
+  background-image:
     repeating-linear-gradient(0deg,
       rgba(0, 0, 0, 0.3) 0px,
       rgba(0, 0, 0, 0.3) 1px,
@@ -1500,13 +1699,14 @@ onUnmounted(() => {
 /* Fade & Transition Controls Section */
 .fade-controls-section {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(var(--fade-columns, 2), minmax(0, 1fr));
   align-items: start;
   gap: var(--spacing-xs);
   padding: var(--spacing-xs);
   background: var(--color-surface);
   border-radius: var(--border-radius-sm);
-  width: 300px;
+  /* 150px per column: two for a cart item's single one, three for a cue. */
+  width: calc(150px * var(--fade-columns, 2));
 }
 
 .fade-column {
@@ -1586,6 +1786,9 @@ onUnmounted(() => {
   flex-direction: column;
   gap: var(--spacing-xs);
   min-width: 0;
+  /* Lets the canvas container shrink to the column rather than overflowing it,
+     which is what used to push the zoom row and scrollbar out of the clip. */
+  min-height: 0;
 }
 
 .waveform-controls {
@@ -1596,6 +1799,8 @@ onUnmounted(() => {
   background: var(--color-surface);
   border-radius: var(--border-radius-sm);
   gap: var(--spacing-md);
+  /* Fixed furniture: the height goes to the canvas, not to these. */
+  flex: 0 0 auto;
 }
 
 .zoom-control {
@@ -1644,12 +1849,12 @@ onUnmounted(() => {
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
-  
+
   &:hover {
     background: var(--color-surface-hover);
     border-color: var(--color-accent);
   }
-  
+
   .material-symbols-rounded {
     font-size: 18px;
   }
@@ -1686,11 +1891,14 @@ onUnmounted(() => {
   text-align: right;
 }
 
-/* Waveform Container */
+/* Waveform Container — the one thing in the column that takes the slack. Its
+   measured height drives the canvas backing store (see containerHeight), so
+   the drawing surface and the box always agree. */
 .waveform-container {
   position: relative;
   width: 100%;
-  height: 120px;
+  flex: 1;
+  min-height: 72px;
   background: var(--color-background);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-sm);
@@ -1912,6 +2120,7 @@ onUnmounted(() => {
 /* Scrollbar */
 .waveform-scrollbar {
   width: 100%;
+  flex: 0 0 auto;
 }
 
 .scroll-slider {

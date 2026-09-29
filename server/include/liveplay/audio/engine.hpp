@@ -28,14 +28,19 @@
 // ============================================================================
 #pragma once
 
+#include "liveplay/audio/analyser_tap.hpp"
+#include "liveplay/audio/drift_resampler.hpp"
 #include "liveplay/audio/limiter.hpp"
 #include "liveplay/audio/meter.hpp"
 #include "liveplay/audio/mixer_channel.hpp"
+#include "liveplay/audio/monitor_tap.hpp"
 #include "liveplay/audio/playback_item.hpp"
 #include "liveplay/audio/types.hpp"
 
+#include <array>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <mutex>
@@ -43,6 +48,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 // miniaudio types (header-only; implementation compiled once in miniaudio_impl.c).
@@ -119,8 +125,89 @@ struct DeviceInfo {
 struct EngineConfig {
     SampleRate         mix_sample_rate    = kDefaultMixSampleRate;
     FrameCount         render_block       = kDefaultRenderBlock;
-    MasterChannelIndex master_channels    = 32;     // logical bus width
-    float              master_ceiling_db  = -0.3f;
+    MasterChannelIndex master_channels    = kDefaultMasterChannels;  // logical bus width
+    float              master_ceiling_db  = kDefaultMasterCeilingDb;
+    std::uint32_t      max_mixer_channels = kDefaultMaxMixerChannels;
+    // How many render blocks of audio the engine runs ahead of the device.
+    //
+    // THIS IS THE OUTPUT LATENCY. The render thread produces a block whenever
+    // the ring has room, so in steady state the ring sits full and everything
+    // — a fader move, an EQ sweep, the start of a cue — is heard this far
+    // after it happens. It is also the only thing standing between a slow
+    // decode and an audible dropout, since decoding runs on the render thread.
+    // See kDefaultRingBlocks.
+    FrameCount         ring_blocks        = kDefaultRingBlocks;
+};
+
+// What the engine is doing right now, for diagnostics. Latency questions are
+// answered from measurements rather than from the configured numbers, because
+// the device gets a say in the period it actually runs and miniaudio may not
+// honour what it was asked for.
+struct EngineStats {
+    // Audio queued ahead of the device on the primary ring: the real output
+    // latency, in frames and milliseconds.
+    std::uint32_t queued_frames        = 0;
+    double        queued_ms            = 0.0;
+    std::uint32_t ring_capacity_frames = 0;
+    // What the device actually settled on, which is not necessarily what it
+    // was asked for.
+    std::uint32_t device_period_frames = 0;
+    std::uint32_t device_periods       = 0;
+    double        device_ms            = 0.0;
+    // How long one render block takes to produce. If the average approaches
+    // the block's own duration the engine is not keeping up and no amount of
+    // ring will help.
+    double        render_block_us_max  = 0.0;
+    double        render_block_us_avg  = 0.0;
+    double        block_budget_us      = 0.0;
+    std::uint64_t blocks_rendered      = 0;
+    std::uint64_t underruns            = 0;
+    std::size_t   devices              = 0;
+    // One entry per open device, in the order they were opened.
+    //
+    // The engine renders at ONE rate — the clock device's — and every other
+    // device is resampled to keep its queue at kDriftTargetFill. `ppm` is how
+    // hard that correction is working: a healthy pair settles at a small
+    // steady figure within a minute or so, and a number pinned near 2000
+    // (kMaxDriftRatio) means something other than crystal drift is wrong.
+    // `fill_percent` is the queue it is holding, which should sit at 50%.
+    struct DeviceStat {
+        std::string name;
+        bool        is_clock     = false;   // the house clock; never resampled
+        double      ppm          = 0.0;     // 0 for the clock device
+        // What the drift loop is regulating: the SMOOTHED queue depth, as a
+        // percentage of the ring. This is the number to read against the 50%
+        // target — see DriftController::smoothed_fill_frames() for why the
+        // instantaneous read sits some twenty points above it on a locked
+        // loop. The clock device is regulated by nothing, so for that one this
+        // is the instantaneous figure and `is_clock` says so.
+        double      fill_percent = 0.0;     // 0..100 of that device's ring
+        // The raw instantaneous ring occupancy, unfiltered. Kept alongside
+        // rather than folded in, because the two answer different questions:
+        // this one is the tripwire for a queue actually pinned at 0 or 100 —
+        // starving or dropping — which the smoothed figure would take seconds
+        // to admit to.
+        double      ring_fill_percent = 0.0;
+    };
+    std::vector<DeviceStat> device_stats;
+    // How many times the topology has been rebuilt. A rebuild walks every
+    // item, route and master, allocating, while holding the mutex the render
+    // thread needs twice a block — so this should be near-zero during a show.
+    // If it climbs while the operator is only editing, something is rewiring
+    // the graph that has no business doing so.
+    std::uint64_t topology_rebuilds    = 0;
+    // Longest the RENDER THREAD has waited to acquire the engine mutex. It
+    // takes that lock twice a block, and every control-thread operation takes
+    // the same one — so this is the direct measure of "was audio blocked by
+    // something the UI did". If a control action is audible and this stays
+    // small, the cause is not contention and looking there is wasted effort.
+    double        mutex_wait_us_max    = 0.0;
+    // Steps detected at a block boundary that are far larger than anything
+    // inside the block — see the seam detector in render_one_block. This is
+    // the pop itself, counted, so a probe can attribute it to the action that
+    // caused it rather than to a timestamp in a log.
+    std::uint64_t discontinuities      = 0;
+    double        worst_seam           = 0.0;
 };
 
 // ---------------------------------------------------------------------------
@@ -159,9 +246,160 @@ struct MasterRouteEntry {
     std::optional<MasterDestination> destination;
 };
 
+// One strip in the snapshot, with its (at most one — D5) bus→bus destination.
+// The destination is an index into Topology::strips rather than an id, so the
+// render thread resolves it with arithmetic instead of a map lookup.
+struct StripRouteEntry {
+    static constexpr std::size_t npos = static_cast<std::size_t>(-1);
+
+    std::shared_ptr<MixerChannel> strip;
+
+    // Where this strip's finalised (post-fader) lanes are summed onward.
+    // npos = the strip feeds no other strip (masters only, as before).
+    std::size_t dst_strip = npos;
+
+    // The lane mapping of that send. Lanes are concrete and the gains carry
+    // the same width-aware pan/balance laws as the mixer→master sends (D8) —
+    // computed by the caller of route_mixer_to_mixer, stored verbatim.
+    struct LaneSend {
+        ChannelIndex src_lane = 0;
+        ChannelIndex dst_lane = 0;
+        float        gain     = 1.0f;
+    };
+    std::vector<LaneSend> lane_sends;
+
+    // ---- Aux sends (M1) ---------------------------------------------------
+    // Separate from dst_strip above, and deliberately so: that edge is the
+    // bus's OUTPUT — where its whole signal goes, at unity, one destination
+    // (D5). A send is a tapped COPY at its own level, and a bus may have any
+    // number of them. Two different things in the document (`bus.output` vs
+    // `bus.sends`), two different things here.
+    //
+    // `pre_fader` picks where the copy is taken from the strip's accumulators:
+    //   * false — after the fader and mute, the same point dst_strip uses.
+    //   * true  — after the DSP chain but before the fader and mute, the same
+    //             point the PFL monitor tap uses (see monitor_tap.hpp). A
+    //             foldback send is normally this one: it should not fall away
+    //             when the house fader comes down.
+    // Both points exist in the render pass already; a send only chooses
+    // between them.
+    struct Send {
+        std::size_t           dst_strip = npos;
+        bool                  pre_fader = false;
+        std::vector<LaneSend> lane_sends;
+    };
+    std::vector<Send> sends;
+};
+
+// ---------------------------------------------------------------------------
+// compute_strip_order — Kahn's algorithm over strip→strip edges.
+// ---------------------------------------------------------------------------
+// Runs on the CONTROL thread (rebuild_topology_locked); the render thread only
+// ever iterates the resulting flat index list. Guarantees:
+//   * every node except `exclude_index` appears in `order` exactly once;
+//   * for every surviving edge, the source precedes the destination;
+//   * cycles never survive: when the sort stalls, the smallest-index remaining
+//     node is freed by dropping its remaining incoming edges, which are
+//     reported in `dropped` so the caller can log them. Deterministic — the
+//     same graph always drops the same edges and yields the same order.
+//   * edges touching `exclude_index` (the Monitor strip, which neither feeds
+//     nor is fed by a bus) or out of range are ignored, not dropped;
+//     self-loops are cycles and land in `dropped`.
+//
+// The helper is general and always was: multi-out graphs sort correctly, which
+// is what let it be exercised in a unit test without an engine.
+//
+// WHAT AUX SENDS CHANGED (M1) is not the sort but the precision of the drop.
+// While a node had at most one outgoing edge (D5), a stalled remainder could
+// only be cycle members — a chain into a cycle drains first, and a cycle
+// member's single output stays inside the cycle — so the edge dropped to free
+// a victim was always a real cycle edge. With fan-out that no longer holds: an
+// innocent edge into a cycle member can be dropped alongside the guilty one.
+// Both still reach `dropped` and both are logged, and the sort is still safe,
+// which is all the render thread needs. But it means THIS IS A DEFENCE, NOT
+// THE DIAGNOSIS — the API rejects a cycle before it is ever stored, so an
+// operator is told which send they may not make rather than finding a
+// different one silently gone.
+//
+// `dropped` reports (source, destination) pairs rather than edge identities on
+// purpose: every edge between the same pair closes the same cycle, so the
+// caller drops all of them, which is what it wants anyway.
+struct StripOrderResult {
+    std::vector<std::size_t>                          order;
+    std::vector<std::pair<std::size_t, std::size_t>>  dropped;
+};
+
+inline StripOrderResult compute_strip_order(
+        std::size_t strip_count,
+        const std::vector<std::pair<std::size_t, std::size_t>>& edges,
+        std::size_t exclude_index = static_cast<std::size_t>(-1)) {
+    StripOrderResult res;
+    res.order.reserve(strip_count);
+
+    std::vector<std::size_t> indeg(strip_count, 0);
+    std::vector<char>        edge_alive(edges.size(), 0);
+    for (std::size_t e = 0; e < edges.size(); ++e) {
+        const auto [s, d] = edges[e];
+        if (s >= strip_count || d >= strip_count) continue;
+        if (s == exclude_index || d == exclude_index) continue;
+        if (s == d) { res.dropped.push_back(edges[e]); continue; }  // self-loop
+        edge_alive[e] = 1;
+        ++indeg[d];
+    }
+
+    std::vector<char> placed(strip_count, 0);
+    std::size_t remaining = strip_count;
+    if (exclude_index < strip_count) { placed[exclude_index] = 1; --remaining; }
+
+    while (remaining > 0) {
+        // Smallest-index ready node, so the order is deterministic. Linear
+        // scans throughout: the strip cap is 64 and this is the control
+        // thread, so clarity beats a priority queue here.
+        std::size_t pick = strip_count;
+        for (std::size_t n = 0; n < strip_count; ++n) {
+            if (!placed[n] && indeg[n] == 0) { pick = n; break; }
+        }
+        if (pick == strip_count) {
+            // Every remaining node has an incoming edge: a cycle. Free the
+            // smallest-index remaining node by dropping what feeds it.
+            std::size_t victim = strip_count;
+            for (std::size_t n = 0; n < strip_count; ++n) {
+                if (!placed[n]) { victim = n; break; }
+            }
+            for (std::size_t e = 0; e < edges.size(); ++e) {
+                if (!edge_alive[e] || edges[e].second != victim) continue;
+                edge_alive[e] = 0;
+                res.dropped.push_back(edges[e]);
+            }
+            indeg[victim] = 0;
+            continue;
+        }
+        placed[pick] = 1;
+        --remaining;
+        res.order.push_back(pick);
+        for (std::size_t e = 0; e < edges.size(); ++e) {
+            if (!edge_alive[e] || edges[e].first != pick) continue;
+            edge_alive[e] = 0;
+            if (indeg[edges[e].second] > 0) --indeg[edges[e].second];
+        }
+    }
+    return res;
+}
+
 struct Topology {
     std::vector<ItemRouteEntry>   items;     // all known items (active list filtered at render time)
     std::vector<MasterRouteEntry> masters;   // size == master_channels
+    // Every live strip, with its optional bus→bus destination, and the order
+    // the render thread must process them in: topological over the strip→strip
+    // edges, so a strip's feeders are always finalised before it runs. The
+    // Monitor strip is excluded from strip_order — it runs after the PFL taps
+    // land, as it always has.
+    std::vector<StripRouteEntry>  strips;
+    std::vector<std::size_t>      strip_order;
+    // The Monitor strip and what PFL is feeding it. Null when no strip has
+    // been designated as the monitor, in which case PFL does nothing.
+    std::shared_ptr<MixerChannel> monitor;
+    std::vector<MonitorTap>       monitor_taps;
 };
 
 // ---------------------------------------------------------------------------
@@ -217,27 +455,104 @@ public:
 
     void play(const CueId& id);
     void stop(const CueId& id);
-    // Stop every loaded cue. By default each item's own fade_out_duration
+    // Stop over an explicit fade instead of the cue's own manual-stop fade.
+    void stop(const CueId& id, std::chrono::milliseconds fade);
+    // Stop every loaded cue. By default each item's own manual-stop fade
     // wins when non-zero (falling back to `fade` only for hard-stop items).
     // When `force_fade` is true, `fade` is applied to EVERY item regardless
     // of its per-item fade-out — used by the project-wide "Stop All" button so
     // the operator's global fade always wins (fade == 0 → hard stop for all).
+    // `except` names one cue to leave running (the preview audition, when the
+    // project says Stop All should not reach it); empty = none.
     void stop_all(std::chrono::milliseconds fade = std::chrono::milliseconds{0},
-                  bool force_fade = false);
+                  bool force_fade = false,
+                  const CueId& except = CueId{});
 
     // ---- Sensible-default routing ---------------------------------------
     // Brings the engine into a usable state without explicit routing
-    // calls: opens the default device if no device is open, creates a
-    // "Main" mixer if no mixer exists, wires Main lane 0/1 → master 0/1 →
-    // default device hardware channels 0/1, and routes every loaded cue's
-    // source channels through Main (stereo → lanes L/R, mono → both lanes).
+    // calls: opens the default device if no device is open, picks the house
+    // strip — the one registered with set_master_mixer() when a project is
+    // loaded, else a strip called "Main", created if need be — assigns any
+    // unassigned master 0/1 to that device's hardware channels 0/1, and
+    // routes every loaded cue that has no route yet through the house strip
+    // (stereo → lanes L/R, mono → both lanes). The house strip's own sends
+    // to 0/1 are added only for the pre-project fallback strip; a registered
+    // master strip is wired by ProjectState and left alone.
     // Idempotent — safe to call any number of times.
     void ensure_default_routing();
+
+    // Nominate the strip that carries the master role (D27): the one
+    // ensure_default_routing() parks unrouted cues on and the one it never
+    // second-guesses the wiring of. An empty id clears the designation and
+    // the pre-project "Main" fallback applies again.
+    void set_master_mixer(const MixerChannelId& id);
+    MixerChannelId master_mixer() const;
 
     // ---- Mixer channels --------------------------------------------------
     MixerChannelId create_mixer_channel(std::string display_name);
     void remove_mixer_channel(const MixerChannelId& id);
     MixerChannel* find_mixer_channel(const MixerChannelId& id) const;
+
+    // Snapshot of every live strip, for API/UI enumeration. Taken under the
+    // engine lock and returned by value so callers never touch the registry.
+    struct MixerChannelInfo {
+        MixerChannelId id;
+        std::string    display_name;
+        float          gain_db;
+        bool           muted;
+        bool           pfl;
+    };
+    std::vector<MixerChannelInfo> list_mixer_channels() const;
+
+    // ---- PFL / Monitor ---------------------------------------------------
+    // Nominate the strip that PFL feeds. Until one is set, PFL is inert — the
+    // flag can be raised on any strip and nothing is tapped anywhere. Passing
+    // an empty id clears the designation.
+    void set_monitor_mixer(const MixerChannelId& id);
+    MixerChannelId monitor_mixer() const;
+
+    // Raise or lower PFL on a strip. The tap is PRE-FADER and PRE-MUTE: the
+    // whole diagnostic use is hearing a channel whose fader is down or whose
+    // mute is engaged, and a PFL that went quiet with the fader would answer
+    // the wrong question. The house mix is untouched either way — that is the
+    // difference between this and solo.
+    //
+    // Setting PFL on the monitor strip itself is refused; it would feed
+    // itself, which is an accumulating loop rather than a signal path.
+    void set_mixer_pfl(const MixerChannelId& id, bool on);
+
+    // Drop PFL on every strip. One control for "get this out of my
+    // headphones", which matters because PFL is additive and easy to leave up.
+    // Returns how many strips were cleared.
+    std::size_t clear_all_pfl();
+
+    // How many strips currently have PFL raised.
+    std::size_t pfl_count() const;
+
+    // Declare a strip mono or stereo. Governs how PFL places it in the
+    // monitor: a mono strip is centred rather than tapped lane-for-lane.
+    void set_mixer_width(const MixerChannelId& id, ChannelCount width);
+
+    // Where a mono strip sits in its destination image. The strip's send to
+    // the master carries this too; the engine needs its own copy because the
+    // PFL tap is taken upstream of that send and has to place the signal
+    // itself to stay post-pan.
+    void set_mixer_pan(const MixerChannelId& id, float pan);
+
+    // Publish a new tone chain (HPF / LPF / EQ) for a strip. Coefficients are
+    // computed here, on the control thread, and handed to the render thread
+    // through the strip's own double-buffered slot — no topology rebuild, so
+    // dragging an EQ knob does not re-walk every route on the desk.
+    void set_mixer_dsp(const MixerChannelId& id, const StripDspParams& params);
+
+    // ---- Spectrum analyser taps (the channel view's analyser) ------------
+    // Point tap `slot` (< kMaxAnalyserTaps) at a strip, or disarm it with an
+    // empty id. Control thread; one atomic store, so arming costs the audio
+    // path nothing. See analyser_tap.hpp.
+    void set_analyser_tap(std::size_t slot, const MixerChannelId& id);
+    // The newest `n` samples of tap `slot`, before and after the EQ. False
+    // when the tap is unarmed, has not filled yet, or was overrun mid-copy.
+    bool read_analyser_tap(std::size_t slot, float* pre, float* post, std::size_t n) const;
 
     // ---- Routing matrix --------------------------------------------------
     // `lane` selects which mixer strip lane the source channel feeds
@@ -274,6 +589,64 @@ public:
 
     void unroute_mixer_from_master(const MixerChannelId& mixer,
                                    MasterChannelIndex master);
+
+    // ---- Bus → bus routing (Stage 4, D5–D8) -------------------------------
+    // One lane of a strip→strip send: which source lane feeds which
+    // destination lane, at what gain. The caller computes the gains with the
+    // same width-aware laws as the mixer→master sends (pan_gains_db /
+    // balance_gains_db, kDefaultDownmixDb for a 2→1 fold) — the engine stores
+    // and applies them, it does not re-derive them.
+    struct MixerLaneGain {
+        ChannelIndex src_lane = 0;
+        ChannelIndex dst_lane = 0;
+        float        gain_db  = 0.0f;
+    };
+
+    // Route a strip's finalised (post-fader, post-mute) lanes into another
+    // strip's accumulator. A strip has at most ONE downstream strip (D5), so
+    // routing again replaces the existing send. The Monitor strip may neither
+    // feed nor be fed this way, and a strip never feeds itself — both are
+    // refused here with a warning. Cycles across several strips are the
+    // caller's job to refuse at the API; if one slips through anyway, the
+    // offending edge is dropped at topology build with a warning, so the
+    // render thread can never see one.
+    //
+    // Like every other route, this lands in the pending table: requested
+    // before start(), it replays when the topology is next built.
+    void route_mixer_to_mixer(const MixerChannelId& src,
+                              const MixerChannelId& dst,
+                              const std::vector<MixerLaneGain>& lane_gains);
+
+    // Remove the strip's bus→bus send (there is at most one). No-op when none.
+    void unroute_mixer_to_mixer(const MixerChannelId& src);
+
+    // ---- Aux sends (M1) ---------------------------------------------------
+    // A tapped copy of `src` summed into `dst` at the caller's lane gains,
+    // taken either before the fader and mute (`pre_fader`) or after them.
+    // Distinct from route_mixer_to_mixer in every way that matters: a strip
+    // may have MANY sends, they carry their own level, and they do not
+    // describe where the bus's output goes.
+    //
+    // Re-issuing a send to the same destination replaces it in place — a level
+    // drag re-states the gains rather than tearing the edge down, which would
+    // drop audio mid-show. Changing only the tap point replaces it too.
+    //
+    // The same refusals as the output edge, and for the same reasons: never
+    // into itself, never to or from the Monitor strip (that is what PFL is),
+    // and unknown ids are ignored. CYCLES ARE THE CALLER'S JOB to refuse at
+    // the API, where the operator can be told; one that slips through anyway
+    // is dropped at topology build so the render thread cannot see it.
+    void route_mixer_send(const MixerChannelId& src,
+                          const MixerChannelId& dst,
+                          bool pre_fader,
+                          const std::vector<MixerLaneGain>& lane_gains);
+
+    // Remove one send. No-op when the strip does not make it.
+    void unroute_mixer_send(const MixerChannelId& src, const MixerChannelId& dst);
+
+    // Remove every send a strip makes. Used when its bus definition no longer
+    // lists any, which is one call rather than a diff against what it had.
+    void clear_mixer_sends(const MixerChannelId& src);
 
     void assign_master_to_device(MasterChannelIndex master,
                                  const DeviceId& device,
@@ -325,6 +698,10 @@ public:
     // ---- Introspection ---------------------------------------------------
     const EngineConfig& config() const noexcept { return cfg_; }
 
+    // Measured engine state. `reset_peaks` clears the render-time maximum, so
+    // a probe can bound a measurement to a window it controls.
+    EngineStats stats(bool reset_peaks = false);
+
 private:
     // ---- Internal device wrapper ----------------------------------------
     struct Device {
@@ -334,9 +711,28 @@ private:
         SampleRate                  sample_rate = kDefaultMixSampleRate;
         std::unique_ptr<ma_device>  ma_dev;
         std::unique_ptr<ma_pcm_rb>  ring;             // SPSC PCM ring
+        // What the ring settled on, captured at open. Read every block by the
+        // drift controller, which wants it as a constant rather than as two
+        // more ring queries.
+        ma_uint32                   ring_capacity_frames = 0;
         std::vector<Sample>         scratch;          // interleaved staging buffer
         std::atomic<bool>           started{false};
         AudioEngine*                engine = nullptr; // back-pointer for callback
+
+        // ---- Clock-drift compensation (see drift_resampler.hpp) ----------
+        // Unused on the clock device, which is copied through untouched. Both
+        // are configured — and `resample_out` sized — when the device opens,
+        // on the control thread, because the render thread must not allocate.
+        DriftController             drift_ctl;
+        DriftResampler              drift_rs;
+        std::vector<Sample>         resample_out;     // interleaved, max_output()-sized
+        // Written by the render thread, read by stats() on the control thread.
+        // Diagnostics, so relaxed: a torn read costs nothing.
+        std::atomic<double>         drift_ppm{0.0};
+        // The controller's smoothed queue depth in frames, republished here
+        // each block so stats() can read it without racing the render thread.
+        // Negative until the first block seeds it.
+        std::atomic<double>         drift_fill_frames{-1.0};
     };
 
     EngineConfig                                 cfg_;
@@ -354,6 +750,12 @@ private:
     std::unordered_map<std::string, std::shared_ptr<PlaybackItem>>  items_;
     std::unordered_map<std::string, std::shared_ptr<MixerChannel>>  mixers_;
     std::vector<std::unique_ptr<Device>>         devices_;
+
+    // The house clock (decision D15). Production is gated on this device's
+    // ring, and every other device is resampled to follow it. Guarded by
+    // mutex_; only recompute_clock_device_locked() writes it, and only from
+    // the control thread. Null when no device is open.
+    Device*                                      clock_device_ = nullptr;
 
     // Pending route description — the source-of-truth that topology rebuilds from.
     // Lanes here may be kAllMixerLanes (expanded when the snapshot is built).
@@ -377,10 +779,43 @@ private:
         };
         std::unordered_map<std::string, std::vector<MasterSend>> mixer_to_master;
 
+        // mixer-to-mixer: srcMixerId → its one bus destination (D5). Lanes are
+        // concrete here — the caller computed the width-aware send gains.
+        struct MixerToMixer {
+            MixerChannelId dst;
+            struct Lane {
+                ChannelIndex src_lane = 0;
+                ChannelIndex dst_lane = 0;
+                float        gain_lin = 1.0f;
+            };
+            std::vector<Lane> lanes;
+        };
+        std::unordered_map<std::string, MixerToMixer> mixer_to_mixer;
+
+        // Aux sends (M1): srcMixerId → every send it makes. Unlike
+        // mixer_to_mixer above there is no "one per source" rule — that rule
+        // is about a bus's output, and this is not its output. Keyed by
+        // destination within the vector, so re-issuing a send replaces it in
+        // place the way the output edge does and a level drag does not tear
+        // the edge down and drop audio.
+        struct MixerSend {
+            MixerChannelId          dst;
+            bool                    pre_fader = false;
+            std::vector<MixerToMixer::Lane> lanes;
+        };
+        std::unordered_map<std::string, std::vector<MixerSend>> mixer_sends;
+
         // master-to-device: masterIdx → MasterDestination
         std::vector<std::optional<MasterDestination>> master_destinations;
     };
     PendingRoute pending_;
+
+    // Which strip PFL feeds. Guarded by mutex_; the render thread reads the
+    // resolved strip out of the topology snapshot instead.
+    MixerChannelId monitor_mixer_;
+    // Which strip is the house (set_master_mixer). Guarded by mutex_; only
+    // ensure_default_routing() consults it.
+    MixerChannelId master_mixer_;
 
     // Atomic topology snapshot for the render thread.
     detail::AtomicSharedPtr<const Topology> topology_{};
@@ -408,8 +843,73 @@ private:
     // render thread to refill rings. Eliminates the previous polling delay.
     std::atomic<std::uint32_t>       consumption_counter_{0};
 
+    // Render-time instrumentation. Written by the render thread and the device
+    // callbacks, read by stats(); relaxed throughout, because these are
+    // diagnostics and a torn read of a counter costs nothing.
+    std::atomic<std::uint64_t>       render_us_total_{0};
+    std::atomic<std::uint64_t>       render_us_max_{0};
+    std::atomic<std::uint64_t>       blocks_rendered_{0};
+    std::atomic<std::uint64_t>       underruns_{0};
+    std::atomic<std::uint64_t>       topology_rebuilds_{0};
+    std::atomic<std::uint64_t>       mutex_wait_us_max_{0};
+    // Render thread only; rate-limits the slow-block warning.
+    std::chrono::steady_clock::time_point last_slow_block_log_{};
+    // Render thread only. Last sample of the previous block on masters 0/1, so
+    // the seam detector can see across the boundary, and its rate limit.
+    float                                 master_last_sample_[2]{0.0f, 0.0f};
+    std::chrono::steady_clock::time_point last_seam_log_{};
+    std::atomic<std::uint64_t>            discontinuities_{0};
+    std::atomic<std::uint32_t>            worst_seam_milli_{0};   // seam * 1000
+
+    // Acquire mutex_ from the RENDER THREAD, recording how long it waited.
+    // Only the render thread should use this: the number is meaningless for a
+    // control thread, which is allowed to wait.
+    std::unique_lock<std::mutex> lock_timed() {
+        const auto t0 = std::chrono::steady_clock::now();
+        std::unique_lock<std::mutex> lk{mutex_};
+        const auto us = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - t0).count());
+        auto prev = mutex_wait_us_max_.load(std::memory_order_relaxed);
+        while (us > prev &&
+               !mutex_wait_us_max_.compare_exchange_weak(prev, us,
+                                                         std::memory_order_relaxed)) {}
+        return lk;
+    }
+
+    // Bumped whenever the set of mixer strips changes, so the render thread
+    // can tell when its cached view of them is stale without comparing lists.
+    std::atomic<std::uint32_t>       mixers_generation_{0};
+
+    // The render thread's view of the strips, and the id → accumulator index
+    // it looks sends up in.
+    //
+    // Cached rather than rebuilt per block, because rebuilding them was
+    // allocating on the audio thread every 5.3 ms: a vector of shared_ptr, a
+    // vector of gains, and an unordered_map with a node and a string hash per
+    // strip. That is fine until something else in the process is allocating
+    // hard — a project save copying a JSON document across nineteen worker
+    // threads, say — and then the audio thread waits on the heap lock, the
+    // ring drains, and the operator hears a pop while saving.
+    //
+    // Rebuilt only when mixers_generation_ moves, which is a strip being
+    // created or removed.
+    std::vector<std::shared_ptr<MixerChannel>>          render_mixers_;
+    std::unordered_map<std::string, std::size_t>        render_mixer_index_;
+    std::uint32_t                                       render_mixers_seen_{0};
+    bool                                                render_mixers_valid_{false};
+    std::vector<float>                                  render_gains_;
+    std::vector<Sample*>                                render_ptrs_;
+    std::vector<Device*>                                render_devices_;
+
     // Scratch buffers reused by the render thread (allocated once at start()).
     std::vector<std::vector<Sample>> mixer_accumulators_;  // [mixer_index * kMixerLanes + lane][frame]
+    // Analyser taps: a fixed pool, allocated with the engine (half a megabyte,
+    // so on the heap rather than inside this object). any_tap_armed_ lets the
+    // render loop skip the per-strip target check when nobody is looking.
+    std::unique_ptr<std::array<AnalyserTap, kMaxAnalyserTaps>> analyser_taps_ =
+        std::make_unique<std::array<AnalyserTap, kMaxAnalyserTaps>>();
+    std::atomic<bool> any_tap_armed_{false};
     std::vector<std::vector<Sample>> master_accumulators_; // [master_index][frame]
     // Per-item per-source-channel deinterleaved buffers. Indexed by item index
     // in the current topology snapshot; reallocated when topology changes.
@@ -424,6 +924,9 @@ private:
     void render_one_block(const Topology& topo);
 
     Device* find_device_locked(const DeviceId& id) const;
+    // Pick the house clock and reset the drift state of any device whose role
+    // changed. Control thread, mutex_ held.
+    void    recompute_clock_device_locked();
     DeviceId next_device_id();
 
     static void ma_data_callback(ma_device* dev, void* out, const void* in, std::uint32_t frames);

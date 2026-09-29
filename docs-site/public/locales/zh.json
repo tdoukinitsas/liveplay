@@ -6,42 +6,23 @@
     "direction": "ltr"
   },
   "header": {
-    "tagline": "现场活动音频提示播放",
+    "tagline": "为剧场、电台、活动和派对打造的演出级音频播放",
+    "intro": "排好音乐和音效，在恰当的时刻逐一触发，出了意外也能照常进行。LivePlay 免费支持 Windows、macOS 和 Linux，既能播派对歌单，也能撑起完整的剧场演出或电台节目。",
     "version": "版本",
     "logoAlt": "LivePlay 标志",
-    "screenshotAlt": "LivePlay 主界面，显示播放列表编辑器、提示音卡片和属性面板"
+    "screenshotAlt": "LivePlay 主窗口：播放列表、盒式播放器和调音台并排显示"
+  },
+  "common": {
+    "changeLanguage": "更改语言"
   },
   "download": {
     "title": "下载 LivePlay",
-    "subtitle": "免费开源。适用于 Windows、macOS 和 Linux。",
+    "subtitle": "免费开源，支持 Windows、macOS 和 Linux。",
     "windows": {
       "title": "Windows",
       "description": "Windows 10/11 (64-bit)",
       "buttonText": "下载 .exe",
       "size": "~150 MB"
-    },
-    "linux": {
-      "title": "Linux",
-      "description": "AppImage (Universal)",
-      "buttonText": "下载 .AppImage",
-      "size": "~155 MB"
-    },
-    "otherFormats": "其他可用格式：",
-    "debianUbuntu": ".deb (Debian/Ubuntu)",
-    "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "viewReleases": "在 GitHub 上查看所有版本 →",
-    "macGatekeeper": {
-      "title": "macOS：提示\"LivePlay 已损坏，无法打开\"？",
-      "intro": "LivePlay 尚未使用 Apple 开发者证书签名，因此 macOS 会在下载时将其隔离。应用是安全的——这只是意味着没有向 Apple 支付公证（notarize）费用。要打开它，请在安装到 /Applications 后，一次性移除隔离标记：",
-      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
-      "outro": "在提示时输入您的密码，然后正常启动 LivePlay。每次安装只需执行一次。"
-    },
-    "winSmartScreen": {
-      "title": "Windows：提示\"Windows 已保护你的电脑\"？",
-      "intro": "LivePlay 尚未使用 Microsoft SmartScreen 认可的证书签名，因此运行安装程序时 Windows 可能会显示蓝色的\"Windows 已保护你的电脑\"警告。应用是安全的——只是尚未积累下载信誉（代码签名正在筹备中）。",
-      "step1": "在警告对话框中点击\"更多信息\"。",
-      "step2": "点击随后出现的\"仍要运行\"按钮，然后照常继续安装。",
-      "outro": "如果是浏览器拦截了下载，请先选择\"保留\"以保存安装程序。"
     },
     "macArm": {
       "title": "macOS — Apple Silicon",
@@ -55,80 +36,152 @@
       "buttonText": "下载 .dmg",
       "size": "~145 MB"
     },
-    "macArmZip": ".zip (macOS Apple Silicon)",
-    "macIntelZip": ".zip (macOS Intel)",
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage（x64）",
+      "buttonText": "下载 .AppImage",
+      "size": "~155 MB"
+    },
     "recommended": "推荐用于您的系统",
     "showOtherOS": "下载其他操作系统版本",
-    "hideOtherOS": "隐藏其他操作系统"
+    "hideOtherOS": "隐藏其他操作系统",
+    "otherFormats": "其他可用格式：",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "viewReleases": "在 GitHub 上查看所有版本 →",
+    "macGatekeeper": {
+      "title": "macOS：提示“LivePlay 已损坏，无法打开”？",
+      "intro": "LivePlay 尚未使用 Apple 开发者证书签名，因此 macOS 会在下载时将其隔离。应用本身是安全的，只是尚未向 Apple 付费进行公证。要打开它，请在安装到 /Applications 后执行一次以下命令，移除隔离标记：",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "在提示时输入您的密码，然后正常启动 LivePlay。每次安装只需执行一次。"
+    },
+    "winSmartScreen": {
+      "title": "Windows：提示“Windows 已保护你的电脑”？",
+      "intro": "LivePlay 尚未使用 Microsoft SmartScreen 认可的证书签名，因此运行安装程序时，Windows 可能会显示蓝色的“Windows 已保护你的电脑”警告。应用本身是安全的，只是还没有积累足够的下载信誉（代码签名正在筹备中）。",
+      "step1": "在警告对话框中点击“更多信息”。",
+      "step2": "点击随后出现的“仍要运行”按钮，然后照常完成安装。",
+      "outro": "如果是浏览器拦截了下载，请先选择“保留”以保存安装程序。"
+    }
+  },
+  "contribute": {
+    "title": "参与贡献",
+    "subtitle": "LivePlay 免费开源，并将永远如此。",
+    "freeTitle": "永久免费",
+    "freeText": "LivePlay 的下载和使用完全免费：没有许可费、没有订阅、没有付费墙。所有功能人人可用，不设高级版。",
+    "licenseTitle": "开源许可证",
+    "licenseText": "LivePlay 以 GNU AGPL-3.0 许可证发布。简单来说：您可以自由使用、研究、分享和修改它。如果您分享修改后的版本，或将其作为网络服务运行，就必须以相同许可证公开源代码，让整个社区持续受益。",
+    "contributeTitle": "如何参与",
+    "contributeText": "人人都可以参与：报告错误、建议功能、改进翻译或提交代码，任何贡献都欢迎。前往 GitHub 仓库提交 issue 或 pull request。",
+    "githubButton": "在 GitHub 上贡献 →"
   },
   "features": {
     "title": "主要功能",
-    "interface": {
-      "title": "直观的界面",
-      "description": "LivePlay 具有专为现场音响操作员设计的简洁、简单和现代的界面。在播放列表中组织您的主要声音文件，并将声音添加到购物车播放器以快速访问或播报。添加到购物车的音频文件将自动表现为播报，在播放时降低任何背景音频。"
+    "groupShow": {
+      "title": "运行您的演出",
+      "intro": "从编排到上演，稳稳当当运行一场演出所需的一切。"
     },
-    "audioEngine": {
-      "title": "稳健的 C++ 音频引擎",
-      "description": "LivePlay 的核心是一个用 C++ 编写的专用高性能音频引擎，可直接与你的声音硬件通信——Windows 上使用 WASAPI，macOS 上使用 Core Audio，Linux 上使用 ALSA。每个提示音都作为完全独立的播放实例运行，拥有自己的解码器和淡入淡出包络，因此以不同音量两次播放同一文件始终表现得完全符合预期。该引擎作为独立的服务器进程运行：它可以运行在桌面应用内，也可以无界面地运行在连接你音频接口的专用后台机器上。"
+    "playlist": {
+      "title": "排好 Cue，随时触发",
+      "description": "把音乐和音效拖进由 Cue 组成的播放列表，并决定每个 Cue 如何衔接下一个：继续播放、循环或跳转。用鼠标、触摸屏、键盘或 MIDI 控制器掌控整个演出流程。"
     },
-    "routing": {
-      "title": "多设备音频路由",
-      "description": "可将任意提示音的音频同时路由到多块声卡上的任意输出通道组合，并为每个项目独立分配输出。路由矩阵让你把一个立体声文件拆分为单独的通道，并将每个通道以各自的增益发送到不同的设备——非常适合从单个提示音同时馈送主扩声、监听混音和录音输出。"
-    },
-    "waveform": {
-      "title": "波形修剪器",
-      "description": "使用内置波形编辑器精确修剪音频。设置入点和出点，调整音量，并可视化配置淡入淡出时间。您还可以根据静音自动修剪，或自动调整音量使所有音频电平保持一致。"
-    },
-    "youtube": {
-      "title": "YouTube 集成",
-      "description": "使用我们内置的下载器直接从 YouTube 下载音频！非常适合快速将音乐、音效或伴奏音轨添加到您的节目中（请确保您有权使用该内容或使用公共域内容）。"
-    },
-    "properties": {
-      "title": "易于使用的属性面板",
-      "description": "轻松更改音频文件的名称、颜色和播放属性。设置文件循环，调整音量，开始和结束行为，并配置自动静音修剪，所有这些都在一个方便的位置。您可以控制节目的流程！"
+    "cart": {
+      "title": "即按即响的音效与片头",
+      "description": "把片头、提示音和通告放进盒式播放器，一按即响，可以叠加在正在播放的任何内容之上。"
     },
     "ducking": {
       "title": "自动闪避",
-      "description": "配置自动闪避以在播放播报或对话时降低背景音乐的音量。非常适合现场制作中的平滑过渡。"
+      "description": "通告和音效播放时自动压低音乐，结束后再平滑恢复；也可以让某个 Cue 清空其他所有声音，干净利落地换场。"
+    },
+    "interface": {
+      "title": "按您的方式组织",
+      "description": "按场景、幕或曲目段落给 Cue 分组、标颜色，演出顺序一变就能随时调整。播放列表、盒式播放器和调音台可以随意排布，用不到的收起来；在桌面应用中，还能把盒式播放器或调音台移到第二块屏幕上。"
+    },
+    "showMode": {
+      "title": "演出模式",
+      "description": "演出模式把屏幕变成大号、适合触控的控制按钮，并隐藏所有可能改动演出的功能，开演后不会误改任何内容。"
+    },
+    "waveform": {
+      "title": "波形剪辑",
+      "description": "直接在波形上把每段声音剪到恰好需要的部分，并调整淡入淡出。LivePlay 还能自动修剪静音、统一电平，让每个 Cue 的音量保持一致。"
+    },
+    "properties": {
+      "title": "细调每个 Cue",
+      "description": "为每个 Cue 命名、设置颜色和电平，选择它在哪里播放，并决定它开始和结束时发生什么，全部集中在一处完成。"
+    },
+    "youtube": {
+      "title": "YouTube 集成",
+      "description": "急需某首曲目时，可以直接从 YouTube 把音频导入演出。请确保您有权使用所下载的内容。"
+    },
+    "firstLaunch": {
+      "title": "快速上手",
+      "description": "选择一个文件夹，为演出命名，就可以开始添加声音。LivePlay 会把媒体文件和项目放在一起，把演出搬到另一台电脑也很简单。"
+    },
+    "groupMixer": {
+      "title": "好好混音",
+      "intro": "内置调音台，让音乐、音效和人声各得其所，扬声器里不会冒出意外的声音。"
+    },
+    "mixer": {
+      "title": "为演出准备的真正调音台",
+      "description": "给音乐、音效和通告分配各自的总线，像在调音台上一样用通道条平衡它们。总线之间可以互相路由，也可以直接送往输出或通过辅助发送，还能一次性给整个 Cue 分组指定总线。"
+    },
+    "eqDynamics": {
+      "title": "每条总线都有 EQ 和动态处理",
+      "description": "用参量 EQ 和实时频谱分析仪塑造每条总线的声音，再用噪声门和压缩器加以控制。立体声总线可以加宽或收窄，低频始终稳稳地留在中间。"
+    },
+    "limiter": {
+      "title": "砖墙限幅器与响度目标",
+      "description": "每个输出上的砖墙限幅器会挡住突发的峰值，保护扬声器，调音台会随时显示它是否在工作。选择一个响度目标，从广播、流媒体到现场，限幅器、电平表和波形都会随之调整。"
+    },
+    "meters": {
+      "title": "广播级电平表",
+      "description": "每个 Cue、每条总线和每个输出都有精确的实时电平表，采用您习惯的刻度。颜色区间跟随响度目标，一眼就能看出是否符合规范。"
+    },
+    "preview": {
+      "title": "耳机预听与 PFL",
+      "description": "在耳机里预听下一个 Cue 或任意一条总线，观众什么也听不到；在送出之前，还能检查混音在单声道下是否站得住。"
+    },
+    "routing": {
+      "title": "随身携带的硬件输出",
+      "description": "演出按名称使用输出，例如 Main、Foyer 或 Sub，每台电脑再把这些名称对应到自己的声卡，需要的话可以同时用多块。换到新场地时，LivePlay 会指出缺少的输出，几下就能重新映射。"
+    },
+    "fades": {
+      "title": "淡变、循环与时间控制",
+      "description": "为每个 Cue 设置各自的淡入淡出，无缝循环环境声，并决定下一个 Cue 是交叉淡化、等待，还是在标记处开始。分组会显示总时长和剩余时间。"
+    },
+    "groupSystem": {
+      "title": "值得信赖",
+      "intro": "无论是一台笔记本，还是整个团队操作的网络化系统，LivePlay 的设计目标都是让演出持续进行。"
     },
     "remoteOperation": {
       "title": "本地或远程操作",
-      "description": "LivePlay 音频服务器会随应用程序自动启动，也可以运行在连接了你音频接口的专用后台机器上。从同一网络中的任意电脑连接即可获得完全控制——走带、属性、路由和实时电平表都可远程工作，让你能够灵活地将控制位置与音频硬件分开。"
-    },
-    "firstLaunch": {
-      "title": "快速设置",
-      "description": "使用 LivePlay 简化的设置过程在几秒钟内开始。选择一个文件夹，创建一个项目并开始导入文件！您的所有媒体都会自动收集到一个地方，以便您可以轻松地在计算机之间移动项目。"
-    },
-    "limiter": {
-      "title": "砖墙限制器与响度目标",
-      "description": "每个输出通道上都有一个真正的砖墙限制器，保持电平一致并保护你的硬件和观众免受失控的峰值影响。可从内置的输出目标中选择，它们符合专业响度标准——EBU R128、流媒体、广播、Netflix 和现场——LivePlay 会自动应用正确的上限、电平表区域和波形校准。"
-    },
-    "meters": {
-      "title": "广播级电平监测",
-      "description": "凭借在信号链每个环节的实时广播级电平监测，相信你所听到的——按提示音、按调音台通道以及主输出。彩色编码的电平表区域跟随你所选的响度目标，让你一眼就能看出自己是否舒适地处于规范之内，还是已经进入红区。"
-    },
-    "previewLtc": {
-      "title": "专用试听与 LTC 时间码",
-      "description": "在专用试听设备上无声试听提示音——耳机或一条提示总线——完全不影响你的主输出，让你在演出进行时就能准备下一个提示音。独立的 SMPTE LTC 时间码发生器在自己的通道上输出连续的线性时间码信号，让你能够将灯光台、视频播放和其他外部设备与 LivePlay 同步。"
+      "description": "音频引擎可以运行在同一台电脑上，也可以运行在后台连着音频接口的机器上，并在网络上的任何位置进行控制。声音来自引擎而不是屏幕，所以即使某台控制电脑掉线，演出也会继续。"
     },
     "discovery": {
-      "title": "自动发现与坚如磐石的可靠性",
-      "description": "LivePlay 服务器会在你的本地网络中自我通告，客户端可自动找到它们——无需输入 IP 地址。如果音频引擎意外停止，它会立即自动重启并从中断处恢复播放，让你的演出继续进行。而且由于该引擎是真正的服务器，多个客户端可同时连接到同一实例——非常适合主操作员加备份，或舞台监督在音响师旁边监看播放。"
+      "title": "协同工作，快速恢复",
+      "description": "各个屏幕会自动在网络上找到 LivePlay，多人可以同时操作同一场演出，看到的是同一组 Cue。连接断开会自动恢复；即使引擎意外停止，它也会重启并接着运行演出。"
+    },
+    "accounts": {
+      "title": "账户、角色与 API 令牌",
+      "description": "为团队成员分别建立登录账户：操作员负责运行演出，管理员负责维护系统。Companion 等演出控制工具有自己的访问令牌，还能把整个团队一次性迁移到另一台 LivePlay 服务器。"
+    },
+    "settingsPage": {
+      "title": "所有设置集中一处",
+      "description": "所有设置都在同一个页面上。语言、主题等个人偏好会跟随您登录的任何屏幕，而演出本身在哪里听起来都一样。"
+    },
+    "audioEngine": {
+      "title": "稳健的 C++ 音频引擎",
+      "description": "LivePlay 的核心是一个专用音频引擎，在 Windows、macOS 和 Linux 上直接与声卡硬件通信。每个 Cue 独立播放，同一个声音可以用不同电平触发两次，表现始终符合预期。"
+    },
+    "ltc": {
+      "title": "SMPTE 时间码",
+      "description": "随 Cue 发送 SMPTE 时间码，让灯光、视频和其他设备跟上您的演出。"
     }
-  },
-  "footer": {
-    "license": "采用许可证",
-    "developedBy": "开发者",
-    "developerName": "托马斯·杜基尼察斯",
-    "viewOnGitHub": "在 GitHub 上查看",
-    "contributors": "贡献者"
-  },
-  "common": {
-    "changeLanguage": "更改语言"
   },
   "ports": {
     "title": "网络端口",
-    "subtitle": "如果你在不同的机器上运行服务器和客户端，请确保在你的网络和防火墙中开放这些端口。",
+    "subtitle": "如果服务器和客户端运行在不同的机器上，请确保网络和防火墙开放了这些端口。",
     "control": {
       "port": "TCP 4480",
       "title": "控制面",
@@ -139,17 +192,19 @@
       "title": "自动发现",
       "description": "广播和组播信标（组 239.255.69.80），让客户端自动在本地网络中找到 LivePlay 服务器。"
     },
-    "note": "单机安装无需任何配置——客户端和服务器通过 127.0.0.1 通信，Windows 安装程序会为你添加防火墙规则。只有当你通过局域网将控制位置与音频硬件分开时，这些端口才有意义。"
+    "note": "单机安装无需任何配置：客户端和服务器通过 127.0.0.1 通信，Windows 安装程序会自动添加防火墙规则。只有当控制位置与音频硬件分处局域网两端时，才需要关心这些端口。"
   },
-  "contribute": {
-    "title": "参与贡献",
-    "subtitle": "LivePlay 免费且开源——并将永远如此。",
-    "freeTitle": "永久免费",
-    "freeText": "LivePlay 完全免费下载和使用——没有许可费、没有订阅、没有付费墙。所有功能对每个人开放，没有高级套餐。",
-    "licenseTitle": "开源许可证",
-    "licenseText": "LivePlay 基于 GNU AGPL-3.0 许可证发布。简单来说：您可以自由地使用、研究、分享和修改它。如果您分享修改后的版本——或将其作为网络服务运行——您必须以相同的许可证公开您的源代码，让整个社区持续受益。",
-    "contributeTitle": "如何参与",
-    "contributeText": "人人都能贡献。报告错误、建议功能、改进翻译或提交代码——欢迎任何形式的贡献。前往 GitHub 仓库提交 issue 或 pull request。",
-    "githubButton": "在 GitHub 上贡献 →"
+  "api": {
+    "title": "API 与自动化",
+    "subtitle": "把 LivePlay 接入您的演出控制工具。",
+    "description": "通过 HTTP 和 WebSocket 控制播放、编辑项目和路由，并监视实时状态。开启登录后，请在“设置 › 账户”中为 Companion、演出控制系统或脚本单独签发 API 令牌，而不是共用某个人的密码。开发者参考涵盖身份验证、所有端点、命令、事件和集成示例。",
+    "referenceLabel": "开发者 API 参考"
+  },
+  "footer": {
+    "license": "的许可证为",
+    "developedBy": "开发者",
+    "developerName": "托马斯·杜基尼察斯",
+    "viewOnGitHub": "在 GitHub 上查看",
+    "contributors": "贡献者"
   }
 }

@@ -6,11 +6,11 @@
         <span class="material-symbols-rounded">close</span>
       </button>
     </div>
-    
+
     <!-- Tab Navigation -->
     <div class="properties-tabs">
-      <button 
-        v-for="tab in availableTabs" 
+      <button
+        v-for="tab in availableTabs"
         :key="tab.id"
         :class="['tab-btn', { active: activeTab === tab.id }]"
         @click="activeTab = tab.id"
@@ -19,19 +19,20 @@
         <span>{{ tab.label }}</span>
       </button>
     </div>
-    
+
     <div class="properties-content">
       <!-- Basic Info Tab -->
       <div v-if="activeTab === 'basic'" class="tab-panel">
         <div class="property-field">
           <label>{{ t('properties.displayName') }}</label>
-          <input 
-            v-model="selectedItem.displayName" 
-            type="text" 
-            @change="handleSave"
+          <input
+            :value="shown('displayName', selectedItem.displayName)"
+            :placeholder="mixed('displayName') ? t('properties.multipleValues') : ''"
+            type="text"
+            @change="onText('displayName')($event)"
           />
         </div>
-        
+
         <div class="property-field">
           <label>{{ t('properties.color') }}</label>
           <div class="color-picker">
@@ -40,44 +41,45 @@
               :key="color"
               class="color-btn"
               :style="{ backgroundColor: color }"
-              :class="{ active: selectedItem.color === color }"
-              @click="() => { selectedItem.color = color; handleSave(); }"
+              :class="{ active: !mixed('color') && selectedItem.color === color }"
+              @click="onColor(color)"
             ></button>
           </div>
+          <p v-if="mixed('color')" class="property-help">{{ t('properties.multipleValues') }}</p>
         </div>
-        
+
         <div class="property-field">
           <label>{{ t('properties.uuid') }}</label>
           <div class="input-with-btn">
-            <input :value="selectedItem.uuid" readonly />
-            <button class="icon-btn" @click="copyToClipboard(selectedItem.uuid)">
+            <input :value="isMulti ? '' : selectedItem.uuid" :placeholder="isMulti ? t('properties.multipleValues') : ''" readonly />
+            <button class="icon-btn" :disabled="isMulti" @click="copyToClipboard(selectedItem.uuid)">
               <span class="material-symbols-rounded">content_copy</span>
             </button>
           </div>
         </div>
-        
+
         <div class="property-field">
           <label>{{ t('properties.index') }}</label>
-          <input :value="formatItemIndex(selectedItem.index)" readonly />
+          <input :value="isMulti ? '' : formatItemIndex(selectedItem.index)" :placeholder="isMulti ? t('properties.multipleValues') : ''" readonly />
         </div>
-        
+
         <div class="property-field" v-if="selectedItem.type === 'audio'">
           <label>{{ t('properties.apiTriggerUrl') }}</label>
           <div class="input-with-btn">
-            <input :value="apiTriggerUrl" readonly />
-            <button class="icon-btn" @click="copyToClipboard(apiTriggerUrl)">
+            <input :value="isMulti ? '' : apiTriggerUrl" :placeholder="isMulti ? t('properties.multipleValues') : ''" readonly />
+            <button class="icon-btn" :disabled="isMulti" @click="copyToClipboard(apiTriggerUrl)">
               <span class="material-symbols-rounded">content_copy</span>
             </button>
           </div>
         </div>
       </div>
-      
+
       <!-- Media Tab -->
       <div v-if="activeTab === 'media' && selectedItem.type === 'audio'" class="tab-panel">
         <div class="property-field">
           <label>{{ t('properties.file') }}</label>
           <div class="input-with-btn">
-            <input :value="audioItem.mediaFileName" readonly />
+            <input :value="isMulti ? '' : audioItem.mediaFileName" :placeholder="isMulti ? t('properties.multipleValues') : ''" readonly />
             <button class="icon-btn" @click="handleReplaceMedia">
               <span class="material-symbols-rounded">swap_horiz</span>
             </button>
@@ -86,7 +88,7 @@
 
         <div class="property-field">
           <label>{{ t('properties.duration') }}</label>
-          <input :value="formatTime(audioItem.duration)" readonly />
+          <input :value="isMulti ? '' : formatTime(audioItem.duration)" :placeholder="isMulti ? t('properties.multipleValues') : ''" readonly />
         </div>
 
         <div class="property-field">
@@ -97,22 +99,25 @@
           </button>
         </div>
       </div>
-      
+
       <!-- Playback Tab -->
       <div v-if="activeTab === 'playback' && selectedItem.type === 'audio'" class="tab-panel">
         <WaveformTrimmer
           v-if="audioItem && audioItem.mediaPath && audioItem.duration > 0"
           :audio-item="audioItem"
           :multi-select="selectedItems.size > 1"
-          @update:volume="(v) => { beginItemBatch(); audioItem.volume = v; }"
-          @update:in-point="(v) => { beginItemBatch(); audioItem.inPoint = v; }"
-          @update:out-point="(v) => { beginItemBatch(); audioItem.outPoint = v; }"
-          @update:play-fade="(v) => { beginItemBatch(); handlePlayFadeUpdate(v); }"
-          @update:stop-fade="(v) => { beginItemBatch(); handleStopFadeUpdate(v); }"
-          @update:cross-fade="(v) => { beginItemBatch(); handleCrossFadeUpdate(v); }"
-          @update:start-next-enabled="(v) => { beginItemBatch(); handleStartNextEnabledUpdate(v); }"
-          @update:start-next-time="(v) => { beginItemBatch(); handleStartNextTimeUpdate(v); }"
-          @update:start-next-fade-out="(v) => { beginItemBatch(); handleStartNextFadeOutUpdate(v); }"
+          :mixed="trimmerMixed"
+          @update:volume="handleVolumeUpdate"
+          @update:in-point="(v) => { beginItemBatch(); touch('inPoint'); audioItem.inPoint = v; }"
+          @update:out-point="(v) => { beginItemBatch(); touch('outPoint'); audioItem.outPoint = v; }"
+          @update:play-fade="(v) => { beginItemBatch(); touch('playFade'); handlePlayFadeUpdate(v); }"
+          @update:stop-fade="(v) => { beginItemBatch(); touch('stopFade'); handleStopFadeUpdate(v); }"
+          @update:cross-fade="(v) => { beginItemBatch(); touch('crossFade'); handleCrossFadeUpdate(v); }"
+          @update:manual-stop-fade="(v) => { beginItemBatch(); touch('manualStopFade'); handleManualStopFadeUpdate(v); }"
+          @update:loop-crossfade="(v) => { beginItemBatch(); touch('loopCrossfade'); handleLoopCrossfadeUpdate(v); }"
+          @update:start-next-enabled="(v) => { beginItemBatch(); touch('startNextEnabled'); handleStartNextEnabledUpdate(v); }"
+          @update:start-next-time="(v) => { beginItemBatch(); touch('startNextTime'); handleStartNextTimeUpdate(v); }"
+          @update:start-next-fade-out="(v) => { beginItemBatch(); touch('startNextFadeOut'); handleStartNextFadeOutUpdate(v); }"
           @change="handleSave"
           @normalize="handleNormalize"
           @trim-silence="handleTrimSilence"
@@ -122,42 +127,49 @@
           <p>{{ t('properties.loadingAudioData')}}</p>
         </div>
       </div>
-      
+
       <!-- Output Tab -->
-      <div v-if="activeTab === 'output' && selectedItem.type === 'audio'" class="tab-panel">
+      <div v-if="activeTab === 'output'" class="tab-panel">
+        <!-- Bus assignment is the whole of an item's routing. Where that bus
+             then goes — hardware, level, processing — is the mixer's business,
+             not the item's. Groups carry it too: children inherit unless they
+             assign their own. -->
         <div class="property-field">
-          <label>{{ t('properties.deviceOverride') }}</label>
-          <select
-            :value="(audioItem as any).deviceOverride ?? ''"
-            @change="onDeviceOverrideChange"
-          >
-            <option value="">{{ t('settings.useProjectDefault') }}</option>
-            <option
-              v-for="d in devicesList"
-              :key="d.id"
-              :value="d.id"
-            >
-              {{ d.display_name }}{{ d.is_default ? ' (' + t('common.default') + ')' : '' }}
-            </option>
+          <label>{{ t('properties.bus') }}</label>
+          <select :value="mixed('busId') ? MIXED : ((selectedItem as any).busId ?? '')" @change="onBusChange">
+            <option v-if="mixed('busId')" :value="MIXED" disabled>{{ t('properties.multipleValues') }}</option>
+            <option value="">{{ t('properties.busInherit') }}</option>
+            <option v-for="b in assignableBuses" :key="b.id" :value="b.id">{{ b.name }}</option>
           </select>
-          <p class="property-help">{{ t('properties.deviceOverrideHelp') }}</p>
+          <p class="property-help">
+            {{ selectedItem.type === 'group' ? t('properties.busGroupHelp') : t('properties.busHelp') }}
+          </p>
+          <p v-if="assignableBuses.length === 0" class="property-help">{{ t('properties.busNone') }}</p>
+          <p v-else-if="effectiveBusName && !isMulti" class="property-help">
+            {{ t('properties.busEffective', { name: effectiveBusName }) }}
+          </p>
         </div>
 
-        <!-- LTC Output Section -->
-        <div class="property-field" :class="{ 'field-disabled': !ltcDeviceConfigured }">
+        <!-- LTC Output Section — audio items only; a group has no timecode. -->
+        <div
+          v-if="selectedItem.type === 'audio' && audioItem"
+          class="property-field"
+          :class="{ 'field-disabled': !ltcOutputConfigured }"
+        >
           <label class="ltc-checkbox-label">
             <input
               type="checkbox"
-              :checked="(audioItem.ltcEnabled ?? false) && ltcDeviceConfigured"
-              :disabled="!ltcDeviceConfigured"
+              :checked="!mixed('ltcEnabled') && (audioItem.ltcEnabled ?? false) && ltcOutputConfigured"
+              :indeterminate="mixed('ltcEnabled')"
+              :disabled="!ltcOutputConfigured"
               @change="onLtcEnabledChange"
             />
             {{ t('properties.ltcOutputTimecode') }}
           </label>
           <p class="property-help">
-            {{ ltcDeviceConfigured
+            {{ ltcOutputConfigured
                 ? t('properties.ltcOutputTimecodeHelp')
-                : (t('properties.ltcRequiresDevice') || 'Select an LTC output device in Project Settings to enable timecode output.') }}
+                : t('properties.ltcRequiresOutput') }}
           </p>
         </div>
 
@@ -165,10 +177,10 @@
           <label>{{ t('properties.ltcStartTimecode') }}</label>
           <input
             type="text"
-            :value="audioItem.ltcStartTimecode ?? '00:00:00:00'"
+            :value="shown('ltcStartTimecode', audioItem.ltcStartTimecode ?? '00:00:00:00')"
+            :placeholder="mixed('ltcStartTimecode') ? t('properties.multipleValues') : 'HH:MM:SS:FF'"
             :disabled="!(audioItem.ltcEnabled ?? false)"
             :class="{ invalid: !ltcTimecodeValid }"
-            placeholder="HH:MM:SS:FF"
             maxlength="11"
             @change="onLtcTimecodeChange"
           />
@@ -180,10 +192,11 @@
         <div class="property-field" :class="{ 'field-disabled': !(audioItem.ltcEnabled ?? false) }">
           <label>{{ t('properties.ltcFrameRate') }}</label>
           <select
-            :value="audioItem.ltcFrameRate ?? 4"
+            :value="mixed('ltcFrameRate') ? MIXED : (audioItem.ltcFrameRate ?? 4)"
             :disabled="!(audioItem.ltcEnabled ?? false)"
             @change="onLtcFrameRateChange"
           >
+            <option v-if="mixed('ltcFrameRate')" :value="MIXED" disabled>{{ t('properties.multipleValues') }}</option>
             <option v-for="opt in ltcFrameRateOptions" :key="opt.value" :value="opt.value">
               {{ opt.label }}
             </option>
@@ -195,20 +208,24 @@
       <div v-if="activeTab === 'ducking' && selectedItem.type === 'audio'" class="tab-panel">
         <div class="property-field">
           <label>{{ t('properties.mode') }}</label>
-          <select v-model="audioItem.duckingBehavior.mode" @change="handleSave">
+          <select
+            :value="mixed('duckingBehavior.mode') ? MIXED : audioItem.duckingBehavior.mode"
+            @change="commitField('duckingBehavior.mode', ($event.target as HTMLSelectElement).value)"
+          >
+            <option v-if="mixed('duckingBehavior.mode')" :value="MIXED" disabled>{{ t('properties.multipleValues') }}</option>
             <option value="stop-all">{{ t('duckingBehavior.stopAll') }}</option>
             <option value="no-ducking">{{ t('duckingBehavior.noDucking') }}</option>
             <option value="duck-others">{{ t('duckingBehavior.duckOthers') }}</option>
           </select>
         </div>
-        
+
         <div class="property-field" v-if="audioItem.duckingBehavior.mode === 'duck-others'">
-          <label>{{ t('properties.duckLevel') }} ({{ duckLevelDB.toFixed(1) }} dB)</label>
-          <input 
-            v-model.number="duckLevelDB" 
-            type="range" 
-            min="-60" 
-            max="0" 
+          <label>{{ t('properties.duckLevel') }} ({{ mixed('duckingBehavior.duckLevel') ? t('properties.multipleValues') : duckLevelDB.toFixed(1) + ' dB' }})</label>
+          <input
+            v-model.number="duckLevelDB"
+            type="range"
+            min="-60"
+            max="0"
             step="0.5"
             @change="handleSave"
           />
@@ -218,12 +235,16 @@
           </div>
         </div>
       </div>
-      
+
       <!-- End Behavior Tab -->
       <div v-if="activeTab === 'endBehavior'" class="tab-panel">
         <div class="property-field">
           <label>{{ t('properties.action') }}</label>
-          <select v-model="endBehaviorAction" @change="handleSave">
+          <select
+            :value="mixed('endBehavior.action') ? MIXED : endBehaviorAction"
+            @change="commitField('endBehavior.action', ($event.target as HTMLSelectElement).value)"
+          >
+            <option v-if="mixed('endBehavior.action')" :value="MIXED" disabled>{{ t('properties.multipleValues') }}</option>
             <option value="nothing">{{ t('endBehavior.nothing') }}</option>
             <option value="next">{{ t('endBehavior.next') }}</option>
             <option value="goto-item">{{ t('endBehavior.gotoItem') }}</option>
@@ -231,31 +252,55 @@
             <option v-if="selectedItem.type === 'audio'" value="loop">{{ t('endBehavior.loop') }}</option>
           </select>
         </div>
-        
+
         <div class="property-field" v-if="endBehaviorAction === 'goto-item'">
           <label>{{ t('properties.targetUuid') }}</label>
-          <input 
-            v-model="endBehaviorTargetUuid" 
+          <input
+            :value="shown('endBehavior.targetUuid', endBehaviorTargetUuid)"
+            :placeholder="mixed('endBehavior.targetUuid') ? t('properties.multipleValues') : ''"
             type="text"
-            @change="handleSave"
+            @change="onText('endBehavior.targetUuid')($event)"
           />
         </div>
-        
+
         <div class="property-field" v-if="endBehaviorAction === 'goto-index'">
           <label>{{ t('properties.targetIndex') }}</label>
-          <input 
-            :value="formatItemIndex(endBehaviorTargetIndex)"
+          <input
+            :value="shown('endBehavior.targetIndex', formatItemIndex(endBehaviorTargetIndex))"
+            :placeholder="mixed('endBehavior.targetIndex') ? t('properties.multipleValues') : ''"
             @change="handleEndBehaviorIndexChange"
             type="text"
           />
         </div>
+
+        <!-- Wait before next (#8): a gap between this cue ending and the
+             next one starting. -->
+        <div
+          class="property-field"
+          v-if="selectedItem.type === 'audio' && ['next', 'goto-item', 'goto-index'].includes(endBehaviorAction)"
+        >
+          <label>{{ t('properties.advanceDelay') }}</label>
+          <input
+            type="number"
+            min="0"
+            step="0.5"
+            :value="shown('advanceDelay', (selectedItem as AudioItem).advanceDelay ?? 0)"
+            :placeholder="mixed('advanceDelay') ? t('properties.multipleValues') : ''"
+            @change="handleAdvanceDelayChange"
+          />
+          <p class="field-hint">{{ t('properties.advanceDelayHint') }}</p>
+        </div>
       </div>
-      
+
       <!-- Start Behavior Tab -->
       <div v-if="activeTab === 'startBehavior'" class="tab-panel">
         <div class="property-field">
           <label>{{ t('properties.action') }}</label>
-          <select v-model="startBehaviorAction" @change="handleSave">
+          <select
+            :value="mixed('startBehavior.action') ? MIXED : startBehaviorAction"
+            @change="commitField('startBehavior.action', ($event.target as HTMLSelectElement).value)"
+          >
+            <option v-if="mixed('startBehavior.action')" :value="MIXED" disabled>{{ t('properties.multipleValues') }}</option>
             <option v-if="selectedItem.type === 'audio'" value="nothing">{{ t('startBehavior.nothing') }}</option>
             <option v-if="selectedItem.type === 'audio'" value="play-next">{{ t('startBehavior.playNext') }}</option>
             <option v-if="selectedItem.type === 'audio'" value="play-item">{{ t('startBehavior.playItem') }}</option>
@@ -264,20 +309,22 @@
             <option v-if="selectedItem.type === 'group'" value="play-all">{{ t('startBehavior.playAll') }}</option>
           </select>
         </div>
-        
+
         <div class="property-field" v-if="startBehaviorAction === 'play-item'">
           <label>{{ t('properties.targetUuid') }}</label>
-          <input 
-            v-model="startBehaviorTargetUuid" 
+          <input
+            :value="shown('startBehavior.targetUuid', startBehaviorTargetUuid)"
+            :placeholder="mixed('startBehavior.targetUuid') ? t('properties.multipleValues') : ''"
             type="text"
-            @change="handleSave"
+            @change="onText('startBehavior.targetUuid')($event)"
           />
         </div>
-        
+
         <div class="property-field" v-if="startBehaviorAction === 'play-index'">
           <label>{{ t('properties.targetIndex') }}</label>
-          <input 
-            :value="formatItemIndex(startBehaviorTargetIndex)"
+          <input
+            :value="shown('startBehavior.targetIndex', formatItemIndex(startBehaviorTargetIndex))"
+            :placeholder="mixed('startBehavior.targetIndex') ? t('properties.multipleValues') : ''"
             @change="handleStartBehaviorIndexChange"
             type="text"
           />
@@ -288,10 +335,11 @@
 </template>
 
 <script setup lang="ts">
-import type { AudioItem, GroupItem } from '~/types/project';
+import type { AudioItem, Bus, GroupItem } from '~/types/project';
 import { PRESET_COLORS } from '~/types/project';
 import { calculatePerceivedLoudness } from '~/utils/audio';
 import { useOutputTarget } from '~/composables/useOutputTarget';
+import { changedPaths, isFieldMixed, propagateFields } from '~/utils/multiEdit';
 
 const {
   selectedItem,
@@ -310,13 +358,43 @@ const { levels: outputTargetLevels } = useOutputTarget();
 
 const audioItem = computed(() => selectedItem.value as AudioItem);
 
-// LTC output is only meaningful when a project-wide LTC device is configured.
+// ---- Editing several items at once ----------------------------------------
+// The panel draws the primary selection and its handlers write to it, as for a
+// single item. On save, whatever changed on it is copied field by field to the
+// rest of the selection (utils/multiEdit.ts has the rules), so ANY property the
+// panel can change is a batch edit when Ctrl/Shift has selected more than one.
+const isMulti = computed(() => selectedItems.value.size > 1);
+const selectionList = computed(() => (isMulti.value ? getSelectedItems() : []));
+
+/** The selection disagrees on this field: show "Multiple values" instead. */
+const mixed = (path: string): boolean =>
+  isMulti.value && isFieldMixed(selectionList.value, selectedItem.value, path);
+
+// Fields committed while they showed "Multiple values". Setting one to the
+// value the primary item already had changes nothing on the primary, so a diff
+// alone would never carry it to the others — this does.
+const touchedPaths = new Set<string>();
+const touch = (...paths: string[]) => {
+  if (isMulti.value) for (const p of paths) touchedPaths.add(p);
+};
+
+// Placeholder text for a mixed field, and the value to show in its place.
+const MIXED = '__mixed__';
+const shown = <T,>(path: string, value: T): T | '' => (mixed(path) ? '' : value);
+
+// LTC output is only meaningful when the project names an output for it.
 // The checkbox stays disabled until then to prevent users from "enabling"
 // timecode that has nowhere to go (which is the most common LTC-silent
 // support report we get).
-const ltcDeviceConfigured = computed(() => {
-  const dev = (currentProject.value as any)?.settings?.ltcDevice;
-  return typeof dev === 'string' && dev.length > 0;
+//
+// It asks whether the show has NAMED an output, not whether this machine can
+// currently reach it: a travelling show keeps its timecode configuration at a
+// venue that cannot deliver it, and greying the cue's checkbox there would
+// look like the setting had been lost. Settings > Audio is where an
+// unreachable output is reported.
+const ltcOutputConfigured = computed(() => {
+  const out = (currentProject.value as any)?.settings?.ltcOutput;
+  return typeof out === 'string' && out.length > 0;
 });
 
 // Available output devices (for the per-item Output tab). Pulled from the
@@ -331,15 +409,65 @@ const apiTriggerUrl = computed(() => {
   const base = (_server.serverUrl ?? 'http://127.0.0.1:4480').replace(/\/+$/, '');
   return `${base}/api/project/items/${selectedItem.value?.uuid}/play`;
 });
-const onDeviceOverrideChange = (e: Event) => {
+// Bus assignment. An item carries busId and nothing else about routing; the
+// bus decides where the audio goes. Clearing it means "inherit" — from the
+// nearest ancestor group, or the master-role bus if no group assigns one.
+//
+// Every bus is offered except the preview-role bus: it is the PFL and
+// pre-listen destination, and the server refuses cues on it. The master bus
+// is listed under its own name, in rail order with the rest — it is the
+// default destination, but "Inherit" is how you say so, not picking it.
+const assignableBuses = computed(() =>
+  (_server.buses ?? [])
+    .filter((b: Bus) => !b.preview)
+    .sort((a: Bus, b: Bus) => a.order - b.order));
+
+// Mirrors the server's resolve_item_bus (server/src/core/project_state.cpp):
+// walk the tree carrying the nearest ancestor's assignment down; an item's
+// own busId (checked by the caller before this runs) would override it, so
+// by the time we get here the answer is purely "what did it inherit". Falls
+// back to the master-role bus (D24) when nothing along the chain assigns one
+// — same as the server.
+const resolveEffectiveBusId = (uuid: string): string => {
+  const MAIN_BUS_ID = (_server.buses ?? []).find((b: Bus) => b.master)?.id ?? 'master';
+  const items = currentProject.value?.items ?? [];
+  let result: string | null = null;
+  const walk = (arr: (AudioItem | GroupItem)[], inherited: string): boolean => {
+    for (const it of arr) {
+      const effective = (it as any).busId || inherited;
+      if (it.uuid === uuid) { result = effective; return true; }
+      if (it.type === 'group' && walk((it as GroupItem).children, effective)) return true;
+    }
+    return false;
+  };
+  if (walk(items as (AudioItem | GroupItem)[], MAIN_BUS_ID)) return result as string;
+  return MAIN_BUS_ID;
+};
+
+// What the item actually resolves to, which is not the same as what is written
+// on it: with no assignment of its own it may still inherit one from a group.
+// Computed client-side (rather than read off the server's bus membership
+// list) because that list only attributes leaf audio items to a bus — a
+// group never appears in it, so groups showed nothing here before.
+const effectiveBusName = computed(() => {
+  const it = selectedItem.value as any;
+  if (!it?.uuid || it.busId) return '';
+  const busId = resolveEffectiveBusId(it.uuid);
+  const bus = (_server.buses ?? []).find((b: Bus) => b.id === busId);
+  return bus?.name ?? t('mixer.master');
+});
+
+const onBusChange = async (e: Event) => {
   const v = (e.target as HTMLSelectElement).value;
-  const it = audioItem.value as any;
-  if (!v) {
-    delete it.deviceOverride;
-  } else {
-    it.deviceOverride = v;
-  }
-  handleSave();
+  const it = selectedItem.value as any;
+  if (!it || v === MIXED) return;
+  touch('busId');
+  if (!v) delete it.busId; else it.busId = v;
+  // Awaited: the save can re-materialise the buses server-side, and refetching
+  // across that rebuild is what used to read back a half-built table.
+  await handleSave();
+  // Membership is resolved server-side, so refresh the mixer's view of it.
+  try { await _server.fetchBuses(); } catch { /* offline */ }
 };
 
 // LTC helpers
@@ -359,6 +487,7 @@ const ltcFrameRateOptions = [
 ];
 
 const onLtcEnabledChange = (e: Event) => {
+  touch('ltcEnabled');
   audioItem.value.ltcEnabled = (e.target as HTMLInputElement).checked;
   if (audioItem.value.ltcEnabled && !audioItem.value.ltcStartTimecode) {
     audioItem.value.ltcStartTimecode = '00:00:00:00';
@@ -374,6 +503,7 @@ const onLtcTimecodeChange = (e: Event) => {
   // Normalise: replace semicolon separator (DF convention) with colon for storage.
   const normalised = raw.replace(/;(\d{2})$/, ':$1');
   if (SMPTE_RE.test(normalised)) {
+    touch('ltcStartTimecode');
     audioItem.value.ltcStartTimecode = normalised;
     handleSave();
   } else {
@@ -383,7 +513,10 @@ const onLtcTimecodeChange = (e: Event) => {
 };
 
 const onLtcFrameRateChange = (e: Event) => {
-  audioItem.value.ltcFrameRate = parseInt((e.target as HTMLSelectElement).value, 10);
+  const v = (e.target as HTMLSelectElement).value;
+  if (v === MIXED) return;
+  touch('ltcFrameRate');
+  audioItem.value.ltcFrameRate = parseInt(v, 10);
   handleSave();
 };
 const groupItem = computed(() => selectedItem.value as GroupItem);
@@ -411,7 +544,9 @@ const allTabs = computed<Tab[]>(() => [
   { id: 'basic', label: t('properties.basicInfo'), icon: 'info' },
   { id: 'media', label: t('properties.media'), icon: 'audio_file', audioOnly: true },
   { id: 'playback', label: t('properties.playback'), icon: 'play_circle', audioOnly: true },
-  { id: 'output', label: t('properties.output'), icon: 'speaker', audioOnly: true },
+  // Not audioOnly: a group carries a bus assignment too, which is how a whole
+  // folder of cues is routed in one move and what its children inherit.
+  { id: 'output', label: t('properties.output'), icon: 'speaker' },
   { id: 'ducking', label: t('properties.ducking'), icon: 'volume_down', audioOnly: true },
   { id: 'startBehavior', label: t('properties.startBehavior'), icon: 'play_arrow' },
   { id: 'endBehavior', label: t('properties.endBehavior'), icon: 'stop_circle' }
@@ -473,6 +608,7 @@ const handleEndBehaviorIndexChange = (e: Event) => {
   // Reflect the normalised path back into the field so the user sees the
   // canonical comma form (e.g. typing "1.10" shows "1,10").
   input.value = formatItemIndex(parsed);
+  touch('endBehavior.targetIndex');
   if (selectedItem.value?.type === 'audio') {
     if (parsed.length > 0) audioItem.value.endBehavior.targetIndex = parsed;
     else delete audioItem.value.endBehavior.targetIndex;
@@ -526,12 +662,38 @@ const handleStartBehaviorIndexChange = (e: Event) => {
   const input = e.target as HTMLInputElement;
   const parsed = parseItemIndexInput(input.value);
   input.value = formatItemIndex(parsed);
+  touch('startBehavior.targetIndex');
   if (selectedItem.value?.type === 'audio') {
     if (parsed.length > 0) audioItem.value.startBehavior.targetIndex = parsed;
     else delete audioItem.value.startBehavior.targetIndex;
   }
   handleSave();
 };
+
+// Text and select fields that commit on change. One setter for all of them, so
+// every field records itself for the batch the same way.
+const commitField = (path: string, value: unknown) => {
+  const it = selectedItem.value as any;
+  if (!it || value === MIXED) return;
+  touch(path);
+  const keys = path.split('.');
+  const last = keys.pop()!;
+  let o = it;
+  for (const k of keys) o = o[k] ??= {};
+  o[last] = value;
+  handleSave();
+};
+const onText = (path: string) => (e: Event) =>
+  commitField(path, (e.target as HTMLInputElement).value);
+const onColor = (color: string) => commitField('color', color);
+
+// The trimmer's own fields, mixed or not across the selection.
+const TRIMMER_FIELDS = [
+  'volume', 'inPoint', 'outPoint', 'playFade', 'stopFade', 'crossFade',
+  'manualStopFade', 'loopCrossfade', 'startNextEnabled', 'startNextTime', 'startNextFadeOut',
+] as const;
+const trimmerMixed = computed(() =>
+  Object.fromEntries(TRIMMER_FIELDS.map(f => [f, mixed(f)])) as Record<string, boolean>);
 
 // Duck level in dB
 const duckLevelDB = computed({
@@ -542,6 +704,7 @@ const duckLevelDB = computed({
   },
   set: (db: number) => {
     const linear = db <= -60 ? 0 : Math.pow(10, db / 20);
+    touch('duckingBehavior.duckLevel');
     audioItem.value.duckingBehavior.duckLevel = linear;
   }
 });
@@ -555,17 +718,17 @@ watch(selectedItem, (newItem, oldItem) => {
   if (newItem) {
     // Only reset tab if it's a different item (not just property updates)
     const isDifferentItem = !oldItem || newItem.uuid !== oldItem.uuid;
-    
+
     if (isDifferentItem) {
       isInitializing.value = true;
       originalSnapshot.value = JSON.parse(JSON.stringify(newItem));
-      
+
       // Only reset to basic tab if properties panel was previously closed (no oldItem)
       // If panel was already open, keep the current tab
       if (!oldItem) {
         activeTab.value = 'basic';
       }
-      
+
       setTimeout(() => {
         isInitializing.value = false;
       }, 0);
@@ -586,60 +749,17 @@ const handleSave = async () => {
   // End any active drag batch so stale intermediate values are never
   // PATCHed to the server and echoed back as item_updated reversions.
   endItemBatch();
-  // If multiple items are selected, update all of them with ONLY changed properties
+  // Several items selected: copy what changed on the one on screen — and what
+  // was committed over "Multiple values" — onto every other item it applies to.
   const items = getSelectedItems();
   if (items.length > 1 && originalSnapshot.value && selectedItem.value) {
-    const current = selectedItem.value;
-    const original = originalSnapshot.value;
-    
-    items.forEach(item => {
-      // Only update properties that have changed
-      if (current.displayName !== original.displayName) {
-        item.displayName = current.displayName;
-      }
-      if (current.color !== original.color) {
-        item.color = current.color;
-      }
-      
-      // Copy type-specific properties only if they changed
-      if (item.type === 'audio' && current.type === 'audio') {
-        const sourceAudio = current as AudioItem;
-        const originalAudio = original as AudioItem;
-        const targetAudio = item as AudioItem;
-        
-        if (sourceAudio.volume !== originalAudio.volume) {
-          targetAudio.volume = sourceAudio.volume;
-        }
-        if (sourceAudio.inPoint !== originalAudio.inPoint) {
-          targetAudio.inPoint = sourceAudio.inPoint;
-        }
-        if (sourceAudio.outPoint !== originalAudio.outPoint) {
-          targetAudio.outPoint = sourceAudio.outPoint;
-        }
-        if (JSON.stringify(sourceAudio.duckingBehavior) !== JSON.stringify(originalAudio.duckingBehavior)) {
-          targetAudio.duckingBehavior = { ...sourceAudio.duckingBehavior };
-        }
-        if (JSON.stringify(sourceAudio.endBehavior) !== JSON.stringify(originalAudio.endBehavior)) {
-          targetAudio.endBehavior = { ...sourceAudio.endBehavior };
-        }
-        if (JSON.stringify(sourceAudio.startBehavior) !== JSON.stringify(originalAudio.startBehavior)) {
-          targetAudio.startBehavior = { ...sourceAudio.startBehavior };
-        }
-      } else if (item.type === 'group' && current.type === 'group') {
-        const sourceGroup = current as GroupItem;
-        const originalGroup = original as GroupItem;
-        const targetGroup = item as GroupItem;
-        
-        if (JSON.stringify(sourceGroup.startBehavior) !== JSON.stringify(originalGroup.startBehavior)) {
-          targetGroup.startBehavior = { ...sourceGroup.startBehavior };
-        }
-        if (JSON.stringify(sourceGroup.endBehavior) !== JSON.stringify(originalGroup.endBehavior)) {
-          targetGroup.endBehavior = { ...sourceGroup.endBehavior };
-        }
-      }
-    });
-    
+    const paths = new Set([
+      ...changedPaths(originalSnapshot.value, selectedItem.value),
+      ...touchedPaths,
+    ]);
+    propagateFields(selectedItem.value, items, paths);
   }
+  touchedPaths.clear();
 
   // Always refresh the diff baseline to the primary item's current state —
   // for single AND multi selection. This is what prevents an earlier edit
@@ -656,53 +776,53 @@ const handleSave = async () => {
 // Handle normalize: normalize ALL selected audio items individually
 const handleNormalize = () => {
   let items = getSelectedItems();
-  
+
   // Fallback to selectedItem if no items in selectedItems set (shouldn't happen now, but safe)
   if (items.length === 0 && selectedItem.value) {
     items = [selectedItem.value];
   }
-  
+
   const targetLoudness = outputTargetLevels.value.autoVolumeTargetDb;
-  
+
   let normalizedCount = 0;
-  
+
   items.forEach(item => {
     if (item.type !== 'audio') return;
-    
+
     const audioItem = item as AudioItem;
-    
+
     // Skip if no waveform data
     if (!audioItem.waveform || !audioItem.waveform.peaks || audioItem.waveform.peaks.length === 0) {
       console.warn(`Skipping ${audioItem.displayName}: no waveform data`);
       return;
     }
-    
+
     const peaks = audioItem.waveform.peaks;
     const duration = audioItem.duration;
-    
+
     // Get trimmed region
     const inPoint = audioItem.inPoint || 0;
     const outPoint = audioItem.outPoint || duration;
     const startIndex = Math.floor((inPoint / duration) * peaks.length);
     const endIndex = Math.ceil((outPoint / duration) * peaks.length);
     const trimmedPeaks = peaks.slice(startIndex, endIndex);
-    
+
     // Calculate INTRINSIC perceived loudness
     const intrinsicLoudness = calculatePerceivedLoudness(trimmedPeaks);
-    
+
     // Calculate the ABSOLUTE volume needed
     const gainDb = targetLoudness - intrinsicLoudness;
     const newVolume = Math.pow(10, gainDb / 20);
-    
+
     // Clamp to reasonable range (0.001 to 3.162, where 3.162 = +10dB max)
     const maxVolume = Math.pow(10, 10 / 20); // +10dB = 3.162
     const clampedVolume = Math.min(Math.max(newVolume, 0.001), maxVolume);
     audioItem.volume = clampedVolume;
-    
+
     normalizedCount++;
     console.log(`Normalized ${audioItem.displayName}: ${intrinsicLoudness.toFixed(1)}dB -> ${targetLoudness}dB (volume: ${clampedVolume.toFixed(3)})`);
   });
-  
+
   if (normalizedCount > 0) {
     saveProject();
     console.log(`Normalized ${normalizedCount} item(s)`);
@@ -712,36 +832,36 @@ const handleNormalize = () => {
 // Handle trim silence: trim ALL selected audio items individually
 const handleTrimSilence = () => {
   let items = getSelectedItems();
-  
+
   // Fallback to selectedItem if no items in selectedItems set (shouldn't happen now, but safe)
   if (items.length === 0 && selectedItem.value) {
     items = [selectedItem.value];
   }
-  
+
   const padding = 0.1; // Padding in seconds
-  
+
   let trimmedCount = 0;
-  
+
   items.forEach(item => {
     if (item.type !== 'audio') return;
-    
+
     const audioItem = item as AudioItem;
-    
+
     // Skip if no waveform data
     if (!audioItem.waveform || !audioItem.waveform.peaks || audioItem.waveform.peaks.length === 0) {
       console.warn(`Skipping ${audioItem.displayName}: no waveform data`);
       return;
     }
-    
+
     const peaks = audioItem.waveform.peaks;
     const duration = audioItem.duration;
-    
+
     // Find the maximum peak value to calculate relative threshold
     const maxPeak = Math.max(...peaks);
-    
+
     // Use 5% of max peak as threshold (more sensitive to actual silence)
     const threshold = maxPeak * 0.05;
-    
+
     // Find first non-silent sample from start
     let startIndex = 0;
     for (let i = 0; i < peaks.length; i++) {
@@ -750,7 +870,7 @@ const handleTrimSilence = () => {
         break;
       }
     }
-    
+
     // Find first non-silent sample from end
     let endIndex = peaks.length - 1;
     for (let i = peaks.length - 1; i >= 0; i--) {
@@ -759,19 +879,19 @@ const handleTrimSilence = () => {
         break;
       }
     }
-    
+
     // Convert indices to time
     const newInPoint = (startIndex / peaks.length) * duration;
     const newOutPoint = ((endIndex + 1) / peaks.length) * duration;
-    
+
     // Apply with padding
     audioItem.inPoint = Math.max(0, newInPoint - padding);
     audioItem.outPoint = Math.min(duration, newOutPoint + padding);
-    
+
     trimmedCount++;
     console.log(`Trimmed ${audioItem.displayName}: maxPeak=${maxPeak.toFixed(3)}, threshold=${threshold.toFixed(3)}, ${newInPoint.toFixed(2)}s - ${newOutPoint.toFixed(2)}s`);
   });
-  
+
   if (trimmedCount > 0) {
     saveProject();
     console.log(`Trimmed ${trimmedCount} item(s)`);
@@ -795,6 +915,44 @@ const handleStopFadeUpdate = (value: number) => {
       (item as AudioItem).stopFade = value;
     }
   });
+};
+
+const handleAdvanceDelayChange = (event: Event) => {
+  const seconds = parseFloat((event.target as HTMLInputElement).value);
+  const value = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  touch('advanceDelay');
+  getSelectedItems().forEach(item => {
+    if (item.type === 'audio') (item as AudioItem).advanceDelay = value;
+  });
+  handleSave();
+};
+
+const handleLoopCrossfadeUpdate = (value: number) => {
+  getSelectedItems().forEach(item => {
+    if (item.type === 'audio') (item as AudioItem).loopCrossfade = value;
+  });
+};
+
+const handleManualStopFadeUpdate = (value: number) => {
+  getSelectedItems().forEach(item => {
+    if (item.type === 'audio') (item as AudioItem).manualStopFade = value;
+  });
+};
+
+// The per-cue fader. The document edit stays batched until release (so a drag
+// is one PATCH, not sixty), but every move also sets the engine gain live:
+// before this, a playing cue sat at its old level for the whole drag and
+// jumped when the mouse let go (#56). A multi-selection lands the anchor's
+// level on every selected cue at release, so they follow it live too.
+const handleVolumeUpdate = (linear: number) => {
+  beginItemBatch();
+  touch('volume');
+  audioItem.value.volume = linear;
+  const db = linear <= 0.0001 ? -120 : 20 * Math.log10(linear);
+  const targets = selectedItems.value.size > 1 ? getSelectedItems() : [audioItem.value];
+  for (const it of targets) {
+    if (it?.type === 'audio') _server.setItemGainDb(it.uuid, db);
+  }
 };
 
 const handleCrossFadeUpdate = (value: number) => {
@@ -866,10 +1024,10 @@ const handleRegenerateWaveform = async () => {
 
 const handleReplaceMedia = async () => {
   if (!import.meta.client || !window.electronAPI) return;
-  
+
   const files = await window.electronAPI.selectAudioFiles();
   if (!files || files.length === 0) return;
-  
+
   // Implementation would replace the media file
   console.log('Replace media with:', files[0]);
 };
@@ -926,11 +1084,11 @@ const formatTime = (seconds: number): string => {
   border: none;
   cursor: pointer;
   color: var(--color-text);
-  
+
   &:hover {
     background-color: var(--color-surface-hover);
   }
-  
+
   .material-symbols-rounded {
     font-size: 20px;
     color: var(--color-text);
@@ -961,17 +1119,17 @@ const formatTime = (seconds: number): string => {
   font-weight: 500;
   white-space: nowrap;
   transition: all 0.2s;
-  
+
   .material-symbols-rounded {
     font-size: 18px;
     color: inherit;
   }
-  
+
   &:hover {
     color: var(--color-text-primary);
     background-color: var(--color-surface-hover);
   }
-  
+
   &.active {
     color: var(--color-accent);
     border-bottom-color: var(--color-accent);
@@ -985,6 +1143,13 @@ const formatTime = (seconds: number): string => {
   overflow-y: auto;
   padding: var(--spacing-lg);
   min-height: 0;
+  /* A column so the active tab panel can be handed the leftover height
+     directly. A percentage would have to resolve against this box, and with
+     24px of padding on a flex item that is exactly the sum that goes wrong —
+     the panel came out a padding taller than the space it had and ran off the
+     bottom of the window. Nothing here is measured in percent now. */
+  display: flex;
+  flex-direction: column;
 }
 
 .tab-panel {
@@ -995,9 +1160,37 @@ const formatTime = (seconds: number): string => {
   min-height: min-content;
 }
 
-/* Special handling for playback tab with waveform trimmer */
+/* Special handling for playback tab with waveform trimmer.
+   Takes the leftover height of .properties-content rather than sitting at its
+   natural height, so the trimmer inside has somewhere to grow when the panel
+   is dragged taller. Every other tab keeps `flex: 0 1 auto` and so still
+   sizes to content.
+
+   `min-height: 0` OVERRIDES the `min-content` in the rule above, and it is the
+   whole fix for the waveform that would not scale. Measured, not reasoned:
+   the trimmer row's min-content height is 797px, because .volume-slider-
+   vertical is `height: 100%` and a percentage height on a vertical range
+   input in an INDEFINITE-height context resolves against the viewport (758px
+   here) instead of falling back to the input's 129px intrinsic throw. With
+   `min-height: min-content` that 797px became the panel's FLOOR, so the
+   canvas measured 732px whether the panel was dragged to 180px, 300px or
+   600px — very tall, and completely static.
+
+   With this at 0 the panel's height is what decides: 300px gives a 150px row
+   and an 85px canvas (what it always had), 600px gives 449px and 384px. Below
+   the trimmer's own 150px floor the row stops shrinking and .properties-
+   content scrolls, which is the honest failure — a scrollbar rather than a
+   collapsed canvas.
+
+   Not cleaned up here, deliberately: the `height: 100%` pair in
+   WaveformTrimmer is the real defect and would want `align-self: stretch`
+   instead. That is a visible change to the fader, so it is a separate job. */
 .tab-panel:has(.waveform-trimmer) {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  flex: 1;
+  min-height: 0;
 }
 
 .property-field {
@@ -1014,6 +1207,12 @@ const formatTime = (seconds: number): string => {
   font-weight: 500;
 }
 
+.field-hint {
+  margin: 0;
+  font-size: 11px;
+  max-width: 320px;
+}
+
 .property-field input,
 .property-field select {
   width: 100%;
@@ -1023,12 +1222,12 @@ const formatTime = (seconds: number): string => {
   border-radius: 4px;
   color: var(--color-text);
   font-size: 13px;
-  
+
   &:focus {
     outline: none;
     border-color: var(--color-accent);
   }
-  
+
   &[readonly] {
     opacity: 0.6;
     cursor: default;
@@ -1038,7 +1237,7 @@ const formatTime = (seconds: number): string => {
 .input-with-btn {
   display: flex;
   gap: var(--spacing-xs);
-  
+
   input {
     flex: 1;
   }
@@ -1093,11 +1292,11 @@ const formatTime = (seconds: number): string => {
   border-radius: var(--border-radius-sm);
   border: 2px solid transparent;
   transition: all var(--transition-fast);
-  
+
   &:hover {
     transform: scale(1.1);
   }
-  
+
   &.active {
     border-color: var(--color-text-primary);
     box-shadow: 0 0 0 2px var(--color-background);
@@ -1123,7 +1322,7 @@ const formatTime = (seconds: number): string => {
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-sm);
   white-space: nowrap;
-  
+
   &:hover {
     background-color: var(--color-surface-hover);
     border-color: var(--color-accent);

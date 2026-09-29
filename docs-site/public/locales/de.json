@@ -6,29 +6,50 @@
     "direction": "ltr"
   },
   "header": {
-    "tagline": "Audio-Cue-Wiedergabe für Live-Events",
+    "tagline": "Showtaugliche Audiowiedergabe für Theater, Radio, Events und Partys",
+    "intro": "Stellen Sie Musik und Effekte zusammen, starten Sie jeden Cue im richtigen Moment und machen Sie weiter, auch wenn etwas schiefgeht. LivePlay ist kostenlos für Windows, macOS und Linux und eignet sich für die Party-Playlist ebenso wie für eine komplette Theater- oder Radioshow.",
     "version": "Version",
     "logoAlt": "LivePlay-Logo",
-    "screenshotAlt": "LivePlay-Hauptoberfläche mit Playlist-Editor, Cue-Cart und Eigenschaften-Panel"
+    "screenshotAlt": "LivePlay-Hauptfenster mit Playlist, Cart-Player und Mixer nebeneinander"
+  },
+  "common": {
+    "changeLanguage": "Sprache ändern"
   },
   "download": {
-    "title": "LivePlay Herunterladen",
+    "title": "LivePlay herunterladen",
     "subtitle": "Kostenlos und Open-Source. Verfügbar für Windows, macOS und Linux.",
     "windows": {
       "title": "Windows",
-      "description": "Windows 10/11 (64-bit)",
-      "buttonText": ".exe Herunterladen",
+      "description": "Windows 10/11 (64-Bit)",
+      "buttonText": ".exe herunterladen",
       "size": "~150 MB"
+    },
+    "macArm": {
+      "title": "macOS — Apple Silicon",
+      "description": "M1/M2/M3 und neuer (arm64)",
+      "buttonText": ".dmg herunterladen",
+      "size": "~140 MB"
+    },
+    "macIntel": {
+      "title": "macOS — Intel",
+      "description": "Intel-Macs (x64), macOS 11+",
+      "buttonText": ".dmg herunterladen",
+      "size": "~145 MB"
     },
     "linux": {
       "title": "Linux",
-      "description": "AppImage (Universal)",
-      "buttonText": ".AppImage Herunterladen",
+      "description": "AppImage (x64)",
+      "buttonText": ".AppImage herunterladen",
       "size": "~155 MB"
     },
+    "recommended": "Empfohlen für Ihr System",
+    "showOtherOS": "Für ein anderes Betriebssystem herunterladen",
+    "hideOtherOS": "Andere Betriebssysteme ausblenden",
     "otherFormats": "Weitere Formate verfügbar:",
     "debianUbuntu": ".deb (Debian/Ubuntu)",
     "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
     "viewReleases": "Alle Versionen auf GitHub anzeigen →",
     "macGatekeeper": {
       "title": "macOS: „LivePlay ist beschädigt und kann nicht geöffnet werden“?",
@@ -42,114 +63,148 @@
       "step1": "Klicken Sie im Warndialog auf „Weitere Informationen“.",
       "step2": "Klicken Sie auf die daraufhin angezeigte Schaltfläche „Trotzdem ausführen“ und setzen Sie die Installation normal fort.",
       "outro": "Falls stattdessen Ihr Browser den Download blockiert hat, wählen Sie zuerst „Beibehalten“, um die Datei zu speichern."
-    },
-    "macArm": {
-      "title": "macOS — Apple Silicon",
-      "description": "M1/M2/M3 und neuer (arm64)",
-      "buttonText": ".dmg Herunterladen",
-      "size": "~140 MB"
-    },
-    "macIntel": {
-      "title": "macOS — Intel",
-      "description": "Intel-Macs (x64), macOS 11+",
-      "buttonText": ".dmg Herunterladen",
-      "size": "~145 MB"
-    },
-    "macArmZip": ".zip (macOS Apple Silicon)",
-    "macIntelZip": ".zip (macOS Intel)",
-    "recommended": "Empfohlen für Ihr System",
-    "showOtherOS": "Für ein anderes Betriebssystem herunterladen",
-    "hideOtherOS": "Andere Betriebssysteme ausblenden"
+    }
+  },
+  "contribute": {
+    "title": "Mitwirken",
+    "subtitle": "LivePlay ist kostenlos und quelloffen – und wird es immer bleiben.",
+    "freeTitle": "Für immer kostenlos",
+    "freeText": "LivePlay ist völlig kostenlos zum Herunterladen und Verwenden – keine Lizenzgebühren, keine Abonnements, keine Bezahlschranken. Jede Funktion steht allen zur Verfügung, ohne Premium-Stufen.",
+    "licenseTitle": "Open-Source-Lizenz",
+    "licenseText": "LivePlay wird unter der Lizenz GNU AGPL-3.0 veröffentlicht. Einfach gesagt: Sie dürfen es frei verwenden, untersuchen, weitergeben und verändern. Wenn Sie eine veränderte Version weitergeben – oder als Netzwerkdienst betreiben –, müssen Sie Ihren Quellcode unter derselben Lizenz verfügbar machen, damit die gesamte Community weiterhin davon profitiert.",
+    "contributeTitle": "Wie Sie helfen können",
+    "contributeText": "Jeder kann mitwirken. Melden Sie Fehler, schlagen Sie Funktionen vor, verbessern Sie Übersetzungen oder reichen Sie Code ein – jeder Beitrag ist willkommen. Im GitHub-Repository können Sie ein Issue oder einen Pull Request eröffnen.",
+    "githubButton": "Auf GitHub mitwirken →"
   },
   "features": {
-    "title": "Hauptmerkmale",
-    "interface": {
-      "title": "Intuitive Benutzeroberfläche",
-      "description": "LivePlay verfügt über eine saubere, einfache und moderne Benutzeroberfläche, die speziell für Live-Tontechniker entwickelt wurde. Organisieren Sie Ihre Haupt-Sounddateien in Playlists und fügen Sie Sounds zu einem Cart-Player für schnellen Zugriff oder Ansagen hinzu. Audio-Dateien, die zum Cart hinzugefügt werden, verhalten sich automatisch wie Ansagen und reduzieren jedes Hintergrundaudio bei der Wiedergabe."
+    "title": "Die wichtigsten Funktionen",
+    "groupShow": {
+      "title": "Ihre Show fahren",
+      "intro": "Alles, was Sie brauchen, um eine Show zusammenzustellen und sicher zu fahren."
     },
-    "audioEngine": {
-      "title": "Robuste C++-Audio-Engine",
-      "description": "Im Herzen von LivePlay steckt eine dedizierte, leistungsstarke Audio-Engine in C++, die direkt mit Ihrer Audio-Hardware kommuniziert — WASAPI unter Windows, Core Audio unter macOS und ALSA unter Linux. Jeder Cue läuft als völlig unabhängige Wiedergabe-Instanz mit eigenem Decoder und eigener Fade-Hüllkurve, sodass das zweimalige Abspielen derselben Datei bei unterschiedlicher Lautstärke immer genau wie erwartet funktioniert. Die Engine läuft als eigenständiger Serverprozess: Sie kann in der Desktop-App laufen oder headless auf einem dedizierten Backstage-Rechner, der mit Ihren Audio-Interfaces verbunden ist."
+    "playlist": {
+      "title": "Vorbereiten und abfeuern",
+      "description": "Ziehen Sie Musik und Effekte in eine Playlist aus Cues und legen Sie fest, wie jeder Cue in den nächsten übergeht: weiterspielen, in Schleife laufen oder springen. Den gesamten Ablauf steuern Sie per Maus, Touchscreen, Tastatur oder MIDI-Controller."
     },
-    "routing": {
-      "title": "Multi-Geräte-Audio-Routing",
-      "description": "Leiten Sie Audio von jedem Cue an jede Kombination von Ausgangskanälen über mehrere Soundkarten gleichzeitig, mit unabhängiger Ausgangszuweisung pro Element. Die Routing-Matrix ermöglicht es, eine Stereodatei in einzelne Kanäle aufzuteilen und jeden mit eigener Verstärkung an ein anderes Gerät zu senden — perfekt, um Front-of-House, einen Monitor-Mix und einen Aufnahme-Ausgang aus einem einzigen Cue gleichzeitig zu speisen."
-    },
-    "waveform": {
-      "title": "Wellenform-Editor",
-      "description": "Schneiden Sie Ihr Audio präzise mit dem integrierten Wellenform-Editor. Setzen Sie Ein- und Ausstiegspunkte, passen Sie die Lautstärke an und konfigurieren Sie Fade-Zeiten visuell. Sie können auch automatisch basierend auf Stille schneiden oder die Lautstärke automatisch anpassen, damit alle Audiopegel konsistent sind."
-    },
-    "youtube": {
-      "title": "YouTube-Integration",
-      "description": "Laden Sie Audio direkt von YouTube mit unserem integrierten Downloader herunter! Perfekt zum schnellen Hinzufügen von Musik, Soundeffekten oder Backing-Tracks zu Ihrer Show (stellen Sie sicher, dass Sie die Rechte zur Nutzung des Inhalts haben oder gemeinfreien Inhalt verwenden)."
-    },
-    "properties": {
-      "title": "Benutzerfreundliches Eigenschaften-Panel",
-      "description": "Ändern Sie Namen, Farbe und Wiedergabe-Eigenschaften Ihrer Audiodateien mit Leichtigkeit. Stellen Sie Dateien auf Schleife, passen Sie ihre Lautstärke an, Start- und End-Verhalten und konfigurieren Sie automatisches Stille-Trimmen, alles von einem praktischen Ort aus. Sie haben die Kontrolle über den Ablauf Ihrer Show!"
+    "cart": {
+      "title": "Jingles und Sounds auf Knopfdruck",
+      "description": "Jingles, Stinger und Ansagen liegen im Cart-Player nur einen Tipp entfernt bereit und lassen sich jederzeit über alles andere legen, was gerade läuft."
     },
     "ducking": {
       "title": "Automatisches Ducking",
-      "description": "Konfigurieren Sie automatisches Ducking, um die Lautstärke von Hintergrundmusik zu reduzieren, wenn Ansagen oder Dialoge abgespielt werden. Perfekt für reibungslose Übergänge in Live-Produktionen."
+      "description": "Ansagen und Effekte senken die Musik ab, solange sie laufen, und holen sie danach sanft zurück. Oder ein Cue stoppt alles andere für einen sauberen Szenenwechsel."
     },
-    "remoteOperation": {
-      "title": "Lokaler oder entfernter Betrieb",
-      "description": "Der LivePlay-Audioserver startet automatisch zusammen mit der Anwendung oder kann auf einem dedizierten Backstage-Rechner mit angeschlossenen Audio-Interfaces laufen. Verbinden Sie sich von jedem Computer im selben Netzwerk und übernehmen Sie die volle Kontrolle — Transport, Eigenschaften, Routing und Live-Metering funktionieren alle aus der Ferne, sodass Sie Ihre Steuerposition von Ihrer Audio-Hardware trennen können."
+    "interface": {
+      "title": "Organisiert, wie Sie es mögen",
+      "description": "Gruppieren Sie Cues nach Szene, Akt oder Set, markieren Sie sie farbig und ordnen Sie sie neu, sobald sich der Ablauf ändert. Richten Sie Playlist, Cart-Player und Mixer nach Ihren Wünschen ein, klappen Sie weg, was Sie nicht brauchen, und schieben Sie in der Desktop-App Cart-Player oder Mixer auf einen zweiten Bildschirm."
+    },
+    "showMode": {
+      "title": "Show-Modus",
+      "description": "Der Show-Modus macht aus dem Bildschirm große, touchfreundliche Bedienelemente und blendet alles aus, womit sich die Show bearbeiten ließe. So ändert sich nichts versehentlich, sobald der Einlass beginnt."
+    },
+    "waveform": {
+      "title": "Schnitt an der Wellenform",
+      "description": "Schneiden Sie jeden Sound genau auf den Teil zu, den Sie brauchen, und gestalten Sie die Blenden direkt an der Wellenform. LivePlay kann auch Stille entfernen und Pegel angleichen, damit jeder Cue mit gleichmäßiger Lautstärke kommt."
+    },
+    "properties": {
+      "title": "Jeden Cue genau einstellen",
+      "description": "Benennen und färben Sie jeden Cue, stellen Sie seinen Pegel ein, wählen Sie, wo er spielt, und legen Sie fest, was bei Start und Ende passiert – alles an einer Stelle."
+    },
+    "youtube": {
+      "title": "YouTube-Integration",
+      "description": "Holen Sie Audio direkt von YouTube in Ihre Show, wenn Sie schnell einen Titel brauchen. Stellen Sie bitte sicher, dass Sie die Rechte an dem haben, was Sie herunterladen."
     },
     "firstLaunch": {
-      "title": "Schnelle Einrichtung",
-      "description": "Starten Sie in Sekunden mit dem optimierten Setup-Prozess von LivePlay. Wählen Sie einen Ordner, erstellen Sie ein Projekt und beginnen Sie mit dem Importieren von Dateien! Alle Ihre Medien werden automatisch an einem Ort gesammelt, sodass Sie Ihr Projekt problemlos zwischen Computern verschieben können."
+      "title": "Schnell eingerichtet",
+      "description": "Ordner wählen, Show benennen, Sounds hinzufügen. LivePlay hält Ihre Medien beim Projekt zusammen, sodass Sie eine Show ganz einfach auf einen anderen Computer mitnehmen."
+    },
+    "groupMixer": {
+      "title": "Sauber mischen",
+      "intro": "Ein eingebauter Mixer, damit Musik, Effekte und Stimmen im Raum genau richtig sitzen und nichts Unerwartetes aus den Lautsprechern kommt."
+    },
+    "mixer": {
+      "title": "Ein echter Mixer für Ihre Show",
+      "description": "Geben Sie Musik, Effekten und Ansagen eigene Busse und mischen Sie sie auf Kanalzügen wie an einem Pult. Routen Sie Busse ineinander, direkt auf einen Ausgang oder über Aux-Sends, und weisen Sie eine ganze Gruppe von Cues in einem Schritt zu."
+    },
+    "eqDynamics": {
+      "title": "EQ und Dynamik auf jedem Bus",
+      "description": "Formen Sie jeden Bus mit einem parametrischen EQ und einem Live-Spektrumanalyzer und halten Sie ihn mit Gate und Kompressor im Griff. Stereo-Busse lassen sich breiter oder schmaler machen, während der Bass stabil in der Mitte bleibt."
     },
     "limiter": {
-      "title": "Brickwall-Limiter & Lautheitsziele",
-      "description": "Ein echter Brickwall-Limiter sitzt auf jedem Ausgangskanal, hält Ihre Pegel konstant und schützt Hardware und Publikum vor unkontrollierten Spitzen. Wählen Sie aus integrierten Ausgabezielen, die professionellen Lautheitsstandards entsprechen — EBU R128, Streaming, Radio, Netflix und Live — und LivePlay wendet automatisch die richtige Obergrenze, Metering-Zonen und Wellenform-Kalibrierung an."
+      "title": "Brickwall-Limiter und Lautheitsziele",
+      "description": "Ein Brickwall-Limiter auf jedem Ausgang hält verirrte Spitzen von den Lautsprechern fern, und der Mixer zeigt Ihnen, wann er eingreift. Wählen Sie ein Lautheitsziel von Broadcast und Streaming bis Live – Limiter, Pegelanzeigen und Wellenformen richten sich danach."
     },
     "meters": {
-      "title": "Metering in Broadcast-Qualität",
-      "description": "Vertrauen Sie dem, was Sie hören, mit Echtzeit-Metering in Broadcast-Qualität an jeder Stufe des Signalwegs — pro Cue, pro Mixer-Kanal und am Master-Ausgang. Farbcodierte Metering-Zonen folgen dem von Ihnen gewählten Lautheitsziel, sodass Sie auf einen Blick sehen, ob Sie komfortabel in der Spezifikation liegen oder in den roten Bereich geraten."
+      "title": "Pegelanzeigen in Broadcast-Qualität",
+      "description": "Präzise Pegelanzeigen in Echtzeit auf jedem Cue, jedem Bus und jedem Ausgang, in der Skala, mit der Sie arbeiten. Die Farbzonen folgen Ihrem Lautheitsziel, sodass Sie auf einen Blick sehen, ob Sie im Rahmen liegen."
     },
-    "previewLtc": {
-      "title": "Dediziertes Vorhören & LTC-Timecode",
-      "description": "Hören Sie Cues lautlos auf einem dedizierten Vorhör-Gerät vor — Kopfhörer oder ein Cue-Bus — ohne Ihre Hauptausgänge zu berühren, sodass Sie den nächsten Cue vorbereiten können, während die Show läuft. Ein separater SMPTE-LTC-Timecode-Generator gibt ein kontinuierliches lineares Timecode-Signal auf einem eigenen Kanal aus, mit dem Sie Lichtpulte, Videowiedergabe und andere externe Geräte mit LivePlay synchronisieren."
+    "preview": {
+      "title": "Vorhören über Kopfhörer und PFL",
+      "description": "Hören Sie den nächsten Cue oder einen beliebigen Bus über Kopfhörer vor, ohne dass das Publikum etwas mitbekommt, und prüfen Sie, wie ein Mix in Mono klingt, bevor er rausgeht."
+    },
+    "routing": {
+      "title": "Hardware-Ausgänge, die mitreisen",
+      "description": "Ihre Show spricht Ausgänge über Namen an, etwa Main, Foyer oder Sub, und jeder Computer ordnet diese Namen seinen eigenen Soundkarten zu, bei Bedarf auch mehreren gleichzeitig. Kommen Sie mit der Show an einen neuen Spielort, zeigt LivePlay an, was fehlt, und Sie ordnen es in wenigen Augenblicken neu zu."
+    },
+    "fades": {
+      "title": "Blenden, Schleifen und Timing",
+      "description": "Geben Sie jedem Cue eigene Blenden, lassen Sie Atmos nahtlos in Schleife laufen und legen Sie fest, ob der nächste Cue überblendet, wartet oder an einem Marker startet. Gruppen zeigen ihre Laufzeit und die verbleibende Zeit."
+    },
+    "groupSystem": {
+      "title": "Gebaut, damit Verlass darauf ist",
+      "intro": "Vom einzelnen Laptop bis zum vernetzten System, das ein ganzes Team bedient: LivePlay ist darauf ausgelegt, dass die Show weiterläuft."
+    },
+    "remoteOperation": {
+      "title": "Lokaler Betrieb oder Fernsteuerung",
+      "description": "Betreiben Sie die Audio-Engine auf demselben Computer oder auf einem Rechner hinter der Bühne mit Ihren Audio-Interfaces, und steuern Sie alles von überall im Netzwerk. Der Ton kommt von der Engine, nicht vom Bildschirm – die Show läuft also weiter, auch wenn ein Steuerrechner ausfällt."
     },
     "discovery": {
-      "title": "Automatische Erkennung & felsenfeste Zuverlässigkeit",
-      "description": "LivePlay-Server kündigen sich in Ihrem lokalen Netzwerk an, sodass Clients sie automatisch finden — keine IP-Adressen einzutippen. Falls die Audio-Engine jemals unerwartet stoppt, startet sie sich sofort neu und setzt die Wiedergabe genau dort fort, wo sie aufgehört hat, sodass Ihre Show weiterläuft. Und da die Engine ein echter Server ist, können sich mehrere Clients gleichzeitig mit derselben Instanz verbinden — ideal für einen Hauptoperator und ein Backup oder einen Stage-Manager, der die Wiedergabe neben dem Tontechniker mitverfolgt."
+      "title": "Gemeinsam arbeiten, schnell wieder da",
+      "description": "Bildschirme finden LivePlay im Netzwerk von selbst, und mehrere Personen können gleichzeitig an derselben Show arbeiten und sehen dieselben Cues. Bricht eine Verbindung ab, stellt sie sich selbst wieder her, und sollte die Engine einmal stoppen, startet sie neu und nimmt die Show wieder auf."
+    },
+    "accounts": {
+      "title": "Konten, Rollen und API-Token",
+      "description": "Geben Sie Ihrem Team eigene Anmeldungen: Operatoren fahren die Show, Administratoren kümmern sich um das System. Show-Control-Tools wie Companion erhalten eigene Zugriffstoken, und Sie können Ihr ganzes Team in einem Schritt auf einen anderen LivePlay-Server umziehen."
+    },
+    "settingsPage": {
+      "title": "Alle Einstellungen an einem Ort",
+      "description": "Alle Einstellungen finden Sie auf einer Seite. Persönliche Vorlieben wie Sprache und Design folgen Ihnen auf jeden Bildschirm, an dem Sie sich anmelden, während die Show selbst überall gleich klingt."
+    },
+    "audioEngine": {
+      "title": "Robuste Audio-Engine in C++",
+      "description": "Das Herz von LivePlay ist eine eigene Audio-Engine, die unter Windows, macOS und Linux direkt mit Ihrer Audio-Hardware spricht. Jeder Cue spielt unabhängig, sodass sich derselbe Sound zweimal mit unterschiedlichem Pegel starten lässt und sich immer so verhält, wie Sie es erwarten."
+    },
+    "ltc": {
+      "title": "SMPTE-Timecode",
+      "description": "Senden Sie SMPTE-Timecode mit Ihren Cues, damit Licht, Video und andere Geräte Ihrer Show folgen können."
     }
-  },
-  "footer": {
-    "license": "ist lizenziert unter",
-    "developedBy": "Entwickelt von",
-    "developerName": "Thomas Doukinitsas",
-    "viewOnGitHub": "Auf GitHub anzeigen",
-    "contributors": "Mitwirkende"
-  },
-  "common": {
-    "changeLanguage": "Sprache ändern"
   },
   "ports": {
     "title": "Netzwerk-Ports",
     "subtitle": "Wenn Sie Server und Client auf verschiedenen Rechnern betreiben, stellen Sie sicher, dass diese Ports in Ihrem Netzwerk und Ihrer Firewall geöffnet sind.",
     "control": {
       "port": "TCP 4480",
-      "title": "Steueroberfläche",
-      "description": "REST-API- und WebSocket-Verbindung, die Transportbefehle, Projektdaten, Routing und Live-Meter zwischen Client und Server überträgt."
+      "title": "Steuerverbindung",
+      "description": "REST-API- und WebSocket-Verbindung, die Transportbefehle, Projektdaten, Routing und Live-Pegelanzeigen zwischen Client und Server überträgt."
     },
     "discovery": {
       "port": "UDP 4481",
       "title": "Automatische Erkennung",
       "description": "Broadcast- und Multicast-Beacon (Gruppe 239.255.69.80), mit dem Clients LivePlay-Server im lokalen Netzwerk automatisch finden."
     },
-    "note": "Eine Installation auf einem einzigen Rechner benötigt keine Konfiguration — Client und Server kommunizieren über 127.0.0.1, und das Windows-Installationsprogramm fügt die Firewall-Regeln für Sie hinzu. Diese Ports sind nur relevant, wenn Sie die Steuerposition über ein LAN von der Audio-Hardware trennen."
+    "note": "Eine Installation auf einem einzigen Rechner braucht keine Konfiguration – Client und Server kommunizieren über 127.0.0.1, und das Windows-Installationsprogramm legt die Firewall-Regeln für Sie an. Diese Ports spielen nur eine Rolle, wenn Sie den Steuerplatz über ein LAN von der Audio-Hardware trennen."
   },
-  "contribute": {
-    "title": "Mitwirken",
-    "subtitle": "LivePlay ist kostenlos und quelloffen — und wird es immer bleiben.",
-    "freeTitle": "Für immer kostenlos",
-    "freeText": "LivePlay ist völlig kostenlos zum Herunterladen und Verwenden — keine Lizenzgebühren, keine Abonnements, keine Bezahlschranken. Jede Funktion steht allen zur Verfügung, ohne Premium-Stufen.",
-    "licenseTitle": "Open-Source-Lizenz",
-    "licenseText": "LivePlay wird unter der GNU AGPL-3.0-Lizenz veröffentlicht. Einfach ausgedrückt: Sie dürfen es frei verwenden, untersuchen, weitergeben und verändern. Wenn Sie eine veränderte Version weitergeben — oder als Netzwerkdienst betreiben — müssen Sie Ihren Quellcode unter derselben Lizenz verfügbar machen, damit die gesamte Gemeinschaft weiterhin davon profitiert.",
-    "contributeTitle": "Wie Sie helfen können",
-    "contributeText": "Jeder kann mitwirken. Melden Sie Fehler, schlagen Sie Funktionen vor, verbessern Sie Übersetzungen oder reichen Sie Code ein — jeder Beitrag ist willkommen. Besuchen Sie das GitHub-Repository, um ein Issue oder einen Pull Request zu eröffnen.",
-    "githubButton": "Auf GitHub mitwirken →"
+  "api": {
+    "title": "API & Automatisierung",
+    "subtitle": "Verbinden Sie LivePlay mit Ihren Show-Control-Tools.",
+    "description": "Steuern Sie die Wiedergabe, bearbeiten Sie Projekte und Routing und verfolgen Sie den Live-Zustand über HTTP und WebSocket. Ist die Anmeldung eingeschaltet, geben Sie Companion, einem Show-Control-System oder einem Skript unter Einstellungen › Konten ein eigenes API-Token, statt ein Passwort weiterzugeben. Die Entwicklerreferenz beschreibt Authentifizierung, alle Endpunkte, Befehle, Ereignisse und Integrationsbeispiele.",
+    "referenceLabel": "API-Referenz für Entwickler"
+  },
+  "footer": {
+    "license": "steht unter der Lizenz",
+    "developedBy": "Entwickelt von",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "Auf GitHub anzeigen",
+    "contributors": "Mitwirkende"
   }
 }

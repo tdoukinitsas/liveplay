@@ -16,8 +16,10 @@
 // render_block() is audio-thread-only.
 //
 // Manual-stop fade contract:
-//   stop()        → if the configured fade-out duration is non-zero, transition
-//                   into FadingOut for that duration, then Stopped.
+//   stop()        → if the manual-stop fade is non-zero, transition into
+//                   FadingOut for that duration, then Stopped.
+//   stop(dur)     → the same, over an explicit duration (Stop All, a caller's
+//                   fade_ms, "stop-all" ducking).
 //   stop_now()    → immediate stop, ignoring fade duration (panic button).
 //   master_stop() → goes through stop() (so fades are honoured).
 //   natural end-of-file → also funnels through stop() with the fade.
@@ -36,12 +38,25 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 // Forward-declare to keep miniaudio.h out of this public header.
 struct ma_decoder;
 
 namespace liveplay::audio {
+
+// How much audio prime() reads and discards to warm a decoder before its cue is
+// ever fired. Long enough that the first read during real playback comes from
+// the OS file cache instead of the disk — the dominant cause of crackling at
+// the start of a cue — and short enough that priming a cart of hundreds does
+// not stall a project load.
+//
+// One owner. Every caller took its own copy of the literal, which is how a
+// value like this quietly becomes two values: the number is a judgement about
+// disk latency, and a judgement revised in five places out of six is worse than
+// the one that was never revised at all.
+inline constexpr double kPrimeSeconds = 2.0;
 
 enum class TransportState : std::uint8_t {
     Stopped     = 0,
@@ -100,8 +115,13 @@ public:
     void unload();
 
     // ---- Transport (control thread) --------------------------------------
+    // From Stopped, play() always starts at the start frame (the in-point
+    // prime() or a stopped-state seek recorded), never wherever a fade-out or
+    // a natural end left the decoder — a bare engine play() of a cue that had
+    // run to its end used to resume at EOF, i.e. play silence (issue #65).
     void play();
-    void stop();                                  // honours fade_out_duration
+    void stop();                                  // honours the manual-stop fade
+    void stop(std::chrono::milliseconds dur);     // explicit fade, 0 = cut
     void stop_now();                              // hard stop, ignores fade
     void pause();
     void resume();
@@ -116,9 +136,20 @@ public:
         desc_.fade_in_duration  = d;
         fade_in_ms_.store(d.count(), std::memory_order_release);
     }
+    // The fade applied when the cue reaches EOF / its out-point. Also resets
+    // the manual-stop fade to the same value, so a caller that only knows one
+    // fade-out gets it everywhere; set_stop_fade() afterwards to separate them.
     void set_fade_out(std::chrono::milliseconds d) noexcept {
         desc_.fade_out_duration = d;
         fade_out_ms_.store(d.count(), std::memory_order_release);
+        stop_fade_ms_.store(d.count(), std::memory_order_release);
+    }
+    // The fade stop() uses — the operator's Stop button, per cue.
+    void set_stop_fade(std::chrono::milliseconds d) noexcept {
+        stop_fade_ms_.store(d.count(), std::memory_order_release);
+    }
+    std::chrono::milliseconds stop_fade() const noexcept {
+        return std::chrono::milliseconds{stop_fade_ms_.load(std::memory_order_acquire)};
     }
     void set_ltc_enabled(bool enabled);
     void set_ltc_frame_rate(LTCFrameRate fr);
@@ -146,8 +177,18 @@ public:
     // seeks the decoder back to `in_seconds` and continues playing without
     // transitioning to FadingOut/Stopped — so the broadcast loop never emits a
     // transient "Stopped" cue_state edge mid-loop and the client UI keeps the
-    // cue visible the whole time. Safe to call while playing.
-    void set_loop(bool enabled, double in_seconds = 0.0) noexcept;
+    // cue visible the whole time. The block that crosses the loop point is
+    // filled from the in-point, so there is no gap at the seam. Safe to call
+    // while playing.
+    //
+    // `crossfade_seconds` > 0 makes the loop fade back into itself (#56): the
+    // last N seconds before the loop end are blended, equal-power, with the
+    // first N after the in-point, then playback carries on from in + N. N is
+    // capped at half the loop. The head is decoded on a background job with a
+    // decoder of its own — never on the audio thread, never disturbing the
+    // playing decoder — and until it arrives the loop wraps without a blend.
+    void set_loop(bool enabled, double in_seconds = 0.0,
+                  double crossfade_seconds = 0.0) noexcept;
 
     // Returns true (and clears the flag) if this item finished playing
     // naturally (reached EOF or out-point, including any configured
@@ -173,7 +214,7 @@ public:
     // Returns true on success, false if the decoder isn't ready. Safe to
     // call while NOT playing; should not be called concurrently with
     // playback (it holds the decoder mutex).
-    bool prime(double seconds = 2.0, double start_seconds = 0.0) noexcept;
+    bool prime(double seconds = kPrimeSeconds, double start_seconds = 0.0) noexcept;
 
     // ---- Introspection ---------------------------------------------------
     const CueId&     id() const noexcept                  { return desc_.id; }
@@ -241,12 +282,18 @@ private:
     // from the audio thread. Written by set_fade_in()/set_fade_out().
     std::atomic<long long>      fade_in_ms_{0};
     std::atomic<long long>      fade_out_ms_{0};
+    // Manual-stop fade (stop()). Control-thread only, atomic for symmetry.
+    std::atomic<long long>      stop_fade_ms_{0};
 
     // Set by render_block() on an unexpected decoder error (see had_decode_error).
     std::atomic<bool>           decode_error_{false};
 
     // Playhead in mix-rate frames. Audio thread is the only writer.
     std::atomic<std::uint64_t>  playhead_frames_{0};
+
+    // Where play() from Stopped begins: prime()'s start, or a seek made while
+    // stopped. Control thread only.
+    std::atomic<std::uint64_t>  start_frames_{0};
 
     // Out-point: when playhead_frames_ reaches this value, render_block
     // triggers the natural-EOF code path (fade-out then Stopped). 0 disables
@@ -259,6 +306,36 @@ private:
     // writes, read by the audio thread per block.
     std::atomic<bool>           loop_enabled_{false};
     std::atomic<std::uint64_t>  loop_in_frames_{0};
+    std::atomic<std::uint64_t>  loop_xfade_frames_{0};   // requested length
+
+    // Loop crossfade head: the audio just after the loop-in, decoded ahead of
+    // time. A head is only used while its key (in, out-point, requested
+    // length) still matches the live settings; a stale one is ignored.
+    struct LoopHead {
+        std::uint64_t in_frames  = 0;   // key
+        std::uint64_t out_frames = 0;   // key: out-point clamped against, 0 = EOF
+        std::uint64_t req_frames = 0;   // key
+        std::uint64_t loop_end   = 0;   // out-point, else the file's length
+        std::uint64_t frames     = 0;   // actual blend length
+        ChannelCount  channels   = 0;
+        std::vector<Sample> samples;    // interleaved, frames x channels
+    };
+    // Owned by the audio thread (touched only inside render_block).
+    std::unique_ptr<LoopHead>   loop_head_;
+    // Mailbox between the head job and the audio thread. The audio thread only
+    // ever try_locks head_mutex_, and never frees a head: the one it replaces
+    // goes to head_retired_ for the control thread to drop.
+    std::mutex                  head_mutex_;
+    std::unique_ptr<LoopHead>   head_incoming_;
+    std::unique_ptr<LoopHead>   head_retired_;
+    std::atomic<bool>           head_incoming_ready_{false};
+    std::thread                 head_job_;
+    std::atomic<bool>           head_job_cancel_{false};
+    // Control thread: the key of the last head requested, so a repeated
+    // set_loop() with unchanged settings (every play) starts no new job.
+    std::uint64_t               head_requested_in_  = ~std::uint64_t{0};
+    std::uint64_t               head_requested_out_ = 0;
+    std::uint64_t               head_requested_len_ = 0;
 
     // Set to true inside render_block() when the natural-end fade-out
     // starts (EOF or out-point triggered). Cleared on explicit stop().
@@ -289,6 +366,14 @@ private:
     void start_fade(float from_lin, float to_lin, std::chrono::milliseconds dur,
                     TransportState during, TransportState after_complete) noexcept;
     void resize_meters(ChannelCount n);
+    void join_head_job() noexcept;
+    void request_loop_head(std::uint64_t in_frames, std::uint64_t out_frames,
+                           std::uint64_t req_frames) noexcept;
+    // Audio thread: fill `frame_count` frames of interleave_buf_ for a looping
+    // cue, wrapping (and blending, when a head is ready) at the loop end.
+    // `playhead` is the block's start on entry and where it ended on return.
+    std::size_t render_loop_block(std::size_t frame_count, bool& decode_error,
+                                  std::uint64_t& playhead) noexcept;
 };
 
 } // namespace liveplay::audio

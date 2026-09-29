@@ -22,6 +22,7 @@
 //   watch(server.connected, ...);        // react to connection state
 // =====================================================================
 import { reactive, ref, shallowRef, computed } from 'vue';
+import type { Bus, BusDsp } from '~/types/project';
 import type {
   CueId,
   DeviceId,
@@ -34,6 +35,15 @@ import type {
   ServerMixerChannel,
   ServerWaveform,
 } from '~/types/server';
+
+/** GET /api/outputs: the machine's logical-output map, plus the built-in names. */
+export interface OutputMapChannel { device: string; hwChannel: number }
+export interface OutputMapEntry   { name: string; channels: OutputMapChannel[] }
+export interface OutputMap {
+  version: number;
+  outputs: OutputMapEntry[];
+  builtin?: string[];
+}
 
 // ---------------------------------------------------------------------
 // Singleton — created lazily on first useLiveplayServer() call.
@@ -53,19 +63,93 @@ function createClient() {
   const serverUrl = ref<string>(defaultUrl);
 
   const httpBase = computed(() => serverUrl.value.replace(/\/+$/, ''));
-  const wsUrl    = computed(() =>
-    httpBase.value.replace(/^http/i, 'ws') + '/ws');
+  // The socket carries the token in the query string because a browser cannot
+  // set headers on a WebSocket handshake — the API has no room for them. Named
+  // access_token to match the server, and deliberately different from the
+  // one-shot `token` the export flow puts on /api/file/download.
+  const wsUrl    = computed(() => {
+    const base = httpBase.value.replace(/^http/i, 'ws') + '/ws';
+    return authToken.value
+      ? base + '?access_token=' + encodeURIComponent(authToken.value)
+      : base;
+  });
+
+  // ---- Authentication (U3) ------------------------------------------
+  // Off unless the server says otherwise. An installation with no accounts
+  // behaves exactly as it did before 2.5, which is the whole point: none of
+  // this appears until someone turns it on.
+  const authRequired  = ref(false);
+  // How many accounts the server holds, whether or not it is asking for one.
+  const authUserCount = ref(0);
+  // `avatar` is the account's picture as a data URL, or null — carried by
+  // /api/auth/me and the login reply so the Users pane can show the signed-in
+  // person's face without a second request.
+  const authUser      = ref<{ id: string; name: string; role: string; avatar?: string | null } | null>(null);
+  // True when the server wants a login and we cannot supply one. The socket
+  // stays shut while it is set — see connect(). Without that guard an
+  // unauthenticated client would sit in a reconnect loop against a server
+  // refusing every handshake, looking to the operator like a network fault.
+  const needsLogin    = ref(false);
+  // True when the server has no accounts at all and is inviting the first one.
+  const needsSetup    = ref(false);
+  const authError     = ref<string | null>(null);
+  const authChecked   = ref(false);
+
+  function loadStoredToken(): string {
+    try { return window.localStorage?.getItem('liveplay.authToken') || ''; }
+    catch { return ''; }   // private browsing, or storage disabled
+  }
+  const authToken = ref<string>(
+    typeof window !== 'undefined' ? loadStoredToken() : '');
+
+  function storeToken(token: string) {
+    authToken.value = token;
+    try {
+      if (token) window.localStorage?.setItem('liveplay.authToken', token);
+      else       window.localStorage?.removeItem('liveplay.authToken');
+    } catch { /* nothing we can do, and nothing that should break the desk */ }
+  }
+
+  // A token the server no longer honours is worse than none: it makes every
+  // request fail in a way the UI cannot explain. Drop it and ask for a login.
+  function clearCredentials() {
+    storeToken('');
+    authUser.value = null;
+    needsLogin.value = authRequired.value;
+  }
+
+  // Trailing slashes and surrounding space are not a different server; httpBase
+  // already strips them off everything we actually send.
+  const sameServer = (a: string, b: string) =>
+    a.trim().replace(/\/+$/, '') === b.trim().replace(/\/+$/, '');
 
   function setServerUrl(url: string) {
+    // Is this a RE-TARGET or just someone naming the server we are already on?
+    // Most callers are the latter: the startup plugin hands us whatever the
+    // Electron config says on every window's boot, and the welcome screen does
+    // the same on its way into a project. Only a genuine change may touch the
+    // credential below, which is why this is measured before anything moves.
+    const retarget = !sameServer(url, serverUrl.value);
+
     serverUrl.value = url;
     if (typeof window !== 'undefined') {
       window.localStorage?.setItem('liveplay.serverUrl', url);
     }
+    if (retarget) {
+      // A different server is a different account list, so the token we hold is
+      // meaningless there — and worse than meaningless, since presenting it
+      // would fail in a way that looks like the new server is broken.
+      storeToken('');
+      authUser.value = null;
+    }
+    // Ask this server what it expects either way: same URL does not mean the
+    // same posture, since accounts can have been added or removed since.
+    authChecked.value = false;
     // URL change → treat as a brand-new session. Force re-fetch on next
     // onopen by clearing the first-connect guard.
     hasEverConnected = false;
     disconnect();
-    connect();
+    void checkAuth().then(() => { if (!needsLogin.value) connect(); });
   }
 
   // ---- Reactive state -----------------------------------------------
@@ -90,6 +174,24 @@ function createClient() {
     return () => metersSubscribers.delete(cb);
   }
 
+  // Spectrum analyser (the channel view's EQ graph). One bus per window: the
+  // server sends {type:'analyser', busId, fLo, fHi, pre[], post[]} frames for
+  // it at the meter rate, to this connection only. Re-sent on every connect,
+  // because a subscription is per connection and a reconnect is a new one.
+  type AnalyserFrame = { busId: string; fLo: number; fHi: number; pre: number[]; post: number[] };
+  type AnalyserSubscriber = (f: AnalyserFrame) => void;
+  const analyserSubscribers = new Set<AnalyserSubscriber>();
+  let analyserBusId: string | null = null;
+  function onAnalyser(cb: AnalyserSubscriber): () => void {
+    analyserSubscribers.add(cb);
+    return () => analyserSubscribers.delete(cb);
+  }
+  function setAnalyser(busId: string | null) {
+    if (busId === analyserBusId) return;
+    analyserBusId = busId;
+    wsSend({ type: 'set_analyser', busId });
+  }
+
   // Subscribers for cue transport-state transitions emitted by the server.
   // Payload: { cue_id, transport (0=Stopped,1=Playing,2=FadingIn,3=FadingOut), playhead_seconds }
   type CueStatePayload = { cue_id: string; transport: number; playhead_seconds: number };
@@ -108,6 +210,7 @@ function createClient() {
     cues: Array<{ cue_id: string; transport: number; playhead_seconds: number }>;
     next_item_uuid: string;
     preview: { item_uuid: string; cue_id: string };
+    master_bus?: { channels: number; preview_l: number; preview_r: number };
   };
   type PlaybackSnapshotSubscriber = (s: PlaybackSnapshot) => void;
   const playbackSnapshotSubscribers = new Set<PlaybackSnapshotSubscriber>();
@@ -133,6 +236,27 @@ function createClient() {
   function onDocPatch(cb: DocPatchSubscriber): () => void {
     docPatchSubscribers.add(cb);
     return () => docPatchSubscribers.delete(cb);
+  }
+
+  // D12 — legacy-project migration banner. Pure client view state: the server
+  // only tells us a migration *happened* (once, via the doc_patch broadcast
+  // below); whether the banner is still showing in this window is local, so
+  // it can be dismissed independently per client (D17 requires every
+  // connected window to see it fire, not that they agree on dismissal).
+  // null = no banner to show. Set fresh on every project_migrated broadcast
+  // (even if a previous one was dismissed) so a later migration re-alerts.
+  type MigrationBannerState = {
+    itemsToMain: number;
+    busesFromDeviceOverride: number;
+    mainOutputMigrated: boolean;
+    previewDeviceMigrated: boolean;
+    ltcDeviceMigrated: boolean;
+    rolesMigrated: boolean;
+    sendsDropped: number;
+  };
+  const migrationBanner = ref<MigrationBannerState | null>(null);
+  function dismissMigrationBanner() {
+    migrationBanner.value = null;
   }
 
   // ---- WebSocket ----------------------------------------------------
@@ -200,6 +324,22 @@ function createClient() {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
       return;
     }
+    // A server that will refuse the handshake is not a server to keep dialling.
+    // Without this the client would back off and retry forever against a 401,
+    // which the operator sees as "the server is down" — the wrong diagnosis and
+    // one no amount of waiting fixes. The login screen calls connect() again.
+    if (needsLogin.value) {
+      reconnecting.value = false;
+      clearConnectionLostTimer();
+      return;
+    }
+    // First connect of the session, and we have not yet asked what this server
+    // expects. Ask, then come back — checkAuth() is the only thing that can
+    // tell an unauthenticated server apart from an unreachable one.
+    if (!authChecked.value) {
+      void checkAuth().then(() => { if (!needsLogin.value) connect(); });
+      return;
+    }
     try {
       // eslint-disable-next-line no-console
       console.log('[liveplay] connecting to', wsUrl.value);
@@ -238,9 +378,10 @@ function createClient() {
       // machine — the URL might look remote (LAN IP) but route to loopback,
       // and /api/whoami is the only authoritative answer.
       void refreshIsLocalServer();
+      if (analyserBusId) wsSend({ type: 'set_analyser', busId: analyserBusId });
       if (!hasEverConnected) {
         hasEverConnected = true;
-        void Promise.allSettled([fetchCues(), fetchMixerChannels(), fetchDevices()]);
+        void Promise.allSettled([fetchCues(), fetchMixerChannels(), fetchDevices(), fetchBuses()]);
       } else {
         // On reconnect, the server's playback_snapshot (sent immediately
         // after the WS open) covers transport/up-next/preview state, but
@@ -252,7 +393,9 @@ function createClient() {
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      // A policy close means this session needs authorization again.
+      if (event.code === 1008) authChecked.value = false;
       const wasConnected = connected.value;
       connected.value = false;
       // Count pre-handshake closes — the socket bounced straight to close
@@ -283,6 +426,10 @@ function createClient() {
           for (const cb of metersSubscribers) cb(payload as MetersBroadcast);
           break;
         }
+        case 'analyser': {
+          for (const cb of analyserSubscribers) cb(payload as AnalyserFrame);
+          break;
+        }
         case 'playback_snapshot': {
           // Update each known cue's transport in place so any UI bound to
           // `cues[i].transport` repaints. The cue may not be in the local
@@ -304,6 +451,15 @@ function createClient() {
           for (const g of (snap as any).output_channel_gains ?? []) {
             outputChannelGains.value[g.channel] = g.db;
           }
+          // Adopt the server's master-bus geometry. Absent on older servers,
+          // in which case the 32-wide defaults stay in place.
+          if (snap.master_bus) {
+            masterBus.value = {
+              channels:  snap.master_bus.channels,
+              previewL:  snap.master_bus.preview_l,
+              previewR:  snap.master_bus.preview_r,
+            };
+          }
           for (const cb of playbackSnapshotSubscribers) cb(snap);
           break;
         }
@@ -323,6 +479,62 @@ function createClient() {
           break;
         }
         case 'doc_patch': {
+          // Another client changed the mixer — refetch so this one converges.
+          // The payload carries the definitions, but not the resolved item
+          // membership, which only the server can compute.
+          if (payload.op === 'buses_patched') void fetchBuses();
+          // A remapped output can silently change `bound` on any bus whose
+          // output targets it (D10 — bound is server-computed; the server's
+          // PUT /api/outputs rewires affected buses but does not also emit
+          // buses_patched). Refetch so a strip's warn state clears without
+          // needing a reload.
+          if (payload.op === 'outputs_changed') void fetchBuses();
+          // D12/D17 — a legacy project (pre-mixer-buses) was just migrated on
+          // load. The server sends this once, to every connected client, only
+          // when something actually migrated (a reload of an already-migrated
+          // doc broadcasts nothing) — so this fires for windows that didn't
+          // even issue the load that triggered it. Counts arrive flat on the
+          // frame, not nested under a `migration` key.
+          if (payload.op === 'project_migrated') {
+            const m: MigrationBannerState = {
+              itemsToMain: Number(payload.itemsToMain) || 0,
+              busesFromDeviceOverride: Number(payload.busesFromDeviceOverride) || 0,
+              mainOutputMigrated: !!payload.mainOutputMigrated,
+              previewDeviceMigrated: Number(payload.previewDeviceMigrated) > 0,
+              ltcDeviceMigrated: Number(payload.ltcDeviceMigrated) > 0,
+              rolesMigrated: !!payload.rolesMigrated,
+              sendsDropped: Number(payload.sendsDropped) || 0,
+            };
+            // `userPrefsMigrated` on its own is deliberately NOT a banner: the
+            // theme and meter preferences moving into the person's profile
+            // changes nothing about how the show sounds, and "Open Mixer" is
+            // no answer to it. Raising it anyway is what made the banner
+            // reappear after every save of an older project.
+            const soundChanged = m.itemsToMain > 0 || m.busesFromDeviceOverride > 0 ||
+              m.mainOutputMigrated || m.previewDeviceMigrated || m.ltcDeviceMigrated ||
+              m.rolesMigrated || m.sendsDropped > 0;
+            if (soundChanged) migrationBanner.value = m;
+            void fetchBuses();
+          }
+          // PFL isn't in the document, so it arrives as its own op and is
+          // applied in place. A refetch would work too, but PFL is pressed
+          // while something is playing and the whole bus list is the last
+          // thing worth re-pulling at that moment.
+          if (payload.op === 'bus_pfl_changed' && typeof payload.id === 'string') {
+            const b = buses.value.find(x => x.id === payload.id);
+            if (b) b.pfl = !!payload.pfl;
+          }
+          if (payload.op === 'bus_pfl_cleared') {
+            for (const b of buses.value) b.pfl = false;
+          }
+          // Same story as PFL: live monitoring state, its own op, applied in
+          // place so a second mixer window agrees about what the phones are
+          // doing. It lands on whichever bus holds the preview role (D33),
+          // not on a fixed id — the role can move.
+          if (payload.op === 'monitor_mono_changed') {
+            const mon = buses.value.find(x => x.preview);
+            if (mon) mon.monoCheck = !!payload.mono;
+          }
           // Handle output_channel_gain_changed locally before fanning out.
           if (payload.op === 'output_channel_gain_changed' &&
               typeof payload.channel === 'number' &&
@@ -331,6 +543,14 @@ function createClient() {
               ...outputChannelGains.value,
               [payload.channel]: payload.db,
             };
+          }
+          // This connection's meter rate, echoed back with what the server
+          // actually granted after clamping to its own tick rate. Tracked here
+          // rather than in the control, so the Server pane shows what is
+          // happening rather than what was asked for — a request for 60 Hz
+          // against a 30 Hz server is honoured as far as 30, not refused.
+          if (payload.op === 'meter_hz_changed' && typeof payload.hz === 'number') {
+            meterHz.value = payload.hz;
           }
           // Multi-client mirror: another client (or the local mutator
           // itself) just changed something. Hand off to subscribers
@@ -398,6 +618,126 @@ function createClient() {
   function ping()                       { wsSend({ type: 'ping' }); }
 
   // ---- REST helpers -------------------------------------------------
+  function authHeader(): Record<string, string> {
+    return authToken.value ? { Authorization: `Bearer ${authToken.value}` } : {};
+  }
+
+  // Ask the server what posture it is in, and whether the token we hold is
+  // still good. Public on the server side, so it works before we have anything
+  // to present — which is the point: a client cannot know whether to show a
+  // login until it has asked, and requiring a login to ask would be a loop.
+  async function checkAuth(): Promise<void> {
+    try {
+      const res = await fetch(httpBase.value + '/api/auth/status');
+      if (!res.ok) throw new Error(String(res.status));
+      const s = await res.json();
+      authRequired.value = !!s.authRequired;
+      needsSetup.value   = !!s.setupRequired;
+      // Kept so the Accounts pane can tell the two OPEN postures apart. They
+      // look identical through `authRequired` alone and mean opposite things:
+      // zero accounts is a fresh installation nobody has set up, while accounts
+      // with no login required is somebody's explicit choice — and an operator
+      // seeing a list of accounts would otherwise reasonably assume a password
+      // was being asked for.
+      authUserCount.value = Number(s.userCount) || 0;
+    } catch {
+      // Unreachable server. Deliberately NOT treated as "needs a login": the
+      // reconnect machinery already handles a server that isn't there, and
+      // showing a password box for a network fault would be a lie about the
+      // cause. Leave the posture as it was and let connect() retry.
+      authChecked.value = true;
+      return;
+    }
+
+    if (!authRequired.value) {
+      // No accounts on this server. Anything we are holding is inert, and
+      // keeping it would send a stale credential to a server that never asked.
+      needsLogin.value = false;
+      authUser.value   = null;
+      authChecked.value = true;
+      return;
+    }
+
+    if (!authToken.value) {
+      needsLogin.value = true;
+      authChecked.value = true;
+      return;
+    }
+
+    // We have a token and the server wants one — check it is still honoured
+    // before opening a socket that would only be refused.
+    try {
+      const res = await fetch(httpBase.value + '/api/auth/me', { headers: authHeader() });
+      if (res.status === 401) { clearCredentials(); needsLogin.value = true; }
+      else if (res.ok) {
+        const me = await res.json();
+        authUser.value   = me.user ?? null;
+        needsLogin.value = false;
+      }
+    } catch { /* network — same reasoning as above */ }
+    authChecked.value = true;
+  }
+
+  async function login(name: string, password: string): Promise<boolean> {
+    authError.value = null;
+    try {
+      const res = await fetch(httpBase.value + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, password }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // The server's wording, not ours: it is the side that knows whether
+        // this was a bad password or a throttled address, and inventing a
+        // message here would eventually contradict it.
+        authError.value = body?.error || `${res.status}`;
+        return false;
+      }
+      storeToken(body.token || '');
+      authUser.value     = body.user ?? null;
+      authRequired.value = true;
+      needsSetup.value   = false;
+      needsLogin.value   = false;
+      // The socket carries the token in its URL, so an existing one is now
+      // stale. Tear it down and let it come back with the credential.
+      hasEverConnected = false;
+      disconnect();
+      connect();
+      return true;
+    } catch (e) {
+      authError.value = String(e);
+      return false;
+    }
+  }
+
+  // Create the very first account on a server that has none. The server
+  // forces it to administrator and starts requiring authentication from that
+  // moment, so this logs in immediately afterwards rather than leaving the
+  // client anonymous against a server that has just closed.
+  async function setupFirstUser(name: string, password: string): Promise<boolean> {
+    authError.value = null;
+    try {
+      const res = await fetch(httpBase.value + '/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, password, role: 'admin' }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { authError.value = body?.error || `${res.status}`; return false; }
+    } catch (e) {
+      authError.value = String(e);
+      return false;
+    }
+    return login(name, password);
+  }
+
+  function logout() {
+    disconnect();
+    clearCredentials();
+    needsLogin.value = true;
+  }
+
   async function rest<T = any>(path: string, init?: RequestInit): Promise<T> {
     const url = httpBase.value + path;
     // eslint-disable-next-line no-console
@@ -405,8 +745,15 @@ function createClient() {
     let res: Response;
     try {
       res = await fetch(url, {
-        headers: { 'Content-Type': 'application/json' },
         ...init,
+        // Merged after the spread, not before, so a caller passing its own
+        // headers (the multipart upload does) cannot accidentally drop the
+        // credential and get a 401 it has no way to explain.
+        headers: {
+          'Content-Type': 'application/json',
+          ...(init?.headers as Record<string, string> | undefined),
+          ...authHeader(),
+        },
       });
     } catch (e) {
       // eslint-disable-next-line no-console
@@ -415,6 +762,14 @@ function createClient() {
     }
     // eslint-disable-next-line no-console
     console.log('[liveplay] rest headers:', res.status, res.statusText, 'for', url);
+    if (res.status === 401) {
+      // The token expired, was revoked, or belongs to a server that has since
+      // been re-provisioned. Whatever the cause, holding on to it only makes
+      // every later call fail the same way — drop it and show the login.
+      authRequired.value = true;
+      clearCredentials();
+      throw new Error('401 — authentication required');
+    }
     if (!res.ok) {
       const text = await res.text().catch(() => res.statusText);
       throw new Error(`${res.status} ${res.statusText} — ${text}`);
@@ -570,8 +925,12 @@ function createClient() {
   // Redeem a one-shot download token and return the .lpa bytes as a Blob.
   // The server deletes the temp file after streaming, so a token is single-use.
   async function downloadArchive(token: string): Promise<Blob> {
+    // The ?token= here is the one-shot download capability, not the session
+    // credential — the route needs both, so the Authorization header goes on
+    // as well. (These three multipart/binary calls sit outside rest(), so each
+    // has to carry the header itself.)
     const res = await fetch(httpBase.value + '/api/file/download?token=' +
-                            encodeURIComponent(token));
+                            encodeURIComponent(token), { headers: authHeader() });
     if (!res.ok) {
       const text = await res.text().catch(() => res.statusText);
       throw new Error(`download failed: ${res.status} ${text}`);
@@ -589,6 +948,7 @@ function createClient() {
     fd.append('extractPath', extractPath);
     const res = await fetch(httpBase.value + '/api/project/import', {
       method: 'POST',
+      headers: authHeader(),   // no Content-Type: the browser sets the boundary
       body: fd,
     });
     if (!res.ok) {
@@ -653,7 +1013,19 @@ function createClient() {
   // and inPoint semantics on the server side). The server routes `play` for
   // a group uuid through trigger_item so group startBehavior fires.
   function playItem(uuid: string)  { wsSend({ type: 'play', item_uuid: uuid }); }
-  function stopItem(uuid: string)  { wsSend({ type: 'stop', item_uuid: uuid }); }
+  // Omit fadeMs for the item's own manual-stop fade; a number (0 = cut)
+  // overrides it for this one stop.
+  function stopItem(uuid: string, fadeMs?: number) {
+    wsSend(fadeMs === undefined
+      ? { type: 'stop', item_uuid: uuid }
+      : { type: 'stop', item_uuid: uuid, fade_ms: Math.max(0, Math.round(fadeMs)) });
+  }
+  // Live level of an item's engine cue, without touching the document: the
+  // per-cue fader sends this on every move and persists on release, so a
+  // playing cue follows the drag instead of jumping when the mouse lets go.
+  function setItemGainDb(uuid: string, db: number) {
+    wsSend({ type: 'gain', item_uuid: uuid, db });
+  }
   function pauseItem(uuid: string) { wsSend({ type: 'pause',  item_uuid: uuid }); }
   function resumeItem(uuid: string){ wsSend({ type: 'resume', item_uuid: uuid }); }
   // Tell the server which item to play when the currently-playing item's
@@ -682,6 +1054,16 @@ function createClient() {
   function setServerLocale(locale: string) {
     wsSend({ type: 'set_locale', locale });
   }
+  // How often THIS connection wants meter frames. 0 means "no preference" —
+  // whatever the installation ticks at. The server clamps to its own rate and
+  // replies with a meter_hz_changed doc_patch carrying what was actually
+  // granted, which is why `meterHz` below tracks the reply rather than the
+  // request: asking for 500 Hz is honoured as far as the server ticks, and the
+  // control should show what is happening rather than what was typed.
+  const meterHz = ref(0);
+  function setMeterHz(hz: number) {
+    wsSend({ type: 'set_meter_hz', hz });
+  }
   // Low-latency seek over the WebSocket so scrub bars feel responsive. The
   // REST endpoint is still available for callers that want a guaranteed
   // ack (mostly tooling) — see seekItemREST below.
@@ -709,7 +1091,7 @@ function createClient() {
     return rest<any>(`/api/project/cart/${slot}`, { method: 'DELETE' });
   }
 
-  // Preview (DJ-style pre-listening on settings.previewDevice).
+  // Preview (DJ-style pre-listening, rendered on the Preview bus).
   async function startPreview(itemUuid: string) {
     return rest<any>('/api/preview', {
       method: 'POST',
@@ -746,13 +1128,191 @@ function createClient() {
   // Reactive map of per-output-channel gains (channel index → dB).
   const outputChannelGains = ref<Record<number, number>>({});
 
-  // Theme + settings shallow-merge patches.
-  async function patchTheme(patch: any) {
-    return rest<any>('/api/project/theme', {
+  // Master-bus geometry, learned from the server's playback_snapshot. The bus
+  // width is configurable at boot, so the preview pair is not always 30/31 —
+  // the UI must place output meters from these values rather than assume. The
+  // defaults below match a 32-wide bus so a pre-#5 server still renders right.
+  const masterBus = ref<{ channels: number; previewL: number; previewR: number }>({
+    channels: 32,
+    previewL: 30,
+    previewR: 31,
+  });
+
+  // ---- The signed-in operator's own preferences (U4) -----------------
+  // Both act on whoever the token says we are — no user id crosses the wire,
+  // so there is no way to ask for somebody else's. Both answer 409 when the
+  // server has no accounts, which is not an error: it means these values have
+  // no person to belong to and usePreferences keeps them locally instead.
+  async function fetchPrefs(): Promise<any | null> {
+    try {
+      return await rest<any>('/api/prefs');
+    } catch (e: any) {
+      // 409 is the expected answer on an unauthenticated server and must not
+      // look like a failure; anything else is worth seeing in the console.
+      if (!String(e?.message ?? e).includes('409')) {
+        console.warn('[server] GET /api/prefs failed:', e);
+      }
+      return null;
+    }
+  }
+  async function patchPrefs(patch: any): Promise<any | null> {
+    try {
+      return await rest<any>('/api/prefs', {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
+    } catch (e: any) {
+      if (!String(e?.message ?? e).includes('409')) {
+        console.warn('[server] PATCH /api/prefs failed:', e);
+      }
+      return null;
+    }
+  }
+
+  // ---- The machine's own configuration (P3a) --------------------------
+  // Administrators only. Both throw on refusal rather than swallowing it: a
+  // settings form that silently fails to save is worse than one that says it
+  // could not, and the 403 a locked server answers with is a real answer the
+  // pane renders rather than an error to hide.
+  async function fetchServerConfig(): Promise<any> {
+    return rest<any>('/api/server/config');
+  }
+  async function patchServerConfig(patch: any): Promise<any> {
+    return rest<any>('/api/server/config', {
       method: 'PATCH',
       body: JSON.stringify(patch),
     });
   }
+
+  // ---- Accounts (P3c) --------------------------------------------------
+  // Administrators only, except createUser while the store is empty — that is
+  // the bootstrap, and setupFirstUser above is the login screen's path through
+  // the same route. Every one of these throws on refusal: the server has better
+  // wording for "that name is taken" and "you cannot remove the last
+  // administrator" than the pane could invent, and inventing one here would
+  // eventually contradict it.
+  async function fetchUsers(): Promise<any[]> {
+    return rest<any[]>('/api/users');
+  }
+  async function createUser(name: string, password: string, role: string) {
+    return rest<any>('/api/users', {
+      method: 'POST',
+      body: JSON.stringify({ name, password, role }),
+    });
+  }
+  // `avatar: null` clears a picture, which is why the values may be null.
+  async function updateUser(id: string, patch: Record<string, string | null>) {
+    return rest<any>(`/api/users/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+  }
+  async function deleteUser(id: string) {
+    return rest<any>(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+
+  // The signed-in person's OWN picture. No id crosses the wire — like the
+  // preferences routes, the server acts on whoever the token says we are, so
+  // an operator can change their own face and nobody else's. Refused for an
+  // API token and while authentication is off (there is no "own" then; the
+  // pane uses updateUser in that posture, as it does for everything else).
+  async function setOwnAvatar(dataUrl: string) {
+    return rest<any>('/api/auth/me/avatar', {
+      method: 'PUT',
+      body: JSON.stringify({ avatar: dataUrl }),
+    });
+  }
+  async function clearOwnAvatar() {
+    return rest<any>('/api/auth/me/avatar', { method: 'DELETE' });
+  }
+
+  // Moving the account list between machines. Administrators only. The export
+  // carries every password hash (never the session-signing secret), so the
+  // caller should treat what comes back as sensitive.
+  async function exportUsers(): Promise<any> {
+    return rest<any>('/api/users/export');
+  }
+  async function importUsers(mode: 'merge' | 'replace', data: any): Promise<any> {
+    return rest<any>('/api/users/import', {
+      method: 'POST',
+      body: JSON.stringify({ mode, data }),
+    });
+  }
+
+  // ---- API tokens ------------------------------------------------------
+  // The credential a Companion instance or a script carries. Administrators
+  // only, and issuing one asks for the caller's own password: what is being
+  // minted does not expire, and tokens here cross the LAN with no TLS, so a
+  // sniffed session must not convert into permanent access. Same reasoning as
+  // setAuthRequired above, applied where it bites harder.
+  async function fetchApiTokens(): Promise<any[]> {
+    return rest<any[]>('/api/tokens');
+  }
+  /**
+   * Issue one. The returned object carries `token` — THE ONLY COPY. The server
+   * kept a hash, so a caller that drops this string has destroyed the token and
+   * the answer is to revoke it and issue another.
+   */
+  async function createApiToken(name: string, password: string) {
+    return rest<any>('/api/tokens', {
+      method: 'POST',
+      body: JSON.stringify({ name, password }),
+    });
+  }
+  async function renameApiToken(id: string, name: string) {
+    return rest<any>(`/api/tokens/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+  }
+  async function revokeApiToken(id: string) {
+    return rest<any>(`/api/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+
+  // Who is connected to this server right now — people and machines both
+  // (U1's route; each row carries a `kind`). Administrators only: who else is
+  // on the rig, and from what address, is the machine's business.
+  async function fetchClients(): Promise<any[]> {
+    return rest<any[]>('/api/clients');
+  }
+
+  /**
+   * Turn the server's login requirement off, or back on, keeping the accounts.
+   *
+   * An administrator's NAME and PASSWORD every time, in both directions — the
+   * server insists, and the reason is worth carrying in the client too: while
+   * authentication is off there is no session to gate this with, so the password
+   * IS the gate. Re-entry rather than the token because tokens here are
+   * long-lived, signed and cross the LAN with no TLS.
+   *
+   * `name` is optional when signed in; the server defaults it to the caller.
+   * Throws on refusal, like the rest of these — the server's wording for "only
+   * an administrator can change this" is better than anything the pane could
+   * invent, and inventing one would eventually contradict it.
+   */
+  async function setAuthRequired(required: boolean, password: string, name?: string) {
+    const out = await rest<any>('/api/auth/required', {
+      method: 'PATCH',
+      body: JSON.stringify(name ? { required, password, name } : { required, password }),
+    });
+    // Re-ask rather than trusting the reply: turning it ON means this client now
+    // needs a login it may not have, and turning it OFF means the one it holds
+    // stopped being asked for. checkAuth settles both, and it is the one place
+    // that decides whether to show the login screen.
+    await checkAuth();
+    return out;
+  }
+  // "Sign me out everywhere." Bumps this user's token epoch, which invalidates
+  // every token ever issued to them — including the one making the request and
+  // the one on the tablet they left at the venue, which is the entire point. So
+  // it necessarily logs this client out too, and says so before it runs.
+  async function logoutAll() {
+    await rest<any>('/api/auth/logout_all', { method: 'POST' });
+    logout();
+  }
+
+  // Settings shallow-merge patch. patchTheme is gone with U4 — a theme is the
+  // person's, not the show's, and goes through patchPrefs above.
   async function patchSettings(patch: any) {
     return rest<any>('/api/project/settings', {
       method: 'PATCH',
@@ -817,6 +1377,183 @@ function createClient() {
     fetchMixerChannels().catch(() => {});
   }
 
+  // Live strip level / mute. These hit the engine only — no document write, no
+  // refetch — so they are cheap enough to call while a fader is moving. The
+  // owning bus is persisted separately once the gesture settles.
+  async function setMixerGainDb(mixerId: MixerChannelId, db: number) {
+    return rest(`/api/mixers/${encodeURIComponent(mixerId)}/gain`, {
+      method: 'POST',
+      body: JSON.stringify({ db }),
+    });
+  }
+  async function setMixerMute(mixerId: MixerChannelId, muted: boolean) {
+    return rest(`/api/mixers/${encodeURIComponent(mixerId)}/mute`, {
+      method: 'POST',
+      body: JSON.stringify({ muted }),
+    });
+  }
+
+  // ---- Buses --------------------------------------------------------
+  // The user-facing mixer. Every mutation is authoritative on the server, so
+  // the local list is refreshed from it rather than patched optimistically —
+  // creating a bus can be refused at the strip limit, and deleting one
+  // reassigns items, neither of which the client can predict.
+  const buses = ref<Bus[]>([]);
+
+  async function fetchBuses() {
+    try {
+      buses.value = await rest<Bus[]>('/api/buses');
+    } catch { /* offline; the WS reconnect path refetches */ }
+    return buses.value;
+  }
+
+  async function createBus(spec: Partial<Bus> & { name: string }) {
+    const out = await rest<{ id: string }>('/api/buses', {
+      method: 'POST',
+      body: JSON.stringify(spec),
+    });
+    await fetchBuses();
+    return out.id;
+  }
+
+  async function patchBus(id: string, patch: Partial<Bus>) {
+    await rest(`/api/buses/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+    await fetchBuses();
+  }
+
+  // Live pan for the duration of a knob drag. Moves the send gains in the
+  // engine only — no document write, no refetch — exactly as setMixerGainDb
+  // does for the fader. The caller PATCHes the settled value.
+  async function setBusPan(id: string, pan: number) {
+    return rest(`/api/buses/${encodeURIComponent(id)}/pan`, {
+      method: 'POST',
+      body: JSON.stringify({ pan }),
+    });
+  }
+
+  // Pre-fade listen. The button is set locally first because the operator is
+  // holding it against a cue that is playing right now — waiting a round trip
+  // to light up reads as a dropped press. The server broadcasts the change, so
+  // every other window converges on the same value anyway.
+  async function setBusPfl(id: string, on: boolean) {
+    const b = buses.value.find(x => x.id === id);
+    if (b) b.pfl = on;
+    try {
+      await rest(`/api/buses/${encodeURIComponent(id)}/pfl`, {
+        method: 'POST',
+        body: JSON.stringify({ pfl: on }),
+      });
+    } catch (e) {
+      // Refused (the preview-role bus is the destination, not a source) or
+      // offline: put the button back where the server still has it rather
+      // than leaving a lie lit.
+      if (b) b.pfl = !on;
+      throw e;
+    }
+  }
+
+  async function clearAllPfl() {
+    for (const b of buses.value) b.pfl = false;
+    return rest<{ cleared: number }>('/api/buses/pfl/clear', { method: 'POST' });
+  }
+
+  // Fold the preview-role bus to mono, to check what is in the phones for
+  // mono compatibility. Set locally first for the same reason PFL is: this is
+  // a press made against something playing right now.
+  //
+  // Not addressed per bus — it is one control for the whole monitoring path,
+  // and the server applies it to whichever bus currently holds the preview
+  // role (D33; /api/preview/mono is the same endpoint under its new name).
+  async function setMonitorMono(on: boolean) {
+    const mon = buses.value.find(x => x.preview);
+    if (mon) mon.monoCheck = on;
+    try {
+      await rest('/api/monitor/mono', {
+        method: 'POST',
+        body: JSON.stringify({ mono: on }),
+      });
+    } catch (e) {
+      if (mon) mon.monoCheck = !on;
+      throw e;
+    }
+  }
+
+  // Live tone controls for the duration of a filter drag. Coefficients go
+  // straight to the strip — no document write, no refetch — exactly as
+  // setBusPan does, and for the same reason: a PATCH per drag event would
+  // rewrite the document and bounce the knob to the stale value.
+  async function setBusDsp(id: string, dsp: Partial<BusDsp>) {
+    return rest(`/api/buses/${encodeURIComponent(id)}/dsp`, {
+      method: 'POST',
+      body: JSON.stringify(dsp),
+    });
+  }
+
+  async function deleteBus(id: string) {
+    await rest(`/api/buses/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await fetchBuses();
+  }
+
+  // Move a role (D24) onto this bus. The server does it atomically — the
+  // previous holder loses the flag, both are rewired, one broadcast — and it
+  // is the only way a role moves: {master:false} is refused, because a
+  // project always has exactly one of each. Refetched rather than patched
+  // locally since two buses change, and the rewire can change `masters` and
+  // `bound` on both.
+  async function setBusRole(id: string, role: 'master' | 'preview') {
+    // A role holder must send to hardware (the server refuses the role on a
+    // bus that feeds another bus). Rather than bounce the operator off a 409
+    // for picking "Set as Preview bus" on a sub-mix, send the built-in output
+    // for that role in the same PATCH — the server applies both atomically.
+    const bus = buses.value.find(b => b.id === id);
+    const body: Record<string, unknown> = { [role]: true };
+    if (bus && bus.output.type !== 'output') {
+      body.output = { type: 'output', target: role === 'master' ? 'Main Out' : 'Preview Out' };
+    }
+    await rest(`/api/buses/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    await fetchBuses();
+  }
+
+  // Rail position. The server stores the number and broadcasts; the rail is
+  // whatever sorting by `order` gives, so the caller picks a value that lands
+  // the bus where it was dropped (MixerPanel.vue decides how).
+  async function reorderBus(id: string, order: number) {
+    await rest(`/api/buses/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ order }),
+    });
+    await fetchBuses();
+  }
+
+  // Assign an item (or group) to a bus. Passing null clears the assignment so
+  // it inherits from its group, or falls back to the master-role bus.
+  async function setItemBus(uuid: string, busId: string | null) {
+    await rest(`/api/project/items/${encodeURIComponent(uuid)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ busId }),
+    });
+    // Membership is resolved server-side (an item can inherit its bus from a
+    // group), so refetch rather than guessing which bus it landed on.
+    await fetchBuses();
+  }
+
+  // ---- Logical outputs (server-owned; never in the project) ----------
+  // `builtin` (D26) names the outputs the server special-cases when they
+  // have no row: "Main Out" falls back to the default device, "Preview Out"
+  // stays silent. They are offered and mapped like any other name.
+  async function fetchOutputs() {
+    return rest<OutputMap>('/api/outputs');
+  }
+  async function saveOutputs(map: unknown) {
+    return rest('/api/outputs', { method: 'PUT', body: JSON.stringify(map) });
+  }
+
   // ---- Devices ------------------------------------------------------
   async function openDevice(name = '', channels = 2) {
     const out = await rest<{ device_id: DeviceId }>('/api/devices/open', {
@@ -855,6 +1592,7 @@ function createClient() {
     fd.append('file', file, filename ?? (file as File).name);
     const res = await fetch(httpBase.value + '/api/upload', {
       method: 'POST',
+      headers: authHeader(),   // no Content-Type: the browser sets the boundary
       body: fd,
     });
     if (!res.ok) {
@@ -1001,16 +1739,33 @@ function createClient() {
     // config
     setServerUrl,
 
+    // authentication (U3)
+    authRequired,
+    authUserCount,
+    authUser,
+    needsLogin,
+    needsSetup,
+    authError,
+    authChecked,
+    checkAuth,
+    login,
+    setupFirstUser,
+    logout,
+
     // lifecycle
     connect,
     disconnect,
     forceReconnect,
     destroy,
     onMeters,
+    onAnalyser,
+    setAnalyser,
     onCueState,
     onDocPatch,
     onPlaybackSnapshot,
     onReconnected,
+    migrationBanner,
+    dismissMigrationBanner,
 
     // transport
     play,
@@ -1077,6 +1832,7 @@ function createClient() {
 
     // transport by item uuid
     playItem,
+    setItemGainDb,
     stopItem,
     pauseItem,
     resumeItem,
@@ -1087,6 +1843,8 @@ function createClient() {
     stepSelection,
     setShowMode,
     setServerLocale,
+    setMeterHz,
+    meterHz,
 
     seekItem,
     seekCueId,
@@ -1095,13 +1853,52 @@ function createClient() {
     fetchMasterGainDb,
     outputChannelGains,
     setOutputChannelGainDb,
+    masterBus,
+
+    setMixerGainDb,
+    setMixerMute,
+
+    // buses
+    buses,
+    fetchBuses,
+    createBus,
+    patchBus,
+    setBusPan,
+    setBusDsp,
+    setBusPfl,
+    clearAllPfl,
+    setMonitorMono,
+    deleteBus,
+    setBusRole,
+    reorderBus,
+    setItemBus,
+    fetchOutputs,
+    saveOutputs,
 
     // cart bindings
     setCartSlot,
     clearCartSlot,
 
     // theme + settings
-    patchTheme,
+    fetchPrefs,
+    patchPrefs,
+    fetchServerConfig,
+    patchServerConfig,
+    fetchUsers,
+    createUser,
+    updateUser,
+    deleteUser,
+    setOwnAvatar,
+    clearOwnAvatar,
+    exportUsers,
+    importUsers,
+    fetchApiTokens,
+    createApiToken,
+    renameApiToken,
+    revokeApiToken,
+    fetchClients,
+    setAuthRequired,
+    logoutAll,
     patchSettings,
 
     // preview

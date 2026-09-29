@@ -30,6 +30,15 @@ out/
 yt-dlp.exe
 .claude
 
+# Reference screenshots and mockups dropped at the repo root while designing.
+# Scoped to the root on purpose so genuine assets (client/public/screenshots)
+# are unaffected.
+/*.jpg
+/*.jpeg
+/*.png
+/*.gif
+/*.webp
+
 # ---------------------------------------------------------------------------
 # Server (C++ / CMake / vcpkg)
 # ---------------------------------------------------------------------------

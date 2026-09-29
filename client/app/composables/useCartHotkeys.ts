@@ -48,14 +48,24 @@ export const eventToBinding = (e: KeyboardEvent): CartSlotKeyBinding => ({
 export const useCartHotkeys = () => {
   const { currentProject, selectedItem, selectedItems, saveProject, getAllItemsFlat, toggleItemSelection, findItemByUuid } = useProject();
   const { getCartItem } = useCartItems();
-  const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem, triggerGroup, queueLoopContinuation, jumpCue } = useAudioEngine();
+  const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem, triggerGroup, queueLoopContinuation, jumpCue, isItemPlaying, fireItem, stopItemAny } = useAudioEngine();
 
   const keyMappings = computed(() =>
     currentProject.value?.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS }
   );
 
+  // The transport keymap follows the PERSON as of U4, not the show file.
+  //
+  // The plan called the project's copy an "override". It is not, and making it
+  // one would leave the hazard in place: opening a colleague's project would
+  // still reassign the keys your hands know, which is the thing U4 exists to
+  // stop. So the operator's own map wins outright, and what is left in a
+  // document is read only as a seed for someone who has never set one —
+  // handled once, in usePreferences.adoptFromProject.
+  const { playbackKeys: userPlaybackKeys, setPlaybackKeys } = usePreferences();
+
   const playbackMappings = computed<Partial<Record<PlaybackKeyAction, CartSlotKeyBinding | null>>>(() => {
-    const saved = currentProject.value?.playbackKeys ?? {};
+    const saved = userPlaybackKeys.value ?? {};
     const result: Partial<Record<PlaybackKeyAction, CartSlotKeyBinding | null>> = { ...DEFAULT_PLAYBACK_KEYS };
     for (const [action, binding] of Object.entries(saved)) {
       result[action as PlaybackKeyAction] = binding;
@@ -93,11 +103,8 @@ export const useCartHotkeys = () => {
   const triggerSlot = (slotIndex: number) => {
     const item = getCartItem(slotIndex);
     if (!item) return;
-    if (activeCues.value.has(item.uuid)) {
-      stopCue(item.uuid);
-    } else {
-      playCue(item);
-    }
+    if (isItemPlaying(item)) stopItemAny(item);
+    else fireItem(item);
   };
 
   const findSlotForEvent = (e: KeyboardEvent): number => {
@@ -259,11 +266,14 @@ export const useCartHotkeys = () => {
     action: PlaybackKeyAction,
     binding: CartSlotKeyBinding | null
   ): { conflictSlot: number; conflictAction: PlaybackKeyAction | null } => {
-    if (!currentProject.value) return { conflictSlot: -1, conflictAction: null };
-
+    // No `if (!currentProject.value) return` guard any more: a transport
+    // keymap is this operator's, so it can be edited with no show file open.
+    // Conflict handling is unchanged where it can run at all — the cart-slot
+    // half simply has nothing to check against when there is no cart wall,
+    // and the playback-action half below never depended on a project.
     if (binding !== null) {
       // Check conflict with cart slots
-      const cartMappings = currentProject.value.cartSlotKeys ?? DEFAULT_CART_SLOT_KEYS;
+      const cartMappings = currentProject.value?.cartSlotKeys ?? DEFAULT_CART_SLOT_KEYS;
       for (const [slotStr, existing] of Object.entries(cartMappings)) {
         if (bindingsMatch(existing, binding)) return { conflictSlot: parseInt(slotStr, 10), conflictAction: null };
       }
@@ -276,8 +286,7 @@ export const useCartHotkeys = () => {
       }
     }
 
-    if (!currentProject.value.playbackKeys) currentProject.value.playbackKeys = {};
-    currentProject.value.playbackKeys[action] = binding;
+    setPlaybackKeys({ ...(userPlaybackKeys.value ?? {}), [action]: binding });
     return { conflictSlot: -1, conflictAction: null };
   };
 
@@ -286,9 +295,10 @@ export const useCartHotkeys = () => {
     currentProject.value.cartSlotKeys = {};
   };
 
+  // No currentProject guard any more: the keymap is this operator's, and they
+  // are entitled to reset it with no show file open.
   const resetPlaybackToDefaults = () => {
-    if (!currentProject.value) return;
-    currentProject.value.playbackKeys = {};
+    setPlaybackKeys({});
   };
 
   let isMounted = false;

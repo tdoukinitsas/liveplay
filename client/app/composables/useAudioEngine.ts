@@ -29,6 +29,7 @@
 // composable so existing components don't need changes.
 // =====================================================================
 import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
+import { runTime, remainingTime } from '~/utils/groupTiming';
 
 // ---------------------------------------------------------------------
 // Shapes consumed by Vue components.
@@ -51,6 +52,10 @@ export interface ActiveGroupView {
   displayName: string;
   totalDuration: number;
   currentTime: number;
+  // Seconds left in the whole group (utils/groupTiming.ts).
+  remaining: number;
+  // The group contains a looping cue, so it has no real end.
+  indefinite: boolean;
 }
 
 // Server's TransportState enum (mirrors C++).
@@ -336,40 +341,24 @@ export const useAudioEngine = () => {
       return;
     }
     const next = new Map<string, ActiveGroupView>();
+    // Every group with anything playing anywhere inside it, nested groups
+    // included, timed as a whole (utils/groupTiming.ts): play-all groups last
+    // as long as their longest child, play-first groups add up.
     const walk = (group: GroupItem) => {
-      let total = 0;
-      let acc   = 0;
-      let foundActive = false;
-      let activeReached = false;
       for (const child of group.children) {
-        if (child.type === 'audio') {
-          const a = child as AudioItem;
-          const d = trimmedDuration(a);
-          total += d;
-          const playing = activeCues.value.get(a.uuid);
-          if (playing) {
-            foundActive = true;
-            acc += playing.currentTime;
-            activeReached = true;
-          } else if (!activeReached) {
-            acc += d;     // assume earlier siblings already played
-          }
-        } else if (child.type === 'group') {
-          walk(child as GroupItem);  // nested groups get their own entry
-        }
+        if (child.type === 'group') walk(child as GroupItem);
       }
-      if (foundActive) {
-        // Reset acc-of-earlier-siblings heuristic if we never actually
-        // found a currently-playing child here.
-      }
-      if (foundActive) {
-        next.set(group.uuid, {
-          uuid: group.uuid,
-          displayName: group.displayName,
-          totalDuration: total,
-          currentTime: Math.min(acc, total),
-        });
-      }
+      const remaining = remainingTime(group, activeCues.value);
+      if (remaining === null) return;
+      const total = runTime(group);
+      next.set(group.uuid, {
+        uuid: group.uuid,
+        displayName: group.displayName,
+        totalDuration: Math.max(total.seconds, remaining),
+        currentTime: Math.max(0, total.seconds - remaining),
+        remaining,
+        indefinite: total.indefinite,
+      });
     };
     for (const item of currentProject.value.items) {
       if (item.type === 'group') walk(item as GroupItem);
@@ -384,6 +373,11 @@ export const useAudioEngine = () => {
       const item = findItemByUuid(uuid);
       if (!item || item.type !== 'audio') continue;
       const audioItem = item as AudioItem;
+      // Only a cue that is really in the playlist has a "next" in the running
+      // order. findItemByUuid also returns cart-only sounds, whose index is
+      // [-1, slot] and names no playlist position, and a stale index would be
+      // just as wrong — so the item must actually sit where its index says.
+      if (!Array.isArray(audioItem.index) || findItemByIndex(audioItem.index)?.uuid !== uuid) continue;
       switch (audioItem.endBehavior.action) {
         case 'next': {
           const nextIndex = [...audioItem.index];
@@ -618,6 +612,32 @@ export const useAudioEngine = () => {
     // The server treats a single-cue stop as a manual stop for Up-Next arming.
     server.stopItem(uuid);
   };
+
+  // A cart slot may hold a whole group (discussion #61), so the slot, its
+  // hotkey and its MIDI note fire / stop / test "an item", whichever it is.
+  // A group is playing while anything inside it is; stopping it stops every
+  // cue inside that is playing, which also ends its run (a manual stop fires
+  // no end behaviour).
+  const isItemPlaying = (item: AudioItem | GroupItem | null): boolean => {
+    if (!item) return false;
+    return item.type === 'group'
+      ? activeGroups.value.has(item.uuid)
+      : activeCues.value.has(item.uuid);
+  };
+  const fireItem = (item: AudioItem | GroupItem) => {
+    if (item.type === 'group') triggerGroup(item as GroupItem);
+    else playCue(item as AudioItem);
+  };
+  const stopItemAny = (item: AudioItem | GroupItem) => {
+    if (item.type !== 'group') { stopCue(item.uuid); return; }
+    const walk = (g: GroupItem) => {
+      for (const child of g.children) {
+        if (child.type === 'group') walk(child as GroupItem);
+        else if (activeCues.value.has(child.uuid)) stopCue(child.uuid);
+      }
+    };
+    walk(item as GroupItem);
+  };
   // Global Stop All — omit the fade so the server applies the project-wide
   // Stop All fade (settings.stopAllFadeMs, default 1 s). Set that to 0 in
   // Project Settings for an instant panic.
@@ -705,5 +725,9 @@ export const useAudioEngine = () => {
     triggerGroup,
     queueLoopContinuation,
     jumpCue,
+    findParentGroup,
+    isItemPlaying,
+    fireItem,
+    stopItemAny,
   };
 };

@@ -18,6 +18,7 @@
           <LanguageSwitcher />
         </div>
         <p class="tagline">{{ t('header.tagline') }}</p>
+        <p class="intro">{{ t('header.intro') }}</p>
       </div>
     </header>
 
@@ -50,7 +51,7 @@
             target="_blank"
             rel="noopener noreferrer"
           >
-            <h3>{{ t(`download.${key}.title`) }}</h3>
+            <h3 dir="auto">{{ t(`download.${key}.title`) }}</h3>
             <p>{{ t(`download.${key}.description`) }}</p>
             <div class="download-button">
               <span>{{ t(`download.${key}.buttonText`) }}</span>
@@ -98,7 +99,7 @@
               target="_blank"
               rel="noopener noreferrer"
             >
-              <h3>{{ t(`download.${key}.title`) }}</h3>
+              <h3 dir="auto">{{ t(`download.${key}.title`) }}</h3>
               <p>{{ t(`download.${key}.description`) }}</p>
               <div class="download-button">
                 <span>{{ t(`download.${key}.buttonText`) }}</span>
@@ -142,18 +143,91 @@
       <div class="container">
         <h2>{{ t('features.title') }}</h2>
         
+        <div class="features-group">
+          <h3 class="features-group-title">{{ t('features.groupShow.title') }}</h3>
+          <p class="features-group-intro">{{ t('features.groupShow.intro') }}</p>
+        </div>
+
+        <FeatureHighlight
+          :title="t('features.playlist.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_playlist.jpg')"
+        >
+          <p>{{ t('features.playlist.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.cart.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_cart.jpg')"
+        >
+          <p>{{ t('features.cart.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.ducking.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_ducking.jpg')"
+        >
+          <p>{{ t('features.ducking.description') }}</p>
+        </FeatureHighlight>
+
         <FeatureHighlight
           :title="t('features.interface.title')"
-          :image-src="asset('screenshots/liveplay_screenshot.jpg')"
+          :image-src="asset('screenshots/liveplay_screenshot_workspace.jpg')"
         >
           <p>{{ t('features.interface.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
-          :title="t('features.audioEngine.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_audio_engine.jpg')"
+          :title="t('features.showMode.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_showmode.jpg')"
         >
-          <p>{{ t('features.audioEngine.description') }}</p>
+          <p>{{ t('features.showMode.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.waveform.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_waveformtrimmer.jpg')"
+        >
+          <p>{{ t('features.waveform.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.properties.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_properties.jpg')"
+        >
+          <p>{{ t('features.properties.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.youtube.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_youtube.jpg')"
+        >
+          <p>{{ t('features.youtube.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.firstLaunch.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_nameproject.jpg')"
+        >
+          <p>{{ t('features.firstLaunch.description') }}</p>
+        </FeatureHighlight>
+
+        <div class="features-group">
+          <h3 class="features-group-title">{{ t('features.groupMixer.title') }}</h3>
+          <p class="features-group-intro">{{ t('features.groupMixer.intro') }}</p>
+        </div>
+
+        <FeatureHighlight
+          :title="t('features.mixer.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_mixer.jpg')"
+        >
+          <p>{{ t('features.mixer.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.eqDynamics.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_mixer_channel.jpg')"
+        >
+          <p>{{ t('features.eqDynamics.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
@@ -165,51 +239,42 @@
 
         <FeatureHighlight
           :title="t('features.meters.title')"
-          :image-src="asset('screenshots/liveplay_screenshot.jpg')"
+          :image-src="asset('screenshots/liveplay_screenshot_meters.jpg')"
         >
           <p>{{ t('features.meters.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
+          :title="t('features.preview.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_preview.jpg')"
+        >
+          <p>{{ t('features.preview.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
           :title="t('features.routing.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_routing.jpg')"
+          :image-src="asset('screenshots/liveplay_screenshot_hardware_outputs.jpg')"
         >
           <p>{{ t('features.routing.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
-          :title="t('features.previewLtc.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_preview.jpg')"
+          :title="t('features.fades.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_fades.jpg')"
         >
-          <p>{{ t('features.previewLtc.description') }}</p>
+          <p>{{ t('features.fades.description') }}</p>
         </FeatureHighlight>
 
-        <FeatureHighlight
-          :title="t('features.waveform.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_waveformtrimmer.jpg')"
-        >
-          <p>{{ t('features.waveform.description') }}</p>
-        </FeatureHighlight>
+        <div class="features-group">
+          <h3 class="features-group-title">{{ t('features.groupSystem.title') }}</h3>
+          <p class="features-group-intro">{{ t('features.groupSystem.intro') }}</p>
+        </div>
 
         <FeatureHighlight
-          :title="t('features.youtube.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_youtube.jpg')"
+          :title="t('features.remoteOperation.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_decoupled.jpg')"
         >
-          <p>{{ t('features.youtube.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
-          :title="t('features.properties.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_properties.jpg')"
-        >
-          <p>{{ t('features.properties.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
-          :title="t('features.ducking.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_ducking.jpg')"
-        >
-          <p>{{ t('features.ducking.description') }}</p>
+          <p>{{ t('features.remoteOperation.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
@@ -220,17 +285,31 @@
         </FeatureHighlight>
 
         <FeatureHighlight
-          :title="t('features.remoteOperation.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_decoupled.jpg')"
+          :title="t('features.accounts.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_users.jpg')"
         >
-          <p>{{ t('features.remoteOperation.description') }}</p>
+          <p>{{ t('features.accounts.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
-          :title="t('features.firstLaunch.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_nameproject.jpg')"
+          :title="t('features.settingsPage.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_settings.jpg')"
         >
-          <p>{{ t('features.firstLaunch.description') }}</p>
+          <p>{{ t('features.settingsPage.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.audioEngine.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_audio_engine.jpg')"
+        >
+          <p>{{ t('features.audioEngine.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.ltc.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_ltc.jpg')"
+        >
+          <p>{{ t('features.ltc.description') }}</p>
         </FeatureHighlight>
       </div>
     </section>
@@ -242,15 +321,28 @@
           <p class="ports-subtitle">{{ t('ports.subtitle') }}</p>
           <ul class="ports-list">
             <li>
-              <code class="port-number">{{ t('ports.control.port') }}</code>
+              <code class="port-number" dir="auto">{{ t('ports.control.port') }}</code>
               <span><strong>{{ t('ports.control.title') }}</strong> — {{ t('ports.control.description') }}</span>
             </li>
             <li>
-              <code class="port-number">{{ t('ports.discovery.port') }}</code>
+              <code class="port-number" dir="auto">{{ t('ports.discovery.port') }}</code>
               <span><strong>{{ t('ports.discovery.title') }}</strong> — {{ t('ports.discovery.description') }}</span>
             </li>
           </ul>
           <p class="ports-note">{{ t('ports.note') }}</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="api" class="api-section">
+      <div class="container">
+        <h2>{{ t('api.title') }}</h2>
+        <p class="api-subtitle">{{ t('api.subtitle') }}</p>
+        <div class="api-block">
+          <p>{{ t('api.description') }}</p>
+        </div>
+        <div class="api-reference">
+          <a :href="asset('api/')">{{ t('api.referenceLabel') }}</a>
         </div>
       </div>
     </section>
@@ -334,7 +426,8 @@ const { t, direction, initLocale, isLocaleLoaded } = useI18n();
 const baseURL = useRuntimeConfig().app.baseURL;
 const asset = (path: string) => `${baseURL}${path.replace(/^\/+/, '')}`;
 
-const version = ref('2.4.3');
+const version = ref('2.5.0');
+
 const contributors = ref<{ name: string; link: string }[]>([]);
 
 // Platform download cards. When we can detect the visitor's OS we surface only
@@ -558,6 +651,14 @@ useSeoMeta({
     font-size: 1.5rem;
     color: rgba(255, 255, 255, 0.8);
     margin: 1rem 0 0;
+  }
+
+  .intro {
+    max-width: 760px;
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0.75rem auto 0;
   }
 }
 
@@ -807,6 +908,31 @@ useSeoMeta({
     margin-bottom: 3rem;
     color: #DA1E28;
   }
+
+  // Each group opens a chapter of the story: running the show, mixing it,
+  // and the system underneath.
+  .features-group {
+    text-align: center;
+    max-width: 760px;
+    margin: 4rem auto 0;
+
+    &:first-of-type {
+      margin-top: 0;
+    }
+  }
+
+  .features-group-title {
+    font-size: 1.75rem;
+    color: #ffffff;
+    margin: 0 0 0.5rem;
+  }
+
+  .features-group-intro {
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0;
+  }
 }
 
 .ports-section {
@@ -874,6 +1000,227 @@ useSeoMeta({
     margin: 0;
     font-size: 0.85rem;
     line-height: 1.6;
+  }
+}
+
+.api-section {
+  padding: 4rem 0;
+  background: rgba(255, 255, 255, 0.02);
+
+  h2 {
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: #DA1E28;
+  }
+
+  .api-subtitle {
+    text-align: center;
+    font-size: 1.25rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 3rem;
+  }
+
+  .api-block {
+    max-width: 820px;
+    margin: 0 auto 2.5rem;
+
+    h3 {
+      font-size: 1.35rem;
+      margin: 0 0 0.75rem;
+      color: #ffffff;
+    }
+
+    p {
+      color: rgba(255, 255, 255, 0.75);
+      line-height: 1.7;
+      margin: 0.5rem 0;
+    }
+
+    .api-caveat {
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 0.9rem;
+    }
+
+    strong {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    a {
+      color: #DA1E28;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
+  .api-inline-code {
+    background: rgba(218, 30, 40, 0.1);
+    color: #DA1E28;
+    padding: 0.15rem 0.5rem;
+    border-radius: 5px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  // Same treatment as the ports disclaimer: a quiet box with a red rule.
+  .api-block .api-callout {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-inline-start: 3px solid rgba(218, 30, 40, 0.5);
+    border-radius: 8px;
+    padding: 0.85rem 1.25rem;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+  }
+
+  // Safety net: the table reflows into cards on phones (see the media query
+  // at the bottom), but if anything is still too wide it scrolls here rather
+  // than scrolling the whole page sideways.
+  .api-table-wrap {
+    overflow-x: auto;
+    margin: 1rem 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+  }
+
+  .api-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+
+    th,
+    td {
+      text-align: start;
+      vertical-align: top;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    th {
+      background: rgba(0, 0, 0, 0.25);
+      color: rgba(255, 255, 255, 0.85);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .api-table-methods {
+      white-space: nowrap;
+    }
+
+    // Paths stay on one line at desktop widths so they read as one token;
+    // the phone layout below lets them wrap.
+    .api-table-path {
+      white-space: nowrap;
+    }
+
+    .api-table-path code {
+      color: #DA1E28;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .api-action {
+      display: block;
+      color: rgba(255, 255, 255, 0.9);
+      line-height: 1.5;
+    }
+
+    .api-notes {
+      display: block;
+      margin-top: 0.3rem;
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 0.85rem;
+      line-height: 1.55;
+    }
+  }
+
+  .api-method {
+    display: inline-block;
+    margin: 0 0 0.3rem;
+    margin-inline-end: 0.3rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
+  .api-method-get {
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .api-method-post {
+    color: #DA1E28;
+    background: rgba(218, 30, 40, 0.15);
+  }
+
+  .api-code {
+    background: rgba(0, 0, 0, 0.4);
+    color: #f0f0f0;
+    padding: 1rem 1.25rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    margin: 1rem 0;
+  }
+
+  .api-endpoint-list {
+    list-style: none;
+    margin: 1rem 0;
+    padding: 0;
+
+    li {
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin: 0.5rem 0;
+    }
+
+    code {
+      background: rgba(218, 30, 40, 0.1);
+      color: #DA1E28;
+      padding: 0.15rem 0.5rem;
+      border-radius: 5px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+  }
+
+  .api-reference {
+    max-width: 820px;
+    margin: 0 auto;
+    text-align: center;
+
+    a {
+      color: #DA1E28;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
   }
 }
 
@@ -1094,6 +1441,57 @@ useSeoMeta({
 
   .readme-section .readme-content {
     padding: 1.5rem;
+  }
+
+  .api-section h2 {
+    font-size: 2rem;
+  }
+}
+
+// On a phone the three-column controls table becomes one card per call:
+// methods and path on top, the description underneath.
+@media (max-width: 640px) {
+  .api-section {
+    .api-table {
+      thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+
+      tr,
+      td {
+        display: block;
+      }
+
+      tr {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      tbody tr:last-child {
+        border-bottom: none;
+      }
+
+      td,
+      tbody tr:nth-child(even) td {
+        padding: 0;
+        border-bottom: none;
+        background: none;
+      }
+
+      tbody tr:nth-child(even) {
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .api-table-path {
+        margin: 0.1rem 0 0.4rem;
+        white-space: normal;
+      }
+    }
   }
 }
 </style>

@@ -77,6 +77,17 @@ endif()
 find_path(MINIAUDIO_INCLUDE_DIR miniaudio.h REQUIRED)
 # miniz — used for .lpa (zip) packaging of project exports/imports.
 find_package(miniz CONFIG REQUIRED)
+# libsodium — password hashing (Argon2id) and token signing for the user store.
+# Nothing here rolls its own crypto: the point of the dependency is that the
+# primitives, the constant-time comparisons and the CSPRNG all come from one
+# audited library rather than from us.
+#
+# vcpkg has exported this under two different names across versions, so probe
+# for both — same pattern as TagLib below.
+find_package(unofficial-sodium CONFIG QUIET)
+if(NOT unofficial-sodium_FOUND)
+    find_package(sodium CONFIG REQUIRED)
+endif()
 
 # ---------------------------------------------------------------------------
 # miniaudio implementation translation unit
@@ -136,6 +147,10 @@ add_executable(liveplay-server
 
     # Milestone 3 — project state + control plane
     src/core/project_state.cpp
+    src/core/output_map.cpp
+    src/core/user_store.cpp
+    src/core/user_prefs.cpp
+    src/core/server_config.cpp
     src/core/backup_manager.cpp
     src/net/control_server.cpp
     src/net/discovery.cpp
@@ -158,6 +173,13 @@ target_link_libraries(liveplay-server
         liveplay_miniaudio
         miniz::miniz
 )
+
+# Link libsodium under whichever target name vcpkg exposed.
+if(TARGET unofficial-sodium::sodium)
+    target_link_libraries(liveplay-server PRIVATE unofficial-sodium::sodium)
+elseif(TARGET sodium)
+    target_link_libraries(liveplay-server PRIVATE sodium)
+endif()
 
 # Link TagLib under whichever target name vcpkg exposed.
 if(TARGET TagLib::tag)
@@ -195,16 +217,84 @@ if(LIVEPLAY_BUILD_TESTS)
     )
     add_test(NAME meter COMMAND liveplay-meter-tests)
 
+    # Device-name normalisation: a renumbered Windows endpoint is the same
+    # device, a different channel pair is not.
+    add_executable(liveplay-device-name-tests tests/device_name_test.cpp)
+    target_include_directories(liveplay-device-name-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME device_name COMMAND liveplay-device-name-tests)
+
     # Mixer strip gain / fade envelope (peek vs. advance).
+    # Also covers the PFL monitor taps, which is why limiter.cpp is here: it
+    # carries db_to_linear_precise, and the tap gain has to be the same number
+    # the engine uses, not a re-derivation of it.
     add_executable(liveplay-mixer-tests
         tests/mixer_channel_test.cpp
         src/audio/mixer_channel.cpp
         src/audio/meter.cpp
+        src/audio/limiter.cpp
     )
     target_include_directories(liveplay-mixer-tests
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
     add_test(NAME mixer COMMAND liveplay-mixer-tests)
+
+    # Filter sections behind the HPF, the LPF and every EQ band. Header-only,
+    # so the test needs nothing linked with it.
+    add_executable(liveplay-biquad-tests
+        tests/biquad_test.cpp
+    )
+    target_include_directories(liveplay-biquad-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME biquad COMMAND liveplay-biquad-tests)
+
+    # Expander / gate and compressor / limiter. Header-only too.
+    add_executable(liveplay-dynamics-tests
+        tests/dynamics_test.cpp
+    )
+    target_include_directories(liveplay-dynamics-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME dynamics COMMAND liveplay-dynamics-tests)
+
+    # Stereo image: the M/S width matrix, bass-mono, the balance law and the
+    # correlation meter. Header-only.
+    add_executable(liveplay-stereo-tests
+        tests/stereo_width_test.cpp
+    )
+    target_include_directories(liveplay-stereo-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME stereo COMMAND liveplay-stereo-tests)
+
+    # Clock-drift compensation: the resampler and its control loop. Header-only,
+    # and the controller is driven by a simulated device rather than by audio —
+    # a drift bug that takes twenty minutes to hear runs here in milliseconds.
+    add_executable(liveplay-drift-tests
+        tests/drift_test.cpp
+    )
+    target_include_directories(liveplay-drift-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME drift COMMAND liveplay-drift-tests)
+
+    # Bus→bus processing order: Kahn's sort over strip→strip edges, cycle
+    # edges dropped deterministically, Monitor excluded. The sort itself is a
+    # header-only free function (compute_strip_order in engine.hpp) precisely
+    # so it runs here without an audio device — but engine.hpp includes
+    # miniaudio's header for the device types, hence the include-path link.
+    add_executable(liveplay-topo-tests
+        tests/topo_order_test.cpp
+    )
+    target_include_directories(liveplay-topo-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    target_link_libraries(liveplay-topo-tests
+        PRIVATE liveplay_miniaudio Threads::Threads
+    )
+    add_test(NAME topo COMMAND liveplay-topo-tests)
 
     # Waveform downsampler (single-pass decode, per-channel traces).
     add_executable(liveplay-waveform-tests

@@ -1,5 +1,13 @@
 <template>
   <div id="app" :data-theme="theme">
+    <!-- Outside the three window modes on purpose: every one of them opens its
+         own socket, so every one of them can be the window that finds the
+         server wants a login. Renders nothing until that happens. -->
+    <LoginScreen />
+
+    <!-- Each window can open Settings, including the detached mixer's outputs editor. -->
+    <SettingsPage />
+
     <!-- Cart-window mode: standalone detached cart player -->
     <template v-if="isCartWindow">
       <div class="cart-window-root">
@@ -26,30 +34,24 @@
       />
     </template>
 
+    <!-- Mixer-window mode: the mixer on its own, always full width.
+         It needs no project data to work — buses, meters and fader moves all
+         go over this window's own WebSocket — so it renders as soon as the
+         socket is up, whether or not the main window has a project open. -->
+    <template v-else-if="isMixerWindow">
+      <div class="mixer-window-root">
+        <MixerPanel mode="full" :detached="true" />
+      </div>
+
+      <!-- Faders here move the live rig, so the same lockout applies: without
+           it a fader would keep accepting drags that never reach the server. -->
+      <ConnectionLostModal />
+    </template>
+
     <!-- Normal mode -->
     <template v-else>
       <WelcomeScreen v-if="!currentProject" />
       <MainWorkspace v-else />
-    
-    <!-- Accent Color Picker Modal -->
-    <div v-if="showColorPicker" class="color-picker-overlay" @click="showColorPicker = false">
-      <div class="color-picker-dialog" @click.stop>
-        <h3>{{ t('colors.chooseAccent') }}</h3>
-        <div class="color-grid">
-          <button
-            v-for="color in accentColors"
-            :key="color"
-            class="color-option"
-            :style="{ backgroundColor: color }"
-            @click="changeAccentColor(color)"
-          ></button>
-        </div>
-        <button class="close-dialog" @click="showColorPicker = false">{{ t('common.cancel') }}</button>
-      </div>
-    </div>
-    
-    <!-- About Modal -->
-    <AboutModal v-if="showAboutModal" @close="showAboutModal = false" />
     
     <!-- Update Modal -->
     <UpdateModal
@@ -172,9 +174,10 @@
 <script setup lang="ts">
 import 'material-symbols';
 import CartPlayer from './components/CartPlayer.vue';
+import MixerPanel from './components/MixerPanel.vue';
 
 const {
-  currentProject, saveProject, openProject, closeProject, confirmUnsavedChanges,
+  currentProject, saveProject, flushPendingSave, openProject, closeProject, confirmUnsavedChanges,
   hasUnsavedChanges,
   isLoading, loadingMessage,
   repairDialogVisible, repairDialogIssues, confirmRepair, cancelRepair,
@@ -206,11 +209,23 @@ import AudioLoadProgress from './components/AudioLoadProgress.vue';
 import LocationChoiceModal from './components/LocationChoiceModal.vue';
 import ServerFilePickerModal from './components/ServerFilePickerModal.vue';
 const { currentLocale, setLocale, getDirection, t } = useLocalization();
+// The colour scheme belongs to the person at the desk, not to the show (U4).
+// `theme` stays a useState key so nothing that already binds to it has to
+// change; what moved is where its value comes from.
+const { theme: userTheme, resolvedThemeMode, setTheme } = usePreferences();
 const theme = useState('theme', () => 'dark');
+// The Help and View menus open Settings at a section rather than raising
+// modals of their own; see the listeners below.
+const { open: openSettings } = useSettingsPage();
 
 // Detect if this window is the detached cart player window
 const isCartWindow = import.meta.client
   ? new URLSearchParams(window.location.search).get('cartWindow') === '1'
+  : false;
+
+// …or the detached mixer window.
+const isMixerWindow = import.meta.client
+  ? new URLSearchParams(window.location.search).get('mixerWindow') === '1'
   : false;
 
 // Initialize state viewer for dev mode
@@ -229,12 +244,6 @@ const showProjectSelection = ref(false);
 const availableProjects = ref<string[]>([]);
 const pendingImportPath = ref<string>('');
 
-// Color picker for accent color
-const showColorPicker = ref(false);
-
-// About modal
-const showAboutModal = ref(false);
-
 // Update modal
 const showUpdateModal = ref(false);
 const updateInfo = ref({
@@ -246,50 +255,49 @@ const updateInfo = ref({
   downloadUrl: ''
 });
 
-const accentColors = [
-  '#0f62fe', '#0353e9', '#002d9c', // Blues
-  '#da1e28', '#a2191f', '#750e13', // Reds
-  '#24a148', '#198038', '#0e6027', // Greens
-  '#f1c21b', '#d2a106', '#b28600', // Yellows
-  '#8a3ffc', '#6929c4', '#491d8b', // Purples
-  '#ff7eb6', '#ee5396', '#d02670', // Pinks
-];
-
-// Cart window: fetch project data from main process and keep in sync
-function applyCartWindowProjectData(projectData: any) {
-  if (!projectData || !isCartWindow) return;
-  clearCartOnlyItems();
-  if (Array.isArray(projectData.cartOnlyItems)) {
-    for (const item of projectData.cartOnlyItems) {
-      addCartOnlyItem(item);
+// Detached windows: fetch project data from the main process and keep in sync.
+// The mixer window takes this too — not because it needs the cue list, but for
+// the theme and for settings.outputTargetLevels, which drive the meter zone
+// colours. Without it a detached meter would colour its zones off the EBU
+// defaults and disagree with the same meter in the main window.
+function applyDetachedWindowProjectData(projectData: any) {
+  if (!projectData || !(isCartWindow || isMixerWindow)) return;
+  if (isCartWindow) {
+    clearCartOnlyItems();
+    if (Array.isArray(projectData.cartOnlyItems)) {
+      for (const item of projectData.cartOnlyItems) {
+        addCartOnlyItem(item);
+      }
     }
   }
-  // In cart window mode, only set currentProject without triggering watchers
+  // In detached windows, only set currentProject without triggering watchers
   // Use Object.assign to preserve reactivity while avoiding deep-watch triggers
   if (currentProject.value) {
     Object.assign(currentProject.value, projectData);
   } else {
     currentProject.value = projectData;
   }
-  // Apply theme from project
-  if (projectData.theme?.mode) {
-    theme.value = projectData.theme.mode;
-  }
-  if (projectData.theme?.accentColor) {
-    document.documentElement.style.setProperty('--color-accent-custom', projectData.theme.accentColor);
-  }
+  // The theme deliberately does NOT come through here any more (U4). A
+  // detached window is the same person at the same desk, so it reads the same
+  // preferences the main window does — from their server profile if they are
+  // signed in, otherwise from this machine's own store, which the `storage`
+  // event keeps in step across windows. Routing it through the project data
+  // meant the colour scheme arrived as a property of whatever file was open.
 }
 
 // Listen to menu events
 onMounted(() => {
   if (import.meta.client && window.electronAPI) {
-    // Cart window initialisation: load project data then listen for updates
-    if (isCartWindow) {
+    // Detached-window initialisation: load project data then listen for
+    // updates. Both the cart and mixer windows stop here — the listeners
+    // below (menu commands, updates, file association, quit flow) belong to
+    // the main window and would double-fire if a second window took them too.
+    if (isCartWindow || isMixerWindow) {
       window.electronAPI.getCartWindowProjectData().then((projectData: any) => {
-        applyCartWindowProjectData(projectData);
+        applyDetachedWindowProjectData(projectData);
       });
       window.electronAPI.onCartWindowProjectUpdate((_event: any, projectData: any) => {
-        applyCartWindowProjectData(projectData);
+        applyDetachedWindowProjectData(projectData);
       });
       // Apply locale from localStorage (already handled by useLocalization)
       return; // skip main-window-only event listeners below
@@ -300,15 +308,23 @@ onMounted(() => {
     (window as any).electronAPI.app?.onRequestQuit?.(() => { void runQuitFlow(); });
 
     window.electronAPI.onMenuToggleDarkMode(() => {
-      theme.value = theme.value === 'dark' ? 'light' : 'dark';
-      if (currentProject.value) {
-        currentProject.value.theme.mode = theme.value as 'dark' | 'light';
-        saveProject();
-      }
+      // Straight to the person's preferences, and no saveProject() with it —
+      // flipping to light mode used to mark the show dirty (U4).
+      //
+      // Toggles against what is SHOWING, not against the preference, so that
+      // from "system" it goes to the opposite of what is on screen rather than
+      // to whichever branch the preference happens to read as. Landing on an
+      // explicit mode is correct: asking for dark is asking for dark, not for
+      // "follow the OS and hope".
+      setTheme({ mode: resolvedThemeMode.value === 'dark' ? 'light' : 'dark' });
     });
 
+    // Both of these used to raise a modal of their own. They are panes now, so
+    // the menu item is a deep link — the same move the mixer's output-map
+    // action made in P3d, and the reason the accent swatches and the About
+    // panel each have exactly one home.
     window.electronAPI.onMenuChangeAccentColor(() => {
-      showColorPicker.value = true;
+      openSettings('appearance');
     });
 
     window.electronAPI.onMenuChangeLanguage((event: any, locale: string) => {
@@ -316,7 +332,19 @@ onMounted(() => {
     });
     
     window.electronAPI.onMenuShowAbout(() => {
-      showAboutModal.value = true;
+      openSettings('about');
+    });
+
+    // The Settings menu. One channel for all ten panes, with the section id as
+    // its argument; no id means "open Settings", and `open()` falls back to
+    // DEFAULT_SETTINGS_SECTION on its own.
+    //
+    // It also VALIDATES the id against SETTINGS_SECTIONS, which is what makes
+    // the menu's mirrored list safe to be a mirror: a pane the main process
+    // still offers after this side stopped registering it opens the default
+    // pane rather than a blank one.
+    window.electronAPI.onMenuOpenSettings((_event: any, section?: string) => {
+      openSettings(section);
     });
     
     // File > Import Project. When the server is on this same machine the
@@ -417,6 +445,12 @@ async function runQuitFlow() {
   quitFlowActive = true;
   const api = (window as any).electronAPI;
   try {
+    // Step 0 — D13: flush any whole-document save still sitting in the
+    // 300 ms debounce window (autosave on, edit made in the instant before
+    // quit). hasUnsavedChanges only tracks the autosave-off case below, so
+    // this has to run unconditionally; it's a no-op when nothing is pending.
+    try { await flushPendingSave(); } catch (e) { console.warn('[quit] flush failed:', e); }
+
     // Step 1 — unsaved changes (pending edits with autosave off).
     if (hasUnsavedChanges.value) {
       const choice = await askQuitUnsaved();
@@ -451,15 +485,6 @@ async function runQuitFlow() {
     quitFlowActive = false;
   }
 }
-
-const changeAccentColor = (color: string) => {
-  if (currentProject.value) {
-    currentProject.value.theme.accentColor = color;
-    document.documentElement.style.setProperty('--color-accent-custom', color);
-    saveProject();
-    showColorPicker.value = false;
-  }
-};
 
 // ---------------------------------------------------------------------------
 // Import project flow (dual-dialog when client and server are on different
@@ -500,7 +525,7 @@ watch(pendingLpaImportReady, async (lpaPath) => {
 function startImportFlow() {
   const server = useLiveplayServer();
   importServerPickerStage.value = 'archive';
-  if (server.isLocalServer.value) {
+  if (server.isLocalServer) {
     importServerPickerOpen.value = true;
   } else {
     importChoiceVisible.value = true;
@@ -601,15 +626,24 @@ const handleProjectSelectionCancel = () => {
   availableProjects.value = [];
 };
 
-// Set initial theme from project
-watch(currentProject, (project) => {
-  if (project) {
-    theme.value = project.theme.mode;
-    
-    // Set accent color
-    if (import.meta.client && project.theme.accentColor) {
-      document.documentElement.style.setProperty('--color-accent-custom', project.theme.accentColor);
-    }
+// Paint the operator's own theme, from wherever usePreferences resolved it.
+// Was `watch(currentProject, ...)` until U4, which is why opening a colleague's
+// show used to change your colours.
+//
+// Watches the RESOLVED mode, not the preference: "system" is not a palette, and
+// the stylesheet only defines [data-theme='light'] and [data-theme='dark'].
+// Because the resolved value also depends on the OS, this fires on its own when
+// the desktop flips at sunset mid-show — which is the whole point of the
+// setting, and would not happen if this watched the preference.
+watch([resolvedThemeMode, () => userTheme.value?.accentColor], ([mode, accent]) => {
+  if (!mode) return;
+  theme.value = mode;
+  // Mirror onto <html> too: the theme variables are scoped to [data-theme],
+  // and with it only on #app, `body { background: var(--color-background) }`
+  // resolved to nothing and anything transparent showed the window's white.
+  if (import.meta.client) document.documentElement.setAttribute('data-theme', mode);
+  if (import.meta.client && accent) {
+    document.documentElement.style.setProperty('--color-accent-custom', accent);
   }
 }, { immediate: true });
 
@@ -644,67 +678,15 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.color-picker-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal);
-}
-
-.color-picker-dialog {
-  background: var(--color-surface);
-  padding: var(--spacing-xl);
-  border-radius: var(--border-radius-lg);
-  min-width: 400px;
-  color: var(--color-text-primary);
-}
-
-.color-picker-dialog h3 {
-  margin-bottom: var(--spacing-md);
-  color: var(--color-text-primary);
-}
-
-.color-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-md);
-}
-
-.color-option {
-  width: 50px;
-  height: 50px;
-  border: 2px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  cursor: pointer;
-  transition: transform var(--transition-fast);
-}
-
-.color-option:hover {
-  transform: scale(1.1);
-  border-color: var(--color-text-primary);
-}
-
-.close-dialog {
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  color: var(--color-text-primary);
-}
-
-.close-dialog:hover {
-  background: var(--color-surface-hover);
-}
-
 .cart-window-root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-background);
+}
+
+.mixer-window-root {
   width: 100%;
   height: 100%;
   display: flex;

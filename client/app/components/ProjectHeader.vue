@@ -7,7 +7,12 @@
         alt="LivePlay"
         class="header-logo"
       />
-      <h2 class="project-name" :class="{ 'project-name--hidden': hideTitle }">{{ currentProject?.name || t('project.noProject') }}</h2>
+      <h2
+        ref="nameRef"
+        class="project-name"
+        :class="{ 'project-name--hidden': hideTitle }"
+        :title="currentProject?.name"
+      >{{ currentProject?.name || t('project.noProject') }}</h2>
       <span
         v-if="currentProject && !autoSaveEnabled && hasUnsavedChanges"
         class="unsaved-pill"
@@ -21,36 +26,58 @@
       :class="[silenceWarningClass, { 'silence-warning--left': warningMode === 'left' }]"
       :style="warningStyle"
     >
-      {{ t('project.silenceWarning') }} {{ Math.ceil(silenceWarning) }} {{ t('project.seconds') }}
+      {{ t('project.silenceCountdown', { seconds: Math.ceil(silenceWarning) }) }}
     </div>
 
-    <div ref="rightRef" class="header-right">
+    <!-- `fit-N` is how far the right-hand block has had to compact itself to
+         share the row with the title: labels give way to icons one group at a
+         time, and only then does the project name start to truncate. See
+         fitHeader() — measured, not breakpointed, because 21 locales and any
+         project name make the natural width unknowable in advance. -->
+    <div ref="rightRef" class="header-right" :class="`fit-${fitLevel}`">
       <!-- Appears the moment the socket drops; spins for as long as we retry. -->
       <ConnectionStatusPill />
 
-      <Btn icon="tune" :text="t('settings.title')" @click="showProjectSettings = true" />
-      <Btn icon="keyboard" :text="t('controls.shortcutBtn')" @click="showControlConfig = true" />
+      <!-- The panes: Playlist, Cart Player, Mixer. Always here, so a pane
+           closed from its own header or dragged shut is one click away. -->
+      <WorkspaceBar :icon-only="fitLevel >= 5" />
 
-      <!-- Autosave toggle: on by default; when off the project is only saved
-           via File > Save and an "Unsaved Changes" pill appears by the title. -->
+      <span class="header-divider" aria-hidden="true"></span>
+
+      <!-- An action, so it looks like a button — not a toggle, not a switch. -->
+      <Btn
+        class="header-action"
+        :class="{ 'header-action--icon': fitLevel >= 3 }"
+        icon="settings"
+        :text="t('settings.title')"
+        :title="t('settings.title')"
+        @click="openSettings()"
+      />
+
+      <span class="header-divider" aria-hidden="true"></span>
+
+      <!-- Modes are switches. Autosave: on by default; when off the project is
+           only saved via File > Save and an "Unsaved Changes" pill appears by
+           the title. -->
       <button
         type="button"
         class="autosave-toggle"
         role="switch"
         :aria-checked="autoSaveEnabled"
         :aria-label="t('project.autosave')"
+        :title="t('project.autosave')"
         :disabled="!currentProject"
         @click="setAutoSave(!autoSaveEnabled)"
       >
-        <span class="autosave-toggle__label">{{ t('project.autosave') }}</span>
+        <span v-if="fitLevel >= 4" class="material-symbols-rounded autosave-toggle__icon" aria-hidden="true">save</span>
+        <span v-else class="autosave-toggle__label">{{ t('project.autosave') }}</span>
         <span class="autosave-toggle__track" :class="{ 'autosave-toggle__track--on': autoSaveEnabled }">
           <span class="autosave-toggle__thumb"></span>
         </span>
       </button>
 
-      <!-- Show Mode toggle: flips the whole workspace into the touch-friendly
-           playback layout (edit buttons hidden, larger touch targets) and back.
-           Persisted per-device, not in the project. -->
+      <!-- Show Mode: the touch-friendly playback layout (edit buttons hidden,
+           larger touch targets). Per-device, not in the project. -->
       <button
         type="button"
         class="autosave-toggle showmode-toggle"
@@ -61,11 +88,14 @@
         :title="t('showMode.toggleHint')"
         @click="toggleUiMode"
       >
-        <span class="autosave-toggle__label">{{ t('showMode.toggle') }}</span>
+        <span v-if="fitLevel >= 4" class="material-symbols-rounded autosave-toggle__icon" aria-hidden="true">theaters</span>
+        <span v-else class="autosave-toggle__label">{{ t('showMode.toggle') }}</span>
         <span class="autosave-toggle__track" :class="{ 'autosave-toggle__track--on': uiMode === 'playback' }">
           <span class="autosave-toggle__thumb"></span>
         </span>
       </button>
+
+      <span class="header-divider" aria-hidden="true"></span>
 
       <!-- Clock pair: wall clock always shown; LTC box only appears once an
            LTC output device is configured in Project Settings — otherwise
@@ -75,7 +105,7 @@
           <span class="clock-label">{{ t('project.clock') }}</span>
           <span class="clock-value">{{ currentTime }}</span>
         </div>
-        <div v-if="hasLtcDevice" class="digital-clock" :class="ltcTimecode ? 'clock--active' : 'clock--inactive'">
+        <div v-if="hasLtcOutput" class="digital-clock" :class="ltcTimecode ? 'clock--active' : 'clock--inactive'">
           <span class="clock-label">LTC</span>
           <span class="clock-value">{{ ltcTimecode ?? '--:--:--:--' }}</span>
         </div>
@@ -83,19 +113,11 @@
     </div>
   </div>
 
-  <ControlConfigModal
-    v-if="showControlConfig"
-    @close="showControlConfig = false"
-  />
-  <ProjectSettingsModal
-    :open="showProjectSettings"
-    @close="showProjectSettings = false"
-  />
 </template>
 
 <script setup lang="ts">
-import ProjectSettingsModal from './ProjectSettingsModal.vue';
 import Btn from './Btn.vue';
+import WorkspaceBar from './WorkspaceBar.vue';
 import type { AudioItem } from '~/types/project';
 
 const { currentProject, findItemByUuid, findItemByIndex, autoSaveEnabled, hasUnsavedChanges, setAutoSave } = useProject();
@@ -103,10 +125,16 @@ const { t } = useLocalization();
 const { activeCues } = useAudioEngine();
 const { uiMode, toggleUiMode } = useUiMode();
 
-const showControlConfig = ref(false);
-const showProjectSettings = useState('showProjectSettings', () => false);
+// Settings is a full-window page mounted at app level, not a modal owned by
+// this header — the button only opens it. It is deep-linkable, so the section
+// is part of the URL rather than a flag here.
+const { open: openSettings } = useSettingsPage();
+const { currentLocale } = useLocalization();
+const server = useLiveplayServer();
 
-const isDark = computed(() => currentProject.value?.theme.mode === 'dark');
+// The operator's own theme (U4), not the open document's. The RESOLVED mode,
+// because the preference can say "system" and a logo cannot be drawn in that.
+const isDark = computed(() => usePreferences().resolvedThemeMode.value === 'dark');
 const currentTime = ref('00:00:00');
 
 // ---- Silence warning -------------------------------------------------------
@@ -159,7 +187,13 @@ function recomputeWarningPlacement() {
   // Geometry is measured with the title always occupying space, so the chosen
   // mode never oscillates: in "left" mode the title is only made invisible, it
   // keeps its layout box.
-  const leftEdge  = left.getBoundingClientRect().right - headerRect.left;
+  //
+  // The left block stretches (so the title can truncate), which puts its own
+  // right edge against the buttons whatever the title's length. The edge that
+  // matters is where its CONTENT stops.
+  const leftEdge = Math.max(
+    ...Array.from(left.children).map(c => c.getBoundingClientRect().right),
+  ) - headerRect.left;
   const rightEdge = right.getBoundingClientRect().left - headerRect.left;
   const logoEdge  = logo.getBoundingClientRect().right - headerRect.left;
   const w = warning.offsetWidth;
@@ -184,6 +218,61 @@ function recomputeWarningPlacement() {
   // 3. Fall back to left-aligned, taking the title's place (logo stays).
   warningMode.value = 'left';
   warningLeftPx.value = logoEdge + PLACEMENT_MARGIN;
+}
+
+// ---- Fitting the row -------------------------------------------------------
+// Everything here has to share one row at any window width, in any of the
+// locales, beside any project name. The right-hand block compacts in steps,
+// each giving up the least useful text first. The show's name outranks every
+// label here, so up to TITLE_KEEP_PX of it is protected until every step is
+// spent; past that, a long name truncates rather than costing a label.
+//
+//   0  everything labelled
+//   1  the clocks drop their captions and shrink
+//   2  tighter spacing, no dividers
+//   3  Settings becomes an icon button (a gear needs no caption)
+//   4  the mode switches swap their labels for icons
+//   5  pane toggles lose their labels (the icons + tooltips still say which)
+//
+// The labels go last on purpose: they are what tells a newcomer what each
+// control is, so the spacing and the clocks give way first.
+//
+// Measured rather than breakpointed: German labels, a long show name or the
+// LTC clock appearing all move the point at which each step is needed.
+const FIT_MAX = 5;
+const TITLE_KEEP_PX = 200;
+const fitLevel = ref(0);
+const nameRef = ref<HTMLElement | null>(null);
+let fitting = false;
+
+function headerFits(): boolean {
+  const header = headerRef.value, left = leftRef.value, right = rightRef.value, name = nameRef.value;
+  if (!header || !left || !right || !name) return true;
+  const cs = getComputedStyle(header);
+  const inner = header.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const gap = parseFloat(cs.columnGap) || 16;
+  // What the left block needs with the title at its protected width (or its
+  // full width, if it is shorter than that anyway).
+  const leftNeed = left.getBoundingClientRect().width - name.getBoundingClientRect().width
+    + Math.min(name.scrollWidth, TITLE_KEEP_PX);
+  return right.getBoundingClientRect().width <= inner - leftNeed - gap;
+}
+
+async function fitHeader() {
+  if (fitting) return;
+  fitting = true;
+  try {
+    // From the top every time: a wider window may now afford a lower step.
+    // Every iteration is a microtask, so no intermediate step is ever painted.
+    for (let level = 0; level <= FIT_MAX; level++) {
+      fitLevel.value = level;
+      await nextTick();
+      if (headerFits()) break;
+    }
+  } finally {
+    fitting = false;
+  }
+  recomputeWarningPlacement();
 }
 
 // Recompute whenever the displayed text changes (digit count shifts width) or
@@ -298,17 +387,16 @@ function framesToTc(totalFrames: number, fps: number): string {
   return [h, m, s, f].map(n => String(n).padStart(2, '0')).join(':');
 }
 
-// Whether the project has an LTC output device configured at all — the LTC
-// clock box is only rendered when this is true, so it doesn't sit in the
-// (increasingly crowded) header as permanent dead weight for projects that
-// never use timecode.
-const hasLtcDevice = computed(() => !!(currentProject.value as any)?.settings?.ltcDevice);
+// Whether the project names an LTC output at all — the LTC clock box is only
+// rendered when this is true, so it doesn't sit in the (increasingly crowded)
+// header as permanent dead weight for projects that never use timecode.
+const hasLtcOutput = computed(() => !!(currentProject.value as any)?.settings?.ltcOutput);
 
 // Returns the current LTC timecode string if any active cue is outputting LTC
-// to a configured LTC device, otherwise null (→ box shown grey with dashes).
+// to a configured LTC output, otherwise null (→ box shown grey with dashes).
 const ltcTimecode = computed<string | null>(() => {
-  const ltcDevice = (currentProject.value as any)?.settings?.ltcDevice;
-  if (!ltcDevice) return null;
+  const ltcOutput = (currentProject.value as any)?.settings?.ltcOutput;
+  if (!ltcOutput) return null;
 
   for (const [uuid, cue] of activeCues.value) {
     const item = findItemByUuid(uuid);
@@ -325,23 +413,50 @@ const ltcTimecode = computed<string | null>(() => {
   return null;
 });
 
+// Content that changes the header's natural width without resizing it. Down
+// here because the getter runs at once, and hasLtcOutput is declared above.
+watch(
+  // The labels themselves, not just the locale code: the code is set before
+  // the translation files have arrived, so the first labels measured can be
+  // raw keys that are far wider than the words that replace them.
+  () => [currentProject.value?.name, currentLocale.value, hasLtcOutput.value,
+         autoSaveEnabled.value, hasUnsavedChanges.value, server.connected,
+         t('playlist.title'), t('cart.title'), t('mixer.title'), t('settings.title'),
+         t('project.autosave'), t('showMode.toggle')],
+  () => { void fitHeader(); },
+);
+
 onMounted(() => {
   updateClock();
   const clockInterval = setInterval(updateClock, 1000);
   const silenceInterval = setInterval(checkForSilence, 100);
 
-  // Re-place the silence banner whenever the header geometry changes
-  // (window resize, sidebar toggles, clock width shifts, …).
+  // Re-fit (which re-places the silence banner too) whenever the header's
+  // geometry changes, AND whenever what is in it changes size by itself.
+  // Watching the header alone missed the cases that matter at startup: the
+  // "Reconnecting…" pill still fading out, the icon font or the translations
+  // arriving a moment after mount. Each of those left the row measured too
+  // wide and stuck on icons with nothing to prompt a second look. The right
+  // block's own size changes whenever fitHeader moves a step, too, but that
+  // settles after one pass: the second pass lands on the same step and the
+  // same size, so the observer has nothing new to report.
   let resizeObserver: ResizeObserver | null = null;
   if (headerRef.value && typeof ResizeObserver !== 'undefined') {
-    resizeObserver = new ResizeObserver(() => recomputeWarningPlacement());
+    resizeObserver = new ResizeObserver(() => { void fitHeader(); });
     resizeObserver.observe(headerRef.value);
+    if (rightRef.value) resizeObserver.observe(rightRef.value);
+    if (nameRef.value)  resizeObserver.observe(nameRef.value);
   }
+  void fitHeader();
+  const refitOnFonts = () => { void fitHeader(); };
+  document.fonts?.ready.then(refitOnFonts).catch(() => {});
+  document.fonts?.addEventListener?.('loadingdone', refitOnFonts);
 
   onUnmounted(() => {
     clearInterval(clockInterval);
     clearInterval(silenceInterval);
     if (resizeObserver) resizeObserver.disconnect();
+    document.fonts?.removeEventListener?.('loadingdone', refitOnFonts);
   });
 });
 </script>
@@ -358,16 +473,25 @@ onMounted(() => {
   min-height: 60px;
 }
 
+.project-header {
+  column-gap: var(--spacing-md);
+}
+
+/* Stretches so the title can give way; fitHeader() protects up to
+   TITLE_KEEP_PX of it by compacting the right-hand block first. */
 .header-left {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .header-logo {
   width: 36px;
   height: 36px;
   object-fit: contain;
+  flex-shrink: 0;
 }
 
 .project-name {
@@ -375,12 +499,54 @@ onMounted(() => {
   font-weight: 600;
   color: var(--color-text-primary);
   margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-right {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+  flex: 0 0 auto;
+}
+
+.header-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 6px 0;
+  background-color: var(--color-border);
+  flex-shrink: 0;
+}
+
+/* Settings as an icon button (fit step 2). Btn renders icon + text spans; the
+   title attribute keeps the name on hover. */
+.header-action--icon {
+  padding-left: var(--spacing-sm);
+  padding-right: var(--spacing-sm);
+
+  :deep(span:not(.material-symbols-rounded)) { display: none; }
+}
+
+.autosave-toggle__icon {
+  font-size: 20px;
+}
+
+/* Fit step 1 onwards: the clocks lose their captions and shrink. */
+.header-right:not(.fit-0) {
+  .clock-label { display: none; }
+  .digital-clock {
+    min-width: 0;
+    padding: 4px var(--spacing-sm);
+  }
+  .clock-value { font-size: 17px; }
+}
+
+/* Fit step 2 onwards: every pixel of spacing back. */
+.header-right:not(.fit-0):not(.fit-1) {
+  gap: var(--spacing-sm);
+  .header-divider { display: none; }
 }
 
 /* "Unsaved Changes" pill — styled like the playback status pills (yellow

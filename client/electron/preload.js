@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Dialogs + binary helpers used by the dual-dialog import/export flows.
   showSaveArchiveDialog: (defaultName) => ipcRenderer.invoke('show-save-archive-dialog', defaultName),
   showOpenArchiveDialog: () => ipcRenderer.invoke('show-open-archive-dialog'),
+  // Save dialog filtered to .json; pair with writeFile. Returns a path or null.
+  showSaveJsonDialog: (defaultName, title) => ipcRenderer.invoke('show-save-json-dialog', defaultName, title),
   writeBinaryFile: (filePath, data) => ipcRenderer.invoke('write-binary-file', filePath, data),
   copyFile: (source, destination) => ipcRenderer.invoke('copy-file', source, destination),
   ensureDirectory: (dirPath) => ipcRenderer.invoke('ensure-directory', dirPath),
@@ -102,6 +104,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuChangeAccentColor: (callback) => replaceIpcListener('menu-change-accent-color', callback),
   onMenuChangeLanguage: (callback) => replaceIpcListener('menu-change-language', callback),
   onMenuShowAbout: (callback) => replaceIpcListener('menu-show-about', callback),
+  // Carries the section id as its argument, so one channel serves all ten
+  // panes rather than a channel per pane.
+  onMenuOpenSettings: (callback) => replaceIpcListener('menu-open-settings', callback),
 
   // External links
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
@@ -153,6 +158,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onCartPlayerWindowOpened: (callback) => replaceIpcListener('cart-player-window-opened', callback),
   onCartPlayerWindowClosed: (callback) => replaceIpcListener('cart-player-window-closed', callback),
   onCartWindowProjectUpdate: (callback) => ipcRenderer.on('cart-window-project-update', callback),
+
+  // Mixer window — detach/attach. No project-data channel of its own: buses
+  // and meters come over the renderer's own WebSocket, and the theme/meter
+  // levels ride the cart window's project-data broadcast.
+  openMixerWindow: () => ipcRenderer.invoke('open-mixer-window'),
+  attachMixerWindow: () => ipcRenderer.send('mixer-window-attach'),
+  onMixerWindowOpened: (callback) => replaceIpcListener('mixer-window-opened', callback),
+  onMixerWindowClosed: (callback) => replaceIpcListener('mixer-window-closed', callback),
 
   // UI mode ("show mode") sync across windows
   broadcastUiMode: (mode) => ipcRenderer.send('ui-mode-changed', mode),

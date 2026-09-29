@@ -79,6 +79,13 @@ export const useLocalization = () => {
       // Save to project if available
       if (import.meta.client) {
         localStorage.setItem('liveplay-locale', locale);
+        // Keep the native menu's radio mark on the language actually in force.
+        // The menu item's own handler routes through here too, so doing it here
+        // rather than at each call site is what makes the two agree — and
+        // rebuilding the menu does not re-fire the item, so there is no loop.
+        // The system-locale detection below has always done this; a language
+        // chosen from the Settings page needs it for the same reason.
+        (window as any).electronAPI?.updateMenuLanguage?.(locale);
       }
     }
   };

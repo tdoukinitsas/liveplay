@@ -26,7 +26,7 @@ import type {
   Theme,
   CartItem
 } from '~/types/project';
-import { DEFAULT_THEME, DEFAULT_CART_SLOT_KEYS, anchorStartNextMarker } from '~/types/project';
+import { DEFAULT_CART_SLOT_KEYS, BUS_SCHEMA_VERSION, anchorStartNextMarker } from '~/types/project';
 import { applyAutoProcessing, buildWaveformFromChannels } from '~/utils/audio';
 import {
   formatDisplayIndexPath,
@@ -51,6 +51,21 @@ import {
 // streamItemPages / closeProject (which live inside the per-call closure)
 // can still poke into the single global watcher block.
 // ---------------------------------------------------------------------------
+// Detached windows (cart player, mixer) hold a one-shot IPC copy of the
+// project rather than owning it. They deliberately run without the sync
+// watchers — diffing that copy against itself would push phantom edits — and
+// for the same reason they must never author a whole-document save: the copy
+// can be older than what the server holds, so pushing it back would undo work
+// done in the main window. Anything a detached window creates has to reach the
+// server through a targeted endpoint instead, which is also what makes the
+// main window converge (it applies the resulting doc_patch).
+export const isSecondaryWindow = typeof window !== 'undefined'
+  ? (() => {
+      const q = new URLSearchParams(window.location.search);
+      return q.get('cartWindow') === '1' || q.get('mixerWindow') === '1';
+    })()
+  : false;
+
 let _syncWatchersInstalled = false;
 let _refreshItemsBaselineAfterHydrate: () => void = () => {};
 let _captureBaselinesFn: () => void = () => {};
@@ -60,6 +75,28 @@ let _captureBaselinesFn: () => void = () => {};
 let _syncItemsDiffFn: () => Promise<void> = async () => {};
 let _installItemsWatcherFn:   null | (() => void) = null;
 let _uninstallItemsWatcherFn: null | (() => void) = null;
+
+// ---------------------------------------------------------------------------
+// Whole-document save debouncing (decision D13).
+//
+// saveProject() is called from ~15 different call sites across the app (drag
+// batches, cart ops, properties-panel field commits, etc.) — a single user
+// edit gesture can trigger it more than once (e.g. a slider firing several
+// `change` events, or a handler that both mutates state directly AND calls
+// saveProject()). Each call used to hit the server immediately
+// (POST /api/project/save with a full document snapshot), so one edit could
+// produce a burst of redundant whole-document writes within the same second.
+//
+// Module-scoped (not per-useProject()-call) so the debounce coalesces across
+// every component instance, not just calls from the same closure. A
+// non-forced saveProject() call schedules a single trailing 300 ms flush;
+// every caller in that window shares the same outbound save and its result.
+// `force` (File > Save, autosave toggle, project close, app quit) bypasses
+// the wait and flushes synchronously with whatever is already scheduled, so
+// no edit is ever lost to a debounce window the app is about to tear down.
+// ---------------------------------------------------------------------------
+let _saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let _saveDebounceWaiters: Array<(ok: boolean) => void> = [];
 
 // UUIDs of items that were just added in this session and are waiting for
 // their first waveform so that auto-process (trim + normalise) can run.
@@ -199,6 +236,7 @@ export const useProject = () => {
   // loading overlay. `loadingMessage` is the title shown in the overlay.
   const isLoading = useState<boolean>('useProject.isLoading', () => false);
   const loadingMessage = useState<string>('useProject.loadingMessage', () => '');
+  const { t } = useLocalization();
   // Background audio-loading progress (polled while the server is still
   // mirroring cues into the engine in a worker thread). loading=false means
   // every audio cue is ready to play.
@@ -207,9 +245,13 @@ export const useProject = () => {
     () => ({ loading: false, loaded: 0, total: 0 }),
   );
   // Server-owned preview state: at most one item is "being previewed" at a
-  // time (DJ pre-listen on settings.previewDevice). Empty string = no
+  // time (DJ pre-listen, on the Preview bus). Empty string = no
   // preview active. The server updates this; the client mirrors it for UI.
   const previewItemUuid = useState<string>('useProject.previewItemUuid', () => '');
+  // A "wait before next" in progress (#8): which cue ended, and when (local
+  // clock) its end behaviour fires. Server-owned; mirrored from advance_pending.
+  const advancePending = useState<{ fromUuid: string; dueAt: number } | null>(
+    'useProject.advancePending', () => null);
   // Engine cue ID for the active preview — needed to subscribe to its meter
   // stream and drive the seek bar / playhead time in the preview card.
   const previewCueId = useState<string>('useProject.previewCueId', () => '');
@@ -542,7 +584,7 @@ export const useProject = () => {
   // to write the .liveplay file.
   const createNewProject = async (name: string, folderPath: string): Promise<boolean> => {
     isLoading.value = true;
-    loadingMessage.value = 'Creating project…';
+    loadingMessage.value = t('project.creating');
     try {
       const server = useLiveplayServer();
       // Ensure server is reachable; without it we can't actually own state.
@@ -558,7 +600,9 @@ export const useProject = () => {
         cartItems: [],
         cartSlotKeys: { ...DEFAULT_CART_SLOT_KEYS },
         cartOnlyItems: [],
-        theme: { ...DEFAULT_THEME },
+        // No `theme` here (U4): a new show inherits the desk it is being made
+        // at, and putting the current colours into a fresh document would be
+        // writing a personal preference into a portable file all over again.
         createdAt: new Date().toISOString(),
         lastModified: new Date().toISOString()
       };
@@ -659,7 +703,7 @@ export const useProject = () => {
   //      audio-mirror phase still running on the server.
   const openProject = async (projectFilePath: string): Promise<boolean> => {
     isLoading.value = true;
-    loadingMessage.value = 'Loading project…';
+    loadingMessage.value = t('project.loading');
     try {
       const server = useLiveplayServer();
       if (!server.connected) {
@@ -835,17 +879,38 @@ export const useProject = () => {
       name:           header.name ?? 'Untitled',
       version:        header.version ?? '2.0.0',
       folderPath:     header.folderPath ?? '',
+      // Passed through, not asserted: whatever the server says the loaded
+      // document is at comes back out on the next save.
+      busSchema:      header.busSchema ?? BUS_SCHEMA_VERSION,
       items:          [], // populated by streamItemPages
       cartItems:      header.cartItems ?? [],
       cartSlotKeys:   header.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS },
+      // Both legacy (U4): carried through only so adoptFromProject below can
+      // read them as a seed. Nothing in the app reads them for display any
+      // more, and neither is written back.
       playbackKeys:   header.playbackKeys,
       cartOnlyItems:  header.cartOnlyItems ?? [],
-      theme:          header.theme ?? { ...DEFAULT_THEME },
+      theme:          header.theme,
       createdAt:      header.createdAt ?? new Date().toISOString(),
       lastModified:   header.lastModified ?? new Date().toISOString(),
     };
     if (header.settings) (project as any).settings = header.settings;
     currentProject.value = project;
+    // The unauthenticated half of the U4 migration: a surface that has never
+    // chosen a theme or a keymap adopts whatever this document is still
+    // carrying, once. A signed-in operator's profile is seeded server-side
+    // instead, and this call is a no-op for them — it must not let a file
+    // decide what a person's profile says.
+    {
+      const prefs = usePreferences();
+      prefs.adoptFromProject({ ...header, settings: header.settings });
+      // ...and the signed-in half: re-read the profile now that a document is
+      // open, because that read is what seeds a profile which does not exist
+      // yet. On the ordinary startup order — socket up, then File > Open —
+      // the connect-time read happened against an empty desk. If a profile
+      // already exists this is one cheap GET that changes nothing.
+      void prefs.refresh();
+    }
     updateIndices(project.items);
     // Signal the reload to per-project memoisation elsewhere. Reopening the
     // same project leaves name and folderPath identical, so this counter is
@@ -892,6 +957,19 @@ export const useProject = () => {
   }
 
 
+  // Settings that used to live in the show file but belong to the person now
+  // (U4). An older project still carries them in this in-memory copy, and
+  // sending them back on every save made the server count them as a fresh
+  // migration each time — which re-raised the "earlier version" banner after
+  // every save. The server reads them once, at load, as the seed for a
+  // profile; it has no use for them after that.
+  const PERSONAL_SETTING_KEYS = ['meterMode', 'uiScrollToPlaying'] as const;
+  const showSettingsOnly = (settings: any) => {
+    const out = toJSON(settings);
+    if (out && typeof out === 'object') for (const k of PERSONAL_SETTING_KEYS) delete out[k];
+    return out;
+  };
+
   // Serialise the in-memory project into the wire shape the server expects.
   // Shared by saveProject (which sends it alongside the target path) and
   // resumeProjectOnServer (which replaces the server's document wholesale).
@@ -901,13 +979,20 @@ export const useProject = () => {
       name:          currentProject.value.name,
       version:       currentProject.value.version,
       folderPath:    currentProject.value.folderPath,
+      // Declares which routing era this document comes from. Without it the
+      // server cannot tell this save from a pre-bus project being pushed over
+      // the loaded one, and takes the migration path — which would wipe the
+      // bus list on every ordinary save (D11).
+      busSchema:     currentProject.value.busSchema ?? BUS_SCHEMA_VERSION,
       items:         itemsToJSON(currentProject.value.items) ?? [],
       cartItems:     toJSON(currentProject.value.cartItems) ?? [],
       cartSlotKeys:  toJSON((currentProject.value as any).cartSlotKeys),
-      playbackKeys:  toJSON((currentProject.value as any).playbackKeys),
+      // `theme` and `playbackKeys` are deliberately absent (U4). The server
+      // drops them on save regardless, so sending them would be this client
+      // asserting ownership of values it no longer owns — and R1 is the point
+      // of the exercise, not the erasure.
       cartOnlyItems: itemsToJSON(currentProject.value.cartOnlyItems) ?? [],
-      theme:         toJSON(currentProject.value.theme),
-      settings:      toJSON((currentProject.value as any).settings),
+      settings:      showSettingsOnly((currentProject.value as any).settings),
       createdAt:     currentProject.value.createdAt,
       lastModified:  currentProject.value.lastModified,
     };
@@ -975,31 +1060,13 @@ export const useProject = () => {
     }
   };
 
-  // Save the current project — the server already has the document, it just
-  // needs to write to disk.
-  const saveProject = async (opts?: { force?: boolean }): Promise<boolean> => {
+  // The actual network round-trip: build the document snapshot and PUT/POST
+  // it to the server. No debouncing, no autosave gating — every path that
+  // wants an unconditional save-right-now (the debounce flush below, and the
+  // force branch when nothing is currently scheduled) goes through this.
+  const doSaveProjectNow = async (): Promise<boolean> => {
     try {
       if (!currentProject.value) return false;
-
-      // Mirror cart-only items from the client-side memory store back into the
-      // project doc. This MUST run even when autosave is off: the doc's
-      // cartOnlyItems array is what the items diff-watcher pushes to the server
-      // (the playback source of truth), so skipping it leaves a freshly
-      // dragged-in cart item unregistered — the engine has no cue for it and
-      // play logs "PLAY: ?" until the next manual save mirrors + syncs it.
-      const { cartOnlyItems } = useCartItems();
-      currentProject.value.cartOnlyItems = Array.from(cartOnlyItems.value.values());
-
-      // Autosave gating: when the user has turned autosave off, an ordinary
-      // edit-triggered save doesn't touch the disk file — we only flag that
-      // there are unsaved changes. Explicit saves (File > Save, or toggling
-      // autosave) pass { force: true } to bypass this and always persist.
-      // The in-memory server sync still happens via the diff-watcher above.
-      if (!opts?.force && !autoSaveEnabled.value) {
-        hasUnsavedChanges.value = true;
-        return true;
-      }
-
       currentProject.value.lastModified = new Date().toISOString();
 
       const server = useLiveplayServer();
@@ -1008,7 +1075,12 @@ export const useProject = () => {
       // in-memory copy in sync — but we pass the document explicitly so a
       // missed PATCH (race, debounce, hidden watcher gap) can never leave
       // the file (or the engine) with stale property values.
-      const docSnapshot = buildDocumentSnapshot();
+      // ...except from a detached window, which must send no document at all.
+      // Its copy of the project arrived over IPC and can be older than the
+      // server's — pushing it back would silently revert whatever the main
+      // window has done since. It saves the server's own state instead, which
+      // already includes anything this window created (see isSecondaryWindow).
+      const docSnapshot = isSecondaryWindow ? undefined : buildDocumentSnapshot();
       const path = projectFilePathRef.value ||
                    `${currentProject.value.folderPath}/${currentProject.value.name}.liveplay`;
       const res = await server.saveProjectTo(path, docSnapshot);
@@ -1018,6 +1090,71 @@ export const useProject = () => {
       console.error('Error saving project:', error);
       return false;
     }
+  };
+
+  // Cancel whatever debounced save is currently scheduled and run it right
+  // now, resolving every saveProject() caller that was waiting on that
+  // window with the same result. No-op (resolves true without touching the
+  // network) when nothing is scheduled — used by project close / app quit,
+  // which must guarantee nothing is left behind but shouldn't force a
+  // redundant save when there was nothing pending.
+  const flushPendingSave = async (): Promise<boolean> => {
+    if (_saveDebounceTimer === null) return true;
+    clearTimeout(_saveDebounceTimer);
+    _saveDebounceTimer = null;
+    const waiters = _saveDebounceWaiters;
+    _saveDebounceWaiters = [];
+    const ok = await doSaveProjectNow();
+    for (const w of waiters) w(ok);
+    return ok;
+  };
+
+  // Save the current project — the server already has the document, it just
+  // needs to write to disk.
+  //
+  // D13: an ordinary (non-forced) call doesn't hit the network directly. It
+  // schedules a single trailing 300 ms debounce (module-scoped, so it
+  // coalesces calls from every component) and returns a promise that
+  // resolves once that debounce actually flushes. `force` bypasses the wait
+  // entirely — it flushes synchronously with whatever is already scheduled
+  // (or saves immediately if nothing was) so File > Save, the autosave
+  // toggle, project close and app quit can never lose an edit to the window.
+  const saveProject = async (opts?: { force?: boolean }): Promise<boolean> => {
+    if (!currentProject.value) return false;
+
+    // Mirror cart-only items from the client-side memory store back into the
+    // project doc. This MUST run synchronously on every call, even when the
+    // actual save is debounced or gated off: the doc's cartOnlyItems array is
+    // what the items diff-watcher pushes to the server (the playback source
+    // of truth), so skipping it leaves a freshly dragged-in cart item
+    // unregistered — the engine has no cue for it and play logs "PLAY: ?"
+    // until the next save mirrors + syncs it.
+    const { cartOnlyItems } = useCartItems();
+    currentProject.value.cartOnlyItems = Array.from(cartOnlyItems.value.values());
+
+    // Autosave gating: when the user has turned autosave off, an ordinary
+    // edit-triggered save doesn't touch the disk file — we only flag that
+    // there are unsaved changes. Explicit saves (File > Save, or toggling
+    // autosave) pass { force: true } to bypass this and always persist.
+    // The in-memory server sync still happens via the diff-watcher above.
+    if (!opts?.force && !autoSaveEnabled.value) {
+      hasUnsavedChanges.value = true;
+      return true;
+    }
+
+    if (opts?.force) {
+      return _saveDebounceTimer !== null ? await flushPendingSave() : await doSaveProjectNow();
+    }
+
+    if (_saveDebounceTimer) clearTimeout(_saveDebounceTimer);
+    const result = new Promise<boolean>((resolve) => { _saveDebounceWaiters.push(resolve); });
+    _saveDebounceTimer = setTimeout(() => {
+      _saveDebounceTimer = null;
+      const waiters = _saveDebounceWaiters;
+      _saveDebounceWaiters = [];
+      void doSaveProjectNow().then(ok => { for (const w of waiters) w(ok); });
+    }, 300);
+    return result;
   };
 
   // Toggle autosave on/off. The preference lives in project settings (so it
@@ -1035,6 +1172,15 @@ export const useProject = () => {
   // unload its in-memory document so we land back on the welcome screen
   // (where the user can pick New or Open).
   const closeProject = async () => {
+    // D13: flush any whole-document save still sitting in the 300 ms
+    // debounce window before tearing the project down. Without this, an
+    // edit made just before New / Open / Close (autosave on, so
+    // confirmUnsavedChanges() doesn't see it as "unsaved") would have its
+    // scheduled save silently dropped once currentProject is nulled below.
+    // No-op when nothing is pending.
+    try { await flushPendingSave(); }
+    catch (e) { console.warn('[useProject] closeProject flush failed:', e); }
+
     // Tear down the items deep-watcher before nulling the project so the
     // null assignment doesn't trigger one last (now meaningless) sync.
     // The watcher is re-installed by streamItemPages when the next
@@ -1271,11 +1417,20 @@ export const useProject = () => {
     let items: (AudioItem | GroupItem)[] = currentProject.value.items;
     let currentItem: AudioItem | GroupItem | null = null;
 
-    for (const idx of index) {
-      if (idx >= items.length) return null;
-      currentItem = items[idx];
+    for (let depth = 0; depth < index.length; depth++) {
+      const idx = index[depth]!;
+      // A path is only good if every step is a real position. Cart-only items
+      // carry [-1, slot], and "the next index" of one of those is [-1, slot+1]:
+      // items[-1] is undefined, and reading .type off it threw inside every
+      // playlist row's render, which is what emptied the playlist once a
+      // cart-only sound was playing alongside others.
+      if (!Number.isInteger(idx) || idx < 0 || idx >= items.length) return null;
+      currentItem = items[idx]!;
       if (currentItem.type === 'group') {
         items = currentItem.children;
+      } else if (depth < index.length - 1) {
+        // An audio item has no children; a longer path points at nothing.
+        return null;
       }
     }
 
@@ -1332,23 +1487,21 @@ export const useProject = () => {
   };
   const itemsToJSON = _deepToRaw;
 
-  const isCartWindowMode = import.meta.client
-    ? new URLSearchParams(window.location.search).get('cartWindow') === '1'
-    : false;
-
-  if (import.meta.client && !_syncWatchersInstalled && !isCartWindowMode) {
+  // Detached windows (cart player, mixer) receive a one-shot copy of the
+  // project over IPC rather than owning it. Installing the sync watchers there
+  // would diff that copy against itself and push phantom edits to the server,
+  // so every secondary window opts out.
+  if (import.meta.client && !_syncWatchersInstalled && !isSecondaryWindow) {
     _syncWatchersInstalled = true;
     // Per-section debounced sync timers.
     let itemsTimer:    ReturnType<typeof setTimeout> | null = null;
     let cartTimer:     ReturnType<typeof setTimeout> | null = null;
-    let themeTimer:    ReturnType<typeof setTimeout> | null = null;
     let settingsTimer: ReturnType<typeof setTimeout> | null = null;
     // Diff baselines per section. Each is a plain (proxy-stripped) snapshot
     // of the section as it last left this client. Reset on hydrate.
     let lastItems:    any = null;
     let lastCart:     any = null;
     let lastCartOnly: any = null;
-    let lastTheme:    any = null;
     let lastSettings: any = null;
 
     // After hydrate, capture per-section baselines so the per-section
@@ -1360,7 +1513,6 @@ export const useProject = () => {
       lastItems    = itemsToJSON(p?.items);
       lastCart     = toJSON(p?.cartItems);
       lastCartOnly = itemsToJSON(p?.cartOnlyItems);
-      lastTheme    = toJSON(p?.theme);
       lastSettings = toJSON((p as any)?.settings);
     };
     watch(isHydrating, (h) => { if (!h) captureBaselines(); });
@@ -1513,12 +1665,9 @@ export const useProject = () => {
             p.cartItems = (p.cartItems ?? []).filter((c: any) => c.slot !== slot);
             break;
           }
-          case 'theme_patched': {
-            if (patch.theme && typeof patch.theme === 'object') {
-              p.theme = { ...p.theme, ...patch.theme };
-            }
-            break;
-          }
+          // `theme_patched` is gone with U4 — see PATCH /api/project/theme.
+          // The equivalent now is `prefs_changed`, handled by usePreferences,
+          // and it reaches only the sessions belonging to the same person.
           case 'settings_patched': {
             if (patch.settings && typeof patch.settings === 'object') {
               (p as any).settings = { ...(p as any).settings, ...patch.settings };
@@ -1615,6 +1764,13 @@ export const useProject = () => {
             previewCueId.value = '';
             break;
           }
+          case 'advance_pending': {
+            const from = typeof msg.fromUuid === 'string' ? msg.fromUuid : '';
+            advancePending.value = from
+              ? { fromUuid: from, dueAt: Date.now() + (Number(msg.dueInMs) || 0) }
+              : null;
+            break;
+          }
           case 'project_changed': {
             // New project → all cached waveforms are invalid.
             server().invalidateWaveformCache();
@@ -1663,17 +1819,11 @@ export const useProject = () => {
     });
 
     // ---- Theme ----
-    watch(() => currentProject.value?.theme, () => {
-      if (isHydrating.value || !currentProject.value) return;
-      if (themeTimer) clearTimeout(themeTimer);
-      themeTimer = setTimeout(async () => {
-        const next = toJSON(currentProject.value?.theme);
-        if (stableJson(next) === stableJson(lastTheme)) return;
-        lastTheme = next;
-        try { await server().patchTheme(next ?? {}); }
-        catch (e) { console.warn('[useProject] patchTheme failed:', e); }
-      }, 250);
-    }, { deep: true });
+    // Gone in U4. The colour scheme is the operator's, not the document's, so
+    // there is nothing here to push at the project any more — usePreferences
+    // owns it and writes it to their profile or this machine's store. What
+    // remains of `theme` on a loaded document is legacy, read once by
+    // adoptFromProject() below and dropped by the server on the next save.
 
     // ---- Settings ----
     watch(() => (currentProject.value as any)?.settings, () => {
@@ -1871,12 +2021,16 @@ export const useProject = () => {
 
     // ---- Fallback for keys without granular endpoints ----
     // Only fires when one of the specific "no-endpoint-yet" fields changes
-    // (hotkey bindings, project name). Critically does NOT fire on items
-    // / settings / theme — those have targeted watchers above.
+    // (cart slot bindings, project name). Critically does NOT fire on items
+    // or settings — those have targeted watchers above.
+    //
+    // playbackKeys left this list in U4: the transport keymap is the person's
+    // and goes to their profile. cartSlotKeys STAYS — a cart wall is the
+    // show's layout, and the slot that fires the door slam has to be the same
+    // slot for whoever is at the desk tonight.
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
     watch([
       () => (currentProject.value as any)?.cartSlotKeys,
-      () => (currentProject.value as any)?.playbackKeys,
       () => currentProject.value?.name,
     ], () => {
       if (isHydrating.value || !currentProject.value) return;
@@ -1957,6 +2111,7 @@ export const useProject = () => {
     tryRejoinExistingProject,
     resumeProjectOnServer,
     saveProject,
+    flushPendingSave,
     hasUnsavedChanges,
     autoSaveEnabled,
     indexDisplayStart,
@@ -1978,6 +2133,7 @@ export const useProject = () => {
     loadingMessage,
     audioLoadingProgress,
     previewItemUuid,
+    advancePending,
     previewCueId,
     startPreview,
     stopPreview,

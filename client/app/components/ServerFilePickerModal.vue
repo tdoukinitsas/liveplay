@@ -4,15 +4,15 @@
       <div class="picker">
         <!-- Top toolbar: navigation + breadcrumb path -->
         <header class="toolbar">
-          <button class="nav-btn neutral" :disabled="historyBack.length === 0" @click="goBack" title="Back">←</button>
-          <button class="nav-btn neutral" :disabled="!canGoUp" @click="goUp" title="Up one level">↑</button>
+          <button class="nav-btn neutral" :disabled="historyBack.length === 0" @click="goBack" :title="t('fileBrowser.back')">←</button>
+          <button class="nav-btn neutral" :disabled="!canGoUp" @click="goUp" :title="t('fileBrowser.upOneLevel')">↑</button>
           <input
             class="path-input"
             v-model="pathDraft"
             @keydown.enter="navigate(pathDraft)"
-            placeholder="Type a path and press Enter"
+            :placeholder="t('fileBrowser.pathPlaceholder')"
           />
-          <button class="nav-btn neutral" @click="navigate('')" title="Computer / drives">
+          <button class="nav-btn neutral" @click="navigate('')" :title="t('fileBrowser.computerDrives')">
             <span class="material-symbols-rounded">computer</span>
           </button>
         </header>
@@ -28,7 +28,7 @@
         <!-- Main listing -->
         <div class="listing" :class="{ loading }">
           <div v-if="error" class="status error">{{ error }}</div>
-          <div v-else-if="loading" class="status">Loading…</div>
+          <div v-else-if="loading" class="status">{{ t('common.loading') }}</div>
           <ul v-else class="entries">
             <li v-for="entry in sortedEntries"
                 :key="entry.full_path"
@@ -43,7 +43,7 @@
               </span>
             </li>
             <li v-if="sortedEntries.length === 0" class="empty">
-              <em>{{ filterLabel }} — no matching items in this folder.</em>
+              <em>{{ t('fileBrowser.noMatchingItems', { filter: filterLabel }) }}</em>
             </li>
           </ul>
         </div>
@@ -51,8 +51,8 @@
         <!-- Bottom bar: selection + filter + action buttons -->
         <footer class="footer">
           <div class="filename-row">
-            <label>File:&nbsp;</label>
-            <input class="filename" v-model="filenameDraft" placeholder="(select a file above)" />
+            <label>{{ t('fileBrowser.fileLabel') }}&nbsp;</label>
+            <input class="filename" v-model="filenameDraft" :placeholder="t('fileBrowser.selectFilePlaceholder')" />
           </div>
           <!-- New-folder inline form — shown while creating -->
           <div v-if="newFolderMode" class="newfolder-row">
@@ -61,34 +61,34 @@
               ref="newFolderInput"
               class="newfolder-name"
               v-model="newFolderName"
-              placeholder="New folder name"
+              :placeholder="t('fileBrowser.newFolderName')"
               @keydown.enter="confirmNewFolder"
               @keydown.escape="cancelNewFolder"
             />
-            <button class="btn primary small" @click="confirmNewFolder" :disabled="!newFolderName.trim()">Create</button>
-            <button class="btn small" @click="cancelNewFolder">Cancel</button>
+            <button class="btn primary small" @click="confirmNewFolder" :disabled="!newFolderName.trim()">{{ t('fileBrowser.create') }}</button>
+            <button class="btn small" @click="cancelNewFolder">{{ t('common.cancel') }}</button>
           </div>
           <div class="filter-row">
             <select v-model="filter" @change="reload" class="filter">
-              <option v-if="filterOptions.includes('audio')" value="audio">Audio files</option>
+              <option v-if="filterOptions.includes('audio')" value="audio">{{ t('fileBrowser.filterAudio') }}</option>
               <option v-for="opt in filterOptions.filter(o => o !== 'audio' && o !== 'all')"
                       :key="opt" :value="opt">{{ filterDisplay(opt) }}</option>
-              <option v-if="filterOptions.includes('all')" value="all">All files</option>
+              <option v-if="filterOptions.includes('all')" value="all">{{ t('fileBrowser.filterAll') }}</option>
             </select>
             <button
               v-if="!isRoot"
               class="btn"
               :disabled="newFolderMode"
               @click="startNewFolder"
-              title="New folder"
+              :title="t('fileBrowser.newFolder')"
             >
               <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">create_new_folder</span>
-              New folder
+              {{ t('fileBrowser.newFolder') }}
             </button>
             <span class="spacer"></span>
-            <button class="btn" @click="cancel">Cancel</button>
+            <button class="btn" @click="cancel">{{ t('common.cancel') }}</button>
             <button class="btn primary" :disabled="!canConfirm" @click="confirm">
-              {{ mode === 'directory' ? 'Select folder' : 'Open' }}
+              {{ mode === 'directory' ? t('fileBrowser.selectFolder') : t('fileBrowser.open') }}
             </button>
           </div>
         </footer>
@@ -143,6 +143,7 @@ const emit = defineEmits<{
 }>();
 
 const server = useLiveplayServer();
+const { t } = useLocalization();
 
 // ---------------------------------------------------------------------------
 // Local state — current listing, selection, breadcrumbs, history
@@ -231,10 +232,10 @@ function formatBytes(n: number): string {
 }
 
 function filterDisplay(f: string): string {
-  if (f === 'all')        return 'All files';
-  if (f === 'audio')      return 'Audio files';
-  if (f === '.liveplay')  return 'LivePlay projects (.liveplay)';
-  if (f === '.liveplay,.lpa') return 'LivePlay projects';
+  if (f === 'all')        return t('fileBrowser.filterAll');
+  if (f === 'audio')      return t('fileBrowser.filterAudio');
+  if (f === '.liveplay')  return t('fileBrowser.filterLiveplay');
+  if (f === '.liveplay,.lpa') return t('fileBrowser.filterLiveplayAll');
   return f;
 }
 

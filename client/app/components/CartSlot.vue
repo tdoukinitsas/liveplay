@@ -48,6 +48,11 @@
       <!-- Item info section -->
       <div class="slot-header" @click="handleSelect($event)">
         <span class="slot-number">{{ slot + 1 }}</span>
+        <span
+          v-if="isGroup"
+          class="material-symbols-rounded group-icon"
+          :title="t('cart.groupSlot')"
+        >folder</span>
         <span class="slot-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
         <span
           v-if="isPeaking"
@@ -86,10 +91,10 @@
             :icon="'headphones'"
             :highlight-color="isPreviewing ? 'var(--color-accent)' : 'var(--color-success)'"
             :is-active="isPreviewing"
-            :class="{ 'no-device': !hasPreviewDevice }"
+            :class="{ 'no-device': !previewReady }"
             context="Cart"
             @click.stop="isPreviewing ? handleStopPreview() : handleStartPreview()"
-            :title="isPreviewing ? t('actions.stopPreview') : (hasPreviewDevice ? t('actions.preview') : t('actions.previewNoDevice'))"
+            :title="isPreviewing ? t('actions.stopPreview') : (previewReady ? t('actions.preview') : t('actions.previewNoBus'))"
           />
           <ActionButton
             :icon="isPlaying ? 'stop' : 'play_arrow'"
@@ -175,7 +180,7 @@
           </div>
           
           <!-- Duration -->
-          <span class="slot-duration">{{ isPlaying ? "-" + formatTime(duration - currentTime) : formatDuration(item) }}</span>
+          <span class="slot-duration">{{ isPlaying ? "-" + formatTime(duration - currentTime) + indefiniteMark : formatDuration(item) }}</span>
         </div>
       </div>
     </div>
@@ -185,15 +190,18 @@
 <script setup lang="ts">
 import { triggerRef } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
-import type { AudioItem } from '~/types/project';
+import type { AudioItem, GroupItem } from '~/types/project';
 import ActionButton from './ActionButton.vue';
+import { runTime, formatRunTime } from '~/utils/groupTiming';
+import { drawRowWaveform } from '~/utils/rowWaveform';
 import AudioImportModal from './AudioImportModal.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { calculatePerceivedLoudness, parseWaveformFileData } from '~/utils/audio';
+import { isSecondaryWindow } from '~/composables/useProject';
 
 const props = defineProps<{
   slot: number;
-  item: AudioItem | null;
+  item: AudioItem | GroupItem | null;
   keyLabel?: string;
 }>();
 
@@ -206,7 +214,8 @@ const showImportModal = ref(false);
 
 const { currentProject, selectedItem, selectedItems, selectionContext, requestDeleteFromButton, findItemByUuid, triggerWaveformUpdate, markPendingAutoProcess, resolveProjectPath } = useProject();
 const { levels: outputTargetLevels } = useOutputTarget();
-const { playCue, stopCue, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem } = useAudioEngine();
+const { activeCues, activeGroups, nextItemOverrideUuid, autoNextItemUuid, setNextItem,
+        isItemPlaying, fireItem, stopItemAny } = useAudioEngine();
 const { t } = useLocalization();
 const { addCartOnlyItem, updateCartOnlyItem, removeCartOnlyItem } = useCartItems();
 const { uiMode } = useUiMode();
@@ -214,6 +223,27 @@ const { uiMode } = useUiMode();
 // Show Mode: hide edit affordances (import/preview/edit/delete + drag) and
 // enlarge the slot for touch. Waveform, colour, flags and warnings unchanged.
 const showMode = computed(() => uiMode.value === 'playback');
+
+// A cart item created here normally reaches the server via useProject's item
+// diff-watcher, but a detached window runs without it — nothing pushed the new
+// item, so the main window never learned about it. Its next project sync then
+// pushed a copy that predates the item back over IPC, and the cart window
+// cleared and repopulated from it, wiping the item it had just created. It only
+// came back on restart, when the file (which the save had written) was re-read.
+//
+// So in a detached window we publish the item and its slot binding explicitly.
+// The server broadcasts both, and the main window's doc_patch handler folds
+// them into its own cart store — which is what makes the two agree.
+async function publishNewCartItem(item: AudioItem, slot: number) {
+  if (!isSecondaryWindow) return;   // the diff-watcher already handles it
+  const server = useLiveplayServer();
+  try {
+    await server.addProjectItem(item, '', true);
+    await server.setCartSlot(slot, item.uuid);
+  } catch (e) {
+    console.warn('[cart] could not publish new cart item to the server:', e);
+  }
+}
 
 const waveformCanvas = ref<HTMLCanvasElement | null>(null);
 const currentTime = ref(0);
@@ -242,7 +272,12 @@ const isPeaking = computed(() => {
 
   return effectiveLoudness > outputTargetLevels.value.autoVolumeTargetDb + 3;
 });
-const isPlaying = computed(() => props.item ? activeCues.value.has(props.item.uuid) : false);
+// A slot can hold a playlist group (discussion #61): it fires the group, and
+// its time and progress are the whole group's.
+const isGroup = computed(() => props.item?.type === 'group');
+const isPlaying = computed(() => isItemPlaying(props.item));
+const indefiniteMark = computed(() =>
+  isGroup.value && props.item && activeGroups.value.get(props.item.uuid)?.indefinite ? '+' : '');
 const isSelected = computed(() => props.item ? selectedItems.value.has(props.item.uuid) : false);
 const isManuallyQueued = computed(() => props.item ? nextItemOverrideUuid.value === props.item.uuid : false);
 const isQueuedNext = computed(() => {
@@ -287,12 +322,21 @@ const progressStyle = computed(() => {
 let progressInterval: any = null;
 watch(isPlaying, (playing) => {
   if (playing && props.item) {
-    const cue = activeCues.value.get(props.item.uuid);
+    // The same shape for a cue and for a group: how long, and how far in.
+    const timing = () => {
+      if (!props.item) return null;
+      if (props.item.type === 'group') {
+        const g = activeGroups.value.get(props.item.uuid);
+        return g ? { duration: g.totalDuration, currentTime: g.currentTime } : null;
+      }
+      return activeCues.value.get(props.item.uuid) ?? null;
+    };
+    const cue = timing();
     if (cue) {
       duration.value = cue.duration;
       progressInterval = setInterval(() => {
         if (!props.item) return;
-        const cue = activeCues.value.get(props.item.uuid);
+        const cue = timing();
         if (cue) {
           currentTime.value = cue.currentTime;
           duration.value = cue.duration;
@@ -399,6 +443,8 @@ const importFromServerPath = async (serverPath: string) => {
       currentProject.value.cartItems.push({ slot: props.slot, itemUuid: uuid, index: [-1, props.slot] });
     }
 
+    await publishNewCartItem(newItem, props.slot);
+
     const { saveProject } = useProject();
     await saveProject();
 
@@ -466,12 +512,12 @@ const handleSelect = (event?: MouseEvent) => {
 
 const handlePlay = () => {
   if (!props.item) return;
-  playCue(props.item);
+  fireItem(props.item);
 };
 
 const handleStop = () => {
   if (!props.item) return;
-  stopCue(props.item.uuid);
+  stopItemAny(props.item);
 };
 
 const handleSetAsNext = () => {
@@ -519,12 +565,18 @@ const { previewItemUuid, startPreview, stopPreview } = useProject();
 const isPreviewing = computed(() =>
   props.item ? previewItemUuid.value === props.item.uuid : false,
 );
-const hasPreviewDevice = computed(() => !!(currentProject.value as any)?.settings?.previewDevice);
-const showProjectSettings = useState('showProjectSettings', () => false);
+// Pre-listen lands on the preview-role bus (D24), so the button is live only
+// when that bus reaches hardware. Before the first /api/buses fetch the list
+// is empty, which reads as "not ready" — the composable fetches on connect.
+// When there is nowhere to listen, the button opens the mixer so the fix is
+// one click away (D30); the class name `no-device` is kept for the CSS hook.
+const previewBusStore = useLiveplayServer();
+const previewReady = computed(() => !!previewBusStore.buses.find(b => b.preview)?.bound);
+const { showPane } = useWorkspaceLayout();
 const handleStartPreview = () => {
   if (!props.item || props.item.type !== 'audio') return;
-  if (!hasPreviewDevice.value) {
-    showProjectSettings.value = true;
+  if (!previewReady.value) {
+    showPane('mixer');
     return;
   }
   startPreview(props.item.uuid);
@@ -539,8 +591,12 @@ const formatTime = (seconds: number): string => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
-const formatDuration = (item: AudioItem | null): string => {
+const formatDuration = (item: AudioItem | GroupItem | null): string => {
   if (!item) return '';
+  if (item.type === 'group') {
+    const total = runTime(item as GroupItem);
+    return formatRunTime(total.seconds) + (total.indefinite ? '+' : '');
+  }
   
   // Calculate trimmed duration based on in/out points
   const totalDuration = item.duration;
@@ -560,54 +616,10 @@ const formatDuration = (item: AudioItem | null): string => {
   }
 };
 
-// Draw waveform
+// Draw waveform (the shared row drawing, utils/rowWaveform.ts)
 const drawWaveform = () => {
   if (!waveformCanvas.value || !props.item || props.item.type !== 'audio') return;
-  
-  const audioItem = props.item as AudioItem;
-  if (!audioItem.waveform || !audioItem.waveform.peaks || audioItem.waveform.peaks.length === 0) return;
-  
-  const canvas = waveformCanvas.value;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  
-  // Set canvas size to match element size
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-  ctx.scale(dpr, dpr);
-  
-  ctx.clearRect(0, 0, rect.width, rect.height);
-
-  // Use the item's own colour; opacity:0.3 in CSS gives a natural dark tint.
-  ctx.fillStyle = audioItem.color || '#ffffff';
-
-  const peaks = audioItem.waveform.peaks;
-  
-  // Calculate trimmed region if in/out points are set
-  const totalDuration = audioItem.duration;
-  const inPoint = audioItem.inPoint || 0;
-  const outPoint = audioItem.outPoint || totalDuration;
-  const trimmedDuration = outPoint - inPoint;
-  
-  // Calculate which peaks to show (slice based on in/out ratios)
-  const startIndex = Math.floor((inPoint / totalDuration) * peaks.length);
-  const endIndex = Math.ceil((outPoint / totalDuration) * peaks.length);
-  const trimmedPeaks = peaks.slice(startIndex, endIndex);
-  
-  const barWidth = rect.width / trimmedPeaks.length;
-  const centerY = rect.height / 2;
-
-  trimmedPeaks.forEach((value, i) => {
-    const clamped = Math.min(1, Math.max(0, value));
-    const shaped = clamped * clamped;
-    const barHeight = shaped * rect.height * 0.8;
-    const x = i * barWidth;
-    const y = centerY - barHeight / 2;
-
-    ctx.fillRect(x, y, Math.max(barWidth, 1), barHeight);
-  });
+  drawRowWaveform(waveformCanvas.value, props.item as AudioItem);
 };
 
 // Watch for item changes and redraw
@@ -836,6 +848,29 @@ const handleDrop = async (e: DragEvent) => {
   const sourceUuid = e.dataTransfer.getData('item-uuid');
   if (!sourceUuid) return;
 
+  // A playlist group is bound by reference: the slot fires the group itself
+  // (its start behaviour, then its cues in turn), and edits to the group show
+  // up here. Nothing is cloned, so nothing is duplicated.
+  const sourceGroup = findItemByUuid(sourceUuid);
+  if (sourceGroup && sourceGroup.type === 'group') {
+    const at = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === props.slot);
+    if (at !== -1) {
+      const prev = currentProject.value.cartItems[at];
+      if (prev?.itemUuid) removeCartOnlyItem(prev.itemUuid);
+      prev.itemUuid = sourceUuid;
+      prev.index = [-1, props.slot];
+    } else {
+      currentProject.value.cartItems.push({ slot: props.slot, itemUuid: sourceUuid, index: [-1, props.slot] });
+    }
+    if (isSecondaryWindow) {
+      useLiveplayServer().setCartSlot(props.slot, sourceUuid).catch((err: unknown) =>
+        console.warn('[cart] could not bind the group to the slot on the server:', err));
+    }
+    const { saveProject } = useProject();
+    saveProject();
+    return;
+  }
+
   // Clone the source item into a cart-only item with its OWN uuid so the cart
   // copy can carry independent name / attenuation / in-out points without
   // mutating the playlist source (or any other cart copy of the same file).
@@ -868,6 +903,8 @@ const handleDrop = async (e: DragEvent) => {
       index: [-1, props.slot]
     });
   }
+
+  await publishNewCartItem(cloned, props.slot);
 
   // Save the project
   const { saveProject } = useProject();
@@ -1009,7 +1046,13 @@ const handleDrop = async (e: DragEvent) => {
     flex-shrink: 0;
   }
   
-  .slot-name {
+  .group-icon {
+  font-size: 16px;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.slot-name {
     font-size: 14px;
     font-weight: 600;
     color: var(--color-text-primary);

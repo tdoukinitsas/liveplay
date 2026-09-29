@@ -16,6 +16,8 @@ namespace liveplay::audio {
 
 namespace {
 
+constexpr float kHalfPi = 1.57079632679f;
+
 inline float db_to_lin(float db) noexcept {
     if (db <= -120.0f) return 0.0f;
     return std::pow(10.0f, db * 0.05f);
@@ -52,6 +54,7 @@ PlaybackItem::PlaybackItem(PlaybackItemDesc desc)
     gain_current_linear_.store(1.0f);
     fade_in_ms_.store(desc_.fade_in_duration.count());
     fade_out_ms_.store(desc_.fade_out_duration.count());
+    stop_fade_ms_.store(desc_.fade_out_duration.count());
     ltc_enabled_atomic_.store(desc_.ltc_enabled);
     ltc_offset_ns_.store(desc_.ltc_offset.count());
     if (desc_.ltc_enabled) {
@@ -67,6 +70,7 @@ PlaybackItem::~PlaybackItem() {
 bool PlaybackItem::load() {
     // Never swap the decoder out from under active playback — reset transport,
     // playhead and fade state first (mirrors unload()'s stop_now()).
+    start_frames_.store(0, std::memory_order_relaxed);
     stop_now();
     std::lock_guard lock{decoder_mutex_};
 
@@ -135,6 +139,7 @@ bool PlaybackItem::load() {
 }
 
 void PlaybackItem::unload() {
+    join_head_job();
     stop_now();
     std::lock_guard lock{decoder_mutex_};
     if (decoder_) {
@@ -180,6 +185,19 @@ void PlaybackItem::play() {
     // would snap the gain and re-run the fade-in).
     if (st == TransportState::Paused) { resume(); return; }
 
+    // From Stopped, rewind to the start frame if a fade-out or natural end
+    // left the decoder elsewhere. The audio thread does not touch a Stopped
+    // item, so the playhead can be written here without racing it.
+    if (st == TransportState::Stopped) {
+        const auto start = start_frames_.load(std::memory_order_relaxed);
+        if (playhead_frames_.load(std::memory_order_relaxed) != start) {
+            std::lock_guard lock{decoder_mutex_};
+            if (decoder_) ma_decoder_seek_to_pcm_frame(decoder_.get(), start);
+            playhead_frames_.store(start, std::memory_order_release);
+            if (ltc_) ltc_->reset(std::chrono::nanoseconds{ltc_offset_ns_.load()});
+        }
+    }
+
     // Reset natural-end flags so take_natural_end() doesn't fire for a
     // stale previous play on this same item.
     stopped_naturally_.store(false, std::memory_order_release);
@@ -208,6 +226,10 @@ void PlaybackItem::play() {
 }
 
 void PlaybackItem::stop() {
+    stop(std::chrono::milliseconds{stop_fade_ms_.load(std::memory_order_acquire)});
+}
+
+void PlaybackItem::stop(std::chrono::milliseconds fade) {
     const TransportState st = transport_.load(std::memory_order_acquire);
     if (st == TransportState::Stopped) return;
     if (st == TransportState::FadingOut) {
@@ -222,7 +244,6 @@ void PlaybackItem::stop() {
     // doesn't auto-advance after this explicit stop.
     fading_out_naturally_.store(false, std::memory_order_release);
 
-    const auto fade = desc_.fade_out_duration;
     if (fade.count() > 0) {
         start_fade(/*from*/ gain_current_linear_.load(),
                    /*to*/   0.0f,
@@ -241,10 +262,11 @@ void PlaybackItem::stop_now() {
     gain_current_linear_.store(gain_target_linear_.load(), std::memory_order_release);
     fade_duration_samples_.store(0, std::memory_order_relaxed);
     fade_elapsed_samples_.store(0, std::memory_order_relaxed);
-    playhead_frames_.store(0, std::memory_order_relaxed);
+    const auto start = start_frames_.load(std::memory_order_relaxed);
+    playhead_frames_.store(start, std::memory_order_relaxed);
 
     std::lock_guard lock{decoder_mutex_};
-    if (decoder_) ma_decoder_seek_to_pcm_frame(decoder_.get(), 0);
+    if (decoder_) ma_decoder_seek_to_pcm_frame(decoder_.get(), start);
     if (ltc_) ltc_->reset(std::chrono::nanoseconds{ltc_offset_ns_.load()});
 }
 
@@ -281,6 +303,9 @@ void PlaybackItem::seek_seconds(double seconds) {
         // Store inside the lock so the audio thread can't decode from the new
         // decoder position while still reading the pre-seek playhead value.
         playhead_frames_.store(frame, std::memory_order_release);
+        // A seek while stopped is where the next play() should begin.
+        if (transport_.load(std::memory_order_acquire) == TransportState::Stopped)
+            start_frames_.store(frame, std::memory_order_relaxed);
     }
     if (ltc_) {
         // LTC resyncs lazily inside render_block(), but a hint here keeps the
@@ -343,7 +368,8 @@ void PlaybackItem::set_out_point_seconds(double seconds) noexcept {
     out_point_frames_.store(f, std::memory_order_release);
 }
 
-void PlaybackItem::set_loop(bool enabled, double in_seconds) noexcept {
+void PlaybackItem::set_loop(bool enabled, double in_seconds,
+                            double crossfade_seconds) noexcept {
     const auto rate = static_cast<double>(desc_.mix_sample_rate);
     auto in_frames = (in_seconds <= 0.0)
         ? std::uint64_t{0}
@@ -353,8 +379,179 @@ void PlaybackItem::set_loop(bool enabled, double in_seconds) noexcept {
     // and high seek churn. Fall back to looping from the start in that case.
     const auto out_pt = out_point_frames_.load(std::memory_order_acquire);
     if (out_pt > 0 && in_frames >= out_pt) in_frames = 0;
+    const auto xfade_frames = (crossfade_seconds <= 0.0)
+        ? std::uint64_t{0}
+        : static_cast<std::uint64_t>(crossfade_seconds * rate);
     loop_in_frames_.store(in_frames, std::memory_order_release);
+    loop_xfade_frames_.store(xfade_frames, std::memory_order_release);
     loop_enabled_.store(enabled, std::memory_order_release);
+
+    // Every play calls this with the same values, so only a changed key costs
+    // a decode. A head for stale settings is ignored by the audio thread.
+    if (enabled && xfade_frames > 0 &&
+        (in_frames != head_requested_in_ || out_pt != head_requested_out_ ||
+         xfade_frames != head_requested_len_)) {
+        head_requested_in_  = in_frames;
+        head_requested_out_ = out_pt;
+        head_requested_len_ = xfade_frames;
+        request_loop_head(in_frames, out_pt, xfade_frames);
+    }
+}
+
+void PlaybackItem::join_head_job() noexcept {
+    head_job_cancel_.store(true, std::memory_order_release);
+    if (head_job_.joinable()) {
+        try { head_job_.join(); } catch (...) {}
+    }
+}
+
+void PlaybackItem::request_loop_head(std::uint64_t in_frames, std::uint64_t out_frames,
+                                     std::uint64_t req_frames) noexcept {
+    try {
+        join_head_job();
+        {
+            // The audio thread parks the head it replaced here; drop it now,
+            // on this thread, so the next hand-over has somewhere to put one.
+            std::lock_guard lk{head_mutex_};
+            head_retired_.reset();
+        }
+        head_job_cancel_.store(false, std::memory_order_release);
+        head_job_ = std::thread([this, path = desc_.file_path, rate = desc_.mix_sample_rate,
+                                 in_frames, out_frames, req_frames] {
+            // A decoder of our own, configured exactly like the playing one so
+            // frame positions agree: same format, same output rate.
+            ma_decoder dec;
+            ma_decoder_config cfg = ma_decoder_config_init(ma_format_f32, 0, rate);
+#if defined(_WIN32)
+            const std::wstring pw = path.wstring();
+            if (ma_decoder_init_file_w(pw.c_str(), &cfg, &dec) != MA_SUCCESS) return;
+#else
+            const std::string ps = path.string();
+            if (ma_decoder_init_file(ps.c_str(), &cfg, &dec) != MA_SUCCESS) return;
+#endif
+            auto head = std::make_unique<LoopHead>();
+            ma_uint32 ch = 0;
+            ma_decoder_get_data_format(&dec, nullptr, &ch, nullptr, nullptr, 0);
+            // The file's length decides where a loop with no out-point turns
+            // round. For some formats this is a scan of the whole file, which
+            // is exactly why it happens here and not on the audio thread.
+            ma_uint64 len = 0;
+            ma_decoder_get_length_in_pcm_frames(&dec, &len);
+            const std::uint64_t end = out_frames > 0
+                ? (len > 0 ? std::min<std::uint64_t>(out_frames, len) : out_frames)
+                : len;
+            // Half the loop at most, so the head never overlaps the tail.
+            const std::uint64_t want = (ch > 0 && end > in_frames)
+                ? std::min<std::uint64_t>(req_frames, (end - in_frames) / 2) : 0;
+            std::uint64_t got_total = 0;
+            if (want > 0 && ma_decoder_seek_to_pcm_frame(&dec, in_frames) == MA_SUCCESS) {
+                head->samples.resize(static_cast<std::size_t>(want * ch));
+                while (got_total < want && !head_job_cancel_.load(std::memory_order_acquire)) {
+                    const ma_uint64 chunk = std::min<std::uint64_t>(4096, want - got_total);
+                    ma_uint64 got = 0;
+                    const ma_result rv = ma_decoder_read_pcm_frames(
+                        &dec, head->samples.data() + got_total * ch, chunk, &got);
+                    got_total += got;
+                    if (got == 0 || (rv != MA_SUCCESS && rv != MA_AT_END)) break;
+                }
+            }
+            ma_decoder_uninit(&dec);
+            if (got_total == 0 || head_job_cancel_.load(std::memory_order_acquire)) {
+                if (want == 0)
+                    Logger::warn("PlaybackItem[{}] loop crossfade unavailable: the loop "
+                                 "length is unknown or too short", desc_.id.value);
+                return;
+            }
+            head->samples.resize(static_cast<std::size_t>(got_total * ch));
+            head->in_frames  = in_frames;
+            head->out_frames = out_frames;
+            head->req_frames = req_frames;
+            head->loop_end   = end;
+            head->frames     = got_total;
+            head->channels   = static_cast<ChannelCount>(ch);
+            Logger::info("PlaybackItem[{}] loop crossfade ready ({} ms)", desc_.id.value,
+                         got_total * 1000 / std::max<std::uint64_t>(1, rate));
+            std::lock_guard lk{head_mutex_};
+            head_incoming_ = std::move(head);
+            head_incoming_ready_.store(true, std::memory_order_release);
+        });
+    } catch (...) {
+        // No thread, no head: the loop still wraps, just without the blend.
+    }
+}
+
+std::size_t PlaybackItem::render_loop_block(std::size_t frame_count, bool& decode_error,
+                                            std::uint64_t& playhead) noexcept {
+    // Take a freshly decoded head, if one is waiting and the previous one has
+    // been collected. try_lock only: the job holds the lock for a pointer swap.
+    if (head_incoming_ready_.load(std::memory_order_acquire)) {
+        std::unique_lock hl{head_mutex_, std::try_to_lock};
+        if (hl.owns_lock() && !head_retired_) {
+            head_retired_ = std::move(loop_head_);
+            loop_head_    = std::move(head_incoming_);
+            head_incoming_ready_.store(false, std::memory_order_release);
+        }
+    }
+
+    const auto in_frames  = loop_in_frames_.load(std::memory_order_acquire);
+    const auto out_frames = out_point_frames_.load(std::memory_order_acquire);
+    const LoopHead* head = loop_head_.get();
+    if (head && (head->in_frames  != in_frames || head->out_frames != out_frames ||
+                 head->req_frames != loop_xfade_frames_.load(std::memory_order_acquire) ||
+                 head->channels   != file_channels_ || head->frames == 0)) {
+        head = nullptr;   // settings moved on since it was decoded
+    }
+    // Where the loop turns round. The head knows the file's length; without
+    // one only an out-point is known ahead of time, and EOF is found by
+    // reading into it.
+    const std::uint64_t loop_end    = head ? head->loop_end : out_frames;
+    const std::uint64_t xfade_start = head ? head->loop_end - head->frames
+                                           : ~std::uint64_t{0};
+    const std::size_t   ch  = file_channels_;
+    Sample* const       buf = interleave_buf_.data();
+
+    std::size_t filled = 0;
+    int empty_reads = 0;
+    while (filled < frame_count) {
+        std::size_t want = frame_count - filled;
+        if (loop_end > playhead)
+            want = static_cast<std::size_t>(std::min<std::uint64_t>(want, loop_end - playhead));
+        ma_uint64 got = 0;
+        const ma_result rv = ma_decoder_read_pcm_frames(
+            decoder_.get(), buf + filled * ch, static_cast<ma_uint64>(want), &got);
+        if (rv != MA_SUCCESS && rv != MA_AT_END) { decode_error = true; break; }
+
+        // Tail meets head: equal-power, so the level holds steady through
+        // the blend for uncorrelated material (ambiences, beds).
+        if (head && got > 0 && playhead + got > xfade_start) {
+            const float step = kHalfPi / static_cast<float>(head->frames);
+            for (ma_uint64 i = 0; i < got; ++i) {
+                const std::uint64_t p = playhead + i;
+                if (p < xfade_start || p >= head->loop_end) continue;
+                const std::uint64_t k = p - xfade_start;
+                const float theta = (static_cast<float>(k) + 0.5f) * step;
+                const float g_out = std::cos(theta);
+                const float g_in  = std::sin(theta);
+                Sample*       f = buf + (filled + static_cast<std::size_t>(i)) * ch;
+                const Sample* h = head->samples.data() + static_cast<std::size_t>(k) * ch;
+                for (std::size_t c = 0; c < ch; ++c) f[c] = f[c] * g_out + h[c] * g_in;
+            }
+        }
+        filled   += static_cast<std::size_t>(got);
+        playhead += got;
+
+        const bool at_loop_end = (loop_end > 0 && playhead >= loop_end) || got < want;
+        if (!at_loop_end) continue;
+        // A loop that yields nothing at all (in-point at or past EOF) would
+        // spin here; leave the rest of this block silent instead.
+        if (got == 0 && ++empty_reads > 1) break;
+        // Turn round. After a blend the head has already played the first
+        // `frames` after the in-point, so carry on from just past them.
+        const std::uint64_t resume = in_frames + (head ? head->frames : 0);
+        ma_decoder_seek_to_pcm_frame(decoder_.get(), static_cast<ma_uint64>(resume));
+        playhead = resume;
+    }
+    return filled;
 }
 
 bool PlaybackItem::prime(double seconds, double start_seconds) noexcept {
@@ -405,6 +602,7 @@ bool PlaybackItem::prime(double seconds, double start_seconds) noexcept {
     // continues playing even though the UI thinks the cue stopped" and
     // the up-next item never triggers because the fade gets clipped.
     playhead_frames_.store(start_frame, std::memory_order_release);
+    start_frames_.store(start_frame, std::memory_order_relaxed);
     // Also clear any stale natural-end flags from a prior playthrough so
     // the sequencer doesn't immediately consume one before we even play.
     stopped_naturally_.store(false, std::memory_order_release);
@@ -501,18 +699,30 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
     const std::size_t needed = frame_count * static_cast<std::size_t>(file_channels_);
     if (interleave_buf_.size() < needed) interleave_buf_.resize(needed);
 
+    // A looping cue fills the whole block, turning round at the loop end
+    // inside it; everything else reads once and lets the end-of-file logic
+    // below decide what happens next.
+    const bool looping = loop_enabled_.load(std::memory_order_acquire);
+    std::uint64_t loop_playhead = playhead_frames_.load(std::memory_order_relaxed);
     ma_uint64 frames_read = 0;
-    const ma_result rv = ma_decoder_read_pcm_frames(
-        decoder_.get(),
-        interleave_buf_.data(),
-        static_cast<ma_uint64>(frame_count),
-        &frames_read);
-    if (rv != MA_SUCCESS && rv != MA_AT_END) {
-        // Unexpected decoder error mid-playback (distinct from clean EOF, which
-        // is MA_AT_END). Flag it so the control thread can surface a "file
-        // dropped out" warning; no logging on the audio path.
-        frames_read = 0;
-        decode_error_.store(true, std::memory_order_relaxed);
+    ma_result rv = MA_SUCCESS;
+    if (looping) {
+        bool err = false;
+        frames_read = render_loop_block(frame_count, err, loop_playhead);
+        if (err) decode_error_.store(true, std::memory_order_relaxed);
+    } else {
+        rv = ma_decoder_read_pcm_frames(
+            decoder_.get(),
+            interleave_buf_.data(),
+            static_cast<ma_uint64>(frame_count),
+            &frames_read);
+        if (rv != MA_SUCCESS && rv != MA_AT_END) {
+            // Unexpected decoder error mid-playback (distinct from clean EOF, which
+            // is MA_AT_END). Flag it so the control thread can surface a "file
+            // dropped out" warning; no logging on the audio path.
+            frames_read = 0;
+            decode_error_.store(true, std::memory_order_relaxed);
+        }
     }
 
     deinterleave_to(interleave_buf_.data(),
@@ -637,6 +847,11 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
     }
 
     // ---- Advance playhead, handle EOF + soft out-point ----
+    if (looping) {
+        // render_loop_block already turned round wherever it had to.
+        playhead_frames_.store(loop_playhead, std::memory_order_relaxed);
+        return static_cast<std::size_t>(frames_read);
+    }
     const std::uint64_t new_playhead = playhead_frames_.fetch_add(
         frames_read, std::memory_order_relaxed) + frames_read;
 

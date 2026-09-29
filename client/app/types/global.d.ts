@@ -12,6 +12,7 @@ declare global {
       writeBinaryFile: (filePath: string, data: ArrayBuffer | Uint8Array | number[]) => Promise<{ success: boolean; error?: string }>;
       showSaveArchiveDialog: (defaultName?: string) => Promise<string | null>;
       showOpenArchiveDialog: () => Promise<string | null>;
+      showSaveJsonDialog?: (defaultName?: string, title?: string) => Promise<string | null>;
       copyFile: (source: string, destination: string) => Promise<{ success: boolean; error?: string }>;
       ensureDirectory: (dirPath: string) => Promise<{ success: boolean; error?: string }>;
       generateWaveform: (audioPath: string, outputPath: string) => Promise<{ success: boolean; error?: string }>;
@@ -67,6 +68,8 @@ declare global {
       onMenuChangeAccentColor: (callback: () => void) => void;
       onMenuChangeLanguage: (callback: (event: any, locale: string) => void) => void;
       onMenuShowAbout: (callback: () => void) => void;
+      /** `section` is a SETTINGS_SECTIONS id; absent means "open Settings". */
+      onMenuOpenSettings: (callback: (event: any, section?: string) => void) => void;
       openExternal: (url: string) => Promise<void>;
       updateMenuLanguage: (locale: string) => Promise<{ success: boolean }>;
       getSystemLocale: () => Promise<string>;
@@ -100,6 +103,11 @@ declare global {
       onCartPlayerWindowOpened: (callback: () => void) => void;
       onCartPlayerWindowClosed: (callback: () => void) => void;
       onCartWindowProjectUpdate: (callback: (event: any, projectData: any) => void) => void;
+      // Mixer window
+      openMixerWindow: () => Promise<void>;
+      attachMixerWindow: () => void;
+      onMixerWindowOpened: (callback: () => void) => void;
+      onMixerWindowClosed: (callback: () => void) => void;
       // UI mode ("show mode") sync across windows
       broadcastUiMode: (mode: 'edit' | 'playback') => void;
       onUiModeSet: (callback: (event: any, mode: 'edit' | 'playback') => void) => void;

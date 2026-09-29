@@ -17,6 +17,7 @@
   <div
     ref="hostRef"
     class="canvas-fader"
+    :style="{ width: props.width + 'px' }"
     @mousedown="onMouseDown"
     @dblclick="$emit('reset')"
     @wheel.prevent="onWheel"
@@ -32,9 +33,15 @@ const props = withDefaults(defineProps<{
   db: number;
   minDb?: number;
   maxDb?: number;
+  /**
+   * Track width in px. 20 suits a dense docked strip; a mixer on a large
+   * display — especially a detached window — wants a bigger grab target.
+   */
+  width?: number;
 }>(), {
   minDb: -60,
   maxDb: 6,
+  width: 20,
 });
 
 const emit = defineEmits<{
@@ -227,7 +234,7 @@ function clampToStep(db: number, fine: boolean): number {
 <style scoped>
 .canvas-fader {
   flex: 1;
-  width: 20px;
+  /* width comes from the `width` prop via an inline style */
   min-height: 40px;
   cursor: pointer;
   user-select: none;

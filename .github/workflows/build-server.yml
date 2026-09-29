@@ -88,7 +88,7 @@ jobs:
       # ------------------------------------------------------------------
       # Platform-specific system dependencies
       # ------------------------------------------------------------------
-      - name: Install Linux audio dev packages
+      - name: Install Linux build and audio dependencies
         if: runner.os == 'Linux'
         run: |
           # The GitHub-hosted runners ship extra Microsoft apt repos
@@ -99,9 +99,11 @@ jobs:
                      /etc/apt/sources.list.d/azure-cli.list \
                      /etc/apt/sources.list.d/azure-cli.sources
           sudo apt-get update
+          # libsodium's vcpkg port runs autoreconf on Unix platforms.
           sudo apt-get install -y --no-install-recommends \
             ninja-build \
             pkg-config \
+            autoconf autoconf-archive automake libtool \
             libasound2-dev \
             libpulse-dev \
             libjack-jackd2-dev \
@@ -110,7 +112,8 @@ jobs:
       - name: Install macOS build tools
         if: runner.os == 'macOS'
         run: |
-          brew install ninja pkg-config
+          # Required for libsodium on both arm64 and cross-compiled x64 builds.
+          brew install ninja pkg-config autoconf autoconf-archive automake libtool
 
       # The x64 slice is cross-compiled on an arm64 runner; Rosetta 2 lets the
       # smoke test below actually run the resulting x86_64 binary.
