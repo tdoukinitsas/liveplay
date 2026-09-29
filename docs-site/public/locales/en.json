@@ -184,7 +184,7 @@
     "subtitle": "If you're running the server and client on different machines, make sure these ports are open on your network and firewall.",
     "control": {
       "port": "TCP 4480",
-      "title": "Control Surface",
+      "title": "Control Connection",
       "description": "REST API and WebSocket connection carrying transport commands, project data, routing and live meters between the client and server."
     },
     "discovery": {

@@ -6,40 +6,23 @@
     "direction": "ltr"
   },
   "header": {
-    "version": "Versiune",
-    "logoAlt": "Logo LivePlay"
+    "tagline": "Redare audio pregătită pentru spectacol: teatru, radio, evenimente și petreceri",
+    "intro": "Pregătiți-vă muzica și efectele, porniți fiecare sunet exact la momentul potrivit și mergeți mai departe chiar și când ceva nu merge cum trebuie. Gratuit pentru Windows, macOS și Linux, LivePlay se potrivește la fel de bine unui playlist de petrecere și unui spectacol complet de teatru sau radio.",
+    "version": "Versiunea",
+    "logoAlt": "Logo LivePlay",
+    "screenshotAlt": "Fereastra principală LivePlay, cu lista de redare, cart playerul și mixerul unul lângă altul"
+  },
+  "common": {
+    "changeLanguage": "Schimbă limba"
   },
   "download": {
     "title": "Descarcă LivePlay",
     "subtitle": "Gratuit și open-source. Disponibil pentru Windows, macOS și Linux.",
     "windows": {
       "title": "Windows",
-      "description": "Windows 10/11 (64-bit)",
+      "description": "Windows 10/11 (64 de biți)",
       "buttonText": "Descarcă .exe",
       "size": "~150 MB"
-    },
-    "linux": {
-      "title": "Linux",
-      "description": "AppImage (Universal)",
-      "buttonText": "Descarcă .AppImage",
-      "size": "~155 MB"
-    },
-    "otherFormats": "Alte formate disponibile:",
-    "debianUbuntu": ".deb (Debian/Ubuntu)",
-    "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "viewReleases": "Vezi toate versiunile pe GitHub →",
-    "macGatekeeper": {
-      "title": "macOS: „LivePlay este deteriorat și nu poate fi deschis”?",
-      "intro": "LivePlay nu este încă semnat cu un certificat de dezvoltator Apple, așa că macOS îl pune în carantină la descărcare. Aplicația este sigură — înseamnă doar că Apple nu a fost plătit pentru a o autentifica. Pentru a o deschide, eliminați o singură dată indicatorul de carantină după instalarea în /Applications:",
-      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
-      "outro": "Introduceți parola când vi se solicită, apoi lansați LivePlay normal. Trebuie să faceți acest lucru o singură dată pentru fiecare instalare."
-    },
-    "winSmartScreen": {
-      "title": "Windows: „Windows v-a protejat PC-ul”?",
-      "intro": "LivePlay nu este încă semnat cu un certificat recunoscut de Microsoft SmartScreen, așa că Windows poate afișa avertismentul albastru „Windows v-a protejat PC-ul” când rulați programul de instalare. Aplicația este sigură — pur și simplu nu și-a creat încă o reputație de descărcare (semnarea codului este pe drum).",
-      "step1": "Faceți clic pe „Informații suplimentare” în caseta de avertizare.",
-      "step2": "Faceți clic pe butonul „Executați oricum” care apare, apoi continuați instalarea normal.",
-      "outro": "Dacă în schimb browserul a blocat descărcarea, alegeți mai întâi „Păstrați” pentru a salva fișierul."
     },
     "macArm": {
       "title": "macOS — Apple Silicon",
@@ -49,18 +32,173 @@
     },
     "macIntel": {
       "title": "macOS — Intel",
-      "description": "Mac-uri Intel (x64), macOS 11+",
+      "description": "Mac-uri cu Intel (x64), macOS 11+",
       "buttonText": "Descarcă .dmg",
       "size": "~145 MB"
     },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (x64)",
+      "buttonText": "Descarcă .AppImage",
+      "size": "~155 MB"
+    },
+    "recommended": "Recomandat pentru sistemul dumneavoastră",
+    "showOtherOS": "Descarcă pentru alt sistem de operare",
+    "hideOtherOS": "Ascunde celelalte sisteme de operare",
+    "otherFormats": "Alte formate disponibile:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
     "macArmZip": ".zip (macOS Apple Silicon)",
     "macIntelZip": ".zip (macOS Intel)",
-    "recommended": "Recomandat pentru sistemul tău",
-    "showOtherOS": "Descarcă pentru alt sistem de operare",
-    "hideOtherOS": "Ascunde celelalte sisteme de operare"
+    "viewReleases": "Toate versiunile pe GitHub →",
+    "macGatekeeper": {
+      "title": "macOS: „LivePlay este deteriorat și nu poate fi deschis”?",
+      "intro": "LivePlay nu este încă semnat cu un certificat Apple Developer, așa că macOS îl pune în carantină la descărcare. Aplicația este sigură: înseamnă doar că Apple nu a fost plătit pentru notarizare. Ca să o deschideți, eliminați o singură dată marcajul de carantină după instalarea în /Applications:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "Introduceți parola când vi se cere, apoi porniți LivePlay ca de obicei. Este nevoie de acest pas o singură dată pentru fiecare instalare."
+    },
+    "winSmartScreen": {
+      "title": "Windows: „Windows v-a protejat PC-ul”?",
+      "intro": "LivePlay nu este încă semnat cu un certificat recunoscut de Microsoft SmartScreen, așa că Windows poate afișa avertismentul albastru „Windows v-a protejat PC-ul” când rulați programul de instalare. Aplicația este sigură: pur și simplu nu și-a construit încă o reputație de descărcare (semnarea codului este pe drum).",
+      "step1": "Faceți clic pe „Mai multe informații” în fereastra de avertizare.",
+      "step2": "Faceți clic pe butonul „Rulează oricum” care apare, apoi continuați instalarea ca de obicei.",
+      "outro": "Dacă browserul a blocat descărcarea, alegeți mai întâi „Păstrează” pentru a salva programul de instalare."
+    }
+  },
+  "contribute": {
+    "title": "Contribuiți",
+    "subtitle": "LivePlay este gratuit și open-source și va rămâne mereu așa.",
+    "freeTitle": "Gratuit pentru totdeauna",
+    "freeText": "LivePlay se descarcă și se folosește complet gratuit: fără taxe de licență, fără abonamente, fără conținut blocat. Toate funcțiile sunt disponibile pentru toată lumea, fără versiuni premium.",
+    "licenseTitle": "Licență open-source",
+    "licenseText": "LivePlay este publicat sub licența GNU AGPL-3.0. Pe scurt: sunteți liberi să-l folosiți, să-l studiați, să-l distribuiți și să-l modificați. Dacă distribuiți o versiune modificată sau o rulați ca serviciu în rețea, trebuie să vă puneți codul sursă la dispoziție sub aceeași licență, ca toată comunitatea să beneficieze în continuare.",
+    "contributeTitle": "Cum puteți ajuta",
+    "contributeText": "Oricine poate contribui. Raportați erori, propuneți funcții noi, îmbunătățiți traducerile sau trimiteți cod: orice contribuție este binevenită. Intrați în depozitul GitHub pentru a deschide un issue sau un pull request.",
+    "githubButton": "Contribuiți pe GitHub →"
   },
   "features": {
-    "title": "Caracteristici principale"
+    "title": "Funcții principale",
+    "groupShow": {
+      "title": "Conduceți spectacolul",
+      "intro": "Tot ce vă trebuie pentru a pune la punct un spectacol și a-l conduce cu încredere."
+    },
+    "playlist": {
+      "title": "Pregătiți cue-ul, dați drumul",
+      "description": "Trageți muzica și efectele într-o listă de redare de cue-uri și alegeți cum trece fiecare în următorul: continuă, se repetă în buclă sau sare în altă parte. Controlați toată ordinea de desfășurare din mouse, ecran tactil, tastatură sau controler MIDI."
+    },
+    "cart": {
+      "title": "Sunete și jingle-uri instantanee",
+      "description": "Țineți jingle-urile, efectele scurte și anunțurile la o singură atingere distanță în cart player, gata să pornească peste orice altceva se redă."
+    },
+    "ducking": {
+      "title": "Ducking automat",
+      "description": "Lăsați anunțurile și efectele să coboare muzica cât timp se aud, apoi s-o readucă lin, sau puneți un cue să oprească tot restul pentru o schimbare curată de scenă."
+    },
+    "interface": {
+      "title": "Organizat cum vă convine",
+      "description": "Grupați cue-urile pe scene, acte sau seturi, dați-le culori și reordonați-le oricând se schimbă ordinea de desfășurare. Aranjați lista de redare, cart playerul și mixerul după cum vă place, ascundeți ce nu vă trebuie și, în aplicația desktop, mutați cart playerul sau mixerul pe un al doilea ecran."
+    },
+    "showMode": {
+      "title": "Mod spectacol",
+      "description": "Modul spectacol transformă ecranul în comenzi mari, ușor de atins, și ascunde tot ce ar putea modifica spectacolul, ca nimic să nu se schimbe din greșeală după ce se deschid ușile."
+    },
+    "waveform": {
+      "title": "Editare pe forma de undă",
+      "description": "Tăiați fiecare sunet exact la porțiunea dorită și modelați-i fade-urile direct pe forma de undă. LivePlay poate și să taie liniștea și să egalizeze nivelurile pentru dumneavoastră, ca fiecare cue să vină la un volum constant."
+    },
+    "properties": {
+      "title": "Fiecare cue, reglat fin",
+      "description": "Dați fiecărui cue un nume și o culoare, setați-i nivelul, alegeți unde se aude și decideți ce se întâmplă când pornește și când se termină, totul într-un singur loc."
+    },
+    "youtube": {
+      "title": "Integrare YouTube",
+      "description": "Aduceți audio direct din YouTube în spectacol când aveți nevoie urgentă de o piesă. Asigurați-vă că aveți dreptul să folosiți ce descărcați."
+    },
+    "firstLaunch": {
+      "title": "Configurare rapidă",
+      "description": "Alegeți un folder, dați un nume spectacolului și începeți să adăugați sunete. LivePlay ține fișierele media împreună cu proiectul, așa că mutarea unui spectacol pe alt calculator este simplă."
+    },
+    "groupMixer": {
+      "title": "Un mix ca la carte",
+      "intro": "Un mixer integrat, pentru ca muzica, efectele și vocile să stea fiecare la locul lor în sală și nimic neașteptat să nu ajungă în boxe."
+    },
+    "mixer": {
+      "title": "Un mixer adevărat pentru spectacolul dumneavoastră",
+      "description": "Dați muzicii, efectelor și anunțurilor bus-uri proprii și echilibrați-le pe benzi de canal, exact ca pe o consolă. Rutați bus-urile unul în altul, direct către o ieșire sau prin send-uri aux și atribuiți dintr-odată un întreg grup de cue-uri."
+    },
+    "eqDynamics": {
+      "title": "EQ și dinamică pe fiecare bus",
+      "description": "Modelați fiecare bus cu un EQ parametric și un analizor de spectru live, apoi țineți-l sub control cu un gate și un compresor. Bus-urile stereo pot fi lărgite sau îngustate, cu basul ținut ferm în centru."
+    },
+    "limiter": {
+      "title": "Limitator brickwall și ținte de loudness",
+      "description": "Un limitator brickwall pe fiecare ieșire ține vârfurile rătăcite departe de boxe, iar mixerul vă arată când intră în acțiune. Alegeți o țintă de loudness, de la broadcast și streaming până la live, iar limitatorul, indicatoarele și formele de undă se aliniază toate la ea."
+    },
+    "meters": {
+      "title": "Indicatoare de nivel de calitate broadcast",
+      "description": "Indicatoare precise în timp real pe fiecare cue, bus și ieșire, pe scala cu care lucrați. Zonele lor de culoare urmează ținta de loudness, așa că vedeți dintr-o privire dacă vă încadrați."
+    },
+    "preview": {
+      "title": "Preascultare în căști și PFL",
+      "description": "Ascultați cue-ul următor sau orice bus în căști, fără ca publicul să audă ceva, și verificați cum se comportă mixul în mono înainte să iasă în sală."
+    },
+    "routing": {
+      "title": "Ieșiri hardware care vă urmează",
+      "description": "Spectacolul se adresează ieșirilor după nume, de exemplu Main, Foyer sau Sub, iar fiecare calculator leagă aceste nume de propriile plăci de sunet, chiar mai multe deodată, dacă aveți nevoie. Duceți spectacolul într-o sală nouă și LivePlay vă arată ce lipsește, ca să remapați totul în câteva clipe."
+    },
+    "fades": {
+      "title": "Fade-uri, bucle și sincronizare",
+      "description": "Dați fiecărui cue propriile fade-uri, repetați în buclă ambianțe fără nicio îmbinare audibilă și alegeți dacă următorul cue face crossfade, așteaptă sau pornește la un marcaj. Grupurile arată cât durează și cât timp a mai rămas."
+    },
+    "groupSystem": {
+      "title": "Construit să fie de încredere",
+      "intro": "De la un singur laptop până la un sistem în rețea operat de o echipă întreagă, LivePlay este gândit să țină spectacolul în mișcare."
+    },
+    "remoteOperation": {
+      "title": "Operare locală sau de la distanță",
+      "description": "Rulați motorul audio pe același calculator sau pe o mașină din culise, lângă interfețele audio, și controlați totul de oriunde din rețea. Sunetul vine din motor, nu din ecran, așa că spectacolul continuă chiar dacă un calculator de control cade."
+    },
+    "discovery": {
+      "title": "Lucru în echipă, revenire rapidă",
+      "description": "Ecranele găsesc singure LivePlay în rețea, iar mai multe persoane pot lucra simultan la același spectacol, toate văzând aceleași cue-uri. Dacă o conexiune cade, revine singură, iar dacă motorul se oprește vreodată, repornește și reia spectacolul de unde a rămas."
+    },
+    "accounts": {
+      "title": "Conturi, roluri și tokenuri API",
+      "description": "Dați echipei conturi proprii: operatorii conduc spectacolul, administratorii au grijă de sistem. Instrumentele de show control, precum Companion, primesc tokenuri de acces proprii, iar întreaga echipă poate fi mutată dintr-odată pe alt server LivePlay."
+    },
+    "settingsPage": {
+      "title": "Toate setările într-un singur loc",
+      "description": "Toate setările stau pe o singură pagină. Preferințele personale, precum limba și tema, vă urmează pe orice ecran vă autentificați, iar spectacolul sună la fel peste tot."
+    },
+    "audioEngine": {
+      "title": "Motor audio robust, scris în C++",
+      "description": "În inima LivePlay se află un motor audio dedicat, care comunică direct cu placa de sunet pe Windows, macOS și Linux. Fiecare cue se redă independent, așa că același sunet poate fi pornit de două ori la niveluri diferite și se comportă mereu cum vă așteptați."
+    },
+    "ltc": {
+      "title": "Timecode SMPTE",
+      "description": "Trimiteți timecode SMPTE odată cu cue-urile, ca lumini, video și alte echipamente să vă urmeze spectacolul."
+    }
+  },
+  "ports": {
+    "title": "Porturi de rețea",
+    "subtitle": "Dacă rulați serverul și clientul pe calculatoare diferite, asigurați-vă că aceste porturi sunt deschise în rețea și în firewall.",
+    "control": {
+      "port": "TCP 4480",
+      "title": "Control",
+      "description": "Conexiune REST API și WebSocket care transportă între client și server comenzile de redare, datele proiectului, rutarea și indicatoarele live."
+    },
+    "discovery": {
+      "port": "UDP 4481",
+      "title": "Descoperire automată",
+      "description": "Semnal broadcast și multicast (grupul 239.255.69.80) prin care clienții găsesc automat serverele LivePlay din rețeaua locală."
+    },
+    "note": "O instalare pe un singur calculator nu necesită nicio configurare: clientul și serverul comunică prin 127.0.0.1, iar programul de instalare Windows adaugă singur regulile de firewall. Aceste porturi contează doar când separați poziția de control de hardware-ul audio într-o rețea LAN."
+  },
+  "api": {
+    "title": "API și automatizare",
+    "subtitle": "Conectați LivePlay la instrumentele de show control.",
+    "description": "Controlați redarea, editați proiecte și rutarea și urmăriți starea live prin HTTP și WebSocket. Când autentificarea este activă, dați lui Companion, unui sistem de show control sau unui script propriul token API din Setări, secțiunea Conturi, în loc să împărțiți parola cuiva. Documentația pentru dezvoltatori acoperă autentificarea, toate endpointurile, comenzile, evenimentele și exemple de integrare.",
+    "referenceLabel": "Referința API pentru dezvoltatori"
   },
   "footer": {
     "license": "este licențiat sub",
@@ -68,34 +206,5 @@
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Vezi pe GitHub",
     "contributors": "Contribuitori"
-  },
-  "common": {
-    "changeLanguage": "Schimbă limba"
-  },
-  "ports": {
-    "title": "Porturi de rețea",
-    "subtitle": "Dacă rulezi serverul și clientul pe mașini diferite, asigură-te că aceste porturi sunt deschise în rețeaua și firewall-ul tău.",
-    "control": {
-      "port": "TCP 4480",
-      "title": "Suprafață de control",
-      "description": "Conexiune REST API și WebSocket care transportă comenzi de transport, date de proiect, rutare și măsurători în timp real între client și server."
-    },
-    "discovery": {
-      "port": "UDP 4481",
-      "title": "Descoperire automată",
-      "description": "Beacon broadcast și multicast (grupul 239.255.69.80) care permite clienților să găsească automat serverele LivePlay în rețeaua locală."
-    },
-    "note": "O instalare pe o singură mașină nu necesită configurare — clientul și serverul comunică prin 127.0.0.1, iar programul de instalare Windows adaugă regulile de firewall pentru tine. Aceste porturi contează doar când separi poziția de control de hardware-ul audio printr-un LAN."
-  },
-  "contribute": {
-    "title": "Contribuie",
-    "subtitle": "LivePlay este gratuit și open-source — și va fi întotdeauna.",
-    "freeTitle": "Gratuit pentru totdeauna",
-    "freeText": "LivePlay este complet gratuit de descărcat și utilizat — fără taxe de licență, fără abonamente, fără paywall. Fiecare funcție este disponibilă tuturor, fără niveluri premium.",
-    "licenseTitle": "Licență open-source",
-    "licenseText": "LivePlay este lansat sub licența GNU AGPL-3.0. Pe scurt: ești liber să îl folosești, să îl studiezi, să îl distribui și să îl modifici. Dacă distribui o versiune modificată — sau o rulezi ca serviciu de rețea — trebuie să pui codul sursă la dispoziție sub aceeași licență, astfel încât întreaga comunitate să continue să beneficieze.",
-    "contributeTitle": "Cum poți ajuta",
-    "contributeText": "Oricine poate contribui. Raportează erori, sugerează funcții, îmbunătățește traducerile sau trimite cod — orice contribuție este binevenită. Accesează depozitul GitHub pentru a deschide un issue sau un pull request.",
-    "githubButton": "Contribuie pe GitHub →"
   }
 }

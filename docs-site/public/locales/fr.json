@@ -6,96 +6,205 @@
     "direction": "ltr"
   },
   "header": {
+    "tagline": "La lecture audio prête pour le spectacle : théâtre, radio, événements et soirées",
+    "intro": "Préparez votre musique et vos effets, lancez chacun au bon moment, et continuez même quand quelque chose tourne mal. Gratuit pour Windows, macOS et Linux, LivePlay convient aussi bien à la playlist d’une soirée qu’à un spectacle de théâtre ou une émission de radio complète.",
     "version": "Version",
-    "logoAlt": "Logo LivePlay"
+    "logoAlt": "Logo LivePlay",
+    "screenshotAlt": "Fenêtre principale de LivePlay avec la playlist, le lecteur de cartouches et la console côte à côte"
+  },
+  "common": {
+    "changeLanguage": "Changer de langue"
   },
   "download": {
     "title": "Télécharger LivePlay",
-    "subtitle": "Gratuit et open-source. Disponible pour Windows, macOS et Linux.",
+    "subtitle": "Gratuit et open source. Disponible pour Windows, macOS et Linux.",
     "windows": {
       "title": "Windows",
-      "description": "Windows 10/11 (64-bit)",
+      "description": "Windows 10/11 (64 bits)",
       "buttonText": "Télécharger .exe",
-      "size": "~150 MB"
-    },
-    "linux": {
-      "title": "Linux",
-      "description": "AppImage (Universal)",
-      "buttonText": "Télécharger .AppImage",
-      "size": "~155 MB"
-    },
-    "otherFormats": "Autres formats disponibles :",
-    "debianUbuntu": ".deb (Debian/Ubuntu)",
-    "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "viewReleases": "Voir toutes les versions sur GitHub →",
-    "macGatekeeper": {
-      "title": "macOS : « LivePlay est endommagé et ne peut pas être ouvert » ?",
-      "intro": "LivePlay n'est pas encore signé avec un certificat de développeur Apple, donc macOS le met en quarantaine au téléchargement. L'application est sûre — cela signifie simplement qu'Apple n'a pas été payé pour la notariser. Pour l'ouvrir, supprimez une fois l'indicateur de quarantaine après l'avoir installée dans /Applications :",
-      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
-      "outro": "Saisissez votre mot de passe lorsqu'il vous est demandé, puis lancez LivePlay normalement. Vous n'avez à le faire qu'une seule fois par installation."
-    },
-    "winSmartScreen": {
-      "title": "Windows : « Windows a protégé votre ordinateur » ?",
-      "intro": "LivePlay n'est pas encore signé avec un certificat reconnu par Microsoft SmartScreen ; Windows peut donc afficher l'avertissement bleu « Windows a protégé votre ordinateur » lorsque vous lancez le programme d'installation. L'application est sûre — elle n'a tout simplement pas encore acquis de réputation de téléchargement (la signature de code est en préparation).",
-      "step1": "Cliquez sur « Informations complémentaires » dans la boîte de dialogue d’avertissement.",
-      "step2": "Cliquez sur le bouton « Exécuter quand même » qui apparaît, puis poursuivez l’installation normalement.",
-      "outro": "Si c'est votre navigateur qui a bloqué le téléchargement, choisissez d'abord « Conserver » pour enregistrer le fichier."
+      "size": "~150 Mo"
     },
     "macArm": {
       "title": "macOS — Apple Silicon",
       "description": "M1/M2/M3 et plus récents (arm64)",
       "buttonText": "Télécharger .dmg",
-      "size": "~140 MB"
+      "size": "~140 Mo"
     },
     "macIntel": {
       "title": "macOS — Intel",
       "description": "Mac Intel (x64), macOS 11+",
       "buttonText": "Télécharger .dmg",
-      "size": "~145 MB"
+      "size": "~145 Mo"
     },
-    "macArmZip": ".zip (macOS Apple Silicon)",
-    "macIntelZip": ".zip (macOS Intel)",
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (x64)",
+      "buttonText": "Télécharger .AppImage",
+      "size": "~155 Mo"
+    },
     "recommended": "Recommandé pour votre système",
     "showOtherOS": "Télécharger pour un autre système d’exploitation",
-    "hideOtherOS": "Masquer les autres systèmes d’exploitation"
+    "hideOtherOS": "Masquer les autres systèmes d’exploitation",
+    "otherFormats": "Autres formats disponibles :",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "viewReleases": "Voir toutes les versions sur GitHub →",
+    "macGatekeeper": {
+      "title": "macOS : « LivePlay est endommagé et ne peut pas être ouvert » ?",
+      "intro": "LivePlay n’est pas encore signé avec un certificat de développeur Apple, donc macOS le met en quarantaine au téléchargement. L’application est sûre : cela signifie simplement qu’Apple n’a pas été payé pour la notarier. Pour l’ouvrir, retirez une fois l’attribut de quarantaine après l’avoir installée dans /Applications :",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "Saisissez votre mot de passe quand il vous est demandé, puis lancez LivePlay normalement. Il suffit de le faire une fois par installation."
+    },
+    "winSmartScreen": {
+      "title": "Windows : « Windows a protégé votre ordinateur » ?",
+      "intro": "LivePlay n’est pas encore signé avec un certificat reconnu par Microsoft SmartScreen ; Windows peut donc afficher l’avertissement bleu « Windows a protégé votre ordinateur » quand vous lancez le programme d’installation. L’application est sûre : elle n’a simplement pas encore acquis de réputation de téléchargement (la signature du code est en préparation).",
+      "step1": "Cliquez sur « Informations complémentaires » dans la boîte de dialogue d’avertissement.",
+      "step2": "Cliquez sur le bouton « Exécuter quand même » qui apparaît, puis poursuivez l’installation normalement.",
+      "outro": "Si c’est votre navigateur qui a bloqué le téléchargement, choisissez d’abord « Conserver » pour enregistrer le programme d’installation."
+    }
+  },
+  "contribute": {
+    "title": "Contribuer",
+    "subtitle": "LivePlay est gratuit et open source, et le restera toujours.",
+    "freeTitle": "Gratuit pour toujours",
+    "freeText": "LivePlay est entièrement gratuit à télécharger et à utiliser : pas de frais de licence, pas d’abonnement, pas de paywall. Toutes les fonctionnalités sont accessibles à tous, sans offre premium.",
+    "licenseTitle": "Licence open source",
+    "licenseText": "LivePlay est publié sous licence GNU AGPL-3.0. En clair : vous êtes libre de l’utiliser, de l’étudier, de le partager et de le modifier. Si vous partagez une version modifiée, ou la faites tourner comme service réseau, vous devez publier votre code source sous la même licence, pour que toute la communauté continue d’en profiter.",
+    "contributeTitle": "Comment aider",
+    "contributeText": "Tout le monde peut contribuer. Signalez des bugs, proposez des fonctionnalités, améliorez les traductions ou soumettez du code : toute contribution est la bienvenue. Rendez-vous sur le dépôt GitHub pour ouvrir une issue ou une pull request.",
+    "githubButton": "Contribuer sur GitHub →"
   },
   "features": {
-    "title": "Fonctionnalités Principales"
-  },
-  "footer": {
-    "license": "est sous licence",
-    "developedBy": "Développé par",
-    "developerName": "Thomas Doukinitsas",
-    "viewOnGitHub": "Voir sur GitHub",
-    "contributors": "Contributeurs"
-  },
-  "common": {
-    "changeLanguage": "Changer de langue"
+    "title": "Fonctionnalités principales",
+    "groupShow": {
+      "title": "Pilotez votre spectacle",
+      "intro": "Tout ce qu’il faut pour monter un spectacle et le piloter en toute confiance."
+    },
+    "playlist": {
+      "title": "Préparez, envoyez",
+      "description": "Glissez votre musique et vos effets dans une playlist de cues, et choisissez comment chacun enchaîne sur le suivant : continuer, boucler ou sauter. Pilotez toute la conduite à la souris, à l’écran tactile, au clavier ou avec un contrôleur MIDI."
+    },
+    "cart": {
+      "title": "Jingles et sons instantanés",
+      "description": "Gardez jingles, virgules et annonces à portée de doigt dans le lecteur de cartouches, prêts à partir par-dessus tout ce qui joue déjà."
+    },
+    "ducking": {
+      "title": "Ducking automatique",
+      "description": "Les annonces et les effets baissent la musique pendant qu’ils jouent, puis la font remonter en douceur. Un cue peut aussi tout arrêter pour un changement de scène net."
+    },
+    "interface": {
+      "title": "Organisé à votre façon",
+      "description": "Regroupez les cues par scène, acte ou set, donnez-leur des couleurs et réordonnez-les dès que la conduite change. Disposez la playlist, le lecteur de cartouches et la console comme il vous convient, repliez ce dont vous n’avez pas besoin et, dans l’application de bureau, envoyez le lecteur de cartouches ou la console sur un deuxième écran."
+    },
+    "showMode": {
+      "title": "Mode spectacle",
+      "description": "Le mode spectacle transforme l’écran en grandes commandes tactiles et masque tout ce qui permettrait de modifier le spectacle : rien ne bouge par erreur une fois les portes ouvertes."
+    },
+    "waveform": {
+      "title": "Édition sur la forme d’onde",
+      "description": "Réduisez chaque son exactement au passage voulu et dessinez ses fondus directement sur la forme d’onde. LivePlay peut aussi rogner les silences et égaliser les niveaux pour vous, afin que chaque cue arrive à un volume homogène."
+    },
+    "properties": {
+      "title": "Chaque cue au détail près",
+      "description": "Nommez et colorez chaque cue, réglez son niveau, choisissez où il joue et décidez de ce qui se passe au début et à la fin, le tout au même endroit."
+    },
+    "youtube": {
+      "title": "Intégration YouTube",
+      "description": "Récupérez l’audio directement depuis YouTube quand il vous faut un morceau en urgence. Assurez-vous d’avoir les droits sur ce que vous téléchargez."
+    },
+    "firstLaunch": {
+      "title": "Prise en main rapide",
+      "description": "Choisissez un dossier, nommez votre spectacle et ajoutez vos sons. LivePlay garde vos médias avec le projet : déplacer un spectacle sur un autre ordinateur devient simple."
+    },
+    "groupMixer": {
+      "title": "Mixez comme il faut",
+      "intro": "Une console intégrée, pour que musique, effets et voix trouvent chacun leur place dans la salle et que rien d’inattendu n’arrive aux enceintes."
+    },
+    "mixer": {
+      "title": "Une vraie console pour votre spectacle",
+      "description": "Donnez à la musique, aux effets et aux annonces leurs propres bus et équilibrez-les sur des tranches, comme sur une console physique. Routez les bus les uns dans les autres, directement vers une sortie ou via des départs aux, et assignez tout un groupe de cues d’un coup."
+    },
+    "eqDynamics": {
+      "title": "EQ et dynamique sur chaque bus",
+      "description": "Sculptez chaque bus avec un EQ paramétrique et un analyseur de spectre en direct, puis tenez-le avec un gate et un compresseur. Les bus stéréo peuvent être élargis ou resserrés, en gardant le bas du spectre bien au centre."
+    },
+    "limiter": {
+      "title": "Limiteur brickwall et cibles de loudness",
+      "description": "Un limiteur brickwall sur chaque sortie tient les crêtes intempestives loin des enceintes, et la console vous montre quand il agit. Choisissez une cible de loudness, du broadcast au streaming en passant par le live : limiteur, indicateurs de niveau et formes d’onde s’y alignent."
+    },
+    "meters": {
+      "title": "Mesure de niveau de qualité broadcast",
+      "description": "Des indicateurs de niveau précis en temps réel sur chaque cue, chaque bus et chaque sortie, dans l’échelle que vous utilisez. Leurs zones de couleur suivent votre cible de loudness : vous voyez d’un coup d’œil si vous êtes dans les clous."
+    },
+    "preview": {
+      "title": "Pré-écoute au casque et PFL",
+      "description": "Écoutez le cue suivant, ou n’importe quel bus, au casque sans que le public n’entende rien, et vérifiez la tenue d’un mix en mono avant qu’il ne parte en salle."
+    },
+    "routing": {
+      "title": "Des sorties matérielles qui voyagent avec vous",
+      "description": "Votre spectacle désigne ses sorties par leur nom, comme Main, Foyer ou Sub, et chaque ordinateur relie ces noms à ses propres cartes son, plusieurs à la fois si besoin. Arrivé dans un nouveau lieu, LivePlay signale ce qui manque, et vous réassociez tout en quelques instants."
+    },
+    "fades": {
+      "title": "Fondus, boucles et timing",
+      "description": "Donnez à chaque cue ses propres fondus, bouclez les ambiances sans raccord audible, et choisissez si le cue suivant enchaîne en fondu, attend ou part sur un marqueur. Les groupes affichent leur durée et le temps restant."
+    },
+    "groupSystem": {
+      "title": "Conçu pour qu’on puisse compter dessus",
+      "intro": "Du simple ordinateur portable au système en réseau piloté par toute une équipe, LivePlay est conçu pour que le spectacle continue."
+    },
+    "remoteOperation": {
+      "title": "En local ou à distance",
+      "description": "Faites tourner le moteur audio sur le même ordinateur ou sur une machine en coulisses reliée à vos interfaces audio, et pilotez tout depuis n’importe où sur le réseau. Le son vient du moteur, pas de l’écran : le spectacle continue même si un poste de contrôle tombe."
+    },
+    "discovery": {
+      "title": "Travaillez ensemble, repartez vite",
+      "description": "Les écrans trouvent LivePlay sur le réseau tout seuls, et plusieurs personnes peuvent travailler sur le même spectacle en même temps en voyant les mêmes cues. Si une connexion tombe, elle revient d’elle-même, et si le moteur s’arrête un jour, il redémarre et reprend le spectacle."
+    },
+    "accounts": {
+      "title": "Comptes, rôles et jetons d’API",
+      "description": "Donnez à votre équipe ses propres identifiants : les opérateurs pilotent le spectacle, les administrateurs s’occupent du système. Les outils de show control comme Companion ont leurs propres jetons d’accès, et vous pouvez déménager toute votre équipe vers un autre serveur LivePlay d’un seul coup."
+    },
+    "settingsPage": {
+      "title": "Tous vos réglages au même endroit",
+      "description": "Tous vos réglages sont réunis sur une seule page. Vos préférences personnelles, comme la langue et le thème, vous suivent sur chaque écran où vous vous connectez, tandis que le spectacle sonne partout de la même façon."
+    },
+    "audioEngine": {
+      "title": "Un moteur audio C++ robuste",
+      "description": "Au cœur de LivePlay, un moteur audio dédié dialogue directement avec votre matériel audio sous Windows, macOS et Linux. Chaque cue joue indépendamment : le même son peut être lancé deux fois à des niveaux différents et se comporte toujours comme vous l’attendez."
+    },
+    "ltc": {
+      "title": "Timecode SMPTE",
+      "description": "Envoyez du timecode SMPTE avec vos cues pour que la lumière, la vidéo et les autres équipements suivent votre spectacle."
+    }
   },
   "ports": {
     "title": "Ports réseau",
-    "subtitle": "Si vous exécutez le serveur et le client sur des machines différentes, assurez-vous que ces ports sont ouverts sur votre réseau et votre pare-feu.",
+    "subtitle": "Si le serveur et le client tournent sur des machines différentes, assurez-vous que ces ports sont ouverts sur votre réseau et votre pare-feu.",
     "control": {
       "port": "TCP 4480",
-      "title": "Surface de contrôle",
-      "description": "Connexion REST API et WebSocket transportant les commandes de transport, les données du projet, le routage et les mesures en direct entre le client et le serveur."
+      "title": "Connexion de contrôle",
+      "description": "Connexion API REST et WebSocket qui transporte les commandes de transport, les données du projet, le routage et les niveaux en direct entre le client et le serveur."
     },
     "discovery": {
       "port": "UDP 4481",
       "title": "Découverte automatique",
       "description": "Balise broadcast et multicast (groupe 239.255.69.80) qui permet aux clients de trouver automatiquement les serveurs LivePlay sur le réseau local."
     },
-    "note": "Une installation sur une seule machine ne nécessite aucune configuration — le client et le serveur communiquent via 127.0.0.1 et l'installateur Windows ajoute les règles de pare-feu pour vous. Ces ports ne comptent que lorsque vous séparez la position de contrôle du matériel audio à travers un LAN."
+    "note": "Une installation sur une seule machine ne demande aucune configuration : le client et le serveur communiquent via 127.0.0.1 et l’installateur Windows ajoute les règles de pare-feu pour vous. Ces ports ne comptent que si vous séparez le poste de contrôle du matériel audio sur un réseau local."
   },
-  "contribute": {
-    "title": "Contribuer",
-    "subtitle": "LivePlay est gratuit et open source — et le restera toujours.",
-    "freeTitle": "Gratuit pour toujours",
-    "freeText": "LivePlay est entièrement gratuit à télécharger et à utiliser — aucuns frais de licence, aucun abonnement, aucun paywall. Toutes les fonctionnalités sont accessibles à tous, sans niveaux premium.",
-    "licenseTitle": "Licence open source",
-    "licenseText": "LivePlay est publié sous la licence GNU AGPL-3.0. En termes simples : vous êtes libre de l’utiliser, de l’étudier, de le partager et de le modifier. Si vous partagez une version modifiée — ou l’exécutez en tant que service réseau — vous devez rendre votre code source disponible sous la même licence, afin que toute la communauté continue d’en bénéficier.",
-    "contributeTitle": "Comment aider",
-    "contributeText": "Tout le monde peut contribuer. Signalez des bugs, proposez des fonctionnalités, améliorez les traductions ou soumettez du code — toute contribution est la bienvenue. Rendez-vous sur le dépôt GitHub pour ouvrir une issue ou une pull request.",
-    "githubButton": "Contribuer sur GitHub →"
+  "api": {
+    "title": "API et automatisation",
+    "subtitle": "Connectez LivePlay à vos outils de show control.",
+    "description": "Pilotez la lecture, modifiez projets et routage, et suivez l’état en direct via HTTP et WebSocket. Quand l’identification est activée, donnez à Companion, à un système de show control ou à un script son propre jeton d’API depuis Paramètres, rubrique Comptes, au lieu de partager le mot de passe de quelqu’un. La référence développeur couvre l’authentification, chaque endpoint, les commandes, les événements et des exemples d’intégration.",
+    "referenceLabel": "Référence de l’API pour les développeurs"
+  },
+  "footer": {
+    "license": "est distribué sous licence",
+    "developedBy": "Développé par",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "Voir sur GitHub",
+    "contributors": "Contributeurs"
   }
 }

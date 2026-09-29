@@ -6,96 +6,205 @@
     "direction": "ltr"
   },
   "header": {
+    "tagline": "Luajtje audio gati për shfaqje: teatër, radio, evente dhe festa",
+    "intro": "Rreshtoni muzikën dhe efektet, nisni çdo tingull në çastin e duhur dhe vazhdoni pa u ndalur edhe kur diçka shkon keq. Falas për Windows, macOS dhe Linux, LivePlay u shkon për shtat si listës së muzikës për një festë, ashtu edhe një shfaqjeje të plotë teatri apo radioje.",
     "version": "Versioni",
-    "logoAlt": "Logoja e LivePlay"
+    "logoAlt": "Logoja e LivePlay",
+    "screenshotAlt": "Dritarja kryesore e LivePlay me listën e luajtjes, cart player-in dhe mikserin krah njëri-tjetrit"
+  },
+  "common": {
+    "changeLanguage": "Ndrysho gjuhën"
   },
   "download": {
-    "title": "Shkarko LivePlay",
-    "subtitle": "Falas dhe me burim të hapur. I disponueshëm për Windows, macOS dhe Linux.",
+    "title": "Shkarkoni LivePlay",
+    "subtitle": "Falas dhe me burim të hapur. Për Windows, macOS dhe Linux.",
     "windows": {
       "title": "Windows",
       "description": "Windows 10/11 (64-bit)",
       "buttonText": "Shkarko .exe",
       "size": "~150 MB"
     },
-    "linux": {
-      "title": "Linux",
-      "description": "AppImage (Universal)",
-      "buttonText": "Shkarko .AppImage",
-      "size": "~155 MB"
-    },
-    "otherFormats": "Formate të tjera të disponueshme:",
-    "debianUbuntu": ".deb (Debian/Ubuntu)",
-    "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "viewReleases": "Shiko të gjitha versionet në GitHub →",
-    "macGatekeeper": {
-      "title": "macOS: «LivePlay është i dëmtuar dhe nuk mund të hapet»?",
-      "intro": "LivePlay ende nuk është nënshkruar me një certifikatë zhvilluesi të Apple, prandaj macOS e vendos në karantinë gjatë shkarkimit. Aplikacioni është i sigurt — kjo do të thotë vetëm se Apple nuk është paguar për ta noterizuar. Për ta hapur, hiqni një herë shenjën e karantinës pasi ta instaloni në /Applications:",
-      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
-      "outro": "Vendosni fjalëkalimin tuaj kur t'ju kërkohet, pastaj hapni LivePlay normalisht. Këtë duhet ta bëni vetëm një herë për çdo instalim."
-    },
-    "winSmartScreen": {
-      "title": "Windows: «Windows mbrojti kompjuterin tuaj»?",
-      "intro": "LivePlay ende nuk është nënshkruar me një certifikatë që Microsoft SmartScreen e njeh, prandaj Windows mund të shfaqë paralajmërimin blu «Windows mbrojti kompjuterin tuaj» kur ekzekutoni instaluesin. Aplikacioni është i sigurt — thjesht ende nuk ka grumbulluar reputacion shkarkimi (nënshkrimi i kodit është rrugës).",
-      "step1": "Klikoni «Më shumë informacion» në dritaren e paralajmërimit.",
-      "step2": "Klikoni butonin «Ekzekuto gjithsesi» që shfaqet, pastaj vazhdoni instalimin normalisht.",
-      "outro": "Nëse përkundrazi shfletuesi e bllokoi shkarkimin, zgjidhni më parë «Mbaje» për të ruajtur skedarin."
-    },
     "macArm": {
       "title": "macOS — Apple Silicon",
-      "description": "M1/M2/M3 e më të reja (arm64)",
+      "description": "M1/M2/M3 e më të rinj (arm64)",
       "buttonText": "Shkarko .dmg",
       "size": "~140 MB"
     },
     "macIntel": {
       "title": "macOS — Intel",
-      "description": "Mac me Intel (x64), macOS 11+",
+      "description": "Mac me Intel (x64), macOS 11 e më i ri",
       "buttonText": "Shkarko .dmg",
       "size": "~145 MB"
     },
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (x64)",
+      "buttonText": "Shkarko .AppImage",
+      "size": "~155 MB"
+    },
+    "recommended": "E rekomanduar për sistemin tuaj",
+    "showOtherOS": "Shkarkoni për një sistem tjetër operativ",
+    "hideOtherOS": "Fshihi sistemet e tjera operative",
+    "otherFormats": "Formate të tjera:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
     "macArmZip": ".zip (macOS Apple Silicon)",
     "macIntelZip": ".zip (macOS Intel)",
-    "recommended": "Rekomandohet për sistemin tuaj",
-    "showOtherOS": "Shkarko për një sistem tjetër operativ",
-    "hideOtherOS": "Fshih sistemet e tjera operative"
+    "viewReleases": "Të gjitha versionet në GitHub →",
+    "macGatekeeper": {
+      "title": "macOS: „LivePlay është i dëmtuar dhe s'mund të hapet”?",
+      "intro": "LivePlay ende nuk është nënshkruar me një certifikatë Apple Developer, prandaj macOS e vë në karantinë kur shkarkohet. Aplikacioni është i sigurt; thjesht Apple-it nuk i është paguar noterizimi. Për ta hapur, hiqni një herë shenjën e karantinës pasi ta keni instaluar te /Applications:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "Kur t'ju kërkohet, jepni fjalëkalimin, pastaj nisni LivePlay si zakonisht. Kjo duhet bërë vetëm një herë për çdo instalim."
+    },
+    "winSmartScreen": {
+      "title": "Windows: „Windows mbrojti PC-në tuaj”?",
+      "intro": "LivePlay ende nuk është nënshkruar me një certifikatë që e njeh Microsoft SmartScreen, prandaj Windows mund të shfaqë paralajmërimin blu „Windows mbrojti PC-në tuaj” kur nisni instaluesin. Aplikacioni është i sigurt; thjesht ende nuk ka krijuar reputacion shkarkimesh (nënshkrimi i kodit po vjen).",
+      "step1": "Klikoni „Më shumë informacion” te dritarja e paralajmërimit.",
+      "step2": "Klikoni butonin „Ekzekuto gjithsesi” që shfaqet, pastaj vazhdoni instalimin si zakonisht.",
+      "outro": "Nëse shfletuesi e bllokoi shkarkimin, zgjidhni „Mbaje” për ta ruajtur më parë instaluesin."
+    }
+  },
+  "contribute": {
+    "title": "Kontribuoni",
+    "subtitle": "LivePlay është falas dhe me burim të hapur, dhe do të mbetet gjithmonë i tillë.",
+    "freeTitle": "Falas përgjithmonë",
+    "freeText": "LivePlay shkarkohet dhe përdoret krejtësisht falas: pa pagesa licence, pa abonime, pa funksione të kyçura. Çdo veçori është e disponueshme për të gjithë, pa nivele premium.",
+    "licenseTitle": "Licencë me burim të hapur",
+    "licenseText": "LivePlay botohet me licencën GNU AGPL-3.0. Thënë thjesht: jeni të lirë ta përdorni, ta studioni, ta shpërndani dhe ta ndryshoni. Nëse shpërndani një version të ndryshuar, ose e vini në punë si shërbim rrjeti, duhet ta bëni kodin tuaj burim të disponueshëm me të njëjtën licencë, që e gjithë bashkësia të vazhdojë të përfitojë.",
+    "contributeTitle": "Si mund të ndihmoni",
+    "contributeText": "Kushdo mund të kontribuojë. Njoftoni të meta, propozoni veçori, përmirësoni përkthimet ose dërgoni kod: çdo kontribut është i mirëpritur. Shkoni te depoja në GitHub për të hapur një issue ose një pull request.",
+    "githubButton": "Kontribuoni në GitHub →"
   },
   "features": {
-    "title": "Karakteristikat Kryesore"
-  },
-  "footer": {
-    "license": "është i licensuar nën",
-    "developedBy": "Zhvilluar nga",
-    "developerName": "Thomas Doukinitsas",
-    "viewOnGitHub": "Shiko në GitHub",
-    "contributors": "Kontribuesit"
-  },
-  "common": {
-    "changeLanguage": "Ndrysho gjuhën"
+    "title": "Veçoritë kryesore",
+    "groupShow": {
+      "title": "Drejtoni shfaqjen tuaj",
+      "intro": "Gjithçka ju duhet për ta ngritur një shfaqje dhe për ta drejtuar me siguri."
+    },
+    "playlist": {
+      "title": "Rreshtoni cue-të dhe nisini",
+      "description": "Tërhiqni muzikën dhe efektet në një listë luajtjeje me cue dhe zgjidhni si kalon secili te pasuesi: vazhdon, përsëritet ose kërcen diku tjetër. Drejtoni të gjithë rendin e shfaqjes me mi, ekran me prekje, tastierë ose kontrollues MIDI."
+    },
+    "cart": {
+      "title": "Tinguj dhe xhingle në çast",
+      "description": "Mbani xhinglat, efektet e shkurtra dhe njoftimet vetëm një prekje larg në cart player, gati për t'u nisur mbi çdo gjë tjetër që luhet."
+    },
+    "ducking": {
+      "title": "Ducking automatik",
+      "description": "Lërini njoftimet dhe efektet ta ulin muzikën ndërsa dëgjohen dhe ta rikthejnë butësisht më pas, ose bëni që një cue të ndalë gjithçka tjetër për një ndërrim të pastër skene."
+    },
+    "interface": {
+      "title": "I organizuar si ju pëlqen",
+      "description": "Gruponi cue-të sipas skenës, aktit ose setit, jepuni ngjyra dhe rirenditini sa herë ndryshon rendi i shfaqjes. Vendosini listën e luajtjes, cart player-in dhe mikserin si ju përshtatet, fshihni atë që s'ju duhet dhe, në aplikacionin për desktop, kalojeni cart player-in ose mikserin në një ekran të dytë."
+    },
+    "showMode": {
+      "title": "Mënyra e shfaqjes",
+      "description": "Mënyra e shfaqjes e kthen ekranin në kontrolle të mëdha, të lehta për t'u prekur, dhe fsheh gjithçka që mund ta ndryshojë shfaqjen, që asgjë të mos ndryshohet gabimisht pasi hapen dyert."
+    },
+    "waveform": {
+      "title": "Prerje mbi formën e valës",
+      "description": "Priteni çdo tingull pikërisht te pjesa që doni dhe formësojini zbehjet drejtpërdrejt mbi formën e valës. LivePlay mund edhe ta shkurtojë heshtjen dhe t'i barazojë nivelet për ju, që çdo cue të vijë me volum të njëtrajtshëm."
+    },
+    "properties": {
+      "title": "Rregullim i imët për çdo cue",
+      "description": "Jepini çdo cue një emër dhe një ngjyrë, caktoni nivelin, zgjidhni ku dëgjohet dhe vendosni çfarë ndodh kur niset e kur mbaron, të gjitha në një vend."
+    },
+    "youtube": {
+      "title": "Integrim me YouTube",
+      "description": "Merrni audio drejt e nga YouTube kur ju duhet një pjesë me ngut. Sigurohuni që keni të drejtë ta përdorni atë që shkarkoni."
+    },
+    "firstLaunch": {
+      "title": "Nisje e shpejtë",
+      "description": "Zgjidhni një dosje, jepini emër shfaqjes dhe filloni të shtoni tinguj. LivePlay i mban skedarët media bashkë me projektin, ndaj kalimi i një shfaqjeje në një kompjuter tjetër është i thjeshtë."
+    },
+    "groupMixer": {
+      "title": "Miksoni si duhet",
+      "intro": "Një mikser i integruar, që muzika, efektet dhe zërat të rrinë secili në vendin e vet në sallë dhe asgjë e papritur të mos arrijë te altoparlantët."
+    },
+    "mixer": {
+      "title": "Një mikser i vërtetë për shfaqjen tuaj",
+      "description": "Jepini muzikës, efekteve dhe njoftimeve bus-et e tyre dhe balancojini në kanale, njësoj si në një konsolë. Drejtoni bus-et njëri te tjetri, drejt e te një dalje ose përmes send-eve aux, dhe caktoni një grup të tërë cue-sh me një lëvizje."
+    },
+    "eqDynamics": {
+      "title": "EQ dhe dinamikë në çdo bus",
+      "description": "Formësoni çdo bus me një EQ parametrik dhe një analizues spektri live, pastaj mbajeni nën kontroll me një gate dhe një compressor. Bus-et stereo mund të zgjerohen ose të ngushtohen, me bass-in të qëndrueshëm në qendër."
+    },
+    "limiter": {
+      "title": "Limiter brickwall dhe objektiva loudness-i",
+      "description": "Një limiter brickwall në çdo dalje i mban majat e humbura larg altoparlantëve, dhe mikseri ju tregon kur po punon. Zgjidhni një objektiv loudness-i, nga transmetimi dhe streaming-u deri te live, dhe limiteri, matësit e format e valës i përshtaten të gjithë."
+    },
+    "meters": {
+      "title": "Matës të nivelit broadcast",
+      "description": "Matës të saktë në kohë reale në çdo cue, bus dhe dalje, në shkallën me të cilën punoni. Zonat e tyre me ngjyra ndjekin objektivin e loudness-it, që të shihni me një vështrim nëse jeni brenda normës."
+    },
+    "preview": {
+      "title": "Paradëgjim në kufje dhe PFL",
+      "description": "Dëgjoni cue-në pasues, ose çfarëdo bus-i, në kufje pa dëgjuar publiku asgjë, dhe kontrolloni si qëndron miksi në mono para se të dalë në sallë."
+    },
+    "routing": {
+      "title": "Dalje fizike që udhëtojnë me ju",
+      "description": "Shfaqja juaj u drejtohet daljeve me emër, si Main, Foyer ose Sub, dhe çdo kompjuter i lidh këta emra me kartat e veta të zërit, edhe me disa njëherësh nëse ju duhen. Çojeni shfaqjen në një sallë të re dhe LivePlay ju tregon çfarë mungon, që ta rikaktoni në pak çaste."
+    },
+    "fades": {
+      "title": "Zbehje, përsëritje dhe kohë",
+      "description": "Jepini çdo cue zbehjet e veta, përsëritni atmosfera zanore pa asnjë qepje të dëgjueshme dhe zgjidhni nëse cue-ja pasues bën crossfade, pret apo niset te një shënues. Grupet tregojnë sa zgjasin dhe sa kohë ka mbetur."
+    },
+    "groupSystem": {
+      "title": "Ndërtuar që të mbështeteni tek ai",
+      "intro": "Nga një laptop i vetëm deri te një sistem në rrjet që e drejton një ekip i tërë, LivePlay është projektuar ta mbajë shfaqjen në këmbë."
+    },
+    "remoteOperation": {
+      "title": "Punë lokale ose në distancë",
+      "description": "Ekzekutoni motorin audio në të njëjtin kompjuter ose në një makinë në prapaskenë pranë ndërfaqeve audio, dhe kontrolloni gjithçka nga kudo në rrjet. Zëri vjen nga motori, jo nga ekrani, kështu që shfaqja vazhdon edhe nëse bie një kompjuter kontrolli."
+    },
+    "discovery": {
+      "title": "Punë në ekip, rikthim i shpejtë",
+      "description": "Ekranet e gjejnë vetë LivePlay në rrjet dhe disa persona mund të punojnë njëkohësisht në të njëjtën shfaqje, duke parë të gjithë të njëjtat cue. Nëse bie një lidhje, ajo rikthehet vetë, dhe nëse motori ndalet ndonjëherë, rinis dhe e merr shfaqjen aty ku e la."
+    },
+    "accounts": {
+      "title": "Llogari, role dhe tokenë API",
+      "description": "Jepini ekipit llogaritë e veta: operatorët drejtojnë shfaqjen, administratorët kujdesen për sistemin. Mjetet e show control-it, si Companion, marrin tokenët e tyre të hyrjes, dhe mund ta kaloni gjithë ekipin në një server tjetër LivePlay me një lëvizje."
+    },
+    "settingsPage": {
+      "title": "Të gjitha cilësimet në një vend",
+      "description": "Të gjitha cilësimet gjenden në një faqe. Parapëlqimet personale, si gjuha dhe tema, ju ndjekin në çdo ekran ku hyni, ndërsa vetë shfaqja tingëllon njësoj kudo."
+    },
+    "audioEngine": {
+      "title": "Motor audio i qëndrueshëm në C++",
+      "description": "Në zemër të LivePlay është një motor audio i dedikuar që komunikon drejtpërdrejt me harduerin e zërit në Windows, macOS dhe Linux. Çdo cue luhet më vete, kështu që i njëjti tingull mund të niset dy herë me nivele të ndryshme dhe sillet gjithmonë si e prisni."
+    },
+    "ltc": {
+      "title": "Timecode SMPTE",
+      "description": "Dërgoni timecode SMPTE bashkë me cue-të, që ndriçimi, videoja dhe pajisje të tjera ta ndjekin shfaqjen tuaj."
+    }
   },
   "ports": {
     "title": "Portat e rrjetit",
-    "subtitle": "Nëse e ekzekuton serverin dhe klientin në makina të ndryshme, sigurohu që këto porta të jenë të hapura në rrjetin dhe murin tënd të zjarrit.",
+    "subtitle": "Nëse serveri dhe klienti punojnë në kompjuterë të ndryshëm, sigurohuni që këto porta të jenë të hapura në rrjet dhe në firewall.",
     "control": {
       "port": "TCP 4480",
-      "title": "Sipërfaqja e kontrollit",
-      "description": "Lidhje REST API dhe WebSocket që bart komandat e transportit, të dhënat e projektit, drejtimin dhe matësit në kohë reale mes klientit dhe serverit."
+      "title": "Kontrolli",
+      "description": "Lidhje REST API dhe WebSocket që bart komandat e luajtjes, të dhënat e projektit, drejtimin dhe matësit live mes klientit dhe serverit."
     },
     "discovery": {
       "port": "UDP 4481",
       "title": "Zbulim automatik",
-      "description": "Bekon broadcast dhe multicast (grupi 239.255.69.80) që u lejon klientëve të gjejnë automatikisht serverat e LivePlay në rrjetin lokal."
+      "description": "Sinjal broadcast dhe multicast (grupi 239.255.69.80) përmes të cilit klientët gjejnë vetvetiu serverët LivePlay në rrjetin lokal."
     },
-    "note": "Një instalim në një makinë të vetme nuk ka nevojë për konfigurim — klienti dhe serveri komunikojnë përmes 127.0.0.1 dhe instaluesi i Windows shton rregullat e murit të zjarrit për ty. Këto porta kanë rëndësi vetëm kur ndan pozicionin e kontrollit nga hardueri audio përmes një LAN-i."
+    "note": "Një instalim në një kompjuter të vetëm nuk kërkon asnjë konfigurim: klienti dhe serveri komunikojnë përmes 127.0.0.1, dhe instaluesi për Windows i shton vetë rregullat e firewall-it. Këto porta kanë rëndësi vetëm kur posti i kontrollit dhe hardueri audio ndahen në një rrjet LAN."
   },
-  "contribute": {
-    "title": "Kontribuo",
-    "subtitle": "LivePlay është falas dhe me kod të hapur — dhe gjithmonë do të jetë.",
-    "freeTitle": "Falas përgjithmonë",
-    "freeText": "LivePlay është plotësisht falas për ta shkarkuar dhe përdorur — pa tarifa licence, pa abonime, pa pengesa pagese. Çdo veçori është e disponueshme për të gjithë, pa nivele premium.",
-    "licenseTitle": "Licencë me kod të hapur",
-    "licenseText": "LivePlay publikohet nën licencën GNU AGPL-3.0. Thjesht: jeni të lirë ta përdorni, studioni, ndani dhe modifikoni. Nëse ndani një version të modifikuar — ose e ekzekutoni si shërbim rrjeti — duhet ta bëni kodin tuaj burimor të disponueshëm nën të njëjtën licencë, që e gjithë komuniteti të vazhdojë të përfitojë.",
-    "contributeTitle": "Si të ndihmoni",
-    "contributeText": "Kushdo mund të kontribuojë. Raportoni gabime, sugjeroni veçori, përmirësoni përkthimet ose dorëzoni kod — çdo kontribut është i mirëpritur. Shkoni te depoja në GitHub për të hapur një issue ose një pull request.",
-    "githubButton": "Kontribuo në GitHub →"
+  "api": {
+    "title": "API dhe automatizim",
+    "subtitle": "Lidheni LivePlay me mjetet tuaja të show control-it.",
+    "description": "Kontrolloni luajtjen, përpunoni projekte dhe drejtimin, dhe ndiqni gjendjen live përmes HTTP dhe WebSocket. Kur hyrja me llogari është aktive, jepini Companion-it, një sistemi show control ose një skripti tokenin e vet API te Cilësimet, seksioni Llogaritë, në vend që të ndani fjalëkalimin e dikujt. Dokumentacioni për zhvillues mbulon mirëfilltësimin, çdo endpoint, komandat, ngjarjet dhe shembuj integrimi.",
+    "referenceLabel": "Dokumentacioni i API-t për zhvillues"
+  },
+  "footer": {
+    "license": "licencohet sipas",
+    "developedBy": "Zhvilluar nga",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "Shiheni në GitHub",
+    "contributors": "Kontribuesit"
   }
 }

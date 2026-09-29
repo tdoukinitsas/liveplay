@@ -6,61 +6,199 @@
     "direction": "ltr"
   },
   "header": {
+    "tagline": "Lydavspilling klar for showet – for teater, radio, arrangementer og fester",
+    "intro": "Legg opp musikken og effektene, start hver lyd i akkurat riktig øyeblikk, og hold det gående når noe går galt. LivePlay er gratis for Windows, macOS og Linux og passer like godt til spillelisten på en fest som til et helt teater- eller radioshow.",
     "version": "Versjon",
-    "logoAlt": "LivePlay-logo"
+    "logoAlt": "LivePlay-logo",
+    "screenshotAlt": "Hovedvinduet i LivePlay med spillelisten, cartspilleren og mikseren side om side"
+  },
+  "common": {
+    "changeLanguage": "Bytt språk"
   },
   "download": {
     "title": "Last ned LivePlay",
-    "subtitle": "Gratis og åpen kildekode. Tilgjengelig for Windows, macOS og Linux.",
+    "subtitle": "Gratis og med åpen kildekode. Tilgjengelig for Windows, macOS og Linux.",
     "windows": {
       "title": "Windows",
       "description": "Windows 10/11 (64-bit)",
       "buttonText": "Last ned .exe",
       "size": "~150 MB"
     },
-    "linux": {
-      "title": "Linux",
-      "description": "AppImage (Universal)",
-      "buttonText": "Last ned .AppImage",
-      "size": "~155 MB"
-    },
-    "otherFormats": "Andre tilgjengelige formater:",
-    "debianUbuntu": ".deb (Debian/Ubuntu)",
-    "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "viewReleases": "Se alle utgivelser på GitHub →",
-    "macGatekeeper": {
-      "title": "macOS: «LivePlay er skadet og kan ikke åpnes»?",
-      "intro": "LivePlay er ennå ikke signert med et Apple-utviklersertifikat, så macOS setter den i karantene ved nedlasting. Appen er trygg – det betyr bare at Apple ikke har fått betalt for å notarisere den. For å åpne den, fjern karantenemerket én gang etter at du har installert den i /Applications:",
-      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
-      "outro": "Skriv inn passordet ditt når du blir bedt om det, og start deretter LivePlay som vanlig. Du trenger bare å gjøre dette én gang per installasjon."
-    },
-    "winSmartScreen": {
-      "title": "Windows: «Windows beskyttet PC-en»?",
-      "intro": "LivePlay er ennå ikke signert med et sertifikat som Microsoft SmartScreen gjenkjenner, så Windows kan vise den blå advarselen «Windows beskyttet PC-en» når du kjører installasjonsprogrammet. Appen er trygg – den har bare ikke bygd opp noe nedlastingsomdømme ennå (kodesignering er på vei).",
-      "step1": "Klikk på «Mer informasjon» i advarselsdialogen.",
-      "step2": "Klikk på «Kjør likevel»-knappen som vises, og fortsett deretter installasjonen som vanlig.",
-      "outro": "Hvis det i stedet var nettleseren som blokkerte nedlastingen, velg først «Behold» for å lagre filen."
-    },
     "macArm": {
-      "title": "macOS — Apple Silicon",
+      "title": "macOS – Apple Silicon",
       "description": "M1/M2/M3 og nyere (arm64)",
       "buttonText": "Last ned .dmg",
       "size": "~140 MB"
     },
     "macIntel": {
-      "title": "macOS — Intel",
-      "description": "Intel-Mac-er (x64), macOS 11+",
+      "title": "macOS – Intel",
+      "description": "Intel-Mac (x64), macOS 11 eller nyere",
       "buttonText": "Last ned .dmg",
       "size": "~145 MB"
     },
-    "macArmZip": ".zip (macOS Apple Silicon)",
-    "macIntelZip": ".zip (macOS Intel)",
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (x64)",
+      "buttonText": "Last ned .AppImage",
+      "size": "~155 MB"
+    },
     "recommended": "Anbefalt for systemet ditt",
     "showOtherOS": "Last ned for et annet operativsystem",
-    "hideOtherOS": "Skjul andre operativsystemer"
+    "hideOtherOS": "Skjul andre operativsystemer",
+    "otherFormats": "Andre formater:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "viewReleases": "Alle versjoner på GitHub →",
+    "macGatekeeper": {
+      "title": "macOS: «LivePlay er skadet og kan ikke åpnes»?",
+      "intro": "LivePlay er ennå ikke signert med et Apple Developer-sertifikat, så macOS setter appen i karantene når den lastes ned. Appen er trygg – det betyr bare at Apple ikke har fått betalt for å notarisere den. Åpne den ved å fjerne karanteneflagget én gang etter at du har installert den i /Applications:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "Skriv inn passordet ditt når du blir bedt om det, og start deretter LivePlay som vanlig. Dette trenger du bare å gjøre én gang per installasjon."
+    },
+    "winSmartScreen": {
+      "title": "Windows: «Windows beskyttet PC-en»?",
+      "intro": "LivePlay er ennå ikke signert med et sertifikat som Microsoft SmartScreen kjenner igjen, så Windows kan vise den blå advarselen «Windows beskyttet PC-en» når du kjører installasjonsprogrammet. Appen er trygg – den har bare ikke rukket å bygge opp et nedlastingsomdømme ennå (kodesignering er på vei).",
+      "step1": "Klikk «Mer informasjon» i advarselsvinduet.",
+      "step2": "Klikk knappen «Kjør likevel» som dukker opp, og fortsett installasjonen som vanlig.",
+      "outro": "Hvis nettleseren blokkerte nedlastingen i stedet, velger du «Behold» for å lagre installasjonsprogrammet først."
+    }
+  },
+  "contribute": {
+    "title": "Bidra",
+    "subtitle": "LivePlay er gratis og har åpen kildekode – og slik vil det alltid være.",
+    "freeTitle": "Gratis for alltid",
+    "freeText": "LivePlay er helt gratis å laste ned og bruke – ingen lisensavgifter, ingen abonnementer, ingen betalingsmurer. Alle funksjoner er tilgjengelige for alle, uten premiumnivåer.",
+    "licenseTitle": "Lisens med åpen kildekode",
+    "licenseText": "LivePlay er utgitt under lisensen GNU AGPL-3.0. Enkelt sagt: Du står fritt til å bruke, studere, dele og endre programmet. Hvis du deler en endret versjon – eller kjører den som en nettverkstjeneste – må du gjøre kildekoden din tilgjengelig under samme lisens, slik at hele fellesskapet fortsatt har nytte av den.",
+    "contributeTitle": "Slik kan du hjelpe",
+    "contributeText": "Alle kan bidra. Rapporter feil, foreslå funksjoner, forbedre oversettelser eller send inn kode – alle bidrag er velkomne. Gå til GitHub-repoet for å opprette en sak eller en pull request.",
+    "githubButton": "Bidra på GitHub →"
   },
   "features": {
-    "title": "Hovedfunksjoner"
+    "title": "Hovedfunksjoner",
+    "groupShow": {
+      "title": "Kjør showet ditt",
+      "intro": "Alt du trenger for å sette sammen et show og kjøre det trygt."
+    },
+    "playlist": {
+      "title": "Legg opp cuene og kjør",
+      "description": "Dra musikk og effekter inn i en spilleliste med cuer, og velg hvordan hver cue leder videre til den neste: spill videre, loop eller hopp. Styr hele kjøreplanen fra mus, berøringsskjerm, tastatur eller MIDI-kontroller."
+    },
+    "cart": {
+      "title": "Lyder og jingler på et øyeblikk",
+      "description": "Ha jingler, stikk og utrop ett trykk unna i cartspilleren, klare til å spilles over alt annet som går."
+    },
+    "ducking": {
+      "title": "Automatisk ducking",
+      "description": "La utrop og effekter senke musikken mens de spilles og bringe den mykt tilbake etterpå, eller la en cue stoppe alt annet for et rent sceneskift."
+    },
+    "interface": {
+      "title": "Organisert på din måte",
+      "description": "Grupper cuer etter scene, akt eller sett, fargekod dem og endre rekkefølgen når kjøreplanen endres. Plasser spillelisten, cartspilleren og mikseren slik du vil, legg bort det du ikke trenger, og flytt cartspilleren eller mikseren til en ekstra skjerm i skrivebordsappen."
+    },
+    "showMode": {
+      "title": "Showmodus",
+      "description": "Showmodus gjør skjermen om til store, berøringsvennlige kontroller og skjuler alt som kan endre showet, så ingenting endres ved et uhell når dørene først har åpnet."
+    },
+    "waveform": {
+      "title": "Klipp i bølgeformen",
+      "description": "Klipp hver lyd til akkurat den delen du vil ha, og form inn- og uttoningene rett i bølgeformen. LivePlay kan også fjerne stillhet og jevne ut nivåene for deg, så hver cue kommer inn med jevnt volum."
+    },
+    "properties": {
+      "title": "Finjuster hver cue",
+      "description": "Gi hver cue navn og farge, still inn nivået, velg hvor den skal høres, og bestem hva som skjer når den starter og slutter – alt på ett sted."
+    },
+    "youtube": {
+      "title": "YouTube-integrasjon",
+      "description": "Hent lyd rett fra YouTube inn i showet når du trenger et spor i en fart. Sørg for at du har rett til å bruke det du laster ned."
+    },
+    "firstLaunch": {
+      "title": "Raskt i gang",
+      "description": "Velg en mappe, gi showet et navn og begynn å legge til lyder. LivePlay holder mediefilene samlet med prosjektet, så det er enkelt å flytte et show til en annen datamaskin."
+    },
+    "groupMixer": {
+      "title": "Miks det skikkelig",
+      "intro": "En innebygd mikser, slik at musikk, effekter og stemmer hver ligger riktig i rommet og ingenting uventet når høyttalerne."
+    },
+    "mixer": {
+      "title": "En ekte mikser for showet ditt",
+      "description": "Gi musikk, effekter og utrop egne busser, og balanser dem på kanalstriper, akkurat som på en miksepult. Rut busser inn i hverandre, rett til en utgang eller via aux-sends, og tilordne en hel gruppe cuer på én gang."
+    },
+    "eqDynamics": {
+      "title": "EQ og dynamikk på hver buss",
+      "description": "Form hver buss med en parametrisk EQ og en spektrumanalysator i sanntid, og hold den i sjakk med en gate og en kompressor. Stereobusser kan gjøres bredere eller smalere, med bassen stødig i midten."
+    },
+    "limiter": {
+      "title": "Brickwall-limiter og loudness-mål",
+      "description": "En brickwall-limiter på hver utgang holder løse topper unna høyttalerne, og mikseren viser deg når den jobber. Velg et loudness-mål, fra kringkasting og strømming til live, så følger limiteren, målerne og bølgeformene etter."
+    },
+    "meters": {
+      "title": "Måling på kringkastingsnivå",
+      "description": "Nøyaktige målere i sanntid på hver cue, buss og utgang, i skalaen du jobber i. Fargesonene følger loudness-målet ditt, så du ser med en gang om du er innenfor spesifikasjonen."
+    },
+    "preview": {
+      "title": "Forhåndslytting i hodetelefoner og PFL",
+      "description": "Lytt til neste cue, eller til hvilken som helst buss, i hodetelefonene uten at publikum hører noe, og sjekk hvordan miksen holder i mono før den går ut."
+    },
+    "routing": {
+      "title": "Maskinvareutganger som reiser med deg",
+      "description": "Showet snakker med utganger etter navn, for eksempel Main, Foyer eller Sub, og hver datamaskin knytter de navnene til sine egne lydkort – flere samtidig om du trenger det. Ta med showet til et nytt lokale, så viser LivePlay hva som mangler, og du tilordner det på nytt på et øyeblikk."
+    },
+    "fades": {
+      "title": "Toninger, looper og timing",
+      "description": "Gi hver cue egne toninger, loop ambienser helt sømløst, og velg om neste cue skal crossfade, vente eller starte ved en markør. Grupper viser hvor lenge de varer og hvor mye tid som er igjen."
+    },
+    "groupSystem": {
+      "title": "Bygget for å være til å stole på",
+      "intro": "Fra én enkelt bærbar PC til et nettverkssystem som et helt team kjører – LivePlay er laget for å holde showet i gang."
+    },
+    "remoteOperation": {
+      "title": "Lokal drift eller fjernstyring",
+      "description": "Kjør lydmotoren på samme datamaskin eller på en maskin backstage sammen med lydkortene, og styr alt fra hvor som helst i nettverket. Lyden kommer fra motoren, ikke fra skjermen, så showet fortsetter selv om en kontrollmaskin faller ut."
+    },
+    "discovery": {
+      "title": "Samarbeid og rask gjenoppretting",
+      "description": "Skjermene finner LivePlay i nettverket av seg selv, og flere personer kan jobbe i samme show samtidig og se de samme cuene. Hvis en forbindelse brytes, kobler den seg til igjen av seg selv, og skulle motoren stoppe, starter den på nytt og tar opp igjen showet."
+    },
+    "accounts": {
+      "title": "Kontoer, roller og API-tokener",
+      "description": "Gi teamet egne pålogginger, der operatører kjører showet og administratorer tar seg av systemet. Showkontrollverktøy som Companion får egne tilgangstokener, og du kan flytte hele teamet til en annen LivePlay-server på én gang."
+    },
+    "settingsPage": {
+      "title": "Alle innstillinger på ett sted",
+      "description": "Alle innstillingene ligger på én side. Personlige valg som språk og tema følger deg til alle skjermer du logger inn på, mens selve showet låter likt overalt."
+    },
+    "audioEngine": {
+      "title": "Robust lydmotor i C++",
+      "description": "I hjertet av LivePlay ligger en egen lydmotor som snakker direkte med lydmaskinvaren din på Windows, macOS og Linux. Hver cue spilles uavhengig, så den samme lyden kan startes to ganger med ulike nivåer og oppfører seg alltid slik du forventer."
+    },
+    "ltc": {
+      "title": "SMPTE-tidskode",
+      "description": "Send SMPTE-tidskode sammen med cuene, så lys, video og annet utstyr kan følge showet ditt."
+    }
+  },
+  "ports": {
+    "title": "Nettverksporter",
+    "subtitle": "Hvis du kjører serveren og klienten på forskjellige maskiner, må disse portene være åpne i nettverket og i brannmuren.",
+    "control": {
+      "port": "TCP 4480",
+      "title": "Styring",
+      "description": "REST API og WebSocket-forbindelse som frakter avspillingskommandoer, prosjektdata, ruting og målere i sanntid mellom klient og server."
+    },
+    "discovery": {
+      "port": "UDP 4481",
+      "title": "Automatisk oppdagelse",
+      "description": "Broadcast- og multicast-signal (gruppe 239.255.69.80) som lar klienter finne LivePlay-servere i det lokale nettverket automatisk."
+    },
+    "note": "En installasjon på én maskin trenger ingen konfigurasjon – klienten og serveren snakker sammen via 127.0.0.1, og installasjonsprogrammet for Windows legger til brannmurreglene for deg. Portene har bare betydning når du skiller kontrollplassen fra lydmaskinvaren over et LAN."
+  },
+  "api": {
+    "title": "API og automatisering",
+    "subtitle": "Koble LivePlay til showkontrollverktøyene dine.",
+    "description": "Styr avspillingen, rediger prosjekter og ruting, og følg sanntidsstatusen over HTTP og WebSocket. Når innlogging er på, gir du Companion, et showkontrollsystem eller et skript et eget API-token under Innstillinger › Kontoer i stedet for å dele noens passord. Utviklerreferansen dekker autentisering, alle endepunkter, kommandoer, hendelser og eksempler på integrasjon.",
+    "referenceLabel": "API-referanse for utviklere"
   },
   "footer": {
     "license": "er lisensiert under",
@@ -68,34 +206,5 @@
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Se på GitHub",
     "contributors": "Bidragsytere"
-  },
-  "common": {
-    "changeLanguage": "Bytt språk"
-  },
-  "ports": {
-    "title": "Nettverksporter",
-    "subtitle": "Hvis du kjører server og klient på ulike maskiner, må du sørge for at disse portene er åpne i nettverket og brannmuren din.",
-    "control": {
-      "port": "TCP 4480",
-      "title": "Kontrollflate",
-      "description": "REST API- og WebSocket-tilkobling som bærer transportkommandoer, prosjektdata, ruting og sanntidsmålere mellom klient og server."
-    },
-    "discovery": {
-      "port": "UDP 4481",
-      "title": "Automatisk oppdagelse",
-      "description": "Broadcast- og multicast-beacon (gruppe 239.255.69.80) som lar klienter finne LivePlay-servere på det lokale nettverket automatisk."
-    },
-    "note": "En installasjon på én maskin trenger ingen konfigurasjon — klient og server snakker over 127.0.0.1, og Windows-installasjonsprogrammet legger til brannmurreglene for deg. Disse portene betyr bare noe når du skiller kontrollposisjonen fra lydmaskinvaren over et LAN."
-  },
-  "contribute": {
-    "title": "Bidra",
-    "subtitle": "LivePlay er gratis og åpen kildekode — og vil alltid være det.",
-    "freeTitle": "Gratis for alltid",
-    "freeText": "LivePlay er helt gratis å laste ned og bruke — ingen lisensavgifter, ingen abonnementer, ingen betalingsmurer. Alle funksjoner er tilgjengelige for alle, uten premiumnivåer.",
-    "licenseTitle": "Åpen kildekode-lisens",
-    "licenseText": "LivePlay utgis under GNU AGPL-3.0-lisensen. Enkelt sagt: du står fritt til å bruke, studere, dele og endre det. Hvis du deler en endret versjon — eller kjører den som en nettverkstjeneste — må du gjøre kildekoden din tilgjengelig under samme lisens, slik at hele fellesskapet fortsetter å dra nytte av den.",
-    "contributeTitle": "Slik kan du hjelpe",
-    "contributeText": "Alle kan bidra. Rapporter feil, foreslå funksjoner, forbedre oversettelser eller send inn kode — alle bidrag er velkomne. Gå til GitHub-repositoriet for å åpne en issue eller en pull request.",
-    "githubButton": "Bidra på GitHub →"
   }
 }

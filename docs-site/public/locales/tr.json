@@ -6,8 +6,14 @@
     "direction": "ltr"
   },
   "header": {
+    "tagline": "Tiyatro, radyo, etkinlikler ve partiler için gösteriye hazır ses oynatma",
+    "intro": "Müziklerinizi ve efektlerinizi sıraya dizin, her birini tam zamanında başlatın ve bir şeyler ters gittiğinde bile gösteriyi sürdürün. Windows, macOS ve Linux için ücretsiz olan LivePlay, bir parti çalma listesine de, eksiksiz bir tiyatro gösterisine ya da radyo yayınına da uyum sağlar.",
     "version": "Sürüm",
-    "logoAlt": "LivePlay logosu"
+    "logoAlt": "LivePlay logosu",
+    "screenshotAlt": "Çalma listesi, kartuş oynatıcı ve mikserin yan yana durduğu LivePlay ana penceresi"
+  },
+  "common": {
+    "changeLanguage": "Dili değiştir"
   },
   "download": {
     "title": "LivePlay'i İndirin",
@@ -17,29 +23,6 @@
       "description": "Windows 10/11 (64-bit)",
       "buttonText": ".exe İndir",
       "size": "~150 MB"
-    },
-    "linux": {
-      "title": "Linux",
-      "description": "AppImage (Universal)",
-      "buttonText": ".AppImage İndir",
-      "size": "~155 MB"
-    },
-    "otherFormats": "Diğer mevcut formatlar:",
-    "debianUbuntu": ".deb (Debian/Ubuntu)",
-    "fedoraRHEL": ".rpm (Fedora/RHEL)",
-    "viewReleases": "GitHub'da tüm sürümleri görüntüle →",
-    "macGatekeeper": {
-      "title": "macOS: \"LivePlay zarar görmüş ve açılamıyor\" mu?",
-      "intro": "LivePlay henüz bir Apple Geliştirici sertifikasıyla imzalanmadığından macOS, indirme sırasında onu karantinaya alır. Uygulama güvenlidir — bu yalnızca onaylatma (notarize) için Apple'a ödeme yapılmadığı anlamına gelir. Açmak için /Applications klasörüne kurduktan sonra karantina işaretini bir kez kaldırın:",
-      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
-      "outro": "İstendiğinde parolanızı girin, ardından LivePlay'i normal şekilde başlatın. Bunu her kurulum için yalnızca bir kez yapmanız gerekir."
-    },
-    "winSmartScreen": {
-      "title": "Windows: \"Windows bilgisayarınızı korudu\" mu?",
-      "intro": "LivePlay henüz Microsoft SmartScreen'in tanıdığı bir sertifikayla imzalanmadığından, yükleyiciyi çalıştırdığınızda Windows mavi \"Windows bilgisayarınızı korudu\" uyarısını gösterebilir. Uygulama güvenlidir — yalnızca henüz indirme itibarı oluşmamıştır (kod imzalama yolda).",
-      "step1": "Uyarı iletişim kutusunda \"Ek bilgi\"ye tıklayın.",
-      "step2": "Görünen \"Yine de çalıştır\" düğmesine tıklayın, ardından kuruluma normal şekilde devam edin.",
-      "outro": "Bunun yerine indirmeyi tarayıcınız engellediyse, yükleyiciyi kaydetmek için önce \"Sakla\"yı seçin."
     },
     "macArm": {
       "title": "macOS — Apple Silicon",
@@ -53,49 +36,175 @@
       "buttonText": ".dmg İndir",
       "size": "~145 MB"
     },
-    "macArmZip": ".zip (macOS Apple Silicon)",
-    "macIntelZip": ".zip (macOS Intel)",
+    "linux": {
+      "title": "Linux",
+      "description": "AppImage (x64)",
+      "buttonText": ".AppImage İndir",
+      "size": "~155 MB"
+    },
     "recommended": "Sisteminiz için önerilir",
     "showOtherOS": "Başka bir işletim sistemi için indir",
-    "hideOtherOS": "Diğer işletim sistemlerini gizle"
+    "hideOtherOS": "Diğer işletim sistemlerini gizle",
+    "otherFormats": "Diğer mevcut formatlar:",
+    "debianUbuntu": ".deb (Debian/Ubuntu)",
+    "fedoraRHEL": ".rpm (Fedora/RHEL)",
+    "macArmZip": ".zip (macOS Apple Silicon)",
+    "macIntelZip": ".zip (macOS Intel)",
+    "viewReleases": "GitHub'da tüm sürümleri görüntüle →",
+    "macGatekeeper": {
+      "title": "macOS: \"LivePlay hasarlı ve açılamıyor\" mu diyor?",
+      "intro": "LivePlay henüz bir Apple Geliştirici sertifikasıyla imzalanmadığı için macOS indirilen uygulamayı karantinaya alır. Uygulama güvenlidir; bu yalnızca Apple'a onay (notarization) ücreti ödenmediği anlamına gelir. Açmak için /Applications klasörüne kurduktan sonra karantina işaretini bir kez kaldırın:",
+      "command": "sudo xattr -rd com.apple.quarantine \"/Applications/LivePlay.app\"",
+      "outro": "İstendiğinde parolanızı girin, ardından LivePlay'i normal şekilde başlatın. Bunu her kurulum için yalnızca bir kez yapmanız gerekir."
+    },
+    "winSmartScreen": {
+      "title": "Windows: \"Windows bilgisayarınızı korudu\" mu diyor?",
+      "intro": "LivePlay henüz Microsoft SmartScreen'in tanıdığı bir sertifikayla imzalanmadığı için, yükleyiciyi çalıştırdığınızda Windows mavi bir \"Windows bilgisayarınızı korudu\" uyarısı gösterebilir. Uygulama güvenlidir; yalnızca henüz indirme itibarı oluşmamıştır (kod imzalama yolda).",
+      "step1": "Uyarı iletişim kutusunda \"Ek bilgi\"ye tıklayın.",
+      "step2": "Görünen \"Yine de çalıştır\" düğmesine tıklayın, ardından kuruluma normal şekilde devam edin.",
+      "outro": "İndirmeyi tarayıcınız engellediyse, önce yükleyiciyi kaydetmek için \"Sakla\"yı seçin."
+    }
+  },
+  "contribute": {
+    "title": "Katkıda Bulunun",
+    "subtitle": "LivePlay ücretsiz ve açık kaynaklıdır — ve her zaman öyle kalacaktır.",
+    "freeTitle": "Sonsuza dek ücretsiz",
+    "freeText": "LivePlay'i indirmek ve kullanmak tamamen ücretsizdir: lisans ücreti, abonelik ya da ödeme duvarı yok. Premium sürüm de yok; her özellik herkese açık.",
+    "licenseTitle": "Açık kaynak lisansı",
+    "licenseText": "LivePlay, GNU AGPL-3.0 lisansıyla yayımlanır. Kısacası onu özgürce kullanabilir, inceleyebilir, paylaşabilir ve değiştirebilirsiniz. Değiştirilmiş bir sürümü paylaşırsanız ya da bir ağ hizmeti olarak çalıştırırsanız, kaynak kodunuzu aynı lisansla açmanız gerekir; böylece tüm topluluk kazançlı çıkar.",
+    "contributeTitle": "Nasıl yardımcı olabilirsiniz",
+    "contributeText": "Herkes katkıda bulunabilir: hata bildirin, özellik önerin, çevirileri iyileştirin ya da kod gönderin. Her katkı değerlidir. Bir issue ya da pull request açmak için GitHub deposuna gidin.",
+    "githubButton": "GitHub’da katkıda bulunun →"
   },
   "features": {
-    "title": "Temel Özellikler"
-  },
-  "footer": {
-    "license": "lisansı altında lisanslanmıştır",
-    "developedBy": "Geliştiren",
-    "developerName": "Thomas Doukinitsas",
-    "viewOnGitHub": "GitHub'da Görüntüle",
-    "contributors": "Katkıda Bulunanlar"
-  },
-  "common": {
-    "changeLanguage": "Dili değiştir"
+    "title": "Öne Çıkan Özellikler",
+    "groupShow": {
+      "title": "Gösterinizi yönetin",
+      "intro": "Bir gösteriyi hazırlayıp güvenle yönetmek için ihtiyacınız olan her şey."
+    },
+    "playlist": {
+      "title": "Cue'ları Dizin, Tek Tuşla Başlatın",
+      "description": "Müziklerinizi ve efektlerinizi bir cue listesine sürükleyin ve her birinin bir sonrakine nasıl geçeceğini seçin: devam etsin, döngüye girsin ya da atlasın. Tüm akışı fare, dokunmatik ekran, klavye ya da MIDI kontrolcüsüyle yönetin."
+    },
+    "cart": {
+      "title": "Anında Sesler ve Jingle'lar",
+      "description": "Jingle'lar, vurgu sesleri ve anonslar kartuş oynatıcıda tek dokunuş uzağınızda; o an ne çalıyorsa onun üzerine hemen başlatılmaya hazır."
+    },
+    "ducking": {
+      "title": "Otomatik Kısma",
+      "description": "Anonslar ve efektler çalarken müziği kıssın, bittiğinde yumuşakça geri getirsin. Temiz bir sahne değişimi için bir cue diğer her şeyi durdurabilir."
+    },
+    "interface": {
+      "title": "Size Göre Düzen",
+      "description": "Cue'ları sahne, perde ya da sete göre gruplayın, renklendirin ve akış değiştikçe yeniden sıralayın. Çalma listesini, kartuş oynatıcıyı ve mikseri istediğiniz gibi yerleştirin, ihtiyacınız olmayanı gizleyin; masaüstü uygulamasında kartuş oynatıcıyı ya da mikseri ikinci bir ekrana taşıyın."
+    },
+    "showMode": {
+      "title": "Gösteri Modu",
+      "description": "Gösteri Modu ekranı büyük, dokunmatik dostu kontrollere dönüştürür ve gösteriyi değiştirebilecek her şeyi gizler; kapılar açıldıktan sonra hiçbir şey yanlışlıkla değişmez."
+    },
+    "waveform": {
+      "title": "Dalga Formunda Kırpma",
+      "description": "Her sesi tam istediğiniz bölüme göre kırpın ve fade'lerini doğrudan dalga formu üzerinde şekillendirin. LivePlay sessizliği sizin yerinize kırpabilir ve seviyeleri dengeleyebilir; böylece her cue tutarlı bir ses seviyesinde gelir."
+    },
+    "properties": {
+      "title": "Her Cue'ya İnce Ayar",
+      "description": "Her cue'ya ad ve renk verin, seviyesini ayarlayın, nereden çalacağını seçin ve başladığında ya da bittiğinde ne olacağına karar verin; hepsi tek bir yerde."
+    },
+    "youtube": {
+      "title": "YouTube Entegrasyonu",
+      "description": "Acil bir parçaya ihtiyaç duyduğunuzda sesi doğrudan YouTube'dan gösterinize alın. Lütfen indirdiğiniz içeriği kullanma hakkınız olduğundan emin olun."
+    },
+    "firstLaunch": {
+      "title": "Hızlı Kurulum",
+      "description": "Bir klasör seçin, gösterinize bir ad verin ve ses eklemeye başlayın. LivePlay medya dosyalarınızı projeyle birlikte tutar; böylece bir gösteriyi başka bir bilgisayara taşımak çok kolaydır."
+    },
+    "groupMixer": {
+      "title": "Doğru dürüst miksleyin",
+      "intro": "Yerleşik bir mikser: müzik, efektler ve sesler salonda yerli yerinde durur, hoparlörlere beklenmedik hiçbir şey ulaşmaz."
+    },
+    "mixer": {
+      "title": "Gösteriniz İçin Gerçek Bir Mikser",
+      "description": "Müziğe, efektlere ve anonslara kendi bus'larını verin ve onları tıpkı bir mikser masasındaki gibi kanal şeritlerinde dengeleyin. Bus'ları birbirine, doğrudan bir çıkışa ya da aux gönderimleriyle yönlendirin ve bütün bir cue grubunu tek seferde atayın."
+    },
+    "eqDynamics": {
+      "title": "Her Bus'ta EQ ve Dinamik",
+      "description": "Her bus'ı parametrik EQ ve canlı spektrum analizörüyle şekillendirin, ardından gate ve kompresörle kontrol altında tutun. Stereo bus'lar genişletilip daraltılabilir; bas bölgesi merkezde sağlam kalır."
+    },
+    "limiter": {
+      "title": "Brickwall Limiter ve Ses Yüksekliği Hedefleri",
+      "description": "Her çıkıştaki brickwall limiter kaçak tepeleri hoparlörlerden uzak tutar, mikser de limiter devreye girdiğinde bunu gösterir. Yayından streaming'e, canlı sese kadar bir ses yüksekliği hedefi seçin; limiter, ölçerler ve dalga formları buna uyar."
+    },
+    "meters": {
+      "title": "Yayın Kalitesinde Ölçüm",
+      "description": "Her cue, bus ve çıkışta, alıştığınız skalada doğru ve gerçek zamanlı ölçerler. Renk bölgeleri ses yüksekliği hedefinizi izler; spesifikasyona uyup uymadığınızı bir bakışta görürsünüz."
+    },
+    "preview": {
+      "title": "Kulaklıkta Ön Dinleme ve PFL",
+      "description": "Sıradaki cue'yu ya da herhangi bir bus'ı seyirciler hiçbir şey duymadan kulaklıkta dinleyin ve miksin monoda nasıl duyulduğunu yayına çıkmadan önce kontrol edin."
+    },
+    "routing": {
+      "title": "Sizinle Taşınan Donanım Çıkışları",
+      "description": "Gösteriniz çıkışlara Ana, Fuaye ya da Sub gibi adlarla seslenir; her bilgisayar da bu adları kendi ses kartlarına, gerekirse aynı anda birden fazlasına bağlar. Gösteriyi yeni bir mekâna götürdüğünüzde LivePlay eksik olanı gösterir, siz de dakikalar içinde yeniden eşlersiniz."
+    },
+    "fades": {
+      "title": "Fade'ler, Döngüler ve Zamanlama",
+      "description": "Her cue'ya kendi fade'lerini verin, ambiyansları dikiş yeri belli olmadan döngüye alın ve sıradaki cue'nun crossfade ile mi gireceğini, bekleyeceğini mi yoksa bir işaretçide mi başlayacağını seçin. Gruplar ne kadar sürdüklerini ve ne kadar süre kaldığını gösterir."
+    },
+    "groupSystem": {
+      "title": "Güvenle yaslanabileceğiniz bir sistem",
+      "intro": "Tek bir dizüstünden bütün bir ekibin kullandığı ağ tabanlı bir sisteme kadar, LivePlay gösteriyi sürdürmek için tasarlandı."
+    },
+    "remoteOperation": {
+      "title": "Yerel ya da Uzaktan Çalışma",
+      "description": "Ses motorunu aynı bilgisayarda ya da ses arabirimlerinizin bulunduğu kulisteki bir makinede çalıştırın ve her şeyi ağın herhangi bir yerinden kontrol edin. Ses ekrandan değil motordan gelir; kontrol bilgisayarlarından biri koparsa bile gösteri çalmaya devam eder."
+    },
+    "discovery": {
+      "title": "Birlikte Çalışın, Hızla Toparlanın",
+      "description": "Ekranlar ağdaki LivePlay'i kendiliğinden bulur ve birden fazla kişi aynı cue'ları görerek aynı gösteri üzerinde aynı anda çalışabilir. Bir bağlantı koparsa kendiliğinden geri gelir; motor durursa yeniden başlar ve gösteriyi kaldığı yerden alır."
+    },
+    "accounts": {
+      "title": "Hesaplar, Roller ve API Belirteçleri",
+      "description": "Ekibinizdeki herkese kendi oturumunu verin: operatörler gösteriyi yönetir, yöneticiler sistemle ilgilenir. Companion gibi gösteri kontrol araçları kendi erişim belirteçlerini alır ve bütün ekibinizi tek seferde başka bir LivePlay sunucusuna taşıyabilirsiniz."
+    },
+    "settingsPage": {
+      "title": "Tüm Ayarlar Tek Yerde",
+      "description": "Tüm ayarlarınız tek bir sayfada. Dil ve tema gibi kişisel tercihleriniz oturum açtığınız her ekranda sizinle gelir; gösterinin kendisi ise her yerde aynı duyulur."
+    },
+    "audioEngine": {
+      "title": "Sağlam C++ Ses Motoru",
+      "description": "LivePlay'in kalbinde, Windows, macOS ve Linux'ta ses donanımınızla doğrudan konuşan özel bir ses motoru var. Her cue bağımsız çalar; aynı sesi farklı seviyelerde iki kez başlatabilirsiniz ve her zaman beklediğiniz gibi davranır."
+    },
+    "ltc": {
+      "title": "SMPTE Zaman Kodu",
+      "description": "Cue'larınızla birlikte SMPTE zaman kodu gönderin; ışık, video ve diğer ekipmanlar gösterinizi takip etsin."
+    }
   },
   "ports": {
-    "title": "Ağ Bağlantı Noktaları",
-    "subtitle": "Sunucu ve istemciyi farklı makinelerde çalıştırıyorsanız, bu bağlantı noktalarının ağınızda ve güvenlik duvarınızda açık olduğundan emin olun.",
+    "title": "Ağ Portları",
+    "subtitle": "Sunucuyu ve istemciyi farklı bilgisayarlarda çalıştırıyorsanız bu portların ağınızda ve güvenlik duvarınızda açık olduğundan emin olun.",
     "control": {
       "port": "TCP 4480",
-      "title": "Kontrol Yüzeyi",
-      "description": "İstemci ile sunucu arasında transport komutlarını, proje verilerini, yönlendirmeyi ve canlı ölçerleri taşıyan REST API ve WebSocket bağlantısı."
+      "title": "Kontrol Bağlantısı",
+      "description": "İstemci ile sunucu arasında oynatma komutlarını, proje verilerini, yönlendirmeyi ve canlı ölçerleri taşıyan REST API ve WebSocket bağlantısı."
     },
     "discovery": {
       "port": "UDP 4481",
       "title": "Otomatik Keşif",
-      "description": "İstemcilerin LivePlay sunucularını yerel ağda otomatik olarak bulmasını sağlayan yayın ve çok noktaya yayın işaretçisi (grup 239.255.69.80)."
+      "description": "İstemcilerin yerel ağdaki LivePlay sunucularını kendiliğinden bulmasını sağlayan broadcast ve multicast işaretçisi (grup 239.255.69.80)."
     },
-    "note": "Tek makineye kurulum yapılandırma gerektirmez — istemci ve sunucu 127.0.0.1 üzerinden konuşur ve Windows yükleyicisi güvenlik duvarı kurallarını sizin için ekler. Bu bağlantı noktaları yalnızca kontrol konumunu bir LAN üzerinden ses donanımından ayırdığınızda önemlidir."
+    "note": "Tek bilgisayarlı bir kurulum hiçbir ayar gerektirmez: istemci ve sunucu 127.0.0.1 üzerinden konuşur, Windows yükleyicisi de güvenlik duvarı kurallarını sizin için ekler. Bu portlar yalnızca kontrol noktasını ses donanımından bir LAN üzerinden ayırdığınızda önem taşır."
   },
-  "contribute": {
-    "title": "Katkıda bulunun",
-    "subtitle": "LivePlay ücretsiz ve açık kaynaklıdır — ve her zaman öyle kalacaktır.",
-    "freeTitle": "Sonsuza dek ücretsiz",
-    "freeText": "LivePlay’i indirmek ve kullanmak tamamen ücretsizdir — lisans ücreti yok, abonelik yok, ödeme duvarı yok. Tüm özellikler, premium katmanlar olmadan herkese açıktır.",
-    "licenseTitle": "Açık kaynak lisansı",
-    "licenseText": "LivePlay, GNU AGPL-3.0 lisansı altında yayımlanır. Basitçe: onu özgürce kullanabilir, inceleyebilir, paylaşabilir ve değiştirebilirsiniz. Değiştirilmiş bir sürümü paylaşırsanız — ya da bir ağ hizmeti olarak çalıştırırsanız — kaynak kodunuzu aynı lisans altında erişilebilir kılmalısınız; böylece tüm topluluk yararlanmaya devam eder.",
-    "contributeTitle": "Nasıl yardımcı olabilirsiniz",
-    "contributeText": "Herkes katkıda bulunabilir. Hataları bildirin, özellikler önerin, çevirileri geliştirin veya kod gönderin — her katkı memnuniyetle karşılanır. Bir issue veya pull request açmak için GitHub deposuna gidin.",
-    "githubButton": "GitHub’da katkıda bulunun →"
+  "api": {
+    "title": "API ve Otomasyon",
+    "subtitle": "LivePlay'i gösteri kontrol araçlarınıza bağlayın.",
+    "description": "Oynatmayı kontrol edin, projeleri ve yönlendirmeyi düzenleyin, canlı durumu HTTP ve WebSocket üzerinden izleyin. Oturum açma etkinse Companion'a, bir gösteri kontrol sistemine ya da bir betiğe birinin parolasını paylaşmak yerine Ayarlar'daki Hesaplar bölümünden kendi API belirtecini verin. Geliştirici başvurusu kimlik doğrulamayı, tüm uç noktaları, komutları, olayları ve entegrasyon örneklerini kapsar.",
+    "referenceLabel": "Geliştirici API Başvurusu"
+  },
+  "footer": {
+    "license": "şu lisansla dağıtılır:",
+    "developedBy": "Geliştiren",
+    "developerName": "Thomas Doukinitsas",
+    "viewOnGitHub": "GitHub'da Görüntüle",
+    "contributors": "Katkıda Bulunanlar"
   }
 }
