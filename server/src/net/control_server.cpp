@@ -963,8 +963,8 @@ void AuthGuard::before_handle(crow::request& req, crow::response& res, context& 
         if (api_token_forbidden(req.url)) {
             Logger::warn("{} {} refused: API token '{}' may not reach this",
                          crow::method_name(req.method), req.url, principal->name);
-            res = json_err(403, "an API token may not use this — it runs the show, "
-                                "it does not administer the machine or reach the disk");
+            res = json_err(403, "API tokens can run the show, but cannot change server "
+                                "settings, manage accounts or access files");
             res.end();
             return;
         }
@@ -2253,8 +2253,7 @@ void ControlServer::install_routes() {
                 // plainly rather than failing the password check, which would
                 // read as "you typed it wrong" on a server that has no accounts.
                 if (users_.user_count() == 0)
-                    return json_err(409, "this server has no accounts — "
-                                         "authentication is already off");
+                    return json_err(409, "this server has no accounts, so login is already off");
 
                 const auto& ctx = impl_->app.get_context<AuthGuard>(req);
                 // Defaulted from the session when there is one, so a signed-in
@@ -2287,8 +2286,7 @@ void ControlServer::install_routes() {
                     login_note_failure(req.remote_ip_address);
                     Logger::warn("Auth posture change refused for '{}' from {} "
                                  "(not an administrator)", name, req.remote_ip_address);
-                    return json_err(403, "only an administrator can change "
-                                         "whether this server requires a login");
+                    return json_err(403, "only an administrator can turn login on or off");
                 }
                 login_note_success(req.remote_ip_address);
 
@@ -2320,8 +2318,7 @@ void ControlServer::install_routes() {
                     return json_err(400, "name and password are required");
 
                 if (!users_.auth_required())
-                    return json_err(409, "this server has no accounts — "
-                                         "authentication is not in use");
+                    return json_err(409, "this server has no accounts, so login is off");
 
                 if (const int wait = login_block_remaining(req.remote_ip_address); wait > 0) {
                     auto r = json_err(429, "too many failed attempts — wait and try again");
@@ -2408,7 +2405,7 @@ void ControlServer::install_routes() {
     const auto own_avatar = [this](const crow::request& req, const std::string& avatar) {
         const auto& ctx = impl_->app.get_context<AuthGuard>(req);
         if (!ctx.authenticated || ctx.principal.is_api())
-            return json_err(409, "no signed-in user — sign in to change your own picture");
+            return json_err(409, "sign in to change your picture");
         using R = core::UserStore::Result;
         const auto r = users_.set_avatar(ctx.principal.id, avatar);
         if (r == R::NoSuchUser) return json_err(404, "no such user");
@@ -2811,8 +2808,8 @@ void ControlServer::install_routes() {
         ([this](const crow::request& req){
             const auto& ctx = impl_->app.get_context<AuthGuard>(req);
             if (!ctx.authenticated || !ctx.principal.is_admin())
-                return json_err(409, "turn the login on and sign in as an administrator "
-                                     "to export accounts — the file contains password hashes");
+                return json_err(409, "turn login on and sign in as an administrator to export "
+                                     "accounts (the file contains password hashes)");
             Logger::warn("Account list exported by '{}' from {} ({} account(s))",
                          ctx.principal.name, req.remote_ip_address, users_.user_count());
             auto res = json_ok(users_.export_json());

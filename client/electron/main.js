@@ -2893,7 +2893,7 @@ ipcMain.handle('import-project', async (event) => {
 
     // Show folder dialog for extraction location
     const folderResult = await dialog.showOpenDialog(mainWindow, {
-      title: 'Select Extraction Location',
+      title: 'Choose Where to Extract the Project',
       properties: ['openDirectory', 'createDirectory']
     });
 
@@ -2958,7 +2958,7 @@ ipcMain.handle('import-lpa-file', async (event, archivePath) => {
 
     // Show folder dialog for extraction location
     const folderResult = await dialog.showOpenDialog(mainWindow, {
-      title: 'Select Extraction Location',
+      title: 'Choose Where to Extract the Project',
       properties: ['openDirectory', 'createDirectory']
     });
 
@@ -3231,7 +3231,7 @@ ipcMain.handle('search-youtube', async (event, query) => {
     return videos;
   } catch (error) {
     console.error('YouTube search error:', error);
-    throw new Error('Failed to search YouTube');
+    throw new Error('YouTube search failed.');
   }
 });
 
@@ -3282,7 +3282,7 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
     }
     
     if (!ffmpegAvailable) {
-      reject(new Error('Bundled FFmpeg failed to initialize. Please restart the application.'));
+      reject(new Error('Could not start the bundled FFmpeg. Restart LivePlay and try again.'));
       return;
     }
     
@@ -3450,7 +3450,7 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
             }
           } else {
             console.error('Could not find downloaded file. Files in directory:', files);
-            reject(new Error('Downloaded file not found in expected location'));
+            reject(new Error('The downloaded file could not be found.'));
             return;
           }
         }

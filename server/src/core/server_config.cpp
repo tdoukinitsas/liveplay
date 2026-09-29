@@ -68,44 +68,44 @@ std::string_view ServerConfig::describe(Result r) {
 const std::vector<ServerConfig::Field>& ServerConfig::schema() {
     static const std::vector<Field> kSchema = {
         {"port", "--port", Kind::Int, 1, 65535, Applies::Restart,
-         "Port to listen on."},
+         "TCP port the server listens on."},
         {"bind", "--bind", Kind::Text, 0, 0, Applies::Restart,
-         "Interface to bind. 0.0.0.0 accepts connections from the network; "
-         "127.0.0.1 restricts the server to this machine."},
+         "Network address to listen on. 0.0.0.0 accepts connections from the "
+         "network; 127.0.0.1 allows this computer only."},
         {"meterHz", "--meter-hz", Kind::Int, 1, 120, Applies::Restart,
-         "How often meter frames are pushed, in Hz. This is the installation "
-         "default; a connection can ask for less."},
+         "How often meters update, in Hz. Each screen can choose a lower rate."},
         {"maxUploadMb", "--max-upload-mb", Kind::Int, 1, 8192, Applies::Restart,
-         "Largest accepted upload, in MiB."},
+         "Largest file that can be uploaded, in MiB."},
 
         {"mixSampleRate", "--mix-sample-rate", Kind::Int, 8000, 192000, Applies::Restart,
-         "Mix sample rate. The engine cannot be re-initialised while running."},
+         "Sample rate the mixer runs at."},
         {"renderBlock", "--render-block", Kind::Int, 32, 8192, Applies::Restart,
-         "Render block size in frames."},
+         "Audio processing block size, in samples. Smaller blocks lower "
+         "latency but use more CPU."},
         {"ringBlocks", "--ring-blocks", Kind::Int, 2, 512, Applies::Restart,
-         "Output latency, in render blocks. Raise it only on a machine that "
-         "genuinely stutters — every block is added delay before sound leaves."},
+         "Output buffer, in processing blocks. Raise it only if the audio "
+         "stutters: each block adds delay."},
         {"masterChannels", "--master-channels", Kind::Int,
          static_cast<double>(audio::kMinMasterChannels), 1024, Applies::Restart,
-         "Master bus width. The preview pair is derived from it."},
+         "Number of internal mix channels. The last two carry the Preview bus."},
         {"maxBuses", "--max-buses", Kind::Int, 2, 512, Applies::Restart,
-         "Most mixer strips that may exist at once."},
+         "Maximum number of buses in the mixer."},
         {"masterCeilingDb", "--master-ceiling-db", Kind::Real, -24.0, 0.0, Applies::Restart,
-         "Brickwall limiter ceiling. A project's output target sets its own; "
-         "this is the boot default."},
+         "Brickwall limiter ceiling used until a project is open. Each "
+         "project's Output Target sets its own."},
 
         // The two that are policy rather than preference. The lock exists for
         // these, and the settings page marks them.
         {"fsRoots", "--fs-root (repeatable; an array here)", Kind::PathList, 0, 0,
          Applies::Restart,
-         "Confine the filesystem API to these directories. Empty means "
-         "unrestricted, which is what every release before 2.5 did.", true},
+         "Limit file browsing and file access to these folders. Leave empty "
+         "for no limit.", true},
         {"corsOrigin", "--cors-origin", Kind::Text, 0, 0, Applies::Restart,
-         "Access-Control-Allow-Origin, and the origin the WebSocket handshake "
-         "is checked against. \"*\" admits any origin.", true},
+         "Web origin that browsers may connect from (CORS and WebSocket). "
+         "\"*\" allows any origin.", true},
 
         {"verbose", "--verbose", Kind::Bool, 0, 0, Applies::Restart,
-         "Debug-level logging."},
+         "Write detailed debug messages to the log."},
     };
     return kSchema;
 }

@@ -151,19 +151,16 @@ std::string_view UserStore::describe(Result r) {
         case Result::NameTaken:    return "a user with that name already exists";
         case Result::WeakPassword: return "the password is too short";
         case Result::NoSuchUser:   return "no such user";
-        case Result::LastAdmin:    return "this is the only administrator — promote another first";
+        case Result::LastAdmin:    return "this is the only administrator; make someone else an administrator first";
         case Result::NoAccounts:   return "create an account before requiring a login";
         case Result::HashFailed:   return "the password could not be hashed";
-        case Result::IoError:      return "the user store could not be written";
+        case Result::IoError:      return "the account list could not be saved";
         case Result::NoSuchToken:  return "no such API token";
-        case Result::AuthOff:      return "turn the login on before issuing an API token — "
-                                          "while it is off, anyone on the network could issue "
-                                          "one and keep it";
+        case Result::AuthOff:      return "turn login on before issuing API tokens";
         case Result::BadAvatar:    return "the picture must be a PNG, JPEG or WebP image";
         case Result::AvatarTooLarge: return "the picture is too large";
         case Result::BadImport:    return "that is not a LivePlay account file this server can read";
-        case Result::NoAdmin:      return "the result would have no administrator — nobody could "
-                                          "manage the accounts afterwards";
+        case Result::NoAdmin:      return "at least one administrator must remain";
     }
     return "the request was refused";
 }
@@ -1028,7 +1025,7 @@ UserStore::Result UserStore::import_json(const json& file, ImportMode mode,
     seen_names.clear();
     if (const auto tokens_it = file.find("apiTokens");
         tokens_it != file.end() && !tokens_it->is_null()) {
-        if (!tokens_it->is_array()) return fail("the API token list is not a list");
+        if (!tokens_it->is_array()) return fail("the file's API token list is damaged");
         index = 0;
         for (const auto& e : *tokens_it) {
             ++index;
@@ -1083,7 +1080,7 @@ UserStore::Result UserStore::import_json(const json& file, ImportMode mode,
         // OPEN one. Restoring a backup must never quietly unlock the building;
         // turning the login off is its own act, with its own password prompt.
         if (in_users.empty())
-            return fail("the file has no accounts — replacing with it would switch the login off");
+            return fail("the file has no accounts; replacing with it would turn login off");
 
         for (auto& r : in_users) {
             // Same person, same machine (restoring a backup here): carry the
