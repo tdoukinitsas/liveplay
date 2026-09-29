@@ -373,6 +373,11 @@ export const useAudioEngine = () => {
       const item = findItemByUuid(uuid);
       if (!item || item.type !== 'audio') continue;
       const audioItem = item as AudioItem;
+      // Only a cue that is really in the playlist has a "next" in the running
+      // order. findItemByUuid also returns cart-only sounds, whose index is
+      // [-1, slot] and names no playlist position, and a stale index would be
+      // just as wrong — so the item must actually sit where its index says.
+      if (!Array.isArray(audioItem.index) || findItemByIndex(audioItem.index)?.uuid !== uuid) continue;
       switch (audioItem.endBehavior.action) {
         case 'next': {
           const nextIndex = [...audioItem.index];

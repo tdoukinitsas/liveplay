@@ -1417,11 +1417,20 @@ export const useProject = () => {
     let items: (AudioItem | GroupItem)[] = currentProject.value.items;
     let currentItem: AudioItem | GroupItem | null = null;
 
-    for (const idx of index) {
-      if (idx >= items.length) return null;
-      currentItem = items[idx];
+    for (let depth = 0; depth < index.length; depth++) {
+      const idx = index[depth]!;
+      // A path is only good if every step is a real position. Cart-only items
+      // carry [-1, slot], and "the next index" of one of those is [-1, slot+1]:
+      // items[-1] is undefined, and reading .type off it threw inside every
+      // playlist row's render, which is what emptied the playlist once a
+      // cart-only sound was playing alongside others.
+      if (!Number.isInteger(idx) || idx < 0 || idx >= items.length) return null;
+      currentItem = items[idx]!;
       if (currentItem.type === 'group') {
         items = currentItem.children;
+      } else if (depth < index.length - 1) {
+        // An audio item has no children; a longer path points at nothing.
+        return null;
       }
     }
 
