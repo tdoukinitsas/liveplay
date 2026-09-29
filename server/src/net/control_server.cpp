@@ -461,6 +461,19 @@ crow::response json_err(int status, std::string_view message) {
     return r;
 }
 
+// The legacy trigger routes accept GET so a URL can be fired from a browser,
+// and Crow answers HEAD on any GET route by running the GET handler and
+// dropping the body. So a link checker, a URL preview or a client that probes
+// with HEAD before its GET would fire the cue. Each of those handlers asks this
+// first and, for a HEAD, answers "the route exists" without doing anything.
+bool is_head_probe(const crow::request& req) {
+    return req.method == crow::HTTPMethod::Head;
+}
+
+crow::response head_probe_ok() {
+    return json_ok(json({{"ok", true}}));
+}
+
 // Refusal for a path outside the allow-list. Deliberately does not echo the
 // path back: the caller already knows what it asked for, and reflecting it
 // turns the error into a probe that confirms what exists.
@@ -3241,6 +3254,7 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/api/transport/go")
         .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
         ([this](const crow::request& req){
+            if (is_head_probe(req)) return head_probe_ok();
             Logger::api_request("Client ({}) -> Server ({}) : {} /api/transport/go",
                                 req.remote_ip_address, impl_->server_addr,
                                 crow::method_name(req.method));
@@ -3291,7 +3305,8 @@ void ControlServer::install_routes() {
     // the client's "Set As Next" context action.
     CROW_ROUTE(app, "/api/transport/arm_selected")
         .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
-        ([this]{
+        ([this](const crow::request& req){
+            if (is_head_probe(req)) return head_probe_ok();
             const auto uuid = state_.selected_item_uuid();
             if (uuid.empty()) return json_err(404, "nothing is selected");
             state_.set_next_item_override(uuid);
@@ -3302,7 +3317,8 @@ void ControlServer::install_routes() {
     // Trigger the selected item (the client's Enter / "Play Selected" key).
     CROW_ROUTE(app, "/api/transport/play_selected")
         .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
-        ([this]{
+        ([this](const crow::request& req){
+            if (is_head_probe(req)) return head_probe_ok();
             const auto uuid = state_.selected_item_uuid();
             if (uuid.empty()) return json_err(404, "nothing is selected");
             Logger::playback("PLAY SELECTED: {}", item_playback_info(uuid, state_));
@@ -3317,7 +3333,8 @@ void ControlServer::install_routes() {
     // is never ambiguous about which way it will go.
     CROW_ROUTE(app, "/api/transport/pause_toggle")
         .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
-        ([this]{
+        ([this](const crow::request& req){
+            if (is_head_probe(req)) return head_probe_ok();
             const json summary = state_.state_summary();
             std::vector<std::string> paused, sounding;
             for (const auto& p : summary.value("playing", json::array())) {
@@ -3425,6 +3442,7 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/api/transport/cart/<int>/play")
         .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
         ([this](const crow::request& req, int slot){
+            if (is_head_probe(req)) return head_probe_ok();
             Logger::api_request("Client ({}) -> Server ({}) : {} /api/transport/cart/{}/play",
                                 req.remote_ip_address, impl_->server_addr,
                                 crow::method_name(req.method), slot);
@@ -5014,6 +5032,7 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/api/project/items/<string>/play")
         .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
         ([this](const crow::request& req, std::string uuid){
+            if (is_head_probe(req)) return head_probe_ok();
             const std::string m = crow::method_name(req.method);
             Logger::api_request("Client ({}) -> Server ({}) : {} /api/project/items/{}/play",
                                 req.remote_ip_address, impl_->server_addr, m, uuid);
@@ -5042,6 +5061,7 @@ void ControlServer::install_routes() {
     CROW_ROUTE(app, "/api/project/items/by-index/<path>")
         .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
         ([this](const crow::request& req, std::string index_path){
+            if (is_head_probe(req)) return head_probe_ok();
             const std::string m = crow::method_name(req.method);
             Logger::api_request("Client ({}) -> Server ({}) : {} /api/project/items/by-index/{}",
                                 req.remote_ip_address, impl_->server_addr, m, index_path);

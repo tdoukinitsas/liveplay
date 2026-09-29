@@ -17,6 +17,9 @@
 //   F. #64  REST by uuid works for a group (play fires its start behaviour,
 //           stop stops what is playing inside it); master gain with no db or
 //           delta is refused instead of resetting to 0 dB.
+//   G. #65  (follow-up) HEAD on a trigger route that also accepts GET answers
+//           without firing it — Crow runs the GET handler for a HEAD — while
+//           the GET itself still plays.
 //
 // Generates its own short signals; needs an audio device (a Stopped/Playing
 // transition only happens while the render thread is running).
@@ -222,6 +225,10 @@ async function waitFor(pred, ms = 5000, step = 50) {
   stoppedFrames = 0;
   const cleared = await waitFor(async () => !(await previewActive()), 4000);
   ok('a preview that plays to its end clears itself', cleared, 'GET /api/preview');
+  // The state clears before the engine unloads the cue and the frame goes out,
+  // so a GET can see "inactive" a moment ahead of the broadcast.
+  await waitFor(async () => stoppedFrames > 0, 1000);
+  await sleep(200);   // and room for a duplicate to show up if there were one
   ok('...and broadcasts preview_stopped', stoppedFrames === 1, `${stoppedFrames} frame(s)`);
 
   await rest('/api/project/settings', { method: 'PATCH', body: JSON.stringify({ stopAllStopsPreview: false }) });
@@ -288,6 +295,32 @@ async function waitFor(pred, ms = 5000, step = 50) {
      r.status === 400 && Math.abs((after.db ?? after.gainDb ?? after) - -3) < 0.01,
      `status ${r.status}, gain ${JSON.stringify(after)}`);
   await post('/api/master/gain', { db: typeof before.db === 'number' ? before.db : 0 });
+
+  // ---- G. HEAD on a GET trigger route does not fire it (#65 follow-up) -----
+  await post('/api/transport/stop_all', { fade_ms: 0 });
+  await sleep(200);
+  const longCue = await cueFor('it-long');
+  const onAir = async () => ((await rest('/api/state/summary')).body.playing || []).length;
+  const headThen = async (p, label) => {
+    const h = await rest(p, { method: 'HEAD' });
+    await sleep(300);
+    const n = await onAir();
+    ok(`HEAD ${label} answers without playing anything`, h.status === 200 && n === 0,
+       `status ${h.status}, ${n} item(s) on air`);
+  };
+  await headThen('/api/project/items/it-long/play', '/api/project/items/<uuid>/play');
+  await headThen('/api/project/items/it-group/play', '/api/project/items/<group>/play');
+  await headThen('/api/project/items/by-index/1', '/api/project/items/by-index/<path>');
+  await headThen('/api/transport/cart/0/play', '/api/transport/cart/<n>/play');
+  await headThen('/api/transport/go', '/api/transport/go');
+  await headThen('/api/transport/play_selected', '/api/transport/play_selected');
+  await headThen('/api/transport/pause_toggle', '/api/transport/pause_toggle');
+  r = await rest('/api/project/items/it-long/play', { method: 'GET' });
+  await sleep(300);
+  t = (await cueState(longCue.id)).transport;
+  ok('GET on the same trigger URL still plays', r.status === 200 && (t === T.Playing || t === T.FadingIn),
+     `status ${r.status}, transport ${t}`);
+  await post('/api/transport/stop_all', { fade_ms: 0 });
 
   ws.close();
   await rest('/api/project/close', { method: 'POST', body: '{}' });
