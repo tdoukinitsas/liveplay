@@ -1,7 +1,7 @@
 <template>
   <!--
     The window controls every workspace pane carries, at the right-hand end of
-    its header: open in a new window, expand/restore, close. The same three,
+    its header: open in a new window, expand/restore, collapse. The same three,
     in the same order, drawn the same way on the Playlist, the Cart Player and
     the Mixer, so learning one pane teaches the others.
 
@@ -39,11 +39,11 @@
       <button
         type="button"
         class="pane-ctl"
-        :title="t('workspace.close')"
-        :aria-label="t('workspace.close')"
+        :title="t('workspace.collapse')"
+        :aria-label="t('workspace.collapse')"
         @click="hidePane(pane)"
       >
-        <span class="material-symbols-rounded">close</span>
+        <span class="material-symbols-rounded">minimize</span>
       </button>
     </template>
     <button

@@ -40,14 +40,14 @@
 
       <!-- The panes: Playlist, Cart Player, Mixer. Always here, so a pane
            closed from its own header or dragged shut is one click away. -->
-      <WorkspaceBar :icon-only="fitLevel >= 1" />
+      <WorkspaceBar :icon-only="fitLevel >= 5" />
 
       <span class="header-divider" aria-hidden="true"></span>
 
       <!-- An action, so it looks like a button — not a toggle, not a switch. -->
       <Btn
         class="header-action"
-        :class="{ 'header-action--icon': fitLevel >= 2 }"
+        :class="{ 'header-action--icon': fitLevel >= 3 }"
         icon="settings"
         :text="t('settings.title')"
         :title="t('settings.title')"
@@ -69,7 +69,7 @@
         :disabled="!currentProject"
         @click="setAutoSave(!autoSaveEnabled)"
       >
-        <span v-if="fitLevel >= 3" class="material-symbols-rounded autosave-toggle__icon" aria-hidden="true">save</span>
+        <span v-if="fitLevel >= 4" class="material-symbols-rounded autosave-toggle__icon" aria-hidden="true">save</span>
         <span v-else class="autosave-toggle__label">{{ t('project.autosave') }}</span>
         <span class="autosave-toggle__track" :class="{ 'autosave-toggle__track--on': autoSaveEnabled }">
           <span class="autosave-toggle__thumb"></span>
@@ -88,7 +88,7 @@
         :title="t('showMode.toggleHint')"
         @click="toggleUiMode"
       >
-        <span v-if="fitLevel >= 3" class="material-symbols-rounded autosave-toggle__icon" aria-hidden="true">theaters</span>
+        <span v-if="fitLevel >= 4" class="material-symbols-rounded autosave-toggle__icon" aria-hidden="true">theaters</span>
         <span v-else class="autosave-toggle__label">{{ t('showMode.toggle') }}</span>
         <span class="autosave-toggle__track" :class="{ 'autosave-toggle__track--on': uiMode === 'playback' }">
           <span class="autosave-toggle__thumb"></span>
@@ -228,16 +228,19 @@ function recomputeWarningPlacement() {
 // spent; past that, a long name truncates rather than costing a label.
 //
 //   0  everything labelled
-//   1  pane toggles lose their labels (the icons + tooltips still say which)
-//   2  Settings becomes an icon button
-//   3  the mode switches swap their labels for icons
-//   4  the clocks drop their captions and shrink
-//   5  tighter spacing, no dividers
+//   1  the clocks drop their captions and shrink
+//   2  tighter spacing, no dividers
+//   3  Settings becomes an icon button (a gear needs no caption)
+//   4  the mode switches swap their labels for icons
+//   5  pane toggles lose their labels (the icons + tooltips still say which)
+//
+// The labels go last on purpose: they are what tells a newcomer what each
+// control is, so the spacing and the clocks give way first.
 //
 // Measured rather than breakpointed: German labels, a long show name or the
 // LTC clock appearing all move the point at which each step is needed.
 const FIT_MAX = 5;
-const TITLE_KEEP_PX = 280;
+const TITLE_KEEP_PX = 200;
 const fitLevel = ref(0);
 const nameRef = ref<HTMLElement | null>(null);
 let fitting = false;
@@ -413,8 +416,13 @@ const ltcTimecode = computed<string | null>(() => {
 // Content that changes the header's natural width without resizing it. Down
 // here because the getter runs at once, and hasLtcOutput is declared above.
 watch(
+  // The labels themselves, not just the locale code: the code is set before
+  // the translation files have arrived, so the first labels measured can be
+  // raw keys that are far wider than the words that replace them.
   () => [currentProject.value?.name, currentLocale.value, hasLtcOutput.value,
-         autoSaveEnabled.value, hasUnsavedChanges.value, server.connected],
+         autoSaveEnabled.value, hasUnsavedChanges.value, server.connected,
+         t('playlist.title'), t('cart.title'), t('mixer.title'), t('settings.title'),
+         t('project.autosave'), t('showMode.toggle')],
   () => { void fitHeader(); },
 );
 
@@ -424,19 +432,31 @@ onMounted(() => {
   const silenceInterval = setInterval(checkForSilence, 100);
 
   // Re-fit (which re-places the silence banner too) whenever the header's
-  // geometry changes: a window resize, or fonts arriving after first paint.
+  // geometry changes, AND whenever what is in it changes size by itself.
+  // Watching the header alone missed the cases that matter at startup: the
+  // "Reconnecting…" pill still fading out, the icon font or the translations
+  // arriving a moment after mount. Each of those left the row measured too
+  // wide and stuck on icons with nothing to prompt a second look. The right
+  // block's own size changes whenever fitHeader moves a step, too, but that
+  // settles after one pass: the second pass lands on the same step and the
+  // same size, so the observer has nothing new to report.
   let resizeObserver: ResizeObserver | null = null;
   if (headerRef.value && typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver(() => { void fitHeader(); });
     resizeObserver.observe(headerRef.value);
+    if (rightRef.value) resizeObserver.observe(rightRef.value);
+    if (nameRef.value)  resizeObserver.observe(nameRef.value);
   }
   void fitHeader();
-  document.fonts?.ready.then(() => { void fitHeader(); }).catch(() => {});
+  const refitOnFonts = () => { void fitHeader(); };
+  document.fonts?.ready.then(refitOnFonts).catch(() => {});
+  document.fonts?.addEventListener?.('loadingdone', refitOnFonts);
 
   onUnmounted(() => {
     clearInterval(clockInterval);
     clearInterval(silenceInterval);
     if (resizeObserver) resizeObserver.disconnect();
+    document.fonts?.removeEventListener?.('loadingdone', refitOnFonts);
   });
 });
 </script>
@@ -513,9 +533,8 @@ onMounted(() => {
   font-size: 20px;
 }
 
-/* Fit step 4: the clocks lose their captions and shrink. */
-.header-right.fit-4,
-.header-right.fit-5 {
+/* Fit step 1 onwards: the clocks lose their captions and shrink. */
+.header-right:not(.fit-0) {
   .clock-label { display: none; }
   .digital-clock {
     min-width: 0;
@@ -524,8 +543,8 @@ onMounted(() => {
   .clock-value { font-size: 17px; }
 }
 
-/* Fit step 5: every pixel of spacing back. */
-.header-right.fit-5 {
+/* Fit step 2 onwards: every pixel of spacing back. */
+.header-right:not(.fit-0):not(.fit-1) {
   gap: var(--spacing-sm);
   .header-divider { display: none; }
 }

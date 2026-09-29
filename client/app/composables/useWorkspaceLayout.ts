@@ -4,10 +4,12 @@
 // The workspace's three panes — Playlist, Cart Player, Mixer — and the ONE
 // set of rules every one of them follows:
 //
-//   * SHOWN or not. The header's workspace bar toggles each one, and that
-//     bar is the single, always-visible way back to a pane, so closing one
-//     can never strand it. A pane closed from its own header, or dragged
-//     shut by its splitter, is the same state as one switched off up there.
+//   * OPEN or COLLAPSED. The header's workspace bar toggles each one. A
+//     collapsed pane never leaves the row: it shrinks to a narrow labelled
+//     bar at its own edge, which can be dragged (or clicked) to open it
+//     again. Collapsing from the pane's own header, from the workspace bar
+//     or by dragging its splitter shut are all the same state. The only way
+//     a pane leaves the row entirely is by going into its own window.
 //
 //   * EXPANDED. A pane can take the whole workspace; the others are switched
 //     off for the duration and remembered, and Restore brings back exactly
@@ -212,6 +214,17 @@ export const useWorkspaceLayout = () => {
     if (wasDetached) closeWindow(p);
   }
 
+  /**
+   * Open or collapse a docked pane from a splitter drag. No window handling —
+   * a pane being dragged is by definition docked in this window — and, like
+   * every manual change, it ends an expanded layout.
+   */
+  function setPaneOpen(p: PaneId, open: boolean) {
+    if (panes.value[p] === open) return;
+    restoreSet.value = null;
+    panes.value = { ...panes.value, [p]: open };
+  }
+
   function togglePane(p: PaneId) {
     if (panes.value[p]) hidePane(p);
     else showPane(p);
@@ -286,7 +299,7 @@ export const useWorkspaceLayout = () => {
     cartWidth, mixerWidth, propertiesHeight,
     cartDetached, mixerDetached,
     isDetached, isExpanded, canExpand, canDetach,
-    showPane, hidePane, togglePane, expandPane, restorePanes, detachPane, attachPane,
+    showPane, hidePane, setPaneOpen, togglePane, expandPane, restorePanes, detachPane, attachPane,
     persistLayout, flushLayout,
   };
 };

@@ -1,7 +1,9 @@
 <template>
   <!--
     What a bus's processing is doing, at strip size. Lamps first — EQ, GATE,
-    COMP, lit when that section is actually in circuit — then the EQ response
+    COMP, lit when that section is actually in circuit, and LIM on a bus that
+    feeds a hardware output, since that output's limiter is what it goes
+    through last — then the EQ response
     and the dynamics transfer curve as miniatures of the channel view's
     panels, drawn from the same maths (utils/dspCurves.ts), with the live input
     level on the curve and a gain-reduction bar per processor beside it.
@@ -15,6 +17,12 @@
       <span class="proc__lamp" :class="{ 'proc__lamp--on': eqOn }">{{ t('mixer.proc.eq') }}</span>
       <span class="proc__lamp" :class="{ 'proc__lamp--on': gateOn, 'proc__lamp--work': gateWorking }">{{ t('mixer.proc.gate') }}</span>
       <span class="proc__lamp" :class="{ 'proc__lamp--on': compOn, 'proc__lamp--work': compWorking }">{{ t('mixer.proc.comp') }}</span>
+      <span
+        v-if="limiter.present.value"
+        class="proc__lamp"
+        :class="{ 'proc__lamp--on': limiter.enabled.value, 'proc__lamp--work': limiter.working.value }"
+        :title="t('mixer.proc.limHint')"
+      >{{ t('mixer.proc.lim') }}</span>
     </span>
 
     <span class="proc__eq" :class="{ 'proc__eq--off': !eqOn }">
@@ -41,6 +49,9 @@
       <span class="proc__gr" :title="t('mixer.proc.compGr')">
         <span class="proc__grfill" :style="{ height: compGrPct + '%' }"></span>
       </span>
+      <span v-if="limiter.present.value" class="proc__gr proc__gr--lim" :title="t('mixer.proc.limGr')">
+        <span class="proc__grfill" :style="{ height: limGrPct + '%' }"></span>
+      </span>
     </span>
   </button>
 </template>
@@ -48,7 +59,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import type { Bus } from '~/types/project';
-import { useMixerMeter } from '~/composables/useLiveMeters';
+import { useBusLimiter, useMixerMeter } from '~/composables/useLiveMeters';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 import {
   eqSections, eqCurvePoints, eqIsActive, dynOutput, gateIsActive, compIsActive,
@@ -114,6 +125,10 @@ const gateGrPct = computed(() => grPct(meter.gateGr.value, 40));
 const compGrPct = computed(() => grPct(meter.compGr.value, 20));
 // "Working" = actually pulling the signal down right now.
 const gateWorking = computed(() => gateOn.value && meter.gateGr.value < -1);
+// The output limiter this bus goes through, if it feeds hardware. A limiter
+// holding back 6 dB is already working very hard.
+const limiter = useBusLimiter(() => props.bus);
+const limGrPct = computed(() => grPct(limiter.grDb.value, 6));
 const compWorking = computed(() => compOn.value && meter.compGr.value < -1);
 </script>
 
@@ -162,7 +177,10 @@ const compWorking = computed(() => compOn.value && meter.compGr.value < -1);
 }
 
 .proc__dyn { display: flex; align-items: stretch; gap: 3px; height: 40px; }
-.proc__dyn--off { opacity: 0.5; }
+/* The limiter bar stays at full strength when the bus's own dynamics are off:
+   it belongs to the output, not to them. */
+.proc__dyn--off > .proc__dynsvg,
+.proc__dyn--off > .proc__gr:not(.proc__gr--lim) { opacity: 0.5; }
 .proc__dynsvg { flex: 0 0 40px; height: 40px; background: var(--color-surface); border-radius: 2px; }
 .proc__unity { stroke: var(--color-text-disabled); stroke-width: 0.5; stroke-dasharray: 2 2; opacity: 0.5; }
 .proc__level { opacity: 0.6; }

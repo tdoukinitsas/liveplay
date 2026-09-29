@@ -10,6 +10,7 @@
 // =====================================================================
 import { computed, onScopeDispose, ref, watch } from 'vue';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
+import { useOutputTarget } from '~/composables/useOutputTarget';
 import type {
   CueId,
   ItemMeterFrame,
@@ -212,4 +213,35 @@ export function useMasterMeter(index: () => MasterChannelIndex | null | undefine
   onScopeDispose(() => unsubscribe());
 
   return { peak, rms, peakMax, truePeak, truePeakMax, kwMs, kwMsS, gainReduction };
+}
+
+/**
+ * The output limiter a bus passes through, if any.
+ *
+ * There is no per-bus limiter. The brickwall limiter sits on every hardware
+ * output channel, after all the buses feeding it have been summed, with one
+ * on/off switch (the project's `disableLimiter`) and one ceiling (the Output
+ * Target's). So a bus "has" a limiter exactly when it sends to a hardware
+ * output — `masters` is the output pair it lands on — and the gain reduction
+ * shown for it is that output pair's. A bus that feeds another bus reaches a
+ * limiter only through that bus, and shows none of its own.
+ */
+export function useBusLimiter(bus: () => { masters?: [number, number] | null } | null | undefined) {
+  const left  = useMasterMeter(() => bus()?.masters?.[0] ?? null);
+  const right = useMasterMeter(() => bus()?.masters?.[1] ?? null);
+  const { levels } = useOutputTarget();
+  const { currentProject } = useProject();
+
+  const present = computed(() => !!bus()?.masters);
+  // The detached mixer window may have no project loaded; the limiter is on
+  // unless a project says otherwise, so that is what it shows there.
+  const enabled = computed(() =>
+    present.value && !(currentProject.value as any)?.settings?.disableLimiter);
+  const grDb = computed(() => enabled.value
+    ? Math.min(left.gainReduction.value, right.gainReduction.value) : 0);
+  const ceilingDb = computed(() => levels.value.limiterCeilingDb);
+  // "Working" = pulling the signal down by more than a hair right now.
+  const working = computed(() => grDb.value < -0.5);
+
+  return { present, enabled, grDb, ceilingDb, working };
 }

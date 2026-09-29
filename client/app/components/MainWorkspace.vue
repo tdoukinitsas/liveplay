@@ -23,10 +23,9 @@
     <div v-if="server.migrationBanner" class="migration-banner" role="status">
       <div class="migration-banner__text">
         <p class="migration-banner__title">{{ t('migration.title') }}</p>
-        <p class="migration-banner__body">{{ t('migration.body') }}</p>
-        <p v-if="server.migrationBanner.busesFromDeviceOverride > 0" class="migration-banner__body">
-          {{ t('migration.busesFromOverrides', { count: server.migrationBanner.busesFromDeviceOverride }) }}
-        </p>
+        <!-- One line per thing that actually changed, so the banner never
+             claims a change that did not happen to this project. -->
+        <p v-for="line in migrationLines" :key="line" class="migration-banner__body">{{ line }}</p>
       </div>
       <div class="migration-banner__actions">
         <button class="migration-banner__btn migration-banner__btn--primary" @click="openMixerFromBanner">
@@ -65,54 +64,64 @@
 
     <PlaybackControls />
 
-    <!-- One flex row of whichever panes are docked, always in the order
-         playlist | cart | mixer. The leftmost docked pane stretches (flex: 1,
-         min-width 0); every pane to its right carries an explicit px width with
+    <!-- One flex row, always in the order playlist | cart | mixer. Every pane
+         that is not away in its own window has an EDGE on its left and, when
+         open, its body. The leftmost open pane stretches (flex: 1, min-width
+         0); every open pane to its right carries an explicit px width with
          flex-shrink 0, and the drag handlers clamp those widths so the row
          never over-requests.
 
-         Every separator follows one rule: it sizes the pane on its RIGHT. Drag
-         it far enough right and that pane closes; far enough left and that pane
-         expands to fill the workspace. Both end the drag — the pane's own
-         header and the workspace bar are the way back, so nothing has to stay
-         behind as a handle, and there is no threshold for a resting pointer to
-         flicker across.
+         The edge is one element in two shapes. Open, it is the splitter that
+         sizes its pane (drawn only when an open pane sits to its left, since
+         the stretching pane has nothing to be sized against). Collapsed, it is
+         a narrow bar with the pane's icon and name, which a click or a drag
+         opens again. Keeping it the same element is what lets one drag close a
+         pane and pull it straight back out without letting go.
 
-         Keyed by pane, so toggling one never remounts the others. -->
+         Keyed by pane, so opening or collapsing one never remounts the others. -->
     <div ref="workspaceEl" class="workspace-content">
-      <template v-for="(p, i) in dockedPanes" :key="p">
+      <template v-for="item in rowItems" :key="item.key">
         <div
-          v-if="i > 0"
+          v-if="item.kind === 'edge'"
           class="resize-handle"
-          :class="{ dragging: resizingPane === p }"
-          role="separator"
-          aria-orientation="vertical"
-          @pointerdown="startResize($event, p)"
-          @dblclick="resetWidth(p)"
-        ><span class="resize-grip" aria-hidden="true"></span></div>
-        <div
-          class="pane"
-          :class="[`pane--${p}`, { 'pane--fill': p === flexPane }]"
-          :style="p === flexPane ? undefined : { width: `${paneWidth(p)}px` }"
+          :class="{
+            'resize-handle--bar': !panes[item.pane],
+            dragging: resizingPane === item.pane,
+          }"
+          :role="panes[item.pane] ? 'separator' : 'button'"
+          :aria-orientation="panes[item.pane] ? 'vertical' : undefined"
+          :aria-label="panes[item.pane] ? undefined : t('workspace.show', { pane: paneName(item.pane) })"
+          :title="panes[item.pane] ? undefined : t('workspace.barHint', { pane: paneName(item.pane) })"
+          :tabindex="panes[item.pane] ? undefined : 0"
+          @pointerdown="startEdgeDrag($event, item.pane)"
+          @dblclick="panes[item.pane] && resetWidth(item.pane)"
+          @keydown.enter.prevent="!panes[item.pane] && showPane(item.pane)"
+          @keydown.space.prevent="!panes[item.pane] && showPane(item.pane)"
         >
-          <PlaylistView v-if="p === 'playlist'" />
-          <CartPlayer v-else-if="p === 'cart'" />
+          <template v-if="!panes[item.pane]">
+            <span class="material-symbols-rounded edge-bar__icon" aria-hidden="true">{{ PANE_ICON[item.pane] }}</span>
+            <span class="edge-bar__label">{{ paneName(item.pane) }}</span>
+          </template>
+          <span class="resize-grip" aria-hidden="true"></span>
+        </div>
+        <div
+          v-else-if="item.kind === 'pane'"
+          class="pane"
+          :class="[`pane--${item.pane}`, { 'pane--fill': item.pane === flexPane }]"
+          :style="item.pane === flexPane ? undefined : { width: `${paneWidth(item.pane)}px` }"
+        >
+          <PlaylistView v-if="item.pane === 'playlist'" />
+          <CartPlayer v-else-if="item.pane === 'cart'" />
           <MixerPanel v-else :mode="mixerMode" @mode="onMixerMode" />
         </div>
-      </template>
-
-      <!-- Nothing docked: every pane is switched off, or away in its own
-           window. Say so, and offer the way back right here too. -->
-      <div v-if="dockedPanes.length === 0" class="workspace-empty">
-        <span class="material-symbols-rounded workspace-empty__icon">dashboard</span>
-        <p class="workspace-empty__title">{{ t('workspace.emptyTitle') }}</p>
-        <p class="workspace-empty__hint">{{ t('workspace.emptyHint') }}</p>
-        <div class="workspace-empty__actions">
-          <Btn icon="queue_music" :text="t('playlist.title')" @click="showPane('playlist')" />
-          <Btn icon="grid_view" :text="t('cart.title')" @click="showPane('cart')" />
-          <Btn icon="instant_mix" :text="t('mixer.title')" @click="showPane('mixer')" />
+        <!-- Every pane collapsed: the bars stay at their edges and this takes
+             the space between them. -->
+        <div v-else class="workspace-empty">
+          <span class="material-symbols-rounded workspace-empty__icon">dashboard</span>
+          <p class="workspace-empty__title">{{ t('workspace.emptyTitle') }}</p>
+          <p class="workspace-empty__hint">{{ t('workspace.emptyHint') }}</p>
         </div>
-      </div>
+      </template>
     </div>
 
     <!-- Properties panel is an edit affordance — never surfaced in Show Mode.
@@ -168,9 +177,9 @@
 <script setup lang="ts">
 import LocationChoiceModal from './LocationChoiceModal.vue';
 import ServerFilePickerModal from './ServerFilePickerModal.vue';
-import Btn from './Btn.vue';
 import {
-  CART_DEFAULT_PX, MIXER_DEFAULT_PX, PROPERTIES_DEFAULT_PX, type PaneId,
+  CART_DEFAULT_PX, MIXER_DEFAULT_PX, PROPERTIES_DEFAULT_PX, PANE_ORDER,
+  type PaneId, type PaneSet,
 } from '~/composables/useWorkspaceLayout';
 
 const {
@@ -209,7 +218,7 @@ const {
   panes, restoreSet, dockedPanes, flexPane,
   cartWidth, mixerWidth, propertiesHeight,
   cartDetached, mixerDetached,
-  showPane, hidePane, expandPane, restorePanes,
+  showPane, setPaneOpen, expandPane, restorePanes, isDetached,
   persistLayout, flushLayout,
 } = useWorkspaceLayout();
 // 'full' whenever the mixer is the pane that stretches — the one state in
@@ -225,11 +234,22 @@ const PANE_MIN_PX: Record<PaneId, number> = { playlist: 240, cart: 300, mixer: 2
 const PANE_DEFAULT_PX: Record<PaneId, number> = {
   playlist: 0, cart: CART_DEFAULT_PX, mixer: MIXER_DEFAULT_PX,
 };
-const HANDLE_PX = 10;             // keep in step with .resize-handle
-const SNAP_PX = 100;              // drag this far past a limit to close/expand
+const HANDLE_PX = 10;             // an open pane's splitter — keep in step with .resize-handle
+const BAR_PX = 28;                // a collapsed pane's bar — keep in step with .resize-handle--bar
+// A pane collapses once a drag would leave it under half its minimum, and a
+// collapsed one opens once it would get this much more than that. The gap is
+// what stops a pointer resting on the line from flipping it on every move.
+const REOPEN_MARGIN_PX = 40;
+const PANE_ICON: Record<PaneId, string> = {
+  playlist: 'queue_music', cart: 'grid_view', mixer: 'instant_mix',
+};
+const PANE_TITLE_KEY: Record<PaneId, string> = {
+  playlist: 'playlist.title', cart: 'cart.title', mixer: 'mixer.title',
+};
+const paneName = (p: PaneId) => t(PANE_TITLE_KEY[p]);
 
-// Only the cart and the mixer ever have a fixed width: the playlist is always
-// leftmost when docked, so it is always the pane that stretches.
+// Only the cart and the mixer ever have a fixed width of their own; the
+// playlist is only ever sized as the pane that stretches.
 function paneWidth(p: PaneId): number {
   return p === 'cart' ? cartWidth.value : p === 'mixer' ? mixerWidth.value : 0;
 }
@@ -238,22 +258,76 @@ function setPaneWidth(p: PaneId, w: number) {
   else if (p === 'mixer') mixerWidth.value = w;
 }
 
-/** The fixed-width panes, i.e. every docked pane but the stretching one. */
-const fixedPanes = computed(() => dockedPanes.value.slice(1));
+type RowItem =
+  | { kind: 'edge'; pane: PaneId; key: string }
+  | { kind: 'pane'; pane: PaneId; key: string }
+  | { kind: 'empty'; key: string };
+
+/** What the row draws, left to right. See the template comment for the rules. */
+const rowItems = computed<RowItem[]>(() => {
+  const items: RowItem[] = [];
+  const anyOpen = dockedPanes.value.length > 0;
+  let openSeen = false;
+  for (const p of PANE_ORDER) {
+    if (isDetached(p)) continue;
+    const open = panes.value[p];
+    if (!open || openSeen) items.push({ kind: 'edge', pane: p, key: `edge-${p}` });
+    if (open) { items.push({ kind: 'pane', pane: p, key: `pane-${p}` }); openSeen = true; }
+    // Nothing open: the message sits after the playlist's bar, so the cart's
+    // and the mixer's bars stay on the right where their panes open from.
+    if (!anyOpen && p === 'playlist') items.push({ kind: 'empty', key: 'empty' });
+  }
+  return items;
+});
 
 /**
- * The most `p` may have while the stretching pane keeps its minimum and every
- * other fixed pane keeps its width. Minimums win over this: only on a window
- * too narrow for every minimum at once can the row still over-request.
+ * Everything in the row that is not a pane body — splitters and collapsed
+ * bars — for a given set of open panes. Worked out from the model rather than
+ * measured, so a drag can ask "what if this pane were open?" before it is.
+ */
+function chromeWidth(open: PaneSet): number {
+  let w = 0, openSeen = false;
+  for (const p of PANE_ORDER) {
+    if (isDetached(p)) continue;
+    if (!open[p]) w += BAR_PX;
+    else { if (openSeen) w += HANDLE_PX; openSeen = true; }
+  }
+  return w;
+}
+
+/** The open docked panes for a given set, in row order. */
+const dockedIn = (open: PaneSet) => PANE_ORDER.filter(p => open[p] && !isDetached(p));
+
+/**
+ * The most `p` may have, as a fixed pane, while the stretching pane keeps its
+ * minimum and every other fixed pane keeps its width. Minimums win over this:
+ * only on a window too narrow for every minimum at once can the row still
+ * over-request.
  */
 function maxWidthFor(p: PaneId, containerWidth: number): number {
-  const flex = flexPane.value;
-  const others = fixedPanes.value
-    .filter(q => q !== p)
-    .reduce((sum, q) => sum + paneWidth(q), 0);
-  const handles = HANDLE_PX * Math.max(0, dockedPanes.value.length - 1);
-  return containerWidth - others - handles - (flex ? PANE_MIN_PX[flex] : 0);
+  const open = { ...panes.value, [p]: true };
+  const docked = dockedIn(open);
+  const flex = docked[0];
+  const others = docked.slice(1).filter(q => q !== p).reduce((sum, q) => sum + paneWidth(q), 0);
+  return containerWidth - others - chromeWidth(open) - (flex ? PANE_MIN_PX[flex] : 0);
 }
+
+/**
+ * Where `p`'s right edge is, or would be if it were open: the row's right edge
+ * less everything after it. Panes after it are anchored right, because the
+ * stretching pane is always to the left and absorbs any change.
+ */
+function rightEdgeFor(p: PaneId, rowRight: number): number {
+  let after = 0;
+  for (const q of PANE_ORDER.slice(PANE_ORDER.indexOf(p) + 1)) {
+    if (isDetached(q)) continue;
+    after += panes.value[q] ? HANDLE_PX + paneWidth(q) : BAR_PX;
+  }
+  return rowRight - after;
+}
+
+/** The fixed-width panes, i.e. every open docked pane but the stretching one. */
+const fixedPanes = computed(() => dockedPanes.value.slice(1));
 
 const clampWidth = (w: number, min: number, max: number) => Math.max(min, Math.min(w, max));
 
@@ -348,76 +422,126 @@ const startPropsResize = (e: PointerEvent) => {
 };
 
 // ---- The vertical splitters ----------------------------------------------
-// One handler for every separator: it sizes the pane on its right, which is
-// always a fixed-width pane (the stretching one is leftmost). That pane's right
-// edge is the row's right edge minus whatever fixed panes sit beyond it.
+// One handler for every pane's edge, open or collapsed. It always sets the
+// width of ONE fixed pane from the pointer — the pane's own, normally — and
+// the stretching pane to the left takes up the difference.
 //
-// Pointer events (not mouse events) so the splitter is draggable by touch and
-// pen as well as mouse. Pointer capture keeps the drag alive when the finger
-// slides off the bar — without it a touch drag died on the first move. The
-// handle also carries `touch-action: none` so the browser doesn't claim the
-// gesture for scrolling before we ever see a pointermove.
+//   * Dragged right until the pane is under half its minimum, it COLLAPSES to
+//     its bar; keep dragging back left and it opens again, in the same drag.
+//   * Dragged left until the stretching pane would be under half its
+//     minimum, the open pane next to it on the left collapses instead,
+//     handing over its space.
+//   * A collapsed bar with an open pane to its left opens by being pulled left,
+//     the way its pane will grow. One with nothing open to its left sits left
+//     of the stretching pane, so it opens by being pulled right, and the drag
+//     carries on sizing the pane that has just stopped stretching.
+//   * A click on a collapsed bar, without a drag, just opens it.
 //
-// Past either limit the drag SNAPS and ends: dragged off to the right, the pane
-// closes; dragged past the room the others can spare, it expands to fill the
-// workspace. Ending the drag there is what makes the snap clean — the handle
-// being dragged no longer exists afterwards, and a pointer resting near a
-// threshold can no longer flip the layout back and forth on every move.
+// Every one of those uses the same measure — half a pane's minimum width —
+// with REOPEN_MARGIN_PX between collapsing and opening, so a pointer resting
+// on the line cannot flip a pane back and forth, and pulling a bar open can
+// never count as squeezing the pane it has just opened.
+//
+// Pointer events (not mouse events) so the edge is draggable by touch and pen
+// as well as mouse; pointer capture keeps a touch drag alive when the finger
+// slides off the bar, and `touch-action: none` on the handle stops the
+// browser claiming the gesture for scrolling.
 const resizingPane = ref<PaneId | null>(null);
+const DRAG_START_PX = 4;          // below this a press on a bar is a click
 
-const startResize = (e: PointerEvent, p: PaneId) => {
+const startEdgeDrag = (e: PointerEvent, p: PaneId) => {
   // Ignore secondary mouse buttons and any second finger landing on the bar —
   // a concurrent drag would register a duplicate set of document listeners.
   if (resizingPane.value || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
   const handle = e.currentTarget as HTMLElement | null;
   resizingPane.value = p;
-  // A snap puts this back: the drag that closes or expands a pane pinned it to
-  // a limit on the way, and Restore / reopening should bring back the width it
-  // had, not the edge it was dragged against.
-  const startWidth = paneWidth(p);
   e.preventDefault();
   try { handle?.setPointerCapture(e.pointerId); } catch { /* capture is best-effort */ }
 
+  const startX = e.clientX;
+  let moved = false;
+  // The pane whose width the pointer sets. Changes once, if a bar left of the
+  // stretching pane is pulled open (see above).
+  let target: PaneId = p;
+  const hasOpenLeftOf = (q: PaneId) =>
+    PANE_ORDER.slice(0, PANE_ORDER.indexOf(q)).some(r => panes.value[r] && !isDetached(r));
+  // A collapsed bar with nothing open on its left opens rightwards.
+  let opensRightward = !panes.value[p] && !hasOpenLeftOf(p);
+  // Widths as the drag found them. A pane collapsed by this drag keeps the
+  // width it had, not the sliver it was dragged down to, so it reopens sanely.
+  const startWidths: Record<PaneId, number> = {
+    playlist: 0, cart: cartWidth.value, mixer: mixerWidth.value,
+  };
+
+  const collapse = (q: PaneId) => {
+    if (q !== 'playlist') setPaneWidth(q, Math.max(startWidths[q], PANE_MIN_PX[q]));
+    setPaneOpen(q, false);
+  };
+
   const onMove = (ev: PointerEvent) => {
-    if (resizingPane.value !== p) return;
+    if (!moved && Math.abs(ev.clientX - startX) < DRAG_START_PX) return;
+    moved = true;
     const container = workspaceEl.value;
     if (!container) return;
     const rect = container.getBoundingClientRect();
 
-    const order = fixedPanes.value;
-    const beyond = order.slice(order.indexOf(p) + 1)
-      .reduce((sum, q) => sum + paneWidth(q) + HANDLE_PX, 0);
-    const width = rect.right - beyond - ev.clientX;
-    const maxWidth = maxWidthFor(p, rect.width);
+    if (opensRightward) {
+      if (ev.clientX - startX < PANE_MIN_PX[p] / 2 + REOPEN_MARGIN_PX) return;
+      // The pane that was stretching becomes a fixed pane beside the one just
+      // opened, and it is what the rest of this drag sizes.
+      const next = dockedPanes.value[0];
+      setPaneOpen(p, true);
+      opensRightward = false;
+      if (!next) { end(); return; }
+      target = next;
+      resizingPane.value = next;
+    }
 
-    if (width < SNAP_PX) {
-      end();
-      setPaneWidth(p, startWidth);
-      hidePane(p);
+    // The stretching pane is not sized by anything; if this drag has made the
+    // target stretch (its left neighbour collapsed), there is nothing to do.
+    if (panes.value[target] && flexPane.value === target) return;
+
+    const width = rightEdgeFor(target, rect.right) - ev.clientX;
+    const maxWidth = maxWidthFor(target, rect.width);
+    const min = PANE_MIN_PX[target];
+
+    if (!panes.value[target]) {
+      if (width >= min / 2 + REOPEN_MARGIN_PX) {
+        setPaneOpen(target, true);
+        setPaneWidth(target, clampWidth(width, min, maxWidth));
+      }
       return;
     }
-    if (width > maxWidth + SNAP_PX) {
-      end();
-      setPaneWidth(p, startWidth);
-      expandPane(p);
+    if (width < min / 2) { collapse(target); return; }
+    // How far the stretching pane is being pushed below its minimum.
+    const stretch = dockedPanes.value[0];
+    if (stretch && width - maxWidth > PANE_MIN_PX[stretch] / 2) {
+      const docked = dockedPanes.value;
+      const left = docked.slice(0, docked.indexOf(target)).pop();
+      if (left) collapse(left);
       return;
     }
-    setPaneWidth(p, clampWidth(width, PANE_MIN_PX[p], maxWidth));
+    setPaneWidth(target, clampWidth(width, min, maxWidth));
   };
 
   const end = () => {
     resizingPane.value = null;
     try { handle?.releasePointerCapture(e.pointerId); } catch { /* already released */ }
     document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', end);
+    document.removeEventListener('pointerup', onUp);
     // A touch drag interrupted by the OS (gesture takeover, call, etc.) fires
     // pointercancel instead of pointerup — without this the handle stayed
     // "stuck" to the finger and kept resizing on the next touch anywhere.
     document.removeEventListener('pointercancel', end);
   };
+  const onUp = () => {
+    end();
+    // A press on a collapsed bar that never became a drag is a click: open it.
+    if (!moved && !panes.value[p]) showPane(p);
+  };
 
   document.addEventListener('pointermove', onMove);
-  document.addEventListener('pointerup', end);
+  document.addEventListener('pointerup', onUp);
   document.addEventListener('pointercancel', end);
 };
 
@@ -725,6 +849,22 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 };
 
+// What the migration banner lists: only what happened to THIS project.
+const migrationLines = computed<string[]>(() => {
+  const m = server.migrationBanner;
+  if (!m) return [];
+  const out: string[] = [];
+  if (m.itemsToMain > 0) out.push(t('migration.itemsToMain', { count: m.itemsToMain }));
+  if (m.busesFromDeviceOverride > 0)
+    out.push(t('migration.busesFromOverrides', { count: m.busesFromDeviceOverride }));
+  if (m.mainOutputMigrated)    out.push(t('migration.mainOutput'));
+  if (m.previewDeviceMigrated) out.push(t('migration.previewDevice'));
+  if (m.ltcDeviceMigrated)     out.push(t('migration.ltcDevice'));
+  if (m.rolesMigrated)         out.push(t('migration.roles'));
+  if (m.sendsDropped > 0)      out.push(t('migration.sendsDropped', { count: m.sendsDropped }));
+  return out;
+});
+
 // Buses that will make no sound: unbound, carrying cues, and not the preview
 // bus. `bound` is server-computed and server.buses is kept fresh by the
 // buses_patched / outputs_changed broadcasts, so this needs no polling.
@@ -962,13 +1102,6 @@ onUnmounted(() => {
   max-width: 420px;
 }
 
-.workspace-empty__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-sm);
-}
 
 /* The properties panel's top edge. The same object as the vertical handles
    turned through ninety degrees: same grab zone, same coarse-pointer widening,
@@ -1099,4 +1232,48 @@ onUnmounted(() => {
   }
 }
 
+
+/* A collapsed pane: its edge, widened into a bar that says what it holds.
+   Click it or drag it to open the pane again. Keep BAR_PX in step. */
+.resize-handle.resize-handle--bar {
+  width: 28px;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  cursor: pointer;
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+
+  .edge-bar__icon {
+    font-size: 18px;
+    pointer-events: none;
+  }
+
+  .edge-bar__label {
+    writing-mode: vertical-rl;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  /* The grip still sits in the middle of the bar's height. */
+  .resize-grip {
+    margin-top: auto;
+    margin-bottom: auto;
+  }
+
+  &:hover,
+  &:focus-visible,
+  &.dragging {
+    color: var(--color-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+}
 </style>

@@ -32,7 +32,6 @@
           :mono="b.width < 2"
           bare
           :show-scale="false"
-          show-gr
           :min-db="FADER_MIN_DB"
           :max-db="METER_MAX_DB"
         />

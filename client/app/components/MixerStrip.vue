@@ -150,7 +150,11 @@
          across its own range, and there is no dead strip above it that a
          signal could never reach. Every strip meters its own engine lanes —
          the master's are the house pair, but it reads them through its own
-         mixerId like every other bus, so there is one meter path, not two. -->
+         mixerId like every other bus, so there is one meter path, not two.
+
+         No gain-reduction track beside it: the processing block above already
+         shows the gate's, the compressor's and — on a bus that feeds hardware —
+         the output limiter's, each on its own bar. -->
     <div class="strip__meterfader">
       <div class="strip__meters" :style="{ height: METER_TRACK_PCT + '%' }">
         <StereoMeter
@@ -159,7 +163,6 @@
           :mono="bus.width < 2"
           bare
           :show-scale="false"
-          show-gr
           :min-db="FADER_MIN_DB"
           :max-db="METER_MAX_DB"
         />

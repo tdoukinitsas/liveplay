@@ -126,6 +126,11 @@
              where it goes. Sends takes the height it needs at the bottom and
              contributions takes the rest, scrolling its list inside itself. -->
         <div class="det__io">
+          <!-- The output limiter, where it sits in the signal path: after this
+               bus's own processing, before anything it connects to. Only on a
+               bus that feeds hardware — the only kind that passes through one. -->
+          <MixerLimiterPanel v-if="bus.masters" :bus="bus" />
+
           <section class="det__panel det__contrib">
             <h4 class="det__h">
               {{ t('mixer.feedingThis') }}
@@ -286,6 +291,7 @@ import type { OutputMap } from '~/composables/useLiveplayServer';
 import MixerChannelFader from './MixerChannelFader.vue';
 import MixerEqPanel from './MixerEqPanel.vue';
 import MixerDynamicsPanel from './MixerDynamicsPanel.vue';
+import MixerLimiterPanel from './MixerLimiterPanel.vue';
 import StereoMeter from './StereoMeter.vue';
 import BusOutputSelect from './BusOutputSelect.vue';
 import BusSendList from './BusSendList.vue';

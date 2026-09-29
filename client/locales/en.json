@@ -1030,13 +1030,31 @@
       "compShort": "C",
       "openHint": "Open this bus's EQ and dynamics",
       "gateGr": "Gate gain reduction",
-      "compGr": "Compressor gain reduction"
+      "compGr": "Compressor gain reduction",
+      "lim": "LIM",
+      "limHint": "This bus feeds a hardware output, which has a brickwall limiter",
+      "limGr": "Output limiter gain reduction"
+    },
+    "limiter": {
+      "title": "Limiter",
+      "on": "ON",
+      "off": "OFF",
+      "hint": "The brickwall limiter on the hardware output this bus feeds. It acts on everything reaching that output.",
+      "gr": "Reduction",
+      "grHint": "How much the output limiter is turning this output down right now",
+      "ceiling": "Ceiling",
+      "settingsHint": "Turn the limiter on or off in Settings › Audio & Metering. The ceiling comes from the Output Target."
     }
   },
   "migration": {
-    "title": "This project was created in an earlier version of LivePlay.",
-    "body": "Its cues have been routed to the Master bus.",
-    "busesFromOverrides": "{count} cues that had their own output device were moved to new buses for those devices.",
+    "title": "This project was made in an earlier version of LivePlay and has been updated.",
+    "itemsToMain": "Its {count} cues now play through the Master bus.",
+    "busesFromOverrides": "{count} cues that had their own output device now play through new buses for those devices.",
+    "mainOutput": "Its output device is now the Master bus output.",
+    "previewDevice": "Its preview device is now the Preview bus output.",
+    "ltcDevice": "Its timecode device is now the LTC output in Settings › Audio & Metering.",
+    "roles": "The Master and Preview buses were set up automatically.",
+    "sendsDropped": "{count} sends to buses that no longer exist were removed.",
     "openMixer": "Open Mixer",
     "dismiss": "Dismiss"
   },
@@ -1049,15 +1067,16 @@
   },
   "workspace": {
     "barLabel": "Workspace panes",
-    "show": "Show {pane}",
-    "hide": "Hide {pane}",
-    "hideWindow": "{pane} is open in its own window. Click to close it.",
+    "show": "Open {pane}",
+    "hide": "Collapse {pane}",
+    "hideWindow": "{pane} is in its own window. Click to bring it back here, collapsed.",
     "detach": "Open in a new window",
     "expand": "Expand to fill the workspace",
     "restore": "Restore layout",
-    "close": "Close",
+    "collapse": "Collapse",
     "dockToMain": "Return to main window",
-    "emptyTitle": "No panes are showing",
-    "emptyHint": "Use the buttons at the top of the window to choose which panes to show."
+    "barHint": "{pane}: click or drag to open",
+    "emptyTitle": "All panes are collapsed",
+    "emptyHint": "Click or drag one of the bars at the edges, or use the buttons at the top of the window, to open a pane."
   }
 }
