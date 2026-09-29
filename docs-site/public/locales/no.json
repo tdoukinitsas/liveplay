@@ -6,7 +6,6 @@
     "direction": "ltr"
   },
   "header": {
-    "tagline": "Lydavspilling for Live-arrangementer",
     "version": "Versjon",
     "logoAlt": "LivePlay-logo"
   },
@@ -61,51 +60,7 @@
     "hideOtherOS": "Skjul andre operativsystemer"
   },
   "features": {
-    "title": "Hovedfunksjoner",
-    "interface": {
-      "title": "Intuitiv grensesnitt",
-      "description": "LivePlay har et rent, enkelt og moderne grensesnitt designet spesifikt for live-lydoperatører. Organiser hovedlydfiler i spillelister og legg til lyder i en vogn-spiller for rask tilgang eller kunngjøringer. Lydfiler lagt til vognen vil automatisk oppføre seg som kunngjøringer og senke bakgrunnslyden under avspilling."
-    },
-    "audioEngine": {
-      "title": "Robust C++-lydmotor",
-      "description": "I hjertet av LivePlay ligger en dedikert, høytytende lydmotor skrevet i C++ som kommuniserer direkte med lydmaskinvaren din — WASAPI på Windows, Core Audio på macOS og ALSA på Linux. Hver cue kjører som en helt uavhengig avspillingsinstans med egen dekoder og fade-kurve, slik at å spille av samme fil to ganger med ulikt volum alltid oppfører seg nøyaktig som forventet. Motoren kjører som en frittstående serverprosess: den kan ligge inne i skrivebordsappen, eller kjøre uten grensesnitt på en dedikert backstage-maskin koblet til lydgrensesnittene dine."
-    },
-    "waveform": {
-      "title": "Bølgeform-trimmer",
-      "description": "Trim lyden din med presisjon ved hjelp av den innebygde bølgeform-editoren. Sett inn- og ut-punkter, juster volumet og konfigurer fade-tider visuelt. Du kan også automatisk trimme basert på stillhet, eller automatisk justere volumet slik at alle lydnivåer er konsistente."
-    },
-    "youtube": {
-      "title": "YouTube-integrasjon",
-      "description": "Last ned lyd direkte fra YouTube med vår innebygde nedlaster! Perfekt for raskt å legge til musikk, lydeffekter eller backing-spor til showet ditt (vennligst sørg for at du har rettighetene til å bruke innholdet eller bruker offentlig domene-innhold)."
-    },
-    "properties": {
-      "title": "Brukervennlig egenskapspanel",
-      "description": "Endre navn, farge og avspillingsegenskaper for lydfilene dine med letthet. Sett filer til å løkke, juster volumet deres, start- og sluttatferd, og konfigurer automatisk stillhetstrimming - alt fra ett praktisk sted. Du kontrollerer showets flyt!"
-    },
-    "ducking": {
-      "title": "Automatisk ducking",
-      "description": "Konfigurer automatisk ducking for å senke volumet på bakgrunnsmusikk når kunngjøringer eller dialog spilles. Perfekt for jevne overganger i live-produksjoner."
-    },
-    "remoteOperation": {
-      "title": "Lokal eller ekstern drift",
-      "description": "LivePlays lydserver starter automatisk sammen med applikasjonen, eller kan kjøres på en dedikert backstage-maskin med lydgrensesnittene dine tilkoblet. Koble til fra hvilken som helst datamaskin på samme nettverk og ta full kontroll — transport, egenskaper, ruting og sanntidsmåling fungerer alle eksternt, slik at du fleksibelt kan skille kontrollposisjonen fra lydmaskinvaren."
-    },
-    "firstLaunch": {
-      "title": "Rask oppsett",
-      "description": "Kom i gang på sekunder med LivePlays strømlinjeformede oppsettsprosess. Velg en mappe, opprett et prosjekt og begynn å importere filer! All mediene dine blir automatisk samlet på ett sted slik at du enkelt kan flytte prosjektet mellom datamaskiner."
-    },
-    "limiter": {
-      "title": "Brickwall-limiter og lydstyrkemål",
-      "description": "En ekte brickwall-limiter sitter på hver utgangskanal og holder nivåene dine jevne og beskytter maskinvaren og publikum mot ukontrollerte topper. Velg blant innebygde utgangsmål som følger profesjonelle lydstyrkestandarder — EBU R128, strømming, radio, Netflix og live — og LivePlay bruker automatisk riktig tak, målesoner og bølgeformkalibrering."
-    },
-    "meters": {
-      "title": "Måling i kringkastingskvalitet",
-      "description": "Stol på det du hører med sanntidsmåling i kringkastingskvalitet i hvert ledd av signalkjeden — per cue, per mikserkanal og på masterutgangen. Fargekodede målesoner følger lydstyrkemålet du har valgt, slik at du med et blikk ser om du ligger komfortabelt innenfor spesifikasjonen eller går i rødt."
-    },
-    "discovery": {
-      "title": "Automatisk oppdagelse og bunnsolid pålitelighet",
-      "description": "LivePlay-servere kunngjør seg selv på det lokale nettverket, slik at klienter finner dem automatisk — ingen IP-adresser å taste inn. Hvis lydmotoren skulle stoppe uventet, starter den seg selv på nytt umiddelbart og fortsetter avspillingen akkurat der den slapp, slik at forestillingen din går videre. Og fordi motoren er en ekte server, kan flere klienter koble seg til samme instans samtidig — ideelt for en hovedoperatør og en reserve, eller en inspisient som overvåker avspillingen ved siden av lydteknikeren."
-    }
+    "title": "Hovedfunksjoner"
   },
   "footer": {
     "license": "er lisensiert under",
@@ -131,35 +86,6 @@
       "description": "Broadcast- og multicast-beacon (gruppe 239.255.69.80) som lar klienter finne LivePlay-servere på det lokale nettverket automatisk."
     },
     "note": "En installasjon på én maskin trenger ingen konfigurasjon — klient og server snakker over 127.0.0.1, og Windows-installasjonsprogrammet legger til brannmurreglene for deg. Disse portene betyr bare noe når du skiller kontrollposisjonen fra lydmaskinvaren over et LAN."
-  },
-  "settings": {
-    "title": "Hvor innstillingene bor",
-    "subtitle": "LivePlay holder konfigurasjon på fire steder. Hvor en verdi bor avgjør om den reiser med showet ditt, følger personen, eller blir igjen på maskinen.",
-    "colTier": "Nivå",
-    "colOwns": "Eier",
-    "colFile": "Lagret i",
-    "colTravels": "Reiser med showet?",
-    "server": {
-      "name": "Server",
-      "owns": "Hvordan motoren kjører og binder, husets navngitte utganger, og kontoene",
-      "travels": "Nei — den hører til rack-et"
-    },
-    "user": {
-      "name": "Bruker",
-      "owns": "Språk, tema, målerenhet og transporttaster",
-      "travels": "Nei — følger personen til enhver maskin de logger inn på"
-    },
-    "project": {
-      "name": "Prosjekt",
-      "owns": "Showet: cues, busser, ruting, toninger og alt publikum hører",
-      "travels": "Ja — dette er showfilen"
-    },
-    "machine": {
-      "name": "Maskin",
-      "owns": "Vindus- og paneloppsett, Show-modus, og hvilken server denne installasjonen snakker med",
-      "travels": "Nei — og ingenting ved showet kan avhenge av det"
-    },
-    "note": "En verdi som endrer det publikum hører, lagres aldri utenfor showfilen. Den ene regelen er grunnen til at et show høres likt ut i en annen bygning."
   },
   "contribute": {
     "title": "Bidra",

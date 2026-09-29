@@ -6,7 +6,6 @@
     "direction": "ltr"
   },
   "header": {
-    "tagline": "Reproducción de Audio para Eventos en Vivo",
     "version": "Versión",
     "logoAlt": "Logotipo de LivePlay"
   },
@@ -61,51 +60,7 @@
     "hideOtherOS": "Ocultar otros sistemas operativos"
   },
   "features": {
-    "title": "Características Principales",
-    "interface": {
-      "title": "Interfaz Intuitiva",
-      "description": "LivePlay presenta una interfaz limpia, simple y moderna diseñada específicamente para operadores de sonido en vivo. Organiza tus archivos de sonido principales en listas de reproducción y agrega sonidos a un reproductor de carrito para acceso rápido o anuncios. Los archivos de audio agregados al carrito automáticamente se comportarán como anuncios, reduciendo el audio de fondo cuando se reproducen."
-    },
-    "audioEngine": {
-      "title": "Robusto motor de audio en C++",
-      "description": "En el corazón de LivePlay hay un motor de audio dedicado y de alto rendimiento escrito en C++ que se comunica directamente con tu hardware de sonido — WASAPI en Windows, Core Audio en macOS y ALSA en Linux. Cada cue se ejecuta como una instancia de reproducción totalmente independiente con su propio decodificador y envolvente de fundido, de modo que reproducir el mismo archivo dos veces a volúmenes distintos siempre se comporta exactamente como se espera. El motor funciona como un proceso de servidor independiente: puede vivir dentro de la aplicación de escritorio o ejecutarse sin interfaz en una máquina dedicada entre bastidores conectada a tus interfaces de audio."
-    },
-    "waveform": {
-      "title": "Editor de Forma de Onda",
-      "description": "Recorta tu audio con precisión usando el editor de forma de onda integrado. Establece puntos de entrada y salida, ajusta el volumen y configura tiempos de fundido visualmente. También puedes recortar automáticamente basándote en silencio, o ajustar automáticamente el volumen para que todos los niveles de audio sean consistentes."
-    },
-    "youtube": {
-      "title": "Integración con YouTube",
-      "description": "¡Descarga audio directamente desde YouTube con nuestro descargador integrado! Perfecto para agregar rápidamente música, efectos de sonido o pistas de acompañamiento a tu espectáculo (asegúrate de tener los derechos para usar el contenido o de usar contenido de dominio público)."
-    },
-    "properties": {
-      "title": "Panel de Propiedades Fácil de Usar",
-      "description": "Cambia el nombre, color y propiedades de reproducción de tus archivos de audio con facilidad. Configura archivos para que se repitan, ajusta su volumen, comportamientos de inicio y fin, y configura el recorte automático de silencio, todo desde una ubicación conveniente. ¡Tú controlas el flujo de tu espectáculo!"
-    },
-    "ducking": {
-      "title": "Reducción Automática",
-      "description": "Configura la reducción automática para bajar el volumen de la música de fondo cuando se reproducen anuncios o diálogos. Perfecto para transiciones suaves en producciones en vivo."
-    },
-    "remoteOperation": {
-      "title": "Funcionamiento local o remoto",
-      "description": "El servidor de audio de LivePlay se inicia automáticamente junto con la aplicación, o puede ejecutarse en una máquina dedicada entre bastidores con tus interfaces de audio conectadas. Conéctate desde cualquier ordenador de la misma red y toma el control total — transporte, propiedades, enrutamiento y medición en vivo funcionan de forma remota, dándote la flexibilidad de separar tu posición de control del hardware de audio."
-    },
-    "firstLaunch": {
-      "title": "Configuración Rápida",
-      "description": "Comienza en segundos con el proceso de configuración simplificado de LivePlay. ¡Selecciona una carpeta, crea un proyecto y comienza a importar archivos! Todos tus medios se recopilan automáticamente en un solo lugar para que puedas mover tu proyecto entre computadoras con facilidad."
-    },
-    "limiter": {
-      "title": "Limitador brickwall y objetivos de sonoridad",
-      "description": "Un verdadero limitador brickwall actúa en cada canal de salida, manteniendo tus niveles constantes y protegiendo tu hardware y a tu público de picos descontrolados. Elige entre objetivos de salida integrados que cumplen estándares profesionales de sonoridad — EBU R128, streaming, radio, Netflix y directo — y LivePlay aplica automáticamente el techo, las zonas de medición y la calibración de forma de onda adecuados."
-    },
-    "meters": {
-      "title": "Medición de calidad de difusión",
-      "description": "Confía en lo que oyes con medición en tiempo real y calidad de difusión en cada etapa de la cadena de señal — por cue, por canal de mezcla y en la salida master. Las zonas de medición codificadas por color siguen el objetivo de sonoridad que has seleccionado, para que veas de un vistazo si te mantienes cómodamente dentro de la norma o entras en rojo."
-    },
-    "discovery": {
-      "title": "Descubrimiento automático y fiabilidad a prueba de todo",
-      "description": "Los servidores de LivePlay se anuncian en tu red local, de modo que los clientes los encuentran automáticamente — sin direcciones IP que teclear. Si el motor de audio se detiene inesperadamente, se reinicia al instante y reanuda la reproducción justo donde la dejó, para que tu espectáculo siga adelante. Y como el motor es un verdadero servidor, varios clientes pueden conectarse a la misma instancia a la vez — ideal para un operador principal y uno de respaldo, o un regidor que supervisa la reproducción junto al técnico de sonido."
-    }
+    "title": "Características Principales"
   },
   "footer": {
     "license": "está licenciado bajo",
@@ -131,35 +86,6 @@
       "description": "Baliza de difusión y multidifusión (grupo 239.255.69.80) que permite a los clientes encontrar servidores de LivePlay en la red local automáticamente."
     },
     "note": "Una instalación en una sola máquina no necesita configuración — el cliente y el servidor se comunican por 127.0.0.1 y el instalador de Windows añade las reglas de firewall por ti. Estos puertos solo importan cuando separas la posición de control del hardware de audio a través de una LAN."
-  },
-  "settings": {
-    "title": "Dónde viven los ajustes",
-    "subtitle": "LivePlay guarda la configuración en cuatro lugares. Dónde vive un valor decide si viaja con su espectáculo, sigue a la persona o se queda en el equipo.",
-    "colTier": "Nivel",
-    "colOwns": "Posee",
-    "colFile": "Se guarda en",
-    "colTravels": "¿Viaja con el espectáculo?",
-    "server": {
-      "name": "Servidor",
-      "owns": "Cómo se ejecuta y enlaza el motor, las salidas con nombre del recinto, y las cuentas",
-      "travels": "No — pertenece al rack"
-    },
-    "user": {
-      "name": "Usuario",
-      "owns": "Idioma, tema, unidad de medición y teclas de transporte",
-      "travels": "No — sigue a la persona a cualquier equipo donde inicie sesión"
-    },
-    "project": {
-      "name": "Proyecto",
-      "owns": "El espectáculo: señales, buses, enrutamiento, fundidos y todo lo que oye el público",
-      "travels": "Sí — este es el archivo del espectáculo"
-    },
-    "machine": {
-      "name": "Equipo",
-      "owns": "Disposición de ventanas y paneles, Modo Espectáculo, y con qué servidor habla esta instalación",
-      "travels": "No — y nada del espectáculo puede depender de ello"
-    },
-    "note": "Un valor que cambia lo que oye el público nunca se guarda fuera del archivo del espectáculo. Esa única regla es la razón por la que un espectáculo suena igual en otro edificio."
   },
   "contribute": {
     "title": "Contribuir",

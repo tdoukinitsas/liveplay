@@ -18,6 +18,7 @@
           <LanguageSwitcher />
         </div>
         <p class="tagline">{{ t('header.tagline') }}</p>
+        <p class="intro">{{ t('header.intro') }}</p>
       </div>
     </header>
 
@@ -142,6 +143,32 @@
       <div class="container">
         <h2>{{ t('features.title') }}</h2>
         
+        <div class="features-group">
+          <h3 class="features-group-title">{{ t('features.groupShow.title') }}</h3>
+          <p class="features-group-intro">{{ t('features.groupShow.intro') }}</p>
+        </div>
+
+        <FeatureHighlight
+          :title="t('features.playlist.title')"
+          :image-src="asset('screenshots/liveplay_screenshot.jpg')"
+        >
+          <p>{{ t('features.playlist.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.cart.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_ducking.jpg')"
+        >
+          <p>{{ t('features.cart.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.ducking.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_ducking.jpg')"
+        >
+          <p>{{ t('features.ducking.description') }}</p>
+        </FeatureHighlight>
+
         <FeatureHighlight
           :title="t('features.interface.title')"
           :image-src="asset('screenshots/liveplay_screenshot.jpg')"
@@ -150,59 +177,10 @@
         </FeatureHighlight>
 
         <FeatureHighlight
-          :title="t('features.mixer.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_mixer.jpg')"
+          :title="t('features.showMode.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_showmode.jpg')"
         >
-          <p>{{ t('features.mixer.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
-          :title="t('features.eqDynamics.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_mixer_channel.jpg')"
-        >
-          <p>{{ t('features.eqDynamics.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
-          :title="t('features.routing.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_hardware_outputs.jpg')"
-        >
-          <p>{{ t('features.routing.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
-          :title="t('features.previewLtc.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_preview.jpg')"
-        >
-          <p>{{ t('features.previewLtc.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
-          :title="t('features.audioEngine.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_audio_engine.jpg')"
-        >
-          <p>{{ t('features.audioEngine.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
-          :title="t('features.limiter.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_limiter.jpg')"
-        >
-          <p>{{ t('features.limiter.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
-          :title="t('features.meters.title')"
-          :image-src="asset('screenshots/liveplay_screenshot.jpg')"
-        >
-          <p>{{ t('features.meters.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
-          :title="t('features.fades.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_fades.jpg')"
-        >
-          <p>{{ t('features.fades.description') }}</p>
+          <p>{{ t('features.showMode.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
@@ -220,20 +198,6 @@
         </FeatureHighlight>
 
         <FeatureHighlight
-          :title="t('features.ducking.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_ducking.jpg')"
-        >
-          <p>{{ t('features.ducking.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
-          :title="t('features.showMode.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_showmode.jpg')"
-        >
-          <p>{{ t('features.showMode.description') }}</p>
-        </FeatureHighlight>
-
-        <FeatureHighlight
           :title="t('features.youtube.title')"
           :image-src="asset('screenshots/liveplay_screenshot_youtube.jpg')"
         >
@@ -241,17 +205,76 @@
         </FeatureHighlight>
 
         <FeatureHighlight
-          :title="t('features.settingsPage.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_settings.jpg')"
+          :title="t('features.firstLaunch.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_nameproject.jpg')"
         >
-          <p>{{ t('features.settingsPage.description') }}</p>
+          <p>{{ t('features.firstLaunch.description') }}</p>
+        </FeatureHighlight>
+
+        <div class="features-group">
+          <h3 class="features-group-title">{{ t('features.groupMixer.title') }}</h3>
+          <p class="features-group-intro">{{ t('features.groupMixer.intro') }}</p>
+        </div>
+
+        <FeatureHighlight
+          :title="t('features.mixer.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_mixer.jpg')"
+        >
+          <p>{{ t('features.mixer.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
-          :title="t('features.accounts.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_users.jpg')"
+          :title="t('features.eqDynamics.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_mixer_channel.jpg')"
         >
-          <p>{{ t('features.accounts.description') }}</p>
+          <p>{{ t('features.eqDynamics.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.limiter.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_limiter.jpg')"
+        >
+          <p>{{ t('features.limiter.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.meters.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_mixer.jpg')"
+        >
+          <p>{{ t('features.meters.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.preview.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_preview.jpg')"
+        >
+          <p>{{ t('features.preview.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.routing.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_hardware_outputs.jpg')"
+        >
+          <p>{{ t('features.routing.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.fades.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_fades.jpg')"
+        >
+          <p>{{ t('features.fades.description') }}</p>
+        </FeatureHighlight>
+
+        <div class="features-group">
+          <h3 class="features-group-title">{{ t('features.groupSystem.title') }}</h3>
+          <p class="features-group-intro">{{ t('features.groupSystem.intro') }}</p>
+        </div>
+
+        <FeatureHighlight
+          :title="t('features.remoteOperation.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_decoupled.jpg')"
+        >
+          <p>{{ t('features.remoteOperation.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
@@ -262,17 +285,31 @@
         </FeatureHighlight>
 
         <FeatureHighlight
-          :title="t('features.remoteOperation.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_decoupled.jpg')"
+          :title="t('features.accounts.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_users.jpg')"
         >
-          <p>{{ t('features.remoteOperation.description') }}</p>
+          <p>{{ t('features.accounts.description') }}</p>
         </FeatureHighlight>
 
         <FeatureHighlight
-          :title="t('features.firstLaunch.title')"
-          :image-src="asset('screenshots/liveplay_screenshot_nameproject.jpg')"
+          :title="t('features.settingsPage.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_settings.jpg')"
         >
-          <p>{{ t('features.firstLaunch.description') }}</p>
+          <p>{{ t('features.settingsPage.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.audioEngine.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_audio_engine.jpg')"
+        >
+          <p>{{ t('features.audioEngine.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.ltc.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_settings.jpg')"
+        >
+          <p>{{ t('features.ltc.description') }}</p>
         </FeatureHighlight>
       </div>
     </section>
@@ -294,43 +331,6 @@
           </ul>
           <p class="ports-note">{{ t('ports.note') }}</p>
         </div>
-      </div>
-    </section>
-
-    <!-- Where configuration lives. Aimed at whoever is deploying LivePlay into
-         a rack: which file to back up, which to bake into an image, and which
-         values travel with a show file and which stay behind. The pane-by-pane
-         detail deliberately is NOT here — it belongs in the app, beside the
-         panes — and the full model lives in docs/OWNERSHIP_MODEL.md. -->
-    <section id="settings" class="settings-section">
-      <div class="container">
-        <h2>{{ t('settings.title') }}</h2>
-        <p class="settings-subtitle">{{ t('settings.subtitle') }}</p>
-
-        <div class="settings-table-wrap">
-          <table class="settings-table">
-            <thead>
-              <tr>
-                <th scope="col">{{ t('settings.colTier') }}</th>
-                <th scope="col">{{ t('settings.colOwns') }}</th>
-                <th scope="col">{{ t('settings.colFile') }}</th>
-                <th scope="col">{{ t('settings.colTravels') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="tier in settingsTiers" :key="tier.key">
-                <td class="settings-tier">{{ t(`settings.${tier.key}.name`) }}</td>
-                <td>{{ t(`settings.${tier.key}.owns`) }}</td>
-                <td class="settings-file">
-                  <code v-for="f in tier.files" :key="f">{{ f }}</code>
-                </td>
-                <td class="settings-travels">{{ t(`settings.${tier.key}.travels`) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <p class="settings-note">{{ t('settings.note') }}</p>
       </div>
     </section>
 
@@ -427,23 +427,6 @@ const baseURL = useRuntimeConfig().app.baseURL;
 const asset = (path: string) => `${baseURL}${path.replace(/^\/+/, '')}`;
 
 const version = ref('2.5.0');
-
-// The ownership tiers, in the order the model states them: the three
-// authorities, then the store that is deliberately not one. Order is the
-// content here — Server outranks User outranks Project down the override chain,
-// and Machine sits outside it — so it is a list rather than an object.
-//
-// Filenames are literal, not prose, so they live here rather than in the locale
-// files, for the same reason the API paths below do: translating `users.json`
-// into twenty languages would produce twenty wrong answers. Each tier's name,
-// what it owns and whether it travels come from settings.<tier>.* in en.json.
-// See docs/OWNERSHIP_MODEL.md §2 and §5.
-const settingsTiers: { key: string; files: string[] }[] = [
-  { key: 'server',  files: ['liveplay.json', 'outputs.json', 'users.json'] },
-  { key: 'user',    files: ['prefs/<id>.json'] },
-  { key: 'project', files: ['<show>.liveplay'] },
-  { key: 'machine', files: ['userData/', 'localStorage'] },
-];
 
 const contributors = ref<{ name: string; link: string }[]>([]);
 
@@ -668,6 +651,14 @@ useSeoMeta({
     font-size: 1.5rem;
     color: rgba(255, 255, 255, 0.8);
     margin: 1rem 0 0;
+  }
+
+  .intro {
+    max-width: 760px;
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0.75rem auto 0;
   }
 }
 
@@ -917,6 +908,31 @@ useSeoMeta({
     margin-bottom: 3rem;
     color: #DA1E28;
   }
+
+  // Each group opens a chapter of the story: running the show, mixing it,
+  // and the system underneath.
+  .features-group {
+    text-align: center;
+    max-width: 760px;
+    margin: 4rem auto 0;
+
+    &:first-of-type {
+      margin-top: 0;
+    }
+  }
+
+  .features-group-title {
+    font-size: 1.75rem;
+    color: #ffffff;
+    margin: 0 0 0.5rem;
+  }
+
+  .features-group-intro {
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0;
+  }
 }
 
 .ports-section {
@@ -1070,96 +1086,6 @@ useSeoMeta({
     margin: 1rem 0;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
-  }
-
-  /* Settings / ownership tiers. Same table treatment as the API reference —
-     they are both reference material and should not look like two systems. */
-  .settings-section {
-    padding: 4rem 0;
-
-    h2 {
-      text-align: center;
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
-      color: #DA1E28;
-    }
-  }
-
-  .settings-subtitle {
-    text-align: center;
-    font-size: 1.25rem;
-    color: rgba(255, 255, 255, 0.7);
-    margin: 0 auto 2.5rem;
-    max-width: 820px;
-  }
-
-  .settings-table-wrap {
-    max-width: 980px;
-    margin: 0 auto;
-    overflow-x: auto;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-  }
-
-  .settings-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-
-    th,
-    td {
-      text-align: start;
-      vertical-align: top;
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    th {
-      background: rgba(0, 0, 0, 0.25);
-      color: rgba(255, 255, 255, 0.85);
-      font-weight: 600;
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      white-space: nowrap;
-    }
-
-    tbody tr:last-child td {
-      border-bottom: none;
-    }
-
-    tbody tr:nth-child(even) td {
-      background: rgba(255, 255, 255, 0.02);
-    }
-
-    .settings-tier {
-      font-weight: 600;
-      color: #ffffff;
-      white-space: nowrap;
-    }
-
-    /* One tier can hold several files, so they stack rather than running on. */
-    .settings-file code {
-      display: block;
-      font-size: 0.82rem;
-      word-break: break-word;
-    }
-
-    .settings-file code + code {
-      margin-top: 0.3rem;
-    }
-
-    .settings-travels {
-      color: rgba(255, 255, 255, 0.75);
-    }
-  }
-
-  .settings-note {
-    max-width: 820px;
-    margin: 1.5rem auto 0;
-    text-align: center;
-    font-size: 0.95rem;
-    color: rgba(255, 255, 255, 0.6);
   }
 
   .api-table {
