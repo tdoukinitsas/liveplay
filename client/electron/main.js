@@ -1116,6 +1116,24 @@ async function getBinaryVersion(binaryPath) {
   }
 }
 
+// Map current platform to yt-dlp standalone release asset name.
+// Note: yt-dlp-wrap's default downloadFromGithub() fetches "yt-dlp" on macOS/Linux,
+// which is a python zipapp requiring Python >= 3.10 to be installed on the host.
+// On macOS (and Linux), downloading the standalone binary (yt-dlp_macos / yt-dlp_linux)
+// avoids any dependency on system python versions.
+function getYtDlpAssetName() {
+  switch (process.platform) {
+    case 'win32':
+      return 'yt-dlp.exe';
+    case 'darwin':
+      return 'yt-dlp_macos';
+    case 'linux':
+      return process.arch === 'arm64' ? 'yt-dlp_linux_aarch64' : 'yt-dlp_linux';
+    default:
+      return 'yt-dlp';
+  }
+}
+
 async function initializeYtDlp() {
   try {
     // Set up download directory in user data folder
@@ -1163,8 +1181,20 @@ async function initializeYtDlp() {
           fs.copyFileSync(binaryPath, backupPath);
           fs.unlinkSync(binaryPath);
         }
-        // Pass the resolved tag when we have it; otherwise yt-dlp-wrap fetches latest.
-        await YTDlpWrap.downloadFromGithub(binaryPath, latestVersion || undefined);
+        const assetName = getYtDlpAssetName();
+        const url = latestVersion
+          ? `https://github.com/yt-dlp/yt-dlp/releases/download/${latestVersion}/${assetName}`
+          : `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${assetName}`;
+        console.log(`Downloading yt-dlp binary from ${url}...`);
+        try {
+          await YTDlpWrap.downloadFile(url, binaryPath);
+        } catch (assetErr) {
+          console.warn(`Direct asset download failed for ${assetName}, falling back to yt-dlp-wrap:`, assetErr.message);
+          await YTDlpWrap.downloadFromGithub(binaryPath, latestVersion || undefined);
+        }
+        if (process.platform !== 'win32' && fs.existsSync(binaryPath)) {
+          fs.chmodSync(binaryPath, 0o755);
+        }
         // Clean up backup on success
         if (fs.existsSync(backupPath)) {
           fs.unlinkSync(backupPath);
