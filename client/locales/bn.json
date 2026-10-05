@@ -439,7 +439,9 @@
     "restartEngine": "সার্ভার পুনরায় চালু করুন",
     "outputDevices": "আউটপুট ডিভাইস",
     "open": "খুলুন",
-    "noDevices": "কোনো আউটপুট ডিভাইস পাওয়া যায়নি"
+    "noDevices": "কোনো আউটপুট ডিভাইস পাওয়া যায়নি",
+    "showConsole": "Show server console window",
+    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
   },
   "serverConfig": {
     "title": "সার্ভার কনফিগারেশন",

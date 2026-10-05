@@ -439,7 +439,9 @@
     "restartEngine": "إعادة تشغيل الخادم",
     "outputDevices": "أجهزة الإخراج",
     "open": "فتح",
-    "noDevices": "لم يُعثر على أجهزة إخراج"
+    "noDevices": "لم يُعثر على أجهزة إخراج",
+    "showConsole": "Show server console window",
+    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
   },
   "serverConfig": {
     "title": "إعدادات الخادم",

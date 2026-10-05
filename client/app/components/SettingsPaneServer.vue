@@ -36,6 +36,13 @@
         <label class="settings-label">{{ t('serverSettings.localPort') }}</label>
         <input class="settings-input" type="number" min="1" max="65535"
                v-model.number="draftLocalPort" />
+        <label class="settings-label settings-label--checkbox" style="margin-top: 0.75rem;">
+          <input type="checkbox" v-model="draftShowConsole" />
+          {{ t('serverSettings.showConsole') }}
+        </label>
+        <p class="settings-help">
+          {{ t('serverSettings.showConsoleHelp') }}
+        </p>
         <p class="settings-help">
           <span v-if="serverStatus?.running">
             {{ t('serverSettings.engineRunning', { pid: serverStatus.pid }) }}
@@ -207,10 +214,11 @@ const electronApi: any = (globalThis as any).electronAPI?.liveplayServer;
 const hasElectron = !!electronApi;
 
 // ---- 1. Connection ---------------------------------------------------
-const draftMode      = ref<'local' | 'remote'>('local');
-const draftRemoteUrl = ref('http://127.0.0.1:4480');
-const draftLocalPort = ref(4480);
-const serverStatus   = ref<{ running: boolean; pid?: number } | null>(null);
+const draftMode        = ref<'local' | 'remote'>('local');
+const draftRemoteUrl   = ref('http://127.0.0.1:4480');
+const draftLocalPort   = ref(4480);
+const draftShowConsole = ref(false);
+const serverStatus     = ref<{ running: boolean; pid?: number } | null>(null);
 let stopStatusListener: (() => void) | null = null;
 
 const statusClass = computed(() => ({
@@ -227,19 +235,29 @@ async function loadConnection() {
   }
   const cfg    = await electronApi.getConfig();
   const status = await electronApi.getStatus();
-  draftMode.value      = cfg.mode;
-  draftRemoteUrl.value = cfg.remoteUrl || 'http://127.0.0.1:4480';
-  draftLocalPort.value = cfg.localPort || 4480;
-  serverStatus.value   = { running: status.running, pid: status.pid };
+  draftMode.value        = cfg.mode;
+  draftRemoteUrl.value   = cfg.remoteUrl || 'http://127.0.0.1:4480';
+  draftLocalPort.value   = cfg.localPort || 4480;
+  draftShowConsole.value = Boolean(cfg.showConsole);
+  serverStatus.value     = { running: status.running, pid: status.pid };
 }
 
 async function applyConnection() {
   if (electronApi) {
+    const prevCfg = await electronApi.getConfig();
+    const needRestart = draftMode.value === 'local' && (
+      Boolean(prevCfg?.showConsole) !== draftShowConsole.value ||
+      (prevCfg?.localPort ?? 4480) !== draftLocalPort.value
+    );
     await electronApi.setConfig({
-      mode:      draftMode.value,
-      remoteUrl: draftRemoteUrl.value.trim(),
-      localPort: draftLocalPort.value,
+      mode:        draftMode.value,
+      remoteUrl:   draftRemoteUrl.value.trim(),
+      localPort:   draftLocalPort.value,
+      showConsole: draftShowConsole.value,
     });
+    if (needRestart) {
+      await restartLocal();
+    }
   } else {
     server.setServerUrl(draftRemoteUrl.value.trim());
   }

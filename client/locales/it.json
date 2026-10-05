@@ -439,7 +439,9 @@
     "restartEngine": "Riavvia server",
     "outputDevices": "Dispositivi di uscita",
     "open": "Apri",
-    "noDevices": "Nessun dispositivo di uscita trovato"
+    "noDevices": "Nessun dispositivo di uscita trovato",
+    "showConsole": "Show server console window",
+    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
   },
   "serverConfig": {
     "title": "Configurazione del server",
