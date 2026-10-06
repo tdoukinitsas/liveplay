@@ -97,6 +97,13 @@
     "disableAutoVolumeAndTrim": "Beim Import Lautstärke nicht automatisch angleichen und Stille nicht abschneiden",
     "disableLimiter": "Brickwall-Limiter deaktivieren",
     "disableLimiterHelp": "Lässt Pegelspitzen über die Ausgangsgrenze. Kann während der Show gefahrlos geändert werden.",
+    "youtubeImport": "YouTube-Import",
+    "youtubeImportHelp": "In welchem Format dieser Computer YouTube-Downloads speichert. YouTubes bester Ton ist Opus mit 48 kHz, was auch die Standard-Mischrate des Servers ist. WAV mit 48 kHz übernimmt ihn daher ohne Resampling und ohne zweite verlustbehaftete Kodierung.",
+    "youtubeFormat": "Format",
+    "youtubeFormatWav": "WAV (unkomprimiert)",
+    "youtubeFormatMp3": "MP3 (komprimiert)",
+    "youtubeSampleRate": "Abtastrate",
+    "youtubeBitrate": "MP3-Bitrate",
     "disableSilenceWarning": "Stille-Warnung deaktivieren",
     "disableSilenceWarningHelp": "Blendet den Countdown „Stille in“ in der Kopfzeile aus.",
     "transitionMode": "Standard-Übergangsmodus",
@@ -439,7 +446,10 @@
     "restartEngine": "Server neu starten",
     "outputDevices": "Ausgabegeräte",
     "open": "Öffnen",
-    "noDevices": "Keine Ausgabegeräte gefunden"
+    "noDevices": "Keine Ausgabegeräte gefunden",
+    "silentServer": "Server unauffällig im Infobereich ausführen",
+    "silentServerHelp": "Startet den Server ohne Konsolenfenster. Ein Symbol im Infobereich (in der Menüleiste unter macOS) zeigt, dass er läuft, auch nachdem LivePlay geschlossen wurde. Über sein Menü lassen sich die Konsole anzeigen, die Protokolle öffnen oder der Server beenden. Wirkt beim nächsten Serverstart.",
+    "silentServerForced": "Für diese Sitzung aktiv, weil LivePlay mit --silent gestartet wurde."
   },
   "serverConfig": {
     "title": "Serverkonfiguration",

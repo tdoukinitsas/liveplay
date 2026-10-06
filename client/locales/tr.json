@@ -97,6 +97,13 @@
     "disableAutoVolumeAndTrim": "İçe aktarmada otomatik ses seviyelemeyi ve sessizlik kırpmayı kapat",
     "disableLimiter": "Brickwall limiter'ı devre dışı bırak",
     "disableLimiterHelp": "Tepelerin çıkış tavanını aşmasına izin verir. Gösteri sırasında değiştirmek güvenlidir.",
+    "youtubeImport": "YouTube'dan içe aktarma",
+    "youtubeImportHelp": "Bu bilgisayarın YouTube indirmelerini hangi biçimde kaydettiği. YouTube'un en iyi sesi 48 kHz Opus'tur ve bu aynı zamanda sunucunun varsayılan miks hızıdır; bu nedenle 48 kHz WAV, sesi yeniden örnekleme ya da ikinci bir kayıplı kodlama olmadan korur.",
+    "youtubeFormat": "Biçim",
+    "youtubeFormatWav": "WAV (sıkıştırılmamış)",
+    "youtubeFormatMp3": "MP3 (sıkıştırılmış)",
+    "youtubeSampleRate": "Örnekleme hızı",
+    "youtubeBitrate": "MP3 bit hızı",
     "disableSilenceWarning": "Sessizlik uyarısını devre dışı bırak",
     "disableSilenceWarningHelp": "Üst çubuktaki \"Sessizlik\" geri sayımını gizler.",
     "transitionMode": "Varsayılan geçiş modu",
@@ -439,7 +446,10 @@
     "restartEngine": "Sunucuyu yeniden başlat",
     "outputDevices": "Çıkış cihazları",
     "open": "Aç",
-    "noDevices": "Çıkış cihazı bulunamadı"
+    "noDevices": "Çıkış cihazı bulunamadı",
+    "silentServer": "Sunucuyu sistem tepsisinde sessizce çalıştır",
+    "silentServerHelp": "Sunucuyu konsol penceresi olmadan başlatır. Sistem tepsisindeki (macOS'ta menü çubuğundaki) bir simge, LivePlay kapatıldıktan sonra bile çalıştığını gösterir; menüsünden konsolu gösterebilir, günlükleri açabilir veya sunucuyu durdurabilirsiniz. Sunucu bir sonraki başlatılışında geçerli olur.",
+    "silentServerForced": "LivePlay --silent ile başlatıldığı için bu oturumda açık."
   },
   "serverConfig": {
     "title": "Sunucu yapılandırması",

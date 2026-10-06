@@ -11,6 +11,25 @@ const { promisify } = require('util');
 const https = require('https');
 const execPromise = promisify(exec);
 
+// A show machine is often offline, and a library that makes a request without
+// listening for its 'error' event turns "no network" into an uncaught
+// exception and an error dialog in front of the operator (issue #71). Network
+// failures are logged and dropped; everything else gets exactly what Electron
+// would have shown without this handler.
+const OFFLINE_ERROR_CODES = new Set([
+  'ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT',
+  'ENETUNREACH', 'EHOSTUNREACH', 'ENETDOWN',
+]);
+process.on('uncaughtException', (err) => {
+  if (err && OFFLINE_ERROR_CODES.has(err.code)) {
+    console.warn('[network] unhandled network error ignored:', err.message);
+    return;
+  }
+  console.error('Uncaught exception in the main process:', err);
+  dialog.showErrorBox('A JavaScript error occurred in the main process',
+                      `Uncaught Exception:\n${err?.stack || err}`);
+});
+
 let ffmpegPath = null;
 let ffmpegAvailable = false;
 
@@ -37,6 +56,9 @@ let liveplayServerProc = null;
 let liveplayServerPid  = null;
 let liveplayServerPort = LIVEPLAY_DEFAULT_PORT;
 let liveplayServerExitTimer = null;
+// `--silent` on the app's own command line: launch the local server into the
+// system tray for this session, whatever Settings says.
+const launchedSilent = process.argv.includes('--silent');
 
 function liveplayConfigPath() {
   return path.join(app.getPath('userData'), LIVEPLAY_CONFIG_FILENAME);
@@ -91,12 +113,16 @@ function readLiveplayConfig() {
     const raw = fs.readFileSync(liveplayConfigPath(), 'utf-8');
     const parsed = JSON.parse(raw);
     return {
-      mode:      parsed.mode === 'remote' ? 'remote' : 'local',
-      remoteUrl: typeof parsed.remoteUrl === 'string' ? parsed.remoteUrl : `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`,
-      localPort: Number.isInteger(parsed.localPort) ? parsed.localPort : LIVEPLAY_DEFAULT_PORT,
+      mode:        parsed.mode === 'remote' ? 'remote' : 'local',
+      remoteUrl:   typeof parsed.remoteUrl === 'string' ? parsed.remoteUrl : `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`,
+      localPort:   Number.isInteger(parsed.localPort) ? parsed.localPort : LIVEPLAY_DEFAULT_PORT,
+      // Off by default: the console window is how an operator sees the
+      // server is still running after the app has gone. Silent mode moves
+      // that to a tray icon the server owns.
+      silentServer: parsed.silentServer === true,
     };
   } catch {
-    return { mode: 'local', remoteUrl: `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`, localPort: LIVEPLAY_DEFAULT_PORT };
+    return { mode: 'local', remoteUrl: `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`, localPort: LIVEPLAY_DEFAULT_PORT, silentServer: false };
   }
 }
 
@@ -561,13 +587,24 @@ async function startLiveplayServer() {
   deleteLiveplayLock();
   liveplayServerPort = cfg.localPort;
 
-  console.log('[liveplay-server] launching (visible console)', exePath, 'on port', cfg.localPort);
+  const silent = cfg.silentServer === true || launchedSilent;
+  console.log(`[liveplay-server] launching (${silent ? 'silent, tray icon' : 'visible console'})`, exePath, 'on port', cfg.localPort);
   const serverArgs = [
     '--port',    String(cfg.localPort),
     '--pidfile', lockPath,
   ];
   try {
-    if (process.platform === 'win32') {
+    if (silent) {
+      // No console or Terminal window: the server puts its own icon in the
+      // system tray (menu bar on macOS), which stays for as long as it runs,
+      // app or no app. windowsHide stops Windows flashing a console for it.
+      liveplayServerProc = spawn(exePath, [...serverArgs, '--silent'], {
+        cwd: path.dirname(exePath),
+        stdio: 'ignore',
+        detached: true,
+        windowsHide: true,
+      });
+    } else if (process.platform === 'win32') {
       // `cmd /c start "" /D "<cwd>" "<exe>" <args>` opens a visible console
       // window in the taskbar. The empty-string title avoids the Windows quirk
       // where the first quoted arg to `start` is treated as the window title
@@ -658,8 +695,19 @@ async function pollPidfileForServerPid(lockPath) {
 // Stop the local server. Since the server now always runs as an external
 // process (visible terminal, written PID via pidfile), we only have a PID
 // to work with — there is no ChildProcess handle.
-function stopLiveplayServer() {
-  const pid = liveplayServerPid;
+async function stopLiveplayServer() {
+  let pid = liveplayServerPid;
+  if (!pid) {
+    // We lost track of it (e.g. the pidfile poll timed out), but the lockfile
+    // may still name it. Only trust that PID if the server on its port
+    // answers: a lock left by a crash or a reboot can name a PID the OS has
+    // since handed to something else entirely.
+    const lock = readLiveplayLock();
+    if (lock && Number.isInteger(lock.pid) && isPidAlive(lock.pid) &&
+        await probeServerHealth(lock.port)) {
+      pid = lock.pid;
+    }
+  }
   if (!pid) {
     deleteLiveplayLock();
     notifyServerStateChange();
@@ -668,13 +716,37 @@ function stopLiveplayServer() {
   console.log('[liveplay-server] stopping pid', pid);
   try {
     if (process.platform === 'win32') {
-      // /T also closes the console window the server was hosted in.
-      exec(`taskkill /pid ${pid} /T /F`, () => {});
+      const taskkill = (args) => new Promise((resolve) => {
+        exec(`taskkill /pid ${pid} ${args}`, (err) => resolve(!err));
+      });
+      // Ask first. A silent server's hidden tray window takes WM_CLOSE as
+      // "stop", shuts down cleanly and takes its tray icon with it; a forced
+      // kill would leave a dead icon behind until the mouse passes over it.
+      // A console-hosted server refuses the polite request, so that costs
+      // nothing. /T also closes the console window the server was hosted in.
+      if (await taskkill('/T')) {
+        const deadline = Date.now() + 3000;
+        while (Date.now() < deadline && isPidAlive(pid)) {
+          await new Promise(r => setTimeout(r, 100));
+        }
+      }
+      if (isPidAlive(pid)) await taskkill('/T /F');
     } else {
-      try { process.kill(pid, 'SIGINT'); } catch {}
-      liveplayServerExitTimer = setTimeout(() => {
+      // 1. Send SIGTERM to process group and process
+      try { process.kill(-pid, 'SIGTERM'); } catch {}
+      try { process.kill(pid, 'SIGTERM'); } catch {}
+
+      // 2. Wait up to 1.5 seconds for it to exit cleanly
+      const deadline = Date.now() + 1500;
+      while (Date.now() < deadline && isPidAlive(pid)) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+
+      // 3. If still alive, force kill with SIGKILL
+      if (isPidAlive(pid)) {
+        try { process.kill(-pid, 'SIGKILL'); } catch {}
         try { process.kill(pid, 'SIGKILL'); } catch {}
-      }, 2000);
+      }
     }
   } catch (e) {
     console.error('[liveplay-server] kill failed:', e);
@@ -701,20 +773,23 @@ function notifyServerStateChange() {
 }
 
 // IPC: renderer reads/writes config and queries state.
-ipcMain.handle('liveplay-server:get-config', () => readLiveplayConfig());
+ipcMain.handle('liveplay-server:get-config', () => ({ ...readLiveplayConfig(), launchedSilent }));
 
-ipcMain.handle('liveplay-server:set-config', (_e, incoming) => {
+ipcMain.handle('liveplay-server:set-config', async (_e, incoming) => {
   const next = { ...readLiveplayConfig(), ...incoming };
   // Sanity: clamp port to a valid TCP range.
   if (!Number.isInteger(next.localPort) || next.localPort < 1 || next.localPort > 65535) {
     next.localPort = LIVEPLAY_DEFAULT_PORT;
   }
   if (next.mode !== 'local' && next.mode !== 'remote') next.mode = 'local';
+  next.silentServer = next.silentServer === true;
+  delete next.showConsole;   // the 2.5.1 pre-release spelling, inverted
+  delete next.launchedSilent; // a fact about this launch, not a setting
 
   writeLiveplayConfig(next);
 
   // If switching to remote, stop any running local server.
-  if (next.mode === 'remote' && (liveplayServerProc || liveplayServerPid)) stopLiveplayServer();
+  if (next.mode === 'remote' && (liveplayServerProc || liveplayServerPid)) await stopLiveplayServer();
   // Do NOT auto-start in local mode here — the caller (ensure-running) is
   // responsible for starting the server so it isn't spawned twice.
 
@@ -742,25 +817,25 @@ ipcMain.handle('app:exit', () => {
 // has decided it calls `app:confirm-quit`. We stop the local server only
 // when asked, flip quitConfirmed so the next `close` is allowed through,
 // then quit for real.
-ipcMain.handle('app:confirm-quit', (_e, opts) => {
-  if (opts && opts.stopServer) stopLiveplayServer();
+ipcMain.handle('app:confirm-quit', async (_e, opts) => {
+  if (opts && opts.stopServer) await stopLiveplayServer();
   quitConfirmed = true;
   app.quit();
   return true;
 });
 
-ipcMain.handle('liveplay-server:restart', () => {
-  stopLiveplayServer();
+ipcMain.handle('liveplay-server:restart', async () => {
+  await stopLiveplayServer();
   // Defer the restart to let the kill complete.
-  setTimeout(() => startLiveplayServer(), 500);
+  setTimeout(() => startLiveplayServer(), 300);
   return true;
 });
 
 // Explicit shutdown — the server is now detached, so quitting the
 // renderer no longer kills it. The user (or the about-to-quit prompt)
 // invokes this when they really want it gone.
-ipcMain.handle('liveplay-server:shutdown', () => {
-  stopLiveplayServer();
+ipcMain.handle('liveplay-server:shutdown', async () => {
+  await stopLiveplayServer();
   return true;
 });
 
@@ -1106,6 +1181,59 @@ function getLatestReleaseTag(repo) {
   });
 }
 
+// Download `url` to `dest`, following redirects (GitHub release assets always
+// redirect to a CDN). Rejects on any network error, timeout or non-200.
+//
+// Not yt-dlp-wrap's downloadFile/downloadFromGithub: those call https.get
+// without an 'error' listener on the request, so a DNS failure (no network at
+// all — a show machine, or the AppImage catalogue's --net=none sandbox) is
+// raised as an uncaught exception that no try/catch around the await can
+// catch, and Electron puts up an error dialog (issue #71).
+//
+// Written to a temporary file and renamed into place, so a dropped connection
+// never leaves a truncated binary where the real one should be.
+function downloadToFile(url, dest, { redirects = 5, timeoutMs = 60000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'LivePlay' }, timeout: timeoutMs }, (res) => {
+      const { statusCode, headers } = res;
+      if (statusCode >= 300 && statusCode < 400 && headers.location) {
+        res.resume();
+        if (redirects <= 0) { reject(new Error(`Too many redirects downloading ${url}`)); return; }
+        const next = new URL(headers.location, url).toString();
+        downloadToFile(next, dest, { redirects: redirects - 1, timeoutMs }).then(resolve, reject);
+        return;
+      }
+      if (statusCode !== 200) {
+        res.resume();
+        reject(new Error(`HTTP ${statusCode} downloading ${url}`));
+        return;
+      }
+      const tmp = `${dest}.download`;
+      const file = fs.createWriteStream(tmp);
+      const fail = (err) => {
+        file.destroy();
+        fs.rm(tmp, { force: true }, () => reject(err));
+      };
+      res.on('error', fail);
+      file.on('error', fail);
+      file.on('finish', () => {
+        file.close((closeErr) => {
+          if (closeErr) { fail(closeErr); return; }
+          try {
+            fs.renameSync(tmp, dest);
+            resolve();
+          } catch (e) {
+            fail(e);
+          }
+        });
+      });
+      res.pipe(file);
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(new Error(`Timed out downloading ${url}`)); });
+  });
+}
+
 // Run `<binary> --version` and return the trimmed stdout, or null on failure.
 async function getBinaryVersion(binaryPath) {
   try {
@@ -1113,6 +1241,24 @@ async function getBinaryVersion(binaryPath) {
     return stdout.trim();
   } catch (e) {
     return null;
+  }
+}
+
+// Map current platform to yt-dlp standalone release asset name.
+// Note: yt-dlp-wrap's default downloadFromGithub() fetches "yt-dlp" on macOS/Linux,
+// which is a python zipapp requiring Python >= 3.10 to be installed on the host.
+// On macOS (and Linux), downloading the standalone binary (yt-dlp_macos / yt-dlp_linux)
+// avoids any dependency on system python versions.
+function getYtDlpAssetName() {
+  switch (process.platform) {
+    case 'win32':
+      return 'yt-dlp.exe';
+    case 'darwin':
+      return 'yt-dlp_macos';
+    case 'linux':
+      return process.arch === 'arm64' ? 'yt-dlp_linux_aarch64' : 'yt-dlp_linux';
+    default:
+      return 'yt-dlp';
   }
 }
 
@@ -1163,8 +1309,18 @@ async function initializeYtDlp() {
           fs.copyFileSync(binaryPath, backupPath);
           fs.unlinkSync(binaryPath);
         }
-        // Pass the resolved tag when we have it; otherwise yt-dlp-wrap fetches latest.
-        await YTDlpWrap.downloadFromGithub(binaryPath, latestVersion || undefined);
+        const assetName = getYtDlpAssetName();
+        const url = latestVersion
+          ? `https://github.com/yt-dlp/yt-dlp/releases/download/${latestVersion}/${assetName}`
+          : `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${assetName}`;
+        console.log(`Downloading yt-dlp binary from ${url}...`);
+        // No fallback to yt-dlp-wrap's downloadFromGithub: it fetches the
+        // plain `yt-dlp` zipapp, which needs a system Python >= 3.10 — the
+        // exact failure the standalone asset is here to avoid.
+        await downloadToFile(url, binaryPath);
+        if (process.platform !== 'win32' && fs.existsSync(binaryPath)) {
+          fs.chmodSync(binaryPath, 0o755);
+        }
         // Clean up backup on success
         if (fs.existsSync(backupPath)) {
           fs.unlinkSync(backupPath);
@@ -1268,7 +1424,7 @@ async function initializeDeno() {
           fs.unlinkSync(binaryPath);
         }
         console.log('Downloading deno from', url);
-        await YTDlpWrap.downloadFile(url, zipPath);
+        await downloadToFile(url, zipPath);
         const extractZip = require('extract-zip');
         await extractZip(zipPath, { dir: binDir });
         if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
@@ -3235,9 +3391,61 @@ ipcMain.handle('search-youtube', async (event, query) => {
   }
 });
 
+// ---- YouTube import format --------------------------------------------
+// What a YouTube download is saved as. A machine setting, like the server
+// connection, because it is this machine's yt-dlp doing the work.
+//
+// The 48 kHz default is not arbitrary: YouTube's best audio stream is Opus,
+// which is always 48 kHz, and the engine mixes at 48 kHz by default, so the
+// file goes from YouTube to the output without a resampling step anywhere.
+// WAV rather than MP3 so it is decoded once rather than re-encoded lossily.
+const YOUTUBE_SETTINGS_FILENAME = 'youtube-import.json';
+const YOUTUBE_SAMPLE_RATES = { wav: [44100, 48000, 96000], mp3: [44100, 48000] };
+const YOUTUBE_MP3_BITRATES = [128, 192, 256, 320];
+const YOUTUBE_DEFAULTS = { format: 'wav', sampleRate: 48000, mp3Bitrate: 320 };
+
+function youtubeSettingsPath() {
+  return path.join(app.getPath('userData'), YOUTUBE_SETTINGS_FILENAME);
+}
+
+// Anything unknown falls back to the default rather than reaching yt-dlp's
+// command line. MP3 tops out at 48 kHz, so a WAV-only rate is clamped.
+function normaliseYouTubeSettings(raw) {
+  const format = raw?.format === 'mp3' ? 'mp3' : 'wav';
+  const rates = YOUTUBE_SAMPLE_RATES[format];
+  const sampleRate = rates.includes(raw?.sampleRate) ? raw.sampleRate
+    : rates.includes(YOUTUBE_DEFAULTS.sampleRate) ? YOUTUBE_DEFAULTS.sampleRate : rates[rates.length - 1];
+  const mp3Bitrate = YOUTUBE_MP3_BITRATES.includes(raw?.mp3Bitrate) ? raw.mp3Bitrate : YOUTUBE_DEFAULTS.mp3Bitrate;
+  return { format, sampleRate, mp3Bitrate };
+}
+
+function readYouTubeSettings() {
+  try {
+    return normaliseYouTubeSettings(JSON.parse(fs.readFileSync(youtubeSettingsPath(), 'utf-8')));
+  } catch {
+    return { ...YOUTUBE_DEFAULTS };
+  }
+}
+
+ipcMain.handle('youtube-settings:get', () => ({
+  ...readYouTubeSettings(),
+  options: { sampleRates: YOUTUBE_SAMPLE_RATES, mp3Bitrates: YOUTUBE_MP3_BITRATES },
+}));
+
+ipcMain.handle('youtube-settings:set', (_e, incoming) => {
+  const next = normaliseYouTubeSettings({ ...readYouTubeSettings(), ...incoming });
+  try {
+    fs.writeFileSync(youtubeSettingsPath(), JSON.stringify(next, null, 2));
+  } catch (e) {
+    console.error('[youtube] failed to save import settings:', e);
+  }
+  return next;
+});
+
 // YouTube Download Handler
 ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFolderPath) => {
   return new Promise(async (resolve, reject) => {
+    const yt = readYouTubeSettings();
     console.log('YouTube download - Project folder path:', projectFolderPath);
     
     const outputPath = path.join(projectFolderPath, 'media');
@@ -3251,7 +3459,7 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
     
     // Clean filename
     const sanitizedTitle = title.replace(/[<>:"/\\|?*]/g, '').substring(0, 200);
-    const fileName = `${sanitizedTitle}.mp3`;
+    const fileName = `${sanitizedTitle}.${yt.format}`;
     const outputTemplate = path.join(outputPath, sanitizedTitle);
     
     console.log('YouTube download - Output template:', outputTemplate);
@@ -3295,8 +3503,10 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
         videoUrl,
         '-f', 'bestaudio',
         '--extract-audio',
-        '--audio-format', 'mp3',
-        '--audio-quality', '0', // Best quality
+        '--audio-format', yt.format,
+        // yt-dlp passes these to the ffmpeg run that extracts the audio.
+        '--postprocessor-args', `ExtractAudio:-ar ${yt.sampleRate}`,
+        ...(yt.format === 'mp3' ? ['--audio-quality', `${yt.mp3Bitrate}K`] : []),
         '-o', outputTemplate + '.%(ext)s',
         '--no-playlist',
         '--progress',
@@ -3431,7 +3641,7 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
           // Look for files that match the base name (case-insensitive, with any encoding)
           const matchingFile = files.find(f => {
             const decoded = decodeURIComponent(f);
-            return decoded.toLowerCase().startsWith(baseName.toLowerCase()) && f.endsWith('.mp3');
+            return decoded.toLowerCase().startsWith(baseName.toLowerCase()) && f.endsWith(`.${yt.format}`);
           });
           
           if (matchingFile) {

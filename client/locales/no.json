@@ -97,6 +97,13 @@
     "disableAutoVolumeAndTrim": "Ikke juster volumet automatisk eller trim stillhet ved import",
     "disableLimiter": "Slå av brickwall-limiteren",
     "disableLimiterHelp": "Lar topper gå over utgangens tak. Kan trygt endres under et show.",
+    "youtubeImport": "YouTube-import",
+    "youtubeImportHelp": "Formatet denne datamaskinen lagrer YouTube-nedlastinger i. YouTubes beste lyd er Opus i 48 kHz, som også er serverens standard miksefrekvens, så WAV i 48 kHz beholder den uten omsampling eller en ny tapsbeheftet koding.",
+    "youtubeFormat": "Format",
+    "youtubeFormatWav": "WAV (ukomprimert)",
+    "youtubeFormatMp3": "MP3 (komprimert)",
+    "youtubeSampleRate": "Samplingsfrekvens",
+    "youtubeBitrate": "MP3-bitrate",
     "disableSilenceWarning": "Slå av stillhetsvarselet",
     "disableSilenceWarningHelp": "Skjuler nedtellingen «Stillhet om» i toppfeltet.",
     "transitionMode": "Standard overgang",
@@ -439,7 +446,10 @@
     "restartEngine": "Start serveren på nytt",
     "outputDevices": "Utgangsenheter",
     "open": "Åpne",
-    "noDevices": "Fant ingen utgangsenheter"
+    "noDevices": "Fant ingen utgangsenheter",
+    "silentServer": "Kjør serveren stille i systemstatusfeltet",
+    "silentServerHelp": "Starter serveren uten konsollvindu. Et ikon i systemstatusfeltet (menylinjen på macOS) viser at den kjører, også etter at LivePlay er lukket, og menyen kan vise konsollen, åpne loggene eller stoppe serveren. Gjelder neste gang serveren starter.",
+    "silentServerForced": "På for denne økten fordi LivePlay ble startet med --silent."
   },
   "serverConfig": {
     "title": "Serverkonfigurasjon",

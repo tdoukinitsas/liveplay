@@ -97,6 +97,13 @@
     "disableAutoVolumeAndTrim": "Non livellare automaticamente il volume né rifilare il silenzio durante l’importazione",
     "disableLimiter": "Disattiva il limiter brickwall",
     "disableLimiterHelp": "Lascia che i picchi superino il ceiling di uscita. Si può cambiare senza rischi durante lo spettacolo.",
+    "youtubeImport": "Importazione da YouTube",
+    "youtubeImportHelp": "Il formato in cui questo computer salva i download da YouTube. L'audio migliore di YouTube è Opus a 48 kHz, che è anche la frequenza di mixaggio predefinita del server: il WAV a 48 kHz lo mantiene senza ricampionamento né una seconda codifica con perdita.",
+    "youtubeFormat": "Formato",
+    "youtubeFormatWav": "WAV (non compresso)",
+    "youtubeFormatMp3": "MP3 (compresso)",
+    "youtubeSampleRate": "Frequenza di campionamento",
+    "youtubeBitrate": "Bitrate MP3",
     "disableSilenceWarning": "Disattiva l’avviso di silenzio",
     "disableSilenceWarningHelp": "Nasconde il conto alla rovescia «Silenzio tra» nell’intestazione.",
     "transitionMode": "Modalità di transizione predefinita",
@@ -439,7 +446,10 @@
     "restartEngine": "Riavvia server",
     "outputDevices": "Dispositivi di uscita",
     "open": "Apri",
-    "noDevices": "Nessun dispositivo di uscita trovato"
+    "noDevices": "Nessun dispositivo di uscita trovato",
+    "silentServer": "Esegui il server in modo silenzioso nell'area di notifica",
+    "silentServerHelp": "Avvia il server senza finestra della console. Un'icona nell'area di notifica (la barra dei menu su macOS) indica che è in esecuzione, anche dopo la chiusura di LivePlay, e il suo menu permette di mostrare la console, aprire i log o arrestare il server. Ha effetto al prossimo avvio del server.",
+    "silentServerForced": "Attivo per questa sessione perché LivePlay è stato avviato con --silent."
   },
   "serverConfig": {
     "title": "Configurazione del server",

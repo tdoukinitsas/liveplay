@@ -97,6 +97,13 @@
     "disableAutoVolumeAndTrim": "Nu ajusta automat volumul și nu tăia liniștea la import",
     "disableLimiter": "Dezactivează limitatorul brickwall",
     "disableLimiterHelp": "Permite vârfurilor să depășească plafonul ieșirii. Se poate schimba în siguranță în timpul spectacolului.",
+    "youtubeImport": "Import YouTube",
+    "youtubeImportHelp": "Formatul în care acest computer salvează descărcările de pe YouTube. Cel mai bun sunet de pe YouTube este Opus la 48 kHz, care este și rata de mixare implicită a serverului, așa că WAV la 48 kHz îl păstrează fără reeșantionare și fără o a doua codare cu pierderi.",
+    "youtubeFormat": "Format",
+    "youtubeFormatWav": "WAV (necomprimat)",
+    "youtubeFormatMp3": "MP3 (comprimat)",
+    "youtubeSampleRate": "Rată de eșantionare",
+    "youtubeBitrate": "Rată de biți MP3",
     "disableSilenceWarning": "Dezactivează avertismentul de liniște",
     "disableSilenceWarningHelp": "Ascunde din antet numărătoarea inversă „Liniște peste”.",
     "transitionMode": "Mod de tranziție implicit",
@@ -439,7 +446,10 @@
     "restartEngine": "Repornește serverul",
     "outputDevices": "Dispozitive de ieșire",
     "open": "Deschide",
-    "noDevices": "Nu s-a găsit niciun dispozitiv de ieșire"
+    "noDevices": "Nu s-a găsit niciun dispozitiv de ieșire",
+    "silentServer": "Rulează serverul discret în zona de notificare",
+    "silentServerHelp": "Pornește serverul fără fereastră de consolă. O pictogramă în zona de notificare (bara de meniu pe macOS) arată că rulează, chiar și după închiderea LivePlay, iar meniul ei poate afișa consola, deschide jurnalele sau opri serverul. Se aplică la următoarea pornire a serverului.",
+    "silentServerForced": "Activ în această sesiune deoarece LivePlay a fost pornit cu --silent."
   },
   "serverConfig": {
     "title": "Configurația serverului",

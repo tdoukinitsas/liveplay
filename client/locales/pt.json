@@ -97,6 +97,13 @@
     "disableAutoVolumeAndTrim": "Não nivelar o volume automaticamente nem aparar o silêncio ao importar",
     "disableLimiter": "Desativar o limitador brickwall",
     "disableLimiterHelp": "Deixa os picos ultrapassar o teto de saída. Pode ser alterado com segurança durante um espetáculo.",
+    "youtubeImport": "Importação do YouTube",
+    "youtubeImportHelp": "O formato em que este computador salva os downloads do YouTube. O melhor áudio do YouTube é Opus a 48 kHz, que também é a taxa de mixagem padrão do servidor, então WAV a 48 kHz o mantém sem reamostragem nem uma segunda codificação com perdas.",
+    "youtubeFormat": "Formato",
+    "youtubeFormatWav": "WAV (sem compressão)",
+    "youtubeFormatMp3": "MP3 (comprimido)",
+    "youtubeSampleRate": "Taxa de amostragem",
+    "youtubeBitrate": "Taxa de bits do MP3",
     "disableSilenceWarning": "Desativar o aviso de silêncio",
     "disableSilenceWarningHelp": "Oculta a contagem decrescente «Silêncio em» no cabeçalho.",
     "transitionMode": "Modo de transição predefinido",
@@ -439,7 +446,10 @@
     "restartEngine": "Reiniciar servidor",
     "outputDevices": "Dispositivos de saída",
     "open": "Abrir",
-    "noDevices": "Nenhum dispositivo de saída encontrado"
+    "noDevices": "Nenhum dispositivo de saída encontrado",
+    "silentServer": "Executar o servidor discretamente na bandeja do sistema",
+    "silentServerHelp": "Inicia o servidor sem janela de console. Um ícone na bandeja do sistema (a barra de menus no macOS) mostra que ele está em execução, mesmo depois de fechar o LivePlay, e seu menu pode mostrar o console, abrir os logs ou parar o servidor. Vale a partir da próxima vez que o servidor iniciar.",
+    "silentServerForced": "Ativado nesta sessão porque o LivePlay foi iniciado com --silent."
   },
   "serverConfig": {
     "title": "Configuração do servidor",

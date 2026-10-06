@@ -97,6 +97,13 @@
     "disableAutoVolumeAndTrim": "导入时不自动调整音量，也不修剪静音",
     "disableLimiter": "禁用砖墙限幅器",
     "disableLimiterHelp": "允许峰值超过输出上限。演出期间可安全更改。",
+    "youtubeImport": "YouTube 导入",
+    "youtubeImportHelp": "此电脑保存 YouTube 下载内容所用的格式。YouTube 的最佳音频是 48 kHz 的 Opus，这也是服务器默认的混音采样率，因此 48 kHz WAV 可以原样保留，无需重采样，也不会再经历一次有损编码。",
+    "youtubeFormat": "格式",
+    "youtubeFormatWav": "WAV（无压缩）",
+    "youtubeFormatMp3": "MP3（有压缩）",
+    "youtubeSampleRate": "采样率",
+    "youtubeBitrate": "MP3 比特率",
     "disableSilenceWarning": "禁用静音警告",
     "disableSilenceWarningHelp": "隐藏标题栏中的“距离静音”倒计时。",
     "transitionMode": "默认过渡模式",
@@ -439,7 +446,10 @@
     "restartEngine": "重启服务器",
     "outputDevices": "输出设备",
     "open": "打开",
-    "noDevices": "未找到输出设备"
+    "noDevices": "未找到输出设备",
+    "silentServer": "在系统托盘中静默运行服务器",
+    "silentServerHelp": "启动服务器时不显示控制台窗口。系统托盘（macOS 上为菜单栏）中的图标会显示服务器正在运行，即使关闭 LivePlay 后也是如此；通过其菜单可以显示控制台、打开日志或停止服务器。下次启动服务器时生效。",
+    "silentServerForced": "由于 LivePlay 以 --silent 启动，本次会话中已开启。"
   },
   "serverConfig": {
     "title": "服务器配置",

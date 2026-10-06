@@ -97,6 +97,13 @@
     "disableAutoVolumeAndTrim": "Mos e niveloni automatikisht volumin dhe mos e shkurtoni heshtjen gjatë importimit",
     "disableLimiter": "Çaktivizo limiterin brickwall",
     "disableLimiterHelp": "Lejon majat të kalojnë tavanin e daljes. Mund të ndryshohet pa rrezik edhe gjatë shfaqjes.",
+    "youtubeImport": "Importim nga YouTube",
+    "youtubeImportHelp": "Formati në të cilin ky kompjuter ruan shkarkimet nga YouTube. Audioja më e mirë e YouTube është Opus në 48 kHz, që është edhe shpejtësia e paracaktuar e miksimit të serverit, ndaj WAV në 48 kHz e ruan pa rimostrim dhe pa një kodim të dytë me humbje.",
+    "youtubeFormat": "Formati",
+    "youtubeFormatWav": "WAV (i pakompresuar)",
+    "youtubeFormatMp3": "MP3 (i kompresuar)",
+    "youtubeSampleRate": "Shpejtësia e mostrimit",
+    "youtubeBitrate": "Shpejtësia e biteve MP3",
     "disableSilenceWarning": "Çaktivizo paralajmërimin për heshtje",
     "disableSilenceWarningHelp": "Fsheh numërimin mbrapsht „Heshtje pas” në kokën e faqes.",
     "transitionMode": "Kalimi i parazgjedhur",
@@ -439,7 +446,10 @@
     "restartEngine": "Rinis serverin",
     "outputDevices": "Pajisjet e daljes",
     "open": "Hap",
-    "noDevices": "Nuk u gjet asnjë pajisje daljeje"
+    "noDevices": "Nuk u gjet asnjë pajisje daljeje",
+    "silentServer": "Ekzekuto serverin në heshtje në zonën e njoftimeve",
+    "silentServerHelp": "Nis serverin pa dritare konsole. Një ikonë në zonën e njoftimeve (shiriti i menysë në macOS) tregon se po punon, edhe pasi mbyllet LivePlay, dhe menyja e saj mund të shfaqë konsolën, të hapë regjistrat ose të ndalë serverin. Hyn në fuqi herën tjetër që niset serveri.",
+    "silentServerForced": "Aktiv për këtë seancë sepse LivePlay u nis me --silent."
   },
   "serverConfig": {
     "title": "Konfigurimi i serverit",

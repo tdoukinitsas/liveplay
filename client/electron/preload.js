@@ -73,6 +73,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // YouTube features
   searchYouTube: (query) => ipcRenderer.invoke('search-youtube', query),
+  // What downloads are saved as (format, sample rate, MP3 bitrate).
+  getYouTubeSettings: () => ipcRenderer.invoke('youtube-settings:get'),
+  setYouTubeSettings: (settings) => ipcRenderer.invoke('youtube-settings:set', settings),
   downloadYouTubeAudio: (videoId, title, projectFolderPath, progressCallback) => {
     // Set up progress listener
     const progressListener = (event, progress) => {

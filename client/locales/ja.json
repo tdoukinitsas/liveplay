@@ -97,6 +97,13 @@
     "disableAutoVolumeAndTrim": "インポート時に音量の自動調整や無音部分のトリミングを行わない",
     "disableLimiter": "ブリックウォールリミッターを無効にする",
     "disableLimiterHelp": "ピークが出力のシーリングを超えることを許可します。ショー中に変更しても問題ありません。",
+    "youtubeImport": "YouTube の取り込み",
+    "youtubeImportHelp": "このコンピューターが YouTube のダウンロードを保存する形式です。YouTube の最高音質は 48 kHz の Opus で、これはサーバーの既定のミックスレートでもあるため、48 kHz の WAV ならリサンプリングも二度目の非可逆エンコードもなく保存できます。",
+    "youtubeFormat": "形式",
+    "youtubeFormatWav": "WAV（非圧縮）",
+    "youtubeFormatMp3": "MP3（圧縮）",
+    "youtubeSampleRate": "サンプルレート",
+    "youtubeBitrate": "MP3 ビットレート",
     "disableSilenceWarning": "無音警告を無効にする",
     "disableSilenceWarningHelp": "ヘッダーの「無音まで」カウントダウンを非表示にします。",
     "transitionMode": "既定のトランジションモード",
@@ -439,7 +446,10 @@
     "restartEngine": "サーバーを再起動",
     "outputDevices": "出力デバイス",
     "open": "開く",
-    "noDevices": "出力デバイスが見つかりません"
+    "noDevices": "出力デバイスが見つかりません",
+    "silentServer": "サーバーをシステムトレイでサイレント実行する",
+    "silentServerHelp": "コンソールウィンドウを開かずにサーバーを起動します。LivePlay を閉じた後も、システムトレイ（macOS ではメニューバー）のアイコンでサーバーの稼働がわかり、そのメニューからコンソールの表示、ログの表示、サーバーの停止ができます。次回サーバーを起動したときに反映されます。",
+    "silentServerForced": "LivePlay が --silent 付きで起動されたため、このセッションでは有効です。"
   },
   "serverConfig": {
     "title": "サーバー設定",

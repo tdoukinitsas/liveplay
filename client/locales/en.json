@@ -97,6 +97,13 @@
     "disableAutoVolumeAndTrim": "Don't auto-level volume or trim silence when importing",
     "disableLimiter": "Disable brickwall limiter",
     "disableLimiterHelp": "Lets peaks go above the output ceiling. Safe to change during a show.",
+    "youtubeImport": "YouTube import",
+    "youtubeImportHelp": "What this computer saves YouTube downloads as. YouTube's best audio is Opus at 48 kHz, which is also the server's default mix rate, so 48 kHz WAV keeps it without resampling or a second lossy encode.",
+    "youtubeFormat": "Format",
+    "youtubeFormatWav": "WAV (uncompressed)",
+    "youtubeFormatMp3": "MP3 (compressed)",
+    "youtubeSampleRate": "Sample rate",
+    "youtubeBitrate": "MP3 bitrate",
     "disableSilenceWarning": "Disable silence warning",
     "disableSilenceWarningHelp": "Hides the \"Silence in\" countdown in the header.",
     "transitionMode": "Default Transition Mode",
@@ -439,7 +446,10 @@
     "restartEngine": "Restart Server",
     "outputDevices": "Output devices",
     "open": "Open",
-    "noDevices": "No output devices found"
+    "noDevices": "No output devices found",
+    "silentServer": "Run the server silently in the system tray",
+    "silentServerHelp": "Starts the server without a console window. An icon in the system tray (the menu bar on macOS) shows it is running, even after LivePlay is closed, and its menu can show the console, open the logs or stop the server. Takes effect the next time the server starts.",
+    "silentServerForced": "On for this session because LivePlay was started with --silent."
   },
   "serverConfig": {
     "title": "Server configuration",
