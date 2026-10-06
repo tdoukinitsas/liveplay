@@ -39,7 +39,8 @@ State& state() {
 }
 
 NSString* ns(const std::string& s) {
-    return [NSString stringWithUTF8String:s.c_str()] ?: @"";
+    NSString* str = [NSString stringWithUTF8String:s.c_str()];
+    return str ? str : @"";
 }
 
 std::string shell_quote(const std::string& s) {
@@ -75,7 +76,10 @@ using liveplay::tray::state;
                               accessibilityDescription:@"LivePlay Server"];
         }
         if (image) {
-            image.template = YES;   // follows the light/dark menu bar
+            // Follows the light/dark menu bar. A message, not `image.template`:
+            // `template` is a C++ keyword, so Objective-C++ cannot spell it as
+            // a property.
+            [image setTemplate:YES];
             _item.button.image = image;
         } else {
             _item.button.title = @"LivePlay";
