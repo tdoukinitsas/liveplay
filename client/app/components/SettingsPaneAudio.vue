@@ -90,6 +90,33 @@
       </select>
       <p class="settings-help">{{ t('settings.meterBallisticsHelp') }}</p>
     </section>
+
+    <!-- YouTube import. Unlike everything above this is not the show's: it is
+         this machine's yt-dlp doing the download, so it is saved beside the
+         server connection in the app's own settings, and only the desktop app
+         has it. Saved on change, like the rest of this pane. -->
+    <section v-if="yt" class="settings-field">
+      <label class="settings-label">
+        <span class="material-symbols-rounded">download</span>
+        {{ t('settings.youtubeImport') }}
+      </label>
+      <label class="settings-label">{{ t('settings.youtubeFormat') }}</label>
+      <select class="settings-select" :value="yt.format" @change="onYtChange('format', ($event.target as HTMLSelectElement).value as 'wav' | 'mp3')">
+        <option value="wav">{{ t('settings.youtubeFormatWav') }}</option>
+        <option value="mp3">{{ t('settings.youtubeFormatMp3') }}</option>
+      </select>
+      <label class="settings-label">{{ t('settings.youtubeSampleRate') }}</label>
+      <select class="settings-select" :value="yt.sampleRate" @change="onYtChange('sampleRate', Number(($event.target as HTMLSelectElement).value))">
+        <option v-for="r in ytRates" :key="r" :value="r">{{ formatRate(r) }}</option>
+      </select>
+      <template v-if="yt.format === 'mp3'">
+        <label class="settings-label">{{ t('settings.youtubeBitrate') }}</label>
+        <select class="settings-select" :value="yt.mp3Bitrate" @change="onYtChange('mp3Bitrate', Number(($event.target as HTMLSelectElement).value))">
+          <option v-for="b in ytBitrates" :key="b" :value="b">{{ b }} kbps</option>
+        </select>
+      </template>
+      <p class="settings-help">{{ t('settings.youtubeImportHelp') }}</p>
+    </section>
   </div>
 </template>
 
@@ -153,5 +180,30 @@ const { showPane } = useWorkspaceLayout();
 function openMixer() {
   showPane('mixer');
   close();
+}
+
+// ---- YouTube import (desktop only) ------------------------------------
+// The main process owns the defaults and the lists of valid values, so this
+// pane offers exactly what it will accept.
+const yt = ref<YouTubeImportSettings | null>(null);
+const ytOptions = ref<{ sampleRates: Record<'wav' | 'mp3', number[]>; mp3Bitrates: number[] } | null>(null);
+const ytRates = computed(() => (yt.value && ytOptions.value?.sampleRates[yt.value.format]) || []);
+const ytBitrates = computed(() => ytOptions.value?.mp3Bitrates ?? []);
+const formatRate = (hz: number) => `${(hz / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} kHz`;
+
+onMounted(async () => {
+  const api = (globalThis as any).electronAPI;
+  if (!api?.getYouTubeSettings) return;
+  const { options, ...current } = await api.getYouTubeSettings();
+  ytOptions.value = options;
+  yt.value = current;
+});
+
+async function onYtChange<K extends keyof YouTubeImportSettings>(key: K, value: YouTubeImportSettings[K]) {
+  const api = (globalThis as any).electronAPI;
+  if (!api?.setYouTubeSettings) return;
+  // The reply is what was saved: switching to MP3 can move a 96 kHz choice
+  // down to one MP3 can carry.
+  yt.value = await api.setYouTubeSettings({ [key]: value });
 }
 </script>

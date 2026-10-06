@@ -1,6 +1,13 @@
 export {};
 
 declare global {
+  // What a YouTube download is saved as (electron/main.js owns the defaults).
+  interface YouTubeImportSettings {
+    format: 'wav' | 'mp3';
+    sampleRate: number;
+    mp3Bitrate: number;
+  }
+
   interface Window {
     electronAPI: {
       selectProjectFolder: () => Promise<string | null>;
@@ -50,6 +57,10 @@ declare global {
         channelTitle: string;
         length?: string;
       }>>;
+      getYouTubeSettings: () => Promise<YouTubeImportSettings & {
+        options: { sampleRates: Record<'wav' | 'mp3', number[]>; mp3Bitrates: number[] };
+      }>;
+      setYouTubeSettings: (settings: Partial<YouTubeImportSettings>) => Promise<YouTubeImportSettings>;
       downloadYouTubeAudio: (
         videoId: string,
         title: string,

@@ -3321,9 +3321,61 @@ ipcMain.handle('search-youtube', async (event, query) => {
   }
 });
 
+// ---- YouTube import format --------------------------------------------
+// What a YouTube download is saved as. A machine setting, like the server
+// connection, because it is this machine's yt-dlp doing the work.
+//
+// The 48 kHz default is not arbitrary: YouTube's best audio stream is Opus,
+// which is always 48 kHz, and the engine mixes at 48 kHz by default, so the
+// file goes from YouTube to the output without a resampling step anywhere.
+// WAV rather than MP3 so it is decoded once rather than re-encoded lossily.
+const YOUTUBE_SETTINGS_FILENAME = 'youtube-import.json';
+const YOUTUBE_SAMPLE_RATES = { wav: [44100, 48000, 96000], mp3: [44100, 48000] };
+const YOUTUBE_MP3_BITRATES = [128, 192, 256, 320];
+const YOUTUBE_DEFAULTS = { format: 'wav', sampleRate: 48000, mp3Bitrate: 320 };
+
+function youtubeSettingsPath() {
+  return path.join(app.getPath('userData'), YOUTUBE_SETTINGS_FILENAME);
+}
+
+// Anything unknown falls back to the default rather than reaching yt-dlp's
+// command line. MP3 tops out at 48 kHz, so a WAV-only rate is clamped.
+function normaliseYouTubeSettings(raw) {
+  const format = raw?.format === 'mp3' ? 'mp3' : 'wav';
+  const rates = YOUTUBE_SAMPLE_RATES[format];
+  const sampleRate = rates.includes(raw?.sampleRate) ? raw.sampleRate
+    : rates.includes(YOUTUBE_DEFAULTS.sampleRate) ? YOUTUBE_DEFAULTS.sampleRate : rates[rates.length - 1];
+  const mp3Bitrate = YOUTUBE_MP3_BITRATES.includes(raw?.mp3Bitrate) ? raw.mp3Bitrate : YOUTUBE_DEFAULTS.mp3Bitrate;
+  return { format, sampleRate, mp3Bitrate };
+}
+
+function readYouTubeSettings() {
+  try {
+    return normaliseYouTubeSettings(JSON.parse(fs.readFileSync(youtubeSettingsPath(), 'utf-8')));
+  } catch {
+    return { ...YOUTUBE_DEFAULTS };
+  }
+}
+
+ipcMain.handle('youtube-settings:get', () => ({
+  ...readYouTubeSettings(),
+  options: { sampleRates: YOUTUBE_SAMPLE_RATES, mp3Bitrates: YOUTUBE_MP3_BITRATES },
+}));
+
+ipcMain.handle('youtube-settings:set', (_e, incoming) => {
+  const next = normaliseYouTubeSettings({ ...readYouTubeSettings(), ...incoming });
+  try {
+    fs.writeFileSync(youtubeSettingsPath(), JSON.stringify(next, null, 2));
+  } catch (e) {
+    console.error('[youtube] failed to save import settings:', e);
+  }
+  return next;
+});
+
 // YouTube Download Handler
 ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFolderPath) => {
   return new Promise(async (resolve, reject) => {
+    const yt = readYouTubeSettings();
     console.log('YouTube download - Project folder path:', projectFolderPath);
     
     const outputPath = path.join(projectFolderPath, 'media');
@@ -3337,7 +3389,7 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
     
     // Clean filename
     const sanitizedTitle = title.replace(/[<>:"/\\|?*]/g, '').substring(0, 200);
-    const fileName = `${sanitizedTitle}.wav`;
+    const fileName = `${sanitizedTitle}.${yt.format}`;
     const outputTemplate = path.join(outputPath, sanitizedTitle);
     
     console.log('YouTube download - Output template:', outputTemplate);
@@ -3381,7 +3433,10 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
         videoUrl,
         '-f', 'bestaudio',
         '--extract-audio',
-        '--audio-format', 'wav',
+        '--audio-format', yt.format,
+        // yt-dlp passes these to the ffmpeg run that extracts the audio.
+        '--postprocessor-args', `ExtractAudio:-ar ${yt.sampleRate}`,
+        ...(yt.format === 'mp3' ? ['--audio-quality', `${yt.mp3Bitrate}K`] : []),
         '-o', outputTemplate + '.%(ext)s',
         '--no-playlist',
         '--progress',
@@ -3516,7 +3571,7 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
           // Look for files that match the base name (case-insensitive, with any encoding)
           const matchingFile = files.find(f => {
             const decoded = decodeURIComponent(f);
-            return decoded.toLowerCase().startsWith(baseName.toLowerCase()) && f.endsWith('.wav');
+            return decoded.toLowerCase().startsWith(baseName.toLowerCase()) && f.endsWith(`.${yt.format}`);
           });
           
           if (matchingFile) {
