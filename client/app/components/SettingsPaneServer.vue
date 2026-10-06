@@ -36,12 +36,17 @@
         <label class="settings-label">{{ t('serverSettings.localPort') }}</label>
         <input class="settings-input" type="number" min="1" max="65535"
                v-model.number="draftLocalPort" />
+        <!-- Off by default on purpose: the console window is how an operator
+             sees the server is still running after the app has quit or
+             crashed. Silent mode keeps that promise with a tray icon owned by
+             the server itself, so it outlives the app too. -->
         <label class="settings-label settings-label--checkbox" style="margin-top: 0.75rem;">
-          <input type="checkbox" v-model="draftShowConsole" />
-          {{ t('serverSettings.showConsole') }}
+          <input type="checkbox" v-model="draftSilentServer" :disabled="launchedSilent" />
+          {{ t('serverSettings.silentServer') }}
         </label>
         <p class="settings-help">
-          {{ t('serverSettings.showConsoleHelp') }}
+          {{ t('serverSettings.silentServerHelp') }}
+          <template v-if="launchedSilent"> {{ t('serverSettings.silentServerForced') }}</template>
         </p>
         <p class="settings-help">
           <span v-if="serverStatus?.running">
@@ -214,11 +219,13 @@ const electronApi: any = (globalThis as any).electronAPI?.liveplayServer;
 const hasElectron = !!electronApi;
 
 // ---- 1. Connection ---------------------------------------------------
-const draftMode        = ref<'local' | 'remote'>('local');
-const draftRemoteUrl   = ref('http://127.0.0.1:4480');
-const draftLocalPort   = ref(4480);
-const draftShowConsole = ref(false);
-const serverStatus     = ref<{ running: boolean; pid?: number } | null>(null);
+const draftMode         = ref<'local' | 'remote'>('local');
+const draftRemoteUrl    = ref('http://127.0.0.1:4480');
+const draftLocalPort    = ref(4480);
+const draftSilentServer = ref(false);
+// Started as `liveplay --silent`: silent for this session whatever is saved.
+const launchedSilent    = ref(false);
+const serverStatus      = ref<{ running: boolean; pid?: number } | null>(null);
 let stopStatusListener: (() => void) | null = null;
 
 const statusClass = computed(() => ({
@@ -235,29 +242,29 @@ async function loadConnection() {
   }
   const cfg    = await electronApi.getConfig();
   const status = await electronApi.getStatus();
-  draftMode.value        = cfg.mode;
-  draftRemoteUrl.value   = cfg.remoteUrl || 'http://127.0.0.1:4480';
-  draftLocalPort.value   = cfg.localPort || 4480;
-  draftShowConsole.value = Boolean(cfg.showConsole);
-  serverStatus.value     = { running: status.running, pid: status.pid };
+  draftMode.value         = cfg.mode;
+  draftRemoteUrl.value    = cfg.remoteUrl || 'http://127.0.0.1:4480';
+  draftLocalPort.value    = cfg.localPort || 4480;
+  draftSilentServer.value = cfg.silentServer === true || cfg.launchedSilent === true;
+  launchedSilent.value    = cfg.launchedSilent === true;
+  serverStatus.value      = { running: status.running, pid: status.pid };
 }
 
 async function applyConnection() {
   if (electronApi) {
-    const prevCfg = await electronApi.getConfig();
-    const needRestart = draftMode.value === 'local' && (
-      Boolean(prevCfg?.showConsole) !== draftShowConsole.value ||
-      (prevCfg?.localPort ?? 4480) !== draftLocalPort.value
-    );
+    // No automatic restart for a port or silent-mode change: restarting the
+    // engine stops whatever is playing, which Apply must never do behind the
+    // operator's back. Both take effect when the server next starts; Restart
+    // Server is right here for doing that now.
+    const cfg = await electronApi.getConfig();
     await electronApi.setConfig({
-      mode:        draftMode.value,
-      remoteUrl:   draftRemoteUrl.value.trim(),
-      localPort:   draftLocalPort.value,
-      showConsole: draftShowConsole.value,
+      mode:      draftMode.value,
+      remoteUrl: draftRemoteUrl.value.trim(),
+      localPort: draftLocalPort.value,
+      // Leave the saved choice alone while --silent is overriding it, or the
+      // override would quietly become permanent.
+      silentServer: launchedSilent.value ? cfg.silentServer === true : draftSilentServer.value,
     });
-    if (needRestart) {
-      await restartLocal();
-    }
   } else {
     server.setServerUrl(draftRemoteUrl.value.trim());
   }

@@ -440,8 +440,9 @@
     "outputDevices": "Pajisjet e daljes",
     "open": "Hap",
     "noDevices": "Nuk u gjet asnjë pajisje daljeje",
-    "showConsole": "Show server console window",
-    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
+    "silentServer": "Ekzekuto serverin në heshtje në zonën e njoftimeve",
+    "silentServerHelp": "Nis serverin pa dritare konsole. Një ikonë në zonën e njoftimeve (shiriti i menysë në macOS) tregon se po punon, edhe pasi mbyllet LivePlay, dhe menyja e saj mund të shfaqë konsolën, të hapë regjistrat ose të ndalë serverin. Hyn në fuqi herën tjetër që niset serveri.",
+    "silentServerForced": "Aktiv për këtë seancë sepse LivePlay u nis me --silent."
   },
   "serverConfig": {
     "title": "Konfigurimi i serverit",

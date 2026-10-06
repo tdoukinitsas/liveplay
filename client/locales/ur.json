@@ -440,8 +440,9 @@
     "outputDevices": "آؤٹ پٹ ڈیوائسز",
     "open": "کھولیں",
     "noDevices": "کوئی آؤٹ پٹ ڈیوائس نہیں ملی",
-    "showConsole": "Show server console window",
-    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
+    "silentServer": "سرور کو سسٹم ٹرے میں خاموشی سے چلائیں",
+    "silentServerHelp": "سرور کو کنسول ونڈو کے بغیر شروع کرتا ہے۔ سسٹم ٹرے (macOS پر مینو بار) میں ایک آئیکن دکھاتا ہے کہ سرور چل رہا ہے، LivePlay بند ہونے کے بعد بھی، اور اس کے مینو سے کنسول دکھایا جا سکتا ہے، لاگز کھولے جا سکتے ہیں یا سرور روکا جا سکتا ہے۔ سرور کے اگلی بار شروع ہونے پر لاگو ہوتا ہے۔",
+    "silentServerForced": "اس سیشن میں آن ہے کیونکہ LivePlay کو --silent کے ساتھ شروع کیا گیا تھا۔"
   },
   "serverConfig": {
     "title": "سرور کی ترتیبات",

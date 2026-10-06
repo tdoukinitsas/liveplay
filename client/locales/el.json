@@ -440,8 +440,9 @@
     "outputDevices": "Συσκευές εξόδου",
     "open": "Άνοιγμα",
     "noDevices": "Δεν βρέθηκαν συσκευές εξόδου",
-    "showConsole": "Show server console window",
-    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
+    "silentServer": "Αθόρυβη εκτέλεση του διακομιστή στην περιοχή ειδοποιήσεων",
+    "silentServerHelp": "Ξεκινά τον διακομιστή χωρίς παράθυρο κονσόλας. Ένα εικονίδιο στην περιοχή ειδοποιήσεων (στη γραμμή μενού στο macOS) δείχνει ότι εκτελείται, ακόμη και αφού κλείσει το LivePlay, και το μενού του μπορεί να εμφανίσει την κονσόλα, να ανοίξει τα αρχεία καταγραφής ή να σταματήσει τον διακομιστή. Ισχύει από την επόμενη εκκίνηση του διακομιστή.",
+    "silentServerForced": "Ενεργό για αυτή τη συνεδρία επειδή το LivePlay ξεκίνησε με --silent."
   },
   "serverConfig": {
     "title": "Ρυθμίσεις διακομιστή",

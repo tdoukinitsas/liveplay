@@ -440,8 +440,9 @@
     "outputDevices": "Output devices",
     "open": "Open",
     "noDevices": "No output devices found",
-    "showConsole": "Show server console window",
-    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
+    "silentServer": "Run the server silently in the system tray",
+    "silentServerHelp": "Starts the server without a console window. An icon in the system tray (the menu bar on macOS) shows it is running, even after LivePlay is closed, and its menu can show the console, open the logs or stop the server. Takes effect the next time the server starts.",
+    "silentServerForced": "On for this session because LivePlay was started with --silent."
   },
   "serverConfig": {
     "title": "Server configuration",

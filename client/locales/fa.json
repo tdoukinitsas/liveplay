@@ -440,8 +440,9 @@
     "outputDevices": "دستگاه‌های خروجی",
     "open": "باز کردن",
     "noDevices": "هیچ دستگاه خروجی پیدا نشد",
-    "showConsole": "Show server console window",
-    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
+    "silentServer": "اجرای بی‌صدای سرور در سینی سیستم",
+    "silentServerHelp": "سرور را بدون پنجرهٔ کنسول اجرا می‌کند. نمادی در سینی سیستم (نوار منو در macOS) نشان می‌دهد که سرور در حال اجراست، حتی پس از بستن LivePlay، و از منوی آن می‌توان کنسول را نمایش داد، گزارش‌ها را باز کرد یا سرور را متوقف کرد. از اجرای بعدی سرور اعمال می‌شود.",
+    "silentServerForced": "در این نشست روشن است، چون LivePlay با --silent اجرا شده است."
   },
   "serverConfig": {
     "title": "پیکربندی سرور",

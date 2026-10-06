@@ -440,8 +440,9 @@
     "outputDevices": "输出设备",
     "open": "打开",
     "noDevices": "未找到输出设备",
-    "showConsole": "Show server console window",
-    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
+    "silentServer": "在系统托盘中静默运行服务器",
+    "silentServerHelp": "启动服务器时不显示控制台窗口。系统托盘（macOS 上为菜单栏）中的图标会显示服务器正在运行，即使关闭 LivePlay 后也是如此；通过其菜单可以显示控制台、打开日志或停止服务器。下次启动服务器时生效。",
+    "silentServerForced": "由于 LivePlay 以 --silent 启动，本次会话中已开启。"
   },
   "serverConfig": {
     "title": "服务器配置",

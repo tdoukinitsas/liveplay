@@ -440,8 +440,9 @@
     "outputDevices": "출력 장치",
     "open": "열기",
     "noDevices": "출력 장치를 찾을 수 없습니다",
-    "showConsole": "Show server console window",
-    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
+    "silentServer": "시스템 트레이에서 서버를 조용히 실행",
+    "silentServerHelp": "콘솔 창 없이 서버를 시작합니다. 시스템 트레이(macOS에서는 메뉴 막대)의 아이콘으로 LivePlay를 닫은 후에도 서버가 실행 중임을 알 수 있으며, 아이콘 메뉴에서 콘솔 표시, 로그 열기, 서버 중지를 할 수 있습니다. 다음에 서버가 시작될 때 적용됩니다.",
+    "silentServerForced": "LivePlay가 --silent로 시작되어 이번 세션에서는 켜져 있습니다."
   },
   "serverConfig": {
     "title": "서버 구성",

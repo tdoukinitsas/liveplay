@@ -440,8 +440,9 @@
     "outputDevices": "Utgångsenheter",
     "open": "Öppna",
     "noDevices": "Inga utgångsenheter hittades",
-    "showConsole": "Show server console window",
-    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
+    "silentServer": "Kör servern tyst i meddelandefältet",
+    "silentServerHelp": "Startar servern utan konsolfönster. En ikon i meddelandefältet (menyraden på macOS) visar att den körs, även efter att LivePlay har stängts, och dess meny kan visa konsolen, öppna loggarna eller stoppa servern. Gäller nästa gång servern startar.",
+    "silentServerForced": "På för den här sessionen eftersom LivePlay startades med --silent."
   },
   "serverConfig": {
     "title": "Serverkonfiguration",

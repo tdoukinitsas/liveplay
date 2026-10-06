@@ -440,8 +440,9 @@
     "outputDevices": "Dispozitive de ieșire",
     "open": "Deschide",
     "noDevices": "Nu s-a găsit niciun dispozitiv de ieșire",
-    "showConsole": "Show server console window",
-    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
+    "silentServer": "Rulează serverul discret în zona de notificare",
+    "silentServerHelp": "Pornește serverul fără fereastră de consolă. O pictogramă în zona de notificare (bara de meniu pe macOS) arată că rulează, chiar și după închiderea LivePlay, iar meniul ei poate afișa consola, deschide jurnalele sau opri serverul. Se aplică la următoarea pornire a serverului.",
+    "silentServerForced": "Activ în această sesiune deoarece LivePlay a fost pornit cu --silent."
   },
   "serverConfig": {
     "title": "Configurația serverului",

@@ -440,8 +440,9 @@
     "outputDevices": "Устройства вывода",
     "open": "Открыть",
     "noDevices": "Устройства вывода не найдены",
-    "showConsole": "Show server console window",
-    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
+    "silentServer": "Запускать сервер в фоне со значком в области уведомлений",
+    "silentServerHelp": "Запускает сервер без окна консоли. Значок в области уведомлений (в строке меню на macOS) показывает, что сервер работает, даже после закрытия LivePlay, а его меню позволяет показать консоль, открыть журналы или остановить сервер. Вступает в силу при следующем запуске сервера.",
+    "silentServerForced": "Включено в этом сеансе, потому что LivePlay запущен с --silent."
   },
   "serverConfig": {
     "title": "Конфигурация сервера",

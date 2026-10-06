@@ -37,6 +37,9 @@ let liveplayServerProc = null;
 let liveplayServerPid  = null;
 let liveplayServerPort = LIVEPLAY_DEFAULT_PORT;
 let liveplayServerExitTimer = null;
+// `--silent` on the app's own command line: launch the local server into the
+// system tray for this session, whatever Settings says.
+const launchedSilent = process.argv.includes('--silent');
 
 function liveplayConfigPath() {
   return path.join(app.getPath('userData'), LIVEPLAY_CONFIG_FILENAME);
@@ -94,10 +97,13 @@ function readLiveplayConfig() {
       mode:        parsed.mode === 'remote' ? 'remote' : 'local',
       remoteUrl:   typeof parsed.remoteUrl === 'string' ? parsed.remoteUrl : `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`,
       localPort:   Number.isInteger(parsed.localPort) ? parsed.localPort : LIVEPLAY_DEFAULT_PORT,
-      showConsole: typeof parsed.showConsole === 'boolean' ? parsed.showConsole : false,
+      // Off by default: the console window is how an operator sees the
+      // server is still running after the app has gone. Silent mode moves
+      // that to a tray icon the server owns.
+      silentServer: parsed.silentServer === true,
     };
   } catch {
-    return { mode: 'local', remoteUrl: `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`, localPort: LIVEPLAY_DEFAULT_PORT, showConsole: false };
+    return { mode: 'local', remoteUrl: `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`, localPort: LIVEPLAY_DEFAULT_PORT, silentServer: false };
   }
 }
 
@@ -562,14 +568,24 @@ async function startLiveplayServer() {
   deleteLiveplayLock();
   liveplayServerPort = cfg.localPort;
 
-  const showConsole = cfg.showConsole === true;
-  console.log(`[liveplay-server] launching (${showConsole ? 'visible console' : 'background'})`, exePath, 'on port', cfg.localPort);
+  const silent = cfg.silentServer === true || launchedSilent;
+  console.log(`[liveplay-server] launching (${silent ? 'silent, tray icon' : 'visible console'})`, exePath, 'on port', cfg.localPort);
   const serverArgs = [
     '--port',    String(cfg.localPort),
     '--pidfile', lockPath,
   ];
   try {
-    if (showConsole && process.platform === 'win32') {
+    if (silent) {
+      // No console or Terminal window: the server puts its own icon in the
+      // system tray (menu bar on macOS), which stays for as long as it runs,
+      // app or no app. windowsHide stops Windows flashing a console for it.
+      liveplayServerProc = spawn(exePath, [...serverArgs, '--silent'], {
+        cwd: path.dirname(exePath),
+        stdio: 'ignore',
+        detached: true,
+        windowsHide: true,
+      });
+    } else if (process.platform === 'win32') {
       // `cmd /c start "" /D "<cwd>" "<exe>" <args>` opens a visible console
       // window in the taskbar. The empty-string title avoids the Windows quirk
       // where the first quoted arg to `start` is treated as the window title
@@ -586,7 +602,7 @@ async function startLiveplayServer() {
           detached: true,
         },
       );
-    } else if (showConsole && process.platform === 'darwin') {
+    } else if (process.platform === 'darwin') {
       // Open a Terminal.app window that runs the server. Quoting is fiddly
       // because the AppleScript is one string — escape the path manually.
       const shellQuote = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
@@ -606,7 +622,10 @@ async function startLiveplayServer() {
         { stdio: 'ignore', detached: true },
       );
     } else {
-      // Background: spawn directly without a visible console / Terminal window.
+      // Linux / other POSIX: spawn directly. If the user launched the
+      // Electron app from a terminal, the server inherits that terminal
+      // and is visible. If launched from a desktop launcher, there's no
+      // console — best-effort.
       liveplayServerProc = spawn(exePath, serverArgs, {
         cwd: path.dirname(exePath),
         stdio: 'ignore',
@@ -660,8 +679,15 @@ async function pollPidfileForServerPid(lockPath) {
 async function stopLiveplayServer() {
   let pid = liveplayServerPid;
   if (!pid) {
+    // We lost track of it (e.g. the pidfile poll timed out), but the lockfile
+    // may still name it. Only trust that PID if the server on its port
+    // answers: a lock left by a crash or a reboot can name a PID the OS has
+    // since handed to something else entirely.
     const lock = readLiveplayLock();
-    if (lock && Number.isInteger(lock.pid)) pid = lock.pid;
+    if (lock && Number.isInteger(lock.pid) && isPidAlive(lock.pid) &&
+        await probeServerHealth(lock.port)) {
+      pid = lock.pid;
+    }
   }
   if (!pid) {
     deleteLiveplayLock();
@@ -671,8 +697,21 @@ async function stopLiveplayServer() {
   console.log('[liveplay-server] stopping pid', pid);
   try {
     if (process.platform === 'win32') {
-      const { execSync } = require('child_process');
-      try { execSync(`taskkill /pid ${pid} /T /F`, { stdio: 'ignore' }); } catch {}
+      const taskkill = (args) => new Promise((resolve) => {
+        exec(`taskkill /pid ${pid} ${args}`, (err) => resolve(!err));
+      });
+      // Ask first. A silent server's hidden tray window takes WM_CLOSE as
+      // "stop", shuts down cleanly and takes its tray icon with it; a forced
+      // kill would leave a dead icon behind until the mouse passes over it.
+      // A console-hosted server refuses the polite request, so that costs
+      // nothing. /T also closes the console window the server was hosted in.
+      if (await taskkill('/T')) {
+        const deadline = Date.now() + 3000;
+        while (Date.now() < deadline && isPidAlive(pid)) {
+          await new Promise(r => setTimeout(r, 100));
+        }
+      }
+      if (isPidAlive(pid)) await taskkill('/T /F');
     } else {
       // 1. Send SIGTERM to process group and process
       try { process.kill(-pid, 'SIGTERM'); } catch {}
@@ -715,7 +754,7 @@ function notifyServerStateChange() {
 }
 
 // IPC: renderer reads/writes config and queries state.
-ipcMain.handle('liveplay-server:get-config', () => readLiveplayConfig());
+ipcMain.handle('liveplay-server:get-config', () => ({ ...readLiveplayConfig(), launchedSilent }));
 
 ipcMain.handle('liveplay-server:set-config', async (_e, incoming) => {
   const next = { ...readLiveplayConfig(), ...incoming };
@@ -724,7 +763,9 @@ ipcMain.handle('liveplay-server:set-config', async (_e, incoming) => {
     next.localPort = LIVEPLAY_DEFAULT_PORT;
   }
   if (next.mode !== 'local' && next.mode !== 'remote') next.mode = 'local';
-  next.showConsole = Boolean(next.showConsole);
+  next.silentServer = next.silentServer === true;
+  delete next.showConsole;   // the 2.5.1 pre-release spelling, inverted
+  delete next.launchedSilent; // a fact about this launch, not a setting
 
   writeLiveplayConfig(next);
 

@@ -440,8 +440,9 @@
     "outputDevices": "أجهزة الإخراج",
     "open": "فتح",
     "noDevices": "لم يُعثر على أجهزة إخراج",
-    "showConsole": "Show server console window",
-    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
+    "silentServer": "تشغيل الخادم بصمت في علبة النظام",
+    "silentServerHelp": "يبدأ الخادم دون نافذة وحدة تحكم. تُظهر أيقونة في علبة النظام (شريط القوائم في macOS) أنه يعمل، حتى بعد إغلاق LivePlay، ويمكن من قائمتها إظهار وحدة التحكم أو فتح السجلات أو إيقاف الخادم. يسري ذلك عند التشغيل التالي للخادم.",
+    "silentServerForced": "مفعّل في هذه الجلسة لأن LivePlay بدأ مع --silent."
   },
   "serverConfig": {
     "title": "إعدادات الخادم",

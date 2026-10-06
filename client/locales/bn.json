@@ -440,8 +440,9 @@
     "outputDevices": "আউটপুট ডিভাইস",
     "open": "খুলুন",
     "noDevices": "কোনো আউটপুট ডিভাইস পাওয়া যায়নি",
-    "showConsole": "Show server console window",
-    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
+    "silentServer": "সার্ভারটি সিস্টেম ট্রেতে নীরবে চালান",
+    "silentServerHelp": "কনসোল উইন্ডো ছাড়াই সার্ভার চালু করে। সিস্টেম ট্রেতে (macOS-এ মেনু বারে) একটি আইকন দেখায় যে সার্ভার চলছে, LivePlay বন্ধ করার পরেও, এবং এর মেনু থেকে কনসোল দেখানো, লগ খোলা বা সার্ভার বন্ধ করা যায়। পরের বার সার্ভার চালু হলে কার্যকর হয়।",
+    "silentServerForced": "এই সেশনে চালু আছে কারণ LivePlay --silent দিয়ে চালু করা হয়েছে।"
   },
   "serverConfig": {
     "title": "সার্ভার কনফিগারেশন",
