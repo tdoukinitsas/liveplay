@@ -11,6 +11,25 @@ const { promisify } = require('util');
 const https = require('https');
 const execPromise = promisify(exec);
 
+// A show machine is often offline, and a library that makes a request without
+// listening for its 'error' event turns "no network" into an uncaught
+// exception and an error dialog in front of the operator (issue #71). Network
+// failures are logged and dropped; everything else gets exactly what Electron
+// would have shown without this handler.
+const OFFLINE_ERROR_CODES = new Set([
+  'ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT',
+  'ENETUNREACH', 'EHOSTUNREACH', 'ENETDOWN',
+]);
+process.on('uncaughtException', (err) => {
+  if (err && OFFLINE_ERROR_CODES.has(err.code)) {
+    console.warn('[network] unhandled network error ignored:', err.message);
+    return;
+  }
+  console.error('Uncaught exception in the main process:', err);
+  dialog.showErrorBox('A JavaScript error occurred in the main process',
+                      `Uncaught Exception:\n${err?.stack || err}`);
+});
+
 let ffmpegPath = null;
 let ffmpegAvailable = false;
 
@@ -1162,6 +1181,59 @@ function getLatestReleaseTag(repo) {
   });
 }
 
+// Download `url` to `dest`, following redirects (GitHub release assets always
+// redirect to a CDN). Rejects on any network error, timeout or non-200.
+//
+// Not yt-dlp-wrap's downloadFile/downloadFromGithub: those call https.get
+// without an 'error' listener on the request, so a DNS failure (no network at
+// all — a show machine, or the AppImage catalogue's --net=none sandbox) is
+// raised as an uncaught exception that no try/catch around the await can
+// catch, and Electron puts up an error dialog (issue #71).
+//
+// Written to a temporary file and renamed into place, so a dropped connection
+// never leaves a truncated binary where the real one should be.
+function downloadToFile(url, dest, { redirects = 5, timeoutMs = 60000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'LivePlay' }, timeout: timeoutMs }, (res) => {
+      const { statusCode, headers } = res;
+      if (statusCode >= 300 && statusCode < 400 && headers.location) {
+        res.resume();
+        if (redirects <= 0) { reject(new Error(`Too many redirects downloading ${url}`)); return; }
+        const next = new URL(headers.location, url).toString();
+        downloadToFile(next, dest, { redirects: redirects - 1, timeoutMs }).then(resolve, reject);
+        return;
+      }
+      if (statusCode !== 200) {
+        res.resume();
+        reject(new Error(`HTTP ${statusCode} downloading ${url}`));
+        return;
+      }
+      const tmp = `${dest}.download`;
+      const file = fs.createWriteStream(tmp);
+      const fail = (err) => {
+        file.destroy();
+        fs.rm(tmp, { force: true }, () => reject(err));
+      };
+      res.on('error', fail);
+      file.on('error', fail);
+      file.on('finish', () => {
+        file.close((closeErr) => {
+          if (closeErr) { fail(closeErr); return; }
+          try {
+            fs.renameSync(tmp, dest);
+            resolve();
+          } catch (e) {
+            fail(e);
+          }
+        });
+      });
+      res.pipe(file);
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(new Error(`Timed out downloading ${url}`)); });
+  });
+}
+
 // Run `<binary> --version` and return the trimmed stdout, or null on failure.
 async function getBinaryVersion(binaryPath) {
   try {
@@ -1242,12 +1314,10 @@ async function initializeYtDlp() {
           ? `https://github.com/yt-dlp/yt-dlp/releases/download/${latestVersion}/${assetName}`
           : `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${assetName}`;
         console.log(`Downloading yt-dlp binary from ${url}...`);
-        try {
-          await YTDlpWrap.downloadFile(url, binaryPath);
-        } catch (assetErr) {
-          console.warn(`Direct asset download failed for ${assetName}, falling back to yt-dlp-wrap:`, assetErr.message);
-          await YTDlpWrap.downloadFromGithub(binaryPath, latestVersion || undefined);
-        }
+        // No fallback to yt-dlp-wrap's downloadFromGithub: it fetches the
+        // plain `yt-dlp` zipapp, which needs a system Python >= 3.10 — the
+        // exact failure the standalone asset is here to avoid.
+        await downloadToFile(url, binaryPath);
         if (process.platform !== 'win32' && fs.existsSync(binaryPath)) {
           fs.chmodSync(binaryPath, 0o755);
         }
@@ -1354,7 +1424,7 @@ async function initializeDeno() {
           fs.unlinkSync(binaryPath);
         }
         console.log('Downloading deno from', url);
-        await YTDlpWrap.downloadFile(url, zipPath);
+        await downloadToFile(url, zipPath);
         const extractZip = require('extract-zip');
         await extractZip(zipPath, { dir: binDir });
         if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);

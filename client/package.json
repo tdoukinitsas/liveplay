@@ -58,6 +58,9 @@
   "build": {
     "appId": "com.liveplay.app",
     "productName": "LivePlay",
+    "toolsets": {
+      "appimage": "1.0.3"
+    },
     "directories": {
       "output": "dist-electron"
     },

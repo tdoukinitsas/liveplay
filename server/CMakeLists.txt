@@ -223,6 +223,11 @@ elseif(UNIX)
     # tray_linux.cpp dlopens the indicator library; nothing else is linked.
     target_include_directories(liveplay-server PRIVATE ${LIVEPLAY_GENERATED_DIR})
     target_link_libraries(liveplay-server PRIVATE ${CMAKE_DL_LIBS})
+    # The release build uses a newer GCC than the distro it is built on, and
+    # its libstdc++ is newer than most users' systems have. Linking the C++
+    # runtime in leaves glibc as the only system library the binary asks a
+    # version of (issue #71).
+    target_link_options(liveplay-server PRIVATE -static-libstdc++ -static-libgcc)
 endif()
 
 if(WIN32)
