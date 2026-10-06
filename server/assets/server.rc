@@ -2,6 +2,13 @@
 // The icon file is generated from client/assets/icons by the CMake configure step.
 #include <winresrc.h>
 
+// Ordinal 1, which the code loads it by (the console window's icon in main.cpp,
+// the --silent tray icon in tray_win.cpp). winresrc.h does not define
+// IDI_APPICON, and an undefined name makes the resource compiler store the
+// icon under the STRING "IDI_APPICON" — Explorer still finds it, but a lookup
+// by ordinal does not, and Windows falls back to the generic window icon.
+#define IDI_APPICON 1
+
 IDI_APPICON ICON "app.ico"
 
 // Version information block shown in Explorer > Properties > Details.
