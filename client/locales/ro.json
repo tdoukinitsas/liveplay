@@ -439,7 +439,9 @@
     "restartEngine": "Repornește serverul",
     "outputDevices": "Dispozitive de ieșire",
     "open": "Deschide",
-    "noDevices": "Nu s-a găsit niciun dispozitiv de ieșire"
+    "noDevices": "Nu s-a găsit niciun dispozitiv de ieșire",
+    "showConsole": "Show server console window",
+    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
   },
   "serverConfig": {
     "title": "Configurația serverului",

@@ -439,7 +439,9 @@
     "restartEngine": "Server neu starten",
     "outputDevices": "Ausgabegeräte",
     "open": "Öffnen",
-    "noDevices": "Keine Ausgabegeräte gefunden"
+    "noDevices": "Keine Ausgabegeräte gefunden",
+    "showConsole": "Show server console window",
+    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
   },
   "serverConfig": {
     "title": "Serverkonfiguration",

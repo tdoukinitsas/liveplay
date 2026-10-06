@@ -439,7 +439,9 @@
     "restartEngine": "سرور دوبارہ شروع کریں",
     "outputDevices": "آؤٹ پٹ ڈیوائسز",
     "open": "کھولیں",
-    "noDevices": "کوئی آؤٹ پٹ ڈیوائس نہیں ملی"
+    "noDevices": "کوئی آؤٹ پٹ ڈیوائس نہیں ملی",
+    "showConsole": "Show server console window",
+    "showConsoleHelp": "Open a visible Terminal (macOS) or console window (Windows) when the server starts. Useful for diagnostics; recommend keeping off for normal use."
   },
   "serverConfig": {
     "title": "سرور کی ترتیبات",

@@ -91,12 +91,13 @@ function readLiveplayConfig() {
     const raw = fs.readFileSync(liveplayConfigPath(), 'utf-8');
     const parsed = JSON.parse(raw);
     return {
-      mode:      parsed.mode === 'remote' ? 'remote' : 'local',
-      remoteUrl: typeof parsed.remoteUrl === 'string' ? parsed.remoteUrl : `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`,
-      localPort: Number.isInteger(parsed.localPort) ? parsed.localPort : LIVEPLAY_DEFAULT_PORT,
+      mode:        parsed.mode === 'remote' ? 'remote' : 'local',
+      remoteUrl:   typeof parsed.remoteUrl === 'string' ? parsed.remoteUrl : `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`,
+      localPort:   Number.isInteger(parsed.localPort) ? parsed.localPort : LIVEPLAY_DEFAULT_PORT,
+      showConsole: typeof parsed.showConsole === 'boolean' ? parsed.showConsole : false,
     };
   } catch {
-    return { mode: 'local', remoteUrl: `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`, localPort: LIVEPLAY_DEFAULT_PORT };
+    return { mode: 'local', remoteUrl: `http://127.0.0.1:${LIVEPLAY_DEFAULT_PORT}`, localPort: LIVEPLAY_DEFAULT_PORT, showConsole: false };
   }
 }
 
@@ -561,13 +562,14 @@ async function startLiveplayServer() {
   deleteLiveplayLock();
   liveplayServerPort = cfg.localPort;
 
-  console.log('[liveplay-server] launching (visible console)', exePath, 'on port', cfg.localPort);
+  const showConsole = cfg.showConsole === true;
+  console.log(`[liveplay-server] launching (${showConsole ? 'visible console' : 'background'})`, exePath, 'on port', cfg.localPort);
   const serverArgs = [
     '--port',    String(cfg.localPort),
     '--pidfile', lockPath,
   ];
   try {
-    if (process.platform === 'win32') {
+    if (showConsole && process.platform === 'win32') {
       // `cmd /c start "" /D "<cwd>" "<exe>" <args>` opens a visible console
       // window in the taskbar. The empty-string title avoids the Windows quirk
       // where the first quoted arg to `start` is treated as the window title
@@ -584,7 +586,7 @@ async function startLiveplayServer() {
           detached: true,
         },
       );
-    } else if (process.platform === 'darwin') {
+    } else if (showConsole && process.platform === 'darwin') {
       // Open a Terminal.app window that runs the server. Quoting is fiddly
       // because the AppleScript is one string — escape the path manually.
       const shellQuote = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
@@ -604,10 +606,7 @@ async function startLiveplayServer() {
         { stdio: 'ignore', detached: true },
       );
     } else {
-      // Linux / other POSIX: spawn directly. If the user launched the
-      // Electron app from a terminal, the server inherits that terminal
-      // and is visible. If launched from a desktop launcher, there's no
-      // console — best-effort.
+      // Background: spawn directly without a visible console / Terminal window.
       liveplayServerProc = spawn(exePath, serverArgs, {
         cwd: path.dirname(exePath),
         stdio: 'ignore',
@@ -658,8 +657,12 @@ async function pollPidfileForServerPid(lockPath) {
 // Stop the local server. Since the server now always runs as an external
 // process (visible terminal, written PID via pidfile), we only have a PID
 // to work with — there is no ChildProcess handle.
-function stopLiveplayServer() {
-  const pid = liveplayServerPid;
+async function stopLiveplayServer() {
+  let pid = liveplayServerPid;
+  if (!pid) {
+    const lock = readLiveplayLock();
+    if (lock && Number.isInteger(lock.pid)) pid = lock.pid;
+  }
   if (!pid) {
     deleteLiveplayLock();
     notifyServerStateChange();
@@ -668,13 +671,24 @@ function stopLiveplayServer() {
   console.log('[liveplay-server] stopping pid', pid);
   try {
     if (process.platform === 'win32') {
-      // /T also closes the console window the server was hosted in.
-      exec(`taskkill /pid ${pid} /T /F`, () => {});
+      const { execSync } = require('child_process');
+      try { execSync(`taskkill /pid ${pid} /T /F`, { stdio: 'ignore' }); } catch {}
     } else {
-      try { process.kill(pid, 'SIGINT'); } catch {}
-      liveplayServerExitTimer = setTimeout(() => {
+      // 1. Send SIGTERM to process group and process
+      try { process.kill(-pid, 'SIGTERM'); } catch {}
+      try { process.kill(pid, 'SIGTERM'); } catch {}
+
+      // 2. Wait up to 1.5 seconds for it to exit cleanly
+      const deadline = Date.now() + 1500;
+      while (Date.now() < deadline && isPidAlive(pid)) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+
+      // 3. If still alive, force kill with SIGKILL
+      if (isPidAlive(pid)) {
+        try { process.kill(-pid, 'SIGKILL'); } catch {}
         try { process.kill(pid, 'SIGKILL'); } catch {}
-      }, 2000);
+      }
     }
   } catch (e) {
     console.error('[liveplay-server] kill failed:', e);
@@ -703,18 +717,19 @@ function notifyServerStateChange() {
 // IPC: renderer reads/writes config and queries state.
 ipcMain.handle('liveplay-server:get-config', () => readLiveplayConfig());
 
-ipcMain.handle('liveplay-server:set-config', (_e, incoming) => {
+ipcMain.handle('liveplay-server:set-config', async (_e, incoming) => {
   const next = { ...readLiveplayConfig(), ...incoming };
   // Sanity: clamp port to a valid TCP range.
   if (!Number.isInteger(next.localPort) || next.localPort < 1 || next.localPort > 65535) {
     next.localPort = LIVEPLAY_DEFAULT_PORT;
   }
   if (next.mode !== 'local' && next.mode !== 'remote') next.mode = 'local';
+  next.showConsole = Boolean(next.showConsole);
 
   writeLiveplayConfig(next);
 
   // If switching to remote, stop any running local server.
-  if (next.mode === 'remote' && (liveplayServerProc || liveplayServerPid)) stopLiveplayServer();
+  if (next.mode === 'remote' && (liveplayServerProc || liveplayServerPid)) await stopLiveplayServer();
   // Do NOT auto-start in local mode here — the caller (ensure-running) is
   // responsible for starting the server so it isn't spawned twice.
 
@@ -742,25 +757,25 @@ ipcMain.handle('app:exit', () => {
 // has decided it calls `app:confirm-quit`. We stop the local server only
 // when asked, flip quitConfirmed so the next `close` is allowed through,
 // then quit for real.
-ipcMain.handle('app:confirm-quit', (_e, opts) => {
-  if (opts && opts.stopServer) stopLiveplayServer();
+ipcMain.handle('app:confirm-quit', async (_e, opts) => {
+  if (opts && opts.stopServer) await stopLiveplayServer();
   quitConfirmed = true;
   app.quit();
   return true;
 });
 
-ipcMain.handle('liveplay-server:restart', () => {
-  stopLiveplayServer();
+ipcMain.handle('liveplay-server:restart', async () => {
+  await stopLiveplayServer();
   // Defer the restart to let the kill complete.
-  setTimeout(() => startLiveplayServer(), 500);
+  setTimeout(() => startLiveplayServer(), 300);
   return true;
 });
 
 // Explicit shutdown — the server is now detached, so quitting the
 // renderer no longer kills it. The user (or the about-to-quit prompt)
 // invokes this when they really want it gone.
-ipcMain.handle('liveplay-server:shutdown', () => {
-  stopLiveplayServer();
+ipcMain.handle('liveplay-server:shutdown', async () => {
+  await stopLiveplayServer();
   return true;
 });
 
@@ -1116,6 +1131,24 @@ async function getBinaryVersion(binaryPath) {
   }
 }
 
+// Map current platform to yt-dlp standalone release asset name.
+// Note: yt-dlp-wrap's default downloadFromGithub() fetches "yt-dlp" on macOS/Linux,
+// which is a python zipapp requiring Python >= 3.10 to be installed on the host.
+// On macOS (and Linux), downloading the standalone binary (yt-dlp_macos / yt-dlp_linux)
+// avoids any dependency on system python versions.
+function getYtDlpAssetName() {
+  switch (process.platform) {
+    case 'win32':
+      return 'yt-dlp.exe';
+    case 'darwin':
+      return 'yt-dlp_macos';
+    case 'linux':
+      return process.arch === 'arm64' ? 'yt-dlp_linux_aarch64' : 'yt-dlp_linux';
+    default:
+      return 'yt-dlp';
+  }
+}
+
 async function initializeYtDlp() {
   try {
     // Set up download directory in user data folder
@@ -1163,8 +1196,20 @@ async function initializeYtDlp() {
           fs.copyFileSync(binaryPath, backupPath);
           fs.unlinkSync(binaryPath);
         }
-        // Pass the resolved tag when we have it; otherwise yt-dlp-wrap fetches latest.
-        await YTDlpWrap.downloadFromGithub(binaryPath, latestVersion || undefined);
+        const assetName = getYtDlpAssetName();
+        const url = latestVersion
+          ? `https://github.com/yt-dlp/yt-dlp/releases/download/${latestVersion}/${assetName}`
+          : `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${assetName}`;
+        console.log(`Downloading yt-dlp binary from ${url}...`);
+        try {
+          await YTDlpWrap.downloadFile(url, binaryPath);
+        } catch (assetErr) {
+          console.warn(`Direct asset download failed for ${assetName}, falling back to yt-dlp-wrap:`, assetErr.message);
+          await YTDlpWrap.downloadFromGithub(binaryPath, latestVersion || undefined);
+        }
+        if (process.platform !== 'win32' && fs.existsSync(binaryPath)) {
+          fs.chmodSync(binaryPath, 0o755);
+        }
         // Clean up backup on success
         if (fs.existsSync(backupPath)) {
           fs.unlinkSync(backupPath);
@@ -3251,7 +3296,7 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
     
     // Clean filename
     const sanitizedTitle = title.replace(/[<>:"/\\|?*]/g, '').substring(0, 200);
-    const fileName = `${sanitizedTitle}.mp3`;
+    const fileName = `${sanitizedTitle}.wav`;
     const outputTemplate = path.join(outputPath, sanitizedTitle);
     
     console.log('YouTube download - Output template:', outputTemplate);
@@ -3295,8 +3340,7 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
         videoUrl,
         '-f', 'bestaudio',
         '--extract-audio',
-        '--audio-format', 'mp3',
-        '--audio-quality', '0', // Best quality
+        '--audio-format', 'wav',
         '-o', outputTemplate + '.%(ext)s',
         '--no-playlist',
         '--progress',
@@ -3431,7 +3475,7 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
           // Look for files that match the base name (case-insensitive, with any encoding)
           const matchingFile = files.find(f => {
             const decoded = decodeURIComponent(f);
-            return decoded.toLowerCase().startsWith(baseName.toLowerCase()) && f.endsWith('.mp3');
+            return decoded.toLowerCase().startsWith(baseName.toLowerCase()) && f.endsWith('.wav');
           });
           
           if (matchingFile) {
