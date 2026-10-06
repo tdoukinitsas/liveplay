@@ -46,6 +46,9 @@ All current server-config fields require a restart. The settings API distinguish
 | `--cors-origin` | `LIVEPLAY_CORS_ORIGIN` | `*` |
 | `--verbose`, `-v` | None | false |
 | `--lock-server-config` | `LIVEPLAY_LOCK_SERVER_CONFIG` | false |
+| `--silent` | None | false |
+
+`--silent` runs the server without a console window and puts an icon in the system tray (the menu bar on macOS) instead. The icon belongs to the server, so it stays while the server runs even after the desktop app quits. Its menu shows the port and PID and has Show console, Open log folder and Stop server. On Windows, Show console brings the real console back (Hide console releases it again). On macOS and Linux it opens the live log in a terminal. On Linux the icon needs `libayatana-appindicator3` (or `libappindicator3`) and a desktop session; without them the server runs headless and logs why. The desktop app passes `--silent` when **Settings → Server → Run the server silently in the system tray** is on, or when the app itself is started with `--silent`.
 
 Environment root lists use `;` on Windows and `:` elsewhere. In JSON, `fsRoots` is an array. `lockServerConfig` is a launch/file setting, not an API-writable field; when enabled, it blocks configuration edits even by administrators. It does not lock every other server operation.
 

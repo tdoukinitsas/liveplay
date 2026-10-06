@@ -17,6 +17,7 @@
 #include "liveplay/util/unicode_path.hpp"
 #include "liveplay/net/control_server.hpp"
 #include "liveplay/net/discovery.hpp"
+#include "liveplay/tray.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -254,6 +255,7 @@ struct CliOptions {
     int         port      = kDefaultPort;
     std::string bind_addr = "0.0.0.0";
     std::string pidfile;                   // optional; if set, write JSON {pid,port,startedAt}
+    bool        silent = false;            // --silent: no console, a tray icon instead
     bool        verbose   = false;
     int         start_delay_ms = 0;        // wait before binding (crash-restart uses this)
 
@@ -637,6 +639,10 @@ CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir
             opts.lock_server_config = true;
         } else if (a == "--pidfile") {
             if (const char* v = next_value()) opts.pidfile = v;
+        } else if (a == "--silent") {
+            // Acted on before parse_cli runs (see main); consumed here so it
+            // is not reported as unknown.
+            opts.silent = true;
         } else if (a == "--start-delay-ms") {
             // No mark: not a config-file key, so it has no settings-page row.
             next(opts.start_delay_ms, 0, 600'000, "startDelayMs");
@@ -722,6 +728,8 @@ CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir
                 "  -p, --port <port>     Port to listen on (default %d)\n"
                 "  -b, --bind <addr>     Interface to bind (default 0.0.0.0)\n"
                 "      --pidfile <path>  Write JSON {pid,port,startedAt} after binding\n"
+                "      --silent          Run without a console window, showing an icon in\n"
+                "                        the system tray (menu bar on macOS) instead\n"
                 "      --start-delay-ms <n>  Wait <n> ms before binding (used by crash-restart)\n"
                 "      --meter-hz <n>    WebSocket meter push rate, 1-120 (default %zu)\n"
                 "      --max-upload-mb <n>  Max upload size in MiB, 1-8192 (default %zu)\n"
@@ -875,7 +883,7 @@ static bool show_macos_port_conflict_dialog(int port, const std::string& pid) {
 
 } // namespace
 
-int main(int argc, char** argv) {
+int server_main(int argc, char** argv) {
     using namespace liveplay;
     namespace audio = liveplay::audio;
     namespace core  = liveplay::core;
@@ -963,6 +971,7 @@ int main(int argc, char** argv) {
     // have history even when stdout isn't captured (server launched by the
     // Electron client). Best-effort; console logging is unaffected on failure.
     Logger::set_log_file((exe_dir / "logs" / "liveplay-server.log").string());
+    tray::set_log_file(util::path_to_utf8(exe_dir / "logs" / "liveplay-server.log"));
 
     // Crash-loop protection. Read the persisted consecutive-crash count left by
     // any crashing predecessor; after kMaxConsecutiveCrashes back-to-back
@@ -1308,6 +1317,15 @@ int main(int argc, char** argv) {
         }
     }
 
+    // What the tray icon says this server is (a no-op without --silent).
+    tray::set_status(std::format("Port {} \u00b7 PID {}", opts.port,
+#if defined(_WIN32)
+                                 GetCurrentProcessId()
+#else
+                                 ::getpid()
+#endif
+                                 ));
+
     // ------------------------------------------------------------------
     // LAN auto-discovery beacon — best-effort, non-fatal if it can't bind.
     // ------------------------------------------------------------------
@@ -1451,4 +1469,23 @@ int main(int argc, char** argv) {
     }
     Logger::success("Bye.");
     return 0;
+}
+
+// `--silent` trades the console for a tray icon (tray.hpp), which on macOS and
+// Linux has to own the main thread, so the decision is made here, before
+// anything else, and the server proper runs inside tray::run. --help still
+// prints to the terminal it was asked from.
+int main(int argc, char** argv) {
+    bool silent = false;
+    for (int i = 1; i < argc; ++i) {
+        const std::string_view a{argv[i]};
+        if (a == "--help" || a == "-h") return server_main(argc, argv);
+        if (a == "--silent") silent = true;
+    }
+    if (!silent) return server_main(argc, argv);
+
+    liveplay::tray::Options tray_opts;
+    tray_opts.on_stop = [] { g_running.store(false); };
+    return liveplay::tray::run(std::move(tray_opts),
+                               [argc, argv] { return server_main(argc, argv); });
 }
