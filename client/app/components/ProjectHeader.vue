@@ -251,10 +251,29 @@ function headerFits(): boolean {
   const cs = getComputedStyle(header);
   const inner = header.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
   const gap = parseFloat(cs.columnGap) || 16;
-  // What the left block needs with the title at its protected width (or its
-  // full width, if it is shorter than that anyway).
-  const leftNeed = left.getBoundingClientRect().width - name.getBoundingClientRect().width
-    + Math.min(name.scrollWidth, TITLE_KEEP_PX);
+  // The left block (.header-left) has flex: 1 1 auto, so its bounding client rect
+  // stretches across all remaining horizontal space in the row. To test whether
+  // a given fitLevel fits, we must measure the ACTUAL intrinsic width needed by
+  // the left block's visible children plus the title's protected width, NOT
+  // left.getBoundingClientRect().width (which would falsely report that the left
+  // block takes all leftover space and prevent the header from ever expanding back).
+  let leftNeed = 0;
+  let visibleCount = 0;
+  for (const child of Array.from(left.children) as HTMLElement[]) {
+    if (child.offsetWidth === 0 && child.offsetHeight === 0) continue;
+    visibleCount++;
+    if (child === name) {
+      leftNeed += Math.min(name.scrollWidth, TITLE_KEEP_PX);
+    } else {
+      leftNeed += child.getBoundingClientRect().width;
+    }
+  }
+  const leftCs = getComputedStyle(left);
+  const leftGap = parseFloat(leftCs.gap) || 16;
+  if (visibleCount > 1) {
+    leftNeed += leftGap * (visibleCount - 1);
+  }
+
   return right.getBoundingClientRect().width <= inner - leftNeed - gap;
 }
 
@@ -441,12 +460,13 @@ onMounted(() => {
   // settles after one pass: the second pass lands on the same step and the
   // same size, so the observer has nothing new to report.
   let resizeObserver: ResizeObserver | null = null;
+  const onResize = () => { void fitHeader(); };
   if (headerRef.value && typeof ResizeObserver !== 'undefined') {
-    resizeObserver = new ResizeObserver(() => { void fitHeader(); });
+    resizeObserver = new ResizeObserver(onResize);
     resizeObserver.observe(headerRef.value);
-    if (rightRef.value) resizeObserver.observe(rightRef.value);
-    if (nameRef.value)  resizeObserver.observe(nameRef.value);
+    if (nameRef.value) resizeObserver.observe(nameRef.value);
   }
+  window.addEventListener('resize', onResize);
   void fitHeader();
   const refitOnFonts = () => { void fitHeader(); };
   document.fonts?.ready.then(refitOnFonts).catch(() => {});
@@ -456,6 +476,7 @@ onMounted(() => {
     clearInterval(clockInterval);
     clearInterval(silenceInterval);
     if (resizeObserver) resizeObserver.disconnect();
+    window.removeEventListener('resize', onResize);
     document.fonts?.removeEventListener?.('loadingdone', refitOnFonts);
   });
 });
