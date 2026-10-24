@@ -100,6 +100,9 @@ export const useShowControl = () => {
     if (!code || currentLocale.value === code) return;
     applyFromServer(() => { currentLocale.value = code; });
     try { localStorage.setItem('liveplay-locale', code); } catch { /* private browsing */ }
+    // Same reason useLocalization.setLocale does it: the native menu is not
+    // bound to this ref and would otherwise keep the previous language.
+    (window as any).electronAPI?.updateMenuLanguage?.(code);
   };
 
   // ---- server → client ------------------------------------------------

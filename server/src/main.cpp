@@ -509,7 +509,7 @@ struct ConfigChoice {
 };
 
 ConfigChoice choose_config_path(int argc, char** argv,
-                                const std::filesystem::path& exe_dir) {
+                                const std::filesystem::path& data_dir) {
     // Scanned ahead of the main loop: the config file has to be read before the
     // flags that override it, so it cannot wait its turn in argv order.
     for (int i = 1; i + 1 < argc; ++i) {
@@ -520,16 +520,105 @@ ConfigChoice choose_config_path(int argc, char** argv,
     if (const char* v = std::getenv("LIVEPLAY_CONFIG")) {
         if (*v) return {liveplay::util::utf8_to_path(v), true};
     }
-    return {exe_dir / "liveplay.json", false};
+    return {data_dir / "liveplay.json", false};
 }
 
-CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir) {
+// True if a file can actually be created in `dir`. Tried rather than reasoned
+// about: POSIX permissions, a read-only mount (the AppImage) and Program Files
+// ACLs all give the same answer to an attempt, and none of them to stat().
+bool dir_is_writable(const std::filesystem::path& dir) {
+    std::error_code ec;
+    std::filesystem::create_directories(dir, ec);
+    const auto probe = dir / ".liveplay-write-probe";
+    {
+        std::ofstream f{probe, std::ios::binary | std::ios::trunc};
+        if (!f) return false;
+    }
+    std::filesystem::remove(probe, ec);
+    return true;
+}
+
+// This person's own place for the server's files, used when the executable's
+// folder cannot be written. Empty if the platform gives us nothing to go on.
+std::filesystem::path per_user_data_dir() {
+#if defined(_WIN32)
+    if (const wchar_t* v = _wgetenv(L"APPDATA"); v && *v)
+        return std::filesystem::path{v} / L"LivePlay Server";
+#elif defined(__APPLE__)
+    if (const char* v = std::getenv("HOME"); v && *v)
+        return std::filesystem::path{v} / "Library" / "Application Support" / "LivePlay Server";
+#else
+    if (const char* v = std::getenv("XDG_CONFIG_HOME"); v && *v == '/')
+        return std::filesystem::path{v} / "liveplay-server";
+    if (const char* v = std::getenv("HOME"); v && *v)
+        return std::filesystem::path{v} / ".config" / "liveplay-server";
+#endif
+    return {};
+}
+
+// Where the server keeps what it writes: liveplay.json (unless --config names
+// another), users.json, outputs.json, prefs/, logs/ and the crash records.
+//
+// --data-dir, then LIVEPLAY_DATA_DIR, then beside the executable - which is
+// where all of it has always lived, so a portable or per-user install keeps
+// its accounts across this change. Only when that folder cannot be written
+// (the .deb under /opt, the AppImage's read-only mount, a per-machine Windows
+// install) does it move to a per-user directory. Before this, such an install
+// booted fine and then failed every save (#76).
+std::filesystem::path choose_data_dir(int argc, char** argv,
+                                      const std::filesystem::path& exe_dir) {
+    namespace fs = std::filesystem;
+    const auto named = [](const fs::path& dir, const char* source) {
+        if (!dir_is_writable(dir)) {
+            Logger::warn("Data directory '{}' ({}) is not writable - settings, accounts "
+                         "and preferences will fail to save.",
+                         liveplay::util::path_to_utf8(dir), source);
+        }
+        return dir;
+    };
+    for (int i = 1; i + 1 < argc; ++i) {
+        if (std::string_view{argv[i]} == "--data-dir" && *argv[i + 1])
+            return named(liveplay::util::utf8_to_path(argv[i + 1]), "--data-dir");
+    }
+    if (const char* v = std::getenv("LIVEPLAY_DATA_DIR"); v && *v)
+        return named(liveplay::util::utf8_to_path(v), "LIVEPLAY_DATA_DIR");
+
+    if (dir_is_writable(exe_dir)) return exe_dir;
+
+    const fs::path user_dir = per_user_data_dir();
+    if (user_dir.empty() || !dir_is_writable(user_dir)) {
+        Logger::warn("'{}' is not writable and no per-user directory is available - "
+                     "settings, accounts and preferences will fail to save. Pass "
+                     "--data-dir to choose one.",
+                     liveplay::util::path_to_utf8(exe_dir));
+        return exe_dir;
+    }
+
+    // A file an administrator placed beside the executable is still the
+    // installation's intent; carry it over once rather than ignore it. Never
+    // overwrite: after the first run the copy here is the one being edited.
+    for (const char* name : {"liveplay.json", "users.json", "outputs.json"}) {
+        std::error_code ec;
+        const fs::path from = exe_dir / name, to = user_dir / name;
+        if (fs::exists(from, ec) && !fs::exists(to, ec)) {
+            fs::copy_file(from, to, ec);
+            if (ec) {
+                Logger::warn("Could not copy '{}' to '{}': {}",
+                             liveplay::util::path_to_utf8(from),
+                             liveplay::util::path_to_utf8(to), ec.message());
+            }
+        }
+    }
+    return user_dir;
+}
+
+CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& data_dir) {
     CliOptions opts;
 
     // The file first: it is the lowest of the three, so everything below can
     // simply overwrite what it set.
     {
-        const ConfigChoice cfg = choose_config_path(argc, argv, exe_dir);
+        const ConfigChoice cfg = choose_config_path(argc, argv, data_dir);
         std::error_code ec;
         if (std::filesystem::exists(cfg.path, ec)) {
             Logger::info("Boot configuration: {}", liveplay::util::path_to_utf8(cfg.path));
@@ -693,9 +782,10 @@ CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir
                     opts.mark("maxUploadMb", cli);
                 }
             }
-        } else if (a == "--config") {
-            // Already read, ahead of everything else — see choose_config_path.
-            // Consumed here only so its value isn't mistaken for a flag.
+        } else if (a == "--config" || a == "--data-dir") {
+            // Already read, ahead of everything else — see choose_config_path
+            // and choose_data_dir. Consumed here only so the value isn't
+            // mistaken for a flag.
             next_value();
         } else if (a == "--fs-root") {
             // Repeatable, so a shell can pass paths containing the list
@@ -759,11 +849,15 @@ CliOptions parse_cli(int argc, char** argv, const std::filesystem::path& exe_dir
                 "  -v, --verbose         Enable debug-level logging\n"
                 "  -h, --help            Show this help and exit\n"
                 "      --config <path>   Read boot configuration from <path> instead of\n"
-                "                        liveplay.json beside this executable\n"
+                "                        liveplay.json in the data directory\n"
+                "      --data-dir <path> Keep liveplay.json, users.json, outputs.json,\n"
+                "                        prefs/ and logs/ in <path> (also LIVEPLAY_DATA_DIR).\n"
+                "                        Default: beside this executable, or a per-user\n"
+                "                        directory when that folder is read-only\n"
                 "\n"
                 "Every option above can also be set via environment variable using the\n"
                 "LIVEPLAY_ prefix (LIVEPLAY_PORT, LIVEPLAY_MIX_SAMPLE_RATE, ...), or in a\n"
-                "liveplay.json beside this executable. Precedence, lowest first:\n"
+                "liveplay.json in the data directory. Precedence, lowest first:\n"
                 "\n"
                 "    built-in default  <  liveplay.json  <  environment  <  command line\n"
                 "\n"
@@ -948,8 +1042,10 @@ int server_main(int argc, char** argv) {
             exe_path_str = argv[0];
     }
 
-    const CliOptions opts = parse_cli(argc, argv, exe_dir);
+    const std::filesystem::path data_dir = choose_data_dir(argc, argv, exe_dir);
+    const CliOptions opts = parse_cli(argc, argv, data_dir);
     if (opts.verbose) Logger::set_min_level(LogLevel::Debug);
+    Logger::info("Data directory: {}", util::path_to_utf8(data_dir));
 
     // Rebuild the original arg string (argv[1..]) so a restarted instance
     // inherits the same port / bind / verbose flags. Skip --pidfile (the new
@@ -962,16 +1058,17 @@ int server_main(int argc, char** argv) {
         restart_args += argv[i];
     }
 
-    // Crash logs go to exe_dir/crash-logs by default; set_crash_project_dir
+    // Crash logs go to data_dir/crash-logs by default; set_crash_project_dir
     // overrides this to <project_dir>/logs/ once a project is open.
-    install_crash_handlers((exe_dir / "crash-logs").string());
+    install_crash_handlers((data_dir / "crash-logs").string());
     set_crash_exe_info(exe_path_str, restart_args);
+    set_crash_resume_file((data_dir / ".crash-resume.json").string());
 
     // Mirror the session to a persistent, size-rotated log file so operators
     // have history even when stdout isn't captured (server launched by the
     // Electron client). Best-effort; console logging is unaffected on failure.
-    Logger::set_log_file((exe_dir / "logs" / "liveplay-server.log").string());
-    tray::set_log_file(util::path_to_utf8(exe_dir / "logs" / "liveplay-server.log"));
+    Logger::set_log_file((data_dir / "logs" / "liveplay-server.log").string());
+    tray::set_log_file(util::path_to_utf8(data_dir / "logs" / "liveplay-server.log"));
 
     // Crash-loop protection. Read the persisted consecutive-crash count left by
     // any crashing predecessor; after kMaxConsecutiveCrashes back-to-back
@@ -982,11 +1079,11 @@ int server_main(int argc, char** argv) {
     constexpr int kCrashGuardHealthySec  = 30;
     int prior_crash_count = 0;
     {
-        std::ifstream cf{(exe_dir / ".crash-count").string()};
+        std::ifstream cf{(data_dir / ".crash-count").string()};
         int v = 0;
         if (cf && (cf >> v) && v > 0) prior_crash_count = v;
     }
-    set_crash_restart_guard((exe_dir / ".crash-count").string(),
+    set_crash_restart_guard((data_dir / ".crash-count").string(),
                             prior_crash_count, kMaxConsecutiveCrashes);
     if (prior_crash_count > 0) {
         Logger::warn("Recovered from a crash ({} consecutive). Auto-restart disables after {}.",
@@ -994,14 +1091,14 @@ int server_main(int argc, char** argv) {
     }
     // Keep only the most recent crash logs in the fallback dir (project /logs/
     // crash logs are pruned by the project itself).
-    prune_crash_logs((exe_dir / "crash-logs").string(), 20);
+    prune_crash_logs((data_dir / "crash-logs").string(), 20);
 
     // ------------------------------------------------------------------
     // Check for a crash-resume file left by a previous crashed instance.
     // ------------------------------------------------------------------
     std::optional<CrashResume> crash_resume;
     {
-        const std::filesystem::path resume_path = exe_dir / ".crash-resume.json";
+        const std::filesystem::path resume_path = data_dir / ".crash-resume.json";
         std::error_code ec;
         if (std::filesystem::exists(resume_path, ec)) {
             try {
@@ -1138,15 +1235,15 @@ int server_main(int argc, char** argv) {
     // Logical output name → hardware for this machine. Server-owned and kept
     // out of project files, so a show stays portable between venues.
     auto outputs = std::make_unique<core::OutputMap>();
-    outputs->set_path(exe_dir / "outputs.json");
+    outputs->set_path(data_dir / "outputs.json");
     outputs->load();   // absent file is fine — names resolve by identity
 
     // The machine's own settings, now with a settings page behind them (P3).
     // Pointed at the same file parse_cli() already read, whichever one that
-    // was — writing to liveplay.json beside the exe while --config named a
-    // different file would edit a file nobody is reading.
+    // was — writing to liveplay.json in the data directory while --config
+    // named a different file would edit a file nobody is reading.
     auto server_config = std::make_unique<core::ServerConfig>();
-    server_config->set_path(choose_config_path(argc, argv, exe_dir).path);
+    server_config->set_path(choose_config_path(argc, argv, data_dir).path);
     server_config->set_locked(opts.lock_server_config);
     if (opts.lock_server_config) {
         Logger::info("Server configuration is LOCKED — PATCH /api/server/config will "
@@ -1157,7 +1254,7 @@ int server_main(int argc, char** argv) {
     // Who may talk to this server. Machine-owned, beside outputs.json for the
     // same reason: the accounts belong to the rig, not to the show on it.
     auto users = std::make_unique<core::UserStore>();
-    users->set_path(exe_dir / "users.json");
+    users->set_path(data_dir / "users.json");
     users->load();   // absent file is the open posture, stated below
     if (users->corrupt()) {
         // Refusing to start is the right answer and the uncomfortable one. The
@@ -1180,7 +1277,7 @@ int server_main(int argc, char** argv) {
     // deliberately no load() to match: profiles fault in per user, so one bad
     // file costs one person's colours rather than the server's ability to boot.
     auto prefs = std::make_unique<core::UserPrefs>();
-    prefs->set_dir(exe_dir / "prefs");
+    prefs->set_dir(data_dir / "prefs");
 
     auto project = std::make_unique<core::ProjectState>(*engine, *outputs);
     auto backup  = std::make_unique<core::BackupManager>(*project);

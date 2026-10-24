@@ -44,6 +44,11 @@ void prune_crash_logs(const std::string& dir, std::size_t keep);
 void set_crash_exe_info(const std::string& exe_path,
                         const std::string& restart_args);
 
+// Where the crash-resume record is written. Defaults to .crash-resume.json
+// beside the executable; main() points it at the server data directory, since
+// the executable's folder is read-only on a packaged Linux install.
+void set_crash_resume_file(const std::string& resume_file);
+
 // Update the crash handler's idea of which project folder is open. When set,
 // crash logs are written to <project_dir>/logs/ instead of the fallback dir.
 // Call whenever the open project changes.

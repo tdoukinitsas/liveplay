@@ -17,6 +17,18 @@ The Windows Release binary is `server/build/Release/liveplay-server.exe`; the de
 
 The standalone server binds to `0.0.0.0:4480` by default. HTTP and WebSocket share that listener; discovery uses UDP 4481. Use `--bind 127.0.0.1` for a local-only listener. Audio requires a usable playback device.
 
+## Data directory
+
+The server writes `liveplay.json`, `users.json`, `outputs.json`, `prefs/`, `logs/` and its crash records to one data directory, chosen by `--data-dir <path>`, then `LIVEPLAY_DATA_DIR`, then the executable's own folder if it is writable. When it is not (the Linux `.deb` under `/opt`, the AppImage, a per-machine Windows install) the server uses a per-user directory instead, copying any `liveplay.json`, `users.json` or `outputs.json` it finds beside the executable the first time:
+
+| Platform | Per-user data directory |
+|---|---|
+| Linux | `$XDG_CONFIG_HOME/liveplay-server`, else `~/.config/liveplay-server` |
+| macOS | `~/Library/Application Support/LivePlay Server` |
+| Windows | `%APPDATA%\LivePlay Server` |
+
+The chosen directory is logged at startup as `Data directory: …`.
+
 ## Boot configuration
 
 Precedence, highest first:
@@ -26,7 +38,7 @@ Precedence, highest first:
 3. JSON configuration file.
 4. Built-in defaults.
 
-The file is selected by `--config <path>`, then `LIVEPLAY_CONFIG`, then `liveplay.json` beside the executable. It is a sparse object with `schema_version: 1`; omit keys to use defaults. Invalid keys/values are logged and ignored at boot.
+The file is selected by `--config <path>`, then `LIVEPLAY_CONFIG`, then `liveplay.json` in the data directory. It is a sparse object with `schema_version: 1`; omit keys to use defaults. Invalid keys/values are logged and ignored at boot.
 
 All current server-config fields require a restart. The settings API distinguishes effective values, stored overrides and their provenance. Its complete field types/ranges live in the [ServerConfig schema](https://tdoukinitsas.github.io/liveplay/api/#schema-serverconfig).
 

@@ -102,6 +102,10 @@ export const useLocalization = () => {
       const savedLocale = localStorage.getItem('liveplay-locale');
       if (savedLocale && savedLocale in locales.value) {
         currentLocale.value = savedLocale;
+        // The main process builds the menu in English before the renderer
+        // exists; without this the menu bar came back in English on every
+        // launch while the window was in the saved language (#76).
+        window.electronAPI?.updateMenuLanguage?.(savedLocale);
       } else if (window.electronAPI && window.electronAPI.getSystemLocale) {
         // No saved preference, try to detect system locale
         window.electronAPI.getSystemLocale().then((systemLocale: string) => {

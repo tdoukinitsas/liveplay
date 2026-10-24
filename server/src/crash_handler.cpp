@@ -75,6 +75,9 @@ constexpr std::size_t kUuidBuf = 256;
 char g_exe_path[kPathBuf]     = {};
 char g_restart_args[kArgBuf]  = {};
 char g_project_dir[kPathBuf]  = {};
+// Where the resume record goes. Set from main() to the server data directory;
+// empty means "beside the executable", where it used to live.
+char g_resume_file[kPathBuf]  = {};
 
 // Pre-resolved + pre-created crash-log directory. Refreshed in safe context
 // (install / set_crash_project_dir) so the signal handler never has to call
@@ -332,11 +335,13 @@ void emit_crash_report(const std::string& reason, const std::string& trace) {
     // 3. Persist resume state so the new instance can reopen the project and
     //    resume playback from approximately where it stopped.
     const int ri = g_resume_active.load(std::memory_order_acquire);
-    if (g_exe_path[0] != '\0' && ri >= 0 && g_resume[ri].project_file[0] != '\0') {
+    if ((g_resume_file[0] != '\0' || g_exe_path[0] != '\0')
+        && ri >= 0 && g_resume[ri].project_file[0] != '\0') {
         try {
             namespace fs = std::filesystem;
-            const fs::path resume_path =
-                fs::path{g_exe_path}.parent_path() / ".crash-resume.json";
+            const fs::path resume_path = g_resume_file[0] != '\0'
+                ? fs::path{g_resume_file}
+                : fs::path{g_exe_path}.parent_path() / ".crash-resume.json";
             std::ofstream rf{resume_path, std::ios::binary | std::ios::trunc};
             if (rf) {
                 char pos_buf[64];
@@ -506,14 +511,18 @@ void async_signal_crash(const char* reason) {
 
     // Persist crash-resume state from the double buffer (always complete).
     const int ri = g_resume_active.load(std::memory_order_acquire);
-    if (g_exe_path[0] && ri >= 0 && g_resume[ri].project_file[0]) {
+    if ((g_resume_file[0] || g_exe_path[0]) && ri >= 0 && g_resume[ri].project_file[0]) {
         char rpath[kPathBuf]; AsBuf rb{rpath, sizeof(rpath), 0}; rpath[0] = '\0';
-        as_append(rb, g_exe_path);
-        // Trim to the executable's parent directory.
-        std::size_t cut = rb.len;
-        while (cut > 0 && rpath[cut - 1] != '/') --cut;
-        rb.len = cut; rpath[rb.len] = '\0';
-        as_append(rb, ".crash-resume.json");
+        if (g_resume_file[0]) {
+            as_append(rb, g_resume_file);
+        } else {
+            as_append(rb, g_exe_path);
+            // Trim to the executable's parent directory.
+            std::size_t cut = rb.len;
+            while (cut > 0 && rpath[cut - 1] != '/') --cut;
+            rb.len = cut; rpath[rb.len] = '\0';
+            as_append(rb, ".crash-resume.json");
+        }
         const int rfd = ::open(rpath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (rfd >= 0) {
             as_write_str(rfd, "{\n  \"projectFile\": \"");
@@ -697,6 +706,11 @@ void set_crash_exe_info(const std::string& exe_path,
                         const std::string& restart_args) {
     std::strncpy(g_exe_path,      exe_path.c_str(),     kPathBuf - 1);
     std::strncpy(g_restart_args,  restart_args.c_str(), kArgBuf  - 1);
+}
+
+void set_crash_resume_file(const std::string& resume_file) {
+    std::strncpy(g_resume_file, resume_file.c_str(), kPathBuf - 1);
+    g_resume_file[kPathBuf - 1] = '\0';
 }
 
 void set_crash_project_dir(const std::string& project_dir) {
