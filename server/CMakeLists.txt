@@ -7,6 +7,15 @@ if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
         CACHE STRING "Vcpkg toolchain file")
 endif()
 
+# macOS floor: 13.3, the first release whose libc++ dylib has the floating-point
+# std::to_chars that std::format needs. Must be set before project(). The
+# overlay triplets in triplets/ build the vcpkg dependencies to the same floor,
+# so no static library drags in a newer OS's libc++ symbols (issue #81).
+if(CMAKE_HOST_APPLE)  # APPLE is not defined until project()
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "13.3" CACHE STRING "Minimum macOS version")
+    set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_CURRENT_SOURCE_DIR}/triplets" CACHE STRING "")
+endif()
+
 # Read version from vcpkg.json to keep build version in sync with package manifest
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg.json" VCPKG_JSON_CONTENT)
 string(JSON LIVEPLAY_VERSION GET "${VCPKG_JSON_CONTENT}" "version-string")
@@ -47,20 +56,14 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# macOS: std::format vs. deployment target
+# macOS: libc++ availability
 # ---------------------------------------------------------------------------
-# Instantiating std::format for *any* argument pulls in libc++'s floating-point
-# formatter, which calls std::to_chars(float/double). Apple marks that overload
-# "unavailable" below macOS 13.3, so the build fails even for string-only calls
-# (e.g. Logger::error("Reason : {}", reason)) whenever the deployment target is
-# older than 13.3 — which it is for our 11.0 (x64) / 12.0 (arm64) artifacts.
-#
-# The implementation is header-only in modern libc++ (no dylib symbol), so it
-# runs correctly on those older systems; only the availability annotation is
-# conservative. Disable the annotations so we can keep the older targets.
-if(APPLE)
-    add_compile_definitions(_LIBCPP_DISABLE_AVAILABILITY)
-endif()
+# Never define _LIBCPP_DISABLE_AVAILABILITY. libc++ uses the availability
+# annotations both to reject calls the deployment target's dylib lacks AND to
+# pick inline fallbacks for them. With the annotations off, the macOS 26 SDK
+# emitted calls to std::__hash_memory, which older dylibs don't export, and the
+# server segfaulted before main() on every macOS below 26 (issue #81). The 13.3
+# floor above is what lets std::format compile with the annotations on.
 
 # ---------------------------------------------------------------------------
 # Dependencies (resolved via vcpkg manifest — see vcpkg.json)

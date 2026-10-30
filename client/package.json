@@ -123,21 +123,10 @@
     "mac": {
       "identity": null,
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
+        "dmg",
+        "zip"
       ],
+      "minimumSystemVersion": "13.3",
       "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
       "category": "public.app-category.music",
       "extraResources": [

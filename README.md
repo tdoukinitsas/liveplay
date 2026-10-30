@@ -31,6 +31,8 @@ Download the installer matching your platform from [Releases](https://github.com
 
 The desktop package includes the audio server. A local installation does not require a separate server setup.
 
+macOS builds need macOS 13.3 (Ventura) or later.
+
 The repository's packaging does not configure Windows signing; macOS signing is disabled. If an installer is blocked, verify that it came from the project's release page before allowing it. On Windows, SmartScreen may offer **More info → Run anyway**. For a quarantined macOS installation you have verified, run:
 
 ```sh
