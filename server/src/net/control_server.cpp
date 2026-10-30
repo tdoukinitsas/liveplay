@@ -4277,6 +4277,40 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(500, e.what()); }
         });
 
+    // ---- Missing media (issue #80) ----
+    // Audio items whose file can't be found. The client polls this to badge
+    // items and offer "Locate missing media…".
+    CROW_ROUTE(app, "/api/media/missing").methods(crow::HTTPMethod::Get)
+        ([this]() {
+            return json_ok(json{{"missing", state_.missing_media()}});
+        });
+
+    // Relink every missing item to a same-named file under a server folder.
+    // Body: { "folder": "/abs/dir", "recursive": true }
+    CROW_ROUTE(app, "/api/media/locate").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req) {
+            try {
+                const auto body = json::parse(req.body);
+                const std::string folder_str = body.value("folder", std::string{});
+                if (folder_str.empty()) return json_err(400, "missing folder");
+                const fs::path folder = liveplay::util::utf8_to_path(folder_str);
+                if (!path_within_fs_roots(folder)) return json_fs_denied();
+                std::error_code ec;
+                if (!fs::is_directory(folder, ec)) return json_err(404, "no such folder");
+
+                auto result = state_.locate_missing_media(folder, body.value("recursive", true));
+                for (const auto& r : result["relinked"]) {
+                    broadcast_doc_patch(json{
+                        {"type", "doc_patch"}, {"op", "item_updated"},
+                        {"uuid", r["uuid"]}, {"patch", r["patch"]},
+                    });
+                }
+                Logger::info("POST /api/media/locate '{}': {} relinked, {} still missing",
+                             folder_str, result["relinked"].size(), result["missing"].size());
+                return json_ok(result);
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
     // Queue an async waveform computation for the given file. Returns
     // immediately; the result arrives as a waveform_ready doc_patch over
     // WebSocket once the worker thread finishes.

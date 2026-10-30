@@ -14,6 +14,19 @@
       </div>
     </div>
     
+    <!-- Issue #80: media files the server can't find. Shown in Show Mode
+         too (an operator should know before the cue is fired); relinking is
+         an edit action, so the button is not. -->
+    <div v-if="missingCount > 0" class="missing-media-banner">
+      <span class="material-symbols-rounded">link_off</span>
+      <span class="missing-media-text">
+        {{ locateResult || t('missingMedia.banner', { count: missingCount }) }}
+      </span>
+      <Btn v-if="!showMode" icon="folder_open" :text="t('missingMedia.locate')"
+           :title="t('missingMedia.locateHint')" :disabled="locating"
+           @click="locatePickerOpen = true" />
+    </div>
+
     <div ref="scrollContainer" class="playlist-content" @drop="handleDrop" @dragover.prevent>
       <div v-if="currentProject?.items.length === 0" class="empty-state">
         <p>{{ t('playlist.noItems') }}</p>
@@ -38,6 +51,15 @@
 
     <!-- YouTube Import Modal -->
     <YouTubeImportModal :isOpen="showYouTubeModal" @close="showYouTubeModal = false" />
+
+    <!-- "Locate missing media…": a folder on the SERVER, so it works for a
+         remote server as well as a local one. -->
+    <ServerFilePickerModal :open="locatePickerOpen"
+                           mode="directory"
+                           filter="audio"
+                           :start-path="currentProject?.folderPath || ''"
+                           @pick="onLocatePick"
+                           @close="locatePickerOpen = false" />
 
     <!-- Audio Import Modal — server browse + native upload -->
     <AudioImportModal :open="showImportModal"
@@ -87,6 +109,29 @@ function maybeAutoProcess(item: AudioItem) {
 
 const showYouTubeModal = ref(false);
 const showImportModal  = ref(false);
+
+// ---- Missing media (issue #80) ----
+const { missingCount, locate } = useMissingMedia();
+const locatePickerOpen = ref(false);
+const locating = ref(false);
+const locateResult = ref('');
+let locateResultTimer: ReturnType<typeof setTimeout> | null = null;
+const onLocatePick = async (folder: string) => {
+  locatePickerOpen.value = false;
+  if (!folder) return;
+  locating.value = true;
+  try {
+    const r = await locate(folder);
+    locateResult.value = t('missingMedia.locateResult',
+      { relinked: r.relinked.length, missing: r.missing.length });
+  } catch (e: any) {
+    locateResult.value = t('missingMedia.locateFailed', { error: e?.message ?? String(e) });
+  } finally {
+    locating.value = false;
+    if (locateResultTimer) clearTimeout(locateResultTimer);
+    locateResultTimer = setTimeout(() => { locateResult.value = ''; }, 8000);
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Progressive mount.
@@ -685,6 +730,20 @@ const handleDrop = async (e: DragEvent) => {
   .playlist-actions :deep(.btn > span:not(.material-symbols-rounded)) { display: none; }
 }
 
+
+.missing-media-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: rgba(255, 176, 32, 0.12);
+  border-bottom: 1px solid rgba(255, 176, 32, 0.4);
+  color: var(--color-text);
+  font-size: 13px;
+
+  > .material-symbols-rounded { color: #ffb020; font-size: 18px; }
+  .missing-media-text { flex: 1; min-width: 0; }
+}
 
 .playlist-content {
   flex: 1;

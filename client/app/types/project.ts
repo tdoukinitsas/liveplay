@@ -544,6 +544,22 @@ export function anchorStartNextMarker(item: AudioItem): void {
   item.startNextTime = Math.max(item.inPoint, item.outPoint - 5);
 }
 
+// Point an item at a different media file (Replace Media, issue #80) and fit
+// its trim to the new file's length. An untrimmed item stays untrimmed; a trim
+// that no longer fits is clamped. Times past the new end (markers, events) are
+// left alone: they are visible on the waveform and simply never fire.
+export function retimeForNewDuration(item: AudioItem, newDuration: number): void {
+  if (!(newDuration > 0)) return;
+  const old = item.duration || 0;
+  const untrimmed = !(item.outPoint > 0) || (old > 0 && item.outPoint >= old - 0.01);
+  item.outPoint = untrimmed ? newDuration : Math.min(item.outPoint, newDuration);
+  item.inPoint = Math.min(item.inPoint || 0, item.outPoint);
+  if (item.startNextEnabled && (item.startNextTime ?? 0) > item.outPoint) {
+    item.startNextTime = Math.max(item.inPoint, item.outPoint - 5);
+  }
+  item.duration = newDuration;
+}
+
 // Active playback state
 export interface ActiveCue {
   uuid: string;

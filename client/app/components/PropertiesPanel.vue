@@ -80,10 +80,15 @@
           <label>{{ t('properties.file') }}</label>
           <div class="input-with-btn">
             <input :value="isMulti ? '' : audioItem.mediaFileName" :placeholder="isMulti ? t('properties.multipleValues') : ''" readonly />
-            <button class="icon-btn" @click="handleReplaceMedia">
-              <span class="material-symbols-rounded">swap_horiz</span>
+            <button class="icon-btn" :disabled="isMulti || replacingMedia" :title="t('missingMedia.replace')" @click="handleReplaceMedia">
+              <span class="material-symbols-rounded" :class="{ spinning: replacingMedia }">{{ replacingMedia ? 'progress_activity' : 'swap_horiz' }}</span>
             </button>
           </div>
+          <p v-if="!isMulti && mediaMissing" class="property-help media-missing-help">
+            <span class="material-symbols-rounded">link_off</span>
+            {{ t('missingMedia.propertiesHint') }}
+          </p>
+          <p v-if="replaceError" class="property-help media-missing-help">{{ replaceError }}</p>
         </div>
 
         <div class="property-field">
@@ -331,12 +336,18 @@
         </div>
       </div>
     </div>
+
+    <!-- Replace Media (issue #80): same picker as import, one file. -->
+    <AudioImportModal :open="replaceModalOpen"
+                      @pick="onReplacePick"
+                      @close="replaceModalOpen = false" />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { AudioItem, Bus, GroupItem } from '~/types/project';
-import { PRESET_COLORS } from '~/types/project';
+import { PRESET_COLORS, retimeForNewDuration } from '~/types/project';
+import AudioImportModal from './AudioImportModal.vue';
 import { calculatePerceivedLoudness } from '~/utils/audio';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 import { changedPaths, isFieldMixed, propagateFields } from '~/utils/multiEdit';
@@ -1022,14 +1033,60 @@ const handleRegenerateWaveform = async () => {
   }
 };
 
-const handleReplaceMedia = async () => {
-  if (!import.meta.client || !window.electronAPI) return;
+// ---- Replace Media / relink (issue #80) ----
+// Picks through the same modal as import (server browse, local pick, upload),
+// copies the file into the project's media/ folder, and points the item at it.
+// Everything else about the cue — name, trims, fades, routing, events — stays.
+const { isMissing, scheduleRefresh: refreshMissingMedia } = useMissingMedia();
+const mediaMissing = computed(() => selectedItem.value?.type === 'audio' && isMissing(selectedItem.value.uuid));
+const replaceModalOpen = ref(false);
+const replacingMedia = ref(false);
+const replaceError = ref('');
 
-  const files = await window.electronAPI.selectAudioFiles();
-  if (!files || files.length === 0) return;
+const handleReplaceMedia = () => {
+  if (isMulti.value || selectedItem.value?.type !== 'audio') return;
+  replaceError.value = '';
+  replaceModalOpen.value = true;
+};
 
-  // Implementation would replace the media file
-  console.log('Replace media with:', files[0]);
+const onReplacePick = async (serverPaths: string[]) => {
+  replaceModalOpen.value = false;
+  const item = selectedItem.value as AudioItem | null;
+  const src = serverPaths[0];
+  if (!item || item.type !== 'audio' || !src) return;
+
+  replacingMedia.value = true;
+  replaceError.value = '';
+  try {
+    // Never reference media outside the project folder: if the copy fails,
+    // don't fall back to the source path.
+    const dest = await _server.copyToMedia(src);
+    const fileName = dest.split(/[\\/]/).pop() || item.mediaFileName;
+
+    let duration = 0;
+    try {
+      const md: any = await _server.fetchMetadata(dest);
+      if (md && typeof md.duration_ms === 'number') duration = md.duration_ms / 1000;
+    } catch (e) {
+      console.warn('[replace-media] fetchMetadata failed:', e);
+    }
+
+    item.mediaFileName = fileName;
+    item.mediaPath = `media/${fileName}`;
+    item.mediaServerPath = dest;
+    item.waveform = undefined;
+    retimeForNewDuration(item, duration);
+    await handleSave();
+
+    _server.requestWaveformGeneration(dest, item.uuid, true).catch((e: Error) => {
+      console.warn(`[waveform] generation failed for ${item.displayName}:`, e);
+    });
+    refreshMissingMedia();
+  } catch (e: any) {
+    replaceError.value = t('missingMedia.replaceFailed', { error: e?.message ?? String(e) });
+  } finally {
+    replacingMedia.value = false;
+  }
 };
 
 const copyToClipboard = async (text: string) => {
@@ -1071,6 +1128,19 @@ const formatTime = (seconds: number): string => {
 .properties-header h3 {
   font-size: 16px;
   font-weight: 600;
+}
+
+.input-with-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
+.media-missing-help {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #ffb020;
+
+  .material-symbols-rounded { font-size: 16px; }
 }
 
 .close-btn {

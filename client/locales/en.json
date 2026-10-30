@@ -1088,5 +1088,16 @@
     "barHint": "{pane}: click or drag to open",
     "emptyTitle": "All panes are collapsed",
     "emptyHint": "Click or drag a bar at the edge, or use the buttons at the top, to open a pane."
+  },
+  "missingMedia": {
+    "badge": "Media file missing. Replace it in Properties, or use Locate missing media.",
+    "banner": "{count} media file(s) can't be found.",
+    "locate": "Locate…",
+    "locateHint": "Pick a folder to search for the missing files by name. Files outside the project are copied into its media folder.",
+    "locateResult": "Relinked {relinked} item(s). {missing} still missing.",
+    "locateFailed": "Couldn't search that folder: {error}",
+    "replace": "Replace media file",
+    "replaceFailed": "Couldn't replace the media file: {error}",
+    "propertiesHint": "The server can't find this file. Use the replace button to pick it again."
   }
 }

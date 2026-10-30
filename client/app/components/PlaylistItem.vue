@@ -86,6 +86,13 @@
           :title="busBadge.title"
         ></span>
         <span
+          v-if="mediaMissing"
+          class="material-symbols-rounded media-missing-icon"
+          :title="t('missingMedia.badge')"
+          draggable="false"
+          @click.stop
+        >link_off</span>
+        <span
           v-if="isPeaking"
           class="material-symbols-rounded peak-warning-icon"
           :title="t('properties.peakWarning')"
@@ -335,6 +342,10 @@ const indexDisplay = computed(() => {
 // True when the item's effective loudness is significantly above the
 // recommended target for the active output target. Reactive: recomputes
 // whenever the output target or volume changes mid-session.
+// The server can't find this item's media file (issue #80).
+const { isMissing } = useMissingMedia();
+const mediaMissing = computed(() => props.item.type === 'audio' && isMissing(props.item.uuid));
+
 const isPeaking = computed(() => {
   if (props.item.type !== 'audio') return false;
   const audio = props.item as AudioItem;
@@ -1095,6 +1106,14 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   &.is-peaking {
     color: #ff3b5c;
   }
+}
+
+.media-missing-icon {
+  font-size: 18px;
+  color: #ffb020;
+  flex-shrink: 0;
+  cursor: help;
+  line-height: 1;
 }
 
 .peak-warning-icon {

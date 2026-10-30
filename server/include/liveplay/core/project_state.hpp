@@ -446,6 +446,20 @@ public:
     // after the fact. Does NOT save to disk.
     RepairInfo repair_project();
 
+    // Audio items (playlist and cart-only) whose media file can't be found by
+    // resolve_media_path. Each entry is { uuid, displayName, mediaFileName,
+    // mediaPath }. Cheap enough to poll: one stat per audio item (issue #80).
+    json missing_media() const;
+
+    // Relink every missing item to a file of the same name (case-insensitive)
+    // found under `folder`. A match inside the project folder is referenced
+    // where it is; anything else is copied into media_root() first, because a
+    // project never reads media from outside its own folder. Each relink goes
+    // through update_item, so the item is re-decoded. Returns
+    // { relinked: [{ uuid, patch }], missing: [ ...still missing... ] }; the
+    // caller broadcasts the patches. Takes mutex_ itself; never call it locked.
+    json locate_missing_media(const std::filesystem::path& folder, bool recursive);
+
     // Serialise the engine-facing portion (cues/mixers/routing).
     json to_json() const;
 

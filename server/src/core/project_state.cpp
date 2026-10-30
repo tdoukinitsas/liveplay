@@ -7457,6 +7457,151 @@ RepairInfo ProjectState::repair_project() {
     return info;
 }
 
+namespace {
+// The file name an audio item refers to: mediaFileName, else the last
+// component of mediaPath / mediaServerPath.
+std::string item_media_file_name(const json& item) {
+    std::string name = item.value("mediaFileName", std::string{});
+    if (!name.empty()) return name;
+    for (const char* key : {"mediaPath", "mediaServerPath"}) {
+        const std::string p = item.value(key, std::string{});
+        if (!p.empty()) return util::path_to_utf8(util::utf8_to_path(p).filename());
+    }
+    return {};
+}
+
+std::string ascii_lower(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return s;
+}
+} // namespace
+
+json ProjectState::missing_media() const {
+    json out = json::array();
+    std::lock_guard lock{mutex_};
+    const std::string folder = document_.value("folderPath", std::string{});
+    // for_each_item only walks; nothing below writes to the document.
+    for_each_item(const_cast<json&>(document_), [&](json& item, const std::string&) {
+        if (item.value("type", std::string{}) != "audio") return;
+        const auto path = resolve_media_path(item, folder);
+        std::error_code ec;
+        if (!path.empty() && std::filesystem::exists(path, ec)) return;
+        out.push_back(json{
+            {"uuid",          item.value("uuid", std::string{})},
+            {"displayName",   item.value("displayName", std::string{})},
+            {"mediaFileName", item_media_file_name(item)},
+            {"mediaPath",     item.value("mediaPath", std::string{})},
+        });
+    });
+    return out;
+}
+
+json ProjectState::locate_missing_media(const std::filesystem::path& folder,
+                                        bool recursive) {
+    namespace fs = std::filesystem;
+    json result{{"relinked", json::array()}, {"missing", json::array()}};
+
+    json missing = missing_media();
+    if (missing.empty()) return result;
+
+    std::string project_folder;
+    fs::path media_dir;
+    {
+        std::lock_guard lock{mutex_};
+        project_folder = document_.value("folderPath", std::string{});
+        media_dir      = media_root_;
+    }
+
+    // Index the folder by lower-cased file name; the shallowest match wins
+    // because the iterator visits a directory's files before its subfolders'.
+    // Capped so pointing it at a drive root can't stall the request forever.
+    std::unordered_map<std::string, fs::path> by_name;
+    std::unordered_set<std::string> wanted;
+    for (const auto& m : missing)
+        wanted.insert(ascii_lower(m.value("mediaFileName", std::string{})));
+    constexpr std::size_t kMaxEntries = 200000;
+    std::size_t seen = 0;
+    const auto consider = [&](const fs::directory_entry& e) {
+        std::error_code ec;
+        if (!e.is_regular_file(ec)) return;
+        const auto key = ascii_lower(util::path_to_utf8(e.path().filename()));
+        if (wanted.count(key)) by_name.emplace(key, e.path());
+    };
+    std::error_code ec;
+    const auto opts = fs::directory_options::skip_permission_denied;
+    if (recursive) {
+        for (fs::recursive_directory_iterator it{folder, opts, ec}, end;
+             !ec && it != end && seen < kMaxEntries; it.increment(ec), ++seen)
+            consider(*it);
+    } else {
+        for (fs::directory_iterator it{folder, opts, ec}, end;
+             !ec && it != end && seen < kMaxEntries; it.increment(ec), ++seen)
+            consider(*it);
+    }
+    if (seen >= kMaxEntries)
+        Logger::warn("locate_missing_media: stopped scanning '{}' after {} entries",
+                     util::path_to_utf8(folder), kMaxEntries);
+
+    std::error_code fec;
+    const fs::path project_base = project_folder.empty()
+        ? fs::path{}
+        : fs::weakly_canonical(util::utf8_to_path(project_folder), fec);
+
+    // Relative "a/b.wav" form of `p` when it lies inside the project folder.
+    const auto inside_project = [&](const fs::path& p) -> std::optional<std::string> {
+        if (project_base.empty()) return std::nullopt;
+        std::error_code e1, e2;
+        const auto canon = fs::weakly_canonical(p, e1);
+        const auto rel   = fs::relative(e1 ? p : canon, project_base, e2);
+        if (e2 || rel.empty() || *rel.begin() == fs::path("..")) return std::nullopt;
+        std::string s = util::path_to_utf8(rel);
+        std::replace(s.begin(), s.end(), '\\', '/');
+        return s;
+    };
+
+    for (const auto& m : missing) {
+        const std::string uuid = m.value("uuid", std::string{});
+        const auto hit = by_name.find(ascii_lower(m.value("mediaFileName", std::string{})));
+        if (hit == by_name.end()) { result["missing"].push_back(m); continue; }
+
+        try {
+            fs::path dest = hit->second;
+            auto rel = inside_project(dest);
+            if (!rel) {
+                // Outside the project: copy it in, never overwriting a
+                // different file that already has the name.
+                fs::create_directories(media_dir);
+                const auto src_name = hit->second.filename();
+                dest = media_dir / src_name;
+                for (int n = 2; fs::exists(dest) && !fs::equivalent(dest, hit->second); ++n) {
+                    dest = media_dir / util::utf8_to_path(
+                        util::path_to_utf8(src_name.stem()) + " (" + std::to_string(n) + ")" +
+                        util::path_to_utf8(src_name.extension()));
+                }
+                if (!fs::exists(dest)) fs::copy_file(hit->second, dest);
+                rel = inside_project(dest);
+            }
+            json patch{
+                {"mediaFileName",   util::path_to_utf8(dest.filename())},
+                {"mediaPath",       rel ? *rel : util::path_to_utf8(dest)},
+                {"mediaServerPath", util::path_to_utf8(dest)},
+            };
+            if (update_item(uuid, patch)) {
+                result["relinked"].push_back(json{{"uuid", uuid}, {"patch", patch}});
+                Logger::info("locate_missing_media: relinked '{}' -> '{}'",
+                             uuid, util::path_to_utf8(dest));
+            } else {
+                result["missing"].push_back(m);
+            }
+        } catch (const std::exception& e) {
+            Logger::warn("locate_missing_media: '{}' failed: {}", uuid, e.what());
+            result["missing"].push_back(m);
+        }
+    }
+    return result;
+}
+
 void ProjectState::apply_to_engine_locked() {
     // 1) Load every cue's file into the engine. We accept that this can fail
     //    for missing files; the entry stays in the project for the user to

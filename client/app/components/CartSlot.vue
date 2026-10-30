@@ -55,6 +55,13 @@
         >folder</span>
         <span class="slot-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
         <span
+          v-if="mediaMissing"
+          class="material-symbols-rounded media-missing-icon"
+          :title="t('missingMedia.badge')"
+          draggable="false"
+          @click.stop
+        >link_off</span>
+        <span
           v-if="isPeaking"
           class="material-symbols-rounded peak-warning-icon"
           :title="t('properties.peakWarning')"
@@ -253,6 +260,10 @@ const warningState = ref<'yellow' | 'orange' | 'red' | null>(null);
 const isDragOver = ref(false);
 
 const hasItem = computed(() => props.item !== null);
+
+// The server can't find this slot's media file (issue #80).
+const { isMissing } = useMissingMedia();
+const mediaMissing = computed(() => !!props.item && props.item.type === 'audio' && isMissing(props.item.uuid));
 
 const isPeaking = computed(() => {
   if (!props.item || props.item.type !== 'audio') return false;
@@ -1067,6 +1078,16 @@ const handleDrop = async (e: DragEvent) => {
     &.is-peaking {
       color: #ff3b5c;
     }
+  }
+
+  .media-missing-icon {
+    font-size: 16px;
+    color: #ffb020;
+    flex-shrink: 0;
+    cursor: help;
+    line-height: 1;
+    align-self: flex-start;
+    margin-top: 1px;
   }
 
   .peak-warning-icon {

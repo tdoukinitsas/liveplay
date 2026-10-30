@@ -36,6 +36,14 @@ import type {
   ServerWaveform,
 } from '~/types/server';
 
+/** GET /api/media/missing: an audio item whose media file the server can't find. */
+export interface MissingMediaEntry {
+  uuid: string;
+  displayName: string;
+  mediaFileName: string;
+  mediaPath: string;
+}
+
 /** GET /api/outputs: the machine's logical-output map, plus the built-in names. */
 export interface OutputMapChannel { device: string; hwChannel: number }
 export interface OutputMapEntry   { name: string; channels: OutputMapChannel[] }
@@ -1679,6 +1687,25 @@ function createClient() {
     return result.dest_path;
   }
 
+  // Audio items whose media file the server can't find (issue #80).
+  async function fetchMissingMedia(): Promise<MissingMediaEntry[]> {
+    const result = await rest<{ missing: MissingMediaEntry[] }>('/api/media/missing');
+    return result.missing ?? [];
+  }
+
+  // Relink every missing item to a same-named file under a SERVER folder. The
+  // server copies out-of-project matches into media/ and broadcasts the item
+  // patches, so every client's document updates through the usual doc_patch.
+  async function locateMissingMedia(folder: string, recursive = true) {
+    return await rest<{
+      relinked: { uuid: string; patch: Record<string, unknown> }[];
+      missing: MissingMediaEntry[];
+    }>('/api/media/locate', {
+      method: 'POST',
+      body: JSON.stringify({ folder, recursive }),
+    });
+  }
+
   // Land a file dropped from the OS into the server's media root and return
   // the absolute server path it now lives at (or null on failure).
   //
@@ -1801,6 +1828,8 @@ function createClient() {
     fetchWaveform,
     fetchWaveformByPath,
     copyToMedia,
+    fetchMissingMedia,
+    locateMissingMedia,
     resolveDroppedFileToMedia,
     requestWaveformGeneration,
     invalidateWaveformCache,
