@@ -177,6 +177,22 @@
     "ltc": {
       "title": "Timecode SMPTE",
       "description": "Dërgoni timecode SMPTE bashkë me cue-të, që ndriçimi, videoja dhe pajisje të tjera ta ndjekin shfaqjen tuaj."
+    },
+    "missingMedia": {
+      "title": "Gjeni audion që mungon",
+      "description": "Nëse një skedar zhvendoset ose fshihet, LivePlay e shënon cue-në para se ta nisë kushdo. Tregojini një dosje dhe çdo skedar që mungon gjendet e rilidhet sipas emrit, ose zëvendësoni vetëm një skedar pa humbur cilësimet e cue-së."
+    },
+    "groupEvents": {
+      "title": "Gjithë salla me një cue",
+      "intro": "Një cue mund të nisë dritat, videon dhe mikserin. LivePlay mban kohën, që gjithçka të ndodhë njëherësh."
+    },
+    "events": {
+      "title": "Ngjarje në vijën kohore",
+      "description": "Vendosni ngjarje mbi formën e valës së një cue-je për të nisur një cue ndriçimi përmes OSC ose MIDI Show Control, për të thirrur një API web, për të lëvizur një fader në një mikser X Air ose për të nisur një cue tjetër. Serveri e aktivizon secilën pikërisht në kohën e saj, që shfaqja të mbetet e sinkronizuar edhe kur s'ka njeri para ekranit."
+    },
+    "connections": {
+      "title": "Lidhje me pajisjet tuaja",
+      "description": "Ujdisni një herë për shfaqje çdo konsolë ndriçimi, mikser, portë MIDI ose shërbim web. LivePlay i gjen mikserët X Air në rrjet, lexon emrat e kanaleve dhe të snapshot-eve të tyre dhe kufizon sa lart mund ta shtyjë një ngjarje një fader."
     }
   },
   "ports": {

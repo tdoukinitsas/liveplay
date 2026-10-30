@@ -177,6 +177,22 @@
     "ltc": {
       "title": "SMPTE Zaman Kodu",
       "description": "Cue'larınızla birlikte SMPTE zaman kodu gönderin; ışık, video ve diğer ekipmanlar gösterinizi takip etsin."
+    },
+    "missingMedia": {
+      "title": "Eksik Sesleri Bulun",
+      "description": "Bir dosya taşınır ya da silinirse LivePlay, cue daha başlatılmadan onu işaretler. Bir klasör gösterin, eksik dosyaların hepsi adlarına göre bulunup yeniden bağlansın; ya da cue'nun ayarlarını kaybetmeden tek bir dosyayı değiştirin."
+    },
+    "groupEvents": {
+      "title": "Tüm salonu tek cue ile yönetin",
+      "intro": "Tek bir cue ışıkları, videoyu ve mikseri başlatabilir. Zamanı LivePlay tutar; böylece her şey aynı anda yerine oturur."
+    },
+    "events": {
+      "title": "Zaman Çizelgesinde Olaylar",
+      "description": "Bir cue'nun dalga formuna olaylar yerleştirin: OSC ya da MIDI Show Control ile bir ışık cue'su tetikleyin, bir web API'sini çağırın, bir X Air mikserinde fader oynatın ya da başka bir cue başlatın. Sunucu her olayı tam zamanında tetikler; ekranın başında kimse olmasa bile gösteri senkron kalır."
+    },
+    "connections": {
+      "title": "Ekipmanınıza Bağlantılar",
+      "description": "Her ışık masasını, mikseri, MIDI portunu ya da web hizmetini gösteri başına bir kez ayarlayın. LivePlay ağdaki X Air mikserlerini bulur, kanal ve snapshot adlarını okur ve bir olayın fader'ı ne kadar yükseltebileceğini sınırlar."
     }
   },
   "ports": {

@@ -177,6 +177,22 @@
     "ltc": {
       "title": "Timecode SMPTE",
       "description": "Envie timecode SMPTE com as suas deixas para que a luz, o vídeo e outros equipamentos acompanhem o espetáculo."
+    },
+    "missingMedia": {
+      "title": "Encontre o áudio em falta",
+      "description": "Se um ficheiro for movido ou eliminado, o LivePlay assinala a deixa antes de alguém a disparar. Indique-lhe uma pasta e cada ficheiro em falta é encontrado e revinculado pelo nome, ou substitua um único ficheiro sem perder as definições da deixa."
+    },
+    "groupEvents": {
+      "title": "Comande toda a sala",
+      "intro": "Uma única deixa pode arrancar a luz, o vídeo e o misturador. O LivePlay marca o tempo, para que tudo aconteça em simultâneo."
+    },
+    "events": {
+      "title": "Eventos na linha temporal",
+      "description": "Coloque eventos na forma de onda de uma deixa para disparar uma deixa de luz via OSC ou MIDI Show Control, chamar uma API web, mover um fader num misturador X Air ou iniciar outra deixa. O servidor dispara cada um no momento exato, para que o espetáculo se mantenha sincronizado mesmo sem ninguém ao ecrã."
+    },
+    "connections": {
+      "title": "Ligações ao seu equipamento",
+      "description": "Configure cada mesa de luz, misturador, porta MIDI ou serviço web uma única vez por espetáculo. O LivePlay encontra os misturadores X Air na rede, lê os nomes dos seus canais e snapshots e limita até onde um evento pode subir um fader."
     }
   },
   "ports": {

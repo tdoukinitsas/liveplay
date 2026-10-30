@@ -177,6 +177,22 @@
     "ltc": {
       "title": "SMPTE-tidkod",
       "description": "Skicka SMPTE-tidkod tillsammans med köerna, så att ljus, video och annan utrustning kan följa din show."
+    },
+    "missingMedia": {
+      "title": "Hitta saknat ljud",
+      "description": "Om en fil flyttas eller tas bort flaggar LivePlay kön innan någon kör den. Peka ut en mapp så hittas och länkas varje saknad fil om efter namn, eller ersätt en enda fil utan att förlora köns inställningar."
+    },
+    "groupEvents": {
+      "title": "Styr hela rummet från en kö",
+      "intro": "En kö kan starta ljuset, videon och mixern. LivePlay håller tiden, så allt landar samtidigt."
+    },
+    "events": {
+      "title": "Händelser på tidslinjen",
+      "description": "Placera händelser på en kös vågform för att köra en ljuskö via OSC eller MIDI Show Control, anropa ett webb-API, flytta en fader på en X Air-mixer eller starta en annan kö. Servern utlöser var och en på exakt rätt ställe, så showen håller sig i synk även när ingen sitter vid skärmen."
+    },
+    "connections": {
+      "title": "Anslutningar till din utrustning",
+      "description": "Ställ in varje ljusbord, mixer, MIDI-port eller webbtjänst en gång per show. LivePlay hittar X Air-mixrar i nätverket, läser in deras kanal- och snapshotnamn och sätter ett tak för hur högt en händelse kan dra upp en fader."
     }
   },
   "ports": {

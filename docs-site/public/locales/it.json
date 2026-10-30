@@ -177,6 +177,22 @@
     "ltc": {
       "title": "Timecode SMPTE",
       "description": "Invia timecode SMPTE insieme ai tuoi cue, perché luci, video e altre apparecchiature possano seguire lo spettacolo."
+    },
+    "missingMedia": {
+      "title": "Ritrova l’audio mancante",
+      "description": "Se un file viene spostato o eliminato, LivePlay segnala il cue prima che qualcuno lo lanci. Indicagli una cartella e ogni file mancante viene ritrovato e ricollegato per nome, oppure sostituisci un singolo file senza perdere le impostazioni del cue."
+    },
+    "groupEvents": {
+      "title": "Comanda tutta la sala",
+      "intro": "Un solo cue può avviare luci, video e mixer. LivePlay tiene il tempo, così tutto arriva insieme."
+    },
+    "events": {
+      "title": "Eventi sulla timeline",
+      "description": "Posiziona eventi sulla forma d’onda di un cue per lanciare un cue luci via OSC o MIDI Show Control, chiamare un’API web, muovere un fader su un mixer X Air o avviare un altro cue. Il server attiva ciascuno al momento giusto, così lo spettacolo resta sincronizzato anche senza nessuno davanti allo schermo."
+    },
+    "connections": {
+      "title": "Connessioni alla tua attrezzatura",
+      "description": "Configura ogni console luci, mixer, porta MIDI o servizio web una sola volta per spettacolo. LivePlay trova i mixer X Air in rete, legge i nomi dei loro canali e snapshot e limita quanto in alto un evento può spingere un fader."
     }
   },
   "ports": {

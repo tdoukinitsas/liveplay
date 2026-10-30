@@ -177,6 +177,22 @@
     "ltc": {
       "title": "SMPTE-tidskode",
       "description": "Send SMPTE-tidskode sammen med cuene, så lys, video og annet utstyr kan følge showet ditt."
+    },
+    "missingMedia": {
+      "title": "Finn manglende lyd",
+      "description": "Hvis en fil flyttes eller slettes, flagger LivePlay cuen før noen kjører den. Pek på en mappe, så blir hver manglende fil funnet og koblet på nytt etter navn, eller erstatt én fil uten å miste innstillingene til cuen."
+    },
+    "groupEvents": {
+      "title": "Styr hele rommet fra én cue",
+      "intro": "Én cue kan starte lyset, videoen og mikseren. LivePlay holder tiden, så alt treffer samtidig."
+    },
+    "events": {
+      "title": "Hendelser på tidslinjen",
+      "description": "Plasser hendelser på bølgeformen til en cue for å kjøre en lyscue over OSC eller MIDI Show Control, kalle et web-API, flytte en fader på en X Air-mikser eller starte en annen cue. Serveren utløser hver av dem på riktig sted, så showet holder seg synkront selv uten noen ved skjermen."
+    },
+    "connections": {
+      "title": "Tilkoblinger til utstyret ditt",
+      "description": "Sett opp hvert lysbord, hver mikser, MIDI-port eller webtjeneste én gang per show. LivePlay finner X Air-miksere på nettverket, leser kanal- og snapshotnavnene deres og setter et tak for hvor høyt en hendelse kan skyve en fader."
     }
   },
   "ports": {

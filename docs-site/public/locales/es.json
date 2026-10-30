@@ -177,6 +177,22 @@
     "ltc": {
       "title": "Timecode SMPTE",
       "description": "Envíe timecode SMPTE con sus cues para que la iluminación, el video y otros equipos sigan su espectáculo."
+    },
+    "missingMedia": {
+      "title": "Encuentre el audio que falta",
+      "description": "Si un archivo se mueve o se elimina, LivePlay marca el cue antes de que nadie lo dispare. Indíquele una carpeta y cada archivo que falte se encuentra y se vuelve a vincular por su nombre, o reemplace un solo archivo sin perder los ajustes del cue."
+    },
+    "groupEvents": {
+      "title": "Controle toda la sala",
+      "intro": "Un solo cue puede poner en marcha la iluminación, el video y el mezclador. LivePlay lleva el tiempo, para que todo llegue a la vez."
+    },
+    "events": {
+      "title": "Eventos en la línea de tiempo",
+      "description": "Coloque eventos en la forma de onda de un cue para disparar un cue de iluminación por OSC o MIDI Show Control, llamar a una API web, mover un fader de un mezclador X Air o iniciar otro cue. El servidor dispara cada uno en su marca, así que el espectáculo sigue sincronizado aunque no haya nadie frente a la pantalla."
+    },
+    "connections": {
+      "title": "Conexiones con su equipo",
+      "description": "Configure cada mesa de iluminación, mezclador, puerto MIDI o servicio web una sola vez por espectáculo. LivePlay encuentra los mezcladores X Air en la red, lee los nombres de sus canales y snapshots y limita hasta dónde puede subir un fader un evento."
     }
   },
   "ports": {

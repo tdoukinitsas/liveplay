@@ -177,6 +177,22 @@
     "ltc": {
       "title": "Timecode SMPTE",
       "description": "Trimiteți timecode SMPTE odată cu cue-urile, ca lumini, video și alte echipamente să vă urmeze spectacolul."
+    },
+    "missingMedia": {
+      "title": "Găsiți fișierele audio lipsă",
+      "description": "Dacă un fișier este mutat sau șters, LivePlay marchează cue-ul înainte ca cineva să-l pornească. Indicați-i un folder și fiecare fișier lipsă este găsit și reconectat după nume, sau înlocuiți un singur fișier fără să pierdeți setările cue-ului."
+    },
+    "groupEvents": {
+      "title": "Toată sala, dintr-un singur cue",
+      "intro": "Un singur cue poate porni luminile, video-ul și mixerul. LivePlay ține timpul, ca totul să se întâmple deodată."
+    },
+    "events": {
+      "title": "Evenimente pe linia timpului",
+      "description": "Plasați evenimente pe forma de undă a unui cue pentru a declanșa un cue de lumini prin OSC sau MIDI Show Control, a apela un API web, a mișca un fader pe un mixer X Air sau a porni alt cue. Serverul declanșează fiecare eveniment exact la momentul lui, așa că spectacolul rămâne sincronizat chiar și fără nimeni la ecran."
+    },
+    "connections": {
+      "title": "Conexiuni cu echipamentele dumneavoastră",
+      "description": "Configurați o singură dată pe spectacol fiecare consolă de lumini, mixer, port MIDI sau serviciu web. LivePlay găsește mixerele X Air din rețea, le citește numele canalelor și ale snapshot-urilor și limitează cât de sus poate împinge un eveniment un fader."
     }
   },
   "ports": {

@@ -110,6 +110,10 @@
       "title": "Fine-Tune Every Cue",
       "description": "Name and colour each cue, set its level, choose where it plays, and decide what happens when it starts and ends, all in one place."
     },
+    "missingMedia": {
+      "title": "Find Missing Audio",
+      "description": "If a file is moved or deleted, LivePlay flags the cue before anyone fires it. Point it at a folder and every missing file is found and relinked by name, or replace one file without losing the cue's settings."
+    },
     "youtube": {
       "title": "YouTube Integration",
       "description": "Pull audio straight from YouTube into your show when you need a track in a hurry. Please make sure you have the rights to use what you download."
@@ -149,6 +153,18 @@
     "fades": {
       "title": "Fades, Loops and Timing",
       "description": "Give every cue its own fades, loop ambiences without a seam, and choose whether the next cue crossfades, waits or starts on a marker. Groups show how long they run and how much time is left."
+    },
+    "groupEvents": {
+      "title": "Cue the whole room",
+      "intro": "One cue can start the lights, the video and the mixer. LivePlay keeps the time, so everything lands together."
+    },
+    "events": {
+      "title": "Events on the Timeline",
+      "description": "Place events on a cue's waveform to fire a lighting cue over OSC or MIDI Show Control, call a web API, move a fader on an X Air mixer, or start another cue. The server fires each one on its mark, so the show stays in sync even with nobody at the screen."
+    },
+    "connections": {
+      "title": "Connections to Your Gear",
+      "description": "Set up each lighting desk, mixer, MIDI port or web service once per show. LivePlay finds X Air mixers on the network, reads their channel and snapshot names, and caps how loud an event can push a fader."
     },
     "groupSystem": {
       "title": "Built to be relied on",

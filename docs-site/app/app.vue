@@ -198,6 +198,13 @@
         </FeatureHighlight>
 
         <FeatureHighlight
+          :title="t('features.missingMedia.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_missing_media.jpg')"
+        >
+          <p>{{ t('features.missingMedia.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
           :title="t('features.youtube.title')"
           :image-src="asset('screenshots/liveplay_screenshot_youtube.jpg')"
         >
@@ -263,6 +270,25 @@
           :image-src="asset('screenshots/liveplay_screenshot_fades.jpg')"
         >
           <p>{{ t('features.fades.description') }}</p>
+        </FeatureHighlight>
+
+        <div class="features-group">
+          <h3 class="features-group-title">{{ t('features.groupEvents.title') }}</h3>
+          <p class="features-group-intro">{{ t('features.groupEvents.intro') }}</p>
+        </div>
+
+        <FeatureHighlight
+          :title="t('features.events.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_events.jpg')"
+        >
+          <p>{{ t('features.events.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
+          :title="t('features.connections.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_connections.jpg')"
+        >
+          <p>{{ t('features.connections.description') }}</p>
         </FeatureHighlight>
 
         <div class="features-group">

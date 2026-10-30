@@ -177,6 +177,22 @@
     "ltc": {
       "title": "SMPTE-Timecode",
       "description": "Senden Sie SMPTE-Timecode mit Ihren Cues, damit Licht, Video und andere Geräte Ihrer Show folgen können."
+    },
+    "missingMedia": {
+      "title": "Fehlendes Audio wiederfinden",
+      "description": "Wird eine Datei verschoben oder gelöscht, markiert LivePlay den Cue, bevor ihn jemand startet. Zeigen Sie auf einen Ordner, und jede fehlende Datei wird anhand ihres Namens gefunden und neu verknüpft – oder ersetzen Sie eine einzelne Datei, ohne die Einstellungen des Cues zu verlieren."
+    },
+    "groupEvents": {
+      "title": "Den ganzen Saal steuern",
+      "intro": "Ein Cue kann Licht, Video und Mixer starten. LivePlay hält die Zeit, sodass alles gemeinsam einsetzt."
+    },
+    "events": {
+      "title": "Ereignisse auf der Zeitleiste",
+      "description": "Setzen Sie Ereignisse auf die Wellenform eines Cues, um einen Licht-Cue über OSC oder MIDI Show Control auszulösen, eine Web-API aufzurufen, einen Fader an einem X Air Mixer zu bewegen oder einen anderen Cue zu starten. Der Server löst jedes Ereignis punktgenau aus, sodass die Show synchron bleibt, auch wenn niemand am Bildschirm sitzt."
+    },
+    "connections": {
+      "title": "Verbindungen zu Ihrem Equipment",
+      "description": "Richten Sie jedes Lichtpult, jeden Mixer, jeden MIDI-Port und jeden Webdienst einmal pro Show ein. LivePlay findet X Air Mixer im Netzwerk, liest deren Kanal- und Snapshot-Namen und begrenzt, wie weit ein Ereignis einen Fader hochziehen kann."
     }
   },
   "ports": {

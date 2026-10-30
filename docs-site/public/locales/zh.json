@@ -177,6 +177,22 @@
     "ltc": {
       "title": "SMPTE 时间码",
       "description": "随 Cue 发送 SMPTE 时间码，让灯光、视频和其他设备跟上您的演出。"
+    },
+    "missingMedia": {
+      "title": "找回缺失的音频",
+      "description": "如果文件被移动或删除，LivePlay 会在有人触发之前就标出该 Cue。指定一个文件夹，即可按文件名找到并重新链接所有缺失的文件；也可以只替换某一个文件，而不丢失 Cue 的设置。"
+    },
+    "groupEvents": {
+      "title": "一个 Cue，全场联动",
+      "intro": "一个 Cue 就能启动灯光、视频和调音台。时间由 LivePlay 掌控，一切都能同步到位。"
+    },
+    "events": {
+      "title": "时间线上的事件",
+      "description": "在 Cue 的波形上放置事件，通过 OSC 或 MIDI Show Control 触发灯光 Cue、调用 Web API、推动 X Air 调音台上的推子，或启动另一个 Cue。服务器会准时触发每个事件，即使屏幕前没有人，演出也能保持同步。"
+    },
+    "connections": {
+      "title": "连接您的设备",
+      "description": "每个灯光台、调音台、MIDI 端口或 Web 服务，每场演出只需设置一次。LivePlay 会在网络上找到 X Air 调音台，读取其通道和快照名称，并限制事件能把推子推到多高。"
     }
   },
   "ports": {
