@@ -169,7 +169,8 @@
     "accentColorHelp": "Används för markeringar, köer som spelas och framhävningar.",
     "accentColorSwatch": "Accentfärg {color}",
     "sectionAbout": "Om",
-    "sectionAboutHelp": "Version, medverkande och licens."
+    "sectionAboutHelp": "Version, medverkande och licens.",
+    "sectionConnections": "Anslutningar"
   },
   "common": {
     "default": "standard",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}: klicka eller dra för att öppna",
     "emptyTitle": "Alla paneler är hopfällda",
     "emptyHint": "Klicka på eller dra i en list vid kanten, eller använd knapparna högst upp, för att öppna en panel."
+  },
+  "missingMedia": {
+    "badge": "Mediafilen saknas. Ersätt den under Egenskaper eller använd Hitta saknade medier.",
+    "banner": "{count} mediafil(er) hittas inte.",
+    "locate": "Hitta…",
+    "locateHint": "Välj en mapp där de saknade filerna ska sökas efter namn. Filer utanför projektet kopieras till projektets mediamapp.",
+    "locateResult": "Länkade om {relinked} objekt. {missing} saknas fortfarande.",
+    "locateFailed": "Det gick inte att söka i mappen: {error}",
+    "replace": "Ersätt mediafil",
+    "replaceFailed": "Det gick inte att ersätta mediafilen: {error}",
+    "propertiesHint": "Servern hittar inte den här filen. Använd ersätt-knappen för att välja den igen."
+  },
+  "events": {
+    "tab": "Händelser",
+    "addEvent": "Lägg till händelse",
+    "addEventHint": "Lägger till en händelse vid markören. Klicka i vågformen för att placera markören.",
+    "addTriggerEvent": "Lägg till vid…",
+    "cursor": "Markör",
+    "cursorHint": "Klicka eller dra i vågformen för att flytta markören, eller skriv en tid som m:ss.mmm eller i sekunder.",
+    "manageConnections": "Hantera anslutningar…",
+    "multiSelect": "Markera ett enda objekt för att redigera dess händelser.",
+    "noEvents": "Inga händelser än. Klicka i vågformen för att placera markören och tryck sedan på Lägg till händelse.",
+    "selectEvent": "Markera en händelse för att redigera den.",
+    "unsupported": "Den här servern stöder inte händelser. Uppdatera LivePlay-servern för att använda dem.",
+    "noPlugins": "Servern har inga händelseplugins.",
+    "loadFailed": "Det gick inte att läsa in händelseplugins från servern.",
+    "loading": "Läser in händelseplugins…",
+    "retry": "Försök igen",
+    "trigger": {
+      "label": "Utlösare",
+      "time": "Vid en tidpunkt",
+      "start": "Vid start",
+      "end": "Vid slut",
+      "pause": "Vid paus",
+      "resume": "Vid återupptagning"
+    },
+    "name": "Namn",
+    "enabled": "Aktiverad",
+    "time": "Tid",
+    "timeHint": "Position i filen, som m:ss.mmm eller i sekunder. Utanför in- och utpunkten utlöses händelsen aldrig.",
+    "useCursor": "Flytta till markören",
+    "plugin": "Plugin",
+    "connection": "Anslutning",
+    "noConnection": "Ingen anslutning",
+    "connectionMissing": "Anslutningen hittades inte",
+    "connectionDisabled": "Den här anslutningen är inaktiverad, så händelsen utlöses inte.",
+    "noConnectionsForPlugin": "Det finns inga {plugin}-anslutningar än.",
+    "action": "Åtgärd",
+    "unknownPlugin": "Den här händelsen använder pluginet ”{plugin}”, som inte finns på den här servern. Den utlöses inte.",
+    "outsideTrim": "Utanför in- och utpunkten: den här händelsen utlöses inte.",
+    "placeholdersHelp": "Textfält kan använda {item.name}, {item.uuid}, {trigger} och {time}; servern fyller i dem när händelsen utlöses.",
+    "test": "Testa",
+    "testing": "Testar…",
+    "testOk": "Skickat.",
+    "testFailed": "Misslyckades: {error}",
+    "duplicate": "Duplicera",
+    "delete": "Ta bort",
+    "lastOk": "Senast utlöst kl. {time}: OK",
+    "lastError": "Senast utlöst kl. {time}: misslyckades: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(objektet hittades inte)",
+      "cartItem": "Cart {slot} · {name}",
+      "addRow": "Lägg till",
+      "removeRow": "Ta bort",
+      "moveUp": "Flytta upp",
+      "moveDown": "Flytta ned"
+    },
+    "connections": {
+      "intro": "Dit händelser skickas: ett ljusbord, en MIDI-port, en webhook. Varje anslutning ställs in en gång för showen och kan användas av hur många händelser som helst.",
+      "noProject": "Öppna ett projekt för att hantera dess anslutningar.",
+      "empty": "Inga anslutningar än.",
+      "add": "Lägg till anslutning",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "Ny {plugin}-anslutning",
+      "editTitle": "Redigera ”{name}”",
+      "name": "Namn",
+      "enabled": "Aktiverad",
+      "disabled": "inaktiverad",
+      "edit": "Redigera",
+      "save": "Spara",
+      "cancel": "Avbryt",
+      "delete": "Ta bort",
+      "deleteConfirm": "Ta bort ”{name}”?",
+      "deleteInUse": "{count} händelse(r) använder ”{name}”. De utlöses inte förrän de får en annan anslutning. Ta bort ändå?",
+      "usage": "{count} händelse(r)",
+      "unused": "Används inte",
+      "unknownPlugin": "Okänd typ ”{plugin}”",
+      "noFields": "Den här typen har inget att ställa in.",
+      "testWith": "Testa med",
+      "saveFailed": "Det gick inte att spara anslutningarna: {error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "Open Sound Control via UDP: ljusbord, QLab, Companion med mera.",
+      "actions": {
+        "message": "Skicka meddelande"
+      },
+      "connection": {
+        "host": {
+          "label": "Värd"
+        },
+        "port": {
+          "label": "Port"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "Adress"
+        },
+        "args": {
+          "label": "Argument",
+          "help": "Strängvärden kan använda {item.name}, {item.uuid}, {trigger} och {time}."
+        },
+        "type": {
+          "label": "Typ"
+        },
+        "value": {
+          "label": "Värde"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "Heltal",
+          "f": "Flyttal",
+          "s": "Sträng",
+          "T": "Sant",
+          "F": "Falskt",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "MIDI ut från serverdatorn: toner, CC, program change, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "Note on",
+        "note-off": "Note off",
+        "control-change": "Control change",
+        "program-change": "Program change",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (rå)"
+      },
+      "summaries": {
+        "note-on": "kan {channel} ton {note}",
+        "note-off": "kan {channel} ton {note}",
+        "control-change": "kan {channel} CC {controller} = {value}",
+        "program-change": "kan {channel} program {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "Utgångsport",
+          "help": "Portar på datorn där LivePlay-servern körs, matchade efter namn."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "Kanal"
+        },
+        "note": {
+          "label": "Ton"
+        },
+        "velocity": {
+          "label": "Anslagsstyrka"
+        },
+        "controller": {
+          "label": "Kontroller"
+        },
+        "value": {
+          "label": "Värde"
+        },
+        "program": {
+          "label": "Program"
+        },
+        "deviceId": {
+          "label": "Enhets-ID",
+          "help": "127 adresserar alla enheter."
+        },
+        "commandFormat": {
+          "label": "Kommandoformat"
+        },
+        "command": {
+          "label": "Kommando"
+        },
+        "cue": {
+          "label": "Kö"
+        },
+        "list": {
+          "label": "Kölista"
+        },
+        "path": {
+          "label": "Kösökväg"
+        },
+        "data": {
+          "label": "Byte (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "Ljus (allmänt)",
+          "moving-lights": "Rörligt ljus",
+          "sound": "Ljud (allmänt)",
+          "video": "Video (allmänt)",
+          "all": "Alla typer"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "HTTP-förfrågningar till allt med ett webb-API: Companion, mediaservrar, hemautomation.",
+      "actions": {
+        "request": "Förfrågan"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "Bas-URL",
+          "help": "Endast http://; HTTPS stöds inte än."
+        },
+        "headers": {
+          "label": "Huvuden",
+          "help": "Ett ”Namn: värde” per rad, skickas med varje förfrågan."
+        },
+        "timeoutMs": {
+          "label": "Tidsgräns (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "Metod"
+        },
+        "path": {
+          "label": "Sökväg"
+        },
+        "headers": {
+          "label": "Huvuden",
+          "help": "Ett ”Namn: värde” per rad."
+        },
+        "contentType": {
+          "label": "Innehållstyp"
+        },
+        "body": {
+          "label": "Innehåll",
+          "help": "Kan använda {item.name}, {item.uuid}, {trigger} och {time}."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "Inget",
+          "application/x-www-form-urlencoded": "Formulär",
+          "text/plain": "Text"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "Starta eller stoppa andra köer i det här projektet.",
+      "actions": {
+        "play-item": "Spela kö",
+        "stop-item": "Stoppa kö",
+        "stop-all": "Stoppa allt"
+      },
+      "fields": {
+        "item": {
+          "label": "Kö"
+        }
+      }
+    }
   }
 }

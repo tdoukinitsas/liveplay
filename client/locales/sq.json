@@ -169,7 +169,8 @@
     "accentColorHelp": "Përdoret për përzgjedhjet, cue-të që luhen dhe theksimet.",
     "accentColorSwatch": "Ngjyra e theksit {color}",
     "sectionAbout": "Rreth",
-    "sectionAboutHelp": "Versioni, kontribuesit dhe licenca."
+    "sectionAboutHelp": "Versioni, kontribuesit dhe licenca.",
+    "sectionConnections": "Lidhjet"
   },
   "common": {
     "default": "parazgjedhje",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}: klikoni ose tërhiqeni për ta hapur",
     "emptyTitle": "Të gjitha panelet janë të palosura",
     "emptyHint": "Për të hapur një panel, klikoni ose tërhiqni një shirit në anë, ose përdorni butonat në krye."
+  },
+  "missingMedia": {
+    "badge": "Skedari media mungon. Zëvendësojeni te Vetitë ose përdorni Gjej mediat që mungojnë.",
+    "banner": "{count} skedarë media nuk gjenden.",
+    "locate": "Gjej…",
+    "locateHint": "Zgjidhni një dosje ku të kërkohen me emër skedarët që mungojnë. Skedarët jashtë projektit kopjohen në dosjen e tij të medias.",
+    "locateResult": "U rilidhën {relinked} element(e). Mungojnë ende: {missing}.",
+    "locateFailed": "Kërkimi në atë dosje nuk u krye: {error}",
+    "replace": "Zëvendëso skedarin media",
+    "replaceFailed": "Skedari media nuk u zëvendësua dot: {error}",
+    "propertiesHint": "Serveri nuk e gjen këtë skedar. Përdorni butonin e zëvendësimit për ta zgjedhur sërish."
+  },
+  "events": {
+    "tab": "Ngjarjet",
+    "addEvent": "Shto ngjarje",
+    "addEventHint": "Shton një ngjarje te kursori. Klikoni te forma e valës për të vendosur kursorin.",
+    "addTriggerEvent": "Shto kur…",
+    "cursor": "Kursori",
+    "cursorHint": "Klikoni ose tërhiqni te forma e valës për të lëvizur kursorin, ose shkruani një kohë në formatin m:ss.mmm ose në sekonda.",
+    "manageConnections": "Menaxho lidhjet…",
+    "multiSelect": "Përzgjidhni vetëm një element për të përpunuar ngjarjet e tij.",
+    "noEvents": "Ende nuk ka ngjarje. Klikoni te forma e valës për të vendosur kursorin, pastaj shtypni Shto ngjarje.",
+    "selectEvent": "Përzgjidhni një ngjarje për ta përpunuar.",
+    "unsupported": "Ky server nuk i mbështet ngjarjet. Përditësoni serverin LivePlay për t'i përdorur.",
+    "noPlugins": "Serveri nuk ka plugin-e ngjarjesh.",
+    "loadFailed": "Plugin-et e ngjarjeve nuk u ngarkuan dot nga serveri.",
+    "loading": "Po ngarkohen plugin-et e ngjarjeve…",
+    "retry": "Riprovo",
+    "trigger": {
+      "label": "Shkaktari",
+      "time": "Në një kohë të caktuar",
+      "start": "Kur nis",
+      "end": "Kur mbaron",
+      "pause": "Kur pauzohet",
+      "resume": "Kur vazhdon"
+    },
+    "name": "Emri",
+    "enabled": "Aktiv",
+    "time": "Koha",
+    "timeHint": "Pozicioni në skedar, në formatin m:ss.mmm ose në sekonda. Jashtë pikave të hyrjes dhe daljes ngjarja nuk aktivizohet kurrë.",
+    "useCursor": "Zhvendose te kursori",
+    "plugin": "Plugin",
+    "connection": "Lidhja",
+    "noConnection": "Pa lidhje",
+    "connectionMissing": "Lidhja nuk u gjet",
+    "connectionDisabled": "Kjo lidhje është e çaktivizuar, prandaj ngjarja nuk do të aktivizohet.",
+    "noConnectionsForPlugin": "Ende nuk ka lidhje {plugin}.",
+    "action": "Veprimi",
+    "unknownPlugin": "Kjo ngjarje përdor plugin-in „{plugin}”, të cilin ky server nuk e ka. Nuk do të aktivizohet.",
+    "outsideTrim": "Jashtë pikave të hyrjes dhe daljes: kjo ngjarje nuk do të aktivizohet.",
+    "placeholdersHelp": "Fushat e tekstit mund të përdorin {item.name}, {item.uuid}, {trigger} dhe {time}; serveri i plotëson kur aktivizohet ngjarja.",
+    "test": "Testo",
+    "testing": "Po testohet…",
+    "testOk": "U dërgua.",
+    "testFailed": "Dështoi: {error}",
+    "duplicate": "Dyfisho",
+    "delete": "Fshi",
+    "lastOk": "Aktivizimi i fundit në {time}: OK",
+    "lastError": "Aktivizimi i fundit në {time}: dështoi: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(elementi nuk u gjet)",
+      "cartItem": "Cart {slot} · {name}",
+      "addRow": "Shto",
+      "removeRow": "Hiq",
+      "moveUp": "Lëviz lart",
+      "moveDown": "Lëviz poshtë"
+    },
+    "connections": {
+      "intro": "Ku dërgohen ngjarjet: te një konsolë ndriçimi, një portë MIDI, një web hook. Çdo lidhje ujdiset një herë për shfaqjen dhe mund të përdoret nga sa ngjarje të doni.",
+      "noProject": "Hapni një projekt për të menaxhuar lidhjet e tij.",
+      "empty": "Ende nuk ka lidhje.",
+      "add": "Shto lidhje",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "Lidhje e re {plugin}",
+      "editTitle": "Përpuno „{name}”",
+      "name": "Emri",
+      "enabled": "Aktive",
+      "disabled": "joaktive",
+      "edit": "Përpuno",
+      "save": "Ruaj",
+      "cancel": "Anulo",
+      "delete": "Fshi",
+      "deleteConfirm": "Të fshihet „{name}”?",
+      "deleteInUse": "„{name}” përdoret nga {count} ngjarje. Ato nuk do të aktivizohen derisa t'u jepet një lidhje tjetër. Të fshihet gjithsesi?",
+      "usage": "{count} ngjarje",
+      "unused": "E papërdorur",
+      "unknownPlugin": "Lloj i panjohur „{plugin}”",
+      "noFields": "Ky lloj nuk ka asgjë për t'u ujdisur.",
+      "testWith": "Testo me",
+      "saveFailed": "Lidhjet nuk u ruajtën dot: {error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "Open Sound Control përmes UDP: konsola ndriçimi, QLab, Companion e të tjera.",
+      "actions": {
+        "message": "Dërgo mesazh"
+      },
+      "connection": {
+        "host": {
+          "label": "Hosti"
+        },
+        "port": {
+          "label": "Porta"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "Adresa"
+        },
+        "args": {
+          "label": "Argumentet",
+          "help": "Vlerat varg mund të përdorin {item.name}, {item.uuid}, {trigger} dhe {time}."
+        },
+        "type": {
+          "label": "Lloji"
+        },
+        "value": {
+          "label": "Vlera"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "Numër i plotë",
+          "f": "Numër dhjetor",
+          "s": "Varg",
+          "T": "E vërtetë",
+          "F": "E rreme",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "Dalje MIDI nga kompjuteri i serverit: nota, CC, program change, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "Note on",
+        "note-off": "Note off",
+        "control-change": "Control change",
+        "program-change": "Program change",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (i papërpunuar)"
+      },
+      "summaries": {
+        "note-on": "kan. {channel} nota {note}",
+        "note-off": "kan. {channel} nota {note}",
+        "control-change": "kan. {channel} CC {controller} = {value}",
+        "program-change": "kan. {channel} programi {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "Porta e daljes",
+          "help": "Portat e kompjuterit ku punon serveri LivePlay, të përputhura sipas emrit."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "Kanali"
+        },
+        "note": {
+          "label": "Nota"
+        },
+        "velocity": {
+          "label": "Velocity"
+        },
+        "controller": {
+          "label": "Kontrolluesi"
+        },
+        "value": {
+          "label": "Vlera"
+        },
+        "program": {
+          "label": "Programi"
+        },
+        "deviceId": {
+          "label": "ID e pajisjes",
+          "help": "127 u drejtohet të gjitha pajisjeve."
+        },
+        "commandFormat": {
+          "label": "Formati i komandës"
+        },
+        "command": {
+          "label": "Komanda"
+        },
+        "cue": {
+          "label": "Cue"
+        },
+        "list": {
+          "label": "Lista e cue-ve"
+        },
+        "path": {
+          "label": "Shtegu i cue-së"
+        },
+        "data": {
+          "label": "Bajtë (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "Ndriçim (i përgjithshëm)",
+          "moving-lights": "Drita lëvizëse",
+          "sound": "Zë (i përgjithshëm)",
+          "video": "Video (e përgjithshme)",
+          "all": "Të gjitha llojet"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "Kërkesa HTTP drejt çdo gjëje me API web: Companion, serverë media, automatizim shtëpiak.",
+      "actions": {
+        "request": "Kërkesë"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "URL-ja bazë",
+          "help": "Vetëm http://; HTTPS nuk mbështetet ende."
+        },
+        "headers": {
+          "label": "Header-at",
+          "help": "Një „Emri: vlera” për rresht, dërgohet me çdo kërkesë."
+        },
+        "timeoutMs": {
+          "label": "Afati (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "Metoda"
+        },
+        "path": {
+          "label": "Shtegu"
+        },
+        "headers": {
+          "label": "Header-at",
+          "help": "Një „Emri: vlera” për rresht."
+        },
+        "contentType": {
+          "label": "Lloji i trupit"
+        },
+        "body": {
+          "label": "Trupi",
+          "help": "Mund të përdorë {item.name}, {item.uuid}, {trigger} dhe {time}."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "Asnjë",
+          "application/x-www-form-urlencoded": "Formular",
+          "text/plain": "Tekst"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "Nis ose ndal cue të tjera në këtë projekt.",
+      "actions": {
+        "play-item": "Luaj cue-në",
+        "stop-item": "Ndalo cue-në",
+        "stop-all": "Ndalo të gjitha"
+      },
+      "fields": {
+        "item": {
+          "label": "Cue"
+        }
+      }
+    }
   }
 }

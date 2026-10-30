@@ -169,7 +169,8 @@
     "accentColorHelp": "নির্বাচন, চলমান কিউ ও হাইলাইটে ব্যবহৃত হয়।",
     "accentColorSwatch": "অ্যাকসেন্ট রং {color}",
     "sectionAbout": "পরিচিতি",
-    "sectionAboutHelp": "সংস্করণ, কৃতজ্ঞতা ও লাইসেন্স।"
+    "sectionAboutHelp": "সংস্করণ, কৃতজ্ঞতা ও লাইসেন্স।",
+    "sectionConnections": "সংযোগ"
   },
   "common": {
     "default": "ডিফল্ট",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}: খুলতে ক্লিক করুন বা টেনে আনুন",
     "emptyTitle": "সব প্যান গুটানো আছে",
     "emptyHint": "কোনো প্যান খুলতে কিনারার বারে ক্লিক করুন বা টেনে আনুন, অথবা উপরের বোতামগুলো ব্যবহার করুন।"
+  },
+  "missingMedia": {
+    "badge": "মিডিয়া ফাইল অনুপস্থিত। বৈশিষ্ট্যে এটি প্রতিস্থাপন করুন, অথবা “অনুপস্থিত মিডিয়া খুঁজুন” ব্যবহার করুন।",
+    "banner": "{count}টি মিডিয়া ফাইল খুঁজে পাওয়া যাচ্ছে না।",
+    "locate": "খুঁজুন…",
+    "locateHint": "অনুপস্থিত ফাইলগুলো নাম ধরে খুঁজতে একটি ফোল্ডার বেছে নিন। প্রকল্পের বাইরের ফাইলগুলো এর মিডিয়া ফোল্ডারে কপি করা হয়।",
+    "locateResult": "{relinked}টি আইটেম আবার লিঙ্ক করা হয়েছে। এখনও {missing}টি অনুপস্থিত।",
+    "locateFailed": "ওই ফোল্ডারে খোঁজা যায়নি: {error}",
+    "replace": "মিডিয়া ফাইল প্রতিস্থাপন করুন",
+    "replaceFailed": "মিডিয়া ফাইল প্রতিস্থাপন করা যায়নি: {error}",
+    "propertiesHint": "সার্ভার এই ফাইলটি খুঁজে পাচ্ছে না। আবার বেছে নিতে প্রতিস্থাপন বোতামটি ব্যবহার করুন।"
+  },
+  "events": {
+    "tab": "ইভেন্ট",
+    "addEvent": "ইভেন্ট যোগ করুন",
+    "addEventHint": "কার্সরের জায়গায় একটি ইভেন্ট যোগ করে। কার্সর বসাতে ওয়েভফর্মে ক্লিক করুন।",
+    "addTriggerEvent": "ট্রিগারে যোগ করুন…",
+    "cursor": "কার্সর",
+    "cursorHint": "কার্সর সরাতে ওয়েভফর্মে ক্লিক করুন বা টানুন, অথবা m:ss.mmm আকারে বা সেকেন্ডে সময় লিখুন।",
+    "manageConnections": "সংযোগ পরিচালনা করুন…",
+    "multiSelect": "ইভেন্ট সম্পাদনা করতে একটিমাত্র আইটেম নির্বাচন করুন।",
+    "noEvents": "এখনও কোনো ইভেন্ট নেই। কার্সর বসাতে ওয়েভফর্মে ক্লিক করুন, তারপর “ইভেন্ট যোগ করুন” চাপুন।",
+    "selectEvent": "সম্পাদনা করতে একটি ইভেন্ট নির্বাচন করুন।",
+    "unsupported": "এই সার্ভার ইভেন্ট সমর্থন করে না। এগুলো ব্যবহার করতে LivePlay সার্ভার আপডেট করুন।",
+    "noPlugins": "সার্ভারে কোনো ইভেন্ট প্লাগইন নেই।",
+    "loadFailed": "সার্ভার থেকে ইভেন্ট প্লাগইন লোড করা যায়নি।",
+    "loading": "ইভেন্ট প্লাগইন লোড হচ্ছে…",
+    "retry": "আবার চেষ্টা করুন",
+    "trigger": {
+      "label": "ট্রিগার",
+      "time": "নির্দিষ্ট সময়ে",
+      "start": "শুরু হলে",
+      "end": "শেষ হলে",
+      "pause": "বিরতি দিলে",
+      "resume": "আবার চালালে"
+    },
+    "name": "নাম",
+    "enabled": "সক্রিয়",
+    "time": "সময়",
+    "timeHint": "ফাইলে অবস্থান, m:ss.mmm আকারে বা সেকেন্ডে। ট্রিম করা অংশের বাইরে ইভেন্ট কখনও ট্রিগার হয় না।",
+    "useCursor": "কার্সরে সরান",
+    "plugin": "প্লাগইন",
+    "connection": "সংযোগ",
+    "noConnection": "কোনো সংযোগ নেই",
+    "connectionMissing": "সংযোগ পাওয়া যায়নি",
+    "connectionDisabled": "এই সংযোগটি নিষ্ক্রিয়, তাই ইভেন্টটি ট্রিগার হবে না।",
+    "noConnectionsForPlugin": "এখনও কোনো {plugin} সংযোগ নেই।",
+    "action": "অ্যাকশন",
+    "unknownPlugin": "এই ইভেন্টটি “{plugin}” প্লাগইন ব্যবহার করে, যা এই সার্ভারে নেই। এটি ট্রিগার হবে না।",
+    "outsideTrim": "ট্রিম করা অংশের বাইরে: এই ইভেন্ট ট্রিগার হবে না।",
+    "placeholdersHelp": "টেক্সট ফিল্ডে {item.name}, {item.uuid}, {trigger} ও {time} ব্যবহার করা যায়; ইভেন্ট ট্রিগার হলে সার্ভার এগুলো পূরণ করে।",
+    "test": "পরীক্ষা",
+    "testing": "পরীক্ষা চলছে…",
+    "testOk": "পাঠানো হয়েছে।",
+    "testFailed": "ব্যর্থ: {error}",
+    "duplicate": "ডুপ্লিকেট",
+    "delete": "মুছুন",
+    "lastOk": "শেষবার {time}-এ ট্রিগার হয়েছে: সফল",
+    "lastError": "শেষবার {time}-এ ট্রিগার হয়েছে: ব্যর্থ: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(আইটেম পাওয়া যায়নি)",
+      "cartItem": "কার্ট {slot} · {name}",
+      "addRow": "যোগ করুন",
+      "removeRow": "সরান",
+      "moveUp": "উপরে সরান",
+      "moveDown": "নিচে সরান"
+    },
+    "connections": {
+      "intro": "ইভেন্ট কোথায় পাঠানো হবে: লাইটিং ডেস্ক, MIDI পোর্ট, ওয়েব হুক। প্রতিটি সংযোগ শো-এর জন্য একবার সেট করা হয় এবং যেকোনো সংখ্যক ইভেন্ট এটি ব্যবহার করতে পারে।",
+      "noProject": "সংযোগ পরিচালনা করতে একটি প্রকল্প খুলুন।",
+      "empty": "এখনও কোনো সংযোগ নেই।",
+      "add": "সংযোগ যোগ করুন",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "নতুন {plugin} সংযোগ",
+      "editTitle": "“{name}” সম্পাদনা করুন",
+      "name": "নাম",
+      "enabled": "সক্রিয়",
+      "disabled": "নিষ্ক্রিয়",
+      "edit": "সম্পাদনা করুন",
+      "save": "সংরক্ষণ করুন",
+      "cancel": "বাতিল",
+      "delete": "মুছুন",
+      "deleteConfirm": "“{name}” মুছবেন?",
+      "deleteInUse": "{count}টি ইভেন্ট “{name}” ব্যবহার করে। অন্য সংযোগ না দেওয়া পর্যন্ত সেগুলো ট্রিগার হবে না। তবুও মুছবেন?",
+      "usage": "{count}টি ইভেন্ট",
+      "unused": "ব্যবহৃত নয়",
+      "unknownPlugin": "অজানা ধরন “{plugin}”",
+      "noFields": "এই ধরনে সেট করার কিছু নেই।",
+      "testWith": "এটি দিয়ে পরীক্ষা",
+      "saveFailed": "সংযোগ সংরক্ষণ করা যায়নি: {error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "UDP-র মাধ্যমে Open Sound Control: লাইটিং ডেস্ক, QLab, Companion ইত্যাদি।",
+      "actions": {
+        "message": "বার্তা পাঠান"
+      },
+      "connection": {
+        "host": {
+          "label": "হোস্ট"
+        },
+        "port": {
+          "label": "পোর্ট"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "অ্যাড্রেস"
+        },
+        "args": {
+          "label": "আর্গুমেন্ট",
+          "help": "স্ট্রিং মানে {item.name}, {item.uuid}, {trigger} ও {time} ব্যবহার করা যায়।"
+        },
+        "type": {
+          "label": "ধরন"
+        },
+        "value": {
+          "label": "মান"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "পূর্ণসংখ্যা",
+          "f": "ফ্লোট",
+          "s": "স্ট্রিং",
+          "T": "সত্য",
+          "F": "মিথ্যা",
+          "N": "ফাঁকা (Nil)"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "সার্ভার মেশিন থেকে MIDI আউট: নোট, CC, প্রোগ্রাম চেঞ্জ, MIDI Show Control, SysEx।",
+      "actions": {
+        "note-on": "নোট অন",
+        "note-off": "নোট অফ",
+        "control-change": "কন্ট্রোল চেঞ্জ",
+        "program-change": "প্রোগ্রাম চেঞ্জ",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (কাঁচা)"
+      },
+      "summaries": {
+        "note-on": "চ্যানেল {channel} নোট {note}",
+        "note-off": "চ্যানেল {channel} নোট {note}",
+        "control-change": "চ্যানেল {channel} CC {controller} = {value}",
+        "program-change": "চ্যানেল {channel} প্রোগ্রাম {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "আউটপুট পোর্ট",
+          "help": "যে মেশিনে LivePlay সার্ভার চলে তার পোর্ট, নাম দিয়ে মেলানো হয়।"
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "চ্যানেল"
+        },
+        "note": {
+          "label": "নোট"
+        },
+        "velocity": {
+          "label": "ভেলোসিটি"
+        },
+        "controller": {
+          "label": "কন্ট্রোলার"
+        },
+        "value": {
+          "label": "মান"
+        },
+        "program": {
+          "label": "প্রোগ্রাম"
+        },
+        "deviceId": {
+          "label": "ডিভাইস ID",
+          "help": "127 দিলে সব ডিভাইসে যায়।"
+        },
+        "commandFormat": {
+          "label": "কমান্ড ফরম্যাট"
+        },
+        "command": {
+          "label": "কমান্ড"
+        },
+        "cue": {
+          "label": "কিউ"
+        },
+        "list": {
+          "label": "কিউ তালিকা"
+        },
+        "path": {
+          "label": "কিউ পাথ"
+        },
+        "data": {
+          "label": "বাইট (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "লাইটিং (সাধারণ)",
+          "moving-lights": "মুভিং লাইট",
+          "sound": "সাউন্ড (সাধারণ)",
+          "video": "ভিডিও (সাধারণ)",
+          "all": "সব ধরন"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "ওয়েব API আছে এমন যেকোনো কিছুতে HTTP অনুরোধ: Companion, মিডিয়া সার্ভার, হোম অটোমেশন।",
+      "actions": {
+        "request": "অনুরোধ"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "বেস URL",
+          "help": "শুধু http://; HTTPS এখনও সমর্থিত নয়।"
+        },
+        "headers": {
+          "label": "হেডার",
+          "help": "প্রতি লাইনে একটি “নাম: মান”, প্রতিটি অনুরোধের সঙ্গে পাঠানো হয়।"
+        },
+        "timeoutMs": {
+          "label": "টাইমআউট (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "মেথড"
+        },
+        "path": {
+          "label": "পাথ"
+        },
+        "headers": {
+          "label": "হেডার",
+          "help": "প্রতি লাইনে একটি “নাম: মান”।"
+        },
+        "contentType": {
+          "label": "বডির ধরন"
+        },
+        "body": {
+          "label": "বডি",
+          "help": "এতে {item.name}, {item.uuid}, {trigger} ও {time} ব্যবহার করা যায়।"
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "কিছু না",
+          "application/x-www-form-urlencoded": "ফর্ম",
+          "text/plain": "টেক্সট"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "এই প্রকল্পের অন্য কিউ শুরু করুন বা থামান।",
+      "actions": {
+        "play-item": "কিউ চালান",
+        "stop-item": "কিউ থামান",
+        "stop-all": "সব থামান"
+      },
+      "fields": {
+        "item": {
+          "label": "কিউ"
+        }
+      }
+    }
   }
 }

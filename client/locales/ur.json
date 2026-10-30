@@ -169,7 +169,8 @@
     "accentColorHelp": "انتخاب، چلنے والے کیوز اور نمایاں چیزوں کے لیے استعمال ہوتا ہے۔",
     "accentColorSwatch": "ایکسنٹ رنگ {color}",
     "sectionAbout": "تعارف",
-    "sectionAboutHelp": "ورژن، کریڈٹس اور لائسنس۔"
+    "sectionAboutHelp": "ورژن، کریڈٹس اور لائسنس۔",
+    "sectionConnections": "کنکشنز"
   },
   "common": {
     "default": "ڈیفالٹ",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}: کھولنے کے لیے کلک کریں یا گھسیٹیں",
     "emptyTitle": "تمام پینلز سمٹے ہوئے ہیں",
     "emptyHint": "پینل کھولنے کے لیے کنارے پر موجود پٹی پر کلک کریں یا اسے گھسیٹیں، یا اوپر کے بٹن استعمال کریں۔"
+  },
+  "missingMedia": {
+    "badge": "میڈیا فائل غائب ہے۔ اسے خصوصیات میں تبدیل کریں، یا «غائب میڈیا تلاش کریں» استعمال کریں۔",
+    "banner": "{count} میڈیا فائلیں نہیں مل رہیں۔",
+    "locate": "ڈھونڈیں…",
+    "locateHint": "غائب فائلوں کو نام سے تلاش کرنے کے لیے ایک فولڈر منتخب کریں۔ پروجیکٹ سے باہر کی فائلیں اس کے میڈیا فولڈر میں کاپی کی جاتی ہیں۔",
+    "locateResult": "{relinked} آئٹمز دوبارہ لنک ہو گئے۔ {missing} اب بھی غائب ہیں۔",
+    "locateFailed": "اس فولڈر میں تلاش نہیں ہو سکی: {error}",
+    "replace": "میڈیا فائل تبدیل کریں",
+    "replaceFailed": "میڈیا فائل تبدیل نہیں ہو سکی: {error}",
+    "propertiesHint": "سرور کو یہ فائل نہیں مل رہی۔ اسے دوبارہ منتخب کرنے کے لیے تبدیل کرنے کا بٹن استعمال کریں۔"
+  },
+  "events": {
+    "tab": "ایونٹس",
+    "addEvent": "ایونٹ شامل کریں",
+    "addEventHint": "کرسر پر ایک ایونٹ شامل کرتا ہے۔ کرسر رکھنے کے لیے ویو فارم پر کلک کریں۔",
+    "addTriggerEvent": "ٹرگر پر شامل کریں…",
+    "cursor": "کرسر",
+    "cursorHint": "کرسر ہلانے کے لیے ویو فارم پر کلک کریں یا گھسیٹیں، یا وقت m:ss.mmm کی صورت میں یا سیکنڈز میں لکھیں۔",
+    "manageConnections": "کنکشنز کا انتظام…",
+    "multiSelect": "ایونٹس میں ترمیم کے لیے صرف ایک آئٹم منتخب کریں۔",
+    "noEvents": "ابھی کوئی ایونٹ نہیں۔ کرسر رکھنے کے لیے ویو فارم پر کلک کریں، پھر «ایونٹ شامل کریں» دبائیں۔",
+    "selectEvent": "ترمیم کے لیے کوئی ایونٹ منتخب کریں۔",
+    "unsupported": "یہ سرور ایونٹس کو سپورٹ نہیں کرتا۔ انہیں استعمال کرنے کے لیے LivePlay سرور اپ ڈیٹ کریں۔",
+    "noPlugins": "سرور پر کوئی ایونٹ پلگ ان نہیں ہے۔",
+    "loadFailed": "سرور سے ایونٹ پلگ انز لوڈ نہیں ہو سکے۔",
+    "loading": "ایونٹ پلگ انز لوڈ ہو رہے ہیں…",
+    "retry": "دوبارہ کوشش کریں",
+    "trigger": {
+      "label": "ٹرگر",
+      "time": "مقررہ وقت پر",
+      "start": "شروع ہونے پر",
+      "end": "ختم ہونے پر",
+      "pause": "موقوف ہونے پر",
+      "resume": "دوبارہ جاری ہونے پر"
+    },
+    "name": "نام",
+    "enabled": "فعال",
+    "time": "وقت",
+    "timeHint": "فائل میں مقام، m:ss.mmm کی صورت میں یا سیکنڈز میں۔ تراشے گئے حصے سے باہر ایونٹ کبھی نہیں چلتا۔",
+    "useCursor": "کرسر پر لے جائیں",
+    "plugin": "پلگ ان",
+    "connection": "کنکشن",
+    "noConnection": "کوئی کنکشن نہیں",
+    "connectionMissing": "کنکشن نہیں ملا",
+    "connectionDisabled": "یہ کنکشن غیر فعال ہے، اس لیے ایونٹ نہیں چلے گا۔",
+    "noConnectionsForPlugin": "ابھی کوئی {plugin} کنکشن نہیں ہے۔",
+    "action": "عمل",
+    "unknownPlugin": "یہ ایونٹ «{plugin}» پلگ ان استعمال کرتا ہے، جو اس سرور پر نہیں ہے۔ یہ نہیں چلے گا۔",
+    "outsideTrim": "تراشے گئے حصے سے باہر: یہ ایونٹ نہیں چلے گا۔",
+    "placeholdersHelp": "ٹیکسٹ فیلڈز میں {item.name}، {item.uuid}، {trigger} اور {time} استعمال ہو سکتے ہیں؛ ایونٹ چلنے پر سرور انہیں بھر دیتا ہے۔",
+    "test": "ٹیسٹ",
+    "testing": "ٹیسٹ ہو رہا ہے…",
+    "testOk": "بھیج دیا گیا۔",
+    "testFailed": "ناکام: {error}",
+    "duplicate": "نقل بنائیں",
+    "delete": "حذف کریں",
+    "lastOk": "آخری بار {time} پر چلا: کامیاب",
+    "lastError": "آخری بار {time} پر چلا: ناکام: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(آئٹم نہیں ملا)",
+      "cartItem": "کارٹ {slot} · {name}",
+      "addRow": "شامل کریں",
+      "removeRow": "ہٹائیں",
+      "moveUp": "اوپر لے جائیں",
+      "moveDown": "نیچے لے جائیں"
+    },
+    "connections": {
+      "intro": "ایونٹس کہاں بھیجے جاتے ہیں: لائٹنگ ڈیسک، MIDI پورٹ، ویب ہُک۔ ہر کنکشن شو کے لیے ایک بار سیٹ کیا جاتا ہے اور کتنے بھی ایونٹس اسے استعمال کر سکتے ہیں۔",
+      "noProject": "کنکشنز کا انتظام کرنے کے لیے کوئی پروجیکٹ کھولیں۔",
+      "empty": "ابھی کوئی کنکشن نہیں۔",
+      "add": "کنکشن شامل کریں",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "نیا {plugin} کنکشن",
+      "editTitle": "«{name}» میں ترمیم کریں",
+      "name": "نام",
+      "enabled": "فعال",
+      "disabled": "غیر فعال",
+      "edit": "ترمیم کریں",
+      "save": "محفوظ کریں",
+      "cancel": "منسوخ کریں",
+      "delete": "حذف کریں",
+      "deleteConfirm": "«{name}» حذف کریں؟",
+      "deleteInUse": "{count} ایونٹس «{name}» استعمال کرتے ہیں۔ جب تک انہیں کوئی دوسرا کنکشن نہ دیا جائے، وہ نہیں چلیں گے۔ پھر بھی حذف کریں؟",
+      "usage": "ایونٹس: {count}",
+      "unused": "استعمال میں نہیں",
+      "unknownPlugin": "نامعلوم قسم «{plugin}»",
+      "noFields": "اس قسم میں سیٹ کرنے کو کچھ نہیں۔",
+      "testWith": "ٹیسٹ بذریعہ",
+      "saveFailed": "کنکشنز محفوظ نہیں ہو سکے: {error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "UDP پر Open Sound Control: لائٹنگ ڈیسک، QLab، Companion وغیرہ۔",
+      "actions": {
+        "message": "پیغام بھیجیں"
+      },
+      "connection": {
+        "host": {
+          "label": "ہوسٹ"
+        },
+        "port": {
+          "label": "پورٹ"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "ایڈریس"
+        },
+        "args": {
+          "label": "آرگیومنٹس",
+          "help": "سٹرنگ قدروں میں {item.name}، {item.uuid}، {trigger} اور {time} استعمال ہو سکتے ہیں۔"
+        },
+        "type": {
+          "label": "قسم"
+        },
+        "value": {
+          "label": "قدر"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "عدد صحیح",
+          "f": "اعشاریہ عدد",
+          "s": "سٹرنگ",
+          "T": "درست",
+          "F": "غلط",
+          "N": "خالی (Nil)"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "سرور مشین سے MIDI آؤٹ: نوٹس، CC، پروگرام چینج، MIDI Show Control، SysEx۔",
+      "actions": {
+        "note-on": "نوٹ آن",
+        "note-off": "نوٹ آف",
+        "control-change": "کنٹرول چینج",
+        "program-change": "پروگرام چینج",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (خام)"
+      },
+      "summaries": {
+        "note-on": "چینل {channel} نوٹ {note}",
+        "note-off": "چینل {channel} نوٹ {note}",
+        "control-change": "چینل {channel} CC {controller} = {value}",
+        "program-change": "چینل {channel} پروگرام {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "آؤٹ پٹ پورٹ",
+          "help": "اس مشین کے پورٹس جس پر LivePlay سرور چلتا ہے، نام سے ملائے جاتے ہیں۔"
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "چینل"
+        },
+        "note": {
+          "label": "نوٹ"
+        },
+        "velocity": {
+          "label": "ویلاسٹی"
+        },
+        "controller": {
+          "label": "کنٹرولر"
+        },
+        "value": {
+          "label": "قدر"
+        },
+        "program": {
+          "label": "پروگرام"
+        },
+        "deviceId": {
+          "label": "ڈیوائس ID",
+          "help": "127 تمام ڈیوائسز کو مخاطب کرتا ہے۔"
+        },
+        "commandFormat": {
+          "label": "کمانڈ فارمیٹ"
+        },
+        "command": {
+          "label": "کمانڈ"
+        },
+        "cue": {
+          "label": "کیو"
+        },
+        "list": {
+          "label": "کیو لسٹ"
+        },
+        "path": {
+          "label": "کیو پاتھ"
+        },
+        "data": {
+          "label": "بائٹس (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "لائٹنگ (عمومی)",
+          "moving-lights": "موونگ لائٹس",
+          "sound": "ساؤنڈ (عمومی)",
+          "video": "ویڈیو (عمومی)",
+          "all": "تمام اقسام"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "ویب API رکھنے والی کسی بھی چیز کو HTTP درخواستیں: Companion، میڈیا سرورز، ہوم آٹومیشن۔",
+      "actions": {
+        "request": "درخواست"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "بیس URL",
+          "help": "صرف http://؛ HTTPS ابھی سپورٹ نہیں ہے۔"
+        },
+        "headers": {
+          "label": "ہیڈرز",
+          "help": "ہر سطر میں ایک «نام: قدر»، ہر درخواست کے ساتھ بھیجا جاتا ہے۔"
+        },
+        "timeoutMs": {
+          "label": "ٹائم آؤٹ (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "میتھڈ"
+        },
+        "path": {
+          "label": "پاتھ"
+        },
+        "headers": {
+          "label": "ہیڈرز",
+          "help": "ہر سطر میں ایک «نام: قدر»۔"
+        },
+        "contentType": {
+          "label": "باڈی کی قسم"
+        },
+        "body": {
+          "label": "باڈی",
+          "help": "اس میں {item.name}، {item.uuid}، {trigger} اور {time} استعمال ہو سکتے ہیں۔"
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "کوئی نہیں",
+          "application/x-www-form-urlencoded": "فارم",
+          "text/plain": "ٹیکسٹ"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "اس پروجیکٹ میں دوسرے کیوز شروع کریں یا روکیں۔",
+      "actions": {
+        "play-item": "کیو چلائیں",
+        "stop-item": "کیو روکیں",
+        "stop-all": "سب روکیں"
+      },
+      "fields": {
+        "item": {
+          "label": "کیو"
+        }
+      }
+    }
   }
 }

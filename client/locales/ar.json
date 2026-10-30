@@ -169,7 +169,8 @@
     "accentColorHelp": "يُستخدم للتحديد والإشارات قيد التشغيل والإبراز.",
     "accentColorSwatch": "لون التمييز {color}",
     "sectionAbout": "حول",
-    "sectionAboutHelp": "الإصدار والمساهمون والرخصة."
+    "sectionAboutHelp": "الإصدار والمساهمون والرخصة.",
+    "sectionConnections": "الاتصالات"
   },
   "common": {
     "default": "افتراضي",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}: انقر أو اسحب للفتح",
     "emptyTitle": "كل اللوحات مطويّة",
     "emptyHint": "لفتح لوحة، انقر على شريط عند الحافة أو اسحبه، أو استخدم الأزرار في الأعلى."
+  },
+  "missingMedia": {
+    "badge": "ملف الوسائط مفقود. استبدله من الخصائص، أو استخدم «تحديد موقع الوسائط المفقودة».",
+    "banner": "تعذّر العثور على {count} من ملفات الوسائط.",
+    "locate": "تحديد الموقع…",
+    "locateHint": "اختر مجلدًا للبحث فيه عن الملفات المفقودة بالاسم. تُنسخ الملفات الموجودة خارج المشروع إلى مجلد الوسائط الخاص به.",
+    "locateResult": "تمت إعادة ربط {relinked} من العناصر. لا يزال {missing} مفقودًا.",
+    "locateFailed": "تعذّر البحث في هذا المجلد: {error}",
+    "replace": "استبدال ملف الوسائط",
+    "replaceFailed": "تعذّر استبدال ملف الوسائط: {error}",
+    "propertiesHint": "لا يستطيع الخادم العثور على هذا الملف. استخدم زر الاستبدال لاختياره مجددًا."
+  },
+  "events": {
+    "tab": "الأحداث",
+    "addEvent": "إضافة حدث",
+    "addEventHint": "يضيف حدثًا عند المؤشر. انقر على شكل الموجة لوضع المؤشر.",
+    "addTriggerEvent": "إضافة عند…",
+    "cursor": "المؤشر",
+    "cursorHint": "انقر أو اسحب على شكل الموجة لتحريك المؤشر، أو اكتب وقتًا بصيغة m:ss.mmm أو بالثواني.",
+    "manageConnections": "إدارة الاتصالات…",
+    "multiSelect": "حدد عنصرًا واحدًا لتحرير أحداثه.",
+    "noEvents": "لا توجد أحداث بعد. انقر على شكل الموجة لوضع المؤشر، ثم اضغط «إضافة حدث».",
+    "selectEvent": "حدد حدثًا لتحريره.",
+    "unsupported": "هذا الخادم لا يدعم الأحداث. حدّث خادم LivePlay لاستخدامها.",
+    "noPlugins": "لا توجد إضافات أحداث على الخادم.",
+    "loadFailed": "تعذّر تحميل إضافات الأحداث من الخادم.",
+    "loading": "جارٍ تحميل إضافات الأحداث…",
+    "retry": "إعادة المحاولة",
+    "trigger": {
+      "label": "المُحفِّز",
+      "time": "عند وقت محدد",
+      "start": "عند البدء",
+      "end": "عند الانتهاء",
+      "pause": "عند الإيقاف المؤقت",
+      "resume": "عند الاستئناف"
+    },
+    "name": "الاسم",
+    "enabled": "مفعّل",
+    "time": "الوقت",
+    "timeHint": "الموضع في الملف، بصيغة m:ss.mmm أو بالثواني. خارج المنطقة المقصوصة لا يُطلَق الحدث أبدًا.",
+    "useCursor": "النقل إلى المؤشر",
+    "plugin": "الإضافة",
+    "connection": "الاتصال",
+    "noConnection": "بلا اتصال",
+    "connectionMissing": "الاتصال غير موجود",
+    "connectionDisabled": "هذا الاتصال معطّل، لذا لن يُطلَق الحدث.",
+    "noConnectionsForPlugin": "لا توجد اتصالات {plugin} بعد.",
+    "action": "الإجراء",
+    "unknownPlugin": "يستخدم هذا الحدث الإضافة «{plugin}» غير الموجودة على هذا الخادم. لن يُطلَق.",
+    "outsideTrim": "خارج المنطقة المقصوصة: لن يُطلَق هذا الحدث.",
+    "placeholdersHelp": "يمكن لحقول النص استخدام {item.name} و{item.uuid} و{trigger} و{time}؛ ويملؤها الخادم عند إطلاق الحدث.",
+    "test": "اختبار",
+    "testing": "جارٍ الاختبار…",
+    "testOk": "تم الإرسال.",
+    "testFailed": "فشل: {error}",
+    "duplicate": "إنشاء نسخة",
+    "delete": "حذف",
+    "lastOk": "آخر إطلاق عند {time}: ناجح",
+    "lastError": "آخر إطلاق عند {time}: فشل: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(العنصر غير موجود)",
+      "cartItem": "الخرطوشة {slot} · {name}",
+      "addRow": "إضافة",
+      "removeRow": "إزالة",
+      "moveUp": "نقل لأعلى",
+      "moveDown": "نقل لأسفل"
+    },
+    "connections": {
+      "intro": "وجهات إرسال الأحداث: طاولة إضاءة، أو منفذ MIDI، أو خطاف ويب. يُعَدّ كل اتصال مرة واحدة للعرض، ويمكن أن يستخدمه أي عدد من الأحداث.",
+      "noProject": "افتح مشروعًا لإدارة اتصالاته.",
+      "empty": "لا توجد اتصالات بعد.",
+      "add": "إضافة اتصال",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "اتصال {plugin} جديد",
+      "editTitle": "تحرير «{name}»",
+      "name": "الاسم",
+      "enabled": "مفعّل",
+      "disabled": "معطّل",
+      "edit": "تحرير",
+      "save": "حفظ",
+      "cancel": "إلغاء",
+      "delete": "حذف",
+      "deleteConfirm": "حذف «{name}»؟",
+      "deleteInUse": "يستخدم {count} من الأحداث «{name}». لن تُطلَق حتى يُعيَّن لها اتصال آخر. هل تريد الحذف على أي حال؟",
+      "usage": "الأحداث: {count}",
+      "unused": "غير مستخدم",
+      "unknownPlugin": "نوع غير معروف «{plugin}»",
+      "noFields": "لا يحتاج هذا النوع إلى أي إعداد.",
+      "testWith": "اختبار باستخدام",
+      "saveFailed": "تعذّر حفظ الاتصالات: {error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "Open Sound Control عبر UDP: طاولات الإضاءة وQLab وCompanion وغيرها.",
+      "actions": {
+        "message": "إرسال رسالة"
+      },
+      "connection": {
+        "host": {
+          "label": "المضيف"
+        },
+        "port": {
+          "label": "المنفذ"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "العنوان"
+        },
+        "args": {
+          "label": "المُعامِلات",
+          "help": "يمكن للقيم النصية استخدام {item.name} و{item.uuid} و{trigger} و{time}."
+        },
+        "type": {
+          "label": "النوع"
+        },
+        "value": {
+          "label": "القيمة"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "عدد صحيح",
+          "f": "عدد عشري",
+          "s": "سلسلة نصية",
+          "T": "صواب",
+          "F": "خطأ",
+          "N": "فارغ (Nil)"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "مخرج MIDI من جهاز الخادم: النوتات وCC وتغيير البرنامج وMIDI Show Control وSysEx.",
+      "actions": {
+        "note-on": "تشغيل النوتة",
+        "note-off": "إيقاف النوتة",
+        "control-change": "تغيير التحكم",
+        "program-change": "تغيير البرنامج",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (خام)"
+      },
+      "summaries": {
+        "note-on": "قناة {channel} نوتة {note}",
+        "note-off": "قناة {channel} نوتة {note}",
+        "control-change": "قناة {channel} CC {controller} = {value}",
+        "program-change": "قناة {channel} برنامج {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "منفذ الإخراج",
+          "help": "منافذ الجهاز الذي يعمل عليه خادم LivePlay، مطابَقة بالاسم."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "القناة"
+        },
+        "note": {
+          "label": "النوتة"
+        },
+        "velocity": {
+          "label": "السرعة"
+        },
+        "controller": {
+          "label": "وحدة التحكم"
+        },
+        "value": {
+          "label": "القيمة"
+        },
+        "program": {
+          "label": "البرنامج"
+        },
+        "deviceId": {
+          "label": "معرّف الجهاز",
+          "help": "القيمة 127 تخاطب جميع الأجهزة."
+        },
+        "commandFormat": {
+          "label": "تنسيق الأمر"
+        },
+        "command": {
+          "label": "الأمر"
+        },
+        "cue": {
+          "label": "الإشارة"
+        },
+        "list": {
+          "label": "قائمة الإشارات"
+        },
+        "path": {
+          "label": "مسار الإشارة"
+        },
+        "data": {
+          "label": "البايتات (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "إضاءة (عام)",
+          "moving-lights": "أضواء متحركة",
+          "sound": "صوت (عام)",
+          "video": "فيديو (عام)",
+          "all": "كل الأنواع"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "طلبات HTTP إلى أي شيء يملك واجهة API للويب: Companion وخوادم الوسائط والأتمتة المنزلية.",
+      "actions": {
+        "request": "طلب"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "URL الأساسي",
+          "help": "http:// فقط؛ HTTPS غير مدعوم بعد."
+        },
+        "headers": {
+          "label": "الترويسات",
+          "help": "«الاسم: القيمة» واحد في كل سطر، يُرسَل مع كل طلب."
+        },
+        "timeoutMs": {
+          "label": "المهلة (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "الطريقة"
+        },
+        "path": {
+          "label": "المسار"
+        },
+        "headers": {
+          "label": "الترويسات",
+          "help": "«الاسم: القيمة» واحد في كل سطر."
+        },
+        "contentType": {
+          "label": "نوع المحتوى"
+        },
+        "body": {
+          "label": "المحتوى",
+          "help": "يمكن استخدام {item.name} و{item.uuid} و{trigger} و{time}."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "بلا",
+          "application/x-www-form-urlencoded": "نموذج",
+          "text/plain": "نص"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "تشغيل إشارات أخرى في هذا المشروع أو إيقافها.",
+      "actions": {
+        "play-item": "تشغيل إشارة",
+        "stop-item": "إيقاف إشارة",
+        "stop-all": "إيقاف الكل"
+      },
+      "fields": {
+        "item": {
+          "label": "الإشارة"
+        }
+      }
+    }
   }
 }

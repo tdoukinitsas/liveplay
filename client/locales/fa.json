@@ -169,7 +169,8 @@
     "accentColorHelp": "برای انتخاب‌ها، کیوهای در حال پخش و برجسته‌سازی‌ها به کار می‌رود.",
     "accentColorSwatch": "رنگ تأکید {color}",
     "sectionAbout": "درباره",
-    "sectionAboutHelp": "نسخه، سازندگان و مجوز."
+    "sectionAboutHelp": "نسخه، سازندگان و مجوز.",
+    "sectionConnections": "اتصال‌ها"
   },
   "common": {
     "default": "پیش‌فرض",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}: برای باز کردن کلیک کنید یا بکشید",
     "emptyTitle": "همه پنل‌ها جمع شده‌اند",
     "emptyHint": "برای باز کردن یک پنل، روی نوار کنار صفحه کلیک کنید یا آن را بکشید، یا از دکمه‌های بالا استفاده کنید."
+  },
+  "missingMedia": {
+    "badge": "فایل رسانه موجود نیست. آن را در ویژگی‌ها جایگزین کنید یا از «یافتن رسانه‌های مفقود» استفاده کنید.",
+    "banner": "{count} فایل رسانه پیدا نمی‌شود.",
+    "locate": "یافتن…",
+    "locateHint": "پوشه‌ای را انتخاب کنید تا فایل‌های مفقود بر اساس نام در آن جستجو شوند. فایل‌های بیرون از پروژه در پوشه رسانه آن کپی می‌شوند.",
+    "locateResult": "{relinked} مورد دوباره پیوند داده شد. {missing} مورد همچنان مفقود است.",
+    "locateFailed": "جستجو در این پوشه ممکن نشد: {error}",
+    "replace": "جایگزینی فایل رسانه",
+    "replaceFailed": "جایگزینی فایل رسانه ممکن نشد: {error}",
+    "propertiesHint": "سرور این فایل را پیدا نمی‌کند. با دکمه جایگزینی، دوباره آن را انتخاب کنید."
+  },
+  "events": {
+    "tab": "رویدادها",
+    "addEvent": "افزودن رویداد",
+    "addEventHint": "یک رویداد در محل مکان‌نما اضافه می‌کند. برای قرار دادن مکان‌نما روی شکل موج کلیک کنید.",
+    "addTriggerEvent": "افزودن هنگام…",
+    "cursor": "مکان‌نما",
+    "cursorHint": "برای جابه‌جایی مکان‌نما روی شکل موج کلیک کنید یا بکشید، یا زمان را به‌صورت m:ss.mmm یا به ثانیه وارد کنید.",
+    "manageConnections": "مدیریت اتصال‌ها…",
+    "multiSelect": "برای ویرایش رویدادها، فقط یک مورد را انتخاب کنید.",
+    "noEvents": "هنوز رویدادی نیست. روی شکل موج کلیک کنید تا مکان‌نما قرار گیرد، سپس «افزودن رویداد» را بزنید.",
+    "selectEvent": "برای ویرایش، یک رویداد را انتخاب کنید.",
+    "unsupported": "این سرور از رویدادها پشتیبانی نمی‌کند. برای استفاده از آن‌ها، سرور LivePlay را به‌روز کنید.",
+    "noPlugins": "سرور هیچ پلاگین رویدادی ندارد.",
+    "loadFailed": "بارگذاری پلاگین‌های رویداد از سرور ممکن نشد.",
+    "loading": "در حال بارگذاری پلاگین‌های رویداد…",
+    "retry": "تلاش دوباره",
+    "trigger": {
+      "label": "محرک",
+      "time": "در زمان مشخص",
+      "start": "هنگام شروع",
+      "end": "هنگام پایان",
+      "pause": "هنگام مکث",
+      "resume": "هنگام ادامه"
+    },
+    "name": "نام",
+    "enabled": "فعال",
+    "time": "زمان",
+    "timeHint": "موقعیت در فایل، به‌صورت m:ss.mmm یا به ثانیه. بیرون از محدوده برش‌خورده، رویداد هرگز اجرا نمی‌شود.",
+    "useCursor": "انتقال به مکان‌نما",
+    "plugin": "پلاگین",
+    "connection": "اتصال",
+    "noConnection": "بدون اتصال",
+    "connectionMissing": "اتصال پیدا نشد",
+    "connectionDisabled": "این اتصال غیرفعال است، پس رویداد اجرا نمی‌شود.",
+    "noConnectionsForPlugin": "هنوز هیچ اتصال {plugin} وجود ندارد.",
+    "action": "عمل",
+    "unknownPlugin": "این رویداد از پلاگین «{plugin}» استفاده می‌کند که این سرور آن را ندارد. اجرا نمی‌شود.",
+    "outsideTrim": "بیرون از محدوده برش‌خورده: این رویداد اجرا نمی‌شود.",
+    "placeholdersHelp": "فیلدهای متنی می‌توانند از {item.name}، {item.uuid}، {trigger} و {time} استفاده کنند؛ سرور هنگام اجرای رویداد آن‌ها را پر می‌کند.",
+    "test": "آزمایش",
+    "testing": "در حال آزمایش…",
+    "testOk": "ارسال شد.",
+    "testFailed": "ناموفق: {error}",
+    "duplicate": "تکثیر",
+    "delete": "حذف",
+    "lastOk": "آخرین اجرا در {time}: موفق",
+    "lastError": "آخرین اجرا در {time}: ناموفق: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(مورد پیدا نشد)",
+      "cartItem": "کارتریج {slot} · {name}",
+      "addRow": "افزودن",
+      "removeRow": "حذف",
+      "moveUp": "انتقال به بالا",
+      "moveDown": "انتقال به پایین"
+    },
+    "connections": {
+      "intro": "مقصد ارسال رویدادها: میز نور، پورت MIDI، وب‌هوک. هر اتصال یک بار برای نمایش تنظیم می‌شود و هر تعداد رویداد می‌تواند از آن استفاده کند.",
+      "noProject": "برای مدیریت اتصال‌ها، یک پروژه باز کنید.",
+      "empty": "هنوز اتصالی وجود ندارد.",
+      "add": "افزودن اتصال",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "اتصال {plugin} جدید",
+      "editTitle": "ویرایش «{name}»",
+      "name": "نام",
+      "enabled": "فعال",
+      "disabled": "غیرفعال",
+      "edit": "ویرایش",
+      "save": "ذخیره",
+      "cancel": "لغو",
+      "delete": "حذف",
+      "deleteConfirm": "«{name}» حذف شود؟",
+      "deleteInUse": "{count} رویداد از «{name}» استفاده می‌کنند. تا اتصال دیگری به آن‌ها داده نشود، اجرا نمی‌شوند. در هر حال حذف شود؟",
+      "usage": "{count} رویداد",
+      "unused": "استفاده‌نشده",
+      "unknownPlugin": "نوع ناشناخته «{plugin}»",
+      "noFields": "این نوع چیزی برای تنظیم ندارد.",
+      "testWith": "آزمایش با",
+      "saveFailed": "ذخیره اتصال‌ها ممکن نشد: {error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "Open Sound Control روی UDP: میزهای نور، QLab، Companion و غیره.",
+      "actions": {
+        "message": "ارسال پیام"
+      },
+      "connection": {
+        "host": {
+          "label": "میزبان"
+        },
+        "port": {
+          "label": "پورت"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "آدرس"
+        },
+        "args": {
+          "label": "آرگومان‌ها",
+          "help": "مقادیر رشته‌ای می‌توانند از {item.name}، {item.uuid}، {trigger} و {time} استفاده کنند."
+        },
+        "type": {
+          "label": "نوع"
+        },
+        "value": {
+          "label": "مقدار"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "عدد صحیح",
+          "f": "اعشاری",
+          "s": "رشته",
+          "T": "درست",
+          "F": "نادرست",
+          "N": "تهی (Nil)"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "خروجی MIDI از دستگاه سرور: نت‌ها، CC، تغییر برنامه، MIDI Show Control، SysEx.",
+      "actions": {
+        "note-on": "نت روشن",
+        "note-off": "نت خاموش",
+        "control-change": "تغییر کنترل",
+        "program-change": "تغییر برنامه",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (خام)"
+      },
+      "summaries": {
+        "note-on": "کانال {channel} نت {note}",
+        "note-off": "کانال {channel} نت {note}",
+        "control-change": "کانال {channel} CC {controller} = {value}",
+        "program-change": "کانال {channel} برنامه {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "پورت خروجی",
+          "help": "پورت‌های دستگاهی که سرور LivePlay روی آن اجرا می‌شود، بر اساس نام تطبیق داده می‌شوند."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "کانال"
+        },
+        "note": {
+          "label": "نت"
+        },
+        "velocity": {
+          "label": "ولاسیتی"
+        },
+        "controller": {
+          "label": "کنترلر"
+        },
+        "value": {
+          "label": "مقدار"
+        },
+        "program": {
+          "label": "برنامه"
+        },
+        "deviceId": {
+          "label": "شناسه دستگاه",
+          "help": "مقدار 127 همه دستگاه‌ها را هدف می‌گیرد."
+        },
+        "commandFormat": {
+          "label": "قالب فرمان"
+        },
+        "command": {
+          "label": "فرمان"
+        },
+        "cue": {
+          "label": "کیو"
+        },
+        "list": {
+          "label": "لیست کیو"
+        },
+        "path": {
+          "label": "مسیر کیو"
+        },
+        "data": {
+          "label": "بایت‌ها (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "نور (عمومی)",
+          "moving-lights": "نورهای متحرک",
+          "sound": "صدا (عمومی)",
+          "video": "ویدیو (عمومی)",
+          "all": "همه انواع"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "درخواست‌های HTTP به هر چیزی که API وب دارد: Companion، سرورهای رسانه، خانه هوشمند.",
+      "actions": {
+        "request": "درخواست"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "URL پایه",
+          "help": "فقط http://؛ HTTPS هنوز پشتیبانی نمی‌شود."
+        },
+        "headers": {
+          "label": "هدرها",
+          "help": "در هر خط یک «نام: مقدار»؛ همراه هر درخواست ارسال می‌شود."
+        },
+        "timeoutMs": {
+          "label": "مهلت (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "متد"
+        },
+        "path": {
+          "label": "مسیر"
+        },
+        "headers": {
+          "label": "هدرها",
+          "help": "در هر خط یک «نام: مقدار»."
+        },
+        "contentType": {
+          "label": "نوع بدنه"
+        },
+        "body": {
+          "label": "بدنه",
+          "help": "می‌تواند از {item.name}، {item.uuid}، {trigger} و {time} استفاده کند."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "هیچ",
+          "application/x-www-form-urlencoded": "فرم",
+          "text/plain": "متن"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "شروع یا توقف کیوهای دیگر در این پروژه.",
+      "actions": {
+        "play-item": "پخش کیو",
+        "stop-item": "توقف کیو",
+        "stop-all": "توقف همه"
+      },
+      "fields": {
+        "item": {
+          "label": "کیو"
+        }
+      }
+    }
   }
 }

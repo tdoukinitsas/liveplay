@@ -169,7 +169,8 @@
     "accentColorHelp": "用于选中项、正在播放的 Cue 和高亮显示。",
     "accentColorSwatch": "强调色 {color}",
     "sectionAbout": "关于",
-    "sectionAboutHelp": "版本、致谢和许可证。"
+    "sectionAboutHelp": "版本、致谢和许可证。",
+    "sectionConnections": "连接"
   },
   "common": {
     "default": "默认",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}：点击或拖动以打开",
     "emptyTitle": "所有面板都已折叠",
     "emptyHint": "点击或拖动边缘的面板条，或使用顶部的按钮来打开面板。"
+  },
+  "missingMedia": {
+    "badge": "媒体文件缺失。请在“属性”中替换，或使用“查找缺失媒体”。",
+    "banner": "找不到 {count} 个媒体文件。",
+    "locate": "查找…",
+    "locateHint": "选择一个文件夹，按文件名搜索缺失的文件。项目之外的文件会复制到项目的媒体文件夹中。",
+    "locateResult": "已重新链接 {relinked} 个条目。仍有 {missing} 个缺失。",
+    "locateFailed": "无法搜索该文件夹：{error}",
+    "replace": "替换媒体文件",
+    "replaceFailed": "无法替换媒体文件：{error}",
+    "propertiesHint": "服务器找不到此文件。请使用替换按钮重新选择。"
+  },
+  "events": {
+    "tab": "事件",
+    "addEvent": "添加事件",
+    "addEventHint": "在光标处添加事件。点击波形以放置光标。",
+    "addTriggerEvent": "按触发方式添加…",
+    "cursor": "光标",
+    "cursorHint": "在波形上点击或拖动以移动光标，或以 m:ss.mmm 格式或秒数输入时间。",
+    "manageConnections": "管理连接…",
+    "multiSelect": "请只选择一个条目以编辑其事件。",
+    "noEvents": "还没有事件。点击波形放置光标，然后按“添加事件”。",
+    "selectEvent": "选择一个事件以进行编辑。",
+    "unsupported": "此服务器不支持事件。请更新 LivePlay 服务器以使用此功能。",
+    "noPlugins": "服务器上没有事件插件。",
+    "loadFailed": "无法从服务器加载事件插件。",
+    "loading": "正在加载事件插件…",
+    "retry": "重试",
+    "trigger": {
+      "label": "触发方式",
+      "time": "在指定时间",
+      "start": "开始时",
+      "end": "结束时",
+      "pause": "暂停时",
+      "resume": "继续时"
+    },
+    "name": "名称",
+    "enabled": "启用",
+    "time": "时间",
+    "timeHint": "文件中的位置，格式为 m:ss.mmm 或秒数。位于播放区段之外的事件永远不会触发。",
+    "useCursor": "移到光标处",
+    "plugin": "插件",
+    "connection": "连接",
+    "noConnection": "无连接",
+    "connectionMissing": "未找到连接",
+    "connectionDisabled": "此连接已禁用，因此该事件不会触发。",
+    "noConnectionsForPlugin": "还没有 {plugin} 连接。",
+    "action": "操作",
+    "unknownPlugin": "此事件使用插件“{plugin}”，但此服务器上没有该插件。它不会触发。",
+    "outsideTrim": "位于播放区段之外：此事件不会触发。",
+    "placeholdersHelp": "文本字段可使用 {item.name}、{item.uuid}、{trigger} 和 {time}；事件触发时由服务器填入实际值。",
+    "test": "测试",
+    "testing": "正在测试…",
+    "testOk": "已发送。",
+    "testFailed": "失败：{error}",
+    "duplicate": "复制",
+    "delete": "删除",
+    "lastOk": "上次触发于 {time}：成功",
+    "lastError": "上次触发于 {time}：失败：{error}",
+    "form": {
+      "none": "—",
+      "missingItem": "（未找到条目）",
+      "cartItem": "盒式播放器 {slot} · {name}",
+      "addRow": "添加",
+      "removeRow": "移除",
+      "moveUp": "上移",
+      "moveDown": "下移"
+    },
+    "connections": {
+      "intro": "事件的发送目标：灯光台、MIDI 端口、Webhook。每个连接只需为演出设置一次，即可供任意数量的事件使用。",
+      "noProject": "打开一个项目以管理其连接。",
+      "empty": "还没有连接。",
+      "add": "添加连接",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "新建 {plugin} 连接",
+      "editTitle": "编辑“{name}”",
+      "name": "名称",
+      "enabled": "启用",
+      "disabled": "已禁用",
+      "edit": "编辑",
+      "save": "保存",
+      "cancel": "取消",
+      "delete": "删除",
+      "deleteConfirm": "删除“{name}”？",
+      "deleteInUse": "有 {count} 个事件使用“{name}”。在为它们指定其他连接之前，这些事件不会触发。仍要删除吗？",
+      "usage": "{count} 个事件",
+      "unused": "未使用",
+      "unknownPlugin": "未知类型“{plugin}”",
+      "noFields": "此类型无需设置。",
+      "testWith": "用于测试的操作",
+      "saveFailed": "无法保存连接：{error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "基于 UDP 的 Open Sound Control：灯光台、QLab、Companion 等。",
+      "actions": {
+        "message": "发送消息"
+      },
+      "connection": {
+        "host": {
+          "label": "主机"
+        },
+        "port": {
+          "label": "端口"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "地址"
+        },
+        "args": {
+          "label": "参数",
+          "help": "字符串值可使用 {item.name}、{item.uuid}、{trigger} 和 {time}。"
+        },
+        "type": {
+          "label": "类型"
+        },
+        "value": {
+          "label": "值"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "整数",
+          "f": "浮点数",
+          "s": "字符串",
+          "T": "True（真）",
+          "F": "False（假）",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "从服务器所在计算机输出 MIDI：音符、CC、程序变更、MIDI Show Control、SysEx。",
+      "actions": {
+        "note-on": "音符开",
+        "note-off": "音符关",
+        "control-change": "控制变更",
+        "program-change": "程序变更",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx（原始数据）"
+      },
+      "summaries": {
+        "note-on": "通道 {channel} 音符 {note}",
+        "note-off": "通道 {channel} 音符 {note}",
+        "control-change": "通道 {channel} CC {controller} = {value}",
+        "program-change": "通道 {channel} 程序 {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "输出端口",
+          "help": "LivePlay 服务器所在计算机上的端口，按名称匹配。"
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "通道"
+        },
+        "note": {
+          "label": "音符"
+        },
+        "velocity": {
+          "label": "力度"
+        },
+        "controller": {
+          "label": "控制器"
+        },
+        "value": {
+          "label": "值"
+        },
+        "program": {
+          "label": "程序"
+        },
+        "deviceId": {
+          "label": "设备 ID",
+          "help": "127 表示所有设备。"
+        },
+        "commandFormat": {
+          "label": "命令格式"
+        },
+        "command": {
+          "label": "命令"
+        },
+        "cue": {
+          "label": "Cue"
+        },
+        "list": {
+          "label": "Cue 列表"
+        },
+        "path": {
+          "label": "Cue 路径"
+        },
+        "data": {
+          "label": "字节（hex）"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "灯光（通用）",
+          "moving-lights": "电脑灯",
+          "sound": "音响（通用）",
+          "video": "视频（通用）",
+          "all": "所有类型"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "向任何提供 Web API 的设备发送 HTTP 请求：Companion、媒体服务器、家庭自动化等。",
+      "actions": {
+        "request": "请求"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "基础 URL",
+          "help": "仅支持 http://；暂不支持 HTTPS。"
+        },
+        "headers": {
+          "label": "请求头",
+          "help": "每行一个“名称: 值”，随每个请求发送。"
+        },
+        "timeoutMs": {
+          "label": "超时（ms）"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "方法"
+        },
+        "path": {
+          "label": "路径"
+        },
+        "headers": {
+          "label": "请求头",
+          "help": "每行一个“名称: 值”。"
+        },
+        "contentType": {
+          "label": "正文类型"
+        },
+        "body": {
+          "label": "正文",
+          "help": "可使用 {item.name}、{item.uuid}、{trigger} 和 {time}。"
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "无",
+          "application/x-www-form-urlencoded": "表单",
+          "text/plain": "文本"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "启动或停止此项目中的其他 Cue。",
+      "actions": {
+        "play-item": "播放 Cue",
+        "stop-item": "停止 Cue",
+        "stop-all": "全部停止"
+      },
+      "fields": {
+        "item": {
+          "label": "Cue"
+        }
+      }
+    }
   }
 }

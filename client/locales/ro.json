@@ -169,7 +169,8 @@
     "accentColorHelp": "Folosită pentru selecții, cue-urile în redare și evidențieri.",
     "accentColorSwatch": "Culoare de accent {color}",
     "sectionAbout": "Despre",
-    "sectionAboutHelp": "Versiune, contribuitori și licență."
+    "sectionAboutHelp": "Versiune, contribuitori și licență.",
+    "sectionConnections": "Conexiuni"
   },
   "common": {
     "default": "implicit",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}: faceți clic sau trageți pentru a deschide",
     "emptyTitle": "Toate panourile sunt restrânse",
     "emptyHint": "Faceți clic pe o bară de la margine sau trageți-o, ori folosiți butoanele din partea de sus, pentru a deschide un panou."
+  },
+  "missingMedia": {
+    "badge": "Fișierul media lipsește. Înlocuiți-l în Proprietăți sau folosiți Localizează media lipsă.",
+    "banner": "Fișiere media negăsite: {count}.",
+    "locate": "Localizează…",
+    "locateHint": "Alegeți un folder în care să se caute după nume fișierele lipsă. Fișierele din afara proiectului sunt copiate în folderul media al acestuia.",
+    "locateResult": "Elemente reconectate: {relinked}. Încă lipsesc: {missing}.",
+    "locateFailed": "Nu s-a putut căuta în acel folder: {error}",
+    "replace": "Înlocuiește fișierul media",
+    "replaceFailed": "Fișierul media nu a putut fi înlocuit: {error}",
+    "propertiesHint": "Serverul nu găsește acest fișier. Folosiți butonul de înlocuire pentru a-l alege din nou."
+  },
+  "events": {
+    "tab": "Evenimente",
+    "addEvent": "Adaugă eveniment",
+    "addEventHint": "Adaugă un eveniment la cursor. Faceți clic pe forma de undă pentru a plasa cursorul.",
+    "addTriggerEvent": "Adaugă la…",
+    "cursor": "Cursor",
+    "cursorHint": "Faceți clic sau trageți pe forma de undă pentru a muta cursorul ori introduceți un timp în formatul m:ss.mmm sau în secunde.",
+    "manageConnections": "Gestionează conexiunile…",
+    "multiSelect": "Selectați un singur element pentru a-i edita evenimentele.",
+    "noEvents": "Niciun eveniment deocamdată. Faceți clic pe forma de undă pentru a plasa cursorul, apoi apăsați Adaugă eveniment.",
+    "selectEvent": "Selectați un eveniment pentru a-l edita.",
+    "unsupported": "Acest server nu acceptă evenimente. Actualizați serverul LivePlay pentru a le folosi.",
+    "noPlugins": "Serverul nu are pluginuri de evenimente.",
+    "loadFailed": "Pluginurile de evenimente nu au putut fi încărcate de pe server.",
+    "loading": "Se încarcă pluginurile de evenimente…",
+    "retry": "Reîncearcă",
+    "trigger": {
+      "label": "Declanșator",
+      "time": "La un anumit moment",
+      "start": "La pornire",
+      "end": "La final",
+      "pause": "La pauză",
+      "resume": "La reluare"
+    },
+    "name": "Nume",
+    "enabled": "Activat",
+    "time": "Timp",
+    "timeHint": "Poziția în fișier, în formatul m:ss.mmm sau în secunde. În afara punctelor de intrare și ieșire, evenimentul nu se declanșează niciodată.",
+    "useCursor": "Mută la cursor",
+    "plugin": "Plugin",
+    "connection": "Conexiune",
+    "noConnection": "Nicio conexiune",
+    "connectionMissing": "Conexiunea nu a fost găsită",
+    "connectionDisabled": "Această conexiune este dezactivată, deci evenimentul nu se va declanșa.",
+    "noConnectionsForPlugin": "Nu există încă nicio conexiune {plugin}.",
+    "action": "Acțiune",
+    "unknownPlugin": "Acest eveniment folosește pluginul „{plugin}”, pe care acest server nu îl are. Nu se va declanșa.",
+    "outsideTrim": "În afara punctelor de intrare și ieșire: acest eveniment nu se va declanșa.",
+    "placeholdersHelp": "Câmpurile de text pot folosi {item.name}, {item.uuid}, {trigger} și {time}; serverul le completează când se declanșează evenimentul.",
+    "test": "Testează",
+    "testing": "Se testează…",
+    "testOk": "Trimis.",
+    "testFailed": "Eșuat: {error}",
+    "duplicate": "Duplică",
+    "delete": "Șterge",
+    "lastOk": "Ultima declanșare la {time}: OK",
+    "lastError": "Ultima declanșare la {time}: eșuat: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(elementul nu a fost găsit)",
+      "cartItem": "Cart {slot} · {name}",
+      "addRow": "Adaugă",
+      "removeRow": "Elimină",
+      "moveUp": "Mută în sus",
+      "moveDown": "Mută în jos"
+    },
+    "connections": {
+      "intro": "Unde sunt trimise evenimentele: o consolă de lumini, un port MIDI, un web hook. Fiecare conexiune se configurează o singură dată pentru spectacol și poate fi folosită de oricâte evenimente.",
+      "noProject": "Deschideți un proiect pentru a-i gestiona conexiunile.",
+      "empty": "Nicio conexiune deocamdată.",
+      "add": "Adaugă conexiune",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "Conexiune {plugin} nouă",
+      "editTitle": "Editează „{name}”",
+      "name": "Nume",
+      "enabled": "Activată",
+      "disabled": "dezactivată",
+      "edit": "Editează",
+      "save": "Salvează",
+      "cancel": "Anulează",
+      "delete": "Șterge",
+      "deleteConfirm": "Ștergeți „{name}”?",
+      "deleteInUse": "Evenimente care folosesc „{name}”: {count}. Nu se vor declanșa până nu primesc o altă conexiune. O ștergeți oricum?",
+      "usage": "{count} eveniment(e)",
+      "unused": "Nefolosită",
+      "unknownPlugin": "Tip necunoscut „{plugin}”",
+      "noFields": "Acest tip nu are nimic de configurat.",
+      "testWith": "Testează cu",
+      "saveFailed": "Conexiunile nu au putut fi salvate: {error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "Open Sound Control prin UDP: console de lumini, QLab, Companion și altele.",
+      "actions": {
+        "message": "Trimite mesaj"
+      },
+      "connection": {
+        "host": {
+          "label": "Gazdă"
+        },
+        "port": {
+          "label": "Port"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "Adresă"
+        },
+        "args": {
+          "label": "Argumente",
+          "help": "Valorile de tip șir pot folosi {item.name}, {item.uuid}, {trigger} și {time}."
+        },
+        "type": {
+          "label": "Tip"
+        },
+        "value": {
+          "label": "Valoare"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "Întreg",
+          "f": "Zecimal",
+          "s": "Șir",
+          "T": "Adevărat",
+          "F": "Fals",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "Ieșire MIDI de pe calculatorul serverului: note, CC, program change, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "Note on",
+        "note-off": "Note off",
+        "control-change": "Control change",
+        "program-change": "Program change",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (brut)"
+      },
+      "summaries": {
+        "note-on": "can. {channel} notă {note}",
+        "note-off": "can. {channel} notă {note}",
+        "control-change": "can. {channel} CC {controller} = {value}",
+        "program-change": "can. {channel} program {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "Port de ieșire",
+          "help": "Porturile calculatorului pe care rulează serverul LivePlay, potrivite după nume."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "Canal"
+        },
+        "note": {
+          "label": "Notă"
+        },
+        "velocity": {
+          "label": "Velocity"
+        },
+        "controller": {
+          "label": "Controler"
+        },
+        "value": {
+          "label": "Valoare"
+        },
+        "program": {
+          "label": "Program"
+        },
+        "deviceId": {
+          "label": "ID dispozitiv",
+          "help": "127 se adresează tuturor dispozitivelor."
+        },
+        "commandFormat": {
+          "label": "Format comandă"
+        },
+        "command": {
+          "label": "Comandă"
+        },
+        "cue": {
+          "label": "Cue"
+        },
+        "list": {
+          "label": "Listă de cue-uri"
+        },
+        "path": {
+          "label": "Cale cue"
+        },
+        "data": {
+          "label": "Octeți (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "Lumini (general)",
+          "moving-lights": "Lumini mobile",
+          "sound": "Sunet (general)",
+          "video": "Video (general)",
+          "all": "Toate tipurile"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "Cereri HTTP către orice are un API web: Companion, servere media, automatizare pentru casă.",
+      "actions": {
+        "request": "Cerere"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "URL de bază",
+          "help": "Doar http://; HTTPS nu este încă acceptat."
+        },
+        "headers": {
+          "label": "Antete",
+          "help": "Câte un „Nume: valoare” pe linie, trimis cu fiecare cerere."
+        },
+        "timeoutMs": {
+          "label": "Timeout (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "Metodă"
+        },
+        "path": {
+          "label": "Cale"
+        },
+        "headers": {
+          "label": "Antete",
+          "help": "Câte un „Nume: valoare” pe linie."
+        },
+        "contentType": {
+          "label": "Tip corp"
+        },
+        "body": {
+          "label": "Corp",
+          "help": "Poate folosi {item.name}, {item.uuid}, {trigger} și {time}."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "Niciunul",
+          "application/x-www-form-urlencoded": "Formular",
+          "text/plain": "Text"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "Pornește sau oprește alte cue-uri din acest proiect.",
+      "actions": {
+        "play-item": "Redă cue",
+        "stop-item": "Oprește cue",
+        "stop-all": "Oprește tot"
+      },
+      "fields": {
+        "item": {
+          "label": "Cue"
+        }
+      }
+    }
   }
 }

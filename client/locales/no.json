@@ -169,7 +169,8 @@
     "accentColorHelp": "Brukes til markeringer, cuer som spilles, og uthevinger.",
     "accentColorSwatch": "Aksentfarge {color}",
     "sectionAbout": "Om",
-    "sectionAboutHelp": "Versjon, bidragsytere og lisens."
+    "sectionAboutHelp": "Versjon, bidragsytere og lisens.",
+    "sectionConnections": "Tilkoblinger"
   },
   "common": {
     "default": "standard",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}: klikk eller dra for å åpne",
     "emptyTitle": "Alle panelene er skjult",
     "emptyHint": "Klikk eller dra en list ved kanten, eller bruk knappene øverst, for å åpne et panel."
+  },
+  "missingMedia": {
+    "badge": "Mediefilen mangler. Erstatt den under Egenskaper, eller bruk Finn manglende medier.",
+    "banner": "Fant ikke {count} mediefil(er).",
+    "locate": "Finn…",
+    "locateHint": "Velg en mappe å søke i etter de manglende filene, basert på filnavn. Filer utenfor prosjektet kopieres til mediemappen i prosjektet.",
+    "locateResult": "Koblet {relinked} element(er) på nytt. {missing} mangler fortsatt.",
+    "locateFailed": "Kunne ikke søke i den mappen: {error}",
+    "replace": "Erstatt mediefil",
+    "replaceFailed": "Kunne ikke erstatte mediefilen: {error}",
+    "propertiesHint": "Serveren finner ikke denne filen. Bruk erstatt-knappen for å velge den på nytt."
+  },
+  "events": {
+    "tab": "Hendelser",
+    "addEvent": "Legg til hendelse",
+    "addEventHint": "Legger til en hendelse ved markøren. Klikk i bølgeformen for å plassere markøren.",
+    "addTriggerEvent": "Legg til ved…",
+    "cursor": "Markør",
+    "cursorHint": "Klikk eller dra i bølgeformen for å flytte markøren, eller skriv inn en tid som m:ss.mmm eller i sekunder.",
+    "manageConnections": "Administrer tilkoblinger…",
+    "multiSelect": "Velg ett enkelt element for å redigere hendelsene.",
+    "noEvents": "Ingen hendelser ennå. Klikk i bølgeformen for å plassere markøren, og trykk deretter Legg til hendelse.",
+    "selectEvent": "Velg en hendelse for å redigere den.",
+    "unsupported": "Denne serveren støtter ikke hendelser. Oppdater LivePlay-serveren for å bruke dem.",
+    "noPlugins": "Serveren har ingen hendelsesplugins.",
+    "loadFailed": "Kunne ikke laste inn hendelsesplugins fra serveren.",
+    "loading": "Laster inn hendelsesplugins…",
+    "retry": "Prøv igjen",
+    "trigger": {
+      "label": "Utløser",
+      "time": "På et tidspunkt",
+      "start": "Ved start",
+      "end": "Ved slutt",
+      "pause": "Ved pause",
+      "resume": "Ved fortsettelse"
+    },
+    "name": "Navn",
+    "enabled": "Aktivert",
+    "time": "Tid",
+    "timeHint": "Posisjon i filen, som m:ss.mmm eller i sekunder. Utenfor inn- og ut-punktet utløses hendelsen aldri.",
+    "useCursor": "Flytt til markøren",
+    "plugin": "Plugin",
+    "connection": "Tilkobling",
+    "noConnection": "Ingen tilkobling",
+    "connectionMissing": "Fant ikke tilkoblingen",
+    "connectionDisabled": "Denne tilkoblingen er deaktivert, så hendelsen utløses ikke.",
+    "noConnectionsForPlugin": "Det finnes ingen {plugin}-tilkoblinger ennå.",
+    "action": "Handling",
+    "unknownPlugin": "Denne hendelsen bruker pluginen «{plugin}», som denne serveren ikke har. Den utløses ikke.",
+    "outsideTrim": "Utenfor inn- og ut-punktet: denne hendelsen utløses ikke.",
+    "placeholdersHelp": "Tekstfelt kan bruke {item.name}, {item.uuid}, {trigger} og {time}; serveren fyller dem inn når hendelsen utløses.",
+    "test": "Test",
+    "testing": "Tester…",
+    "testOk": "Sendt.",
+    "testFailed": "Mislyktes: {error}",
+    "duplicate": "Dupliser",
+    "delete": "Slett",
+    "lastOk": "Sist utløst kl. {time}: OK",
+    "lastError": "Sist utløst kl. {time}: mislyktes: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(fant ikke elementet)",
+      "cartItem": "Cart {slot} · {name}",
+      "addRow": "Legg til",
+      "removeRow": "Fjern",
+      "moveUp": "Flytt opp",
+      "moveDown": "Flytt ned"
+    },
+    "connections": {
+      "intro": "Hvor hendelser sendes: et lysbord, en MIDI-port, en webhook. Hver tilkobling settes opp én gang for showet og kan brukes av så mange hendelser du vil.",
+      "noProject": "Åpne et prosjekt for å administrere tilkoblingene.",
+      "empty": "Ingen tilkoblinger ennå.",
+      "add": "Legg til tilkobling",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "Ny {plugin}-tilkobling",
+      "editTitle": "Rediger «{name}»",
+      "name": "Navn",
+      "enabled": "Aktivert",
+      "disabled": "deaktivert",
+      "edit": "Rediger",
+      "save": "Lagre",
+      "cancel": "Avbryt",
+      "delete": "Slett",
+      "deleteConfirm": "Slette «{name}»?",
+      "deleteInUse": "{count} hendelse(r) bruker «{name}». De utløses ikke før de får en annen tilkobling. Vil du slette den likevel?",
+      "usage": "{count} hendelse(r)",
+      "unused": "Ikke i bruk",
+      "unknownPlugin": "Ukjent type «{plugin}»",
+      "noFields": "Denne typen har ingenting å sette opp.",
+      "testWith": "Test med",
+      "saveFailed": "Kunne ikke lagre tilkoblingene: {error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "Open Sound Control over UDP: lysbord, QLab, Companion og mer.",
+      "actions": {
+        "message": "Send melding"
+      },
+      "connection": {
+        "host": {
+          "label": "Vert"
+        },
+        "port": {
+          "label": "Port"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "Adresse"
+        },
+        "args": {
+          "label": "Argumenter",
+          "help": "Strengverdier kan bruke {item.name}, {item.uuid}, {trigger} og {time}."
+        },
+        "type": {
+          "label": "Type"
+        },
+        "value": {
+          "label": "Verdi"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "Heltall",
+          "f": "Flyttall",
+          "s": "Streng",
+          "T": "Sann",
+          "F": "Usann",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "MIDI ut fra serverdatamaskinen: toner, CC, program change, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "Note on",
+        "note-off": "Note off",
+        "control-change": "Control change",
+        "program-change": "Program change",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (rå)"
+      },
+      "summaries": {
+        "note-on": "kan {channel} tone {note}",
+        "note-off": "kan {channel} tone {note}",
+        "control-change": "kan {channel} CC {controller} = {value}",
+        "program-change": "kan {channel} program {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "Utgangsport",
+          "help": "Porter på datamaskinen LivePlay-serveren kjører på, matchet etter navn."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "Kanal"
+        },
+        "note": {
+          "label": "Tone"
+        },
+        "velocity": {
+          "label": "Anslagsstyrke"
+        },
+        "controller": {
+          "label": "Kontroller"
+        },
+        "value": {
+          "label": "Verdi"
+        },
+        "program": {
+          "label": "Program"
+        },
+        "deviceId": {
+          "label": "Enhets-ID",
+          "help": "127 adresserer alle enheter."
+        },
+        "commandFormat": {
+          "label": "Kommandoformat"
+        },
+        "command": {
+          "label": "Kommando"
+        },
+        "cue": {
+          "label": "Cue"
+        },
+        "list": {
+          "label": "Cueliste"
+        },
+        "path": {
+          "label": "Cuesti"
+        },
+        "data": {
+          "label": "Byte (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "Lys (generelt)",
+          "moving-lights": "Bevegelige lys",
+          "sound": "Lyd (generelt)",
+          "video": "Video (generelt)",
+          "all": "Alle typer"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "HTTP-forespørsler til alt med et web-API: Companion, medieservere, hjemmeautomasjon.",
+      "actions": {
+        "request": "Forespørsel"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "Basis-URL",
+          "help": "Bare http://; HTTPS støttes ikke ennå."
+        },
+        "headers": {
+          "label": "Hoder",
+          "help": "Én «Navn: verdi» per linje, sendes med hver forespørsel."
+        },
+        "timeoutMs": {
+          "label": "Tidsavbrudd (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "Metode"
+        },
+        "path": {
+          "label": "Sti"
+        },
+        "headers": {
+          "label": "Hoder",
+          "help": "Én «Navn: verdi» per linje."
+        },
+        "contentType": {
+          "label": "Innholdstype"
+        },
+        "body": {
+          "label": "Innhold",
+          "help": "Kan bruke {item.name}, {item.uuid}, {trigger} og {time}."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "Ingen",
+          "application/x-www-form-urlencoded": "Skjema",
+          "text/plain": "Tekst"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "Start eller stopp andre cuer i dette prosjektet.",
+      "actions": {
+        "play-item": "Spill cue",
+        "stop-item": "Stopp cue",
+        "stop-all": "Stopp alt"
+      },
+      "fields": {
+        "item": {
+          "label": "Cue"
+        }
+      }
+    }
   }
 }

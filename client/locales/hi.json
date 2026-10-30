@@ -169,7 +169,8 @@
     "accentColorHelp": "चयन, चल रहे क्यू और हाइलाइट के लिए इस्तेमाल होता है।",
     "accentColorSwatch": "एक्सेंट रंग {color}",
     "sectionAbout": "परिचय",
-    "sectionAboutHelp": "संस्करण, श्रेय और लाइसेंस।"
+    "sectionAboutHelp": "संस्करण, श्रेय और लाइसेंस।",
+    "sectionConnections": "कनेक्शन"
   },
   "common": {
     "default": "डिफ़ॉल्ट",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}: खोलने के लिए क्लिक करें या खींचें",
     "emptyTitle": "सभी पैन समेटे हुए हैं",
     "emptyHint": "कोई पैन खोलने के लिए किनारे की पट्टी पर क्लिक करें या उसे खींचें, या ऊपर के बटनों का उपयोग करें।"
+  },
+  "missingMedia": {
+    "badge": "मीडिया फ़ाइल गायब है। इसे गुण में बदलें, या “गायब मीडिया ढूँढें” का उपयोग करें।",
+    "banner": "{count} मीडिया फ़ाइलें नहीं मिल रहीं।",
+    "locate": "ढूँढें…",
+    "locateHint": "गायब फ़ाइलों को नाम से खोजने के लिए एक फ़ोल्डर चुनें। प्रोजेक्ट के बाहर की फ़ाइलें उसके मीडिया फ़ोल्डर में कॉपी की जाती हैं।",
+    "locateResult": "{relinked} आइटम फिर से लिंक किए गए। {missing} अभी भी गायब हैं।",
+    "locateFailed": "उस फ़ोल्डर में खोज नहीं हो सकी: {error}",
+    "replace": "मीडिया फ़ाइल बदलें",
+    "replaceFailed": "मीडिया फ़ाइल बदली नहीं जा सकी: {error}",
+    "propertiesHint": "सर्वर को यह फ़ाइल नहीं मिल रही। इसे फिर से चुनने के लिए बदलें बटन का उपयोग करें।"
+  },
+  "events": {
+    "tab": "इवेंट्स",
+    "addEvent": "इवेंट जोड़ें",
+    "addEventHint": "कर्सर पर एक इवेंट जोड़ता है। कर्सर रखने के लिए वेवफ़ॉर्म पर क्लिक करें।",
+    "addTriggerEvent": "ट्रिगर पर जोड़ें…",
+    "cursor": "कर्सर",
+    "cursorHint": "कर्सर खिसकाने के लिए वेवफ़ॉर्म पर क्लिक करें या खींचें, या समय m:ss.mmm के रूप में या सेकंड में लिखें।",
+    "manageConnections": "कनेक्शन प्रबंधित करें…",
+    "multiSelect": "इवेंट्स संपादित करने के लिए केवल एक आइटम चुनें।",
+    "noEvents": "अभी कोई इवेंट नहीं। कर्सर रखने के लिए वेवफ़ॉर्म पर क्लिक करें, फिर “इवेंट जोड़ें” दबाएँ।",
+    "selectEvent": "संपादित करने के लिए कोई इवेंट चुनें।",
+    "unsupported": "यह सर्वर इवेंट्स का समर्थन नहीं करता। इनका उपयोग करने के लिए LivePlay सर्वर अपडेट करें।",
+    "noPlugins": "सर्वर पर कोई इवेंट प्लगइन नहीं है।",
+    "loadFailed": "सर्वर से इवेंट प्लगइन लोड नहीं हो सके।",
+    "loading": "इवेंट प्लगइन लोड हो रहे हैं…",
+    "retry": "फिर कोशिश करें",
+    "trigger": {
+      "label": "ट्रिगर",
+      "time": "किसी समय पर",
+      "start": "शुरू होने पर",
+      "end": "समाप्त होने पर",
+      "pause": "पॉज़ होने पर",
+      "resume": "फिर चलने पर"
+    },
+    "name": "नाम",
+    "enabled": "सक्षम",
+    "time": "समय",
+    "timeHint": "फ़ाइल में स्थिति, m:ss.mmm के रूप में या सेकंड में। ट्रिम किए गए हिस्से के बाहर इवेंट कभी ट्रिगर नहीं होता।",
+    "useCursor": "कर्सर पर ले जाएँ",
+    "plugin": "प्लगइन",
+    "connection": "कनेक्शन",
+    "noConnection": "कोई कनेक्शन नहीं",
+    "connectionMissing": "कनेक्शन नहीं मिला",
+    "connectionDisabled": "यह कनेक्शन अक्षम है, इसलिए इवेंट ट्रिगर नहीं होगा।",
+    "noConnectionsForPlugin": "अभी कोई {plugin} कनेक्शन नहीं है।",
+    "action": "कार्रवाई",
+    "unknownPlugin": "यह इवेंट “{plugin}” प्लगइन का उपयोग करता है, जो इस सर्वर पर नहीं है। यह ट्रिगर नहीं होगा।",
+    "outsideTrim": "ट्रिम किए गए हिस्से के बाहर: यह इवेंट ट्रिगर नहीं होगा।",
+    "placeholdersHelp": "टेक्स्ट फ़ील्ड में {item.name}, {item.uuid}, {trigger} और {time} का उपयोग किया जा सकता है; इवेंट ट्रिगर होने पर सर्वर इन्हें भर देता है।",
+    "test": "टेस्ट",
+    "testing": "टेस्ट हो रहा है…",
+    "testOk": "भेजा गया।",
+    "testFailed": "विफल: {error}",
+    "duplicate": "डुप्लिकेट करें",
+    "delete": "हटाएँ",
+    "lastOk": "पिछली बार {time} पर ट्रिगर हुआ: सफल",
+    "lastError": "पिछली बार {time} पर ट्रिगर हुआ: विफल: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(आइटम नहीं मिला)",
+      "cartItem": "कार्ट {slot} · {name}",
+      "addRow": "जोड़ें",
+      "removeRow": "हटाएँ",
+      "moveUp": "ऊपर ले जाएँ",
+      "moveDown": "नीचे ले जाएँ"
+    },
+    "connections": {
+      "intro": "इवेंट्स कहाँ भेजे जाते हैं: लाइटिंग डेस्क, MIDI पोर्ट, वेब हुक। हर कनेक्शन शो के लिए एक बार सेट किया जाता है और कितने भी इवेंट्स इसका उपयोग कर सकते हैं।",
+      "noProject": "कनेक्शन प्रबंधित करने के लिए कोई प्रोजेक्ट खोलें।",
+      "empty": "अभी कोई कनेक्शन नहीं।",
+      "add": "कनेक्शन जोड़ें",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "नया {plugin} कनेक्शन",
+      "editTitle": "“{name}” संपादित करें",
+      "name": "नाम",
+      "enabled": "सक्षम",
+      "disabled": "अक्षम",
+      "edit": "संपादित करें",
+      "save": "सहेजें",
+      "cancel": "रद्द करें",
+      "delete": "हटाएँ",
+      "deleteConfirm": "“{name}” हटाएँ?",
+      "deleteInUse": "{count} इवेंट “{name}” का उपयोग करते हैं। जब तक उन्हें कोई दूसरा कनेक्शन नहीं दिया जाता, वे ट्रिगर नहीं होंगे। फिर भी हटाएँ?",
+      "usage": "{count} इवेंट",
+      "unused": "उपयोग में नहीं",
+      "unknownPlugin": "अज्ञात प्रकार “{plugin}”",
+      "noFields": "इस प्रकार में सेट करने के लिए कुछ नहीं है।",
+      "testWith": "इसके साथ टेस्ट करें",
+      "saveFailed": "कनेक्शन सहेजे नहीं जा सके: {error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "UDP पर Open Sound Control: लाइटिंग डेस्क, QLab, Companion और अन्य।",
+      "actions": {
+        "message": "संदेश भेजें"
+      },
+      "connection": {
+        "host": {
+          "label": "होस्ट"
+        },
+        "port": {
+          "label": "पोर्ट"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "एड्रेस"
+        },
+        "args": {
+          "label": "आर्ग्युमेंट",
+          "help": "स्ट्रिंग मानों में {item.name}, {item.uuid}, {trigger} और {time} का उपयोग किया जा सकता है।"
+        },
+        "type": {
+          "label": "प्रकार"
+        },
+        "value": {
+          "label": "मान"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "पूर्णांक",
+          "f": "फ़्लोट",
+          "s": "स्ट्रिंग",
+          "T": "सत्य",
+          "F": "असत्य",
+          "N": "रिक्त (Nil)"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "सर्वर मशीन से MIDI आउट: नोट्स, CC, प्रोग्राम चेंज, MIDI Show Control, SysEx।",
+      "actions": {
+        "note-on": "नोट ऑन",
+        "note-off": "नोट ऑफ़",
+        "control-change": "कंट्रोल चेंज",
+        "program-change": "प्रोग्राम चेंज",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (रॉ)"
+      },
+      "summaries": {
+        "note-on": "चैनल {channel} नोट {note}",
+        "note-off": "चैनल {channel} नोट {note}",
+        "control-change": "चैनल {channel} CC {controller} = {value}",
+        "program-change": "चैनल {channel} प्रोग्राम {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "आउटपुट पोर्ट",
+          "help": "उस मशीन के पोर्ट जिस पर LivePlay सर्वर चलता है, नाम से मिलाए जाते हैं।"
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "चैनल"
+        },
+        "note": {
+          "label": "नोट"
+        },
+        "velocity": {
+          "label": "वेलोसिटी"
+        },
+        "controller": {
+          "label": "कंट्रोलर"
+        },
+        "value": {
+          "label": "मान"
+        },
+        "program": {
+          "label": "प्रोग्राम"
+        },
+        "deviceId": {
+          "label": "डिवाइस ID",
+          "help": "127 सभी डिवाइस को संबोधित करता है।"
+        },
+        "commandFormat": {
+          "label": "कमांड फ़ॉर्मैट"
+        },
+        "command": {
+          "label": "कमांड"
+        },
+        "cue": {
+          "label": "क्यू"
+        },
+        "list": {
+          "label": "क्यू सूची"
+        },
+        "path": {
+          "label": "क्यू पाथ"
+        },
+        "data": {
+          "label": "बाइट्स (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "लाइटिंग (सामान्य)",
+          "moving-lights": "मूविंग लाइट्स",
+          "sound": "साउंड (सामान्य)",
+          "video": "वीडियो (सामान्य)",
+          "all": "सभी प्रकार"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "वेब API वाली किसी भी चीज़ को HTTP अनुरोध: Companion, मीडिया सर्वर, होम ऑटोमेशन।",
+      "actions": {
+        "request": "अनुरोध"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "बेस URL",
+          "help": "केवल http://; HTTPS अभी समर्थित नहीं है।"
+        },
+        "headers": {
+          "label": "हेडर",
+          "help": "हर पंक्ति में एक “नाम: मान”, हर अनुरोध के साथ भेजा जाता है।"
+        },
+        "timeoutMs": {
+          "label": "टाइमआउट (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "मेथड"
+        },
+        "path": {
+          "label": "पाथ"
+        },
+        "headers": {
+          "label": "हेडर",
+          "help": "हर पंक्ति में एक “नाम: मान”।"
+        },
+        "contentType": {
+          "label": "बॉडी प्रकार"
+        },
+        "body": {
+          "label": "बॉडी",
+          "help": "इसमें {item.name}, {item.uuid}, {trigger} और {time} का उपयोग किया जा सकता है।"
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "कोई नहीं",
+          "application/x-www-form-urlencoded": "फ़ॉर्म",
+          "text/plain": "टेक्स्ट"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "इस प्रोजेक्ट के दूसरे क्यू शुरू करें या रोकें।",
+      "actions": {
+        "play-item": "क्यू चलाएँ",
+        "stop-item": "क्यू रोकें",
+        "stop-all": "सभी रोकें"
+      },
+      "fields": {
+        "item": {
+          "label": "क्यू"
+        }
+      }
+    }
   }
 }

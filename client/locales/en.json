@@ -1181,5 +1181,182 @@
       "testWith": "Test with",
       "saveFailed": "Couldn't save the connections: {error}"
     }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "Open Sound Control over UDP: lighting desks, QLab, Companion and more.",
+      "actions": {
+        "message": "Send message"
+      },
+      "connection": {
+        "host": {
+          "label": "Host"
+        },
+        "port": {
+          "label": "Port"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "Address"
+        },
+        "args": {
+          "label": "Arguments",
+          "help": "String values may use {item.name}, {item.uuid}, {trigger} and {time}."
+        },
+        "type": {
+          "label": "Type"
+        },
+        "value": {
+          "label": "Value"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "Integer",
+          "f": "Float",
+          "s": "String",
+          "T": "True",
+          "F": "False",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "MIDI out from the server machine: notes, CC, program change, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "Note on",
+        "note-off": "Note off",
+        "control-change": "Control change",
+        "program-change": "Program change",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (raw)"
+      },
+      "summaries": {
+        "note-on": "ch {channel} note {note}",
+        "note-off": "ch {channel} note {note}",
+        "control-change": "ch {channel} CC {controller} = {value}",
+        "program-change": "ch {channel} program {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "Output port",
+          "help": "Ports of the machine the LivePlay server runs on, matched by name."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "Channel"
+        },
+        "note": {
+          "label": "Note"
+        },
+        "velocity": {
+          "label": "Velocity"
+        },
+        "controller": {
+          "label": "Controller"
+        },
+        "value": {
+          "label": "Value"
+        },
+        "program": {
+          "label": "Program"
+        },
+        "deviceId": {
+          "label": "Device ID",
+          "help": "127 addresses every device."
+        },
+        "commandFormat": {
+          "label": "Command format"
+        },
+        "command": {
+          "label": "Command"
+        },
+        "cue": {
+          "label": "Cue"
+        },
+        "list": {
+          "label": "Cue list"
+        },
+        "path": {
+          "label": "Cue path"
+        },
+        "data": {
+          "label": "Bytes (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "Lighting (general)",
+          "moving-lights": "Moving lights",
+          "sound": "Sound (general)",
+          "video": "Video (general)",
+          "all": "All types"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "HTTP requests to anything with a web API: Companion, media servers, home automation.",
+      "actions": {
+        "request": "Request"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "Base URL",
+          "help": "http:// only; HTTPS isn't supported yet."
+        },
+        "headers": {
+          "label": "Headers",
+          "help": "One \"Name: value\" per line, sent with every request."
+        },
+        "timeoutMs": {
+          "label": "Timeout (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "Method"
+        },
+        "path": {
+          "label": "Path"
+        },
+        "headers": {
+          "label": "Headers",
+          "help": "One \"Name: value\" per line."
+        },
+        "contentType": {
+          "label": "Body type"
+        },
+        "body": {
+          "label": "Body",
+          "help": "May use {item.name}, {item.uuid}, {trigger} and {time}."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "None",
+          "application/x-www-form-urlencoded": "Form",
+          "text/plain": "Text"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "Start or stop other cues in this project.",
+      "actions": {
+        "play-item": "Play cue",
+        "stop-item": "Stop cue",
+        "stop-all": "Stop all"
+      },
+      "fields": {
+        "item": {
+          "label": "Cue"
+        }
+      }
+    }
   }
 }

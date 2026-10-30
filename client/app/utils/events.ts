@@ -165,3 +165,50 @@ export function copyEventsWithNewIds(events: ItemEvent[] | undefined): ItemEvent
   if (!Array.isArray(events)) return events;
   return events.map(ev => ({ ...clone(ev), id: uuidv4() }));
 }
+
+// ---- Localising plugin schemas ----------------------------------------------
+// Schemas come from the server in English, and a plugin needs no client code.
+// The built-in plugins' wording is translated by overlaying locale keys:
+//
+//   eventPlugins.<plugin>.label | .description
+//   eventPlugins.<plugin>.actions.<action>          action label
+//   eventPlugins.<plugin>.summaries.<action>        list summary template
+//   eventPlugins.<plugin>.connection.<field>.label | .help
+//   eventPlugins.<plugin>.fields.<field>.label | .help   (list rows too)
+//   eventPlugins.<plugin>.options.<field>.<value>   enum option label
+//
+// Anything without a key keeps the server's English, so a plugin nobody has
+// translated yet still reads fine. Values ('.' replaced by '_') and ids are
+// never translated: they are what gets saved.
+export function localizeSchema(
+  plugin: PluginSchema,
+  tr: (key: string) => string | undefined,
+): PluginSchema {
+  const base = `eventPlugins.${plugin.id}`;
+  const field = (f: FieldSchema, ns: 'fields' | 'connection'): FieldSchema => {
+    const k = `${base}.${ns}.${f.id}`;
+    return {
+      ...f,
+      label: tr(`${k}.label`) ?? f.label,
+      help: f.help === undefined ? undefined : (tr(`${k}.help`) ?? f.help),
+      options: f.options?.map(o => ({
+        ...o,
+        label: tr(`${base}.options.${f.id}.${String(o.value).replace(/\./g, '_')}`) ?? o.label,
+      })),
+      fields: f.fields?.map(sub => field(sub, ns)),
+    };
+  };
+  return {
+    ...plugin,
+    label: tr(`${base}.label`) ?? plugin.label,
+    description: plugin.description === undefined ? undefined
+      : (tr(`${base}.description`) ?? plugin.description),
+    connectionFields: (plugin.connectionFields ?? []).map(f => field(f, 'connection')),
+    actions: (plugin.actions ?? []).map(a => ({
+      ...a,
+      label: tr(`${base}.actions.${a.id}`) ?? a.label,
+      summary: a.summary === undefined ? undefined : (tr(`${base}.summaries.${a.id}`) ?? a.summary),
+      fields: (a.fields ?? []).map(f => field(f, 'fields')),
+    })),
+  };
+}

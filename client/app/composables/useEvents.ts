@@ -27,6 +27,7 @@ import type {
   EventTestResult,
   PluginSchema,
 } from '~/types/events';
+import { localizeSchema } from '~/utils/events';
 
 export interface EventResult {
   ok: boolean;
@@ -57,6 +58,12 @@ export const useEvents = () => {
     'events.pluginsStatus', () => 'unknown');
   const lastResult = useState<Record<string, EventResult>>('events.lastResult', () => ({}));
   const flashing = useState<Set<string>>('events.flashing', () => new Set());
+
+  // What every editor reads: the server's schemas with the built-in plugins'
+  // wording in the operator's language (see localizeSchema).
+  const { t } = useLocalization();
+  const tr = (key: string) => { const v = t(key); return v === key ? undefined : v; };
+  const localizedPlugins = computed<PluginSchema[]>(() => plugins.value.map(p => localizeSchema(p, tr)));
 
   const connections = computed<EventConnection[]>(
     () => currentProject.value?.eventConnections ?? []);
@@ -184,7 +191,7 @@ export const useEvents = () => {
   }
 
   return {
-    plugins,
+    plugins: localizedPlugins,
     pluginsStatus,
     connections,
     lastResult,

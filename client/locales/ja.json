@@ -169,7 +169,8 @@
     "accentColorHelp": "選択範囲、再生中のキュー、ハイライトに使われます。",
     "accentColorSwatch": "アクセントカラー {color}",
     "sectionAbout": "このアプリについて",
-    "sectionAboutHelp": "バージョン、クレジット、ライセンスです。"
+    "sectionAboutHelp": "バージョン、クレジット、ライセンスです。",
+    "sectionConnections": "接続"
   },
   "common": {
     "default": "既定",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}：クリックまたはドラッグで開く",
     "emptyTitle": "すべてのパネルが折りたたまれています",
     "emptyHint": "端のバーをクリックまたはドラッグするか、上部のボタンを使ってパネルを開いてください。"
+  },
+  "missingMedia": {
+    "badge": "メディアファイルが見つかりません。プロパティで置き換えるか、「見つからないメディアを探す」を使ってください。",
+    "banner": "{count} 件のメディアファイルが見つかりません。",
+    "locate": "探す…",
+    "locateHint": "見つからないファイルを名前で検索するフォルダーを選んでください。プロジェクト外のファイルはプロジェクトのメディアフォルダーにコピーされます。",
+    "locateResult": "{relinked} 個のアイテムを再リンクしました。{missing} 個はまだ見つかりません。",
+    "locateFailed": "このフォルダーを検索できませんでした：{error}",
+    "replace": "メディアファイルを置き換え",
+    "replaceFailed": "メディアファイルを置き換えられませんでした：{error}",
+    "propertiesHint": "サーバーがこのファイルを見つけられません。置き換えボタンでファイルを選び直してください。"
+  },
+  "events": {
+    "tab": "イベント",
+    "addEvent": "イベントを追加",
+    "addEventHint": "カーソル位置にイベントを追加します。波形をクリックしてカーソルを置いてください。",
+    "addTriggerEvent": "トリガーで追加…",
+    "cursor": "カーソル",
+    "cursorHint": "波形をクリックまたはドラッグしてカーソルを移動するか、時間を m:ss.mmm 形式または秒数で入力してください。",
+    "manageConnections": "接続を管理…",
+    "multiSelect": "イベントを編集するにはアイテムを 1 つだけ選択してください。",
+    "noEvents": "イベントはまだありません。波形をクリックしてカーソルを置き、「イベントを追加」を押してください。",
+    "selectEvent": "編集するイベントを選択してください。",
+    "unsupported": "このサーバーはイベントに対応していません。使用するには LivePlay サーバーをアップデートしてください。",
+    "noPlugins": "サーバーにイベントプラグインがありません。",
+    "loadFailed": "サーバーからイベントプラグインを読み込めませんでした。",
+    "loading": "イベントプラグインを読み込み中…",
+    "retry": "再試行",
+    "trigger": {
+      "label": "トリガー",
+      "time": "指定した時間",
+      "start": "開始時",
+      "end": "終了時",
+      "pause": "一時停止時",
+      "resume": "再開時"
+    },
+    "name": "名前",
+    "enabled": "有効",
+    "time": "時間",
+    "timeHint": "ファイル内の位置を m:ss.mmm 形式または秒数で指定します。再生範囲外ではイベントは実行されません。",
+    "useCursor": "カーソル位置に移動",
+    "plugin": "プラグイン",
+    "connection": "接続",
+    "noConnection": "接続なし",
+    "connectionMissing": "接続が見つかりません",
+    "connectionDisabled": "この接続は無効になっているため、イベントは実行されません。",
+    "noConnectionsForPlugin": "{plugin} の接続はまだありません。",
+    "action": "アクション",
+    "unknownPlugin": "このイベントはプラグイン「{plugin}」を使用していますが、このサーバーにはありません。実行されません。",
+    "outsideTrim": "再生範囲外：このイベントは実行されません。",
+    "placeholdersHelp": "テキスト欄では {item.name}、{item.uuid}、{trigger}、{time} を使えます。イベントの実行時にサーバーが値を埋め込みます。",
+    "test": "テスト",
+    "testing": "テスト中…",
+    "testOk": "送信しました。",
+    "testFailed": "失敗しました：{error}",
+    "duplicate": "複製",
+    "delete": "削除",
+    "lastOk": "最終実行 {time}：OK",
+    "lastError": "最終実行 {time}：失敗：{error}",
+    "form": {
+      "none": "—",
+      "missingItem": "（アイテムが見つかりません）",
+      "cartItem": "カート {slot} · {name}",
+      "addRow": "追加",
+      "removeRow": "削除",
+      "moveUp": "上へ移動",
+      "moveDown": "下へ移動"
+    },
+    "connections": {
+      "intro": "イベントの送信先です（照明卓、MIDI ポート、Web フックなど）。各接続はショーごとに一度設定すれば、いくつのイベントからでも使えます。",
+      "noProject": "接続を管理するにはプロジェクトを開いてください。",
+      "empty": "接続はまだありません。",
+      "add": "接続を追加",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "新しい {plugin} 接続",
+      "editTitle": "「{name}」を編集",
+      "name": "名前",
+      "enabled": "有効",
+      "disabled": "無効",
+      "edit": "編集",
+      "save": "保存",
+      "cancel": "キャンセル",
+      "delete": "削除",
+      "deleteConfirm": "「{name}」を削除しますか？",
+      "deleteInUse": "{count} 件のイベントが「{name}」を使用しています。別の接続を割り当てるまで、これらのイベントは実行されません。削除してもよろしいですか？",
+      "usage": "{count} 件のイベント",
+      "unused": "未使用",
+      "unknownPlugin": "不明な種類「{plugin}」",
+      "noFields": "この種類には設定項目がありません。",
+      "testWith": "テストするアクション",
+      "saveFailed": "接続を保存できませんでした：{error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "UDP 経由の Open Sound Control：照明卓、QLab、Companion など。",
+      "actions": {
+        "message": "メッセージを送信"
+      },
+      "connection": {
+        "host": {
+          "label": "ホスト"
+        },
+        "port": {
+          "label": "ポート"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "アドレス"
+        },
+        "args": {
+          "label": "引数",
+          "help": "文字列の値には {item.name}、{item.uuid}、{trigger}、{time} を使えます。"
+        },
+        "type": {
+          "label": "タイプ"
+        },
+        "value": {
+          "label": "値"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "整数",
+          "f": "浮動小数点",
+          "s": "文字列",
+          "T": "True（真）",
+          "F": "False（偽）",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "サーバーマシンからの MIDI 出力：ノート、CC、プログラムチェンジ、MIDI Show Control、SysEx。",
+      "actions": {
+        "note-on": "ノートオン",
+        "note-off": "ノートオフ",
+        "control-change": "コントロールチェンジ",
+        "program-change": "プログラムチェンジ",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx（生データ）"
+      },
+      "summaries": {
+        "note-on": "ch {channel} ノート {note}",
+        "note-off": "ch {channel} ノート {note}",
+        "control-change": "ch {channel} CC {controller} = {value}",
+        "program-change": "ch {channel} プログラム {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "出力ポート",
+          "help": "LivePlay サーバーが動作しているマシンのポートです。名前で照合します。"
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "チャンネル"
+        },
+        "note": {
+          "label": "ノート"
+        },
+        "velocity": {
+          "label": "ベロシティ"
+        },
+        "controller": {
+          "label": "コントローラー"
+        },
+        "value": {
+          "label": "値"
+        },
+        "program": {
+          "label": "プログラム"
+        },
+        "deviceId": {
+          "label": "デバイス ID",
+          "help": "127 はすべてのデバイスが対象になります。"
+        },
+        "commandFormat": {
+          "label": "コマンドフォーマット"
+        },
+        "command": {
+          "label": "コマンド"
+        },
+        "cue": {
+          "label": "キュー"
+        },
+        "list": {
+          "label": "キューリスト"
+        },
+        "path": {
+          "label": "キューパス"
+        },
+        "data": {
+          "label": "バイト（hex）"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "照明（一般）",
+          "moving-lights": "ムービングライト",
+          "sound": "音響（一般）",
+          "video": "映像（一般）",
+          "all": "すべてのタイプ"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "Web API を持つあらゆる機器への HTTP リクエスト：Companion、メディアサーバー、ホームオートメーションなど。",
+      "actions": {
+        "request": "リクエスト"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "ベース URL",
+          "help": "http:// のみ対応しています。HTTPS にはまだ対応していません。"
+        },
+        "headers": {
+          "label": "ヘッダー",
+          "help": "1 行に 1 つずつ「名前: 値」の形式で入力します。すべてのリクエストで送信されます。"
+        },
+        "timeoutMs": {
+          "label": "タイムアウト（ms）"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "メソッド"
+        },
+        "path": {
+          "label": "パス"
+        },
+        "headers": {
+          "label": "ヘッダー",
+          "help": "1 行に 1 つずつ「名前: 値」の形式で入力します。"
+        },
+        "contentType": {
+          "label": "ボディの種類"
+        },
+        "body": {
+          "label": "ボディ",
+          "help": "{item.name}、{item.uuid}、{trigger}、{time} を使えます。"
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "なし",
+          "application/x-www-form-urlencoded": "フォーム",
+          "text/plain": "テキスト"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "このプロジェクト内の他のキューを開始または停止します。",
+      "actions": {
+        "play-item": "キューを再生",
+        "stop-item": "キューを停止",
+        "stop-all": "すべて停止"
+      },
+      "fields": {
+        "item": {
+          "label": "キュー"
+        }
+      }
+    }
   }
 }

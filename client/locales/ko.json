@@ -169,7 +169,8 @@
     "accentColorHelp": "선택 항목, 재생 중인 큐, 강조 표시에 사용됩니다.",
     "accentColorSwatch": "강조 색 {color}",
     "sectionAbout": "정보",
-    "sectionAboutHelp": "버전, 크레딧, 라이선스입니다."
+    "sectionAboutHelp": "버전, 크레딧, 라이선스입니다.",
+    "sectionConnections": "연결"
   },
   "common": {
     "default": "기본값",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}: 클릭하거나 드래그하여 열기",
     "emptyTitle": "모든 패널이 접혀 있습니다",
     "emptyHint": "가장자리의 막대를 클릭하거나 드래그하거나, 위쪽의 버튼을 사용해 패널을 여세요."
+  },
+  "missingMedia": {
+    "badge": "미디어 파일이 없습니다. 속성에서 교체하거나 ‘누락된 미디어 찾기’를 사용하세요.",
+    "banner": "미디어 파일 {count}개를 찾을 수 없습니다.",
+    "locate": "찾기…",
+    "locateHint": "누락된 파일을 이름으로 검색할 폴더를 선택하세요. 프로젝트 밖에 있는 파일은 프로젝트의 미디어 폴더로 복사됩니다.",
+    "locateResult": "항목 {relinked}개를 다시 연결했습니다. {missing}개는 아직 찾을 수 없습니다.",
+    "locateFailed": "이 폴더를 검색할 수 없습니다: {error}",
+    "replace": "미디어 파일 교체",
+    "replaceFailed": "미디어 파일을 교체할 수 없습니다: {error}",
+    "propertiesHint": "서버에서 이 파일을 찾을 수 없습니다. 교체 버튼으로 파일을 다시 선택하세요."
+  },
+  "events": {
+    "tab": "이벤트",
+    "addEvent": "이벤트 추가",
+    "addEventHint": "커서 위치에 이벤트를 추가합니다. 파형을 클릭해 커서를 놓으세요.",
+    "addTriggerEvent": "트리거로 추가…",
+    "cursor": "커서",
+    "cursorHint": "파형을 클릭하거나 드래그해 커서를 옮기거나, 시간을 m:ss.mmm 형식 또는 초 단위로 입력하세요.",
+    "manageConnections": "연결 관리…",
+    "multiSelect": "이벤트를 편집하려면 항목을 하나만 선택하세요.",
+    "noEvents": "아직 이벤트가 없습니다. 파형을 클릭해 커서를 놓은 다음 ‘이벤트 추가’를 누르세요.",
+    "selectEvent": "편집할 이벤트를 선택하세요.",
+    "unsupported": "이 서버는 이벤트를 지원하지 않습니다. 사용하려면 LivePlay 서버를 업데이트하세요.",
+    "noPlugins": "서버에 이벤트 플러그인이 없습니다.",
+    "loadFailed": "서버에서 이벤트 플러그인을 불러올 수 없습니다.",
+    "loading": "이벤트 플러그인 불러오는 중…",
+    "retry": "다시 시도",
+    "trigger": {
+      "label": "트리거",
+      "time": "지정한 시간에",
+      "start": "시작 시",
+      "end": "종료 시",
+      "pause": "일시정지 시",
+      "resume": "재개 시"
+    },
+    "name": "이름",
+    "enabled": "사용",
+    "time": "시간",
+    "timeHint": "파일 내 위치이며, m:ss.mmm 형식 또는 초 단위로 입력합니다. 재생 구간 밖에서는 이벤트가 실행되지 않습니다.",
+    "useCursor": "커서 위치로 이동",
+    "plugin": "플러그인",
+    "connection": "연결",
+    "noConnection": "연결 없음",
+    "connectionMissing": "연결을 찾을 수 없음",
+    "connectionDisabled": "이 연결은 사용 안 함으로 설정되어 있어 이벤트가 실행되지 않습니다.",
+    "noConnectionsForPlugin": "아직 {plugin} 연결이 없습니다.",
+    "action": "작업",
+    "unknownPlugin": "이 이벤트는 이 서버에 없는 플러그인 ‘{plugin}’을(를) 사용합니다. 실행되지 않습니다.",
+    "outsideTrim": "재생 구간 밖: 이 이벤트는 실행되지 않습니다.",
+    "placeholdersHelp": "텍스트 필드에 {item.name}, {item.uuid}, {trigger}, {time}을(를) 사용할 수 있습니다. 이벤트가 실행될 때 서버가 값을 채웁니다.",
+    "test": "테스트",
+    "testing": "테스트 중…",
+    "testOk": "전송했습니다.",
+    "testFailed": "실패: {error}",
+    "duplicate": "복제",
+    "delete": "삭제",
+    "lastOk": "마지막 실행 {time}: OK",
+    "lastError": "마지막 실행 {time}: 실패: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(항목을 찾을 수 없음)",
+      "cartItem": "카트 {slot} · {name}",
+      "addRow": "추가",
+      "removeRow": "제거",
+      "moveUp": "위로 이동",
+      "moveDown": "아래로 이동"
+    },
+    "connections": {
+      "intro": "이벤트를 보낼 대상입니다. 조명 콘솔, MIDI 포트, 웹훅 등이 있습니다. 각 연결은 쇼마다 한 번만 설정하면 여러 이벤트에서 얼마든지 사용할 수 있습니다.",
+      "noProject": "연결을 관리하려면 프로젝트를 여세요.",
+      "empty": "아직 연결이 없습니다.",
+      "add": "연결 추가",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "새 {plugin} 연결",
+      "editTitle": "‘{name}’ 편집",
+      "name": "이름",
+      "enabled": "사용",
+      "disabled": "사용 안 함",
+      "edit": "편집",
+      "save": "저장",
+      "cancel": "취소",
+      "delete": "삭제",
+      "deleteConfirm": "‘{name}’을(를) 삭제하시겠습니까?",
+      "deleteInUse": "이벤트 {count}개가 ‘{name}’을(를) 사용합니다. 다른 연결을 지정할 때까지 이 이벤트들은 실행되지 않습니다. 그래도 삭제하시겠습니까?",
+      "usage": "이벤트 {count}개",
+      "unused": "미사용",
+      "unknownPlugin": "알 수 없는 유형 ‘{plugin}’",
+      "noFields": "이 유형은 설정할 항목이 없습니다.",
+      "testWith": "테스트할 작업",
+      "saveFailed": "연결을 저장할 수 없습니다: {error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "UDP를 통한 Open Sound Control: 조명 콘솔, QLab, Companion 등.",
+      "actions": {
+        "message": "메시지 보내기"
+      },
+      "connection": {
+        "host": {
+          "label": "호스트"
+        },
+        "port": {
+          "label": "포트"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "주소"
+        },
+        "args": {
+          "label": "인수",
+          "help": "문자열 값에 {item.name}, {item.uuid}, {trigger}, {time}을(를) 사용할 수 있습니다."
+        },
+        "type": {
+          "label": "유형"
+        },
+        "value": {
+          "label": "값"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "정수",
+          "f": "부동소수점",
+          "s": "문자열",
+          "T": "True(참)",
+          "F": "False(거짓)",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "서버 컴퓨터에서 MIDI 출력: 노트, CC, 프로그램 체인지, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "노트 온",
+        "note-off": "노트 오프",
+        "control-change": "컨트롤 체인지",
+        "program-change": "프로그램 체인지",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (원시 데이터)"
+      },
+      "summaries": {
+        "note-on": "ch {channel} 노트 {note}",
+        "note-off": "ch {channel} 노트 {note}",
+        "control-change": "ch {channel} CC {controller} = {value}",
+        "program-change": "ch {channel} 프로그램 {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "출력 포트",
+          "help": "LivePlay 서버가 실행되는 컴퓨터의 포트이며, 이름으로 일치시킵니다."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "채널"
+        },
+        "note": {
+          "label": "노트"
+        },
+        "velocity": {
+          "label": "벨로시티"
+        },
+        "controller": {
+          "label": "컨트롤러"
+        },
+        "value": {
+          "label": "값"
+        },
+        "program": {
+          "label": "프로그램"
+        },
+        "deviceId": {
+          "label": "장치 ID",
+          "help": "127은 모든 장치를 대상으로 합니다."
+        },
+        "commandFormat": {
+          "label": "명령 형식"
+        },
+        "command": {
+          "label": "명령"
+        },
+        "cue": {
+          "label": "큐"
+        },
+        "list": {
+          "label": "큐 목록"
+        },
+        "path": {
+          "label": "큐 경로"
+        },
+        "data": {
+          "label": "바이트 (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "조명 (일반)",
+          "moving-lights": "무빙 라이트",
+          "sound": "사운드 (일반)",
+          "video": "비디오 (일반)",
+          "all": "모든 유형"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "웹 API가 있는 모든 대상으로 보내는 HTTP 요청: Companion, 미디어 서버, 홈 오토메이션.",
+      "actions": {
+        "request": "요청"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "기본 URL",
+          "help": "http://만 지원합니다. HTTPS는 아직 지원하지 않습니다."
+        },
+        "headers": {
+          "label": "헤더",
+          "help": "한 줄에 하나씩 ‘이름: 값’ 형식으로 입력하며, 모든 요청과 함께 전송됩니다."
+        },
+        "timeoutMs": {
+          "label": "타임아웃 (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "메서드"
+        },
+        "path": {
+          "label": "경로"
+        },
+        "headers": {
+          "label": "헤더",
+          "help": "한 줄에 하나씩 ‘이름: 값’ 형식으로 입력합니다."
+        },
+        "contentType": {
+          "label": "본문 유형"
+        },
+        "body": {
+          "label": "본문",
+          "help": "{item.name}, {item.uuid}, {trigger}, {time}을(를) 사용할 수 있습니다."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "없음",
+          "application/x-www-form-urlencoded": "폼",
+          "text/plain": "텍스트"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "이 프로젝트의 다른 큐를 시작하거나 정지합니다.",
+      "actions": {
+        "play-item": "큐 재생",
+        "stop-item": "큐 정지",
+        "stop-all": "모두 정지"
+      },
+      "fields": {
+        "item": {
+          "label": "큐"
+        }
+      }
+    }
   }
 }

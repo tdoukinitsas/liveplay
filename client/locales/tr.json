@@ -169,7 +169,8 @@
     "accentColorHelp": "Seçimler, çalan cue'lar ve vurgular için kullanılır.",
     "accentColorSwatch": "Vurgu rengi {color}",
     "sectionAbout": "Hakkında",
-    "sectionAboutHelp": "Sürüm, katkıda bulunanlar ve lisans."
+    "sectionAboutHelp": "Sürüm, katkıda bulunanlar ve lisans.",
+    "sectionConnections": "Bağlantılar"
   },
   "common": {
     "default": "varsayılan",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}: açmak için tıklayın veya sürükleyin",
     "emptyTitle": "Tüm paneller daraltılmış",
     "emptyHint": "Bir paneli açmak için kenardaki bir çubuğa tıklayın veya onu sürükleyin ya da üstteki düğmeleri kullanın."
+  },
+  "missingMedia": {
+    "badge": "Medya dosyası eksik. Özellikler'den değiştirin ya da Eksik medyayı bul'u kullanın.",
+    "banner": "{count} medya dosyası bulunamıyor.",
+    "locate": "Bul…",
+    "locateHint": "Eksik dosyaların adlarına göre aranacağı bir klasör seçin. Proje dışındaki dosyalar projenin medya klasörüne kopyalanır.",
+    "locateResult": "{relinked} öğe yeniden bağlandı. {missing} öğe hâlâ eksik.",
+    "locateFailed": "Bu klasörde arama yapılamadı: {error}",
+    "replace": "Medya dosyasını değiştir",
+    "replaceFailed": "Medya dosyası değiştirilemedi: {error}",
+    "propertiesHint": "Sunucu bu dosyayı bulamıyor. Yeniden seçmek için değiştir düğmesini kullanın."
+  },
+  "events": {
+    "tab": "Olaylar",
+    "addEvent": "Olay ekle",
+    "addEventHint": "İmlecin bulunduğu yere bir olay ekler. İmleci yerleştirmek için dalga formuna tıklayın.",
+    "addTriggerEvent": "Tetikleyiciyle ekle…",
+    "cursor": "İmleç",
+    "cursorHint": "İmleci taşımak için dalga formuna tıklayın veya sürükleyin ya da zamanı m:ss.mmm biçiminde veya saniye cinsinden yazın.",
+    "manageConnections": "Bağlantıları yönet…",
+    "multiSelect": "Olaylarını düzenlemek için tek bir öğe seçin.",
+    "noEvents": "Henüz olay yok. İmleci yerleştirmek için dalga formuna tıklayın, ardından Olay ekle'ye basın.",
+    "selectEvent": "Düzenlemek için bir olay seçin.",
+    "unsupported": "Bu sunucu olayları desteklemiyor. Kullanmak için LivePlay sunucusunu güncelleyin.",
+    "noPlugins": "Sunucuda olay eklentisi yok.",
+    "loadFailed": "Olay eklentileri sunucudan yüklenemedi.",
+    "loading": "Olay eklentileri yükleniyor…",
+    "retry": "Yeniden dene",
+    "trigger": {
+      "label": "Tetikleyici",
+      "time": "Belirli bir zamanda",
+      "start": "Başlangıçta",
+      "end": "Bitişte",
+      "pause": "Duraklatıldığında",
+      "resume": "Devam edildiğinde"
+    },
+    "name": "Ad",
+    "enabled": "Etkin",
+    "time": "Zaman",
+    "timeHint": "Dosyadaki konum; m:ss.mmm biçiminde veya saniye cinsinden. Kırpılmış bölgenin dışında olay hiç tetiklenmez.",
+    "useCursor": "İmlece taşı",
+    "plugin": "Eklenti",
+    "connection": "Bağlantı",
+    "noConnection": "Bağlantı yok",
+    "connectionMissing": "Bağlantı bulunamadı",
+    "connectionDisabled": "Bu bağlantı devre dışı, bu yüzden olay tetiklenmeyecek.",
+    "noConnectionsForPlugin": "Henüz {plugin} bağlantısı yok.",
+    "action": "Eylem",
+    "unknownPlugin": "Bu olay, bu sunucuda bulunmayan «{plugin}» eklentisini kullanıyor. Tetiklenmeyecek.",
+    "outsideTrim": "Kırpılmış bölgenin dışında: bu olay tetiklenmeyecek.",
+    "placeholdersHelp": "Metin alanlarında {item.name}, {item.uuid}, {trigger} ve {time} kullanılabilir; olay tetiklendiğinde sunucu bunları doldurur.",
+    "test": "Test et",
+    "testing": "Test ediliyor…",
+    "testOk": "Gönderildi.",
+    "testFailed": "Başarısız: {error}",
+    "duplicate": "Çoğalt",
+    "delete": "Sil",
+    "lastOk": "Son tetiklenme {time}: OK",
+    "lastError": "Son tetiklenme {time}: başarısız: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(öğe bulunamadı)",
+      "cartItem": "Kartuş {slot} · {name}",
+      "addRow": "Ekle",
+      "removeRow": "Kaldır",
+      "moveUp": "Yukarı taşı",
+      "moveDown": "Aşağı taşı"
+    },
+    "connections": {
+      "intro": "Olayların gönderildiği yerler: bir ışık masası, bir MIDI portu, bir webhook. Her bağlantı gösteri için bir kez ayarlanır ve istenen sayıda olayda kullanılabilir.",
+      "noProject": "Bağlantılarını yönetmek için bir proje açın.",
+      "empty": "Henüz bağlantı yok.",
+      "add": "Bağlantı ekle",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "Yeni {plugin} bağlantısı",
+      "editTitle": "Düzenle: «{name}»",
+      "name": "Ad",
+      "enabled": "Etkin",
+      "disabled": "devre dışı",
+      "edit": "Düzenle",
+      "save": "Kaydet",
+      "cancel": "İptal",
+      "delete": "Sil",
+      "deleteConfirm": "«{name}» silinsin mi?",
+      "deleteInUse": "{count} olay «{name}» bağlantısını kullanıyor. Başka bir bağlantı atanana kadar tetiklenmeyecekler. Yine de silinsin mi?",
+      "usage": "{count} olay",
+      "unused": "Kullanılmıyor",
+      "unknownPlugin": "Bilinmeyen tür «{plugin}»",
+      "noFields": "Bu türde ayarlanacak bir şey yok.",
+      "testWith": "Test eylemi",
+      "saveFailed": "Bağlantılar kaydedilemedi: {error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "UDP üzerinden Open Sound Control: ışık masaları, QLab, Companion ve daha fazlası.",
+      "actions": {
+        "message": "Mesaj gönder"
+      },
+      "connection": {
+        "host": {
+          "label": "Ana bilgisayar"
+        },
+        "port": {
+          "label": "Bağlantı noktası"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "Adres"
+        },
+        "args": {
+          "label": "Argümanlar",
+          "help": "Metin değerlerinde {item.name}, {item.uuid}, {trigger} ve {time} kullanılabilir."
+        },
+        "type": {
+          "label": "Tür"
+        },
+        "value": {
+          "label": "Değer"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "Tamsayı",
+          "f": "Kayan noktalı",
+          "s": "Dize",
+          "T": "Doğru",
+          "F": "Yanlış",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "Sunucu makinesinden MIDI çıkışı: notalar, CC, program değişikliği, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "Note On",
+        "note-off": "Note Off",
+        "control-change": "Kontrol değişikliği",
+        "program-change": "Program değişikliği",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (ham)"
+      },
+      "summaries": {
+        "note-on": "kan. {channel} nota {note}",
+        "note-off": "kan. {channel} nota {note}",
+        "control-change": "kan. {channel} CC {controller} = {value}",
+        "program-change": "kan. {channel} program {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "Çıkış portu",
+          "help": "LivePlay sunucusunun çalıştığı makinenin portları; ada göre eşleştirilir."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "Kanal"
+        },
+        "note": {
+          "label": "Nota"
+        },
+        "velocity": {
+          "label": "Velocity"
+        },
+        "controller": {
+          "label": "Kontrolcü"
+        },
+        "value": {
+          "label": "Değer"
+        },
+        "program": {
+          "label": "Program"
+        },
+        "deviceId": {
+          "label": "Cihaz kimliği",
+          "help": "127 tüm cihazları hedefler."
+        },
+        "commandFormat": {
+          "label": "Komut biçimi"
+        },
+        "command": {
+          "label": "Komut"
+        },
+        "cue": {
+          "label": "Cue"
+        },
+        "list": {
+          "label": "Cue listesi"
+        },
+        "path": {
+          "label": "Cue yolu"
+        },
+        "data": {
+          "label": "Baytlar (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "Işık (genel)",
+          "moving-lights": "Hareketli ışıklar",
+          "sound": "Ses (genel)",
+          "video": "Video (genel)",
+          "all": "Tüm türler"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "Web API'si olan her şeye HTTP istekleri: Companion, medya sunucuları, ev otomasyonu.",
+      "actions": {
+        "request": "İstek"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "Temel URL",
+          "help": "Yalnızca http://; HTTPS henüz desteklenmiyor."
+        },
+        "headers": {
+          "label": "Başlıklar",
+          "help": "Her satıra bir «Ad: değer»; her istekle gönderilir."
+        },
+        "timeoutMs": {
+          "label": "Zaman aşımı (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "Yöntem"
+        },
+        "path": {
+          "label": "Yol"
+        },
+        "headers": {
+          "label": "Başlıklar",
+          "help": "Her satıra bir «Ad: değer»."
+        },
+        "contentType": {
+          "label": "Gövde türü"
+        },
+        "body": {
+          "label": "Gövde",
+          "help": "{item.name}, {item.uuid}, {trigger} ve {time} kullanılabilir."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "Yok",
+          "application/x-www-form-urlencoded": "Form",
+          "text/plain": "Metin"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "Bu projedeki diğer cue'ları başlatın veya durdurun.",
+      "actions": {
+        "play-item": "Cue oynat",
+        "stop-item": "Cue durdur",
+        "stop-all": "Tümünü durdur"
+      },
+      "fields": {
+        "item": {
+          "label": "Cue"
+        }
+      }
+    }
   }
 }

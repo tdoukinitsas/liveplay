@@ -169,7 +169,8 @@
     "accentColorHelp": "Usato per selezioni, cue in riproduzione ed evidenziazioni.",
     "accentColorSwatch": "Colore d’accento {color}",
     "sectionAbout": "Informazioni",
-    "sectionAboutHelp": "Versione, riconoscimenti e licenza."
+    "sectionAboutHelp": "Versione, riconoscimenti e licenza.",
+    "sectionConnections": "Connessioni"
   },
   "common": {
     "default": "predefinito",
@@ -1088,5 +1089,274 @@
     "barHint": "{pane}: fai clic o trascina per aprire",
     "emptyTitle": "Tutti i pannelli sono compressi",
     "emptyHint": "Fai clic o trascina una barra sul bordo, oppure usa i pulsanti in alto, per aprire un pannello."
+  },
+  "missingMedia": {
+    "badge": "File media mancante. Sostituiscilo nelle Proprietà o usa «Individua media mancanti».",
+    "banner": "Impossibile trovare {count} file media.",
+    "locate": "Individua…",
+    "locateHint": "Scegli una cartella in cui cercare per nome i file mancanti. I file esterni al progetto vengono copiati nella sua cartella media.",
+    "locateResult": "{relinked} elemento/i ricollegato/i. Ne mancano ancora {missing}.",
+    "locateFailed": "Impossibile cercare in quella cartella: {error}",
+    "replace": "Sostituisci file media",
+    "replaceFailed": "Impossibile sostituire il file media: {error}",
+    "propertiesHint": "Il server non trova questo file. Usa il pulsante di sostituzione per sceglierlo di nuovo."
+  },
+  "events": {
+    "tab": "Eventi",
+    "addEvent": "Aggiungi evento",
+    "addEventHint": "Aggiunge un evento al cursore. Fai clic sulla forma d’onda per posizionare il cursore.",
+    "addTriggerEvent": "Aggiungi su…",
+    "cursor": "Cursore",
+    "cursorHint": "Fai clic o trascina sulla forma d’onda per spostare il cursore, oppure digita un tempo come m:ss.mmm o in secondi.",
+    "manageConnections": "Gestisci connessioni…",
+    "multiSelect": "Seleziona un solo elemento per modificarne gli eventi.",
+    "noEvents": "Ancora nessun evento. Fai clic sulla forma d’onda per posizionare il cursore, poi premi «Aggiungi evento».",
+    "selectEvent": "Seleziona un evento per modificarlo.",
+    "unsupported": "Questo server non supporta gli eventi. Aggiorna il server LivePlay per usarli.",
+    "noPlugins": "Il server non ha plugin per gli eventi.",
+    "loadFailed": "Impossibile caricare i plugin per gli eventi dal server.",
+    "loading": "Caricamento plugin per gli eventi…",
+    "retry": "Riprova",
+    "trigger": {
+      "label": "Attivazione",
+      "time": "In un momento preciso",
+      "start": "All’avvio",
+      "end": "Alla fine",
+      "pause": "Alla pausa",
+      "resume": "Alla ripresa"
+    },
+    "name": "Nome",
+    "enabled": "Attivo",
+    "time": "Tempo",
+    "timeHint": "Posizione nel file, come m:ss.mmm o in secondi. Fuori dalla regione rifilata l’evento non si attiva mai.",
+    "useCursor": "Sposta al cursore",
+    "plugin": "Plugin",
+    "connection": "Connessione",
+    "noConnection": "Nessuna connessione",
+    "connectionMissing": "Connessione non trovata",
+    "connectionDisabled": "Questa connessione è disattivata, quindi l’evento non si attiverà.",
+    "noConnectionsForPlugin": "Non ci sono ancora connessioni {plugin}.",
+    "action": "Azione",
+    "unknownPlugin": "Questo evento usa il plugin «{plugin}», che questo server non ha. Non si attiverà.",
+    "outsideTrim": "Fuori dalla regione rifilata: questo evento non si attiverà.",
+    "placeholdersHelp": "I campi di testo possono usare {item.name}, {item.uuid}, {trigger} e {time}; il server li compila quando l’evento si attiva.",
+    "test": "Prova",
+    "testing": "Prova in corso…",
+    "testOk": "Inviato.",
+    "testFailed": "Non riuscito: {error}",
+    "duplicate": "Duplica",
+    "delete": "Elimina",
+    "lastOk": "Ultima attivazione alle {time}: OK",
+    "lastError": "Ultima attivazione alle {time}: non riuscita: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(elemento non trovato)",
+      "cartItem": "Cartuccia {slot} · {name}",
+      "addRow": "Aggiungi",
+      "removeRow": "Rimuovi",
+      "moveUp": "Sposta su",
+      "moveDown": "Sposta giù"
+    },
+    "connections": {
+      "intro": "Dove vengono inviati gli eventi: una console luci, una porta MIDI, un webhook. Ogni connessione si configura una sola volta per lo spettacolo e può essere usata da qualsiasi numero di eventi.",
+      "noProject": "Apri un progetto per gestirne le connessioni.",
+      "empty": "Ancora nessuna connessione.",
+      "add": "Aggiungi connessione",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "Nuova connessione {plugin}",
+      "editTitle": "Modifica «{name}»",
+      "name": "Nome",
+      "enabled": "Attiva",
+      "disabled": "disattivata",
+      "edit": "Modifica",
+      "save": "Salva",
+      "cancel": "Annulla",
+      "delete": "Elimina",
+      "deleteConfirm": "Eliminare «{name}»?",
+      "deleteInUse": "{count} evento/i usano «{name}». Non si attiveranno finché non verrà assegnata loro un’altra connessione. Eliminarla comunque?",
+      "usage": "{count} evento/i",
+      "unused": "Non usata",
+      "unknownPlugin": "Tipo sconosciuto «{plugin}»",
+      "noFields": "Questo tipo non ha nulla da configurare.",
+      "testWith": "Prova con",
+      "saveFailed": "Impossibile salvare le connessioni: {error}"
+    }
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "Open Sound Control su UDP: console luci, QLab, Companion e altro.",
+      "actions": {
+        "message": "Invia messaggio"
+      },
+      "connection": {
+        "host": {
+          "label": "Host"
+        },
+        "port": {
+          "label": "Porta"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "Indirizzo"
+        },
+        "args": {
+          "label": "Argomenti",
+          "help": "I valori stringa possono usare {item.name}, {item.uuid}, {trigger} e {time}."
+        },
+        "type": {
+          "label": "Tipo"
+        },
+        "value": {
+          "label": "Valore"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "Intero",
+          "f": "Float",
+          "s": "Stringa",
+          "T": "Vero",
+          "F": "Falso",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "Uscita MIDI dalla macchina del server: note, CC, Program Change, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "Note On",
+        "note-off": "Note Off",
+        "control-change": "Control Change",
+        "program-change": "Program Change",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (grezzo)"
+      },
+      "summaries": {
+        "note-on": "can. {channel} nota {note}",
+        "note-off": "can. {channel} nota {note}",
+        "control-change": "can. {channel} CC {controller} = {value}",
+        "program-change": "can. {channel} programma {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "Porta di uscita",
+          "help": "Porte della macchina su cui gira il server LivePlay, abbinate per nome."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "Canale"
+        },
+        "note": {
+          "label": "Nota"
+        },
+        "velocity": {
+          "label": "Velocity"
+        },
+        "controller": {
+          "label": "Controller"
+        },
+        "value": {
+          "label": "Valore"
+        },
+        "program": {
+          "label": "Programma"
+        },
+        "deviceId": {
+          "label": "ID dispositivo",
+          "help": "127 indirizza tutti i dispositivi."
+        },
+        "commandFormat": {
+          "label": "Formato comando"
+        },
+        "command": {
+          "label": "Comando"
+        },
+        "cue": {
+          "label": "Cue"
+        },
+        "list": {
+          "label": "Lista cue"
+        },
+        "path": {
+          "label": "Percorso cue"
+        },
+        "data": {
+          "label": "Byte (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "Luci (generale)",
+          "moving-lights": "Teste mobili",
+          "sound": "Audio (generale)",
+          "video": "Video (generale)",
+          "all": "Tutti i tipi"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "Richieste HTTP verso qualsiasi cosa abbia un’API web: Companion, media server, domotica.",
+      "actions": {
+        "request": "Richiesta"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "URL di base",
+          "help": "Solo http://; HTTPS non è ancora supportato."
+        },
+        "headers": {
+          "label": "Header",
+          "help": "Un «Nome: valore» per riga, inviato con ogni richiesta."
+        },
+        "timeoutMs": {
+          "label": "Timeout (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "Metodo"
+        },
+        "path": {
+          "label": "Percorso"
+        },
+        "headers": {
+          "label": "Header",
+          "help": "Un «Nome: valore» per riga."
+        },
+        "contentType": {
+          "label": "Tipo di body"
+        },
+        "body": {
+          "label": "Body",
+          "help": "Può usare {item.name}, {item.uuid}, {trigger} e {time}."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "Nessuno",
+          "application/x-www-form-urlencoded": "Modulo",
+          "text/plain": "Testo"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "Avvia o ferma altri cue di questo progetto.",
+      "actions": {
+        "play-item": "Riproduci cue",
+        "stop-item": "Ferma cue",
+        "stop-all": "Ferma tutto"
+      },
+      "fields": {
+        "item": {
+          "label": "Cue"
+        }
+      }
+    }
   }
 }

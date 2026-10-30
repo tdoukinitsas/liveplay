@@ -180,7 +180,18 @@ A **Field** (build it with `field(id, label, type, extra)`):
 
 **Placeholders.** Every string in `options` and in the connection's `config` may contain `{item.name}`, `{item.uuid}`, `{trigger}` and `{time}` (seconds, 3 decimals). They are substituted before `execute()` sees the job, so plugins get final values. Don't explain them in a field's `help`: the client shows one translated hint under every action with text fields.
 
-**Labels are English.** Schemas come from the server and are not localised. Keep labels short and use standard industry terms (GO, CC, Universe).
+**Labels are written in English, and translated by the client.** Schemas come from the server in English, and that's all a plugin has to provide. The client overlays translations from its locale files when a key exists, and otherwise shows your English, so an untranslated plugin still works (`localizeSchema` in `client/app/utils/events.ts`):
+
+| Key in `client/locales/<lang>.json` | Replaces |
+|---|---|
+| `eventPlugins.<plugin>.label`, `.description` | plugin label and description |
+| `eventPlugins.<plugin>.actions.<action>` | action label |
+| `eventPlugins.<plugin>.summaries.<action>` | the action's `summary` template (keep its `{field}` placeholders) |
+| `eventPlugins.<plugin>.connection.<field>.label`, `.help` | a connection field |
+| `eventPlugins.<plugin>.fields.<field>.label`, `.help` | an action field (list-row fields too) |
+| `eventPlugins.<plugin>.options.<field>.<value>` | an enum option's label (`.` in the value written as `_`) |
+
+Ids and values are never translated; they're what gets saved. For a built-in plugin, add its English keys to `en.json` and translations to the other locales. Keep labels short, and leave standard industry terms (GO, CC, Universe) as they are.
 
 ---
 
