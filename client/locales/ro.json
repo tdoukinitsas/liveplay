@@ -1185,7 +1185,13 @@
       "discoverNone": "Nu s-a găsit nimic. Verificați dacă dispozitivul este pornit și în aceeași rețea cu serverul.",
       "discoverFailed": "Nu s-a putut căuta în rețea: {error}",
       "discoverUsed": "Se folosește {device}."
-    }
+    },
+    "zoom": "Zoom",
+    "zoomIn": "Mărește",
+    "zoomOut": "Micșorează",
+    "zoomFit": "Afișează tot fișierul",
+    "scroll": "Derulează linia timpului",
+    "navHint": "Derulați pentru zoom · Shift-derulare sau tragere cu butonul din mijloc pentru deplasare"
   },
   "eventPlugins": {
     "osc": {

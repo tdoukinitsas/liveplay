@@ -1185,7 +1185,13 @@
       "discoverNone": "Nessun risultato. Verifica che il dispositivo sia acceso e sulla stessa rete del server.",
       "discoverFailed": "Impossibile cercare in rete: {error}",
       "discoverUsed": "In uso: {device}."
-    }
+    },
+    "zoom": "Zoom",
+    "zoomIn": "Zoom avanti",
+    "zoomOut": "Zoom indietro",
+    "zoomFit": "Mostra l’intero file",
+    "scroll": "Scorri la timeline",
+    "navHint": "Scorri per lo zoom · Maiusc+scorri o trascina con il tasto centrale per spostarti"
   },
   "eventPlugins": {
     "osc": {

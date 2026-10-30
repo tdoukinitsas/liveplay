@@ -1185,7 +1185,13 @@
       "discoverNone": "Nada encontrado. Verifique se o dispositivo está ligado e na mesma rede que o servidor.",
       "discoverFailed": "Não foi possível procurar na rede: {error}",
       "discoverUsed": "A usar {device}."
-    }
+    },
+    "zoom": "Zoom",
+    "zoomIn": "Aumentar zoom",
+    "zoomOut": "Diminuir zoom",
+    "zoomFit": "Mostrar o ficheiro inteiro",
+    "scroll": "Deslocar a linha temporal",
+    "navHint": "Roda para fazer zoom · Shift+roda ou arraste com o botão do meio para deslocar"
   },
   "eventPlugins": {
     "osc": {

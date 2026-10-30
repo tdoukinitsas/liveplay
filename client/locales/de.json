@@ -1185,7 +1185,13 @@
       "discoverNone": "Nichts gefunden. Prüfen Sie, ob das Gerät eingeschaltet ist und sich im selben Netzwerk wie der Server befindet.",
       "discoverFailed": "Das Netzwerk konnte nicht durchsucht werden: {error}",
       "discoverUsed": "{device} wird verwendet."
-    }
+    },
+    "zoom": "Zoom",
+    "zoomIn": "Hineinzoomen",
+    "zoomOut": "Herauszoomen",
+    "zoomFit": "Ganze Datei anzeigen",
+    "scroll": "Zeitleiste scrollen",
+    "navHint": "Scrollen zum Zoomen · Umschalt+Scrollen oder mit mittlerer Maustaste ziehen zum Verschieben"
   },
   "eventPlugins": {
     "osc": {

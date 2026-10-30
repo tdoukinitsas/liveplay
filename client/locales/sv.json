@@ -1185,7 +1185,13 @@
       "discoverNone": "Inget hittades. Kontrollera att enheten är på och i samma nätverk som servern.",
       "discoverFailed": "Det gick inte att söka i nätverket: {error}",
       "discoverUsed": "Använder {device}."
-    }
+    },
+    "zoom": "Zoom",
+    "zoomIn": "Zooma in",
+    "zoomOut": "Zooma ut",
+    "zoomFit": "Visa hela filen",
+    "scroll": "Scrolla tidslinjen",
+    "navHint": "Scrolla för att zooma · Shift-scrolla eller dra med mittenknappen för att panorera"
   },
   "eventPlugins": {
     "osc": {

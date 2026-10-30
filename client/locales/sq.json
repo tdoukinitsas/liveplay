@@ -1185,7 +1185,13 @@
       "discoverNone": "Nuk u gjet asgjë. Kontrolloni që pajisja të jetë e ndezur dhe në të njëjtin rrjet me serverin.",
       "discoverFailed": "Kërkimi në rrjet nuk u krye: {error}",
       "discoverUsed": "Po përdoret {device}."
-    }
+    },
+    "zoom": "Zmadhimi",
+    "zoomIn": "Zmadho",
+    "zoomOut": "Zvogëlo",
+    "zoomFit": "Shfaq gjithë skedarin",
+    "scroll": "Lëviz vijën kohore",
+    "navHint": "Rrotulloni për zmadhim · Shift + rrotullim ose tërheqje me butonin e mesit për ta lëvizur"
   },
   "eventPlugins": {
     "osc": {

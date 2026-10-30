@@ -1185,7 +1185,13 @@
       "discoverNone": "No se encontró nada. Compruebe que el dispositivo esté encendido y en la misma red que el servidor.",
       "discoverFailed": "No se pudo buscar en la red: {error}",
       "discoverUsed": "Usando {device}."
-    }
+    },
+    "zoom": "Zoom",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "zoomFit": "Mostrar todo el archivo",
+    "scroll": "Desplazar la línea de tiempo",
+    "navHint": "Rueda para hacer zoom · Mayús+rueda o arrastrar con el botón central para desplazarse"
   },
   "eventPlugins": {
     "osc": {

@@ -1185,7 +1185,13 @@
       "discoverNone": "찾은 장치가 없습니다. 장치가 켜져 있고 서버와 같은 네트워크에 있는지 확인하세요.",
       "discoverFailed": "네트워크를 검색할 수 없습니다: {error}",
       "discoverUsed": "{device}을(를) 사용합니다."
-    }
+    },
+    "zoom": "확대/축소",
+    "zoomIn": "확대",
+    "zoomOut": "축소",
+    "zoomFit": "파일 전체 보기",
+    "scroll": "타임라인 스크롤",
+    "navHint": "스크롤로 확대/축소 · Shift+스크롤 또는 가운데 버튼 드래그로 좌우 이동"
   },
   "eventPlugins": {
     "osc": {

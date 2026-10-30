@@ -1185,7 +1185,13 @@
       "discoverNone": "Rien trouvé. Vérifiez que l’appareil est allumé et sur le même réseau que le serveur.",
       "discoverFailed": "Impossible de rechercher sur le réseau : {error}",
       "discoverUsed": "Utilisation de {device}."
-    }
+    },
+    "zoom": "Zoom",
+    "zoomIn": "Zoom avant",
+    "zoomOut": "Zoom arrière",
+    "zoomFit": "Afficher tout le fichier",
+    "scroll": "Faire défiler la timeline",
+    "navHint": "Molette pour zoomer · Maj+molette ou glisser avec le bouton du milieu pour se déplacer"
   },
   "eventPlugins": {
     "osc": {

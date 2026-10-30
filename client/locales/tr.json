@@ -1185,7 +1185,13 @@
       "discoverNone": "Hiçbir şey bulunamadı. Cihazın açık olduğundan ve sunucuyla aynı ağda bulunduğundan emin olun.",
       "discoverFailed": "Ağda arama yapılamadı: {error}",
       "discoverUsed": "{device} kullanılıyor."
-    }
+    },
+    "zoom": "Yakınlaştırma",
+    "zoomIn": "Yakınlaştır",
+    "zoomOut": "Uzaklaştır",
+    "zoomFit": "Dosyanın tamamını göster",
+    "scroll": "Zaman çizelgesini kaydır",
+    "navHint": "Yakınlaştırmak için tekerleği çevirin · Yana kaydırmak için Shift+tekerlek veya orta tuşla sürükleyin"
   },
   "eventPlugins": {
     "osc": {

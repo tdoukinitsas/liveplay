@@ -1185,7 +1185,13 @@
       "discoverNone": "Nothing found. Check the device is on and on the same network as the server.",
       "discoverFailed": "Couldn't search the network: {error}",
       "discoverUsed": "Using {device}."
-    }
+    },
+    "zoom": "Zoom",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomFit": "Show the whole file",
+    "scroll": "Scroll the timeline",
+    "navHint": "Scroll to zoom · Shift+scroll or middle-drag to pan"
   },
   "eventPlugins": {
     "osc": {

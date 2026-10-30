@@ -1185,7 +1185,13 @@
       "discoverNone": "Fant ingenting. Sjekk at enheten er på og i samme nettverk som serveren.",
       "discoverFailed": "Kunne ikke søke i nettverket: {error}",
       "discoverUsed": "Bruker {device}."
-    }
+    },
+    "zoom": "Zoom",
+    "zoomIn": "Zoom inn",
+    "zoomOut": "Zoom ut",
+    "zoomFit": "Vis hele filen",
+    "scroll": "Rull tidslinjen",
+    "navHint": "Rull for å zoome · Shift-rull eller dra med midtknappen for å panorere"
   },
   "eventPlugins": {
     "osc": {

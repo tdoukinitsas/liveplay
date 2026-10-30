@@ -62,19 +62,53 @@
       <div
         ref="timelineEl"
         class="ev-timeline"
+        :class="{ panning: panning }"
+        :style="markerPalette"
         @pointerdown="onTimelineDown"
         @pointermove="onTimelineMove"
         @pointerup="onTimelineUp"
         @pointercancel="onTimelineUp"
+        @wheel.prevent="onWheel"
+        @auxclick.prevent
       >
         <canvas ref="canvasEl" class="ev-canvas" />
 
-        <div v-if="cursor !== null" class="ev-cursor-line" :style="{ left: pct(cursor) }" />
+        <!-- Where the cue starts and stops playing: the trim points. -->
+        <div v-if="inView(inPoint) && inPoint > 0" class="ev-trim-line" :style="{ left: pct(inPoint) }" />
+        <div v-if="inView(outPoint) && outPoint < duration" class="ev-trim-line" :style="{ left: pct(outPoint) }" />
 
-        <div v-if="playhead !== null" class="ev-playhead" :style="{ left: pct(playhead) }" />
+        <div v-if="cursor !== null && inView(cursor)" class="ev-cursor-line" :style="{ left: pct(cursor) }" />
+
+        <div v-if="playhead !== null && inView(playhead)" class="ev-playhead" :style="{ left: pct(playhead) }" />
+
+        <!-- On start / On end events sit on the trim points they fire at.
+             Not draggable: their time is the cue's, not theirs. -->
+        <div
+          v-for="m in edgeMarkers"
+          v-show="inView(m.time)"
+          :key="m.ev.id"
+          class="ev-marker ev-marker--edge"
+          :class="{
+            selected: m.ev.id === selectedId,
+            disabled: m.ev.enabled === false,
+            flashing: isFlashing(m.ev.id),
+            'ev-marker--end': m.end,
+          }"
+          :style="{ left: pct(m.time), '--stack': m.stack }"
+          :title="markerTitle(m.ev)"
+          @pointerdown.stop="onEdgeMarkerDown($event, m.ev)"
+        >
+          <span class="ev-marker-line" />
+          <span class="ev-marker-flag">
+            <span class="material-symbols-rounded ev-marker-icon">{{ m.end ? 'stop' : 'play_arrow' }}</span>
+            {{ m.label }}
+            <span v-if="lastResult[m.ev.id]?.ok === false" class="ev-error-dot" />
+          </span>
+        </div>
 
         <div
           v-for="m in markers"
+          v-show="inView(m.time)"
           :key="m.ev.id"
           class="ev-marker"
           :class="{
@@ -97,6 +131,44 @@
             <span v-if="lastResult[m.ev.id]?.ok === false" class="ev-error-dot" />
           </span>
         </div>
+      </div>
+
+      <!-- Navigation, as on the Playback tab: zoom, a scrollbar while zoomed,
+           and Fit to see the whole file again. Wheel zooms at the pointer;
+           Shift+wheel or a middle-button drag pans. -->
+      <div class="ev-nav">
+        <button type="button" class="ev-icon-btn" :title="t('events.zoomOut')" :disabled="zoom <= 1" @click="zoomBy(1 / 1.5)">
+          <span class="material-symbols-rounded">zoom_out</span>
+        </button>
+        <input
+          class="ev-zoom-slider"
+          type="range"
+          min="0"
+          :max="ZOOM_STEPS"
+          step="1"
+          :value="zoomSlider"
+          :aria-label="t('events.zoom')"
+          @input="onZoomSlider"
+        />
+        <button type="button" class="ev-icon-btn" :title="t('events.zoomIn')" :disabled="zoom >= MAX_ZOOM" @click="zoomBy(1.5)">
+          <span class="material-symbols-rounded">zoom_in</span>
+        </button>
+        <span class="ev-zoom-text">{{ Math.round(zoom * 100) }}%</span>
+        <button type="button" class="ev-icon-btn" :title="t('events.zoomFit')" :disabled="zoom <= 1" @click="fitView">
+          <span class="material-symbols-rounded">fit_screen</span>
+        </button>
+        <input
+          v-if="zoom > 1"
+          class="ev-scroll-slider"
+          type="range"
+          min="0"
+          :max="maxViewStart"
+          step="0.01"
+          :value="viewStart"
+          :aria-label="t('events.scroll')"
+          @input="viewStart = Number(($event.target as HTMLInputElement).value)"
+        />
+        <span v-else class="ev-nav-hint">{{ t('events.navHint') }}</span>
       </div>
 
       <div class="ev-body">
@@ -342,7 +414,50 @@ const clampTime = (s: number) => Math.min(Math.max(0, s), duration.value);
 // Millisecond resolution is what the editor shows; finer only adds noise to
 // the saved file and to every diff.
 const roundTime = (s: number) => Math.round(s * 1000) / 1000;
-const pct = (s: number) => `${duration.value > 0 ? (clampTime(s) / duration.value) * 100 : 0}%`;
+// ---- the view window -----------------------------------------------------
+// The timeline shows [viewStart, viewStart + visibleDuration] of the file. At
+// zoom 1 that's all of it; zoomed in, the wheel, the scrollbar or a middle-
+// button drag moves the window. Every time<->pixel conversion goes through it.
+const ZOOM_STEPS = 100;
+const zoom = ref(1);
+const viewStart = ref(0);
+// Down to a quarter of a second across the timeline, and no further.
+const MAX_ZOOM = computed(() => Math.max(1, Math.min(500, duration.value / 0.25)));
+const visibleDuration = computed(() => (duration.value > 0 ? duration.value / zoom.value : 0));
+const maxViewStart = computed(() => Math.max(0, duration.value - visibleDuration.value));
+const viewEnd = computed(() => viewStart.value + visibleDuration.value);
+const inView = (s: number) => s >= viewStart.value - 1e-6 && s <= viewEnd.value + 1e-6;
+const pct = (s: number) =>
+  `${visibleDuration.value > 0 ? ((s - viewStart.value) / visibleDuration.value) * 100 : 0}%`;
+
+function setView(nextZoom: number, nextStart: number) {
+  zoom.value = Math.min(MAX_ZOOM.value, Math.max(1, nextZoom));
+  const vis = duration.value / zoom.value;
+  viewStart.value = Math.min(Math.max(0, nextStart), Math.max(0, duration.value - vis));
+}
+// Zoom keeping `anchor` (a file time) where it is on screen.
+function zoomAround(factor: number, anchor: number) {
+  if (!(duration.value > 0)) return;
+  const frac = visibleDuration.value > 0 ? (anchor - viewStart.value) / visibleDuration.value : 0.5;
+  const nextZoom = Math.min(MAX_ZOOM.value, Math.max(1, zoom.value * factor));
+  setView(nextZoom, anchor - frac * (duration.value / nextZoom));
+}
+// The buttons zoom around the cursor when it's on screen, else the middle.
+function zoomBy(factor: number) {
+  const anchor = cursor.value !== null && inView(cursor.value)
+    ? cursor.value : viewStart.value + visibleDuration.value / 2;
+  zoomAround(factor, anchor);
+}
+function fitView() { setView(1, 0); }
+const zoomSlider = computed(() =>
+  MAX_ZOOM.value > 1 ? Math.round((Math.log(zoom.value) / Math.log(MAX_ZOOM.value)) * ZOOM_STEPS) : 0);
+function onZoomSlider(e: Event) {
+  const v = Number((e.target as HTMLInputElement).value);
+  zoomBy(Math.pow(MAX_ZOOM.value, v / ZOOM_STEPS) / zoom.value);
+}
+watch([duration, MAX_ZOOM], () => setView(zoom.value, viewStart.value));
+// Another item: start from the whole file.
+watch(() => props.item.uuid, fitView);
 const isOutside = (s: number | undefined) =>
   typeof s === 'number' && (s < inPoint.value - 0.0005 || s > outPoint.value + 0.0005);
 
@@ -389,6 +504,53 @@ watch(() => props.item?.uuid, () => {
 });
 
 onMounted(() => { void refreshPlugins(); });
+
+// On start / On end events, drawn at the trim points they fire at; several
+// on one edge stack upwards.
+const edgeMarkers = computed(() => {
+  const out: { ev: ItemEvent; time: number; end: boolean; stack: number; label: string }[] = [];
+  let starts = 0, ends = 0;
+  for (const ev of sortedEvents.value) {
+    if (ev.trigger !== 'start' && ev.trigger !== 'end') continue;
+    const end = ev.trigger === 'end';
+    out.push({ ev, end, time: end ? outPoint.value : inPoint.value,
+               stack: end ? ends++ : starts++, label: ev.name || rowTitle(ev) });
+  }
+  return out;
+});
+
+// ---- colour ---------------------------------------------------------------
+// Markers take the cue's own colour: a darker shade normally, a lighter one
+// with an outline when selected, so the selected flag is the one that stands
+// out (fixed theme colours made an unselected red flag read as "selected").
+// The waveform is drawn desaturated so neither competes with it.
+type Rgb = [number, number, number];
+const parseHex = (hex: string): Rgb | null => {
+  const m = /^#?([0-9a-f]{6})$/i.exec((hex || '').trim());
+  if (!m) return null;
+  const n = parseInt(m[1]!, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+const mix = (c: Rgb, to: number, amount: number) =>
+  c.map(v => Math.round(v + (to - v) * amount)) as Rgb;
+const rgbCss = (c: Rgb) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+// Readable text on a flag: dark on light colours, light on dark ones.
+const inkFor = (c: Rgb) =>
+  (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255 > 0.55 ? '#161616' : '#ffffff';
+const trackRgb = computed<Rgb>(() => parseHex(props.item.color) ?? [255, 176, 32]);
+const markerPalette = computed(() => {
+  const dark = mix(trackRgb.value, 0, 0.3);
+  const light = mix(trackRgb.value, 255, 0.55);
+  return {
+    '--marker-dark': rgbCss(dark), '--marker-dark-ink': inkFor(dark),
+    '--marker-light': rgbCss(light), '--marker-light-ink': inkFor(light),
+  } as Record<string, string>;
+});
+const waveformColour = computed(() => {
+  const c = trackRgb.value;
+  const grey = Math.round(0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]);
+  return rgbCss(mix(c, grey, 0.5));
+});
 
 // Time markers, numbered in time order so the flag and the list agree.
 const markers = computed(() => {
@@ -632,22 +794,58 @@ const timeAt = (clientX: number): number => {
   if (!el || !(duration.value > 0)) return 0;
   const r = el.getBoundingClientRect();
   const frac = r.width > 0 ? (clientX - r.left) / r.width : 0;
-  return clampTime(frac * duration.value);
+  return clampTime(viewStart.value + frac * visibleDuration.value);
 };
+
+// Wheel: zoom at the pointer. Shift+wheel, or a sideways wheel/trackpad: pan.
+function onWheel(e: WheelEvent) {
+  if (!(duration.value > 0)) return;
+  const sideways = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+  if (sideways) {
+    const w = timelineEl.value?.clientWidth || 1;
+    const px = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    setView(zoom.value, viewStart.value + (px / w) * visibleDuration.value);
+    return;
+  }
+  zoomAround(e.deltaY < 0 ? 1.25 : 1 / 1.25, timeAt(e.clientX));
+}
+
+// Middle-button drag pans, wherever it starts.
+const panning = ref(false);
+let panFromX = 0;
+let panFromStart = 0;
 
 // Background: press puts the cursor down, and dragging scrubs it.
 let scrubbing = false;
 function onTimelineDown(e: PointerEvent) {
+  if (e.button === 1) {
+    e.preventDefault();   // no autoscroll cursor
+    panning.value = true;
+    panFromX = e.clientX;
+    panFromStart = viewStart.value;
+    timelineEl.value?.setPointerCapture?.(e.pointerId);
+    return;
+  }
   if (e.button !== 0) return;
   scrubbing = true;
   (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   cursor.value = roundTime(timeAt(e.clientX));
 }
 function onTimelineMove(e: PointerEvent) {
+  if (panning.value) {
+    const w = timelineEl.value?.clientWidth || 1;
+    setView(zoom.value, panFromStart - ((e.clientX - panFromX) / w) * visibleDuration.value);
+    return;
+  }
   if (!scrubbing) return;
   cursor.value = roundTime(timeAt(e.clientX));
 }
 function onTimelineUp(e: PointerEvent) {
+  if (panning.value) {
+    panning.value = false;
+    timelineEl.value?.releasePointerCapture?.(e.pointerId);
+    return;
+  }
   if (!scrubbing) return;
   scrubbing = false;
   (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
@@ -658,7 +856,14 @@ function onTimelineUp(e: PointerEvent) {
 // is only written on release — one PATCH per retime, not one per pixel.
 const DRAG_THRESHOLD_PX = 3;
 
+// Start/end flags only select: they move with the trim points.
+function onEdgeMarkerDown(e: PointerEvent, ev: ItemEvent) {
+  if (e.button === 1) { onTimelineDown(e); return; }
+  if (e.button === 0) selectedId.value = ev.id;
+}
+
 function onMarkerDown(e: PointerEvent, ev: ItemEvent) {
+  if (e.button === 1) { onTimelineDown(e); return; }
   if (e.button !== 0) return;
   selectedId.value = ev.id;
   (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -709,15 +914,18 @@ function draw() {
   const dur = duration.value;
   const peaks = props.item.waveform?.peaks;
   const mid = h / 2;
-  if (peaks && peaks.length > 0 && dur > 0) {
-    ctx.fillStyle = props.item.color || '#ffffff';
-    ctx.globalAlpha = 0.85;
+  const v0 = viewStart.value;
+  const vis = visibleDuration.value;
+  const xOf = (t: number) => ((t - v0) / vis) * w;
+  if (peaks && peaks.length > 0 && dur > 0 && vis > 0) {
+    ctx.fillStyle = waveformColour.value;
+    ctx.globalAlpha = 0.75;
     // One bar per CSS pixel, the loudest peak in its span: a long file has
     // far more peaks than pixels, and striding over them drops transients.
     const n = peaks.length;
     for (let x = 0; x < w; x++) {
-      const a = Math.floor((x / w) * n);
-      const b = Math.max(a + 1, Math.floor(((x + 1) / w) * n));
+      const a = Math.floor(((v0 + (x / w) * vis) / dur) * n);
+      const b = Math.max(a + 1, Math.floor(((v0 + ((x + 1) / w) * vis) / dur) * n));
       let m = 0;
       for (let i = a; i < b && i < n; i++) if (peaks[i]! > m) m = peaks[i]!;
       // Gamma 2, as the row waveforms: dynamics without loud tracks filling the box.
@@ -735,27 +943,32 @@ function draw() {
   }
 
   // Shade what the trim cuts off: events there exist but never fire.
-  if (dur > 0) {
+  if (dur > 0 && vis > 0) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-    const xi = (inPoint.value / dur) * w;
-    const xo = (outPoint.value / dur) * w;
+    const xi = Math.min(w, Math.max(0, xOf(inPoint.value)));
+    const xo = Math.min(w, Math.max(0, xOf(outPoint.value)));
     if (xi > 0) ctx.fillRect(0, 0, xi, h);
     if (xo < w) ctx.fillRect(xo, 0, w - xo, h);
   }
 
   // Time ticks along the bottom, at whichever round step lands ~80px apart.
-  if (dur > 0) {
-    const steps = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
-    const want = (80 / w) * dur;
+  if (dur > 0 && vis > 0) {
+    const steps = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+    const want = (80 / w) * vis;
     const step = steps.find(s => s >= want) ?? steps[steps.length - 1]!;
+    const decimals = step < 0.1 ? 2 : step < 1 ? 1 : 0;
     ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
     ctx.font = '10px sans-serif';
-    for (let s = step; s < dur; s += step) {
-      const x = (s / dur) * w;
+    for (let k = Math.ceil(v0 / step); k * step < Math.min(dur, v0 + vis); k++) {
+      const s = k * step;
+      if (s <= 0) continue;
+      const x = xOf(s);
       ctx.fillRect(x, h - 4, 1, 4);
       const m = Math.floor(s / 60);
       const sec = s % 60;
-      const label = step < 1 ? `${m}:${sec.toFixed(1).padStart(4, '0')}` : `${m}:${String(Math.floor(sec)).padStart(2, '0')}`;
+      const label = decimals > 0
+        ? `${m}:${sec.toFixed(decimals).padStart(3 + decimals, '0')}`
+        : `${m}:${String(Math.floor(sec + 1e-6)).padStart(2, '0')}`;
       ctx.fillText(label, x + 3, h - 3);
     }
   }
@@ -768,9 +981,19 @@ const scheduleDraw = () => {
 };
 
 watch(
-  () => [props.item.waveform, props.item.color, inPoint.value, outPoint.value, duration.value],
+  () => [props.item.waveform, props.item.color, inPoint.value, outPoint.value, duration.value,
+         zoom.value, viewStart.value],
   scheduleDraw,
 );
+
+// Selecting an event in the list brings its marker into view.
+watch(selectedId, (id) => {
+  const ev = events.value.find(e => e.id === id);
+  if (!ev || zoom.value <= 1) return;
+  const at = ev.trigger === 'time' ? ev.time
+    : ev.trigger === 'start' ? inPoint.value : ev.trigger === 'end' ? outPoint.value : undefined;
+  if (typeof at === 'number' && !inView(at)) setView(zoom.value, at - visibleDuration.value * 0.25);
+});
 
 // The timeline only exists once the duration is known; (re)attach the
 // observer whenever the element itself is swapped in.
@@ -895,7 +1118,7 @@ onBeforeUnmount(() => {
 .ev-timeline {
   position: relative;
   flex: 0 0 auto;
-  height: 76px;
+  height: 96px;
   border: 1px solid var(--color-border);
   border-radius: 4px;
   overflow: hidden;
@@ -931,8 +1154,23 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
 }
 
+.ev-timeline.panning { cursor: grabbing; }
+
+/* Where the cue starts and stops: a quiet line on each trim point. */
+.ev-trim-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+/* Marker colours come from the cue's colour (markerPalette): darker normally,
+   lighter and outlined when selected. */
 .ev-marker {
-  --marker-color: var(--color-warning);
+  --marker-color: var(--marker-dark, var(--color-warning));
+  --marker-ink: var(--marker-dark-ink, #161616);
   position: absolute;
   top: 0;
   bottom: 0;
@@ -942,8 +1180,19 @@ onBeforeUnmount(() => {
   z-index: 1;
 
   &.selected {
-    --marker-color: var(--color-accent);
+    --marker-color: var(--marker-light, var(--color-accent));
+    --marker-ink: var(--marker-light-ink, #161616);
     z-index: 2;
+  }
+
+  &.selected .ev-marker-flag {
+    box-shadow: 0 0 0 1px #fff, 0 1px 4px rgba(0, 0, 0, 0.6);
+  }
+
+  &.selected .ev-marker-line {
+    width: 3px;
+    left: 4px;
+    box-shadow: 0 0 3px rgba(255, 255, 255, 0.6);
   }
 
   &.disabled,
@@ -985,7 +1234,8 @@ onBeforeUnmount(() => {
   padding: 1px 5px;
   border-radius: 0 3px 3px 0;
   background: var(--marker-color);
-  color: #161616;
+  color: var(--marker-ink);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   font-size: 10px;
   font-weight: 600;
   line-height: 14px;
@@ -993,6 +1243,60 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
+}
+
+/* On start / On end: flags along the bottom edge (time markers use the top),
+   stacked upwards; an end flag opens to the left so it stays on screen. */
+.ev-marker--edge {
+  cursor: pointer;
+}
+
+.ev-marker--edge .ev-marker-flag {
+  top: auto;
+  bottom: calc(14px + var(--stack, 0) * 17px);
+}
+
+.ev-marker--end .ev-marker-flag {
+  left: auto;
+  right: 5px;
+  border-radius: 3px 0 0 3px;
+}
+
+.ev-marker-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* ---- Navigation under the timeline ------------------------------------- */
+.ev-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  margin-top: -2px;
+}
+
+.ev-zoom-slider {
+  width: 140px;
+}
+
+.ev-zoom-text {
+  min-width: 48px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ev-scroll-slider {
+  flex: 1;
+  min-width: 80px;
+}
+
+.ev-nav-hint {
+  flex: 1;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-align: right;
 }
 
 .ev-error-dot {

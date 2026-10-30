@@ -1185,7 +1185,13 @@
       "discoverNone": "見つかりませんでした。デバイスの電源が入っていて、サーバーと同じネットワークにあるか確認してください。",
       "discoverFailed": "ネットワークを検索できませんでした：{error}",
       "discoverUsed": "{device} を使用します。"
-    }
+    },
+    "zoom": "ズーム",
+    "zoomIn": "ズームイン",
+    "zoomOut": "ズームアウト",
+    "zoomFit": "ファイル全体を表示",
+    "scroll": "タイムラインをスクロール",
+    "navHint": "スクロールでズーム · Shift+スクロールまたは中ボタンのドラッグで左右に移動"
   },
   "eventPlugins": {
     "osc": {

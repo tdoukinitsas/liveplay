@@ -1185,7 +1185,13 @@
       "discoverNone": "未找到任何设备。请确认设备已开机，并与服务器位于同一网络。",
       "discoverFailed": "无法搜索网络：{error}",
       "discoverUsed": "正在使用 {device}。"
-    }
+    },
+    "zoom": "缩放",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "zoomFit": "显示整个文件",
+    "scroll": "滚动时间线",
+    "navHint": "滚动以缩放 · Shift+滚动或中键拖动以平移"
   },
   "eventPlugins": {
     "osc": {
