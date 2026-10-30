@@ -1351,15 +1351,79 @@
     },
     "liveplay": {
       "label": "LivePlay",
-      "description": "このプロジェクト内の他のキューを開始または停止します。",
+      "description": "このショー：キューの開始・停止・ダッキングと、内部ミキサーの操作。",
       "actions": {
         "play-item": "キューを再生",
         "stop-item": "キューを停止",
-        "stop-all": "すべて停止"
+        "stop-all": "すべて停止",
+        "pause-item": "キューを一時停止",
+        "resume-item": "キューを再開",
+        "arm-next": "スタンバイに設定",
+        "duck-item": "キューをダッキング",
+        "bus-level": "バスのフェーダーを設定",
+        "bus-mute": "バスをミュート / 解除",
+        "bus-send": "センドレベルを設定",
+        "bus-route": "バスをルーティング",
+        "bus-dsp": "バスの処理を設定",
+        "master-level": "マスターレベルを設定"
       },
       "fields": {
         "item": {
           "label": "キュー"
+        },
+        "level": {
+          "label": "レベル",
+          "help": "キュー自身の音量に対する相対値です。0 で元に戻り、-90 で無音になります。再生中のキューにのみ適用され、保存された音量は変わりません。"
+        },
+        "fade": {
+          "label": "クロスフェード",
+          "help": "0 で即座に変更します。長くすると現在の値からフェードします。"
+        },
+        "bus": {
+          "label": "バス"
+        },
+        "state": {
+          "label": "状態"
+        },
+        "send": {
+          "label": "送り先",
+          "help": "バスの既存のセンドです。先にミキサーで追加してください。"
+        },
+        "to": {
+          "label": "送り先"
+        },
+        "param": {
+          "label": "設定項目"
+        },
+        "value": {
+          "label": "値",
+          "help": "設定項目固有の単位で指定します。スイッチは 0（オフ）または 1（オン）です。"
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "ミュート",
+          "unmute": "ミュート解除"
+        },
+        "param": {
+          "eqEnabled": "EQ オン (0/1)",
+          "dynEnabled": "ダイナミクスオン (0/1)",
+          "hpf_freq": "ハイパス周波数 (20–2000 Hz)",
+          "lpf_freq": "ローパス周波数 (1000–24000 Hz)",
+          "gate_on": "ゲートオン (0/1)",
+          "gate_threshold": "ゲートのスレッショルド (-80–0 dB)",
+          "gate_range": "ゲートのレンジ (-80–0 dB)",
+          "comp_on": "コンプレッサーオン (0/1)",
+          "comp_threshold": "コンプレッサーのスレッショルド (-60–0 dB)",
+          "comp_ratio": "コンプレッサーのレシオ (1–60 :1)",
+          "comp_makeup": "コンプレッサーのメイクアップ (-12–24 dB)",
+          "width_width": "ステレオ幅 (0–2 ×)"
         }
       }
     },

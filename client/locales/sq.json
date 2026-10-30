@@ -1351,15 +1351,79 @@
     },
     "liveplay": {
       "label": "LivePlay",
-      "description": "Nis ose ndal cue të tjera në këtë projekt.",
+      "description": "Kjo shfaqje: nisja, ndalimi dhe ducking-u i cue-ve, si dhe mikseri i brendshëm.",
       "actions": {
         "play-item": "Luaj cue-në",
         "stop-item": "Ndalo cue-në",
-        "stop-all": "Ndalo të gjitha"
+        "stop-all": "Ndalo të gjitha",
+        "pause-item": "Pauzo cue-në",
+        "resume-item": "Vazhdo cue-në",
+        "arm-next": "Cakto Në radhë",
+        "duck-item": "Ducking për një cue",
+        "bus-level": "Cakto fader-in e bus-it",
+        "bus-mute": "Mute / unmute për një bus",
+        "bus-send": "Cakto nivelin e send-it",
+        "bus-route": "Drejto një bus",
+        "bus-dsp": "Cakto përpunimin e bus-it",
+        "master-level": "Cakto nivelin master"
       },
       "fields": {
         "item": {
           "label": "Cue"
+        },
+        "level": {
+          "label": "Niveli",
+          "help": "Në raport me volumin e vetë cue-së: 0 e kthen, -90 e hesht. Vetëm cue-ja që luhet; volumi i ruajtur nuk ndryshon."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 e ndryshon menjëherë; vlerat më të mëdha bëjnë fade nga pozicioni aktual."
+        },
+        "bus": {
+          "label": "Bus"
+        },
+        "state": {
+          "label": "Gjendja"
+        },
+        "send": {
+          "label": "Te",
+          "help": "Send-et ekzistuese të bus-it; shtoni fillimisht një te Mikseri."
+        },
+        "to": {
+          "label": "Shkon te"
+        },
+        "param": {
+          "label": "Cilësimi"
+        },
+        "value": {
+          "label": "Vlera",
+          "help": "Në njësinë e vetë cilësimit; çelësat janë 0 (joaktiv) ose 1 (aktiv)."
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "param": {
+          "eqEnabled": "EQ aktiv (0/1)",
+          "dynEnabled": "Dinamika aktive (0/1)",
+          "hpf_freq": "Frekuenca high-pass (20–2000 Hz)",
+          "lpf_freq": "Frekuenca low-pass (1000–24000 Hz)",
+          "gate_on": "Gate aktiv (0/1)",
+          "gate_threshold": "Threshold i gate-it (-80–0 dB)",
+          "gate_range": "Range i gate-it (-80–0 dB)",
+          "comp_on": "Compressor aktiv (0/1)",
+          "comp_threshold": "Threshold i compressor-it (-60–0 dB)",
+          "comp_ratio": "Ratio i compressor-it (1–60 :1)",
+          "comp_makeup": "Makeup i compressor-it (-12–24 dB)",
+          "width_width": "Gjerësia stereo (0–2 ×)"
         }
       }
     },

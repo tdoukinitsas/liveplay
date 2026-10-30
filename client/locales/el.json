@@ -1351,15 +1351,79 @@
     },
     "liveplay": {
       "label": "LivePlay",
-      "description": "Έναρξη ή διακοπή άλλων cue σε αυτή την εκδήλωση.",
+      "description": "Αυτή η εκδήλωση: έναρξη, διακοπή και ducking των cue, και χειρισμός του εσωτερικού μείκτη.",
       "actions": {
         "play-item": "Αναπαραγωγή cue",
         "stop-item": "Διακοπή cue",
-        "stop-all": "Διακοπή όλων"
+        "stop-all": "Διακοπή όλων",
+        "pause-item": "Παύση cue",
+        "resume-item": "Συνέχιση cue",
+        "arm-next": "Ορισμός «Ακολουθεί»",
+        "duck-item": "Ducking ενός cue",
+        "bus-level": "Ρύθμιση fader bus",
+        "bus-mute": "Mute / unmute ενός bus",
+        "bus-send": "Ρύθμιση στάθμης send",
+        "bus-route": "Δρομολόγηση ενός bus",
+        "bus-dsp": "Ρύθμιση επεξεργασίας bus",
+        "master-level": "Ρύθμιση στάθμης master"
       },
       "fields": {
         "item": {
           "label": "Cue"
+        },
+        "level": {
+          "label": "Στάθμη",
+          "help": "Σε σχέση με την ένταση του ίδιου του cue: το 0 την επαναφέρει, το -90 το βουβαίνει. Μόνο για το cue που παίζει· η αποθηκευμένη ένταση δεν αλλάζει."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "Με 0 αλλάζει αμέσως· με μεγαλύτερη τιμή κάνει fade από την τρέχουσα θέση."
+        },
+        "bus": {
+          "label": "Bus"
+        },
+        "state": {
+          "label": "Κατάσταση"
+        },
+        "send": {
+          "label": "Προς",
+          "help": "Τα υπάρχοντα sends του bus· προσθέστε πρώτα ένα στον Μείκτη."
+        },
+        "to": {
+          "label": "Προορισμός"
+        },
+        "param": {
+          "label": "Ρύθμιση"
+        },
+        "value": {
+          "label": "Τιμή",
+          "help": "Στη μονάδα της ρύθμισης· οι διακόπτες είναι 0 (ανενεργό) ή 1 (ενεργό)."
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "param": {
+          "eqEnabled": "EQ ενεργό (0/1)",
+          "dynEnabled": "Δυναμική ενεργή (0/1)",
+          "hpf_freq": "Συχνότητα high-pass (20–2000 Hz)",
+          "lpf_freq": "Συχνότητα low-pass (1000–24000 Hz)",
+          "gate_on": "Gate ενεργό (0/1)",
+          "gate_threshold": "Threshold gate (-80–0 dB)",
+          "gate_range": "Range gate (-80–0 dB)",
+          "comp_on": "Compressor ενεργός (0/1)",
+          "comp_threshold": "Threshold compressor (-60–0 dB)",
+          "comp_ratio": "Ratio compressor (1–60 :1)",
+          "comp_makeup": "Makeup compressor (-12–24 dB)",
+          "width_width": "Στερεοφωνικό εύρος (0–2 ×)"
         }
       }
     },

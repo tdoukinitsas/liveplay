@@ -1351,15 +1351,79 @@
     },
     "liveplay": {
       "label": "LivePlay",
-      "description": "Pornește sau oprește alte cue-uri din acest proiect.",
+      "description": "Acest spectacol: pornește, oprește și aplică ducking cue-urilor și controlează mixerul intern.",
       "actions": {
         "play-item": "Redă cue",
         "stop-item": "Oprește cue",
-        "stop-all": "Oprește tot"
+        "stop-all": "Oprește tot",
+        "pause-item": "Pauză cue",
+        "resume-item": "Reia cue",
+        "arm-next": "Setează Următorul",
+        "duck-item": "Ducking pe un cue",
+        "bus-level": "Setează faderul bus-ului",
+        "bus-mute": "Mute / unmute la un bus",
+        "bus-send": "Setează nivelul send-ului",
+        "bus-route": "Rutează un bus",
+        "bus-dsp": "Setează procesarea bus-ului",
+        "master-level": "Setează nivelul master"
       },
       "fields": {
         "item": {
           "label": "Cue"
+        },
+        "level": {
+          "label": "Nivel",
+          "help": "Relativ la volumul propriu al cue-ului: 0 îl readuce, -90 îl amuțește. Doar cue-ul în redare; volumul salvat nu se schimbă."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 schimbă imediat; o valoare mai mare face fade de la poziția actuală."
+        },
+        "bus": {
+          "label": "Bus"
+        },
+        "state": {
+          "label": "Stare"
+        },
+        "send": {
+          "label": "Către",
+          "help": "Send-urile existente ale bus-ului; adăugați mai întâi unul în Mixer."
+        },
+        "to": {
+          "label": "Merge către"
+        },
+        "param": {
+          "label": "Setare"
+        },
+        "value": {
+          "label": "Valoare",
+          "help": "În unitatea setării; comutatoarele sunt 0 (dezactivat) sau 1 (activat)."
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "param": {
+          "eqEnabled": "EQ activat (0/1)",
+          "dynEnabled": "Dinamică activată (0/1)",
+          "hpf_freq": "Frecvență trece-sus (20–2000 Hz)",
+          "lpf_freq": "Frecvență trece-jos (1000–24000 Hz)",
+          "gate_on": "Gate activat (0/1)",
+          "gate_threshold": "Prag gate (-80–0 dB)",
+          "gate_range": "Range gate (-80–0 dB)",
+          "comp_on": "Compresor activat (0/1)",
+          "comp_threshold": "Prag compresor (-60–0 dB)",
+          "comp_ratio": "Ratio compresor (1–60 :1)",
+          "comp_makeup": "Makeup compresor (-12–24 dB)",
+          "width_width": "Lățime stereo (0–2 ×)"
         }
       }
     },

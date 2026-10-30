@@ -1351,15 +1351,79 @@
     },
     "liveplay": {
       "label": "LivePlay",
-      "description": "Iniciar ou parar outras deixas deste projeto.",
+      "description": "Este espetáculo: iniciar, parar e atenuar deixas, e operar o misturador interno.",
       "actions": {
         "play-item": "Reproduzir deixa",
         "stop-item": "Parar deixa",
-        "stop-all": "Parar tudo"
+        "stop-all": "Parar tudo",
+        "pause-item": "Pausar deixa",
+        "resume-item": "Retomar deixa",
+        "arm-next": "Definir «A seguir»",
+        "duck-item": "Atenuar uma deixa",
+        "bus-level": "Definir fader do bus",
+        "bus-mute": "Ativar/desativar mute de um bus",
+        "bus-send": "Definir nível de envio",
+        "bus-route": "Encaminhar um bus",
+        "bus-dsp": "Definir processamento do bus",
+        "master-level": "Definir nível master"
       },
       "fields": {
         "item": {
           "label": "Deixa"
+        },
+        "level": {
+          "label": "Nível",
+          "help": "Relativo ao volume da própria deixa: 0 repõe-o, -90 silencia-a. Só a deixa em reprodução; o volume guardado não muda."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 altera de imediato; tempos maiores fazem fade a partir do valor atual."
+        },
+        "bus": {
+          "label": "Bus"
+        },
+        "state": {
+          "label": "Estado"
+        },
+        "send": {
+          "label": "Para",
+          "help": "Os envios existentes do bus; adicione primeiro um no misturador."
+        },
+        "to": {
+          "label": "Vai para"
+        },
+        "param": {
+          "label": "Definição"
+        },
+        "value": {
+          "label": "Valor",
+          "help": "Na unidade da própria definição; os interruptores são 0 (desligado) ou 1 (ligado)."
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Ativar mute",
+          "unmute": "Desativar mute"
+        },
+        "param": {
+          "eqEnabled": "EQ ligado (0/1)",
+          "dynEnabled": "Dinâmica ligada (0/1)",
+          "hpf_freq": "Frequência do passa-alto (20–2000 Hz)",
+          "lpf_freq": "Frequência do passa-baixo (1000–24000 Hz)",
+          "gate_on": "Gate ligado (0/1)",
+          "gate_threshold": "Limiar do gate (-80–0 dB)",
+          "gate_range": "Range do gate (-80–0 dB)",
+          "comp_on": "Compressor ligado (0/1)",
+          "comp_threshold": "Limiar do compressor (-60–0 dB)",
+          "comp_ratio": "Ratio do compressor (1–60 :1)",
+          "comp_makeup": "Compensação do compressor (-12–24 dB)",
+          "width_width": "Largura estéreo (0–2 ×)"
         }
       }
     },

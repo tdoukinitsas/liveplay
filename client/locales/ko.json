@@ -1351,15 +1351,79 @@
     },
     "liveplay": {
       "label": "LivePlay",
-      "description": "이 프로젝트의 다른 큐를 시작하거나 정지합니다.",
+      "description": "이 쇼: 큐 시작, 정지, 더킹 및 내부 믹서 조작.",
       "actions": {
         "play-item": "큐 재생",
         "stop-item": "큐 정지",
-        "stop-all": "모두 정지"
+        "stop-all": "모두 정지",
+        "pause-item": "큐 일시정지",
+        "resume-item": "큐 재개",
+        "arm-next": "대기로 설정",
+        "duck-item": "큐 더킹",
+        "bus-level": "버스 페이더 설정",
+        "bus-mute": "버스 뮤트 / 뮤트 해제",
+        "bus-send": "센드 레벨 설정",
+        "bus-route": "버스 라우팅",
+        "bus-dsp": "버스 처리 설정",
+        "master-level": "마스터 레벨 설정"
       },
       "fields": {
         "item": {
           "label": "큐"
+        },
+        "level": {
+          "label": "레벨",
+          "help": "큐 자체 볼륨에 대한 상대값입니다. 0이면 원래대로 돌아오고, -90이면 무음이 됩니다. 재생 중인 큐에만 적용되며 저장된 볼륨은 바뀌지 않습니다."
+        },
+        "fade": {
+          "label": "크로스페이드",
+          "help": "0이면 즉시 바뀌고, 더 길게 하면 현재 값에서부터 페이드합니다."
+        },
+        "bus": {
+          "label": "버스"
+        },
+        "state": {
+          "label": "상태"
+        },
+        "send": {
+          "label": "대상",
+          "help": "버스에 있는 센드입니다. 먼저 믹서에서 추가하세요."
+        },
+        "to": {
+          "label": "보낼 곳"
+        },
+        "param": {
+          "label": "설정 항목"
+        },
+        "value": {
+          "label": "값",
+          "help": "설정 항목 고유 단위로 입력합니다. 스위치는 0(끄기) 또는 1(켜기)입니다."
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "뮤트",
+          "unmute": "뮤트 해제"
+        },
+        "param": {
+          "eqEnabled": "EQ 켜기 (0/1)",
+          "dynEnabled": "다이내믹스 켜기 (0/1)",
+          "hpf_freq": "하이패스 주파수 (20–2000 Hz)",
+          "lpf_freq": "로우패스 주파수 (1000–24000 Hz)",
+          "gate_on": "게이트 켜기 (0/1)",
+          "gate_threshold": "게이트 스레숄드 (-80–0 dB)",
+          "gate_range": "게이트 범위 (-80–0 dB)",
+          "comp_on": "컴프레서 켜기 (0/1)",
+          "comp_threshold": "컴프레서 스레숄드 (-60–0 dB)",
+          "comp_ratio": "컴프레서 레이쇼 (1–60 :1)",
+          "comp_makeup": "컴프레서 메이크업 (-12–24 dB)",
+          "width_width": "스테레오 폭 (0–2 ×)"
         }
       }
     },

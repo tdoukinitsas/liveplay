@@ -820,6 +820,53 @@ public:
     bool play_item(const std::string& uuid) override { return state_.trigger_item(uuid); }
     bool stop_item(const std::string& uuid) override { return state_.stop_item(uuid); }
     void stop_all() override { state_.stop_all_cues(); }
+    bool pause_item(const std::string& uuid) override { return state_.pause_item(uuid); }
+    bool resume_item(const std::string& uuid) override { return state_.resume_item(uuid); }
+    bool arm_next(const std::string& uuid) override {
+        state_.set_next_item_override(uuid, /*manual=*/true);
+        return true;
+    }
+    std::optional<double> cue_offset_db(const std::string& uuid) override {
+        return state_.cue_level_offset_db(uuid);
+    }
+    bool set_cue_offset_db(const std::string& uuid, double db) override {
+        return state_.set_cue_level_offset_db(uuid, db);
+    }
+    json buses() override { return state_.buses_document(); }
+    std::vector<std::string> outputs() override { return state_.output_names(); }
+    bool set_bus_live(const std::string& id, const json& patch) override {
+        bool ok = true;
+        if (patch.contains("gainDb")) ok &= state_.set_bus_gain_live(id, patch.value("gainDb", 0.0f));
+        if (patch.contains("pan"))    ok &= state_.set_bus_pan_live(id, patch.value("pan", 0.0f));
+        if (patch.contains("dsp"))    ok &= state_.set_bus_dsp_live(id, patch["dsp"]);
+        return ok;
+    }
+    std::string patch_bus(const std::string& id, const json& patch) override {
+        using PR = ProjectState::PatchBusResult;
+        const PR r = state_.patch_bus(id, patch);
+        if (r == PR::Ok) {
+            state_.notify_clients(json{{"type", "doc_patch"}, {"op", "buses_patched"},
+                                       {"buses", state_.buses_document()}});
+            return {};
+        }
+        switch (r) {
+            case PR::NotFound:      return "no such bus";
+            case PR::Cycle:
+            case PR::SendCycle:     return "that would route the bus into itself";
+            case PR::UnknownTarget:
+            case PR::SendUnknownTarget: return "no such destination";
+            case PR::IllegalTarget:
+            case PR::SendIllegalTarget: return "nothing may feed the preview bus";
+            case PR::RefusedMasterToBus: return "the master bus goes to an output, not another bus";
+            case PR::RefusedPreviewToBus:
+            case PR::RefusedPreviewSend: return "the preview bus may only go to an output";
+            default:                return "the mixer refused the change";
+        }
+    }
+    double master_gain_db() override { return state_.master_gain_db(); }
+    void set_master_gain_db(double db, bool final) override {
+        state_.set_master_gain_db(static_cast<float>(db), final);
+    }
 private:
     ProjectState& state_;
 };
@@ -8429,6 +8476,98 @@ json ProjectState::event_discover(const std::string& plugin, std::chrono::millis
         Logger::warn("events: '{}' discovery failed: {}", plugin, e.what());
     }
     return out;
+}
+
+// ---- Verbs for the LivePlay event plugin -------------------------------------
+bool ProjectState::pause_item(const std::string& uuid) {
+    const auto cue = item_to_cue_id(uuid);
+    auto* pi = cue ? engine_.find_cue(*cue) : nullptr;
+    if (!pi) return false;
+    pi->pause();
+    return true;
+}
+
+bool ProjectState::resume_item(const std::string& uuid) {
+    const auto cue = item_to_cue_id(uuid);
+    auto* pi = cue ? engine_.find_cue(*cue) : nullptr;
+    if (!pi) return false;
+    pi->resume();
+    return true;
+}
+
+namespace {
+// An item's own volume (linear in the document) as dB.
+double item_volume_db(const json& item) {
+    const double lin = json_get_or(item, "volume", 1.0);
+    return lin <= 0.0001 ? -120.0 : 20.0 * std::log10(lin);
+}
+} // namespace
+
+std::optional<double> ProjectState::cue_level_offset_db(const std::string& uuid) {
+    const auto cue = item_to_cue_id(uuid);
+    auto* pi = cue ? engine_.find_cue(*cue) : nullptr;
+    if (!pi || pi->stats().transport == audio::TransportState::Stopped) return std::nullopt;
+    double base = 0.0;
+    {
+        std::lock_guard lock{mutex_};
+        for_each_item(document_, [&](json& it, const std::string&) {
+            if (it.value("uuid", std::string{}) == uuid) base = item_volume_db(it);
+        });
+    }
+    return pi->gain_db() - base;
+}
+
+bool ProjectState::set_cue_level_offset_db(const std::string& uuid, double offset_db) {
+    const auto cue = item_to_cue_id(uuid);
+    auto* pi = cue ? engine_.find_cue(*cue) : nullptr;
+    if (!pi) return false;
+    double base = 0.0;
+    {
+        std::lock_guard lock{mutex_};
+        for_each_item(document_, [&](json& it, const std::string&) {
+            if (it.value("uuid", std::string{}) == uuid) base = item_volume_db(it);
+        });
+    }
+    pi->set_gain_db(static_cast<float>(std::max(-120.0, base + offset_db)));
+    return true;
+}
+
+bool ProjectState::set_bus_gain_live(const std::string& id, float db) {
+    const auto strip = bus_strip(id);
+    auto* m = strip.empty() ? nullptr : engine_.find_mixer_channel(strip);
+    if (!m) return false;
+    m->set_gain_db(db);
+    return true;
+}
+
+json ProjectState::buses_document() const {
+    std::lock_guard lock{mutex_};
+    return document_.contains("buses") ? document_["buses"] : json::array();
+}
+
+std::vector<std::string> ProjectState::output_names() const {
+    std::vector<std::string> names = OutputMap::builtin_names();
+    for (const auto& n : outputs_.names())
+        if (std::find(names.begin(), names.end(), n) == names.end()) names.push_back(n);
+    return names;
+}
+
+double ProjectState::master_gain_db() const { return engine_.master_gain_db(); }
+
+void ProjectState::set_master_gain_db(float db, bool notify) {
+    engine_.set_master_gain_db(db);
+    if (notify)
+        notify_clients(json{{"type", "doc_patch"}, {"op", "master_gain_changed"},
+                            {"db", engine_.master_gain_db()}});
+}
+
+void ProjectState::notify_clients(const json& patch) {
+    std::function<void(const json&)> cb;
+    {
+        std::lock_guard lock{mutex_};
+        cb = ui_state_broadcaster_;
+    }
+    if (cb) cb(patch);
 }
 
 void ProjectState::set_event_fired_broadcaster(std::function<void(const json&)> cb) {

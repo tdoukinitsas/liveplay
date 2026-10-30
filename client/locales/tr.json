@@ -1351,15 +1351,79 @@
     },
     "liveplay": {
       "label": "LivePlay",
-      "description": "Bu projedeki diğer cue'ları başlatın veya durdurun.",
+      "description": "Bu gösteri: cue'ları başlatın, durdurun ve kısın; dahili mikseri yönetin.",
       "actions": {
         "play-item": "Cue oynat",
         "stop-item": "Cue durdur",
-        "stop-all": "Tümünü durdur"
+        "stop-all": "Tümünü durdur",
+        "pause-item": "Cue duraklat",
+        "resume-item": "Cue devam ettir",
+        "arm-next": "Sıradaki yap",
+        "duck-item": "Cue'yu kıs",
+        "bus-level": "Bus fader'ını ayarla",
+        "bus-mute": "Bus mute aç / kapat",
+        "bus-send": "Gönderim seviyesi ayarla",
+        "bus-route": "Bus'ı yönlendir",
+        "bus-dsp": "Bus işlemesini ayarla",
+        "master-level": "Master seviyesini ayarla"
       },
       "fields": {
         "item": {
           "label": "Cue"
+        },
+        "level": {
+          "label": "Seviye",
+          "help": "Cue'nun kendi ses düzeyine göre: 0 eski haline getirir, -90 sessize alır. Yalnızca çalan cue'yu etkiler; kayıtlı ses düzeyi değişmez."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 anında değiştirir; daha uzun değerler mevcut konumdan geçiş yapar."
+        },
+        "bus": {
+          "label": "Bus"
+        },
+        "state": {
+          "label": "Durum"
+        },
+        "send": {
+          "label": "Hedef",
+          "help": "Bus'ın mevcut gönderimleri; önce Mikser'de bir tane ekleyin."
+        },
+        "to": {
+          "label": "Gideceği yer"
+        },
+        "param": {
+          "label": "Ayar"
+        },
+        "value": {
+          "label": "Değer",
+          "help": "Ayarın kendi biriminde; anahtarlar 0 (kapalı) veya 1 (açık)."
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Mute kaldır"
+        },
+        "param": {
+          "eqEnabled": "EQ açık (0/1)",
+          "dynEnabled": "Dinamik açık (0/1)",
+          "hpf_freq": "HPF frekansı (20–2000 Hz)",
+          "lpf_freq": "LPF frekansı (1000–24000 Hz)",
+          "gate_on": "Gate açık (0/1)",
+          "gate_threshold": "Gate eşiği (-80–0 dB)",
+          "gate_range": "Gate aralığı (-80–0 dB)",
+          "comp_on": "Kompresör açık (0/1)",
+          "comp_threshold": "Kompresör eşiği (-60–0 dB)",
+          "comp_ratio": "Kompresör oranı (1–60 :1)",
+          "comp_makeup": "Kompresör makeup (-12–24 dB)",
+          "width_width": "Stereo genişlik (0–2 ×)"
         }
       }
     },

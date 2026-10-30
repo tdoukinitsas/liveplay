@@ -1351,15 +1351,79 @@
     },
     "liveplay": {
       "label": "LivePlay",
-      "description": "启动或停止此项目中的其他 Cue。",
+      "description": "本演出：启动、停止和压低 Cue，并操作内部调音台。",
       "actions": {
         "play-item": "播放 Cue",
         "stop-item": "停止 Cue",
-        "stop-all": "全部停止"
+        "stop-all": "全部停止",
+        "pause-item": "暂停 Cue",
+        "resume-item": "继续 Cue",
+        "arm-next": "设为待播",
+        "duck-item": "压低 Cue",
+        "bus-level": "设置总线推子",
+        "bus-mute": "总线静音 / 取消静音",
+        "bus-send": "设置发送电平",
+        "bus-route": "路由总线",
+        "bus-dsp": "设置总线处理",
+        "master-level": "设置主控电平"
       },
       "fields": {
         "item": {
           "label": "Cue"
+        },
+        "level": {
+          "label": "电平",
+          "help": "相对于 Cue 自身的音量：0 恢复原音量，-90 使其静音。仅作用于正在播放的 Cue，不会更改其保存的音量。"
+        },
+        "fade": {
+          "label": "交叉淡化",
+          "help": "0 表示立即改变；更长的时间会从当前值渐变。"
+        },
+        "bus": {
+          "label": "总线"
+        },
+        "state": {
+          "label": "状态"
+        },
+        "send": {
+          "label": "发送到",
+          "help": "该总线现有的发送；请先在调音台中添加。"
+        },
+        "to": {
+          "label": "送往"
+        },
+        "param": {
+          "label": "设置项"
+        },
+        "value": {
+          "label": "值",
+          "help": "使用该设置自身的单位；开关为 0（关）或 1（开）。"
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "静音",
+          "unmute": "取消静音"
+        },
+        "param": {
+          "eqEnabled": "EQ 开启 (0/1)",
+          "dynEnabled": "动态开启 (0/1)",
+          "hpf_freq": "高通频率 (20–2000 Hz)",
+          "lpf_freq": "低通频率 (1000–24000 Hz)",
+          "gate_on": "噪声门开启 (0/1)",
+          "gate_threshold": "噪声门阈值 (-80–0 dB)",
+          "gate_range": "噪声门范围 (-80–0 dB)",
+          "comp_on": "压缩器开启 (0/1)",
+          "comp_threshold": "压缩器阈值 (-60–0 dB)",
+          "comp_ratio": "压缩器比率 (1–60 :1)",
+          "comp_makeup": "压缩器补偿增益 (-12–24 dB)",
+          "width_width": "立体声宽度 (0–2 ×)"
         }
       }
     },

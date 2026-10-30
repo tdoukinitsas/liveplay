@@ -10,7 +10,7 @@ A **plugin** is one C++ class compiled into the server. LivePlay ships four:
 | `midi` | Note on/off, control change, program change, MIDI Show Control, raw SysEx through RtMidi | output port name (on the server machine) |
 | `http` | HTTP request (method, path, headers, body); plain `http://` only | base URL, headers, timeout |
 | `xair` | Behringer X Air / Midas MR mixers: recall snapshots, faders and sends with crossfades, mute, USB recorder, FX type and parameters, output routing. Finds mixers on the network and reads their strip, snapshot and FX names live | mixer address, port, max level |
-| `liveplay` | Plays or stops other cues, or Stop All | none |
+| `liveplay` | This show: play, stop, pause, resume or arm (Up Next) other cues, Stop All, duck a playing cue; and the internal mixer the way `xair` works an external one: bus faders and sends with crossfades, bus mute, bus routing, bus processing (EQ, dynamics, filters, width), master level | none |
 
 This guide covers everything needed to add another. A typical plugin is one file of 100–250 lines, and **it needs no client code**: the client builds every form from the schema your plugin publishes.
 
@@ -105,15 +105,19 @@ Then validate and clamp (`std::clamp`), and fail with a clear message rather tha
 
 ### `Host`: acting on LivePlay itself
 
-A factory receives `Host&`. It is the only way a plugin may affect LivePlay:
+A factory receives `Host&`, the only way a plugin may affect LivePlay. Every call is thread-safe and may block briefly.
 
-```cpp
-host.play_item(uuid);   // like GO / a cart button
-host.stop_item(uuid);   // with its stop fade
-host.stop_all();        // Stop All
-```
+| Verb | Does |
+|---|---|
+| `play_item(uuid)`, `stop_item(uuid)`, `stop_all()` | What GO / Stop / Stop All do (groups and fades included). |
+| `pause_item(uuid)`, `resume_item(uuid)`, `arm_next(uuid)` | Pause, resume, set Up Next. |
+| `cue_offset_db(uuid)`, `set_cue_offset_db(uuid, db)` | A *playing* cue's level relative to its own volume (0 = as set); the saved volume never changes. |
+| `buses()`, `outputs()` | The project's buses as the document holds them, and the logical outputs a bus can go to. |
+| `set_bus_live(id, patch)` | `gainDb`, `pan` or `dsp`, heard at once, **not** saved or broadcast: the steps of a fade. |
+| `patch_bus(id, patch)` | Any `PATCH /api/buses` field, saved and sent to every client (as the Mixer pane does). Returns `""` or the mixer's refusal. |
+| `master_gain_db()`, `set_master_gain_db(db, final)` | The master gain; `final` tells the clients. |
 
-These calls are thread-safe and may block briefly. Most output plugins ignore `Host`. If a plugin needs more (for example, reading the selected cue), add a small verb-shaped method to `Host` in `plugin.hpp` and implement it in `EventHost` in `project_state.cpp`. Do not hand plugins `ProjectState` itself.
+A fade on the mixer is `set_bus_live` for the steps, then `patch_bus` when it lands (see `LivePlayPlugin`), so a 10 s fade is one saved change, not five hundred. Most output plugins ignore `Host`. If yours needs more, add a small verb-shaped method here and implement it in `EventHost` (`project_state.cpp`); never hand a plugin `ProjectState` itself.
 
 ### Threading rules
 

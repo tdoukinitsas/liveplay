@@ -1351,15 +1351,79 @@
     },
     "liveplay": {
       "label": "LivePlay",
-      "description": "Avvia o ferma altri cue di questo progetto.",
+      "description": "Questo spettacolo: avvia, ferma e attenua i cue, e gestisci il mixer interno.",
       "actions": {
         "play-item": "Riproduci cue",
         "stop-item": "Ferma cue",
-        "stop-all": "Ferma tutto"
+        "stop-all": "Ferma tutto",
+        "pause-item": "Pausa cue",
+        "resume-item": "Riprendi cue",
+        "arm-next": "Imposta «Prossimo»",
+        "duck-item": "Attenua un cue",
+        "bus-level": "Imposta fader del bus",
+        "bus-mute": "Attiva/disattiva mute di un bus",
+        "bus-send": "Imposta livello mandata",
+        "bus-route": "Instrada un bus",
+        "bus-dsp": "Imposta elaborazione del bus",
+        "master-level": "Imposta livello master"
       },
       "fields": {
         "item": {
           "label": "Cue"
+        },
+        "level": {
+          "label": "Livello",
+          "help": "Relativo al volume del cue: 0 lo ripristina, -90 lo silenzia. Solo il cue in riproduzione; il volume salvato non cambia."
+        },
+        "fade": {
+          "label": "Dissolvenza incrociata",
+          "help": "0 cambia subito; tempi più lunghi sfumano dal valore attuale."
+        },
+        "bus": {
+          "label": "Bus"
+        },
+        "state": {
+          "label": "Stato"
+        },
+        "send": {
+          "label": "Verso",
+          "help": "Le mandate esistenti del bus; aggiungine prima una nel mixer."
+        },
+        "to": {
+          "label": "Va a"
+        },
+        "param": {
+          "label": "Impostazione"
+        },
+        "value": {
+          "label": "Valore",
+          "help": "Nell’unità dell’impostazione; gli interruttori sono 0 (spento) o 1 (acceso)."
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Attiva mute",
+          "unmute": "Disattiva mute"
+        },
+        "param": {
+          "eqEnabled": "EQ attivo (0/1)",
+          "dynEnabled": "Dinamica attiva (0/1)",
+          "hpf_freq": "Frequenza passa-alto (20–2000 Hz)",
+          "lpf_freq": "Frequenza passa-basso (1000–24000 Hz)",
+          "gate_on": "Gate attivo (0/1)",
+          "gate_threshold": "Soglia del gate (-80–0 dB)",
+          "gate_range": "Range del gate (-80–0 dB)",
+          "comp_on": "Compressore attivo (0/1)",
+          "comp_threshold": "Soglia del compressore (-60–0 dB)",
+          "comp_ratio": "Rapporto del compressore (1–60 :1)",
+          "comp_makeup": "Make-up del compressore (-12–24 dB)",
+          "width_width": "Larghezza stereo (0–2 ×)"
         }
       }
     },

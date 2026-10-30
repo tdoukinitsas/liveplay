@@ -1351,15 +1351,79 @@
     },
     "liveplay": {
       "label": "LivePlay",
-      "description": "Starta eller stoppa andra köer i det här projektet.",
+      "description": "Den här showen: starta, stoppa och ducka köer, och styr den interna mixern.",
       "actions": {
         "play-item": "Spela kö",
         "stop-item": "Stoppa kö",
-        "stop-all": "Stoppa allt"
+        "stop-all": "Stoppa allt",
+        "pause-item": "Pausa kö",
+        "resume-item": "Återuppta kö",
+        "arm-next": "Ange Näst på tur",
+        "duck-item": "Ducka en kö",
+        "bus-level": "Ställ in bussfader",
+        "bus-mute": "Mute / unmute en buss",
+        "bus-send": "Ställ in send-nivå",
+        "bus-route": "Routa en buss",
+        "bus-dsp": "Ställ in bussbearbetning",
+        "master-level": "Ställ in masternivå"
       },
       "fields": {
         "item": {
           "label": "Kö"
+        },
+        "level": {
+          "label": "Nivå",
+          "help": "Relativt köns egen volym: 0 återställer den, -90 tystar den. Gäller bara kön som spelas; dess sparade volym ändras inte."
+        },
+        "fade": {
+          "label": "Övertoning",
+          "help": "0 ändrar direkt; längre tid tonar över från där den är nu."
+        },
+        "bus": {
+          "label": "Buss"
+        },
+        "state": {
+          "label": "Läge"
+        },
+        "send": {
+          "label": "Till",
+          "help": "Bussens befintliga sends; lägg först till en i mixern."
+        },
+        "to": {
+          "label": "Går till"
+        },
+        "param": {
+          "label": "Inställning"
+        },
+        "value": {
+          "label": "Värde",
+          "help": "I inställningens egen enhet; brytare är 0 (av) eller 1 (på)."
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "param": {
+          "eqEnabled": "EQ på (0/1)",
+          "dynEnabled": "Dynamik på (0/1)",
+          "hpf_freq": "Högpassfrekvens (20–2000 Hz)",
+          "lpf_freq": "Lågpassfrekvens (1000–24000 Hz)",
+          "gate_on": "Gate på (0/1)",
+          "gate_threshold": "Gate-tröskel (-80–0 dB)",
+          "gate_range": "Gate-range (-80–0 dB)",
+          "comp_on": "Kompressor på (0/1)",
+          "comp_threshold": "Kompressortröskel (-60–0 dB)",
+          "comp_ratio": "Kompressorratio (1–60 :1)",
+          "comp_makeup": "Kompressor-makeup (-12–24 dB)",
+          "width_width": "Stereobredd (0–2 ×)"
         }
       }
     },

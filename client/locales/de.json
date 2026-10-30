@@ -1351,15 +1351,79 @@
     },
     "liveplay": {
       "label": "LivePlay",
-      "description": "Andere Cues in diesem Projekt starten oder stoppen.",
+      "description": "Diese Show: Cues starten, stoppen und absenken und den internen Mixer bedienen.",
       "actions": {
         "play-item": "Cue abspielen",
         "stop-item": "Cue stoppen",
-        "stop-all": "Alle stoppen"
+        "stop-all": "Alle stoppen",
+        "pause-item": "Cue pausieren",
+        "resume-item": "Cue fortsetzen",
+        "arm-next": "„Als Nächstes“ festlegen",
+        "duck-item": "Cue absenken",
+        "bus-level": "Bus-Fader setzen",
+        "bus-mute": "Bus-Mute ein/aus",
+        "bus-send": "Send-Pegel setzen",
+        "bus-route": "Bus routen",
+        "bus-dsp": "Bus-Bearbeitung einstellen",
+        "master-level": "Master-Pegel setzen"
       },
       "fields": {
         "item": {
           "label": "Cue"
+        },
+        "level": {
+          "label": "Pegel",
+          "help": "Relativ zur Lautstärke des Cues: 0 stellt sie wieder her, -90 macht ihn stumm. Nur der laufende Cue; seine gespeicherte Lautstärke ändert sich nicht."
+        },
+        "fade": {
+          "label": "Überblendung",
+          "help": "0 ändert sofort; längere Zeiten blenden vom aktuellen Wert aus über."
+        },
+        "bus": {
+          "label": "Bus"
+        },
+        "state": {
+          "label": "Zustand"
+        },
+        "send": {
+          "label": "An",
+          "help": "Die vorhandenen Sends des Busses; legen Sie zuerst einen im Mixer an."
+        },
+        "to": {
+          "label": "Geht an"
+        },
+        "param": {
+          "label": "Einstellung"
+        },
+        "value": {
+          "label": "Wert",
+          "help": "In der Einheit der Einstellung; Schalter sind 0 (aus) oder 1 (ein)."
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Mute ein",
+          "unmute": "Mute aus"
+        },
+        "param": {
+          "eqEnabled": "EQ ein (0/1)",
+          "dynEnabled": "Dynamik ein (0/1)",
+          "hpf_freq": "Hochpass-Frequenz (20–2000 Hz)",
+          "lpf_freq": "Tiefpass-Frequenz (1000–24000 Hz)",
+          "gate_on": "Gate ein (0/1)",
+          "gate_threshold": "Gate-Schwelle (-80–0 dB)",
+          "gate_range": "Gate-Range (-80–0 dB)",
+          "comp_on": "Kompressor ein (0/1)",
+          "comp_threshold": "Kompressor-Schwelle (-60–0 dB)",
+          "comp_ratio": "Kompressor-Ratio (1–60 :1)",
+          "comp_makeup": "Kompressor-Make-up (-12–24 dB)",
+          "width_width": "Stereobreite (0–2 ×)"
         }
       }
     },

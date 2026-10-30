@@ -17,6 +17,7 @@
 #include <chrono>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -67,6 +68,33 @@ public:
     virtual bool stop_item(const std::string& uuid) = 0;
     // Stop All, with the project's Stop All fade.
     virtual void stop_all() = 0;
+    // Pause / resume an item that is loaded. False when it has no cue.
+    virtual bool pause_item(const std::string& uuid) = 0;
+    virtual bool resume_item(const std::string& uuid) = 0;
+    // Arm an item as "Up Next", as the operator does.
+    virtual bool arm_next(const std::string& uuid) = 0;
+    // A playing cue's level relative to its own volume, in dB: 0 = as set,
+    // negative = ducked. nullopt when it isn't playing. Setting it changes
+    // only the playing cue, never the item's saved volume.
+    virtual std::optional<double> cue_offset_db(const std::string& uuid) = 0;
+    virtual bool set_cue_offset_db(const std::string& uuid, double db) = 0;
+
+    // ---- The mixer ----
+    // The project's buses as the document holds them: [{ id, name, gainDb,
+    // mute, pan, sends: [{ id, levelDb, tap }], output: { type, target },
+    // dsp, master, preview }].
+    virtual json buses() = 0;
+    // Logical output names a bus can be routed to.
+    virtual std::vector<std::string> outputs() = 0;
+    // For the steps of a fade: gainDb, pan or dsp heard at once, but neither
+    // saved nor sent to the clients. Follow with patch_bus at the end.
+    virtual bool set_bus_live(const std::string& id, const json& patch) = 0;
+    // A lasting change (any PATCH /api/buses field): saved in the project and
+    // sent to every client. Returns "" or why the mixer refused it.
+    virtual std::string patch_bus(const std::string& id, const json& patch) = 0;
+    // Master gain; `final` sends the change to the clients (not every step of a fade).
+    virtual double master_gain_db() = 0;
+    virtual void set_master_gain_db(double db, bool final) = 0;
 };
 
 // A device found on the network by Plugin::discover().

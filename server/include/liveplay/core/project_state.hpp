@@ -1552,6 +1552,25 @@ public:
     // Devices a plugin finds on the network: [{ label, name, config }].
     json event_discover(const std::string& plugin, std::chrono::milliseconds budget);
 
+    // ---- Verbs for the LivePlay event plugin (events::Host) ----
+    // Pause / resume a loaded item's cue. False when it has none.
+    bool pause_item(const std::string& uuid);
+    bool resume_item(const std::string& uuid);
+    // A playing cue's level relative to its item's own volume, in dB: 0 as
+    // set, negative when ducked. nullopt when it isn't playing.
+    std::optional<double> cue_level_offset_db(const std::string& uuid);
+    bool set_cue_level_offset_db(const std::string& uuid, double offset_db);
+    // A bus's fader heard at once, not saved: the in-between steps of a fade.
+    bool set_bus_gain_live(const std::string& id, float db);
+    // document_["buses"], and the logical outputs a bus can be routed to.
+    json buses_document() const;
+    std::vector<std::string> output_names() const;
+    // Fan a doc_patch out to every client (the ui-state broadcaster).
+    void notify_clients(const json& patch);
+    // The engine's master gain; `notify` sends master_gain_changed.
+    double master_gain_db() const;
+    void set_master_gain_db(float db, bool notify);
+
     // Install a callback invoked whenever the "Up Next" override changes for
     // ANY reason (client request or server-side arming). The control server
     // installs this to fan the change out to every client as a next_item_set
