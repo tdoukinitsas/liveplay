@@ -85,6 +85,10 @@ endif()
 find_path(MINIAUDIO_INCLUDE_DIR miniaudio.h REQUIRED)
 # miniz — used for .lpa (zip) packaging of project exports/imports.
 find_package(miniz CONFIG REQUIRED)
+# Event system (#84): MIDI out and the HTTP client. OSC needs only asio, which
+# arrives with Crow.
+find_package(RtMidi CONFIG REQUIRED)
+find_package(httplib CONFIG REQUIRED)
 # libsodium — password hashing (Argon2id) and token signing for the user store.
 # Nothing here rolls its own crypto: the point of the dependency is that the
 # primitives, the constant-time comparisons and the CSPRNG all come from one
@@ -188,6 +192,13 @@ add_executable(liveplay-server
     # Milestone 4 — metadata + waveform
     src/meta/metadata.cpp
     src/meta/waveform.cpp
+
+    # Event system (#84)
+    src/events/dispatcher.cpp
+    src/events/plugin_osc.cpp
+    src/events/plugin_midi.cpp
+    src/events/plugin_http.cpp
+    src/events/plugin_liveplay.cpp
 )
 
 target_include_directories(liveplay-server
@@ -202,6 +213,8 @@ target_link_libraries(liveplay-server
         Crow::Crow
         liveplay_miniaudio
         miniz::miniz
+        RtMidi::rtmidi
+        httplib::httplib
 )
 
 # Link libsodium under whichever target name vcpkg exposed.

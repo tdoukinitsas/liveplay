@@ -48,6 +48,7 @@ Unless shown otherwise, arguments are `<port> <wavPath>`.
 | `session-prefs-e2e.js` | Per-connection locale/meter settings |
 | `materialise-skip.js` | Bus materialization; `<port>` |
 | `settings-registry-e2e.js` | Settings validation; `<port>`, no audio needed |
+| `events-e2e.js` | Event system (#84): OSC/HTTP delivery, marker timing, pause/resume/end, test fires, connection carry-over, customActions migration; `<port>`, no audio needed |
 | `output-materialise-e2e.js` | Output materialization; `<port>`, skips without a device |
 | `device-match-e2e.js` | Device identity; `<port>`, saves/restores output map |
 | `transport-fixes-e2e.js` | Transport, manual fades, preview and CORS; `<port>`, creates signals |

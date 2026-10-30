@@ -1018,16 +1018,13 @@ bool ControlServer::start() {
     if (running_.exchange(true)) return true;
     install_routes();
 
-    // Hand custom http-request actions off to clients. The server has no
-    // HTTP client of its own; broadcasting as a doc_patch lets any
-    // connected client execute the fetch. This is a best-effort fan-out;
-    // if no client is connected the action is silently dropped.
-    state_.set_external_action_handler([this](const json& action) {
-        broadcast_doc_patch(json{
-            {"type", "doc_patch"},
-            {"op",   "custom_action_http"},
-            {"action", action},
-        });
+    // Every event that runs (#84), ok or not, so the clients can flash its
+    // marker and show what went wrong.
+    state_.set_event_fired_broadcaster([this](const json& fired) {
+        json msg = fired;
+        msg["type"] = "doc_patch";
+        msg["op"]   = "event_fired";
+        broadcast_doc_patch(msg);
     });
 
     // Fan out every "Up Next" change — whether requested by a client or armed
@@ -4309,6 +4306,52 @@ void ControlServer::install_routes() {
                              folder_str, result["relinked"].size(), result["missing"].size());
                 return json_ok(result);
             } catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
+    // ---- Event system (#84) ----
+    // Plugin schemas, built per request so live lists (MIDI ports) are current.
+    CROW_ROUTE(app, "/api/events/plugins").methods(crow::HTTPMethod::Get)
+        ([this]() {
+            return json_ok(json{{"plugins", state_.event_plugins()}});
+        });
+
+    CROW_ROUTE(app, "/api/events/connections").methods(crow::HTTPMethod::Get)
+        ([this]() {
+            return json_ok(json{{"connections", state_.event_connections()}});
+        });
+
+    // Replace the project's connections. Body: { connections: [...] }
+    CROW_ROUTE(app, "/api/events/connections").methods(crow::HTTPMethod::Put)
+        ([this](const crow::request& req) {
+            try {
+                const auto body = json::parse(req.body);
+                if (!body.contains("connections") || !body["connections"].is_array())
+                    return json_err(400, "missing 'connections' array");
+                auto stored = state_.set_event_connections(body["connections"]);
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "event_connections_changed"},
+                    {"connections", stored},
+                });
+                return json_ok(json{{"ok", true}, {"connections", stored}});
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // Fire one event now. Body: { event: {plugin, action, options,
+    // connectionId?}, connection?: {draft connection}, itemUuid? }
+    CROW_ROUTE(app, "/api/events/test").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req) {
+            try {
+                const auto body = json::parse(req.body);
+                if (!body.contains("event") || !body["event"].is_object())
+                    return json_err(400, "missing 'event' object");
+                const auto r = state_.test_event(
+                    body["event"],
+                    body.contains("connection") ? body["connection"] : json{},
+                    body.value("itemUuid", std::string{}));
+                json out{{"ok", r.ok}};
+                if (!r.ok) out["error"] = r.error;
+                return json_ok(out);
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
     // Queue an async waveform computation for the given file. Returns

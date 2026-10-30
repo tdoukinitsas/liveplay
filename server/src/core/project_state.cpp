@@ -8,6 +8,9 @@
 #include "liveplay/util/unicode_path.hpp"
 
 #include <algorithm>
+#include <cstdio>
+#include <mutex>
+#include <random>
 #include <cmath>
 #include <ctime>
 #include <fstream>
@@ -264,8 +267,139 @@ int remove_duplicate_items(json& items, std::unordered_set<std::string>& seen) {
 
 // Inspect `doc` for known corruption patterns. Repairs in place and returns
 // a RepairInfo describing what was fixed (empty if nothing needed repair).
+// Pre-2.6 items could carry hidden "customActions" (no UI ever created them,
+// but the API did): { timePoint, action: { type: play-item | play-index |
+// stop-all | http-request } }. They become "time" events (#84); an HTTP target
+// becomes a project connection per origin. Pure document transformation.
+std::string random_event_id() {
+    static std::mutex m;
+    static std::mt19937_64 rng{std::random_device{}()};
+    std::lock_guard lock{m};
+    const auto a = rng(), b = rng();
+    char buf[40];
+    std::snprintf(buf, sizeof buf, "%08x-%04x-4%03x-%04x-%012llx",
+                  static_cast<unsigned>(a >> 32),
+                  static_cast<unsigned>((a >> 16) & 0xffff),
+                  static_cast<unsigned>(a & 0x0fff),
+                  static_cast<unsigned>(0x8000 | ((b >> 48) & 0x3fff)),
+                  static_cast<unsigned long long>(b & 0xffffffffffffULL));
+    return buf;
+}
+
+void migrate_custom_actions(json& doc) {
+    const auto uuid_at_index = [&](const json& index) -> std::string {
+        if (!index.is_array() || !doc.contains("items")) return {};
+        const json* arr = &doc["items"];
+        const json* cur = nullptr;
+        for (std::size_t d = 0; d < index.size(); ++d) {
+            if (!arr->is_array() || !index[d].is_number_integer()) return {};
+            const int i = index[d].get<int>();
+            if (i < 0 || i >= static_cast<int>(arr->size())) return {};
+            cur = &(*arr)[i];
+            if (d + 1 < index.size()) {
+                if (!cur->contains("children")) return {};
+                arr = &(*cur)["children"];
+            }
+        }
+        return cur ? cur->value("uuid", std::string{}) : std::string{};
+    };
+    const auto http_connection = [&](const std::string& base) -> std::string {
+        if (!doc.contains("eventConnections") || !doc["eventConnections"].is_array())
+            doc["eventConnections"] = json::array();
+        for (const auto& c : doc["eventConnections"])
+            if (c.value("plugin", std::string{}) == "http" && c.contains("config") &&
+                c["config"].value("baseUrl", std::string{}) == base)
+                return c.value("id", std::string{});
+        const std::string id = random_event_id();
+        doc["eventConnections"].push_back(json{
+            {"id", id}, {"name", base}, {"plugin", "http"}, {"enabled", true},
+            {"config", {{"baseUrl", base}, {"headers", ""}, {"timeoutMs", 2000}}}});
+        return id;
+    };
+    // One customAction → one event, or null when it can't be expressed.
+    const auto convert = [&](const json& ca) -> json {
+        if (!ca.is_object() || !ca.contains("action") || !ca["action"].is_object()) return {};
+        const json& a = ca["action"];
+        const std::string type = a.value("type", std::string{});
+        json ev{{"id", random_event_id()}, {"name", ""}, {"enabled", true},
+                {"trigger", "time"}, {"time", ca.value("timePoint", 0.0)},
+                {"plugin", "liveplay"}, {"connectionId", nullptr}};
+        if (type == "play-item" || type == "play-index") {
+            const std::string target = type == "play-item"
+                ? a.value("uuid", std::string{})
+                : uuid_at_index(a.contains("index") ? a["index"] : json{});
+            if (target.empty()) return {};
+            ev["action"]  = "play-item";
+            ev["options"] = {{"item", target}};
+            return ev;
+        }
+        if (type == "stop-all") {
+            ev["action"]  = "stop-all";
+            ev["options"] = json::object();
+            return ev;
+        }
+        if (type != "http-request" || !a.contains("request") || !a["request"].is_object())
+            return {};
+        const json& r = a["request"];
+        const std::string url = r.value("url", std::string{});
+        // origin = scheme://host[:port]; the rest is the path.
+        const auto scheme_end = url.find("://");
+        const auto path_start = url.find('/', scheme_end == std::string::npos ? 0 : scheme_end + 3);
+        const std::string base = url.substr(0, path_start);
+        const std::string path = path_start == std::string::npos ? std::string{"/"}
+                                                                 : url.substr(path_start);
+        if (base.empty()) return {};
+        const bool json_body = r.value("contentType", std::string{"json"}) == "json";
+        std::string body;
+        if (r.contains("body") && r["body"].is_object()) {
+            if (json_body) {
+                body = r["body"].dump();
+            } else {
+                for (const auto& [k, v] : r["body"].items()) {
+                    if (!body.empty()) body += '&';
+                    body += k + "=" + (v.is_string() ? v.get<std::string>() : v.dump());
+                }
+            }
+        }
+        ev["plugin"]       = "http";
+        ev["action"]       = "request";
+        ev["connectionId"] = http_connection(base);
+        ev["options"] = {
+            {"method", r.value("method", std::string{"GET"})},
+            {"path", path}, {"headers", ""},
+            {"contentType", body.empty() ? "none"
+                            : json_body  ? "application/json"
+                                         : "application/x-www-form-urlencoded"},
+            {"body", body}};
+        return ev;
+    };
+
+    const std::function<void(json&)> visit = [&](json& arr) {
+        if (!arr.is_array()) return;
+        for (auto& item : arr) {
+            if (!item.is_object()) continue;
+            if (item.contains("children")) visit(item["children"]);
+            if (!item.contains("customActions")) continue;
+            json evs = item.contains("events") && item["events"].is_array()
+                           ? item["events"] : json::array();
+            if (item["customActions"].is_array())
+                for (const auto& ca : item["customActions"]) {
+                    json ev = convert(ca);
+                    if (ev.is_object()) evs.push_back(std::move(ev));
+                }
+            if (!evs.empty()) item["events"] = std::move(evs);
+            item.erase("customActions");
+        }
+    };
+    if (doc.contains("items")) visit(doc["items"]);
+    if (doc.contains("cartOnlyItems")) visit(doc["cartOnlyItems"]);
+}
+
 RepairInfo detect_and_repair(json& doc) {
     RepairInfo info;
+
+    // Not a repair, so not reported as one: an upgrade of the format.
+    migrate_custom_actions(doc);
 
     // ---- 1. lastModified stored as Unix integer instead of ISO string ----
     if (doc.contains("lastModified") && !doc["lastModified"].is_string()) {
@@ -691,6 +825,31 @@ ProjectState::ProjectState(audio::AudioEngine& engine, OutputMap& outputs)
         pending_bus_migration_ = {};
     }
     materialise_buses();
+
+    // Event system (#84): built before the sequencer, which feeds it.
+    events_ = std::make_unique<events::Dispatcher>();
+    events_->add_plugin(events::make_osc_plugin());
+    events_->add_plugin(events::make_midi_plugin());
+    events_->add_plugin(events::make_http_plugin());
+    events_->add_plugin(events::make_liveplay_plugin(events::LivePlayHooks{
+        [this](const std::string& u) { return trigger_item(u); },
+        [this](const std::string& u) { return stop_item(u); },
+        [this] { stop_all_cues(); },
+    }));
+    events_->set_result_callback([this](const events::Job& job, const events::Result& r) {
+        std::function<void(const json&)> cb;
+        {
+            std::lock_guard lock{mutex_};
+            cb = event_fired_broadcaster_;
+        }
+        if (!cb) return;
+        json msg{{"itemUuid", job.ctx.item_uuid}, {"eventId", job.ctx.event_id},
+                 {"trigger", job.ctx.trigger}, {"plugin", job.plugin},
+                 {"action", job.action}, {"ok", r.ok}};
+        if (!r.ok) msg["error"] = r.error;
+        cb(msg);
+    });
+
     start_sequencer();
     // Background decoder for single-item adds/media swaps (#43).
     loader_thread_ = std::thread([this] { loader_loop(); });
@@ -698,6 +857,9 @@ ProjectState::ProjectState(audio::AudioEngine& engine, OutputMap& outputs)
 
 ProjectState::~ProjectState() {
     stop_sequencer();
+    // After the sequencer (its only scheduler), before anything an event's
+    // plugin could call into (the LivePlay plugin plays and stops cues).
+    if (events_) events_->stop();
     stop_loaders();
     // Make sure any in-flight async mirror finishes before the engine is
     // torn down — otherwise the worker would dereference dangling state.
@@ -1263,6 +1425,8 @@ void ProjectState::reset() {
         std::lock_guard slock{sequencer_mutex_};
         sequenced_items_.clear();
     }
+    // Nor may a marker scheduled for the old project fire into the new one.
+    if (events_) events_->cancel_all();
     cancel_delayed_advances();
     next_item_override_.clear(); next_item_override_manual_ = false;
 
@@ -2299,8 +2463,17 @@ bool ProjectState::replace_full_document(const json& doc) {
             bus_schema_of(doc) >= 1) {
             carried_buses = document_["buses"];
         }
+        // Connections have their own endpoint (PUT /api/events/connections),
+        // so, like buses, a document that doesn't mention them leaves them be:
+        // a client that doesn't carry them must not wipe them on save.
+        json carried_connections;
+        if (!doc.contains("eventConnections") && document_.contains("eventConnections"))
+            carried_connections = document_["eventConnections"];
         document_ = doc;
         if (!carried_buses.is_null()) document_["buses"] = std::move(carried_buses);
+        if (!carried_connections.is_null())
+            document_["eventConnections"] = std::move(carried_connections);
+        migrate_custom_actions(document_);
         if (!document_.contains("settings")) {
             // No defaultOutputDevice — load_buses_locked() migrates that key
             // onto the master bus and erases it, so re-injecting it here would
@@ -2715,6 +2888,32 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     // ensure_ltc_routing() can safely acquire it.
     if (touched && ltc_changed && rerouted.empty())
         apply_ltc_output_routing();
+
+    // Events edited while the item plays take effect on this pass: markers
+    // behind the playhead count as fired, the rest fire when reached.
+    if (touched && patch.contains("events")) {
+        auto fresh = events::ItemEvent::parse_list(patch["events"]);
+        std::string display_name;
+        if (patch.contains("displayName") && patch["displayName"].is_string())
+            display_name = patch["displayName"].get<std::string>();
+        bool playing = false;
+        {
+            std::lock_guard slock{sequencer_mutex_};
+            for (auto& si : sequenced_items_) {
+                if (si.uuid != uuid) continue;
+                const double from = si.last_pos >= 0.0 ? si.last_pos : 0.0;
+                for (auto& ev : fresh)
+                    if (ev.trigger == "time") ev.triggered = ev.time < from - 1e-3;
+                si.events = std::move(fresh);
+                if (!display_name.empty()) si.display_name = display_name;
+                playing = true;
+                break;
+            }
+        }
+        // Whatever the old list had scheduled ahead is void; the next pass
+        // schedules from the new one.
+        if (playing) events_->cancel_item(uuid);
+    }
     return touched;
 }
 
@@ -3012,7 +3211,8 @@ bool ProjectState::play_item(const std::string& uuid,
     audio::CueId target_cue;
     std::vector<audio::CueId> other_cues;
 
-    std::vector<ScheduledCustomAction> custom_actions_snapshot;
+    std::vector<events::ItemEvent> events_snapshot;
+    std::string display_name_snapshot;
     {
         std::lock_guard lock{mutex_};
         auto cue_it = item_uuid_to_cue_.find(uuid);
@@ -3075,17 +3275,10 @@ bool ProjectState::play_item(const std::string& uuid,
                     }
                 }
             }
-            // Snapshot custom actions for the sequencer to dispatch.
-            if (found->contains("customActions") &&
-                (*found)["customActions"].is_array()) {
-                for (const auto& ca : (*found)["customActions"]) {
-                    if (!ca.is_object() || !ca.contains("action")) continue;
-                    ScheduledCustomAction sca;
-                    sca.time_point = ca.value("timePoint", 0.0);
-                    sca.action     = ca["action"];
-                    custom_actions_snapshot.push_back(std::move(sca));
-                }
-            }
+            // Snapshot the item's events for the sequencer to fire (#84).
+            if (found->contains("events"))
+                events_snapshot = events::ItemEvent::parse_list((*found)["events"]);
+            display_name_snapshot = found->value("displayName", std::string{});
         }
 
         // Collect every cue id except this one.
@@ -3219,6 +3412,7 @@ bool ProjectState::play_item(const std::string& uuid,
 
     // Register with the sequencer so it can handle end-behaviour, crossfade,
     // and stop-fade autonomously — even when the client is disconnected.
+    std::vector<EventFire> start_fires;
     {
         const bool looping = (end_behavior_action == "loop");
         // A looping cue plays forever (the audio thread seeks back to the
@@ -3227,7 +3421,7 @@ bool ProjectState::play_item(const std::string& uuid,
         // sequencer's crossfade/stop-fade triggers would fire and start the
         // *next* item — which is exactly the "loop behaves like play-next" bug.
         // effective_end = 0 disables all timing triggers while still letting
-        // custom actions fire (they're checked before the effective_end gate).
+        // events fire (they're checked before the effective_end gate).
         const double effective_end = looping
             ? 0.0
             : ((out_point > 0.0) ? out_point : file_duration);
@@ -3250,7 +3444,16 @@ bool ProjectState::play_item(const std::string& uuid,
         si.goto_target_uuid  = end_behavior_target_uuid;
         si.goto_target_index = end_behavior_target_index;
         si.ducked        = std::move(ducks_made);
-        si.custom_actions = std::move(custom_actions_snapshot);
+        si.display_name  = display_name_snapshot;
+        si.events        = std::move(events_snapshot);
+        // Markers before where playback starts belong to a part of the file
+        // that won't play this pass.
+        for (auto& ev : si.events)
+            if (ev.trigger == "time" && ev.time < in_point - 1e-3) ev.triggered = true;
+        collect_event_fires(si, "start", start_fires);
+
+        // A re-play drops markers the previous pass had scheduled ahead.
+        events_->cancel_item(uuid);
 
         std::lock_guard slock{sequencer_mutex_};
         // Remove any prior sequencer entry for this item (re-play case).
@@ -3260,6 +3463,7 @@ bool ProjectState::play_item(const std::string& uuid,
             sequenced_items_.end());
         sequenced_items_.push_back(std::move(si));
     }
+    dispatch_event_fires(std::move(start_fires));
 
     // Best-effort: warm the *next* cue so the first read is glitch-free.
     std::string next_uuid;
@@ -3364,6 +3568,7 @@ bool ProjectState::stop_item(const std::string& uuid, std::optional<long long> f
     }
 
     // Remove from sequencer and restore any ducked gains.
+    std::vector<EventFire> end_fires;
     {
         std::lock_guard slock{sequencer_mutex_};
         auto it = std::find_if(sequenced_items_.begin(), sequenced_items_.end(),
@@ -3373,9 +3578,12 @@ bool ProjectState::stop_item(const std::string& uuid, std::optional<long long> f
                 if (auto* pi = engine_.find_cue(dk.cue_id))
                     pi->set_gain_db(dk.original_gain_db);
             }
+            if (!it->end_fired) collect_event_fires(*it, "end", end_fires);
             sequenced_items_.erase(it);
         }
     }
+    events_->cancel_item(uuid);
+    dispatch_event_fires(std::move(end_fires));
 
     if (fade_ms) engine_.stop(cue, std::chrono::milliseconds{std::max<long long>(0, *fade_ms)});
     else         engine_.stop(cue);
@@ -7691,6 +7899,17 @@ void ProjectState::sequencer_loop() {
     constexpr double kSeamlessLeadSec =
         2.0 * std::chrono::duration<double>(kPollInterval).count();
 
+    // Event markers (#84) due within this much of the playhead are handed to
+    // the dispatcher with a delay, so they fire on their mark instead of on
+    // the next pass: 1.5 polls, so a marker is always seen one pass early.
+    constexpr double kEventLookaheadSec =
+        1.5 * std::chrono::duration<double>(kPollInterval).count();
+    // A playhead that moved back by more than this between passes looped or
+    // was sought; forward by more than this, it was sought (one pass moves it
+    // one poll, and a stalled pass a few).
+    constexpr double kEventJumpSec = 0.25;
+    constexpr double kEventSeekSec = 1.0;
+
     while (sequencer_running_.load(std::memory_order_acquire)) {
         std::this_thread::sleep_for(kPollInterval);
         if (!sequencer_running_.load(std::memory_order_acquire)) break;
@@ -7711,11 +7930,65 @@ void ProjectState::sequencer_loop() {
                                  // start next item a hair before out-point so
                                  // there's no audible gap; current plays its tail
                 Cleanup,       // cue gone; restore ducking, no end behavior
-                CustomAction,  // fire one of the item's customActions
             } kind;
-            json custom_action;  // populated only for Kind::CustomAction
         };
         std::vector<PendingAction> pending;
+        // Events (#84) found this pass, and items whose scheduled-ahead
+        // markers are void (paused, stopped, or the playhead jumped).
+        std::vector<EventFire>   event_fires;
+        std::vector<std::string> event_cancels;
+
+        // Watch one item's transport and playhead for its events. Runs every
+        // pass, before any check that might `continue`, so a pause or a stop
+        // is seen whatever else the item is doing.
+        const auto track_events = [&](SequencedItem& si, audio::TransportState ts,
+                                      double pos) {
+            const auto running = [](audio::TransportState t) {
+                return t == audio::TransportState::Playing ||
+                       t == audio::TransportState::FadingIn ||
+                       t == audio::TransportState::FadingOut;
+            };
+            const bool was_running = running(si.last_transport);
+            const bool is_running  = running(ts);
+            if (si.last_pos >= 0.0) {
+                if (was_running && ts == audio::TransportState::Paused) {
+                    collect_event_fires(si, "pause", event_fires);
+                    event_cancels.push_back(si.uuid);
+                } else if (si.last_transport == audio::TransportState::Paused && is_running) {
+                    collect_event_fires(si, "resume", event_fires);
+                } else if ((was_running || si.last_transport == audio::TransportState::Paused) &&
+                           ts == audio::TransportState::Stopped && !si.end_fired) {
+                    // Stopped without the sequencer's say-so (Stop All, an
+                    // engine-level stop): it ended all the same.
+                    si.end_fired = true;
+                    collect_event_fires(si, "end", event_fires);
+                    event_cancels.push_back(si.uuid);
+                }
+                if (pos + kEventJumpSec < si.last_pos) {
+                    // Looped or sought back: what's ahead of the playhead plays
+                    // again, so it fires again.
+                    event_cancels.push_back(si.uuid);
+                    for (auto& ev : si.events)
+                        if (ev.trigger == "time") ev.triggered = ev.time < pos - 1e-3;
+                } else if (pos > si.last_pos + kEventSeekSec) {
+                    // Sought forward: markers jumped over did not play.
+                    for (auto& ev : si.events)
+                        if (ev.trigger == "time" && ev.time < pos - 1e-3) ev.triggered = true;
+                }
+            }
+            si.last_transport = ts;
+            si.last_pos       = pos;
+            if (!is_running) return;
+            // Anything due before the next pass is scheduled now, for exactly
+            // when it falls due; a late pass fires overdue markers at once.
+            for (auto& ev : si.events) {
+                if (ev.trigger != "time" || ev.triggered) continue;
+                if (ev.time > pos + kEventLookaheadSec) continue;
+                ev.triggered = true;
+                event_fires.push_back({si.uuid, si.display_name, ev, "time",
+                                       std::max(0.0, ev.time - pos)});
+            }
+        };
 
         {
             std::lock_guard slock{sequencer_mutex_};
@@ -7732,24 +8005,14 @@ void ProjectState::sequencer_loop() {
                     continue;
                 }
 
-                // Stop-fade completed (transport settled to Stopped).
                 const auto ts = pi->stats().transport;
+                const double pos = pi->stats().playhead_seconds;
+                track_events(si, ts, pos);
+
+                // Stop-fade completed (transport settled to Stopped).
                 if (ts == audio::TransportState::Stopped && si.stop_fade_triggered) {
                     pending.push_back({si, PendingAction::Kind::StopFadeEnded});
                     continue;
-                }
-
-                const double pos = pi->stats().playhead_seconds;
-
-                // Custom-action dispatch: any action whose time_point we've
-                // crossed fires now. Snapshot the action JSON into pending so
-                // we can execute it outside the lock.
-                for (auto& sca : si.custom_actions) {
-                    if (sca.triggered) continue;
-                    if (pos < sca.time_point) continue;
-                    sca.triggered = true;
-                    pending.push_back({si, PendingAction::Kind::CustomAction,
-                                       sca.action});
                 }
 
                 // Start Next marker: fires once when the playhead crosses it,
@@ -7810,14 +8073,23 @@ void ProjectState::sequencer_loop() {
                     p.kind == PendingAction::Kind::StopFadeEnded ||
                     p.kind == PendingAction::Kind::Cleanup;
                 if (terminal) {
-                    sequenced_items_.erase(
-                        std::remove_if(sequenced_items_.begin(), sequenced_items_.end(),
-                            [&](const SequencedItem& x){ return x.uuid == p.item.uuid; }),
-                        sequenced_items_.end());
+                    for (auto it = sequenced_items_.begin(); it != sequenced_items_.end();) {
+                        if (it->uuid != p.item.uuid) { ++it; continue; }
+                        if (!it->end_fired) {
+                            it->end_fired = true;
+                            collect_event_fires(*it, "end", event_fires);
+                        }
+                        it = sequenced_items_.erase(it);
+                    }
                 }
                 // BeginStopFade items stay until they reach the Stopped state.
             }
         }
+
+        // Events first, cancels before fires: a loop both voids what was
+        // scheduled and re-schedules what is ahead in the same pass.
+        for (const auto& u : event_cancels) events_->cancel_item(u);
+        dispatch_event_fires(std::move(event_fires));
 
         // Execute pending actions with the sequencer lock released. Each action
         // is wrapped so a single failure (e.g. malformed end-behaviour data)
@@ -7952,9 +8224,6 @@ void ProjectState::sequencer_loop() {
                 }
                 break;
 
-            case PendingAction::Kind::CustomAction:
-                execute_custom_action(p.custom_action);
-                break;
             }
           } catch (const std::exception& e) {
             Logger::warn("sequencer action (item '{}') threw: {}", p.item.uuid, e.what());
@@ -7964,85 +8233,159 @@ void ProjectState::sequencer_loop() {
 }
 
 // ---------------------------------------------------------------------------
-// Custom-action dispatcher — fired by the sequencer when an item's playhead
-// crosses a customAction.timePoint. Server-side action types are executed
-// directly; http-request is fanned out via the broadcast hook (which the
-// control server wires up so a connected client performs the actual fetch).
+// Event system (#84). The sequencer decides when an item's events fire; this
+// turns them into dispatcher jobs (connection resolved, placeholders filled).
 // ---------------------------------------------------------------------------
-void ProjectState::execute_custom_action(const json& action) {
-    if (!action.is_object()) return;
-    const std::string type = action.value("type", "");
+void ProjectState::collect_event_fires(const SequencedItem& si, const std::string& trigger,
+                                       std::vector<EventFire>& out) {
+    for (const auto& ev : si.events)
+        if (ev.trigger == trigger) out.push_back({si.uuid, si.display_name, ev, trigger, 0.0});
+}
 
-    if (type == "play-item") {
-        const auto u = action.value("uuid", std::string{});
-        if (!u.empty()) trigger_item(u);
+std::optional<events::Job> ProjectState::make_event_job_locked(
+        const events::ItemEvent& ev, const json* draft_connection,
+        events::FireContext ctx, std::string& why) const {
+    if (!events_->find(ev.plugin)) {
+        why = "unknown plugin '" + ev.plugin + "'";
+        return std::nullopt;
     }
-    else if (type == "play-index") {
-        // index is an array path through the items tree. Resolve under lock.
-        std::vector<int> idx;
-        if (action.contains("index") && action["index"].is_array()) {
-            for (const auto& v : action["index"]) {
-                if (v.is_number_integer()) idx.push_back(v.get<int>());
-            }
-        }
-        std::string target_uuid;
-        {
-            std::lock_guard lock{mutex_};
-            const json* arr = document_.contains("items") ? &document_["items"] : nullptr;
-            const json* current = nullptr;
-            for (std::size_t depth = 0; depth < idx.size() && arr && arr->is_array(); ++depth) {
-                const int i = idx[depth];
-                if (i < 0 || i >= static_cast<int>(arr->size())) { current = nullptr; break; }
-                current = &(*arr)[i];
-                if (depth + 1 < idx.size()) {
-                    if (current->value("type", std::string{}) == "group" &&
-                        current->contains("children")) {
-                        arr = &(*current)["children"];
-                    } else { current = nullptr; break; }
+    events::Job job;
+    job.plugin = ev.plugin;
+    job.action = ev.action;
+    if (events_->plugin_needs_connection(ev.plugin)) {
+        const json* conn = nullptr;
+        if (draft_connection && draft_connection->is_object()) {
+            conn = draft_connection;
+        } else if (document_.contains("eventConnections") &&
+                   document_["eventConnections"].is_array()) {
+            for (const auto& c : document_["eventConnections"])
+                if (c.is_object() && c.value("id", std::string{}) == ev.connection_id) {
+                    conn = &c;
+                    break;
                 }
+        }
+        if (!conn) {
+            why = ev.connection_id.empty() ? "no connection chosen" : "connection not found";
+            return std::nullopt;
+        }
+        if (!conn->value("enabled", true)) {
+            why = "connection '" + conn->value("name", std::string{}) + "' is disabled";
+            return std::nullopt;
+        }
+        if (conn->value("plugin", ev.plugin) != ev.plugin) {
+            why = "connection is for another plugin";
+            return std::nullopt;
+        }
+        if (conn->contains("config") && (*conn)["config"].is_object())
+            job.connection = events::substitute((*conn)["config"], ctx);
+    }
+    job.options = events::substitute(ev.options, ctx);
+    job.ctx     = std::move(ctx);
+    return job;
+}
+
+void ProjectState::dispatch_event_fires(std::vector<EventFire> fires) {
+    if (fires.empty()) return;
+    const auto now = events::Dispatcher::Clock::now();
+    std::vector<std::pair<events::Job, events::Dispatcher::Clock::time_point>> jobs;
+    std::vector<json> failures;
+    {
+        std::lock_guard lock{mutex_};
+        for (auto& f : fires) {
+            events::FireContext ctx{f.item_uuid, f.item_name, f.event.id, f.trigger,
+                                    f.trigger == "time" ? f.event.time : 0.0};
+            std::string why;
+            auto job = make_event_job_locked(f.event, nullptr, ctx, why);
+            if (!job) {
+                Logger::warn("EVENT: {} '{}' {}/{} skipped: {}", f.trigger, f.item_name,
+                             f.event.plugin, f.event.action, why);
+                failures.push_back(json{{"itemUuid", f.item_uuid}, {"eventId", f.event.id},
+                                        {"trigger", f.trigger}, {"plugin", f.event.plugin},
+                                        {"action", f.event.action}, {"ok", false},
+                                        {"error", why}});
+                continue;
             }
-            if (current && current->is_object())
-                target_uuid = current->value("uuid", std::string{});
+            const auto delay = std::chrono::duration_cast<events::Dispatcher::Clock::duration>(
+                std::chrono::duration<double>(f.delay_sec));
+            jobs.emplace_back(std::move(*job), f.delay_sec > 0.0 ? now + delay
+                                                                 : events::Dispatcher::Clock::time_point{});
         }
-        if (!target_uuid.empty()) trigger_item(target_uuid);
     }
-    else if (type == "stop-all") {
-        // Per-cue fades (not forced), as before. The audition obeys the same
-        // stopAllStopsPreview setting as the button; when it is stopped,
-        // poll_preview() notices and clears the preview state.
-        audio::CueId spare;
+    for (auto& [job, when] : jobs) events_->enqueue(std::move(job), when);
+    if (!failures.empty()) {
+        std::function<void(const json&)> cb;
         {
             std::lock_guard lock{mutex_};
-            if (document_.contains("settings") && document_["settings"].is_object() &&
-                !document_["settings"].value("stopAllStopsPreview", true))
-                spare = preview_cue_;
+            cb = event_fired_broadcaster_;
         }
-        engine_.stop_all(std::chrono::milliseconds{0}, /*force_fade=*/false, spare);
-    }
-    else if (type == "http-request") {
-        // Hand off to whoever subscribed via set_external_action_handler.
-        // The control server wires this to a doc_patch broadcast so a
-        // connected client executes the fetch — keeping server free of an
-        // HTTP client dependency.
-        std::function<void(const json&)> handler;
-        {
-            std::lock_guard lock{mutex_};
-            handler = external_action_handler_;
-        }
-        if (handler) {
-            try { handler(action); } catch (...) {}
-        } else {
-            Logger::warn("custom action http-request: no handler installed");
-        }
-    }
-    else {
-        Logger::warn("custom action: unknown type '{}'", type);
+        if (cb) for (const auto& f : failures) cb(f);
     }
 }
 
-void ProjectState::set_external_action_handler(std::function<void(const json&)> h) {
+json ProjectState::event_plugins() const { return events_->plugins_json(); }
+
+json ProjectState::event_connections() const {
     std::lock_guard lock{mutex_};
-    external_action_handler_ = std::move(h);
+    if (document_.contains("eventConnections") && document_["eventConnections"].is_array())
+        return document_["eventConnections"];
+    return json::array();
+}
+
+json ProjectState::set_event_connections(const json& connections) {
+    json clean = json::array();
+    if (connections.is_array()) {
+        for (const auto& c : connections) {
+            if (!c.is_object()) continue;
+            const std::string id = c.value("id", std::string{});
+            const std::string plugin = c.value("plugin", std::string{});
+            if (id.empty() || plugin.empty()) continue;
+            json entry{{"id", id}, {"plugin", plugin},
+                       {"name", c.value("name", std::string{})},
+                       {"enabled", c.value("enabled", true)},
+                       {"config", c.contains("config") && c["config"].is_object()
+                                      ? c["config"] : json::object()}};
+            clean.push_back(std::move(entry));
+        }
+    }
+    std::lock_guard lock{mutex_};
+    document_["eventConnections"] = clean;
+    return clean;
+}
+
+events::Result ProjectState::test_event(const json& event, const json& draft_connection,
+                                        const std::string& item_uuid) {
+    json wrapped = json::array({event});
+    if (wrapped[0].is_object()) {
+        // A test fires whatever the editor shows, whatever its trigger.
+        wrapped[0]["enabled"] = true;
+        if (!wrapped[0].contains("trigger")) wrapped[0]["trigger"] = "start";
+    }
+    const auto parsed = events::ItemEvent::parse_list(wrapped);
+    if (parsed.empty()) return events::Result::fail("event needs a plugin and an action");
+
+    std::optional<events::Job> job;
+    std::string why;
+    {
+        std::lock_guard lock{mutex_};
+        std::string name;
+        if (!item_uuid.empty()) {
+            for_each_item(document_, [&](json& it, const std::string&) {
+                if (it.value("uuid", std::string{}) == item_uuid)
+                    name = it.value("displayName", std::string{});
+            });
+        }
+        events::FireContext ctx{item_uuid, name, parsed[0].id, "test", parsed[0].time};
+        job = make_event_job_locked(parsed[0],
+                                    draft_connection.is_object() ? &draft_connection : nullptr,
+                                    std::move(ctx), why);
+    }
+    if (!job) return events::Result::fail(why);
+    return events_->run_now(*job);
+}
+
+void ProjectState::set_event_fired_broadcaster(std::function<void(const json&)> cb) {
+    std::lock_guard lock{mutex_};
+    event_fired_broadcaster_ = std::move(cb);
 }
 
 bool ProjectState::item_on_air(const std::string& uuid) {

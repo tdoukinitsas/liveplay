@@ -5222,6 +5222,253 @@
         ]
       ],
       "source": "Crow app.h / settings.h / http_response.h (installed dependency)"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/media/missing",
+      "title": "List items whose media file is missing",
+      "category": "Filesystem and media",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "missing": [
+          {
+            "uuid": "opening",
+            "displayName": "Opening",
+            "mediaFileName": "opening.wav",
+            "mediaPath": "media/opening.wav"
+          }
+        ]
+      },
+      "notes": "Audio items in the playlist and cart whose media resolves to no existing file (mediaPath against the project folder, then mediaServerPath). One stat per audio item; the desktop polls it to badge items.",
+      "errors": []
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/media/locate",
+      "title": "Relink missing media from a folder",
+      "category": "Filesystem and media",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "folder",
+          "string",
+          "Yes",
+          "-",
+          "Server folder within permitted roots to search."
+        ],
+        [
+          "recursive",
+          "boolean",
+          "No",
+          "true",
+          "Also search subfolders (stops after 200,000 entries)."
+        ]
+      ],
+      "request": {
+        "folder": "D:/Audio/Show",
+        "recursive": true
+      },
+      "response": {
+        "relinked": [
+          {
+            "uuid": "opening",
+            "patch": {
+              "mediaFileName": "opening.wav",
+              "mediaPath": "media/opening.wav",
+              "mediaServerPath": "C:/Shows/Show/media/opening.wav"
+            }
+          }
+        ],
+        "missing": []
+      },
+      "notes": "Matches each missing item by file name, case-insensitively. A match inside the project folder is referenced in place; anything else is copied into the project media folder first (renamed \"name (2).ext\" rather than overwriting a different file). Each relink is applied as an item update (the cue is re-decoded) and broadcast as item_updated.",
+      "errors": [
+        [
+          "400",
+          "missing folder"
+        ],
+        [
+          "403",
+          "Path is outside configured filesystem roots."
+        ],
+        [
+          "404",
+          "no such folder"
+        ],
+        [
+          "500",
+          "Handler exception (JSON parsing, type conversion or operation failure); message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/events/plugins",
+      "title": "List event plugins",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "plugins": [
+          {
+            "id": "osc",
+            "label": "OSC",
+            "icon": "settings_input_antenna",
+            "needsConnection": true,
+            "connectionFields": [],
+            "actions": []
+          }
+        ]
+      },
+      "notes": "Each plugin's schema (EventPlugin). Built per request, so live lists such as the server machine's MIDI output ports are current.",
+      "errors": []
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/events/connections",
+      "title": "List event connections",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "connections": [
+          {
+            "id": "c1",
+            "name": "Lighting desk",
+            "plugin": "osc",
+            "enabled": true,
+            "config": {
+              "host": "192.168.1.50",
+              "port": 8000
+            }
+          }
+        ]
+      },
+      "notes": "The project's eventConnections.",
+      "errors": []
+    },
+    {
+      "methods": [
+        "PUT"
+      ],
+      "path": "/api/events/connections",
+      "title": "Replace event connections",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "connections",
+          "EventConnection[]",
+          "Yes",
+          "-",
+          "The complete list; entries without id or plugin are dropped."
+        ]
+      ],
+      "request": {
+        "connections": [
+          {
+            "id": "c1",
+            "name": "Lighting desk",
+            "plugin": "osc",
+            "enabled": true,
+            "config": {
+              "host": "192.168.1.50",
+              "port": 8000
+            }
+          }
+        ]
+      },
+      "response": {
+        "ok": true,
+        "connections": []
+      },
+      "notes": "Stores the list in the project document and broadcasts event_connections_changed. A full-document PUT that omits eventConnections keeps the current list.",
+      "errors": [
+        [
+          "400",
+          "missing 'connections' array"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing or type conversion); message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/events/test",
+      "title": "Fire an event now",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "event",
+          "object",
+          "Yes",
+          "-",
+          "plugin, action, options and optional connectionId (an ItemEvent without its trigger)."
+        ],
+        [
+          "connection",
+          "EventConnection",
+          "No",
+          "-",
+          "Use this unsaved connection instead of looking connectionId up."
+        ],
+        [
+          "itemUuid",
+          "string",
+          "No",
+          "-",
+          "Item whose name fills {item.name}."
+        ]
+      ],
+      "request": {
+        "event": {
+          "plugin": "osc",
+          "action": "message",
+          "connectionId": "c1",
+          "options": {
+            "address": "/eos/cue/1/go",
+            "args": []
+          }
+        }
+      },
+      "response": {
+        "ok": false,
+        "error": "connection not found"
+      },
+      "notes": "Runs synchronously and reports the plugin's result. Always 200 for a well-formed request; failure is ok=false with error.",
+      "errors": [
+        [
+          "400",
+          "missing 'event' object"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing or type conversion); message varies."
+        ]
+      ]
     }
   ],
   "schemas": [
@@ -5419,11 +5666,11 @@
           "mode: no-ducking/stop-all/duck-others; duckLevel linear number, duckFadeIn/duckFadeOut seconds."
         ],
         [
-          "customActions",
-          "object[]",
+          "events",
+          "ItemEvent[]",
           "No",
           "[]",
-          "Each has timePoint seconds and action object; see CustomAction."
+          "Audio items: events fired by the server (see ItemEvent). Replaces the pre-2.6 customActions, which are migrated on load."
         ],
         [
           "ltcEnabled",
@@ -5449,36 +5696,153 @@
       ]
     },
     {
-      "name": "CustomAction",
-      "description": "The sequencer processes timed actions on project audio items. HTTP actions are sent to clients for execution; the server does not issue an outbound HTTP request.",
+      "name": "ItemEvent",
+      "description": "An event on an audio item (#84). The server fires it; the sequencer schedules \"time\" events ahead so they land on their mark. String options may use {item.name}, {item.uuid}, {trigger} and {time}. Pre-2.6 customActions are migrated to events on load.",
       "fields": [
         [
-          "type",
+          "id",
           "string",
           "Yes",
           "-",
-          "play-item, play-index, stop-all, http-request."
+          "Stable identity, echoed in event_fired."
         ],
         [
-          "uuid",
+          "name",
           "string",
-          "play-item",
-          "-",
-          "Project UUID."
+          "No",
+          "\"\"",
+          "Label."
         ],
         [
-          "index",
-          "integer[]",
-          "play-index",
-          "-",
-          "Zero-based tree indices."
+          "enabled",
+          "boolean",
+          "No",
+          "true",
+          "Disabled events never fire."
         ],
         [
-          "request",
+          "trigger",
+          "string",
+          "Yes",
+          "-",
+          "time, start, end (stopped or finished), pause, resume."
+        ],
+        [
+          "time",
+          "number",
+          "time",
+          "0",
+          "Seconds on the file timeline, like inPoint/outPoint. Markers before where playback starts, or jumped over by a seek, do not fire; a loop re-arms them."
+        ],
+        [
+          "plugin",
+          "string",
+          "Yes",
+          "-",
+          "osc, midi, http or liveplay."
+        ],
+        [
+          "action",
+          "string",
+          "Yes",
+          "-",
+          "An action id from the plugin's schema."
+        ],
+        [
+          "connectionId",
+          "string|null",
+          "Plugin",
+          "-",
+          "An eventConnections id, for plugins with needsConnection."
+        ],
+        [
+          "options",
           "object",
-          "http-request",
+          "No",
+          "{}",
+          "Values for the action's fields."
+        ]
+      ]
+    },
+    {
+      "name": "EventConnection",
+      "description": "A project-level event destination, e.g. an OSC host and port or a MIDI output port.",
+      "fields": [
+        [
+          "id",
+          "string",
+          "Yes",
           "-",
-          "url string, method GET/POST/PUT/DELETE, contentType form/json, optional body object. Desktop executes; server does not validate."
+          "Referenced by ItemEvent.connectionId."
+        ],
+        [
+          "name",
+          "string",
+          "No",
+          "\"\"",
+          "Label."
+        ],
+        [
+          "plugin",
+          "string",
+          "Yes",
+          "-",
+          "The plugin it belongs to."
+        ],
+        [
+          "enabled",
+          "boolean",
+          "No",
+          "true",
+          "Events through a disabled connection report an error instead of firing."
+        ],
+        [
+          "config",
+          "object",
+          "No",
+          "{}",
+          "Values for the plugin's connectionFields."
+        ]
+      ]
+    },
+    {
+      "name": "EventPlugin",
+      "description": "A plugin schema. Clients render every event and connection form from it. Field types: string, text, number, integer, boolean, enum (options, allowCustom), item (a project item uuid), list (fields describes one row); showIf shows a field only when a sibling has one of the listed values.",
+      "fields": [
+        [
+          "id",
+          "string",
+          "Yes",
+          "-",
+          "Plugin id."
+        ],
+        [
+          "label, icon, description",
+          "string",
+          "Yes",
+          "-",
+          "Display; icon is a Material Symbols name."
+        ],
+        [
+          "needsConnection",
+          "boolean",
+          "Yes",
+          "-",
+          "Whether events pick a connection."
+        ],
+        [
+          "connectionFields",
+          "object[]",
+          "Yes",
+          "-",
+          "Fields of a connection's config."
+        ],
+        [
+          "actions",
+          "object[]",
+          "Yes",
+          "-",
+          "id, label, optional summary template, fields."
         ]
       ]
     },
@@ -5520,6 +5884,13 @@
           "No",
           "{}",
           "Slot bindings: key string; ctrlKey/shiftKey/altKey booleans."
+        ],
+        [
+          "eventConnections",
+          "EventConnection[]",
+          "No",
+          "[]",
+          "Event destinations; managed through /api/events/connections. A full-document PUT that omits it keeps the current list."
         ],
         [
           "settings",
@@ -8560,33 +8931,82 @@
         "notes": "Notification only; no periodic countdown or cancellation frame is guaranteed."
       },
       {
-        "op": "custom_action_http",
-        "purpose": "Sequencer asks connected clients to execute an HTTP action",
+        "op": "event_fired",
+        "purpose": "An item event ran",
         "fields": [
           [
-            "action",
-            "CustomAction",
+            "itemUuid",
+            "string",
             "Yes",
             "-",
-            "Original action, type=http-request."
+            "Item the event belongs to (\"\" for a test)."
+          ],
+          [
+            "eventId",
+            "string",
+            "Yes",
+            "-",
+            "ItemEvent id."
+          ],
+          [
+            "trigger",
+            "string",
+            "Yes",
+            "-",
+            "time, start, end, pause, resume or test."
+          ],
+          [
+            "plugin, action",
+            "string",
+            "Yes",
+            "-",
+            "What ran."
+          ],
+          [
+            "ok",
+            "boolean",
+            "Yes",
+            "-",
+            "Whether the plugin succeeded."
+          ],
+          [
+            "error",
+            "string",
+            "No",
+            "-",
+            "Why not."
           ]
         ],
         "example": {
           "type": "doc_patch",
-          "op": "custom_action_http",
-          "action": {
-            "type": "http-request",
-            "request": {
-              "method": "POST",
-              "url": "http://controller.local/cue",
-              "contentType": "json",
-              "body": {
-                "cue": 1
-              }
-            }
-          }
+          "op": "event_fired",
+          "itemUuid": "opening",
+          "eventId": "e1",
+          "trigger": "time",
+          "plugin": "osc",
+          "action": "message",
+          "ok": true
         },
-        "notes": "Broadcast to all clients. The desktop handles it; multiple connected executors can issue duplicate requests. Third-party monitoring clients should ignore it unless intentionally acting as an executor."
+        "notes": "Sent after every fired event, including ones skipped for a missing or disabled connection. Test fires report through the REST reply instead."
+      },
+      {
+        "op": "event_connections_changed",
+        "purpose": "Event connections replaced",
+        "fields": [
+          [
+            "connections",
+            "EventConnection[]",
+            "Yes",
+            "-",
+            "The stored list."
+          ]
+        ],
+        "example": {
+          "type": "doc_patch",
+          "op": "event_connections_changed",
+          "connections": []
+        },
+        "notes": "Follows PUT /api/events/connections."
       }
     ]
   }

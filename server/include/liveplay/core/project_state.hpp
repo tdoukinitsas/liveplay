@@ -23,6 +23,7 @@
 #include "liveplay/audio/engine.hpp"
 #include "liveplay/audio/types.hpp"
 #include "liveplay/core/output_map.hpp"
+#include "liveplay/events/events.hpp"
 
 #include <array>
 #include <atomic>
@@ -31,6 +32,7 @@
 #include <deque>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -1404,14 +1406,6 @@ private:
         audio::CueId cue_id;
         float        original_gain_db;
     };
-    // A scheduled custom action: at `time_point` seconds (absolute time
-    // within the audio file, before in_point trimming), do `action`. Driven
-    // by the sequencer alongside crossfade / stop-fade.
-    struct ScheduledCustomAction {
-        double  time_point  = 0.0;
-        json    action;       // copy of the project document's action node
-        bool    triggered    = false;
-    };
     struct SequencedItem {
         std::string              uuid;
         audio::CueId             cue_id;
@@ -1444,7 +1438,18 @@ private:
         // next cue on purpose. Disables the seamless pre-roll for this item.
         double                   advance_delay_sec    = 0.0;
         std::vector<DuckedEntry> ducked;
-        std::vector<ScheduledCustomAction> custom_actions;
+        // Event system (#84). The item's events, snapshotted at play_item and
+        // refreshed by update_item. "time" events use absolute file seconds
+        // (like start_next_time) and are scheduled a little ahead by the
+        // sequencer so they land on their mark rather than on its next tick.
+        std::string                    display_name;
+        std::vector<events::ItemEvent> events;
+        // What the sequencer saw last tick: transport changes fire pause /
+        // resume / end, and a playhead that jumps back (loop, seek) re-arms
+        // the "time" events behind it. last_pos < 0 = not seen yet.
+        audio::TransportState          last_transport = audio::TransportState::Stopped;
+        double                         last_pos       = -1.0;
+        bool                           end_fired      = false;
     };
     std::vector<SequencedItem> sequenced_items_;
     std::mutex                 sequencer_mutex_;
@@ -1473,7 +1478,25 @@ private:
     // doc_patch op advance_pending: {fromUuid, dueInMs} while a wait runs,
     // fromUuid "" when none does.
     void broadcast_advance_pending(const std::string& from_uuid, long long due_in_ms);
-    void execute_custom_action(const json& action);
+    // One event to hand to the dispatcher. delay_sec > 0 schedules it ahead.
+    struct EventFire {
+        std::string       item_uuid;
+        std::string       item_name;
+        events::ItemEvent event;
+        std::string       trigger;
+        double            delay_sec = 0.0;
+    };
+    // `si`'s events for a non-time trigger (start / end / pause / resume).
+    static void collect_event_fires(const SequencedItem& si, const std::string& trigger,
+                                    std::vector<EventFire>& out);
+    // Resolve connections and queue. Takes mutex_; call with no lock held.
+    void dispatch_event_fires(std::vector<EventFire> fires);
+    // Builds a dispatcher job; nullopt (with `why`) if it can't run.
+    std::optional<events::Job> make_event_job_locked(const events::ItemEvent& ev,
+                                                     const json* draft_connection,
+                                                     events::FireContext ctx,
+                                                     std::string& why) const;
+    std::unique_ptr<events::Dispatcher> events_;
 
     // Resolve the uuid the given item should auto-advance to, for its
     // endBehavior (next / goto-item / goto-index only; empty for loop /
@@ -1502,12 +1525,21 @@ private:
     bool item_on_air(const std::string& uuid);
 
 public:
-    // Subscribe to "external" custom actions the server can't perform on its
-    // own — currently just http-request. The control server installs a
-    // handler that broadcasts the action as a doc_patch so a connected
-    // client makes the actual fetch. Keeps a libcurl/winhttp dependency
-    // out of the server.
-    void set_external_action_handler(std::function<void(const json&)> handler);
+    // ---- Event system (#84) — see liveplay/events/events.hpp ----
+    // Every plugin's schema, for GET /api/events/plugins.
+    json event_plugins() const;
+    // The project's connections (document root "eventConnections").
+    json event_connections() const;
+    // Replace them; returns the stored list (malformed entries dropped).
+    json set_event_connections(const json& connections);
+    // Fire one event now, for the Test buttons. `draft_connection`, when an
+    // object, is used instead of looking event.connectionId up: it lets the
+    // connection editor test settings it hasn't saved.
+    events::Result test_event(const json& event, const json& draft_connection,
+                              const std::string& item_uuid);
+    // Called (no lock held, from a dispatcher thread) after every event runs,
+    // with { itemUuid, eventId, trigger, plugin, action, ok, error? }.
+    void set_event_fired_broadcaster(std::function<void(const json&)> cb);
 
     // Install a callback invoked whenever the "Up Next" override changes for
     // ANY reason (client request or server-side arming). The control server
@@ -1523,7 +1555,7 @@ public:
 
 private:
     std::function<void()> preview_stopped_broadcaster_;
-    std::function<void(const json&)> external_action_handler_;
+    std::function<void(const json&)> event_fired_broadcaster_;
     std::function<void(const std::string&)> next_item_broadcaster_;
     std::function<void(const json&)> ui_state_broadcaster_;
 
