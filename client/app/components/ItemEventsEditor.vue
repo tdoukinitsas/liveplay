@@ -118,7 +118,7 @@
             flashing: isFlashing(m.ev.id),
             dragging: drag?.id === m.ev.id,
           }"
-          :style="{ left: pct(m.time) }"
+          :style="{ left: pct(m.time), '--lane': m.lane }"
           :title="markerTitle(m.ev)"
           @pointerdown.stop="onMarkerDown($event, m.ev)"
           @pointermove="onMarkerMove"
@@ -127,7 +127,7 @@
         >
           <span class="ev-marker-line" />
           <span class="ev-marker-flag">
-            {{ drag?.id === m.ev.id ? formatEventTime(m.time) : m.label }}
+            {{ m.label }}
             <span v-if="lastResult[m.ev.id]?.ok === false" class="ev-error-dot" />
           </span>
         </div>
@@ -505,15 +505,27 @@ watch(() => props.item?.uuid, () => {
 
 onMounted(() => { void refreshPlugins(); });
 
-// On start / On end events, drawn at the trim points they fire at; several
-// on one edge stack upwards.
+// ---- fades, as the server plays them ------------------------------------
+// Mirrors play_item: a loop arms no crossfade, and Start Next supersedes it.
+const looping = computed(() => props.item.endBehavior?.action === 'loop');
+const startNextOn = computed(() =>
+  !looping.value && !!props.item.startNextEnabled && (props.item.startNextTime ?? 0) > 0);
+const crossFadeSec = computed(() =>
+  looping.value || startNextOn.value ? 0 : Math.max(0, props.item.crossFade || 0));
+// "On end" fires when the cue hands over: at the start of its crossfade, not
+// at the out point (the sequencer retires it there).
+const endFireTime = computed(() =>
+  crossFadeSec.value > 0 ? Math.max(inPoint.value, outPoint.value - crossFadeSec.value) : outPoint.value);
+
+// On start / On end events, drawn where they fire; several on one edge
+// stack upwards.
 const edgeMarkers = computed(() => {
   const out: { ev: ItemEvent; time: number; end: boolean; stack: number; label: string }[] = [];
   let starts = 0, ends = 0;
   for (const ev of sortedEvents.value) {
     if (ev.trigger !== 'start' && ev.trigger !== 'end') continue;
     const end = ev.trigger === 'end';
-    out.push({ ev, end, time: end ? outPoint.value : inPoint.value,
+    out.push({ ev, end, time: end ? endFireTime.value : inPoint.value,
                stack: end ? ends++ : starts++, label: ev.name || rowTitle(ev) });
   }
   return out;
@@ -552,13 +564,44 @@ const waveformColour = computed(() => {
   return rgbCss(mix(c, grey, 0.5));
 });
 
+// Flags that would overlap drop to the next lane down instead of covering
+// each other: packed left to right by their measured width at this zoom.
+// Past MAX_LANES they share the emptiest lane (hovering one lifts it).
+const timelineWidth = ref(0);
+const MAX_LANES = 3;
+let measureCtx: CanvasRenderingContext2D | null = null;
+function flagWidth(label: string, hasError: boolean): number {
+  if (!measureCtx) {
+    measureCtx = document.createElement('canvas').getContext('2d');
+    if (measureCtx) measureCtx.font = `600 10px ${getComputedStyle(document.body).fontFamily}`;
+  }
+  const text = measureCtx ? measureCtx.measureText(label).width : label.length * 6;
+  // Padding and border, the error dot, and the max-width the CSS applies.
+  return Math.min(120, text + 12 + (hasError ? 9 : 0));
+}
+
 // Time markers, numbered in time order so the flag and the list agree.
 const markers = computed(() => {
   const timed = sortedEvents.value.filter(e => e.trigger === 'time' && typeof e.time === 'number');
-  return timed.map((ev, i) => {
+  const list = timed.map((ev, i) => {
     const time = drag.value?.id === ev.id ? drag.value.time : ev.time!;
-    return { ev, time, label: ev.name || String(i + 1), outside: isOutside(time) };
+    const label = drag.value?.id === ev.id ? formatEventTime(time) : (ev.name || String(i + 1));
+    return { ev, time, label, outside: isOutside(time), lane: 0 };
   });
+  const w = timelineWidth.value;
+  if (w > 0 && visibleDuration.value > 0) {
+    const laneEnds: number[] = [];
+    for (const m of [...list].sort((a, b) => a.time - b.time)) {
+      const x = ((m.time - viewStart.value) / visibleDuration.value) * w + 5;   // flag's left edge
+      const right = x + flagWidth(m.label, lastResult.value[m.ev.id]?.ok === false);
+      let lane = laneEnds.findIndex(end => end <= x - 2);
+      if (lane < 0 && laneEnds.length < MAX_LANES) lane = laneEnds.length;
+      if (lane < 0) lane = laneEnds.indexOf(Math.min(...laneEnds));
+      laneEnds[lane] = Math.max(laneEnds[lane] ?? 0, right);
+      m.lane = lane;
+    }
+  }
+  return list;
 });
 
 const rowTitle = (ev: ItemEvent) => {
@@ -900,6 +943,7 @@ function draw() {
   const w = box.clientWidth;
   const h = box.clientHeight;
   if (w <= 0 || h <= 0) return;
+  timelineWidth.value = w;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
@@ -951,6 +995,67 @@ function draw() {
     if (xo < w) ctx.fillRect(xo, 0, w - xo, h);
   }
 
+  // Fades, in the Playback tab's colours: the play fade and stop fade red,
+  // a crossfade yellow (the next cue's ramp dashed, crossing this one's),
+  // Start Next a green line. Ramps run between the flag rows.
+  if (dur > 0 && vis > 0) {
+    const top = 56, bottom = h - 30;   // between the top flags and the edge flags
+    const RED = '255, 77, 77', YELLOW = '255, 210, 63', GREEN = '74, 222, 128';
+    const ramp = (t0: number, t1: number, up: boolean, rgb: string, label: string, dashedReverse = false) => {
+      const x0 = xOf(t0), x1 = xOf(t1);
+      if (x1 < 0 || x0 > w || x1 - x0 < 1) return;
+      const y0 = up ? bottom : top, y1 = up ? top : bottom;
+      ctx.fillStyle = `rgba(${rgb}, 0.12)`;
+      ctx.beginPath();
+      ctx.moveTo(x0, bottom); ctx.lineTo(x0, y0); ctx.lineTo(x1, y1); ctx.lineTo(x1, bottom);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = `rgba(${rgb}, 0.9)`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+      if (dashedReverse) {
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.moveTo(x0, y1); ctx.lineTo(x1, y0); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.lineWidth = 1;
+      ctx.font = '10px sans-serif';
+      const tw = ctx.measureText(label).width;
+      if (x1 - x0 > tw + 8) {
+        ctx.fillStyle = `rgba(${rgb}, 1)`;
+        ctx.fillText(label, Math.max(x0, 0) + 4, bottom - 4);
+      }
+    };
+    const playFade = Math.max(0, props.item.playFade || 0);
+    const stopFade = Math.max(0, props.item.stopFade || 0);
+    const loopXf = looping.value ? Math.max(0, props.item.loopCrossfade || 0) : 0;
+    if (playFade > 0)
+      ramp(inPoint.value, Math.min(outPoint.value, inPoint.value + playFade), true, RED,
+           t('waveform.playFadeTitle', { seconds: playFade.toFixed(1) }));
+    if (stopFade > 0 && !looping.value)
+      ramp(Math.max(inPoint.value, outPoint.value - stopFade), outPoint.value, false, RED,
+           t('waveform.stopFadeTitle', { seconds: stopFade.toFixed(1) }));
+    if (crossFadeSec.value > 0)
+      ramp(endFireTime.value, outPoint.value, false, YELLOW,
+           t('waveform.crossFadeTitle', { seconds: crossFadeSec.value.toFixed(1) }), true);
+    if (loopXf > 0)
+      ramp(Math.max(inPoint.value, outPoint.value - loopXf), outPoint.value, false, YELLOW,
+           `${t('properties.loopCrossfade')}: ${loopXf.toFixed(1)}s`, true);
+    if (startNextOn.value) {
+      const xs = xOf(props.item.startNextTime!);
+      if (xs >= 0 && xs <= w) {
+        ctx.strokeStyle = `rgba(${GREEN}, 0.9)`;
+        ctx.setLineDash([5, 3]);
+        ctx.beginPath(); ctx.moveTo(xs, 0); ctx.lineTo(xs, h); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = `rgba(${GREEN}, 1)`;
+        ctx.font = '10px sans-serif';
+        ctx.fillText(t('waveform.startNextTitle', { time: formatEventTime(props.item.startNextTime!) }),
+                     xs + 4, bottom - 4);
+      }
+    }
+  }
+
   // Time ticks along the bottom, at whichever round step lands ~80px apart.
   if (dur > 0 && vis > 0) {
     const steps = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
@@ -982,7 +1087,9 @@ const scheduleDraw = () => {
 
 watch(
   () => [props.item.waveform, props.item.color, inPoint.value, outPoint.value, duration.value,
-         zoom.value, viewStart.value],
+         zoom.value, viewStart.value, props.item.playFade, props.item.stopFade, props.item.crossFade,
+         props.item.loopCrossfade, props.item.startNextEnabled, props.item.startNextTime,
+         props.item.endBehavior?.action],
   scheduleDraw,
 );
 
@@ -991,7 +1098,7 @@ watch(selectedId, (id) => {
   const ev = events.value.find(e => e.id === id);
   if (!ev || zoom.value <= 1) return;
   const at = ev.trigger === 'time' ? ev.time
-    : ev.trigger === 'start' ? inPoint.value : ev.trigger === 'end' ? outPoint.value : undefined;
+    : ev.trigger === 'start' ? inPoint.value : ev.trigger === 'end' ? endFireTime.value : undefined;
   if (typeof at === 'number' && !inView(at)) setView(zoom.value, at - visibleDuration.value * 0.25);
 });
 
@@ -1118,7 +1225,7 @@ onBeforeUnmount(() => {
 .ev-timeline {
   position: relative;
   flex: 0 0 auto;
-  height: 96px;
+  height: 120px;
   border: 1px solid var(--color-border);
   border-radius: 4px;
   overflow: hidden;
@@ -1177,13 +1284,15 @@ onBeforeUnmount(() => {
   width: 12px;
   margin-left: -6px;
   cursor: ew-resize;
-  z-index: 1;
+  /* No stacking context of its own: every marker's line then sits under every
+     marker's flag, so a neighbour's line never cuts through a label. */
 
   &.selected {
     --marker-color: var(--marker-light, var(--color-accent));
     --marker-ink: var(--marker-light-ink, #161616);
-    z-index: 2;
   }
+
+  &.selected .ev-marker-flag { z-index: 3; }
 
   &.selected .ev-marker-flag {
     box-shadow: 0 0 0 1px #fff, 0 1px 4px rgba(0, 0, 0, 0.6);
@@ -1195,14 +1304,18 @@ onBeforeUnmount(() => {
     box-shadow: 0 0 3px rgba(255, 255, 255, 0.6);
   }
 
-  &.disabled,
-  &.outside {
+  /* Dimmed on the parts, not the marker: opacity on the marker would give it a
+     stacking context and put its flag back under its neighbours' lines. */
+  &.disabled .ev-marker-line,
+  &.disabled .ev-marker-flag,
+  &.outside .ev-marker-line,
+  &.outside .ev-marker-flag {
     opacity: 0.45;
   }
 
-  &.dragging {
-    z-index: 3;
-  }
+  /* Flags sharing the last lane overlap; the one under the pointer comes up. */
+  &:hover .ev-marker-flag { z-index: 4; }
+  &.dragging .ev-marker-flag { z-index: 5; }
 
   &.flashing .ev-marker-line,
   &.flashing .ev-marker-flag {
@@ -1212,6 +1325,7 @@ onBeforeUnmount(() => {
 
 .ev-marker-line {
   position: absolute;
+  z-index: 1;
   top: 0;
   bottom: 0;
   left: 5px;
@@ -1225,7 +1339,8 @@ onBeforeUnmount(() => {
 
 .ev-marker-flag {
   position: absolute;
-  top: 0;
+  z-index: 2;
+  top: calc(var(--lane, 0) * 17px);
   left: 5px;
   display: flex;
   align-items: center;
