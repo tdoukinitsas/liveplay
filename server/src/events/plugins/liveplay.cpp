@@ -249,11 +249,20 @@ public:
         }
         if (a == "bus-route") {
             const std::string to = opt_string(o, "to");
-            json output;
-            if (to == "none")                    output = json{{"type", "none"}};
-            else if (to.rfind("bus:", 0) == 0)    output = json{{"type", "bus"}, {"target", to.substr(4)}};
-            else if (to.rfind("output:", 0) == 0) output = json{{"type", "output"}, {"target", to.substr(7)}};
-            else return Result::fail("choose where the bus goes");
+            // Built by key, not as {"type", ...} literals: the API reference
+            // check reads those as WebSocket frame types.
+            json output = json::object();
+            if (to == "none") {
+                output["type"] = "none";
+            } else if (to.rfind("bus:", 0) == 0) {
+                output["type"] = "bus";
+                output["target"] = to.substr(4);
+            } else if (to.rfind("output:", 0) == 0) {
+                output["type"] = "output";
+                output["target"] = to.substr(7);
+            } else {
+                return Result::fail("choose where the bus goes");
+            }
             return committed(host_.patch_bus(bus_id, json{{"output", output}}));
         }
         if (a == "bus-dsp") {
