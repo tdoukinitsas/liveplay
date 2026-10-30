@@ -106,6 +106,7 @@ public:
         };
         const auto fade = field("fade", "Crossfade", "number",
             {{"default", 0.0}, {"min", 0.0}, {"max", 600.0}, {"step", 0.1}, {"unit", "s"},
+             {"timelineSpan", true},   // drawn on the Events timeline as how long it runs
              {"help", "0 changes it at once; longer fades from where it is now."}});
         json params = json::array();
         for (const auto& p : kDspParams) {

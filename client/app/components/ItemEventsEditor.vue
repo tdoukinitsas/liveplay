@@ -98,6 +98,7 @@
           :title="markerTitle(m.ev)"
           @pointerdown.stop="onEdgeMarkerDown($event, m.ev)"
         >
+          <span v-if="m.span > 0" class="ev-marker-span" :style="{ width: spanPx(m.span) }" />
           <span class="ev-marker-line" />
           <span class="ev-marker-flag">
             <span class="material-symbols-rounded ev-marker-icon">{{ m.end ? 'stop' : 'play_arrow' }}</span>
@@ -125,6 +126,7 @@
           @pointerup="onMarkerUp"
           @pointercancel="onMarkerCancel"
         >
+          <span v-if="m.span > 0" class="ev-marker-span" :style="{ width: spanPx(m.span) }" />
           <span class="ev-marker-line" />
           <span class="ev-marker-flag">
             {{ m.label }}
@@ -517,16 +519,28 @@ const crossFadeSec = computed(() =>
 const endFireTime = computed(() =>
   crossFadeSec.value > 0 ? Math.max(inPoint.value, outPoint.value - crossFadeSec.value) : outPoint.value);
 
+// How long an event's action runs once fired (a fader crossfade): the value
+// of the action's field marked `timelineSpan`, drawn as a band from the
+// marker. 0 when the action has none.
+function spanOf(ev: ItemEvent): number {
+  const field = actionOf(ev)?.fields.find(f => f.timelineSpan);
+  if (!field) return 0;
+  const v = Number(ev.options?.[field.id] ?? field.default ?? 0);
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}
+const spanPx = (seconds: number) =>
+  `${visibleDuration.value > 0 ? (seconds / visibleDuration.value) * timelineWidth.value : 0}px`;
+
 // On start / On end events, drawn where they fire; several on one edge
 // stack upwards.
 const edgeMarkers = computed(() => {
-  const out: { ev: ItemEvent; time: number; end: boolean; stack: number; label: string }[] = [];
+  const out: { ev: ItemEvent; time: number; end: boolean; stack: number; label: string; span: number }[] = [];
   let starts = 0, ends = 0;
   for (const ev of sortedEvents.value) {
     if (ev.trigger !== 'start' && ev.trigger !== 'end') continue;
     const end = ev.trigger === 'end';
     out.push({ ev, end, time: end ? endFireTime.value : inPoint.value,
-               stack: end ? ends++ : starts++, label: ev.name || rowTitle(ev) });
+               stack: end ? ends++ : starts++, label: ev.name || rowTitle(ev), span: spanOf(ev) });
   }
   return out;
 });
@@ -586,7 +600,7 @@ const markers = computed(() => {
   const list = timed.map((ev, i) => {
     const time = drag.value?.id === ev.id ? drag.value.time : ev.time!;
     const label = drag.value?.id === ev.id ? formatEventTime(time) : (ev.name || String(i + 1));
-    return { ev, time, label, outside: isOutside(time), lane: 0 };
+    return { ev, time, label, outside: isOutside(time), lane: 0, span: spanOf(ev) };
   });
   const w = timelineWidth.value;
   if (w > 0 && visibleDuration.value > 0) {
@@ -1376,6 +1390,33 @@ onBeforeUnmount(() => {
   right: 5px;
   border-radius: 3px 0 0 3px;
 }
+
+/* What the event's action does over time (a fade): a band from the marker,
+   strongest where it starts, with an edge along the flag's row. */
+.ev-marker-span {
+  position: absolute;
+  bottom: 0;
+  left: 6px;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(to right,
+    color-mix(in srgb, var(--marker-color) 38%, transparent),
+    color-mix(in srgb, var(--marker-color) 8%, transparent));
+  border-top: 2px solid var(--marker-color);
+  border-top-right-radius: 2px;
+  /* The edge runs level with the bottom of this marker's flag. */
+  top: calc(var(--lane, 0) * 17px + 15px);
+}
+
+/* An edge flag sits at the bottom, so its band ends just above the flag. */
+.ev-marker--edge .ev-marker-span {
+  top: 0;
+  bottom: calc(14px + var(--stack, 0) * 17px + 16px);
+  border-top: none;
+  border-bottom: 2px solid var(--marker-color);
+}
+
+.ev-marker.disabled .ev-marker-span { opacity: 0.45; }
 
 .ev-marker-icon {
   font-size: 11px;

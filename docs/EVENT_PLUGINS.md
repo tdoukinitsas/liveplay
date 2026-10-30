@@ -179,6 +179,7 @@ A **Field** (build it with `field(id, label, type, extra)`):
 | `optionsFrom` | For `enum`: read the options live from the device through your `options()` (section 4). `options` stays the fallback, so give one. |
 | `dependsOn` | With `optionsFrom`: sibling field ids whose values change the list; the client refetches when they change and sends them in `values`. |
 | `unit` | Shown after a number input ("dB", "s"). Display only. |
+| `timelineSpan` | For a `number` in seconds: how long the action runs once fired (a fade, a ramp). The Events timeline draws it as a band from the marker, so operators see the move, not just its start. At most one per action. |
 
 | `type` | Input | Value in `options` |
 |---|---|---|

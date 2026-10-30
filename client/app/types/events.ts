@@ -88,6 +88,11 @@ export interface FieldSchema {
   dependsOn?: string[];
   /** Display unit shown after the input ("dB", "s"). */
   unit?: string;
+  /**
+   * number, in seconds: how long the action takes once fired (a fade). The
+   * Events timeline draws it as a band from the event's marker.
+   */
+  timelineSpan?: boolean;
 }
 
 export interface ActionSchema {
