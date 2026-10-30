@@ -201,6 +201,7 @@ import type { AudioItem, GroupItem } from '~/types/project';
 import ActionButton from './ActionButton.vue';
 import { runTime, formatRunTime } from '~/utils/groupTiming';
 import { drawRowWaveform } from '~/utils/rowWaveform';
+import { copyEventsWithNewIds } from '~/utils/events';
 import AudioImportModal from './AudioImportModal.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { calculatePerceivedLoudness, parseWaveformFileData } from '~/utils/audio';
@@ -894,6 +895,9 @@ const handleDrop = async (e: DragEvent) => {
     ...(sourceItem as AudioItem),
     uuid: newUuid,
     index: [-1, props.slot],
+    // Its own copy: a spread would share the array, and editing the cart
+    // copy's events would quietly edit the playlist cue's as well.
+    events: copyEventsWithNewIds((sourceItem as AudioItem).events),
   };
   addCartOnlyItem(cloned);
 

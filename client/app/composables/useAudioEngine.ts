@@ -509,12 +509,6 @@ export const useAudioEngine = () => {
       case 'master_gain_changed':
         if (typeof patch.db === 'number') masterGainDb.value = patch.db;
         break;
-      case 'custom_action_http':
-        // The server's sequencer fired a custom http-request action.
-        // We execute it client-side because the server has no HTTP
-        // client of its own. Best-effort; failures are logged.
-        void executeHttpRequest(patch.action?.request);
-        break;
     }
   });
 
@@ -675,33 +669,6 @@ export const useAudioEngine = () => {
     nextItemOverrideUuid.value = uuid;
     server.setNextItem(uuid);
   };
-
-  // ---- Custom action: http-request (client-side handler) ------------
-  // The server's sequencer schedules custom actions and executes the
-  // server-side ones directly (play-item / play-index / stop-all).
-  // For http-request it broadcasts a doc_patch which lands here.
-  async function executeHttpRequest(request: any) {
-    if (!request || typeof request !== 'object' || !request.url) return;
-    try {
-      const options: RequestInit = {
-        method: request.method || 'GET',
-        headers: {},
-      };
-      if (request.body) {
-        if (request.contentType === 'json') {
-          (options.headers as any)['Content-Type'] = 'application/json';
-          options.body = JSON.stringify(request.body);
-        } else {
-          (options.headers as any)['Content-Type'] =
-            'application/x-www-form-urlencoded';
-          options.body = new URLSearchParams(request.body).toString();
-        }
-      }
-      await fetch(request.url, options);
-    } catch (e) {
-      console.warn('[useAudioEngine] custom http-request failed:', e);
-    }
-  }
 
   return {
     activeCues,

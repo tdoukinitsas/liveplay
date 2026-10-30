@@ -22,6 +22,9 @@ const NEVER_SHARED = new Set([
   'uuid', 'index', 'type', 'children', 'isExpanded',
   'mediaPath', 'mediaServerPath', 'mediaFileName', 'duration',
   'waveform', 'channelPeaks',
+  // Events are timed into this item's own file and carry ids of their own;
+  // copying them across a selection would duplicate both.
+  'events', 'customActions',
 ]);
 
 /**

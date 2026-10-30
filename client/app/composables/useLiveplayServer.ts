@@ -24,6 +24,12 @@
 import { reactive, ref, shallowRef, computed } from 'vue';
 import type { Bus, BusDsp } from '~/types/project';
 import type {
+  EventConnection,
+  EventTestRequest,
+  EventTestResult,
+  PluginSchema,
+} from '~/types/events';
+import type {
   CueId,
   DeviceId,
   MasterChannelIndex,
@@ -823,6 +829,8 @@ function createClient() {
       cartSlotKeys: any;
       playbackKeys: any;
       cartOnlyItems: any[];
+      // Absent from a server that predates events (#84).
+      eventConnections?: EventConnection[];
       itemCount: number;
       hasOpenProject: boolean;
       server: { projectFilePath: string; mediaRoot: string;
@@ -1706,6 +1714,40 @@ function createClient() {
     });
   }
 
+  // ---- Events (#84) -------------------------------------------------
+  // The server owns events end to end; these only read the plugin schemas and
+  // the connection list, write the list back, and ask for a one-off test fire.
+  // Item events themselves travel with the item through the ordinary diff.
+
+  // Every plugin's schema. MIDI port lists inside it are live, so callers
+  // refetch rather than caching this for the session.
+  async function fetchEventPlugins(): Promise<PluginSchema[]> {
+    const result = await rest<{ plugins: PluginSchema[] }>('/api/events/plugins');
+    return Array.isArray(result?.plugins) ? result.plugins : [];
+  }
+
+  async function fetchEventConnections(): Promise<EventConnection[]> {
+    const result = await rest<{ connections: EventConnection[] }>('/api/events/connections');
+    return Array.isArray(result?.connections) ? result.connections : [];
+  }
+
+  // Replaces the whole list. The server broadcasts event_connections_changed
+  // to every client, this one included.
+  async function saveEventConnections(connections: EventConnection[]): Promise<EventConnection[]> {
+    const result = await rest<{ ok: boolean; connections?: EventConnection[] }>(
+      '/api/events/connections',
+      { method: 'PUT', body: JSON.stringify({ connections }) },
+    );
+    return Array.isArray(result?.connections) ? result.connections : connections;
+  }
+
+  async function testEvent(req: EventTestRequest): Promise<EventTestResult> {
+    return await rest<EventTestResult>('/api/events/test', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    });
+  }
+
   // Land a file dropped from the OS into the server's media root and return
   // the absolute server path it now lives at (or null on failure).
   //
@@ -1831,6 +1873,12 @@ function createClient() {
     fetchMissingMedia,
     locateMissingMedia,
     resolveDroppedFileToMedia,
+
+    // events (#84)
+    fetchEventPlugins,
+    fetchEventConnections,
+    saveEventConnections,
+    testEvent,
     requestWaveformGeneration,
     invalidateWaveformCache,
     fetchMetadata,

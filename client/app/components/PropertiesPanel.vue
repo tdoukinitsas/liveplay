@@ -133,6 +133,16 @@
         </div>
       </div>
 
+      <!-- Events Tab (#84). One item at a time: event times are positions in
+           that item's own file, so there is no meaningful batch edit. -->
+      <div v-if="activeTab === 'events' && selectedItem.type === 'audio'" class="tab-panel">
+        <div v-if="isMulti" class="loading-message events-multi">
+          <span class="material-symbols-rounded">bolt</span>
+          <p>{{ t('events.multiSelect') }}</p>
+        </div>
+        <ItemEventsEditor v-else :item="audioItem" @change="handleSave" />
+      </div>
+
       <!-- Output Tab -->
       <div v-if="activeTab === 'output'" class="tab-panel">
         <!-- Bus assignment is the whole of an item's routing. Where that bus
@@ -348,6 +358,7 @@
 import type { AudioItem, Bus, GroupItem } from '~/types/project';
 import { PRESET_COLORS, retimeForNewDuration } from '~/types/project';
 import AudioImportModal from './AudioImportModal.vue';
+import ItemEventsEditor from './ItemEventsEditor.vue';
 import { calculatePerceivedLoudness } from '~/utils/audio';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 import { changedPaths, isFieldMixed, propagateFields } from '~/utils/multiEdit';
@@ -555,6 +566,7 @@ const allTabs = computed<Tab[]>(() => [
   { id: 'basic', label: t('properties.basicInfo'), icon: 'info' },
   { id: 'media', label: t('properties.media'), icon: 'audio_file', audioOnly: true },
   { id: 'playback', label: t('properties.playback'), icon: 'play_circle', audioOnly: true },
+  { id: 'events', label: t('events.tab'), icon: 'bolt', audioOnly: true },
   // Not audioOnly: a group carries a bus assignment too, which is how a whole
   // folder of cues is routed in one move and what its children inherit.
   { id: 'output', label: t('properties.output'), icon: 'speaker' },
@@ -1261,6 +1273,22 @@ const formatTime = (seconds: number): string => {
   flex-wrap: nowrap;
   flex: 1;
   min-height: 0;
+}
+
+/* The Events tab, like the trimmer, takes the leftover height so its list and
+   editor grow with the panel. Unlike the trimmer it keeps the min-content
+   floor from .tab-panel: its own minimums are honest, so below them the
+   content scrolls rather than the list collapsing to nothing. */
+.tab-panel:has(.item-events) {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  flex: 1;
+}
+
+/* Reuses the loading message's layout, but nothing here is pending. */
+.loading-message.events-multi .material-symbols-rounded {
+  animation: none;
+  font-size: 36px;
 }
 
 .property-field {

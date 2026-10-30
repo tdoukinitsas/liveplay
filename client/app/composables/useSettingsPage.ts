@@ -41,6 +41,10 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: 'outputs',  icon: 'settings_input_hdmi', labelKey: 'settings.sectionOutputs' },
   { id: 'keyboard', icon: 'keyboard',       labelKey: 'settings.sectionKeyboard' },
   { id: 'surfaces', icon: 'piano',          labelKey: 'settings.sectionSurfaces' },
+  // Beside Surfaces: the other half of LivePlay talking to outside gear —
+  // surfaces drive the show, connections are what the show's events drive.
+  // The show's rather than the machine's, so it sits above Project.
+  { id: 'connections', icon: 'cable',       labelKey: 'settings.sectionConnections' },
   { id: 'project',  icon: 'folder_managed', labelKey: 'settings.sectionProject'  },
   // Last in the rail on purpose: it is the machine's settings rather than the
   // show's, and it is the one an operator has least reason to open mid-session.

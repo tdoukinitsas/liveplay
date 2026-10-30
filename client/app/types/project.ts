@@ -1,3 +1,5 @@
+import type { EventConnection, ItemEvent } from './events';
+
 // Base item interface that all items extend from
 export interface BaseItem {
   uuid: string;
@@ -36,7 +38,13 @@ export interface AudioItem extends BaseItem {
   volume: number; // 0-2 (1 is normal, >1 is louder, <1 is quieter)
   endBehavior: EndBehavior;
   startBehavior: StartBehavior;
+  /** @deprecated Migrated into `events` by the server on load; nothing reads it. */
   customActions: CustomAction[];
+  // Things this cue does to the outside world (#84): OSC/MIDI/HTTP at a time
+  // in the file, or on start / end / pause / resume. Always an array once set:
+  // the item diff PATCHes whole fields, so deleting the key instead of
+  // emptying it would leave the server's copy in place.
+  events?: ItemEvent[];
   duckingBehavior: DuckingBehavior;
   duration: number; // total duration in seconds
   fadeOutDuration: number; // legacy stop fade, seconds (default: 1); see manualStopFade
@@ -110,7 +118,11 @@ export interface GroupStartBehavior {
   action: 'play-first' | 'play-all';
 }
 
-// Custom action at specific time
+/**
+ * Custom action at specific time.
+ * @deprecated Pre-2.6 hidden feature. The server migrates `customActions` into
+ * `events` (and runs HTTP requests itself); kept only so old documents type.
+ */
 export interface CustomAction {
   timePoint: number; // in seconds
   action: CustomActionType;
@@ -496,6 +508,13 @@ export interface Project {
    */
   theme?: Theme;
   settings?: ProjectSettings;
+  /**
+   * The show's event destinations (#84). Edited through PUT
+   * /api/events/connections, but mirrored here because a whole-document save
+   * replaces the server's copy: a field this client didn't carry would be
+   * wiped. Undefined only while it has not been read from the server yet.
+   */
+  eventConnections?: EventConnection[];
   createdAt: string;
   lastModified: string;
 }

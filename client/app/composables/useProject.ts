@@ -444,6 +444,9 @@ export const useProject = () => {
     const reassign = (it: any) => {
       it.uuid = uuidv4();
       delete it.waveform;
+      // Event ids too: firing feedback is keyed by event id, so a copy sharing
+      // its original's ids would flash and report errors for both.
+      if (Array.isArray(it.events)) for (const ev of it.events) if (ev) ev.id = uuidv4();
       if (it.type === 'group' && Array.isArray(it.children)) it.children.forEach(reassign);
     };
     reassign(clone);
@@ -600,6 +603,7 @@ export const useProject = () => {
         cartItems: [],
         cartSlotKeys: { ...DEFAULT_CART_SLOT_KEYS },
         cartOnlyItems: [],
+        eventConnections: [],
         // No `theme` here (U4): a new show inherits the desk it is being made
         // at, and putting the current colours into a fresh document would be
         // writing a personal preference into a portable file all over again.
@@ -868,6 +872,21 @@ export const useProject = () => {
     }
   }
 
+  // A header that doesn't list the event connections (a server whose header
+  // route predates them, or one that only exposes them on their own route)
+  // still has to put them in the document before anything saves it back.
+  // Not under isHydrating: no sync watcher looks at this field. A failure
+  // leaves it undefined, so saves keep omitting it rather than wiping it.
+  const backfillEventConnections = async (epoch: number) => {
+    try {
+      const list = await useLiveplayServer().fetchEventConnections();
+      if (epoch !== projectEpoch.value || !currentProject.value) return;
+      if (!currentProject.value.eventConnections) currentProject.value.eventConnections = list;
+    } catch {
+      // An older server with no events at all: nothing to carry.
+    }
+  };
+
   // Apply a header-only response to currentProject. Items array is left
   // empty for streamItemPages() to populate.
   const applyServerHeader = (header: any) => {
@@ -890,6 +909,10 @@ export const useProject = () => {
       // more, and neither is written back.
       playbackKeys:   header.playbackKeys,
       cartOnlyItems:  header.cartOnlyItems ?? [],
+      // Left undefined when the header doesn't carry it, never defaulted to
+      // []: buildDocumentSnapshot omits an undefined list, whereas an empty
+      // one sent back on the next save would erase the show's connections.
+      eventConnections: Array.isArray(header.eventConnections) ? header.eventConnections : undefined,
       theme:          header.theme,
       createdAt:      header.createdAt ?? new Date().toISOString(),
       lastModified:   header.lastModified ?? new Date().toISOString(),
@@ -916,6 +939,7 @@ export const useProject = () => {
     // same project leaves name and folderPath identical, so this counter is
     // the only edge those consumers can key off.
     projectEpoch.value++;
+    if (!project.eventConnections) void backfillEventConnections(projectEpoch.value);
     // A freshly loaded/created project matches its on-disk file.
     hasUnsavedChanges.value = false;
   };
@@ -993,6 +1017,11 @@ export const useProject = () => {
       // of the exercise, not the erasure.
       cartOnlyItems: itemsToJSON(currentProject.value.cartOnlyItems) ?? [],
       settings:      showSettingsOnly((currentProject.value as any).settings),
+      // Edited through its own route, but carried here because this snapshot
+      // REPLACES the server's document. Omitted (not []) while unknown.
+      ...(Array.isArray(currentProject.value.eventConnections)
+        ? { eventConnections: toJSON(currentProject.value.eventConnections) }
+        : {}),
       createdAt:     currentProject.value.createdAt,
       lastModified:  currentProject.value.lastModified,
     };
@@ -1751,8 +1780,17 @@ export const useProject = () => {
             // Handled in useAudioEngine.onDocPatch — server-authoritative.
             break;
           case 'master_gain_changed':
-          case 'custom_action_http':
             // Handled in useAudioEngine.onDocPatch.
+            break;
+          case 'event_connections_changed': {
+            // Every client, the one that saved included, adopts the server's
+            // list here: it is what this client's next whole-document save
+            // will carry back.
+            if (Array.isArray(patch.connections)) p.eventConnections = patch.connections;
+            break;
+          }
+          case 'event_fired':
+            // Handled in useEvents (feedback only, nothing in the document).
             break;
           case 'preview_started': {
             previewItemUuid.value = patch.itemUuid || '';

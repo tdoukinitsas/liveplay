@@ -34,6 +34,7 @@
         <SettingsPaneOutputs v-else-if="section === 'outputs'" />
         <SettingsPaneKeyboard v-else-if="section === 'keyboard'" />
         <SettingsPaneSurfaces v-else-if="section === 'surfaces'" />
+        <SettingsPaneConnections v-else-if="section === 'connections'" />
         <SettingsPaneProject v-else-if="section === 'project'" />
         <SettingsPaneServer v-else-if="section === 'server'" />
         <SettingsPaneUsers v-else-if="section === 'users'" />
@@ -51,6 +52,7 @@ import SettingsPaneMixer from './SettingsPaneMixer.vue';
 import SettingsPaneOutputs from './SettingsPaneOutputs.vue';
 import SettingsPaneKeyboard from './SettingsPaneKeyboard.vue';
 import SettingsPaneSurfaces from './SettingsPaneSurfaces.vue';
+import SettingsPaneConnections from './SettingsPaneConnections.vue';
 import SettingsPaneProject from './SettingsPaneProject.vue';
 import SettingsPaneServer from './SettingsPaneServer.vue';
 import SettingsPaneUsers from './SettingsPaneUsers.vue';

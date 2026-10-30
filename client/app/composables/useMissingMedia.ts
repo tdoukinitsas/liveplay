@@ -36,7 +36,7 @@ export const useMissingMedia = () => {
   const isMissing = (uuid: string | undefined | null) => !!uuid && !!missing.value[uuid];
 
   async function refresh() {
-    if (!server.connected.value || !currentProject.value) {
+    if (!server.connected || !currentProject.value) {
       missing.value = {};
       return;
     }
@@ -78,9 +78,9 @@ export const useMissingMedia = () => {
     server.onDocPatch((p: any) => {
       if (p && MEDIA_OPS.has(p.op)) scheduleRefresh();
     });
-    watch(() => server.connected.value, scheduleRefresh);
+    watch(() => server.connected, scheduleRefresh);
     watch(() => currentProject.value?.folderPath, scheduleRefresh);
-    setInterval(() => { if (server.connected.value && currentProject.value) void refresh(); }, POLL_MS);
+    setInterval(() => { if (server.connected && currentProject.value) void refresh(); }, POLL_MS);
     scheduleRefresh();
   }
 
