@@ -27,6 +27,8 @@ import type {
   EventConnection,
   EventTestRequest,
   EventTestResult,
+  EventOptionsResult,
+  DiscoveredDevice,
   PluginSchema,
 } from '~/types/events';
 import type {
@@ -1741,6 +1743,24 @@ function createClient() {
     return Array.isArray(result?.connections) ? result.connections : connections;
   }
 
+  async function fetchEventOptions(body: {
+    plugin: string; source: string; connectionId?: string | null;
+    connection?: unknown; values?: Record<string, unknown>;
+  }): Promise<EventOptionsResult> {
+    return await rest<EventOptionsResult>('/api/events/options', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async function discoverEventDevices(plugin: string, timeoutMs = 1500): Promise<DiscoveredDevice[]> {
+    const r = await rest<{ devices: DiscoveredDevice[] }>('/api/events/discover', {
+      method: 'POST',
+      body: JSON.stringify({ plugin, timeoutMs }),
+    });
+    return r.devices ?? [];
+  }
+
   async function testEvent(req: EventTestRequest): Promise<EventTestResult> {
     return await rest<EventTestResult>('/api/events/test', {
       method: 'POST',
@@ -1879,6 +1899,8 @@ function createClient() {
     fetchEventConnections,
     saveEventConnections,
     testEvent,
+    fetchEventOptions,
+    discoverEventDevices,
     requestWaveformGeneration,
     invalidateWaveformCache,
     fetchMetadata,

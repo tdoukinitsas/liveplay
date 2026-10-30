@@ -9,9 +9,10 @@ A **plugin** is one C++ class compiled into the server. LivePlay ships four:
 | `osc` | Sends an OSC 1.0 message over UDP | host, port |
 | `midi` | Note on/off, control change, program change, MIDI Show Control, raw SysEx through RtMidi | output port name (on the server machine) |
 | `http` | HTTP request (method, path, headers, body); plain `http://` only | base URL, headers, timeout |
+| `xair` | Behringer X Air / Midas MR mixers: recall snapshots, faders and sends with crossfades, mute, USB recorder, FX type and parameters, output routing. Finds mixers on the network and reads their strip, snapshot and FX names live | mixer address, port, max level |
 | `liveplay` | Plays or stops other cues, or Stop All | none |
 
-This guide covers everything needed to add a fifth. A typical plugin is one file of 100–250 lines, and **it needs no client code**: the client builds every form from the schema your plugin publishes.
+This guide covers everything needed to add another. A typical plugin is one file of 100–250 lines, and **it needs no client code**: the client builds every form from the schema your plugin publishes.
 
 ---
 
@@ -46,7 +47,8 @@ Code map:
 | File | What |
 |---|---|
 | `server/include/liveplay/events/plugin.hpp` | **The plugin API**: `Plugin`, `Job`, `Result`, `Host`, `FireContext`, schema helpers and option accessors. The only header a plugin includes. |
-| `server/src/events/plugins/*.cpp` | One file per plugin. Read `osc.cpp` first: it is the smallest complete example. |
+| `server/src/events/plugins/*.cpp` | One file per plugin. Read `osc.cpp` first: it is the smallest complete example. `xair.cpp` uses every capability (discovery, live options, crossfades) against a device that answers back. |
+| `server/include/liveplay/events/helpers.hpp`, `osc.hpp` | Shared tools: local network interfaces, `Ramps` (timed changes), the OSC codec. Section 4. |
 | `server/src/events/builtin_plugins.cpp` | The list of plugins the server loads, in display order. |
 | `server/include/liveplay/events/events.hpp`, `server/src/events/dispatcher.cpp` | Dispatcher, scheduling, lanes, placeholder substitution. Plugin authors don't touch these. |
 | `server/src/core/project_state.cpp` | Sequencer integration (`track_events`, `collect_event_fires`, `dispatch_event_fires`), `EventHost`, connection storage and the `customActions` migration. |
@@ -116,7 +118,7 @@ These calls are thread-safe and may block briefly. Most output plugins ignore `H
 ### Threading rules
 
 1. **`execute()` must be thread-safe.** It runs on your plugin's lane (one thread; your jobs run one at a time, in order) *and* on HTTP request threads when an operator presses **Test**. Guard any state you keep (sockets, open ports, caches) with a `std::mutex`. See `OscPlugin::execute` and `MidiPlugin::send`.
-2. **Block only for a bounded time.** A network round trip with a timeout is fine (`http` defaults to 2 s). Waiting forever is not: it stalls every later job on your lane. Other plugins have their own lanes and are unaffected.
+2. **Block only for a bounded time.** A network round trip with a timeout is fine (`http` defaults to 2 s). Waiting forever is not: it stalls every later job on your lane. Other plugins have their own lanes and are unaffected. **Anything that takes time on purpose** (a 10 s fade) must not happen inside `execute()`: start it with `Ramps` (section 4) and return.
 3. **`schema()` must be cheap and must not throw** for a missing device. It runs on every `GET /api/events/plugins`. Listing ports is fine; connecting to something is not.
 4. **Exceptions** escaping `execute()` are caught and reported as failures, but prefer returning `Result::fail(...)`.
 5. **`stop()`** runs once at shutdown, after every lane has finished. Close what you opened.
@@ -142,14 +144,18 @@ If your action takes time to *start* (a TCP handshake, say), connect lazily on t
   "icon": "settings_input_antenna",  // a Material Symbols name: https://fonts.google.com/icons
   "description": "One line: what it talks to.",
   "needsConnection": true,           // false: events have no connection picker (like `liveplay`)
+  "discoverable": true,              // optional: "Find on network" (implement discover(), section 4)
   "connectionFields": [ Field, ... ],
   "actions": [
     { "id": "message", "label": "Send message",
       "summary": "{address}",        // optional one-line list summary; {fieldId} is replaced by the value
+      "testOnly": false,             // optional: only for the connection editor's Test (see below)
       "fields": [ Field, ... ] }
   ]
 }
 ```
+
+**Give a plugin whose actions change a device a harmless `testOnly` action** ("Check connection"). The connection editor's **Test** picks it first, and events never see it. Otherwise Test defaults to your first action, and pressing it would, say, recall a mixer snapshot.
 
 A **Field** (build it with `field(id, label, type, extra)`):
 
@@ -166,6 +172,9 @@ A **Field** (build it with `field(id, label, type, extra)`):
 | `allowCustom` | For `enum`: also accept a typed value, e.g. a MIDI port that isn't plugged in right now. |
 | `fields` | For `list`: the fields of one row. |
 | `showIf` | `{ "field": "<sibling id>", "equals": [values...] }`: show only when that sibling has one of these values. |
+| `optionsFrom` | For `enum`: read the options live from the device through your `options()` (section 4). `options` stays the fallback, so give one. |
+| `dependsOn` | With `optionsFrom`: sibling field ids whose values change the list; the client refetches when they change and sends them in `values`. |
+| `unit` | Shown after a number input ("dB", "s"). Display only. |
 
 | `type` | Input | Value in `options` |
 |---|---|---|
@@ -195,11 +204,56 @@ Ids and values are never translated; they're what gets saved. For a built-in plu
 
 ---
 
-## 4. Adding a plugin, step by step
+## 4. Capabilities and helpers
+
+Every plugin implements `id()`, `schema()` and `execute()`. The rest is opt-in, and works the same for every plugin.
+
+### Discovery: "Find on network"
+
+Declare `"discoverable": true` and implement:
+
+```cpp
+std::vector<Discovered> discover(std::chrono::milliseconds budget) override;
+// Discovered{ label: "Stage — XR18 at 192.168.1.20", name: "Stage", config: {{"host", "192.168.1.20"}} }
+```
+
+The connection editor shows the results; picking one merges `config` into the connection and, for a new one, takes `name`. Return within `budget`. Broadcast on **every** interface's own broadcast address, from a socket bound to that interface (`local_ipv4_interfaces()`); `255.255.255.255` alone often leaves through a VPN adapter and finds nothing. `XAirPlugin::discover` is the worked example. Route: `POST /api/events/discover`.
+
+### Live option lists: names from the device
+
+Give an `enum` field `"optionsFrom": "<source>"` (and `"dependsOn"` if the list depends on other fields), then implement:
+
+```cpp
+OptionsResult options(const std::string& source, const json& connection, const json& values) override;
+```
+
+`connection` is the connection's config (the unsaved draft while one is being edited), and `values` holds the `dependsOn` fields' current values. Return `{value, label}` options. If the device can't be reached, **still return the static options** and set `error`: the client shows the reason under the field and the show stays editable with the device off. The client caches answers for 10 s, and a refresh button beside the field re-reads them. Keep the wait bounded (a few hundred ms). Route: `POST /api/events/options`.
+
+The X Air plugin's sources are `strips`, `send-sources`, `sends`, `snapshots`, `fx-slots`, and `fx-params` (`dependsOn: ["slot"]`: the parameters of the effect loaded in that slot).
+
+### `Ramps`: crossfades without blocking
+
+```cpp
+Ramps ramps_;   // a member; one thread for all of the plugin's fades
+ramps_.start(key, from, to, seconds, [=](double v) { send(v); });
+```
+
+`start` calls the setter every 20 ms, then once more with exactly `to`, on the ramp thread, and returns at once. A new ramp on the same `key` replaces the running one (the newest cue wins, as on a desk). `seconds <= 0` sets `to` immediately. Choose the domain you interpolate in: the X Air plugin ramps faders in **dB** (even loudness steps) and FX parameters in the knob's 0..1 travel. Read the current value from the device for `from` when you can. Call `ramps_.stop()` in your `stop()`.
+
+### Network helpers
+
+- `local_ipv4_interfaces()`: each interface's address and broadcast address.
+- `local_address_for(device_ip)`: the local address on the device's subnet. **Bind your socket to it** before talking to a device that answers back: bound to `0.0.0.0` on a machine with a VPN, the request can leave from the VPN address, and the reply never arrives.
+
+### OSC codec (`liveplay/events/osc.hpp`)
+
+`osc::encode(Message)` and `osc::decode(bytes, size)` for OSC 1.0 messages (`i f s b T F N`). A message with no arguments still carries the `,` type tag, which is how most devices are asked for a value. The transport is yours; asio comes with Crow.
+
+## 5. Adding a plugin, step by step
 
 Say you are adding `artnet` (DMX over Art-Net).
 
-1. **Create `server/src/events/plugins/artnet.cpp`** from the template in section 5.
+1. **Create `server/src/events/plugins/artnet.cpp`** from the template in section 6.
 2. **Declare the factory** in `server/include/liveplay/events/plugin.hpp`, beside the others:
    ```cpp
    std::unique_ptr<Plugin> make_artnet_plugin(Host& host);
@@ -212,7 +266,7 @@ Say you are adding `artnet` (DMX over Art-Net).
 4. **Compile it**: add `src/events/plugins/artnet.cpp` to the `# Event system` block of `add_executable(liveplay-server ...)` in `server/CMakeLists.txt`.
 5. **Dependencies**, if any: add the vcpkg port to `server/vcpkg.json` (no `version>=` unless it is genuinely needed; the baseline pins versions). Then `find_package` it and add it to `target_link_libraries` in `server/CMakeLists.txt`. Prefer a header-only library or what is already linked: Crow brings standalone **asio**, enough for UDP/TCP (`osc.cpp` uses it). On Linux, a library that needs system dev packages must also be installed by both workflows in `.github/workflows/`. On Windows, a DLL dependency ships automatically (the installer copies every `*.dll` next to the server); check it with a packaged build.
 6. **Build**: `npm run server:build`. At boot the server logs and rejects a plugin whose schema `id` doesn't match `id()`, or whose id is already registered.
-7. **Try it**: open a project, add a connection under **Settings → Connections**, press **Test**, then add an event in a cue's **Events** tab and play the cue. Or use the API (section 6).
+7. **Try it**: open a project, add a connection under **Settings → Connections**, press **Test**, then add an event in a cue's **Events** tab and play the cue. Or use the API (section 7).
 8. **Test it**: extend `server/tests/e2e/events-e2e.js` or add a sibling suite with a local listener for your protocol (the OSC and HTTP checks show the pattern: bind a UDP or TCP listener on port 0, point a connection at it, assert on what arrives). Add it to the table in `server/tests/e2e/README.md`.
 9. **Document it**: add a row to the table at the top of this file. The API reference (`docs-site/public/api/reference.json`) needs no change for a new plugin; it does for a new route.
 
@@ -220,7 +274,7 @@ No client change is needed unless you need a new field *type*. In that case, add
 
 ---
 
-## 5. Template
+## 6. Template
 
 ```cpp
 // =============================================================================
@@ -298,7 +352,7 @@ Style: match the existing plugins. Use a header block that says what the plugin 
 
 ---
 
-## 6. Testing through the API
+## 7. Testing through the API
 
 All routes need the usual credentials when accounts are on (`Authorization: Bearer <token>`).
 
@@ -324,7 +378,7 @@ Use a spare port and a scratch data directory for a test server (`liveplay-serve
 
 ---
 
-## 7. Compatibility rules
+## 8. Compatibility rules
 
 Saved projects store your plugin's `id`, action ids, field ids and option values. Once released:
 
@@ -335,7 +389,7 @@ Saved projects store your plugin's `id`, action ids, field ids and option values
 
 ---
 
-## 8. Data shapes (reference)
+## 9. Data shapes (reference)
 
 ```jsonc
 // Project root

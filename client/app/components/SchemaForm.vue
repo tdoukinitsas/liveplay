@@ -19,6 +19,12 @@
       <div v-else class="sf-field" :class="{ 'sf-field--wide': isWide(field) }">
         <label class="sf-label" :for="inputId(field)">
           {{ field.label }}<span v-if="field.required" class="sf-required" aria-hidden="true">*</span>
+          <!-- A list read from the device: refresh after renaming a strip on the desk. -->
+          <button v-if="isLive(field)" type="button" class="sf-refresh"
+                  :title="t('events.form.refreshOptions')" :disabled="live[field.id]?.loading"
+                  @click.prevent="loadOptions(field, true)">
+            <span class="material-symbols-rounded" :class="{ spinning: live[field.id]?.loading }">refresh</span>
+          </button>
         </label>
 
         <input
@@ -43,19 +49,21 @@
           @change="set(field, textOrUndefined(($event.target as HTMLTextAreaElement).value))"
         />
 
-        <input
-          v-else-if="field.type === 'number' || field.type === 'integer'"
-          :id="inputId(field)"
-          type="number"
-          :value="valueOf(field) ?? ''"
-          :min="field.min"
-          :max="field.max"
-          :step="field.step ?? (field.type === 'integer' ? 1 : 'any')"
-          :placeholder="field.placeholder ?? ''"
-          :disabled="disabled"
-          :class="{ invalid: isMissing(field) }"
-          @change="onNumber(field, $event)"
-        />
+        <div v-else-if="field.type === 'number' || field.type === 'integer'" class="sf-number">
+          <input
+            :id="inputId(field)"
+            type="number"
+            :value="valueOf(field) ?? ''"
+            :min="field.min"
+            :max="field.max"
+            :step="field.step ?? (field.type === 'integer' ? 1 : 'any')"
+            :placeholder="field.placeholder ?? ''"
+            :disabled="disabled"
+            :class="{ invalid: isMissing(field) }"
+            @change="onNumber(field, $event)"
+          />
+          <span v-if="field.unit" class="sf-unit">{{ field.unit }}</span>
+        </div>
 
         <!-- allowCustom: a typed value has to be possible as well as a picked
              one — a MIDI port that is not plugged in right now is still the
@@ -72,7 +80,7 @@
             @change="onEnum(field, ($event.target as HTMLInputElement).value)"
           />
           <datalist :id="inputId(field) + '-list'">
-            <option v-for="o in field.options ?? []" :key="String(o.value)" :value="o.value">{{ o.label }}</option>
+            <option v-for="o in optionsOf(field)" :key="String(o.value)" :value="o.value">{{ o.label }}</option>
           </datalist>
         </template>
 
@@ -85,7 +93,7 @@
           @change="onEnum(field, ($event.target as HTMLSelectElement).value)"
         >
           <option v-if="!field.required || valueOf(field) === undefined" value="">{{ t('events.form.none') }}</option>
-          <option v-for="o in field.options ?? []" :key="String(o.value)" :value="String(o.value)">{{ o.label }}</option>
+          <option v-for="o in optionsOf(field)" :key="String(o.value)" :value="String(o.value)">{{ o.label }}</option>
           <!-- A saved value the schema no longer offers stays visible rather
                than silently reading as "none". -->
           <option v-if="enumUnknown(field)" :value="String(valueOf(field))">{{ String(valueOf(field)) }}</option>
@@ -112,6 +120,7 @@
               :fields="field.fields ?? []"
               :model-value="row"
               :disabled="disabled"
+              :options-context="optionsContext"
               nested
               @update:model-value="(v: Record<string, unknown>) => setRow(field, i, v)"
             />
@@ -140,6 +149,9 @@
              value read-only rather than dropping the field or guessing. -->
         <input v-else :id="inputId(field)" type="text" readonly :value="JSON.stringify(valueOf(field) ?? null)" />
 
+        <p v-if="isLive(field) && live[field.id]?.error" class="sf-warn">
+          <span class="material-symbols-rounded">wifi_off</span>{{ live[field.id]!.error }}
+        </p>
         <p v-if="field.help" class="sf-help">{{ field.help }}</p>
       </div>
     </template>
@@ -152,8 +164,8 @@
 // all render through here, so a plugin added to the server needs no client
 // change. Emits a fresh object on every commit; text commits on change (blur
 // or Enter), not per keystroke, like the rest of the Properties panel.
-import { useId } from 'vue';
-import type { FieldSchema } from '~/types/events';
+import { reactive, useId, watch } from 'vue';
+import type { EventOptionsContext, FieldOption, FieldSchema } from '~/types/events';
 import { defaultsFor, isFieldVisible } from '~/utils/events';
 
 const props = withDefaults(defineProps<{
@@ -162,9 +174,16 @@ const props = withDefaults(defineProps<{
   disabled?: boolean;
   /** A row inside a list field: tighter, and no outer gap. */
   nested?: boolean;
+  /**
+   * Where fields with `optionsFrom` read their live lists: the event's plugin
+   * and connection (or a draft connection being edited). Without it they
+   * show the schema's static options.
+   */
+  optionsContext?: EventOptionsContext | null;
 }>(), {
   disabled: false,
   nested: false,
+  optionsContext: null,
 });
 
 const emit = defineEmits<{ 'update:modelValue': [value: Record<string, unknown>] }>();
@@ -214,11 +233,53 @@ function onNumber(f: FieldSchema, e: Event) {
   set(f, n);
 }
 
+// ---- live option lists (optionsFrom) ----------------------------------------
+// Read from the device through the server. While that fails, the schema's
+// static options stay usable, with the reason shown under the field: a show
+// must stay editable with the desk switched off.
+const { fetchOptions } = useEvents();
+const live = reactive<Record<string, { options?: FieldOption[]; error?: string; loading: boolean }>>({});
+const isLive = (f: FieldSchema) => !!f.optionsFrom && !!props.optionsContext?.plugin;
+const optionsOf = (f: FieldSchema): FieldOption[] => live[f.id]?.options ?? f.options ?? [];
+
+async function loadOptions(f: FieldSchema, fresh = false) {
+  const ctx = props.optionsContext;
+  if (!f.optionsFrom || !ctx?.plugin) return;
+  // Through the proxy: `live[id] ??= {...}` hands back the raw object, and
+  // changes made to that never re-render.
+  if (!live[f.id]) live[f.id] = { loading: false };
+  const state = live[f.id]!;
+  state.loading = true;
+  try {
+    const r = await fetchOptions(ctx, f, values.value, fresh);
+    state.options = r.options;
+    state.error = r.error;
+  } finally {
+    state.loading = false;
+  }
+}
+
+// Refetch a field's list when its context or the fields it depends on change.
+watch(
+  () => props.fields
+    .filter(f => f.optionsFrom)
+    .map(f => JSON.stringify([f.id, f.optionsFrom, props.optionsContext?.plugin,
+      props.optionsContext?.connectionId ?? null, props.optionsContext?.connection?.config ?? null,
+      (f.dependsOn ?? []).map(d => values.value[d])])),
+  (now, before) => {
+    for (const f of props.fields.filter(x => x.optionsFrom)) {
+      const i = props.fields.filter(x => x.optionsFrom).indexOf(f);
+      if (!before || now[i] !== before[i]) void loadOptions(f);
+    }
+  },
+  { immediate: true },
+);
+
 // Options carry their own type (a MIDI channel may be the number 1), but a
 // select or a text box only hands back strings — map back to the option's.
 function onEnum(f: FieldSchema, raw: string) {
   if (raw === '') { set(f, undefined); return; }
-  const opt = (f.options ?? []).find(o => String(o.value) === raw);
+  const opt = optionsOf(f).find(o => String(o.value) === raw);
   set(f, opt ? opt.value : raw);
 }
 
@@ -230,7 +291,7 @@ const enumSelectValue = (f: FieldSchema) => {
 const enumUnknown = (f: FieldSchema) => {
   const v = valueOf(f);
   if (v === undefined || v === null || v === '') return false;
-  return !(f.options ?? []).some(o => String(o.value) === String(v));
+  return !optionsOf(f).some(o => String(o.value) === String(v));
 };
 
 // ---- item picker -------------------------------------------------------
@@ -292,6 +353,22 @@ function moveRow(f: FieldSchema, i: number, delta: number) {
 </script>
 
 <style scoped>
+.sf-number { display: flex; align-items: center; gap: 6px; }
+.sf-number input { flex: 1; min-width: 0; }
+.sf-unit { color: var(--color-text-secondary); font-size: 12px; }
+.sf-refresh {
+  background: none; border: none; padding: 0 2px; margin-left: 4px; cursor: pointer;
+  color: var(--color-text-secondary); vertical-align: middle; line-height: 1;
+}
+.sf-refresh .material-symbols-rounded { font-size: 14px; }
+.sf-refresh .spinning { animation: sf-spin 1s linear infinite; }
+@keyframes sf-spin { to { transform: rotate(360deg); } }
+.sf-warn {
+  display: flex; align-items: center; gap: 4px; margin: 4px 0 0;
+  font-size: 12px; color: #ffb020;
+}
+.sf-warn .material-symbols-rounded { font-size: 14px; }
+
 .schema-form {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

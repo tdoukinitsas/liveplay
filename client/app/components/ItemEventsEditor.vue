@@ -240,7 +240,7 @@
               <div v-if="selectedPlugin" class="ev-field ev-field--grow">
                 <label>{{ t('events.action') }}</label>
                 <select :value="selected.action" @change="setAction(selected, ($event.target as HTMLSelectElement).value)">
-                  <option v-for="a in selectedPlugin.actions" :key="a.id" :value="a.id">{{ a.label }}</option>
+                  <option v-for="a in eventActions(selectedPlugin)" :key="a.id" :value="a.id">{{ a.label }}</option>
                   <option v-if="!selectedAction" :value="selected.action">{{ selected.action }}</option>
                 </select>
               </div>
@@ -264,6 +264,7 @@
               v-if="selectedAction && selectedAction.fields.length > 0"
               :fields="selectedAction.fields"
               :model-value="selectedOptions"
+              :options-context="{ plugin: selected!.plugin, connectionId: selected!.connectionId ?? null }"
               @update:model-value="(v: Record<string, unknown>) => setOptions(selected!, v)"
             />
             <p v-if="selectedAction && hasTextFields(selectedAction.fields)" class="ev-help">
@@ -304,6 +305,7 @@ import { EVENT_TRIGGERS } from '~/types/events';
 import {
   connectionsFor,
   defaultsFor,
+  eventActions,
   findAction,
   findPlugin,
   formatEventTime,
@@ -475,7 +477,7 @@ function addEvent(trigger: EventTrigger) {
   const time = trigger === 'time' ? roundTime(clampTime(cursor.value ?? inPoint.value)) : undefined;
   const ev = makeEvent(trigger, d.plugin, connections.value, time);
   if (d.connectionId !== undefined) ev.connectionId = d.connectionId;
-  const action = d.action ? d.plugin.actions.find(a => a.id === d.action) : undefined;
+  const action = d.action ? eventActions(d.plugin).find(a => a.id === d.action) : undefined;
   if (action) {
     ev.action = action.id;
     ev.options = defaultsFor(action.fields);
@@ -569,7 +571,7 @@ function setTrigger(ev: ItemEvent, trig: EventTrigger) {
 function setPlugin(ev: ItemEvent, pluginId: string) {
   const plugin = findPlugin(plugins.value, pluginId);
   if (!plugin || ev.plugin === pluginId) return;
-  const action = plugin.actions[0];
+  const action = eventActions(plugin)[0];
   ev.plugin = plugin.id;
   ev.action = action?.id ?? '';
   ev.connectionId = plugin.needsConnection

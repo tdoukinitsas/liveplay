@@ -1155,7 +1155,8 @@
       "addRow": "Ajouter",
       "removeRow": "Retirer",
       "moveUp": "Monter",
-      "moveDown": "Descendre"
+      "moveDown": "Descendre",
+      "refreshOptions": "Relire la liste depuis l’appareil"
     },
     "connections": {
       "intro": "Destinations des événements : une console lumière, un port MIDI, un webhook. Chaque connexion se configure une seule fois pour le spectacle et peut servir à autant d’événements que nécessaire.",
@@ -1179,7 +1180,11 @@
       "unknownPlugin": "Type inconnu « {plugin} »",
       "noFields": "Ce type n’a rien à configurer.",
       "testWith": "Tester avec",
-      "saveFailed": "Impossible d’enregistrer les connexions : {error}"
+      "saveFailed": "Impossible d’enregistrer les connexions : {error}",
+      "discover": "Rechercher sur le réseau",
+      "discoverNone": "Rien trouvé. Vérifiez que l’appareil est allumé et sur le même réseau que le serveur.",
+      "discoverFailed": "Impossible de rechercher sur le réseau : {error}",
+      "discoverUsed": "Utilisation de {device}."
     }
   },
   "eventPlugins": {
@@ -1355,6 +1360,132 @@
       "fields": {
         "item": {
           "label": "Cue"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "Consoles XR12, XR16, XR18 et Midas MR : snapshots, faders, départs, FX, routage et enregistreur USB.",
+      "actions": {
+        "snapshot": "Rappeler un snapshot",
+        "fader": "Régler le fader",
+        "send": "Régler le niveau de départ",
+        "mute": "Activer/désactiver le mute",
+        "recorder": "Enregistreur USB",
+        "fx-type": "Choisir le type de FX",
+        "fx-param": "Régler un paramètre FX",
+        "route-output": "Router une sortie",
+        "route-main": "Router la sortie principale",
+        "check": "Vérifier la connexion"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Adresse de la console"
+        },
+        "port": {
+          "label": "Port"
+        },
+        "maxLevelDb": {
+          "label": "Niveau max.",
+          "help": "Aucun fader ni départ réglé par un événement ne dépasse ce niveau."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Tranche"
+        },
+        "level": {
+          "label": "Niveau",
+          "help": "-90 correspond à off (-inf). Plafonné par le niveau max. de la connexion."
+        },
+        "fade": {
+          "label": "Fondu enchaîné",
+          "help": "0 change immédiatement ; une durée plus longue part de la valeur actuelle."
+        },
+        "send": {
+          "label": "Vers"
+        },
+        "state": {
+          "label": "État"
+        },
+        "command": {
+          "label": "Commande",
+          "help": "Enregistre sur la clé USB de la console."
+        },
+        "slot": {
+          "label": "Emplacement FX"
+        },
+        "type": {
+          "label": "Effet"
+        },
+        "param": {
+          "label": "Paramètre"
+        },
+        "value": {
+          "label": "Valeur",
+          "help": "Dans l’unité du paramètre (affichée à côté) ; les interrupteurs valent 0/1, les choix se comptent à partir de 0."
+        },
+        "output": {
+          "label": "Sortie"
+        },
+        "source": {
+          "label": "Source",
+          "help": "Les départs USB ne peuvent pas recevoir les retours USB."
+        },
+        "tap": {
+          "label": "Point de prélèvement"
+        },
+        "assign": {
+          "label": "Contenu de la sortie principale"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Activer le mute",
+          "unmute": "Désactiver le mute"
+        },
+        "command": {
+          "record": "Enregistrer",
+          "stop": "Arrêter",
+          "record-pause": "Mettre l’enregistrement en pause",
+          "play": "Lire",
+          "play-pause": "Mettre la lecture en pause"
+        },
+        "tap": {
+          "keep": "Ne pas modifier",
+          "0": "Entrée analogique",
+          "1": "Entrée analogique + mute",
+          "2": "Entrée",
+          "3": "Entrée + mute",
+          "4": "Pré-EQ",
+          "5": "Pré-EQ + mute",
+          "6": "Post-EQ",
+          "7": "Post-EQ + mute",
+          "8": "Pré-fader",
+          "9": "Pré-fader + mute",
+          "10": "Post-fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitor",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
         }
       }
     }

@@ -1543,6 +1543,14 @@ public:
     // Called (no lock held, from a dispatcher thread) after every event runs,
     // with { itemUuid, eventId, trigger, plugin, action, ok, error? }.
     void set_event_fired_broadcaster(std::function<void(const json&)> cb);
+    // A plugin's live option list (events::Plugin::options) for the connection
+    // `connection_id`, or `draft_connection` when that is an object. Returns
+    // { options: [...], error?: "..." }.
+    json event_options(const std::string& plugin, const std::string& source,
+                       const std::string& connection_id, const json& draft_connection,
+                       const json& values);
+    // Devices a plugin finds on the network: [{ label, name, config }].
+    json event_discover(const std::string& plugin, std::chrono::milliseconds budget);
 
     // Install a callback invoked whenever the "Up Next" override changes for
     // ANY reason (client request or server-side arming). The control server

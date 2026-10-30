@@ -1155,7 +1155,8 @@
       "addRow": "Ekle",
       "removeRow": "Kaldır",
       "moveUp": "Yukarı taşı",
-      "moveDown": "Aşağı taşı"
+      "moveDown": "Aşağı taşı",
+      "refreshOptions": "Listeyi cihazdan yeniden oku"
     },
     "connections": {
       "intro": "Olayların gönderildiği yerler: bir ışık masası, bir MIDI portu, bir webhook. Her bağlantı gösteri için bir kez ayarlanır ve istenen sayıda olayda kullanılabilir.",
@@ -1179,7 +1180,11 @@
       "unknownPlugin": "Bilinmeyen tür «{plugin}»",
       "noFields": "Bu türde ayarlanacak bir şey yok.",
       "testWith": "Test eylemi",
-      "saveFailed": "Bağlantılar kaydedilemedi: {error}"
+      "saveFailed": "Bağlantılar kaydedilemedi: {error}",
+      "discover": "Ağda bul",
+      "discoverNone": "Hiçbir şey bulunamadı. Cihazın açık olduğundan ve sunucuyla aynı ağda bulunduğundan emin olun.",
+      "discoverFailed": "Ağda arama yapılamadı: {error}",
+      "discoverUsed": "{device} kullanılıyor."
     }
   },
   "eventPlugins": {
@@ -1355,6 +1360,132 @@
       "fields": {
         "item": {
           "label": "Cue"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "XR12, XR16, XR18 ve Midas MR mikserleri: snapshot'lar, fader'lar, gönderimler, FX, yönlendirme ve USB kaydedici.",
+      "actions": {
+        "snapshot": "Snapshot çağır",
+        "fader": "Fader ayarla",
+        "send": "Gönderim seviyesi ayarla",
+        "mute": "Mute aç / kapat",
+        "recorder": "USB kaydedici",
+        "fx-type": "FX türünü ayarla",
+        "fx-param": "FX parametresi ayarla",
+        "route-output": "Bir çıkışı yönlendir",
+        "route-main": "Ana çıkışı yönlendir",
+        "check": "Bağlantıyı denetle"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Mikser adresi"
+        },
+        "port": {
+          "label": "Bağlantı noktası"
+        },
+        "maxLevelDb": {
+          "label": "Maks. seviye",
+          "help": "Bir olayın ayarladığı hiçbir fader veya gönderim bunun üzerine çıkmaz."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Kanal"
+        },
+        "level": {
+          "label": "Seviye",
+          "help": "-90 kapalıdır (-inf). Bağlantının maks. seviyesiyle sınırlanır."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 anında değiştirir; daha uzun değerler mevcut konumdan geçiş yapar."
+        },
+        "send": {
+          "label": "Hedef"
+        },
+        "state": {
+          "label": "Durum"
+        },
+        "command": {
+          "label": "Komut",
+          "help": "Mikserdeki USB belleğe kaydeder."
+        },
+        "slot": {
+          "label": "FX yuvası"
+        },
+        "type": {
+          "label": "Efekt"
+        },
+        "param": {
+          "label": "Parametre"
+        },
+        "value": {
+          "label": "Değer",
+          "help": "Parametrenin kendi biriminde (yanında gösterilir); anahtarlar 0/1'dir, seçenekler 0'dan sayılır."
+        },
+        "output": {
+          "label": "Çıkış"
+        },
+        "source": {
+          "label": "Kaynak",
+          "help": "USB gönderimleri USB dönüşlerini alamaz."
+        },
+        "tap": {
+          "label": "Tap noktası"
+        },
+        "assign": {
+          "label": "Ana çıkış kaynağı"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Mute kaldır"
+        },
+        "command": {
+          "record": "Kaydet",
+          "stop": "Durdur",
+          "record-pause": "Kaydı duraklat",
+          "play": "Oynat",
+          "play-pause": "Oynatmayı duraklat"
+        },
+        "tap": {
+          "keep": "Değiştirme",
+          "0": "Analog giriş",
+          "1": "Analog giriş + mute",
+          "2": "Giriş",
+          "3": "Giriş + mute",
+          "4": "Pre EQ",
+          "5": "Pre EQ + mute",
+          "6": "Post EQ",
+          "7": "Post EQ + mute",
+          "8": "Pre fader",
+          "9": "Pre fader + mute",
+          "10": "Post fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitör",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
         }
       }
     }

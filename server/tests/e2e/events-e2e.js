@@ -144,8 +144,21 @@ const oscEvent = (id, trigger, address, extra = {}) => ({
 
   // ---- schemas ----
   r = await rest('/api/events/plugins');
-  const ids = (r.body.plugins || []).map(p => p.id).sort().join(',');
-  ok('plugins listed', ids === 'http,liveplay,midi,osc', ids);
+  const ids = (r.body.plugins || []).map(p => p.id);
+  ok('plugins listed', ['osc', 'midi', 'http', 'xair', 'liveplay'].every(id => ids.includes(id)),
+     ids.join(','));
+
+  // Live option lists and discovery, without a device: an unreachable mixer
+  // still yields the static list, with the reason.
+  r = await rest('/api/events/options', { method: 'POST', body: JSON.stringify({
+    plugin: 'xair', source: 'strips', connection: { config: { host: '127.0.0.1', port: 9 } },
+  }) });
+  ok('options fall back with an error', (r.body.options || []).length === 32 && !!r.body.error,
+     `${(r.body.options || []).length} options, error: ${r.body.error}`);
+  r = await rest('/api/events/options', { method: 'POST', body: JSON.stringify({ plugin: 'nope', source: 'x' }) });
+  ok('options for an unknown plugin', !!r.body.error && (r.body.options || []).length === 0, r.body.error);
+  r = await rest('/api/events/discover', { method: 'POST', body: JSON.stringify({ plugin: 'osc', timeoutMs: 200 }) });
+  ok('discover on a plugin without discovery', Array.isArray(r.body.devices) && r.body.devices.length === 0);
 
   // ---- a full pass ----
   osc.length = 0; hits.length = 0;

@@ -1155,7 +1155,8 @@
       "addRow": "Hinzufügen",
       "removeRow": "Entfernen",
       "moveUp": "Nach oben",
-      "moveDown": "Nach unten"
+      "moveDown": "Nach unten",
+      "refreshOptions": "Liste erneut vom Gerät lesen"
     },
     "connections": {
       "intro": "Wohin Ereignisse gesendet werden: an ein Lichtpult, einen MIDI-Port, einen Webhook. Jede Verbindung wird einmal für die Show eingerichtet und kann von beliebig vielen Ereignissen genutzt werden.",
@@ -1179,7 +1180,11 @@
       "unknownPlugin": "Unbekannter Typ „{plugin}“",
       "noFields": "Für diesen Typ gibt es nichts einzurichten.",
       "testWith": "Testen mit",
-      "saveFailed": "Die Verbindungen konnten nicht gespeichert werden: {error}"
+      "saveFailed": "Die Verbindungen konnten nicht gespeichert werden: {error}",
+      "discover": "Im Netzwerk suchen",
+      "discoverNone": "Nichts gefunden. Prüfen Sie, ob das Gerät eingeschaltet ist und sich im selben Netzwerk wie der Server befindet.",
+      "discoverFailed": "Das Netzwerk konnte nicht durchsucht werden: {error}",
+      "discoverUsed": "{device} wird verwendet."
     }
   },
   "eventPlugins": {
@@ -1355,6 +1360,132 @@
       "fields": {
         "item": {
           "label": "Cue"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "XR12-, XR16-, XR18- und Midas-MR-Mixer: Snapshots, Fader, Sends, FX, Routing und der USB-Recorder.",
+      "actions": {
+        "snapshot": "Snapshot laden",
+        "fader": "Fader setzen",
+        "send": "Send-Pegel setzen",
+        "mute": "Mute ein/aus",
+        "recorder": "USB-Recorder",
+        "fx-type": "FX-Typ setzen",
+        "fx-param": "FX-Parameter setzen",
+        "route-output": "Ausgang routen",
+        "route-main": "Hauptausgang routen",
+        "check": "Verbindung prüfen"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Mixer-Adresse"
+        },
+        "port": {
+          "label": "Port"
+        },
+        "maxLevelDb": {
+          "label": "Maximalpegel",
+          "help": "Kein Fader und kein Send, die ein Ereignis setzt, geht über diesen Wert hinaus."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Kanalzug"
+        },
+        "level": {
+          "label": "Pegel",
+          "help": "-90 ist aus (-inf). Begrenzt durch den Maximalpegel der Verbindung."
+        },
+        "fade": {
+          "label": "Überblendung",
+          "help": "0 ändert sofort; längere Zeiten blenden vom aktuellen Wert aus über."
+        },
+        "send": {
+          "label": "An"
+        },
+        "state": {
+          "label": "Zustand"
+        },
+        "command": {
+          "label": "Befehl",
+          "help": "Nimmt auf den USB-Stick im Mixer auf."
+        },
+        "slot": {
+          "label": "FX-Slot"
+        },
+        "type": {
+          "label": "Effekt"
+        },
+        "param": {
+          "label": "Parameter"
+        },
+        "value": {
+          "label": "Wert",
+          "help": "In der Einheit des Parameters (daneben angezeigt); Schalter sind 0/1, Auswahllisten zählen ab 0."
+        },
+        "output": {
+          "label": "Ausgang"
+        },
+        "source": {
+          "label": "Quelle",
+          "help": "USB-Sends können keine USB-Returns führen."
+        },
+        "tap": {
+          "label": "Abgriffspunkt"
+        },
+        "assign": {
+          "label": "Hauptausgang führt"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Mute ein",
+          "unmute": "Mute aus"
+        },
+        "command": {
+          "record": "Aufnahme",
+          "stop": "Stoppen",
+          "record-pause": "Aufnahme pausieren",
+          "play": "Abspielen",
+          "play-pause": "Wiedergabe pausieren"
+        },
+        "tap": {
+          "keep": "Nicht ändern",
+          "0": "Analogeingang",
+          "1": "Analogeingang + Mute",
+          "2": "Eingang",
+          "3": "Eingang + Mute",
+          "4": "Pre-EQ",
+          "5": "Pre-EQ + Mute",
+          "6": "Post-EQ",
+          "7": "Post-EQ + Mute",
+          "8": "Pre-Fader",
+          "9": "Pre-Fader + Mute",
+          "10": "Post-Fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitor",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
         }
       }
     }

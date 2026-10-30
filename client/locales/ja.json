@@ -1155,7 +1155,8 @@
       "addRow": "追加",
       "removeRow": "削除",
       "moveUp": "上へ移動",
-      "moveDown": "下へ移動"
+      "moveDown": "下へ移動",
+      "refreshOptions": "デバイスから一覧を再読み込み"
     },
     "connections": {
       "intro": "イベントの送信先です（照明卓、MIDI ポート、Web フックなど）。各接続はショーごとに一度設定すれば、いくつのイベントからでも使えます。",
@@ -1179,7 +1180,11 @@
       "unknownPlugin": "不明な種類「{plugin}」",
       "noFields": "この種類には設定項目がありません。",
       "testWith": "テストするアクション",
-      "saveFailed": "接続を保存できませんでした：{error}"
+      "saveFailed": "接続を保存できませんでした：{error}",
+      "discover": "ネットワークで検索",
+      "discoverNone": "見つかりませんでした。デバイスの電源が入っていて、サーバーと同じネットワークにあるか確認してください。",
+      "discoverFailed": "ネットワークを検索できませんでした：{error}",
+      "discoverUsed": "{device} を使用します。"
     }
   },
   "eventPlugins": {
@@ -1355,6 +1360,132 @@
       "fields": {
         "item": {
           "label": "キュー"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "XR12、XR16、XR18、Midas MR ミキサー：スナップショット、フェーダー、センド、FX、ルーティング、USB レコーダー。",
+      "actions": {
+        "snapshot": "スナップショットをリコール",
+        "fader": "フェーダーを設定",
+        "send": "センドレベルを設定",
+        "mute": "ミュート / 解除",
+        "recorder": "USB レコーダー",
+        "fx-type": "FX タイプを設定",
+        "fx-param": "FX パラメーターを設定",
+        "route-output": "出力をルーティング",
+        "route-main": "メイン出力をルーティング",
+        "check": "接続を確認"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "ミキサーのアドレス"
+        },
+        "port": {
+          "label": "ポート"
+        },
+        "maxLevelDb": {
+          "label": "最大レベル",
+          "help": "イベントで設定するフェーダーやセンドは、この値を超えません。"
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "スナップショット"
+        },
+        "strip": {
+          "label": "チャンネル"
+        },
+        "level": {
+          "label": "レベル",
+          "help": "-90 はオフ（-inf）です。接続の最大レベルで制限されます。"
+        },
+        "fade": {
+          "label": "クロスフェード",
+          "help": "0 で即座に変更します。長くすると現在の値からフェードします。"
+        },
+        "send": {
+          "label": "送り先"
+        },
+        "state": {
+          "label": "状態"
+        },
+        "command": {
+          "label": "コマンド",
+          "help": "ミキサーに挿した USB ドライブに録音します。"
+        },
+        "slot": {
+          "label": "FX スロット"
+        },
+        "type": {
+          "label": "エフェクト"
+        },
+        "param": {
+          "label": "パラメーター"
+        },
+        "value": {
+          "label": "値",
+          "help": "パラメーター固有の単位（横に表示）で指定します。スイッチは 0/1、選択肢は 0 から数えます。"
+        },
+        "output": {
+          "label": "出力"
+        },
+        "source": {
+          "label": "ソース",
+          "help": "USB センドに USB リターンは割り当てられません。"
+        },
+        "tap": {
+          "label": "タップポイント"
+        },
+        "assign": {
+          "label": "メイン出力のソース"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "ミュート",
+          "unmute": "ミュート解除"
+        },
+        "command": {
+          "record": "録音",
+          "stop": "停止",
+          "record-pause": "録音を一時停止",
+          "play": "再生",
+          "play-pause": "再生を一時停止"
+        },
+        "tap": {
+          "keep": "変更しない",
+          "0": "アナログ入力",
+          "1": "アナログ入力 + ミュート",
+          "2": "入力",
+          "3": "入力 + ミュート",
+          "4": "プリ EQ",
+          "5": "プリ EQ + ミュート",
+          "6": "ポスト EQ",
+          "7": "ポスト EQ + ミュート",
+          "8": "プリフェーダー",
+          "9": "プリフェーダー + ミュート",
+          "10": "ポストフェーダー"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "モニター",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
         }
       }
     }

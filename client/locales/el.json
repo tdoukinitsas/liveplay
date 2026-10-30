@@ -1155,7 +1155,8 @@
       "addRow": "Προσθήκη",
       "removeRow": "Αφαίρεση",
       "moveUp": "Μετακίνηση πάνω",
-      "moveDown": "Μετακίνηση κάτω"
+      "moveDown": "Μετακίνηση κάτω",
+      "refreshOptions": "Νέα ανάγνωση της λίστας από τη συσκευή"
     },
     "connections": {
       "intro": "Πού στέλνονται τα συμβάντα: σε μια κονσόλα φωτισμού, σε μια θύρα MIDI, σε ένα web hook. Κάθε σύνδεση ρυθμίζεται μία φορά για την εκδήλωση και μπορεί να χρησιμοποιηθεί από όσα συμβάντα θέλετε.",
@@ -1179,7 +1180,11 @@
       "unknownPlugin": "Άγνωστος τύπος «{plugin}»",
       "noFields": "Αυτός ο τύπος δεν έχει τίποτα για ρύθμιση.",
       "testWith": "Δοκιμή με",
-      "saveFailed": "Δεν ήταν δυνατή η αποθήκευση των συνδέσεων: {error}"
+      "saveFailed": "Δεν ήταν δυνατή η αποθήκευση των συνδέσεων: {error}",
+      "discover": "Εύρεση στο δίκτυο",
+      "discoverNone": "Δεν βρέθηκε τίποτα. Βεβαιωθείτε ότι η συσκευή είναι αναμμένη και στο ίδιο δίκτυο με τον διακομιστή.",
+      "discoverFailed": "Δεν ήταν δυνατή η αναζήτηση στο δίκτυο: {error}",
+      "discoverUsed": "Χρησιμοποιείται: {device}."
     }
   },
   "eventPlugins": {
@@ -1355,6 +1360,132 @@
       "fields": {
         "item": {
           "label": "Cue"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "Μείκτες XR12, XR16, XR18 και Midas MR: snapshots, faders, sends, FX, δρομολόγηση και ο εγγραφέας USB.",
+      "actions": {
+        "snapshot": "Ανάκληση snapshot",
+        "fader": "Ρύθμιση fader",
+        "send": "Ρύθμιση στάθμης send",
+        "mute": "Mute / unmute",
+        "recorder": "Εγγραφέας USB",
+        "fx-type": "Ρύθμιση τύπου FX",
+        "fx-param": "Ρύθμιση παραμέτρου FX",
+        "route-output": "Δρομολόγηση εξόδου",
+        "route-main": "Δρομολόγηση κύριας εξόδου",
+        "check": "Έλεγχος σύνδεσης"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Διεύθυνση μείκτη"
+        },
+        "port": {
+          "label": "Θύρα"
+        },
+        "maxLevelDb": {
+          "label": "Μέγιστη στάθμη",
+          "help": "Κανένα fader ή send που ρυθμίζεται από συμβάν δεν ξεπερνά αυτή την τιμή."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Κανάλι"
+        },
+        "level": {
+          "label": "Στάθμη",
+          "help": "Το -90 είναι off (-inf). Περιορίζεται από τη μέγιστη στάθμη της σύνδεσης."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "Με 0 αλλάζει αμέσως· με μεγαλύτερη τιμή κάνει fade από την τρέχουσα θέση."
+        },
+        "send": {
+          "label": "Προς"
+        },
+        "state": {
+          "label": "Κατάσταση"
+        },
+        "command": {
+          "label": "Εντολή",
+          "help": "Εγγράφει στη μονάδα USB του μείκτη."
+        },
+        "slot": {
+          "label": "Θέση FX"
+        },
+        "type": {
+          "label": "Εφέ"
+        },
+        "param": {
+          "label": "Παράμετρος"
+        },
+        "value": {
+          "label": "Τιμή",
+          "help": "Στη μονάδα της παραμέτρου (εμφανίζεται δίπλα)· οι διακόπτες είναι 0/1, οι επιλογές μετρούν από το 0."
+        },
+        "output": {
+          "label": "Έξοδος"
+        },
+        "source": {
+          "label": "Πηγή",
+          "help": "Τα USB sends δεν μπορούν να πάρουν USB returns."
+        },
+        "tap": {
+          "label": "Σημείο λήψης"
+        },
+        "assign": {
+          "label": "Περιεχόμενο κύριας εξόδου"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "command": {
+          "record": "Εγγραφή",
+          "stop": "Διακοπή",
+          "record-pause": "Παύση εγγραφής",
+          "play": "Αναπαραγωγή",
+          "play-pause": "Παύση αναπαραγωγής"
+        },
+        "tap": {
+          "keep": "Χωρίς αλλαγή",
+          "0": "Αναλογική είσοδος",
+          "1": "Αναλογική είσοδος + mute",
+          "2": "Είσοδος",
+          "3": "Είσοδος + mute",
+          "4": "Pre EQ",
+          "5": "Pre EQ + mute",
+          "6": "Post EQ",
+          "7": "Post EQ + mute",
+          "8": "Pre fader",
+          "9": "Pre fader + mute",
+          "10": "Post fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitor",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
         }
       }
     }

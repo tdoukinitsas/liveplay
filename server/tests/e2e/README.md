@@ -49,6 +49,7 @@ Unless shown otherwise, arguments are `<port> <wavPath>`.
 | `materialise-skip.js` | Bus materialization; `<port>` |
 | `settings-registry-e2e.js` | Settings validation; `<port>`, no audio needed |
 | `events-e2e.js` | Event system (#84): OSC/HTTP delivery, marker timing, pause/resume/end, test fires, connection carry-over, customActions migration; `<port>`, no audio needed |
+| `xair-e2e.js` | X Air plugin against a real mixer: crossfades, cap, mute, sends, FX, routing, recorder refusal; `<port> <mixer ip> [strip A] [strip B]`. Restores everything; never above -20 dB on the two strips; never recalls a snapshot |
 | `output-materialise-e2e.js` | Output materialization; `<port>`, skips without a device |
 | `device-match-e2e.js` | Device identity; `<port>`, saves/restores output map |
 | `transport-fixes-e2e.js` | Transport, manual fades, preview and CORS; `<port>`, creates signals |

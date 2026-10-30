@@ -1155,7 +1155,8 @@
       "addRow": "添加",
       "removeRow": "移除",
       "moveUp": "上移",
-      "moveDown": "下移"
+      "moveDown": "下移",
+      "refreshOptions": "从设备重新读取列表"
     },
     "connections": {
       "intro": "事件的发送目标：灯光台、MIDI 端口、Webhook。每个连接只需为演出设置一次，即可供任意数量的事件使用。",
@@ -1179,7 +1180,11 @@
       "unknownPlugin": "未知类型“{plugin}”",
       "noFields": "此类型无需设置。",
       "testWith": "用于测试的操作",
-      "saveFailed": "无法保存连接：{error}"
+      "saveFailed": "无法保存连接：{error}",
+      "discover": "在网络上查找",
+      "discoverNone": "未找到任何设备。请确认设备已开机，并与服务器位于同一网络。",
+      "discoverFailed": "无法搜索网络：{error}",
+      "discoverUsed": "正在使用 {device}。"
     }
   },
   "eventPlugins": {
@@ -1355,6 +1360,132 @@
       "fields": {
         "item": {
           "label": "Cue"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "XR12、XR16、XR18 和 Midas MR 调音台：快照、推子、发送、FX、路由和 USB 录音机。",
+      "actions": {
+        "snapshot": "调用快照",
+        "fader": "设置推子",
+        "send": "设置发送电平",
+        "mute": "静音 / 取消静音",
+        "recorder": "USB 录音机",
+        "fx-type": "设置 FX 类型",
+        "fx-param": "设置 FX 参数",
+        "route-output": "路由输出",
+        "route-main": "路由主输出",
+        "check": "检查连接"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "调音台地址"
+        },
+        "port": {
+          "label": "端口"
+        },
+        "maxLevelDb": {
+          "label": "最大电平",
+          "help": "事件设置的推子或发送电平都不会超过此值。"
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "快照"
+        },
+        "strip": {
+          "label": "通道"
+        },
+        "level": {
+          "label": "电平",
+          "help": "-90 表示关闭（-inf）。受连接的最大电平限制。"
+        },
+        "fade": {
+          "label": "交叉淡化",
+          "help": "0 表示立即改变；更长的时间会从当前值渐变。"
+        },
+        "send": {
+          "label": "发送到"
+        },
+        "state": {
+          "label": "状态"
+        },
+        "command": {
+          "label": "命令",
+          "help": "录制到调音台上插入的 USB 驱动器。"
+        },
+        "slot": {
+          "label": "FX 槽位"
+        },
+        "type": {
+          "label": "效果"
+        },
+        "param": {
+          "label": "参数"
+        },
+        "value": {
+          "label": "值",
+          "help": "使用参数自身的单位（显示在旁边）；开关为 0/1，选项从 0 开始计数。"
+        },
+        "output": {
+          "label": "输出"
+        },
+        "source": {
+          "label": "信号源",
+          "help": "USB 发送不能使用 USB 返回作为信号源。"
+        },
+        "tap": {
+          "label": "取样点"
+        },
+        "assign": {
+          "label": "主输出信号源"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "静音",
+          "unmute": "取消静音"
+        },
+        "command": {
+          "record": "录音",
+          "stop": "停止",
+          "record-pause": "暂停录音",
+          "play": "播放",
+          "play-pause": "暂停播放"
+        },
+        "tap": {
+          "keep": "不更改",
+          "0": "模拟输入",
+          "1": "模拟输入 + 静音",
+          "2": "输入",
+          "3": "输入 + 静音",
+          "4": "EQ 前",
+          "5": "EQ 前 + 静音",
+          "6": "EQ 后",
+          "7": "EQ 后 + 静音",
+          "8": "推子前",
+          "9": "推子前 + 静音",
+          "10": "推子后"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "监听",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
         }
       }
     }

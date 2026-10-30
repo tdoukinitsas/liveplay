@@ -3,67 +3,42 @@
 // -----------------------------------------------------------------------------
 // The lingua franca of lighting desks (Eos, grandMA, QLab, Companion...). A
 // connection is a host + port; the one action sends a single OSC 1.0 message.
-// Hand-encoded: the format is a few lines and a library would be the larger
-// dependency. Asio comes with Crow.
+// Messages are built with the shared OSC codec (liveplay/events/osc.hpp);
+// asio, which comes with Crow, carries them.
 // =============================================================================
+#include "liveplay/events/osc.hpp"
 #include "liveplay/events/plugin.hpp"
 
 #include <asio.hpp>
 
-#include <cstdint>
-#include <cstring>
 #include <mutex>
+#include <optional>
 
 namespace liveplay::events {
 namespace {
 
-// OSC strings and blobs are NUL-terminated and padded to a multiple of 4.
-void put_padded_string(std::string& out, const std::string& s) {
-    out += s;
-    out.push_back('\0');
-    while (out.size() % 4) out.push_back('\0');
-}
-
-void put_be32(std::string& out, std::uint32_t v) {
-    out.push_back(static_cast<char>((v >> 24) & 0xff));
-    out.push_back(static_cast<char>((v >> 16) & 0xff));
-    out.push_back(static_cast<char>((v >> 8) & 0xff));
-    out.push_back(static_cast<char>(v & 0xff));
-}
-
-// One OSC message. Args: [{ type: i|f|s|T|F|N, value }].
-std::string encode_message(const std::string& address, const json& args, std::string& error) {
-    std::string tags = ",";
-    std::string payload;
+// One OSC message from the event's args: [{ type: i|f|s|T|F|N, value }].
+std::optional<osc::Message> build_message(const std::string& address, const json& args,
+                                          std::string& error) {
+    osc::Message m{address, {}};
     if (args.is_array()) {
         for (const auto& a : args) {
             if (!a.is_object()) continue;
             const std::string type = opt_string(a, "type", "s");
-            if (type == "i") {
-                tags += 'i';
-                put_be32(payload, static_cast<std::uint32_t>(static_cast<std::int32_t>(
-                    opt_int(a, "value", 0))));
-            } else if (type == "f") {
-                tags += 'f';
-                const float f = static_cast<float>(opt_number(a, "value", 0.0));
-                std::uint32_t bits;
-                std::memcpy(&bits, &f, sizeof bits);
-                put_be32(payload, bits);
-            } else if (type == "s") {
-                tags += 's';
-                put_padded_string(payload, opt_string(a, "value"));
-            } else if (type == "T" || type == "F" || type == "N") {
-                tags += type;   // no payload
+            if (type == "i")      m.args.push_back(osc::Arg::integer(opt_int(a, "value", 0)));
+            else if (type == "f") m.args.push_back(osc::Arg::real(static_cast<float>(opt_number(a, "value", 0.0))));
+            else if (type == "s") m.args.push_back(osc::Arg::string(opt_string(a, "value")));
+            else if (type == "T" || type == "F" || type == "N") {
+                osc::Arg tag;
+                tag.type = type[0];
+                m.args.push_back(tag);
             } else {
                 error = "unsupported OSC argument type '" + type + "'";
-                return {};
+                return std::nullopt;
             }
         }
     }
-    std::string out;
-    put_padded_string(out, address);
-    put_padded_string(out, tags);
-    return out + payload;
+    return m;
 }
 
 class OscPlugin final : public Plugin {
@@ -125,9 +100,10 @@ public:
             return Result::fail("OSC address must start with '/'");
 
         std::string error;
-        const std::string packet = encode_message(
+        const auto message = build_message(
             address, job.options.contains("args") ? job.options["args"] : json::array(), error);
-        if (!error.empty()) return Result::fail(error);
+        if (!message) return Result::fail(error);
+        const std::string packet = osc::encode(*message);
 
         // One socket for the plugin, guarded: execute() is called from this
         // plugin's lane and from Test requests at the same time.

@@ -1155,7 +1155,8 @@
       "addRow": "Lägg till",
       "removeRow": "Ta bort",
       "moveUp": "Flytta upp",
-      "moveDown": "Flytta ned"
+      "moveDown": "Flytta ned",
+      "refreshOptions": "Läs in listan från enheten igen"
     },
     "connections": {
       "intro": "Dit händelser skickas: ett ljusbord, en MIDI-port, en webhook. Varje anslutning ställs in en gång för showen och kan användas av hur många händelser som helst.",
@@ -1179,7 +1180,11 @@
       "unknownPlugin": "Okänd typ ”{plugin}”",
       "noFields": "Den här typen har inget att ställa in.",
       "testWith": "Testa med",
-      "saveFailed": "Det gick inte att spara anslutningarna: {error}"
+      "saveFailed": "Det gick inte att spara anslutningarna: {error}",
+      "discover": "Sök i nätverket",
+      "discoverNone": "Inget hittades. Kontrollera att enheten är på och i samma nätverk som servern.",
+      "discoverFailed": "Det gick inte att söka i nätverket: {error}",
+      "discoverUsed": "Använder {device}."
     }
   },
   "eventPlugins": {
@@ -1355,6 +1360,132 @@
       "fields": {
         "item": {
           "label": "Kö"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "XR12-, XR16-, XR18- och Midas MR-mixrar: snapshots, fadrar, sends, FX, routing och USB-inspelaren.",
+      "actions": {
+        "snapshot": "Hämta snapshot",
+        "fader": "Ställ in fader",
+        "send": "Ställ in send-nivå",
+        "mute": "Mute / unmute",
+        "recorder": "USB-inspelare",
+        "fx-type": "Ställ in FX-typ",
+        "fx-param": "Ställ in FX-parameter",
+        "route-output": "Routa en utgång",
+        "route-main": "Routa huvudutgången",
+        "check": "Kontrollera anslutning"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Mixerns adress"
+        },
+        "port": {
+          "label": "Port"
+        },
+        "maxLevelDb": {
+          "label": "Maxnivå",
+          "help": "Ingen fader eller send som en händelse ställer in går över detta."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Kanal"
+        },
+        "level": {
+          "label": "Nivå",
+          "help": "-90 är av (-inf). Begränsas av anslutningens maxnivå."
+        },
+        "fade": {
+          "label": "Övertoning",
+          "help": "0 ändrar direkt; längre tid tonar över från där den är nu."
+        },
+        "send": {
+          "label": "Till"
+        },
+        "state": {
+          "label": "Läge"
+        },
+        "command": {
+          "label": "Kommando",
+          "help": "Spelar in på USB-minnet i mixern."
+        },
+        "slot": {
+          "label": "FX-plats"
+        },
+        "type": {
+          "label": "Effekt"
+        },
+        "param": {
+          "label": "Parameter"
+        },
+        "value": {
+          "label": "Värde",
+          "help": "I parameterns egen enhet (visas bredvid); brytare är 0/1, val räknas från 0."
+        },
+        "output": {
+          "label": "Utgång"
+        },
+        "source": {
+          "label": "Källa",
+          "help": "USB-sends kan inte ta USB-returer."
+        },
+        "tap": {
+          "label": "Uttagspunkt"
+        },
+        "assign": {
+          "label": "Huvudutgången bär"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "command": {
+          "record": "Spela in",
+          "stop": "Stopp",
+          "record-pause": "Pausa inspelning",
+          "play": "Spela",
+          "play-pause": "Pausa uppspelning"
+        },
+        "tap": {
+          "keep": "Ändra inte",
+          "0": "Analog ingång",
+          "1": "Analog ingång + mute",
+          "2": "Ingång",
+          "3": "Ingång + mute",
+          "4": "Pre EQ",
+          "5": "Pre EQ + mute",
+          "6": "Post EQ",
+          "7": "Post EQ + mute",
+          "8": "Pre fader",
+          "9": "Pre fader + mute",
+          "10": "Post fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitor",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
         }
       }
     }

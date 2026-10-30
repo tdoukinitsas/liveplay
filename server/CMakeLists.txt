@@ -197,10 +197,13 @@ add_executable(liveplay-server
     # plus a line in builtin_plugins.cpp; see docs/EVENT_PLUGINS.md.
     src/events/dispatcher.cpp
     src/events/builtin_plugins.cpp
+    src/events/helpers.cpp
+    src/events/osc.cpp
     src/events/plugins/osc.cpp
     src/events/plugins/midi.cpp
     src/events/plugins/http.cpp
     src/events/plugins/liveplay.cpp
+    src/events/plugins/xair.cpp
 )
 
 target_include_directories(liveplay-server

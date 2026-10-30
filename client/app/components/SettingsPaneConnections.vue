@@ -91,10 +91,26 @@
           {{ t('events.connections.enabled') }}
         </label>
 
+        <!-- Discovery: pick a device the server can see instead of typing its address. -->
+        <div v-if="draftPlugin?.discoverable" class="conn-discover">
+          <Btn :icon="discovering ? 'progress_activity' : 'radar'" :text="t('events.connections.discover')"
+               :disabled="discovering" @click="runDiscover" />
+          <span v-if="discoverMessage" class="settings-help">{{ discoverMessage }}</span>
+          <ul v-if="discovered.length" class="conn-discover-list">
+            <li v-for="d in discovered" :key="d.label">
+              <button type="button" class="conn-discover-item" @click="useDiscovered(d)">
+                <span class="material-symbols-rounded">{{ draftPlugin.icon || 'device_hub' }}</span>
+                {{ d.label }}
+              </button>
+            </li>
+          </ul>
+        </div>
+
         <SchemaForm
           v-if="draftPlugin && draftPlugin.connectionFields.length > 0"
           :fields="draftPlugin.connectionFields"
           :model-value="draft.config"
+          :options-context="{ plugin: draft.plugin, connection: draft }"
           @update:model-value="(v: Record<string, unknown>) => { if (draft) draft.config = v; }"
         />
         <p v-else-if="draftPlugin" class="settings-help">{{ t('events.connections.noFields') }}</p>
@@ -113,6 +129,7 @@
             v-if="testAction && testAction.fields.length > 0"
             :fields="testAction.fields"
             :model-value="testOptions"
+            :options-context="{ plugin: draft.plugin, connection: draft }"
             @update:model-value="(v: Record<string, unknown>) => { testOptions = v; }"
           />
           <div class="conn-test-run">
@@ -143,7 +160,7 @@
 // with the show to the next venue (where only the addresses need changing).
 // Every change is a whole-list PUT; the server broadcasts it to every client.
 import { v4 as uuidv4 } from 'uuid';
-import type { EventConnection } from '~/types/events';
+import type { DiscoveredDevice, EventConnection } from '~/types/events';
 import { defaultsFor, findAction, findPlugin, fillDefaults } from '~/utils/events';
 import Btn from './Btn.vue';
 import SchemaForm from './SchemaForm.vue';
@@ -152,7 +169,7 @@ const { t } = useLocalization();
 const { currentProject } = useProject();
 const {
   plugins, pluginsStatus, connections,
-  refreshPlugins, saveConnections, testEvent, connectionUsage,
+  refreshPlugins, saveConnections, testEvent, connectionUsage, discover,
 } = useEvents();
 
 onMounted(() => { void refreshPlugins(); });
@@ -214,8 +231,40 @@ function startAdd() {
   };
   isNew.value = true;
   originalName.value = '';
+  discovered.value = [];
+  discoverMessage.value = '';
   confirmDeleteId.value = null;
   void nextTick(resetTest);
+}
+
+// ---- discovery ----------------------------------------------------------------
+const discovering = ref(false);
+const discovered = ref<DiscoveredDevice[]>([]);
+const discoverMessage = ref('');
+
+async function runDiscover() {
+  if (!draft.value) return;
+  discovering.value = true;
+  discoverMessage.value = '';
+  discovered.value = [];
+  try {
+    discovered.value = await discover(draft.value.plugin);
+    if (!discovered.value.length) discoverMessage.value = t('events.connections.discoverNone');
+  } catch (e: any) {
+    discoverMessage.value = t('events.connections.discoverFailed', { error: e?.message ?? String(e) });
+  } finally {
+    discovering.value = false;
+  }
+}
+
+// Fill the draft from a found device. The name follows the device only while
+// it is still the one we made up; a name the operator typed is theirs.
+function useDiscovered(d: DiscoveredDevice) {
+  if (!draft.value) return;
+  draft.value.config = { ...draft.value.config, ...d.config };
+  if (d.name && (isNew.value || !draft.value.name.trim())) draft.value.name = d.name;
+  discovered.value = [];
+  discoverMessage.value = t('events.connections.discoverUsed', { device: d.label });
 }
 
 function startEdit(c: EventConnection) {
@@ -232,6 +281,8 @@ function startEdit(c: EventConnection) {
 
 function cancelDraft() {
   draft.value = null;
+  discovered.value = [];
+  discoverMessage.value = '';
   testResult.value = null;
 }
 
@@ -256,7 +307,10 @@ const testAction = computed(() => findAction(draftPlugin.value, testActionId.val
 
 watch(draftPlugin, (p) => {
   if (!p) return;
-  if (!p.actions.some(a => a.id === testActionId.value)) testActionId.value = p.actions[0]?.id ?? '';
+  // A test-only action (a harmless check) first: testing a connection must
+  // not recall a snapshot or move a fader because it happens to be listed first.
+  if (!p.actions.some(a => a.id === testActionId.value))
+    testActionId.value = (p.actions.find(a => a.testOnly) ?? p.actions[0])?.id ?? '';
 }, { immediate: true });
 // A fresh draft (or another action) starts the test form from its defaults;
 // the watch alone would miss a new draft that lands on the same action.
@@ -283,6 +337,16 @@ async function runTest() {
 </script>
 
 <style scoped>
+.conn-discover { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); margin: var(--spacing-sm) 0; }
+.conn-discover-list { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 4px; }
+.conn-discover-item {
+  display: flex; align-items: center; gap: 6px; width: 100%; text-align: left;
+  padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px;
+  background: var(--color-surface); color: var(--color-text); cursor: pointer;
+}
+.conn-discover-item:hover { background: var(--color-surface-hover); }
+.conn-discover-item .material-symbols-rounded { font-size: 18px; }
+
 .conn-error {
   margin: 0;
   font-size: 13px;

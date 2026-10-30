@@ -13,6 +13,7 @@ const std::vector<PluginFactory>& builtin_plugins() {
         make_osc_plugin,
         make_midi_plugin,
         make_http_plugin,
+        make_xair_plugin,
         make_liveplay_plugin,
     };
     return list;

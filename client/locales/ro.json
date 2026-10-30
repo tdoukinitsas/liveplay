@@ -1155,7 +1155,8 @@
       "addRow": "Adaugă",
       "removeRow": "Elimină",
       "moveUp": "Mută în sus",
-      "moveDown": "Mută în jos"
+      "moveDown": "Mută în jos",
+      "refreshOptions": "Citește din nou lista de pe dispozitiv"
     },
     "connections": {
       "intro": "Unde sunt trimise evenimentele: o consolă de lumini, un port MIDI, un web hook. Fiecare conexiune se configurează o singură dată pentru spectacol și poate fi folosită de oricâte evenimente.",
@@ -1179,7 +1180,11 @@
       "unknownPlugin": "Tip necunoscut „{plugin}”",
       "noFields": "Acest tip nu are nimic de configurat.",
       "testWith": "Testează cu",
-      "saveFailed": "Conexiunile nu au putut fi salvate: {error}"
+      "saveFailed": "Conexiunile nu au putut fi salvate: {error}",
+      "discover": "Caută în rețea",
+      "discoverNone": "Nu s-a găsit nimic. Verificați dacă dispozitivul este pornit și în aceeași rețea cu serverul.",
+      "discoverFailed": "Nu s-a putut căuta în rețea: {error}",
+      "discoverUsed": "Se folosește {device}."
     }
   },
   "eventPlugins": {
@@ -1355,6 +1360,132 @@
       "fields": {
         "item": {
           "label": "Cue"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "Mixere XR12, XR16, XR18 și Midas MR: snapshot-uri, fadere, send-uri, FX, rutare și recorderul USB.",
+      "actions": {
+        "snapshot": "Încarcă snapshot",
+        "fader": "Setează faderul",
+        "send": "Setează nivelul send-ului",
+        "mute": "Mute / unmute",
+        "recorder": "Recorder USB",
+        "fx-type": "Setează tipul FX",
+        "fx-param": "Setează parametrul FX",
+        "route-output": "Rutează o ieșire",
+        "route-main": "Rutează ieșirea main",
+        "check": "Verifică conexiunea"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Adresa mixerului"
+        },
+        "port": {
+          "label": "Port"
+        },
+        "maxLevelDb": {
+          "label": "Nivel maxim",
+          "help": "Niciun fader sau send setat de un eveniment nu trece peste această valoare."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Canal"
+        },
+        "level": {
+          "label": "Nivel",
+          "help": "-90 înseamnă off (-inf). Limitat de nivelul maxim al conexiunii."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 schimbă imediat; o valoare mai mare face fade de la poziția actuală."
+        },
+        "send": {
+          "label": "Către"
+        },
+        "state": {
+          "label": "Stare"
+        },
+        "command": {
+          "label": "Comandă",
+          "help": "Înregistrează pe stickul USB din mixer."
+        },
+        "slot": {
+          "label": "Slot FX"
+        },
+        "type": {
+          "label": "Efect"
+        },
+        "param": {
+          "label": "Parametru"
+        },
+        "value": {
+          "label": "Valoare",
+          "help": "În unitatea parametrului (afișată alături); comutatoarele sunt 0/1, opțiunile se numără de la 0."
+        },
+        "output": {
+          "label": "Ieșire"
+        },
+        "source": {
+          "label": "Sursă",
+          "help": "Send-urile USB nu pot prelua returnurile USB."
+        },
+        "tap": {
+          "label": "Punct de preluare"
+        },
+        "assign": {
+          "label": "Ieșirea main transmite"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "command": {
+          "record": "Înregistrare",
+          "stop": "Stop",
+          "record-pause": "Pauză înregistrare",
+          "play": "Redare",
+          "play-pause": "Pauză redare"
+        },
+        "tap": {
+          "keep": "Nu schimba",
+          "0": "Intrare analogică",
+          "1": "Intrare analogică + mute",
+          "2": "Intrare",
+          "3": "Intrare + mute",
+          "4": "Pre EQ",
+          "5": "Pre EQ + mute",
+          "6": "Post EQ",
+          "7": "Post EQ + mute",
+          "8": "Pre fader",
+          "9": "Pre fader + mute",
+          "10": "Post fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitor",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
         }
       }
     }

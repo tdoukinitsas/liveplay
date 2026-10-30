@@ -4354,6 +4354,38 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // A plugin's live option list for a field with "optionsFrom".
+    // Body: { plugin, source, connectionId?, connection?, values? }
+    CROW_ROUTE(app, "/api/events/options").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req) {
+            try {
+                const auto body = json::parse(req.body);
+                const std::string plugin = body.value("plugin", std::string{});
+                const std::string source = body.value("source", std::string{});
+                if (plugin.empty() || source.empty()) return json_err(400, "missing plugin or source");
+                std::string connection_id;
+                if (body.contains("connectionId") && body["connectionId"].is_string())
+                    connection_id = body["connectionId"].get<std::string>();
+                return json_ok(state_.event_options(
+                    plugin, source, connection_id,
+                    body.contains("connection") ? body["connection"] : json{},
+                    body.contains("values") ? body["values"] : json::object()));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // Devices a plugin finds on the network. Body: { plugin, timeoutMs? }
+    CROW_ROUTE(app, "/api/events/discover").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req) {
+            try {
+                const auto body = json::parse(req.body);
+                const std::string plugin = body.value("plugin", std::string{});
+                if (plugin.empty()) return json_err(400, "missing plugin");
+                const int ms = std::clamp(body.value("timeoutMs", 1500), 200, 10000);
+                return json_ok(json{{"devices",
+                    state_.event_discover(plugin, std::chrono::milliseconds{ms})}});
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
     // Queue an async waveform computation for the given file. Returns
     // immediately; the result arrives as a waveform_ready doc_patch over
     // WebSocket once the worker thread finishes.

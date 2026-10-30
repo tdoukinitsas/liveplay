@@ -1155,7 +1155,8 @@
       "addRow": "Shto",
       "removeRow": "Hiq",
       "moveUp": "Lëviz lart",
-      "moveDown": "Lëviz poshtë"
+      "moveDown": "Lëviz poshtë",
+      "refreshOptions": "Lexo sërish listën nga pajisja"
     },
     "connections": {
       "intro": "Ku dërgohen ngjarjet: te një konsolë ndriçimi, një portë MIDI, një web hook. Çdo lidhje ujdiset një herë për shfaqjen dhe mund të përdoret nga sa ngjarje të doni.",
@@ -1179,7 +1180,11 @@
       "unknownPlugin": "Lloj i panjohur „{plugin}”",
       "noFields": "Ky lloj nuk ka asgjë për t'u ujdisur.",
       "testWith": "Testo me",
-      "saveFailed": "Lidhjet nuk u ruajtën dot: {error}"
+      "saveFailed": "Lidhjet nuk u ruajtën dot: {error}",
+      "discover": "Gjej në rrjet",
+      "discoverNone": "Nuk u gjet asgjë. Kontrolloni që pajisja të jetë e ndezur dhe në të njëjtin rrjet me serverin.",
+      "discoverFailed": "Kërkimi në rrjet nuk u krye: {error}",
+      "discoverUsed": "Po përdoret {device}."
     }
   },
   "eventPlugins": {
@@ -1355,6 +1360,132 @@
       "fields": {
         "item": {
           "label": "Cue"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "Mikserët XR12, XR16, XR18 dhe Midas MR: snapshot-e, fader-a, send-e, FX, drejtimi dhe regjistruesi USB.",
+      "actions": {
+        "snapshot": "Rikthe snapshot-in",
+        "fader": "Cakto fader-in",
+        "send": "Cakto nivelin e send-it",
+        "mute": "Mute / unmute",
+        "recorder": "Regjistruesi USB",
+        "fx-type": "Cakto llojin e FX",
+        "fx-param": "Cakto parametrin e FX",
+        "route-output": "Drejto një dalje",
+        "route-main": "Drejto daljen kryesore",
+        "check": "Kontrollo lidhjen"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Adresa e mikserit"
+        },
+        "port": {
+          "label": "Porta"
+        },
+        "maxLevelDb": {
+          "label": "Niveli maksimal",
+          "help": "Asnjë fader ose send i caktuar nga një ngjarje nuk e kalon këtë nivel."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Kanali"
+        },
+        "level": {
+          "label": "Niveli",
+          "help": "-90 është off (-inf). Kufizohet nga niveli maksimal i lidhjes."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 e ndryshon menjëherë; vlerat më të mëdha bëjnë fade nga pozicioni aktual."
+        },
+        "send": {
+          "label": "Te"
+        },
+        "state": {
+          "label": "Gjendja"
+        },
+        "command": {
+          "label": "Komanda",
+          "help": "Regjistron në diskun USB në mikser."
+        },
+        "slot": {
+          "label": "Vendi i FX"
+        },
+        "type": {
+          "label": "Efekti"
+        },
+        "param": {
+          "label": "Parametri"
+        },
+        "value": {
+          "label": "Vlera",
+          "help": "Në njësinë e vetë parametrit (shfaqet pranë tij); çelësat janë 0/1, zgjedhjet numërohen nga 0."
+        },
+        "output": {
+          "label": "Dalja"
+        },
+        "source": {
+          "label": "Burimi",
+          "help": "Send-et USB nuk mund të marrin return-et USB."
+        },
+        "tap": {
+          "label": "Pika e marrjes"
+        },
+        "assign": {
+          "label": "Dalja kryesore mbart"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "command": {
+          "record": "Regjistro",
+          "stop": "Ndalo",
+          "record-pause": "Pauzë regjistrimi",
+          "play": "Luaj",
+          "play-pause": "Pauzë luajtjeje"
+        },
+        "tap": {
+          "keep": "Mos ndrysho",
+          "0": "Hyrje analoge",
+          "1": "Hyrje analoge + mute",
+          "2": "Hyrja",
+          "3": "Hyrja + mute",
+          "4": "Pre EQ",
+          "5": "Pre EQ + mute",
+          "6": "Post EQ",
+          "7": "Post EQ + mute",
+          "8": "Pre fader",
+          "9": "Pre fader + mute",
+          "10": "Post fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitor",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
         }
       }
     }

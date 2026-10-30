@@ -5469,6 +5469,129 @@
           "Handler exception (JSON parsing or type conversion); message varies."
         ]
       ]
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/events/options",
+      "title": "Read a live option list",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "plugin",
+          "string",
+          "Yes",
+          "-",
+          "Plugin id."
+        ],
+        [
+          "source",
+          "string",
+          "Yes",
+          "-",
+          "The field's optionsFrom."
+        ],
+        [
+          "connectionId",
+          "string",
+          "No",
+          "-",
+          "A saved connection."
+        ],
+        [
+          "connection",
+          "EventConnection",
+          "No",
+          "-",
+          "An unsaved connection, used instead of connectionId."
+        ],
+        [
+          "values",
+          "object",
+          "No",
+          "{}",
+          "The form's values for the field's dependsOn."
+        ]
+      ],
+      "request": {
+        "plugin": "xair",
+        "source": "strips",
+        "connectionId": "c1"
+      },
+      "response": {
+        "options": [
+          {
+            "value": "ch/05",
+            "label": "Ch 05 · Playback 1-L"
+          }
+        ]
+      },
+      "notes": "What a field declared with optionsFrom offers, read from the device (strip names, snapshots). When the device cannot be reached, the plugin returns what it can (static options) with error set; the request still succeeds.",
+      "errors": [
+        [
+          "400",
+          "missing plugin or source"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing or type conversion); message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/events/discover",
+      "title": "Find devices on the network",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "plugin",
+          "string",
+          "Yes",
+          "-",
+          "A plugin whose schema has discoverable: true."
+        ],
+        [
+          "timeoutMs",
+          "integer",
+          "No",
+          "1500",
+          "How long to listen, 200..10000."
+        ]
+      ],
+      "request": {
+        "plugin": "xair"
+      },
+      "response": {
+        "devices": [
+          {
+            "label": "Stage — XR18 at 192.168.1.20 (firmware 1.22)",
+            "name": "Stage",
+            "config": {
+              "host": "192.168.1.20",
+              "port": 10024
+            }
+          }
+        ]
+      },
+      "notes": "Searches every network of the server machine. Each device's config fills a connection's fields; name suggests its name. An empty list when nothing answers or the plugin cannot discover.",
+      "errors": [
+        [
+          "400",
+          "missing plugin"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing or type conversion); message varies."
+        ]
+      ]
     }
   ],
   "schemas": [
@@ -5807,7 +5930,7 @@
     },
     {
       "name": "EventPlugin",
-      "description": "A plugin schema. Clients render every event and connection form from it. Field types: string, text, number, integer, boolean, enum (options, allowCustom), item (a project item uuid), list (fields describes one row); showIf shows a field only when a sibling has one of the listed values.",
+      "description": "A plugin schema. Clients render every event and connection form from it. Field types: string, text, number, integer, boolean, enum (options, allowCustom), item (a project item uuid), list (fields describes one row); showIf shows a field only when a sibling has one of the listed values. Optional: discoverable (POST /api/events/discover); on fields, optionsFrom + dependsOn (live lists via POST /api/events/options) and unit (display).",
       "fields": [
         [
           "id",

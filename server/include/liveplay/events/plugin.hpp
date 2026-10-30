@@ -14,6 +14,7 @@
 // =============================================================================
 #include <nlohmann/json.hpp>
 
+#include <chrono>
 #include <initializer_list>
 #include <memory>
 #include <string>
@@ -68,6 +69,22 @@ public:
     virtual void stop_all() = 0;
 };
 
+// A device found on the network by Plugin::discover().
+struct Discovered {
+    std::string label;                 // "Thomas's XR12 — XR12 at 192.168.1.105"
+    std::string name;                  // suggested connection name ("Thomas's XR12")
+    json        config = json::object();   // values for your connectionFields
+};
+
+// A live option list for a field with "optionsFrom" (Plugin::options()).
+struct OptionsResult {
+    json        options = json::array();   // [{ "value", "label" }, ...]
+    // Shown under the field when set. Return whatever options you still can
+    // (static ones, without names) alongside it: a show must stay editable
+    // with the device switched off.
+    std::string error;
+};
+
 class Plugin {
 public:
     virtual ~Plugin() = default;
@@ -91,6 +108,30 @@ public:
     // Release sockets, ports and threads. Called once at shutdown, after the
     // last execute() has returned. Optional.
     virtual void stop() {}
+
+    // ---- Optional capabilities (docs/EVENT_PLUGINS.md, "Capabilities") ----
+
+    // Find devices on the network for the connection editor's "Find on
+    // network" button. Declare it with "discoverable": true in the schema.
+    // Return within `budget`; runs on a REST thread.
+    virtual std::vector<Discovered> discover(std::chrono::milliseconds budget) {
+        (void)budget;
+        return {};
+    }
+
+    // Options for a field declared with "optionsFrom": "<source>", read live
+    // from the device: strip names, snapshot names, the parameters of the
+    // effect loaded in a slot. `connection` is the connection's config (the
+    // draft one while it's being edited); `values` holds the form's other
+    // values, so a list can depend on them (declare "dependsOn"). Runs on a
+    // REST thread; keep it to a bounded wait.
+    virtual OptionsResult options(const std::string& source, const json& connection,
+                                  const json& values) {
+        (void)connection; (void)values;
+        OptionsResult r;
+        r.error = "no option source '" + source + "'";
+        return r;
+    }
 };
 
 using PluginFactory = std::unique_ptr<Plugin> (*)(Host& host);
@@ -100,6 +141,7 @@ std::unique_ptr<Plugin> make_osc_plugin(Host& host);
 std::unique_ptr<Plugin> make_midi_plugin(Host& host);
 std::unique_ptr<Plugin> make_http_plugin(Host& host);
 std::unique_ptr<Plugin> make_liveplay_plugin(Host& host);
+std::unique_ptr<Plugin> make_xair_plugin(Host& host);
 
 // Every plugin the server ships, in the order the client lists them.
 const std::vector<PluginFactory>& builtin_plugins();

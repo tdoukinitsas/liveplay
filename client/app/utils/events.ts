@@ -145,7 +145,7 @@ export function makeEvent(
   connections: EventConnection[],
   time?: number,
 ): ItemEvent {
-  const action = plugin.actions[0];
+  const action = eventActions(plugin)[0];
   const conn = plugin.needsConnection ? connectionsFor(connections, plugin.id)[0] : undefined;
   const ev: ItemEvent = {
     id: uuidv4(),
@@ -158,6 +158,11 @@ export function makeEvent(
   };
   if (trigger === 'time') ev.time = time ?? 0;
   return ev;
+}
+
+/** The actions an event may use: all but the test-only ones. */
+export function eventActions(plugin: PluginSchema | null | undefined): ActionSchema[] {
+  return (plugin?.actions ?? []).filter(a => !a.testOnly);
 }
 
 /** Deep copies with fresh ids, for an item cloned from another. */

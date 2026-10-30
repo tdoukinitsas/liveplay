@@ -8392,6 +8392,45 @@ events::Result ProjectState::test_event(const json& event, const json& draft_con
     return events_->run_now(*job);
 }
 
+json ProjectState::event_options(const std::string& plugin, const std::string& source,
+                                 const std::string& connection_id, const json& draft_connection,
+                                 const json& values) {
+    auto* p = events_->find(plugin);
+    if (!p) return json{{"options", json::array()}, {"error", "unknown plugin '" + plugin + "'"}};
+    json config = json::object();
+    if (draft_connection.is_object()) {
+        if (draft_connection.contains("config") && draft_connection["config"].is_object())
+            config = draft_connection["config"];
+    } else if (!connection_id.empty()) {
+        std::lock_guard lock{mutex_};
+        if (document_.contains("eventConnections") && document_["eventConnections"].is_array())
+            for (const auto& c : document_["eventConnections"])
+                if (c.is_object() && c.value("id", std::string{}) == connection_id &&
+                    c.contains("config") && c["config"].is_object())
+                    config = c["config"];
+    }
+    // Outside the lock: the plugin may wait on the network.
+    events::OptionsResult r;
+    try { r = p->options(source, config, values.is_object() ? values : json::object()); }
+    catch (const std::exception& e) { r.error = e.what(); }
+    json out{{"options", r.options.is_array() ? r.options : json::array()}};
+    if (!r.error.empty()) out["error"] = r.error;
+    return out;
+}
+
+json ProjectState::event_discover(const std::string& plugin, std::chrono::milliseconds budget) {
+    auto* p = events_->find(plugin);
+    json out = json::array();
+    if (!p) return out;
+    try {
+        for (const auto& d : p->discover(budget))
+            out.push_back(json{{"label", d.label}, {"name", d.name}, {"config", d.config}});
+    } catch (const std::exception& e) {
+        Logger::warn("events: '{}' discovery failed: {}", plugin, e.what());
+    }
+    return out;
+}
+
 void ProjectState::set_event_fired_broadcaster(std::function<void(const json&)> cb) {
     std::lock_guard lock{mutex_};
     event_fired_broadcaster_ = std::move(cb);

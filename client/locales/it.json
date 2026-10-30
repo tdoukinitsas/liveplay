@@ -1155,7 +1155,8 @@
       "addRow": "Aggiungi",
       "removeRow": "Rimuovi",
       "moveUp": "Sposta su",
-      "moveDown": "Sposta giù"
+      "moveDown": "Sposta giù",
+      "refreshOptions": "Rileggi l’elenco dal dispositivo"
     },
     "connections": {
       "intro": "Dove vengono inviati gli eventi: una console luci, una porta MIDI, un webhook. Ogni connessione si configura una sola volta per lo spettacolo e può essere usata da qualsiasi numero di eventi.",
@@ -1179,7 +1180,11 @@
       "unknownPlugin": "Tipo sconosciuto «{plugin}»",
       "noFields": "Questo tipo non ha nulla da configurare.",
       "testWith": "Prova con",
-      "saveFailed": "Impossibile salvare le connessioni: {error}"
+      "saveFailed": "Impossibile salvare le connessioni: {error}",
+      "discover": "Cerca in rete",
+      "discoverNone": "Nessun risultato. Verifica che il dispositivo sia acceso e sulla stessa rete del server.",
+      "discoverFailed": "Impossibile cercare in rete: {error}",
+      "discoverUsed": "In uso: {device}."
     }
   },
   "eventPlugins": {
@@ -1355,6 +1360,132 @@
       "fields": {
         "item": {
           "label": "Cue"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "Mixer XR12, XR16, XR18 e Midas MR: snapshot, fader, mandate, FX, instradamento e registratore USB.",
+      "actions": {
+        "snapshot": "Richiama snapshot",
+        "fader": "Imposta fader",
+        "send": "Imposta livello mandata",
+        "mute": "Attiva/disattiva mute",
+        "recorder": "Registratore USB",
+        "fx-type": "Imposta tipo FX",
+        "fx-param": "Imposta parametro FX",
+        "route-output": "Instrada un’uscita",
+        "route-main": "Instrada l’uscita principale",
+        "check": "Verifica connessione"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Indirizzo del mixer"
+        },
+        "port": {
+          "label": "Porta"
+        },
+        "maxLevelDb": {
+          "label": "Livello massimo",
+          "help": "Nessun fader o mandata impostati da un evento supera questo valore."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Canale"
+        },
+        "level": {
+          "label": "Livello",
+          "help": "-90 è spento (-inf). Limitato dal livello massimo della connessione."
+        },
+        "fade": {
+          "label": "Dissolvenza incrociata",
+          "help": "0 cambia subito; tempi più lunghi sfumano dal valore attuale."
+        },
+        "send": {
+          "label": "Verso"
+        },
+        "state": {
+          "label": "Stato"
+        },
+        "command": {
+          "label": "Comando",
+          "help": "Registra sulla chiavetta USB del mixer."
+        },
+        "slot": {
+          "label": "Slot FX"
+        },
+        "type": {
+          "label": "Effetto"
+        },
+        "param": {
+          "label": "Parametro"
+        },
+        "value": {
+          "label": "Valore",
+          "help": "Nell’unità del parametro (mostrata accanto); gli interruttori sono 0/1, le scelte si contano da 0."
+        },
+        "output": {
+          "label": "Uscita"
+        },
+        "source": {
+          "label": "Sorgente",
+          "help": "Le mandate USB non possono prendere i ritorni USB."
+        },
+        "tap": {
+          "label": "Punto di prelievo"
+        },
+        "assign": {
+          "label": "L’uscita principale porta"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Attiva mute",
+          "unmute": "Disattiva mute"
+        },
+        "command": {
+          "record": "Registra",
+          "stop": "Ferma",
+          "record-pause": "Pausa registrazione",
+          "play": "Riproduci",
+          "play-pause": "Pausa riproduzione"
+        },
+        "tap": {
+          "keep": "Non modificare",
+          "0": "Ingresso analogico",
+          "1": "Ingresso analogico + mute",
+          "2": "Ingresso",
+          "3": "Ingresso + mute",
+          "4": "Pre-EQ",
+          "5": "Pre-EQ + mute",
+          "6": "Post-EQ",
+          "7": "Post-EQ + mute",
+          "8": "Pre-fader",
+          "9": "Pre-fader + mute",
+          "10": "Post-fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitor",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
         }
       }
     }

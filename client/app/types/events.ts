@@ -79,6 +79,15 @@ export interface FieldSchema {
   fields?: FieldSchema[];
   /** Show only while the sibling field's value is one of `equals`. */
   showIf?: { field: string; equals: unknown[] };
+  /**
+   * enum: read the options live from the device (POST /api/events/options),
+   * with `options` as the fallback while that's unavailable.
+   */
+  optionsFrom?: string;
+  /** optionsFrom: sibling fields whose values change the list (refetch on change). */
+  dependsOn?: string[];
+  /** Display unit shown after the input ("dB", "s"). */
+  unit?: string;
 }
 
 export interface ActionSchema {
@@ -87,6 +96,12 @@ export interface ActionSchema {
   fields: FieldSchema[];
   /** One-line template for the list, e.g. "{address}", filled from the options. */
   summary?: string;
+  /**
+   * Only for the connection editor's Test, which picks it first; never offered
+   * for events. For a harmless check, so testing a connection can't change a
+   * device (a mixer's first action may be "recall snapshot").
+   */
+  testOnly?: boolean;
 }
 
 export interface PluginSchema {
@@ -99,6 +114,28 @@ export interface PluginSchema {
   needsConnection: boolean;
   connectionFields: FieldSchema[];
   actions: ActionSchema[];
+  /** The plugin can find devices on the network (POST /api/events/discover). */
+  discoverable?: boolean;
+}
+
+/** Where a live option list comes from: a saved connection, or a draft one. */
+export interface EventOptionsContext {
+  plugin: string;
+  connectionId?: string | null;
+  connection?: EventConnection | null;
+}
+
+/** Reply of POST /api/events/options. */
+export interface EventOptionsResult {
+  options: FieldOption[];
+  error?: string;
+}
+
+/** One device from POST /api/events/discover. */
+export interface DiscoveredDevice {
+  label: string;
+  name: string;
+  config: Record<string, unknown>;
 }
 
 /** Body of POST /api/events/test. */
