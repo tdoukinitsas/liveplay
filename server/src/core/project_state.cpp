@@ -812,6 +812,19 @@ std::chrono::nanoseconds parse_smpte_timecode_to_ns(const std::string& tc,
 
 // ---------------------------------------------------------------------------
 
+namespace {
+// events::Host for the built-in plugins: the operator's verbs, nothing more.
+class EventHost final : public events::Host {
+public:
+    explicit EventHost(ProjectState& state) : state_(state) {}
+    bool play_item(const std::string& uuid) override { return state_.trigger_item(uuid); }
+    bool stop_item(const std::string& uuid) override { return state_.stop_item(uuid); }
+    void stop_all() override { state_.stop_all_cues(); }
+private:
+    ProjectState& state_;
+};
+} // namespace
+
 ProjectState::ProjectState(audio::AudioEngine& engine, OutputMap& outputs)
     : engine_(engine), outputs_(outputs) {
     {
@@ -827,15 +840,10 @@ ProjectState::ProjectState(audio::AudioEngine& engine, OutputMap& outputs)
     materialise_buses();
 
     // Event system (#84): built before the sequencer, which feeds it.
+    event_host_ = std::make_unique<EventHost>(*this);
     events_ = std::make_unique<events::Dispatcher>();
-    events_->add_plugin(events::make_osc_plugin());
-    events_->add_plugin(events::make_midi_plugin());
-    events_->add_plugin(events::make_http_plugin());
-    events_->add_plugin(events::make_liveplay_plugin(events::LivePlayHooks{
-        [this](const std::string& u) { return trigger_item(u); },
-        [this](const std::string& u) { return stop_item(u); },
-        [this] { stop_all_cues(); },
-    }));
+    for (const auto make : events::builtin_plugins())
+        events_->add_plugin(make(*event_host_));
     events_->set_result_callback([this](const events::Job& job, const events::Result& r) {
         std::function<void(const json&)> cb;
         {
@@ -2380,6 +2388,7 @@ json ProjectState::header_document() const {
         {"cartSlotKeys", document_.value("cartSlotKeys",  json::object())},
         {"playbackKeys", document_.value("playbackKeys",  json::object())},
         {"cartOnlyItems", std::move(cart_only)},
+        {"eventConnections", document_.value("eventConnections", json::array())},
         {"itemCount",    item_count},
         // The bus-schema version the loaded document is at. The client mirrors
         // it and hands it back on every whole-document save, which is how

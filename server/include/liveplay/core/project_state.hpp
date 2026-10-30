@@ -1496,6 +1496,9 @@ private:
                                                      const json* draft_connection,
                                                      events::FireContext ctx,
                                                      std::string& why) const;
+    // What plugins may ask of us (events::Host). Declared before events_ so
+    // it outlives the dispatcher's threads.
+    std::unique_ptr<events::Host>       event_host_;
     std::unique_ptr<events::Dispatcher> events_;
 
     // Resolve the uuid the given item should auto-advance to, for its

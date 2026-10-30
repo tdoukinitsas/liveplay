@@ -27,7 +27,12 @@
 //            showIf?: { field, equals: [...] } }
 // String options may use {item.name} {item.uuid} {trigger} {time}; they are
 // filled in when the event fires (substitute()).
+//
+// This header is the dispatcher side. Plugin authors need only plugin.hpp and
+// docs/EVENT_PLUGINS.md.
 // =============================================================================
+#include "liveplay/events/plugin.hpp"
+
 #include <nlohmann/json.hpp>
 
 #include <chrono>
@@ -60,41 +65,6 @@ struct ItemEvent {
     static std::vector<ItemEvent> parse_list(const json& events);
 };
 
-// What fired: the source of {placeholders} and of the event_fired feedback.
-struct FireContext {
-    std::string item_uuid;
-    std::string item_name;
-    std::string event_id;
-    std::string trigger;
-    double      time = 0.0;
-};
-
-// A unit of work for a plugin: the event with its connection resolved.
-struct Job {
-    std::string plugin;
-    std::string action;
-    json        options    = json::object();   // placeholders already filled in
-    json        connection = json::object();   // the connection's config ({} if none)
-    FireContext ctx;
-};
-
-struct Result {
-    bool        ok = true;
-    std::string error;
-    static Result fail(std::string why) { return Result{false, std::move(why)}; }
-};
-
-class Plugin {
-public:
-    virtual ~Plugin() = default;
-    virtual std::string id() const = 0;
-    // Built per request, so live lists (MIDI ports) are current.
-    virtual json schema() const = 0;
-    // Runs on this plugin's lane, or on a REST thread for /api/events/test, so
-    // it must be thread-safe. May block briefly (a network round trip).
-    virtual Result execute(const Job& job) = 0;
-};
-
 // Fill {item.name} {item.uuid} {trigger} {time} into every string in `v`.
 json substitute(const json& v, const FireContext& ctx);
 
@@ -108,6 +78,8 @@ public:
     Dispatcher(const Dispatcher&) = delete;
     Dispatcher& operator=(const Dispatcher&) = delete;
 
+    // Rejects (and logs) a plugin whose schema id doesn't match id() or
+    // whose id is already taken.
     void add_plugin(std::unique_ptr<Plugin> plugin);
     Plugin* find(const std::string& id) const;
     json plugins_json() const;
@@ -140,6 +112,7 @@ private:
     void report(const Job& job, const Result& r);
 
     std::map<std::string, std::unique_ptr<Plugin>> plugins_;
+    std::vector<std::string>                       order_;   // registration order, for listing
     std::map<std::string, std::unique_ptr<Lane>>   lanes_;   // one per plugin
 
     mutable std::mutex                    mutex_;   // scheduled_, stop_, callback_
@@ -149,29 +122,5 @@ private:
     ResultCallback                        callback_;
     std::thread                           scheduler_;
 };
-
-// ---- Built-in plugins -------------------------------------------------------
-std::unique_ptr<Plugin> make_osc_plugin();
-std::unique_ptr<Plugin> make_midi_plugin();
-std::unique_ptr<Plugin> make_http_plugin();
-
-// "liveplay": act on other cues. The owner supplies the verbs.
-struct LivePlayHooks {
-    std::function<bool(const std::string& uuid)> play_item;
-    std::function<bool(const std::string& uuid)> stop_item;
-    std::function<void()>                        stop_all;
-};
-std::unique_ptr<Plugin> make_liveplay_plugin(LivePlayHooks hooks);
-
-// ---- Field helpers shared by the plugins' schema() ---------------------------
-json field(const std::string& id, const std::string& label, const std::string& type,
-           json extra = json::object());
-json options_list(std::initializer_list<std::pair<const char*, const char*>> value_label);
-
-// Option accessors that tolerate numbers sent as strings and vice versa.
-std::string opt_string(const json& o, const char* key, const std::string& def = {});
-double      opt_number(const json& o, const char* key, double def = 0.0);
-int         opt_int(const json& o, const char* key, int def = 0);
-bool        opt_bool(const json& o, const char* key, bool def = false);
 
 } // namespace liveplay::events

@@ -116,13 +116,27 @@ Dispatcher::~Dispatcher() { stop(); }
 void Dispatcher::add_plugin(std::unique_ptr<Plugin> plugin) {
     if (!plugin) return;
     const std::string id = plugin->id();
+    // Caught at boot, where a plugin author will see it, rather than as forms
+    // that silently never match their events.
+    std::string schema_id;
+    try { schema_id = plugin->schema().value("id", std::string{}); }
+    catch (const std::exception& e) { schema_id = std::string{"(schema threw: "} + e.what() + ")"; }
+    if (id.empty() || schema_id != id) {
+        Logger::error("events: plugin '{}' not loaded: schema id is '{}'", id, schema_id);
+        return;
+    }
     auto lane = std::make_unique<Lane>();
     Plugin& p = *plugin;
     Lane&   l = *lane;
     {
         std::lock_guard lock{mutex_};
+        if (plugins_.count(id)) {
+            Logger::error("events: plugin id '{}' registered twice; keeping the first", id);
+            return;
+        }
         plugins_[id] = std::move(plugin);
         lanes_[id]   = std::move(lane);
+        order_.push_back(id);
     }
     l.thread = std::thread([this, &l, &p] { lane_loop(l, p); });
 }
@@ -137,7 +151,8 @@ json Dispatcher::plugins_json() const {
     std::vector<Plugin*> list;
     {
         std::lock_guard lock{mutex_};
-        for (const auto& [_, p] : plugins_) list.push_back(p.get());
+        // builtin_plugins() order, which is the order the client offers them in.
+        for (const auto& id : order_) list.push_back(plugins_.at(id).get());
     }
     json out = json::array();
     for (auto* p : list) {
@@ -209,6 +224,14 @@ void Dispatcher::stop() {
         }
         lane->cv.notify_all();
         if (lane->thread.joinable()) lane->thread.join();
+    }
+    // Every lane is joined, so no execute() is running. (A Test request could
+    // still be mid-call on a REST thread; the server stops those first.)
+    for (auto& [id, plugin] : plugins_) {
+        try { plugin->stop(); }
+        catch (const std::exception& e) {
+            Logger::warn("events: plugin '{}' stop() threw: {}", id, e.what());
+        }
     }
 }
 

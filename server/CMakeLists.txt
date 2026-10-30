@@ -193,12 +193,14 @@ add_executable(liveplay-server
     src/meta/metadata.cpp
     src/meta/waveform.cpp
 
-    # Event system (#84)
+    # Event system (#84). A new plugin is one file in src/events/plugins/
+    # plus a line in builtin_plugins.cpp; see docs/EVENT_PLUGINS.md.
     src/events/dispatcher.cpp
-    src/events/plugin_osc.cpp
-    src/events/plugin_midi.cpp
-    src/events/plugin_http.cpp
-    src/events/plugin_liveplay.cpp
+    src/events/builtin_plugins.cpp
+    src/events/plugins/osc.cpp
+    src/events/plugins/midi.cpp
+    src/events/plugins/http.cpp
+    src/events/plugins/liveplay.cpp
 )
 
 target_include_directories(liveplay-server

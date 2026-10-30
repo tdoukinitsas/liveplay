@@ -7,7 +7,7 @@
 // so a show still works after the interface is replugged and gets a new index.
 // MIDI Show Control is here because it is how desks expect to be cued.
 // =============================================================================
-#include "liveplay/events/events.hpp"
+#include "liveplay/events/plugin.hpp"
 #include "liveplay/logger.hpp"
 
 #include <rtmidi/RtMidi.h>
@@ -266,6 +266,6 @@ private:
 
 } // namespace
 
-std::unique_ptr<Plugin> make_midi_plugin() { return std::make_unique<MidiPlugin>(); }
+std::unique_ptr<Plugin> make_midi_plugin(Host&) { return std::make_unique<MidiPlugin>(); }
 
 } // namespace liveplay::events

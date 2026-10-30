@@ -6,7 +6,7 @@
 // Hand-encoded: the format is a few lines and a library would be the larger
 // dependency. Asio comes with Crow.
 // =============================================================================
-#include "liveplay/events/events.hpp"
+#include "liveplay/events/plugin.hpp"
 
 #include <asio.hpp>
 
@@ -99,7 +99,6 @@ public:
                                {"placeholder", "/eos/cue/1/go"}}),
                         field("args", "Arguments", "list",
                               {{"default", json::array()},
-                               {"help", "String values may use {item.name}, {item.uuid}, {trigger} and {time}."},
                                {"fields", json::array({
                                    field("type", "Type", "enum",
                                          {{"options", arg_types}, {"default", "i"}}),
@@ -160,6 +159,6 @@ private:
 
 } // namespace
 
-std::unique_ptr<Plugin> make_osc_plugin() { return std::make_unique<OscPlugin>(); }
+std::unique_ptr<Plugin> make_osc_plugin(Host&) { return std::make_unique<OscPlugin>(); }
 
 } // namespace liveplay::events

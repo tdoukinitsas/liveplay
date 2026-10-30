@@ -5,14 +5,14 @@
 // also replaces the old per-item "customActions" (play-item / play-index /
 // stop-all), which ProjectState migrates into events on load.
 // =============================================================================
-#include "liveplay/events/events.hpp"
+#include "liveplay/events/plugin.hpp"
 
 namespace liveplay::events {
 namespace {
 
 class LivePlayPlugin final : public Plugin {
 public:
-    explicit LivePlayPlugin(LivePlayHooks hooks) : hooks_(std::move(hooks)) {}
+    explicit LivePlayPlugin(Host& host) : host_(host) {}
 
     std::string id() const override { return "liveplay"; }
 
@@ -40,7 +40,7 @@ public:
     Result execute(const Job& job) override {
         const std::string target = opt_string(job.options, "item");
         if (job.action == "stop-all") {
-            if (hooks_.stop_all) hooks_.stop_all();
+            host_.stop_all();
             return {};
         }
         if (job.action != "play-item" && job.action != "stop-item")
@@ -48,19 +48,20 @@ public:
         if (target.empty()) return Result::fail("no cue chosen");
         if (target == job.ctx.item_uuid && job.action == "play-item")
             return Result::fail("a cue can't restart itself from its own event");
-        const auto& verb = job.action == "play-item" ? hooks_.play_item : hooks_.stop_item;
-        if (!verb || !verb(target)) return Result::fail("cue not found or not playable");
+        const bool done = job.action == "play-item" ? host_.play_item(target)
+                                                    : host_.stop_item(target);
+        if (!done) return Result::fail("cue not found or not playable");
         return {};
     }
 
 private:
-    LivePlayHooks hooks_;
+    Host& host_;
 };
 
 } // namespace
 
-std::unique_ptr<Plugin> make_liveplay_plugin(LivePlayHooks hooks) {
-    return std::make_unique<LivePlayPlugin>(std::move(hooks));
+std::unique_ptr<Plugin> make_liveplay_plugin(Host& host) {
+    return std::make_unique<LivePlayPlugin>(host);
 }
 
 } // namespace liveplay::events

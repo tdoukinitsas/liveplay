@@ -6,7 +6,7 @@
 // only: show-control gear on a LAN rarely speaks TLS, and HTTPS would mean
 // shipping OpenSSL in the server.
 // =============================================================================
-#include "liveplay/events/events.hpp"
+#include "liveplay/events/plugin.hpp"
 
 #include <httplib.h>
 
@@ -80,7 +80,6 @@ public:
                                                          {"text/plain", "Text"}})}}),
                         field("body", "Body", "text",
                               {{"default", ""},
-                               {"help", "May use {item.name}, {item.uuid}, {trigger} and {time}."},
                                {"showIf", {{"field", "contentType"},
                                            {"equals", json::array({"application/json",
                                                                    "application/x-www-form-urlencoded",
@@ -134,6 +133,6 @@ public:
 
 } // namespace
 
-std::unique_ptr<Plugin> make_http_plugin() { return std::make_unique<HttpPlugin>(); }
+std::unique_ptr<Plugin> make_http_plugin(Host&) { return std::make_unique<HttpPlugin>(); }
 
 } // namespace liveplay::events
