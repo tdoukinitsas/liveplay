@@ -116,7 +116,20 @@ async function peak(ws, cueId, ms) {
   r = await fire('bus-level', { bus: aId, level: -10, fade: 1 }); await sleep(400);
   const half = (await bus(aId)).gainDb; await sleep(900);
   const done = (await bus(aId)).gainDb;
-  ok('bus fader fades, saved when it lands', r.ok && half === 0 && Math.abs(done + 10) < 0.01, `saved mid-fade ${half}, then ${done}`);
+  ok('bus fader fades, the mixer shows it when it lands', r.ok && half === 0 && Math.abs(done + 10) < 0.01, `mid-fade ${half}, then ${done}`);
+  // ...but it is show state, not the show: a save keeps the operator's 0 dB
+  // until the operator sets the fader again.
+  const showFile = path.join(os.tmpdir(), `lp-plugin-e2e-${process.pid}.liveplay`);
+  const savedGain = async () => {
+    await rest('/api/project/save', { method: 'POST', body: JSON.stringify({ path: showFile }) });
+    return (JSON.parse(fs.readFileSync(showFile, 'utf8')).buses || []).find(b => b.id === aId)?.gainDb;
+  };
+  const savedAfterEvent = await savedGain();
+  await rest(`/api/buses/${aId}`, { method: 'PATCH', body: JSON.stringify({ gainDb: -4 }) });
+  const savedAfterOperator = await savedGain();
+  try { fs.unlinkSync(showFile); } catch { /* best effort */ }
+  ok('a fade is not saved; the operator\'s fader is', savedAfterEvent === 0 && savedAfterOperator === -4,
+     `saved ${savedAfterEvent} after the fade, ${savedAfterOperator} after the operator set -4`);
   r = await fire('bus-mute', { bus: aId, state: 'mute' });
   ok('bus mute', r.ok && (await bus(aId)).mute === true);
   await fire('bus-mute', { bus: aId, state: 'unmute' });

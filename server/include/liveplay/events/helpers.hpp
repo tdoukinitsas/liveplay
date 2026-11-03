@@ -19,6 +19,7 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -52,8 +53,14 @@ public:
     // Move `key` from `from` to `to` over `seconds`, linearly, calling `set`
     // every tick and finally with exactly `to`. Starting a ramp on a key that
     // is already ramping replaces it (the newest instruction wins, as on a
-    // desk). seconds <= 0 calls set(to) at once, on the caller's thread.
+    // desk). seconds <= 0, or from == to, calls set(to) once, at once, on the
+    // caller's thread.
     void start(const std::string& key, double from, double to, double seconds, Setter set);
+
+    // Where the ramp on `key` is now, or nullopt if none is running. Start a
+    // replacing ramp from here: a value you saved at the end of the last fade
+    // is not what is heard while one is under way.
+    std::optional<double> current(const std::string& key);
 
     // Drop running ramps whose key starts with `prefix` ("" = all), where they are.
     void cancel(const std::string& prefix = {});

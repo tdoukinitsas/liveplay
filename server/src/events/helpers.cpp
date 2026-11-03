@@ -115,7 +115,10 @@ Ramps::Ramps(std::chrono::milliseconds tick) : tick_(tick), thread_([this] { loo
 Ramps::~Ramps() { stop(); }
 
 void Ramps::start(const std::string& key, double from, double to, double seconds, Setter set) {
-    if (!(seconds > 0.0)) {
+    // A fade to where it already is has no steps, only its landing. Ticking it
+    // would call set(to) every tick, and a setter that saves on landing (as
+    // the LivePlay plugin's do) can't tell those calls from the last one.
+    if (!(seconds > 0.0) || from == to) {
         {
             std::lock_guard lock{mutex_};
             ramps_.erase(key);   // an instant change also ends a fade in progress
@@ -130,6 +133,16 @@ void Ramps::start(const std::string& key, double from, double to, double seconds
                            std::chrono::duration<double>(seconds), std::move(set)};
     }
     cv_.notify_all();
+}
+
+std::optional<double> Ramps::current(const std::string& key) {
+    std::lock_guard lock{mutex_};
+    const auto it = ramps_.find(key);
+    if (it == ramps_.end()) return std::nullopt;
+    const Ramp& r = it->second;
+    const double t = std::chrono::duration<double>(std::chrono::steady_clock::now() - r.start).count() /
+                     r.length.count();
+    return t >= 1.0 ? r.to : r.from + (r.to - r.from) * std::max(0.0, t);
 }
 
 void Ramps::cancel(const std::string& prefix) {

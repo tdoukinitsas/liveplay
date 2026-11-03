@@ -2446,6 +2446,7 @@ const SETTINGS_MENU_SECTIONS = [
   { id: 'outputs',    labelKey: 'sectionOutputs'    },
   { id: 'keyboard',   labelKey: 'sectionKeyboard'   },
   { id: 'surfaces',   labelKey: 'sectionSurfaces'   },
+  { id: 'connections', labelKey: 'sectionConnections' },
   { id: 'project',    labelKey: 'sectionProject'    },
   { id: 'server',     labelKey: 'sectionServer'     },
   { id: 'users',      labelKey: 'sectionUsers'      },

@@ -433,7 +433,8 @@
 <script setup lang="ts">
 import type { AudioItem } from '~/types/project';
 import { manualStopFadeOf } from '~/types/project';
-import { calculatePerceivedLoudness, calculateNormalizationGain } from '~/utils/audio';
+import { calculateNormalizationGain } from '~/utils/audio';
+import { waveformLanes as lanesOf, drawWaveformLanes, drawPlaybackMarkers } from '~/utils/waveformRender';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
 
@@ -537,19 +538,8 @@ const playbackPosition = computed(() => {
 const waveformData = computed(() => props.audioItem?.waveform?.peaks ?? null);
 const hasWaveform = computed(() => waveformData.value && waveformData.value.length > 0);
 
-// Lanes to draw: one per source channel when the server gave us per-channel
-// data (stereo renders L above R), otherwise a single combined lane. Legacy
-// waveforms (ffmpeg mono downmix, pre-channelPeaks projects) keep one lane.
-const waveformLanes = computed<number[][]>(() => {
-  const wf = props.audioItem?.waveform;
-  if (!wf) return [];
-  const perChannel = wf.channelPeaks;
-  if (Array.isArray(perChannel) && perChannel.length > 1 &&
-      perChannel.every(lane => Array.isArray(lane) && lane.length > 0)) {
-    return perChannel;
-  }
-  return wf.peaks && wf.peaks.length > 0 ? [wf.peaks] : [];
-});
+// Lanes to draw (see utils/waveformRender): stereo renders L above R.
+const waveformLanes = computed<number[][]>(() => lanesOf(props.audioItem?.waveform));
 
 // ---- Self-healing waveform regeneration -------------------------------------
 // Occasionally an item ends up with no waveform (e.g. a server re-sync that
@@ -1160,113 +1150,20 @@ const drawWaveform = () => {
     ctx.fillText(label, x + 4, 12);
   }
 
+  const view = {
+    duration: duration.value, start: visibleStart.value, end: visibleEnd.value,
+    width: canvasWidth.value, height: canvasHeight,
+  };
+
   if (hasWaveform.value && waveformLanes.value.length > 0 && duration.value > 0) {
     // One lane per source channel (#47): a stereo file draws L above R, mono
     // (and legacy single-array waveforms) fills the full height as before.
-    const lanes = waveformLanes.value;
-    const laneHeight = canvasHeight / lanes.length;
-    const volumeMultiplier = props.audioItem?.volume ?? 1;
-
-    // Use server-reported output-target zone colours (same palette as the
-    // stereo meter) so the waveform and meter always agree visually.
-    const getColorForDB = (db: number): string => colorForLevel(db);
-
-    // Loudness-referenced vertical scale.
-    // ------------------------------------
-    // The display is calibrated so that a signal sitting AT the project's
-    // target optimal loudness fills ~3/4 of the lane height, leaving the
-    // top 1/4 as headroom for louder transient peaks. Without this, an
-    // auto-normalised track (whose volume is pulled down to hit the target)
-    // rendered as a tiny sliver. We map linear amplitude → height fraction
-    // with a fixed gain so the target maps to 0.75 and clamp at 1.0.
-    const targetDb = outputTargetLevels.value?.autoVolumeTargetDb ?? -23;
-    const targetLinear = Math.pow(10, targetDb / 20);
-    const HEIGHT_AT_TARGET = 0.75;
-    const loudnessScale = HEIGHT_AT_TARGET / Math.max(targetLinear, 1e-4);
-    const heightFraction = (linear: number) =>
-      Math.min(Math.max(linear, 0) * loudnessScale, 1);
-
-    lanes.forEach((peaks, laneIndex) => {
-      const laneCenter = laneIndex * laneHeight + laneHeight / 2;
-      const totalPeaks = peaks.length;
-
-      // Calculate visible peak range
-      const startPeak = Math.floor((visibleStart.value / duration.value) * totalPeaks);
-      const endPeak = Math.floor((visibleEnd.value / duration.value) * totalPeaks);
-      const visiblePeaksArray = peaks.slice(startPeak, endPeak);
-      if (visiblePeaksArray.length === 0) return;
-
-      const barWidth = canvasWidth.value / visiblePeaksArray.length;
-
-      // Draw each bar with individual coloring
-      visiblePeaksArray.forEach((value, i) => {
-        const normalizedPeak = value; // Already normalized 0-1
-        const x = i * barWidth;
-
-        // Base waveform bar height (pre-volume, subtle gray reference)
-        const baseBarHeight = heightFraction(normalizedPeak) * laneHeight;
-        const baseY = laneCenter - baseBarHeight / 2;
-        ctx.fillStyle = 'rgba(128, 128, 128, 0.15)';
-        ctx.fillRect(x, baseY, Math.max(barWidth, 1), baseBarHeight);
-
-        // Bar height after volume multiplication (the audible level).
-        const linearAmplitude = normalizedPeak * volumeMultiplier;
-        const amplifiedBarHeight = heightFraction(linearAmplitude) * laneHeight;
-        const amplifiedY = laneCenter - amplifiedBarHeight / 2;
-
-        // Convert this bar's amplitude to dB for color selection
-        const barDB = linearAmplitude <= 0 ? -60 : 20 * Math.log10(linearAmplitude);
-
-        // Get color for this specific bar's level
-        const [r, g, b] = hexToRgb(getColorForDB(barDB));
-
-        // Draw colored bar with opacity based on whether it's clipping
-        const alpha = linearAmplitude > 1 ? 0.8 : 0.5; // More opaque if clipping
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        ctx.fillRect(x, amplifiedY, Math.max(barWidth, 1), amplifiedBarHeight);
-      });
-
-      // Draw perceived loudness line (RMS level) for this lane
-      const perceivedLoudness = calculatePerceivedLoudness(visiblePeaksArray);
-      const rmsLinear = perceivedLoudness <= -60 ? 0 : Math.pow(10, perceivedLoudness / 20);
-      const rmsHeight = heightFraction(rmsLinear * volumeMultiplier) * laneHeight;
-
-      // Draw horizontal line at RMS level (on both sides of the lane centre)
-      ctx.strokeStyle = 'rgba(255, 165, 0, 0.5)'; // Orange with transparency
-      ctx.lineWidth = 1;
-
-      // Top line
-      const topY = laneCenter - rmsHeight / 2;
-      ctx.beginPath();
-      ctx.moveTo(0, topY);
-      ctx.lineTo(canvasWidth.value, topY);
-      ctx.stroke();
-
-      // Bottom line
-      const bottomY = laneCenter + rmsHeight / 2;
-      ctx.beginPath();
-      ctx.moveTo(0, bottomY);
-      ctx.lineTo(canvasWidth.value, bottomY);
-      ctx.stroke();
-
-      // Reset line dash
-      ctx.setLineDash([]);
-
-      // Lane zero line + divider between lanes, so L/R read as two strips.
-      if (lanes.length > 1) {
-        ctx.strokeStyle = 'rgba(128, 128, 128, 0.25)';
-        ctx.beginPath();
-        ctx.moveTo(0, laneCenter);
-        ctx.lineTo(canvasWidth.value, laneCenter);
-        ctx.stroke();
-        if (laneIndex > 0) {
-          ctx.strokeStyle = 'rgba(128, 128, 128, 0.15)';
-          ctx.beginPath();
-          ctx.moveTo(0, laneIndex * laneHeight);
-          ctx.lineTo(canvasWidth.value, laneIndex * laneHeight);
-          ctx.stroke();
-        }
-      }
+    // Bars in the output target's zone colours (the stereo meter's palette),
+    // so the waveform and meter always agree visually.
+    drawWaveformLanes(ctx, waveformLanes.value, view, {
+      volume: props.audioItem?.volume ?? 1,
+      targetDb: outputTargetLevels.value?.autoVolumeTargetDb ?? -23,
+      rgbFor: db => hexToRgb(colorForLevel(db)),
     });
   } else {
     // Draw "No Waveform Data" message
@@ -1286,107 +1183,17 @@ const drawWaveform = () => {
   ctx.stroke();
 
   // Draw fade visualizations (always, regardless of playback state)
-  if (duration.value > 0) {
-    const pixelsPerSecond = canvasWidth.value / visibleDuration.value;
-
-    // Play Fade (fade in at start) — red diagonal
-    if (props.audioItem.playFade && props.audioItem.playFade > 0) {
-      const fadeStartTime = inPoint.value;
-      const fadeEndTime = inPoint.value + props.audioItem.playFade;
-      if (fadeEndTime >= visibleStart.value && fadeStartTime <= visibleEnd.value) {
-        const fadeStartX = Math.max(0, (fadeStartTime - visibleStart.value) * pixelsPerSecond);
-        const fadeEndX = Math.min(canvasWidth.value, (fadeEndTime - visibleStart.value) * pixelsPerSecond);
-        const fadeWidth = fadeEndX - fadeStartX;
-        if (fadeWidth > 0) {
-          ctx.fillStyle = 'rgba(220, 38, 38, 0.2)';
-          ctx.fillRect(fadeStartX, 0, fadeWidth, canvasHeight);
-          ctx.strokeStyle = 'rgba(220, 38, 38, 0.8)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(fadeStartX, canvasHeight);
-          ctx.lineTo(fadeEndX, 0);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(fadeEndX, 0);
-          ctx.lineTo(fadeEndX, canvasHeight);
-          ctx.stroke();
-        }
-      }
-    }
-
-    // Stop Fade (fade out before end) — red diagonal
-    if (props.audioItem.stopFade && props.audioItem.stopFade > 0) {
-      const fadeStartTime = outPoint.value - props.audioItem.stopFade;
-      const fadeEndTime = outPoint.value;
-      if (fadeStartTime <= visibleEnd.value && fadeEndTime >= visibleStart.value) {
-        const fadeStartX = Math.max(0, (fadeStartTime - visibleStart.value) * pixelsPerSecond);
-        const fadeEndX = Math.min(canvasWidth.value, (fadeEndTime - visibleStart.value) * pixelsPerSecond);
-        const fadeWidth = fadeEndX - fadeStartX;
-        if (fadeWidth > 0) {
-          ctx.fillStyle = 'rgba(220, 38, 38, 0.2)';
-          ctx.fillRect(fadeStartX, 0, fadeWidth, canvasHeight);
-          ctx.strokeStyle = 'rgba(220, 38, 38, 0.8)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(fadeStartX, 0);
-          ctx.lineTo(fadeEndX, canvasHeight);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(fadeStartX, 0);
-          ctx.lineTo(fadeStartX, canvasHeight);
-          ctx.stroke();
-        }
-      }
-    }
-
-    // Cross Fade — yellow X
-    if (props.audioItem.crossFade && props.audioItem.crossFade > 0) {
-      const crossFadeStartTime = outPoint.value - props.audioItem.crossFade;
-      const crossFadeEndTime = outPoint.value;
-      if (crossFadeStartTime <= visibleEnd.value && crossFadeEndTime >= visibleStart.value) {
-        const crossStartX = Math.max(0, (crossFadeStartTime - visibleStart.value) * pixelsPerSecond);
-        const crossEndX = Math.min(canvasWidth.value, (crossFadeEndTime - visibleStart.value) * pixelsPerSecond);
-        const crossWidth = crossEndX - crossStartX;
-        if (crossWidth > 0) {
-          ctx.fillStyle = 'rgba(234, 179, 8, 0.2)';
-          ctx.fillRect(crossStartX, 0, crossWidth, canvasHeight);
-          ctx.strokeStyle = 'rgba(234, 179, 8, 0.8)';
-          ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(crossStartX, 0); ctx.lineTo(crossEndX, canvasHeight); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(crossStartX, canvasHeight); ctx.lineTo(crossEndX, 0); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(crossStartX, 0); ctx.lineTo(crossStartX, canvasHeight); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(crossEndX, 0); ctx.lineTo(crossEndX, canvasHeight); ctx.stroke();
-        }
-      }
-    }
-
-    // Start Next marker — green segue line, plus the optional marker fade-out
-    if (props.audioItem.startNextEnabled && startNextTime.value > 0) {
-      const markerTime = startNextTime.value;
-      if (markerTime >= visibleStart.value && markerTime <= visibleEnd.value) {
-        const markerX = (markerTime - visibleStart.value) * pixelsPerSecond;
-        ctx.strokeStyle = 'rgba(22, 163, 74, 0.9)';
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(markerX, 0); ctx.lineTo(markerX, canvasHeight); ctx.stroke();
-      }
-      if (props.audioItem.startNextFadeOut) {
-        const fadeDur = props.audioItem.fadeOutDuration || 1;
-        const fadeEndTime = Math.min(markerTime + fadeDur, outPoint.value);
-        if (markerTime <= visibleEnd.value && fadeEndTime >= visibleStart.value) {
-          const fadeStartX = Math.max(0, (markerTime - visibleStart.value) * pixelsPerSecond);
-          const fadeEndX = Math.min(canvasWidth.value, (fadeEndTime - visibleStart.value) * pixelsPerSecond);
-          const fadeWidth = fadeEndX - fadeStartX;
-          if (fadeWidth > 0) {
-            ctx.fillStyle = 'rgba(22, 163, 74, 0.15)';
-            ctx.fillRect(fadeStartX, 0, fadeWidth, canvasHeight);
-            ctx.strokeStyle = 'rgba(22, 163, 74, 0.8)';
-            ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(fadeStartX, 0); ctx.lineTo(fadeEndX, canvasHeight); ctx.stroke();
-          }
-        }
-      }
-    }
-  }
+  drawPlaybackMarkers(ctx, {
+    inPoint: inPoint.value,
+    outPoint: outPoint.value,
+    playFade: props.audioItem.playFade,
+    stopFade: props.audioItem.stopFade,
+    crossFade: props.audioItem.crossFade,
+    startNextEnabled: props.audioItem.startNextEnabled,
+    startNextTime: startNextTime.value,
+    startNextFadeOut: props.audioItem.startNextFadeOut,
+    fadeOutDuration: props.audioItem.fadeOutDuration,
+  }, view);
 
   // Draw playhead if item is currently playing
   if (playbackPosition.value !== null && duration.value > 0) {

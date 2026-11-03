@@ -28,7 +28,7 @@ let _wired = false;
 
 export const useMissingMedia = () => {
   const server = useLiveplayServer();
-  const { currentProject } = useProject();
+  const { currentProject, applyServerItemPatch, saveProject } = useProject();
 
   const missing = useState<Record<string, MissingMediaEntry>>('missingMedia', () => ({}));
   const missingList = computed(() => Object.values(missing.value));
@@ -60,6 +60,14 @@ export const useMissingMedia = () => {
   /** Relink every missing item to a same-named file under a SERVER folder. */
   async function locate(folder: string) {
     const result = await server.locateMissingMedia(folder, true);
+    // A relink is an edit like any other, so it saves like one (autosave on)
+    // or marks the project unsaved (autosave off). The save sends this
+    // client's copy, which the server adopts wholesale, so the relinks go
+    // into it first rather than waiting on their doc_patch echoes.
+    if (result.relinked.length) {
+      for (const r of result.relinked) applyServerItemPatch(r.uuid, r.patch);
+      void saveProject();
+    }
     // A relinked item's old waveform may be for a file that no longer exists;
     // the non-forced request reuses the cache when it's still valid.
     for (const r of result.relinked) {

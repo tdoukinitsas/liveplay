@@ -153,6 +153,8 @@
     "sectionServerHelp": "Il server a cui è connessa questa app e, per gli amministratori, la sua configurazione.",
     "sectionUsers": "Account",
     "sectionUsersHelp": "Chi può usare questo server e cosa può modificare.",
+    "stopAllFiresEvents": "«Ferma tutto» attiva gli eventi «Alla fine»",
+    "stopAllFiresEventsHelp": "Se disattivato, i cue fermati da «Ferma tutto» non attivano eventi «Alla fine». Se attivato, li attivano, ma nessuno può avviare un altro cue. Premere di nuovo «Ferma tutto» prima che abbia finito è un panico: tutto si ferma subito e nessun evento viene attivato.",
     "stopAllStopsPreview": "«Ferma tutto» ferma anche il preascolto",
     "stopAllStopsPreviewHelp": "Se disattivato, «Ferma tutto» non ferma un cue che stai preascoltando.",
     "sectionAppearance": "Aspetto",

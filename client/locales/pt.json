@@ -153,6 +153,8 @@
     "sectionServerHelp": "O servidor a que esta aplicação está ligada e, para os administradores, a sua configuração.",
     "sectionUsers": "Contas",
     "sectionUsersHelp": "Quem pode usar este servidor e o que pode alterar.",
+    "stopAllFiresEvents": "«Parar tudo» dispara os eventos «Ao terminar»",
+    "stopAllFiresEventsHelp": "Quando desligado, as deixas que «Parar tudo» para não disparam eventos «Ao terminar». Quando ligado, disparam-nos, mas nenhum pode iniciar outra deixa. Premir «Parar tudo» outra vez antes de terminar é um pânico: tudo para de imediato e nenhum evento é disparado.",
     "stopAllStopsPreview": "«Parar tudo» também para a pré-escuta",
     "stopAllStopsPreviewHelp": "Quando desligado, «Parar tudo» não para uma deixa que esteja a pré-escutar.",
     "sectionAppearance": "Aparência",

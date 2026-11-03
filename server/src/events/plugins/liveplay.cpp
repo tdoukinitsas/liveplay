@@ -188,8 +188,13 @@ public:
             a == "arm-next" || a == "duck-item") {
             const std::string target = opt_string(o, "item");
             if (target.empty()) return Result::fail("no cue chosen");
-            if (a == "play-item" && target == job.ctx.item_uuid)
-                return Result::fail("a cue can't restart itself from its own event");
+            // Directly, or through other cues' events (A starts B, B starts A):
+            // either way the cues would restart each other for ever.
+            const auto& chain = job.ctx.chain;
+            if (a == "play-item" && (target == job.ctx.item_uuid ||
+                                     std::find(chain.begin(), chain.end(), target) != chain.end()))
+                return Result::fail("a cue can't restart itself from its own event, "
+                                    "directly or through another cue's");
             if (a == "duck-item") {
                 const auto from = host_.cue_offset_db(target);
                 if (!from) return Result::fail("that cue isn't playing");
@@ -216,8 +221,11 @@ public:
 
         if (a == "bus-level") {
             const double target = std::clamp(opt_number(o, "level", 0.0), kSilenceDb, 10.0);
-            const double from = bus.value("gainDb", 0.0);
-            ramps_.start("bus:" + bus_id + ":gain", from, target, opt_number(o, "fade", 0.0),
+            // A fade's steps are live-only, so mid-fade the saved gain is still
+            // the pre-fade one: a re-fire starts from where the fade has got to.
+            const std::string key = "bus:" + bus_id + ":gain";
+            const double from = ramps_.current(key).value_or(bus.value("gainDb", 0.0));
+            ramps_.start(key, from, target, opt_number(o, "fade", 0.0),
                 [this, bus_id, target](double v) {
                     if (v == target) host_.patch_bus(bus_id, json{{"gainDb", v}});
                     else host_.set_bus_live(bus_id, json{{"gainDb", v}});
@@ -235,16 +243,22 @@ public:
                 [&](const json& s) { return s.value("id", std::string{}) == to; });
             if (it == sends.end()) return Result::fail("'" + bus_id + "' has no send to '" + to + "'");
             const double target = std::clamp(opt_number(o, "level", 0.0), kSilenceDb, 10.0);
-            // Sends have no live path, so each step is a saved change; at 10 a
-            // second that also moves the send on every client's mixer.
-            slow_ramps_.start("bus:" + bus_id + ":send:" + to, it->value("levelDb", 0.0), target,
-                              opt_number(o, "fade", 0.0), [this, bus_id, to](double v) {
-                json now = find_bus(host_.buses(), bus_id);
-                if (now.is_null()) return;
-                json list = now.value("sends", json::array());
-                for (auto& s : list) if (s.value("id", std::string{}) == to) s["levelDb"] = v;
-                host_.patch_bus(bus_id, json{{"sends", list}});
-            });
+            // Live steps, as the bus level fades; the landing is the one saved
+            // change, the whole list as patch_bus takes it.
+            const std::string key = "bus:" + bus_id + ":send:" + to;
+            const double from = ramps_.current(key).value_or(it->value("levelDb", 0.0));
+            ramps_.start(key, from, target, opt_number(o, "fade", 0.0),
+                [this, bus_id, to, target](double v) {
+                    if (v != target) {
+                        host_.set_bus_live(bus_id, json{{"send", {{"id", to}, {"levelDb", v}}}});
+                        return;
+                    }
+                    json now = find_bus(host_.buses(), bus_id);
+                    if (now.is_null()) return;
+                    json list = now.value("sends", json::array());
+                    for (auto& s : list) if (s.value("id", std::string{}) == to) s["levelDb"] = v;
+                    host_.patch_bus(bus_id, json{{"sends", list}});
+                });
             return {};
         }
         if (a == "bus-route") {
@@ -270,8 +284,9 @@ public:
             if (!p) return Result::fail("unknown bus setting");
             const double target = std::clamp(opt_number(o, "value", 0.0), p->min, p->max);
             if (p->toggle) return committed(host_.patch_bus(bus_id, json{{"dsp", dsp_patch(*p, target)}}));
-            const double from = dsp_current(bus, *p, target);
-            ramps_.start("bus:" + bus_id + ":dsp:" + p->path, from, target, opt_number(o, "fade", 0.0),
+            const std::string key = "bus:" + bus_id + ":dsp:" + p->path;
+            const double from = ramps_.current(key).value_or(dsp_current(bus, *p, target));
+            ramps_.start(key, from, target, opt_number(o, "fade", 0.0),
                 [this, bus_id, p, target](double v) {
                     const json patch{{"dsp", dsp_patch(*p, v)}};
                     if (v == target) host_.patch_bus(bus_id, patch);
@@ -317,17 +332,17 @@ public:
         return r;
     }
 
-    void stop() override {
-        ramps_.stop();
-        slow_ramps_.stop();
-    }
+    void stop() override { ramps_.stop(); }
+
+    // Bus ids repeat between shows ("master" is in every one), so a fade the
+    // old show started would land on the new show's bus.
+    void reset() override { ramps_.cancel(); }
 
 private:
     static Result committed(const std::string& err) { return err.empty() ? Result{} : Result::fail(err); }
 
     Host& host_;
     Ramps ramps_;
-    Ramps slow_ramps_{std::chrono::milliseconds{100}};
 };
 
 } // namespace

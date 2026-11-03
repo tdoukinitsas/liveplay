@@ -56,9 +56,10 @@
         <Btn icon="cable" :text="t('events.manageConnections')" @click="openConnections" />
       </div>
 
-      <!-- Timeline. The canvas only paints the waveform and the trim shading;
-           markers, cursor and playhead are elements on top, so dragging one
-           never repaints thousands of peaks. -->
+      <!-- Timeline. The canvas paints the Playback tab's waveform, the trim
+           shading and the Playback tab's markers (ghosted: they are set there);
+           event markers, cursor and playhead are elements on top, so dragging
+           one never repaints thousands of peaks. -->
       <div
         ref="timelineEl"
         class="ev-timeline"
@@ -73,9 +74,10 @@
       >
         <canvas ref="canvasEl" class="ev-canvas" />
 
-        <!-- Where the cue starts and stops playing: the trim points. -->
-        <div v-if="inView(inPoint) && inPoint > 0" class="ev-trim-line" :style="{ left: pct(inPoint) }" />
-        <div v-if="inView(outPoint) && outPoint < duration" class="ev-trim-line" :style="{ left: pct(outPoint) }" />
+        <!-- Where the cue starts and stops playing: the trim points, in the
+             Playback tab's colours, ghosted like its other markers. -->
+        <div v-if="inView(inPoint) && inPoint > 0" class="ev-trim-line ev-trim-line--in" :style="{ left: pct(inPoint) }" />
+        <div v-if="inView(outPoint) && outPoint < duration" class="ev-trim-line ev-trim-line--out" :style="{ left: pct(outPoint) }" />
 
         <div v-if="cursor !== null && inView(cursor)" class="ev-cursor-line" :style="{ left: pct(cursor) }" />
 
@@ -389,6 +391,8 @@ import {
   sortEvents,
   fillDefaults,
 } from '~/utils/events';
+import { waveformLanes, drawWaveformLanes, drawPlaybackMarkers } from '~/utils/waveformRender';
+import { useOutputTarget } from '~/composables/useOutputTarget';
 import Btn from './Btn.vue';
 import SchemaForm from './SchemaForm.vue';
 
@@ -402,6 +406,7 @@ const {
   refreshPlugins, testEvent,
 } = useEvents();
 const { activeCues } = useAudioEngine();
+const { levels: outputTargetLevels } = useOutputTarget();
 
 const NON_TIME_TRIGGERS: EventTrigger[] = ['start', 'pause', 'resume', 'end'];
 
@@ -473,7 +478,10 @@ const playhead = computed<number | null>(() => {
 });
 
 // ---- events ---------------------------------------------------------------
-const events = computed<ItemEvent[]>(() => props.item.events ?? []);
+const isEvent = (e: unknown): e is ItemEvent => !!e && typeof e === 'object';
+// A hand-edited file can hold a null among them; the server skips it, and so
+// does the editor rather than failing to render the whole tab.
+const events = computed<ItemEvent[]>(() => (props.item.events ?? []).filter(isEvent));
 const sortedEvents = computed(() => sortEvents(events.value));
 
 const selectedId = ref<string | null>(null);
@@ -572,10 +580,10 @@ const markerPalette = computed(() => {
     '--marker-light': rgbCss(light), '--marker-light-ink': inkFor(light),
   } as Record<string, string>;
 });
-const waveformColour = computed(() => {
+const waveformRgb = computed<Rgb>(() => {
   const c = trackRgb.value;
   const grey = Math.round(0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]);
-  return rgbCss(mix(c, grey, 0.5));
+  return mix(c, grey, 0.5);
 });
 
 // Flags that would overlap drop to the next lane down instead of covering
@@ -668,6 +676,8 @@ const commit = () => emit('change');
 
 function ensureEvents(): ItemEvent[] {
   if (!Array.isArray(props.item.events)) props.item.events = [];
+  // Edit the list that is shown: anything that isn't an event goes.
+  else if (!props.item.events.every(isEvent)) props.item.events = props.item.events.filter(isEvent);
   return props.item.events;
 }
 
@@ -950,6 +960,9 @@ function onMarkerCancel() {
 // The whole file, not the trimmed region the playlist rows show: event times
 // are file times, and an event in the trimmed-off part still has to be
 // visible to be moved back in.
+// How strongly the Playback tab's markers (fades, Start Next, trim points)
+// show here: present, but plainly not this tab's to edit.
+const GHOST_ALPHA = 0.45;
 function draw() {
   const canvas = canvasEl.value;
   const box = timelineEl.value;
@@ -970,28 +983,22 @@ function draw() {
   ctx.fillRect(0, 0, w, h);
 
   const dur = duration.value;
-  const peaks = props.item.waveform?.peaks;
   const mid = h / 2;
   const v0 = viewStart.value;
   const vis = visibleDuration.value;
   const xOf = (t: number) => ((t - v0) / vis) * w;
-  if (peaks && peaks.length > 0 && dur > 0 && vis > 0) {
-    ctx.fillStyle = waveformColour.value;
-    ctx.globalAlpha = 0.75;
-    // One bar per CSS pixel, the loudest peak in its span: a long file has
-    // far more peaks than pixels, and striding over them drops transients.
-    const n = peaks.length;
-    for (let x = 0; x < w; x++) {
-      const a = Math.floor(((v0 + (x / w) * vis) / dur) * n);
-      const b = Math.max(a + 1, Math.floor(((v0 + ((x + 1) / w) * vis) / dur) * n));
-      let m = 0;
-      for (let i = a; i < b && i < n; i++) if (peaks[i]! > m) m = peaks[i]!;
-      // Gamma 2, as the row waveforms: dynamics without loud tracks filling the box.
-      const v = Math.min(1, m);
-      const bh = Math.max(1, v * v * h * 0.9);
-      ctx.fillRect(x, mid - bh / 2, 1, bh);
-    }
-    ctx.globalAlpha = 1;
+  const view = { duration: dur, start: v0, end: v0 + vis, width: w, height: h };
+  const lanes = waveformLanes(props.item.waveform);
+  if (lanes.length > 0 && dur > 0 && vis > 0) {
+    // The Playback tab's waveform (utils/waveformRender): a stereo file as two
+    // lanes, the level after the cue's volume on the same loudness scale. Only
+    // the colour is this tab's own: the cue's, desaturated, so the event flags
+    // (the cue's colour at full strength) stand out against it.
+    drawWaveformLanes(ctx, lanes, view, {
+      volume: props.item.volume ?? 1,
+      targetDb: outputTargetLevels.value?.autoVolumeTargetDb ?? -23,
+      rgbFor: () => waveformRgb.value,
+    });
   } else {
     ctx.strokeStyle = css.getPropertyValue('--color-border').trim() || '#525252';
     ctx.beginPath();
@@ -1000,74 +1007,33 @@ function draw() {
     ctx.stroke();
   }
 
-  // Shade what the trim cuts off: events there exist but never fire.
+  // Shade what the trim cuts off, as the Playback tab does: events there exist
+  // but never fire.
   if (dur > 0 && vis > 0) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     const xi = Math.min(w, Math.max(0, xOf(inPoint.value)));
     const xo = Math.min(w, Math.max(0, xOf(outPoint.value)));
     if (xi > 0) ctx.fillRect(0, 0, xi, h);
     if (xo < w) ctx.fillRect(xo, 0, w - xo, h);
   }
 
-  // Fades, in the Playback tab's colours: the play fade and stop fade red,
-  // a crossfade yellow (the next cue's ramp dashed, crossing this one's),
-  // Start Next a green line. Ramps run between the flag rows.
+  // The Playback tab's markers, ghosted: there to place events against, but
+  // set in the Playback tab. Drawn on the canvas, so nothing here grabs them.
   if (dur > 0 && vis > 0) {
-    const top = 56, bottom = h - 30;   // between the top flags and the edge flags
-    const RED = '255, 77, 77', YELLOW = '255, 210, 63', GREEN = '74, 222, 128';
-    const ramp = (t0: number, t1: number, up: boolean, rgb: string, label: string, dashedReverse = false) => {
-      const x0 = xOf(t0), x1 = xOf(t1);
-      if (x1 < 0 || x0 > w || x1 - x0 < 1) return;
-      const y0 = up ? bottom : top, y1 = up ? top : bottom;
-      ctx.fillStyle = `rgba(${rgb}, 0.12)`;
-      ctx.beginPath();
-      ctx.moveTo(x0, bottom); ctx.lineTo(x0, y0); ctx.lineTo(x1, y1); ctx.lineTo(x1, bottom);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = `rgba(${rgb}, 0.9)`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-      if (dashedReverse) {
-        ctx.setLineDash([4, 3]);
-        ctx.beginPath(); ctx.moveTo(x0, y1); ctx.lineTo(x1, y0); ctx.stroke();
-        ctx.setLineDash([]);
-      }
-      ctx.lineWidth = 1;
-      ctx.font = '10px sans-serif';
-      const tw = ctx.measureText(label).width;
-      if (x1 - x0 > tw + 8) {
-        ctx.fillStyle = `rgba(${rgb}, 1)`;
-        ctx.fillText(label, Math.max(x0, 0) + 4, bottom - 4);
-      }
-    };
-    const playFade = Math.max(0, props.item.playFade || 0);
-    const stopFade = Math.max(0, props.item.stopFade || 0);
-    const loopXf = looping.value ? Math.max(0, props.item.loopCrossfade || 0) : 0;
-    if (playFade > 0)
-      ramp(inPoint.value, Math.min(outPoint.value, inPoint.value + playFade), true, RED,
-           t('waveform.playFadeTitle', { seconds: playFade.toFixed(1) }));
-    if (stopFade > 0 && !looping.value)
-      ramp(Math.max(inPoint.value, outPoint.value - stopFade), outPoint.value, false, RED,
-           t('waveform.stopFadeTitle', { seconds: stopFade.toFixed(1) }));
-    if (crossFadeSec.value > 0)
-      ramp(endFireTime.value, outPoint.value, false, YELLOW,
-           t('waveform.crossFadeTitle', { seconds: crossFadeSec.value.toFixed(1) }), true);
-    if (loopXf > 0)
-      ramp(Math.max(inPoint.value, outPoint.value - loopXf), outPoint.value, false, YELLOW,
-           `${t('properties.loopCrossfade')}: ${loopXf.toFixed(1)}s`, true);
-    if (startNextOn.value) {
-      const xs = xOf(props.item.startNextTime!);
-      if (xs >= 0 && xs <= w) {
-        ctx.strokeStyle = `rgba(${GREEN}, 0.9)`;
-        ctx.setLineDash([5, 3]);
-        ctx.beginPath(); ctx.moveTo(xs, 0); ctx.lineTo(xs, h); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = `rgba(${GREEN}, 1)`;
-        ctx.font = '10px sans-serif';
-        ctx.fillText(t('waveform.startNextTitle', { time: formatEventTime(props.item.startNextTime!) }),
-                     xs + 4, bottom - 4);
-      }
-    }
+    ctx.save();
+    ctx.globalAlpha = GHOST_ALPHA;
+    drawPlaybackMarkers(ctx, {
+      inPoint: inPoint.value,
+      outPoint: outPoint.value,
+      playFade: props.item.playFade,
+      stopFade: props.item.stopFade,
+      crossFade: props.item.crossFade,
+      startNextEnabled: props.item.startNextEnabled,
+      startNextTime: props.item.startNextTime || 0,
+      startNextFadeOut: props.item.startNextFadeOut,
+      fadeOutDuration: props.item.fadeOutDuration,
+    }, view);
+    ctx.restore();
   }
 
   // Time ticks along the bottom, at whichever round step lands ~80px apart.
@@ -1100,10 +1066,11 @@ const scheduleDraw = () => {
 };
 
 watch(
-  () => [props.item.waveform, props.item.color, inPoint.value, outPoint.value, duration.value,
-         zoom.value, viewStart.value, props.item.playFade, props.item.stopFade, props.item.crossFade,
-         props.item.loopCrossfade, props.item.startNextEnabled, props.item.startNextTime,
-         props.item.endBehavior?.action],
+  () => [props.item.waveform, props.item.color, props.item.volume, inPoint.value, outPoint.value,
+         duration.value, zoom.value, viewStart.value, props.item.playFade, props.item.stopFade,
+         props.item.crossFade, props.item.startNextEnabled, props.item.startNextTime,
+         props.item.startNextFadeOut, props.item.fadeOutDuration,
+         outputTargetLevels.value?.autoVolumeTargetDb],
   scheduleDraw,
 );
 
@@ -1283,9 +1250,14 @@ onBeforeUnmount(() => {
   top: 0;
   bottom: 0;
   width: 0;
-  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  border-left: 2px solid rgba(255, 255, 255, 0.35);
+  margin-left: -1px;
   pointer-events: none;
 }
+/* The Playback tab's in (green) and out (red) handle lines, at the ghost
+   strength the canvas uses for its markers (GHOST_ALPHA). */
+.ev-trim-line--in  { border-left-color: rgba(34, 197, 94, 0.45); }
+.ev-trim-line--out { border-left-color: rgba(239, 68, 68, 0.45); }
 
 /* Marker colours come from the cue's colour (markerPalette): darker normally,
    lighter and outlined when selected. */

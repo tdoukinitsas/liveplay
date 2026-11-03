@@ -168,7 +168,7 @@ export function eventActions(plugin: PluginSchema | null | undefined): ActionSch
 /** Deep copies with fresh ids, for an item cloned from another. */
 export function copyEventsWithNewIds(events: ItemEvent[] | undefined): ItemEvent[] | undefined {
   if (!Array.isArray(events)) return events;
-  return events.map(ev => ({ ...clone(ev), id: uuidv4() }));
+  return events.filter(ev => ev && typeof ev === 'object').map(ev => ({ ...clone(ev), id: uuidv4() }));
 }
 
 // ---- Localising plugin schemas ----------------------------------------------

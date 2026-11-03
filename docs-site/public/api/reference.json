@@ -1319,7 +1319,7 @@
       "response": {
         "ok": true
       },
-      "notes": "Empty body is accepted. Stops Preview only if settings.stopAllStopsPreview is true (default true). Does not clear PFL. Negative fade values are clamped by project state.",
+      "notes": "Empty body is accepted. Stops Preview only if settings.stopAllStopsPreview is true (default true). Does not clear PFL. Negative fade values are clamped by project state. The stopped cues fire their end events only if settings.stopAllFiresEvents is true (default false), and those may not start or resume a cue. A Stop All that arrives while the previous one is still fading, or within 0.5 s of an instant one, from any client, is a panic (see /api/transport/panic).",
       "errors": [
         [
           "400",
@@ -1327,6 +1327,24 @@
         ]
       ],
       "sourceLine": 2956
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/transport/panic",
+      "title": "Panic: stop every cue now and kill every event",
+      "category": "Transport and selection",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": {},
+      "response": {
+        "ok": true
+      },
+      "notes": "Stops every cue at once (no fade). Kills every event: scheduled markers, jobs queued on plugin lanes, and fades events started (they stop where they are). No stopped cue fires an end event, whatever settings.stopAllFiresEvents says. The preview follows settings.stopAllStopsPreview, as for Stop All. The same as pressing Stop All twice.",
+      "errors": [],
+      "sourceLine": 3245
     },
     {
       "methods": [
@@ -1595,7 +1613,7 @@
           "audioTotal": 0
         }
       },
-      "notes": "Document-shaped response, not a fixed whitelist. Example is abbreviated; derived outputTargetLevels and live cueId annotations are included by the server.",
+      "notes": "Document-shaped response, not a fixed whitelist. Example is abbreviated; derived outputTargetLevels and live cueId annotations are included by the server. For an API token, HTTP connections' header values in eventConnections are hidden.",
       "errors": [],
       "sourceLine": 4155,
       "responseSchema": "ProjectDocument"
@@ -1634,7 +1652,7 @@
           "audioTotal": 0
         }
       },
-      "notes": "No items or buses array. settings includes derived outputTargetLevels (omitted in this example for space). Fetch buses separately.",
+      "notes": "No items or buses array. settings includes derived outputTargetLevels (omitted in this example for space). Fetch buses separately. For an API token, HTTP connections' header values in eventConnections are hidden.",
       "errors": [],
       "sourceLine": 4162,
       "responseSchema": "ProjectHeader"
@@ -5255,7 +5273,7 @@
       "title": "Relink missing media from a folder",
       "category": "Filesystem and media",
       "auth": "Operator",
-      "apiToken": "Yes",
+      "apiToken": "No",
       "fields": [
         [
           "folder",
@@ -5360,7 +5378,7 @@
           }
         ]
       },
-      "notes": "The project's eventConnections.",
+      "notes": "The project's eventConnections. For an API token, an HTTP connection's header values are hidden as \"••••••\" (the header names stay).",
       "errors": []
     },
     {
@@ -5399,7 +5417,7 @@
         "ok": true,
         "connections": []
       },
-      "notes": "Stores the list in the project document and broadcasts event_connections_changed. A full-document PUT that omits eventConnections keeps the current list.",
+      "notes": "Stores the list in the project document and broadcasts event_connections_changed. A full-document PUT that omits eventConnections keeps the current list. API-token sessions receive the response and the broadcast with HTTP header values hidden; a header value sent back exactly as it was hidden keeps the stored one.",
       "errors": [
         [
           "400",
@@ -5458,7 +5476,7 @@
         "ok": false,
         "error": "connection not found"
       },
-      "notes": "Runs synchronously and reports the plugin's result. Always 200 for a well-formed request; failure is ok=false with error.",
+      "notes": "Runs synchronously and reports the plugin's result. Always 200 for a well-formed request; failure is ok=false with error. Exception: 403 when an API token tests an unsaved (draft) HTTP connection; a saved connection may be tested.",
       "errors": [
         [
           "400",
@@ -6248,6 +6266,13 @@
           "No",
           "true",
           "Include pre-listen in Stop All."
+        ],
+        [
+          "stopAllFiresEvents",
+          "boolean",
+          "No",
+          "false",
+          "The cues Stop All stops fire their end events (never on a panic)."
         ],
         [
           "disableAutoVolumeAndTrim, disableSilenceWarning",

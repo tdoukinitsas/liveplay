@@ -153,6 +153,8 @@
     "sectionServerHelp": "Servern som appen är ansluten till och, för administratörer, dess konfiguration.",
     "sectionUsers": "Konton",
     "sectionUsersHelp": "Vem som får använda den här servern och vad de får ändra.",
+    "stopAllFiresEvents": "Stoppa allt utlöser ”Vid slut”-händelser",
+    "stopAllFiresEventsHelp": "När detta är avstängt utlöser köer som Stoppa allt stoppar inga ”Vid slut”-händelser. När det är på gör de det, men ingen kan starta en annan kö. Att trycka på Stoppa allt igen innan det är klart är panik: allt stoppas direkt och ingen händelse utlöses.",
     "stopAllStopsPreview": "Stoppa allt stoppar även förlyssningen",
     "stopAllStopsPreviewHelp": "När detta är avstängt stoppar Stoppa allt inte en kö som du förlyssnar på.",
     "sectionAppearance": "Utseende",

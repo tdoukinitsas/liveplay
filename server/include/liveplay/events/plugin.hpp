@@ -34,6 +34,11 @@ struct FireContext {
     std::string event_id;
     std::string trigger;     // time | start | end | pause | resume | test
     double      time = 0.0;  // the marker's file time, for "time" events
+    // The cues whose events led straight here, oldest first, ending with
+    // item_uuid. An event fired by the sequencer or the operator starts a new
+    // chain; one fired because another event played or stopped its cue
+    // extends it. Playing a cue already in it would start an endless loop.
+    std::vector<std::string> chain;
 };
 
 // One unit of work, already resolved. The plugin never looks anything up in
@@ -86,8 +91,9 @@ public:
     virtual json buses() = 0;
     // Logical output names a bus can be routed to.
     virtual std::vector<std::string> outputs() = 0;
-    // For the steps of a fade: gainDb, pan or dsp heard at once, but neither
-    // saved nor sent to the clients. Follow with patch_bus at the end.
+    // For the steps of a fade: gainDb, pan, dsp, or one send as
+    // "send": { id, levelDb }, heard at once but neither saved nor sent to the
+    // clients. Follow with patch_bus at the end.
     virtual bool set_bus_live(const std::string& id, const json& patch) = 0;
     // A lasting change (any PATCH /api/buses field): saved in the project and
     // sent to every client. Returns "" or why the mixer refused it.
@@ -136,6 +142,11 @@ public:
     // Release sockets, ports and threads. Called once at shutdown, after the
     // last execute() has returned. Optional.
     virtual void stop() {}
+
+    // The show was closed or another one opened: drop whatever the old show
+    // still has under way (a fade, say), or it carries on into the new one.
+    // Unlike stop(), the plugin keeps working afterwards. Optional.
+    virtual void reset() {}
 
     // ---- Optional capabilities (docs/EVENT_PLUGINS.md, "Capabilities") ----
 

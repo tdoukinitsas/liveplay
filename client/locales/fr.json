@@ -153,6 +153,8 @@
     "sectionServerHelp": "Le serveur auquel cette application est connectée et, pour les administrateurs, sa configuration.",
     "sectionUsers": "Comptes",
     "sectionUsersHelp": "Qui peut utiliser ce serveur et ce que chacun peut modifier.",
+    "stopAllFiresEvents": "« Tout arrêter » déclenche les événements « À la fin »",
+    "stopAllFiresEventsHelp": "Si désactivé, les cues arrêtés par « Tout arrêter » ne déclenchent aucun événement « À la fin ». Si activé, ils les déclenchent, mais aucun ne peut lancer un autre cue. Appuyer de nouveau sur « Tout arrêter » avant qu’il ait fini est une panique : tout s’arrête aussitôt et aucun événement n’est déclenché.",
     "stopAllStopsPreview": "« Tout arrêter » arrête aussi la pré-écoute",
     "stopAllStopsPreviewHelp": "Si désactivé, « Tout arrêter » n’arrête pas un cue que vous êtes en train de pré-écouter.",
     "sectionAppearance": "Apparence",

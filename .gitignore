@@ -52,3 +52,8 @@ server/CMakeCache.txt
 server/CMakeFiles/
 server/compile_commands.json
 server/.vs/
+
+# ---------------------------------------------------------------------------
+# Local Dev
+# ---------------------------------------------------------------------------
+audit-*/

@@ -73,8 +73,13 @@ export const useEvents = () => {
   const tr = (key: string) => { const v = t(key); return v === key ? undefined : v; };
   const localizedPlugins = computed<PluginSchema[]>(() => plugins.value.map(p => localizeSchema(p, tr)));
 
-  const connections = computed<EventConnection[]>(
-    () => currentProject.value?.eventConnections ?? []);
+  // The server cleans what it stores, but an older server (or a document it
+  // hasn't touched since) can still hand over an entry that isn't an object,
+  // or has no name, and the editors would throw on it.
+  const connections = computed<EventConnection[]>(() =>
+    (currentProject.value?.eventConnections ?? [])
+      .filter((c: any) => c && typeof c === 'object')
+      .map((c: any) => (typeof c.name === 'string' ? c : { ...c, name: '' })));
 
   async function refreshPlugins(): Promise<void> {
     // Opening the tab and the pane together would otherwise ask twice.

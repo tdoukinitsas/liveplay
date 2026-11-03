@@ -190,6 +190,9 @@ private:
     // call this with a doc_patch payload so every connected client mirrors
     // the change. Defined in control_server.cpp where Impl is complete.
     void broadcast_doc_patch(const nlohmann::json& payload);
+    // event_connections_changed, with secrets hidden from API-token sessions
+    // (ProjectState::redact_event_connections).
+    void broadcast_event_connections(const nlohmann::json& connections);
 
     // ---- User preferences (U4) -------------------------------------------
     // Collect the meter unit every connected session has chosen and hand the

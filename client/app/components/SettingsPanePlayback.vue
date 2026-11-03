@@ -63,6 +63,20 @@
       <p class="settings-help">{{ t('settings.stopAllStopsPreviewHelp') }}</p>
     </section>
 
+    <!-- #23: the cues Stop All stops fire their "On end" events only when this
+         is on; the double-tap panic never fires any (the server decides). -->
+    <section class="settings-field">
+      <label class="settings-label settings-label--checkbox">
+        <input
+          type="checkbox"
+          :checked="stopAllFiresEvents"
+          @change="onStopAllFiresEventsChange"
+        />
+        {{ t('settings.stopAllFiresEvents') }}
+      </label>
+      <p class="settings-help">{{ t('settings.stopAllFiresEventsHelp') }}</p>
+    </section>
+
     <section class="settings-field">
       <label class="settings-label settings-label--checkbox">
         <input
@@ -104,6 +118,8 @@ const autoCueNextWithoutEndBehavior = computed(
 );
 // Defaults ON: Stop All is a panic button. (#60)
 const stopAllStopsPreview = computed(() => settings.value.stopAllStopsPreview !== false);
+// Defaults OFF: Stop All silences events too.
+const stopAllFiresEvents = computed(() => settings.value.stopAllFiresEvents === true);
 const stopAllFadeSeconds = computed(() => {
   const ms = settings.value.stopAllFadeMs;
   return (typeof ms === 'number' ? ms : 1000) / 1000;
@@ -122,6 +138,9 @@ function onStopAllFadeChange(e: Event) {
 }
 function onStopAllStopsPreviewChange(e: Event) {
   applyPatch({ stopAllStopsPreview: (e.target as HTMLInputElement).checked });
+}
+function onStopAllFiresEventsChange(e: Event) {
+  applyPatch({ stopAllFiresEvents: (e.target as HTMLInputElement).checked });
 }
 function onDisableAutoVolumeAndTrimChange(e: Event) {
   applyPatch({ disableAutoVolumeAndTrim: (e.target as HTMLInputElement).checked });
