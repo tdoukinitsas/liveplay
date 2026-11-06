@@ -721,7 +721,8 @@
     "playNext": "다음 재생",
     "volumeMultiplier": "볼륨 배율",
     "volumeMultiplierHint": "MIDI 한 단계당 dB 값입니다. 작은 단위로 움직이는 인코더나 휠에서는 값을 높이세요.",
-    "nextIn": "{seconds}초 후 다음"
+    "nextIn": "{seconds}초 후 다음",
+    "stopCurrentCue": "현재 큐 정지"
   },
   "selectProject": {
     "title": "프로젝트 선택",

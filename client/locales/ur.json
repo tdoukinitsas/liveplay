@@ -721,7 +721,8 @@
     "playNext": "اگلا چلائیں",
     "volumeMultiplier": "والیوم ملٹی پلائر",
     "volumeMultiplierHint": "فی MIDI قدم dB۔ چھوٹے قدموں میں چلنے والے انکوڈرز یا وہیلز کے لیے بڑھائیں۔",
-    "nextIn": "{seconds} سیکنڈ میں اگلا"
+    "nextIn": "{seconds} سیکنڈ میں اگلا",
+    "stopCurrentCue": "موجودہ کیو روکیں"
   },
   "selectProject": {
     "title": "پروجیکٹ منتخب کریں",

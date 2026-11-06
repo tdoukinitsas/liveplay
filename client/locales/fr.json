@@ -721,7 +721,8 @@
     "playNext": "Lire le suivant",
     "volumeMultiplier": "Multiplicateur de volume",
     "volumeMultiplierHint": "dB par pas MIDI. Augmentez-le pour les encodeurs ou molettes qui avancent par petits pas.",
-    "nextIn": "Suivant dans {seconds}s"
+    "nextIn": "Suivant dans {seconds}s",
+    "stopCurrentCue": "Arrêter le cue en cours"
   },
   "selectProject": {
     "title": "Sélectionner un projet",

@@ -721,7 +721,8 @@
     "playNext": "Spill neste",
     "volumeMultiplier": "Volummultiplikator",
     "volumeMultiplierHint": "dB per MIDI-trinn. Øk den for enkodere eller hjul som beveger seg i små trinn.",
-    "nextIn": "Neste om {seconds} s"
+    "nextIn": "Neste om {seconds} s",
+    "stopCurrentCue": "Stopp gjeldende cue"
   },
   "selectProject": {
     "title": "Velg prosjekt",
