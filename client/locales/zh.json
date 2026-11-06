@@ -721,7 +721,8 @@
     "playNext": "播放下一个",
     "volumeMultiplier": "音量倍数",
     "volumeMultiplierHint": "每个 MIDI 步进对应的 dB 数。对于步进很小的编码器或滚轮，请调高此值。",
-    "nextIn": "{seconds} 秒后下一个"
+    "nextIn": "{seconds} 秒后下一个",
+    "stopCurrentCue": "停止当前 Cue"
   },
   "selectProject": {
     "title": "选择项目",

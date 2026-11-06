@@ -721,7 +721,8 @@
     "playNext": "次を再生",
     "volumeMultiplier": "音量倍率",
     "volumeMultiplierHint": "MIDI の 1 ステップあたりの dB 値です。細かいステップで動くエンコーダーやホイールでは値を上げてください。",
-    "nextIn": "次まで {seconds} 秒"
+    "nextIn": "次まで {seconds} 秒",
+    "stopCurrentCue": "現在のキューを停止"
   },
   "selectProject": {
     "title": "プロジェクトを選択",

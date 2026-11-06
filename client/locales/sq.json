@@ -721,7 +721,8 @@
     "playNext": "Luaj pasuesin",
     "volumeMultiplier": "Shumëzuesi i volumit",
     "volumeMultiplierHint": "dB për çdo hap MIDI. Rriteni për enkoderë ose rrota që lëvizin me hapa të vegjël.",
-    "nextIn": "Tjetri pas {seconds} s"
+    "nextIn": "Tjetri pas {seconds} s",
+    "stopCurrentCue": "Ndalo cue-n aktual"
   },
   "selectProject": {
     "title": "Zgjidhni projektin",

@@ -178,6 +178,13 @@ export const useCartHotkeys = () => {
       return;
     }
 
+    if (action === 'stop-current-cue') {
+      const item = getTargetItem();
+      if (!item || !activeCues.value.has(item.uuid)) return;
+      stopCue(item.uuid);
+      return;
+    }
+
     if (action === 'stop-all') {
       stopAllCues();
       return;

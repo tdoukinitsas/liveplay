@@ -721,7 +721,8 @@
     "playNext": "Sonrakini oynat",
     "volumeMultiplier": "Ses çarpanı",
     "volumeMultiplierHint": "MIDI adımı başına dB. Küçük adımlarla hareket eden enkoderler veya tekerlekler için artırın.",
-    "nextIn": "Sonraki: {seconds} sn"
+    "nextIn": "Sonraki: {seconds} sn",
+    "stopCurrentCue": "Geçerli cue'yu durdur"
   },
   "selectProject": {
     "title": "Proje Seç",
