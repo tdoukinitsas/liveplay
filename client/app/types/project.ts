@@ -657,7 +657,6 @@ export const DEFAULT_CART_SLOT_KEYS: Record<number, CartSlotKeyBinding> = {};
 export const DEFAULT_PLAYBACK_KEYS: Partial<Record<PlaybackKeyAction, CartSlotKeyBinding>> = {
   'play-next':     { key: ' ',         ctrlKey: false, shiftKey: false, altKey: false },
   'pause-resume':  { key: 'p',         ctrlKey: false, shiftKey: false, altKey: false },
-  'stop-current':  { key: 's',         ctrlKey: false, shiftKey: false, altKey: false },
   'stop-all':      { key: 'Escape',    ctrlKey: false, shiftKey: false, altKey: false },
   'select-up':     { key: 'ArrowUp',   ctrlKey: false, shiftKey: false, altKey: false },
   'select-down':   { key: 'ArrowDown', ctrlKey: false, shiftKey: false, altKey: false },
