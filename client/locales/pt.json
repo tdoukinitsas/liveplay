@@ -697,6 +697,7 @@
     "toggleLoop": "Alternar loop",
     "cueToContinue": "Avançar à deixa",
     "jumpCue": "Jump Cue",
+    "stopCurrentCue": "Parar cue atual",
     "stopAll": "Parar tudo",
     "selectUp": "Selecionar acima",
     "selectDown": "Selecionar abaixo",
