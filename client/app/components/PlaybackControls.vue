@@ -7,16 +7,17 @@
         @click="handlePlayNext"
         :disabled="!effectiveNextUuid"
         :title="playNextTooltip"
+        :aria-label="playNextTooltip"
       >
         <span class="material-symbols-rounded">fast_forward</span>
-        <span>{{ t('controls.playNext') }}</span>
+        <span class="control-label">{{ t('controls.playNext') }}</span>
         <span v-if="nextInSeconds !== null" class="next-in-badge">
           {{ t('controls.nextIn', { seconds: nextInSeconds }) }}
         </span>
       </button>
-      <button class="control-btn panic-btn" @click="handlePanic" :disabled="activeCues.size === 0 && !previewingItem" :title="stopAllTooltip">
+      <button class="control-btn panic-btn" @click="handlePanic" :disabled="activeCues.size === 0 && !previewingItem" :title="stopAllTooltip" :aria-label="stopAllTooltip">
         <span class="icon">⚠</span>
-        <span>{{ t('playback.panic') }}</span>
+        <span class="control-label">{{ t('playback.panic') }}</span>
       </button>
     </div>
     
@@ -328,6 +329,8 @@ const handlePlayNext = () => {
 
 <style scoped>
 .playback-controls {
+  container-type: inline-size;
+  container-name: playback-controls;
   height: var(--playback-controls-height);
   border-bottom: 1px solid var(--color-border);
   display: flex;
@@ -613,5 +616,39 @@ const handlePlayNext = () => {
   font-size: 11px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+@container playback-controls (max-width: 1050px) {
+  .preview-cue-card,
+  &.show-mode .preview-cue-card {
+    width: min(320px, 100%);
+    min-width: 0;
+    max-width: 320px;
+  }
+
+  .controls-left {
+    gap: var(--spacing-xs);
+  }
+
+  .control-btn {
+    width: 72px;
+    height: 56px;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    justify-content: center;
+  }
+
+  &.show-mode .control-btn {
+    width: 72px;
+    height: 56px;
+    min-height: 0;
+    padding: 0;
+  }
+
+  .control-label,
+  .next-in-badge {
+    display: none;
+  }
 }
 </style>

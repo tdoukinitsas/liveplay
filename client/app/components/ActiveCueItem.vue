@@ -503,4 +503,24 @@ const formatTime = (seconds: number): string => {
   transition: opacity var(--transition-fast);
   pointer-events: none;
 }
+
+@container playback-controls (max-width: 1050px) {
+  .active-cue-item {
+    width: min(320px, 100%);
+    min-width: 0;
+    max-width: 320px;
+    flex: 0 0 min(320px, 100%);
+  }
+
+  .cue-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .cue-actions {
+    align-self: flex-end;
+  }
+}
 </style>

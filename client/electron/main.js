@@ -1489,23 +1489,15 @@ let mixerWindow = null;       // Detached mixer window
 // CSS breakpoint and vh unit in the layout is measured against the page, not
 // the frame. With it, the numbers mean what the stylesheets assume.
 //
-// Sized so the app FITS a 1366x768 laptop panel, which is the smallest screen
-// it is expected to run on.
+// Keep the window usable beside another app on common laptop displays. The
+// workspace scrolls internally when its available height is below the preferred layout.
 //
-// These are CONTENT dimensions (useContentSize), which is the whole reason the
-// numbers look odd: on Windows the frame and title bar add roughly 15x64, so
-// 1350x690 content is about 1365x754 outer, and a 768px-tall screen leaves
-// roughly 720px once the taskbar is out. Setting the minimum to 1366x768
-// content — the obvious-looking choice, and what was briefly here — yields a
-// ~1381x832 window and locks that laptop out entirely. So does the 1280x720
-// this replaced, which measured ~1295x784.
-//
-// 690px of content height is below the channel view's comfortable three-column
-// height, and that is fine rather than an oversight: the work area scrolls and
-// the dynamics panel scrolls inside it, so a short window is cramped instead of
-// broken. The floor exists to keep the layout usable, not to guarantee every
-// panel its full height.
-const MIN_WINDOW = { minWidth: 1350, minHeight: 690, useContentSize: true };
+// These are CONTENT dimensions (useContentSize); on Windows the frame and title
+// bar add roughly 15x64. Keep the minimum width small enough for a half-screen
+// window on common displays. Below 1350px the mixer stacks and scrolls its
+// channel sections, which is less comfortable but still usable beside another
+// app. The 690px height floor keeps the main work area usable on short screens.
+const MIN_WINDOW = { minWidth: 600, minHeight: 690, useContentSize: true };
 
 // Flatten all audio items from a nested project items array
 function flattenAudioItems(items) {
@@ -1882,10 +1874,8 @@ function createWindow() {
   const { maximized, ...geom } = savedWindowBounds('main', { width: 1400, height: 900 });
   mainWindow = new BrowserWindow({
     ...geom,
-    // The floor the layouts are designed against. The mixer's channel view in
-    // particular assumes it can put a channel column, an EQ and a dynamics
-    // section side by side; below this it degrades to stacked, scrolling
-    // sections, which works but is not what anyone should be running a show on.
+    // Keep the window compact enough for side-by-side use. At narrower sizes,
+    // the mixer channel view stacks and scrolls its sections instead.
     ...MIN_WINDOW,
     icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
     webPreferences: {
