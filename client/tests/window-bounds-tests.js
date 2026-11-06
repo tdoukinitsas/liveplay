@@ -57,6 +57,8 @@ function liftConst(name) {
 const SRC_SAVED = lift('savedWindowBounds');
 const SRC_ENTRY = lift('windowBoundsEntry');
 const SRC_ISPOS = liftConst('isPositiveInt');
+const SRC_MIN_WINDOW = liftConst('MIN_WINDOW');
+const MIN_WINDOW = new Function(`${SRC_MIN_WINDOW}\nreturn MIN_WINDOW;`)();
 
 // One display: 1920x1080 less a taskbar. Two: the second to the right, larger.
 const ONE = [{ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }];
@@ -96,6 +98,12 @@ const ok = (name, pass, detail) => {
 };
 
 const DEF = { width: 1400, height: 900 };
+// The main window uses content-size bounds; account for the Windows frame.
+const HALF_SCREEN_CONTENT_1366 = Math.floor(1366 / 2) - 15;
+
+ok('main window minimum allows half-screen use on a 1366px display',
+   MIN_WINDOW.minWidth <= HALF_SCREEN_CONTENT_1366,
+   `${MIN_WINDOW.minWidth}px content minimum vs ${HALF_SCREEN_CONTENT_1366}px available`);
 
 // =====================================================================
 // savedWindowBounds — what a window opens with

@@ -14,13 +14,21 @@
       </div>
     </div>
     
-    <div ref="scrollContainer" class="playlist-content" @drop="handleDrop" @dragover.prevent>
+    <div
+      ref="scrollContainer"
+      class="playlist-content"
+      @drop="handleDrop"
+      @dragover.prevent
+      @pointerenter="pointerOverPlaylist = true"
+      @pointerleave="pointerOverPlaylist = false"
+      @wheel="handlePlaylistZoomWheel"
+    >
       <div v-if="currentProject?.items.length === 0" class="empty-state">
         <p>{{ t('playlist.noItems') }}</p>
         <p class="hint">{{ t('playlist.importHint') }}</p>
       </div>
       
-      <div v-else class="item-list">
+      <div v-else class="item-list" :style="{ '--playlist-item-scale': playlistZoom }">
         <PlaylistItem
           v-for="item in visibleItems"
           :key="item.uuid"
@@ -71,6 +79,70 @@ const { revealSelection, commitReveal, clearReveals } = usePlaylistReveal();
 const selectedItemUuid = useState<string | null>('selectedItemUuid', () => null);
 const showMode = computed(() => uiMode.value === 'playback');
 const scrollContainer = ref<HTMLElement | null>(null);
+const PLAYLIST_ZOOM_KEY = 'liveplay.playlistZoom';
+const DEFAULT_PLAYLIST_ZOOM = 1;
+const MIN_PLAYLIST_ZOOM = 0.6;
+const MAX_PLAYLIST_ZOOM = 1.4;
+const PLAYLIST_ZOOM_STEP = 0.05;
+const ZOOM_WHEEL_DELTA = 80;
+const playlistZoom = ref(DEFAULT_PLAYLIST_ZOOM);
+const pointerOverPlaylist = ref(false);
+let wheelZoomDelta = 0;
+
+const clampPlaylistZoom = (value: number): number =>
+  Number.isFinite(value)
+    ? Number(Math.min(MAX_PLAYLIST_ZOOM, Math.max(MIN_PLAYLIST_ZOOM, value)).toFixed(2))
+    : DEFAULT_PLAYLIST_ZOOM;
+
+const setPlaylistZoom = (value: number) => {
+  playlistZoom.value = clampPlaylistZoom(
+    Math.round(value / PLAYLIST_ZOOM_STEP) * PLAYLIST_ZOOM_STEP,
+  );
+  try { localStorage.setItem(PLAYLIST_ZOOM_KEY, String(playlistZoom.value)); } catch { /* ignore */ }
+};
+
+const handlePlaylistZoomWheel = (event: WheelEvent) => {
+  if (!event.ctrlKey && !event.metaKey) return;
+  event.preventDefault();
+  wheelZoomDelta += event.deltaY;
+  const steps = Math.trunc(wheelZoomDelta / ZOOM_WHEEL_DELTA);
+  if (steps === 0) return;
+  wheelZoomDelta -= steps * ZOOM_WHEEL_DELTA;
+  setPlaylistZoom(playlistZoom.value - steps * PLAYLIST_ZOOM_STEP);
+};
+
+const handlePlaylistZoomKeydown = (event: KeyboardEvent) => {
+  if (!pointerOverPlaylist.value || (!event.ctrlKey && !event.metaKey)) return;
+  if (document.activeElement?.matches('input, textarea, select, [contenteditable]')) return;
+
+  if (event.key === '0' || event.code === 'Numpad0') {
+    setPlaylistZoom(DEFAULT_PLAYLIST_ZOOM);
+  } else if (['+', '='].includes(event.key) || event.code === 'NumpadAdd') {
+    setPlaylistZoom(playlistZoom.value + PLAYLIST_ZOOM_STEP);
+  } else if (['-', '_'].includes(event.key) || event.code === 'NumpadSubtract') {
+    setPlaylistZoom(playlistZoom.value - PLAYLIST_ZOOM_STEP);
+  } else {
+    return;
+  }
+
+  event.preventDefault();
+};
+
+const handlePlaylistZoomStorage = (event: StorageEvent) => {
+  if (event.key !== PLAYLIST_ZOOM_KEY) return;
+  playlistZoom.value = event.newValue === null
+    ? DEFAULT_PLAYLIST_ZOOM
+    : clampPlaylistZoom(Number(event.newValue));
+};
+
+onMounted(() => {
+  try {
+    const stored = localStorage.getItem(PLAYLIST_ZOOM_KEY);
+    if (stored !== null) playlistZoom.value = clampPlaylistZoom(Number(stored));
+  } catch { /* ignore */ }
+  window.addEventListener('keydown', handlePlaylistZoomKeydown, true);
+  window.addEventListener('storage', handlePlaylistZoomStorage);
+});
 
 // Auto-process only items that were just imported this session (marked by
 // addItem). Consumes the mark so it never runs twice for the same item.
@@ -208,6 +280,8 @@ watch(nextItemOverrideUuid, (uuid) => {
 
 onUnmounted(() => {
   if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
+  window.removeEventListener('keydown', handlePlaylistZoomKeydown, true);
+  window.removeEventListener('storage', handlePlaylistZoomStorage);
 });
 
 // Queue waveform generation for every audio item that lacks peaks.
@@ -710,12 +784,12 @@ const handleDrop = async (e: DragEvent) => {
 .item-list {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: calc(var(--spacing-xs) * var(--playlist-item-scale, 1));
 }
 
 .item-list-progress {
-  padding: var(--spacing-sm) var(--spacing-md);
-  font-size: 12px;
+  padding: calc(var(--spacing-sm) * var(--playlist-item-scale, 1)) calc(var(--spacing-md) * var(--playlist-item-scale, 1));
+  font-size: calc(12px * var(--playlist-item-scale, 1));
   color: var(--color-text-secondary);
   text-align: center;
   opacity: 0.7;
