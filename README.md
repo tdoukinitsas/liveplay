@@ -51,6 +51,8 @@ See [packaging and signing](SIGNING.md) for contributor details.
 6. Check the output meters and audition through the Preview output.
 7. Save the project, then switch to **Show Mode** for playback.
 
+To resize playlist rows without changing the window or playlist width, hover over the playlist and use **Ctrl/Cmd + mouse wheel** or **Ctrl/Cmd + Plus/Minus**. Use **Ctrl/Cmd + 0** to reset to 100%. This scale is saved locally on the current computer.
+
 ## Important settings
 
 | Setting | What to check |

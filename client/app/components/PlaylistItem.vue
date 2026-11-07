@@ -100,10 +100,6 @@
           @click.stop
         >bomb</span>
 
-        <span v-if="isPlaying" class="status-pill playing">{{ t('status.playing') }}</span>
-        <span v-else-if="isQueuedNext" class="status-pill up-next">{{ t('status.upNext') }}</span>
-        <span v-if="isPreviewing" class="status-pill preview">{{ t('status.previewing') }}</span>
-
         <!-- Behavior indicators (for audio items) -->
         <div v-if="item.type === 'audio'" class="behavior-indicators">
           <!-- Start behavior -->
@@ -160,6 +156,9 @@
           >replay</span>
         </div>
         
+        <span v-if="isPlaying" class="status-pill playing">{{ t('status.playing') }}</span>
+        <span v-else-if="isQueuedNext" class="status-pill up-next">{{ t('status.upNext') }}</span>
+        <span v-if="isPreviewing" class="status-pill preview">{{ t('status.previewing') }}</span>
         <span v-if="item.type === 'audio'" class="item-duration">{{ durationDisplay }}</span>
         <!-- A group's run time, the sum of what it will play (#63): visible
              collapsed, so a walk-in or interval playlist can be sized at a
@@ -910,7 +909,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 <style scoped>
 .playlist-item {
   border-radius: var(--border-radius-sm);
-  margin-bottom: var(--spacing-xs);
+  margin-bottom: calc(var(--spacing-xs) * var(--playlist-item-scale, 1));
   transition: all var(--transition-fast);
   position: relative;
   overflow: hidden;
@@ -1006,8 +1005,9 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-sm) var(--spacing-md);
-  min-height: 44px;
+  font-size: calc(1rem * var(--playlist-item-scale, 1));
+  padding: calc(var(--spacing-sm) * var(--playlist-item-scale, 1)) calc(var(--spacing-md) * var(--playlist-item-scale, 1));
+  min-height: calc(44px * var(--playlist-item-scale, 1));
   position: relative;
   z-index: 5;
   cursor: pointer;
@@ -1016,7 +1016,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 .item-left {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: calc(var(--spacing-sm) * var(--playlist-item-scale, 1));
   flex: 1;
   z-index: 5;
   min-width: 0;
@@ -1049,7 +1049,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
-  margin: 0 var(--spacing-sm);
+  margin: 0 calc(var(--spacing-sm) * var(--playlist-item-scale, 1));
 }
 .item-timecol .item-duration { margin: 0; }
 /* tabular-nums so the counter does not jitter sideways as it counts up, the
@@ -1062,12 +1062,12 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .expand-btn {
-  width: 20px;
-  height: 20px;
+  width: calc(20px * var(--playlist-item-scale, 1));
+  height: calc(20px * var(--playlist-item-scale, 1));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: calc(12px * var(--playlist-item-scale, 1));
   color: var(--color-text-secondary);
   
   &:hover {
@@ -1079,7 +1079,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   font-size: 12px;
   font-size: 1.5em;
   color: var(--color-text-secondary);
-  min-width: 40px;
+  min-width: calc(40px * var(--playlist-item-scale, 1));
 }
 
 .item-icon {
@@ -1089,7 +1089,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   color: var(--color-text-secondary);
   
   .material-symbols-rounded {
-    font-size: 20px;
+    font-size: calc(20px * var(--playlist-item-scale, 1));
   }
 }
 
@@ -1117,7 +1117,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .peak-warning-icon {
-  font-size: 18px;
+  font-size: calc(18px * var(--playlist-item-scale, 1));
   color: #ff3b5c;
   flex-shrink: 0;
   cursor: help;
@@ -1127,8 +1127,8 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 /* D19: bus-routing badge — a small coloured dot shown only when the row
    carries an EXPLICIT busId of its own (never for inherited routing). */
 .bus-badge {
-  width: 8px;
-  height: 8px;
+  width: calc(8px * var(--playlist-item-scale, 1));
+  height: calc(8px * var(--playlist-item-scale, 1));
   border-radius: 50%;
   flex-shrink: 0;
   cursor: help;
@@ -1137,7 +1137,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 .item-duration {
   font-size: 1.5em;
   color: var(--color-text-secondary);
-  margin: 0 var(--spacing-sm);
+  margin: 0;
   white-space: nowrap;
   /* Fixed-width, right-aligned column so the leading "-" shown during the
      playing countdown widens the text without shoving the flags around, and
@@ -1149,12 +1149,12 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 
 .behavior-indicators {
   display: flex;
-  gap: 2px;
+  gap: calc(2px * var(--playlist-item-scale, 1));
   align-items: center;
   flex-shrink: 0;
 
   .behavior-icon {
-    font-size: 14px;
+    font-size: calc(14px * var(--playlist-item-scale, 1));
     color: var(--color-text-secondary);
     opacity: 0.7;
   }
@@ -1168,13 +1168,13 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 .status-pill {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: calc(2px * var(--playlist-item-scale, 1)) calc(8px * var(--playlist-item-scale, 1));
   border-radius: 2px;
-  font-size: 14px;
+  font-size: calc(14px * var(--playlist-item-scale, 1));
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
-  height: 30px;
+  height: calc(30px * var(--playlist-item-scale, 1));
 
   &.playing {
     background-color: var(--color-danger);
@@ -1197,7 +1197,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 
 .item-actions {
   display: flex;
-  gap: var(--spacing-xs);
+  gap: calc(var(--spacing-xs) * var(--playlist-item-scale, 1));
   z-index: 5;
   flex-shrink: 0;
 }
@@ -1207,7 +1207,16 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .group-children {
-  padding-left: var(--spacing-md);
+  padding-left: calc(var(--spacing-md) * var(--playlist-item-scale, 1));
+}
+
+.playlist-item :deep(.action-btn--playlist) {
+  width: calc(32px * var(--playlist-item-scale, 1));
+  height: calc(32px * var(--playlist-item-scale, 1));
+
+  .material-symbols-rounded {
+    font-size: calc(18px * var(--playlist-item-scale, 1));
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1218,8 +1227,8 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 /* ------------------------------------------------------------------ */
 .playlist-item.show-mode {
   .item-content {
-    min-height: 68px;
-    padding: var(--spacing-md) var(--spacing-lg);
+    min-height: calc(68px * var(--playlist-item-scale, 1));
+    padding: calc(var(--spacing-md) * var(--playlist-item-scale, 1)) calc(var(--spacing-lg) * var(--playlist-item-scale, 1));
   }
 
   .item-name {
@@ -1231,13 +1240,13 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   }
 
   .status-pill {
-    font-size: 15px;
-    height: 34px;
-    padding: 2px 12px;
+    font-size: calc(15px * var(--playlist-item-scale, 1));
+    height: calc(34px * var(--playlist-item-scale, 1));
+    padding: calc(2px * var(--playlist-item-scale, 1)) calc(12px * var(--playlist-item-scale, 1));
   }
 
   .behavior-icon {
-    font-size: 20px !important;
+    font-size: calc(20px * var(--playlist-item-scale, 1)) !important;
   }
 
   /* Enlarge the remaining action buttons (preview, play/stop, set-next) for
@@ -1245,21 +1254,43 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
      misjudging horizontal position. :deep() reaches into the ActionButton
      child component's root. */
   :deep(.action-btn--playlist) {
-    width: 112px;
-    height: 56px;
+    width: calc(112px * var(--playlist-item-scale, 1));
+    height: calc(56px * var(--playlist-item-scale, 1));
 
     .material-symbols-rounded {
-      font-size: 28px;
+      font-size: calc(28px * var(--playlist-item-scale, 1));
     }
   }
 
   .item-actions {
-    gap: var(--spacing-sm);
+    gap: calc(var(--spacing-sm) * var(--playlist-item-scale, 1));
   }
 
   /* Not selectable — row is a playback surface, not a list to click into. */
   .item-content {
     cursor: default;
+  }
+}
+
+@media (max-width: 1050px) {
+  .playlist-item.show-mode {
+    .item-content {
+      min-height: calc(56px * var(--playlist-item-scale, 1));
+      padding: calc(var(--spacing-sm) * var(--playlist-item-scale, 1)) calc(var(--spacing-md) * var(--playlist-item-scale, 1));
+    }
+
+    .item-actions {
+      gap: calc(var(--spacing-xs) * var(--playlist-item-scale, 1));
+    }
+
+    :deep(.action-btn--playlist) {
+      width: calc(44px * var(--playlist-item-scale, 1));
+      height: calc(44px * var(--playlist-item-scale, 1));
+
+      .material-symbols-rounded {
+        font-size: calc(22px * var(--playlist-item-scale, 1));
+      }
+    }
   }
 }
 </style>
