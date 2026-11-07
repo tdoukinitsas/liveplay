@@ -1262,7 +1262,7 @@ watch(() => server.authUser?.id, () => { void load(); void loadClients(); });
   cursor: pointer;
   font-size: 13px;
   &:disabled { opacity: 0.45; cursor: default; }
-  &--primary { background: var(--color-accent-custom, #DA1E28); border-color: transparent; color: #fff; }
+  &--primary { background: var(--color-accent-custom, #DA1E28); border-color: transparent; color: var(--color-on-accent, #fff); }
   &--danger  { border-color: rgba(255, 23, 68, 0.5); color: #ff5a72; }
 }
 .settings-badge {

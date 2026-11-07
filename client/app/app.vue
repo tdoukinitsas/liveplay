@@ -173,6 +173,7 @@
 
 <script setup lang="ts">
 import 'material-symbols';
+import { accentForTheme } from '~/utils/accentPalette';
 import CartPlayer from './components/CartPlayer.vue';
 import MixerPanel from './components/MixerPanel.vue';
 
@@ -643,7 +644,13 @@ watch([resolvedThemeMode, () => userTheme.value?.accentColor], ([mode, accent]) 
   // resolved to nothing and anything transparent showed the window's white.
   if (import.meta.client) document.documentElement.setAttribute('data-theme', mode);
   if (import.meta.client && accent) {
-    document.documentElement.style.setProperty('--color-accent-custom', accent);
+    // Drawn per theme, not as stored: a neon lime that reads on #161616 is
+    // darkened just enough to read on #f3f3f3 — see utils/accentPalette.ts.
+    const drawn = accentForTheme(accent, mode);
+    const root = document.documentElement.style;
+    root.setProperty('--color-accent-custom', drawn.accent);
+    root.setProperty('--color-accent-hover-custom', drawn.hover);
+    root.setProperty('--color-on-accent', drawn.onAccent);
   }
 }, { immediate: true });
 

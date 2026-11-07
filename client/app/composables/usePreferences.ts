@@ -51,6 +51,7 @@
 // =====================================================================
 import type { CartSlotKeyBinding, Theme } from '~/types/project';
 import { DEFAULT_THEME } from '~/types/project';
+import { normalizeAccent } from '~/utils/accentPalette';
 
 const STORAGE_KEY = 'liveplay.prefs';
 
@@ -100,7 +101,10 @@ export const usePreferences = () => {
   // ---- What to read ----------------------------------------------------
   const theme = computed<Theme>(() => ({
     mode:        (prefs.value.theme?.mode as Theme['mode']) ?? DEFAULT_THEME.mode,
-    accentColor: prefs.value.theme?.accentColor ?? DEFAULT_THEME.accentColor,
+    // Normalised on read: a swatch retired in 2.6 maps to the brighter one of
+    // its hue, so an upgrade keeps the operator's colour family without a
+    // write-back racing the server profile.
+    accentColor: normalizeAccent(prefs.value.theme?.accentColor ?? DEFAULT_THEME.accentColor),
   }));
 
   // What the OS is currently asking for. A ref rather than a bare matchMedia

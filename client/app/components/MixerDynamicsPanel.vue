@@ -714,7 +714,7 @@ onBeforeUnmount(() => layoutRo?.disconnect());
 .dyn__in:hover:not(:disabled) { color: var(--color-text-primary); }
 .dyn__in:disabled { opacity: 0.4; cursor: not-allowed; }
 .dyn__in--on {
-  color: #fff;
+  color: var(--color-on-accent, #fff);
   background: var(--color-accent);
   border-color: var(--color-accent);
 }

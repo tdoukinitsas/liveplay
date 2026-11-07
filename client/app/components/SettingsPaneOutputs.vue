@@ -1373,7 +1373,7 @@ onBeforeUnmount(() => {
 }
 .modal-btn:hover { background: var(--color-surface-hover); }
 .modal-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.modal-btn--primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.modal-btn--primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent, #fff); }
 .modal-btn--primary:hover { background: var(--color-accent); opacity: 0.9; }
 .modal-btn--danger { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
 </style>

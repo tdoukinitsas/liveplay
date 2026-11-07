@@ -294,7 +294,7 @@ async function pickAndUpload() {
     display: inline-flex; align-items: center; gap: 4px;
     &:hover:not(:disabled) { background: #353535; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
-    &.primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+    &.primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent, #fff); }
     &.small   { padding: 2px 8px; font-size: 12px; }
   }
   .row { display: flex; gap: 10px; align-items: center; }
@@ -308,7 +308,7 @@ async function pickAndUpload() {
       display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: center;
       padding: 6px 10px; border-bottom: 1px solid #222; cursor: pointer;
       &:hover { background: #202020; }
-      &.selected { background: var(--color-accent); .name, .icon { color: #fff; } }
+      &.selected { background: var(--color-accent); .name, .icon { color: var(--color-on-accent, #fff); } }
       .icon { font-size: 18px; color: var(--color-accent); }
       .name { color: #fff; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     }

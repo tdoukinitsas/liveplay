@@ -473,7 +473,7 @@ const handleCancel = () => {
 
   &.button-primary {
     background: var(--color-accent);
-    color: white;
+    color: var(--color-on-accent, #fff);
 
     &:hover {
       background: color-mix(in srgb, var(--color-accent) 78%, black);

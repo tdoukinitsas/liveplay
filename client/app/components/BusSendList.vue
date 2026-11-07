@@ -275,7 +275,7 @@ function onLevel(e: Event, s: BusSend) {
 .bsl__tap--pre {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent, #fff);
 }
 
 .bsl__del {

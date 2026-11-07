@@ -595,7 +595,7 @@ function onGripDown(e: PointerEvent) {
 .strip__btn--mono {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent, #fff);
 }
 
 .strip__pan {
@@ -706,6 +706,6 @@ function onGripDown(e: PointerEvent) {
   border-radius: 2px;
   color: #fff;
 }
-.strip__badge--master  { background: var(--color-accent); }
+.strip__badge--master  { background: var(--color-accent); color: var(--color-on-accent, #fff); }
 .strip__badge--preview { background: var(--color-success); }
 </style>

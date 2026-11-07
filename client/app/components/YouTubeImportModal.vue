@@ -423,7 +423,7 @@ const closeModal = () => {
 .search-btn {
   padding: 12px 24px;
   background: var(--color-accent);
-  color: white;
+  color: var(--color-on-accent, #fff);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -562,7 +562,7 @@ const closeModal = () => {
 
 .download-btn {
   background: var(--color-accent);
-  color: white;
+  color: var(--color-on-accent, #fff);
 }
 
 .action-btn:disabled {

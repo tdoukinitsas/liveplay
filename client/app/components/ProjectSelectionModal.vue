@@ -133,10 +133,10 @@ const handleCancel = () => {
   &.selected {
     background: var(--color-accent);
     border-color: var(--color-accent);
-    color: white;
+    color: var(--color-on-accent, #fff);
 
     .material-symbols-outlined {
-      color: white;
+      color: var(--color-on-accent, #fff);
     }
   }
 
@@ -186,7 +186,7 @@ const handleCancel = () => {
 
   .btn-primary {
     background: var(--color-accent);
-    color: white;
+    color: var(--color-on-accent, #fff);
 
     &:hover:not(:disabled) {
       opacity: 0.9;

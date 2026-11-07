@@ -57,7 +57,7 @@
           type="button"
           class="accent-swatch"
           :class="{ current: isCurrentAccent(color) }"
-          :style="{ backgroundColor: color }"
+          :style="{ backgroundColor: swatchColor(color) }"
           :aria-label="t('settings.accentColorSwatch', { color })"
           :aria-pressed="isCurrentAccent(color)"
           @click="setTheme({ accentColor: color })"
@@ -106,6 +106,7 @@
 // connected session asks for. U4 admitted that against R2 because the union can
 // only reach a state one project setting could already reach alone.
 import type { Theme } from '~/types/project';
+import { ACCENT_COLORS, accentForTheme } from '~/utils/accentPalette';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 
 // `availableLocales` had no caller anywhere in the client until now — the
@@ -119,16 +120,10 @@ const { theme, resolvedThemeMode, setTheme, scrollToPlaying, setScrollToPlaying,
 // its answer and writes the preference.
 const { meterMode } = useOutputTarget();
 
-// Moved here from app.vue, which held it for the accent picker dialog this pane
-// replaces. This is now the only place it is read.
-const ACCENT_COLORS = [
-  '#0f62fe', '#0353e9', '#002d9c', // Blues
-  '#da1e28', '#a2191f', '#750e13', // Reds
-  '#24a148', '#198038', '#0e6027', // Greens
-  '#f1c21b', '#d2a106', '#b28600', // Yellows
-  '#8a3ffc', '#6929c4', '#491d8b', // Purples
-  '#ff7eb6', '#ee5396', '#d02670', // Pinks
-];
+// The swatches live in utils/accentPalette.ts with the contrast rules that
+// decide how each is drawn. A swatch shows its colour AS DRAWN in the current
+// theme, so what the operator picks is what the interface then wears.
+const swatchColor = (color: string) => accentForTheme(color, resolvedThemeMode.value).accent;
 
 const themeMode = computed(() => theme.value.mode);
 // Case-insensitively, because a value that arrived from a profile written by an
@@ -173,7 +168,7 @@ function onScrollToPlayingChange(e: Event) {
 }
 
 /* A ring rather than a tick: a check mark would need a contrasting colour on
-   eighteen different grounds, and half of them would swallow it. */
+   twenty-four different grounds, and half of them would swallow it. */
 .accent-swatch.current {
   border-color: var(--color-text-primary);
   box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-text-primary);

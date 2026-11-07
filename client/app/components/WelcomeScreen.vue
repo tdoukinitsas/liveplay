@@ -917,7 +917,7 @@ if (import.meta.client && (window as any).electronAPI) {
 }
 .welcome-button.primary {
   background: var(--color-accent);
-  color: white;
+  color: var(--color-on-accent, #fff);
   border-color: var(--color-accent);
 }
 .welcome-button.primary:hover { filter: brightness(1.08); }
@@ -1142,7 +1142,7 @@ if (import.meta.client && (window as any).electronAPI) {
 .name-dialog__btn--primary {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent, #fff);
 }
 
 .name-dialog__btn--primary:hover:not(:disabled) {

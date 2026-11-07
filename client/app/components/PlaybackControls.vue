@@ -612,7 +612,7 @@ const handlePlayNext = () => {
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--color-accent);
-  color: var(--color-background);
+  color: var(--color-on-accent, #fff);
   font-size: 11px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;

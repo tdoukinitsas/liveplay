@@ -88,6 +88,7 @@ import { useMasterMeter, useCueMeters, useMixerMeter, usePeakHold, lufsFromKwMs 
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { useProject } from '~/composables/useProject';
 import { formatMeterLabel, formatShortTermLabel } from '~/utils/meterScale';
+import { accentForTheme } from '~/utils/accentPalette';
 
 const { t } = useLocalization();
 
@@ -212,7 +213,9 @@ const grVisible = computed(() =>
 const { levels, meterMode, colorForLevel } = useOutputTarget();
 
 const { currentProject } = useProject();
-const accentColor = computed(() => usePreferences().theme.value.accentColor);
+const { theme: prefsTheme, resolvedThemeMode } = usePreferences();
+const accentColor = computed(() =>
+  accentForTheme(prefsTheme.value.accentColor, resolvedThemeMode.value).accent);
 
 // Raw signal values from the server (always peak_db and rms_db).
 const rawPeakL = computed(() => srcL.value.peak);

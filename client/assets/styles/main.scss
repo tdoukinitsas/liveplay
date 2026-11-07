@@ -84,6 +84,9 @@
   /* Default accent colors so components without an explicit data-theme inherit a usable value */
   --color-accent: #da1e28;
   --color-accent-hover: #b71c22;
+  /* Text and icons on an accent fill; app.vue swaps it for near-black when the
+     accent is light (a yellow fill in dark mode). */
+  --color-on-accent: #ffffff;
 }
 
 // Light theme
@@ -96,7 +99,7 @@
   --color-text-secondary: #525252;
   --color-text-disabled: #8d8d8d;
   --color-accent: var(--color-accent-custom, #da1e28);
-  --color-accent-hover: var(--color-accent-hover-custom, #da1e28);
+  --color-accent-hover: var(--color-accent-hover-custom, #b71c22);
   --color-danger: #da1e28;
   --color-success: #24a148;
   --color-warning: #f1c21b;
@@ -112,7 +115,7 @@
   --color-text-secondary: #c6c6c6;
   --color-text-disabled: #6f6f6f;
   --color-accent: var(--color-accent-custom, #da1e28);
-  --color-accent-hover: var(--color-accent-hover-custom, #da1e28);
+  --color-accent-hover: var(--color-accent-hover-custom, #b71c22);
   --color-danger: #fa4d56;
   --color-success: #42be65;
   --color-warning: #f1c21b;
@@ -196,7 +199,7 @@ span {
 // Selection
 ::selection {
   background-color: var(--color-accent);
-  color: white;
+  color: var(--color-on-accent, #fff);
 }
 
 // Focus styles

@@ -584,7 +584,7 @@ onBeforeUnmount(() => { if (fadeTimer) clearInterval(fadeTimer); fadeTimer = nul
   cursor: pointer;
 }
 .eq__seg-btn + .eq__seg-btn { border-left: 1px solid var(--color-border); }
-.eq__seg-btn--on { color: #fff; background: var(--color-accent); }
+.eq__seg-btn--on { color: var(--color-on-accent, #fff); background: var(--color-accent); }
 
 /* The graph takes every pixel the band bar does not: a curve and a spectrum
    genuinely keep improving with size. */

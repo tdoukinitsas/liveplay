@@ -498,7 +498,7 @@ function openMenuFromButton() {
   color: #fff;
   flex: 0 0 auto;
 }
-.det__badge--master  { background: var(--color-accent); }
+.det__badge--master  { background: var(--color-accent); color: var(--color-on-accent, #fff); }
 .det__badge--preview { background: var(--color-success); }
 .det__delete, .det__menu, .det__close {
   display: flex;
@@ -809,7 +809,7 @@ function openMenuFromButton() {
   border-radius: var(--border-radius-sm);
   cursor: pointer;
 }
-.det__minitoggle--on { color: #fff; background: var(--color-accent); border-color: var(--color-accent); }
+.det__minitoggle--on { color: var(--color-on-accent, #fff); background: var(--color-accent); border-color: var(--color-accent); }
 .det__nav {
   display: flex;
   align-items: center;

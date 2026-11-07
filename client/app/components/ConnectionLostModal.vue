@@ -178,7 +178,7 @@ async function onExit() {
 }
 .clm-btn.primary {
   background: var(--color-accent, #0f62fe);
-  color: #fff;
+  color: var(--color-on-accent, #fff);
   border-color: transparent;
 }
 .clm-btn.primary:hover:not(:disabled) { filter: brightness(1.1); }

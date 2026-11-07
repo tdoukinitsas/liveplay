@@ -1355,7 +1355,7 @@ const formatTime = (seconds: number): string => {
   &:hover:not(:disabled) {
     background-color: var(--color-accent);
     border-color: var(--color-accent);
-    color: white;
+    color: var(--color-on-accent, #fff);
   }
 
   &:disabled {

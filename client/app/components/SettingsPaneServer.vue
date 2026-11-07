@@ -459,7 +459,7 @@ watch(() => server.connected, (up) => { if (up) void load(); });
   &--primary {
     background: var(--color-accent-custom, #DA1E28);
     border-color: transparent;
-    color: #fff;
+    color: var(--color-on-accent, #fff);
   }
 }
 .settings-saved { font-size: 12px; opacity: 0.8; }
