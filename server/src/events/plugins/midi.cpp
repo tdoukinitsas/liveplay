@@ -4,7 +4,8 @@
 // The SERVER machine's MIDI outputs (a desk on a USB interface, or a virtual
 // port such as loopMIDI / the IAC bus into software on the same machine).
 // A connection names the port; ports are matched by name when an event fires,
-// so a show still works after the interface is replugged and gets a new index.
+// so a show still works after the interface is replugged and gets a new index
+// (see stable_port_name and find_port).
 // MIDI Show Control is here because it is how desks expect to be cued.
 // =============================================================================
 #include "liveplay/events/plugin.hpp"
@@ -14,7 +15,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <functional>
+#include <map>
 #include <mutex>
+#include <regex>
 
 namespace liveplay::events {
 namespace {
@@ -25,16 +29,67 @@ std::string lower(std::string s) {
     return s;
 }
 
-std::vector<std::string> output_port_names() {
-    std::vector<std::string> names;
+// RtMidi keeps port names unique by appending a number the system may change
+// on a replug: " <device index>" under WinMM, " <client>:<port>" under ALSA.
+// CoreMIDI and JACK append nothing. Without it, the name is the device's own,
+// and that is what survives unplugging the interface.
+std::string stable_port_name(const std::string& name, RtMidi::Api api) {
+    static const std::regex winmm{R"((.*) \d+)"};
+    static const std::regex alsa{R"((.*) \d+:\d+)"};
+    std::smatch m;
+    if (api == RtMidi::WINDOWS_MM && std::regex_match(name, m, winmm)) return m[1];
+    if (api == RtMidi::LINUX_ALSA && std::regex_match(name, m, alsa)) return m[1];
+    return name;
+}
+
+struct OutputPorts {
+    RtMidi::Api              api = RtMidi::UNSPECIFIED;
+    std::vector<std::string> names;   // as RtMidi gives them, index order
+};
+
+OutputPorts output_ports(RtMidiOut& out) {
+    OutputPorts ports;
+    ports.api = out.getCurrentApi();
+    const unsigned n = out.getPortCount();
+    for (unsigned i = 0; i < n; ++i) ports.names.push_back(out.getPortName(i));
+    return ports;
+}
+
+OutputPorts output_ports() {
     try {
         RtMidiOut probe;
-        const unsigned n = probe.getPortCount();
-        for (unsigned i = 0; i < n; ++i) names.push_back(probe.getPortName(i));
+        return output_ports(probe);
     } catch (const RtMidiError& e) {
         Logger::warn("events/midi: listing ports failed: {}", e.getMessage());
     }
-    return names;
+    return {};
+}
+
+// The port `wanted` names: the first rule that finds any port decides, and two
+// are refused, as audio devices are — a show must never drive whichever of two
+// desks happened to enumerate first.
+//   1. its stable name IS `wanted`: a name saved or typed without RtMidi's
+//      number (what the port list offers);
+//   2. its full name is `wanted`: a numbered name, the device where it was;
+//   3. its stable name is `wanted`'s: the same device, renumbered by a replug.
+// Stable names compare case-insensitively, as typed names may differ.
+unsigned find_port(const OutputPorts& ports, const std::string& wanted) {
+    const std::string wanted_stable = lower(stable_port_name(wanted, ports.api));
+    const std::function<bool(const std::string&)> rules[] = {
+        [&](const std::string& n) { return lower(stable_port_name(n, ports.api)) == lower(wanted); },
+        [&](const std::string& n) { return n == wanted; },
+        [&](const std::string& n) { return lower(stable_port_name(n, ports.api)) == wanted_stable; },
+    };
+    for (const auto& rule : rules) {
+        std::vector<unsigned> hits;
+        for (unsigned i = 0; i < ports.names.size(); ++i)
+            if (rule(ports.names[i])) hits.push_back(i);
+        if (hits.size() == 1) return hits[0];
+        if (hits.size() > 1)
+            throw std::runtime_error(std::to_string(hits.size()) + " MIDI outputs are called '" +
+                                     wanted + "'; choose one by its numbered name");
+    }
+    throw std::runtime_error("MIDI output '" + wanted + "' not found");
 }
 
 // Channel 1..16 in the UI, 0..15 on the wire.
@@ -81,8 +136,17 @@ public:
     std::string id() const override { return "midi"; }
 
     json schema() const override {
+        // Offered by stable name, so the connection survives a replug. A name
+        // two ports share keeps its number: that is all that tells them apart.
+        const auto list = output_ports();
+        std::map<std::string, int> uses;
+        for (const auto& n : list.names) ++uses[lower(stable_port_name(n, list.api))];
         json ports = json::array();
-        for (const auto& n : output_port_names()) ports.push_back(json{{"value", n}, {"label", n}});
+        for (const auto& n : list.names) {
+            const std::string stable = stable_port_name(n, list.api);
+            const std::string name = uses[lower(stable)] == 1 ? stable : n;
+            ports.push_back(json{{"value", name}, {"label", name}});
+        }
 
         const auto channel = field("channel", "Channel", "integer",
                                    {{"default", 1}, {"min", 1}, {"max", 16}});
@@ -231,37 +295,46 @@ private:
             } catch (const RtMidiError& e) {
                 // The interface may have been unplugged: drop the handle and
                 // reopen once by name.
-                ports_.erase(port);
+                forget(port);
                 if (attempt == 1) return Result::fail(e.getMessage());
             } catch (const std::exception& e) {
-                ports_.erase(port);
+                forget(port);
                 if (attempt == 1) return Result::fail(e.what());
             }
         }
         return Result::fail("MIDI send failed");
     }
 
-    // Under mutex_. Exact name first, then a case-insensitive substring, since
-    // some systems decorate names ("loopMIDI Port 1" vs "loopMIDI Port 1 2").
+    // Under mutex_. See find_port for which port a name means. Handles are kept
+    // per DEVICE: WinMM opens a device once per process, so two connections
+    // spelling one device differently (a numbered name saved earlier, the
+    // stable one the list offers now) must share its handle, not fail to open.
     RtMidiOut& open(const std::string& port) {
-        if (auto it = ports_.find(port); it != ports_.end()) return *it->second;
+        if (auto r = resolved_.find(port); r != resolved_.end())
+            if (auto it = outputs_.find(r->second); it != outputs_.end()) return *it->second;
         auto out = std::make_unique<RtMidiOut>();
-        const unsigned n = out->getPortCount();
-        int index = -1;
-        for (unsigned i = 0; i < n && index < 0; ++i)
-            if (out->getPortName(i) == port) index = static_cast<int>(i);
-        for (unsigned i = 0; i < n && index < 0; ++i)
-            if (lower(out->getPortName(i)).find(lower(port)) != std::string::npos)
-                index = static_cast<int>(i);
-        if (index < 0) throw std::runtime_error("MIDI output '" + port + "' not found");
-        out->openPort(static_cast<unsigned>(index), "LivePlay");
+        const auto ports = output_ports(*out);
+        const unsigned index = find_port(ports, port);
+        const std::string device = ports.names[index];
+        resolved_[port] = device;
+        if (auto it = outputs_.find(device); it != outputs_.end()) return *it->second;
+        out->openPort(index, "LivePlay");
         auto& ref = *out;
-        ports_[port] = std::move(out);
+        outputs_[device] = std::move(out);
         return ref;
     }
 
+    // Under mutex_. Drop the handle `port` used, so the next send looks again.
+    void forget(const std::string& port) {
+        if (auto r = resolved_.find(port); r != resolved_.end()) {
+            outputs_.erase(r->second);
+            resolved_.erase(r);
+        }
+    }
+
     std::mutex mutex_;
-    std::map<std::string, std::unique_ptr<RtMidiOut>> ports_;
+    std::map<std::string, std::unique_ptr<RtMidiOut>> outputs_;    // device's full name -> open
+    std::map<std::string, std::string>                resolved_;   // connection's name -> device
 };
 
 } // namespace

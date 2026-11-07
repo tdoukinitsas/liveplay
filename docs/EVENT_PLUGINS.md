@@ -67,6 +67,7 @@ public:
     virtual json        schema() const = 0;       // what the client renders (section 3)
     virtual Result      execute(const Job& job) = 0;
     virtual void        stop() {}                 // optional: release sockets/ports/threads at shutdown
+    virtual void        reset() {}                // optional: the show changed; drop what the old one started
 };
 ```
 
@@ -77,7 +78,7 @@ public:
 | `action` | One of your schema's action ids. |
 | `options` | The event's values for that action's fields, with `{placeholders}` already filled in. |
 | `connection` | The chosen connection's `config` (values of your `connectionFields`), placeholders filled in. `{}` when `needsConnection` is false. |
-| `ctx` | `FireContext`: `item_uuid`, `item_name`, `event_id`, `trigger` (`time`/`start`/`end`/`pause`/`resume`/`test`), `time`. |
+| `ctx` | `FireContext`: `item_uuid`, `item_name`, `event_id`, `trigger` (`time`/`start`/`end`/`pause`/`resume`/`test`), `time`, and `chain`: the cues whose events led straight here, oldest first, ending with `item_uuid`. An event fired because another event played or stopped its cue extends that event's chain; anything else starts a new one. LivePlay refuses to play a cue already in it, which is how A-starts-B-starts-A can't loop. |
 
 You never look anything up in the project. The connection has been resolved, checked as enabled, and checked as belonging to your plugin before `execute()` runs. A missing or disabled connection is reported to the operator without reaching you.
 
@@ -113,11 +114,11 @@ A factory receives `Host&`, the only way a plugin may affect LivePlay. Every cal
 | `pause_item(uuid)`, `resume_item(uuid)`, `arm_next(uuid)` | Pause, resume, set Up Next. |
 | `cue_offset_db(uuid)`, `set_cue_offset_db(uuid, db)` | A *playing* cue's level relative to its own volume (0 = as set); the saved volume never changes. |
 | `buses()`, `outputs()` | The project's buses as the document holds them, and the logical outputs a bus can go to. |
-| `set_bus_live(id, patch)` | `gainDb`, `pan` or `dsp`, heard at once, **not** saved or broadcast: the steps of a fade. |
-| `patch_bus(id, patch)` | Any `PATCH /api/buses` field, saved and sent to every client (as the Mixer pane does). Returns `""` or the mixer's refusal. |
+| `set_bus_live(id, patch)` | `gainDb`, `pan`, `dsp`, or one send as `"send": { id, levelDb }`, heard at once, **not** saved or broadcast: the steps of a fade. |
+| `patch_bus(id, patch)` | Any `PATCH /api/buses` field, applied and sent to every client (their mixers follow it). It is show *state*, not the show: saving keeps the value the operator had there until they set that field again, as a desk's scene recall does. Returns `""` or the mixer's refusal. |
 | `master_gain_db()`, `set_master_gain_db(db, final)` | The master gain; `final` tells the clients. |
 
-A fade on the mixer is `set_bus_live` for the steps, then `patch_bus` when it lands (see `LivePlayPlugin`), so a 10 s fade is one saved change, not five hundred. Most output plugins ignore `Host`. If yours needs more, add a small verb-shaped method here and implement it in `EventHost` (`project_state.cpp`); never hand a plugin `ProjectState` itself.
+A fade on the mixer is `set_bus_live` for the steps, then `patch_bus` when it lands (see `LivePlayPlugin`), so a 10 s fade is one change sent to the clients, not five hundred. Most output plugins ignore `Host`. If yours needs more, add a small verb-shaped method here and implement it in `EventHost` (`project_state.cpp`); never hand a plugin `ProjectState` itself.
 
 ### Threading rules
 
@@ -126,11 +127,14 @@ A fade on the mixer is `set_bus_live` for the steps, then `patch_bus` when it la
 3. **`schema()` must be cheap and must not throw** for a missing device. It runs on every `GET /api/events/plugins`. Listing ports is fine; connecting to something is not.
 4. **Exceptions** escaping `execute()` are caught and reported as failures, but prefer returning `Result::fail(...)`.
 5. **`stop()`** runs once at shutdown, after every lane has finished. Close what you opened.
+6. **`reset()`** runs when the show is closed or another is opened, possibly while a job is executing. Cancel what the old show set going (`ramps_.cancel()`), and release anything held for it, but keep working: unlike `stop()`, more jobs follow.
 
 ### Timing guarantees
 
 - A `time` marker is scheduled from the sequencer's playhead reading up to 75 ms ahead, then handed to your lane when due. Measured delivery is within a few ms of the mark (`server/tests/e2e/events-e2e.js` asserts ±40 ms).
-- Markers before where playback starts don't fire. Neither do markers jumped over by a forward seek. A loop or backward seek re-arms the markers ahead of the playhead. Pausing cancels markers that were scheduled but not yet due; resuming re-schedules them.
+- Markers before where playback starts don't fire. Neither do markers jumped over by a forward seek. A loop or backward seek re-arms the markers ahead of the playhead. A marker never fires while its cue is paused short of it: one already scheduled is held, then cancelled and re-armed, and resuming fires it on its mark (within one 50 ms sequencer pass of the resume when it was that close). One the audio reached just before the pause fires at once.
+- **Stop All** cancels every scheduled marker, and the cues it stops fire no more markers while they fade. Their `end` events fire only when the show's *Stop All fires "On end" events* setting is on (off by default), and even then none of them may start or resume a cue.
+- **Panic** (a second Stop All before the first has finished, from any client, or `POST /api/transport/panic`) stops every cue at once and kills every event: scheduled markers, jobs waiting on your lane (one already in `execute()` finishes), and running `Ramps` (your `reset()` is called). No stopped cue fires an `end` event, whatever the setting says.
 - `start` fires when the item is played. `end` fires once per play: at natural end, when stopped (including Stop All), or when a crossfade hands over to the next cue. `pause` and `resume` fire on transport changes.
 
 If your action takes time to *start* (a TCP handshake, say), connect lazily on the first job and keep the connection open, so later cues don't pay that cost.
@@ -147,7 +151,7 @@ If your action takes time to *start* (a TCP handshake, say), connect lazily on t
   "label": "OSC",                    // shown in pickers
   "icon": "settings_input_antenna",  // a Material Symbols name: https://fonts.google.com/icons
   "description": "One line: what it talks to.",
-  "needsConnection": true,           // false: events have no connection picker (like `liveplay`)
+  "needsConnection": true,           // false: events have no connection picker (like `liveplay`). Read once, at registration
   "discoverable": true,              // optional: "Find on network" (implement discover(), section 4)
   "connectionFields": [ Field, ... ],
   "actions": [
@@ -243,7 +247,7 @@ Ramps ramps_;   // a member; one thread for all of the plugin's fades
 ramps_.start(key, from, to, seconds, [=](double v) { send(v); });
 ```
 
-`start` calls the setter every 20 ms, then once more with exactly `to`, on the ramp thread, and returns at once. A new ramp on the same `key` replaces the running one (the newest cue wins, as on a desk). `seconds <= 0` sets `to` immediately. Choose the domain you interpolate in: the X Air plugin ramps faders in **dB** (even loudness steps) and FX parameters in the knob's 0..1 travel. Read the current value from the device for `from` when you can. Call `ramps_.stop()` in your `stop()`.
+`start` calls the setter every 20 ms, then once more with exactly `to`, on the ramp thread, and returns at once. A new ramp on the same `key` replaces the running one (the newest cue wins, as on a desk). `seconds <= 0`, or `from == to`, calls the setter once with `to`, immediately. Choose the domain you interpolate in: the X Air plugin ramps faders in **dB** (even loudness steps) and FX parameters in the knob's 0..1 travel. Read the current value from the device for `from` when you can; when you can't, and the steps don't save, start a replacing fade from `ramps_.current(key)` (where the running one is now) rather than from a saved value, or a re-fired fade jumps back. Call `ramps_.cancel()` in your `reset()` and `ramps_.stop()` in your `stop()`.
 
 ### Network helpers
 

@@ -153,6 +153,8 @@
     "sectionServerHelp": "Serveren appen er koblet til og, for administratorer, konfigurasjonen av den.",
     "sectionUsers": "Kontoer",
     "sectionUsersHelp": "Hvem som kan bruke denne serveren, og hva de kan endre.",
+    "stopAllFiresEvents": "Stopp alt utløser «Ved slutt»-hendelser",
+    "stopAllFiresEventsHelp": "Når dette er av, utløser ikke cuer som Stopp alt stopper noen «Ved slutt»-hendelser. Når det er på, gjør de det, men ingen kan starte en annen cue. Å trykke Stopp alt igjen før den er ferdig er panikk: alt stopper med en gang og ingen hendelse utløses.",
     "stopAllStopsPreview": "Stopp alt stopper også forhåndslyttingen",
     "stopAllStopsPreviewHelp": "Når dette er av, stopper ikke Stopp alt en cue du forhåndslytter på.",
     "sectionAppearance": "Utseende",

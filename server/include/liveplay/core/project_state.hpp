@@ -29,9 +29,11 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <deque>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
@@ -450,7 +452,12 @@ public:
 
     // Audio items (playlist and cart-only) whose media file can't be found by
     // resolve_media_path. Each entry is { uuid, displayName, mediaFileName,
-    // mediaPath }. Cheap enough to poll: one stat per audio item (issue #80).
+    // mediaPath }. Every client polls it (issue #80), so it never stats under
+    // mutex_ and never waits long on the filesystem: the files are checked by
+    // one background scan at a time, and a poll answers from the last finished
+    // scan. It waits for a new one (briefly) only when that scan hasn't seen
+    // some item's media yet. A stat on a dead share takes ~21 s on Windows, and
+    // on an NFS hard mount it can block for good.
     json missing_media() const;
 
     // Relink every missing item to a file of the same name (case-insensitive)
@@ -572,9 +579,19 @@ public:
     // provided it is used directly; when omitted the project-wide
     // settings.stopAllFadeMs (default 1000 ms) applies. The resolved fade wins
     // over every per-track fade-out (global fade always wins); a resolved fade
-    // of 0 is an instant panic stop. The preview audition fades with the rest
+    // of 0 is an instant stop. The preview audition fades with the rest
     // unless settings.stopAllStopsPreview is false (#60).
-    void stop_all_cues(std::optional<long long> fade_ms = std::nullopt);
+    //
+    // Events (#23): the cues it stops fire their end events only when
+    // settings.stopAllFiresEvents is true (default false), and those may not
+    // start or resume a cue. A Stop All that arrives while the previous one is
+    // still fading out, or within kStopAllDoubleTap of an instant one (the
+    // operator's double tap, from any source), is a panic instead.
+    void stop_all_cues(std::optional<long long> fade_ms = std::nullopt, bool panic = false);
+    // The panic: every cue stops at once, and every event dies — markers
+    // scheduled, jobs queued, fades events started (they stop where they are)
+    // — and no stopped cue fires an end event, whatever the settings say.
+    void panic() { stop_all_cues(0, true); }
 
     // Trigger an item by uuid: audio items go through play_item; group items
     // are dispatched per their startBehavior (play-first / play-all),
@@ -904,6 +921,11 @@ public:
     // `outputs_changed`, since a second client's output-map view is now stale.
     PatchBusResult patch_bus(const std::string& id, const json& patch,
                              std::string* materialised_output = nullptr);
+    // The same change made by an EVENT (a fade landing, a mute cue). The mixer
+    // and every client follow it, but it is show state, not the show: save()
+    // keeps writing the value the operator had there, until the operator sets
+    // that field again (patch_bus). A desk's scene recall works the same way.
+    PatchBusResult patch_bus_from_event(const std::string& id, const json& patch);
     // Refuses a role holder (D24) — `why`, when given, receives the reason
     // in the words the API reports. Items assigned to the deleted bus fall
     // back to the master bus by having their busId cleared; buses that fed
@@ -920,6 +942,11 @@ public:
     // straight at the strip without writing the document or broadcasting, the
     // same shape as set_bus_pan_live. The client PATCHes the settled value.
     bool set_bus_dsp_live(const std::string& id, const json& dsp);
+
+    // One send's level, live, the same shape again: for the steps of an
+    // event's send fade, which patch_bus settles when it lands. False if the
+    // bus has no such send or its destination has no strip.
+    bool set_bus_send_live(const std::string& id, const std::string& send_id, float level_db);
 
     // Turn a bus's stored tone controls into engine parameters. Public because
     // the shape of StripDspParams is the engine's, not the document's, and
@@ -1021,6 +1048,34 @@ private:
     std::filesystem::path media_root_ = std::filesystem::current_path() / "media";
     std::string           project_name_ = "Untitled";
     std::filesystem::path project_file_path_;
+
+    // missing_media()'s background file check. Shared with the scan's detached
+    // thread rather than reached through `this`, because a stat on a dead mount
+    // may never return and the thread can outlive us.
+    struct MediaScan {
+        std::mutex              m;
+        std::condition_variable cv;
+        bool                    running  = false;
+        // A poll gave up waiting for the running scan; the rest don't wait.
+        bool                    waited_out = false;
+        std::uint64_t           finished = 0;     // scans completed
+        // The last finished scan: media reference -> its file is missing.
+        std::unordered_map<std::string, bool> missing_by_ref;
+    };
+    std::shared_ptr<MediaScan> media_scan_ = std::make_shared<MediaScan>();
+
+    // Bus fields an event has changed since the operator last set them: bus
+    // id -> JSON pointer into that bus's document entry ("/gainDb",
+    // "/dsp/hpf/freq") -> the operator's value (nullopt: there was none).
+    // save() writes these instead of the live value. Under mutex_.
+    std::unordered_map<std::string, std::map<std::string, std::optional<json>>> event_bus_overrides_;
+    // Until when a further Stop All counts as the double tap (a panic): the
+    // last one's fade plus kStopAllDoubleTap. Under mutex_.
+    std::chrono::steady_clock::time_point stop_all_tap_until_{};
+    static constexpr std::chrono::milliseconds kStopAllDoubleTap{500};
+    // patch_bus's work, whoever asked (patch_bus / patch_bus_from_event).
+    PatchBusResult apply_bus_patch(const std::string& id, const json& patch,
+                                   std::string* materialised_output);
 
     // The full client-side project document (items, cart, theme, etc.). The
     // server treats most of this as opaque user data — only audio items have
@@ -1450,6 +1505,9 @@ private:
         audio::TransportState          last_transport = audio::TransportState::Stopped;
         double                         last_pos       = -1.0;
         bool                           end_fired      = false;
+        // Stop All took it: no more markers while it fades, and its end events
+        // may not start a cue (a panic is a panic — see stop_all_cues).
+        bool                           stopped_by_stop_all = false;
     };
     std::vector<SequencedItem> sequenced_items_;
     std::mutex                 sequencer_mutex_;
@@ -1485,6 +1543,7 @@ private:
         events::ItemEvent event;
         std::string       trigger;
         double            delay_sec = 0.0;
+        bool              after_stop_all = false;   // see SequencedItem
     };
     // `si`'s events for a non-time trigger (start / end / pause / resume).
     static void collect_event_fires(const SequencedItem& si, const std::string& trigger,
@@ -1535,6 +1594,10 @@ public:
     json event_connections() const;
     // Replace them; returns the stored list (malformed entries dropped).
     json set_event_connections(const json& connections);
+    // `connections` as an API token may see them: an HTTP connection's header
+    // values hidden, names kept. Sent back unchanged, hidden values keep the
+    // stored ones (the store paths check), so a round trip loses nothing.
+    static json redact_event_connections(json connections);
     // Fire one event now, for the Test buttons. `draft_connection`, when an
     // object, is used instead of looking event.connectionId up: it lets the
     // connection editor test settings it hasn't saved.
@@ -1601,32 +1664,34 @@ private:
     // Build an initial empty document with default theme + empty sections.
     static json default_empty_document();
 
-    // Extract every audio item from the client document and mirror it onto
-    // the engine + cues_/item_uuid_to_cue_ tables. Used after load and after
-    // replace_full_document.
-    void mirror_items_to_engine_locked();
+    // Unload the engine cues whose audio item is no longer in the document
+    // (removed, or no longer audio). Caller MUST hold mutex_. Touches no file:
+    // a stat on a dead share takes ~21 s on Windows and can hang for good on
+    // an NFS hard mount, and every request waits on mutex_ meanwhile (#21).
+    // (It replaced mirror_items_to_engine_locked, which also decoded every
+    // unloaded item — a missing file included — under the lock.)
+    void unload_gone_cues_locked();
 
-    // Run mirror_items_to_engine_locked() asynchronously on a worker thread.
-    // The caller's mutex is released first. Sets loading_audio_=true for the
-    // duration. Used by load() so the document is returned to the client
-    // immediately and audio loading proceeds in the background.
+    // Load the document's audio into the engine on a worker thread (the load
+    // thread). The caller's mutex is released first. Sets loading_audio_=true
+    // for the duration. Used by load() so the document is returned to the
+    // client immediately and audio loading proceeds in the background.
     void start_async_mirror();
 
-    // ---- Single-item async audio load (#43) --------------------------------
-    // add_item() / update_item() used to run mirror_items_to_engine_locked()
-    // while holding mutex_, so the synchronous audio decode of ONE new file
+    // ---- Single-item async audio load (#43, #21) ------------------------------
+    // add_item() / update_item() used to decode under mutex_, so ONE new file
     // blocked every other request (play_item, stop, state, WS/HTTP handlers)
     // for its full duration. Instead they now reserve the CueId under the lock,
-    // register a placeholder CueMeta, and hand the decode to a background
-    // loader thread which publishes the finished cue afterwards.
+    // register a placeholder CueMeta, and hand the work to a background loader
+    // thread which publishes the finished cue afterwards. Finding the file is
+    // part of that work, for the same reason (#21).
 
     // Reserve a cue id for `uuid`, register the placeholder CueMeta, and queue
-    // the decode. Caller MUST hold mutex_. Returns the reserved id (never empty
-    // unless `path` is empty). `item` is the document node, used for the
-    // placeholder's display name / duration and re-read when the load lands.
-    audio::CueId begin_item_load_locked(const std::string& uuid,
-                                        const std::filesystem::path& path,
-                                        const json& item);
+    // the load. Caller MUST hold mutex_. Returns the reserved id, or empty when
+    // the item names no media. `item` is the document node: its mediaPath /
+    // mediaServerPath are resolved by the loader, its display name / duration
+    // seed the placeholder, and it is re-read when the load lands.
+    audio::CueId begin_item_load_locked(const std::string& uuid, const json& item);
 
     // Loader thread body: decode queued items and publish them.
     void loader_loop();
@@ -1634,8 +1699,8 @@ private:
 
     // Apply one document item's engine-visible properties (gain, fades,
     // out point, LTC) to its PlaybackItem. Caller must hold mutex_. Shared by
-    // mirror_items_to_engine_locked() and the loader's publish step so the two
-    // paths can't drift apart.
+    // the load thread and the loader's publish step so the two paths can't
+    // drift apart.
     void apply_item_properties_locked(const json& item, const audio::CueId& cue);
 
     // Block until `uuid`'s queued decode has finished (or `timeout` elapses).
@@ -1647,7 +1712,10 @@ private:
     struct LoadRequest {
         std::string           uuid;
         audio::CueId          cue_id;
-        std::filesystem::path path;
+        std::filesystem::path path;          // found by the loader, from these:
+        std::string           media_path;    // the item's mediaPath
+        std::string           server_path;   // its mediaServerPath
+        std::string           folder;        // the project's folderPath
     };
     std::deque<LoadRequest>         load_queue_;
     std::unordered_set<std::string> pending_load_uuids_;

@@ -153,6 +153,8 @@
     "sectionServerHelp": "The server this app is connected to and, for administrators, its configuration.",
     "sectionUsers": "Accounts",
     "sectionUsersHelp": "Who can use this server and what they can change.",
+    "stopAllFiresEvents": "Stop All fires “On end” events",
+    "stopAllFiresEventsHelp": "When off, the cues Stop All stops fire no “On end” events. When on, they fire them, but none can start another cue. Pressing Stop All again before it has finished is a panic: everything stops at once and no event fires.",
     "stopAllStopsPreview": "Stop All also stops the preview",
     "stopAllStopsPreviewHelp": "When off, Stop All does not stop a cue you are previewing.",
     "sectionAppearance": "Appearance",

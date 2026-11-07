@@ -82,7 +82,10 @@ std::string encode(const Message& m) {
 std::optional<Message> decode(const void* data, std::size_t size) {
     const auto* p = static_cast<const unsigned char*>(data);
     std::size_t off = 0;
+    // Every read checks against `size` first: packets come off the network, and
+    // `size - off` wraps if off has run past the end.
     const auto read_string = [&](std::string& out) -> bool {
+        if (off >= size) return false;
         const auto* start = p + off;
         const auto* end = static_cast<const unsigned char*>(std::memchr(start, 0, size - off));
         if (!end) return false;
@@ -120,9 +123,10 @@ std::optional<Message> decode(const void* data, std::size_t size) {
                 if (off + 4 > size) return std::nullopt;
                 const std::size_t n = get_be32(p + off);
                 off += 4;
-                if (off + n > size) return std::nullopt;
+                if (n > size - off) return std::nullopt;
                 a.s.assign(reinterpret_cast<const char*>(p + off), n);
                 off += (n + 3) & ~std::size_t{3};
+                if (off > size) return std::nullopt;   // padding missing
                 break;
             }
             case 'T': case 'F': case 'N': break;

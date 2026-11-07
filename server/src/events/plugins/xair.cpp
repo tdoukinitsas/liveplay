@@ -51,6 +51,8 @@ struct FxType  { const char* code; const char* name; int first; int count; };
 constexpr int    kPort        = 10024;
 constexpr double kSilenceDb   = -90.0;   // the bottom of the fader: -inf
 constexpr auto   kGetTimeout  = 300ms;
+// A mixer nothing has used for this long gives back its socket and thread.
+constexpr auto   kMixerIdle   = 30s;
 
 std::string two(int n) { return (n < 10 ? "0" : "") + std::to_string(n); }
 
@@ -222,7 +224,9 @@ private:
         socket_.async_receive_from(asio::buffer(buf_), sender_,
             [this](const asio::error_code& ec, std::size_t n) {
                 if (ec == asio::error::operation_aborted) return;
-                if (!ec) {
+                // Only the mixer's replies: anything else on the LAN could
+                // otherwise feed get() the values a fade starts from.
+                if (!ec && sender_.address() == remote_.address()) {
                     if (auto m = osc::decode(buf_.data(), n)) {
                         // Key first: in `last_[m->address] = {std::move(*m), ...}`
                         // the right side runs first and empties the address.
@@ -644,18 +648,59 @@ public:
         mixers_.clear();
     }
 
+    // A fade on the desk belongs to the show that started it. The old show's
+    // mixers go too, unless something still holds one; the new show's are
+    // made again when first used.
+    void reset() override {
+        ramps_.cancel();
+        std::lock_guard lock{mutex_};
+        evict_locked([](const Cached&) { return true; });
+    }
+
 private:
     static Result sent(const std::string& err) { return err.empty() ? Result{} : Result::fail(err); }
+
+    // One Mixer (a socket and a thread) per host:port. Not kept for ever: the
+    // connection editor's Test and option lists try every address typed into
+    // it, and each would otherwise hold both until shutdown.
+    struct Cached {
+        std::shared_ptr<Mixer>                mixer;
+        std::chrono::steady_clock::time_point last_used;
+    };
 
     std::shared_ptr<Mixer> mixer_for(const json& connection) {
         const std::string host = opt_string(connection, "host");
         if (host.empty()) throw std::runtime_error("the connection has no mixer address");
         const int port = opt_int(connection, "port", kPort);
         const std::string key = host + ":" + std::to_string(port);
+        const auto now = std::chrono::steady_clock::now();
+        {
+            std::lock_guard lock{mutex_};
+            evict_locked([&](const Cached& c) { return now - c.last_used > kMixerIdle; });
+            if (auto it = mixers_.find(key); it != mixers_.end()) {
+                it->second.last_used = now;
+                return it->second.mixer;
+            }
+        }
+        // Made outside the lock: it resolves `host`, which can take seconds,
+        // and every other X Air call would wait on it. Two callers racing to
+        // make the same one keep the first; the other's is dropped unlocked.
+        auto made = std::make_shared<Mixer>(host, port);
         std::lock_guard lock{mutex_};
-        auto& m = mixers_[key];
-        if (!m) m = std::make_shared<Mixer>(host, port);
-        return m;
+        auto& slot = mixers_[key];
+        if (!slot.mixer) slot.mixer = std::move(made);
+        slot.last_used = now;
+        return slot.mixer;
+    }
+
+    // Under mutex_. Drops the mixers `stale` picks, except one still held
+    // elsewhere (a running fade's setter, an execute() in progress).
+    template <typename Pred>
+    void evict_locked(Pred stale) {
+        for (auto it = mixers_.begin(); it != mixers_.end();) {
+            if (it->second.mixer.use_count() == 1 && stale(it->second)) it = mixers_.erase(it);
+            else ++it;
+        }
     }
 
     // A fader or send level, in dB, faded from wherever it is now.
@@ -687,9 +732,9 @@ private:
         return {};
     }
 
-    std::mutex                                     mutex_;
-    std::map<std::string, std::shared_ptr<Mixer>>  mixers_;
-    Ramps                                          ramps_;
+    std::mutex                     mutex_;
+    std::map<std::string, Cached>  mixers_;
+    Ramps                          ramps_;
 };
 
 } // namespace

@@ -153,6 +153,8 @@
     "sectionServerHelp": "Der Server, mit dem diese App verbunden ist, und für Administratoren seine Konfiguration.",
     "sectionUsers": "Konten",
     "sectionUsersHelp": "Wer diesen Server nutzen darf und was er ändern kann.",
+    "stopAllFiresEvents": "„Alle stoppen“ löst „Beim Ende“-Events aus",
+    "stopAllFiresEventsHelp": "Wenn aus, lösen die von „Alle stoppen“ gestoppten Cues keine „Beim Ende“-Events aus. Wenn an, lösen sie sie aus, aber keines kann einen anderen Cue starten. „Alle stoppen“ erneut zu drücken, bevor es fertig ist, ist ein Panik-Stopp: Alles stoppt sofort und kein Event wird ausgelöst.",
     "stopAllStopsPreview": "„Alle stoppen“ stoppt auch das Vorhören",
     "stopAllStopsPreviewHelp": "Wenn aus, stoppt „Alle stoppen“ einen Cue nicht, den Sie gerade vorhören.",
     "sectionAppearance": "Darstellung",

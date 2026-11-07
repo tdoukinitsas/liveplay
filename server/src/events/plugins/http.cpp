@@ -11,7 +11,9 @@
 #include <httplib.h>
 
 #include <algorithm>
+#include <cctype>
 #include <sstream>
+#include <string_view>
 
 namespace liveplay::events {
 namespace {
@@ -94,9 +96,23 @@ public:
         if (job.action != "request") return Result::fail("unknown HTTP action '" + job.action + "'");
         std::string base = trim(opt_string(job.connection, "baseUrl"));
         if (base.empty()) return Result::fail("HTTP connection has no base URL");
-        if (base.rfind("https://", 0) == 0) return Result::fail("HTTPS isn't supported yet; use http://");
-        if (base.rfind("http://", 0) != 0) base = "http://" + base;
-        while (!base.empty() && base.back() == '/') base.pop_back();
+        const auto has_scheme = [&](std::string_view scheme) {
+            return base.size() >= scheme.size() &&
+                   std::equal(scheme.begin(), scheme.end(), base.begin(), [](char a, char b) {
+                       return a == std::tolower(static_cast<unsigned char>(b));
+                   });
+        };
+        if (has_scheme("https://")) return Result::fail("HTTPS isn't supported yet; use http://");
+        base = "http://" + (has_scheme("http://") ? base.substr(7) : base);
+        // httplib's client takes scheme://host:port and nothing else: the path
+        // of "http://host:8000/api" was dropped without a word, so requests
+        // went somewhere else and reported success. It prefixes every path.
+        std::string prefix;
+        if (const auto slash = base.find('/', 7); slash != std::string::npos) {
+            prefix = base.substr(slash);
+            base.erase(slash);
+        }
+        while (!prefix.empty() && prefix.back() == '/') prefix.pop_back();
 
         httplib::Client cli{base};
         if (!cli.is_valid()) return Result::fail("invalid base URL '" + base + "'");
@@ -111,6 +127,7 @@ public:
 
         std::string path = trim(opt_string(job.options, "path", "/"));
         if (path.empty() || path[0] != '/') path = "/" + path;
+        path = prefix + path;
         const std::string method = opt_string(job.options, "method", "GET");
         const std::string type = opt_string(job.options, "contentType", "none");
         const std::string body = type == "none" ? std::string{} : opt_string(job.options, "body");

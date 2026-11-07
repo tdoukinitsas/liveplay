@@ -153,6 +153,8 @@
     "sectionServerHelp": "Serverul la care este conectată aplicația și, pentru administratori, configurația lui.",
     "sectionUsers": "Conturi",
     "sectionUsersHelp": "Cine poate folosi acest server și ce poate modifica.",
+    "stopAllFiresEvents": "Oprește tot declanșează evenimentele „La final”",
+    "stopAllFiresEventsHelp": "Când este dezactivat, cue-urile oprite de Oprește tot nu declanșează evenimente „La final”. Când este activat, le declanșează, dar niciunul nu poate porni alt cue. Apăsarea din nou a Oprește tot înainte să se termine este o oprire de panică: totul se oprește imediat și niciun eveniment nu se declanșează.",
     "stopAllStopsPreview": "Oprește tot oprește și preascultarea",
     "stopAllStopsPreviewHelp": "Când este dezactivat, Oprește tot nu oprește un cue pe care îl preascultați.",
     "sectionAppearance": "Aspect",

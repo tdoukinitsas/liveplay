@@ -68,6 +68,14 @@ struct ItemEvent {
 // Fill {item.name} {item.uuid} {trigger} {time} into every string in `v`.
 json substitute(const json& v, const FireContext& ctx);
 
+// What a scheduled job's check answers when the job comes due (see enqueue()).
+enum class Due { Fire, Hold, Drop };
+
+// The chain (FireContext::chain) of the job this thread is executing, or empty
+// outside one. Events a job's action causes (a cue it plays fires its start
+// events) extend this chain instead of starting a new one.
+const std::vector<std::string>& current_chain();
+
 class Dispatcher {
 public:
     using Clock = std::chrono::steady_clock;
@@ -87,11 +95,22 @@ public:
 
     // Run `job` at `when` (default: now). Scheduling ahead is what makes a
     // "time" event land on its mark rather than on the sequencer's next tick.
-    void enqueue(Job job, Clock::time_point when = Clock::time_point{});
+    // A scheduled job's `check`, if any, is asked when it comes due. Hold puts
+    // it back for a moment: its item paused after it was scheduled, and the
+    // sequencer's cancel_item will collect it. Drop discards it. The check runs
+    // under this dispatcher's lock, so it may take only leaf locks.
+    void enqueue(Job job, Clock::time_point when = Clock::time_point{},
+                 std::function<Due()> check = {});
     // Drop jobs for an item that haven't started yet: it paused, stopped,
-    // looped or was re-fired before a scheduled marker came due.
-    void cancel_item(const std::string& item_uuid);
+    // looped or was re-fired before a scheduled marker came due. Returns the
+    // dropped jobs' contexts, so a paused item can re-arm its markers.
+    std::vector<FireContext> cancel_item(const std::string& item_uuid);
     void cancel_all();
+    // Drop the jobs waiting on every plugin's lane (a panic). One already
+    // executing finishes.
+    void cancel_queued();
+    // Plugin::reset() on every plugin: the show changed (see there).
+    void reset_plugins();
     // Synchronous, for the Test buttons.
     Result run_now(const Job& job);
 
@@ -114,10 +133,16 @@ private:
     std::map<std::string, std::unique_ptr<Plugin>> plugins_;
     std::vector<std::string>                       order_;   // registration order, for listing
     std::map<std::string, std::unique_ptr<Lane>>   lanes_;   // one per plugin
+    std::map<std::string, bool>                    needs_connection_;   // from the schema, at add_plugin
 
-    mutable std::mutex                    mutex_;   // scheduled_, stop_, callback_
-    std::condition_variable               cv_;
-    std::multimap<Clock::time_point, Job> scheduled_;
+    struct Scheduled {
+        Job                  job;
+        std::function<Due()> check;
+    };
+
+    mutable std::mutex                          mutex_;   // scheduled_, stop_, callback_
+    std::condition_variable                     cv_;
+    std::multimap<Clock::time_point, Scheduled> scheduled_;
     bool                                  stop_ = false;
     ResultCallback                        callback_;
     std::thread                           scheduler_;

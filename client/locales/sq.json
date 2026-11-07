@@ -153,6 +153,8 @@
     "sectionServerHelp": "Serveri me të cilin është lidhur aplikacioni dhe, për administratorët, konfigurimi i tij.",
     "sectionUsers": "Llogaritë",
     "sectionUsersHelp": "Kush mund ta përdorë këtë server dhe çfarë mund të ndryshojë.",
+    "stopAllFiresEvents": "Ndalo të gjitha aktivizon ngjarjet «Kur mbaron»",
+    "stopAllFiresEventsHelp": "Kur është i çaktivizuar, cue-të që ndalon Ndalo të gjitha nuk aktivizojnë ngjarje «Kur mbaron». Kur është i aktivizuar, i aktivizojnë, por asnjë nuk mund të nisë një cue tjetër. Shtypja sërish e Ndalo të gjitha para se të mbarojë është panik: gjithçka ndalon menjëherë dhe asnjë ngjarje nuk aktivizohet.",
     "stopAllStopsPreview": "Ndalo të gjitha ndalon edhe paradëgjimin",
     "stopAllStopsPreviewHelp": "Kur është i çaktivizuar, Ndalo të gjitha nuk e ndalon një cue që po e paradëgjoni.",
     "sectionAppearance": "Pamja",

@@ -153,6 +153,8 @@
     "sectionServerHelp": "此应用所连接的服务器，以及（仅限管理员）其配置。",
     "sectionUsers": "账户",
     "sectionUsersHelp": "谁可以使用此服务器，以及他们可以更改什么。",
+    "stopAllFiresEvents": "“全部停止”触发“结束时”事件",
+    "stopAllFiresEventsHelp": "关闭时，“全部停止”所停止的 Cue 不会触发“结束时”事件。开启时会触发，但都不能启动其他 Cue。在“全部停止”完成前再次按下即为紧急停止：所有内容立即停止，且不触发任何事件。",
     "stopAllStopsPreview": "“全部停止”同时停止预听",
     "stopAllStopsPreviewHelp": "关闭时，“全部停止”不会停止您正在预听的 Cue。",
     "sectionAppearance": "外观",

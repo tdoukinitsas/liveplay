@@ -153,6 +153,8 @@
     "sectionServerHelp": "Bu uygulamanın bağlı olduğu sunucu ve yöneticiler için onun yapılandırması.",
     "sectionUsers": "Hesaplar",
     "sectionUsersHelp": "Bu sunucuyu kimlerin kullanabileceği ve neleri değiştirebileceği.",
+    "stopAllFiresEvents": "«Tümünü Durdur» «Bitişte» olaylarını tetikler",
+    "stopAllFiresEventsHelp": "Kapalıyken «Tümünü Durdur»un durdurduğu cue'lar hiçbir «Bitişte» olayını tetiklemez. Açıkken tetikler, ancak hiçbiri başka bir cue başlatamaz. «Tümünü Durdur» bitmeden ona yeniden basmak paniktir: her şey anında durur ve hiçbir olay tetiklenmez.",
     "stopAllStopsPreview": "«Tümünü Durdur» ön dinlemeyi de durdurur",
     "stopAllStopsPreviewHelp": "Kapalıyken «Tümünü Durdur», ön dinlediğiniz cue'yu durdurmaz.",
     "sectionAppearance": "Görünüm",

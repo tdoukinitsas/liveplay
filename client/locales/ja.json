@@ -153,6 +153,8 @@
     "sectionServerHelp": "このアプリが接続しているサーバーと、管理者向けのサーバー設定です。",
     "sectionUsers": "アカウント",
     "sectionUsersHelp": "このサーバーを使える人と、それぞれが変更できる内容です。",
+    "stopAllFiresEvents": "「すべて停止」で「終了時」イベントを実行",
+    "stopAllFiresEventsHelp": "オフの場合、「すべて停止」で止まったキューは「終了時」イベントを実行しません。オンの場合は実行しますが、別のキューを開始することはできません。「すべて停止」が終わる前にもう一度押すとパニックになり、すべてが即座に停止し、イベントは一切実行されません。",
     "stopAllStopsPreview": "「すべて停止」でプレビューも停止",
     "stopAllStopsPreviewHelp": "オフの場合、「すべて停止」を押してもプレビュー中のキューは停止しません。",
     "sectionAppearance": "外観",

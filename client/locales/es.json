@@ -153,6 +153,8 @@
     "sectionServerHelp": "El servidor al que está conectada esta aplicación y, para los administradores, su configuración.",
     "sectionUsers": "Cuentas",
     "sectionUsersHelp": "Quién puede usar este servidor y qué puede cambiar cada uno.",
+    "stopAllFiresEvents": "«Detener todo» dispara los eventos «Al finalizar»",
+    "stopAllFiresEventsHelp": "Si está desactivado, los cues que detiene «Detener todo» no disparan eventos «Al finalizar». Si está activado, los disparan, pero ninguno puede iniciar otro cue. Pulsar «Detener todo» otra vez antes de que termine es un pánico: todo se detiene al instante y no se dispara ningún evento.",
     "stopAllStopsPreview": "«Detener todo» también detiene la preescucha",
     "stopAllStopsPreviewHelp": "Si está desactivado, «Detener todo» no detiene un cue que esté preescuchando.",
     "sectionAppearance": "Apariencia",

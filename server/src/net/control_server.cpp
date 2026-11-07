@@ -887,6 +887,10 @@ static bool api_token_forbidden(std::string_view path) {
     if (path == "/api/upload")           return true;
     if (path == "/api/file/download")    return true;
     if (path == "/api/copy_to_media")    return true;
+    // Walks a folder and copies what it finds into the project. (Not
+    // /api/media/missing: that only says whether the show's own references,
+    // already in the document a token can read, are on disk.)
+    if (path == "/api/media/locate")     return true;
     if (path == "/api/project/import")   return true;   // an archive in…
     if (path == "/api/project/export")   return true;   // …and a copy of the show out
 
@@ -1412,6 +1416,28 @@ void ControlServer::broadcast_doc_patch(const json& payload) {
     for (auto& [c, _] : impl_->ws_clients) {
         if (!impl_->authorize_ws_locked(c, users_)) continue;
         try { c->send_text(serialized); }
+        catch (...) { /* onclose will clean up dead connections */ }
+    }
+}
+
+void ControlServer::broadcast_event_connections(const json& connections) {
+    std::string full, hidden;
+    try {
+        const auto frame = [](const json& list) {
+            json f{{"type", "doc_patch"}, {"op", "event_connections_changed"}};
+            f["connections"] = list;
+            return f.dump();
+        };
+        full   = frame(connections);
+        hidden = frame(core::ProjectState::redact_event_connections(connections));
+    } catch (const std::exception& e) {
+        Logger::error("broadcast_event_connections: serialization failed: {}", e.what());
+        return;
+    }
+    std::lock_guard lock{impl_->ws_mutex};
+    for (auto& [c, session] : impl_->ws_clients) {
+        if (!impl_->authorize_ws_locked(c, users_)) continue;
+        try { c->send_text(session.is_api ? hidden : full); }
         catch (...) { /* onclose will clean up dead connections */ }
     }
 }
@@ -3213,6 +3239,17 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // The panic (#23): every cue stops at once and every event dies. The same
+    // as a second Stop All during the first one's fade, for a control that has
+    // one button for it.
+    CROW_ROUTE(app, "/api/transport/panic").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req) {
+            Logger::api_request("Client ({}) -> Server ({}) : POST /api/transport/panic",
+                                req.remote_ip_address, impl_->server_addr);
+            state_.panic();
+            return json_ok(json({{"ok", true}}));
+        });
+
     // ---- External-control surface (Bitfocus Companion, custom remotes) ----
     // Compact machine-readable transport summary. Control surfaces fetch this
     // once on connect (and after a project_changed doc_patch), then keep it
@@ -4315,9 +4352,15 @@ void ControlServer::install_routes() {
             return json_ok(json{{"plugins", state_.event_plugins()}});
         });
 
+    // An API token sees connections with their secrets hidden (#19): it is a
+    // string in somebody else's config file, and an HTTP connection's headers
+    // can carry a password.
     CROW_ROUTE(app, "/api/events/connections").methods(crow::HTTPMethod::Get)
-        ([this]() {
-            return json_ok(json{{"connections", state_.event_connections()}});
+        ([this](const crow::request& req) {
+            auto list = state_.event_connections();
+            if (impl_->app.get_context<AuthGuard>(req).principal.is_api())
+                list = core::ProjectState::redact_event_connections(std::move(list));
+            return json_ok(json{{"connections", std::move(list)}});
         });
 
     // Replace the project's connections. Body: { connections: [...] }
@@ -4328,10 +4371,9 @@ void ControlServer::install_routes() {
                 if (!body.contains("connections") || !body["connections"].is_array())
                     return json_err(400, "missing 'connections' array");
                 auto stored = state_.set_event_connections(body["connections"]);
-                broadcast_doc_patch(json{
-                    {"type", "doc_patch"}, {"op", "event_connections_changed"},
-                    {"connections", stored},
-                });
+                broadcast_event_connections(stored);
+                if (impl_->app.get_context<AuthGuard>(req).principal.is_api())
+                    stored = core::ProjectState::redact_event_connections(std::move(stored));
                 return json_ok(json{{"ok", true}, {"connections", stored}});
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
@@ -4344,6 +4386,14 @@ void ControlServer::install_routes() {
                 const auto body = json::parse(req.body);
                 if (!body.contains("event") || !body["event"].is_object())
                     return json_err(400, "missing 'event' object");
+                // A draft HTTP connection is any URL at all, requested from
+                // the server's own place on the network. The connection
+                // editor's Test needs that; an API token does not (#20), and
+                // may still test the show's saved connections.
+                if (impl_->app.get_context<AuthGuard>(req).principal.is_api() &&
+                    body.contains("connection") && body["connection"].is_object() &&
+                    body["event"].value("plugin", std::string{}) == "http")
+                    return json_err(403, "API tokens can't test an unsaved HTTP connection");
                 const auto r = state_.test_event(
                     body["event"],
                     body.contains("connection") ? body["connection"] : json{},
@@ -4517,7 +4567,12 @@ void ControlServer::install_routes() {
     // theme, settings) plus a server-side decoration of engine cue ids. This
     // is the single GET a remote client needs to render the whole project.
     CROW_ROUTE(app, "/api/project").methods(crow::HTTPMethod::Get)
-        ([this] { return json_ok(state_.full_document()); });
+        ([this](const crow::request& req) {
+            auto doc = state_.full_document();
+            if (impl_->app.get_context<AuthGuard>(req).principal.is_api() && doc.contains("eventConnections"))
+                doc["eventConnections"] = core::ProjectState::redact_event_connections(doc["eventConnections"]);
+            return json_ok(doc);
+        });
 
     // Lightweight header — theme, settings, cart, project name, item count.
     // Clients hit this first so they can paint the workspace shell before
@@ -4528,6 +4583,8 @@ void ControlServer::install_routes() {
             Logger::api_request("Client ({}) -> Server ({}) : GET /api/project/header",
                                 req.remote_ip_address, impl_->server_addr);
             auto hdr = state_.header_document();
+            if (impl_->app.get_context<AuthGuard>(req).principal.is_api() && hdr.contains("eventConnections"))
+                hdr["eventConnections"] = core::ProjectState::redact_event_connections(hdr["eventConnections"]);
             Logger::api_response("Client ({}) <- Server ({}) : GET /api/project/header OK — '{}' ({} items)",
                                  req.remote_ip_address, impl_->server_addr,
                                  hdr.value("name", "?"),

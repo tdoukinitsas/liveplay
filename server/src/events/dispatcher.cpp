@@ -7,20 +7,44 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <optional>
 
 namespace liveplay::events {
 
 // ---- ItemEvent ---------------------------------------------------------------
+namespace {
+// A string field: `fallback` when absent or null, nullopt when it holds another
+// type. json::value() throws on a mismatch instead, and play_item parses the
+// list on every GO, so one bad field would stop the cue from playing at all.
+std::optional<std::string> string_field(const json& e, const char* key, const char* fallback) {
+    const auto it = e.find(key);
+    if (it == e.end() || it->is_null()) return std::string{fallback};
+    if (!it->is_string()) return std::nullopt;
+    return it->get<std::string>();
+}
+} // namespace
+
 std::vector<ItemEvent> ItemEvent::parse_list(const json& events) {
     std::vector<ItemEvent> out;
     if (!events.is_array()) return out;
     for (const auto& e : events) {
-        if (!e.is_object() || !e.value("enabled", true)) continue;
+        if (!e.is_object()) continue;
+        // A field of the wrong type makes the event invalid: it is skipped, as
+        // one without a plugin is, and the rest of the list still fires.
+        const auto enabled = e.find("enabled");
+        if (enabled != e.end() && !enabled->is_null() &&
+            !(enabled->is_boolean() && enabled->get<bool>()))
+            continue;
+        auto id      = string_field(e, "id", "");
+        auto trigger = string_field(e, "trigger", "time");
+        auto plugin  = string_field(e, "plugin", "");
+        auto action  = string_field(e, "action", "");
+        if (!id || !trigger || !plugin || !action) continue;
         ItemEvent ev;
-        ev.id      = e.value("id", std::string{});
-        ev.trigger = e.value("trigger", std::string{"time"});
-        ev.plugin  = e.value("plugin", std::string{});
-        ev.action  = e.value("action", std::string{});
+        ev.id      = std::move(*id);
+        ev.trigger = std::move(*trigger);
+        ev.plugin  = std::move(*plugin);
+        ev.action  = std::move(*action);
         if (e.contains("time") && e["time"].is_number()) ev.time = e["time"].get<double>();
         if (e.contains("connectionId") && e["connectionId"].is_string())
             ev.connection_id = e["connectionId"].get<std::string>();
@@ -31,6 +55,27 @@ std::vector<ItemEvent> ItemEvent::parse_list(const json& events) {
         out.push_back(std::move(ev));
     }
     return out;
+}
+
+// ---- Causation ---------------------------------------------------------------
+namespace {
+thread_local const std::vector<std::string>* t_chain = nullptr;
+
+// Marks the thread as executing `job` for as long as it lives.
+class ExecutingJob {
+public:
+    explicit ExecutingJob(const Job& job) : saved_(t_chain) { t_chain = &job.ctx.chain; }
+    ~ExecutingJob() { t_chain = saved_; }
+    ExecutingJob(const ExecutingJob&) = delete;
+    ExecutingJob& operator=(const ExecutingJob&) = delete;
+private:
+    const std::vector<std::string>* saved_;
+};
+} // namespace
+
+const std::vector<std::string>& current_chain() {
+    static const std::vector<std::string> none;
+    return t_chain ? *t_chain : none;
 }
 
 // ---- Placeholders ------------------------------------------------------------
@@ -119,8 +164,18 @@ void Dispatcher::add_plugin(std::unique_ptr<Plugin> plugin) {
     // Caught at boot, where a plugin author will see it, rather than as forms
     // that silently never match their events.
     std::string schema_id;
-    try { schema_id = plugin->schema().value("id", std::string{}); }
-    catch (const std::exception& e) { schema_id = std::string{"(schema threw: "} + e.what() + ")"; }
+    // Read once, here: an event fire asks for it, and building a schema per
+    // fire meant (for MIDI) opening the system's MIDI client and listing its
+    // ports, under the project lock. Only an explicit false waives it.
+    bool needs_connection = true;
+    try {
+        const json schema = plugin->schema();
+        schema_id = schema.value("id", std::string{});
+        const auto nc = schema.find("needsConnection");
+        needs_connection = !(nc != schema.end() && nc->is_boolean() && !nc->get<bool>());
+    } catch (const std::exception& e) {
+        schema_id = std::string{"(schema threw: "} + e.what() + ")";
+    }
     if (id.empty() || schema_id != id) {
         Logger::error("events: plugin '{}' not loaded: schema id is '{}'", id, schema_id);
         return;
@@ -136,6 +191,7 @@ void Dispatcher::add_plugin(std::unique_ptr<Plugin> plugin) {
         }
         plugins_[id] = std::move(plugin);
         lanes_[id]   = std::move(lane);
+        needs_connection_[id] = needs_connection;
         order_.push_back(id);
     }
     l.thread = std::thread([this, &l, &p] { lane_loop(l, p); });
@@ -165,12 +221,12 @@ json Dispatcher::plugins_json() const {
 }
 
 bool Dispatcher::plugin_needs_connection(const std::string& id) const {
-    auto* p = find(id);
-    if (!p) return false;
-    try { return p->schema().value("needsConnection", true); } catch (...) { return true; }
+    std::lock_guard lock{mutex_};
+    const auto it = needs_connection_.find(id);
+    return it != needs_connection_.end() && it->second;
 }
 
-void Dispatcher::enqueue(Job job, Clock::time_point when) {
+void Dispatcher::enqueue(Job job, Clock::time_point when, std::function<Due()> check) {
     if (when == Clock::time_point{} || when <= Clock::now()) {
         hand_to_lane(std::move(job));
         return;
@@ -178,17 +234,23 @@ void Dispatcher::enqueue(Job job, Clock::time_point when) {
     {
         std::lock_guard lock{mutex_};
         if (stop_) return;
-        scheduled_.emplace(when, std::move(job));
+        scheduled_.emplace(when, Scheduled{std::move(job), std::move(check)});
     }
     cv_.notify_all();
 }
 
-void Dispatcher::cancel_item(const std::string& item_uuid) {
+std::vector<FireContext> Dispatcher::cancel_item(const std::string& item_uuid) {
+    std::vector<FireContext> dropped;
     std::lock_guard lock{mutex_};
     for (auto it = scheduled_.begin(); it != scheduled_.end();) {
-        if (it->second.ctx.item_uuid == item_uuid) it = scheduled_.erase(it);
-        else ++it;
+        if (it->second.job.ctx.item_uuid == item_uuid) {
+            dropped.push_back(it->second.job.ctx);
+            it = scheduled_.erase(it);
+        } else {
+            ++it;
+        }
     }
+    return dropped;
 }
 
 void Dispatcher::cancel_all() {
@@ -196,9 +258,39 @@ void Dispatcher::cancel_all() {
     scheduled_.clear();
 }
 
+void Dispatcher::cancel_queued() {
+    // Not nested: lane_loop takes a lane's lock and then mutex_.
+    std::vector<Lane*> lanes;
+    {
+        std::lock_guard lock{mutex_};
+        for (auto& [_, lane] : lanes_) lanes.push_back(lane.get());
+    }
+    for (auto* lane : lanes) {
+        std::lock_guard lk{lane->mutex};
+        lane->jobs.clear();
+    }
+}
+
+void Dispatcher::reset_plugins() {
+    // Called outside the lock, as plugins_json() calls schema(): plugin code
+    // runs on its own terms.
+    std::vector<std::pair<std::string, Plugin*>> list;
+    {
+        std::lock_guard lock{mutex_};
+        for (auto& [id, plugin] : plugins_) list.emplace_back(id, plugin.get());
+    }
+    for (auto& [id, plugin] : list) {
+        try { plugin->reset(); }
+        catch (const std::exception& e) {
+            Logger::warn("events: plugin '{}' reset() threw: {}", id, e.what());
+        }
+    }
+}
+
 Result Dispatcher::run_now(const Job& job) {
     auto* p = find(job.plugin);
     if (!p) return Result::fail("unknown plugin '" + job.plugin + "'");
+    const ExecutingJob executing{job};
     try { return p->execute(job); }
     catch (const std::exception& e) { return Result::fail(e.what()); }
 }
@@ -248,7 +340,23 @@ void Dispatcher::scheduler_loop() {
             cv_.wait_until(lock, due);
             continue;
         }
-        Job job = std::move(scheduled_.begin()->second);
+        if (const auto& check = scheduled_.begin()->second.check) {
+            Due verdict = Due::Fire;
+            try { verdict = check(); } catch (...) {}
+            if (verdict == Due::Hold) {
+                // Checked again shortly, until it runs or is cancelled.
+                constexpr auto kHoldRetry = std::chrono::milliseconds(5);
+                auto node = scheduled_.extract(scheduled_.begin());
+                node.key() = Clock::now() + kHoldRetry;
+                scheduled_.insert(std::move(node));
+                continue;
+            }
+            if (verdict == Due::Drop) {
+                scheduled_.erase(scheduled_.begin());
+                continue;
+            }
+        }
+        Job job = std::move(scheduled_.begin()->second.job);
         scheduled_.erase(scheduled_.begin());
         lock.unlock();
         hand_to_lane(std::move(job));
@@ -292,6 +400,7 @@ void Dispatcher::lane_loop(Lane& lane, Plugin& plugin) {
             lane.jobs.pop_front();
         }
         Result r;
+        const ExecutingJob executing{job};
         try { r = plugin.execute(job); }
         catch (const std::exception& e) { r = Result::fail(e.what()); }
         catch (...) { r = Result::fail("unknown error"); }

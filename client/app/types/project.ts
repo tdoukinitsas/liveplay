@@ -451,6 +451,8 @@ export interface ProjectSettings {
   stopAllFadeMs?: number;
   // Absent = true: Stop All silences the preview audition too (#60).
   stopAllStopsPreview?: boolean;
+  // Absent = false: the cues Stop All stops fire no "On end" events (#23).
+  stopAllFiresEvents?: boolean;
   /** LEGACY as of U4 — see usePreferences().scrollToPlaying. Seed only. */
   uiScrollToPlaying?: boolean;
   disableAutoVolumeAndTrim?: boolean;

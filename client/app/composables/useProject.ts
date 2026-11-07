@@ -1138,6 +1138,52 @@ export const useProject = () => {
     return ok;
   };
 
+  // Apply an item change the server already made (an item_updated doc_patch,
+  // or a relink it just reported) to this client's copy, without echoing it
+  // back. Playlist items and cart-only ones alike: a cart-only item lives in
+  // the cart store, which saveProject() copies back into the document, so
+  // patching only the document would be undone by the next save. Never takes
+  // the waveform: peaks are client-owned (see restoreWaveform).
+  const applyServerItemPatch = (uuid: string, patch: Record<string, any> | null | undefined) => {
+    const p = currentProject.value;
+    if (!p || !uuid) return;
+    const incoming = { ...(patch ?? {}) };
+    delete incoming.waveform;
+    isHydrating.value = true;
+    try {
+      const find = (arr: any[]): any => {
+        for (const it of arr) {
+          if (it.uuid === uuid) return it;
+          if (it.type === 'group' && Array.isArray(it.children)) {
+            const hit = find(it.children);
+            if (hit) return hit;
+          }
+        }
+        return null;
+      };
+      const item = find(p.items ?? []);
+      if (item) {
+        Object.assign(item, incoming);
+        restoreWaveform(item);
+      }
+      // In place, as every cart edit is: the store holds the document's own
+      // objects, and re-setting the same one tells the store it changed.
+      const { getCartOnlyItem, updateCartOnlyItem } = useCartItems();
+      const cartItem = getCartOnlyItem(uuid);
+      if (cartItem) {
+        Object.assign(cartItem, incoming);
+        restoreWaveform(cartItem);
+        updateCartOnlyItem(uuid, cartItem);
+      }
+      const docCartItem = Array.isArray(p.cartOnlyItems)
+        ? p.cartOnlyItems.find((i: any) => i.uuid === uuid) : null;
+      if (docCartItem && docCartItem !== cartItem) Object.assign(docCartItem, incoming);
+    } finally {
+      // As applyDocPatch: let this tick's watchers still see hydrating=true.
+      queueMicrotask(() => { isHydrating.value = false; });
+    }
+  };
+
   // Save the current project — the server already has the document, it just
   // needs to write to disk.
   //
@@ -1621,21 +1667,15 @@ export const useProject = () => {
             break;
           }
           case 'item_updated': {
-            const hit = findItemAndParent(patch.uuid);
-            if (!hit) return;
             // The waveform is client/worker-owned: its peaks are generated
             // locally and deliberately stripped from every sync payload, so
             // the server's echo of an item carries `waveform: null`. Applying
             // that here would wipe the locally-loaded waveform on EVERY
             // property edit (the diff-watcher PATCHes the item → the server
-            // broadcasts item_updated right back). Never let a server patch
-            // touch the local waveform — keep whatever we already have.
-            const incoming = { ...(patch.patch ?? {}) };
-            if ('waveform' in incoming) delete incoming.waveform;
-            Object.assign(hit.item, incoming);
-            // Defensive: if this item somehow has no peaks anymore, restore
-            // them from the session cache.
-            restoreWaveform(hit.item);
+            // broadcasts item_updated right back). applyServerItemPatch never
+            // lets a server patch touch the local waveform, and restores it
+            // from the session cache if it somehow went missing.
+            applyServerItemPatch(patch.uuid, patch.patch);
             break;
           }
           case 'item_removed': {
@@ -2148,6 +2188,7 @@ export const useProject = () => {
     openProject,
     tryRejoinExistingProject,
     resumeProjectOnServer,
+    applyServerItemPatch,
     saveProject,
     flushPendingSave,
     hasUnsavedChanges,
