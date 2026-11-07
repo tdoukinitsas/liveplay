@@ -724,7 +724,8 @@
     "playNext": "अगला चलाएं",
     "volumeMultiplier": "वॉल्यूम गुणक",
     "volumeMultiplierHint": "हर MIDI स्टेप पर कितने dB। छोटे स्टेप में चलने वाले एनकोडर या व्हील के लिए इसे बढ़ाएँ।",
-    "nextIn": "अगला {seconds}s में"
+    "nextIn": "अगला {seconds}s में",
+    "stopCurrentCue": "वर्तमान क्यू रोकें"
   },
   "selectProject": {
     "title": "प्रोजेक्ट चुनें",

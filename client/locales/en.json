@@ -700,6 +700,7 @@
     "toggleLoop": "Toggle Loop",
     "cueToContinue": "Cue to Continue",
     "jumpCue": "Jump Cue",
+    "stopCurrentCue": "Stop Current Cue",
     "stopAll": "Stop All",
     "selectUp": "Select Up",
     "selectDown": "Select Down",

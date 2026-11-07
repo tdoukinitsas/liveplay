@@ -724,7 +724,8 @@
     "playNext": "پخش بعدی",
     "volumeMultiplier": "ضریب بلندی صدا",
     "volumeMultiplierHint": "مقدار dB در هر گام MIDI. برای انکودرها یا چرخ‌هایی که گام‌های کوچک دارند آن را بیشتر کنید.",
-    "nextIn": "بعدی تا {seconds} ثانیه دیگر"
+    "nextIn": "بعدی تا {seconds} ثانیه دیگر",
+    "stopCurrentCue": "توقف کیو فعلی"
   },
   "selectProject": {
     "title": "انتخاب پروژه",

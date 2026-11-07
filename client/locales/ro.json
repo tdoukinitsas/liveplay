@@ -724,7 +724,8 @@
     "playNext": "Redă următorul",
     "volumeMultiplier": "Multiplicator de volum",
     "volumeMultiplierHint": "dB per pas MIDI. Măriți-l pentru encodere sau rotițe care se mișcă în pași mici.",
-    "nextIn": "Următorul în {seconds} s"
+    "nextIn": "Următorul în {seconds} s",
+    "stopCurrentCue": "Oprește cue-ul curent"
   },
   "selectProject": {
     "title": "Selectați proiectul",

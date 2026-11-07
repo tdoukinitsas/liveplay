@@ -724,7 +724,8 @@
     "playNext": "Spela nästa",
     "volumeMultiplier": "Volymmultiplikator",
     "volumeMultiplierHint": "dB per MIDI-steg. Öka för encodrar eller hjul som rör sig i små steg.",
-    "nextIn": "Nästa om {seconds} s"
+    "nextIn": "Nästa om {seconds} s",
+    "stopCurrentCue": "Stoppa aktuell cue"
   },
   "selectProject": {
     "title": "Välj projekt",

@@ -163,6 +163,7 @@ export type PlaybackKeyAction =
   | 'toggle-loop'
   | 'cue-to-continue'
   | 'jump-cue'
+  | 'stop-current-cue'
   | 'stop-all'
   | 'select-up'
   | 'select-down'

@@ -724,7 +724,8 @@
     "playNext": "Reproducir siguiente",
     "volumeMultiplier": "Multiplicador de volumen",
     "volumeMultiplierHint": "dB por paso MIDI. Auméntelo para encoders o ruedas que avanzan en pasos pequeños.",
-    "nextIn": "Siguiente en {seconds}s"
+    "nextIn": "Siguiente en {seconds}s",
+    "stopCurrentCue": "Detener el cue actual"
   },
   "selectProject": {
     "title": "Seleccionar proyecto",

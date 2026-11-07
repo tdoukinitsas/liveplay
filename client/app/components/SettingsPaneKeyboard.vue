@@ -74,6 +74,7 @@ const PLAYBACK_ACTIONS: { id: PlaybackKeyAction; labelKey: string }[] = [
   { id: 'toggle-loop',     labelKey: 'controls.toggleLoop'     },
   { id: 'cue-to-continue', labelKey: 'controls.cueToContinue'  },
   { id: 'jump-cue',        labelKey: 'controls.jumpCue'        },
+  { id: 'stop-current-cue', labelKey: 'controls.stopCurrentCue' },
   { id: 'stop-all',        labelKey: 'controls.stopAll'        },
   { id: 'select-up',       labelKey: 'controls.selectUp'       },
   { id: 'select-down',     labelKey: 'controls.selectDown'     },

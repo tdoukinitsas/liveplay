@@ -724,7 +724,8 @@
     "playNext": "পরবর্তী চালান",
     "volumeMultiplier": "ভলিউম গুণক",
     "volumeMultiplierHint": "প্রতি MIDI ধাপে কত dB। ছোট ধাপে চলা এনকোডার বা হুইলের জন্য বাড়ান।",
-    "nextIn": "{seconds}s পরে পরবর্তী"
+    "nextIn": "{seconds}s পরে পরবর্তী",
+    "stopCurrentCue": "বর্তমান কিউ থামান"
   },
   "selectProject": {
     "title": "প্রকল্প নির্বাচন করুন",

@@ -724,7 +724,8 @@
     "playNext": "تشغيل التالي",
     "volumeMultiplier": "مضاعف الصوت",
     "volumeMultiplierHint": "مقدار dB لكل خطوة MIDI. زِده لأجهزة التشفير (encoders) أو العجلات التي تتحرك بخطوات صغيرة.",
-    "nextIn": "التالي بعد {seconds} ث"
+    "nextIn": "التالي بعد {seconds} ث",
+    "stopCurrentCue": "إيقاف الإشارة الحالية"
   },
   "selectProject": {
     "title": "اختر المشروع",

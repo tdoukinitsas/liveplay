@@ -724,7 +724,8 @@
     "playNext": "Riproduci successivo",
     "volumeMultiplier": "Moltiplicatore volume",
     "volumeMultiplierHint": "dB per passo MIDI. Aumentalo per encoder o rotelle che si muovono a piccoli passi.",
-    "nextIn": "Successivo tra {seconds}s"
+    "nextIn": "Successivo tra {seconds}s",
+    "stopCurrentCue": "Ferma il cue corrente"
   },
   "selectProject": {
     "title": "Seleziona progetto",

@@ -724,7 +724,8 @@
     "playNext": "Воспроизвести следующий",
     "volumeMultiplier": "Множитель громкости",
     "volumeMultiplierHint": "дБ на шаг MIDI. Увеличьте для энкодеров или колёс с мелким шагом.",
-    "nextIn": "Следующий через {seconds} с"
+    "nextIn": "Следующий через {seconds} с",
+    "stopCurrentCue": "Остановить текущую реплику"
   },
   "selectProject": {
     "title": "Выбрать проект",
