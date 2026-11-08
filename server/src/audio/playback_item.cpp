@@ -315,9 +315,13 @@ void PlaybackItem::seek_seconds(double seconds) {
     }
 }
 
-void PlaybackItem::set_gain_db(float db) noexcept {
+void PlaybackItem::set_gain_db(float db, std::chrono::milliseconds ramp) noexcept {
     const float lin = db_to_lin(db);
     gain_target_linear_.store(lin, std::memory_order_release);
+    // The ramp length first, then the sequence that tells the audio thread a
+    // new ramp starts: it reads the length only after seeing the bump.
+    gain_ramp_ms_.store(std::max<long long>(0, ramp.count()), std::memory_order_relaxed);
+    gain_seq_.fetch_add(1, std::memory_order_release);
     // Don't disturb an in-flight fade; the fade end-point reflects this value
     // by virtue of being captured on play()/stop(). If we're stopped, snap
     // so the next play() picks up the new value cleanly. While Playing/Paused
@@ -328,6 +332,29 @@ void PlaybackItem::set_gain_db(float db) noexcept {
     if (st == TransportState::Stopped) {
         gain_current_linear_.store(lin, std::memory_order_release);
     }
+}
+
+void PlaybackItem::set_envelope(std::unique_ptr<GainEnvelope> env) {
+    if (env) {
+        env->normalise();
+        // An envelope that changes nothing costs the audio thread nothing.
+        if (env->empty() || env->is_unity()) env.reset();
+    }
+    std::lock_guard lk{env_mutex_};
+    // Drop what the audio thread parked last time, here on this thread, so it
+    // has somewhere to park the one this replaces.
+    env_retired_.reset();
+    env_incoming_ = std::move(env);
+    env_incoming_ready_.store(true, std::memory_order_release);
+}
+
+void PlaybackItem::take_incoming_envelope() noexcept {
+    if (!env_incoming_ready_.load(std::memory_order_acquire)) return;
+    std::unique_lock lk{env_mutex_, std::try_to_lock};
+    if (!lk.owns_lock() || env_retired_) return;   // next block, then
+    env_retired_ = std::move(env_);
+    env_         = std::move(env_incoming_);
+    env_incoming_ready_.store(false, std::memory_order_release);
 }
 
 void PlaybackItem::set_ltc_enabled(bool enabled) {
@@ -521,6 +548,12 @@ std::size_t PlaybackItem::render_loop_block(std::size_t frame_count, bool& decod
             decoder_.get(), buf + filled * ch, static_cast<ma_uint64>(want), &got);
         if (rv != MA_SUCCESS && rv != MA_AT_END) { decode_error = true; break; }
 
+        // Volume automation, at the positions these frames came from. Before
+        // the blend: the tail carries its own envelope level into it, and the
+        // head (below) carries the level at the in-point side.
+        if (env_ && got > 0)
+            env_->apply(buf + filled * ch, static_cast<std::size_t>(got), ch, playhead);
+
         // Tail meets head: equal-power, so the level holds steady through
         // the blend for uncorrelated material (ambiences, beds).
         if (head && got > 0 && playhead + got > xfade_start) {
@@ -531,7 +564,8 @@ std::size_t PlaybackItem::render_loop_block(std::size_t frame_count, bool& decod
                 const std::uint64_t k = p - xfade_start;
                 const float theta = (static_cast<float>(k) + 0.5f) * step;
                 const float g_out = std::cos(theta);
-                const float g_in  = std::sin(theta);
+                const float g_in  = std::sin(theta) *
+                    (env_ ? env_->gain_at(head->in_frames + k) : 1.0f);
                 Sample*       f = buf + (filled + static_cast<std::size_t>(i)) * ch;
                 const Sample* h = head->samples.data() + static_cast<std::size_t>(k) * ch;
                 for (std::size_t c = 0; c < ch; ++c) f[c] = f[c] * g_out + h[c] * g_in;
@@ -682,6 +716,10 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
         std::memset(out_channel_buffers[c], 0, frame_count * sizeof(Sample));
     }
 
+    // Pick up a new automation envelope even while stopped, so the first block
+    // of the next play already has it.
+    take_incoming_envelope();
+
     const TransportState st = transport_.load(std::memory_order_acquire);
     if (st == TransportState::Stopped || st == TransportState::Paused) return 0;
     if (!decoder_ready_) return 0;
@@ -723,6 +761,11 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
             frames_read = 0;
             decode_error_.store(true, std::memory_order_relaxed);
         }
+        // Volume automation: these frames start where the playhead was. (A
+        // looping cue applied it chunk by chunk inside render_loop_block.)
+        if (env_ && frames_read > 0)
+            env_->apply(interleave_buf_.data(), static_cast<std::size_t>(frames_read),
+                        file_channels_, loop_playhead);
     }
 
     deinterleave_to(interleave_buf_.data(),
@@ -784,26 +827,47 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
             gain_current_linear_.store(gain_end, std::memory_order_release);
         }
     } else {
-        // No fade active — but if set_gain_db() changed the *target* while we
-        // were playing (e.g. auto-duck "duck-others", or a UI fader move), the
-        // current and target diverge. Smoothly slew current toward target over
-        // a short, fixed window. Without this, ducking is an audible step
-        // (-20 dB in one sample is a click on every transition) and per-item
-        // volume slider moves on the UI also click.
+        // No fade active. A level change (set_gain_db: a duck, its release, a
+        // UI fader move) ramps from wherever the gain is now to the new target
+        // over the length the caller asked for (#78), linearly in dB so a long
+        // duck sounds like a steady fade rather than one that drops away at the
+        // end. The ramp's progress lives on this thread only.
         const float target = gain_target_linear_.load(std::memory_order_acquire);
-        if (target != gain_now) {
-            // ~50 ms slew at the configured mix rate. Long enough to remove
-            // any click, short enough that "ducking now" still feels immediate.
-            constexpr long long kRampMs = 50;
-            const long long ramp_samples = std::max<long long>(1,
-                static_cast<long long>(desc_.mix_sample_rate) * kRampMs / 1000);
-            const long long advance = static_cast<long long>(frame_count);
-            if (advance >= ramp_samples) {
-                gain_end = target;
+        const std::uint32_t seq = gain_seq_.load(std::memory_order_acquire);
+        if (seq != ramp_seen_seq_ || (!ramp_active_ && target != gain_now) ||
+            (ramp_active_ && target != ramp_to_lin_)) {
+            // A new request uses its own length. A target that moved without
+            // one (a fade ending short of it, a stop_now() snap) gets the
+            // default, which is what used to happen for every change.
+            const long long ms = (seq != ramp_seen_seq_)
+                ? gain_ramp_ms_.load(std::memory_order_relaxed)
+                : kDefaultGainRamp.count();
+            ramp_seen_seq_ = seq;
+            ramp_from_lin_ = gain_now;
+            ramp_to_lin_   = target;
+            ramp_total_    = std::max<long long>(1,
+                static_cast<long long>(desc_.mix_sample_rate) * ms / 1000);
+            ramp_elapsed_  = 0;
+            ramp_active_   = (target != gain_now);
+        }
+        if (ramp_active_) {
+            ramp_elapsed_ = std::min<long long>(
+                ramp_elapsed_ + static_cast<long long>(frame_count), ramp_total_);
+            if (ramp_elapsed_ >= ramp_total_) {
+                gain_end     = ramp_to_lin_;
+                ramp_active_ = false;
             } else {
-                const float alpha =
-                    static_cast<float>(advance) / static_cast<float>(ramp_samples);
-                gain_end = gain_now + (target - gain_now) * alpha;
+                // dB interpolation, with silence held at -80 dB so a ramp to or
+                // from nothing still has a shape; the end points stay exact.
+                constexpr float kFloorDb = -80.0f;
+                const auto to_db = [](float lin) {
+                    return lin <= 1e-4f ? kFloorDb : 20.0f * std::log10(lin);
+                };
+                const float from_db = to_db(ramp_from_lin_);
+                const float to_db_v = to_db(ramp_to_lin_);
+                const float t = static_cast<float>(ramp_elapsed_) /
+                                static_cast<float>(ramp_total_);
+                gain_end = std::pow(10.0f, (from_db + (to_db_v - from_db) * t) / 20.0f);
             }
             gain_current_linear_.store(gain_end, std::memory_order_release);
         }

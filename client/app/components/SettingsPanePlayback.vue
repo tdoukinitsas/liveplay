@@ -34,7 +34,7 @@
     </section>
 
     <!-- Stored in ms, shown in seconds. force_fade on the server, so this
-         beats every per-track fade. -->
+         beats every per-track fade (unless the option below is on). -->
     <section class="settings-field">
       <label class="settings-label">
         <span class="material-symbols-rounded">timer</span>
@@ -49,6 +49,20 @@
         @change="onStopAllFadeChange"
       />
       <p class="settings-help">{{ t('settings.stopAllFadeHelp') }}</p>
+    </section>
+
+    <!-- #85: each stopped cue leaves over its own Stop button fade, for Stop
+         All and for "stop all others" ducking. Panic still cuts. -->
+    <section class="settings-field">
+      <label class="settings-label settings-label--checkbox">
+        <input
+          type="checkbox"
+          :checked="stopAllUsesItemFade"
+          @change="onStopAllUsesItemFadeChange"
+        />
+        {{ t('settings.stopAllUsesItemFade') }}
+      </label>
+      <p class="settings-help">{{ t('settings.stopAllUsesItemFadeHelp') }}</p>
     </section>
 
     <section class="settings-field">
@@ -120,6 +134,8 @@ const autoCueNextWithoutEndBehavior = computed(
 const stopAllStopsPreview = computed(() => settings.value.stopAllStopsPreview !== false);
 // Defaults OFF: Stop All silences events too.
 const stopAllFiresEvents = computed(() => settings.value.stopAllFiresEvents === true);
+// Defaults OFF: one Stop All fade for every cue. (#85)
+const stopAllUsesItemFade = computed(() => settings.value.stopAllUsesItemFade === true);
 const stopAllFadeSeconds = computed(() => {
   const ms = settings.value.stopAllFadeMs;
   return (typeof ms === 'number' ? ms : 1000) / 1000;
@@ -135,6 +151,9 @@ function onStopAllFadeChange(e: Event) {
   const seconds = parseFloat((e.target as HTMLInputElement).value);
   const ms = Number.isFinite(seconds) ? Math.max(0, Math.round(seconds * 1000)) : 1000;
   applyPatch({ stopAllFadeMs: ms });
+}
+function onStopAllUsesItemFadeChange(e: Event) {
+  applyPatch({ stopAllUsesItemFade: (e.target as HTMLInputElement).checked });
 }
 function onStopAllStopsPreviewChange(e: Event) {
   applyPatch({ stopAllStopsPreview: (e.target as HTMLInputElement).checked });

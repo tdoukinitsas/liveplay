@@ -172,7 +172,9 @@
     "accentColorSwatch": "强调色 {color}",
     "sectionAbout": "关于",
     "sectionAboutHelp": "版本、致谢和许可证。",
-    "sectionConnections": "连接"
+    "sectionConnections": "连接",
+    "stopAllUsesItemFade": "被停止的提示音使用各自的停止按钮淡出",
+    "stopAllUsesItemFadeHelp": "开启后，Stop All 和“停止所有其他”闪避模式会让每个提示音按其自己的停止按钮淡出时间淡出。没有设置的提示音使用 Stop All 淡出。连按两次 Stop All 仍会立即停止一切。"
   },
   "common": {
     "default": "默认",
@@ -242,6 +244,21 @@
     "startNextTitle": "开始下一首：{time}",
     "loadingWaveform": "正在加载波形…"
   },
+  "automation": {
+    "enable": "音量自动化",
+    "enableHint": "在波形上绘制音量包络。取消勾选会旁路它，并保留关键帧。",
+    "addKeyframe": "添加关键帧",
+    "addKeyframeHint": "在光标处添加关键帧；提示音播放时则在播放头处添加。",
+    "removeKeyframe": "删除关键帧",
+    "removeKeyframeHint": "删除选中的关键帧，或光标处的关键帧。右键点击关键帧或按 Delete 键效果相同。",
+    "clear": "清除",
+    "clearHint": "删除所有关键帧。",
+    "clearConfirm": "要删除此提示音的所有音量自动化关键帧吗？",
+    "previewFromCursor": "从光标处预听",
+    "previewFromCursorHint": "在预听总线上从光标处播放此提示音（包含自动化）。点击波形以放置光标。",
+    "previewUnavailable": "需要一条路由到输出的预听总线。请在调音台中设置。",
+    "stopPreview": "停止预听"
+  },
   "properties": {
     "title": "属性",
     "resize": "调整属性面板大小",
@@ -258,8 +275,8 @@
     "startBehavior": "开始行为",
     "duckingBehavior": "闪避行为",
     "fadeOutDuration": "淡出时长",
-    "duckFadeIn": "闪避淡入",
-    "duckFadeOut": "闪避淡出",
+    "duckFadeIn": "压低用时（秒）",
+    "duckFadeOut": "恢复用时（秒）",
     "children": "子项",
     "seconds": "秒",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "在这段秒数内将循环结尾交叉淡化到开头。0 表示不交叉淡化直接循环。",
     "loopCrossfadeNeedsLoop": "将此 Cue 的结束行为设为“循环”即可使用循环交叉淡化。",
     "advanceDelay": "播放下一个前等待（秒）",
-    "advanceDelayHint": "此 Cue 结束后，先等待这段时间，再由其结束行为启动下一个 Cue。设置了交叉淡化或“开始下一首”时忽略此项。"
+    "advanceDelayHint": "此 Cue 结束后，先等待这段时间，再由其结束行为启动下一个 Cue。设置了交叉淡化或“开始下一首”时忽略此项。",
+    "duckTimesHint": "此提示音开始时其他提示音压低所需的时间，以及结束时恢复所需的时间。"
   },
   "playback": {
     "panic": "停止所有 Cue",
@@ -1374,7 +1392,8 @@
         "bus-send": "设置发送电平",
         "bus-route": "路由总线",
         "bus-dsp": "设置总线处理",
-        "master-level": "设置主控电平"
+        "master-level": "设置主控电平",
+        "stop-fade-mode": "设置 Stop All 淡出模式"
       },
       "fields": {
         "item": {
@@ -1407,6 +1426,10 @@
         "value": {
           "label": "值",
           "help": "使用该设置自身的单位；开关为 0（关）或 1（开）。"
+        },
+        "mode": {
+          "label": "被停止的提示音淡出方式",
+          "help": "设置 > 播放：Stop All 和“停止所有其他”闪避使用的淡出。紧急停止总是立即切断。"
         }
       },
       "summaries": {
@@ -1433,6 +1456,11 @@
           "comp_ratio": "压缩器比率 (1–60 :1)",
           "comp_makeup": "压缩器补偿增益 (-12–24 dB)",
           "width_width": "立体声宽度 (0–2 ×)"
+        },
+        "mode": {
+          "item": "每个提示音自己的停止按钮淡出",
+          "global": "Stop All 淡出",
+          "toggle": "在两者之间切换"
         }
       }
     },

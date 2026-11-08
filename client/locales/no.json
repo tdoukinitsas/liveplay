@@ -172,7 +172,9 @@
     "accentColorSwatch": "Aksentfarge {color}",
     "sectionAbout": "Om",
     "sectionAboutHelp": "Versjon, bidragsytere og lisens.",
-    "sectionConnections": "Tilkoblinger"
+    "sectionConnections": "Tilkoblinger",
+    "stopAllUsesItemFade": "Stoppede cuer bruker sin egen stoppknapptoning",
+    "stopAllUsesItemFadeHelp": "Når dette er på, toner Stop All og duckingmodusen «Stopp alle andre» ut hver cue med dens egen stoppknapptoning. Cuer uten en bruker Stop All-toningen. To trykk på Stop All stopper fortsatt alt med en gang."
   },
   "common": {
     "default": "standard",
@@ -242,6 +244,21 @@
     "startNextTitle": "Start neste: {time}",
     "loadingWaveform": "Laster inn bølgeform…"
   },
+  "automation": {
+    "enable": "Volumautomasjon",
+    "enableHint": "Tegn en volumkurve på bølgeformen. Fjerner du haken, forbigås den og nøkkelpunktene beholdes.",
+    "addKeyframe": "Legg til nøkkelpunkt",
+    "addKeyframeHint": "Legg til et nøkkelpunkt ved markøren, eller ved spillehodet mens cuen spiller.",
+    "removeKeyframe": "Fjern nøkkelpunkt",
+    "removeKeyframeHint": "Fjern det valgte nøkkelpunktet eller det ved markøren. Høyreklikk på et nøkkelpunkt eller Delete gjør det samme.",
+    "clear": "Tøm",
+    "clearHint": "Fjern alle nøkkelpunkter.",
+    "clearConfirm": "Fjerne alle nøkkelpunkter for volumautomasjon på denne cuen?",
+    "previewFromCursor": "Forhåndslytt fra markøren",
+    "previewFromCursorHint": "Spill cuen fra markøren på forlyttingsbussen, med automasjon. Klikk i bølgeformen for å plassere markøren.",
+    "previewUnavailable": "Krever en forlyttingsbuss rutet til en utgang. Sett den opp i mikseren.",
+    "stopPreview": "Stopp forlytting"
+  },
   "properties": {
     "title": "Egenskaper",
     "resize": "Endre størrelse på egenskapspanelet",
@@ -258,8 +275,8 @@
     "startBehavior": "Startatferd",
     "duckingBehavior": "Ducking-atferd",
     "fadeOutDuration": "Uttoningstid",
-    "duckFadeIn": "Ducking-inntoning",
-    "duckFadeOut": "Ducking-uttoning",
+    "duckFadeIn": "Senk over (sekunder)",
+    "duckFadeOut": "Tilbake over (sekunder)",
     "children": "Underelementer",
     "seconds": "sekunder",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "Crossfader slutten av loopen inn i starten over så mange sekunder. 0 looper uten crossfade.",
     "loopCrossfadeNeedsLoop": "Sett sluttatferden for denne cuen til Loop for å bruke loop-crossfade.",
     "advanceDelay": "Vent før neste (sekunder)",
-    "advanceDelayHint": "Når denne cuen er ferdig, ventes det så lenge før sluttatferden starter neste cue. Ignoreres når en crossfade eller Start neste er stilt inn."
+    "advanceDelayHint": "Når denne cuen er ferdig, ventes det så lenge før sluttatferden starter neste cue. Ignoreres når en crossfade eller Start neste er stilt inn.",
+    "duckTimesHint": "Hvor lang tid de andre cuene bruker på å senkes når denne cuen starter, og på å komme tilbake når den slutter."
   },
   "playback": {
     "panic": "Stopp alle cuer",
@@ -1374,7 +1392,8 @@
         "bus-send": "Sett send-nivå",
         "bus-route": "Rut en buss",
         "bus-dsp": "Sett bussbehandling",
-        "master-level": "Sett masternivå"
+        "master-level": "Sett masternivå",
+        "stop-fade-mode": "Sett Stop All-toningsmodus"
       },
       "fields": {
         "item": {
@@ -1407,6 +1426,10 @@
         "value": {
           "label": "Verdi",
           "help": "I innstillingens egen enhet; brytere er 0 (av) eller 1 (på)."
+        },
+        "mode": {
+          "label": "Stoppede cuer toner ut med",
+          "help": "Innstillinger > Avspilling: hvilken toning Stop All og duckingen «stopp alle andre» bruker. Panikk kutter alltid."
         }
       },
       "summaries": {
@@ -1433,6 +1456,11 @@
           "comp_ratio": "Kompressorratio (1–60 :1)",
           "comp_makeup": "Kompressor-makeup (-12–24 dB)",
           "width_width": "Stereobredde (0–2 ×)"
+        },
+        "mode": {
+          "item": "Hver cues egen stoppknapptoning",
+          "global": "Stop All-toningen",
+          "toggle": "Bytt mellom de to"
         }
       }
     },

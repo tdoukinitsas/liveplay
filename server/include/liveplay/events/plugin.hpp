@@ -98,6 +98,10 @@ public:
     // A lasting change (any PATCH /api/buses field): saved in the project and
     // sent to every client. Returns "" or why the mixer refused it.
     virtual std::string patch_bus(const std::string& id, const json& patch) = 0;
+    // Settings > Playback "Stopped cues use their own Stop button fade" (#85):
+    // read it, or change it (saved in the project and sent to every client).
+    virtual bool stops_use_item_fade() = 0;
+    virtual void set_stops_use_item_fade(bool on) = 0;
     // Master gain; `final` sends the change to the clients (not every step of a fade).
     virtual double master_gain_db() = 0;
     virtual void set_master_gain_db(double db, bool final) = 0;

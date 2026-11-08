@@ -48,6 +48,7 @@ Unless shown otherwise, arguments are `<port> <wavPath>`.
 | `session-prefs-e2e.js` | Per-connection locale/meter settings |
 | `materialise-skip.js` | Bus materialization; `<port>` |
 | `settings-registry-e2e.js` | Settings validation; `<port>`, no audio needed |
+| `automation-e2e.js` | Volume automation (incl. live edits and Preview from cursor), #78 duck attack/release, #85 Stop All item fades and the `stop-fade-mode` event; `<port>`, writes its own tone |
 | `events-e2e.js` | Event system (#84): OSC/HTTP delivery, marker timing, pause/resume/end, test fires, connection carry-over, customActions migration; `<port>`, no audio needed |
 | `liveplay-plugin-e2e.js` | LivePlay event plugin: play/pause/resume/stop/Up Next, ducking (measured on the meter), master level, bus fader/mute/sends/routing/processing with fades; `<port>`, plays a quiet tone |
 | `xair-e2e.js` | X Air plugin against a real mixer: crossfades, cap, mute, sends, FX, routing, recorder refusal; `<port> <mixer ip> [strip A] [strip B]`. Restores everything; never above -20 dB on the two strips; never recalls a snapshot |

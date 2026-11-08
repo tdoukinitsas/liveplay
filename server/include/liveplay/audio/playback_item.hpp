@@ -28,6 +28,7 @@
 // ============================================================================
 #pragma once
 
+#include "liveplay/audio/gain_envelope.hpp"
 #include "liveplay/audio/ltc_generator.hpp"
 #include "liveplay/audio/meter.hpp"
 #include "liveplay/audio/types.hpp"
@@ -128,7 +129,17 @@ public:
     void seek_seconds(double seconds);
 
     // ---- Mutators --------------------------------------------------------
-    void set_gain_db(float db) noexcept;
+    // The default ramp any level change takes while playing: long enough that
+    // a fader move or a duck never clicks, short enough to feel immediate.
+    static constexpr std::chrono::milliseconds kDefaultGainRamp{50};
+    // Set the item's level. While playing, the cue moves from where it is now
+    // to `db` over `ramp`, linearly in dB (#78: a duck's attack / release).
+    // Stopped, it simply takes the new level for the next play.
+    void set_gain_db(float db, std::chrono::milliseconds ramp = kDefaultGainRamp) noexcept;
+    // Volume automation (on top of the gain above). Empty / nullptr = none.
+    // Keyframe frames are source-file positions at the mix rate. Safe while
+    // playing: the audio thread picks the new envelope up at its next block.
+    void set_envelope(std::unique_ptr<GainEnvelope> env);
     // Fade durations are mirrored into atomics so the audio thread can read the
     // fade-out length without racing these control-thread writes (desc_ keeps a
     // copy for serialization and control-thread reads).
@@ -285,6 +296,29 @@ private:
     // Manual-stop fade (stop()). Control-thread only, atomic for symmetry.
     std::atomic<long long>      stop_fade_ms_{0};
 
+    // set_gain_db()'s ramp request: the control thread writes the length and
+    // bumps the sequence; the audio thread notices the new sequence and starts
+    // a ramp from wherever the gain is. The ramp's progress is audio-thread
+    // only (no atomics needed), which is why it is not in the fade state above.
+    std::atomic<long long>      gain_ramp_ms_{kDefaultGainRamp.count()};
+    std::atomic<std::uint32_t>  gain_seq_{0};
+    std::uint32_t               ramp_seen_seq_ = 0;
+    bool                        ramp_active_   = false;
+    float                       ramp_from_lin_ = 1.0f;
+    float                       ramp_to_lin_   = 1.0f;
+    long long                   ramp_total_    = 0;
+    long long                   ramp_elapsed_  = 0;
+
+    // Volume automation. env_ belongs to the audio thread; set_envelope()
+    // hands a new one over through the mailbox, exactly like the loop head:
+    // the audio thread only try_locks, never frees (the envelope it replaces
+    // goes to env_retired_, dropped by the control thread on the next set).
+    std::unique_ptr<GainEnvelope> env_;
+    std::mutex                    env_mutex_;
+    std::unique_ptr<GainEnvelope> env_incoming_;
+    std::unique_ptr<GainEnvelope> env_retired_;
+    std::atomic<bool>             env_incoming_ready_{false};
+
     // Set by render_block() on an unexpected decoder error (see had_decode_error).
     std::atomic<bool>           decode_error_{false};
 
@@ -366,6 +400,8 @@ private:
     void start_fade(float from_lin, float to_lin, std::chrono::milliseconds dur,
                     TransportState during, TransportState after_complete) noexcept;
     void resize_meters(ChannelCount n);
+    // Audio thread: take a newly set envelope, if one is waiting.
+    void take_incoming_envelope() noexcept;
     void join_head_job() noexcept;
     void request_loop_head(std::uint64_t in_frames, std::uint64_t out_frames,
                            std::uint64_t req_frames) noexcept;

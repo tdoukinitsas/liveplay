@@ -73,6 +73,21 @@ export interface AudioItem extends BaseItem {
   ltcEnabled?: boolean;         // output LTC on the project's ltcOutput when playing
   ltcStartTimecode?: string;    // starting timecode "HH:MM:SS:FF" (default "00:00:00:00")
   ltcFrameRate?: number;        // 0=24, 1=25, 2=29.97NDF, 3=29.97DF, 4=30 (default 4)
+  // Volume automation (2.6): an envelope of keyframes on top of `volume`.
+  // Absent = none. Unticking keeps the points and only bypasses them. The
+  // rules (linear-in-dB, source-file time, -60 dB = silence) are in
+  // utils/volumeAutomation.ts and the engine's gain_envelope.hpp.
+  volumeAutomation?: VolumeAutomation;
+}
+
+export interface VolumeAutomationPoint {
+  t: number;   // seconds, SOURCE-FILE time (unaffected by the trim)
+  db: number;  // relative to the item volume; -60 and below = silence, max +10
+}
+
+export interface VolumeAutomation {
+  enabled: boolean;
+  points: VolumeAutomationPoint[];
 }
 
 // Waveform data format (from the server's decoder, or legacy ffmpeg files)
@@ -145,8 +160,10 @@ export interface HttpRequest {
 export interface DuckingBehavior {
   mode: 'stop-all' | 'no-ducking' | 'duck-others';
   duckLevel?: number; // 0-1, volume multiplier for other cues
-  duckFadeIn?: number; // fade in duration in seconds when ducking (default: 0.25)
-  duckFadeOut?: number; // fade out duration in seconds when restoring (default: 1)
+  // How long the other cues take to go down (duckFadeIn) and come back up
+  // (duckFadeOut), seconds (#78). Honoured from 2.6; absent = 50 ms each.
+  duckFadeIn?: number;  // default for new items: 0.25
+  duckFadeOut?: number; // default for new items: 1
 }
 
 // Cart slot key binding
@@ -454,6 +471,10 @@ export interface ProjectSettings {
   stopAllStopsPreview?: boolean;
   // Absent = false: the cues Stop All stops fire no "On end" events (#23).
   stopAllFiresEvents?: boolean;
+  // Absent = false: Stop All (and "stop all others" ducking) fades every cue
+  // over one time. True: each cue over its own Stop button fade, falling back
+  // to the Stop All fade for cues with none (#85). A panic always cuts.
+  stopAllUsesItemFade?: boolean;
   /** LEGACY as of U4 — see usePreferences().scrollToPlaying. Seed only. */
   uiScrollToPlaying?: boolean;
   disableAutoVolumeAndTrim?: boolean;

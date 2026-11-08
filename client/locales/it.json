@@ -172,7 +172,9 @@
     "accentColorSwatch": "Colore d’accento {color}",
     "sectionAbout": "Informazioni",
     "sectionAboutHelp": "Versione, riconoscimenti e licenza.",
-    "sectionConnections": "Connessioni"
+    "sectionConnections": "Connessioni",
+    "stopAllUsesItemFade": "I cue fermati usano la propria dissolvenza del pulsante Stop",
+    "stopAllUsesItemFadeHelp": "Se attivo, Stop All e la modalità di ducking «Ferma tutti gli altri» sfumano ogni cue con la propria dissolvenza del pulsante Stop. I cue senza usano quella di Stop All. Premere Stop All due volte ferma comunque tutto all'istante."
   },
   "common": {
     "default": "predefinito",
@@ -242,6 +244,21 @@
     "startNextTitle": "Avvia successivo: {time}",
     "loadingWaveform": "Caricamento forma d’onda…"
   },
+  "automation": {
+    "enable": "Automazione del volume",
+    "enableHint": "Disegna un inviluppo di volume sulla forma d'onda. Deselezionarlo lo esclude e mantiene i punti.",
+    "addKeyframe": "Aggiungi punto",
+    "addKeyframeHint": "Aggiunge un punto al cursore, o alla testina mentre il cue suona.",
+    "removeKeyframe": "Rimuovi punto",
+    "removeKeyframeHint": "Rimuove il punto selezionato o quello al cursore. Clic destro su un punto o il tasto Canc fanno lo stesso.",
+    "clear": "Cancella",
+    "clearHint": "Rimuove tutti i punti.",
+    "clearConfirm": "Rimuovere tutti i punti di automazione del volume di questo cue?",
+    "previewFromCursor": "Preascolto dal cursore",
+    "previewFromCursorHint": "Riproduce questo cue dal cursore sul bus di preascolto, automazione inclusa. Clicca sulla forma d'onda per posizionare il cursore.",
+    "previewUnavailable": "Serve un bus di preascolto instradato a un'uscita. Configuralo nel mixer.",
+    "stopPreview": "Ferma preascolto"
+  },
   "properties": {
     "title": "Proprietà",
     "resize": "Ridimensiona il pannello delle proprietà",
@@ -258,8 +275,8 @@
     "startBehavior": "Comportamento di inizio",
     "duckingBehavior": "Comportamento di ducking",
     "fadeOutDuration": "Durata dissolvenza in uscita",
-    "duckFadeIn": "Dissolvenza in entrata del ducking",
-    "duckFadeOut": "Dissolvenza in uscita del ducking",
+    "duckFadeIn": "Abbassa in (secondi)",
+    "duckFadeOut": "Ritorna in (secondi)",
     "children": "Elementi figli",
     "seconds": "secondi",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "Dissolve la fine del loop nel suo inizio in questo numero di secondi. 0 ripete il loop senza dissolvenza.",
     "loopCrossfadeNeedsLoop": "Imposta il comportamento di fine di questo cue su «Loop» per usare la dissolvenza del loop.",
     "advanceDelay": "Attesa prima del successivo (secondi)",
-    "advanceDelayHint": "Al termine di questo cue, attendi questo tempo prima che il suo comportamento di fine avvii il cue successivo. Ignorato se è impostata una dissolvenza incrociata o «Avvia successivo»."
+    "advanceDelayHint": "Al termine di questo cue, attendi questo tempo prima che il suo comportamento di fine avvii il cue successivo. Ignorato se è impostata una dissolvenza incrociata o «Avvia successivo».",
+    "duckTimesHint": "Quanto impiegano gli altri cue ad abbassarsi quando parte questo cue, e a tornare su quando finisce."
   },
   "playback": {
     "panic": "Ferma tutti i cue",
@@ -1374,7 +1392,8 @@
         "bus-send": "Imposta livello mandata",
         "bus-route": "Instrada un bus",
         "bus-dsp": "Imposta elaborazione del bus",
-        "master-level": "Imposta livello master"
+        "master-level": "Imposta livello master",
+        "stop-fade-mode": "Imposta la modalità di dissolvenza di Stop All"
       },
       "fields": {
         "item": {
@@ -1407,6 +1426,10 @@
         "value": {
           "label": "Valore",
           "help": "Nell’unità dell’impostazione; gli interruttori sono 0 (spento) o 1 (acceso)."
+        },
+        "mode": {
+          "label": "I cue fermati sfumano con",
+          "help": "Impostazioni > Riproduzione: con quale dissolvenza escono Stop All e il ducking «ferma tutti gli altri». Un panico taglia sempre."
         }
       },
       "summaries": {
@@ -1433,6 +1456,11 @@
           "comp_ratio": "Rapporto del compressore (1–60 :1)",
           "comp_makeup": "Make-up del compressore (-12–24 dB)",
           "width_width": "Larghezza stereo (0–2 ×)"
+        },
+        "mode": {
+          "item": "La dissolvenza del pulsante Stop di ogni cue",
+          "global": "La dissolvenza di Stop All",
+          "toggle": "Alterna tra le due"
         }
       }
     },

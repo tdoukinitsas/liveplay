@@ -172,7 +172,9 @@
     "accentColorSwatch": "Culoare de accent {color}",
     "sectionAbout": "Despre",
     "sectionAboutHelp": "Versiune, contribuitori și licență.",
-    "sectionConnections": "Conexiuni"
+    "sectionConnections": "Conexiuni",
+    "stopAllUsesItemFade": "Cue-urile oprite folosesc propriul fade al butonului Stop",
+    "stopAllUsesItemFadeHelp": "Când e activ, Stop All și modul de ducking „Oprește toate celelalte” sting fiecare cue cu propriul fade al butonului Stop. Cue-urile fără unul folosesc fade-ul Stop All. Apăsarea de două ori pe Stop All oprește în continuare totul imediat."
   },
   "common": {
     "default": "implicit",
@@ -242,6 +244,21 @@
     "startNextTitle": "Pornește următoarea: {time}",
     "loadingWaveform": "Se încarcă forma de undă…"
   },
+  "automation": {
+    "enable": "Automatizare volum",
+    "enableHint": "Desenează o anvelopă de volum pe forma de undă. Debifarea o ocolește și păstrează punctele.",
+    "addKeyframe": "Adaugă punct",
+    "addKeyframeHint": "Adaugă un punct la cursor, sau la capul de redare cât timp cue-ul cântă.",
+    "removeKeyframe": "Elimină punctul",
+    "removeKeyframeHint": "Elimină punctul selectat sau pe cel de la cursor. Clic dreapta pe un punct sau tasta Delete fac același lucru.",
+    "clear": "Golește",
+    "clearHint": "Elimină toate punctele.",
+    "clearConfirm": "Elimini toate punctele de automatizare a volumului din acest cue?",
+    "previewFromCursor": "Previzualizare de la cursor",
+    "previewFromCursorHint": "Redă acest cue de la cursor pe busul de previzualizare, cu automatizare. Dă clic pe forma de undă pentru a plasa cursorul.",
+    "previewUnavailable": "Necesită un bus de previzualizare rutat către o ieșire. Configurează-l în mixer.",
+    "stopPreview": "Oprește previzualizarea"
+  },
   "properties": {
     "title": "Proprietăți",
     "resize": "Redimensionează panoul de proprietăți",
@@ -258,8 +275,8 @@
     "startBehavior": "Comportament la start",
     "duckingBehavior": "Comportament de ducking",
     "fadeOutDuration": "Durata fade-out",
-    "duckFadeIn": "Fade-in la ducking",
-    "duckFadeOut": "Fade-out la ducking",
+    "duckFadeIn": "Coboară în (secunde)",
+    "duckFadeOut": "Revine în (secunde)",
     "children": "Elemente conținute",
     "seconds": "secunde",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "Face crossfade între finalul buclei și începutul ei pe durata acestui număr de secunde. 0 repetă fără crossfade.",
     "loopCrossfadeNeedsLoop": "Setați comportamentul la final al acestui cue pe Buclă pentru a folosi crossfade la buclă.",
     "advanceDelay": "Pauză înainte de următorul (secunde)",
-    "advanceDelayHint": "După ce acest cue se termină, se așteaptă atât înainte ca comportamentul la final să pornească cue-ul următor. Se ignoră când este setat un crossfade sau Pornește următoarea."
+    "advanceDelayHint": "După ce acest cue se termină, se așteaptă atât înainte ca comportamentul la final să pornească cue-ul următor. Se ignoră când este setat un crossfade sau Pornește următoarea.",
+    "duckTimesHint": "Cât le ia celorlalte cue-uri să coboare când pornește acest cue și să revină când se termină."
   },
   "playback": {
     "panic": "Oprește toate cue-urile",
@@ -1374,7 +1392,8 @@
         "bus-send": "Setează nivelul send-ului",
         "bus-route": "Rutează un bus",
         "bus-dsp": "Setează procesarea bus-ului",
-        "master-level": "Setează nivelul master"
+        "master-level": "Setează nivelul master",
+        "stop-fade-mode": "Setează modul de fade Stop All"
       },
       "fields": {
         "item": {
@@ -1407,6 +1426,10 @@
         "value": {
           "label": "Valoare",
           "help": "În unitatea setării; comutatoarele sunt 0 (dezactivat) sau 1 (activat)."
+        },
+        "mode": {
+          "label": "Cue-urile oprite se sting cu",
+          "help": "Setări > Redare: cu ce fade ies Stop All și ducking-ul „oprește toate celelalte”. Panica taie întotdeauna."
         }
       },
       "summaries": {
@@ -1433,6 +1456,11 @@
           "comp_ratio": "Ratio compresor (1–60 :1)",
           "comp_makeup": "Makeup compresor (-12–24 dB)",
           "width_width": "Lățime stereo (0–2 ×)"
+        },
+        "mode": {
+          "item": "Fade-ul butonului Stop al fiecărui cue",
+          "global": "Fade-ul Stop All",
+          "toggle": "Comută între cele două"
         }
       }
     },

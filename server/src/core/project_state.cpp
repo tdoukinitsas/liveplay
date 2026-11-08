@@ -65,6 +65,49 @@ void apply_item_fade_outs(audio::PlaybackItem& cue, const nlohmann::json& item) 
         cue.set_stop_fade(to_ms(std::max(0.0, it->get<double>())));
 }
 
+// An item's volume automation, from its document field:
+//   volumeAutomation: { enabled: bool, points: [{ t: seconds, db: number }] }
+// `t` is source-file time; `db` at or below -60 is silence (the rules live in
+// audio/gain_envelope.hpp). Absent, disabled or empty = no automation, so a
+// show saved before 2.6 plays exactly as it did. Bypassing keeps the points in
+// the document; only the engine stops hearing them.
+std::unique_ptr<audio::GainEnvelope> envelope_from_item(const nlohmann::json& item,
+                                                         audio::SampleRate rate) {
+    auto va = item.find("volumeAutomation");
+    if (va == item.end() || !va->is_object()) return nullptr;
+    if (!json_get_or(*va, "enabled", false)) return nullptr;
+    auto pts = va->find("points");
+    if (pts == va->end() || !pts->is_array() || pts->empty()) return nullptr;
+    auto env = std::make_unique<audio::GainEnvelope>();
+    env->points.reserve(pts->size());
+    for (const auto& p : *pts) {
+        if (!p.is_object()) continue;
+        const auto t  = p.find("t");
+        const auto db = p.find("db");
+        if (t == p.end() || !t->is_number() || db == p.end() || !db->is_number()) continue;
+        const double sec = std::max(0.0, t->get<double>());
+        env->points.push_back({static_cast<std::uint64_t>(sec * static_cast<double>(rate)),
+                               static_cast<float>(db->get<double>())});
+    }
+    if (env->points.empty()) return nullptr;
+    return env;
+}
+
+void apply_item_envelope(audio::PlaybackItem& cue, const nlohmann::json& item) {
+    cue.set_envelope(envelope_from_item(item, cue.desc().mix_sample_rate));
+}
+
+// A duck's attack / release (#78), from duckingBehavior.duckFadeIn / duckFadeOut
+// in seconds. Absent = the 50 ms every level change took before 2.6.
+std::chrono::milliseconds duck_ramp(const nlohmann::json& ducking, const char* key) {
+    if (!ducking.is_object()) return audio::PlaybackItem::kDefaultGainRamp;
+    auto it = ducking.find(key);
+    if (it == ducking.end() || !it->is_number()) return audio::PlaybackItem::kDefaultGainRamp;
+    // 60 s matches the longest Stop All fade: long, but never unstoppable.
+    const double sec = std::clamp(it->get<double>(), 0.0, 60.0);
+    return std::chrono::milliseconds{static_cast<long long>(sec * 1000.0)};
+}
+
 // Convert a Unix timestamp (seconds since epoch) to an ISO 8601 UTC string.
 inline std::string unix_ts_to_iso(std::int64_t unix_sec) {
     const std::time_t t = static_cast<std::time_t>(unix_sec);
@@ -683,6 +726,10 @@ static const std::unordered_map<std::string, SettingSpec>& settings_registry() {
         // Absent = false: the cues Stop All stops fire no end events. True
         // fires them (they still can't start a cue). A panic never does.
         {"stopAllFiresEvents",            {SettingKind::Bool}},
+        // Absent = false: Stop All (and a cue in "stop all others" ducking
+        // mode) fades every cue over one time. True: each cue over its own
+        // Stop button fade (#85). A panic is always a cut.
+        {"stopAllUsesItemFade",           {SettingKind::Bool}},
         {"disableAutoVolumeAndTrim",      {SettingKind::Bool}},
         {"disableSilenceWarning",         {SettingKind::Bool}},
 
@@ -955,6 +1002,21 @@ public:
             case PR::RefusedPreviewSend: return "the preview bus may only go to an output";
             default:                return "the mixer refused the change";
         }
+    }
+    bool stops_use_item_fade() override {
+        const json doc = state_.full_document();
+        const auto st = doc.find("settings");
+        return st != doc.end() && st->is_object() &&
+               json_get_or(*st, "stopAllUsesItemFade", false);
+    }
+    void set_stops_use_item_fade(bool on) override {
+        state_.patch_settings(json{{"stopAllUsesItemFade", on}});
+        // Every client's Settings > Playback follows, as for a PATCH.
+        json frame = json::object();
+        frame["type"]     = "doc_patch";
+        frame["op"]       = "settings_patched";
+        frame["settings"] = state_.full_document()["settings"];
+        state_.notify_clients(frame);
     }
     double master_gain_db() override { return state_.master_gain_db(); }
     void set_master_gain_db(double db, bool final) override {
@@ -1431,6 +1493,7 @@ void ProjectState::start_async_mirror() {
                                 static_cast<long long>(it["playFade"].get<double>() * 1000.0)});
                         }
                         apply_item_fade_outs(*cue, it);
+                        apply_item_envelope(*cue, it);
                         if (it.contains("outPoint") && it["outPoint"].is_number()) {
                             cue->set_out_point_seconds(it["outPoint"].get<double>());
                         }
@@ -1825,6 +1888,7 @@ void ProjectState::apply_item_properties_locked(const json& item,
             static_cast<long long>(item["playFade"].get<double>() * 1000.0)});
     }
     apply_item_fade_outs(*cue, item);
+    apply_item_envelope(*cue, item);
     // outPoint: when set (> 0), engine fades out as the playhead reaches
     // that time instead of running to the file end.
     if (item.contains("outPoint") && item["outPoint"].is_number()) {
@@ -2850,6 +2914,7 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                             static_cast<long long>(it["playFade"].get<double>() * 1000.0)});
                     }
                     apply_item_fade_outs(*cue, it);
+                    apply_item_envelope(*cue, it);
                     if (it.contains("outPoint") && it["outPoint"].is_number()) {
                         cue->set_out_point_seconds(it["outPoint"].get<double>());
                     }
@@ -3291,6 +3356,9 @@ bool ProjectState::play_item(const std::string& uuid,
     // touching the engine (engine calls take their own locks).
     std::string  ducking_mode  = "stop-all";
     float        duck_level    = 0.2f;
+    auto         duck_attack   = audio::PlaybackItem::kDefaultGainRamp;
+    auto         duck_release  = audio::PlaybackItem::kDefaultGainRamp;
+    bool         stops_use_item_fade = false;
     double       in_point      = 0.0;
     double       out_point     = 0.0;
     double       fade_out_dur  = 1.0;
@@ -3334,6 +3402,8 @@ bool ProjectState::play_item(const std::string& uuid,
         };
         if (doc.contains("items"))              walk(doc["items"]);
         if (!found && doc.contains("cartOnlyItems")) walk(doc["cartOnlyItems"]);
+        if (doc.contains("settings") && doc["settings"].is_object())
+            stops_use_item_fade = json_get_or(doc["settings"], "stopAllUsesItemFade", false);
 
         if (found) {
             in_point      = json_get_or(*found, "inPoint",         0.0);
@@ -3351,6 +3421,8 @@ bool ProjectState::play_item(const std::string& uuid,
                 const auto& dk = (*found)["duckingBehavior"];
                 ducking_mode = dk.value("mode",      std::string{"stop-all"});
                 duck_level   = dk.value("duckLevel", 0.2f);
+                duck_attack  = duck_ramp(dk, "duckFadeIn");
+                duck_release = duck_ramp(dk, "duckFadeOut");
             }
             if (found->contains("deviceOverride") &&
                 (*found)["deviceOverride"].is_string()) {
@@ -3399,7 +3471,12 @@ bool ProjectState::play_item(const std::string& uuid,
             // started its engine-owned fade-out. Stopping it here would (since
             // it's FadingOut) route through stop_now() and hard-cut it.
             if (!exclude_from_ducking.empty() && cid == exclude_from_ducking) continue;
-            if (auto* pi = engine_.find_cue(cid)) pi->stop(fade_ms);
+            auto* pi = engine_.find_cue(cid);
+            if (!pi) continue;
+            // #85: with stopAllUsesItemFade each cue leaves over its own Stop
+            // button fade (a cue with none still takes the incoming cue's).
+            if (stops_use_item_fade && pi->stop_fade().count() > 0) pi->stop();
+            else                                                    pi->stop(fade_ms);
         }
     } else if (ducking_mode == "duck-others") {
         const float lin = std::clamp(duck_level, 0.0f, 1.0f);
@@ -3407,8 +3484,8 @@ bool ProjectState::play_item(const std::string& uuid,
         for (auto& cid : other_cues) {
             if (!exclude_from_ducking.empty() && cid == exclude_from_ducking) continue;
             if (auto* pi = engine_.find_cue(cid)) {
-                ducks_made.push_back({cid, pi->gain_db()});
-                pi->set_gain_db(db);
+                ducks_made.push_back({cid, pi->gain_db(), duck_release});
+                pi->set_gain_db(db, duck_attack);
             }
         }
     }
@@ -3673,10 +3750,7 @@ bool ProjectState::stop_item(const std::string& uuid, std::optional<long long> f
         auto it = std::find_if(sequenced_items_.begin(), sequenced_items_.end(),
                                [&](const SequencedItem& si){ return si.uuid == uuid; });
         if (it != sequenced_items_.end()) {
-            for (auto& dk : it->ducked) {
-                if (auto* pi = engine_.find_cue(dk.cue_id))
-                    pi->set_gain_db(dk.original_gain_db);
-            }
+            restore_ducked(it->ducked);
             if (!it->end_fired) collect_event_fires(*it, "end", end_fires);
             sequenced_items_.erase(it);
         }
@@ -3698,6 +3772,7 @@ void ProjectState::stop_all_cues(std::optional<long long> fade_ms, bool panic) {
     // Project-wide default fade for the Stop All button (default 1000 ms).
     long long setting_ms   = 1000;
     bool      fires_events = false;
+    bool      item_fades   = false;
     const auto now = std::chrono::steady_clock::now();
     {
         std::lock_guard lock{mutex_};
@@ -3707,6 +3782,8 @@ void ProjectState::stop_all_cues(std::optional<long long> fade_ms, bool panic) {
                 setting_ms = static_cast<long long>(s["stopAllFadeMs"].get<double>());
             if (s.contains("stopAllFiresEvents") && s["stopAllFiresEvents"].is_boolean())
                 fires_events = s["stopAllFiresEvents"].get<bool>();
+            if (s.contains("stopAllUsesItemFade") && s["stopAllUsesItemFade"].is_boolean())
+                item_fades = s["stopAllUsesItemFade"].get<bool>();
         }
         // The double tap: Stop All again while the last one is still fading
         // out (the engine already cuts a fading cue on a second stop), or a
@@ -3758,7 +3835,12 @@ void ProjectState::stop_all_cues(std::optional<long long> fade_ms, bool panic) {
     // by stop_preview_if below, which is what also clears the preview state
     // and tells every client — the engine fade alone left the card stuck on
     // "previewing" (#60).
-    engine_.stop_all(fade, /*force_fade=*/true, preview);
+    //
+    // #85: with stopAllUsesItemFade each cue fades over its own Stop button
+    // fade instead, the Stop All fade covering only cues that have none. An
+    // explicit fade from the caller still wins, and a panic is always a cut.
+    const bool force = panic || fade_ms.has_value() || !item_fades;
+    engine_.stop_all(fade, /*force_fade=*/force, preview);
     if (stops_preview && !preview.empty()) stop_preview_if(preview, fade);
 }
 
@@ -7188,7 +7270,8 @@ audio::MixerChannelId ProjectState::mixer_for_bus(const std::string& bus_id) con
     return it == bus_routings_.end() ? audio::MixerChannelId{} : it->second.mixer;
 }
 
-bool ProjectState::start_preview(const std::string& item_uuid) {
+bool ProjectState::start_preview(const std::string& item_uuid,
+                                 std::optional<double> start_seconds) {
     if (item_uuid.empty()) return false;
 
     // 1. Resolve the source file and the strip to audition it on, under the
@@ -7199,6 +7282,7 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
     double in_point  = 0.0;
     double out_point = 0.0;
     float  gain_db   = 0.0f;
+    json   item_snapshot;   // for the volume automation, applied once loaded
     audio::MixerChannelId preview_mixer;
     // What the item names; the file is found once the lock is released, as
     // finding it stats the filesystem (#21).
@@ -7214,6 +7298,8 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
                                  {"mediaServerPath", json_get_or(it, "mediaServerPath", std::string{})}};
                 in_point  = it.value("inPoint", 0.0);
                 out_point = it.value("outPoint", 0.0);
+                if (it.contains("volumeAutomation"))
+                    item_snapshot["volumeAutomation"] = it["volumeAutomation"];
                 // The item's own level, same 0..2 linear field playback uses.
                 // Auditioning is meant to answer "what will this sound like
                 // when I fire it", and a preview that ignored the trim you
@@ -7277,7 +7363,17 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
         // The trim, too: the preview card counts down to the out-point, and an
         // audition that ran on past it played audio the show never will.
         pi->set_out_point_seconds(out_point);
-        pi->prime(audio::kPrimeSeconds, in_point);
+        // The automation, though: it is part of "what this will sound like".
+        apply_item_envelope(*pi, item_snapshot);
+        // "Preview from cursor" starts where the operator put the cursor,
+        // anywhere in the file (an out-point before it is ignored: the
+        // audition plays to the end of the file instead of stopping at once).
+        double from = in_point;
+        if (start_seconds) {
+            from = std::max(0.0, *start_seconds);
+            if (out_point > 0.0 && from >= out_point) pi->set_out_point_seconds(0.0);
+        }
+        pi->prime(audio::kPrimeSeconds, from);
     }
     engine_.play(cue_id);
 
@@ -8517,10 +8613,7 @@ void ProjectState::sequencer_loop() {
 
             case PendingAction::Kind::Crossfade: {
                 // Restore ducked gains so the new cue's ducking applies fresh.
-                for (const auto& dk : p.item.ducked) {
-                    if (auto* pi = engine_.find_cue(dk.cue_id))
-                        pi->set_gain_db(dk.original_gain_db);
-                }
+                restore_ducked(p.item.ducked);
                 // Fade out the old cue over the crossfade window.
                 if (auto* pi = engine_.find_cue(p.item.cue_id)) {
                     pi->stop_with_fade(std::chrono::milliseconds{
@@ -8557,10 +8650,7 @@ void ProjectState::sequencer_loop() {
             case PendingAction::Kind::StartNext: {
                 // Restore gains this cue ducked so the incoming cue's own
                 // ducking applies fresh (mirrors the Crossfade path).
-                for (const auto& dk : p.item.ducked) {
-                    if (auto* pi = engine_.find_cue(dk.cue_id))
-                        pi->set_gain_db(dk.original_gain_db);
-                }
+                restore_ducked(p.item.ducked);
                 // Optional radio-style tail: begin fading this cue out at
                 // the marker (over its fadeOutDuration). Without it the cue
                 // simply plays on to its natural end underneath the next one.
@@ -8601,10 +8691,7 @@ void ProjectState::sequencer_loop() {
             case PendingAction::Kind::SeamlessAdvance: {
                 // Restore gains this cue ducked so the incoming cue's own
                 // ducking applies fresh (mirrors Crossfade / StartNext).
-                for (const auto& dk : p.item.ducked) {
-                    if (auto* pi = engine_.find_cue(dk.cue_id))
-                        pi->set_gain_db(dk.original_gain_db);
-                }
+                restore_ducked(p.item.ducked);
                 // Resolve the advance target (consumes an Up-Next override for
                 // the "next" case) and start it now. The outgoing cue keeps
                 // playing its short tail to its natural end, where it stops
@@ -8630,10 +8717,7 @@ void ProjectState::sequencer_loop() {
                 break;
 
             case PendingAction::Kind::Cleanup:
-                for (const auto& dk : p.item.ducked) {
-                    if (auto* pi = engine_.find_cue(dk.cue_id))
-                        pi->set_gain_db(dk.original_gain_db);
-                }
+                restore_ducked(p.item.ducked);
                 break;
 
             }
@@ -9130,16 +9214,20 @@ void ProjectState::arm_first_item_on_open() {
     if (!first.empty()) set_next_item_override(first, /*manual=*/false);
 }
 
+void ProjectState::restore_ducked(const std::vector<DuckedEntry>& ducked) {
+    for (const auto& dk : ducked) {
+        if (auto* pi = engine_.find_cue(dk.cue_id))
+            pi->set_gain_db(dk.original_gain_db, dk.release);
+    }
+}
+
 void ProjectState::handle_item_ended(const SequencedItem& item) {
     // Ensure the engine explicitly transitions the transport state and 
     // triggers a cue_state broadcast so the client UI updates.
     engine_.stop(item.cue_id);
 
     // Restore ducked gains first so the next item starts with clean levels.
-    for (const auto& dk : item.ducked) {
-        if (auto* pi = engine_.find_cue(dk.cue_id))
-            pi->set_gain_db(dk.original_gain_db);
-    }
+    restore_ducked(item.ducked);
 
     // The Start Next marker already advanced the playlist while this cue was
     // still playing — firing the end behaviour now would trigger the next

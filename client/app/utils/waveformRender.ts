@@ -48,7 +48,17 @@ export function drawWaveformLanes(
   ctx: CanvasRenderingContext2D,
   lanes: number[][],
   view: WaveformView,
-  opts: { volume: number; targetDb: number; rgbFor: (db: number) => Rgb },
+  opts: {
+    volume: number; targetDb: number; rgbFor: (db: number) => Rgb;
+    /**
+     * Everything else between the file and the output, as a gain at a file
+     * second: trim, fades, volume automation (makeCompositeGain in
+     * utils/volumeAutomation). The coloured bars show the level you will
+     * hear; the grey reference behind them stays the raw file, so audio
+     * outside the trim is still visible to trim against.
+     */
+    gainAt?: (t: number) => number;
+  },
 ): void {
   if (lanes.length === 0 || view.duration <= 0) return;
   const laneHeight = view.height / lanes.length;
@@ -79,6 +89,7 @@ export function drawWaveformLanes(
     if (visiblePeaksArray.length === 0) return;
 
     const barWidth = view.width / visiblePeaksArray.length;
+    const secondsPerPeak = view.duration / totalPeaks;
 
     // Draw each bar with individual coloring
     visiblePeaksArray.forEach((value, i) => {
@@ -91,8 +102,10 @@ export function drawWaveformLanes(
       ctx.fillStyle = 'rgba(128, 128, 128, 0.15)';
       ctx.fillRect(x, baseY, Math.max(barWidth, 1), baseBarHeight);
 
-      // Bar height after volume multiplication (the audible level).
-      const linearAmplitude = normalizedPeak * volumeMultiplier;
+      // Bar height after volume (and the composite gain, when given): the
+      // audible level, sampled at the bar's centre.
+      const gain = opts.gainAt ? opts.gainAt((startPeak + i + 0.5) * secondsPerPeak) : 1;
+      const linearAmplitude = normalizedPeak * volumeMultiplier * gain;
       const amplifiedBarHeight = heightFraction(linearAmplitude) * laneHeight;
       const amplifiedY = laneCenter - amplifiedBarHeight / 2;
 
@@ -103,9 +116,11 @@ export function drawWaveformLanes(
       const [r, g, b] = opts.rgbFor(barDB);
 
       // Draw colored bar with opacity based on whether it's clipping
-      const alpha = linearAmplitude > 1 ? 0.8 : 0.5; // More opaque if clipping
-      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-      ctx.fillRect(x, amplifiedY, Math.max(barWidth, 1), amplifiedBarHeight);
+      if (amplifiedBarHeight > 0) {
+        const alpha = linearAmplitude > 1 ? 0.8 : 0.5; // More opaque if clipping
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        ctx.fillRect(x, amplifiedY, Math.max(barWidth, 1), amplifiedBarHeight);
+      }
     });
 
     // Draw perceived loudness line (RMS level) for this lane

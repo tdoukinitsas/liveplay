@@ -81,13 +81,68 @@
         </div>
       </div>
 
+      <!-- Volume automation (2.6) and the edit cursor. One item at a time:
+           keyframes are positions in that item's own file. -->
+      <div class="automation-bar" v-if="!multiSelect">
+        <label class="automation-toggle" :title="t('automation.enableHint')">
+          <input type="checkbox" :checked="automationEnabled" @change="handleAutomationToggle" />
+          <span class="material-symbols-rounded">timeline</span>
+          <span>{{ t('automation.enable') }}</span>
+        </label>
+        <template v-if="automationEnabled">
+          <button
+            class="tool-btn"
+            :disabled="!canAddKeyframe"
+            :title="t('automation.addKeyframeHint')"
+            @click="addKeyframeAtCursor"
+          >
+            <span class="material-symbols-rounded">add_circle</span>
+            <span>{{ t('automation.addKeyframe') }}</span>
+          </button>
+          <button
+            class="tool-btn"
+            :disabled="removableIndex === null"
+            :title="t('automation.removeKeyframeHint')"
+            @click="removeKeyframe"
+          >
+            <span class="material-symbols-rounded">remove_circle</span>
+            <span>{{ t('automation.removeKeyframe') }}</span>
+          </button>
+          <button
+            class="tool-btn"
+            :disabled="automationPoints.length === 0"
+            :title="t('automation.clearHint')"
+            @click="clearAutomation"
+          >
+            <span class="material-symbols-rounded">delete_sweep</span>
+            <span>{{ t('automation.clear') }}</span>
+          </button>
+        </template>
+        <span class="automation-readout" v-if="editReadout">{{ editReadout }}</span>
+        <span class="automation-spacer"></span>
+        <button
+          class="tool-btn"
+          :class="{ active: previewingThis }"
+          :disabled="!previewingThis && !previewAvailable"
+          :title="previewButtonTitle"
+          @click="togglePreviewFromCursor"
+        >
+          <span class="material-symbols-rounded">{{ previewingThis ? 'stop_circle' : 'headphones' }}</span>
+          <span>{{ previewingThis ? t('automation.stopPreview') : t('automation.previewFromCursor') }}</span>
+        </button>
+      </div>
+
       <!-- Waveform Canvas Container. Kept mounted in ALL modes so the
            ResizeObserver target is stable; only its contents swap between the
            single-item canvas and the multi-selection message. -->
       <div
         class="waveform-container"
+        :class="{ 'automation-on': automationEnabled && !multiSelect }"
         ref="waveformContainer"
+        tabindex="0"
+        :style="{ cursor: canvasCursor }"
         @wheel.prevent="handleWheel"
+        @keydown="handleCanvasKeydown"
       >
         <!-- Multi-selection: the single-item canvas can't represent many items. -->
         <div v-if="multiSelect" class="waveform-multi-message">
@@ -100,6 +155,9 @@
           ref="waveformCanvas"
           class="waveform-canvas"
           @mousedown="handleCanvasMouseDown"
+          @mousemove="handleCanvasHover"
+          @mouseleave="hoverTarget = 'none'"
+          @contextmenu.prevent="handleCanvasContextMenu"
         ></canvas>
 
         <!-- Trim Handles -->
@@ -431,7 +489,11 @@
 </template>
 
 <script setup lang="ts">
-import type { AudioItem } from '~/types/project';
+import type { AudioItem, VolumeAutomation, VolumeAutomationPoint } from '~/types/project';
+import {
+  ENVELOPE_MIN_DB, ENVELOPE_MAX_DB, clampEnvelopeDb, envelopeDbAt, sortPoints, addPoint,
+  applyRangeDelta, shiftPoints, tidyPoints, makeCompositeGain,
+} from '~/utils/volumeAutomation';
 import { manualStopFadeOf } from '~/types/project';
 import { calculateNormalizationGain } from '~/utils/audio';
 import { waveformLanes as lanesOf, drawWaveformLanes, drawPlaybackMarkers } from '~/utils/waveformRender';
@@ -468,6 +530,7 @@ const emit = defineEmits<{
   'update:startNextEnabled': [value: boolean];
   'update:startNextTime': [value: number];
   'update:startNextFadeOut': [value: boolean];
+  'update:volumeAutomation': [value: VolumeAutomation];
   'change': [];
   'normalize': [];
   'trimSilence': [];
@@ -836,18 +899,373 @@ const startDragFade = (fadeType: 'play' | 'stop' | 'cross' | 'startNext', event:
   document.addEventListener('mouseup', handleMouseUp);
 };
 
-// Handle canvas click for setting trim points
-const handleCanvasMouseDown = (event: MouseEvent) => {
-  if (dragState.value.handle) return;
+// ---- Volume automation (2.6) ----------------------------------------------
+// The envelope is drawn over the waveform on a linear dB axis, -inf (bottom)
+// to +10 dB (top). Editing, all on the canvas:
+//   * click the line            → add a keyframe there
+//   * drag the line             → move the keyframes either side of that stretch
+//   * drag a keyframe           → move it (time between its neighbours, and level)
+//   * right-click a keyframe    → remove it (Delete removes the selected one)
+//   * drag empty waveform       → select a range; drag the line inside it to
+//                                 change that whole section, with ramps inside
+//                                 its edges (applyRangeDelta)
+//   * click empty waveform      → the edit cursor (stopped) / seek (playing)
+// Shift while dragging = fine (a tenth of the movement).
+const automationEnabled = computed(() => !!props.audioItem?.volumeAutomation?.enabled);
+const automationPoints = computed<VolumeAutomationPoint[]>(() =>
+  sortPoints(props.audioItem?.volumeAutomation?.points ?? []));
 
+// The edit cursor: where Add Keyframe and Preview from Cursor act. Only shown
+// while the cue is stopped; a playing cue has its playhead instead.
+const cursorTime = ref<number | null>(null);
+const selection = ref<{ a: number; b: number } | null>(null);
+const selectedKeyframe = ref<number | null>(null);   // index into automationPoints
+type HoverKind = 'none' | 'keyframe' | 'line' | 'selection-line' | 'background';
+const hoverTarget = ref<HoverKind>('none');
+const isPlaying = computed(() => playbackPosition.value !== null);
+
+watch(() => props.audioItem?.uuid, () => {
+  cursorTime.value = null;
+  selection.value = null;
+  selectedKeyframe.value = null;
+});
+watch(automationEnabled, (on) => {
+  if (!on) { selection.value = null; selectedKeyframe.value = null; }
+});
+
+const commitAutomation = (points: VolumeAutomationPoint[], final = false, enabled = automationEnabled.value) => {
+  emit('update:volumeAutomation', { enabled, points: final ? tidyPoints(points) : points });
+  if (final) emit('change');
+};
+
+const handleAutomationToggle = (event: Event) => {
+  const on = (event.target as HTMLInputElement).checked;
+  // Unticking only bypasses: the keyframes stay in the item for next time.
+  commitAutomation(automationPoints.value, true, on);
+};
+
+// Where Add Keyframe lands: the playhead while playing, else the cursor.
+const editPosition = computed<number | null>(() =>
+  isPlaying.value ? playbackPosition.value : cursorTime.value);
+const canAddKeyframe = computed(() => automationEnabled.value && editPosition.value !== null);
+
+const addKeyframeAtCursor = () => {
+  const t = editPosition.value;
+  if (t === null) return;
+  const pts = addPoint(automationPoints.value, t, envelopeDbAt(automationPoints.value, t));
+  commitAutomation(pts, true);
+  selectedKeyframe.value = tidyPoints(pts).findIndex(p => Math.abs(p.t - t) < 0.001);
+};
+
+// A keyframe within a few pixels of the cursor counts as "at the cursor".
+const secondsPerPixel = () => visibleDuration.value / Math.max(1, canvasWidth.value);
+const removableIndex = computed<number | null>(() => {
+  if (!automationEnabled.value) return null;
+  if (selectedKeyframe.value !== null && selectedKeyframe.value < automationPoints.value.length)
+    return selectedKeyframe.value;
+  const t = editPosition.value;
+  if (t === null) return null;
+  const tol = 4 * secondsPerPixel();
+  const i = automationPoints.value.findIndex(p => Math.abs(p.t - t) <= tol);
+  return i >= 0 ? i : null;
+});
+
+const removeKeyframeAt = (index: number) => {
+  const pts = automationPoints.value.filter((_, i) => i !== index);
+  selectedKeyframe.value = null;
+  commitAutomation(pts, true);
+};
+const removeKeyframe = () => {
+  if (removableIndex.value !== null) removeKeyframeAt(removableIndex.value);
+};
+
+const clearAutomation = () => {
+  if (automationPoints.value.length === 0) return;
+  if (!window.confirm(t('automation.clearConfirm'))) return;
+  selectedKeyframe.value = null;
+  selection.value = null;
+  commitAutomation([], true);
+};
+
+const formatDb = (db: number) =>
+  db <= ENVELOPE_MIN_DB ? '-∞ dB' : `${db > 0 ? '+' : ''}${db.toFixed(1)} dB`;
+
+const editReadout = computed(() => {
+  if (props.multiSelect) return '';
+  const k = selectedKeyframe.value;
+  const p = k !== null ? automationPoints.value[k] : undefined;
+  if (p) return `${formatTimeDetailed(p.t)} · ${formatDb(p.db)}`;
+  if (selection.value && automationEnabled.value)
+    return `${formatTimeDetailed(selection.value.a)} – ${formatTimeDetailed(selection.value.b)}`;
+  if (!isPlaying.value && cursorTime.value !== null) return formatTimeDetailed(cursorTime.value);
+  return '';
+});
+
+// ---- Preview from cursor ----------------------------------------------------
+// The audition goes to the preview-role bus. Without a preview bus that reaches
+// hardware there is nothing to hear, so the button stays off and says why.
+const { previewItemUuid, startPreview, stopPreview } = useProject();
+const liveServer = useLiveplayServer();
+const previewingThis = computed(() =>
+  !!props.audioItem?.uuid && previewItemUuid.value === props.audioItem.uuid);
+const previewAvailable = computed(() => {
+  if (!liveServer.connected) return false;
+  const bus = liveServer.buses.find(b => b.preview);
+  return !!bus && bus.bound !== false;
+});
+const previewButtonTitle = computed(() => {
+  if (previewingThis.value) return t('automation.stopPreview');
+  return previewAvailable.value ? t('automation.previewFromCursorHint') : t('automation.previewUnavailable');
+});
+const togglePreviewFromCursor = () => {
+  if (previewingThis.value) { stopPreview(); return; }
+  if (!previewAvailable.value) return;
+  startPreview(props.audioItem.uuid, cursorTime.value ?? inPoint.value);
+};
+
+// ---- Geometry ---------------------------------------------------------------
+const ENV_PAD = 8;   // px kept clear above +10 dB and below -inf
+const timeAtX = (x: number) => visibleStart.value + (x / Math.max(1, canvasWidth.value)) * visibleDuration.value;
+const xAtTime = (time: number) => ((time - visibleStart.value) / visibleDuration.value) * canvasWidth.value;
+const yAtDb = (db: number, h = containerHeight.value) => {
+  const f = (clampEnvelopeDb(db) - ENVELOPE_MIN_DB) / (ENVELOPE_MAX_DB - ENVELOPE_MIN_DB);
+  return ENV_PAD + (1 - f) * Math.max(1, h - 2 * ENV_PAD);
+};
+const dbPerPixel = () => (ENVELOPE_MAX_DB - ENVELOPE_MIN_DB) / Math.max(1, containerHeight.value - 2 * ENV_PAD);
+const clampTime = (time: number) => Math.max(0, Math.min(duration.value, time));
+
+type Hit =
+  | { kind: 'keyframe'; index: number; t: number }
+  | { kind: 'line' | 'selection-line' | 'background'; t: number };
+
+const KEYFRAME_HIT_PX = 7;
+const LINE_HIT_PX = 6;
+const hitTest = (x: number, y: number): Hit => {
+  const t = clampTime(timeAtX(x));
+  if (automationEnabled.value && !props.multiSelect) {
+    const pts = automationPoints.value;
+    let best = -1, bestDist = KEYFRAME_HIT_PX;
+    pts.forEach((p, i) => {
+      const d = Math.hypot(xAtTime(p.t) - x, yAtDb(p.db) - y);
+      if (d <= bestDist) { best = i; bestDist = d; }
+    });
+    if (best >= 0) return { kind: 'keyframe', index: best, t: pts[best]!.t };
+    if (Math.abs(yAtDb(envelopeDbAt(pts, t)) - y) <= LINE_HIT_PX) {
+      const sel = selection.value;
+      return { kind: sel && t >= sel.a && t <= sel.b ? 'selection-line' : 'line', t };
+    }
+  }
+  return { kind: 'background', t };
+};
+
+const canvasCursor = computed(() => {
+  switch (hoverTarget.value) {
+    case 'keyframe': return 'grab';
+    case 'line':
+    case 'selection-line': return 'ns-resize';
+    default: return 'crosshair';
+  }
+});
+
+const handleCanvasHover = (event: MouseEvent) => {
+  if (event.buttons) return;   // a drag is in charge
   const rect = waveformCanvas.value?.getBoundingClientRect();
   if (!rect) return;
+  hoverTarget.value = hitTest(event.clientX - rect.left, event.clientY - rect.top).kind;
+};
 
-  const x = event.clientX - rect.left;
-  const clickedTime = visibleStart.value + (x / canvasWidth.value) * visibleDuration.value;
+// The keyframes a drag on the line moves: the two either side of that
+// stretch, or the end one for the held level before the first / after the
+// last. With no keyframes the line is one flat level, so the drag makes one.
+const segmentFor = (base: VolumeAutomationPoint[], time: number) => {
+  if (base.length === 0) return { points: [{ t: time, db: 0 }], indices: [0] };
+  let i = -1;
+  for (let k = 0; k < base.length; k++) if (base[k]!.t <= time) i = k;
+  if (i < 0) return { points: base, indices: [0] };
+  if (i >= base.length - 1) return { points: base, indices: [base.length - 1] };
+  return { points: base, indices: [i, i + 1] };
+};
 
-  // Seek to clicked position
-  seekToPosition(clickedTime);
+const DRAG_THRESHOLD_PX = 3;
+
+const handleCanvasMouseDown = (event: MouseEvent) => {
+  if (dragState.value.handle) return;
+  if (event.button !== 0) return;
+  const rect = waveformCanvas.value?.getBoundingClientRect();
+  if (!rect) return;
+  waveformContainer.value?.focus({ preventScroll: true });
+
+  const x0 = event.clientX - rect.left;
+  const y0 = event.clientY - rect.top;
+  const hit = hitTest(x0, y0);
+  const base = automationPoints.value.map(p => ({ ...p }));
+  const sel = selection.value ? { ...selection.value } : null;
+  const segment = hit.kind === 'line' ? segmentFor(base, hit.t) : null;
+  let latest: VolumeAutomationPoint[] | null = null;
+  let moved = false;
+
+  if (hit.kind === 'keyframe') selectedKeyframe.value = hit.index;
+
+  const onMove = (e: MouseEvent) => {
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    if (!moved && Math.hypot(x - x0, y - y0) < DRAG_THRESHOLD_PX) return;
+    moved = true;
+    const scale = e.shiftKey ? 0.1 : 1;
+    const deltaDb = -(y - y0) * dbPerPixel() * scale;
+
+    if (hit.kind === 'keyframe') {
+      const i = hit.index;
+      const p = base[i]!;
+      const minT = i > 0 ? base[i - 1]!.t + 0.001 : 0;
+      const maxT = i < base.length - 1 ? base[i + 1]!.t - 0.001 : duration.value;
+      const dt = (x - x0) * secondsPerPixel() * scale;
+      const next = base.slice();
+      next[i] = { t: Math.max(minT, Math.min(maxT, p.t + dt)), db: clampEnvelopeDb(p.db + deltaDb) };
+      latest = next;
+      commitAutomation(next);
+    } else if (hit.kind === 'line' && segment) {
+      latest = shiftPoints(segment.points, segment.indices, deltaDb);
+      commitAutomation(latest);
+    } else if (hit.kind === 'selection-line' && sel) {
+      latest = applyRangeDelta(base, sel.a, sel.b, deltaDb);
+      commitAutomation(latest);
+    } else if (hit.kind === 'background' && automationEnabled.value) {
+      const t2 = clampTime(timeAtX(x));
+      selection.value = { a: Math.min(hit.t, t2), b: Math.max(hit.t, t2) };
+      selectedKeyframe.value = null;
+    }
+  };
+
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    if (moved) {
+      if (latest) commitAutomation(latest, true);
+      if (selection.value && selection.value.b - selection.value.a < 0.005) selection.value = null;
+      return;
+    }
+    // A click, not a drag.
+    if (hit.kind === 'line' || hit.kind === 'selection-line') {
+      const pts = addPoint(base, hit.t, envelopeDbAt(base, hit.t));
+      commitAutomation(pts, true);
+      selectedKeyframe.value = tidyPoints(pts).findIndex(p => Math.abs(p.t - hit.t) < 0.001);
+    } else if (hit.kind === 'background') {
+      selection.value = null;
+      selectedKeyframe.value = null;
+      if (isPlaying.value) seekToPosition(hit.t);
+      else cursorTime.value = hit.t;
+    }
+  };
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+};
+
+const handleCanvasContextMenu = (event: MouseEvent) => {
+  const rect = waveformCanvas.value?.getBoundingClientRect();
+  if (!rect) return;
+  const hit = hitTest(event.clientX - rect.left, event.clientY - rect.top);
+  if (hit.kind === 'keyframe') removeKeyframeAt(hit.index);
+};
+
+const handleCanvasKeydown = (event: KeyboardEvent) => {
+  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedKeyframe.value !== null) {
+    event.preventDefault();
+    event.stopPropagation();
+    removeKeyframeAt(selectedKeyframe.value);
+  } else if (event.key === 'Escape') {
+    selection.value = null;
+    selectedKeyframe.value = null;
+  }
+};
+
+// The envelope's own colour. Not the accent: that is red by default (and any
+// colour the operator picks), and red, yellow and green already mean the fades,
+// the crossfade and Start Next on this canvas. Fuchsia clashes with none of
+// them or the meter-zone bars; a deeper shade keeps contrast on the light theme.
+const envelopeColor = () => {
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--color-background').trim();
+  const m = /^#?([0-9a-f]{6})$/i.exec(bg);
+  const n = m ? parseInt(m[1]!, 16) : 0;
+  const luma = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return luma > 140 ? '#a21caf' : '#e879f9';
+};
+
+// Drawn over the waveform, under the playhead: the selection, the cursor and
+// (when automation is on) the envelope with its keyframes.
+const drawAutomationLayer = (ctx: CanvasRenderingContext2D, h: number) => {
+  const w = canvasWidth.value;
+  const accent = envelopeColor();
+
+  if (automationEnabled.value && selection.value) {
+    const xa = Math.max(0, xAtTime(selection.value.a));
+    const xb = Math.min(w, xAtTime(selection.value.b));
+    if (xb > xa) {
+      ctx.save();
+      ctx.globalAlpha = 0.14;
+      ctx.fillStyle = accent;
+      ctx.fillRect(xa, 0, xb - xa, h);
+      ctx.globalAlpha = 0.6;
+      ctx.fillRect(xa, 0, 1, h);
+      ctx.fillRect(xb - 1, 0, 1, h);
+      ctx.restore();
+    }
+  }
+
+  if (!isPlaying.value && cursorTime.value !== null) {
+    const x = xAtTime(cursorTime.value);
+    if (x >= 0 && x <= w) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, h); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.beginPath(); ctx.moveTo(x - 5, 0); ctx.lineTo(x + 5, 0); ctx.lineTo(x, 7); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  if (!automationEnabled.value) return;
+  const pts = automationPoints.value;
+  ctx.save();
+  // 0 dB guide: the item's own volume, where an untouched envelope sits.
+  const y0 = yAtDb(0, h);
+  ctx.strokeStyle = 'rgba(128, 128, 128, 0.35)';
+  ctx.setLineDash([2, 4]);
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(w, y0); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // The line. Straight between keyframes: the axis is linear in dB, and so is
+  // the interpolation.
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, yAtDb(envelopeDbAt(pts, visibleStart.value), h));
+  for (const p of pts) {
+    if (p.t <= visibleStart.value || p.t >= visibleEnd.value) continue;
+    ctx.lineTo(xAtTime(p.t), yAtDb(p.db, h));
+  }
+  ctx.lineTo(w, yAtDb(envelopeDbAt(pts, visibleEnd.value), h));
+  ctx.stroke();
+
+  // Keyframes.
+  pts.forEach((p, i) => {
+    const x = xAtTime(p.t);
+    if (x < -8 || x > w + 8) return;
+    const selected = i === selectedKeyframe.value;
+    ctx.beginPath();
+    ctx.arc(x, yAtDb(p.db, h), selected ? 5.5 : 4, 0, Math.PI * 2);
+    ctx.fillStyle = selected ? '#ffffff' : accent;
+    ctx.fill();
+    ctx.lineWidth = selected ? 2 : 1.5;
+    ctx.strokeStyle = selected ? accent : 'rgba(0, 0, 0, 0.6)';
+    ctx.stroke();
+  });
+  ctx.restore();
 };
 
 // Handle wheel zoom
@@ -1164,6 +1582,8 @@ const drawWaveform = () => {
       volume: props.audioItem?.volume ?? 1,
       targetDb: outputTargetLevels.value?.autoVolumeTargetDb ?? -23,
       rgbFor: db => hexToRgb(colorForLevel(db)),
+      // What you will hear: trim, fades and automation on top of the volume.
+      gainAt: makeCompositeGain(props.audioItem),
     });
   } else {
     // Draw "No Waveform Data" message
@@ -1194,6 +1614,9 @@ const drawWaveform = () => {
     startNextFadeOut: props.audioItem.startNextFadeOut,
     fadeOutDuration: props.audioItem.fadeOutDuration,
   }, view);
+
+  // Selection, edit cursor and the automation envelope.
+  if (duration.value > 0) drawAutomationLayer(ctx, canvasHeight);
 
   // Draw playhead if item is currently playing
   if (playbackPosition.value !== null && duration.value > 0) {
@@ -1246,6 +1669,13 @@ watch([
   () => props.audioItem?.startNextEnabled,
   () => props.audioItem?.startNextTime,
   () => props.audioItem?.startNextFadeOut,
+  () => props.audioItem?.fadeOutDuration,
+  () => props.audioItem?.volumeAutomation,
+  () => props.audioItem?.volumeAutomation?.points,
+  () => props.audioItem?.volumeAutomation?.enabled,
+  cursorTime,
+  selection,
+  selectedKeyframe,
   waveformData,
   playbackPosition,
   () => outputTargetLevels.value?.autoVolumeTargetDb,
@@ -1698,6 +2128,67 @@ onUnmounted(() => {
   text-align: right;
 }
 
+/* Volume automation + edit-cursor bar. Wraps on a narrow panel rather than
+   pushing the canvas out; fixed furniture, like the zoom row. */
+.automation-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px var(--spacing-sm);
+  background: var(--color-surface);
+  border-radius: var(--border-radius-sm);
+  flex: 0 0 auto;
+}
+
+.automation-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  margin-right: 6px;
+  user-select: none;
+
+  .material-symbols-rounded { font-size: 18px; color: var(--color-text-secondary); }
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+
+  .material-symbols-rounded { font-size: 16px; }
+
+  &:hover:not(:disabled) {
+    background: var(--color-surface-hover);
+    border-color: var(--color-accent);
+  }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+  &.active {
+    border-color: var(--color-accent);
+    color: var(--color-text-primary);
+  }
+}
+
+.automation-readout {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+  padding: 0 4px;
+}
+
+.automation-spacer { flex: 1; }
+
 /* Waveform Container — the one thing in the column that takes the slack. Its
    measured height drives the canvas backing store (see containerHeight), so
    the drawing surface and the box always agree. */
@@ -1711,6 +2202,10 @@ onUnmounted(() => {
   border-radius: var(--border-radius-sm);
   overflow: hidden;
   cursor: crosshair;
+  outline: none;
+}
+.waveform-container:focus-visible {
+  border-color: var(--color-accent);
 }
 
 .waveform-canvas {

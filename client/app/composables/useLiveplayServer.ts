@@ -1110,10 +1110,14 @@ function createClient() {
   }
 
   // Preview (DJ-style pre-listening, rendered on the Preview bus).
-  async function startPreview(itemUuid: string) {
+  // `startSeconds` (source-file time) starts the audition there instead of at
+  // the item's in-point: the Playback tab's "Preview from cursor".
+  async function startPreview(itemUuid: string, startSeconds?: number) {
+    const body: Record<string, unknown> = { itemUuid };
+    if (typeof startSeconds === 'number' && Number.isFinite(startSeconds)) body.startSeconds = startSeconds;
     return rest<any>('/api/preview', {
       method: 'POST',
-      body: JSON.stringify({ itemUuid }),
+      body: JSON.stringify(body),
     });
   }
   async function stopPreview() {

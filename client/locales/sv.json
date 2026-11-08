@@ -172,7 +172,9 @@
     "accentColorSwatch": "Accentfärg {color}",
     "sectionAbout": "Om",
     "sectionAboutHelp": "Version, medverkande och licens.",
-    "sectionConnections": "Anslutningar"
+    "sectionConnections": "Anslutningar",
+    "stopAllUsesItemFade": "Stoppade cuer använder sin egen stoppknappstoning",
+    "stopAllUsesItemFadeHelp": "När det är på tonar Stop All och duckningsläget ”Stoppa alla andra” ut varje cue med dess egen stoppknappstoning. Cuer utan en använder Stop All-toningen. Två tryck på Stop All stoppar fortfarande allt direkt."
   },
   "common": {
     "default": "standard",
@@ -242,6 +244,21 @@
     "startNextTitle": "Starta nästa: {time}",
     "loadingWaveform": "Läser in vågform…"
   },
+  "automation": {
+    "enable": "Volymautomation",
+    "enableHint": "Rita en volymkurva på vågformen. Avmarkering förbigår den och behåller nyckelpunkterna.",
+    "addKeyframe": "Lägg till nyckelpunkt",
+    "addKeyframeHint": "Lägg till en nyckelpunkt vid markören, eller vid spelhuvudet medan cuen spelar.",
+    "removeKeyframe": "Ta bort nyckelpunkt",
+    "removeKeyframeHint": "Ta bort den valda nyckelpunkten eller den vid markören. Högerklick på en nyckelpunkt eller Delete gör samma sak.",
+    "clear": "Rensa",
+    "clearHint": "Ta bort alla nyckelpunkter.",
+    "clearConfirm": "Ta bort alla nyckelpunkter för volymautomation på den här cuen?",
+    "previewFromCursor": "Förhandslyssna från markören",
+    "previewFromCursorHint": "Spela cuen från markören på förlyssningsbussen, med automation. Klicka i vågformen för att placera markören.",
+    "previewUnavailable": "Kräver en förlyssningsbuss som är dirigerad till en utgång. Ställ in den i mixern.",
+    "stopPreview": "Stoppa förlyssning"
+  },
   "properties": {
     "title": "Egenskaper",
     "resize": "Ändra storlek på egenskapspanelen",
@@ -258,8 +275,8 @@
     "startBehavior": "Startbeteende",
     "duckingBehavior": "Ducking-beteende",
     "fadeOutDuration": "Uttoningstid",
-    "duckFadeIn": "Ducking-intoning",
-    "duckFadeOut": "Ducking-uttoning",
+    "duckFadeIn": "Sänk under (sekunder)",
+    "duckFadeOut": "Återgå under (sekunder)",
     "children": "Underobjekt",
     "seconds": "sekunder",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "Tonar över loopens slut till dess början under så här många sekunder. 0 loopar utan övertoning.",
     "loopCrossfadeNeedsLoop": "Ställ in slutbeteendet för den här kön på Loop för att använda loop-övertoning.",
     "advanceDelay": "Vänta före nästa (sekunder)",
-    "advanceDelayHint": "När den här kön är slut väntar LivePlay så här länge innan slutbeteendet startar nästa kö. Ignoreras när en övertoning eller Starta nästa är inställd."
+    "advanceDelayHint": "När den här kön är slut väntar LivePlay så här länge innan slutbeteendet startar nästa kö. Ignoreras när en övertoning eller Starta nästa är inställd.",
+    "duckTimesHint": "Hur lång tid de andra cuerna tar på sig att sänkas när den här cuen startar, och att komma tillbaka när den slutar."
   },
   "playback": {
     "panic": "Stoppa alla köer",
@@ -1374,7 +1392,8 @@
         "bus-send": "Ställ in send-nivå",
         "bus-route": "Routa en buss",
         "bus-dsp": "Ställ in bussbearbetning",
-        "master-level": "Ställ in masternivå"
+        "master-level": "Ställ in masternivå",
+        "stop-fade-mode": "Ställ in Stop All-toningsläge"
       },
       "fields": {
         "item": {
@@ -1407,6 +1426,10 @@
         "value": {
           "label": "Värde",
           "help": "I inställningens egen enhet; brytare är 0 (av) eller 1 (på)."
+        },
+        "mode": {
+          "label": "Stoppade cuer tonar ut med",
+          "help": "Inställningar > Uppspelning: vilken toning Stop All och duckningen ”stoppa alla andra” använder. Panik klipper alltid."
         }
       },
       "summaries": {
@@ -1433,6 +1456,11 @@
           "comp_ratio": "Kompressorratio (1–60 :1)",
           "comp_makeup": "Kompressor-makeup (-12–24 dB)",
           "width_width": "Stereobredd (0–2 ×)"
+        },
+        "mode": {
+          "item": "Varje cues egen stoppknappstoning",
+          "global": "Stop All-toningen",
+          "toggle": "Växla mellan de två"
         }
       }
     },

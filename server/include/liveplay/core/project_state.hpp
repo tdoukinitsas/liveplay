@@ -765,7 +765,10 @@ public:
     // pre-listen). At most one preview is
     // active at a time; starting a new one replaces the old. Returns true
     // on success.
-    bool start_preview(const std::string& item_uuid);
+    // `start_seconds` (source-file time) starts the audition there instead
+    // of at the in-point: the Playback tab's "Preview from cursor".
+    bool start_preview(const std::string& item_uuid,
+                       std::optional<double> start_seconds = std::nullopt);
     // Stops the audition and — when there was one — announces it through the
     // preview-stopped broadcaster, whoever asked: the DELETE route, a moved
     // preview role, Stop All, or the audition simply reaching its end.
@@ -1460,7 +1463,12 @@ private:
     struct DuckedEntry {
         audio::CueId cue_id;
         float        original_gain_db;
+        // How long the level takes to come back (#78: duckFadeOut).
+        std::chrono::milliseconds release = audio::PlaybackItem::kDefaultGainRamp;
     };
+    // Bring every cue a ducker held down back to where it was, each over
+    // its entry's release time. Engine calls only; takes no locks.
+    void restore_ducked(const std::vector<DuckedEntry>& ducked);
     struct SequencedItem {
         std::string              uuid;
         audio::CueId             cue_id;

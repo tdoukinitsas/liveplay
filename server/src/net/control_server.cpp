@@ -5411,7 +5411,12 @@ void ControlServer::install_routes() {
                 Logger::api_request("Client ({}) -> Server ({}) : POST /api/preview itemUuid='{}'",
                                     req.remote_ip_address, impl_->server_addr, uuid);
                 Logger::playback("PREVIEW START: {}", item_playback_info(uuid, state_));
-                const bool ok = state_.start_preview(uuid);
+                // Optional: start at this source-file second instead of the
+                // in-point (the Playback tab's "Preview from cursor").
+                std::optional<double> start_seconds;
+                if (j.contains("startSeconds") && j["startSeconds"].is_number())
+                    start_seconds = j["startSeconds"].get<double>();
+                const bool ok = state_.start_preview(uuid, start_seconds);
                 if (!ok) {
                     Logger::warn("PREVIEW START failed for item_uuid='{}' — no device or item not found", uuid);
                     return json_err(400, "preview could not start (item not found, or the Preview bus has no strip)");

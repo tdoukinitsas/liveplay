@@ -135,6 +135,14 @@ public:
                 json{{"id", "resume-item"}, {"label", "Resume cue"}, {"fields", json::array({item("Cue")})}},
                 json{{"id", "arm-next"},    {"label", "Set Up Next"}, {"fields", json::array({item("Cue")})}},
                 json{{"id", "stop-all"},    {"label", "Stop all"},   {"fields", json::array()}},
+                json{{"id", "stop-fade-mode"}, {"label", "Set Stop All fade mode"}, {"summary", "{mode}"},
+                     {"fields", json::array({
+                         field("mode", "Stopped cues fade over", "enum",
+                               {{"default", "toggle"},
+                                {"options", options_list({{"item", "Each cue's own Stop button fade"},
+                                                          {"global", "The Stop All fade"},
+                                                          {"toggle", "Switch between the two"}})},
+                                {"help", "Settings > Playback: what Stop All and 'stop all others' ducking fade over. A panic always cuts."}})})}},
                 json{{"id", "duck-item"}, {"label", "Duck a cue"}, {"summary", "{level} dB"},
                      {"fields", json::array({item("Cue"),
                          level(-12.0, 0.0, "Relative to the cue's own volume: 0 brings it back, -90 silences it. The playing cue only; its saved volume doesn't change."),
@@ -174,6 +182,14 @@ public:
         const std::string a = job.action;
         if (a == "stop-all") {
             host_.stop_all();
+            return {};
+        }
+        if (a == "stop-fade-mode") {
+            const std::string mode = opt_string(o, "mode", "toggle");
+            const bool on = mode == "item"   ? true
+                          : mode == "global" ? false
+                          : !host_.stops_use_item_fade();
+            host_.set_stops_use_item_fade(on);
             return {};
         }
         if (a == "master-level") {

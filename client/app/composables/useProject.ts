@@ -294,11 +294,11 @@ export const useProject = () => {
   };
 
   // ---- Preview controls (delegate to server) ----------------------------
-  async function startPreview(itemUuid: string) {
+  async function startPreview(itemUuid: string, startSeconds?: number) {
     if (!itemUuid) return;
     const server = useLiveplayServer();
     try {
-      const res = await server.startPreview(itemUuid);
+      const res = await server.startPreview(itemUuid, startSeconds);
       previewItemUuid.value = itemUuid;
       previewCueId.value = (res as any)?.cueId ?? '';
     } catch (e) {

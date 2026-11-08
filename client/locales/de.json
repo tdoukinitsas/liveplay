@@ -172,7 +172,9 @@
     "accentColorSwatch": "Akzentfarbe {color}",
     "sectionAbout": "Über",
     "sectionAboutHelp": "Version, Mitwirkende und Lizenz.",
-    "sectionConnections": "Verbindungen"
+    "sectionConnections": "Verbindungen",
+    "stopAllUsesItemFade": "Gestoppte Cues nutzen ihre eigene Stopp-Button-Blende",
+    "stopAllUsesItemFadeHelp": "Wenn aktiv, blenden Stop All und der Ducking-Modus „Alle anderen stoppen“ jeden Cue über seine eigene Stopp-Button-Blende aus. Cues ohne eine nutzen die Stop-All-Blende. Zweimal Stop All stoppt weiterhin alles sofort."
   },
   "common": {
     "default": "Standard",
@@ -242,6 +244,21 @@
     "startNextTitle": "Nächsten starten: {time}",
     "loadingWaveform": "Wellenform wird geladen…"
   },
+  "automation": {
+    "enable": "Lautstärkeautomation",
+    "enableHint": "Eine Lautstärkehüllkurve auf die Wellenform zeichnen. Abwählen umgeht sie und behält die Keyframes.",
+    "addKeyframe": "Keyframe hinzufügen",
+    "addKeyframeHint": "Keyframe am Cursor hinzufügen, oder am Abspielkopf, während der Cue läuft.",
+    "removeKeyframe": "Keyframe entfernen",
+    "removeKeyframeHint": "Den ausgewählten Keyframe oder den am Cursor entfernen. Rechtsklick auf einen Keyframe oder Entf tun dasselbe.",
+    "clear": "Leeren",
+    "clearHint": "Alle Keyframes entfernen.",
+    "clearConfirm": "Alle Keyframes der Lautstärkeautomation dieses Cues entfernen?",
+    "previewFromCursor": "Vorhören ab Cursor",
+    "previewFromCursorHint": "Diesen Cue ab dem Cursor auf dem Vorhör-Bus abspielen, mit Automation. Klicke in die Wellenform, um den Cursor zu setzen.",
+    "previewUnavailable": "Benötigt einen Vorhör-Bus, der auf einen Ausgang geroutet ist. Richte ihn im Mixer ein.",
+    "stopPreview": "Vorhören stoppen"
+  },
   "properties": {
     "title": "Eigenschaften",
     "resize": "Größe des Eigenschaften-Bereichs ändern",
@@ -258,8 +275,8 @@
     "startBehavior": "Startverhalten",
     "duckingBehavior": "Ducking-Verhalten",
     "fadeOutDuration": "Ausblenddauer",
-    "duckFadeIn": "Ducking-Einblendung",
-    "duckFadeOut": "Ducking-Ausblendung",
+    "duckFadeIn": "Absenken über (Sekunden)",
+    "duckFadeOut": "Zurück über (Sekunden)",
     "children": "Unterelemente",
     "seconds": "Sekunden",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "Blendet das Ende der Schleife über so viele Sekunden in ihren Anfang über. 0 wiederholt ohne Überblendung.",
     "loopCrossfadeNeedsLoop": "Setzen Sie das Endverhalten dieses Cues auf „Schleife“, um eine Schleifen-Überblendung zu nutzen.",
     "advanceDelay": "Wartezeit vor dem Nächsten (Sekunden)",
-    "advanceDelayHint": "Nach dem Ende dieses Cues so lange warten, bevor sein Endverhalten den nächsten Cue startet. Wird ignoriert, wenn eine Überblendung oder „Nächsten starten“ eingestellt ist."
+    "advanceDelayHint": "Nach dem Ende dieses Cues so lange warten, bevor sein Endverhalten den nächsten Cue startet. Wird ignoriert, wenn eine Überblendung oder „Nächsten starten“ eingestellt ist.",
+    "duckTimesHint": "Wie lange die anderen Cues brauchen, um abzusinken, wenn dieser Cue startet, und um zurückzukommen, wenn er endet."
   },
   "playback": {
     "panic": "Alle Cues stoppen",
@@ -1374,7 +1392,8 @@
         "bus-send": "Send-Pegel setzen",
         "bus-route": "Bus routen",
         "bus-dsp": "Bus-Bearbeitung einstellen",
-        "master-level": "Master-Pegel setzen"
+        "master-level": "Master-Pegel setzen",
+        "stop-fade-mode": "Stop-All-Blendmodus setzen"
       },
       "fields": {
         "item": {
@@ -1407,6 +1426,10 @@
         "value": {
           "label": "Wert",
           "help": "In der Einheit der Einstellung; Schalter sind 0 (aus) oder 1 (ein)."
+        },
+        "mode": {
+          "label": "Gestoppte Cues blenden über",
+          "help": "Einstellungen > Wiedergabe: worüber Stop All und das Ducking „Alle anderen stoppen“ ausblenden. Ein Panik-Stopp schneidet immer."
         }
       },
       "summaries": {
@@ -1433,6 +1456,11 @@
           "comp_ratio": "Kompressor-Ratio (1–60 :1)",
           "comp_makeup": "Kompressor-Make-up (-12–24 dB)",
           "width_width": "Stereobreite (0–2 ×)"
+        },
+        "mode": {
+          "item": "Die eigene Stopp-Button-Blende jedes Cues",
+          "global": "Die Stop-All-Blende",
+          "toggle": "Zwischen beiden wechseln"
         }
       }
     },

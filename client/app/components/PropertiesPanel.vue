@@ -123,6 +123,7 @@
           @update:start-next-enabled="(v) => { beginItemBatch(); touch('startNextEnabled'); handleStartNextEnabledUpdate(v); }"
           @update:start-next-time="(v) => { beginItemBatch(); touch('startNextTime'); handleStartNextTimeUpdate(v); }"
           @update:start-next-fade-out="(v) => { beginItemBatch(); touch('startNextFadeOut'); handleStartNextFadeOutUpdate(v); }"
+          @update:volume-automation="(v) => { beginItemBatch(); touch('volumeAutomation'); audioItem.volumeAutomation = v; }"
           @change="handleSave"
           @normalize="handleNormalize"
           @trim-silence="handleTrimSilence"
@@ -249,6 +250,37 @@
             <span>0 dB</span>
           </div>
         </div>
+
+        <!-- #78: how long the other cues take to go down when this one
+             starts, and to come back when it ends. Absent = 0.05 s, the
+             fixed time every duck took before 2.6. -->
+        <div class="property-field" v-if="audioItem.duckingBehavior.mode === 'duck-others'">
+          <label>{{ t('properties.duckFadeIn') }}</label>
+          <input
+            type="number"
+            min="0"
+            max="60"
+            step="0.25"
+            :value="shown('duckingBehavior.duckFadeIn', audioItem.duckingBehavior.duckFadeIn ?? 0.05)"
+            :placeholder="mixed('duckingBehavior.duckFadeIn') ? t('properties.multipleValues') : ''"
+            @change="handleDuckTimeChange('duckFadeIn', $event)"
+          />
+        </div>
+        <div class="property-field" v-if="audioItem.duckingBehavior.mode === 'duck-others'">
+          <label>{{ t('properties.duckFadeOut') }}</label>
+          <input
+            type="number"
+            min="0"
+            max="60"
+            step="0.25"
+            :value="shown('duckingBehavior.duckFadeOut', audioItem.duckingBehavior.duckFadeOut ?? 0.05)"
+            :placeholder="mixed('duckingBehavior.duckFadeOut') ? t('properties.multipleValues') : ''"
+            @change="handleDuckTimeChange('duckFadeOut', $event)"
+          />
+        </div>
+        <p v-if="audioItem.duckingBehavior.mode === 'duck-others'" class="field-hint duck-times-hint">
+          {{ t('properties.duckTimesHint') }}
+        </p>
       </div>
 
       <!-- End Behavior Tab -->
@@ -721,7 +753,9 @@ const trimmerMixed = computed(() =>
 // Duck level in dB
 const duckLevelDB = computed({
   get: () => {
-    const linear = audioItem.value.duckingBehavior.duckLevel;
+    // Absent until first set (switching a cue to Duck Others doesn't write
+    // it); the server then ducks to 0.2, so show that rather than NaN.
+    const linear = audioItem.value.duckingBehavior.duckLevel ?? 0.2;
     if (linear <= 0) return -60;
     return 20 * Math.log10(linear);
   },
@@ -938,6 +972,13 @@ const handleStopFadeUpdate = (value: number) => {
       (item as AudioItem).stopFade = value;
     }
   });
+};
+
+// Duck attack / release (#78), seconds, capped at 60 like the server.
+const handleDuckTimeChange = (key: 'duckFadeIn' | 'duckFadeOut', event: Event) => {
+  const seconds = parseFloat((event.target as HTMLInputElement).value);
+  if (!Number.isFinite(seconds)) return;
+  commitField(`duckingBehavior.${key}`, Math.min(60, Math.max(0, seconds)));
 };
 
 const handleAdvanceDelayChange = (event: Event) => {
@@ -1434,6 +1475,9 @@ const formatTime = (seconds: number): string => {
   color: var(--color-text-secondary);
   margin-top: 4px;
 }
+
+/* The duck-times hint gets its own line under the fields. */
+.duck-times-hint { flex-basis: 100%; max-width: none; margin: 0; }
 
 .ltc-checkbox-label {
   display: flex;

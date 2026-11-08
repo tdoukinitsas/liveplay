@@ -357,6 +357,16 @@ if(LIVEPLAY_BUILD_TESTS)
     )
     add_test(NAME topo COMMAND liveplay-topo-tests)
 
+    # Volume automation envelope (2.6): linear-in-dB keyframes on source-file
+    # time. Header-only.
+    add_executable(liveplay-envelope-tests
+        tests/gain_envelope_test.cpp
+    )
+    target_include_directories(liveplay-envelope-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME envelope COMMAND liveplay-envelope-tests)
+
     # Waveform downsampler (single-pass decode, per-channel traces).
     add_executable(liveplay-waveform-tests
         tests/waveform_test.cpp

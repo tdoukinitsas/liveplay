@@ -1319,7 +1319,7 @@
       "response": {
         "ok": true
       },
-      "notes": "Empty body is accepted. Stops Preview only if settings.stopAllStopsPreview is true (default true). Does not clear PFL. Negative fade values are clamped by project state. The stopped cues fire their end events only if settings.stopAllFiresEvents is true (default false), and those may not start or resume a cue. A Stop All that arrives while the previous one is still fading, or within 0.5 s of an instant one, from any client, is a panic (see /api/transport/panic).",
+      "notes": "Empty body is accepted. Stops Preview only if settings.stopAllStopsPreview is true (default true). Does not clear PFL. Negative fade values are clamped by project state. The stopped cues fire their end events only if settings.stopAllFiresEvents is true (default false), and those may not start or resume a cue. A Stop All that arrives while the previous one is still fading, or within 0.5 s of an instant one, from any client, is a panic (see /api/transport/panic). With settings.stopAllUsesItemFade (and no fade_ms), each cue fades over its own Stop button fade instead, and the Stop All fade covers only cues that have none.",
       "errors": [
         [
           "400",
@@ -3092,6 +3092,13 @@
           "Yes",
           "-",
           "Project audio item UUID."
+        ],
+        [
+          "startSeconds",
+          "number (s)",
+          "No",
+          "The item's inPoint",
+          "Start the audition at this source-file position (Preview from cursor). Past the out-point, it plays to the end of the file."
         ]
       ],
       "request": {
@@ -3102,7 +3109,7 @@
         "itemUuid": "opening",
         "cueId": "preview-cue"
       },
-      "notes": "Uses a separate cue through the Preview-role bus. Replaces any current preview; does not trigger show sequencing. A successful response does not prove Preview is mapped to audible hardware. Broadcasts preview_started.",
+      "notes": "Uses a separate cue through the Preview-role bus. Replaces any current preview; does not trigger show sequencing. A successful response does not prove Preview is mapped to audible hardware. Broadcasts preview_started. Applies the item's volume and volume automation, not its fades.",
       "errors": [
         [
           "400",
@@ -5804,7 +5811,7 @@
           "object",
           "No",
           "No ducking",
-          "mode: no-ducking/stop-all/duck-others; duckLevel linear number, duckFadeIn/duckFadeOut seconds."
+          "mode: no-ducking/stop-all/duck-others; duckLevel linear number; duckFadeIn/duckFadeOut seconds (0..60), how long duck-others takes to pull the other cues down and to bring them back. Absent = 50 ms each (pre-2.6 behaviour)."
         ],
         [
           "events",
@@ -5812,6 +5819,13 @@
           "No",
           "[]",
           "Audio items: events fired by the server (see ItemEvent). Replaces the pre-2.6 customActions, which are migrated on load."
+        ],
+        [
+          "volumeAutomation",
+          "object",
+          "No",
+          "Absent (none)",
+          "Audio items: { enabled boolean, points [{ t number (s, source-file time), db number }] }. Gain on top of volume; linear in dB between points, holding the first/last point outside them; db <= -60 is silence, max +10. enabled false keeps the points but bypasses them. Applies live to a playing cue and to pre-listen."
         ],
         [
           "ltcEnabled",
@@ -6273,6 +6287,13 @@
           "No",
           "false",
           "The cues Stop All stops fire their end events (never on a panic)."
+        ],
+        [
+          "stopAllUsesItemFade",
+          "boolean",
+          "No",
+          "false",
+          "Stop All (without an explicit fade_ms) and stop-all ducking fade each cue over its own Stop button fade; cues with none use stopAllFadeMs (Stop All) or the incoming cue's fade (ducking). A panic always cuts."
         ],
         [
           "disableAutoVolumeAndTrim, disableSilenceWarning",

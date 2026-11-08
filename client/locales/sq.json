@@ -172,7 +172,9 @@
     "accentColorSwatch": "Ngjyra e theksit {color}",
     "sectionAbout": "Rreth",
     "sectionAboutHelp": "Versioni, kontribuesit dhe licenca.",
-    "sectionConnections": "Lidhjet"
+    "sectionConnections": "Lidhjet",
+    "stopAllUsesItemFade": "Cue-të e ndaluara përdorin zbehjen e tyre të butonit Stop",
+    "stopAllUsesItemFadeHelp": "Kur është aktive, Stop All dhe mënyra e ducking-ut “Ndalo të gjitha të tjerat” e zbehin çdo cue me zbehjen e tij të butonit Stop. Cue-të pa një të tillë përdorin zbehjen e Stop All. Shtypja dy herë e Stop All gjithsesi i ndalon të gjitha menjëherë."
   },
   "common": {
     "default": "parazgjedhje",
@@ -242,6 +244,21 @@
     "startNextTitle": "Nis tjetrën: {time}",
     "loadingWaveform": "Po ngarkohet forma e valës…"
   },
+  "automation": {
+    "enable": "Automatizimi i volumit",
+    "enableHint": "Vizato një zarf volumi mbi formën e valës. Heqja e shenjës e anashkalon dhe i ruan pikat.",
+    "addKeyframe": "Shto pikë",
+    "addKeyframeHint": "Shto një pikë te kursori, ose te koka e luajtjes ndërsa cue luan.",
+    "removeKeyframe": "Hiq pikën",
+    "removeKeyframeHint": "Hiq pikën e zgjedhur ose atë te kursori. Kliku i djathtë mbi një pikë ose tasti Delete bëjnë të njëjtën gjë.",
+    "clear": "Pastro",
+    "clearHint": "Hiq të gjitha pikat.",
+    "clearConfirm": "Të hiqen të gjitha pikat e automatizimit të volumit në këtë cue?",
+    "previewFromCursor": "Paradëgjim nga kursori",
+    "previewFromCursorHint": "Luaj këtë cue nga kursori në busin e paradëgjimit, bashkë me automatizimin. Kliko në formën e valës për të vendosur kursorin.",
+    "previewUnavailable": "Kërkon një bus paradëgjimi të drejtuar në një dalje. Konfiguroje te mikseri.",
+    "stopPreview": "Ndalo paradëgjimin"
+  },
   "properties": {
     "title": "Vetitë",
     "resize": "Ndrysho madhësinë e panelit të vetive",
@@ -258,8 +275,8 @@
     "startBehavior": "Sjellja në fillim",
     "duckingBehavior": "Sjellja e ducking-ut",
     "fadeOutDuration": "Kohëzgjatja e fade-out",
-    "duckFadeIn": "Fade-in i ducking-ut",
-    "duckFadeOut": "Fade-out i ducking-ut",
+    "duckFadeIn": "Ul gjatë (sekonda)",
+    "duckFadeOut": "Kthehu gjatë (sekonda)",
     "children": "Elementet përbërëse",
     "seconds": "sekonda",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "Bën crossfade nga fundi i përsëritjes te fillimi i saj gjatë kaq sekondave. 0 përsërit pa crossfade.",
     "loopCrossfadeNeedsLoop": "Caktoni sjelljen në fund të këtij cue si Përsërit për të përdorur crossfade-in e përsëritjes.",
     "advanceDelay": "Prit para pasuesit (sekonda)",
-    "advanceDelayHint": "Pasi mbaron ky cue, pritet kaq kohë para se sjellja në fund të nisë cue-në pasues. Shpërfillet kur është caktuar crossfade ose Nis tjetrën."
+    "advanceDelayHint": "Pasi mbaron ky cue, pritet kaq kohë para se sjellja në fund të nisë cue-në pasues. Shpërfillet kur është caktuar crossfade ose Nis tjetrën.",
+    "duckTimesHint": "Sa kohë u duhet cue-ve të tjera të ulen kur nis ky cue dhe të kthehen kur ai mbaron."
   },
   "playback": {
     "panic": "Ndalo të gjitha cue-të",
@@ -1374,7 +1392,8 @@
         "bus-send": "Cakto nivelin e send-it",
         "bus-route": "Drejto një bus",
         "bus-dsp": "Cakto përpunimin e bus-it",
-        "master-level": "Cakto nivelin master"
+        "master-level": "Cakto nivelin master",
+        "stop-fade-mode": "Cakto mënyrën e zbehjes së Stop All"
       },
       "fields": {
         "item": {
@@ -1407,6 +1426,10 @@
         "value": {
           "label": "Vlera",
           "help": "Në njësinë e vetë cilësimit; çelësat janë 0 (joaktiv) ose 1 (aktiv)."
+        },
+        "mode": {
+          "label": "Cue-të e ndaluara zbehen me",
+          "help": "Cilësimet > Luajtja: me çfarë zbehjeje dalin Stop All dhe ducking-u “ndalo të gjitha të tjerat”. Paniku pret gjithmonë."
         }
       },
       "summaries": {
@@ -1433,6 +1456,11 @@
           "comp_ratio": "Ratio i compressor-it (1–60 :1)",
           "comp_makeup": "Makeup i compressor-it (-12–24 dB)",
           "width_width": "Gjerësia stereo (0–2 ×)"
+        },
+        "mode": {
+          "item": "Zbehja e butonit Stop e çdo cue-je",
+          "global": "Zbehja e Stop All",
+          "toggle": "Ndërro mes të dyjave"
         }
       }
     },

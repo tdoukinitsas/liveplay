@@ -392,6 +392,7 @@ import {
   fillDefaults,
 } from '~/utils/events';
 import { waveformLanes, drawWaveformLanes, drawPlaybackMarkers } from '~/utils/waveformRender';
+import { makeCompositeGain } from '~/utils/volumeAutomation';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 import Btn from './Btn.vue';
 import SchemaForm from './SchemaForm.vue';
@@ -998,6 +999,9 @@ function draw() {
       volume: props.item.volume ?? 1,
       targetDb: outputTargetLevels.value?.autoVolumeTargetDb ?? -23,
       rgbFor: () => waveformRgb.value,
+      // The level as it will play (trim, fades, volume automation), so a
+      // marker can be lined up against what is actually heard there.
+      gainAt: makeCompositeGain(props.item),
     });
   } else {
     ctx.strokeStyle = css.getPropertyValue('--color-border').trim() || '#525252';
@@ -1070,6 +1074,8 @@ watch(
          duration.value, zoom.value, viewStart.value, props.item.playFade, props.item.stopFade,
          props.item.crossFade, props.item.startNextEnabled, props.item.startNextTime,
          props.item.startNextFadeOut, props.item.fadeOutDuration,
+         props.item.volumeAutomation, props.item.volumeAutomation?.points,
+         props.item.volumeAutomation?.enabled,
          outputTargetLevels.value?.autoVolumeTargetDb],
   scheduleDraw,
 );

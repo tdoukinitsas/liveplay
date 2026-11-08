@@ -172,7 +172,9 @@
     "accentColorSwatch": "アクセントカラー {color}",
     "sectionAbout": "このアプリについて",
     "sectionAboutHelp": "バージョン、クレジット、ライセンスです。",
-    "sectionConnections": "接続"
+    "sectionConnections": "接続",
+    "stopAllUsesItemFade": "停止するキューはそれぞれのストップボタン・フェードを使う",
+    "stopAllUsesItemFadeHelp": "オンにすると、Stop All と「他のすべてを停止」ダッキングモードで、各キューがそれぞれのストップボタン・フェードでフェードアウトします。フェードのないキューは Stop All のフェードを使います。Stop All を2回押すと、従来どおりすべて即座に停止します。"
   },
   "common": {
     "default": "既定",
@@ -242,6 +244,21 @@
     "startNextTitle": "次を開始：{time}",
     "loadingWaveform": "波形を読み込み中…"
   },
+  "automation": {
+    "enable": "ボリュームオートメーション",
+    "enableHint": "波形の上に音量エンベロープを描きます。チェックを外すとバイパスされ、キーフレームは残ります。",
+    "addKeyframe": "キーフレームを追加",
+    "addKeyframeHint": "カーソル位置（再生中は再生ヘッド位置）にキーフレームを追加します。",
+    "removeKeyframe": "キーフレームを削除",
+    "removeKeyframeHint": "選択中のキーフレーム、またはカーソル位置のキーフレームを削除します。キーフレームの右クリックや Delete キーでも同じです。",
+    "clear": "クリア",
+    "clearHint": "すべてのキーフレームを削除します。",
+    "clearConfirm": "このキューのボリュームオートメーションのキーフレームをすべて削除しますか？",
+    "previewFromCursor": "カーソルからプレビュー",
+    "previewFromCursorHint": "このキューをカーソル位置からプレビューバスで再生します（オートメーション込み）。波形をクリックしてカーソルを置きます。",
+    "previewUnavailable": "出力にルーティングされたプレビューバスが必要です。ミキサーで設定してください。",
+    "stopPreview": "プレビューを停止"
+  },
   "properties": {
     "title": "プロパティ",
     "resize": "プロパティパネルのサイズを変更",
@@ -258,8 +275,8 @@
     "startBehavior": "開始時の動作",
     "duckingBehavior": "ダッキングの動作",
     "fadeOutDuration": "フェードアウト時間",
-    "duckFadeIn": "ダッキングフェードイン",
-    "duckFadeOut": "ダッキングフェードアウト",
+    "duckFadeIn": "下げる時間（秒）",
+    "duckFadeOut": "戻す時間（秒）",
     "children": "子アイテム",
     "seconds": "秒",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "ループの終わりから先頭へ、この秒数でクロスフェードします。0 ではクロスフェードせずにループします。",
     "loopCrossfadeNeedsLoop": "ループクロスフェードを使うには、このキューの終了時の動作を「ループ」に設定してください。",
     "advanceDelay": "次までの待ち時間（秒）",
-    "advanceDelayHint": "このキューが終わってから、終了時の動作で次のキューが始まるまで、この時間だけ待ちます。クロスフェードまたは「次を開始」が設定されている場合は無視されます。"
+    "advanceDelayHint": "このキューが終わってから、終了時の動作で次のキューが始まるまで、この時間だけ待ちます。クロスフェードまたは「次を開始」が設定されている場合は無視されます。",
+    "duckTimesHint": "このキューの開始時に他のキューが下がるまでの時間と、終了時に戻るまでの時間です。"
   },
   "playback": {
     "panic": "すべてのキューを停止",
@@ -1374,7 +1392,8 @@
         "bus-send": "センドレベルを設定",
         "bus-route": "バスをルーティング",
         "bus-dsp": "バスの処理を設定",
-        "master-level": "マスターレベルを設定"
+        "master-level": "マスターレベルを設定",
+        "stop-fade-mode": "Stop All のフェードモードを設定"
       },
       "fields": {
         "item": {
@@ -1407,6 +1426,10 @@
         "value": {
           "label": "値",
           "help": "設定項目固有の単位で指定します。スイッチは 0（オフ）または 1（オン）です。"
+        },
+        "mode": {
+          "label": "停止するキューのフェード",
+          "help": "設定 > 再生：Stop All と「他のすべてを停止」ダッキングが使うフェード。パニックは常に即時停止です。"
         }
       },
       "summaries": {
@@ -1433,6 +1456,11 @@
           "comp_ratio": "コンプレッサーのレシオ (1–60 :1)",
           "comp_makeup": "コンプレッサーのメイクアップ (-12–24 dB)",
           "width_width": "ステレオ幅 (0–2 ×)"
+        },
+        "mode": {
+          "item": "各キューのストップボタン・フェード",
+          "global": "Stop All のフェード",
+          "toggle": "2つを切り替える"
         }
       }
     },

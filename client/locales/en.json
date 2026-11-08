@@ -172,7 +172,9 @@
     "accentColorSwatch": "Accent colour {color}",
     "sectionAbout": "About",
     "sectionAboutHelp": "Version, credits and licence.",
-    "sectionConnections": "Connections"
+    "sectionConnections": "Connections",
+    "stopAllUsesItemFade": "Stopped cues use their own Stop Button Fade",
+    "stopAllUsesItemFadeHelp": "When on, Stop All and the “Stop all others” ducking mode fade each cue out over its own Stop Button Fade. Cues without one use the Stop All fade. Pressing Stop All twice still stops everything at once."
   },
   "common": {
     "default": "default",
@@ -242,6 +244,21 @@
     "startNextTitle": "Start Next: {time}",
     "loadingWaveform": "Loading waveform…"
   },
+  "automation": {
+    "enable": "Volume automation",
+    "enableHint": "Draw a volume envelope on the waveform. Unticking bypasses it and keeps the keyframes.",
+    "addKeyframe": "Add keyframe",
+    "addKeyframeHint": "Add a keyframe at the cursor, or at the playhead while the cue plays.",
+    "removeKeyframe": "Remove keyframe",
+    "removeKeyframeHint": "Remove the selected keyframe, or the one at the cursor. Right-click a keyframe or press Delete to do the same.",
+    "clear": "Clear",
+    "clearHint": "Remove every keyframe.",
+    "clearConfirm": "Remove every volume automation keyframe on this cue?",
+    "previewFromCursor": "Preview from cursor",
+    "previewFromCursorHint": "Play this cue from the cursor on the preview bus, automation included. Click the waveform to place the cursor.",
+    "previewUnavailable": "Needs a preview bus routed to an output. Set one up in the Mixer.",
+    "stopPreview": "Stop preview"
+  },
   "properties": {
     "title": "Properties",
     "resize": "Resize the properties panel",
@@ -258,8 +275,8 @@
     "startBehavior": "Start Behaviour",
     "duckingBehavior": "Ducking Behaviour",
     "fadeOutDuration": "Fade Out Duration",
-    "duckFadeIn": "Duck Fade In",
-    "duckFadeOut": "Duck Fade Out",
+    "duckFadeIn": "Duck down over (seconds)",
+    "duckFadeOut": "Come back over (seconds)",
     "children": "Children",
     "seconds": "seconds",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "Crossfades the end of the loop into its start over this many seconds. 0 loops without a crossfade.",
     "loopCrossfadeNeedsLoop": "Set this cue's end behaviour to Loop to use a loop crossfade.",
     "advanceDelay": "Wait Before Next (seconds)",
-    "advanceDelayHint": "After this cue ends, wait this long before its end behaviour starts the next cue. Ignored when a crossfade or Start Next is set."
+    "advanceDelayHint": "After this cue ends, wait this long before its end behaviour starts the next cue. Ignored when a crossfade or Start Next is set.",
+    "duckTimesHint": "How long the other cues take to dip when this cue starts, and to come back up when it ends."
   },
   "playback": {
     "panic": "Stop All Cues",
@@ -1500,7 +1518,8 @@
         "bus-send": "Set send level",
         "bus-route": "Route a bus",
         "bus-dsp": "Set bus processing",
-        "master-level": "Set master level"
+        "master-level": "Set master level",
+        "stop-fade-mode": "Set Stop All fade mode"
       },
       "summaries": {
         "duck-item": "{level} dB",
@@ -1539,6 +1558,10 @@
         "value": {
           "label": "Value",
           "help": "In the setting's own unit; switches are 0 (off) or 1 (on)."
+        },
+        "mode": {
+          "label": "Stopped cues fade over",
+          "help": "Settings > Playback: what Stop All and “stop all others” ducking fade over. A panic always cuts."
         }
       },
       "options": {
@@ -1559,6 +1582,11 @@
           "comp_ratio": "Compressor ratio (1–60 :1)",
           "comp_makeup": "Compressor make-up (-12–24 dB)",
           "width_width": "Stereo width (0–2 ×)"
+        },
+        "mode": {
+          "item": "Each cue's own Stop Button Fade",
+          "global": "The Stop All fade",
+          "toggle": "Switch between the two"
         }
       }
     }

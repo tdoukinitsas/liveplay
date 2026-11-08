@@ -172,7 +172,9 @@
     "accentColorSwatch": "Couleur d’accentuation {color}",
     "sectionAbout": "À propos",
     "sectionAboutHelp": "Version, crédits et licence.",
-    "sectionConnections": "Connexions"
+    "sectionConnections": "Connexions",
+    "stopAllUsesItemFade": "Les cues arrêtés utilisent leur propre fondu du bouton Stop",
+    "stopAllUsesItemFadeHelp": "Activé, Stop All et le mode de ducking « Arrêter tous les autres » font sortir chaque cue sur son propre fondu du bouton Stop. Les cues sans fondu utilisent celui de Stop All. Appuyer deux fois sur Stop All arrête toujours tout immédiatement."
   },
   "common": {
     "default": "par défaut",
@@ -242,6 +244,21 @@
     "startNextTitle": "Démarrer le suivant : {time}",
     "loadingWaveform": "Chargement de la forme d’onde…"
   },
+  "automation": {
+    "enable": "Automation du volume",
+    "enableHint": "Dessiner une enveloppe de volume sur la forme d'onde. Décocher la contourne et conserve les points.",
+    "addKeyframe": "Ajouter un point",
+    "addKeyframeHint": "Ajouter un point au curseur, ou à la tête de lecture pendant la lecture.",
+    "removeKeyframe": "Supprimer le point",
+    "removeKeyframeHint": "Supprimer le point sélectionné, ou celui au curseur. Un clic droit sur un point ou la touche Suppr font de même.",
+    "clear": "Effacer",
+    "clearHint": "Supprimer tous les points.",
+    "clearConfirm": "Supprimer tous les points d'automation du volume de ce cue ?",
+    "previewFromCursor": "Pré-écoute depuis le curseur",
+    "previewFromCursorHint": "Lire ce cue depuis le curseur sur le bus de pré-écoute, automation comprise. Cliquez sur la forme d'onde pour placer le curseur.",
+    "previewUnavailable": "Nécessite un bus de pré-écoute routé vers une sortie. Configurez-le dans la console.",
+    "stopPreview": "Arrêter la pré-écoute"
+  },
   "properties": {
     "title": "Propriétés",
     "resize": "Redimensionner le panneau des propriétés",
@@ -258,8 +275,8 @@
     "startBehavior": "Comportement de début",
     "duckingBehavior": "Comportement de ducking",
     "fadeOutDuration": "Durée du fondu de sortie",
-    "duckFadeIn": "Fondu d’entrée du ducking",
-    "duckFadeOut": "Fondu de sortie du ducking",
+    "duckFadeIn": "Baisser en (secondes)",
+    "duckFadeOut": "Remonter en (secondes)",
     "children": "Éléments enfants",
     "seconds": "secondes",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "Enchaîne en fondu la fin de la boucle sur son début pendant ce nombre de secondes. 0 boucle sans fondu.",
     "loopCrossfadeNeedsLoop": "Réglez le comportement de fin de ce cue sur « Boucle » pour utiliser un fondu de boucle.",
     "advanceDelay": "Attente avant le suivant (secondes)",
-    "advanceDelayHint": "Après la fin de ce cue, attendre cette durée avant que son comportement de fin ne lance le cue suivant. Ignoré si un fondu enchaîné ou « Lancer le suivant » est réglé."
+    "advanceDelayHint": "Après la fin de ce cue, attendre cette durée avant que son comportement de fin ne lance le cue suivant. Ignoré si un fondu enchaîné ou « Lancer le suivant » est réglé.",
+    "duckTimesHint": "Le temps que mettent les autres cues à baisser quand ce cue démarre, et à remonter quand il se termine."
   },
   "playback": {
     "panic": "Arrêter tous les cues",
@@ -1374,7 +1392,8 @@
         "bus-send": "Régler le niveau de départ",
         "bus-route": "Router un bus",
         "bus-dsp": "Régler les traitements du bus",
-        "master-level": "Régler le niveau du Master"
+        "master-level": "Régler le niveau du Master",
+        "stop-fade-mode": "Définir le mode de fondu de Stop All"
       },
       "fields": {
         "item": {
@@ -1407,6 +1426,10 @@
         "value": {
           "label": "Valeur",
           "help": "Dans l’unité du réglage ; les interrupteurs valent 0 (désactivé) ou 1 (activé)."
+        },
+        "mode": {
+          "label": "Les cues arrêtés s'estompent sur",
+          "help": "Réglages > Lecture : le fondu utilisé par Stop All et le ducking « arrêter tous les autres ». Une panique coupe toujours net."
         }
       },
       "summaries": {
@@ -1433,6 +1456,11 @@
           "comp_ratio": "Ratio du compresseur (1–60 :1)",
           "comp_makeup": "Compensation du compresseur (-12–24 dB)",
           "width_width": "Largeur stéréo (0–2 ×)"
+        },
+        "mode": {
+          "item": "Le fondu du bouton Stop de chaque cue",
+          "global": "Le fondu de Stop All",
+          "toggle": "Alterner entre les deux"
         }
       }
     },

@@ -527,6 +527,11 @@ watch([
   () => (props.item as AudioItem).inPoint,
   () => (props.item as AudioItem).outPoint,
   () => (props.item as AudioItem).waveform?.peaks,
+  // The composite shape (rowWaveform.ts): fades and volume automation.
+  () => (props.item as AudioItem).playFade,
+  () => (props.item as AudioItem).stopFade,
+  () => (props.item as AudioItem).crossFade,
+  () => (props.item as AudioItem).volumeAutomation,
 ], () => {
   if (isVisible && props.item.type === 'audio') nextTick(drawWaveform);
 });

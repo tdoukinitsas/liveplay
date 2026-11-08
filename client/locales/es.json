@@ -172,7 +172,9 @@
     "accentColorSwatch": "Color de acento {color}",
     "sectionAbout": "Acerca de",
     "sectionAboutHelp": "Versión, créditos y licencia.",
-    "sectionConnections": "Conexiones"
+    "sectionConnections": "Conexiones",
+    "stopAllUsesItemFade": "Los cues detenidos usan su propio fundido del botón Stop",
+    "stopAllUsesItemFadeHelp": "Si está activo, Stop All y el modo de ducking «Detener todos los demás» desvanecen cada cue con su propio fundido del botón Stop. Los cues sin uno usan el fundido de Stop All. Pulsar Stop All dos veces sigue deteniéndolo todo al instante."
   },
   "common": {
     "default": "predeterminado",
@@ -242,6 +244,21 @@
     "startNextTitle": "Iniciar siguiente: {time}",
     "loadingWaveform": "Cargando forma de onda…"
   },
+  "automation": {
+    "enable": "Automatización de volumen",
+    "enableHint": "Dibuja una envolvente de volumen sobre la forma de onda. Desmarcarla la omite y conserva los puntos.",
+    "addKeyframe": "Añadir punto",
+    "addKeyframeHint": "Añade un punto en el cursor, o en el cabezal mientras suena el cue.",
+    "removeKeyframe": "Quitar punto",
+    "removeKeyframeHint": "Quita el punto seleccionado o el que está en el cursor. Clic derecho sobre un punto o la tecla Supr hacen lo mismo.",
+    "clear": "Borrar",
+    "clearHint": "Quita todos los puntos.",
+    "clearConfirm": "¿Quitar todos los puntos de automatización de volumen de este cue?",
+    "previewFromCursor": "Preescucha desde el cursor",
+    "previewFromCursorHint": "Reproduce este cue desde el cursor en el bus de preescucha, con la automatización. Haz clic en la forma de onda para colocar el cursor.",
+    "previewUnavailable": "Necesita un bus de preescucha enrutado a una salida. Configúralo en el mezclador.",
+    "stopPreview": "Detener preescucha"
+  },
   "properties": {
     "title": "Propiedades",
     "resize": "Redimensionar el panel de propiedades",
@@ -258,8 +275,8 @@
     "startBehavior": "Comportamiento al iniciar",
     "duckingBehavior": "Comportamiento de ducking",
     "fadeOutDuration": "Duración del fundido de salida",
-    "duckFadeIn": "Fundido de entrada del ducking",
-    "duckFadeOut": "Fundido de salida del ducking",
+    "duckFadeIn": "Bajar en (segundos)",
+    "duckFadeOut": "Volver en (segundos)",
     "children": "Elementos hijos",
     "seconds": "segundos",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "Funde el final del bucle con su inicio durante estos segundos. Con 0, el bucle se repite sin fundido.",
     "loopCrossfadeNeedsLoop": "Ponga el comportamiento al finalizar de este cue en «Bucle» para usar un fundido cruzado del bucle.",
     "advanceDelay": "Espera antes del siguiente (segundos)",
-    "advanceDelayHint": "Al terminar este cue, esperar este tiempo antes de que su comportamiento al finalizar inicie el siguiente cue. Se ignora si hay un fundido cruzado o «Iniciar siguiente»."
+    "advanceDelayHint": "Al terminar este cue, esperar este tiempo antes de que su comportamiento al finalizar inicie el siguiente cue. Se ignora si hay un fundido cruzado o «Iniciar siguiente».",
+    "duckTimesHint": "Cuánto tardan los demás cues en bajar cuando empieza este cue y en volver a subir cuando termina."
   },
   "playback": {
     "panic": "Detener todos los cues",
@@ -1374,7 +1392,8 @@
         "bus-send": "Ajustar nivel de envío",
         "bus-route": "Enrutar un bus",
         "bus-dsp": "Ajustar procesamiento del bus",
-        "master-level": "Ajustar nivel master"
+        "master-level": "Ajustar nivel master",
+        "stop-fade-mode": "Fijar el modo de fundido de Stop All"
       },
       "fields": {
         "item": {
@@ -1407,6 +1426,10 @@
         "value": {
           "label": "Valor",
           "help": "En la unidad del propio ajuste; los interruptores son 0 (apagado) o 1 (encendido)."
+        },
+        "mode": {
+          "label": "Los cues detenidos se desvanecen con",
+          "help": "Ajustes > Reproducción: con qué fundido salen Stop All y el ducking «detener todos los demás». Un pánico siempre corta."
         }
       },
       "summaries": {
@@ -1433,6 +1456,11 @@
           "comp_ratio": "Ratio del compresor (1–60 :1)",
           "comp_makeup": "Compensación del compresor (-12–24 dB)",
           "width_width": "Anchura estéreo (0–2 ×)"
+        },
+        "mode": {
+          "item": "El fundido del botón Stop de cada cue",
+          "global": "El fundido de Stop All",
+          "toggle": "Alternar entre ambos"
         }
       }
     },

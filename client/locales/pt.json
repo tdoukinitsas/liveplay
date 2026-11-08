@@ -172,7 +172,9 @@
     "accentColorSwatch": "Cor de destaque {color}",
     "sectionAbout": "Acerca de",
     "sectionAboutHelp": "Versão, créditos e licença.",
-    "sectionConnections": "Ligações"
+    "sectionConnections": "Ligações",
+    "stopAllUsesItemFade": "Cues parados usam o seu próprio fade do botão Stop",
+    "stopAllUsesItemFadeHelp": "Ativado, o Stop All e o modo de ducking «Parar todos os outros» fazem cada cue sair com o seu próprio fade do botão Stop. Cues sem um usam o fade do Stop All. Premir Stop All duas vezes continua a parar tudo de imediato."
   },
   "common": {
     "default": "predefinição",
@@ -242,6 +244,21 @@
     "startNextTitle": "Iniciar seguinte: {time}",
     "loadingWaveform": "A carregar a forma de onda…"
   },
+  "automation": {
+    "enable": "Automação de volume",
+    "enableHint": "Desenhe um envelope de volume na forma de onda. Desmarcar ignora-o e mantém os pontos.",
+    "addKeyframe": "Adicionar ponto",
+    "addKeyframeHint": "Adiciona um ponto no cursor, ou na cabeça de leitura enquanto o cue toca.",
+    "removeKeyframe": "Remover ponto",
+    "removeKeyframeHint": "Remove o ponto selecionado ou o que está no cursor. Clique direito num ponto ou a tecla Delete fazem o mesmo.",
+    "clear": "Limpar",
+    "clearHint": "Remove todos os pontos.",
+    "clearConfirm": "Remover todos os pontos de automação de volume deste cue?",
+    "previewFromCursor": "Pré-escuta a partir do cursor",
+    "previewFromCursorHint": "Toca este cue a partir do cursor no bus de pré-escuta, com a automação. Clique na forma de onda para colocar o cursor.",
+    "previewUnavailable": "Precisa de um bus de pré-escuta encaminhado para uma saída. Configure-o no mixer.",
+    "stopPreview": "Parar pré-escuta"
+  },
   "properties": {
     "title": "Propriedades",
     "resize": "Redimensionar o painel de propriedades",
@@ -258,8 +275,8 @@
     "startBehavior": "Comportamento no início",
     "duckingBehavior": "Comportamento de ducking",
     "fadeOutDuration": "Duração do fade de saída",
-    "duckFadeIn": "Fade de entrada do ducking",
-    "duckFadeOut": "Fade de saída do ducking",
+    "duckFadeIn": "Baixar em (segundos)",
+    "duckFadeOut": "Voltar em (segundos)",
     "children": "Itens filhos",
     "seconds": "segundos",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "Faz crossfade do fim do loop para o seu início ao longo destes segundos. 0 repete o loop sem crossfade.",
     "loopCrossfadeNeedsLoop": "Defina o comportamento no fim desta deixa como «Loop» para usar um crossfade do loop.",
     "advanceDelay": "Esperar antes da seguinte (segundos)",
-    "advanceDelayHint": "Depois de esta deixa terminar, esperar este tempo antes de o comportamento no fim iniciar a deixa seguinte. Ignorado quando há um crossfade ou «Iniciar seguinte» definido."
+    "advanceDelayHint": "Depois de esta deixa terminar, esperar este tempo antes de o comportamento no fim iniciar a deixa seguinte. Ignorado quando há um crossfade ou «Iniciar seguinte» definido.",
+    "duckTimesHint": "Quanto tempo os outros cues levam a baixar quando este cue começa, e a voltar quando termina."
   },
   "playback": {
     "panic": "Parar todas as deixas",
@@ -1374,7 +1392,8 @@
         "bus-send": "Definir nível de envio",
         "bus-route": "Encaminhar um bus",
         "bus-dsp": "Definir processamento do bus",
-        "master-level": "Definir nível master"
+        "master-level": "Definir nível master",
+        "stop-fade-mode": "Definir o modo de fade do Stop All"
       },
       "fields": {
         "item": {
@@ -1407,6 +1426,10 @@
         "value": {
           "label": "Valor",
           "help": "Na unidade da própria definição; os interruptores são 0 (desligado) ou 1 (ligado)."
+        },
+        "mode": {
+          "label": "Cues parados desvanecem com",
+          "help": "Definições > Reprodução: com que fade saem o Stop All e o ducking «parar todos os outros». Um pânico corta sempre."
         }
       },
       "summaries": {
@@ -1433,6 +1456,11 @@
           "comp_ratio": "Ratio do compressor (1–60 :1)",
           "comp_makeup": "Compensação do compressor (-12–24 dB)",
           "width_width": "Largura estéreo (0–2 ×)"
+        },
+        "mode": {
+          "item": "O fade do botão Stop de cada cue",
+          "global": "O fade do Stop All",
+          "toggle": "Alternar entre os dois"
         }
       }
     },

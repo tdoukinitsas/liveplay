@@ -172,7 +172,9 @@
     "accentColorSwatch": "Vurgu rengi {color}",
     "sectionAbout": "Hakkında",
     "sectionAboutHelp": "Sürüm, katkıda bulunanlar ve lisans.",
-    "sectionConnections": "Bağlantılar"
+    "sectionConnections": "Bağlantılar",
+    "stopAllUsesItemFade": "Durdurulan cue'lar kendi Stop düğmesi geçişini kullanır",
+    "stopAllUsesItemFadeHelp": "Açıkken Stop All ve “Diğer tümünü durdur” ducking modu her cue'yu kendi Stop düğmesi geçişiyle söndürür. Geçişi olmayan cue'lar Stop All geçişini kullanır. Stop All'a iki kez basmak yine her şeyi anında durdurur."
   },
   "common": {
     "default": "varsayılan",
@@ -242,6 +244,21 @@
     "startNextTitle": "Sonrakini Başlat: {time}",
     "loadingWaveform": "Dalga formu yükleniyor…"
   },
+  "automation": {
+    "enable": "Ses otomasyonu",
+    "enableHint": "Dalga formunun üzerine bir ses zarfı çizin. İşareti kaldırmak onu atlar ve noktaları korur.",
+    "addKeyframe": "Nokta ekle",
+    "addKeyframeHint": "İmlece, cue çalarken de oynatma kafasına bir nokta ekler.",
+    "removeKeyframe": "Noktayı kaldır",
+    "removeKeyframeHint": "Seçili noktayı veya imleçteki noktayı kaldırır. Bir noktaya sağ tıklamak veya Delete tuşu da aynısını yapar.",
+    "clear": "Temizle",
+    "clearHint": "Tüm noktaları kaldırır.",
+    "clearConfirm": "Bu cue'daki tüm ses otomasyonu noktaları kaldırılsın mı?",
+    "previewFromCursor": "İmleçten ön dinleme",
+    "previewFromCursorHint": "Bu cue'yu imleçten itibaren ön dinleme bus'ında otomasyonuyla çalar. İmleci yerleştirmek için dalga formuna tıklayın.",
+    "previewUnavailable": "Bir çıkışa yönlendirilmiş ön dinleme bus'ı gerekir. Mikserde ayarlayın.",
+    "stopPreview": "Ön dinlemeyi durdur"
+  },
   "properties": {
     "title": "Özellikler",
     "resize": "Özellikler panelini yeniden boyutlandır",
@@ -258,8 +275,8 @@
     "startBehavior": "Başlangıç Davranışı",
     "duckingBehavior": "Kısma Davranışı",
     "fadeOutDuration": "Fade-out Süresi",
-    "duckFadeIn": "Kısma Fade-in",
-    "duckFadeOut": "Kısma Fade-out",
+    "duckFadeIn": "Alçalma süresi (saniye)",
+    "duckFadeOut": "Geri dönüş süresi (saniye)",
     "children": "Alt Öğeler",
     "seconds": "saniye",
     "uuid": "UUID",
@@ -314,7 +331,8 @@
     "loopCrossfadeHint": "Döngünün sonunu bu kadar saniye boyunca başına crossfade yapar. 0, crossfade olmadan döngüye alır.",
     "loopCrossfadeNeedsLoop": "Döngü crossfade'i kullanmak için bu cue'nun bitiş davranışını «Döngü» olarak ayarlayın.",
     "advanceDelay": "Sonrakinden Önce Bekle (saniye)",
-    "advanceDelayHint": "Bu cue bittikten sonra, bitiş davranışı sonraki cue'yu başlatmadan önce bu kadar bekler. Crossfade veya «İşaretçide Sonrakini Başlat» ayarlıysa yok sayılır."
+    "advanceDelayHint": "Bu cue bittikten sonra, bitiş davranışı sonraki cue'yu başlatmadan önce bu kadar bekler. Crossfade veya «İşaretçide Sonrakini Başlat» ayarlıysa yok sayılır.",
+    "duckTimesHint": "Bu cue başladığında diğer cue'ların ne kadar sürede alçalacağı ve bittiğinde ne kadar sürede geri döneceği."
   },
   "playback": {
     "panic": "Tüm Cue'ları Durdur",
@@ -1374,7 +1392,8 @@
         "bus-send": "Gönderim seviyesi ayarla",
         "bus-route": "Bus'ı yönlendir",
         "bus-dsp": "Bus işlemesini ayarla",
-        "master-level": "Master seviyesini ayarla"
+        "master-level": "Master seviyesini ayarla",
+        "stop-fade-mode": "Stop All geçiş modunu ayarla"
       },
       "fields": {
         "item": {
@@ -1407,6 +1426,10 @@
         "value": {
           "label": "Değer",
           "help": "Ayarın kendi biriminde; anahtarlar 0 (kapalı) veya 1 (açık)."
+        },
+        "mode": {
+          "label": "Durdurulan cue'ların söneceği geçiş",
+          "help": "Ayarlar > Oynatma: Stop All ve “diğer tümünü durdur” ducking'inin hangi geçişle söndüğü. Panik her zaman keser."
         }
       },
       "summaries": {
@@ -1433,6 +1456,11 @@
           "comp_ratio": "Kompresör oranı (1–60 :1)",
           "comp_makeup": "Kompresör makeup (-12–24 dB)",
           "width_width": "Stereo genişlik (0–2 ×)"
+        },
+        "mode": {
+          "item": "Her cue'nun kendi Stop düğmesi geçişi",
+          "global": "Stop All geçişi",
+          "toggle": "İkisi arasında geçiş yap"
         }
       }
     },

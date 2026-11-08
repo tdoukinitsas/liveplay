@@ -11,13 +11,16 @@
 // Pure drawing: no observers, no reactivity. Callers decide WHEN to draw (the
 // rows do it lazily, once visible, and again on resize).
 import type { AudioItem } from '~/types/project';
+import { makeCompositeGain } from '~/utils/volumeAutomation';
 
 export interface RowWaveformOptions {
   /** Bar colour. Defaults to the item's own colour, then white. */
   color?: string;
 }
 
-type WaveformSource = Pick<AudioItem, 'duration' | 'inPoint' | 'outPoint' | 'color' | 'waveform'>;
+type WaveformSource = Pick<AudioItem, 'duration' | 'inPoint' | 'outPoint' | 'color' | 'waveform'> &
+  Partial<Pick<AudioItem, 'playFade' | 'stopFade' | 'crossFade' | 'startNextEnabled' | 'startNextTime' |
+    'startNextFadeOut' | 'fadeOutDuration' | 'volumeAutomation'>>;
 
 /**
  * Size `canvas` to its laid-out box (at device pixel ratio) and draw the
@@ -58,10 +61,16 @@ export function drawRowWaveform(
 
   const barWidth = rect.width / trimmedPeaks.length;
   const centerY = rect.height / 2;
+  // The shape the cue plays with: its fades and volume automation (2.6). Not
+  // its volume — each row keeps its own scale, so a quiet, normalised track
+  // still reads — and the trim is already the slice above.
+  const gainAt = makeCompositeGain(item as Parameters<typeof makeCompositeGain>[0]);
+  const secondsPerPeak = totalDuration / peaks.length;
 
   trimmedPeaks.forEach((value, i) => {
     // Gamma 2 expansion: shows dynamics without blowing up loud tracks.
-    const clamped = Math.min(1, Math.max(0, value));
+    const gain = Math.min(1, gainAt((startIndex + i + 0.5) * secondsPerPeak));
+    const clamped = Math.min(1, Math.max(0, value * gain));
     const shaped = clamped * clamped;
     const barHeight = shaped * rect.height * 0.8;
     const x = i * barWidth;
