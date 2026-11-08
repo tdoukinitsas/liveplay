@@ -92,7 +92,7 @@
     },
     "ducking": {
       "title": "Ducking automático",
-      "description": "Os avisos e os efeitos baixam a música enquanto tocam e devolvem-na suavemente no fim. Ou uma deixa pode parar tudo o resto para uma mudança de cena limpa."
+      "description": "Os avisos e os efeitos baixam a música enquanto tocam e devolvem-na suavemente no fim. Ou uma deixa pode parar tudo o resto para uma mudança de cena limpa. Escolhe a rapidez com que a música baixa e a suavidade com que volta."
     },
     "interface": {
       "title": "Organizado à sua maneira",
@@ -105,6 +105,10 @@
     "waveform": {
       "title": "Edição na forma de onda",
       "description": "Apare cada som exatamente na parte que quer e desenhe os fades diretamente na forma de onda. O LivePlay também pode aparar o silêncio e nivelar o volume por si, para que cada deixa chegue com um nível uniforme."
+    },
+    "automation": {
+      "title": "Automação de volume",
+      "description": "Desenhe o nível de um cue diretamente na sua forma de onda. Clique para adicionar um ponto, arraste a linha para baixar a música sob um discurso ou subi-la num refrão, ou selecione um trecho e baixe-o de uma só vez. A forma de onda mostra exatamente o que vai ser ouvido, e pode fazer pré-escuta nos auscultadores a partir de qualquer ponto antes do espetáculo."
     },
     "properties": {
       "title": "Cada deixa ao pormenor",

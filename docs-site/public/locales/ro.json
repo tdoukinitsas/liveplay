@@ -92,7 +92,7 @@
     },
     "ducking": {
       "title": "Ducking automat",
-      "description": "Lăsați anunțurile și efectele să coboare muzica cât timp se aud, apoi s-o readucă lin, sau puneți un cue să oprească tot restul pentru o schimbare curată de scenă."
+      "description": "Lăsați anunțurile și efectele să coboare muzica cât timp se aud, apoi s-o readucă lin, sau puneți un cue să oprească tot restul pentru o schimbare curată de scenă. Tu alegi cât de repede coboară muzica și cât de lin revine."
     },
     "interface": {
       "title": "Organizat cum vă convine",
@@ -105,6 +105,10 @@
     "waveform": {
       "title": "Editare pe forma de undă",
       "description": "Tăiați fiecare sunet exact la porțiunea dorită și modelați-i fade-urile direct pe forma de undă. LivePlay poate și să taie liniștea și să egalizeze nivelurile pentru dumneavoastră, ca fiecare cue să vină la un volum constant."
+    },
+    "automation": {
+      "title": "Automatizare volum",
+      "description": "Desenează nivelul unui cue direct pe forma lui de undă. Dă clic pentru a adăuga un punct, trage linia pentru a coborî muzica sub un discurs sau a o ridica pentru un refren, ori selectează o porțiune și coboar-o dintr-o mișcare. Forma de undă arată exact ce se va auzi, iar înainte de spectacol poți previzualiza în căști din orice punct."
     },
     "properties": {
       "title": "Fiecare cue, reglat fin",

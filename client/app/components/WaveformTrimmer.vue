@@ -143,6 +143,8 @@
         :style="{ cursor: canvasCursor }"
         @wheel.prevent="handleWheel"
         @keydown="handleCanvasKeydown"
+        @mousedown.capture="handleMiddlePan"
+        @auxclick.prevent
       >
         <!-- Multi-selection: the single-item canvas can't represent many items. -->
         <div v-if="multiSelect" class="waveform-multi-message">
@@ -1058,7 +1060,35 @@ const hitTest = (x: number, y: number): Hit => {
   return { kind: 'background', t };
 };
 
+// Middle-button drag pans a zoomed-in waveform, wherever it starts — over a
+// trim or fade handle too (caught in the capture phase, so they never see it),
+// as on the Events tab.
+const panning = ref(false);
+const handleMiddlePan = (event: MouseEvent) => {
+  if (event.button !== 1 || props.multiSelect) return;
+  event.preventDefault();      // no browser autoscroll
+  event.stopPropagation();
+  const maxStart = Math.max(0, duration.value - visibleDuration.value);
+  if (maxStart <= 0) return;   // not zoomed in: nothing to pan
+  const fromX = event.clientX;
+  const fromStart = visibleStart.value;
+  panning.value = true;
+  const onMove = (e: MouseEvent) => {
+    const dt = ((e.clientX - fromX) / Math.max(1, canvasWidth.value)) * visibleDuration.value;
+    const start = Math.max(0, Math.min(maxStart, fromStart - dt));
+    scrollPosition.value = (start / maxStart) * 100;
+  };
+  const onUp = () => {
+    panning.value = false;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+};
+
 const canvasCursor = computed(() => {
+  if (panning.value) return 'grabbing';
   switch (hoverTarget.value) {
     case 'keyframe': return 'grab';
     case 'line':

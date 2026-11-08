@@ -191,6 +191,13 @@
         </FeatureHighlight>
 
         <FeatureHighlight
+          :title="t('features.automation.title')"
+          :image-src="asset('screenshots/liveplay_screenshot_automation.jpg')"
+        >
+          <p>{{ t('features.automation.description') }}</p>
+        </FeatureHighlight>
+
+        <FeatureHighlight
           :title="t('features.properties.title')"
           :image-src="asset('screenshots/liveplay_screenshot_properties.jpg')"
         >

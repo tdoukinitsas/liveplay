@@ -92,7 +92,7 @@
     },
     "ducking": {
       "title": "Automatic Ducking",
-      "description": "Let announcements and effects dip the music while they play and bring it back smoothly afterwards, or have a cue clear everything else for a clean change of scene."
+      "description": "Let announcements and effects dip the music while they play and bring it back smoothly afterwards, or have a cue clear everything else for a clean change of scene. You choose how quickly the music dips and how gently it comes back."
     },
     "interface": {
       "title": "Organised Your Way",
@@ -105,6 +105,10 @@
     "waveform": {
       "title": "Waveform Trimmer",
       "description": "Trim every sound to exactly the part you want and shape its fades right on the waveform. LivePlay can also trim silence and even out levels for you, so every cue arrives at a consistent volume."
+    },
+    "automation": {
+      "title": "Volume Automation",
+      "description": "Draw the level of a cue right on its waveform. Click to add a point, drag the line to dip the music under a speech or lift it for a chorus, or select a stretch and pull it down in one move. The waveform shows exactly what will be heard, and you can preview from any point in your headphones before the show."
     },
     "properties": {
       "title": "Fine-Tune Every Cue",

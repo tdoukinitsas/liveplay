@@ -92,7 +92,7 @@
     },
     "ducking": {
       "title": "Automatisk ducking",
-      "description": "Låt utrop och effekter sänka musiken medan de hörs och ta tillbaka den mjukt efteråt, eller låt en kö tysta allt annat för ett rent scenbyte."
+      "description": "Låt utrop och effekter sänka musiken medan de hörs och ta tillbaka den mjukt efteråt, eller låt en kö tysta allt annat för ett rent scenbyte. Du väljer hur snabbt musiken sänks och hur mjukt den kommer tillbaka."
     },
     "interface": {
       "title": "Organiserat på ditt sätt",
@@ -105,6 +105,10 @@
     "waveform": {
       "title": "Klipp i vågformen",
       "description": "Klipp varje ljud till exakt den del du vill ha och forma in- och uttoningarna direkt i vågformen. LivePlay kan också trimma bort tystnad och jämna ut nivåerna åt dig, så att varje kö kommer in på en jämn volym."
+    },
+    "automation": {
+      "title": "Volymautomation",
+      "description": "Rita en cues nivå direkt på vågformen. Klicka för att lägga till en punkt, dra linjen för att sänka musiken under ett tal eller höja den i en refräng, eller markera ett avsnitt och sänk det i ett drag. Vågformen visar exakt vad som kommer att höras, och du kan förlyssna i hörlurar från valfri punkt före showen."
     },
     "properties": {
       "title": "Finjustera varje kö",

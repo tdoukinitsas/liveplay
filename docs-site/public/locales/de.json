@@ -92,7 +92,7 @@
     },
     "ducking": {
       "title": "Automatisches Ducking",
-      "description": "Ansagen und Effekte senken die Musik ab, solange sie laufen, und holen sie danach sanft zurück. Oder ein Cue stoppt alles andere für einen sauberen Szenenwechsel."
+      "description": "Ansagen und Effekte senken die Musik ab, solange sie laufen, und holen sie danach sanft zurück. Oder ein Cue stoppt alles andere für einen sauberen Szenenwechsel. Du bestimmst, wie schnell die Musik absinkt und wie sanft sie zurückkommt."
     },
     "interface": {
       "title": "Organisiert, wie Sie es mögen",
@@ -105,6 +105,10 @@
     "waveform": {
       "title": "Schnitt an der Wellenform",
       "description": "Schneiden Sie jeden Sound genau auf den Teil zu, den Sie brauchen, und gestalten Sie die Blenden direkt an der Wellenform. LivePlay kann auch Stille entfernen und Pegel angleichen, damit jeder Cue mit gleichmäßiger Lautstärke kommt."
+    },
+    "automation": {
+      "title": "Lautstärkeautomation",
+      "description": "Zeichne den Pegel eines Cues direkt auf seine Wellenform. Klicke, um einen Punkt zu setzen, ziehe die Linie, um die Musik unter einer Ansage abzusenken oder für einen Refrain anzuheben, oder markiere einen Abschnitt und senke ihn mit einem Zug ab. Die Wellenform zeigt genau, was zu hören sein wird, und du kannst vor der Show ab jeder Stelle im Kopfhörer vorhören."
     },
     "properties": {
       "title": "Jeden Cue genau einstellen",

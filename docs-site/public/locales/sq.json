@@ -92,7 +92,7 @@
     },
     "ducking": {
       "title": "Ducking automatik",
-      "description": "Lërini njoftimet dhe efektet ta ulin muzikën ndërsa dëgjohen dhe ta rikthejnë butësisht më pas, ose bëni që një cue të ndalë gjithçka tjetër për një ndërrim të pastër skene."
+      "description": "Lërini njoftimet dhe efektet ta ulin muzikën ndërsa dëgjohen dhe ta rikthejnë butësisht më pas, ose bëni që një cue të ndalë gjithçka tjetër për një ndërrim të pastër skene. Ti zgjedh sa shpejt ulet muzika dhe sa butë kthehet."
     },
     "interface": {
       "title": "I organizuar si ju pëlqen",
@@ -105,6 +105,10 @@
     "waveform": {
       "title": "Prerje mbi formën e valës",
       "description": "Priteni çdo tingull pikërisht te pjesa që doni dhe formësojini zbehjet drejtpërdrejt mbi formën e valës. LivePlay mund edhe ta shkurtojë heshtjen dhe t'i barazojë nivelet për ju, që çdo cue të vijë me volum të njëtrajtshëm."
+    },
+    "automation": {
+      "title": "Automatizimi i volumit",
+      "description": "Vizato nivelin e një cue-je drejtpërdrejt mbi formën e tij të valës. Kliko për të shtuar një pikë, tërhiq vijën për ta ulur muzikën nën një fjalim ose për ta ngritur në një refren, ose zgjidh një pjesë dhe ule me një lëvizje. Forma e valës tregon saktësisht se çfarë do të dëgjohet, dhe para shfaqjes mund ta paradëgjosh në kufje nga çdo pikë."
     },
     "properties": {
       "title": "Rregullim i imët për çdo cue",

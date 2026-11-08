@@ -92,7 +92,7 @@
     },
     "ducking": {
       "title": "Ducking automático",
-      "description": "Los avisos y los efectos bajan la música mientras suenan y la devuelven suavemente al terminar. O un cue puede detener todo lo demás para un cambio de escena limpio."
+      "description": "Los avisos y los efectos bajan la música mientras suenan y la devuelven suavemente al terminar. O un cue puede detener todo lo demás para un cambio de escena limpio. Tú eliges lo rápido que baja la música y lo suave que vuelve."
     },
     "interface": {
       "title": "Organizado a su manera",
@@ -105,6 +105,10 @@
     "waveform": {
       "title": "Edición sobre la forma de onda",
       "description": "Recorte cada sonido exactamente a la parte que quiere y dé forma a sus fundidos directamente sobre la forma de onda. LivePlay también puede recortar el silencio y nivelar el volumen por usted, para que cada cue llegue con un nivel uniforme."
+    },
+    "automation": {
+      "title": "Automatización de volumen",
+      "description": "Dibuja el nivel de un cue directamente sobre su forma de onda. Haz clic para añadir un punto, arrastra la línea para bajar la música bajo un discurso o subirla en un estribillo, o selecciona un tramo y bájalo de una vez. La forma de onda muestra exactamente lo que se oirá, y puedes preescuchar desde cualquier punto con auriculares antes del espectáculo."
     },
     "properties": {
       "title": "Cada cue a la medida",
