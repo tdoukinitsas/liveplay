@@ -7,6 +7,8 @@
 #include "liveplay/meta/metadata.hpp"
 #include "liveplay/util/unicode_path.hpp"
 
+#include "liveplay/core/show_tabs.hpp"
+
 #include <algorithm>
 #include <cstdio>
 #include <mutex>
@@ -571,6 +573,7 @@ RepairInfo detect_and_repair(json& doc) {
     // Not repairs, so not reported as such: tidying, and a format upgrade.
     if (doc.contains("eventConnections"))
         doc["eventConnections"] = clean_event_connections(doc["eventConnections"]);
+    tabs::normalise(doc);
     migrate_custom_actions(doc);
 
     // ---- 1. lastModified stored as Unix integer instead of ISO string ----
@@ -2606,6 +2609,9 @@ json ProjectState::header_document() const {
         {"playbackKeys", document_.value("playbackKeys",  json::object())},
         {"cartOnlyItems", std::move(cart_only)},
         {"eventConnections", document_.value("eventConnections", json::array())},
+        {"playlistTabs", document_.value("playlistTabs", json::array())},
+        {"cartPages",    document_.value("cartPages",    json::array())},
+        {"tabLimits",    tabs::limits()},
         {"itemCount",    item_count},
         // The bus-schema version the loaded document is at. The client mirrors
         // it and hands it back on every whole-document save, which is how
@@ -2696,10 +2702,25 @@ bool ProjectState::replace_full_document(const json& doc) {
         if (!doc.contains("eventConnections") && document_.contains("eventConnections"))
             carried_connections = document_["eventConnections"];
         const json previous_connections = document_.value("eventConnections", json::array());
+        // Tabs and pages likewise, for a round trip of this same show from a
+        // client that predates them. A client that knows them always sends
+        // both, as [] when there are none. Another show never inherits them.
+        json carried_tabs, carried_pages;
+        if (bus_schema_of(doc) >= 1 &&
+            json_get_or(doc, "folderPath", std::string{}) ==
+                json_get_or(document_, "folderPath", std::string{})) {
+            if (!doc.contains("playlistTabs") && document_.contains("playlistTabs"))
+                carried_tabs = document_["playlistTabs"];
+            if (!doc.contains("cartPages") && document_.contains("cartPages"))
+                carried_pages = document_["cartPages"];
+        }
         document_ = doc;
         if (!carried_buses.is_null()) document_["buses"] = std::move(carried_buses);
         if (!carried_connections.is_null())
             document_["eventConnections"] = std::move(carried_connections);
+        if (!carried_tabs.is_null())  document_["playlistTabs"] = std::move(carried_tabs);
+        if (!carried_pages.is_null()) document_["cartPages"]    = std::move(carried_pages);
+        tabs::normalise(document_);
         if (document_.contains("eventConnections"))
             document_["eventConnections"] = clean_event_connections(document_["eventConnections"],
                                                                     previous_connections);
@@ -3319,12 +3340,8 @@ std::string ProjectState::resolve_next_item_locked(const std::string& current_uu
     };
 
     if (parent_uuid.empty()) {
-        // Top-level.
-        if (doc.contains("items")) {
-            const auto next = find_next_in_array(doc["items"]);
-            if (!next.empty()) return next;
-        }
-        return {};
+        // Top-level: the next cue in this tab's running order.
+        return tabs::next_in_tab(doc, current_uuid).uuid;
     }
 
     // Inside a group — find the group, then look in its children.
@@ -3799,6 +3816,20 @@ bool ProjectState::play_item(const std::string& uuid,
 }
 
 bool ProjectState::stop_item(const std::string& uuid, std::optional<long long> fade_ms) {
+    // A cart bound to a tab stops whatever of that tab is on air.
+    if (tabs::is_tab_target(uuid)) {
+        std::vector<std::string> on_tab;
+        {
+            std::lock_guard lock{mutex_};
+            on_tab = tabs::audio_uuids_in_tab(document_, tabs::tab_id_of_target(uuid));
+        }
+        bool stopped = false;
+        for (const auto& u : on_tab) {
+            if (item_on_air(u)) stopped = stop_item(u, fade_ms) || stopped;
+        }
+        return stopped;
+    }
+
     audio::CueId cue;
     std::vector<std::string> group_members;
     {
@@ -4422,6 +4453,16 @@ bool ProjectState::trigger_item(const std::string& uuid,
   // Guard the whole body: a malformed item field must never throw uncaught
   // into the network layer. 
   try {
+    // A cart bound to a whole playlist tab starts it from its first cue (#61).
+    if (tabs::is_tab_target(uuid)) {
+        std::string first;
+        {
+            std::lock_guard lock{mutex_};
+            first = tabs::first_playable_in_tab(document_, tabs::tab_id_of_target(uuid));
+        }
+        return !first.empty() && trigger_item(first, fade_in_override_sec, exclude_from_ducking);
+    }
+
     // Look up the item's type and (for groups) startBehavior + children.
     std::string type;
     std::string start_action;
@@ -7557,7 +7598,7 @@ audio::CueId ProjectState::current_preview_cue_id() const {
 // Cart slot bindings
 // ---------------------------------------------------------------------------
 bool ProjectState::set_cart_slot(int slot, const std::string& item_uuid) {
-    if (slot < 0 || slot >= 64) return false;
+    if (slot < 0 || slot >= tabs::kCartSlotCount) return false;
     std::lock_guard lock{mutex_};
     if (!document_.contains("cartItems") || !document_["cartItems"].is_array()) {
         document_["cartItems"] = json::array();
@@ -7575,6 +7616,89 @@ bool ProjectState::set_cart_slot(int slot, const std::string& item_uuid) {
         {"index",    json::array({-1, slot})},
     });
     return true;
+}
+
+std::string ProjectState::cart_item_at(int page, int cart) const {
+    std::optional<int> slot;
+    {
+        std::lock_guard lock{mutex_};
+        slot = tabs::slot_of(document_, page, cart);
+    }
+    return slot ? cart_slot_item_uuid(*slot) : std::string{};
+}
+
+std::string ProjectState::cart_item_on_first_page(int position) const {
+    if (position < 0 || position >= tabs::kCartSlotsPerPage) return {};
+    int base = 0;
+    {
+        std::lock_guard lock{mutex_};
+        base = tabs::pages_or_default(document_)[0].value("slotBase", 0);
+    }
+    return cart_slot_item_uuid(base + position);
+}
+
+json ProjectState::project_tabs() const {
+    std::lock_guard lock{mutex_};
+    return json{
+        {"playlistTabs", document_.value("playlistTabs", json::array())},
+        {"cartPages",    document_.value("cartPages",    json::array())},
+        {"limits",       tabs::limits()},
+    };
+}
+
+json ProjectState::set_project_tabs(const json& patch) {
+    {
+        std::lock_guard lock{mutex_};
+        for (const char* key : {"playlistTabs", "cartPages"}) {
+            if (patch.contains(key)) document_[key] = patch[key];
+        }
+        tabs::normalise(document_);
+    }
+    return project_tabs();
+}
+
+json ProjectState::cart_pages() const {
+    std::lock_guard lock{mutex_};
+    json& doc = const_cast<json&>(document_);
+    std::unordered_map<std::string, std::string> names;
+    for_each_item(doc, [&](json& it, const std::string&) {
+        names[it.value("uuid", std::string{})] = it.value("displayName", std::string{});
+    });
+    if (const json* show_tabs = tabs::tab_list(document_)) {
+        for (const auto& t : *show_tabs) {
+            names[std::string{tabs::kTabTargetPrefix} + t.value("id", std::string{})] =
+                t.value("name", std::string{});
+        }
+    }
+    json out = json::array();
+    int index = 0;
+    for (const auto& page : tabs::pages_or_default(document_)) {
+        const int base = page.value("slotBase", 0);
+        const int size = page.value("size", tabs::kDefaultCartsPerPage);
+        json carts = json::array();
+        if (document_.contains("cartItems") && document_["cartItems"].is_array()) {
+            for (const auto& c : document_["cartItems"]) {
+                if (!c.is_object()) continue;
+                const int slot = c.value("slot", -1);
+                if (slot < base || slot >= base + size) continue;
+                const std::string uuid = c.value("itemUuid", std::string{});
+                const auto name = names.find(uuid);
+                carts.push_back(json{{"cart", slot - base}, {"address", std::to_string(index) + "," +
+                                                                        std::to_string(slot - base)},
+                                     {"itemUuid", uuid},
+                                     {"name", name != names.end() ? name->second : std::string{}}});
+            }
+        }
+        std::sort(carts.begin(), carts.end(), [](const json& a, const json& b) {
+            return a.value("cart", 0) < b.value("cart", 0);
+        });
+        json entry{{"page", index}, {"id", page.value("id", std::string{})},
+                   {"name", page.value("name", std::string{})}, {"size", size}, {"carts", std::move(carts)}};
+        if (page.contains("color")) entry["color"] = page["color"];
+        out.push_back(std::move(entry));
+        ++index;
+    }
+    return out;
 }
 
 bool ProjectState::clear_cart_slot(int slot) {
@@ -9314,7 +9438,15 @@ void ProjectState::arm_next_after_stop(const std::string& stopped_uuid,
 
         // Advance to the next sibling in document order.
         std::vector<int> next_path = stopped_path;
-        if (!next_path.empty()) {
+        const json* show_tabs = tabs::tab_list(document_);
+        if (show_tabs && stopped_path.size() == 1) {
+            // A top-level cue in a tabbed show: its tab decides what follows.
+            const auto next = tabs::next_in_tab(document_, stopped_uuid);
+            next_to_arm = next.uuid;
+            if (next_to_arm.empty() && !was_manual && next.at_end != "stop") {
+                next_to_arm = tabs::first_playable_in_tab(document_, next.tab_id);
+            }
+        } else if (!next_path.empty()) {
             next_path.back()++;
             const std::string nxt = resolve_index_path_locked(next_path);
             if (!nxt.empty()) {
@@ -9322,8 +9454,19 @@ void ProjectState::arm_next_after_stop(const std::string& stopped_uuid,
             } else if (!was_manual) {
                 // Fell off the end on a natural end → wrap to the first playable
                 // item so a single GO restarts the show. A manual stop leaves
-                // the arming empty (operator is holding the show).
-                next_to_arm = first_playable_item_uuid_locked();
+                // the arming empty (operator is holding the show). In a tabbed
+                // show that means the first cue of this cue's own tab.
+                if (show_tabs) {
+                    const auto& root = document_["items"][static_cast<std::size_t>(stopped_path[0])];
+                    const std::string tab = tabs::root_tab_id(root, *show_tabs);
+                    std::string at_end;
+                    for (const auto& t : *show_tabs) {
+                        if (t.value("id", std::string{}) == tab) at_end = t.value("atEnd", std::string{});
+                    }
+                    if (at_end != "stop") next_to_arm = tabs::first_playable_in_tab(document_, tab);
+                } else {
+                    next_to_arm = first_playable_item_uuid_locked();
+                }
             }
         }
     }

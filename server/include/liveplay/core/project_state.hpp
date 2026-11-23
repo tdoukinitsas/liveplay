@@ -741,6 +741,18 @@ public:
     // Item uuid bound to a cart slot, or empty if the slot is unbound.
     std::string cart_slot_item_uuid(int slot) const;
 
+    // ---- Playlist tabs and cart pages (#74), see show_tabs.hpp -------------
+    // What's bound to `cart` on `page` (both zero-based), or empty.
+    std::string cart_item_at(int page, int cart) const;
+    // The pre-pages index API: a position on the first page.
+    std::string cart_item_on_first_page(int position) const;
+    // { playlistTabs, cartPages, limits }
+    json project_tabs() const;
+    // Replaces whichever of playlistTabs / cartPages the patch carries.
+    json set_project_tabs(const json& patch);
+    // Every page with its carts, for control surfaces.
+    json cart_pages() const;
+
     // ---- Per-device routing ---------------------------------------------
     // Ensure a "device mixer" exists for `device_name` (the user-visible
     // name from /api/devices). Opens the audio device if needed, creates a

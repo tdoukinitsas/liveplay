@@ -293,6 +293,14 @@ if(LIVEPLAY_BUILD_TESTS)
     )
     add_test(NAME media_names COMMAND liveplay-media-names-tests)
 
+    # Playlist tabs and cart pages: running order, addressing, clean-up (#74).
+    add_executable(liveplay-show-tabs-tests tests/show_tabs_test.cpp)
+    target_include_directories(liveplay-show-tabs-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    target_link_libraries(liveplay-show-tabs-tests PRIVATE nlohmann_json::nlohmann_json)
+    add_test(NAME show_tabs COMMAND liveplay-show-tabs-tests)
+
     # Mixer strip gain / fade envelope (peek vs. advance).
     # Also covers the PFL monitor taps, which is why limiter.cpp is here: it
     # carries db_to_linear_precise, and the tap gain has to be the same number

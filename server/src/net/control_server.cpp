@@ -3510,12 +3510,68 @@ void ControlServer::install_routes() {
             Logger::api_request("Client ({}) -> Server ({}) : {} /api/transport/cart/{}/play",
                                 req.remote_ip_address, impl_->server_addr,
                                 crow::method_name(req.method), slot);
-            const std::string uuid = state_.cart_slot_item_uuid(slot);
+            // A position on the first page, which is what this index has
+            // always meant: a show from before pages has only that one.
+            const std::string uuid = state_.cart_item_on_first_page(slot);
             if (uuid.empty()) return json_err(404, "cart slot is empty");
             Logger::playback("CART {}: {}", slot, item_playback_info(uuid, state_));
             if (!state_.trigger_item(uuid))
                 return json_err(404, "item not loaded into engine");
             return json_ok(json({{"ok", true}, {"slot", slot}, {"uuid", uuid}}));
+        });
+
+    // The same by page,cart, both zero-based (#74).
+    CROW_ROUTE(app, "/api/transport/cart/<int>/<int>/play")
+        .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
+        ([this](const crow::request& req, int page, int cart){
+            if (is_head_probe(req)) return head_probe_ok();
+            Logger::api_request("Client ({}) -> Server ({}) : {} /api/transport/cart/{}/{}/play",
+                                req.remote_ip_address, impl_->server_addr,
+                                crow::method_name(req.method), page, cart);
+            const std::string uuid = state_.cart_item_at(page, cart);
+            if (uuid.empty()) return json_err(404, "cart is empty or doesn't exist");
+            Logger::playback("CART {},{}: {}", page, cart, item_playback_info(uuid, state_));
+            if (!state_.trigger_item(uuid))
+                return json_err(404, "item not loaded into engine");
+            return json_ok(json({{"ok", true}, {"page", page}, {"cart", cart}, {"uuid", uuid}}));
+        });
+
+    CROW_ROUTE(app, "/api/transport/cart/<int>/<int>/stop").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, int page, int cart){
+            Logger::api_request("Client ({}) -> Server ({}) : POST /api/transport/cart/{}/{}/stop",
+                                req.remote_ip_address, impl_->server_addr, page, cart);
+            const std::string uuid = state_.cart_item_at(page, cart);
+            if (uuid.empty()) return json_err(404, "cart is empty or doesn't exist");
+            state_.stop_item(uuid);
+            return json_ok(json({{"ok", true}, {"page", page}, {"cart", cart}, {"uuid", uuid}}));
+        });
+
+    // Every page with its carts, for control surfaces (#74).
+    CROW_ROUTE(app, "/api/cart/pages").methods(crow::HTTPMethod::Get)
+        ([this]{ return json_ok(json{{"pages", state_.cart_pages()}}); });
+
+    // Playlist tabs and cart pages: what they are. Which one a client is
+    // looking at is its own business and never reaches the server's document.
+    CROW_ROUTE(app, "/api/project/tabs").methods(crow::HTTPMethod::Get)
+        ([this]{ return json_ok(state_.project_tabs()); });
+
+    CROW_ROUTE(app, "/api/project/tabs").methods(crow::HTTPMethod::Put)
+        ([this](const crow::request& req){
+            try {
+                const auto body = json::parse(req.body);
+                if (!body.is_object()) return json_err(400, "expected an object");
+                for (const char* key : {"playlistTabs", "cartPages"}) {
+                    if (body.contains(key) && !body[key].is_array())
+                        return json_err(400, std::string{"'"} + key + "' must be an array");
+                }
+                const json stored = state_.set_project_tabs(body);
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "tabs_changed"},
+                    {"playlistTabs", stored["playlistTabs"]},
+                    {"cartPages", stored["cartPages"]},
+                });
+                return json_ok(stored);
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
     CROW_ROUTE(app, "/api/master/ceiling").methods(crow::HTTPMethod::Post)
