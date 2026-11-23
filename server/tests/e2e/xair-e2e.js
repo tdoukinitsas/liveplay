@@ -13,6 +13,8 @@
 //
 // usage: node xair-e2e.js <port> <mixer ip> [strip A] [strip B]
 //        strips default to ch/05 and ch/06, e.g. node xair-e2e.js 4517 192.168.1.105
+//        XAIR_STRIPS_ONLY=1 writes to the two strips and nothing else: the FX,
+//        routing and recorder checks are skipped.
 const dgram = require('dgram');
 const os = require('os');
 
@@ -21,6 +23,7 @@ const IP = process.argv[3];
 const STRIP_A = process.argv[4] || 'ch/05';
 const STRIP_B = process.argv[5] || 'ch/06';
 const B = `http://127.0.0.1:${PORT}`;
+const STRIPS_ONLY = process.env.XAIR_STRIPS_ONLY === '1';
 if (!IP) { console.error('usage: node xair-e2e.js <port> <mixer ip> [strip A] [strip B]'); process.exit(2); }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -66,7 +69,13 @@ const fire = async (action, options, cap = -20) => {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ event: { plugin: 'xair', action, options }, connection: conn(cap) }),
   });
-  return r.json();
+  let body = await r.json();
+  // A request that waits on the network answers { pending, jobId }.
+  while (body && body.pending && body.jobId) {
+    await sleep(50);
+    body = await (await fetch(`${B}/api/events/jobs/${body.jobId}`)).json();
+  }
+  return body;
 };
 
 (async () => {
@@ -86,13 +95,18 @@ const fire = async (action, options, cap = -20) => {
   let r = await fire('check', {});
   ok('check connection', r.ok, JSON.stringify(r));
 
-  r = await fire('fader', { strip: STRIP_A, level: -30, fade: 2 });
+  // Either direction: the strip may start above or below the target. Far enough
+  // from it that a fade has somewhere to go, and always under the -20 dB limit.
+  const fadeTo = Math.abs(aDb + 30) < 2 ? -35 : -30;
+  r = await fire('fader', { strip: STRIP_A, level: fadeTo, fade: 2 });
   const t0 = Date.now(), samples = [];
   while (Date.now() - t0 < 2400) { samples.push(+f2db(await get(fa)).toFixed(1)); await sleep(200); }
-  const mono = samples.every((v, i) => i === 0 || v <= samples[i - 1] + 0.2);
+  const direction = Math.sign(fadeTo - aDb);
+  const mono = samples.every((v, i) => i === 0 || (v - samples[i - 1]) * direction >= -0.2);
   const end = samples[samples.length - 1];
-  ok('2 s crossfade is gradual and lands on -30 dB', r.ok && mono && Math.abs(end + 30) < 0.3 &&
-     samples.some(v => v < aDb - 1 && v > -29), samples.join(' '));
+  const [low, high] = [Math.min(aDb, fadeTo), Math.max(aDb, fadeTo)];
+  ok(`2 s crossfade is gradual and lands on ${fadeTo} dB`, r.ok && mono && Math.abs(end - fadeTo) < 0.3 &&
+     samples.some(v => v > low + 0.5 && v < high - 0.5), samples.join(' '));
   await fire('fader', { strip: STRIP_A, level: aDb, fade: 1 }); await sleep(1300);
   ok('fade back to the original level', Math.abs(f2db(await get(fa)) - aDb) < 0.3);
 
@@ -113,6 +127,9 @@ const fire = async (action, options, cap = -20) => {
   ok('send level set and restored', Math.abs(sv + 30) < 0.3 &&
      Math.abs((await get(`/${STRIP_A}/mix/03/level`)) - orig.snd) < 0.002);
 
+  if (STRIPS_ONLY) {
+    console.log('SKIP  FX, routing and recorder: XAIR_STRIPS_ONLY is set');
+  } else {
   // Slot 4's parameter 1 in its own unit when it is a known effect; the
   // reading is put straight back.
   r = await fire('fx-type', { slot: 4, type: orig.t4 }); await sleep(120);
@@ -133,8 +150,12 @@ const fire = async (action, options, cap = -20) => {
   } else {
     console.log('SKIP  recorder: a USB drive is in the mixer, and this test does not record');
   }
+  }
   r = await fire('fader', { strip: 'ch/99', level: -30 });
   ok('unknown strip rejected', r.ok === false, r.error);
+  r = await fire('fader', { strip: STRIP_A, level: 'nan' });
+  ok('a level that is not a number is refused', r.ok === false, r.error);
+  ok(`${STRIP_A} did not move`, Math.abs(f2db(await get(fa)) - aDb) < 0.3);
 
   console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED');
   sock.close(); process.exit(fails ? 1 : 0);

@@ -22,6 +22,7 @@
 #endif
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 namespace liveplay::events {
@@ -115,6 +116,13 @@ Ramps::Ramps(std::chrono::milliseconds tick) : tick_(tick), thread_([this] { loo
 Ramps::~Ramps() { stop(); }
 
 void Ramps::start(const std::string& key, double from, double to, double seconds, Setter set) {
+    // Nothing downstream can do anything sensible with these, and a fade with
+    // an infinite length would never land.
+    if (!std::isfinite(to)) return;
+    if (!std::isfinite(from)) from = to;
+    constexpr double kLongestRampSec = 3600.0;
+    seconds = std::isfinite(seconds) ? std::min(seconds, kLongestRampSec) : 0.0;
+
     // A fade to where it already is has no steps, only its landing. Ticking it
     // would call set(to) every tick, and a setter that saves on landing (as
     // the LivePlay plugin's do) can't tell those calls from the last one.

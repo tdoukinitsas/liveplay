@@ -76,6 +76,12 @@ enum class Due { Fire, Hold, Drop };
 // events) extend this chain instead of starting a new one.
 const std::vector<std::string>& current_chain();
 
+// What a cue started by the current job should remember for its time markers,
+// which fire later from the sequencer and so can't see the job. Empty when the
+// job came from a cue ENDING: a cue that starts its successor when it finishes
+// is a playback order, however it loops, and not two cues restarting each other.
+const std::vector<std::string>& inherited_marker_chain();
+
 class Dispatcher {
 public:
     using Clock = std::chrono::steady_clock;

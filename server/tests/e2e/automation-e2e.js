@@ -37,6 +37,12 @@ async function rest(p, opts = {}) {
   const r = await fetch(BASE + p, { headers: { 'content-type': 'application/json' }, ...opts });
   const text = await r.text();
   let body; try { body = JSON.parse(text); } catch { body = text; }
+  // A request that waits on the network answers { pending, jobId }.
+  while (body && body.pending && body.jobId) {
+    await new Promise(res => setTimeout(res, 50));
+    const next = await fetch(`${BASE}/api/events/jobs/${body.jobId}`);
+    body = await next.json();
+  }
   return { status: r.status, body };
 }
 const post = (p, body = {}) => rest(p, { method: 'POST', body: JSON.stringify(body) });

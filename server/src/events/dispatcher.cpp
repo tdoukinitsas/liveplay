@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <limits>
 #include <optional>
 
 namespace liveplay::events {
@@ -59,23 +60,27 @@ std::vector<ItemEvent> ItemEvent::parse_list(const json& events) {
 
 // ---- Causation ---------------------------------------------------------------
 namespace {
-thread_local const std::vector<std::string>* t_chain = nullptr;
+thread_local const FireContext* t_context = nullptr;
+const std::vector<std::string> kNoChain;
 
 // Marks the thread as executing `job` for as long as it lives.
 class ExecutingJob {
 public:
-    explicit ExecutingJob(const Job& job) : saved_(t_chain) { t_chain = &job.ctx.chain; }
-    ~ExecutingJob() { t_chain = saved_; }
+    explicit ExecutingJob(const Job& job) : saved_(t_context) { t_context = &job.ctx; }
+    ~ExecutingJob() { t_context = saved_; }
     ExecutingJob(const ExecutingJob&) = delete;
     ExecutingJob& operator=(const ExecutingJob&) = delete;
 private:
-    const std::vector<std::string>* saved_;
+    const FireContext* saved_;
 };
 } // namespace
 
 const std::vector<std::string>& current_chain() {
-    static const std::vector<std::string> none;
-    return t_chain ? *t_chain : none;
+    return t_context ? t_context->chain : kNoChain;
+}
+
+const std::vector<std::string>& inherited_marker_chain() {
+    return t_context && t_context->trigger != "end" ? t_context->chain : kNoChain;
 }
 
 // ---- Placeholders ------------------------------------------------------------
@@ -134,9 +139,22 @@ double opt_number(const json& o, const char* key, double def) {
     const auto& v = o[key];
     if (v.is_number()) return v.get<double>();
     if (v.is_string()) {
-        try { return std::stod(v.get<std::string>()); } catch (...) {}
+        // stod reads "nan" and "inf" happily, and clamp passes NaN straight
+        // through to a fader. Neither is a number a level or a time can be.
+        try {
+            const double d = std::stod(v.get<std::string>());
+            if (std::isfinite(d)) return d;
+        } catch (...) {}
     }
     return def;
+}
+
+bool opt_number_invalid(const json& o, const char* key) {
+    if (!o.is_object() || !o.contains(key)) return false;
+    const auto& v = o[key];
+    if (v.is_null()) return false;
+    if (v.is_string() && v.get_ref<const std::string&>().empty()) return false;
+    return !std::isfinite(opt_number(o, key, std::numeric_limits<double>::quiet_NaN()));
 }
 
 int opt_int(const json& o, const char* key, int def) {

@@ -1752,25 +1752,43 @@ function createClient() {
     plugin: string; source: string; connectionId?: string | null;
     connection?: unknown; values?: Record<string, unknown>;
   }): Promise<EventOptionsResult> {
-    return await rest<EventOptionsResult>('/api/events/options', {
+    return await settleEventJob(await rest<EventOptionsResult>('/api/events/options', {
       method: 'POST',
       body: JSON.stringify(body),
-    });
+    }));
   }
 
   async function discoverEventDevices(plugin: string, timeoutMs = 1500): Promise<DiscoveredDevice[]> {
-    const r = await rest<{ devices: DiscoveredDevice[] }>('/api/events/discover', {
+    const r = await settleEventJob(await rest<{ devices: DiscoveredDevice[] }>('/api/events/discover', {
       method: 'POST',
       body: JSON.stringify({ plugin, timeoutMs }),
-    });
+    }));
     return r.devices ?? [];
   }
 
+  // The server answers a request that has to wait on the network with
+  // { pending, jobId } rather than hold one of its I/O threads, so the result
+  // is collected here. The longest it can legitimately take is a 30 s timeout
+  // on each phase of an HTTP Test.
+  async function settleEventJob<T>(first: T): Promise<T> {
+    let reply = first as T & { pending?: boolean; jobId?: string };
+    const jobId = reply?.jobId;
+    if (!reply?.pending || !jobId) return reply;
+    const giveUpAt = Date.now() + 95_000;
+    while (reply?.pending) {
+      if (Date.now() > giveUpAt) throw new Error('The device did not answer in time.');
+      await new Promise(resolve => setTimeout(resolve, 150));
+      reply = await rest<T & { pending?: boolean; jobId?: string }>(
+        `/api/events/jobs/${encodeURIComponent(jobId)}`);
+    }
+    return reply;
+  }
+
   async function testEvent(req: EventTestRequest): Promise<EventTestResult> {
-    return await rest<EventTestResult>('/api/events/test', {
+    return await settleEventJob(await rest<EventTestResult>('/api/events/test', {
       method: 'POST',
       body: JSON.stringify(req),
-    });
+    }));
   }
 
   // Land a file dropped from the OS into the server's media root and return

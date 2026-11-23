@@ -1065,7 +1065,7 @@ ProjectState::ProjectState(audio::AudioEngine& engine, OutputMap& outputs)
     loader_thread_ = std::thread([this] { loader_loop(); });
 }
 
-ProjectState::~ProjectState() {
+void ProjectState::stop_background_work() {
     stop_sequencer();
     // After the sequencer (its only scheduler), before anything an event's
     // plugin could call into (the LivePlay plugin plays and stops cues).
@@ -1077,6 +1077,26 @@ ProjectState::~ProjectState() {
         std::lock_guard lock{mirror_mutex_};
         if (load_thread_.joinable()) load_thread_.join();
     }
+    // Every thread that could call these has been joined, and what they
+    // capture is about to be destroyed.
+    std::lock_guard lock{mutex_};
+    preview_stopped_broadcaster_ = nullptr;
+    event_fired_broadcaster_     = nullptr;
+    next_item_broadcaster_       = nullptr;
+    ui_state_broadcaster_        = nullptr;
+}
+
+void ProjectState::forget_sequenced_items() {
+    {
+        std::lock_guard slock{sequencer_mutex_};
+        sequenced_items_.clear();
+        sequencer_epoch_.fetch_add(1, std::memory_order_acq_rel);
+    }
+    cancel_delayed_advances();
+}
+
+ProjectState::~ProjectState() {
+    stop_background_work();
 
     // Tear down preview infrastructure on shutdown so the audio device gets
     // released cleanly.
@@ -1586,7 +1606,10 @@ void ProjectState::start_async_mirror() {
         // patch_settings() applies these live when the operator changes them
         // and keeps applied_engine_settings_ in step, so the save that follows
         // a settings edit does not apply the same value a second time.
-        {
+        //
+        // In its own try: this is a bare worker thread, so one mistyped value
+        // in a show file would otherwise end the process on open.
+        try {
             json settings_snap;
             {
                 std::lock_guard lock{mutex_};
@@ -1595,7 +1618,10 @@ void ProjectState::start_async_mirror() {
             const auto levels = compute_output_target_levels(settings_snap);
             AppliedEngineSettings next;
             next.ceiling_db      = levels.value("limiterCeilingDb", -0.3f);
-            next.limiter_enabled = !settings_snap.value("disableLimiter", false);
+            const auto disable_limiter = settings_snap.find("disableLimiter");
+            next.limiter_enabled = !(disable_limiter != settings_snap.end() &&
+                                     disable_limiter->is_boolean() &&
+                                     disable_limiter->get<bool>());
             next.ballistics      = meter_ballistics_from_settings(settings_snap);
             // Computed rather than applied here: this block already owns the
             // diffing against applied_engine_settings_, so it asks the gate
@@ -1618,13 +1644,19 @@ void ProjectState::start_async_mirror() {
             if (!prev || prev->loudness != next.loudness)
                 engine_.set_loudness_metering(next.loudness);
             applied_engine_settings_ = next;
+        } catch (const std::exception& e) {
+            Logger::error("async mirror: applying engine settings failed: {}", e.what());
         }
         // Honour the project's default output device: re-pin every non-override
         // cue from Main (the OS default device, where ensure_default_routing()
         // above parked them) to the selected device. Previously this ran only
         // when the user changed the setting, so on load the project's chosen
         // device was ignored until re-selected. (#30)
-        apply_default_device_routing();
+        try {
+            apply_default_device_routing();
+        } catch (const std::exception& e) {
+            Logger::error("async mirror: default device routing failed: {}", e.what());
+        }
 
         // Bus assignment is the last word on where an item goes, so it is
         // applied last — after ensure_default_routing() and the legacy
@@ -1686,20 +1718,16 @@ void ProjectState::reset() {
     // Drop the sequencer's tracking list so its 50 ms loop stops dereferencing
     // cues we're about to unload (auto-advance / crossfade against a project
     // we've just closed).
-    {
-        std::lock_guard slock{sequencer_mutex_};
-        sequenced_items_.clear();
-    }
+    forget_sequenced_items();
     // Nor may a marker scheduled for the old project fire into the new one,
     // or a fade it started keep moving the new one's bus.
     if (events_) {
         events_->cancel_all();
         events_->reset_plugins();
     }
-    cancel_delayed_advances();
-    next_item_override_.clear(); next_item_override_manual_ = false;
 
     std::unique_lock lock{mutex_};
+    next_item_override_.clear(); next_item_override_manual_ = false;
     event_bus_overrides_.clear();   // they were the old show's
 
     // Stop and unload every engine cue. Clearing the bookkeeping maps alone is
@@ -3622,6 +3650,7 @@ bool ProjectState::play_item(const std::string& uuid,
         si.ducked        = std::move(ducks_made);
         si.display_name  = display_name_snapshot;
         si.events        = std::move(events_snapshot);
+        si.marker_chain  = events::inherited_marker_chain();
         // Markers before where playback starts belong to a part of the file
         // that won't play this pass.
         for (auto& ev : si.events)
@@ -3654,9 +3683,14 @@ bool ProjectState::play_item(const std::string& uuid,
             auto it = item_uuid_to_cue_.find(next_uuid);
             if (it != item_uuid_to_cue_.end()) next_cue = it->second;
         }
-        if (next_cue) {
-            std::thread([this, cue = *next_cue]() {
-                if (auto* pi = engine_.find_cue(cue)) pi->prime();
+        // Owns its reference: this thread is detached, so it can outlive both
+        // the cue's place in the engine and this ProjectState.
+        if (auto next_item = next_cue ? engine_.find_cue_shared(*next_cue) : nullptr) {
+            std::thread([item = std::move(next_item)]() {
+                try { item->prime(); }
+                catch (const std::exception& e) {
+                    Logger::warn("priming the next cue failed: {}", e.what());
+                }
             }).detach();
         }
     }
@@ -3697,7 +3731,22 @@ bool ProjectState::play_item(const std::string& uuid,
     if (start_behavior_action == "stop" && !start_behavior_target_uuid.empty()) {
         stop_item(start_behavior_target_uuid);
     } else if (start_behavior_action == "play" && !start_behavior_target_uuid.empty()) {
-        play_item(start_behavior_target_uuid);
+        // A starts B starts A would recurse until the stack ran out. The cues
+        // on this thread's chain are already starting, so a link back to one
+        // of them is where the chain ends.
+        static thread_local std::vector<std::string> starting;
+        if (std::find(starting.begin(), starting.end(), start_behavior_target_uuid) !=
+                starting.end() || start_behavior_target_uuid == uuid) {
+            Logger::warn("play '{}': start behaviour would loop back to '{}'; ignoring it",
+                         uuid, start_behavior_target_uuid);
+        } else {
+            starting.push_back(uuid);
+            struct PopOnExit {
+                std::vector<std::string>& list;
+                ~PopOnExit() { list.pop_back(); }
+            } pop{starting};
+            play_item(start_behavior_target_uuid);
+        }
     }
 
     return true;
@@ -5657,7 +5706,9 @@ bool ProjectState::set_bus_send_live(const std::string& id, const std::string& s
     // a gap, by the same law and clamp patch_bus applies.
     auto gains = bus_to_bus_lane_gains(def, dst_width);
     for (auto& g : gains) g.gain_db += std::clamp(level_db, -120.0f, 12.0f);
-    engine_.route_mixer_send(routing.mixer, dst, send->pre_fader, gains);
+    if (!engine_.set_mixer_send_gains_live(routing.mixer, dst, gains)) {
+        engine_.route_mixer_send(routing.mixer, dst, send->pre_fader, gains);
+    }
     return true;
 }
 
@@ -7733,7 +7784,10 @@ bool ProjectState::load_from_json(const json& doc_in) {
     // the load thread (start_async_mirror) so audio playback works as before.
     if (is_client_document(doc_in)) {
         // Another show, so nothing the old one set going carries on: not a
-        // marker it scheduled, not a fade it started (see reset()).
+        // marker it scheduled, not a fade it started (see reset()). Its running
+        // items go first: the sequencer would otherwise see their cues vanish
+        // and fire their end events into the show being opened.
+        forget_sequenced_items();
         if (events_) {
             events_->cancel_all();
             events_->reset_plugins();
@@ -8475,12 +8529,14 @@ void ProjectState::sequencer_loop() {
                 if (ev.time > pos + kEventLookaheadSec) continue;
                 ev.triggered = true;
                 event_fires.push_back({si.uuid, si.display_name, ev, "time",
-                                       std::max(0.0, ev.time - pos)});
+                                       std::max(0.0, ev.time - pos), false, si.marker_chain});
             }
         };
 
+        std::uint64_t pass_epoch = 0;
         {
             std::lock_guard slock{sequencer_mutex_};
+            pass_epoch = sequencer_epoch_.load(std::memory_order_acquire);
             for (auto& si : sequenced_items_) {
                 auto* pi = engine_.find_cue(si.cue_id);
                 if (!pi) {
@@ -8575,6 +8631,10 @@ void ProjectState::sequencer_loop() {
             }
         }
 
+        // Another show opened while this pass was looking at the last one:
+        // everything collected above belongs to a show that is gone.
+        if (sequencer_epoch_.load(std::memory_order_acquire) != pass_epoch) continue;
+
         // Events first, cancels before fires: a loop both voids what was
         // scheduled and re-schedules what is ahead in the same pass.
         for (const auto& u : event_cancels) {
@@ -8593,7 +8653,8 @@ void ProjectState::sequencer_loop() {
                             ev.id != d.event_id || ev.time != d.time)
                             continue;
                         if (ev.time >= si.last_pos - 1e-3) ev.triggered = false;
-                        else event_fires.push_back({si.uuid, si.display_name, ev, "time", 0.0});
+                        else event_fires.push_back({si.uuid, si.display_name, ev, "time", 0.0,
+                                                    false, si.marker_chain});
                     }
             }
         }
@@ -8797,6 +8858,10 @@ void ProjectState::dispatch_event_fires(std::vector<EventFire> fires) {
             events::FireContext ctx{f.item_uuid, f.item_name, f.event.id, f.trigger,
                                     f.trigger == "time" ? f.event.time : 0.0,
                                     events::current_chain()};
+            // A marker fires from the sequencer, which is executing no job, so
+            // what started this cue is on the cue. Without it, two cues whose
+            // markers play each other restart one another for ever.
+            if (f.trigger == "time" && ctx.chain.empty()) ctx.chain = f.marker_chain;
             std::string why;
             std::optional<events::Job> job;
             // A cue restarted by its own chain of events (one that plays a
@@ -8831,7 +8896,7 @@ void ProjectState::dispatch_event_fires(std::vector<EventFire> fires) {
             if (f.trigger == "time" && f.delay_sec > 0.0) {
                 if (auto c = item_uuid_to_cue_.find(f.item_uuid); c != item_uuid_to_cue_.end()) {
                     check = [this, cue = c->second, mark = f.event.time] {
-                        const auto* pi = engine_.find_cue(cue);
+                        const auto pi = engine_.find_cue_shared(cue);
                         if (!pi) return events::Due::Drop;
                         const auto st = pi->stats();
                         switch (st.transport) {
@@ -8958,9 +9023,11 @@ json ProjectState::event_discover(const std::string& plugin, std::chrono::millis
 }
 
 // ---- Verbs for the LivePlay event plugin -------------------------------------
+// These run on event threads, with no lock held, while a media swap or a show
+// load can unload the cue: each holds its own reference for as long as it uses it.
 bool ProjectState::pause_item(const std::string& uuid) {
     const auto cue = item_to_cue_id(uuid);
-    auto* pi = cue ? engine_.find_cue(*cue) : nullptr;
+    const auto pi = cue ? engine_.find_cue_shared(*cue) : nullptr;
     if (!pi) return false;
     pi->pause();
     return true;
@@ -8968,7 +9035,7 @@ bool ProjectState::pause_item(const std::string& uuid) {
 
 bool ProjectState::resume_item(const std::string& uuid) {
     const auto cue = item_to_cue_id(uuid);
-    auto* pi = cue ? engine_.find_cue(*cue) : nullptr;
+    const auto pi = cue ? engine_.find_cue_shared(*cue) : nullptr;
     if (!pi) return false;
     pi->resume();
     return true;
@@ -8984,7 +9051,7 @@ double item_volume_db(const json& item) {
 
 std::optional<double> ProjectState::cue_level_offset_db(const std::string& uuid) {
     const auto cue = item_to_cue_id(uuid);
-    auto* pi = cue ? engine_.find_cue(*cue) : nullptr;
+    const auto pi = cue ? engine_.find_cue_shared(*cue) : nullptr;
     if (!pi || pi->stats().transport == audio::TransportState::Stopped) return std::nullopt;
     double base = 0.0;
     {
@@ -8998,7 +9065,7 @@ std::optional<double> ProjectState::cue_level_offset_db(const std::string& uuid)
 
 bool ProjectState::set_cue_level_offset_db(const std::string& uuid, double offset_db) {
     const auto cue = item_to_cue_id(uuid);
-    auto* pi = cue ? engine_.find_cue(*cue) : nullptr;
+    const auto pi = cue ? engine_.find_cue_shared(*cue) : nullptr;
     if (!pi) return false;
     double base = 0.0;
     {
@@ -9013,7 +9080,7 @@ bool ProjectState::set_cue_level_offset_db(const std::string& uuid, double offse
 
 bool ProjectState::set_bus_gain_live(const std::string& id, float db) {
     const auto strip = bus_strip(id);
-    auto* m = strip.empty() ? nullptr : engine_.find_mixer_channel(strip);
+    const auto m = strip.empty() ? nullptr : engine_.find_mixer_channel_shared(strip);
     if (!m) return false;
     m->set_gain_db(db);
     return true;

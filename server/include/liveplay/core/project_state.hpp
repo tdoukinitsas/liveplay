@@ -505,6 +505,11 @@ public:
     // Clear everything and rewind the AudioEngine to an empty graph.
     void reset();
 
+    // Stop every background thread and drop the broadcasters. Called at
+    // shutdown before the control server is destroyed, because those threads
+    // report through callbacks that capture it. Safe to call more than once.
+    void stop_background_work();
+
     // ---- High-level mutations --------------------------------------------
     // Wraps engine + state updates atomically so REST handlers can call a
     // single method.
@@ -1516,11 +1521,17 @@ private:
         // Stop All took it: no more markers while it fades, and its end events
         // may not start a cue (a panic is a panic — see stop_all_cues).
         bool                           stopped_by_stop_all = false;
+        // The cues whose events started this one, for its time markers.
+        std::vector<std::string>       marker_chain;
     };
     std::vector<SequencedItem> sequenced_items_;
     std::mutex                 sequencer_mutex_;
     std::thread                sequencer_thread_;
     std::atomic<bool>          sequencer_running_{false};
+    // Bumped when the show's running items are dropped, so a sequencer pass
+    // that collected work from the old show doesn't act on it in the new one.
+    std::atomic<std::uint64_t> sequencer_epoch_{0};
+    void forget_sequenced_items();
 
     void start_sequencer();
     void stop_sequencer();
@@ -1552,6 +1563,7 @@ private:
         std::string       trigger;
         double            delay_sec = 0.0;
         bool              after_stop_all = false;   // see SequencedItem
+        std::vector<std::string> marker_chain;      // see SequencedItem
     };
     // `si`'s events for a non-time trigger (start / end / pause / resume).
     static void collect_event_fires(const SequencedItem& si, const std::string& trigger,

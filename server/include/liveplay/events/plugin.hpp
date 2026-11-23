@@ -202,6 +202,10 @@ json options_list(std::initializer_list<std::pair<const char*, const char*>> val
 // returns `def` when the key is missing or unusable.
 std::string opt_string(const json& o, const char* key, const std::string& def = {});
 double      opt_number(const json& o, const char* key, double def = 0.0);
+// The option is there but isn't a usable number ("nan", "inf", "loud"). An
+// action moving a level must refuse this: opt_number's default would turn a
+// typo into a jump to that default, on a live fader.
+bool        opt_number_invalid(const json& o, const char* key);
 int         opt_int(const json& o, const char* key, int def = 0);
 bool        opt_bool(const json& o, const char* key, bool def = false);
 

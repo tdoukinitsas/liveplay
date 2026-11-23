@@ -236,7 +236,16 @@ private:
                     }
                     cv_.notify_all();
                 }
-                receive();
+                if (!ec) {
+                    receive();
+                    return;
+                }
+                // A lost interface can fail every receive at once: re-arming
+                // straight away would spin a core until the mixer is dropped.
+                retry_.expires_after(std::chrono::milliseconds(250));
+                retry_.async_wait([this](const asio::error_code& wait_ec) {
+                    if (!wait_ec) receive();
+                });
             });
     }
 
@@ -244,6 +253,7 @@ private:
     asio::io_context                io_;
     std::optional<asio::executor_work_guard<asio::io_context::executor_type>> work_{
         asio::make_work_guard(io_)};
+    asio::steady_timer              retry_{io_};
     asio::ip::udp::socket           socket_{io_};
     asio::ip::udp::endpoint         remote_, sender_;
     std::array<char, 8192>          buf_{};
@@ -396,10 +406,19 @@ public:
     }
 
     Result execute(const Job& job) override {
+        const json& o = job.options;
+        // Checked before anything reaches the desk. A bad number must not fall
+        // back to a default: for maxLevelDb that default is no limit at all.
+        for (const char* key : {"level", "fade", "value"}) {
+            if (opt_number_invalid(o, key))
+                return Result::fail(std::string{"'"} + key + "' isn't a number");
+        }
+        if (opt_number_invalid(job.connection, "maxLevelDb"))
+            return Result::fail("this connection's maximum level isn't a number");
+
         std::shared_ptr<Mixer> mixer;
         try { mixer = mixer_for(job.connection); }
         catch (const std::exception& e) { return Result::fail(e.what()); }
-        const json& o = job.options;
         const double cap = std::clamp(opt_number(job.connection, "maxLevelDb", 10.0), kSilenceDb, 10.0);
 
         if (job.action == "check") {
@@ -638,7 +657,15 @@ public:
             listen(sockets.size() - 1);
         }
         io.run_for(budget);
-        io.stop();
+        // Pending receives write into bufs, which go out of scope with this
+        // function. Close the sockets and let the aborted receives complete
+        // while everything they touch still exists.
+        for (auto& s : sockets) {
+            asio::error_code ec;
+            s->close(ec);
+        }
+        io.restart();
+        io.run();
         return found;
     }
 

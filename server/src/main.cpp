@@ -1553,7 +1553,11 @@ int server_main(int argc, char** argv) {
     reset_crash_restart_guard();
     if (beacon) beacon->stop();
     beacon.reset();
+    // In this order: the project's threads (sequencer, event lanes, fades)
+    // report through callbacks that capture the control server, so they must
+    // be gone before it is. Stopped first, it ignores anything still reported.
     server->stop();
+    project->stop_background_work();
     server.reset();
     backup->stop();
     backup.reset();

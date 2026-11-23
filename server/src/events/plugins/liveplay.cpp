@@ -180,6 +180,10 @@ public:
     Result execute(const Job& job) override {
         const json& o = job.options;
         const std::string a = job.action;
+        for (const char* key : {"level", "fade"}) {
+            if (opt_number_invalid(o, key))
+                return Result::fail(std::string{"'"} + key + "' isn't a number");
+        }
         if (a == "stop-all") {
             host_.stop_all();
             return {};

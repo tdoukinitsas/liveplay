@@ -15,10 +15,15 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <functional>
+#include <future>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <regex>
+#include <stdexcept>
+#include <thread>
 
 namespace liveplay::events {
 namespace {
@@ -285,12 +290,40 @@ private:
         return msg;
     }
 
+    // SysEx goes through a buffer the driver hands back when it has finished,
+    // and RtMidi waits for that with no time limit. A driver that never does
+    // would hold this lock, and with it every MIDI event and server shutdown,
+    // for ever. So it is sent from a thread of its own that we can walk away
+    // from; that thread keeps the handle alive until the driver lets go.
+    static void send_with_timeout(std::shared_ptr<RtMidiOut> out,
+                                  const std::vector<unsigned char>& msg) {
+        constexpr auto kSysExTimeout = std::chrono::seconds{2};
+        auto done = std::make_shared<std::promise<std::string>>();
+        auto finished = done->get_future();
+        std::thread([out = std::move(out), msg, done]() mutable {
+            try {
+                out->sendMessage(&msg);
+                done->set_value({});
+            } catch (const RtMidiError& e) {
+                done->set_value(e.getMessage());
+            } catch (const std::exception& e) {
+                done->set_value(e.what());
+            }
+        }).detach();
+        if (finished.wait_for(kSysExTimeout) != std::future_status::ready) {
+            throw std::runtime_error("the MIDI device stopped accepting SysEx");
+        }
+        const std::string error = finished.get();
+        if (!error.empty()) throw std::runtime_error(error);
+    }
+
     Result send(const std::string& port, std::vector<unsigned char>& msg) {
         std::lock_guard lock{mutex_};
         for (int attempt = 0; attempt < 2; ++attempt) {
             try {
-                RtMidiOut& out = open(port);
-                out.sendMessage(&msg);
+                std::shared_ptr<RtMidiOut> out = open(port);
+                if (!msg.empty() && msg.front() == 0xF0) send_with_timeout(std::move(out), msg);
+                else out->sendMessage(&msg);
                 return {};
             } catch (const RtMidiError& e) {
                 // The interface may have been unplugged: drop the handle and
@@ -309,19 +342,18 @@ private:
     // per DEVICE: WinMM opens a device once per process, so two connections
     // spelling one device differently (a numbered name saved earlier, the
     // stable one the list offers now) must share its handle, not fail to open.
-    RtMidiOut& open(const std::string& port) {
+    std::shared_ptr<RtMidiOut> open(const std::string& port) {
         if (auto r = resolved_.find(port); r != resolved_.end())
-            if (auto it = outputs_.find(r->second); it != outputs_.end()) return *it->second;
-        auto out = std::make_unique<RtMidiOut>();
+            if (auto it = outputs_.find(r->second); it != outputs_.end()) return it->second;
+        auto out = std::make_shared<RtMidiOut>();
         const auto ports = output_ports(*out);
         const unsigned index = find_port(ports, port);
         const std::string device = ports.names[index];
         resolved_[port] = device;
-        if (auto it = outputs_.find(device); it != outputs_.end()) return *it->second;
+        if (auto it = outputs_.find(device); it != outputs_.end()) return it->second;
         out->openPort(index, "LivePlay");
-        auto& ref = *out;
-        outputs_[device] = std::move(out);
-        return ref;
+        outputs_[device] = out;
+        return out;
     }
 
     // Under mutex_. Drop the handle `port` used, so the next send looks again.
@@ -333,7 +365,7 @@ private:
     }
 
     std::mutex mutex_;
-    std::map<std::string, std::unique_ptr<RtMidiOut>> outputs_;    // device's full name -> open
+    std::map<std::string, std::shared_ptr<RtMidiOut>> outputs_;    // device's full name -> open
     std::map<std::string, std::string>                resolved_;   // connection's name -> device
 };
 

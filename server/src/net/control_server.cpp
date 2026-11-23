@@ -42,6 +42,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <future>
 #include <iomanip>
 #include <mutex>
 #include <nlohmann/json.hpp>
@@ -264,6 +265,19 @@ struct ControlServer::Impl {
     // Held from "is this name free?" to the rename that claims it, so two
     // imports of one file name cannot both decide it is theirs (#92).
     std::mutex              media_publish_mutex;
+
+    // Requests that wait on the network (an event Test, device discovery).
+    // They run off Crow's I/O threads, because a handler blocking one of those
+    // also stalls every socket it serves, GO included. A quick one answers
+    // directly; a slow one answers {pending, jobId} and is collected from
+    // GET /api/events/jobs/<id>.
+    struct SlowJob {
+        std::future<json>                     result;
+        std::chrono::steady_clock::time_point started;
+    };
+    std::mutex                               slow_mutex;
+    std::unordered_map<std::string, SlowJob> slow_jobs;
+
     std::mutex              waveform_q_mutex;
     std::condition_variable waveform_q_cv;
     std::deque<WaveformTask> waveform_q;
@@ -1090,6 +1104,15 @@ void ControlServer::stop() {
     if (impl_->broadcast_thread.joinable()) impl_->broadcast_thread.join();
     if (impl_->waveform_thread.joinable())  impl_->waveform_thread.join();
     if (impl_->app_thread.joinable())       impl_->app_thread.join();
+    // A Test or Discover still running calls into the project. Destroying its
+    // future waits for it, outside the lock.
+    {
+        decltype(impl_->slow_jobs) running;
+        {
+            std::lock_guard lock{impl_->slow_mutex};
+            running.swap(impl_->slow_jobs);
+        }
+    }
     Logger::info("Control server stopped.");
 }
 
@@ -1410,6 +1433,8 @@ void ControlServer::broadcast_loop() {
 // idempotent on its side (uuid lookup) and keeps the local diff-watcher
 // quiet because the client wraps the apply in its `isHydrating` flag.
 void ControlServer::broadcast_doc_patch(const json& payload) {
+    // Shutting down: the sockets are going, and a late report has no audience.
+    if (!running_.load(std::memory_order_acquire)) return;
     std::string serialized;
     try { serialized = payload.dump(); }
     catch (const std::exception& e) {
@@ -1425,6 +1450,7 @@ void ControlServer::broadcast_doc_patch(const json& payload) {
 }
 
 void ControlServer::broadcast_event_connections(const json& connections) {
+    if (!running_.load(std::memory_order_acquire)) return;
     std::string full, hidden;
     try {
         const auto frame = [](const json& list) {
@@ -4405,10 +4431,64 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // Runs `work` off the I/O thread. See Impl::SlowJob.
+    const auto run_slow = [this](std::function<json()> work) -> crow::response {
+        using namespace std::chrono_literals;
+        constexpr std::size_t kMaxRunning = 8;
+        constexpr auto kAnswerDirectlyWithin = 50ms;
+        constexpr auto kKeepUncollected = 2min;
+
+        std::future<json> result;
+        {
+            std::lock_guard lock{impl_->slow_mutex};
+            const auto now = std::chrono::steady_clock::now();
+            std::size_t busy = 0;
+            for (auto it = impl_->slow_jobs.begin(); it != impl_->slow_jobs.end();) {
+                const bool done = it->second.result.wait_for(0ms) == std::future_status::ready;
+                if (!done) ++busy;
+                // Only a finished one: destroying a running future would wait.
+                if (done && now - it->second.started > kKeepUncollected) {
+                    it = impl_->slow_jobs.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            if (busy >= kMaxRunning) return json_err(503, "too many tests already running");
+            result = std::async(std::launch::async, std::move(work));
+        }
+        if (result.wait_for(kAnswerDirectlyWithin) == std::future_status::ready) {
+            return json_ok(result.get());
+        }
+        const std::string id = make_download_token();
+        {
+            std::lock_guard lock{impl_->slow_mutex};
+            impl_->slow_jobs.emplace(id, Impl::SlowJob{std::move(result),
+                                                       std::chrono::steady_clock::now()});
+        }
+        return json_ok(json{{"pending", true}, {"jobId", id}});
+    };
+
+    CROW_ROUTE(app, "/api/events/jobs/<string>").methods(crow::HTTPMethod::Get)
+        ([this](const std::string& id) {
+            std::future<json> result;
+            {
+                std::lock_guard lock{impl_->slow_mutex};
+                const auto it = impl_->slow_jobs.find(id);
+                if (it == impl_->slow_jobs.end()) return json_err(404, "no such job");
+                if (it->second.result.wait_for(std::chrono::seconds{0}) != std::future_status::ready) {
+                    return json_ok(json{{"pending", true}, {"jobId", id}});
+                }
+                result = std::move(it->second.result);
+                impl_->slow_jobs.erase(it);
+            }
+            try { return json_ok(result.get()); }
+            catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
     // Fire one event now. Body: { event: {plugin, action, options,
     // connectionId?}, connection?: {draft connection}, itemUuid? }
     CROW_ROUTE(app, "/api/events/test").methods(crow::HTTPMethod::Post)
-        ([this](const crow::request& req) {
+        ([this, run_slow](const crow::request& req) {
             try {
                 const auto body = json::parse(req.body);
                 if (!body.contains("event") || !body["event"].is_object())
@@ -4421,20 +4501,22 @@ void ControlServer::install_routes() {
                     body.contains("connection") && body["connection"].is_object() &&
                     body["event"].value("plugin", std::string{}) == "http")
                     return json_err(403, "API tokens can't test an unsaved HTTP connection");
-                const auto r = state_.test_event(
-                    body["event"],
-                    body.contains("connection") ? body["connection"] : json{},
-                    body.value("itemUuid", std::string{}));
-                json out{{"ok", r.ok}};
-                if (!r.ok) out["error"] = r.error;
-                return json_ok(out);
+                return run_slow([this, body] {
+                    const auto r = state_.test_event(
+                        body["event"],
+                        body.contains("connection") ? body["connection"] : json{},
+                        body.value("itemUuid", std::string{}));
+                    json out{{"ok", r.ok}};
+                    if (!r.ok) out["error"] = r.error;
+                    return out;
+                });
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
     // A plugin's live option list for a field with "optionsFrom".
     // Body: { plugin, source, connectionId?, connection?, values? }
     CROW_ROUTE(app, "/api/events/options").methods(crow::HTTPMethod::Post)
-        ([this](const crow::request& req) {
+        ([this, run_slow](const crow::request& req) {
             try {
                 const auto body = json::parse(req.body);
                 const std::string plugin = body.value("plugin", std::string{});
@@ -4443,23 +4525,27 @@ void ControlServer::install_routes() {
                 std::string connection_id;
                 if (body.contains("connectionId") && body["connectionId"].is_string())
                     connection_id = body["connectionId"].get<std::string>();
-                return json_ok(state_.event_options(
-                    plugin, source, connection_id,
-                    body.contains("connection") ? body["connection"] : json{},
-                    body.contains("values") ? body["values"] : json::object()));
+                return run_slow([this, body, plugin, source, connection_id] {
+                    return state_.event_options(
+                        plugin, source, connection_id,
+                        body.contains("connection") ? body["connection"] : json{},
+                        body.contains("values") ? body["values"] : json::object());
+                });
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
     // Devices a plugin finds on the network. Body: { plugin, timeoutMs? }
     CROW_ROUTE(app, "/api/events/discover").methods(crow::HTTPMethod::Post)
-        ([this](const crow::request& req) {
+        ([this, run_slow](const crow::request& req) {
             try {
                 const auto body = json::parse(req.body);
                 const std::string plugin = body.value("plugin", std::string{});
                 if (plugin.empty()) return json_err(400, "missing plugin");
                 const int ms = std::clamp(body.value("timeoutMs", 1500), 200, 10000);
-                return json_ok(json{{"devices",
-                    state_.event_discover(plugin, std::chrono::milliseconds{ms})}});
+                return run_slow([this, plugin, ms] {
+                    return json{{"devices",
+                        state_.event_discover(plugin, std::chrono::milliseconds{ms})}};
+                });
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
