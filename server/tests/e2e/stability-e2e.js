@@ -59,11 +59,9 @@ const healthy = async () => {
 
 function writeWav(file, seconds) {
   const rate = 48000, ch = 2, n = Math.floor(rate * seconds);
+  // Silence: nothing here measures audio, and a test server plays through
+  // the machine's default output, which may be a real PA.
   const data = Buffer.alloc(n * ch * 2);
-  for (let i = 0; i < n; i++) {
-    const v = Math.round(Math.sin(2 * Math.PI * 440 * i / rate) * 0.1 * 32767);
-    data.writeInt16LE(v, i * 4); data.writeInt16LE(v, i * 4 + 2);
-  }
   const h = Buffer.alloc(44);
   h.write('RIFF', 0); h.writeUInt32LE(36 + data.length, 4); h.write('WAVE', 8);
   h.write('fmt ', 12); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(ch, 22);
