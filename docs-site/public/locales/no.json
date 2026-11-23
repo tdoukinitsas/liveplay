@@ -21,26 +21,22 @@
     "windows": {
       "title": "Windows",
       "description": "Windows 10/11 (64-bit)",
-      "buttonText": "Last ned .exe",
-      "size": "~150 MB"
+      "buttonText": "Last ned .exe"
     },
     "macArm": {
       "title": "macOS – Apple Silicon",
-      "description": "M1/M2/M3 og nyere (arm64)",
-      "buttonText": "Last ned .dmg",
-      "size": "~140 MB"
+      "description": "M1 og nyere (arm64), macOS 13.3+",
+      "buttonText": "Last ned .dmg"
     },
     "macIntel": {
       "title": "macOS – Intel",
-      "description": "Intel-Mac (x64), macOS 11 eller nyere",
-      "buttonText": "Last ned .dmg",
-      "size": "~145 MB"
+      "description": "Intel-Mac (x64), macOS 13.3+",
+      "buttonText": "Last ned .dmg"
     },
     "linux": {
       "title": "Linux",
       "description": "AppImage (x64)",
-      "buttonText": "Last ned .AppImage",
-      "size": "~155 MB"
+      "buttonText": "Last ned .AppImage"
     },
     "recommended": "Anbefalt for systemet ditt",
     "showOtherOS": "Last ned for et annet operativsystem",
@@ -63,7 +59,8 @@
       "step1": "Klikk «Mer informasjon» i advarselsvinduet.",
       "step2": "Klikk knappen «Kjør likevel» som dukker opp, og fortsett installasjonen som vanlig.",
       "outro": "Hvis nettleseren blokkerte nedlastingen i stedet, velger du «Behold» for å lagre installasjonsprogrammet først."
-    }
+    },
+    "sizeMB": "~{n} MB"
   },
   "contribute": {
     "title": "Bidra",
@@ -84,11 +81,21 @@
     },
     "playlist": {
       "title": "Legg opp cuene og kjør",
-      "description": "Dra musikk og effekter inn i en spilleliste med cuer, og velg hvordan hver cue leder videre til den neste: spill videre, loop eller hopp. Styr hele kjøreplanen fra mus, berøringsskjerm, tastatur eller MIDI-kontroller."
+      "description": "Dra musikk og effekter inn i en spilleliste med cuer, og velg hvordan hver cue leder videre til den neste: spill videre, loop eller hopp. Styr hele kjøreplanen fra mus, berøringsskjerm, tastatur eller MIDI-kontroller.",
+      "points": [
+        "Spill videre, loop eller hopp etter hver cue",
+        "Mus, berøring, tastatur eller MIDI",
+        "Grupper for scener, akter og sett"
+      ]
     },
     "cart": {
       "title": "Lyder og jingler på et øyeblikk",
-      "description": "Ha jingler, stikk og utrop ett trykk unna i cartspilleren, klare til å spilles over alt annet som går."
+      "description": "Ha jingler, stikk og utrop ett trykk unna i cartspilleren, klare til å spilles over alt annet som går.",
+      "points": [
+        "Spilles over alt som går",
+        "En hurtigtast til hver cart",
+        "Forhåndslytt på hodetelefonene først"
+      ]
     },
     "ducking": {
       "title": "Automatisk ducking",
@@ -100,7 +107,12 @@
     },
     "showMode": {
       "title": "Showmodus",
-      "description": "Showmodus gjør skjermen om til store, berøringsvennlige kontroller og skjuler alt som kan endre showet, så ingenting endres ved et uhell når dørene først har åpnet."
+      "description": "Showmodus gjør skjermen om til store, berøringsvennlige kontroller og skjuler alt som kan endre showet, så ingenting endres ved et uhell når dørene først har åpnet.",
+      "points": [
+        "Store, berøringsvennlige kontroller",
+        "Redigering er låst",
+        "Slås på med én bryter"
+      ]
     },
     "waveform": {
       "title": "Klipp i bølgeformen",
@@ -108,7 +120,12 @@
     },
     "automation": {
       "title": "Volumautomasjon",
-      "description": "Tegn nivået til en cue rett på bølgeformen. Klikk for å legge til et punkt, dra linjen for å senke musikken under en tale eller løfte den i et refreng, eller marker et parti og senk det i én bevegelse. Bølgeformen viser nøyaktig hva som vil høres, og du kan forhåndslytte i hodetelefoner fra hvilket som helst punkt før showet."
+      "description": "Tegn nivået til en cue rett på bølgeformen. Klikk for å legge til et punkt, dra linjen for å senke musikken under en tale eller løfte den i et refreng, eller marker et parti og senk det i én bevegelse. Bølgeformen viser nøyaktig hva som vil høres, og du kan forhåndslytte i hodetelefoner fra hvilket som helst punkt før showet.",
+      "points": [
+        "Tegn nivåer på bølgeformen",
+        "Marker et parti og dra det ned",
+        "Forhåndslytt fra hvilket som helst punkt"
+      ]
     },
     "properties": {
       "title": "Finjuster hver cue",
@@ -128,15 +145,30 @@
     },
     "mixer": {
       "title": "En ekte mikser for showet ditt",
-      "description": "Gi musikk, effekter og utrop egne busser, og balanser dem på kanalstriper, akkurat som på en miksepult. Rut busser inn i hverandre, rett til en utgang eller via aux-sends, og tilordne en hel gruppe cuer på én gang."
+      "description": "Gi musikk, effekter og utrop egne busser, og balanser dem på kanalstriper, akkurat som på en miksepult. Rut busser inn i hverandre, rett til en utgang eller via aux-sends, og tilordne en hel gruppe cuer på én gang.",
+      "points": [
+        "Busser med fulle kanalstriper",
+        "Rut mellom busser eller bruk aux-sends",
+        "Tildel hele grupper med cuer samtidig"
+      ]
     },
     "eqDynamics": {
       "title": "EQ og dynamikk på hver buss",
-      "description": "Form hver buss med en parametrisk EQ og en spektrumanalysator i sanntid, og hold den i sjakk med en gate og en kompressor. Stereobusser kan gjøres bredere eller smalere, med bassen stødig i midten."
+      "description": "Form hver buss med en parametrisk EQ og en spektrumanalysator i sanntid, og hold den i sjakk med en gate og en kompressor. Stereobusser kan gjøres bredere eller smalere, med bassen stødig i midten.",
+      "points": [
+        "Opptil 32 EQ-bånd med analysator i sanntid",
+        "Gate og kompressor på hver buss",
+        "Stereobredde med monosikker bass"
+      ]
     },
     "limiter": {
       "title": "Brickwall-limiter og loudness-mål",
-      "description": "En brickwall-limiter på hver utgang holder løse topper unna høyttalerne, og mikseren viser deg når den jobber. Velg et loudness-mål, fra kringkasting og strømming til live, så følger limiteren, målerne og bølgeformene etter."
+      "description": "En brickwall-limiter på hver utgang holder løse topper unna høyttalerne, og mikseren viser deg når den jobber. Velg et loudness-mål, fra kringkasting og strømming til live, så følger limiteren, målerne og bølgeformene etter.",
+      "points": [
+        "En limiter på hver utgang",
+        "Mål for kringkasting, strømming og live",
+        "Målere og bølgeformer følger med"
+      ]
     },
     "meters": {
       "title": "Måling på kringkastingsnivå",
@@ -160,7 +192,12 @@
     },
     "remoteOperation": {
       "title": "Lokal drift eller fjernstyring",
-      "description": "Kjør lydmotoren på samme datamaskin eller på en maskin backstage sammen med lydkortene, og styr alt fra hvor som helst i nettverket. Lyden kommer fra motoren, ikke fra skjermen, så showet fortsetter selv om en kontrollmaskin faller ut."
+      "description": "Kjør lydmotoren på samme datamaskin eller på en maskin backstage sammen med lydkortene, og styr alt fra hvor som helst i nettverket. Lyden kommer fra motoren, ikke fra skjermen, så showet fortsetter selv om en kontrollmaskin faller ut.",
+      "points": [
+        "Motor og skjermer på hver sin maskin",
+        "Spiller videre hvis en skjerm faller ut",
+        "Styr det fra hvor som helst i nettverket"
+      ]
     },
     "discovery": {
       "title": "Samarbeid og rask gjenoppretting",
@@ -184,7 +221,12 @@
     },
     "missingMedia": {
       "title": "Finn manglende lyd",
-      "description": "Hvis en fil flyttes eller slettes, flagger LivePlay cuen før noen kjører den. Pek på en mappe, så blir hver manglende fil funnet og koblet på nytt etter navn, eller erstatt én fil uten å miste innstillingene til cuen."
+      "description": "Hvis en fil flyttes eller slettes, flagger LivePlay cuen før noen kjører den. Pek på en mappe, så blir hver manglende fil funnet og koblet på nytt etter navn, eller erstatt én fil uten å miste innstillingene til cuen.",
+      "points": [
+        "Flagges før noen kjører den",
+        "Koble et helt show på nytt fra én mappe",
+        "Bytt fil og behold innstillingene"
+      ]
     },
     "groupEvents": {
       "title": "Styr hele rommet fra én cue",
@@ -192,11 +234,43 @@
     },
     "events": {
       "title": "Hendelser på tidslinjen",
-      "description": "Plasser hendelser på bølgeformen til en cue for å kjøre en lyscue over OSC eller MIDI Show Control, kalle et web-API, flytte en fader på en X Air-mikser eller starte en annen cue. Serveren utløser hver av dem på riktig sted, så showet holder seg synkront selv uten noen ved skjermen."
+      "description": "Plasser hendelser på bølgeformen til en cue for å kjøre en lyscue over OSC eller MIDI Show Control, kalle et web-API, flytte en fader på en X Air-mikser eller starte en annen cue. Serveren utløser hver av dem på riktig sted, så showet holder seg synkront selv uten noen ved skjermen.",
+      "points": [
+        "OSC, MIDI, MIDI Show Control og HTTP",
+        "Behringer X Air-miksere",
+        "Start eller stopp andre cuer"
+      ]
     },
     "connections": {
       "title": "Tilkoblinger til utstyret ditt",
       "description": "Sett opp hvert lysbord, hver mikser, MIDI-port eller webtjeneste én gang per show. LivePlay finner X Air-miksere på nettverket, leser kanal- og snapshotnavnene deres og setter et tak for hvor høyt en hendelse kan skyve en fader."
+    },
+    "tabs": {
+      "title": "En fane for hver akt",
+      "description": "Del et langt show i spillelistefaner for hver akt, scene eller sett. Én «Står for tur» gjelder på tvers av alle, og hver fane bestemmer hva som skjer etter siste cue: tilbake til toppen, videre til neste fane eller stopp.",
+      "points": [
+        "Gi hver fane navn og farge",
+        "Én «Står for tur» for hele showet",
+        "Åpne hvilken som helst fane i eget vindu"
+      ]
+    },
+    "cartPages": {
+      "title": "Side på side med carter",
+      "description": "Sorter cartene på navngitte, fargekodede sider med 4 til 64 carter. Plasstaster utløser siden du ser på, og festede taster utløser en favorittlyd fra hvilken som helst side.",
+      "points": [
+        "4 til 64 carter på hver side",
+        "Flytt en side ut på en annen skjerm",
+        "Festede taster virker fra alle sider"
+      ]
+    },
+    "presets": {
+      "title": "Forhåndsinnstillinger for riggen",
+      "description": "Lagre «Salslys til 40 %» én gang på en tilkobling og bruk det på hvilken som helst cue. Endrer du forhåndsinnstillingen, oppdateres alle hendelser som bruker den.",
+      "points": [
+        "Navngitte innstillinger for hver tilkobling",
+        "Én endring oppdaterer alle hendelser",
+        "Overstyr ett enkelt felt ved behov"
+      ]
     }
   },
   "ports": {
@@ -226,5 +300,304 @@
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Se på GitHub",
     "contributors": "Bidragsytere"
+  },
+  "site": {
+    "skip": "Hopp til innholdet",
+    "menu": "Meny",
+    "close": "Lukk",
+    "features": "Funksjoner",
+    "download": "Last ned",
+    "api": "API",
+    "whatsNew": "Nyheter",
+    "newIn": "Nytt i {version}",
+    "enlarge": "Vis i full størrelse: {name}",
+    "footerNav": "Lenker på nettstedet"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Gratis og åpen kildekode for Windows, macOS og Linux",
+      "title": "Hver lyd, rett på cue.",
+      "download": "Last ned gratis",
+      "seeNew": "Se hva som er nytt i {version}"
+    },
+    "audience": {
+      "label": "Hvem LivePlay er for",
+      "theatre": {
+        "title": "Teater",
+        "text": "Lydeffekter, underlagsmusikk og sceneskift, i riktig rekkefølge og på replikken."
+      },
+      "radio": {
+        "title": "Radio",
+        "text": "Musikktepper, jingler og overganger, med nivåer du kan stole på når du er på lufta."
+      },
+      "events": {
+        "title": "Live-arrangementer",
+        "text": "Inngangsmusikk, stikk og utrop for konferanser, prisutdelinger og sceneshow."
+      },
+      "parties": {
+        "title": "Fester",
+        "text": "Legg opp musikken, senk den under talene og nyt kvelden."
+      }
+    },
+    "how": {
+      "title": "I gang på tre steg",
+      "one": {
+        "title": "Slipp inn lyden",
+        "text": "Dra inn musikk og effekter, eller hent et spor fra YouTube. LivePlay kan kutte stillhet og jevne ut nivåene for deg."
+      },
+      "two": {
+        "title": "Legg opp cuene",
+        "text": "Sett dem opp i kjøreplanen, grupper dem etter scene og velg hva hver cue skal gjøre etterpå."
+      },
+      "three": {
+        "title": "Trykk Spill neste",
+        "text": "Kjør hele showet fra én knapp, en berøringsskjerm, tastaturet eller en MIDI-kontroller."
+      }
+    },
+    "numbers": {
+      "label": "LivePlay i tall",
+      "carts": "carter på hver side",
+      "eq": "EQ-bånd per buss",
+      "languages": "språk",
+      "platforms": "skrivebordsplattformer",
+      "cost": "i lisensavgifter, noensinne"
+    },
+    "teaser": {
+      "eyebrow": "Helt nytt",
+      "title": "Nytt i LivePlay {version}",
+      "text": "Cuer kan nå styre lys, mikser og video. Lange show får faner, carter får sider, og du kan tegne volumet rett på bølgeformen.",
+      "button": "Se alt som er nytt"
+    },
+    "tech": {
+      "eyebrow": "For tekniske team"
+    }
+  },
+  "whatsNew": {
+    "index": {
+      "eyebrow": "Versjonsnotater",
+      "title": "Nytt i LivePlay",
+      "lead": "De største nyhetene i hver versjon, nyeste først. Ny i LivePlay? Ta heller hele funksjonsturen.",
+      "tour": "Ta funksjonsturen",
+      "latest": "Siste versjon",
+      "read": "Se hva som er nytt",
+      "older": "Tidligere versjoner"
+    },
+    "release": {
+      "label": "LivePlay {version}",
+      "versions": "Versjoner",
+      "more": "Mer i denne versjonen",
+      "fixed": "Også fikset:",
+      "github": "Fullstendige versjonsnotater på GitHub"
+    },
+    "v26": {
+      "title": "Hele rommet på cue.",
+      "summary": "Hendelser for lys, mikser og video, spillelistefaner, cartsider og volumautomasjon.",
+      "lead": "LivePlay 2.6 rekker lenger enn høyttalerne. Cuer kan nå utløse lys, mikser og video fra tidslinjen, lange show brettes inn i faner, carter fordeles på sider, og volumet kan tegnes rett på bølgeformen.",
+      "sections": {
+        "events": {
+          "kicker": "Hendelser",
+          "title": "Én cue. Alt på scenen.",
+          "text": "Plasser hendelser på bølgeformen til en cue, så utløser LivePlay hver av dem på merket: en lyscue, en webforespørsel, en fader som flyttes på miksepulten, eller en annen cue. Serveren holder tiden, så alt treffer samtidig, selv uten noen ved skjermen.",
+          "points": [
+            "OSC, MIDI, MIDI Show Control og HTTP",
+            "Behringer X Air-fadere, mute og snapshots",
+            "Utløs ved start, slutt, pause, gjenopptak eller når som helst"
+          ]
+        },
+        "presets": {
+          "kicker": "Forhåndsinnstillinger",
+          "title": "Still inn én gang. Bruk overalt.",
+          "text": "Lagre innstillingene du stadig trenger som en navngitt forhåndsinnstilling på en tilkobling. Pek så mange hendelser du vil på den, og når riggen endres, oppdaterer du forhåndsinnstillingen én gang.",
+          "points": [
+            "«Salslys 40 %», klar for hvilken som helst cue",
+            "Én endring oppdaterer alle hendelser",
+            "Overstyr ett felt på én hendelse"
+          ]
+        },
+        "tabs": {
+          "kicker": "Spillelistefaner",
+          "title": "Lange show, pent brettet.",
+          "text": "Gi hver akt, scene eller sett sin egen fane. Spill neste utløser alltid den ene «Står for tur» for hele showet og viser hvilken fane den ligger på, så du kan se framover uten å miste plassen din.",
+          "points": [
+            "Tilbake til toppen, videre til neste fane eller stopp",
+            "Flytt cuer mellom faner",
+            "Åpne en fane i eget vindu"
+          ]
+        },
+        "pages": {
+          "kicker": "Cartsider",
+          "title": "Plass til hver lyd.",
+          "text": "Organiser cartene på sider for hver scene eller oppgave. Hver side har sin egen størrelse og farge, og kan følge med eller flyttes ut på en annen skjerm.",
+          "points": [
+            "4 til 64 carter per side",
+            "Taster for den synlige siden, eller festet til én cart",
+            "Flytt carter mellom sider"
+          ]
+        },
+        "automation": {
+          "kicker": "Volumautomasjon",
+          "title": "Tegn miksen på bølgeformen.",
+          "text": "Klikk for å legge til et punkt, og dra linjen for å senke musikken under en tale eller løfte den i et refreng. Bølgeformen viser nøyaktig det publikum kommer til å høre.",
+          "points": [
+            "Legg til, dra og fjern punkter",
+            "Dra ned et helt utvalg i én bevegelse",
+            "Forhåndslytt fra hvilket som helst punkt på hodetelefonene"
+          ]
+        },
+        "relink": {
+          "kicker": "Koble media på nytt",
+          "title": "Filer borte? Funnet.",
+          "text": "Flyttes en fil, flagger LivePlay cuen før noen kjører den. Pek på en mappe, så matches alle manglende filer etter navn, eller bytt inn en ny fil og behold cuen akkurat slik du satte den opp.",
+          "points": [
+            "Du varsles før du trykker Spill",
+            "Koble et helt show på nytt fra én mappe",
+            "Bytt en fil uten å miste innstillinger"
+          ]
+        }
+      },
+      "more": {
+        "wholePlaylist": {
+          "title": "En hel spilleliste i én cart",
+          "text": "Slipp en spillelistefane på en cart for å starte den med ett trykk og følge gjenværende tid."
+        },
+        "duckTimes": {
+          "title": "Ducking i ditt tempo",
+          "text": "Velg hvor raskt musikken senkes og hvor mykt den kommer tilbake, cue for cue."
+        },
+        "stopFades": {
+          "title": "Stopp alt, på din måte",
+          "text": "La Stopp alt tone ut hver cue med dens egen uttoning ved stopp i stedet for én fast tid."
+        },
+        "stopKey": {
+          "title": "Tast for Stopp gjeldende cue",
+          "text": "Knytt en tast som stopper bare den gjeldende cuen og lar alt annet spille videre."
+        },
+        "openFile": {
+          "title": "Åpne show fra filene dine",
+          "text": "Dobbeltklikk på et show, nå også på Linux. LivePlay spør alltid før et åpent show erstattes."
+        },
+        "waveformPan": {
+          "title": "Panorer med midtknappen",
+          "text": "Dra med midtre museknapp for å bevege deg rundt i en zoomet bølgeform."
+        }
+      },
+      "fixes": "mer pålitelige hendelser og tilkoblinger, avspilling som ikke lenger stopper opp ved manglende media, import som aldri overskriver filen til en annen cue, korrigerte macOS-bygg (nå macOS 13.3 eller nyere), et vindu som passer ved siden av andre apper, og tydeligere aksentfarger."
+    },
+    "v25": {
+      "title": "En ekte mikser for showet ditt.",
+      "summary": "Busser og kanalstriper, 32-bånds EQ, maskinvareutganger etter navn og teamkontoer.",
+      "lead": "LivePlay 2.5 la en full mikser inn i appen. Gi musikk, effekter og stemmer hver sin stripe, form dem skikkelig, og ta med det samme showet til ethvert spillested.",
+      "sections": {
+        "mixer": {
+          "kicker": "Mikser",
+          "title": "Hver lyd får sin egen stripe.",
+          "text": "Opprett busser for musikk, effekter og utrop, og balanser dem på kanalstriper, akkurat som på en miksepult. Rut dem inn i hverandre, rett til en utgang eller via aux-sends.",
+          "points": [
+            "Master- og Preview-roller på vanlige busser",
+            "Aux-sends pre- og post-fader",
+            "Tildel hele grupper på én gang"
+          ]
+        },
+        "eq": {
+          "kicker": "EQ og dynamikk",
+          "title": "Form det. Hold det.",
+          "text": "En grafbasert parametrisk EQ med spektrumanalysator i sanntid, og deretter en gate og en kompressor som viser hva de gjør med signalet.",
+          "points": [
+            "Opptil 32 bånd av alle filtertyper",
+            "Analysator i sanntid bak kurven",
+            "Stereobredde med monosikker bass"
+          ]
+        },
+        "outputs": {
+          "kicker": "Maskinvareutganger",
+          "title": "Showet reiser. Rutingen følger med.",
+          "text": "Show snakker med utganger ved navn, og hver datamaskin kobler de navnene til sine egne lydkort. På et nytt spillested peker LivePlay ut hva som mangler, og du drar en fysisk utgang på plass for å fikse det.",
+          "points": [
+            "Navngitte utganger, ikke lydkort",
+            "Manglende maskinvare blir stille og sier fra",
+            "Omkobling med dra og slipp"
+          ]
+        },
+        "workspace": {
+          "kicker": "Arbeidsflate",
+          "title": "Ordne det på din måte.",
+          "text": "Spilleliste, Cartspiller og Mikser fungerer likt. Vis dem, fyll skjermen med én, legg dem inntil en kant eller flytt dem til en annen skjerm.",
+          "points": [
+            "Én layoutmodell for alle paneler",
+            "Løsriv paneler til en annen skjerm",
+            "Kommer tilbake slik du forlot det"
+          ]
+        },
+        "accounts": {
+          "kicker": "Kontoer",
+          "title": "En innlogging til alle på laget.",
+          "text": "Gi operatører og administratorer egne innlogginger, se hvem som er tilkoblet, og lag API-tokener for showkontrollverktøy i stedet for å dele et passord.",
+          "points": [
+            "Operatør- og administratorroller",
+            "API-tokener for verktøy som Companion",
+            "Flytt teamet til en annen server"
+          ]
+        },
+        "fades": {
+          "kicker": "Toninger og timing",
+          "title": "Overganger uten skarpe kanter.",
+          "text": "Gi hver cue sin egen uttoning ved stopp, la looper gli sømløst over i seg selv, og få en cue til å vente før den neste starter.",
+          "points": [
+            "Toninger like lange som lyden",
+            "Sømløse loop-crossfades",
+            "Vent før neste"
+          ]
+        }
+      },
+      "more": {
+        "settings": {
+          "title": "Én innstillingsside",
+          "text": "Alle innstillinger på ett sted, og de personlige valgene dine følger deg til enhver skjerm."
+        },
+        "multiEdit": {
+          "title": "Rediger mange cuer samtidig",
+          "text": "Endre hvilken som helst egenskap på et helt utvalg av cuer."
+        },
+        "groupTime": {
+          "title": "Grupper kjenner lengden sin",
+          "text": "Se hvor lenge en gruppe varer og hvor mye som gjenstår, selv når den er lukket."
+        },
+        "sends": {
+          "title": "Busser som bare sender",
+          "text": "En buss kan mate andre kun via sends, uten egen hovedutgang."
+        },
+        "tray": {
+          "title": "Server i systemstatusfeltet",
+          "text": "Kjør lydmotoren stille i bakgrunnen, uten konsollvindu."
+        },
+        "youtubeFormat": {
+          "title": "Velg YouTube-format",
+          "text": "Bestem hva importert lyd lagres som, også WAV."
+        }
+      },
+      "fixes": "støtte for Linux offline og eldre distribusjoner, en mer robust YouTube-import, en topplinje som skalerer med vinduet, brukerdata som alltid lagres, og mange rettelser i mikser og tilkoblinger."
+    },
+    "timeline": {
+      "v24": {
+        "title": "Showkontroll",
+        "text": "Støtte for Bitfocus Companion, pluss avspillingshandlingene Fortsett på cue og Jump Cue."
+      },
+      "v23": {
+        "title": "Showmodus og ærlige målere",
+        "text": "En Showmodus for berøringsskjerm, LUFS- og true peak-måling, nylige prosjekter og konfigurerbar nummerering."
+      },
+      "v22": {
+        "title": "Overganger i radiostil",
+        "text": "Start neste-markører, en standardovergang for nye spor og automatisk cueing av neste element."
+      },
+      "v21": {
+        "title": "Raskere import",
+        "text": "Importer og slett mange filer samtidig."
+      },
+      "v20": {
+        "title": "En ny lydmotor",
+        "text": "En dedikert C++-motor med lokal drift eller fjernstyring, loudness-mål og automatisk serveroppdagelse."
+      }
+    }
   }
 }

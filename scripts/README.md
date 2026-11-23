@@ -13,7 +13,7 @@ Run these commands from the repository root. The Node helpers resolve repository
 | `npm run bump -- patch` | [version.js](version.js) | Increment version; also accepts `minor` / `major` |
 | `npm run version -- 2.5.0` | [version.js](version.js) | Set a specific version |
 
-Version updates touch root/client/docs-site package manifests, `server/vcpkg.json` and the fallback version in `docs-site/app/app.vue`. A root package version change on main is used by the [release workflow](../.github/workflows/build-release.yml).
+Version updates touch root/client/docs-site package manifests, `server/vcpkg.json` and the fallback version in `docs-site/app/composables/useSiteInfo.ts`. A root package version change on main is used by the [release workflow](../.github/workflows/build-release.yml).
 
 ## Localization
 

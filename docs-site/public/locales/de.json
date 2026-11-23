@@ -21,26 +21,22 @@
     "windows": {
       "title": "Windows",
       "description": "Windows 10/11 (64-Bit)",
-      "buttonText": ".exe herunterladen",
-      "size": "~150 MB"
+      "buttonText": ".exe herunterladen"
     },
     "macArm": {
       "title": "macOS — Apple Silicon",
-      "description": "M1/M2/M3 und neuer (arm64)",
-      "buttonText": ".dmg herunterladen",
-      "size": "~140 MB"
+      "description": "M1 und neuer (arm64), macOS 13.3+",
+      "buttonText": ".dmg herunterladen"
     },
     "macIntel": {
       "title": "macOS — Intel",
-      "description": "Intel-Macs (x64), macOS 11+",
-      "buttonText": ".dmg herunterladen",
-      "size": "~145 MB"
+      "description": "Intel-Macs (x64), macOS 13.3+",
+      "buttonText": ".dmg herunterladen"
     },
     "linux": {
       "title": "Linux",
       "description": "AppImage (x64)",
-      "buttonText": ".AppImage herunterladen",
-      "size": "~155 MB"
+      "buttonText": ".AppImage herunterladen"
     },
     "recommended": "Empfohlen für Ihr System",
     "showOtherOS": "Für ein anderes Betriebssystem herunterladen",
@@ -63,7 +59,8 @@
       "step1": "Klicken Sie im Warndialog auf „Weitere Informationen“.",
       "step2": "Klicken Sie auf die daraufhin angezeigte Schaltfläche „Trotzdem ausführen“ und setzen Sie die Installation normal fort.",
       "outro": "Falls stattdessen Ihr Browser den Download blockiert hat, wählen Sie zuerst „Beibehalten“, um die Datei zu speichern."
-    }
+    },
+    "sizeMB": "~{n} MB"
   },
   "contribute": {
     "title": "Mitwirken",
@@ -84,11 +81,21 @@
     },
     "playlist": {
       "title": "Vorbereiten und abfeuern",
-      "description": "Ziehen Sie Musik und Effekte in eine Playlist aus Cues und legen Sie fest, wie jeder Cue in den nächsten übergeht: weiterspielen, in Schleife laufen oder springen. Den gesamten Ablauf steuern Sie per Maus, Touchscreen, Tastatur oder MIDI-Controller."
+      "description": "Ziehen Sie Musik und Effekte in eine Playlist aus Cues und legen Sie fest, wie jeder Cue in den nächsten übergeht: weiterspielen, in Schleife laufen oder springen. Den gesamten Ablauf steuern Sie per Maus, Touchscreen, Tastatur oder MIDI-Controller.",
+      "points": [
+        "Weiterspielen, Schleife oder Sprung nach jedem Cue",
+        "Maus, Touch, Tastatur oder MIDI",
+        "Gruppen für Szenen, Akte und Sets"
+      ]
     },
     "cart": {
       "title": "Jingles und Sounds auf Knopfdruck",
-      "description": "Jingles, Stinger und Ansagen liegen im Cart-Player nur einen Tipp entfernt bereit und lassen sich jederzeit über alles andere legen, was gerade läuft."
+      "description": "Jingles, Stinger und Ansagen liegen im Cart-Player nur einen Tipp entfernt bereit und lassen sich jederzeit über alles andere legen, was gerade läuft.",
+      "points": [
+        "Startet über allem, was gerade läuft",
+        "Ein Tastenkürzel für jedes Cart",
+        "Erst im Kopfhörer vorhören"
+      ]
     },
     "ducking": {
       "title": "Automatisches Ducking",
@@ -100,7 +107,12 @@
     },
     "showMode": {
       "title": "Show-Modus",
-      "description": "Der Show-Modus macht aus dem Bildschirm große, touchfreundliche Bedienelemente und blendet alles aus, womit sich die Show bearbeiten ließe. So ändert sich nichts versehentlich, sobald der Einlass beginnt."
+      "description": "Der Show-Modus macht aus dem Bildschirm große, touchfreundliche Bedienelemente und blendet alles aus, womit sich die Show bearbeiten ließe. So ändert sich nichts versehentlich, sobald der Einlass beginnt.",
+      "points": [
+        "Große, touchfreundliche Bedienelemente",
+        "Bearbeiten ist gesperrt",
+        "Ein Schalter genügt"
+      ]
     },
     "waveform": {
       "title": "Schnitt an der Wellenform",
@@ -108,7 +120,12 @@
     },
     "automation": {
       "title": "Lautstärkeautomation",
-      "description": "Zeichne den Pegel eines Cues direkt auf seine Wellenform. Klicke, um einen Punkt zu setzen, ziehe die Linie, um die Musik unter einer Ansage abzusenken oder für einen Refrain anzuheben, oder markiere einen Abschnitt und senke ihn mit einem Zug ab. Die Wellenform zeigt genau, was zu hören sein wird, und du kannst vor der Show ab jeder Stelle im Kopfhörer vorhören."
+      "description": "Zeichne den Pegel eines Cues direkt auf seine Wellenform. Klicke, um einen Punkt zu setzen, ziehe die Linie, um die Musik unter einer Ansage abzusenken oder für einen Refrain anzuheben, oder markiere einen Abschnitt und senke ihn mit einem Zug ab. Die Wellenform zeigt genau, was zu hören sein wird, und du kannst vor der Show ab jeder Stelle im Kopfhörer vorhören.",
+      "points": [
+        "Pegel auf die Wellenform zeichnen",
+        "Bereich wählen und absenken",
+        "Vorhören ab jeder Stelle"
+      ]
     },
     "properties": {
       "title": "Jeden Cue genau einstellen",
@@ -128,15 +145,30 @@
     },
     "mixer": {
       "title": "Ein echter Mixer für Ihre Show",
-      "description": "Geben Sie Musik, Effekten und Ansagen eigene Busse und mischen Sie sie auf Kanalzügen wie an einem Pult. Routen Sie Busse ineinander, direkt auf einen Ausgang oder über Aux-Sends, und weisen Sie eine ganze Gruppe von Cues in einem Schritt zu."
+      "description": "Geben Sie Musik, Effekten und Ansagen eigene Busse und mischen Sie sie auf Kanalzügen wie an einem Pult. Routen Sie Busse ineinander, direkt auf einen Ausgang oder über Aux-Sends, und weisen Sie eine ganze Gruppe von Cues in einem Schritt zu.",
+      "points": [
+        "Busse mit vollen Kanalzügen",
+        "Routing zwischen Bussen oder Aux-Sends",
+        "Ganze Cue-Gruppen auf einmal zuweisen"
+      ]
     },
     "eqDynamics": {
       "title": "EQ und Dynamik auf jedem Bus",
-      "description": "Formen Sie jeden Bus mit einem parametrischen EQ und einem Live-Spektrumanalyzer und halten Sie ihn mit Gate und Kompressor im Griff. Stereo-Busse lassen sich breiter oder schmaler machen, während der Bass stabil in der Mitte bleibt."
+      "description": "Formen Sie jeden Bus mit einem parametrischen EQ und einem Live-Spektrumanalyzer und halten Sie ihn mit Gate und Kompressor im Griff. Stereo-Busse lassen sich breiter oder schmaler machen, während der Bass stabil in der Mitte bleibt.",
+      "points": [
+        "Bis zu 32 EQ-Bänder mit Live-Analyzer",
+        "Gate und Kompressor auf jedem Bus",
+        "Stereobreite mit monosicherem Bass"
+      ]
     },
     "limiter": {
       "title": "Brickwall-Limiter und Lautheitsziele",
-      "description": "Ein Brickwall-Limiter auf jedem Ausgang hält verirrte Spitzen von den Lautsprechern fern, und der Mixer zeigt Ihnen, wann er eingreift. Wählen Sie ein Lautheitsziel von Broadcast und Streaming bis Live – Limiter, Pegelanzeigen und Wellenformen richten sich danach."
+      "description": "Ein Brickwall-Limiter auf jedem Ausgang hält verirrte Spitzen von den Lautsprechern fern, und der Mixer zeigt Ihnen, wann er eingreift. Wählen Sie ein Lautheitsziel von Broadcast und Streaming bis Live – Limiter, Pegelanzeigen und Wellenformen richten sich danach.",
+      "points": [
+        "Ein Limiter auf jedem Ausgang",
+        "Ziele für Broadcast, Streaming und Live",
+        "Pegelanzeigen und Wellenformen ziehen mit"
+      ]
     },
     "meters": {
       "title": "Pegelanzeigen in Broadcast-Qualität",
@@ -160,7 +192,12 @@
     },
     "remoteOperation": {
       "title": "Lokaler Betrieb oder Fernsteuerung",
-      "description": "Betreiben Sie die Audio-Engine auf demselben Computer oder auf einem Rechner hinter der Bühne mit Ihren Audio-Interfaces, und steuern Sie alles von überall im Netzwerk. Der Ton kommt von der Engine, nicht vom Bildschirm – die Show läuft also weiter, auch wenn ein Steuerrechner ausfällt."
+      "description": "Betreiben Sie die Audio-Engine auf demselben Computer oder auf einem Rechner hinter der Bühne mit Ihren Audio-Interfaces, und steuern Sie alles von überall im Netzwerk. Der Ton kommt von der Engine, nicht vom Bildschirm – die Show läuft also weiter, auch wenn ein Steuerrechner ausfällt.",
+      "points": [
+        "Engine und Bildschirme auf getrennten Rechnern",
+        "Spielt weiter, wenn ein Bildschirm ausfällt",
+        "Steuerung von überall im Netzwerk"
+      ]
     },
     "discovery": {
       "title": "Gemeinsam arbeiten, schnell wieder da",
@@ -184,7 +221,12 @@
     },
     "missingMedia": {
       "title": "Fehlendes Audio wiederfinden",
-      "description": "Wird eine Datei verschoben oder gelöscht, markiert LivePlay den Cue, bevor ihn jemand startet. Zeigen Sie auf einen Ordner, und jede fehlende Datei wird anhand ihres Namens gefunden und neu verknüpft – oder ersetzen Sie eine einzelne Datei, ohne die Einstellungen des Cues zu verlieren."
+      "description": "Wird eine Datei verschoben oder gelöscht, markiert LivePlay den Cue, bevor ihn jemand startet. Zeigen Sie auf einen Ordner, und jede fehlende Datei wird anhand ihres Namens gefunden und neu verknüpft – oder ersetzen Sie eine einzelne Datei, ohne die Einstellungen des Cues zu verlieren.",
+      "points": [
+        "Markiert, bevor ihn jemand startet",
+        "Ganze Show aus einem Ordner neu verknüpfen",
+        "Datei ersetzen, Einstellungen behalten"
+      ]
     },
     "groupEvents": {
       "title": "Den ganzen Saal steuern",
@@ -192,11 +234,43 @@
     },
     "events": {
       "title": "Ereignisse auf der Zeitleiste",
-      "description": "Setzen Sie Ereignisse auf die Wellenform eines Cues, um einen Licht-Cue über OSC oder MIDI Show Control auszulösen, eine Web-API aufzurufen, einen Fader an einem X Air Mixer zu bewegen oder einen anderen Cue zu starten. Der Server löst jedes Ereignis punktgenau aus, sodass die Show synchron bleibt, auch wenn niemand am Bildschirm sitzt."
+      "description": "Setzen Sie Ereignisse auf die Wellenform eines Cues, um einen Licht-Cue über OSC oder MIDI Show Control auszulösen, eine Web-API aufzurufen, einen Fader an einem X Air Mixer zu bewegen oder einen anderen Cue zu starten. Der Server löst jedes Ereignis punktgenau aus, sodass die Show synchron bleibt, auch wenn niemand am Bildschirm sitzt.",
+      "points": [
+        "OSC, MIDI, MIDI Show Control und HTTP",
+        "Behringer X Air Mixer",
+        "Andere Cues starten oder stoppen"
+      ]
     },
     "connections": {
       "title": "Verbindungen zu Ihrem Equipment",
       "description": "Richten Sie jedes Lichtpult, jeden Mixer, jeden MIDI-Port und jeden Webdienst einmal pro Show ein. LivePlay findet X Air Mixer im Netzwerk, liest deren Kanal- und Snapshot-Namen und begrenzt, wie weit ein Ereignis einen Fader hochziehen kann."
+    },
+    "tabs": {
+      "title": "Ein Tab für jeden Akt",
+      "description": "Teilen Sie eine lange Show in Playlist-Tabs für jeden Akt, jede Szene oder jedes Set. Ein einziges „Als Nächstes“ läuft über alle hinweg, und jeder Tab legt fest, was nach seinem letzten Cue passiert: zurück zum Anfang, weiter in den nächsten Tab oder Stopp.",
+      "points": [
+        "Jeden Tab benennen und färben",
+        "Ein „Als Nächstes“ für die ganze Show",
+        "Jeden Tab im eigenen Fenster öffnen"
+      ]
+    },
+    "cartPages": {
+      "title": "Seite um Seite voller Carts",
+      "description": "Sortieren Sie Ihre Carts auf benannte, farbcodierte Seiten mit 4 bis 64 Plätzen. Slot-Tasten lösen Carts auf der Seite aus, die Sie gerade sehen, und fest zugewiesene Tasten feuern einen Lieblingssound von jeder Seite aus.",
+      "points": [
+        "4 bis 64 Carts pro Seite",
+        "Seite auf einen anderen Bildschirm auslagern",
+        "Fest zugewiesene Tasten wirken auf jeder Seite"
+      ]
+    },
+    "presets": {
+      "title": "Presets für Ihr Equipment",
+      "description": "Speichern Sie „Saallicht auf 40 %“ einmal in einer Verbindung und nutzen Sie es in jedem Cue. Ändern Sie das Preset, und alle Ereignisse damit ziehen mit.",
+      "points": [
+        "Benannte Einstellungen je Verbindung",
+        "Eine Änderung aktualisiert jedes Ereignis",
+        "Bei Bedarf ein einzelnes Feld überschreiben"
+      ]
     }
   },
   "ports": {
@@ -226,5 +300,304 @@
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Auf GitHub anzeigen",
     "contributors": "Mitwirkende"
+  },
+  "site": {
+    "skip": "Zum Inhalt springen",
+    "menu": "Menü",
+    "close": "Schließen",
+    "features": "Funktionen",
+    "download": "Download",
+    "api": "API",
+    "whatsNew": "Neuigkeiten",
+    "newIn": "Neu in {version}",
+    "enlarge": "In voller Größe ansehen: {name}",
+    "footerNav": "Website-Links"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Kostenlos und Open-Source für Windows, macOS und Linux",
+      "title": "Jeder Sound, auf den Punkt.",
+      "download": "Kostenlos herunterladen",
+      "seeNew": "Das ist neu in {version}"
+    },
+    "audience": {
+      "label": "Für wen LivePlay gemacht ist",
+      "theatre": {
+        "title": "Theater",
+        "text": "Soundeffekte, Underscoring und Szenenwechsel, in der richtigen Reihenfolge und genau aufs Stichwort."
+      },
+      "radio": {
+        "title": "Radio",
+        "text": "Musikbetten, Jingles und Übergänge mit Pegeln, auf die Sie sich auf Sendung verlassen können."
+      },
+      "events": {
+        "title": "Live-Events",
+        "text": "Auftrittsmusik, Stinger und Ansagen für Konferenzen, Preisverleihungen und Bühnenshows."
+      },
+      "parties": {
+        "title": "Partys",
+        "text": "Musik vorbereiten, für die Reden absenken und den Abend genießen."
+      }
+    },
+    "how": {
+      "title": "In drei Schritten startklar",
+      "one": {
+        "title": "Audio reinziehen",
+        "text": "Ziehen Sie Musik und Effekte hinein oder holen Sie einen Titel von YouTube. LivePlay kann Stille entfernen und die Pegel für Sie angleichen."
+      },
+      "two": {
+        "title": "Cues anordnen",
+        "text": "Bringen Sie sie in die Ablaufreihenfolge, gruppieren Sie sie nach Szene und legen Sie fest, was jeder als Nächstes tut."
+      },
+      "three": {
+        "title": "„Nächstes abspielen“ drücken",
+        "text": "Fahren Sie die ganze Show mit einer Taste, einem Touchscreen, Ihrer Tastatur oder einem MIDI-Controller."
+      }
+    },
+    "numbers": {
+      "label": "LivePlay in Zahlen",
+      "carts": "Carts auf jeder Seite",
+      "eq": "EQ-Bänder pro Bus",
+      "languages": "Sprachen",
+      "platforms": "Desktop-Plattformen",
+      "cost": "Lizenzgebühren, für immer"
+    },
+    "teaser": {
+      "eyebrow": "Gerade erschienen",
+      "title": "Neu in LivePlay {version}",
+      "text": "Cues steuern jetzt auch Licht, Mixer und Video. Lange Shows bekommen Tabs, Carts bekommen Seiten, und die Lautstärke zeichnen Sie direkt auf die Wellenform.",
+      "button": "Alle Neuerungen ansehen"
+    },
+    "tech": {
+      "eyebrow": "Für Technikteams"
+    }
+  },
+  "whatsNew": {
+    "index": {
+      "eyebrow": "Versionshinweise",
+      "title": "Neu in LivePlay",
+      "lead": "Die wichtigsten Neuerungen jeder Version, die neuesten zuerst. Neu bei LivePlay? Dann machen Sie lieber die komplette Funktionstour.",
+      "tour": "Zur Funktionstour",
+      "latest": "Neueste Version",
+      "read": "Das ist neu",
+      "older": "Frühere Versionen"
+    },
+    "release": {
+      "label": "LivePlay {version}",
+      "versions": "Versionen",
+      "more": "Außerdem in dieser Version",
+      "fixed": "Außerdem behoben:",
+      "github": "Vollständige Versionshinweise auf GitHub"
+    },
+    "v26": {
+      "title": "Der ganze Saal auf Cue.",
+      "summary": "Ereignisse für Licht, Mixer und Video, Playlist-Tabs, Cart-Seiten und Lautstärkeautomation.",
+      "lead": "LivePlay 2.6 reicht weiter als bis zu den Lautsprechern. Cues lösen jetzt Licht, Mixer und Video direkt von der Zeitleiste aus, lange Shows falten sich in Tabs, Carts verteilen sich auf Seiten, und die Lautstärke zeichnen Sie direkt auf die Wellenform.",
+      "sections": {
+        "events": {
+          "kicker": "Ereignisse",
+          "title": "Ein Cue. Die ganze Bühne.",
+          "text": "Setzen Sie Ereignisse auf die Wellenform eines Cues, und LivePlay löst jedes genau an seiner Stelle aus: einen Licht-Cue, eine Webanfrage, eine Faderbewegung an Ihrem Pult oder einen anderen Cue. Der Server hält die Zeit, sodass alles zusammen sitzt, auch wenn niemand am Bildschirm ist.",
+          "points": [
+            "OSC, MIDI, MIDI Show Control und HTTP",
+            "Behringer X Air: Fader, Mutes und Snapshots",
+            "Auslösen bei Start, Ende, Pause, Fortsetzen oder zu jeder Zeit"
+          ]
+        },
+        "presets": {
+          "kicker": "Ereignis-Presets",
+          "title": "Einmal einstellen. Überall nutzen.",
+          "text": "Speichern Sie Einstellungen, die Sie oft brauchen, als benanntes Preset in einer Verbindung. Verweisen Sie beliebig viele Ereignisse darauf, und wenn sich das Rig ändert, aktualisieren Sie nur das Preset.",
+          "points": [
+            "„Saallicht 40 %“, bereit für jeden Cue",
+            "Eine Änderung aktualisiert jedes Ereignis",
+            "Ein einzelnes Feld an einem Ereignis überschreiben"
+          ]
+        },
+        "tabs": {
+          "kicker": "Playlist-Tabs",
+          "title": "Lange Shows, sauber gefaltet.",
+          "text": "Geben Sie jedem Akt, jeder Szene oder jedem Set einen eigenen Tab. „Nächstes abspielen“ startet immer das eine „Als Nächstes“ der ganzen Show und zeigt, in welchem Tab es liegt, sodass Sie vorausschauen können, ohne den Überblick zu verlieren.",
+          "points": [
+            "Zurück zum Anfang, weiter zum nächsten Tab oder Stopp",
+            "Cues zwischen Tabs verschieben",
+            "Tab im eigenen Fenster öffnen"
+          ]
+        },
+        "pages": {
+          "kicker": "Cart-Seiten",
+          "title": "Platz für jeden Sound.",
+          "text": "Ordnen Sie Ihre Carts auf Seiten für jede Szene oder Aufgabe. Jede Seite hat ihre eigene Größe und Farbe und kann mitlaufen oder auf einen anderen Bildschirm wandern.",
+          "points": [
+            "4 bis 64 Carts pro Seite",
+            "Tasten für die sichtbare Seite oder fest für ein Cart",
+            "Carts zwischen Seiten verschieben"
+          ]
+        },
+        "automation": {
+          "kicker": "Lautstärkeautomation",
+          "title": "Mix auf die Wellenform zeichnen.",
+          "text": "Klicken Sie, um einen Punkt zu setzen, und ziehen Sie die Linie, um die Musik unter einer Rede abzusenken oder für einen Refrain anzuheben. Die Wellenform zeigt genau, was das Publikum hören wird.",
+          "points": [
+            "Punkte setzen, ziehen und entfernen",
+            "Eine ganze Auswahl in einem Zug absenken",
+            "Ab jeder Stelle im Kopfhörer vorhören"
+          ]
+        },
+        "relink": {
+          "kicker": "Medien neu verknüpfen",
+          "title": "Verloren. Wiedergefunden.",
+          "text": "Wird eine Datei verschoben, markiert LivePlay den Cue, bevor ihn jemand startet. Zeigen Sie auf einen Ordner, und jede fehlende Datei wird anhand ihres Namens zugeordnet, oder tauschen Sie sie gegen eine neue Datei aus und behalten Sie den Cue genau so, wie Sie ihn eingerichtet haben.",
+          "points": [
+            "Warnung, bevor Sie Play drücken",
+            "Ganze Show aus einem Ordner neu verknüpfen",
+            "Datei ersetzen, ohne Einstellungen zu verlieren"
+          ]
+        }
+      },
+      "more": {
+        "wholePlaylist": {
+          "title": "Eine ganze Playlist in einem Cart",
+          "text": "Legen Sie einen Playlist-Tab auf ein Cart, starten Sie ihn mit einem Tipp und behalten Sie die Restzeit im Blick."
+        },
+        "duckTimes": {
+          "title": "Ducking in Ihrem Tempo",
+          "text": "Legen Sie für jeden Cue fest, wie schnell die Musik absinkt und wie sanft sie zurückkommt."
+        },
+        "stopFades": {
+          "title": "„Alle stoppen“ nach Ihren Regeln",
+          "text": "Lassen Sie „Alle stoppen“ jeden Cue mit seiner eigenen Ausblendung per Stopp-Taste ausblenden statt mit einer festen Zeit."
+        },
+        "stopKey": {
+          "title": "Taste für „Aktuellen Cue stoppen“",
+          "text": "Belegen Sie eine Taste, die nur den aktuellen Cue stoppt und alles andere weiterspielen lässt."
+        },
+        "openFile": {
+          "title": "Shows aus Ihren Dateien öffnen",
+          "text": "Shows per Doppelklick öffnen, jetzt auch unter Linux. LivePlay fragt immer nach, bevor eine geöffnete Show ersetzt wird."
+        },
+        "waveformPan": {
+          "title": "Schwenken mit der mittleren Maustaste",
+          "text": "Ziehen Sie mit der mittleren Maustaste durch eine gezoomte Wellenform."
+        }
+      },
+      "fixes": "zuverlässigere Ereignisse und Verbindungen, Wiedergabe, die bei fehlenden Medien nicht mehr hängen bleibt, Importe, die nie die Datei eines anderen Cues überschreiben, korrigierte macOS-Builds (jetzt macOS 13.3 oder neuer), ein Fenster, das neben andere Apps passt, und klarere Akzentfarben."
+    },
+    "v25": {
+      "title": "Ein echter Mixer für Ihre Show.",
+      "summary": "Busse und Kanalzüge, ein 32-Band-EQ, Hardware-Ausgänge nach Namen und Teamkonten.",
+      "lead": "LivePlay 2.5 brachte einen vollwertigen Mixer in die App. Geben Sie Musik, Effekten und Stimmen eigene Kanalzüge, formen Sie sie richtig und nehmen Sie dieselbe Show in jede Spielstätte mit.",
+      "sections": {
+        "mixer": {
+          "kicker": "Mixer",
+          "title": "Jeder Sound, sein Kanalzug.",
+          "text": "Legen Sie Busse für Musik, Effekte und Ansagen an und mischen Sie sie auf Kanalzügen wie an einem Pult. Routen Sie sie ineinander, direkt auf einen Ausgang oder über Aux-Sends.",
+          "points": [
+            "Master- und Preview-Rolle auf normalen Bussen",
+            "Aux-Sends pre- und post-Fader",
+            "Ganze Gruppen auf einmal zuweisen"
+          ]
+        },
+        "eq": {
+          "kicker": "EQ und Dynamik",
+          "title": "Formen. Halten.",
+          "text": "Ein grafisch bedienter parametrischer EQ mit Live-Spektrumanalyzer, dazu Gate und Kompressor, die zeigen, was sie mit dem Signal machen.",
+          "points": [
+            "Bis zu 32 Bänder mit beliebigem Filtertyp",
+            "Live-Analyzer hinter der Kurve",
+            "Stereobreite mit monosicherem Bass"
+          ]
+        },
+        "outputs": {
+          "kicker": "Hardware-Ausgänge",
+          "title": "Die Show reist. Das Routing folgt.",
+          "text": "Shows sprechen Ausgänge über Namen an, und jeder Computer ordnet diese Namen seinen eigenen Soundkarten zu. An einem neuen Spielort zeigt LivePlay, was fehlt, und Sie ziehen einfach einen physischen Ausgang darauf.",
+          "points": [
+            "Benannte Ausgänge statt Soundkarten",
+            "Fehlende Hardware bleibt stumm und meldet sich",
+            "Neuzuordnung per Drag-and-drop"
+          ]
+        },
+        "workspace": {
+          "kicker": "Arbeitsbereich",
+          "title": "Alles so, wie Sie es wollen.",
+          "text": "Playlist, Cart-Player und Mixer funktionieren alle gleich. Blenden Sie sie ein, füllen Sie den Bildschirm mit einem davon, parken Sie sie am Rand oder verschieben Sie sie auf ein anderes Display.",
+          "points": [
+            "Ein Layoutmodell für jeden Bereich",
+            "Bereiche auf einen zweiten Bildschirm lösen",
+            "Kommt so zurück, wie Sie es verlassen haben"
+          ]
+        },
+        "accounts": {
+          "kicker": "Konten",
+          "title": "Ein Login für jedes Teammitglied.",
+          "text": "Geben Sie Operatoren und Administratoren eigene Anmeldungen, sehen Sie, wer verbunden ist, und stellen Sie API-Token für Show-Control-Tools aus, statt ein Passwort zu teilen.",
+          "points": [
+            "Rollen Operator und Administrator",
+            "API-Token für Tools wie Companion",
+            "Team auf einen anderen Server umziehen"
+          ]
+        },
+        "fades": {
+          "kicker": "Blenden und Timing",
+          "title": "Übergänge ohne Kanten.",
+          "text": "Geben Sie jedem Cue seine eigene Ausblendung per Stopp-Taste, lassen Sie Schleifen in sich selbst überblenden und einen Cue warten, bevor der nächste startet.",
+          "points": [
+            "Blenden so lang wie das Audio",
+            "Nahtlose Schleifen-Überblendung",
+            "Wartezeit vor dem Nächsten"
+          ]
+        }
+      },
+      "more": {
+        "settings": {
+          "title": "Eine Einstellungsseite",
+          "text": "Alle Einstellungen an einem Ort, und Ihre persönlichen Vorlieben folgen Ihnen auf jeden Bildschirm."
+        },
+        "multiEdit": {
+          "title": "Viele Cues auf einmal bearbeiten",
+          "text": "Ändern Sie jede Eigenschaft für eine ganze Auswahl von Cues."
+        },
+        "groupTime": {
+          "title": "Gruppen kennen ihre Länge",
+          "text": "Sehen Sie, wie lange eine Gruppe läuft und wie viel noch übrig ist, auch wenn sie zugeklappt ist."
+        },
+        "sends": {
+          "title": "Busse, die nur senden",
+          "text": "Ein Bus kann andere allein über Sends speisen, ohne eigenen Hauptausgang."
+        },
+        "tray": {
+          "title": "Server im System-Tray",
+          "text": "Lassen Sie die Audio-Engine unauffällig im Hintergrund laufen, ganz ohne Konsolenfenster."
+        },
+        "youtubeFormat": {
+          "title": "YouTube-Format wählen",
+          "text": "Legen Sie fest, in welchem Format importiertes Audio gespeichert wird, auch als WAV."
+        }
+      },
+      "fixes": "Linux-Unterstützung für Offline-Betrieb und ältere Distributionen, ein robusterer YouTube-Import, ein Header, der sich mit dem Fenster anpasst, Benutzerdaten, die immer gespeichert werden, und viele Korrekturen an Mixer und Verbindungen."
+    },
+    "timeline": {
+      "v24": {
+        "title": "Show Control",
+        "text": "Unterstützung für Bitfocus Companion sowie die Wiedergabeaktionen Weiter auf Cue und Jump Cue."
+      },
+      "v23": {
+        "title": "Show-Modus und ehrliche Pegel",
+        "text": "Ein Show-Modus für Touchscreens, LUFS- und True-Peak-Messung, zuletzt verwendete Projekte und konfigurierbare Nummerierung."
+      },
+      "v22": {
+        "title": "Übergänge wie im Radio",
+        "text": "Marker für „Nächsten starten“, ein Standardübergang für neue Titel und automatisches Cueing des nächsten Elements."
+      },
+      "v21": {
+        "title": "Schnellere Importe",
+        "text": "Viele Dateien auf einmal importieren und löschen."
+      },
+      "v20": {
+        "title": "Eine neue Audio-Engine",
+        "text": "Eine eigene C++-Engine mit lokalem oder Fernbetrieb, Lautheitszielen und automatischer Servererkennung."
+      }
+    }
   }
 }

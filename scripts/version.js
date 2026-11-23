@@ -20,7 +20,7 @@ const FILES_TO_UPDATE = [
   // one is what showed 2.0.0 on a local build.
   { path: 'docs-site/public/package.json', key: 'version', type: 'json' },
   { path: 'server/vcpkg.json', key: 'version-string', type: 'json' },
-  { path: 'docs-site/app/app.vue', key: null, type: 'vue' }
+  { path: 'docs-site/app/composables/useSiteInfo.ts', key: null, type: 'vue' }
 ];
 
 function readVersion() {

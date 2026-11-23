@@ -1,20 +1,24 @@
 <template>
   <div class="language-switcher">
     <button
+      type="button"
       class="language-button"
-      @click="toggleDropdown"
       :aria-label="t('common.changeLanguage')"
+      :aria-expanded="isOpen"
+      @click="toggleDropdown"
     >
-      <span class="material-symbols-rounded">language</span>
+      <span class="material-symbols-rounded" aria-hidden="true" data-icon="language"></span>
       <span class="current-locale">{{ locale }}</span>
     </button>
-    
+
     <div v-if="isOpen" class="language-dropdown">
       <button
         v-for="(name, code) in locales"
         :key="code"
+        type="button"
         class="language-option"
         :class="{ active: locale === code }"
+        :lang="code"
         @click="selectLocale(code)"
       >
         {{ name }}
@@ -47,12 +51,18 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 };
 
+const handleKey = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') isOpen.value = false;
+};
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
+  document.addEventListener('keydown', handleKey);
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
+  document.removeEventListener('keydown', handleKey);
 });
 </script>
 
@@ -63,19 +73,18 @@ onUnmounted(() => {
   .language-button {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    color: white;
+    gap: 0.4rem;
+    min-height: 42px;
+    padding: 0 0.7rem;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--text);
     cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 1rem;
+    transition: border-color 0.15s ease;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: #DA1E28;
+      border-color: rgba(255, 255, 255, 0.5);
     }
 
     .material-symbols-rounded {
@@ -85,62 +94,54 @@ onUnmounted(() => {
     .current-locale {
       text-transform: uppercase;
       font-weight: 600;
-      font-size: 0.875rem;
+      font-size: 0.82rem;
     }
   }
 
   .language-dropdown {
     position: absolute;
     top: calc(100% + 0.5rem);
-    right: 0;
-    background: rgba(30, 30, 30, 0.98);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    min-width: 180px;
-    overflow: hidden;
+    inset-inline-end: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    max-height: min(70vh, 560px);
+    overflow-y: auto;
+    padding: 6px;
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
     z-index: 1000;
-    backdrop-filter: blur(10px);
 
     .language-option {
       display: block;
       width: 100%;
-      padding: 0.875rem 1.25rem;
+      padding: 0.55rem 0.8rem;
       background: transparent;
       border: none;
-      color: rgba(255, 255, 255, 0.85);
+      border-radius: 4px;
+      color: var(--text-2);
       cursor: pointer;
-      transition: all 0.2s ease;
-      text-align: left;
-      font-size: 0.9375rem;
+      text-align: start;
+      font-size: 0.92rem;
 
       &:hover {
         background: rgba(255, 255, 255, 0.1);
-        color: white;
+        color: #fff;
       }
 
       &.active {
-        background: rgba(218, 30, 40, 0.2);
-        color: #DA1E28;
-        font-weight: 600;
-      }
-
-      &:not(:last-child) {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        background: var(--go);
+        color: #151004;
+        font-weight: 700;
       }
     }
   }
 }
 
-@media (max-width: 480px) {
-  .language-switcher {
-    .language-button {
-      padding: 0.625rem 0.875rem;
-
-      .current-locale {
-        display: none;
-      }
-    }
+@media (max-width: 560px) {
+  .language-switcher .language-button .current-locale {
+    display: none;
   }
 }
 </style>

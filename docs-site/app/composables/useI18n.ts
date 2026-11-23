@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue';
+import en from '../../public/locales/en.json';
 
 interface LocaleMetadata {
   code: string;
@@ -37,19 +38,19 @@ const availableLocales: Record<string, string> = {
 };
 
 const currentLocale = ref<string>('en');
-const localeData = ref<LocaleData | null>(null);
+// English ships in the bundle: it is what the prerendered pages contain, so a
+// crawler or a slow connection always gets real text.
+const localeData = ref<LocaleData | null>(en as LocaleData);
 // English data kept loaded as a fallback so untranslated/new keys in other
 // locales render real text instead of the raw key path.
-const fallbackData = ref<LocaleData | null>(null);
+const fallbackData = ref<LocaleData | null>(en as LocaleData);
+// Read once at load: while a prerendered page hydrates, the router briefly
+// rewrites the address bar without its query string.
+const initialLang = typeof window !== 'undefined'
+  ? new URLSearchParams(window.location.search).get('lang')
+  : null;
 
 export const useI18n = () => {
-  // Get URL parameter
-  const getUrlParam = (param: string): string | null => {
-    if (typeof window === 'undefined') return null;
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(param);
-  };
-
   // Detect browser language
   const detectBrowserLanguage = (): string => {
     if (typeof window === 'undefined') return 'en';
@@ -64,20 +65,11 @@ export const useI18n = () => {
   // Load locale data
   const loadLocale = async (locale: string) => {
     try {
-      const response = await fetch(`/liveplay/locales/${locale}.json`);
-      const data = await response.json();
+      const data = locale === 'en'
+        ? en as LocaleData
+        : await (await fetch(`/liveplay/locales/${locale}.json`)).json();
       localeData.value = data;
       currentLocale.value = locale;
-
-      // Keep English loaded as the fallback for any keys missing in `locale`.
-      if (locale === 'en') {
-        fallbackData.value = data;
-      } else if (!fallbackData.value) {
-        try {
-          const enResponse = await fetch('/liveplay/locales/en.json');
-          fallbackData.value = await enResponse.json();
-        } catch { /* fallback is best-effort */ }
-      }
 
       // Save to localStorage
       if (typeof window !== 'undefined') {
@@ -108,10 +100,27 @@ export const useI18n = () => {
 
   // Get translation by path (e.g., 'header.tagline'). Falls back to English,
   // then to the raw path if even English is missing the key.
-  const t = (path: string): string => {
-    return resolve(localeData.value, path)
+  const t = (path: string, params?: Record<string, string | number>): string => {
+    const text = resolve(localeData.value, path)
       ?? resolve(fallbackData.value, path)
       ?? path;
+    if (!params) return text;
+    return text.replace(/\{(\w+)\}/g, (match, key) => (key in params ? String(params[key]) : match));
+  };
+
+  // A list of strings (feature points). Falls back to English as a whole, so a
+  // half-translated list never mixes languages.
+  const tl = (path: string): string[] => {
+    const read = (source: LocaleData | null): string[] | null => {
+      if (!source) return null;
+      let value: any = source;
+      for (const key of path.split('.')) {
+        if (value && typeof value === 'object' && key in value) value = value[key];
+        else return null;
+      }
+      return Array.isArray(value) ? value : null;
+    };
+    return read(localeData.value) ?? read(fallbackData.value) ?? [];
   };
 
   // Initialize locale
@@ -120,7 +129,7 @@ export const useI18n = () => {
 
     if (typeof window !== 'undefined') {
       // Check URL parameter first (highest priority)
-      const urlLang = getUrlParam('lang');
+      const urlLang = initialLang;
       if (urlLang && availableLocales[urlLang]) {
         locale = urlLang;
       } else {
@@ -152,6 +161,7 @@ export const useI18n = () => {
 
   return {
     t,
+    tl,
     locale,
     locales,
     direction,

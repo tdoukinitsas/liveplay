@@ -21,26 +21,22 @@
     "windows": {
       "title": "Windows",
       "description": "Windows 10/11 (64 de biți)",
-      "buttonText": "Descarcă .exe",
-      "size": "~150 MB"
+      "buttonText": "Descarcă .exe"
     },
     "macArm": {
       "title": "macOS — Apple Silicon",
-      "description": "M1/M2/M3 și mai noi (arm64)",
-      "buttonText": "Descarcă .dmg",
-      "size": "~140 MB"
+      "description": "M1 și mai noi (arm64), macOS 13.3+",
+      "buttonText": "Descarcă .dmg"
     },
     "macIntel": {
       "title": "macOS — Intel",
-      "description": "Mac-uri cu Intel (x64), macOS 11+",
-      "buttonText": "Descarcă .dmg",
-      "size": "~145 MB"
+      "description": "Mac-uri Intel (x64), macOS 13.3+",
+      "buttonText": "Descarcă .dmg"
     },
     "linux": {
       "title": "Linux",
       "description": "AppImage (x64)",
-      "buttonText": "Descarcă .AppImage",
-      "size": "~155 MB"
+      "buttonText": "Descarcă .AppImage"
     },
     "recommended": "Recomandat pentru sistemul dumneavoastră",
     "showOtherOS": "Descarcă pentru alt sistem de operare",
@@ -63,7 +59,8 @@
       "step1": "Faceți clic pe „Mai multe informații” în fereastra de avertizare.",
       "step2": "Faceți clic pe butonul „Rulează oricum” care apare, apoi continuați instalarea ca de obicei.",
       "outro": "Dacă browserul a blocat descărcarea, alegeți mai întâi „Păstrează” pentru a salva programul de instalare."
-    }
+    },
+    "sizeMB": "~{n} MB"
   },
   "contribute": {
     "title": "Contribuiți",
@@ -84,11 +81,21 @@
     },
     "playlist": {
       "title": "Pregătiți cue-ul, dați drumul",
-      "description": "Trageți muzica și efectele într-o listă de redare de cue-uri și alegeți cum trece fiecare în următorul: continuă, se repetă în buclă sau sare în altă parte. Controlați toată ordinea de desfășurare din mouse, ecran tactil, tastatură sau controler MIDI."
+      "description": "Trageți muzica și efectele într-o listă de redare de cue-uri și alegeți cum trece fiecare în următorul: continuă, se repetă în buclă sau sare în altă parte. Controlați toată ordinea de desfășurare din mouse, ecran tactil, tastatură sau controler MIDI.",
+      "points": [
+        "Continuă, buclă sau salt după fiecare cue",
+        "Mouse, atingere, tastatură sau MIDI",
+        "Grupuri pentru scene, acte și seturi"
+      ]
     },
     "cart": {
       "title": "Sunete și jingle-uri instantanee",
-      "description": "Țineți jingle-urile, efectele scurte și anunțurile la o singură atingere distanță în cart player, gata să pornească peste orice altceva se redă."
+      "description": "Țineți jingle-urile, efectele scurte și anunțurile la o singură atingere distanță în cart player, gata să pornească peste orice altceva se redă.",
+      "points": [
+        "Pornește peste orice se redă",
+        "O scurtătură de tastatură pentru fiecare cart",
+        "Preascultare mai întâi în căști"
+      ]
     },
     "ducking": {
       "title": "Ducking automat",
@@ -100,7 +107,12 @@
     },
     "showMode": {
       "title": "Mod spectacol",
-      "description": "Modul spectacol transformă ecranul în comenzi mari, ușor de atins, și ascunde tot ce ar putea modifica spectacolul, ca nimic să nu se schimbe din greșeală după ce se deschid ușile."
+      "description": "Modul spectacol transformă ecranul în comenzi mari, ușor de atins, și ascunde tot ce ar putea modifica spectacolul, ca nimic să nu se schimbe din greșeală după ce se deschid ușile.",
+      "points": [
+        "Comenzi mari, ușor de atins",
+        "Editarea este blocată",
+        "Se activează dintr-un singur buton"
+      ]
     },
     "waveform": {
       "title": "Editare pe forma de undă",
@@ -108,7 +120,12 @@
     },
     "automation": {
       "title": "Automatizare volum",
-      "description": "Desenează nivelul unui cue direct pe forma lui de undă. Dă clic pentru a adăuga un punct, trage linia pentru a coborî muzica sub un discurs sau a o ridica pentru un refren, ori selectează o porțiune și coboar-o dintr-o mișcare. Forma de undă arată exact ce se va auzi, iar înainte de spectacol poți previzualiza în căști din orice punct."
+      "description": "Desenează nivelul unui cue direct pe forma lui de undă. Dă clic pentru a adăuga un punct, trage linia pentru a coborî muzica sub un discurs sau a o ridica pentru un refren, ori selectează o porțiune și coboar-o dintr-o mișcare. Forma de undă arată exact ce se va auzi, iar înainte de spectacol poți previzualiza în căști din orice punct.",
+      "points": [
+        "Desenați nivelurile pe forma de undă",
+        "Selectați o porțiune și coborâți-o",
+        "Preascultare din orice punct"
+      ]
     },
     "properties": {
       "title": "Fiecare cue, reglat fin",
@@ -128,15 +145,30 @@
     },
     "mixer": {
       "title": "Un mixer adevărat pentru spectacolul dumneavoastră",
-      "description": "Dați muzicii, efectelor și anunțurilor bus-uri proprii și echilibrați-le pe benzi de canal, exact ca pe o consolă. Rutați bus-urile unul în altul, direct către o ieșire sau prin send-uri aux și atribuiți dintr-odată un întreg grup de cue-uri."
+      "description": "Dați muzicii, efectelor și anunțurilor bus-uri proprii și echilibrați-le pe benzi de canal, exact ca pe o consolă. Rutați bus-urile unul în altul, direct către o ieșire sau prin send-uri aux și atribuiți dintr-odată un întreg grup de cue-uri.",
+      "points": [
+        "Bus-uri cu benzi de canal complete",
+        "Rutare între bus-uri sau send-uri aux",
+        "Atribuiți grupuri întregi de cue-uri deodată"
+      ]
     },
     "eqDynamics": {
       "title": "EQ și dinamică pe fiecare bus",
-      "description": "Modelați fiecare bus cu un EQ parametric și un analizor de spectru live, apoi țineți-l sub control cu un gate și un compresor. Bus-urile stereo pot fi lărgite sau îngustate, cu basul ținut ferm în centru."
+      "description": "Modelați fiecare bus cu un EQ parametric și un analizor de spectru live, apoi țineți-l sub control cu un gate și un compresor. Bus-urile stereo pot fi lărgite sau îngustate, cu basul ținut ferm în centru.",
+      "points": [
+        "Până la 32 de benzi EQ cu analizor live",
+        "Gate și compresor pe fiecare bus",
+        "Lățime stereo cu bas sigur în mono"
+      ]
     },
     "limiter": {
       "title": "Limitator brickwall și ținte de loudness",
-      "description": "Un limitator brickwall pe fiecare ieșire ține vârfurile rătăcite departe de boxe, iar mixerul vă arată când intră în acțiune. Alegeți o țintă de loudness, de la broadcast și streaming până la live, iar limitatorul, indicatoarele și formele de undă se aliniază toate la ea."
+      "description": "Un limitator brickwall pe fiecare ieșire ține vârfurile rătăcite departe de boxe, iar mixerul vă arată când intră în acțiune. Alegeți o țintă de loudness, de la broadcast și streaming până la live, iar limitatorul, indicatoarele și formele de undă se aliniază toate la ea.",
+      "points": [
+        "Un limitator pe fiecare ieșire",
+        "Ținte pentru broadcast, streaming și live",
+        "Indicatoarele și formele de undă se adaptează"
+      ]
     },
     "meters": {
       "title": "Indicatoare de nivel de calitate broadcast",
@@ -160,7 +192,12 @@
     },
     "remoteOperation": {
       "title": "Operare locală sau de la distanță",
-      "description": "Rulați motorul audio pe același calculator sau pe o mașină din culise, lângă interfețele audio, și controlați totul de oriunde din rețea. Sunetul vine din motor, nu din ecran, așa că spectacolul continuă chiar dacă un calculator de control cade."
+      "description": "Rulați motorul audio pe același calculator sau pe o mașină din culise, lângă interfețele audio, și controlați totul de oriunde din rețea. Sunetul vine din motor, nu din ecran, așa că spectacolul continuă chiar dacă un calculator de control cade.",
+      "points": [
+        "Motorul și ecranele pe mașini separate",
+        "Continuă să redea dacă un ecran cade",
+        "Control de oriunde din rețea"
+      ]
     },
     "discovery": {
       "title": "Lucru în echipă, revenire rapidă",
@@ -184,7 +221,12 @@
     },
     "missingMedia": {
       "title": "Găsiți fișierele audio lipsă",
-      "description": "Dacă un fișier este mutat sau șters, LivePlay marchează cue-ul înainte ca cineva să-l pornească. Indicați-i un folder și fiecare fișier lipsă este găsit și reconectat după nume, sau înlocuiți un singur fișier fără să pierdeți setările cue-ului."
+      "description": "Dacă un fișier este mutat sau șters, LivePlay marchează cue-ul înainte ca cineva să-l pornească. Indicați-i un folder și fiecare fișier lipsă este găsit și reconectat după nume, sau înlocuiți un singur fișier fără să pierdeți setările cue-ului.",
+      "points": [
+        "Semnalat înainte să-l pornească cineva",
+        "Reconectați tot spectacolul dintr-un folder",
+        "Înlocuiți un fișier și păstrați setările"
+      ]
     },
     "groupEvents": {
       "title": "Toată sala, dintr-un singur cue",
@@ -192,11 +234,43 @@
     },
     "events": {
       "title": "Evenimente pe linia timpului",
-      "description": "Plasați evenimente pe forma de undă a unui cue pentru a declanșa un cue de lumini prin OSC sau MIDI Show Control, a apela un API web, a mișca un fader pe un mixer X Air sau a porni alt cue. Serverul declanșează fiecare eveniment exact la momentul lui, așa că spectacolul rămâne sincronizat chiar și fără nimeni la ecran."
+      "description": "Plasați evenimente pe forma de undă a unui cue pentru a declanșa un cue de lumini prin OSC sau MIDI Show Control, a apela un API web, a mișca un fader pe un mixer X Air sau a porni alt cue. Serverul declanșează fiecare eveniment exact la momentul lui, așa că spectacolul rămâne sincronizat chiar și fără nimeni la ecran.",
+      "points": [
+        "OSC, MIDI, MIDI Show Control și HTTP",
+        "Mixere Behringer X Air",
+        "Pornește sau oprește alte cue-uri"
+      ]
     },
     "connections": {
       "title": "Conexiuni cu echipamentele dumneavoastră",
       "description": "Configurați o singură dată pe spectacol fiecare consolă de lumini, mixer, port MIDI sau serviciu web. LivePlay găsește mixerele X Air din rețea, le citește numele canalelor și ale snapshot-urilor și limitează cât de sus poate împinge un eveniment un fader."
+    },
+    "tabs": {
+      "title": "O filă pentru fiecare act",
+      "description": "Împărțiți un spectacol lung în file de listă de redare pentru fiecare act, scenă sau set. Un singur Următorul le parcurge pe toate, iar fiecare filă decide ce se întâmplă după ultimul ei cue: revine la început, trece la fila următoare sau se oprește.",
+      "points": [
+        "Nume și culoare pentru fiecare filă",
+        "Un singur Următorul pentru tot spectacolul",
+        "Deschideți orice filă în propria fereastră"
+      ]
+    },
+    "cartPages": {
+      "title": "Pagini întregi de carturi",
+      "description": "Sortați carturile în pagini cu nume și culori, de la 4 la 64 de carturi. Tastele de slot pornesc pagina pe care o vedeți, iar tastele fixate pornesc un sunet preferat de pe orice pagină.",
+      "points": [
+        "Între 4 și 64 de carturi pe fiecare pagină",
+        "Scoateți o pagină pe alt ecran",
+        "Tastele fixate merg de pe orice pagină"
+      ]
+    },
+    "presets": {
+      "title": "Presetări pentru echipamente",
+      "description": "Salvați „Lumini sală la 40%” o singură dată pe o conexiune și folosiți-o pe orice cue. Schimbați presetarea și fiecare eveniment care o folosește se actualizează.",
+      "points": [
+        "Setări cu nume pentru fiecare conexiune",
+        "O schimbare actualizează toate evenimentele",
+        "Suprascrieți un singur câmp când e nevoie"
+      ]
     }
   },
   "ports": {
@@ -226,5 +300,304 @@
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Vezi pe GitHub",
     "contributors": "Contribuitori"
+  },
+  "site": {
+    "skip": "Salt la conținut",
+    "menu": "Meniu",
+    "close": "Închide",
+    "features": "Funcții",
+    "download": "Descarcă",
+    "api": "API",
+    "whatsNew": "Noutăți",
+    "newIn": "Nou în {version}",
+    "enlarge": "Vedeți la dimensiune completă: {name}",
+    "footerNav": "Linkuri site"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Gratuit și open-source pentru Windows, macOS și Linux",
+      "title": "Fiecare sunet, exact la cue.",
+      "download": "Descarcă gratuit",
+      "seeNew": "Vedeți noutățile din {version}"
+    },
+    "audience": {
+      "label": "Pentru cine este LivePlay",
+      "theatre": {
+        "title": "Teatru",
+        "text": "Efecte sonore, muzică de fundal și schimbări de scenă, în ordine și exact pe replică."
+      },
+      "radio": {
+        "title": "Radio",
+        "text": "Fundaluri muzicale, jingle-uri și tranziții, cu niveluri pe care vă puteți baza în emisie."
+      },
+      "events": {
+        "title": "Evenimente live",
+        "text": "Intrări pe scenă, efecte scurte și anunțuri pentru conferințe, gale de premiere și spectacole."
+      },
+      "parties": {
+        "title": "Petreceri",
+        "text": "Pregătiți muzica, coborâți-o pentru discursuri și bucurați-vă de seară."
+      }
+    },
+    "how": {
+      "title": "Gata de lucru în trei pași",
+      "one": {
+        "title": "Aduceți-vă sunetele",
+        "text": "Trageți muzica și efectele sau luați o piesă de pe YouTube. LivePlay poate tăia liniștea și poate egaliza nivelurile pentru dumneavoastră."
+      },
+      "two": {
+        "title": "Aranjați cue-urile",
+        "text": "Puneți-le în ordinea spectacolului, grupați-le pe scene și alegeți ce face fiecare în continuare."
+      },
+      "three": {
+        "title": "Apăsați Redă următorul",
+        "text": "Conduceți tot spectacolul dintr-un singur buton, de pe un ecran tactil, de la tastatură sau de pe un controller MIDI."
+      }
+    },
+    "numbers": {
+      "label": "LivePlay în cifre",
+      "carts": "de carturi pe fiecare pagină",
+      "eq": "de benzi EQ pe bus",
+      "languages": "de limbi",
+      "platforms": "platforme desktop",
+      "cost": "taxe de licență, niciodată"
+    },
+    "teaser": {
+      "eyebrow": "Tocmai a apărut",
+      "title": "Noutăți în LivePlay {version}",
+      "text": "Cue-urile pot comanda acum luminile, mixerul și video-ul. Spectacolele lungi primesc file, carturile primesc pagini, iar volumul se desenează direct pe forma de undă.",
+      "button": "Vedeți toate noutățile"
+    },
+    "tech": {
+      "eyebrow": "Pentru echipele tehnice"
+    }
+  },
+  "whatsNew": {
+    "index": {
+      "eyebrow": "Note de lansare",
+      "title": "Noutăți în LivePlay",
+      "lead": "Cele mai importante adăugiri din fiecare versiune, de la cea mai nouă. Sunteți nou în LivePlay? Mai bine faceți turul complet al funcțiilor.",
+      "tour": "Faceți turul funcțiilor",
+      "latest": "Ultima versiune",
+      "read": "Vedeți noutățile",
+      "older": "Versiuni anterioare"
+    },
+    "release": {
+      "label": "LivePlay {version}",
+      "versions": "Versiuni",
+      "more": "Mai multe în această versiune",
+      "fixed": "Am mai reparat:",
+      "github": "Note de lansare complete pe GitHub"
+    },
+    "v26": {
+      "title": "Toată sala, dintr-un cue.",
+      "summary": "Evenimente pentru lumini, mixer și video, file de listă de redare, pagini cart și automatizare volum.",
+      "lead": "LivePlay 2.6 ajunge dincolo de boxe. Cue-urile pot porni acum luminile, mixerul și video-ul de pe linia timpului, spectacolele lungi se strâng în file, carturile se întind pe pagini, iar volumul se desenează direct pe forma de undă.",
+      "sections": {
+        "events": {
+          "kicker": "Evenimente",
+          "title": "Un cue. Toată scena.",
+          "text": "Plasați evenimente pe forma de undă a unui cue, iar LivePlay le declanșează pe fiecare exact la momentul lui: un cue de lumini, o cerere web, o mișcare de fader pe consolă sau alt cue. Serverul ține timpul, așa că totul se întâmplă împreună, chiar și fără nimeni la ecran.",
+          "points": [
+            "OSC, MIDI, MIDI Show Control și HTTP",
+            "Fadere, mute și snapshot-uri Behringer X Air",
+            "Declanșare la start, final, pauză, reluare sau oricând"
+          ]
+        },
+        "presets": {
+          "kicker": "Presetări de evenimente",
+          "title": "Setați o dată. Merge peste tot.",
+          "text": "Salvați setările pe care le folosiți des ca presetare cu nume pe o conexiune. Legați de ea oricâte evenimente, iar când se schimbă echipamentul, actualizați presetarea o singură dată.",
+          "points": [
+            "„Lumini sală 40%”, gata pentru orice cue",
+            "O schimbare actualizează toate evenimentele",
+            "Suprascrieți un singur câmp pe un eveniment"
+          ]
+        },
+        "tabs": {
+          "kicker": "File de listă",
+          "title": "Spectacole lungi, bine strânse.",
+          "text": "Dați fiecărui act, fiecărei scene sau fiecărui set propria filă. Redă următorul pornește mereu singurul Următorul din tot spectacolul și vă spune pe ce filă se află, ca să vă uitați înainte fără să pierdeți locul.",
+          "points": [
+            "Înapoi la început, la fila următoare sau stop",
+            "Mutați cue-uri între file",
+            "Deschideți o filă în propria fereastră"
+          ]
+        },
+        "pages": {
+          "kicker": "Pagini cart",
+          "title": "Loc pentru fiecare sunet.",
+          "text": "Organizați carturile în pagini pentru fiecare scenă sau sarcină. Fiecare pagină își alege dimensiunea și culoarea și poate urmări acțiunea sau poate fi scoasă pe alt ecran.",
+          "points": [
+            "Între 4 și 64 de carturi pe pagină",
+            "Taste pentru pagina vizibilă sau fixate pe un cart",
+            "Mutați carturi între pagini"
+          ]
+        },
+        "automation": {
+          "kicker": "Automatizare volum",
+          "title": "Desenați mixul pe undă.",
+          "text": "Dați clic pentru a adăuga un punct, trageți linia pentru a coborî muzica sub un discurs sau a o ridica pentru un refren. Forma de undă arată exact ce va auzi publicul.",
+          "points": [
+            "Adăugați, trageți și eliminați puncte",
+            "Coborâți o selecție întreagă dintr-o mișcare",
+            "Preascultare în căști din orice punct"
+          ]
+        },
+        "relink": {
+          "kicker": "Reconectare fișiere",
+          "title": "Fișiere pierdute, regăsite.",
+          "text": "Dacă un fișier este mutat, LivePlay marchează cue-ul înainte ca cineva să-l pornească. Indicați-i un folder și fiecare fișier lipsă este găsit după nume, sau puneți un fișier nou și păstrați cue-ul exact cum l-ați configurat.",
+          "points": [
+            "Avertizare înainte să apăsați play",
+            "Reconectați tot spectacolul dintr-un folder",
+            "Înlocuiți un fișier fără să pierdeți setările"
+          ]
+        }
+      },
+      "more": {
+        "wholePlaylist": {
+          "title": "O listă întreagă într-un cart",
+          "text": "Trageți o filă de listă de redare pe un cart ca s-o porniți cu o atingere și să vedeți timpul rămas."
+        },
+        "duckTimes": {
+          "title": "Ducking în ritmul dorit",
+          "text": "Setați, pentru fiecare cue, cât de repede coboară muzica și cât de lin revine."
+        },
+        "stopFades": {
+          "title": "Oprește tot, cum vreți",
+          "text": "Lăsați Oprește tot să stingă fiecare cue cu propriul fade la oprire, în loc de un timp fix."
+        },
+        "stopKey": {
+          "title": "Tastă Oprește cue-ul curent",
+          "text": "Alocați o tastă care oprește doar cue-ul curent și lasă restul să se redea."
+        },
+        "openFile": {
+          "title": "Deschideți spectacole din fișiere",
+          "text": "Dublu clic pe un spectacol, acum și pe Linux. LivePlay întreabă mereu înainte să înlocuiască un spectacol deschis."
+        },
+        "waveformPan": {
+          "title": "Deplasare cu butonul din mijloc",
+          "text": "Trageți cu butonul din mijloc pentru a vă deplasa pe o formă de undă mărită."
+        }
+      },
+      "fixes": "evenimente și conexiuni mai fiabile, redare care nu se mai blochează când lipsesc fișiere, importuri care nu suprascriu niciodată fișierul altui cue, build-uri macOS corectate (acum macOS 13.3 sau mai nou), o fereastră care încape lângă alte aplicații și culori de accent mai clare."
+    },
+    "v25": {
+      "title": "Un mixer adevărat.",
+      "summary": "Bus-uri și benzi de canal, EQ cu 32 de benzi, ieșiri hardware după nume și conturi de echipă.",
+      "lead": "LivePlay 2.5 a pus un mixer complet în aplicație. Dați muzicii, efectelor și vocilor benzi proprii, modelați-le cum trebuie și duceți același spectacol în orice sală.",
+      "sections": {
+        "mixer": {
+          "kicker": "Mixer",
+          "title": "Fiecare sunet, pe banda lui.",
+          "text": "Creați bus-uri pentru muzică, efecte și anunțuri și echilibrați-le pe benzi de canal, exact ca pe o consolă. Rutați-le unul în altul, direct către o ieșire sau prin send-uri aux.",
+          "points": [
+            "Roluri Master și Preview pe bus-uri obișnuite",
+            "Send-uri aux pre- și post-fader",
+            "Atribuiți grupuri întregi dintr-o mișcare"
+          ]
+        },
+        "eq": {
+          "kicker": "EQ și dinamică",
+          "title": "Modelat. Controlat.",
+          "text": "Un EQ parametric construit în jurul graficului, cu analizor de spectru live, urmat de un gate și un compresor care arată ce fac cu semnalul.",
+          "points": [
+            "Până la 32 de benzi, cu orice tip de filtru",
+            "Analizor live în spatele curbei",
+            "Lățime stereo cu bas sigur în mono"
+          ]
+        },
+        "outputs": {
+          "kicker": "Ieșiri hardware",
+          "title": "Spectacolul pleacă. Rutarea vine după el.",
+          "text": "Spectacolele se adresează ieșirilor după nume, iar fiecare calculator leagă aceste nume de propriile plăci de sunet. Într-o sală nouă, LivePlay arată ce lipsește, iar dumneavoastră trageți o ieșire fizică pentru a rezolva.",
+          "points": [
+            "Ieșiri cu nume, nu plăci de sunet",
+            "Hardware-ul lipsă tace și vă anunță",
+            "Remapare prin tragere și plasare"
+          ]
+        },
+        "workspace": {
+          "kicker": "Spațiu de lucru",
+          "title": "Aranjați-l cum vreți.",
+          "text": "Lista de redare, cart playerul și mixerul funcționează la fel. Afișați-le, umpleți ecranul cu unul dintre ele, lipiți-le de o margine sau mutați-le pe alt monitor.",
+          "points": [
+            "Un singur model de aranjare pentru toate panourile",
+            "Detașați panouri pe un al doilea ecran",
+            "Revine cum l-ați lăsat"
+          ]
+        },
+        "accounts": {
+          "kicker": "Conturi",
+          "title": "Un cont pentru fiecare din echipă.",
+          "text": "Dați operatorilor și administratorilor conturi proprii, vedeți cine e conectat și emiteți tokenuri API pentru instrumentele de show control, în loc să împărțiți o parolă.",
+          "points": [
+            "Roluri de operator și administrator",
+            "Tokenuri API pentru instrumente ca Companion",
+            "Mutați echipa pe alt server"
+          ]
+        },
+        "fades": {
+          "kicker": "Fade-uri și sincronizare",
+          "title": "Tranziții fără asperități.",
+          "text": "Dați fiecărui cue propriul fade la oprire, îmbinați buclele în ele însele și puneți un cue să aștepte înainte să pornească următorul.",
+          "points": [
+            "Fade-uri cât durează sunetul",
+            "Crossfade la buclă fără îmbinări",
+            "Pauză înainte de următorul"
+          ]
+        }
+      },
+      "more": {
+        "settings": {
+          "title": "O singură pagină de setări",
+          "text": "Toate setările într-un singur loc, iar preferințele personale vă urmează pe orice ecran."
+        },
+        "multiEdit": {
+          "title": "Editați mai multe cue-uri deodată",
+          "text": "Schimbați orice proprietate pe o selecție întreagă de cue-uri."
+        },
+        "groupTime": {
+          "title": "Grupurile își știu durata",
+          "text": "Vedeți cât durează un grup și cât a mai rămas, chiar și când e închis."
+        },
+        "sends": {
+          "title": "Bus-uri doar pentru send-uri",
+          "text": "Un bus poate alimenta alte bus-uri doar prin send-uri, fără ieșire principală proprie."
+        },
+        "tray": {
+          "title": "Serverul în bara de sistem",
+          "text": "Rulați motorul audio discret în fundal, fără fereastră de consolă."
+        },
+        "youtubeFormat": {
+          "title": "Alegeți formatul YouTube",
+          "text": "Decideți în ce format se salvează sunetul importat, inclusiv WAV."
+        }
+      },
+      "fixes": "suport Linux offline și pentru distribuții mai vechi, un import YouTube mai robust, un antet care se redimensionează odată cu fereastra, date de utilizator salvate mereu și multe remedieri pentru mixer și conexiuni."
+    },
+    "timeline": {
+      "v24": {
+        "title": "Controlul spectacolului",
+        "text": "Suport Bitfocus Companion, plus acțiunile de redare Continuă la cue și Jump Cue."
+      },
+      "v23": {
+        "title": "Mod spectacol și indicatoare oneste",
+        "text": "Mod spectacol pentru ecrane tactile, măsurare LUFS și true peak, proiecte recente și numerotare configurabilă."
+      },
+      "v22": {
+        "title": "Tranziții ca la radio",
+        "text": "Marcaje Pornește următoarea, o tranziție implicită pentru piese noi și pregătirea automată a elementului următor."
+      },
+      "v21": {
+        "title": "Importuri mai rapide",
+        "text": "Importați și ștergeți multe fișiere deodată."
+      },
+      "v20": {
+        "title": "Un motor audio nou",
+        "text": "Un motor C++ dedicat, cu operare locală sau de la distanță, ținte de loudness și descoperire automată a serverului."
+      }
+    }
   }
 }

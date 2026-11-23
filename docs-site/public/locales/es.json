@@ -21,26 +21,22 @@
     "windows": {
       "title": "Windows",
       "description": "Windows 10/11 (64 bits)",
-      "buttonText": "Descargar .exe",
-      "size": "~150 MB"
+      "buttonText": "Descargar .exe"
     },
     "macArm": {
       "title": "macOS — Apple Silicon",
-      "description": "M1/M2/M3 y posteriores (arm64)",
-      "buttonText": "Descargar .dmg",
-      "size": "~140 MB"
+      "description": "M1 y posteriores (arm64), macOS 13.3+",
+      "buttonText": "Descargar .dmg"
     },
     "macIntel": {
       "title": "macOS — Intel",
-      "description": "Macs Intel (x64), macOS 11+",
-      "buttonText": "Descargar .dmg",
-      "size": "~145 MB"
+      "description": "Macs Intel (x64), macOS 13.3+",
+      "buttonText": "Descargar .dmg"
     },
     "linux": {
       "title": "Linux",
       "description": "AppImage (x64)",
-      "buttonText": "Descargar .AppImage",
-      "size": "~155 MB"
+      "buttonText": "Descargar .AppImage"
     },
     "recommended": "Recomendado para su sistema",
     "showOtherOS": "Descargar para otro sistema operativo",
@@ -63,7 +59,8 @@
       "step1": "Haga clic en «Más información» en el cuadro de advertencia.",
       "step2": "Haga clic en el botón «Ejecutar de todas formas» que aparece y continúe la instalación con normalidad.",
       "outro": "Si fue el navegador el que bloqueó la descarga, elija «Conservar» para guardar primero el instalador."
-    }
+    },
+    "sizeMB": "~{n} MB"
   },
   "contribute": {
     "title": "Contribuir",
@@ -84,11 +81,21 @@
     },
     "playlist": {
       "title": "Prepare y dispare",
-      "description": "Arrastre su música y sus efectos a una lista de cues y elija cómo pasa cada uno al siguiente: seguir, repetir en bucle o saltar. Controle todo el orden del espectáculo con un clic, la pantalla táctil, el teclado o un controlador MIDI."
+      "description": "Arrastre su música y sus efectos a una lista de cues y elija cómo pasa cada uno al siguiente: seguir, repetir en bucle o saltar. Controle todo el orden del espectáculo con un clic, la pantalla táctil, el teclado o un controlador MIDI.",
+      "points": [
+        "Seguir, repetir o saltar tras cada cue",
+        "Mouse, pantalla táctil, teclado o MIDI",
+        "Grupos para escenas, actos y sets"
+      ]
     },
     "cart": {
       "title": "Sonidos y cortinas al instante",
-      "description": "Tenga cortinas, ráfagas y avisos a un toque de distancia en el reproductor de cartuchos, listos para sonar por encima de lo que ya se esté reproduciendo."
+      "description": "Tenga cortinas, ráfagas y avisos a un toque de distancia en el reproductor de cartuchos, listos para sonar por encima de lo que ya se esté reproduciendo.",
+      "points": [
+        "Suena por encima de lo que se reproduzca",
+        "Un atajo de teclado para cada cartucho",
+        "Preescucha primero en auriculares"
+      ]
     },
     "ducking": {
       "title": "Ducking automático",
@@ -100,7 +107,12 @@
     },
     "showMode": {
       "title": "Modo espectáculo",
-      "description": "El modo espectáculo convierte la pantalla en controles grandes y táctiles y oculta todo lo que podría editar el espectáculo, para que nada cambie por accidente una vez que se abran las puertas."
+      "description": "El modo espectáculo convierte la pantalla en controles grandes y táctiles y oculta todo lo que podría editar el espectáculo, para que nada cambie por accidente una vez que se abran las puertas.",
+      "points": [
+        "Controles grandes y táctiles",
+        "La edición queda bloqueada",
+        "Un solo interruptor para activarlo"
+      ]
     },
     "waveform": {
       "title": "Edición sobre la forma de onda",
@@ -108,7 +120,12 @@
     },
     "automation": {
       "title": "Automatización de volumen",
-      "description": "Dibuja el nivel de un cue directamente sobre su forma de onda. Haz clic para añadir un punto, arrastra la línea para bajar la música bajo un discurso o subirla en un estribillo, o selecciona un tramo y bájalo de una vez. La forma de onda muestra exactamente lo que se oirá, y puedes preescuchar desde cualquier punto con auriculares antes del espectáculo."
+      "description": "Dibuja el nivel de un cue directamente sobre su forma de onda. Haz clic para añadir un punto, arrastra la línea para bajar la música bajo un discurso o subirla en un estribillo, o selecciona un tramo y bájalo de una vez. La forma de onda muestra exactamente lo que se oirá, y puedes preescuchar desde cualquier punto con auriculares antes del espectáculo.",
+      "points": [
+        "Dibuje niveles en la forma de onda",
+        "Seleccione un tramo y bájelo",
+        "Preescucha desde cualquier punto"
+      ]
     },
     "properties": {
       "title": "Cada cue a la medida",
@@ -128,15 +145,30 @@
     },
     "mixer": {
       "title": "Un mezclador de verdad para su espectáculo",
-      "description": "Dé a la música, los efectos y los avisos sus propios buses y equilíbrelos en canales, igual que en una consola. Enrute buses entre sí, directamente a una salida o mediante envíos auxiliares, y asigne todo un grupo de cues de una sola vez."
+      "description": "Dé a la música, los efectos y los avisos sus propios buses y equilíbrelos en canales, igual que en una consola. Enrute buses entre sí, directamente a una salida o mediante envíos auxiliares, y asigne todo un grupo de cues de una sola vez.",
+      "points": [
+        "Buses con canales completos",
+        "Enrute entre buses o use envíos auxiliares",
+        "Asigne grupos enteros de cues a la vez"
+      ]
     },
     "eqDynamics": {
       "title": "EQ y dinámica en cada bus",
-      "description": "Esculpa cada bus con un EQ paramétrico y un analizador de espectro en vivo, y manténgalo bajo control con un gate y un compresor. Los buses estéreo se pueden ensanchar o estrechar, con los graves siempre firmes en el centro."
+      "description": "Esculpa cada bus con un EQ paramétrico y un analizador de espectro en vivo, y manténgalo bajo control con un gate y un compresor. Los buses estéreo se pueden ensanchar o estrechar, con los graves siempre firmes en el centro.",
+      "points": [
+        "Hasta 32 bandas de EQ con analizador en vivo",
+        "Gate y compresor en cada bus",
+        "Anchura estéreo con graves seguros en mono"
+      ]
     },
     "limiter": {
       "title": "Limitador brickwall y objetivos de sonoridad",
-      "description": "Un limitador brickwall en cada salida mantiene los picos inesperados lejos de los altavoces, y el mezclador le muestra cuándo está actuando. Elija un objetivo de sonoridad, de broadcast y streaming a vivo, y el limitador, los medidores y las formas de onda lo siguen."
+      "description": "Un limitador brickwall en cada salida mantiene los picos inesperados lejos de los altavoces, y el mezclador le muestra cuándo está actuando. Elija un objetivo de sonoridad, de broadcast y streaming a vivo, y el limitador, los medidores y las formas de onda lo siguen.",
+      "points": [
+        "Un limitador en cada salida",
+        "Objetivos para broadcast, streaming y en vivo",
+        "Medidores y formas de onda se ajustan"
+      ]
     },
     "meters": {
       "title": "Medición de nivel broadcast",
@@ -160,7 +192,12 @@
     },
     "remoteOperation": {
       "title": "Operación local o remota",
-      "description": "Ejecute el motor de audio en el mismo equipo o en una máquina tras el escenario con sus interfaces de audio, y controle todo desde cualquier punto de la red. El sonido sale del motor, no de la pantalla, así que el espectáculo sigue aunque se caiga un equipo de control."
+      "description": "Ejecute el motor de audio en el mismo equipo o en una máquina tras el escenario con sus interfaces de audio, y controle todo desde cualquier punto de la red. El sonido sale del motor, no de la pantalla, así que el espectáculo sigue aunque se caiga un equipo de control.",
+      "points": [
+        "Motor y pantallas en equipos separados",
+        "Sigue sonando si se cae una pantalla",
+        "Contrólelo desde cualquier punto de la red"
+      ]
     },
     "discovery": {
       "title": "Trabajen juntos, recupérense rápido",
@@ -184,7 +221,12 @@
     },
     "missingMedia": {
       "title": "Encuentre el audio que falta",
-      "description": "Si un archivo se mueve o se elimina, LivePlay marca el cue antes de que nadie lo dispare. Indíquele una carpeta y cada archivo que falte se encuentra y se vuelve a vincular por su nombre, o reemplace un solo archivo sin perder los ajustes del cue."
+      "description": "Si un archivo se mueve o se elimina, LivePlay marca el cue antes de que nadie lo dispare. Indíquele una carpeta y cada archivo que falte se encuentra y se vuelve a vincular por su nombre, o reemplace un solo archivo sin perder los ajustes del cue.",
+      "points": [
+        "Se marca antes de que nadie lo dispare",
+        "Revincule todo un espectáculo desde una carpeta",
+        "Reemplace un archivo y conserve los ajustes"
+      ]
     },
     "groupEvents": {
       "title": "Controle toda la sala",
@@ -192,11 +234,43 @@
     },
     "events": {
       "title": "Eventos en la línea de tiempo",
-      "description": "Coloque eventos en la forma de onda de un cue para disparar un cue de iluminación por OSC o MIDI Show Control, llamar a una API web, mover un fader de un mezclador X Air o iniciar otro cue. El servidor dispara cada uno en su marca, así que el espectáculo sigue sincronizado aunque no haya nadie frente a la pantalla."
+      "description": "Coloque eventos en la forma de onda de un cue para disparar un cue de iluminación por OSC o MIDI Show Control, llamar a una API web, mover un fader de un mezclador X Air o iniciar otro cue. El servidor dispara cada uno en su marca, así que el espectáculo sigue sincronizado aunque no haya nadie frente a la pantalla.",
+      "points": [
+        "OSC, MIDI, MIDI Show Control y HTTP",
+        "Mezcladores Behringer X Air",
+        "Iniciar o detener otros cues"
+      ]
     },
     "connections": {
       "title": "Conexiones con su equipo",
       "description": "Configure cada mesa de iluminación, mezclador, puerto MIDI o servicio web una sola vez por espectáculo. LivePlay encuentra los mezcladores X Air en la red, lee los nombres de sus canales y snapshots y limita hasta dónde puede subir un fader un evento."
+    },
+    "tabs": {
+      "title": "Una pestaña por acto",
+      "description": "Divida un espectáculo largo en pestañas de lista de reproducción para cada acto, escena o set. Un único «A continuación» las recorre todas, y cada pestaña decide qué pasa tras su último cue: volver al inicio, seguir en la pestaña siguiente o detenerse.",
+      "points": [
+        "Nombre y color para cada pestaña",
+        "Un solo «A continuación» para todo el espectáculo",
+        "Abra cualquier pestaña en su propia ventana"
+      ]
+    },
+    "cartPages": {
+      "title": "Páginas y páginas de cartuchos",
+      "description": "Ordene sus cartuchos en páginas con nombre y color, de 4 a 64 espacios. Las teclas de posición disparan la página que está viendo, y las teclas fijadas disparan un sonido favorito desde cualquier página.",
+      "points": [
+        "De 4 a 64 cartuchos por página",
+        "Lleve una página a otra pantalla",
+        "Las teclas fijadas funcionan en cualquier página"
+      ]
+    },
+    "presets": {
+      "title": "Preajustes para su equipo",
+      "description": "Guarde «Luces de sala al 40 %» una vez en una conexión y úselo en cualquier cue. Cambie el preajuste y todos los eventos que lo usan se actualizan.",
+      "points": [
+        "Ajustes con nombre para cada conexión",
+        "Un cambio actualiza todos los eventos",
+        "Anule un solo campo cuando lo necesite"
+      ]
     }
   },
   "ports": {
@@ -226,5 +300,304 @@
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Ver en GitHub",
     "contributors": "Colaboradores"
+  },
+  "site": {
+    "skip": "Saltar al contenido",
+    "menu": "Menú",
+    "close": "Cerrar",
+    "features": "Funciones",
+    "download": "Descargar",
+    "api": "API",
+    "whatsNew": "Novedades",
+    "newIn": "Novedades de {version}",
+    "enlarge": "Ver a tamaño completo: {name}",
+    "footerNav": "Enlaces del sitio"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Gratuito y de código abierto para Windows, macOS y Linux",
+      "title": "Cada sonido, justo a tiempo.",
+      "download": "Descargar gratis",
+      "seeNew": "Vea las novedades de {version}"
+    },
+    "audience": {
+      "label": "Para quién es LivePlay",
+      "theatre": {
+        "title": "Teatro",
+        "text": "Efectos de sonido, música incidental y cambios de escena, en orden y justo con la réplica."
+      },
+      "radio": {
+        "title": "Radio",
+        "text": "Camas, cortinas y enlaces, con niveles en los que puede confiar al aire."
+      },
+      "events": {
+        "title": "Eventos en vivo",
+        "text": "Entradas, ráfagas y avisos para conferencias, entregas de premios y espectáculos."
+      },
+      "parties": {
+        "title": "Fiestas",
+        "text": "Prepare la música, bájela para los discursos y disfrute de la noche."
+      }
+    },
+    "how": {
+      "title": "En marcha en tres pasos",
+      "one": {
+        "title": "Arrastre su audio",
+        "text": "Arrastre música y efectos o traiga una pista de YouTube. LivePlay puede recortar el silencio e igualar los niveles por usted."
+      },
+      "two": {
+        "title": "Ordene sus cues",
+        "text": "Póngalos en el orden del espectáculo, agrúpelos por escena y elija qué hace cada uno después."
+      },
+      "three": {
+        "title": "Presione Reproducir siguiente",
+        "text": "Lleve todo el espectáculo con un solo botón, una pantalla táctil, su teclado o un controlador MIDI."
+      }
+    },
+    "numbers": {
+      "label": "LivePlay en cifras",
+      "carts": "cartuchos por página",
+      "eq": "bandas de EQ por bus",
+      "languages": "idiomas",
+      "platforms": "plataformas de escritorio",
+      "cost": "cuotas de licencia, para siempre"
+    },
+    "teaser": {
+      "eyebrow": "Recién llegado",
+      "title": "Novedades de LivePlay {version}",
+      "text": "Ahora los cues pueden controlar sus luces, mezclador y video. Los espectáculos largos tienen pestañas, los cartuchos tienen páginas y puede dibujar el volumen directamente sobre la forma de onda.",
+      "button": "Ver todas las novedades"
+    },
+    "tech": {
+      "eyebrow": "Para equipos técnicos"
+    }
+  },
+  "whatsNew": {
+    "index": {
+      "eyebrow": "Notas de la versión",
+      "title": "Novedades de LivePlay",
+      "lead": "Las mayores novedades de cada versión, de la más reciente a la más antigua. ¿Es nuevo en LivePlay? Mejor haga el recorrido completo por las funciones.",
+      "tour": "Hacer el recorrido",
+      "latest": "Última versión",
+      "read": "Ver novedades",
+      "older": "Versiones anteriores"
+    },
+    "release": {
+      "label": "LivePlay {version}",
+      "versions": "Versiones",
+      "more": "Más en esta versión",
+      "fixed": "También se corrigió:",
+      "github": "Notas completas de la versión en GitHub"
+    },
+    "v26": {
+      "title": "Controle toda la sala.",
+      "summary": "Eventos para luces, mezclador y video, pestañas de lista de reproducción, páginas de cartuchos y automatización de volumen.",
+      "lead": "LivePlay 2.6 va más allá de los altavoces. Ahora los cues pueden disparar sus luces, mezclador y video desde la línea de tiempo, los espectáculos largos se organizan en pestañas, los cartuchos se reparten en páginas y el volumen se dibuja directamente sobre la forma de onda.",
+      "sections": {
+        "events": {
+          "kicker": "Eventos",
+          "title": "Un cue. Todo el escenario.",
+          "text": "Coloque eventos en la forma de onda de un cue y LivePlay dispara cada uno en su marca: un cue de iluminación, una solicitud web, un movimiento de fader en su consola u otro cue. El servidor lleva el tiempo, así que todo llega a la vez aunque no haya nadie frente a la pantalla.",
+          "points": [
+            "OSC, MIDI, MIDI Show Control y HTTP",
+            "Faders, mutes y snapshots de Behringer X Air",
+            "Al iniciar, terminar, pausar, reanudar o en cualquier momento"
+          ]
+        },
+        "presets": {
+          "kicker": "Preajustes de eventos",
+          "title": "Se ajusta una vez. Sirve para todo.",
+          "text": "Guarde los ajustes que más usa como un preajuste con nombre en una conexión. Apunte a él todos los eventos que quiera y, cuando cambie el equipo, actualice el preajuste una sola vez.",
+          "points": [
+            "«Luces de sala 40 %», listo para cualquier cue",
+            "Un cambio actualiza todos los eventos",
+            "Anule un solo campo en un evento"
+          ]
+        },
+        "tabs": {
+          "kicker": "Pestañas de lista",
+          "title": "Espectáculos largos, en orden.",
+          "text": "Dé a cada acto, escena o set su propia pestaña. «Reproducir siguiente» siempre dispara el único «A continuación» del espectáculo y le indica en qué pestaña está, para que pueda mirar adelante sin perder su lugar.",
+          "points": [
+            "Al inicio, a la pestaña siguiente o detener",
+            "Mueva cues entre pestañas",
+            "Abra una pestaña en su propia ventana"
+          ]
+        },
+        "pages": {
+          "kicker": "Páginas de cartuchos",
+          "title": "Espacio para cada sonido.",
+          "text": "Organice sus cartuchos en páginas para cada escena o tarea. Cada página define su propio tamaño y color, y puede seguir la reproducción o abrirse en otra pantalla.",
+          "points": [
+            "De 4 a 64 cartuchos por página",
+            "Teclas para la página visible o fijadas a un cartucho",
+            "Mueva cartuchos entre páginas"
+          ]
+        },
+        "automation": {
+          "kicker": "Automatización de volumen",
+          "title": "Dibuje la mezcla en la forma de onda.",
+          "text": "Haga clic para agregar un punto y arrastre la línea para bajar la música bajo un discurso o subirla en un estribillo. La forma de onda muestra exactamente lo que oirá el público.",
+          "points": [
+            "Agregue, arrastre y quite puntos",
+            "Baje toda una selección de un solo gesto",
+            "Preescucha en auriculares desde cualquier punto"
+          ]
+        },
+        "relink": {
+          "kicker": "Revincular medios",
+          "title": "Archivos perdidos, encontrados.",
+          "text": "Si un archivo se mueve, LivePlay marca el cue antes de que nadie lo dispare. Indíquele una carpeta y cada archivo que falte se vincula por su nombre, o cámbielo por un archivo nuevo y conserve el cue tal como lo configuró.",
+          "points": [
+            "Aviso antes de presionar reproducir",
+            "Revincule todo un espectáculo desde una carpeta",
+            "Reemplace un archivo sin perder los ajustes"
+          ]
+        }
+      },
+      "more": {
+        "wholePlaylist": {
+          "title": "Toda una lista en un cartucho",
+          "text": "Suelte una pestaña de lista de reproducción en un cartucho para iniciarla con un toque y ver el tiempo restante."
+        },
+        "duckTimes": {
+          "title": "Ducking a su ritmo",
+          "text": "Defina, cue por cue, con qué rapidez baja la música y con qué suavidad vuelve."
+        },
+        "stopFades": {
+          "title": "Detener todo, a su manera",
+          "text": "Haga que «Detener todo» apague cada cue con su propio fundido del botón Detener en lugar de un tiempo fijo."
+        },
+        "stopKey": {
+          "title": "Tecla Detener el cue actual",
+          "text": "Asigne una tecla que detenga solo el cue actual y deje sonar todo lo demás."
+        },
+        "openFile": {
+          "title": "Abra espectáculos desde sus archivos",
+          "text": "Haga doble clic en un espectáculo, ahora también en Linux. LivePlay siempre pregunta antes de reemplazar un espectáculo abierto."
+        },
+        "waveformPan": {
+          "title": "Desplazamiento con el botón central",
+          "text": "Arrastre con el botón central para moverse por una forma de onda ampliada."
+        }
+      },
+      "fixes": "eventos y conexiones más fiables, reproducción que ya no se detiene por medios faltantes, importaciones que nunca sobrescriben el archivo de otro cue, compilaciones de macOS corregidas (ahora macOS 13.3 o posterior), una ventana que cabe junto a otras aplicaciones y colores de acento más claros."
+    },
+    "v25": {
+      "title": "Un mezclador de verdad para su espectáculo.",
+      "summary": "Buses y canales, EQ de 32 bandas, salidas de hardware por nombre y cuentas de equipo.",
+      "lead": "LivePlay 2.5 puso un mezclador completo dentro de la aplicación. Dé a la música, los efectos y las voces sus propios canales, moldéelos como corresponde y lleve el mismo espectáculo a cualquier sala.",
+      "sections": {
+        "mixer": {
+          "kicker": "Mezclador",
+          "title": "Cada sonido, su propio canal.",
+          "text": "Cree buses para música, efectos y avisos y equilíbrelos en canales, igual que en una consola. Enrútelos entre sí, directamente a una salida o mediante envíos auxiliares.",
+          "points": [
+            "Roles Master y Preview en buses normales",
+            "Envíos auxiliares pre y post fader",
+            "Asigne grupos enteros de una vez"
+          ]
+        },
+        "eq": {
+          "kicker": "EQ y dinámica",
+          "title": "Moldee. Controle.",
+          "text": "Un EQ paramétrico pensado para el gráfico, con analizador de espectro en vivo, seguido de un gate y un compresor que muestran lo que le hacen a la señal.",
+          "points": [
+            "Hasta 32 bandas de cualquier tipo de filtro",
+            "Analizador en vivo tras la curva",
+            "Anchura estéreo con graves seguros en mono"
+          ]
+        },
+        "outputs": {
+          "kicker": "Salidas de hardware",
+          "title": "Su espectáculo viaja. Su enrutamiento, también.",
+          "text": "Los espectáculos llaman a las salidas por su nombre, y cada equipo vincula esos nombres con sus propias tarjetas de sonido. En un nuevo recinto, LivePlay le señala lo que falta y usted arrastra una salida física para resolverlo.",
+          "points": [
+            "Salidas con nombre, no tarjetas de sonido",
+            "El hardware ausente calla y lo avisa",
+            "Reasignación con arrastrar y soltar"
+          ]
+        },
+        "workspace": {
+          "kicker": "Espacio de trabajo",
+          "title": "Organícelo a su manera.",
+          "text": "Lista de reproducción, reproductor de cartuchos y mezclador funcionan igual. Muéstrelos, llene la pantalla con uno, acóplelos a un borde o llévelos a otra pantalla.",
+          "points": [
+            "Un solo modelo de diseño para cada panel",
+            "Separe paneles a una segunda pantalla",
+            "Vuelve tal como lo dejó"
+          ]
+        },
+        "accounts": {
+          "kicker": "Cuentas",
+          "title": "Un acceso para cada integrante.",
+          "text": "Dé a operadores y administradores su propio inicio de sesión, vea quién está conectado y emita tokens de API para herramientas de control de espectáculos en lugar de compartir una contraseña.",
+          "points": [
+            "Roles de operador y administrador",
+            "Tokens de API para herramientas como Companion",
+            "Lleve a su equipo a otro servidor"
+          ]
+        },
+        "fades": {
+          "kicker": "Fundidos y tiempos",
+          "title": "Transiciones sin asperezas.",
+          "text": "Dé a cada cue su propio fundido del botón Detener, funda los bucles sobre sí mismos y haga que un cue espere antes de que empiece el siguiente.",
+          "points": [
+            "Fundidos tan largos como el audio",
+            "Fundidos cruzados de bucle sin cortes",
+            "Espera antes del siguiente"
+          ]
+        }
+      },
+      "more": {
+        "settings": {
+          "title": "Una sola página de configuración",
+          "text": "Toda la configuración en un solo lugar, con sus preferencias personales siguiéndolo a cualquier pantalla."
+        },
+        "multiEdit": {
+          "title": "Edite muchos cues a la vez",
+          "text": "Cambie cualquier propiedad en toda una selección de cues."
+        },
+        "groupTime": {
+          "title": "Los grupos saben cuánto duran",
+          "text": "Vea cuánto dura un grupo y cuánto le queda, incluso cerrado."
+        },
+        "sends": {
+          "title": "Buses que solo envían",
+          "text": "Un bus puede alimentar a otros solo mediante envíos, sin salida principal propia."
+        },
+        "tray": {
+          "title": "Servidor en la bandeja del sistema",
+          "text": "Ejecute el motor de audio discretamente en segundo plano, sin ventana de consola."
+        },
+        "youtubeFormat": {
+          "title": "Elija su formato de YouTube",
+          "text": "Decida en qué formato se guarda el audio importado, incluido WAV."
+        }
+      },
+      "fixes": "compatibilidad de Linux sin conexión y con distribuciones antiguas, una importación de YouTube más sólida, un encabezado que se adapta a la ventana, datos de usuario que siempre se guardan y muchas correcciones del mezclador y las conexiones."
+    },
+    "timeline": {
+      "v24": {
+        "title": "Control de espectáculos",
+        "text": "Compatibilidad con Bitfocus Companion, además de las acciones de reproducción Continuar con cue y Jump Cue."
+      },
+      "v23": {
+        "title": "Modo espectáculo y medidores honestos",
+        "text": "Un modo espectáculo táctil, medición LUFS y de picos reales, proyectos recientes y numeración configurable."
+      },
+      "v22": {
+        "title": "Enlaces al estilo radio",
+        "text": "Marcadores de Iniciar siguiente, una transición predeterminada para pistas nuevas y preparación automática del siguiente elemento."
+      },
+      "v21": {
+        "title": "Importaciones más rápidas",
+        "text": "Importe y elimine muchos archivos a la vez."
+      },
+      "v20": {
+        "title": "Un nuevo motor de audio",
+        "text": "Un motor C++ dedicado con operación local o remota, objetivos de sonoridad y detección automática del servidor."
+      }
+    }
   }
 }

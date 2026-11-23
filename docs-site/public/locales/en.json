@@ -21,26 +21,22 @@
     "windows": {
       "title": "Windows",
       "description": "Windows 10/11 (64-bit)",
-      "buttonText": "Download .exe",
-      "size": "~150 MB"
+      "buttonText": "Download .exe"
     },
     "macArm": {
       "title": "macOS — Apple Silicon",
-      "description": "M1/M2/M3 and newer (arm64)",
-      "buttonText": "Download .dmg",
-      "size": "~140 MB"
+      "description": "M1 and newer (arm64), macOS 13.3+",
+      "buttonText": "Download .dmg"
     },
     "macIntel": {
       "title": "macOS — Intel",
-      "description": "Intel Macs (x64), macOS 11+",
-      "buttonText": "Download .dmg",
-      "size": "~145 MB"
+      "description": "Intel Macs (x64), macOS 13.3+",
+      "buttonText": "Download .dmg"
     },
     "linux": {
       "title": "Linux",
       "description": "AppImage (x64)",
-      "buttonText": "Download .AppImage",
-      "size": "~155 MB"
+      "buttonText": "Download .AppImage"
     },
     "recommended": "Recommended for your system",
     "showOtherOS": "Download for another operating system",
@@ -63,7 +59,8 @@
       "step1": "Click \"More info\" on the warning dialog.",
       "step2": "Click the \"Run anyway\" button that appears, then continue the installation normally.",
       "outro": "If your browser blocked the download instead, choose \"Keep\" to save the installer first."
-    }
+    },
+    "sizeMB": "~{n} MB"
   },
   "contribute": {
     "title": "Contribute",
@@ -84,11 +81,21 @@
     },
     "playlist": {
       "title": "Cue It Up, Fire It Off",
-      "description": "Drag your music and effects into a playlist of cues, and choose how each one leads into the next: play on, loop or jump. Control the whole running order from your mouse, touchscreen, keyboard or MIDI controller."
+      "description": "Drag your music and effects into a playlist of cues, and choose how each one leads into the next: play on, loop or jump. Control the whole running order from your mouse, touchscreen, keyboard or MIDI controller.",
+      "points": [
+        "Play on, loop or jump after every cue",
+        "Mouse, touch, keyboard or MIDI",
+        "Groups for scenes, acts and sets"
+      ]
     },
     "cart": {
       "title": "Instant Sounds and Jingles",
-      "description": "Keep jingles, stings and announcements a single tap away in the cart player, on named pages of up to 64 carts, ready to fire over whatever else is playing."
+      "description": "Keep jingles, stings and announcements a single tap away in the cart player, on named pages of up to 64 carts, ready to fire over whatever else is playing.",
+      "points": [
+        "Fires over whatever is playing",
+        "A keyboard shortcut for every cart",
+        "Preview in your headphones first"
+      ]
     },
     "ducking": {
       "title": "Automatic Ducking",
@@ -100,7 +107,12 @@
     },
     "showMode": {
       "title": "Show Mode",
-      "description": "Show Mode turns the screen into large, touch-friendly controls and hides everything that could edit the show, so nothing gets changed by accident once the doors open."
+      "description": "Show Mode turns the screen into large, touch-friendly controls and hides everything that could edit the show, so nothing gets changed by accident once the doors open.",
+      "points": [
+        "Large, touch-friendly controls",
+        "Editing is locked away",
+        "One switch to turn it on"
+      ]
     },
     "waveform": {
       "title": "Waveform Trimmer",
@@ -108,7 +120,12 @@
     },
     "automation": {
       "title": "Volume Automation",
-      "description": "Draw the level of a cue right on its waveform. Click to add a point, drag the line to dip the music under a speech or lift it for a chorus, or select a stretch and pull it down in one move. The waveform shows exactly what will be heard, and you can preview from any point in your headphones before the show."
+      "description": "Draw the level of a cue right on its waveform. Click to add a point, drag the line to dip the music under a speech or lift it for a chorus, or select a stretch and pull it down in one move. The waveform shows exactly what will be heard, and you can preview from any point in your headphones before the show.",
+      "points": [
+        "Draw levels on the waveform",
+        "Select a stretch and pull it down",
+        "Preview from any point"
+      ]
     },
     "properties": {
       "title": "Fine-Tune Every Cue",
@@ -116,7 +133,12 @@
     },
     "missingMedia": {
       "title": "Find Missing Audio",
-      "description": "If a file is moved or deleted, LivePlay flags the cue before anyone fires it. Point it at a folder and every missing file is found and relinked by name, or replace one file without losing the cue's settings."
+      "description": "If a file is moved or deleted, LivePlay flags the cue before anyone fires it. Point it at a folder and every missing file is found and relinked by name, or replace one file without losing the cue's settings.",
+      "points": [
+        "Flagged before anyone fires it",
+        "Relink a whole show from one folder",
+        "Replace a file and keep the settings"
+      ]
     },
     "youtube": {
       "title": "YouTube Integration",
@@ -132,15 +154,30 @@
     },
     "mixer": {
       "title": "A Real Mixer for Your Show",
-      "description": "Give music, effects and announcements their own buses and balance them on channel strips, just as you would on a desk. Route buses into each other, straight to an output or through aux sends, and assign a whole group of cues in one go."
+      "description": "Give music, effects and announcements their own buses and balance them on channel strips, just as you would on a desk. Route buses into each other, straight to an output or through aux sends, and assign a whole group of cues in one go.",
+      "points": [
+        "Buses with full channel strips",
+        "Route between buses or use aux sends",
+        "Assign whole groups of cues at once"
+      ]
     },
     "eqDynamics": {
       "title": "EQ and Dynamics on Every Bus",
-      "description": "Shape every bus with a parametric EQ and a live spectrum analyser, then keep it under control with a gate and a compressor. Stereo buses can be widened or narrowed, with the low end kept solid in the centre."
+      "description": "Shape every bus with a parametric EQ and a live spectrum analyser, then keep it under control with a gate and a compressor. Stereo buses can be widened or narrowed, with the low end kept solid in the centre.",
+      "points": [
+        "Up to 32 EQ bands with a live analyser",
+        "Gate and compressor on every bus",
+        "Stereo width with mono-safe bass"
+      ]
     },
     "limiter": {
       "title": "Brick-Wall Limiter & Loudness Targets",
-      "description": "A brick-wall limiter on every output keeps stray peaks away from the speakers, and the mixer shows you whenever it is working. Pick a loudness target, from broadcast and streaming to live, and the limiter, meters and waveforms all follow it."
+      "description": "A brick-wall limiter on every output keeps stray peaks away from the speakers, and the mixer shows you whenever it is working. Pick a loudness target, from broadcast and streaming to live, and the limiter, meters and waveforms all follow it.",
+      "points": [
+        "A limiter on every output",
+        "Broadcast, streaming and live targets",
+        "Meters and waveforms follow along"
+      ]
     },
     "meters": {
       "title": "Broadcast-Grade Metering",
@@ -164,7 +201,12 @@
     },
     "events": {
       "title": "Events on the Timeline",
-      "description": "Place events on a cue's waveform to fire a lighting cue over OSC or MIDI Show Control, call a web API, move a fader on an X Air mixer, or start another cue. The server fires each one on its mark, so the show stays in sync even with nobody at the screen."
+      "description": "Place events on a cue's waveform to fire a lighting cue over OSC or MIDI Show Control, call a web API, move a fader on an X Air mixer, or start another cue. The server fires each one on its mark, so the show stays in sync even with nobody at the screen.",
+      "points": [
+        "OSC, MIDI, MIDI Show Control and HTTP",
+        "Behringer X Air mixers",
+        "Start or stop other cues"
+      ]
     },
     "connections": {
       "title": "Connections to Your Gear",
@@ -176,7 +218,12 @@
     },
     "remoteOperation": {
       "title": "Local or Remote Operation",
-      "description": "Run the audio engine on the same computer or on a machine backstage with your audio interfaces, and control everything from anywhere on the network. The sound comes from the engine, not the screen, so the show keeps playing even if a control computer drops out."
+      "description": "Run the audio engine on the same computer or on a machine backstage with your audio interfaces, and control everything from anywhere on the network. The sound comes from the engine, not the screen, so the show keeps playing even if a control computer drops out.",
+      "points": [
+        "Engine and screens on separate machines",
+        "Keeps playing if a screen drops out",
+        "Control it from anywhere on the network"
+      ]
     },
     "discovery": {
       "title": "Work Together, Recover Quickly",
@@ -197,6 +244,33 @@
     "ltc": {
       "title": "SMPTE Timecode",
       "description": "Send SMPTE timecode with your cues, so lighting, video and other equipment can follow your show."
+    },
+    "tabs": {
+      "title": "A Tab for Every Act",
+      "description": "Split a long show into playlist tabs for each act, scene or set. One Up Next runs across them all, and each tab decides what happens after its last cue: back to the top, on into the next tab, or stop.",
+      "points": [
+        "Name and colour every tab",
+        "One show-wide Up Next",
+        "Open any tab in its own window"
+      ]
+    },
+    "cartPages": {
+      "title": "Pages and Pages of Carts",
+      "description": "Sort your carts into named, colour-coded pages of 4 to 64. Slot keys fire the page you are looking at, and pinned keys fire a favourite sound from any page.",
+      "points": [
+        "4 to 64 carts on each page",
+        "Pop a page out to another screen",
+        "Pinned keys work from any page"
+      ]
+    },
+    "presets": {
+      "title": "Presets for Your Gear",
+      "description": "Save \"House lights to 40%\" once on a connection and use it on any cue. Change the preset and every event using it follows.",
+      "points": [
+        "Named settings for each connection",
+        "One change updates every event",
+        "Override a single field when you need to"
+      ]
     }
   },
   "ports": {
@@ -226,5 +300,304 @@
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "View on GitHub",
     "contributors": "Contributors"
+  },
+  "site": {
+    "skip": "Skip to content",
+    "menu": "Menu",
+    "close": "Close",
+    "features": "Features",
+    "download": "Download",
+    "api": "API",
+    "whatsNew": "What's New",
+    "newIn": "New in {version}",
+    "enlarge": "View full size: {name}",
+    "footerNav": "Site links"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Free, open-source sound cue software for Windows, macOS and Linux",
+      "title": "Every sound, right on cue.",
+      "download": "Download free",
+      "seeNew": "See what's new in {version}"
+    },
+    "audience": {
+      "label": "Who LivePlay is for",
+      "theatre": {
+        "title": "Theatre",
+        "text": "Sound effects, underscoring and scene changes, in order and on the line."
+      },
+      "radio": {
+        "title": "Radio",
+        "text": "Beds, jingles and segues, with levels you can trust on air."
+      },
+      "events": {
+        "title": "Live events",
+        "text": "Walk-ons, stings and announcements for conferences, awards and stage shows."
+      },
+      "parties": {
+        "title": "Parties",
+        "text": "Line up the music, dip it for the speeches and enjoy the night."
+      }
+    },
+    "how": {
+      "title": "Up and running in three steps",
+      "one": {
+        "title": "Drop in your audio",
+        "text": "Drag in music and effects, or pull a track from YouTube. LivePlay can trim the silence and even out the levels for you."
+      },
+      "two": {
+        "title": "Line up your cues",
+        "text": "Put them in running order, group them by scene and choose what each one does next."
+      },
+      "three": {
+        "title": "Press Play Next",
+        "text": "Run the whole show from one button, a touchscreen, your keyboard or a MIDI controller."
+      }
+    },
+    "numbers": {
+      "label": "LivePlay in numbers",
+      "carts": "carts on every page",
+      "eq": "EQ bands per bus",
+      "languages": "languages",
+      "platforms": "desktop platforms",
+      "cost": "licence fees, ever"
+    },
+    "teaser": {
+      "eyebrow": "Just landed",
+      "title": "New in LivePlay {version}",
+      "text": "Cues can now run your lights, mixer and video. Long shows get tabs, carts get pages, and you can draw volume right onto the waveform.",
+      "button": "See everything new"
+    },
+    "tech": {
+      "eyebrow": "For technical teams"
+    }
+  },
+  "whatsNew": {
+    "index": {
+      "eyebrow": "Release notes",
+      "title": "What's new in LivePlay",
+      "lead": "The biggest additions in every release, newest first. New to LivePlay? Take the full feature tour instead.",
+      "tour": "Take the feature tour",
+      "latest": "Latest release",
+      "read": "See what's new",
+      "older": "Earlier releases"
+    },
+    "release": {
+      "label": "LivePlay {version}",
+      "versions": "Release versions",
+      "more": "More in this release",
+      "fixed": "Also fixed:",
+      "github": "Full release notes on GitHub"
+    },
+    "v26": {
+      "title": "Cue the whole room.",
+      "summary": "Events for your lights, mixer and video, playlist tabs, cart pages and volume automation.",
+      "lead": "LivePlay 2.6 reaches beyond the speakers. Cues can now fire your lights, mixer and video from the timeline, long shows fold into tabs, carts spread across pages, and volume can be drawn right onto the waveform.",
+      "sections": {
+        "events": {
+          "kicker": "Events",
+          "title": "One cue. Everything on stage.",
+          "text": "Place events on a cue's waveform and LivePlay fires each one on its mark: a lighting cue, a web request, a fader move on your desk, or another cue. The server keeps the time, so everything lands together even with nobody at the screen.",
+          "points": [
+            "OSC, MIDI, MIDI Show Control and HTTP",
+            "Behringer X Air faders, mutes and snapshots",
+            "Fire on start, end, pause, resume or at any time"
+          ]
+        },
+        "presets": {
+          "kicker": "Event presets",
+          "title": "Set it once. Use it everywhere.",
+          "text": "Save the settings you reach for as a named preset on a connection. Point any number of events at it, and when the rig changes, update the preset once.",
+          "points": [
+            "\"House lights 40%\", ready for any cue",
+            "One change updates every event",
+            "Override a single field on one event"
+          ]
+        },
+        "tabs": {
+          "kicker": "Playlist tabs",
+          "title": "Long shows, neatly folded.",
+          "text": "Give every act, scene or set its own tab. Play Next always fires the one show-wide Up Next and tells you which tab it is on, so you can look ahead without losing your place.",
+          "points": [
+            "Back to the top, on to the next tab, or stop",
+            "Move cues between tabs",
+            "Open a tab in its own window"
+          ]
+        },
+        "pages": {
+          "kicker": "Cart pages",
+          "title": "Room for every sound.",
+          "text": "Organise your carts into pages for each scene or job. Every page sets its own size and colour, and can follow along or pop out to another screen.",
+          "points": [
+            "4 to 64 carts per page",
+            "Keys for the visible page, or pinned to one cart",
+            "Move carts between pages"
+          ]
+        },
+        "automation": {
+          "kicker": "Volume automation",
+          "title": "Draw the mix on the waveform.",
+          "text": "Click to add a point, drag the line to dip the music under a speech or lift it for a chorus. The waveform shows exactly what the audience will hear.",
+          "points": [
+            "Add, drag and remove points",
+            "Pull down a whole selection in one move",
+            "Preview from any point in your headphones"
+          ]
+        },
+        "relink": {
+          "kicker": "Relink media",
+          "title": "Lost files, found.",
+          "text": "If a file moves, LivePlay flags the cue before anyone fires it. Point it at a folder and every missing file is matched by name, or swap in a new file and keep the cue exactly as you set it up.",
+          "points": [
+            "Warned before you press play",
+            "Relink a whole show from one folder",
+            "Replace a file without losing settings"
+          ]
+        }
+      },
+      "more": {
+        "wholePlaylist": {
+          "title": "A whole playlist in one cart",
+          "text": "Drop a playlist tab on a cart to start it with one tap and watch the time remaining."
+        },
+        "duckTimes": {
+          "title": "Ducking at your speed",
+          "text": "Set how quickly the music dips and how gently it comes back, cue by cue."
+        },
+        "stopFades": {
+          "title": "Stop All, your way",
+          "text": "Let Stop All fade each cue over that cue's own Stop fade instead of one fixed time."
+        },
+        "stopKey": {
+          "title": "Stop Current Cue key",
+          "text": "Bind a key that stops just the current cue and leaves everything else playing."
+        },
+        "openFile": {
+          "title": "Open shows from your files",
+          "text": "Double-click a show on Linux too. LivePlay always asks before replacing an open show."
+        },
+        "waveformPan": {
+          "title": "Pan with the middle mouse",
+          "text": "Middle-drag to move around a zoomed waveform."
+        }
+      },
+      "fixes": "more dependable events and connections, playback that no longer stalls on missing media, imports that never overwrite another cue's file, corrected macOS builds (now macOS 13.3 or later), a window that fits beside other apps, and clearer accent colours."
+    },
+    "v25": {
+      "title": "A real mixer for your show.",
+      "summary": "Buses and channel strips, a 32-band EQ, hardware outputs by name and team accounts.",
+      "lead": "LivePlay 2.5 put a full mixer inside the app. Give music, effects and voices their own strips, shape them properly, and take the same show to any venue.",
+      "sections": {
+        "mixer": {
+          "kicker": "Mixer",
+          "title": "Every sound gets its own strip.",
+          "text": "Create buses for music, effects and announcements and balance them on channel strips, just as you would on a desk. Route them into each other, straight to an output or through aux sends.",
+          "points": [
+            "Master and Preview roles on ordinary buses",
+            "Pre- and post-fader aux sends",
+            "Assign whole groups in one go"
+          ]
+        },
+        "eq": {
+          "kicker": "EQ and dynamics",
+          "title": "Shape it. Hold it.",
+          "text": "A graph-first parametric EQ with a live spectrum analyser, then a gate and compressor that show what they are doing to the signal.",
+          "points": [
+            "Up to 32 bands of any filter type",
+            "Live analyser behind the curve",
+            "Stereo width with mono-safe bass"
+          ]
+        },
+        "outputs": {
+          "kicker": "Hardware outputs",
+          "title": "Your show travels. Your routing follows.",
+          "text": "Shows talk to outputs by name, and each computer links those names to its own sound cards. At a new venue LivePlay points out what is missing, and you drag a physical output on to fix it.",
+          "points": [
+            "Named outputs, not sound cards",
+            "Missing hardware goes silent and says so",
+            "Drag-and-drop remapping"
+          ]
+        },
+        "workspace": {
+          "kicker": "Workspace",
+          "title": "Arrange it your way.",
+          "text": "Playlist, Cart Player and Mixer all work the same way. Show them, fill the screen with one, tuck them to an edge or move them to another display.",
+          "points": [
+            "One layout model for every pane",
+            "Detach panes to a second screen",
+            "Comes back the way you left it"
+          ]
+        },
+        "accounts": {
+          "kicker": "Accounts",
+          "title": "A login for everyone on the team.",
+          "text": "Give operators and administrators their own sign-ins, see who is connected, and issue API tokens for show-control tools instead of sharing a password.",
+          "points": [
+            "Operator and admin roles",
+            "API tokens for tools like Companion",
+            "Move your team to another server"
+          ]
+        },
+        "fades": {
+          "kicker": "Fades and timing",
+          "title": "Transitions with no rough edges.",
+          "text": "Give every cue its own Stop fade, blend loops back into themselves and make a cue wait before the next one starts.",
+          "points": [
+            "Fades as long as the audio",
+            "Seamless loop crossfades",
+            "Wait before next"
+          ]
+        }
+      },
+      "more": {
+        "settings": {
+          "title": "One Settings page",
+          "text": "Every setting in one place, with your personal preferences following you to any screen."
+        },
+        "multiEdit": {
+          "title": "Edit many cues at once",
+          "text": "Change any property across a whole selection of cues."
+        },
+        "groupTime": {
+          "title": "Groups know their length",
+          "text": "See how long a group runs and how much is left, even when it is closed."
+        },
+        "sends": {
+          "title": "Buses that only send",
+          "text": "A bus can feed others through sends alone, with no main output of its own."
+        },
+        "tray": {
+          "title": "Server in the system tray",
+          "text": "Run the audio engine quietly in the background, with no console window."
+        },
+        "youtubeFormat": {
+          "title": "Choose your YouTube format",
+          "text": "Decide what imported audio is saved as, including WAV."
+        }
+      },
+      "fixes": "Linux offline and older-distro support, a sturdier YouTube import, a header that resizes with the window, user data that always saves, and many mixer and connection fixes."
+    },
+    "timeline": {
+      "v24": {
+        "title": "Show control",
+        "text": "Bitfocus Companion support, plus Cue to Continue and Jump Cue playback actions."
+      },
+      "v23": {
+        "title": "Show Mode and honest meters",
+        "text": "A touchscreen Show Mode, LUFS and true-peak metering, recent projects and configurable numbering."
+      },
+      "v22": {
+        "title": "Radio-style segues",
+        "text": "Start Next markers, a default transition for new tracks and automatic cueing of the next item."
+      },
+      "v21": {
+        "title": "Faster imports",
+        "text": "Import and delete many files at once."
+      },
+      "v20": {
+        "title": "A new audio engine",
+        "text": "A dedicated C++ engine with local or remote operation, loudness targets and automatic server discovery."
+      }
+    }
   }
 }
