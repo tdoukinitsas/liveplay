@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type {
   ActionSchema,
   EventConnection,
+  EventPreset,
   EventTrigger,
   FieldSchema,
   ItemEvent,
@@ -77,6 +78,16 @@ export const findAction = (plugin: PluginSchema | null, id: string | undefined):
 /** Connections a plugin's events may use. */
 export const connectionsFor = (connections: EventConnection[], pluginId: string) =>
   connections.filter(c => c.plugin === pluginId);
+
+/** The preset an event points at, if it still exists on its connection. */
+export const presetOfEvent = (
+  connections: EventConnection[],
+  ev: Pick<ItemEvent, 'connectionId' | 'presetId'>,
+): EventPreset | null => {
+  if (!ev.presetId || !ev.connectionId) return null;
+  const connection = connections.find(c => c.id === ev.connectionId);
+  return connection?.presets?.find(p => p.id === ev.presetId) ?? null;
+};
 
 /**
  * Fill an action's summary template ("{address} {args}") from the options.

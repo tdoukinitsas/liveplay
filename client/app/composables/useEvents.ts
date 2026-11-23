@@ -22,6 +22,7 @@
 import type { AudioItem, Project } from '~/types/project';
 import type {
   EventConnection,
+  EventPreset,
   EventFiredPatch,
   EventTestRequest,
   EventTestResult,
@@ -193,18 +194,51 @@ export const useEvents = () => {
    */
   function connectionUsage(): Map<string, number> {
     const counts = new Map<string, number>();
+    forEachEvent((ev) => {
+      if (ev?.connectionId) counts.set(ev.connectionId, (counts.get(ev.connectionId) ?? 0) + 1);
+    });
+    return counts;
+  }
+
+  /** How many events use each preset, by preset id. */
+  function presetUsage(): Map<string, number> {
+    const counts = new Map<string, number>();
+    forEachEvent((ev) => {
+      if (ev?.presetId) counts.set(ev.presetId, (counts.get(ev.presetId) ?? 0) + 1);
+    });
+    return counts;
+  }
+
+  /**
+   * Give every event using one of these presets its own copy of the settings.
+   * Called before a preset (or its connection) goes, so deleting it can't
+   * change what a cue does or lose what it was set to.
+   */
+  function detachPresetEvents(connectionId: string, presets: EventPreset[]): number {
+    const byId = new Map(presets.map(p => [p.id, p]));
+    let changed = 0;
+    forEachEvent((ev) => {
+      if (ev?.connectionId !== connectionId || !ev.presetId) return;
+      const preset = byId.get(ev.presetId);
+      if (!preset) return;
+      ev.action = preset.action;
+      ev.options = { ...JSON.parse(JSON.stringify(preset.options ?? {})), ...(ev.options ?? {}) };
+      delete ev.presetId;
+      changed++;
+    });
+    return changed;
+  }
+
+  // Every event in the show, including the cart's own cues, each cue once.
+  function forEachEvent(visit: (ev: any) => void): void {
     const p = currentProject.value;
-    if (!p) return counts;
+    if (!p) return;
     const seen = new Set<string>();
     const walk = (arr: any[] | undefined) => {
       for (const it of arr ?? []) {
         if (!it || seen.has(it.uuid)) continue;
         seen.add(it.uuid);
-        if (Array.isArray(it.events)) {
-          for (const ev of it.events) {
-            if (ev?.connectionId) counts.set(ev.connectionId, (counts.get(ev.connectionId) ?? 0) + 1);
-          }
-        }
+        if (Array.isArray(it.events)) it.events.forEach(visit);
         if (it.type === 'group') walk(it.children);
       }
     };
@@ -214,7 +248,6 @@ export const useEvents = () => {
     // counting the same cue twice.
     walk(Array.from(cartStore.value.values()));
     walk(p.cartOnlyItems);
-    return counts;
   }
 
   const isFlashing = (eventId: string) => flashing.value.has(eventId);
@@ -266,5 +299,7 @@ export const useEvents = () => {
     fetchOptions,
     discover,
     connectionUsage,
+    presetUsage,
+    detachPresetEvents,
   };
 };

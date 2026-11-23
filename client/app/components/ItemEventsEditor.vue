@@ -313,14 +313,57 @@
                   </button>
                 </div>
               </div>
+              <div v-if="selectedPlugin?.needsConnection && selectedConnection" class="ev-field ev-field--grow">
+                <label>{{ t('events.preset') }}</label>
+                <div class="ev-input-with-btn">
+                  <select
+                    :value="selected.presetId ?? ''"
+                    :class="{ invalid: !!selected.presetId && !selectedPreset }"
+                    @change="setPreset(selected, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="">{{ t('events.presetNone') }}</option>
+                    <option v-for="p in selectedConnection.presets ?? []" :key="p.id" :value="p.id">{{ p.name }}</option>
+                    <option v-if="selected.presetId && !selectedPreset" :value="selected.presetId">
+                      {{ t('events.presetMissing') }}
+                    </option>
+                  </select>
+                  <button
+                    v-if="!selected.presetId"
+                    type="button"
+                    class="ev-icon-btn ev-icon-btn--boxed"
+                    :title="t('events.presetSave')"
+                    @click="startSavePreset(selected)"
+                  >
+                    <span class="material-symbols-rounded">bookmark_add</span>
+                  </button>
+                </div>
+              </div>
               <div v-if="selectedPlugin" class="ev-field ev-field--grow">
                 <label>{{ t('events.action') }}</label>
-                <select :value="selected.action" @change="setAction(selected, ($event.target as HTMLSelectElement).value)">
+                <select
+                  :value="selectedPreset?.action ?? selected.action"
+                  :disabled="!!selectedPreset"
+                  @change="setAction(selected, ($event.target as HTMLSelectElement).value)"
+                >
                   <option v-for="a in eventActions(selectedPlugin)" :key="a.id" :value="a.id">{{ a.label }}</option>
                   <option v-if="!selectedAction" :value="selected.action">{{ selected.action }}</option>
                 </select>
               </div>
             </div>
+
+            <form v-if="savingPresetFor === selected.id" class="ev-preset-save" @submit.prevent="savePreset(selected)">
+              <input
+                ref="presetNameInput"
+                v-model="presetName"
+                type="text"
+                :aria-label="t('events.connections.presetName')"
+                :placeholder="t('events.connections.presetName')"
+                @keydown.esc.stop.prevent="savingPresetFor = null"
+              />
+              <Btn icon="check" :text="t('events.presetSaveConfirm')" :disabled="!presetName.trim()" @click="savePreset(selected)" />
+              <Btn icon="close" :text="t('events.connections.cancel')" @click="savingPresetFor = null" />
+              <span v-if="presetError" class="ev-result error">{{ presetError }}</span>
+            </form>
 
             <p v-if="!selectedPlugin && pluginsStatus === 'ok'" class="ev-help ev-help--warn">
               {{ t('events.unknownPlugin', { plugin: selected.plugin }) }}
@@ -336,14 +379,25 @@
               {{ t('events.outsideTrim') }}
             </p>
 
+            <div v-if="selectedPreset" class="ev-preset-note">
+              <span class="material-symbols-rounded">bookmark</span>
+              <span class="ev-preset-note-text">
+                {{ t('events.presetInUse', { name: selectedPreset.name }) }}
+                <template v-if="rowSubtitle(selected)"> · {{ rowSubtitle(selected) }}</template>
+              </span>
+              <button type="button" class="ev-link-btn" @click="openConnections">{{ t('events.presetEdit') }}</button>
+              <button type="button" class="ev-link-btn" @click="setPreset(selected, '')">{{ t('events.presetDetach') }}</button>
+            </div>
+            <p v-else-if="selected.presetId" class="ev-help ev-help--warn">{{ t('events.presetMissingHelp') }}</p>
+
             <SchemaForm
-              v-if="selectedAction && selectedAction.fields.length > 0"
+              v-if="!selected.presetId && selectedAction && selectedAction.fields.length > 0"
               :fields="selectedAction.fields"
               :model-value="selectedOptions"
               :options-context="{ plugin: selected!.plugin, connectionId: selected!.connectionId ?? null }"
               @update:model-value="(v: Record<string, unknown>) => setOptions(selected!, v)"
             />
-            <p v-if="selectedAction && hasTextFields(selectedAction.fields)" class="ev-help">
+            <p v-if="!selected.presetId && selectedAction && hasTextFields(selectedAction.fields)" class="ev-help">
               {{ t('events.placeholdersHelp') }}
             </p>
 
@@ -376,7 +430,7 @@
 // connected client sees the same events.
 import { v4 as uuidv4 } from 'uuid';
 import type { AudioItem } from '~/types/project';
-import type { EventTrigger, FieldSchema, ItemEvent, PluginSchema } from '~/types/events';
+import type { EventPreset, EventTrigger, FieldSchema, ItemEvent, PluginSchema } from '~/types/events';
 import { EVENT_TRIGGERS } from '~/types/events';
 import {
   connectionsFor,
@@ -387,6 +441,7 @@ import {
   formatEventTime,
   formatSummary,
   makeEvent,
+  presetOfEvent,
   parseEventTime,
   sortEvents,
   fillDefaults,
@@ -404,7 +459,7 @@ const emit = defineEmits<{ change: [] }>();
 const { t } = useLocalization();
 const {
   plugins, pluginsStatus, connections, lastResult, isFlashing,
-  refreshPlugins, testEvent,
+  refreshPlugins, testEvent, saveConnections,
 } = useEvents();
 const { activeCues } = useAudioEngine();
 const { levels: outputTargetLevels } = useOutputTarget();
@@ -492,13 +547,16 @@ const drag = ref<{ id: string; time: number; startX: number; moved: boolean } | 
 
 const selected = computed(() => events.value.find(e => e.id === selectedId.value) ?? null);
 const pluginOf = (ev: ItemEvent) => findPlugin(plugins.value, ev.plugin);
-const actionOf = (ev: ItemEvent) => findAction(pluginOf(ev), ev.action);
+const presetOf = (ev: ItemEvent) => presetOfEvent(connections.value, ev);
+const actionOf = (ev: ItemEvent) => findAction(pluginOf(ev), presetOf(ev)?.action ?? ev.action);
+const optionsOf = (ev: ItemEvent) => presetOf(ev)?.options ?? ev.options ?? {};
 const connectionOf = (ev: ItemEvent) =>
   ev.connectionId ? connections.value.find(c => c.id === ev.connectionId) ?? null : null;
 
 const selectedPlugin = computed(() => (selected.value ? pluginOf(selected.value) : null));
 const selectedAction = computed(() => (selected.value ? actionOf(selected.value) : null));
 const selectedConnection = computed(() => (selected.value ? connectionOf(selected.value) : null));
+const selectedPreset = computed(() => (selected.value ? presetOf(selected.value) : null));
 const selectedPluginConnections = computed(() =>
   selectedPlugin.value ? connectionsFor(connections.value, selectedPlugin.value.id) : []);
 // Shown with the schema's defaults filled in, so an unset field reads as what
@@ -629,11 +687,13 @@ const markers = computed(() => {
 
 const rowTitle = (ev: ItemEvent) => {
   if (ev.name) return ev.name;
+  const preset = presetOf(ev);
+  if (preset?.name) return preset.name;
   const action = actionOf(ev);
   if (action) return action.label;
   return `${ev.plugin} · ${ev.action}`;
 };
-const rowSubtitle = (ev: ItemEvent) => formatSummary(actionOf(ev), ev.options ?? {});
+const rowSubtitle = (ev: ItemEvent) => formatSummary(actionOf(ev), optionsOf(ev));
 
 const connectionLabel = (ev: ItemEvent) => {
   if (!pluginOf(ev)?.needsConnection) return '';
@@ -802,6 +862,7 @@ function setPlugin(ev: ItemEvent, pluginId: string) {
   const plugin = findPlugin(plugins.value, pluginId);
   if (!plugin || ev.plugin === pluginId) return;
   const action = eventActions(plugin)[0];
+  delete ev.presetId;
   ev.plugin = plugin.id;
   ev.action = action?.id ?? '';
   ev.connectionId = plugin.needsConnection
@@ -820,8 +881,71 @@ function setAction(ev: ItemEvent, actionId: string) {
 }
 
 function setConnection(ev: ItemEvent, id: string) {
+  // A preset belongs to its connection: moving keeps what the event does.
+  detachPreset(ev);
   ev.connectionId = id || null;
   commit();
+}
+
+// ---- presets ----------------------------------------------------------------
+// The event gets its own copy of the preset's settings, so it keeps doing the
+// same thing and is free to change.
+function detachPreset(ev: ItemEvent) {
+  const preset = presetOf(ev);
+  if (preset) {
+    ev.action = preset.action;
+    ev.options = { ...JSON.parse(JSON.stringify(preset.options ?? {})), ...(ev.options ?? {}) };
+  }
+  delete ev.presetId;
+}
+
+function setPreset(ev: ItemEvent, id: string) {
+  if (!id) {
+    detachPreset(ev);
+    commit();
+    return;
+  }
+  const preset = connectionOf(ev)?.presets?.find(p => p.id === id);
+  if (!preset) return;
+  ev.presetId = preset.id;
+  ev.action = preset.action;
+  ev.options = {};
+  savingPresetFor.value = null;
+  commit();
+}
+
+const savingPresetFor = ref<string | null>(null);
+const presetName = ref('');
+const presetError = ref('');
+const presetNameInput = ref<HTMLInputElement | null>(null);
+
+function startSavePreset(ev: ItemEvent) {
+  savingPresetFor.value = ev.id;
+  presetName.value = ev.name ?? actionOf(ev)?.label ?? '';
+  presetError.value = '';
+  void nextTick(() => presetNameInput.value?.select());
+}
+
+async function savePreset(ev: ItemEvent) {
+  const name = presetName.value.trim();
+  const connection = connectionOf(ev);
+  if (!name || !connection) return;
+  const preset: EventPreset = {
+    id: uuidv4(),
+    name,
+    action: ev.action,
+    options: JSON.parse(JSON.stringify(fillDefaults(actionOf(ev)?.fields, ev.options))),
+  };
+  try {
+    await saveConnections(connections.value.map(c => (c.id === connection.id
+      ? { ...c, presets: [...(c.presets ?? []), preset] }
+      : c)));
+  } catch (e: any) {
+    presetError.value = t('events.connections.saveFailed', { error: e?.message ?? String(e) });
+    return;
+  }
+  savingPresetFor.value = null;
+  setPreset(ev, preset.id);
 }
 
 function setOptions(ev: ItemEvent, options: Record<string, unknown>) {
@@ -840,7 +964,11 @@ async function runTest(ev: ItemEvent) {
   testResults.value = rest;
   try {
     const res = await testEvent(
-      { plugin: ev.plugin, action: ev.action, options: ev.options ?? {}, connectionId: ev.connectionId ?? null },
+      {
+        plugin: ev.plugin, action: ev.action, options: ev.options ?? {},
+        connectionId: ev.connectionId ?? null,
+        ...(ev.presetId ? { presetId: ev.presetId } : {}),
+      },
       { itemUuid: props.item.uuid },
     );
     testResults.value = { ...testResults.value, [ev.id]: res };
@@ -1632,6 +1760,46 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: var(--spacing-sm) var(--spacing-md);
   align-items: flex-end;
+}
+
+.ev-preset-save {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.ev-preset-save input {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+.ev-preset-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+.ev-preset-note .material-symbols-rounded {
+  font-size: 18px;
+  color: var(--color-accent);
+}
+
+.ev-preset-note-text {
+  flex: 1 1 200px;
+  min-width: 0;
 }
 
 .ev-field {

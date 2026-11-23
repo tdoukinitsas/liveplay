@@ -116,6 +116,59 @@
         <p v-else-if="draftPlugin" class="settings-help">{{ t('events.connections.noFields') }}</p>
         <p v-else class="settings-help">{{ t('events.connections.unknownPlugin', { plugin: draft.plugin }) }}</p>
 
+        <!-- Reusable settings: change one here and every event using it follows. -->
+        <div v-if="draftPlugin && presetActions.length > 0" class="conn-presets">
+          <div class="conn-presets-head">
+            <h5>{{ t('events.connections.presets') }}</h5>
+            <Btn icon="add" :text="t('events.connections.presetAdd')" :disabled="!!presetDraft" @click="startPresetAdd" />
+          </div>
+          <p class="settings-help">{{ t('events.connections.presetsHelp') }}</p>
+          <ul v-if="draft.presets?.length" class="conn-preset-list">
+            <li v-for="p in draft.presets" :key="p.id" class="conn-preset-row">
+              <span class="material-symbols-rounded conn-icon">bookmark</span>
+              <span class="conn-text">
+                <span class="conn-name">{{ p.name }}</span>
+                <span class="conn-meta">
+                  {{ presetSummary(p) }} ·
+                  {{ presetCounts.get(p.id) ? t('events.connections.usage', { count: presetCounts.get(p.id)! }) : t('events.connections.unused') }}
+                </span>
+              </span>
+              <button type="button" class="conn-icon-btn" :title="t('events.connections.edit')"
+                      :disabled="!!presetDraft" @click="startPresetEdit(p)">
+                <span class="material-symbols-rounded">edit</span>
+              </button>
+              <button type="button" class="conn-icon-btn conn-icon-btn--danger" :title="t('events.connections.presetDelete')"
+                      :disabled="!!presetDraft" @click="removePreset(p)">
+                <span class="material-symbols-rounded">delete</span>
+              </button>
+            </li>
+          </ul>
+          <div v-if="presetDraft" class="conn-preset-editor">
+            <div class="settings-field">
+              <label class="settings-label" for="conn-preset-name">{{ t('events.connections.presetName') }}</label>
+              <input id="conn-preset-name" v-model="presetDraft.name" class="settings-input" type="text" />
+            </div>
+            <div class="settings-field">
+              <label class="settings-label" for="conn-preset-action">{{ t('events.action') }}</label>
+              <select id="conn-preset-action" :value="presetDraft.action" class="settings-select"
+                      @change="setPresetAction(($event.target as HTMLSelectElement).value)">
+                <option v-for="a in presetActions" :key="a.id" :value="a.id">{{ a.label }}</option>
+              </select>
+            </div>
+            <SchemaForm
+              v-if="presetDraftAction && presetDraftAction.fields.length > 0"
+              :fields="presetDraftAction.fields"
+              :model-value="presetDraft.options"
+              :options-context="{ plugin: draft.plugin, connection: draft }"
+              @update:model-value="(v: Record<string, unknown>) => { if (presetDraft) presetDraft.options = v; }"
+            />
+            <div class="conn-editor-actions">
+              <Btn icon="check" :text="t('events.connections.presetDone')" :disabled="!presetDraft.name.trim()" @click="commitPreset" />
+              <Btn icon="close" :text="t('events.connections.cancel')" @click="presetDraft = null" />
+            </div>
+          </div>
+        </div>
+
         <!-- Test against the draft, before saving: the point is to find out
              the address is wrong while you are still looking at it. -->
         <div v-if="draftPlugin && draftPlugin.actions.length > 0" class="conn-test">
@@ -146,7 +199,7 @@
         </div>
 
         <div class="conn-editor-actions">
-          <Btn icon="check" :text="t('events.connections.save')" :disabled="saving || !draft.name.trim()" @click="saveDraft" />
+          <Btn icon="check" :text="t('events.connections.save')" :disabled="saving || !draft.name.trim() || !!presetDraft" @click="saveDraft" />
           <Btn icon="close" :text="t('events.connections.cancel')" :disabled="saving" @click="cancelDraft" />
         </div>
       </section>
@@ -160,8 +213,8 @@
 // with the show to the next venue (where only the addresses need changing).
 // Every change is a whole-list PUT; the server broadcasts it to every client.
 import { v4 as uuidv4 } from 'uuid';
-import type { DiscoveredDevice, EventConnection } from '~/types/events';
-import { defaultsFor, findAction, findPlugin, fillDefaults } from '~/utils/events';
+import type { DiscoveredDevice, EventConnection, EventPreset } from '~/types/events';
+import { defaultsFor, eventActions, findAction, findPlugin, fillDefaults, formatSummary } from '~/utils/events';
 import Btn from './Btn.vue';
 import SchemaForm from './SchemaForm.vue';
 
@@ -170,6 +223,7 @@ const { currentProject } = useProject();
 const {
   plugins, pluginsStatus, connections,
   refreshPlugins, saveConnections, testEvent, connectionUsage, discover,
+  presetUsage, detachPresetEvents,
 } = useEvents();
 
 onMounted(() => { void refreshPlugins(); });
@@ -206,6 +260,8 @@ function setEnabled(c: EventConnection, on: boolean) {
 }
 
 async function deleteConnection(c: EventConnection) {
+  // Its events keep their settings, ready for another connection.
+  if (c.presets?.length) detachPresetEvents(c.id, c.presets);
   const ok = await commit(connections.value.filter(x => x.id !== c.id));
   if (!ok) return;
   confirmDeleteId.value = null;
@@ -231,6 +287,7 @@ function startAdd() {
   };
   isNew.value = true;
   originalName.value = '';
+  presetDraft.value = null;
   discovered.value = [];
   discoverMessage.value = '';
   confirmDeleteId.value = null;
@@ -275,12 +332,14 @@ function startEdit(c: EventConnection) {
   draft.value = copy;
   isNew.value = false;
   originalName.value = c.name;
+  presetDraft.value = null;
   confirmDeleteId.value = null;
   void nextTick(resetTest);
 }
 
 function cancelDraft() {
   draft.value = null;
+  presetDraft.value = null;
   discovered.value = [];
   discoverMessage.value = '';
   testResult.value = null;
@@ -290,12 +349,60 @@ async function saveDraft() {
   const d = draft.value;
   if (!d || !d.name.trim()) return;
   const next: EventConnection = { ...JSON.parse(JSON.stringify(d)), name: d.name.trim() };
+  // Events on a preset removed here keep what it was set to.
+  const removed = (connections.value.find(c => c.id === d.id)?.presets ?? [])
+    .filter(p => !(next.presets ?? []).some(n => n.id === p.id));
+  if (removed.length) detachPresetEvents(d.id, removed);
   const list = connections.value.some(c => c.id === d.id)
     ? connections.value.map(c => (c.id === d.id ? next : c))
     // Another client may have deleted the one being edited meanwhile; saving
     // puts it back rather than losing what was typed.
     : [...connections.value, next];
   if (await commit(list)) cancelDraft();
+}
+
+// ---- presets ----------------------------------------------------------------
+// Edited on the draft, so they save, or cancel, with the rest of the connection.
+const presetDraft = ref<EventPreset | null>(null);
+const presetActions = computed(() => eventActions(draftPlugin.value));
+const presetDraftAction = computed(() => findAction(draftPlugin.value, presetDraft.value?.action));
+const presetCounts = computed(() => presetUsage());
+const presetSummary = (p: EventPreset) => {
+  const action = findAction(draftPlugin.value, p.action);
+  return formatSummary(action, p.options) || action?.label || p.action;
+};
+
+function startPresetAdd() {
+  const action = presetActions.value[0];
+  if (!action) return;
+  presetDraft.value = { id: uuidv4(), name: '', action: action.id, options: defaultsFor(action.fields) };
+}
+
+function startPresetEdit(p: EventPreset) {
+  const copy: EventPreset = JSON.parse(JSON.stringify(p));
+  copy.options = fillDefaults(findAction(draftPlugin.value, p.action)?.fields, copy.options);
+  presetDraft.value = copy;
+}
+
+function setPresetAction(actionId: string) {
+  if (!presetDraft.value) return;
+  presetDraft.value.action = actionId;
+  presetDraft.value.options = defaultsFor(findAction(draftPlugin.value, actionId)?.fields);
+}
+
+function commitPreset() {
+  const p = presetDraft.value;
+  if (!p || !draft.value || !p.name.trim()) return;
+  const clean: EventPreset = { ...JSON.parse(JSON.stringify(p)), name: p.name.trim() };
+  const list = draft.value.presets ?? [];
+  draft.value.presets = list.some(x => x.id === clean.id)
+    ? list.map(x => (x.id === clean.id ? clean : x))
+    : [...list, clean];
+  presetDraft.value = null;
+}
+
+function removePreset(p: EventPreset) {
+  if (draft.value) draft.value.presets = (draft.value.presets ?? []).filter(x => x.id !== p.id);
 }
 
 // ---- test ------------------------------------------------------------------
@@ -501,6 +608,58 @@ async function runTest() {
   .material-symbols-rounded {
     font-size: 20px;
   }
+}
+
+.conn-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.conn-presets-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  h5 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+}
+
+.conn-preset-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.conn-preset-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.conn-preset-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
 }
 
 .conn-test {

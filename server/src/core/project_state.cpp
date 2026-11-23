@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <mutex>
 #include <random>
+#include <set>
 #include <sstream>
 #include <cmath>
 #include <ctime>
@@ -373,6 +374,16 @@ std::string http_headers_of(const json& c) {
     return h != config->end() && h->is_string() ? h->get<std::string>() : std::string{};
 }
 
+// A preset's own header lines. An HTTP action can carry a password there just
+// as its connection can, so a token sees and round-trips them the same way.
+std::string preset_headers_of(const json& preset) {
+    if (!preset.is_object()) return {};
+    const auto options = preset.find("options");
+    if (options == preset.end() || !options->is_object()) return {};
+    const auto h = options->find("headers");
+    return h != options->end() && h->is_string() ? h->get<std::string>() : std::string{};
+}
+
 // The show's event connections, well-formed: string id and plugin (or the
 // entry is dropped), a string name ("" when absent or not one), a boolean
 // enabled (only absent, null or true enable it, as for events), an object
@@ -399,6 +410,23 @@ json clean_event_connections(const json& connections, const json& previous = jso
                         (enabled->is_boolean() && enabled->get<bool>())},
             {"config", c.contains("config") && c["config"].is_object() ? c["config"] : json::object()},
         };
+        // Reusable action + options (#84). Absent rather than empty when there
+        // are none, so a show that doesn't use them keeps its shape.
+        if (c.contains("presets") && c["presets"].is_array()) {
+            json presets = json::array();
+            std::set<std::string> seen;
+            for (const auto& p : c["presets"]) {
+                if (!p.is_object()) continue;
+                const std::string preset_id = str(p, "id"), action = str(p, "action");
+                if (preset_id.empty() || action.empty() || !seen.insert(preset_id).second) continue;
+                presets.push_back(json{
+                    {"id", preset_id}, {"name", str(p, "name")}, {"action", action},
+                    {"options", p.contains("options") && p["options"].is_object()
+                                    ? p["options"] : json::object()},
+                });
+            }
+            if (!presets.empty()) entry["presets"] = std::move(presets);
+        }
         if (plugin == "http" && previous.is_array()) {
             for (const auto& p : previous) {
                 if (!p.is_object() || p.value("id", std::string{}) != id) continue;
@@ -406,6 +434,20 @@ json clean_event_connections(const json& connections, const json& previous = jso
                 if (stored != hide_header_values(stored) &&
                     http_headers_of(entry) == hide_header_values(stored))
                     entry["config"]["headers"] = stored;
+                if (entry.contains("presets") && p.contains("presets") && p["presets"].is_array()) {
+                    for (auto& preset : entry["presets"]) {
+                        for (const auto& old : p["presets"]) {
+                            if (!old.is_object() ||
+                                old.value("id", std::string{}) != preset.value("id", std::string{}))
+                                continue;
+                            const std::string old_headers = preset_headers_of(old);
+                            if (old_headers != hide_header_values(old_headers) &&
+                                preset_headers_of(preset) == hide_header_values(old_headers))
+                                preset["options"]["headers"] = old_headers;
+                            break;
+                        }
+                    }
+                }
                 break;
             }
         }
@@ -8810,6 +8852,7 @@ std::optional<events::Job> ProjectState::make_event_job_locked(
     events::Job job;
     job.plugin = ev.plugin;
     job.action = ev.action;
+    json options = ev.options;
     if (events_->plugin_needs_connection(ev.plugin)) {
         const json* conn = nullptr;
         if (draft_connection && draft_connection->is_object()) {
@@ -8836,8 +8879,31 @@ std::optional<events::Job> ProjectState::make_event_job_locked(
         }
         if (conn->contains("config") && (*conn)["config"].is_object())
             job.connection = events::substitute((*conn)["config"], ctx);
+        if (!ev.preset_id.empty()) {
+            const json* preset = nullptr;
+            if (conn->contains("presets") && (*conn)["presets"].is_array()) {
+                for (const auto& p : (*conn)["presets"]) {
+                    if (p.is_object() && p.value("id", std::string{}) == ev.preset_id) {
+                        preset = &p;
+                        break;
+                    }
+                }
+            }
+            if (!preset) {
+                why = "preset not found on this connection";
+                return std::nullopt;
+            }
+            job.action = preset->value("action", std::string{});
+            // The event's own options, if any, override single fields.
+            options = preset->contains("options") && (*preset)["options"].is_object()
+                          ? (*preset)["options"] : json::object();
+            if (ev.options.is_object()) {
+                for (auto it = ev.options.begin(); it != ev.options.end(); ++it)
+                    options[it.key()] = it.value();
+            }
+        }
     }
-    job.options = events::substitute(ev.options, ctx);
+    job.options = events::substitute(options, ctx);
     job.ctx     = std::move(ctx);
     return job;
 }
@@ -8939,6 +9005,13 @@ json ProjectState::redact_event_connections(json connections) {
     for (auto& c : connections) {
         const std::string headers = http_headers_of(c);
         if (!headers.empty()) c["config"]["headers"] = hide_header_values(headers);
+        if (c.is_object() && c.value("plugin", std::string{}) == "http" &&
+            c.contains("presets") && c["presets"].is_array()) {
+            for (auto& preset : c["presets"]) {
+                const std::string own = preset_headers_of(preset);
+                if (!own.empty()) preset["options"]["headers"] = hide_header_values(own);
+            }
+        }
     }
     return connections;
 }

@@ -49,8 +49,10 @@ std::vector<ItemEvent> ItemEvent::parse_list(const json& events) {
         if (e.contains("time") && e["time"].is_number()) ev.time = e["time"].get<double>();
         if (e.contains("connectionId") && e["connectionId"].is_string())
             ev.connection_id = e["connectionId"].get<std::string>();
+        if (e.contains("presetId") && e["presetId"].is_string())
+            ev.preset_id = e["presetId"].get<std::string>();
         if (e.contains("options") && e["options"].is_object()) ev.options = e["options"];
-        if (ev.plugin.empty() || ev.action.empty()) continue;
+        if (ev.plugin.empty() || (ev.action.empty() && ev.preset_id.empty())) continue;
         if (ev.trigger != "time" && ev.trigger != "start" && ev.trigger != "end" &&
             ev.trigger != "pause" && ev.trigger != "resume") continue;
         out.push_back(std::move(ev));

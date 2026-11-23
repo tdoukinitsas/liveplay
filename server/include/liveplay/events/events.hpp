@@ -58,6 +58,9 @@ struct ItemEvent {
     std::string plugin;
     std::string action;
     std::string connection_id;
+    // A named preset on the connection (#84). When set, the preset supplies the
+    // action and options, so changing it once changes every event that uses it.
+    std::string preset_id;
     json        options = json::object();
     bool        triggered = false;   // "time" events: fired (or skipped) this pass
 

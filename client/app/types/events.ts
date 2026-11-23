@@ -28,6 +28,20 @@ export interface EventConnection {
   /** Absent = true. A disabled connection silently drops its events. */
   enabled?: boolean;
   config: Record<string, unknown>;
+  /** Named action + options that any event on this connection can reuse. */
+  presets?: EventPreset[];
+}
+
+/**
+ * "House lights to 40%", set up once on a connection. An event pointing at it
+ * takes its action and options from here, so changing the preset changes every
+ * event that uses it.
+ */
+export interface EventPreset {
+  id: string;
+  name: string;
+  action: string;
+  options: Record<string, unknown>;
 }
 
 /** One event on an audio item (`AudioItem.events`). */
@@ -46,6 +60,8 @@ export interface ItemEvent {
   plugin: string;
   action: string;
   connectionId?: string | null;
+  /** A preset on the connection. When set, it supplies action and options. */
+  presetId?: string | null;
   options: Record<string, unknown>;
 }
 
@@ -145,7 +161,8 @@ export interface DiscoveredDevice {
 
 /** Body of POST /api/events/test. */
 export interface EventTestRequest {
-  event: Pick<ItemEvent, 'plugin' | 'action' | 'options'> & { connectionId?: string | null };
+  event: Pick<ItemEvent, 'plugin' | 'action' | 'options'>
+    & { connectionId?: string | null; presetId?: string | null };
   /** An unsaved draft, so a connection can be tested while it is being edited. */
   connection?: EventConnection;
   itemUuid?: string;
