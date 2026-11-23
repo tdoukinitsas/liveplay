@@ -832,6 +832,15 @@
     "serverCloseClient": "Close Client Only",
     "return": "Return to Project"
   },
+  "openFileModal": {
+    "title": "Open this file?",
+    "message": "Opening {file} closes the current show.",
+    "liveTitle": "A show is playing",
+    "liveMessage": "Now playing: {cues}. Opening {file} closes this show and will stop its audio.",
+    "andMore": "{cues} and {count} more",
+    "keep": "Keep Current Show",
+    "open": "Close Show and Open"
+  },
   "deleteSelection": {
     "title": "Delete Items",
     "message": "{count} items are selected. What would you like to delete?",

@@ -144,6 +144,15 @@
       @pick="onQuitServerPick"
     />
 
+    <!-- A project file was opened from the OS while a show is open (#83). -->
+    <QuitConfirmModal
+      :visible="!!openOverShowRequest"
+      :title="openOverShowTitle"
+      :message="openOverShowMessage"
+      :buttons="openOverShowButtons"
+      @pick="onOpenOverShowPick"
+    />
+
     <!-- Import: server vs client choice (only for remote servers). -->
     <LocationChoiceModal
       :visible="importChoiceVisible"
@@ -192,18 +201,70 @@ const {
 const pendingFileOpen = useState<{ path: string; kind: 'liveplay' | 'lpa' } | null>(
   'liveplay:pendingFileOpen', () => null);
 
-// Route a double-clicked file to the welcome-screen flow. If a project is
-// already open we close it first (after the unsaved-changes prompt) so
-// WelcomeScreen re-mounts and picks up the pending file.
-async function routePendingFile(data: { filePath: string; kind: 'liveplay' | 'lpa' }) {
-  if (!data?.filePath) return;
-  pendingFileOpen.value = { path: data.filePath, kind: data.kind };
-  if (currentProject.value) {
-    const ok = await confirmUnsavedChanges();
-    if (!ok) { pendingFileOpen.value = null; return; }
-    await closeProject();
-  }
+// Route a double-clicked file to the welcome-screen flow. With a show open this
+// always asks first (#83): a stray double-click in a file manager must not be
+// able to close a running show. Only once the operator agrees is the file
+// queued and the project closed, so WelcomeScreen re-mounts and picks it up.
+type OpenFileRequest = { filePath: string; kind: 'liveplay' | 'lpa' };
+// The shared state directly: this root component also runs in the detached
+// windows, which have no reason to set up a whole audio engine here.
+const openFileActiveCues = useState<Map<string, { displayName: string }>>('activeCues', () => new Map());
+const openOverShowRequest = ref<OpenFileRequest | null>(null);
+let _openOverShowResolve: ((target: OpenFileRequest | null) => void) | null = null;
+
+const openOverShowFileName = computed(() =>
+  openOverShowRequest.value?.filePath.split(/[\\/]/).pop() ?? '');
+const openOverShowPlaying = computed(() =>
+  Array.from(openFileActiveCues.value.values()).map(c => c.displayName));
+const openOverShowTitle = computed(() => t(
+  openOverShowPlaying.value.length ? 'openFileModal.liveTitle' : 'openFileModal.title'));
+const openOverShowMessage = computed(() => {
+  const file = openOverShowFileName.value;
+  const playing = openOverShowPlaying.value;
+  if (!playing.length) return t('openFileModal.message', { file });
+  const shown = playing.slice(0, 3).join(', ');
+  const cues = playing.length > 3
+    ? t('openFileModal.andMore', { cues: shown, count: playing.length - 3 })
+    : shown;
+  return t('openFileModal.liveMessage', { file, cues });
+});
+const openOverShowButtons = computed(() => [
+  { key: 'cancel', label: t('openFileModal.keep'), variant: 'ghost' as const },
+  {
+    key: 'open',
+    label: t('openFileModal.open'),
+    variant: (openOverShowPlaying.value.length ? 'danger' : 'primary') as 'danger' | 'primary',
+  },
+]);
+
+function onOpenOverShowPick(choice: string) {
+  const target = choice === 'open' ? openOverShowRequest.value : null;
+  const resolve = _openOverShowResolve;
+  _openOverShowResolve = null;
+  openOverShowRequest.value = null;
+  resolve?.(target);
 }
+
+async function routePendingFile(data: OpenFileRequest) {
+  if (!data?.filePath) return;
+  if (!currentProject.value) {
+    pendingFileOpen.value = { path: data.filePath, kind: data.kind };
+    return;
+  }
+
+  // If the dialog is already up, it now asks about the most recent file.
+  openOverShowRequest.value = data;
+  if (_openOverShowResolve) return;
+  const target = await new Promise<OpenFileRequest | null>((resolve) => {
+    _openOverShowResolve = resolve;
+  });
+  if (!target) return;
+
+  if (!(await confirmUnsavedChanges())) return;
+  pendingFileOpen.value = { path: target.filePath, kind: target.kind };
+  await closeProject();
+}
+
 const { cartOnlyItems, clearCartOnlyItems, addCartOnlyItem } = useCartItems();
 import LoadingOverlay from './components/LoadingOverlay.vue';
 import AudioLoadProgress from './components/AudioLoadProgress.vue';

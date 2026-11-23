@@ -3715,13 +3715,15 @@ if (process.defaultApp) {
   app.setAsDefaultProtocolClient('liveplay');
 }
 
+const { getOpenableFileFromArgv, fileKindFor } = require('./open-file-args');
+
 // For Windows, we need to handle the protocol differently
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
   app.quit();
 } else {
-  app.on('second-instance', (event, commandLine) => {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
     // Someone tried to run a second instance, we should focus our window
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -3730,7 +3732,7 @@ if (!gotTheLock) {
     // On Windows/Linux a double-clicked file while we're already running
     // arrives as an argument on the second instance's command line. Pick it
     // up and open it (or stash it if the window isn't ready yet).
-    const f = getOpenableFileFromArgv(commandLine);
+    const f = getOpenableFileFromArgv(commandLine, workingDirectory);
     if (f) {
       if (mainWindow && mainWindow.webContents) {
         openFile(f);
@@ -3783,20 +3785,6 @@ app.on('open-file', (event, filePath) => {
     fileToOpen = filePath;
   }
 });
-
-// Find the first openable project file (.liveplay / .lpa) in a command-line
-// argument vector. Used for cold start (process.argv) and Windows/Linux
-// warm start (second-instance commandLine).
-function getOpenableFileFromArgv(argv) {
-  if (!Array.isArray(argv)) return null;
-  return argv.find(arg => typeof arg === 'string' &&
-    (/\.liveplay$/i.test(arg) || /\.lpa$/i.test(arg))) || null;
-}
-
-// Classify a path by extension into the kind the renderer expects.
-function fileKindFor(filePath) {
-  return /\.lpa$/i.test(filePath) ? 'lpa' : 'liveplay';
-}
 
 // Handle command line arguments (Windows/Linux)
 if (process.platform === 'win32' || process.platform === 'linux') {
