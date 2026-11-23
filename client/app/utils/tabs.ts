@@ -13,6 +13,7 @@
 // id is IMPLICIT_ID. The first real tab keeps that id, so a cart already
 // bound to "the playlist" stays bound when a second tab is added.
 // =====================================================================
+import { shallowReactive, toRaw } from 'vue';
 import type {
   AudioItem,
   CartPage,
@@ -157,7 +158,9 @@ export function detachItem(items: Item[], uuid: string): Item | null {
 }
 
 // One stable object per tab: a cart slot watches its item deeply, and a fresh
-// object on every read would redraw it on every tick.
+// object on every read would redraw it on every tick. Shallow-reactive, because
+// a stable object never changes the slot's prop: without this, a slot drawn
+// before the show's cues arrived kept showing 0:00.
 const tabGroupCache = new Map<string, GroupItem>();
 
 /**
@@ -172,7 +175,7 @@ export function tabGroupView(project: Project, tabId: string, fallbackName?: str
   const uuid = tabTarget(tabId);
   let view = tabGroupCache.get(uuid);
   if (!view) {
-    view = {
+    view = shallowReactive({
       uuid,
       type: 'group',
       index: [-1, -1],
@@ -182,11 +185,17 @@ export function tabGroupView(project: Project, tabId: string, fallbackName?: str
       startBehavior: { action: 'play-first' },
       endBehavior: { action: 'nothing' },
       isExpanded: false,
-    } as unknown as GroupItem;
+    }) as unknown as GroupItem;
     tabGroupCache.set(uuid, view);
   }
-  view.displayName = tab.name || fallbackName || view.displayName;
+  // This runs while the cart grid renders, so read through the raw object (the
+  // grid mustn't subscribe to what it writes) and only write what has changed.
+  const raw = toRaw(view);
+  view.displayName = tab.name || fallbackName || raw.displayName;
   view.color = tab.color || '#607D8B';
-  view.children = itemsOnTab(project.items, tabs, tabId);
+  const children = itemsOnTab(project.items, tabs, tabId);
+  const sameCues = children.length === raw.children.length
+    && children.every((child, i) => toRaw(child) === toRaw(raw.children[i]));
+  if (!sameCues) view.children = children;
   return view;
 }
