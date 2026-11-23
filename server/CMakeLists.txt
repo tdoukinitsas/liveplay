@@ -286,6 +286,13 @@ if(LIVEPLAY_BUILD_TESTS)
     )
     add_test(NAME device_name COMMAND liveplay-device-name-tests)
 
+    # Media import naming: a file must never overwrite another cue's (#92).
+    add_executable(liveplay-media-names-tests tests/media_names_test.cpp)
+    target_include_directories(liveplay-media-names-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME media_names COMMAND liveplay-media-names-tests)
+
     # Mixer strip gain / fade envelope (peek vs. advance).
     # Also covers the PFL monitor taps, which is why limiter.cpp is here: it
     # carries db_to_linear_precise, and the tap gain has to be the same number

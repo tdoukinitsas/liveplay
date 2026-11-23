@@ -1691,8 +1691,9 @@ function createClient() {
   }
 
   // Copy a server-side file into the project's media root. Returns the
-  // absolute path of the copy. A no-op (returns the same path) if the file
-  // is already inside the media root.
+  // absolute path of the copy, which is the one to store: a different file
+  // with the same name makes this "Intro (2).wav", and identical bytes return
+  // the copy already there (#92). A no-op if the file is already in the root.
   async function copyToMedia(sourcePath: string): Promise<string> {
     const result = await rest<{ dest_path: string }>('/api/copy_to_media', {
       method: 'POST',

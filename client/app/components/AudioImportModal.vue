@@ -234,8 +234,14 @@ async function pickAndUpload() {
       const out = await server.uploadFile(file, basename(lp));
       if (out?.saved?.length) {
         for (const savedPath of out.saved) {
-          uploadedThisSession.value.push(savedPath);
-          selectedUploaded.value.push(savedPath);   // pre-select for one-click import
+          // An identical file comes back as the path already on the server,
+          // which may be in this list from an earlier upload.
+          if (!uploadedThisSession.value.includes(savedPath)) {
+            uploadedThisSession.value.push(savedPath);
+          }
+          if (!selectedUploaded.value.includes(savedPath)) {
+            selectedUploaded.value.push(savedPath);   // pre-select for one-click import
+          }
         }
       }
     }

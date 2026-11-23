@@ -3433,6 +3433,16 @@ ipcMain.handle('youtube-settings:set', (_e, incoming) => {
   return next;
 });
 
+// A file stem not yet used in `dir` for this extension: "Song", "Song (2)", ...
+// The same numbering the server gives imported files.
+function uniqueMediaStem(dir, stem, ext) {
+  for (let n = 1; n < 10000; n++) {
+    const candidate = n === 1 ? stem : `${stem} (${n})`;
+    if (!fs.existsSync(path.join(dir, `${candidate}.${ext}`))) return candidate;
+  }
+  throw new Error('Too many media files share this name.');
+}
+
 // YouTube Download Handler
 ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFolderPath) => {
   return new Promise(async (resolve, reject) => {
@@ -3450,9 +3460,12 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
     
     // Clean filename
     const sanitizedTitle = title.replace(/[<>:"/\\|?*]/g, '').substring(0, 200);
-    const fileName = `${sanitizedTitle}.${yt.format}`;
-    const outputTemplate = path.join(outputPath, sanitizedTitle);
-    
+    // Two videos can share a title. yt-dlp would see the first one's file and
+    // skip the download, leaving the new cue playing the wrong audio (#92).
+    const fileStem = uniqueMediaStem(outputPath, sanitizedTitle, yt.format);
+    const fileName = `${fileStem}.${yt.format}`;
+    const outputTemplate = path.join(outputPath, fileStem);
+
     console.log('YouTube download - Output template:', outputTemplate);
     
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -3627,12 +3640,15 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
         if (!fs.existsSync(expectedFile)) {
           // Try to find it with URL-encoded name or other variations
           const files = fs.readdirSync(outputPath);
-          const baseName = sanitizedTitle;
-          
-          // Look for files that match the base name (case-insensitive, with any encoding)
+          const wantedName = fileName.toLowerCase();
+
+          // Look for this exact name (case-insensitive, with any encoding). Not
+          // a prefix match: "Song (2).mp3" belongs to another cue, and the
+          // rename below would take it away from them.
           const matchingFile = files.find(f => {
-            const decoded = decodeURIComponent(f);
-            return decoded.toLowerCase().startsWith(baseName.toLowerCase()) && f.endsWith(`.${yt.format}`);
+            let decoded = f;
+            try { decoded = decodeURIComponent(f); } catch { /* a literal % in the name */ }
+            return decoded.toLowerCase() === wantedName;
           });
           
           if (matchingFile) {

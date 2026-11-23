@@ -19,6 +19,7 @@
 #include "liveplay/logger.hpp"
 #include "liveplay/meta/metadata.hpp"
 #include "liveplay/meta/waveform.hpp"
+#include "liveplay/util/media_names.hpp"
 #include "liveplay/util/unicode_path.hpp"
 
 #if defined(_WIN32)
@@ -260,6 +261,9 @@ struct ControlServer::Impl {
         std::filesystem::path waveforms_dir; // empty = no disk cache
         bool                  force{false};  // delete cache and recompute
     };
+    // Held from "is this name free?" to the rename that claims it, so two
+    // imports of one file name cannot both decide it is theirs (#92).
+    std::mutex              media_publish_mutex;
     std::mutex              waveform_q_mutex;
     std::condition_variable waveform_q_cv;
     std::deque<WaveformTask> waveform_q;
@@ -4259,13 +4263,23 @@ void ControlServer::install_routes() {
                     }
                     // Strip path traversal — treat the filename bytes as UTF-8.
                     fs::path safe_name = liveplay::util::utf8_to_path(filename).filename();
-                    if (safe_name.empty()) safe_name = "upload.bin";
-                    fs::path dest = media / safe_name;
+                    if (safe_name.empty() || safe_name == "." || safe_name == "..") {
+                        safe_name = "upload.bin";
+                    }
 
-                    std::ofstream f{dest, std::ios::binary};
-                    if (!f) return json_err(500, "failed to write file");
-                    f.write(part.body.data(), static_cast<std::streamsize>(part.body.size()));
-                    saved.push_back(liveplay::util::path_to_utf8(dest));
+                    // Written aside and moved into place, so it can neither
+                    // overwrite another cue's file (#92) nor be opened half done.
+                    const liveplay::util::MediaTempFile temp{liveplay::util::media_temp_path(media)};
+                    {
+                        std::ofstream f{temp.path, std::ios::binary};
+                        if (!f) return json_err(500, "failed to write file");
+                        f.write(part.body.data(), static_cast<std::streamsize>(part.body.size()));
+                        f.close();
+                        if (!f) return json_err(500, "failed to write file");
+                    }
+                    std::lock_guard lock{impl_->media_publish_mutex};
+                    const auto published = liveplay::util::publish_media_file(temp.path, media, safe_name);
+                    saved.push_back(liveplay::util::path_to_utf8(published.path));
                 }
                 return json_ok(json({{"saved", saved}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
@@ -4293,21 +4307,34 @@ void ControlServer::install_routes() {
                 const fs::path media = state_.media_root();
                 if (media.empty()) return json_err(500, "media root not configured");
 
-                fs::create_directories(media);
-                const fs::path dest = media / src.filename();
-
-                // Skip the copy only when src and dest are the same file. Use
-                // weakly_canonical, NOT canonical: canonical() throws when the
-                // path doesn't exist, and dest normally does NOT exist yet on a
-                // first import — that threw, returned 500, and the client fell
-                // back to the original out-of-folder path, so the media never
-                // landed in the project folder (the import bug).
                 std::error_code ec;
-                if (fs::weakly_canonical(src, ec) != fs::weakly_canonical(dest, ec)) {
-                    fs::copy_file(src, dest, fs::copy_options::overwrite_existing);
+                const fs::path wanted = src.filename();
+                if (wanted.empty() || !fs::is_regular_file(src, ec)) {
+                    return json_err(400, "source is not a file");
                 }
 
-                return json_ok(json{{"dest_path", liveplay::util::path_to_utf8(dest)}});
+                fs::create_directories(media);
+                const fs::path dest = media / wanted;
+
+                // Already the project's own file: nothing to copy. equivalent()
+                // asks the filesystem, so a differently-cased or relative
+                // spelling of the same path still counts.
+                if (fs::exists(dest, ec) && fs::equivalent(src, dest, ec) && !ec) {
+                    return json_ok(json{{"dest_path", liveplay::util::path_to_utf8(dest)}});
+                }
+
+                // The same bytes under this name: reuse them, without a copy.
+                if (const auto existing = liveplay::util::find_identical_media(media, wanted, src)) {
+                    return json_ok(json{{"dest_path", liveplay::util::path_to_utf8(*existing)}});
+                }
+
+                // Copied aside and moved into place, so it can neither
+                // overwrite another cue's file (#92) nor be opened half done.
+                const liveplay::util::MediaTempFile temp{liveplay::util::media_temp_path(media)};
+                fs::copy_file(src, temp.path);
+                std::lock_guard lock{impl_->media_publish_mutex};
+                const auto published = liveplay::util::publish_media_file(temp.path, media, wanted);
+                return json_ok(json{{"dest_path", liveplay::util::path_to_utf8(published.path)}});
             } catch (const std::exception& e) { return json_err(500, e.what()); }
         });
 
