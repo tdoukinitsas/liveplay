@@ -404,7 +404,12 @@ Saved projects store your plugin's `id`, action ids, field ids and option values
 // Project root
 "eventConnections": [
   { "id": "uuid", "name": "Lighting desk", "plugin": "osc", "enabled": true,
-    "config": { "host": "192.168.1.50", "port": 8000 } }
+    "config": { "host": "192.168.1.50", "port": 8000 },
+    // Optional: named settings any event on this connection can reuse.
+    "presets": [
+      { "id": "uuid", "name": "House to half", "action": "message",
+        "options": { "address": "/eos/sub/1", "args": [] } }
+    ] }
 ]
 
 // On an audio item
@@ -417,6 +422,8 @@ Saved projects store your plugin's `id`, action ids, field ids and option values
 ]
 ```
 
+**Presets.** An event with a `presetId` takes its action and options from that preset on its connection when it fires, so a plugin never sees the difference: `job.action` and `job.options` arrive already resolved. If the event has options of its own, they override the preset's single fields. A preset that no longer exists stops the event with an error rather than firing something else.
+
 Before 2.6, items could carry `customActions` (`play-item`, `play-index`, `stop-all`, `http-request`). The server migrates them into `events` on load; an HTTP target becomes a connection per origin. See `migrate_custom_actions` in `project_state.cpp`.
 
-REST and WebSocket details: `GET/PUT /api/events/connections`, `GET /api/events/plugins` and `POST /api/events/test`, plus the doc_patch ops `event_fired` and `event_connections_changed`, are all in the API reference (`docs-site/public/api/reference.json`, published with the docs site).
+REST and WebSocket details: `GET/PUT /api/events/connections`, `GET /api/events/plugins` `POST /api/events/test` and `GET /api/events/jobs/<id>` (a slow test answers with a job to collect), plus the doc_patch ops `event_fired` and `event_connections_changed`, are all in the API reference (`docs-site/public/api/reference.json`, published with the docs site).

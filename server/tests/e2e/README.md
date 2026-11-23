@@ -28,6 +28,8 @@ On Windows, use a path such as `C:/Tests/test-signal.wav`. The ordinary signal h
 
 Unless shown otherwise, arguments are `<port> <wavPath>`.
 
+These take only a port, or start a server of their own: `media-import-e2e.js <port>`, `tabs-e2e.js <port>`, `event-presets-e2e.js <port> [serverExe]` and `stability-e2e.js <port> [serverExe] [soakSeconds]`. The last two own their server, so give them a free port. For `xair-e2e.js`, `XAIR_STRIPS_ONLY=1` writes to the two named strips and nothing else on the desk.
+
 | Script | Coverage / special arguments |
 |---|---|
 | `pfl-e2e.js` | Pre-fader/pre-mute listening and program isolation |

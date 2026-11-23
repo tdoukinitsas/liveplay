@@ -1570,7 +1570,7 @@
         "slot": 0,
         "uuid": "item-uuid"
       },
-      "notes": "Path: zero-based slot. POST and GET both act. Empty slot/unplayable target: 404.",
+      "notes": "Path: zero-based position on the first cart page, which is all a show from before pages has. POST and GET both act. Empty slot/unplayable target: 404. For other pages use /api/transport/cart/<page>/<cart>/play.",
       "errors": [
         [
           "404",
@@ -1582,6 +1582,61 @@
         ]
       ],
       "sourceLine": 3188
+    },
+    {
+      "methods": [
+        "POST",
+        "GET"
+      ],
+      "path": "/api/transport/cart/<int>/<int>/play",
+      "title": "Trigger a cart by page and position",
+      "category": "Transport and selection",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "ok": true,
+        "page": 0,
+        "cart": 3,
+        "uuid": "item-uuid"
+      },
+      "notes": "Path: zero-based page, then zero-based cart on it. Pages count in tab order, so reordering them changes which page an index means; carts are also reachable by UUID through /api/project/items/<uuid>/play. POST and GET both act.",
+      "errors": [
+        [
+          "404",
+          "cart is empty or doesn't exist"
+        ],
+        [
+          "404",
+          "item not loaded into engine"
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/transport/cart/<int>/<int>/stop",
+      "title": "Stop a cart by page and position",
+      "category": "Transport and selection",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "ok": true,
+        "page": 0,
+        "cart": 3,
+        "uuid": "item-uuid"
+      },
+      "notes": "A cart bound to a playlist tab stops whatever of that tab is on air.",
+      "errors": [
+        [
+          "404",
+          "cart is empty or doesn't exist"
+        ]
+      ]
     },
     {
       "methods": [
@@ -2323,7 +2378,7 @@
           "integer",
           "Yes",
           "-",
-          "Use 0..63; route only checks nonnegative."
+          "The raw slot number: a page's slotBase + the cart's position. Route only checks nonnegative."
         ],
         [
           "itemUuid",
@@ -2342,7 +2397,7 @@
         "slot": 0,
         "itemUuid": "opening"
       },
-      "notes": "State rejects slot >=64 but the route still returns 200 and broadcasts cart_slot_set. UUID existence is not checked. Cart display size is a client concern.",
+      "notes": "State rejects a slot outside the 100 pages of 64 slots but the route still returns 200 and broadcasts cart_slot_set. itemUuid may be \"tab:<tabId>\" to make the cart start a whole playlist tab. UUID existence is not checked. See GET /api/cart/pages for each page's carts.",
       "errors": [
         [
           "400",
@@ -2354,6 +2409,114 @@
         ]
       ],
       "sourceLine": 4917
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/cart/pages",
+      "title": "List cart pages and their carts",
+      "category": "Playlist items and carts",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "pages": [
+          {
+            "page": 0,
+            "id": "default",
+            "name": "Walk-in",
+            "size": 16,
+            "carts": [
+              {
+                "cart": 3,
+                "address": "0,3",
+                "itemUuid": "item-uuid",
+                "name": "Doors"
+              }
+            ]
+          }
+        ]
+      },
+      "notes": "Every page in tab order with its bound carts. A show that has never had pages reports one page of 16. address is the page,cart form the transport routes take.",
+      "errors": [
+        [
+          "500",
+          "internal error"
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "path": "/api/project/tabs",
+      "title": "Read or replace playlist tabs and cart pages",
+      "category": "Playlist items and carts",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "playlistTabs",
+          "array",
+          "No",
+          "unchanged",
+          "PUT: {id, name, color?, atEnd: wrap|continue|stop}. [] returns to the single implicit tab."
+        ],
+        [
+          "cartPages",
+          "array",
+          "No",
+          "unchanged",
+          "PUT: {id, name, color?, size: 4..64, slotBase}. A missing or clashing slotBase is assigned a free block. [] returns to the single default page."
+        ]
+      ],
+      "request": {
+        "cartPages": [
+          {
+            "id": "walk-in",
+            "name": "Walk-in",
+            "size": 8,
+            "slotBase": 0
+          }
+        ]
+      },
+      "response": {
+        "playlistTabs": [],
+        "cartPages": [
+          {
+            "id": "walk-in",
+            "name": "Walk-in",
+            "size": 8,
+            "slotBase": 0
+          }
+        ],
+        "limits": {
+          "maxPlaylistTabs": 100,
+          "maxCartPages": 100,
+          "minCartsPerPage": 4,
+          "maxCartsPerPage": 64,
+          "defaultCartsPerPage": 16,
+          "cartSlotsPerPage": 64
+        }
+      },
+      "notes": "What exists, shared by all clients; which tab a client is looking at is local to it. A top-level item is on the tab its tabId names, or the first tab. PUT broadcasts tabs_changed. Limits are defined by the server.",
+      "errors": [
+        [
+          "400",
+          "expected an object"
+        ],
+        [
+          "400",
+          "a list that is not an array"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing); message varies."
+        ]
+      ]
     },
     {
       "methods": [
@@ -4734,7 +4897,7 @@
           "C:/Shows/Show/media/opening.wav"
         ]
       },
-      "notes": "Content-Type: multipart/form-data with boundary. Use curl -F \"file=@opening.wav\". Total body size limited by maxUploadBytes. Uses basename; overwrites an existing same-named file. Does not create project items or queue waveforms.",
+      "notes": "Content-Type: multipart/form-data with boundary. Use curl -F \"file=@opening.wav\". Total body size limited by maxUploadBytes. Uses the basename and never overwrites: a different file with a taken name is saved as \"name (2).ext\", and identical bytes return the copy already there. Use the returned path. Does not create project items or queue waveforms.",
       "errors": [
         [
           "413",
@@ -4779,11 +4942,15 @@
       "response": {
         "dest_path": "C:/Shows/Show/media/opening.wav"
       },
-      "notes": "Overwrites the destination basename unless source and destination resolve to the same path. JSON parse/type and filesystem exceptions become 500 in this handler.",
+      "notes": "Never overwrites. A different file with a taken name is saved as \"name (2).ext\", identical bytes return the copy already there, and a file already in the media folder stays put. Store the returned path. JSON parse/type and filesystem exceptions become 500 in this handler.",
       "errors": [
         [
           "400",
           "missing source_path"
+        ],
+        [
+          "400",
+          "source is not a file"
         ],
         [
           "404",
@@ -5451,7 +5618,7 @@
           "object",
           "Yes",
           "-",
-          "plugin, action, options and optional connectionId (an ItemEvent without its trigger)."
+          "plugin, action, options and optional connectionId and presetId (an ItemEvent without its trigger)."
         ],
         [
           "connection",
@@ -5483,7 +5650,7 @@
         "ok": false,
         "error": "connection not found"
       },
-      "notes": "Runs synchronously and reports the plugin's result. Always 200 for a well-formed request; failure is ok=false with error. Exception: 403 when an API token tests an unsaved (draft) HTTP connection; a saved connection may be tested.",
+      "notes": "Reports the plugin's result. Always 200 for a well-formed request; failure is ok=false with error. Exception: 403 when an API token tests an unsaved (draft) HTTP connection; a saved connection may be tested. Waits on the network off the I/O threads: a request not finished within 50 ms answers {\"pending\":true,\"jobId\":\"...\"}, and the result comes from GET /api/events/jobs/<id>.",
       "errors": [
         [
           "400",
@@ -5492,6 +5659,33 @@
         [
           "400",
           "Handler exception (JSON parsing or type conversion); message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/events/jobs/<string>",
+      "title": "Collect a slow event request",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "ok": false,
+        "error": "Failed to read connection"
+      },
+      "notes": "Path: the jobId from a pending answer of /api/events/test, /options or /discover. While it runs: {\"pending\":true,\"jobId\":\"...\"}. Once finished: that request's own result, once. A result nobody collects is dropped after two minutes.",
+      "errors": [
+        [
+          "404",
+          "no such job"
+        ],
+        [
+          "500",
+          "Handler exception; message varies."
         ]
       ]
     },
@@ -5554,7 +5748,7 @@
           }
         ]
       },
-      "notes": "What a field declared with optionsFrom offers, read from the device (strip names, snapshots). When the device cannot be reached, the plugin returns what it can (static options) with error set; the request still succeeds.",
+      "notes": "What a field declared with optionsFrom offers, read from the device (strip names, snapshots). When the device cannot be reached, the plugin returns what it can (static options) with error set; the request still succeeds. Waits on the network off the I/O threads: a request not finished within 50 ms answers {\"pending\":true,\"jobId\":\"...\"}, and the result comes from GET /api/events/jobs/<id>.",
       "errors": [
         [
           "400",
@@ -5606,7 +5800,7 @@
           }
         ]
       },
-      "notes": "Searches every network of the server machine. Each device's config fills a connection's fields; name suggests its name. An empty list when nothing answers or the plugin cannot discover.",
+      "notes": "Searches every network of the server machine. Each device's config fills a connection's fields; name suggests its name. An empty list when nothing answers or the plugin cannot discover. Waits on the network off the I/O threads: a request not finished within 50 ms answers {\"pending\":true,\"jobId\":\"...\"}, and the result comes from GET /api/events/jobs/<id>.",
       "errors": [
         [
           "400",
@@ -5847,6 +6041,13 @@
           "No",
           "4",
           "0=24, 1=25, 2=29.97NDF, 3=29.97DF, 4=30."
+        ],
+        [
+          "tabId",
+          "string",
+          "No",
+          "first tab",
+          "Top-level items: the playlist tab it is on."
         ]
       ]
     },
@@ -5916,6 +6117,13 @@
           "No",
           "{}",
           "Values for the action's fields."
+        ],
+        [
+          "presetId",
+          "string",
+          "No",
+          "absent",
+          "A preset on the event's connection. Supplies action and options; the event's own options override single fields."
         ]
       ]
     },
@@ -5957,6 +6165,13 @@
           "No",
           "{}",
           "Values for the plugin's connectionFields."
+        ],
+        [
+          "presets",
+          "array",
+          "No",
+          "absent",
+          "Reusable {id, name, action, options}. An event pointing at one takes its action and options from it."
         ]
       ]
     },
@@ -6095,6 +6310,27 @@
           "Compatibility only",
           "{}",
           "Read for seeding user preferences; not maintained as project preferences."
+        ],
+        [
+          "playlistTabs",
+          "array",
+          "No",
+          "[]",
+          "See /api/project/tabs. Absent or empty: one implicit tab."
+        ],
+        [
+          "cartPages",
+          "array",
+          "No",
+          "[]",
+          "See /api/project/tabs. Absent or empty: one page of 16 carts."
+        ],
+        [
+          "cartPinnedKeys",
+          "object",
+          "No",
+          "{}",
+          "Item uuid to a key binding that fires that cart from any page."
         ]
       ]
     },
@@ -6164,6 +6400,34 @@
           "Yes",
           "[]",
           "Event destinations (see /api/events/connections)."
+        ],
+        [
+          "playlistTabs",
+          "array",
+          "No",
+          "[]",
+          "See /api/project/tabs. Absent or empty: one implicit tab."
+        ],
+        [
+          "cartPages",
+          "array",
+          "No",
+          "[]",
+          "See /api/project/tabs. Absent or empty: one page of 16 carts."
+        ],
+        [
+          "cartPinnedKeys",
+          "object",
+          "No",
+          "{}",
+          "Item uuid to a key binding that fires that cart from any page."
+        ],
+        [
+          "tabLimits",
+          "object",
+          "Yes",
+          "-",
+          "The limits on tabs and pages, defined by the server."
         ]
       ]
     },
@@ -8064,6 +8328,33 @@
         },
         "reply": "{\"type\":\"pong\"}",
         "notes": "No server-initiated JSON heartbeat or mandated ping interval."
+      },
+      {
+        "type": "set_view",
+        "purpose": "Say which tab and page this client shows",
+        "fields": [
+          [
+            "playlistTab",
+            "string",
+            "No",
+            "\"\"",
+            "Playlist tab id."
+          ],
+          [
+            "cartPage",
+            "string",
+            "No",
+            "\"\"",
+            "Cart page id."
+          ]
+        ],
+        "example": {
+          "type": "set_view",
+          "playlistTab": "default",
+          "cartPage": "default"
+        },
+        "reply": "doc_patch client_view_id with this connection's id; everyone gets client_views.",
+        "notes": "Only so another operator can choose to follow it. Never stored in the show."
       }
     ],
     "events": [
@@ -9183,6 +9474,78 @@
           "connections": []
         },
         "notes": "Follows PUT /api/events/connections."
+      },
+      {
+        "op": "tabs_changed",
+        "purpose": "Playlist tabs or cart pages changed",
+        "fields": [
+          [
+            "playlistTabs",
+            "array",
+            "Yes",
+            "-",
+            "The stored tabs."
+          ],
+          [
+            "cartPages",
+            "array",
+            "Yes",
+            "-",
+            "The stored pages."
+          ]
+        ],
+        "example": {
+          "type": "doc_patch",
+          "op": "tabs_changed",
+          "playlistTabs": [],
+          "cartPages": []
+        },
+        "notes": "Follows PUT /api/project/tabs."
+      },
+      {
+        "op": "client_views",
+        "purpose": "Which tab and page each operator shows",
+        "fields": [
+          [
+            "views",
+            "array",
+            "Yes",
+            "-",
+            "{id, label, playlistTab, cartPage} for each connection that has sent set_view."
+          ]
+        ],
+        "example": {
+          "type": "doc_patch",
+          "op": "client_views",
+          "views": [
+            {
+              "id": 3,
+              "label": "operator",
+              "playlistTab": "default",
+              "cartPage": "default"
+            }
+          ]
+        },
+        "notes": "Sent on any change and when a client disconnects."
+      },
+      {
+        "op": "client_view_id",
+        "purpose": "This connection's own id",
+        "fields": [
+          [
+            "id",
+            "integer",
+            "Yes",
+            "-",
+            "The id this connection has in client_views."
+          ]
+        ],
+        "example": {
+          "type": "doc_patch",
+          "op": "client_view_id",
+          "id": 3
+        },
+        "notes": "Direct reply to set_view, so a client can leave itself out of a list of operators to follow."
       }
     ]
   }

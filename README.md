@@ -8,8 +8,8 @@
 
 ## Features
 
-- **Playlist and carts:** nested cue groups, one-touch buttons, trim points, fades, loops, crossfades and next-cue actions.
-- **Show Mode:** a simplified playback view; detachable cart and mixer windows.
+- **Playlist and carts:** nested cue groups, playlist tabs, cart pages of 4 to 64 carts, one-touch buttons, trim points, fades, loops, crossfades and next-cue actions.
+- **Show Mode:** a simplified playback view; detachable cart and mixer windows, and any playlist tab or cart page in a window of its own.
 - **Mixing:** mono/stereo buses, EQ, gate, compressor, stereo width, pre-fade listening and auxiliary sends.
 - **Outputs:** logical output names mapped to channels on one or more audio interfaces.
 - **Monitoring:** cue, bus and output meters; loudness targets and a master limiter.
