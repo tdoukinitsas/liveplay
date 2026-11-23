@@ -309,14 +309,17 @@ public:
     }
 };
 
-// File extensions we accept as cue audio files.
+// File extensions we accept as cue audio files: exactly what the engine's
+// built-in decoders can play (audio/miniaudio_impl.c). The client's copy is in
+// utils/audioFormats.ts, and Electron's file dialog has its own list.
 const std::set<std::string>& audio_extensions() {
     static const std::set<std::string> exts {
-        ".wav", ".aiff", ".aif", ".flac", ".mp3", ".ogg", ".m4a", ".aac",
-        ".opus", ".wma", ".caf"
+        ".wav", ".aiff", ".aif", ".flac", ".mp3"
     };
     return exts;
 }
+
+constexpr const char* kUnsupportedAudio = "unsupported audio format: use WAV, AIFF, FLAC or MP3";
 
 bool is_audio_file(const fs::path& p) {
     auto e = p.extension().string();
@@ -4368,11 +4371,7 @@ void ControlServer::install_routes() {
                 const auto& parts = multipart.parts;
                 if (parts.empty()) return json_err(400, "no multipart parts");
 
-                fs::path media = state_.media_root();
-                fs::create_directories(media);
-
-                json saved = json::array();
-                for (const auto& part : parts) {
+                const auto part_name = [](const auto& part) {
                     // Pick filename from Content-Disposition header.
                     std::string filename = "upload.bin";
                     auto it = part.headers.find("Content-Disposition");
@@ -4388,6 +4387,20 @@ void ControlServer::install_routes() {
                     if (safe_name.empty() || safe_name == "." || safe_name == "..") {
                         safe_name = "upload.bin";
                     }
+                    return safe_name;
+                };
+
+                // Before anything is written, so a mixed batch can't half land.
+                for (const auto& part : parts) {
+                    if (!is_audio_file(part_name(part))) return json_err(415, kUnsupportedAudio);
+                }
+
+                fs::path media = state_.media_root();
+                fs::create_directories(media);
+
+                json saved = json::array();
+                for (const auto& part : parts) {
+                    const fs::path safe_name = part_name(part);
 
                     // Written aside and moved into place, so it can neither
                     // overwrite another cue's file (#92) nor be opened half done.
@@ -4434,6 +4447,7 @@ void ControlServer::install_routes() {
                 if (wanted.empty() || !fs::is_regular_file(src, ec)) {
                     return json_err(400, "source is not a file");
                 }
+                if (!is_audio_file(wanted)) return json_err(415, kUnsupportedAudio);
 
                 fs::create_directories(media);
                 const fs::path dest = media / wanted;

@@ -189,6 +189,9 @@
       @close="importServerPickerOpen = false"
     />
     </template>
+
+    <!-- Outside the window branches: files can be dropped on a detached cart. -->
+    <ImportNotice />
   </div>
 </template>
 

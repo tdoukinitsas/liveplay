@@ -109,6 +109,39 @@ const base = p => String(p).split(/[\\/]/).pop();
     ok('no temp files are left behind', left.length === 0, left.join(', '));
     ok('the folder holds exactly the expected files',
        fs.readdirSync(media).length === 3 + 8, String(fs.readdirSync(media).length));
+
+    // ---- Only what the engine can decode gets in ---------------------------
+    const before = fs.readdirSync(media).length;
+    for (const ext of ['ogg', 'm4a', 'aac', 'opus', 'wma', 'caf', 'M4A', 'txt']) {
+      const source = path.join(dirA, `Refused.${ext}`);
+      fs.writeFileSync(source, `bytes of ${ext}`);
+      const copied = await copyIn(source);
+      ok(`copying .${ext} is refused`, copied.startsWith('HTTP 415'), copied.slice(0, 60));
+      const uploaded = await upload(`Refused.${ext}`, `bytes of ${ext}`);
+      ok(`uploading .${ext} is refused`, uploaded === 'HTTP 415', uploaded);
+    }
+    const mixed = new FormData();
+    mixed.append('a', new Blob(['playable']), 'Mixed.wav');
+    mixed.append('b', new Blob(['not playable']), 'Mixed.m4a');
+    const mixedReply = await fetch(`${BASE}/api/upload`, { method: 'POST', body: mixed });
+    ok('a mixed upload is refused whole', mixedReply.status === 415, `HTTP ${mixedReply.status}`);
+    ok('and nothing from it was saved', fs.readdirSync(media).length === before,
+       String(fs.readdirSync(media).length - before));
+
+    const accepted = ['wav', 'WAV', 'aiff', 'aif', 'flac', 'mp3'];
+    // Numbered, because .wav and .WAV are the same file on Windows and macOS.
+    const acceptedName = (ext) => `Accepted-${accepted.indexOf(ext)}.${ext}`;
+    for (const ext of accepted) {
+      const saved = await upload(acceptedName(ext), `playable ${ext}`);
+      ok(`.${ext} is accepted`, base(saved) === acceptedName(ext), base(saved));
+    }
+    const listed = await rest(`/api/fs/list?path=${encodeURIComponent(media.replace(/\\/g, '/'))}&filter=audio`);
+    const listedNames = (listed.body?.entries ?? []).filter(en => en.kind === 'file').map(en => en.name);
+    const dirListed = await rest(`/api/fs/list?path=${encodeURIComponent(dirA.replace(/\\/g, '/'))}&filter=audio`);
+    const refusedShown = (dirListed.body?.entries ?? []).filter(en => en.name.startsWith('Refused.'));
+    ok('the file browser shows playable files', accepted.every(ext => listedNames.includes(acceptedName(ext))),
+       String(listedNames.length));
+    ok('and hides the rest', refusedShown.length === 0, refusedShown.map(en => en.name).join(', '));
   } catch (e) {
     ok('the suite ran to the end', false, e?.stack ?? String(e));
   } finally {

@@ -4804,7 +4804,7 @@
           }
         ]
       },
-      "notes": "Entries have name/full_path/kind; kind is home, drive, dir or file. File entries also have size in bytes. Dot-prefixed names are hidden. Empty path honors configured roots; normal paths are canonicalized and checked. Audio filter: wav/aiff/aif/flac/mp3/ogg/m4a/aac/opus/wma/caf; inclusion does not guarantee decode support.",
+      "notes": "Entries have name/full_path/kind; kind is home, drive, dir or file. File entries also have size in bytes. Dot-prefixed names are hidden. Empty path honors configured roots; normal paths are canonicalized and checked. Audio filter: wav/aiff/aif/flac/mp3, the formats the engine can decode.",
       "errors": [
         [
           "404",
@@ -4886,7 +4886,7 @@
           "binary",
           "Yes",
           "-",
-          "Each part is written; filename from Content-Disposition, default upload.bin."
+          "Each part is written; filename from Content-Disposition. Every part must be a wav, aiff, aif, flac or mp3 file, or nothing is saved."
         ]
       ],
       "request": {
@@ -4914,6 +4914,10 @@
         [
           "400",
           "Handler exception (JSON parsing, type conversion or operation failure); message varies."
+        ],
+        [
+          "415",
+          "unsupported audio format: use WAV, AIFF, FLAC or MP3"
         ]
       ],
       "sourceLine": 3946
@@ -4933,7 +4937,7 @@
           "string",
           "Yes",
           "-",
-          "Nonempty source path within permitted roots."
+          "Nonempty source path within permitted roots, to a wav, aiff, aif, flac or mp3 file."
         ]
       ],
       "request": {
@@ -4967,6 +4971,10 @@
         [
           "403",
           "Path is outside configured filesystem roots."
+        ],
+        [
+          "415",
+          "unsupported audio format: use WAV, AIFF, FLAC or MP3"
         ]
       ],
       "sourceLine": 3991

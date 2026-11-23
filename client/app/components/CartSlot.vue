@@ -906,17 +906,15 @@ const handleDrop = async (e: DragEvent) => {
   
   // Check if it's a file drop
   if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-    const file = e.dataTransfer.files[0];
-    // Check if it's an audio file
-    if (file.type.startsWith('audio/') || /\.(mp3|wav|flac|ogg|m4a|aac)$/i.test(file.name)) {
-      // Upload to (local mode: copy into) the server's media root, then import
-      // the resulting server path. Works whether or not Electron can hand us an
-      // OS path and whether the server is local or remote.
-      const server = useLiveplayServer();
-      const serverPath = await server.resolveDroppedFileToMedia(file);
-      if (serverPath) await importFromServerPath(serverPath);
-      return;
-    }
+    const [file] = useImportNotice().keepPlayable([e.dataTransfer.files[0]!], f => f.name);
+    if (!file) return;
+    // Upload to (local mode: copy into) the server's media root, then import
+    // the resulting server path. Works whether or not Electron can hand us an
+    // OS path and whether the server is local or remote.
+    const server = useLiveplayServer();
+    const serverPath = await server.resolveDroppedFileToMedia(file);
+    if (serverPath) await importFromServerPath(serverPath);
+    return;
   }
   
   // Otherwise, check if it's an item UUID from the playlist

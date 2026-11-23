@@ -2766,7 +2766,8 @@ ipcMain.handle('select-audio-files', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile', 'multiSelections'],
     filters: [
-      { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'] }
+      // What the engine can decode; see audio_extensions() in control_server.cpp.
+      { name: 'Audio Files', extensions: ['wav', 'aiff', 'aif', 'flac', 'mp3'] }
     ]
   });
 

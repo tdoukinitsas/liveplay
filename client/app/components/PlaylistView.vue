@@ -769,10 +769,7 @@ const handleDrop = async (e: DragEvent) => {
     return;
   }
 
-  const files = Array.from(e.dataTransfer.files);
-  const audioFiles = files.filter(file =>
-    /\.(mp3|wav|ogg|flac|m4a|aac)$/i.test(file.name)
-  );
+  const audioFiles = useImportNotice().keepPlayable(Array.from(e.dataTransfer.files), file => file.name);
   if (audioFiles.length === 0) return;
 
   // Files dropped from the OS must be uploaded to (or copied into) the

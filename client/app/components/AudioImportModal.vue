@@ -113,6 +113,7 @@ const emit  = defineEmits<{
 const server = useLiveplayServer();
 const { currentProject } = useProject();
 const { t }  = useLocalization();
+const { keepPlayable } = useImportNotice();
 // When the server is on this same machine, "Upload from this computer" is
 // meaningless — we just want the server file browser.
 const tab    = ref<'server' | 'upload'>('server');
@@ -137,7 +138,8 @@ function basename(p: string): string { return p.split(/[\\/]/).pop() || p; }
 
 // Server file browser emits a batch of already-on-server paths.
 function onServerPick(serverPaths: string[]) {
-  if (serverPaths.length) emit('pick', serverPaths);
+  const playable = keepPlayable(serverPaths, p => p);
+  if (playable.length) emit('pick', playable);
 }
 
 function importLocalSelected() {
@@ -186,13 +188,12 @@ async function pickLocal() {
   if (!api?.selectAudioFiles) return;
   pickingLocal.value = true;
   try {
-    const paths: string[] | null = await api.selectAudioFiles();
-    if (paths?.length) {
-      for (const p of paths) {
-        if (!localPicked.value.includes(p)) {
-          localPicked.value.push(p);
-          selectedLocal.value.push(p);   // pre-select newly picked files
-        }
+    // A native dialog's filter can be bypassed by typing a file name.
+    const picked: string[] | null = await api.selectAudioFiles();
+    for (const p of keepPlayable(picked ?? [], path => path)) {
+      if (!localPicked.value.includes(p)) {
+        localPicked.value.push(p);
+        selectedLocal.value.push(p);   // pre-select newly picked files
       }
     }
   } finally {
@@ -209,8 +210,9 @@ async function pickAndUpload() {
     return;
   }
 
-  const localPaths: string[] | null = await api.selectAudioFiles();
-  if (!localPaths || localPaths.length === 0) return;
+  const picked: string[] | null = await api.selectAudioFiles();
+  const localPaths = keepPlayable(picked ?? [], path => path);
+  if (localPaths.length === 0) return;
 
   uploading.value = true;
   try {
