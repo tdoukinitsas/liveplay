@@ -554,7 +554,17 @@ export const useProject = () => {
     const newUuids: string[] = [];
     for (const it of parsed) {
       const clone = cloneItemWithNewIds(it);
-      currentProject.value.items.push(clone);
+      // Onto the tab this window is showing, wherever it was copied from.
+      const tabs = tabsOf(currentProject.value);
+      if (tabs.length > 1) {
+        const shown = useState<string | null>('showTabs.activePlaylistTab').value;
+        const tabId = tabs.some(tab => tab.id === shown) ? shown! : tabs[0]!.id;
+        clone.tabId = tabId;
+        currentProject.value.items.splice(insertIndexForTab(currentProject.value.items, tabs, tabId), 0, clone);
+      } else {
+        delete clone.tabId;
+        currentProject.value.items.push(clone);
+      }
       newUuids.push(clone.uuid);
     }
     updateIndices(currentProject.value.items);

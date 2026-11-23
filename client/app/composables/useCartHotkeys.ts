@@ -219,7 +219,9 @@ export const useCartHotkeys = () => {
     if (action === 'select-up' || action === 'select-down') {
       const project = currentProject.value;
       if (!project) return;
-      const all = getAllItemsFlat(project.items);
+      // The rows on the tab this window is showing: stepping must not move
+      // the selection somewhere the operator can't see it.
+      const all = getAllItemsFlat(useShowTabs().itemsOnActiveTab.value);
       if (all.length === 0) return;
       if (!selectedItem.value) {
         toggleItemSelection(all[0].uuid, false, false);

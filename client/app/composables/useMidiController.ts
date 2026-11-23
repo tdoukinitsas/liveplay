@@ -245,7 +245,7 @@ export const useMidiController = () => {
     if (actionId === 'select-up' || actionId === 'select-down') {
       const project = currentProject.value;
       if (!project) return;
-      const all = getAllItemsFlat(project.items);
+      const all = getAllItemsFlat(useShowTabs().itemsOnActiveTab.value);
       if (all.length === 0) return;
       if (!selectedItem.value) {
         toggleItemSelection(all[0].uuid, false, false);

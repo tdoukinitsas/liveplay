@@ -317,9 +317,17 @@ export const useShowTabs = () => {
     if (kind === 'playlist') {
       const list = materialisedTabs();
       if (list.length <= 1) return false;
-      for (const item of itemsOnTab(project.items, list, id)) removeItem(item.uuid);
+      // Carts bound to this tab, or to a group on it, have nothing left to fire.
+      const onTab = itemsOnTab(project.items, list, id);
+      const gone = new Set<string>([tabTarget(id)]);
+      const collect = (item: any) => {
+        gone.add(item.uuid);
+        if (item.type === 'group') item.children.forEach(collect);
+      };
+      onTab.forEach(collect);
+      for (const item of [...onTab]) removeItem(item.uuid);
       project.playlistTabs = list.filter(tab => tab.id !== id);
-      project.cartItems = project.cartItems.filter(c => c.itemUuid !== tabTarget(id));
+      project.cartItems = project.cartItems.filter(c => !gone.has(c.itemUuid));
     } else {
       const list = materialisedPages();
       const page = list.find(p => p.id === id);
