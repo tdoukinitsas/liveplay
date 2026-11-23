@@ -14,7 +14,13 @@
           <p class="version-info">
             {{ t('update.newVersion') }}: <strong class="new-version">{{ newVersion }}</strong>
           </p>
-          
+
+          <a class="whats-new-link" :href="whatsNewUrl" @click.prevent="openWhatsNew">
+            <span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span>
+            <span class="whats-new-text">{{ t('update.seeWhatsNew', { version: releaseLine }) }}</span>
+            <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
+          </a>
+
           <div v-if="sanitizedReleaseNotes" class="release-notes">
             <h3>{{ t('update.whatsNew') }}</h3>
             <!-- Release notes are sanitised with DOMPurify before rendering so
@@ -110,7 +116,25 @@ const emit = defineEmits<{
   install: [];
 }>();
 
-const { t } = useLocalization();
+const { t, currentLocale } = useLocalization();
+
+const WHATS_NEW_URL = 'https://tdoukinitsas.github.io/liveplay/whats-new/';
+
+// "2.6.1" is part of the 2.6 release page. A release without a page of its own
+// lands on the What's New index, so this link can't dead-end.
+const versionParts = computed(() => props.newVersion?.match(/(\d+)\.(\d+)/));
+const releaseLine = computed(() =>
+  versionParts.value ? `${versionParts.value[1]}.${versionParts.value[2]}` : props.newVersion);
+const whatsNewUrl = computed(() => {
+  const page = versionParts.value ? `${versionParts.value[1]}-${versionParts.value[2]}/` : '';
+  return `${WHATS_NEW_URL}${page}?lang=${encodeURIComponent(currentLocale.value)}`;
+});
+
+const openWhatsNew = () => {
+  if (import.meta.client && window.electronAPI) {
+    window.electronAPI.openExternal(whatsNewUrl.value);
+  }
+};
 
 const downloading = ref(false);
 const downloaded = ref(false);
@@ -266,6 +290,36 @@ const handleCancel = () => {
 
     .new-version {
       color: var(--color-accent);
+    }
+  }
+
+  .whats-new-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: var(--color-background);
+    border: 1px solid var(--color-accent);
+    border-radius: 8px;
+    color: var(--color-text-primary);
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background: var(--color-surface-hover);
+    }
+
+    .material-symbols-outlined {
+      flex-shrink: 0;
+      font-size: 20px;
+      color: var(--color-accent);
+    }
+
+    .whats-new-text {
+      flex: 1;
+      min-width: 0;
     }
   }
 
