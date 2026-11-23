@@ -707,6 +707,7 @@
     "currentVersion": "現在のバージョン",
     "newVersion": "新しいバージョン",
     "whatsNew": "更新内容",
+    "seeWhatsNew": "{version} の新機能を見る",
     "updatePrompt": "LivePlay の新しいバージョンがあります。今すぐダウンロードしてインストールしますか？",
     "manualUpdatePrompt": "LivePlay の新しいバージョンがあります。下のボタンからダウンロードページを開いてください。",
     "downloading": "アップデートをダウンロード中",
@@ -819,6 +820,7 @@
   },
   "importAudio": {
     "title": "オーディオをインポート",
+    "notPlayable": "インポートされませんでした: {files}。LivePlay で再生できるのは WAV、AIFF、FLAC、MP3 ファイルです。",
     "tabServer": "サーバー上",
     "tabUpload": "このコンピューターからアップロード",
     "serverHint": "サーバー上のファイルです。フォルダーはダブルクリックで開きます。ファイルを選択して（複数選択は Shift または Ctrl/Cmd を押しながらクリック）、「選択したファイルをインポート」をクリックしてください。",

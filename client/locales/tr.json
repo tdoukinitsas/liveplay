@@ -707,6 +707,7 @@
     "currentVersion": "Mevcut Sürüm",
     "newVersion": "Yeni Sürüm",
     "whatsNew": "Yenilikler",
+    "seeWhatsNew": "{version} sürümündeki yenilikleri görün",
     "updatePrompt": "LivePlay'in yeni bir sürümü mevcut. Şimdi indirip kurmak ister misiniz?",
     "manualUpdatePrompt": "LivePlay'in yeni bir sürümü mevcut. İndirme sayfasını ziyaret etmek için aşağıya tıklayın.",
     "downloading": "Güncelleme İndiriliyor",
@@ -819,6 +820,7 @@
   },
   "importAudio": {
     "title": "Ses İçe Aktar",
+    "notPlayable": "İçe aktarılmadı: {files}. LivePlay WAV, AIFF, FLAC ve MP3 dosyalarını çalar.",
     "tabServer": "Sunucuda",
     "tabUpload": "Bu bilgisayardan yükle",
     "serverHint": "Sunucudaki dosyalar. Bir klasörü açmak için çift tıklayın. Dosyaları seçin (birden fazlası için Shift veya Ctrl/Cmd ile tıklayın), ardından Seçilenleri İçe Aktar'a tıklayın.",

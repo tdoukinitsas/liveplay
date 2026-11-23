@@ -707,6 +707,7 @@
     "currentVersion": "Nuvarande version",
     "newVersion": "Ny version",
     "whatsNew": "Nyheter",
+    "seeWhatsNew": "Se vad som är nytt i {version}",
     "updatePrompt": "En ny version av LivePlay finns. Vill du ladda ner och installera den nu?",
     "manualUpdatePrompt": "En ny version av LivePlay finns. Klicka nedan för att gå till nedladdningssidan.",
     "downloading": "Laddar ner uppdatering",
@@ -819,6 +820,7 @@
   },
   "importAudio": {
     "title": "Importera ljud",
+    "notPlayable": "Inte importerad: {files}. LivePlay spelar upp WAV-, AIFF-, FLAC- och MP3-filer.",
     "tabServer": "På servern",
     "tabUpload": "Ladda upp från den här datorn",
     "serverHint": "Filer på servern. Dubbelklicka på en mapp för att öppna den. Markera filer (Skift- eller Ctrl/Cmd-klicka för flera) och klicka sedan på Importera markerade.",

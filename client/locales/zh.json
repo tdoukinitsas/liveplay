@@ -707,6 +707,7 @@
     "currentVersion": "当前版本",
     "newVersion": "新版本",
     "whatsNew": "更新内容",
+    "seeWhatsNew": "查看 {version} 新功能",
     "updatePrompt": "LivePlay 有新版本可用。是否立即下载并安装？",
     "manualUpdatePrompt": "LivePlay 有新版本可用。点击下方访问下载页面。",
     "downloading": "正在下载更新",
@@ -819,6 +820,7 @@
   },
   "importAudio": {
     "title": "导入音频",
+    "notPlayable": "未导入：{files}。LivePlay 可播放 WAV、AIFF、FLAC 和 MP3 文件。",
     "tabServer": "服务器上",
     "tabUpload": "从此计算机上传",
     "serverHint": "服务器上的文件。双击文件夹将其打开。选择文件（按住 Shift 或 Ctrl/Cmd 点击可多选），然后点击“导入所选”。",

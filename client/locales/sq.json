@@ -707,6 +707,7 @@
     "currentVersion": "Versioni aktual",
     "newVersion": "Versioni i ri",
     "whatsNew": "Ç'ka të re",
+    "seeWhatsNew": "Shihni çfarë ka të re në {version}",
     "updatePrompt": "Ka dalë një version i ri i LivePlay. Doni ta shkarkoni dhe ta instaloni tani?",
     "manualUpdatePrompt": "Ka dalë një version i ri i LivePlay. Klikoni më poshtë për të hapur faqen e shkarkimit.",
     "downloading": "Po shkarkohet përditësimi",
@@ -819,6 +820,7 @@
   },
   "importAudio": {
     "title": "Importo audio",
+    "notPlayable": "Nuk u importua: {files}. LivePlay luan skedarë WAV, AIFF, FLAC dhe MP3.",
     "tabServer": "Në server",
     "tabUpload": "Ngarko nga ky kompjuter",
     "serverHint": "Skedarë në server. Klikoni dy herë mbi një dosje për ta hapur. Përzgjidhni skedarët (Shift ose Ctrl/Cmd + klik për disa), pastaj klikoni Importo të përzgjedhurat.",

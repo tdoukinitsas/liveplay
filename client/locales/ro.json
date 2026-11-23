@@ -707,6 +707,7 @@
     "currentVersion": "Versiunea curentă",
     "newVersion": "Versiunea nouă",
     "whatsNew": "Noutăți",
+    "seeWhatsNew": "Vedeți noutățile din {version}",
     "updatePrompt": "Este disponibilă o versiune nouă de LivePlay. Doriți să o descărcați și să o instalați acum?",
     "manualUpdatePrompt": "Este disponibilă o versiune nouă de LivePlay. Faceți clic mai jos pentru a deschide pagina de descărcare.",
     "downloading": "Se descarcă actualizarea",
@@ -819,6 +820,7 @@
   },
   "importAudio": {
     "title": "Importă audio",
+    "notPlayable": "Nu s-a importat: {files}. LivePlay redă fișiere WAV, AIFF, FLAC și MP3.",
     "tabServer": "Pe server",
     "tabUpload": "Încarcă de pe acest calculator",
     "serverHint": "Fișiere de pe server. Faceți dublu clic pe un folder pentru a-l deschide. Selectați fișierele (Shift sau Ctrl/Cmd-clic pentru mai multe), apoi faceți clic pe Importă selecția.",

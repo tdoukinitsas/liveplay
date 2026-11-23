@@ -707,6 +707,7 @@
     "currentVersion": "الإصدار الحالي",
     "newVersion": "الإصدار الجديد",
     "whatsNew": "ما الجديد",
+    "seeWhatsNew": "اكتشف الجديد في {version}",
     "updatePrompt": "يتوفر إصدار جديد من LivePlay. هل تريد تنزيله وتثبيته الآن؟",
     "manualUpdatePrompt": "يتوفر إصدار جديد من LivePlay. انقر أدناه لزيارة صفحة التنزيل.",
     "downloading": "جارٍ تنزيل التحديث",
@@ -819,6 +820,7 @@
   },
   "importAudio": {
     "title": "استيراد صوت",
+    "notPlayable": "لم يتم الاستيراد: {files}. يشغّل LivePlay ملفات WAV وAIFF وFLAC وMP3.",
     "tabServer": "على الخادم",
     "tabUpload": "رفع من هذا الحاسوب",
     "serverHint": "الملفات على الخادم. انقر نقرًا مزدوجًا على مجلد لفتحه. حدّد الملفات (Shift أو Ctrl/Cmd مع النقر لتحديد عدة ملفات)، ثم انقر على «استيراد المحدد».",

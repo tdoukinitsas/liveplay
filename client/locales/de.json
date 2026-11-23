@@ -707,6 +707,7 @@
     "currentVersion": "Aktuelle Version",
     "newVersion": "Neue Version",
     "whatsNew": "Was ist neu",
+    "seeWhatsNew": "Das ist neu in {version}",
     "updatePrompt": "Eine neue Version von LivePlay ist verfügbar. Möchten Sie sie jetzt herunterladen und installieren?",
     "manualUpdatePrompt": "Eine neue Version von LivePlay ist verfügbar. Klicken Sie unten, um die Download-Seite zu besuchen.",
     "downloading": "Update wird heruntergeladen",
@@ -819,6 +820,7 @@
   },
   "importAudio": {
     "title": "Audio importieren",
+    "notPlayable": "Nicht importiert: {files}. LivePlay spielt WAV-, AIFF-, FLAC- und MP3-Dateien ab.",
     "tabServer": "Auf dem Server",
     "tabUpload": "Von diesem Computer hochladen",
     "serverHint": "Dateien auf dem Server. Doppelklicken Sie auf einen Ordner, um ihn zu öffnen. Wählen Sie Dateien aus (Umschalt- oder Strg/Cmd-Klick für mehrere) und klicken Sie dann auf „Auswahl importieren“.",
