@@ -1603,6 +1603,11 @@ export const useProject = () => {
     let itemsTimer:    ReturnType<typeof setTimeout> | null = null;
     let cartTimer:     ReturnType<typeof setTimeout> | null = null;
     let settingsTimer: ReturnType<typeof setTimeout> | null = null;
+    // The show those timers' edits belong to.
+    let pendingSyncEpoch = -1;
+    // Settles once every new cue in the diffs started so far is on the server.
+    // Only the adds: a diff's later per-item updates can take seconds.
+    let itemAddsSent: Promise<unknown> = Promise.resolve();
     // Diff baselines per section. Each is a plain (proxy-stripped) snapshot
     // of the section as it last left this client. Reset on hydrate.
     let lastItems:    any = null;
@@ -1652,10 +1657,26 @@ export const useProject = () => {
       return search(p.items, p.items);
     };
 
+    // Applying a patch ends by re-capturing the baselines from what's on screen,
+    // which would mark an edit still waiting on its debounce as already sent, so
+    // it would never reach the server. With autosave off nothing else carries
+    // it: a short imported file's waveform_ready lands inside that window, and
+    // the cue then appeared in the playlist but had no cue in the engine. So
+    // send what's waiting first. Each sync snapshots and rotates its baseline
+    // synchronously, before its first await, so it can't pick up the patch.
+    const flushPendingSync = () => {
+      if (isHydrating.value || pendingSyncEpoch !== projectEpoch.value) return;
+      if (itemsTimer) runItemsDiff().catch(e => console.warn('[useProject] items flush failed:', e));
+      if (cartTimer) { clearTimeout(cartTimer); cartTimer = null; void syncCart(); }
+      if (settingsTimer) { clearTimeout(settingsTimer); settingsTimer = null; void syncSettings(); }
+    };
+
     const applyDocPatch = (patch: any) => {
       const p = currentProject.value;
       if (!p) return;
       const op = patch?.op;
+      // Not for a new show: what's waiting belongs to the one being replaced.
+      if (op !== 'project_changed') flushPendingSync();
       // All patch application happens under isHydrating so the local
       // diff-watcher doesn't echo these back to the server as fresh edits.
       isHydrating.value = true;
@@ -1795,6 +1816,8 @@ export const useProject = () => {
                 // been transiently dropped (which is what caused the re-request);
                 // the cache is only cleared on item removal / project change.
                 const hadWaveform = _waveformCache.has(patch.item_uuid);
+                const AUTO_FIELDS = ['duration', 'inPoint', 'outPoint', 'volume', 'startNextTime'];
+                const beforeAuto = AUTO_FIELDS.map(k => (target as any)[k]);
 
                 (target as any).waveform = markRaw(built!);
                 // Seed the session cache so this waveform survives later
@@ -1837,6 +1860,20 @@ export const useProject = () => {
                     // Re-anchor the import-default start-next marker to the
                     // final (possibly auto-trimmed) out point.
                     anchorStartNextMarker(target as AudioItem);
+
+                    // A local edit made while applying a server patch, so the
+                    // baseline absorbs it: send it, or the screen shows a trim
+                    // and level the engine never got. After the cue's own add,
+                    // which may still be on its way.
+                    const autoPatch = Object.fromEntries(AUTO_FIELDS
+                      .filter((k, i) => (target as any)[k] !== beforeAuto[i])
+                      .map(k => [k, (target as any)[k]]));
+                    if (Object.keys(autoPatch).length) {
+                      const uuid = patch.item_uuid;
+                      void itemAddsSent
+                        .then(() => server().updateProjectItem(uuid, autoPatch))
+                        .catch(e => console.warn('[useProject] auto-process sync failed:', e));
+                    }
                   }
                 }
                 triggerWaveformUpdate();
@@ -1947,38 +1984,42 @@ export const useProject = () => {
     // adoptFromProject() below and dropped by the server on the next save.
 
     // ---- Settings ----
+    const syncSettings = async () => {
+      const next = toJSON((currentProject.value as any)?.settings);
+      if (stableJson(next) === stableJson(lastSettings)) return;
+      lastSettings = next;
+      try { await server().patchSettings(next ?? {}); }
+      catch (e) { console.warn('[useProject] patchSettings failed:', e); }
+    };
     watch(() => (currentProject.value as any)?.settings, () => {
       if (isHydrating.value || !currentProject.value) return;
       if (settingsTimer) clearTimeout(settingsTimer);
-      settingsTimer = setTimeout(async () => {
-        const next = toJSON((currentProject.value as any)?.settings);
-        if (stableJson(next) === stableJson(lastSettings)) return;
-        lastSettings = next;
-        try { await server().patchSettings(next ?? {}); }
-        catch (e) { console.warn('[useProject] patchSettings failed:', e); }
-      }, 250);
+      pendingSyncEpoch = projectEpoch.value;
+      settingsTimer = setTimeout(() => { settingsTimer = null; void syncSettings(); }, 250);
     }, { deep: true });
 
     // ---- Cart slot bindings ----
+    const syncCart = async () => {
+      const next = toJSON(currentProject.value?.cartItems) ?? [];
+      if (stableJson(next) === stableJson(lastCart)) return;
+      const prev = lastCart ?? [];
+      lastCart = next;
+      const cartByPrev = new Map<number, string>();
+      const cartByCurr = new Map<number, string>();
+      for (const c of prev)  if (typeof c?.slot === 'number') cartByPrev.set(c.slot, c.itemUuid ?? '');
+      for (const c of next)  if (typeof c?.slot === 'number') cartByCurr.set(c.slot, c.itemUuid ?? '');
+      for (const [slot] of cartByPrev) {
+        if (!cartByCurr.has(slot)) { try { await server().clearCartSlot(slot); } catch {} }
+      }
+      for (const [slot, uuid] of cartByCurr) {
+        if (cartByPrev.get(slot) !== uuid) { try { await server().setCartSlot(slot, uuid); } catch {} }
+      }
+    };
     watch(() => currentProject.value?.cartItems, () => {
       if (isHydrating.value || !currentProject.value) return;
       if (cartTimer) clearTimeout(cartTimer);
-      cartTimer = setTimeout(async () => {
-        const next = toJSON(currentProject.value?.cartItems) ?? [];
-        if (stableJson(next) === stableJson(lastCart)) return;
-        const prev = lastCart ?? [];
-        lastCart = next;
-        const cartByPrev = new Map<number, string>();
-        const cartByCurr = new Map<number, string>();
-        for (const c of prev)  if (typeof c?.slot === 'number') cartByPrev.set(c.slot, c.itemUuid ?? '');
-        for (const c of next)  if (typeof c?.slot === 'number') cartByCurr.set(c.slot, c.itemUuid ?? '');
-        for (const [slot] of cartByPrev) {
-          if (!cartByCurr.has(slot)) { try { await server().clearCartSlot(slot); } catch {} }
-        }
-        for (const [slot, uuid] of cartByCurr) {
-          if (cartByPrev.get(slot) !== uuid) { try { await server().setCartSlot(slot, uuid); } catch {} }
-        }
-      }, 250);
+      pendingSyncEpoch = projectEpoch.value;
+      cartTimer = setTimeout(() => { cartTimer = null; void syncCart(); }, 250);
     }, { deep: true });
 
     // ---- Items + cart-only items (structural / per-item property changes) ----
@@ -1997,9 +2038,18 @@ export const useProject = () => {
     const scheduleItemsDiff = () => {
       if (isHydrating.value || _suppressItemSyncCount.value > 0 || !currentProject.value) return;
       if (itemsTimer) clearTimeout(itemsTimer);
-      itemsTimer = setTimeout(() => syncItemsDiff().catch(e =>
+      pendingSyncEpoch = projectEpoch.value;
+      itemsTimer = setTimeout(() => runItemsDiff().catch(e =>
         console.warn('[useProject] items diff failed:', e)
       ), 300);
+    };
+
+    const runItemsDiff = () => {
+      if (itemsTimer) { clearTimeout(itemsTimer); itemsTimer = null; }
+      let addsSent: () => void = () => {};
+      const adds = new Promise<void>((resolve) => { addsSent = resolve; });
+      itemAddsSent = Promise.allSettled([itemAddsSent, adds]);
+      return syncItemsDiff(addsSent).finally(addsSent);
     };
 
     let stopItemsWatcher:    null | (() => void) = null;
@@ -2036,7 +2086,7 @@ export const useProject = () => {
       return m;
     };
 
-    async function syncItemsDiff() {
+    async function syncItemsDiff(onAddsSent?: () => void) {
       const srv = server();
       if (!srv.connected) return;
       const p = currentProject.value;
@@ -2078,6 +2128,7 @@ export const useProject = () => {
         if (prev.has(uuid)) continue;
         try { await srv.addProjectItem(item, parentUuid, cartOnly); } catch {}
       }
+      onAddsSent?.();
 
       // 4. Updates: items whose content changed (not cross-parent, not new).
       //
@@ -2138,7 +2189,7 @@ export const useProject = () => {
         }
       }
     }
-    _syncItemsDiffFn = syncItemsDiff;
+    _syncItemsDiffFn = runItemsDiff;
 
     // ---- Fallback for keys without granular endpoints ----
     // Only fires when one of the specific "no-endpoint-yet" fields changes
