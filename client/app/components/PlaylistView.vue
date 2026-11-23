@@ -1,7 +1,10 @@
 <template>
   <div class="playlist-view">
     <div class="playlist-header">
-      <h2>{{ t('playlist.title') }}</h2>
+      <div class="playlist-title">
+        <h2>{{ t('playlist.title') }}</h2>
+        <TabStrip v-if="playlistTabs.length <= 1" kind="playlist" />
+      </div>
       <div class="playlist-header-right">
         <!-- Import / add-group are edit actions — hidden in Show Mode. Titles
              carry the names once a narrow pane has dropped the labels. -->
@@ -10,9 +13,11 @@
           <Btn icon="youtube_activity" :text="t('youtube.importFromYouTube')" :title="t('youtube.importFromYouTube')" bg-style="youtube" :disabled="!currentProject" @click="showYouTubeModal = true" />
           <Btn icon="folder" :text="t('playlist.addGroup')" :title="t('playlist.addGroup')" :disabled="!currentProject" @click="handleAddGroup" />
         </div>
-        <PaneControls pane="playlist" :divided="!showMode" />
+        <PaneControls v-if="!isDetachedWindow" pane="playlist" :divided="!showMode" />
       </div>
     </div>
+    <TabStrip v-if="playlistTabs.length > 1" kind="playlist" />
+
     
     <!-- Issue #80: media files the server can't find. Shown in Show Mode
          too (an operator should know before the cue is fired); relinking is
@@ -36,7 +41,7 @@
       @pointerleave="pointerOverPlaylist = false"
       @wheel="handlePlaylistZoomWheel"
     >
-      <div v-if="currentProject?.items.length === 0" class="empty-state">
+      <div v-if="itemsOnActiveTab.length === 0" class="empty-state">
         <p>{{ t('playlist.noItems') }}</p>
         <p class="hint">{{ t('playlist.importHint') }}</p>
       </div>
@@ -50,9 +55,9 @@
         />
         <!-- Placeholder row so the user sees mounting is in progress while
              the remaining items hydrate across the next few frames. -->
-        <div v-if="visibleItems.length < currentProject.items.length"
+        <div v-if="visibleItems.length < itemsOnActiveTab.length"
              class="item-list-progress">
-          {{ t('common.loading') }} ({{ visibleItems.length }} / {{ currentProject.items.length }})
+          {{ t('common.loading') }} ({{ visibleItems.length }} / {{ itemsOnActiveTab.length }})
         </div>
       </div>
     </div>
@@ -83,12 +88,16 @@ import YouTubeImportModal from './YouTubeImportModal.vue';
 import AudioImportModal from './AudioImportModal.vue';
 import Btn from './Btn.vue';
 import PaneControls from './PaneControls.vue';
+import TabStrip from './TabStrip.vue';
 import { triggerRef } from 'vue';
 import type { AudioItem, GroupItem } from '~/types/project';
 import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM, transitionDefaultsForImport, anchorStartNextMarker } from '~/types/project';
 import { applyAutoProcessing, buildWaveformFromChannels, parseWaveformFileData } from '~/utils/audio';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 
+const props = defineProps<{ isDetachedWindow?: boolean }>();
+const { playlistTabs, itemsOnActiveTab, activePlaylistTabId, selectTab, followLabel } = useShowTabs();
+const { mount: mountWindowHotkeys, unmount: unmountWindowHotkeys } = useCartHotkeys();
 const { currentProject, addItem, consumePendingAutoProcess, updateIndices, saveProject, triggerWaveformUpdate, isLoading, getAllItemsFlat, resolveProjectPath, findItemByUuid, projectEpoch } = useProject();
 const { t } = useLocalization();
 const { levels: outputTargetLevels } = useOutputTarget();
@@ -164,6 +173,8 @@ onMounted(() => {
   } catch { /* ignore */ }
   window.addEventListener('keydown', handlePlaylistZoomKeydown, true);
   window.addEventListener('storage', handlePlaylistZoomStorage);
+  // A pop-out has no workspace to own the transport keys.
+  if (props.isDetachedWindow) mountWindowHotkeys();
 });
 
 // Auto-process only items that were just imported this session (marked by
@@ -221,7 +232,7 @@ const RENDER_INCREMENT = 50;
 const renderLimit = ref(INITIAL_RENDER);
 
 const visibleItems = computed(() => {
-  const all = currentProject.value?.items ?? [];
+  const all = itemsOnActiveTab.value;
   return renderLimit.value >= all.length ? all : all.slice(0, renderLimit.value);
 });
 
@@ -232,7 +243,7 @@ function scheduleMoreItems() {
   if (raf !== null) return;
   raf = requestAnimationFrame(() => {
     raf = null;
-    const total = currentProject.value?.items.length ?? 0;
+    const total = itemsOnActiveTab.value.length;
     if (renderLimit.value >= total) return;
     renderLimit.value = Math.min(total, renderLimit.value + RENDER_INCREMENT);
     if (renderLimit.value < total) scheduleMoreItems();
@@ -241,7 +252,7 @@ function scheduleMoreItems() {
 
 // React to (a) new project loaded, (b) streamed pages appended, (c) user adds.
 watch(
-  () => currentProject.value?.items.length ?? 0,
+  () => itemsOnActiveTab.value.length,
   (total) => {
     if (total === 0) { renderLimit.value = INITIAL_RENDER; return; }
     if (renderLimit.value < total) scheduleMoreItems();
@@ -276,16 +287,33 @@ function scrollItemIntoView(uuid: string, block: ScrollLogicalPosition = 'center
   // render window to include the item's top-level ancestor, then retry.
   const item = findItemByUuid(uuid);
   const topIndex = item?.index?.[0];
-  if (typeof topIndex === 'number' && topIndex >= renderLimit.value) {
-    renderLimit.value = topIndex + 1;
+  if (typeof topIndex !== 'number') return;
+  const root = currentProject.value?.items[topIndex];
+  const position = root ? itemsOnActiveTab.value.indexOf(root) : -1;
+  if (position >= renderLimit.value) {
+    renderLimit.value = position + 1;
     nextTick(() => scrollItemIntoView(uuid, block));
   }
+}
+
+// "Follow the playing item" reaches across tabs. Nothing else moves this
+// window's tab on its own: selection is shared between operators, and one of
+// them clicking a cue must not change what another is looking at.
+function showTabOfItem(uuid: string) {
+  const topIndex = findItemByUuid(uuid)?.index?.[0];
+  if (typeof topIndex !== 'number' || topIndex < 0) return;
+  const root = currentProject.value?.items[topIndex];
+  if (!root) return;
+  const tabs = playlistTabs.value;
+  const tabId = root.tabId && tabs.some(tab => tab.id === root.tabId) ? root.tabId : tabs[0]?.id;
+  if (tabId && tabId !== activePlaylistTabId.value) selectTab('playlist', tabId);
 }
 
 watch(
   [primaryPlayingUuid, scrollToPlayingEnabled],
   ([uuid, enabled]) => {
     if (!enabled || !uuid) return;
+    if (!followLabel.value) showTabOfItem(uuid);
     nextTick(() => scrollItemIntoView(uuid));
   },
 );
@@ -327,6 +355,14 @@ onUnmounted(() => {
   if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
   window.removeEventListener('keydown', handlePlaylistZoomKeydown, true);
   window.removeEventListener('storage', handlePlaylistZoomStorage);
+  if (props.isDetachedWindow) unmountWindowHotkeys();
+});
+
+// Another tab starts at the top of its list.
+watch(activePlaylistTabId, () => {
+  renderLimit.value = INITIAL_RENDER;
+  if (itemsOnActiveTab.value.length > renderLimit.value) scheduleMoreItems();
+  nextTick(() => { if (scrollContainer.value) scrollContainer.value.scrollTop = 0; });
 });
 
 // Queue waveform generation for every audio item that lacks peaks.
@@ -853,4 +889,11 @@ const handleDrop = async (e: DragEvent) => {
   text-align: center;
   opacity: 0.7;
 }
+.playlist-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 0;
+}
+
 </style>

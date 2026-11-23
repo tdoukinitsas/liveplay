@@ -157,6 +157,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Cart player window — detach/attach
   openCartPlayerWindow: (projectFolderPath) => ipcRenderer.invoke('open-cart-player-window', projectFolderPath),
   attachCartPlayerWindow: () => ipcRenderer.send('cart-player-window-attach'),
+  // A playlist tab or cart page in a window of its own (#74).
+  openTabWindow: (kind, id) => ipcRenderer.invoke('open-tab-window', kind, id),
+  onTabWindowsChanged: (callback) => replaceIpcListener('tab-windows-changed', callback),
   getCartWindowProjectData: () => ipcRenderer.invoke('get-cart-window-project-data'),
   onCartPlayerWindowOpened: (callback) => replaceIpcListener('cart-player-window-opened', callback),
   onCartPlayerWindowClosed: (callback) => replaceIpcListener('cart-player-window-closed', callback),

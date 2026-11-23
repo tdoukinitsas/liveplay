@@ -1,19 +1,26 @@
 <template>
   <div class="cart-player" ref="cartPlayerRef" :class="{ 'show-mode': showMode }">
     <div class="cart-header">
-      <h2>{{ t('cart.title') }}</h2>
+      <div class="cart-title">
+        <h2>{{ t('cart.title') }}</h2>
+        <TabStrip v-if="cartPages.length <= 1" kind="cart" />
+      </div>
       <!-- Window controls only: the cart's pads are its content. The same
            component every pane uses, so the moves are the same everywhere. -->
       <PaneControls pane="cart" :in-window="isDetachedWindow" :divided="false" />
     </div>
 
-    <div class="cart-grid" :class="gridClass">
+    <TabStrip v-if="cartPages.length > 1" kind="cart" />
+
+    <div class="cart-grid" :style="{ gridTemplateColumns: `repeat(${columns}, 1fr)` }">
       <CartSlot
-        v-for="slot in 16"
-        :key="slot"
-        :slot="slot - 1"
-        :item="getCartItem(slot - 1)"
-        :keyLabel="getKeyLabel(slot - 1)"
+        v-for="position in activeCartPage.size"
+        :key="activeCartPage.slotBase + position - 1"
+        :slot="activeCartPage.slotBase + position - 1"
+        :position="position - 1"
+        :max-slot="activeCartPage.slotBase + activeCartPage.size - 1"
+        :item="getCartItem(activeCartPage.slotBase + position - 1)"
+        :keyLabel="keyLabelFor(activeCartPage.slotBase + position - 1, position - 1)"
       />
     </div>
   </div>
@@ -23,6 +30,7 @@
 import type { AudioItem } from '~/types/project';
 import { formatKeyLabel } from '~/composables/useCartHotkeys';
 import PaneControls from './PaneControls.vue';
+import TabStrip from './TabStrip.vue';
 
 const props = defineProps<{
   isDetachedWindow?: boolean;
@@ -30,35 +38,36 @@ const props = defineProps<{
 
 const { currentProject, requestDeleteFromKeyboard } = useProject();
 const { getCartItem } = useCartItems();
-const { keyMappings, mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
+const { keyMappings, pinnedKeys, mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
+const { cartPages, activeCartPage } = useShowTabs();
 const { mount: mountMidi, unmount: unmountMidi } = useMidiController();
 const { t } = useLocalization();
 const { uiMode } = useUiMode();
 const showMode = computed(() => uiMode.value === 'playback');
 
 const cartPlayerRef = ref<HTMLElement | null>(null);
-const gridClass = ref('grid-cols-2');
+const columns = ref(2);
 
 // Watch for resize and adjust grid columns
 const updateGridColumns = () => {
   if (!cartPlayerRef.value) return;
 
   const width = cartPlayerRef.value.offsetWidth;
-
-  // Adjust grid columns based on width
-  if (width < 500) {
-    gridClass.value = 'grid-cols-2';
-  } else if (width < 800) {
-    gridClass.value = 'grid-cols-2';
-  } else if (width < 1100) {
-    gridClass.value = 'grid-cols-3';
-  } else {
-    gridClass.value = 'grid-cols-4';
-  }
+  const size = activeCartPage.value.size;
+  const byWidth = width < 800 ? 2 : width < 1100 ? 3 : 4;
+  // Never wider than a square grid of this many carts. Pages over 16 can use a
+  // wide window's extra room, so 64 carts isn't a very long scroll.
+  const square = Math.ceil(Math.sqrt(size));
+  columns.value = size <= 16
+    ? Math.min(byWidth, square)
+    : Math.min(square, Math.max(byWidth, Math.floor(width / 170)));
 };
+watch(() => activeCartPage.value.size, updateGridColumns);
 
-const getKeyLabel = (slotIndex: number): string => {
-  const binding = keyMappings.value[slotIndex];
+// A cart's own pinned key if it has one, else its position's key on this page.
+const keyLabelFor = (slot: number, position: number): string => {
+  const uuid = currentProject.value?.cartItems.find(c => c.slot === slot)?.itemUuid;
+  const binding = (uuid && pinnedKeys.value[uuid]) || keyMappings.value[position];
   return binding ? formatKeyLabel(binding) : '';
 };
 
@@ -153,18 +162,13 @@ onMounted(() => {
   padding: var(--spacing-md);
   overflow-y: auto;
   align-content: start;
+}
 
-  &.grid-cols-2 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  &.grid-cols-3 {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  &.grid-cols-4 {
-    grid-template-columns: repeat(4, 1fr);
-  }
+.cart-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 0;
 }
 
 /* Show Mode — taller cart tiles so the enlarged play/stop controls and

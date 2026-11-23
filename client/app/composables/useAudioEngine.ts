@@ -30,6 +30,7 @@
 // =====================================================================
 import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
 import { runTime, remainingTime } from '~/utils/groupTiming';
+import { isTabTarget, nextRootItem, tabGroupView, tabIdOfTarget, tabsOf } from '~/utils/tabs';
 
 // ---------------------------------------------------------------------
 // Shapes consumed by Vue components.
@@ -363,10 +364,27 @@ export const useAudioEngine = () => {
     for (const item of currentProject.value.items) {
       if (item.type === 'group') walk(item as GroupItem);
     }
+    // A cart bound to a whole playlist tab is timed like a group (#61).
+    for (const cart of currentProject.value.cartItems ?? []) {
+      if (!isTabTarget(cart.itemUuid)) continue;
+      const view = tabGroupView(currentProject.value, tabIdOfTarget(cart.itemUuid));
+      if (view) walk(view);
+    }
     activeGroups.value = next;
   };
 
   // ---- autoNextItemUuid (derived) -----------------------------------
+  // What follows in running order. At the top level that's the item's tab's
+  // rule, the same one the server applies; inside a group it's the next child.
+  const nextInRunningOrder = (item: AudioItem) => {
+    if (item.index.length === 1) {
+      return nextRootItem(currentProject.value!.items, tabsOf(currentProject.value), item.uuid);
+    }
+    const nextIndex = [...item.index];
+    nextIndex[nextIndex.length - 1]++;
+    return findItemByIndex(nextIndex);
+  };
+
   const autoNextItemUuid = computed((): string | null => {
     if (!currentProject.value) return null;
     for (const [uuid] of activeCues.value.entries()) {
@@ -380,9 +398,7 @@ export const useAudioEngine = () => {
       if (!Array.isArray(audioItem.index) || findItemByIndex(audioItem.index)?.uuid !== uuid) continue;
       switch (audioItem.endBehavior.action) {
         case 'next': {
-          const nextIndex = [...audioItem.index];
-          nextIndex[nextIndex.length - 1]++;
-          const nextItem = findItemByIndex(nextIndex);
+          const nextItem = nextInRunningOrder(audioItem);
           if (nextItem) return nextItem.uuid;
           break;
         }
@@ -409,9 +425,7 @@ export const useAudioEngine = () => {
       // step through a pre-ordered playlist with a single button.
       if (audioItem.endBehavior.action === 'nothing' &&
           (currentProject.value as any)?.settings?.autoCueNextWithoutEndBehavior !== false) {
-        const nextIndex = [...audioItem.index];
-        nextIndex[nextIndex.length - 1]++;
-        const nextItem = findItemByIndex(nextIndex);
+        const nextItem = nextInRunningOrder(audioItem);
         if (nextItem) return nextItem.uuid;
       }
     }

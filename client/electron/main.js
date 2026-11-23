@@ -1477,6 +1477,9 @@ let fileToOpen = null; // Store file path if app is opened with a file
 let stateViewerWindow = null; // Debug state viewer window
 let cartPlayerWindow = null;  // Detached cart player window
 let mixerWindow = null;       // Detached mixer window
+// Playlist tabs and cart pages in windows of their own (#74), one per tab,
+// keyed "playlist:<id>" / "cart:<id>".
+const tabWindows = new Map();
 
 // Minimum size for windows that host the full editing surface. Applied to the
 // main window and the detached mixer, both of which render the mixer's channel
@@ -1938,6 +1941,9 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    for (const win of tabWindows.values()) {
+      if (!win.isDestroyed()) win.close();
+    }
   });
 
   createMenu('en', isDevMode);
@@ -1994,6 +2000,56 @@ function createCartPlayerWindow() {
       mainWindow.webContents.send('cart-player-window-opened');
     }
   });
+}
+
+function notifyTabWindowsChanged() {
+  if (mainWindow && !mainWindow.webContents.isDestroyed()) {
+    mainWindow.webContents.send('tab-windows-changed', [...tabWindows.keys()]);
+  }
+}
+
+// One window per tab: asking again brings the existing one forward. Which tab
+// it shows is in its URL, so reloading it comes back to the same place.
+function createTabWindow(kind, id) {
+  if ((kind !== 'cart' && kind !== 'playlist') || !/^[\w-]{1,64}$/.test(String(id))) return;
+  const key = `${kind}:${id}`;
+  const existing = tabWindows.get(key);
+  if (existing && !existing.isDestroyed()) {
+    if (existing.isMinimized()) existing.restore();
+    existing.focus();
+    return;
+  }
+  const win = new BrowserWindow({
+    width: 900,
+    height: 700,
+    minWidth: 380,
+    minHeight: 400,
+    title: kind === 'cart' ? 'LivePlay - Cart Page' : 'LivePlay - Playlist',
+    icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+      webSecurity: false,
+    },
+  });
+  const query = kind === 'cart'
+    ? { cartWindow: '1', cartPage: id }
+    : { playlistWindow: '1', playlistTab: id };
+  if (isDevMode) {
+    win.loadURL(`http://localhost:3000/?${new URLSearchParams(query)}`);
+  } else {
+    win.loadFile(path.join(__dirname, '../.output/public/index.html'), { query });
+  }
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[TabWindow] Failed to load:', errorCode, errorDescription);
+  });
+  tabWindows.set(key, win);
+  win.on('closed', () => {
+    tabWindows.delete(key);
+    notifyTabWindowsChanged();
+  });
+  notifyTabWindowsChanged();
 }
 
 // Create detached mixer window.
@@ -3192,8 +3248,8 @@ ipcMain.on('sync-project-data', (event, projectData) => {
     // window takes only the theme and meter levels off this, but it is the
     // same payload, so it rides the same channel.
     if (projectData) {
-      for (const win of [cartPlayerWindow, mixerWindow]) {
-        if (win && !win.webContents.isDestroyed()) {
+      for (const win of [cartPlayerWindow, mixerWindow, ...tabWindows.values()]) {
+        if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
           win.webContents.send('cart-window-project-update', projectData);
         }
       }
@@ -3211,6 +3267,10 @@ ipcMain.on('cart-player-window-attach', () => {
   if (cartPlayerWindow) {
     cartPlayerWindow.close();
   }
+});
+
+ipcMain.handle('open-tab-window', (_event, kind, id) => {
+  createTabWindow(kind, id);
 });
 
 // Mixer window IPC handlers

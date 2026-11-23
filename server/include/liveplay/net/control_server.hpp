@@ -193,6 +193,8 @@ private:
     // event_connections_changed, with secrets hidden from API-token sessions
     // (ProjectState::redact_event_connections).
     void broadcast_event_connections(const nlohmann::json& connections);
+    // Which tab and page each operator's window shows, for following (#74).
+    void broadcast_client_views();
 
     // ---- User preferences (U4) -------------------------------------------
     // Collect the meter unit every connected session has chosen and hand the

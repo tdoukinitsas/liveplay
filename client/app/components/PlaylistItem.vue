@@ -785,6 +785,7 @@ const handleDrop = (e: DragEvent) => {
         }
       }
       const pos = parentArray.findIndex(i => i.uuid === props.item.uuid);
+      if (parentArray === currentProject.value.items) clone.tabId = props.item.tabId;
       parentArray.splice(insertAfter ? pos + 1 : pos, 0, clone);
       updateIndices(parentArray, parentIndex);
     }
@@ -871,6 +872,7 @@ const handleDrop = (e: DragEvent) => {
     // Insert all items at the position
     itemObjects.forEach((item, idx) => {
       if (item) {
+        if (parentArray === currentProject.value!.items) item.tabId = props.item.tabId;
         parentArray.splice(insertPos + idx, 0, item);
       }
     });

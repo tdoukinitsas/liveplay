@@ -18,6 +18,7 @@
 // =====================================================================
 import { v4 as uuidv4 } from 'uuid';
 import { markRaw, nextTick, toRaw, triggerRef } from 'vue';
+import { insertIndexForTab, tabsOf } from '~/utils/tabs';
 import type {
   Project,
   AudioItem,
@@ -62,7 +63,8 @@ import {
 export const isSecondaryWindow = typeof window !== 'undefined'
   ? (() => {
       const q = new URLSearchParams(window.location.search);
-      return q.get('cartWindow') === '1' || q.get('mixerWindow') === '1';
+      return q.get('cartWindow') === '1' || q.get('mixerWindow') === '1'
+        || q.get('playlistWindow') === '1';
     })()
   : false;
 
@@ -913,6 +915,10 @@ export const useProject = () => {
       // []: buildDocumentSnapshot omits an undefined list, whereas an empty
       // one sent back on the next save would erase the show's connections.
       eventConnections: Array.isArray(header.eventConnections) ? header.eventConnections : undefined,
+      playlistTabs:   header.playlistTabs?.length ? header.playlistTabs : undefined,
+      cartPages:      header.cartPages?.length ? header.cartPages : undefined,
+      cartPinnedKeys: header.cartPinnedKeys ?? undefined,
+      tabLimits:      header.tabLimits ?? undefined,
       theme:          header.theme,
       createdAt:      header.createdAt ?? new Date().toISOString(),
       lastModified:   header.lastModified ?? new Date().toISOString(),
@@ -1011,6 +1017,11 @@ export const useProject = () => {
       items:         itemsToJSON(currentProject.value.items) ?? [],
       cartItems:     toJSON(currentProject.value.cartItems) ?? [],
       cartSlotKeys:  toJSON((currentProject.value as any).cartSlotKeys),
+      cartPinnedKeys: toJSON(currentProject.value.cartPinnedKeys) ?? {},
+      // Always sent, as [] when there are none: this snapshot replaces the
+      // server's document, and that is how removing the last one is said.
+      playlistTabs:  toJSON(currentProject.value.playlistTabs) ?? [],
+      cartPages:     toJSON(currentProject.value.cartPages) ?? [],
       // `theme` and `playbackKeys` are deliberately absent (U4). The server
       // drops them on save regardless, so sending them would be this client
       // asserting ownership of values it no longer owns — and R1 is the point
@@ -1327,8 +1338,18 @@ export const useProject = () => {
         updateIndices(parent.children, parentIndex);
       }
     } else {
-      currentProject.value.items.push(item);
-      updateIndices(currentProject.value.items);
+      // Onto the tab this window is showing, keeping `items` in tab order.
+      const project = currentProject.value;
+      const tabs = tabsOf(project);
+      if (tabs.length > 1) {
+        const shown = useState<string | null>('showTabs.activePlaylistTab').value;
+        const tabId = tabs.some(tab => tab.id === shown) ? shown! : tabs[0]!.id;
+        item.tabId = tabId;
+        project.items.splice(insertIndexForTab(project.items, tabs, tabId), 0, item);
+      } else {
+        project.items.push(item);
+      }
+      updateIndices(project.items);
     }
   };
 
@@ -1832,6 +1853,18 @@ export const useProject = () => {
           case 'event_fired':
             // Handled in useEvents (feedback only, nothing in the document).
             break;
+          case 'tabs_changed': {
+            // Our own edit is still waiting to go: this echo is older than
+            // what's on screen, and would rewind it.
+            if (useState<boolean>('showTabs.localEditPending').value) break;
+            if (Array.isArray(patch.playlistTabs)) {
+              p.playlistTabs = patch.playlistTabs.length ? patch.playlistTabs : undefined;
+            }
+            if (Array.isArray(patch.cartPages)) {
+              p.cartPages = patch.cartPages.length ? patch.cartPages : undefined;
+            }
+            break;
+          }
           case 'preview_started': {
             previewItemUuid.value = patch.itemUuid || '';
             previewCueId.value = patch.cueId || '';

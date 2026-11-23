@@ -47,11 +47,17 @@ export const eventToBinding = (e: KeyboardEvent): CartSlotKeyBinding => ({
 
 export const useCartHotkeys = () => {
   const { currentProject, selectedItem, selectedItems, saveProject, getAllItemsFlat, toggleItemSelection, findItemByUuid } = useProject();
-  const { getCartItem } = useCartItems();
+  const { getCartItem, getCartTarget } = useCartItems();
   const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, nextItemOverrideUuid, autoNextItemUuid, setNextItem, triggerGroup, queueLoopContinuation, jumpCue, isItemPlaying, fireItem, stopItemAny } = useAudioEngine();
 
+  // By position on a page: the same key fires the same place on whichever
+  // page this window is showing.
   const keyMappings = computed(() =>
     currentProject.value?.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS }
+  );
+  // By cart: fires that one cart whatever page is showing.
+  const pinnedKeys = computed<Record<string, CartSlotKeyBinding>>(() =>
+    currentProject.value?.cartPinnedKeys ?? {}
   );
 
   // The transport keymap follows the PERSON as of U4, not the show file.
@@ -100,11 +106,31 @@ export const useCartHotkeys = () => {
     return null;
   };
 
-  const triggerSlot = (slotIndex: number) => {
-    const item = getCartItem(slotIndex);
+  const toggleCart = (item: ReturnType<typeof getCartItem>) => {
     if (!item) return;
     if (isItemPlaying(item)) stopItemAny(item);
     else fireItem(item);
+  };
+
+  // `position` on the page this window is showing.
+  const triggerSlot = (position: number) => {
+    const page = useShowTabs().activeCartPage.value;
+    if (position >= page.size) return;
+    toggleCart(getCartItem(page.slotBase + position));
+  };
+
+  const findPinnedForEvent = (e: KeyboardEvent): string | null => {
+    for (const [uuid, binding] of Object.entries(pinnedKeys.value)) {
+      if (
+        e.key.toLowerCase() === binding.key.toLowerCase()
+        && (e.ctrlKey || e.metaKey) === binding.ctrlKey
+        && e.shiftKey === binding.shiftKey
+        && e.altKey === binding.altKey
+      ) {
+        return uuid;
+      }
+    }
+    return null;
   };
 
   const findSlotForEvent = (e: KeyboardEvent): number => {
@@ -244,6 +270,15 @@ export const useCartHotkeys = () => {
       return;
     }
 
+    // A key pinned to one cart beats the position keys.
+    const pinned = findPinnedForEvent(e);
+    if (pinned) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleCart(getCartTarget(pinned));
+      return;
+    }
+
     // Cart slot hotkeys
     const slotIndex = findSlotForEvent(e);
     if (slotIndex >= 0) {
@@ -255,6 +290,7 @@ export const useCartHotkeys = () => {
 
   const updateBinding = (slotIndex: number, binding: CartSlotKeyBinding): { conflict: number } => {
     if (!currentProject.value) return { conflict: -1 };
+    // A pinned key is refused here by its own check in the settings pane.
     const mappings = currentProject.value.cartSlotKeys ?? {};
     for (const [slotStr, existing] of Object.entries(mappings)) {
       const existingSlot = parseInt(slotStr, 10);
@@ -272,7 +308,7 @@ export const useCartHotkeys = () => {
   const updatePlaybackBinding = (
     action: PlaybackKeyAction,
     binding: CartSlotKeyBinding | null
-  ): { conflictSlot: number; conflictAction: PlaybackKeyAction | null } => {
+  ): { conflictSlot: number; conflictAction: PlaybackKeyAction | null; conflictPinned?: boolean } => {
     // No `if (!currentProject.value) return` guard any more: a transport
     // keymap is this operator's, so it can be edited with no show file open.
     // Conflict handling is unchanged where it can run at all — the cart-slot
@@ -283,6 +319,9 @@ export const useCartHotkeys = () => {
       const cartMappings = currentProject.value?.cartSlotKeys ?? DEFAULT_CART_SLOT_KEYS;
       for (const [slotStr, existing] of Object.entries(cartMappings)) {
         if (bindingsMatch(existing, binding)) return { conflictSlot: parseInt(slotStr, 10), conflictAction: null };
+      }
+      for (const pinned of Object.values(pinnedKeys.value)) {
+        if (bindingsMatch(pinned, binding)) return { conflictSlot: -1, conflictAction: null, conflictPinned: true };
       }
       // Check conflict with other playback actions
       const pbMappings = playbackMappings.value;
@@ -297,9 +336,30 @@ export const useCartHotkeys = () => {
     return { conflictSlot: -1, conflictAction: null };
   };
 
+  /** Pin a key to one cart, or clear it with null. False if the key is taken. */
+  const setPinnedKey = (uuid: string, binding: CartSlotKeyBinding | null): boolean => {
+    const project = currentProject.value;
+    if (!project) return false;
+    if (binding) {
+      const taken = Object.values(playbackMappings.value).some(b => b && bindingsMatch(b, binding))
+        || Object.values(keyMappings.value).some(b => bindingsMatch(b, binding))
+        || Object.entries(pinnedKeys.value).some(([u, b]) => u !== uuid && bindingsMatch(b, binding));
+      if (taken) return false;
+      project.cartPinnedKeys = { ...(project.cartPinnedKeys ?? {}), [uuid]: binding };
+    } else if (project.cartPinnedKeys) {
+      const { [uuid]: _gone, ...rest } = project.cartPinnedKeys;
+      project.cartPinnedKeys = rest;
+    }
+    return true;
+  };
+
+  const isKeyPinned = (binding: CartSlotKeyBinding) =>
+    Object.values(pinnedKeys.value).some(b => bindingsMatch(b, binding));
+
   const resetToDefaults = () => {
     if (!currentProject.value) return;
     currentProject.value.cartSlotKeys = {};
+    currentProject.value.cartPinnedKeys = {};
   };
 
   // No currentProject guard any more: the keymap is this operator's, and they
@@ -324,6 +384,9 @@ export const useCartHotkeys = () => {
 
   return {
     keyMappings,
+    pinnedKeys,
+    setPinnedKey,
+    isKeyPinned,
     playbackMappings,
     triggerSlot,
     mount,

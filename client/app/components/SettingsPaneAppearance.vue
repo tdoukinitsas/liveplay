@@ -91,6 +91,24 @@
       </label>
       <p class="settings-help">{{ t('settings.scrollToPlayingHelp') }}</p>
     </section>
+
+    <!-- Which tab this desk shows is its own, unless it chooses to follow. -->
+    <section class="settings-field">
+      <label class="settings-label" for="follow-operator">{{ t('tabs.followSetting') }}</label>
+      <select
+        id="follow-operator"
+        class="settings-select"
+        :value="followLabel"
+        @change="setFollowing(($event.target as HTMLSelectElement).value)"
+      >
+        <option value="">{{ t('tabs.followOff') }}</option>
+        <option v-for="v in followOptions" :key="v.id" :value="v.label">{{ v.label }}</option>
+        <option v-if="followLabel && followLost" :value="followLabel">
+          {{ followLabel }} ({{ t('tabs.followOffline') }})
+        </option>
+      </select>
+      <p class="settings-help">{{ t('tabs.followHelp') }}</p>
+    </section>
   </div>
 </template>
 
@@ -113,6 +131,7 @@ import { useOutputTarget } from '~/composables/useOutputTarget';
 // Electron menu was the only way to change language, which is precisely the
 // split this page exists to end.
 const { t, currentLocale, setLocale, availableLocales } = useLocalization();
+const { followOptions, followLabel, followLost, setFollowing } = useShowTabs();
 const { theme, resolvedThemeMode, setTheme, scrollToPlaying, setScrollToPlaying,
         setMeterMode } = usePreferences();
 // The effective unit, which is "their choice, else the project's output target

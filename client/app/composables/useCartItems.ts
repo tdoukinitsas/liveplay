@@ -1,4 +1,5 @@
 import type { AudioItem, GroupItem } from '~/types/project';
+import { isTabTarget, tabGroupView, tabIdOfTarget } from '~/utils/tabs';
 
 export const useCartItems = () => {
   // Store cart-only items separately (not in the playlist). Held via
@@ -26,16 +27,27 @@ export const useCartItems = () => {
 
     const cartItem = currentProject.value.cartItems.find(ci => ci.slot === slot);
     if (!cartItem) return null;
+    return getCartTarget(cartItem.itemUuid);
+  };
+
+  // What a cart's binding points at: its own cue, a playlist item or group, or
+  // a whole playlist tab (shown as a group, discussion #61).
+  const getCartTarget = (uuid: string): AudioItem | GroupItem | null => {
+    if (!currentProject.value) return null;
+    if (isTabTarget(uuid)) {
+      const { t } = useLocalization();
+      return tabGroupView(currentProject.value, tabIdOfTarget(uuid), t('playlist.title'));
+    }
 
     // First check cart-only items
-    const cartOnlyItem = cartOnlyItems.value.get(cartItem.itemUuid);
+    const cartOnlyItem = cartOnlyItems.value.get(uuid);
     if (cartOnlyItem) {
       return cartOnlyItem;
     }
 
     // Fallback to project items (for items dragged from playlist)
     const { findItemByUuid } = useProject();
-    const item = findItemByUuid(cartItem.itemUuid);
+    const item = findItemByUuid(uuid);
     if (!item) return null;
     return item.type === 'group' ? item as GroupItem : item as AudioItem;
   };
@@ -66,6 +78,7 @@ export const useCartItems = () => {
     cartOnlyItems,
     addCartOnlyItem,
     getCartItem,
+    getCartTarget,
     updateCartOnlyItem,
     getCartOnlyItem,
     removeCartOnlyItem,

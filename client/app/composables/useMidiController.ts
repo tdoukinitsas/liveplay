@@ -140,8 +140,11 @@ export const useMidiController = () => {
    */
   const dispatchDiscrete = (actionId: MidiActionId) => {
     if (actionId.startsWith('trigger-slot-')) {
-      const slot = parseInt(actionId.replace('trigger-slot-', ''), 10);
-      const item = getCartItem(slot);
+      // A position on the page this window is showing, as the slot keys are.
+      const position = parseInt(actionId.replace('trigger-slot-', ''), 10);
+      const page = useShowTabs().activeCartPage.value;
+      if (position >= page.size) return;
+      const item = getCartItem(page.slotBase + position);
       if (!item) return;
       if (item.type === 'group') {
         if (isItemPlaying(item)) stopItemAny(item);

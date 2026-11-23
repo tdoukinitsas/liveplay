@@ -33,7 +33,7 @@
     <div class="binding-group">
       <div class="category-header">{{ t('controls.sectionCartSlots') }}</div>
       <div
-        v-for="slot in 16"
+        v-for="slot in slotRowCount"
         :key="slot"
         class="action-row"
         :class="{ capturing: capturingSlot === slot - 1, conflict: conflictSlot === slot - 1 }"
@@ -51,6 +51,31 @@
           @click.stop="clearSlotBinding(slot - 1)"
         >{{ t('controls.clear') }}</button>
         <span v-if="keyErrorMessage && keyErrorSlot === slot - 1" class="error-msg">{{ keyErrorMessage }}</span>
+      </div>
+    </div>
+
+    <div v-if="pinnableCarts.length" class="binding-group">
+      <div class="category-header">{{ t('controls.sectionPinnedCarts') }}</div>
+      <p class="settings-help">{{ t('controls.pinnedCartsHelp') }}</p>
+      <div
+        v-for="cart in pinnableCarts"
+        :key="cart.uuid"
+        class="action-row"
+        :class="{ capturing: capturingPin === cart.uuid }"
+        @click="startCapturePin(cart.uuid)"
+      >
+        <span class="action-label">{{ cart.label }}</span>
+        <span class="action-binding">
+          <template v-if="capturingPin === cart.uuid">{{ t('controls.pressAnyKey') }}</template>
+          <template v-else-if="pinnedKeys[cart.uuid]">{{ formatKeyLabel(pinnedKeys[cart.uuid]!) }}</template>
+          <template v-else>—</template>
+        </span>
+        <button
+          v-if="pinnedKeys[cart.uuid]"
+          class="clear-key-btn"
+          @click.stop="clearPin(cart.uuid)"
+        >{{ t('controls.clear') }}</button>
+        <span v-if="keyErrorMessage && keyErrorPin === cart.uuid" class="error-msg">{{ keyErrorMessage }}</span>
       </div>
     </div>
 
@@ -83,6 +108,9 @@ const PLAYBACK_ACTIONS: { id: PlaybackKeyAction; labelKey: string }[] = [
 
 const {
   keyMappings,
+  pinnedKeys,
+  setPinnedKey,
+  isKeyPinned,
   playbackMappings,
   updateBinding: updateKeyBinding,
   updatePlaybackBinding,
@@ -90,6 +118,36 @@ const {
   resetPlaybackToDefaults,
 } = useCartHotkeys();
 const { saveProject, currentProject } = useProject();
+const { getCartTarget } = useCartItems();
+const { cartPages } = useShowTabs();
+
+// Position keys apply to whichever page is showing, so there are as many rows
+// as the largest page has carts.
+const slotRowCount = computed(() => Math.max(16, ...cartPages.value.map(p => p.size)));
+
+// Every cart in the show, by page: what a key can be pinned to.
+const pinnableCarts = computed(() => {
+  const carts = currentProject.value?.cartItems ?? [];
+  return cartPages.value.flatMap((page, pageIndex) => carts
+    .filter(c => c.slot >= page.slotBase && c.slot < page.slotBase + page.size)
+    .sort((a, b) => a.slot - b.slot)
+    .map(c => ({
+      uuid: c.itemUuid,
+      label: `${page.name || t('tabs.defaultPage', { n: pageIndex + 1 })} · ${c.slot - page.slotBase + 1} · ${getCartTarget(c.itemUuid)?.displayName ?? ''}`,
+    })));
+});
+const capturingPin = ref<string | null>(null);
+const keyErrorPin = ref<string | null>(null);
+const startCapturePin = (uuid: string) => {
+  capturingPin.value = uuid;
+  capturingSlot.value = null;
+  capturingKeyAction.value = null;
+  resetCaptureState();
+};
+const clearPin = (uuid: string) => {
+  setPinnedKey(uuid, null);
+  saveProject();
+};
 
 const capturingSlot = ref<number | null>(null);
 const capturingKeyAction = ref<PlaybackKeyAction | null>(null);
@@ -125,6 +183,7 @@ const resetCaptureState = () => {
   keyErrorMessage.value = null;
   keyErrorSlot.value = null;
   keyErrorActionId.value = null;
+  keyErrorPin.value = null;
   conflictSlot.value = null;
   keyConflictAction.value = null;
   keyConflictSlotForAction.value = null;
@@ -132,11 +191,13 @@ const resetCaptureState = () => {
 const startCaptureSlot = (slotIndex: number) => {
   capturingSlot.value = slotIndex;
   capturingKeyAction.value = null;
+  capturingPin.value = null;
   resetCaptureState();
 };
 const startCaptureAction = (action: PlaybackKeyAction) => {
   capturingKeyAction.value = action;
   capturingSlot.value = null;
+  capturingPin.value = null;
   resetCaptureState();
 };
 
@@ -150,9 +211,10 @@ const handleKeydown = (e: KeyboardEvent) => {
   // first, and capture-phase listeners on the same target fire in
   // registration order.
   if (e.key === 'Escape') {
-    if (capturingSlot.value !== null || capturingKeyAction.value !== null) {
+    if (capturingSlot.value !== null || capturingKeyAction.value !== null || capturingPin.value !== null) {
       capturingSlot.value = null;
       capturingKeyAction.value = null;
+      capturingPin.value = null;
       resetCaptureState();
       e.preventDefault();
       e.stopPropagation();
@@ -160,7 +222,7 @@ const handleKeydown = (e: KeyboardEvent) => {
     return;
   }
 
-  if (capturingSlot.value === null && capturingKeyAction.value === null) return;
+  if (capturingSlot.value === null && capturingKeyAction.value === null && capturingPin.value === null) return;
   if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
 
   e.preventDefault();
@@ -172,6 +234,25 @@ const handleKeydown = (e: KeyboardEvent) => {
     keyErrorMessage.value = t('controls.reserved');
     if (capturingSlot.value !== null) keyErrorSlot.value = capturingSlot.value;
     if (capturingKeyAction.value !== null) keyErrorActionId.value = capturingKeyAction.value;
+    if (capturingPin.value !== null) keyErrorPin.value = capturingPin.value;
+    return;
+  }
+
+  if (capturingPin.value !== null) {
+    if (!setPinnedKey(capturingPin.value, binding)) {
+      keyErrorMessage.value = t('controls.keyInUse');
+      keyErrorPin.value = capturingPin.value;
+      return;
+    }
+    resetCaptureState();
+    capturingPin.value = null;
+    saveProject();
+    return;
+  }
+
+  if (isKeyPinned(binding) && capturingSlot.value !== null) {
+    keyErrorMessage.value = t('controls.keyInUse');
+    keyErrorSlot.value = capturingSlot.value;
     return;
   }
 
@@ -220,6 +301,11 @@ const handleKeydown = (e: KeyboardEvent) => {
     }
     if (result.conflictSlot >= 0) {
       keyErrorMessage.value = t('controls.conflictSlot', { n: result.conflictSlot + 1 });
+      keyErrorActionId.value = action;
+      return;
+    }
+    if (result.conflictPinned) {
+      keyErrorMessage.value = t('controls.keyInUse');
       keyErrorActionId.value = action;
       return;
     }

@@ -48,6 +48,18 @@
       <ConnectionLostModal />
     </template>
 
+    <!-- A playlist tab in its own window: for running the show, so it stays in
+         Show Mode. Its cues fire and stop over this window's own socket. -->
+    <template v-else-if="isPlaylistWindow">
+      <div class="cart-window-root">
+        <PlaylistView v-if="currentProject" :is-detached-window="true" />
+        <div v-else class="cart-window-loading">
+          <span class="material-symbols-rounded">queue_music</span>
+        </div>
+      </div>
+      <ConnectionLostModal />
+    </template>
+
     <!-- Normal mode -->
     <template v-else>
       <WelcomeScreen v-if="!currentProject" />
@@ -185,6 +197,7 @@ import 'material-symbols';
 import { accentForTheme } from '~/utils/accentPalette';
 import CartPlayer from './components/CartPlayer.vue';
 import MixerPanel from './components/MixerPanel.vue';
+import PlaylistView from './components/PlaylistView.vue';
 
 const {
   currentProject, saveProject, flushPendingSave, openProject, closeProject, confirmUnsavedChanges,
@@ -290,6 +303,11 @@ const isMixerWindow = import.meta.client
   ? new URLSearchParams(window.location.search).get('mixerWindow') === '1'
   : false;
 
+// …or a playlist tab popped out on its own.
+const isPlaylistWindow = import.meta.client
+  ? new URLSearchParams(window.location.search).get('playlistWindow') === '1'
+  : false;
+
 // Initialize state viewer for dev mode
 useStateViewer();
 
@@ -323,8 +341,8 @@ const updateInfo = ref({
 // colours. Without it a detached meter would colour its zones off the EBU
 // defaults and disagree with the same meter in the main window.
 function applyDetachedWindowProjectData(projectData: any) {
-  if (!projectData || !(isCartWindow || isMixerWindow)) return;
-  if (isCartWindow) {
+  if (!projectData || !(isCartWindow || isMixerWindow || isPlaylistWindow)) return;
+  if (isCartWindow || isPlaylistWindow) {
     clearCartOnlyItems();
     if (Array.isArray(projectData.cartOnlyItems)) {
       for (const item of projectData.cartOnlyItems) {
@@ -354,7 +372,7 @@ onMounted(() => {
     // updates. Both the cart and mixer windows stop here — the listeners
     // below (menu commands, updates, file association, quit flow) belong to
     // the main window and would double-fire if a second window took them too.
-    if (isCartWindow || isMixerWindow) {
+    if (isCartWindow || isMixerWindow || isPlaylistWindow) {
       window.electronAPI.getCartWindowProjectData().then((projectData: any) => {
         applyDetachedWindowProjectData(projectData);
       });

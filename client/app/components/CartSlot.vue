@@ -22,9 +22,27 @@
     <!-- Empty slot: importing is an edit action, so in Show Mode the slot is
          inert (just a dimmed number) rather than a "click to import" target. -->
     <div v-if="!hasItem" class="empty-slot" :class="{ 'empty-slot--inert': showMode }" @click="showMode ? undefined : handleImport()">
-      <span class="slot-number">{{ slot + 1 }}</span>
+      <span class="slot-number">{{ displayNumber }}</span>
       <span v-if="keyLabel" class="key-label">{{ keyLabel }}</span>
-      <span v-if="!showMode" class="slot-hint">{{ t('cart.clickToImport') }}</span>
+      <span v-if="!showMode" class="slot-hint">{{ t('cart.clickToImportOrPlaylist') }}</span>
+      <button
+        v-if="!showMode"
+        type="button"
+        class="bind-playlist"
+        :title="t('cart.startPlaylist')"
+        :aria-label="t('cart.startPlaylist')"
+        @click.stop="onBindPlaylist"
+      >
+        <span class="material-symbols-rounded">queue_music</span>
+      </button>
+      <div v-if="choosingTab" class="bind-playlist-list" @click.stop>
+        <button
+          v-for="(tab, i) in playlistTabs"
+          :key="tab.id"
+          type="button"
+          @click="bindTab(tab.id)"
+        >{{ tab.name || t('tabs.defaultPlaylist', { n: i + 1 }) }}</button>
+      </div>
     </div>
 
     <div
@@ -47,12 +65,12 @@
 
       <!-- Item info section -->
       <div class="slot-header" @click="handleSelect($event)">
-        <span class="slot-number">{{ slot + 1 }}</span>
+        <span class="slot-number">{{ displayNumber }}</span>
         <span
           v-if="isGroup"
           class="material-symbols-rounded group-icon"
-          :title="t('cart.groupSlot')"
-        >folder</span>
+          :title="isTabBound ? t('cart.playlistSlot') : t('cart.groupSlot')"
+        >{{ isTabBound ? 'queue_music' : 'folder' }}</span>
         <span class="slot-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
         <span
           v-if="mediaMissing"
@@ -111,6 +129,7 @@
             :title="isPlaying ? t('actions.stop') : t('actions.play')"
           />
           <ActionButton
+            v-if="!isTabBound"
             icon="fast_forward"
             highlight-color="var(--color-warning)"
             active-text-color="black"
@@ -120,6 +139,7 @@
             :title="t('actions.setAsNext')"
           />
           <ActionButton
+            v-if="!isTabBound"
             icon="settings"
             highlight-color="var(--color-accent)"
             context="Cart"
@@ -206,16 +226,20 @@ import AudioImportModal from './AudioImportModal.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { calculatePerceivedLoudness, parseWaveformFileData } from '~/utils/audio';
 import { isSecondaryWindow } from '~/composables/useProject';
+import { isTabTarget, tabTarget } from '~/utils/tabs';
 
 const props = defineProps<{
   slot: number;
+  /** Where it sits on its page: what the operator counts by. */
+  position?: number;
+  /** The last slot on this page, for making room when carts are reordered. */
+  maxSlot?: number;
   item: AudioItem | GroupItem | null;
   keyLabel?: string;
 }>();
 
-// Highest valid cart slot index. The grid renders 16 slots (CartPlayer:
-// v-for="slot in 16"), so indices run 0..15.
-const CART_SLOT_MAX = 15;
+const displayNumber = computed(() => (props.position ?? props.slot) + 1);
+const cartSlotMax = computed(() => props.maxSlot ?? 15);
 
 const slotRef = ref<HTMLElement | null>(null);
 const showImportModal = ref(false);
@@ -287,6 +311,9 @@ const isPeaking = computed(() => {
 // A slot can hold a playlist group (discussion #61): it fires the group, and
 // its time and progress are the whole group's.
 const isGroup = computed(() => props.item?.type === 'group');
+// A cart that starts a whole playlist tab. It has no item of its own to edit
+// or arm: the cues on the tab are the playlist's.
+const isTabBound = computed(() => isTabTarget(props.item?.uuid));
 const isPlaying = computed(() => isItemPlaying(props.item));
 const indefiniteMark = computed(() =>
   isGroup.value && props.item && activeGroups.value.get(props.item.uuid)?.indefinite ? '+' : '');
@@ -479,7 +506,7 @@ const handleSlotClick = () => {
 };
 
 const handleSelect = (event?: MouseEvent) => {
-  if (!props.item) return;
+  if (!props.item || isTabBound.value) return;
   if (showMode.value) return;
   // Stamp the selection as cart-owned so a global keyboard DEL clears cart
   // slots (rather than deleting the underlying playlist items).
@@ -525,6 +552,35 @@ const handleSelect = (event?: MouseEvent) => {
 const handlePlay = () => {
   if (!props.item) return;
   fireItem(props.item);
+};
+
+// ---- A cart that starts a whole playlist tab (discussion #61) ---------------
+const { playlistTabs } = useShowTabs();
+const choosingTab = ref(false);
+
+const onBindPlaylist = () => {
+  if (playlistTabs.value.length === 1) bindTab(playlistTabs.value[0]!.id);
+  else choosingTab.value = !choosingTab.value;
+};
+
+const bindTab = (tabId: string) => {
+  const project = currentProject.value;
+  if (!project) return;
+  choosingTab.value = false;
+  const uuid = tabTarget(tabId);
+  const existing = project.cartItems.find((ci: any) => ci.slot === props.slot);
+  if (existing) {
+    if (existing.itemUuid) removeCartOnlyItem(existing.itemUuid);
+    existing.itemUuid = uuid;
+    existing.index = [-1, props.slot];
+  } else {
+    project.cartItems.push({ slot: props.slot, itemUuid: uuid, index: [-1, props.slot] });
+  }
+  if (isSecondaryWindow) {
+    useLiveplayServer().setCartSlot(props.slot, uuid).catch((err: unknown) =>
+      console.warn('[cart] could not bind the playlist to the slot on the server:', err));
+  }
+  void useProject().saveProject();
 };
 
 const handleStop = () => {
@@ -788,6 +844,13 @@ const handleDrop = async (e: DragEvent) => {
   if (showMode.value) return;
   if (!e.dataTransfer || !currentProject.value) return;
   
+  // A playlist tab dropped here: this cart now starts it.
+  const droppedTab = e.dataTransfer.getData('liveplay-playlist-tab');
+  if (droppedTab) {
+    bindTab(droppedTab);
+    return;
+  }
+
   // Check if it's a cart item being reordered
   const sourceSlotStr = e.dataTransfer.getData('cart-slot');
   if (sourceSlotStr) {
@@ -824,7 +887,7 @@ const handleDrop = async (e: DragEvent) => {
       while (occupied.has(firstFree)) firstFree += 1;
 
       // No blank slot remains before the end of the grid → no room to push.
-      if (firstFree > CART_SLOT_MAX) return;
+      if (firstFree > cartSlotMax.value) return;
 
       // Shift the run up by one, highest slot first to avoid collisions.
       for (let s = firstFree - 1; s >= targetSlot; s--) {
@@ -928,6 +991,53 @@ const handleDrop = async (e: DragEvent) => {
 </script>
 
 <style scoped lang="scss">
+.bind-playlist {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+
+  .material-symbols-rounded { font-size: 18px; }
+  &:hover { color: var(--color-text-primary); border-color: var(--color-accent); }
+}
+
+.bind-playlist-list {
+  position: absolute;
+  inset: 4px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  padding: 4px;
+  border-radius: 4px;
+  background: var(--color-surface);
+
+  button {
+    flex: 0 0 auto;
+    padding: 4px 6px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--color-text-primary);
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover { background: var(--color-surface-hover); }
+  }
+}
+
 .cart-slot {
   border: 3px solid var(--color-border);
   border-radius: var(--border-radius-md);

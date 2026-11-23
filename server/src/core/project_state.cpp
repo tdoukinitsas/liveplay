@@ -2611,6 +2611,7 @@ json ProjectState::header_document() const {
         {"eventConnections", document_.value("eventConnections", json::array())},
         {"playlistTabs", document_.value("playlistTabs", json::array())},
         {"cartPages",    document_.value("cartPages",    json::array())},
+        {"cartPinnedKeys", document_.value("cartPinnedKeys", json::object())},
         {"tabLimits",    tabs::limits()},
         {"itemCount",    item_count},
         // The bus-schema version the loaded document is at. The client mirrors

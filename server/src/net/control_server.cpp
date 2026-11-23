@@ -177,6 +177,12 @@ struct ControlServer::Impl {
         // spreads the kept frames evenly instead of bunching them, which a
         // simple "every Nth" counter does not do for rates that do not divide.
         std::size_t   meter_accum = 0;
+        // Which playlist tab and cart page this window shows (#74). Purely so
+        // another operator can choose to follow it: nothing else reads these,
+        // and they are never part of the show.
+        bool          has_view = false;
+        std::string   view_playlist_tab;
+        std::string   view_cart_page;
 
         // ---- Principal (U3) ----------------------------------------------
         // Who this connection turned out to be, decided once during the
@@ -1449,6 +1455,28 @@ void ControlServer::broadcast_doc_patch(const json& payload) {
     }
 }
 
+void ControlServer::broadcast_client_views() {
+    if (!running_.load(std::memory_order_acquire)) return;
+    json views = json::array();
+    {
+        std::lock_guard lock{impl_->ws_mutex};
+        for (const auto& [conn, s] : impl_->ws_clients) {
+            if (!s.has_view) continue;
+            views.push_back(json{
+                {"id", s.id},
+                {"label", s.user_name.empty() ? s.remote_ip : s.user_name},
+                {"playlistTab", s.view_playlist_tab},
+                {"cartPage", s.view_cart_page},
+            });
+        }
+    }
+    // A stable order: the map's is a hash of pointers.
+    std::sort(views.begin(), views.end(), [](const json& a, const json& b) {
+        return a.value("id", std::uint64_t{0}) < b.value("id", std::uint64_t{0});
+    });
+    broadcast_doc_patch(json{{"type", "doc_patch"}, {"op", "client_views"}, {"views", views}});
+}
+
 void ControlServer::broadcast_event_connections(const json& connections) {
     if (!running_.load(std::memory_order_acquire)) return;
     std::string full, hidden;
@@ -1748,6 +1776,7 @@ static std::vector<std::string> selection_anchors(audio::AudioEngine& engine,
 struct SessionOps {
     std::function<std::string(const std::string&)> set_locale;
     std::function<std::size_t(std::size_t)>        set_meter_hz;
+    std::function<std::uint64_t(const std::string&, const std::string&)> set_view;
     std::function<void(const std::string&)>        set_analyser;
 };
 
@@ -2000,6 +2029,17 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
                     asked <= 0 ? 0 : static_cast<std::size_t>(asked));
                 return json{{"type", "doc_patch"}, {"op", "meter_hz_changed"},
                             {"hz", effective}}.dump();
+            }
+        }
+        else if (type == "set_view") {
+            if (session.set_view) {
+                const auto text = [&](const char* key) {
+                    const auto it = j.find(key);
+                    return it != j.end() && it->is_string()
+                        ? it->get<std::string>().substr(0, 64) : std::string{};
+                };
+                const auto id = session.set_view(text("playlistTab"), text("cartPage"));
+                return json{{"type", "doc_patch"}, {"op", "client_view_id"}, {"id", id}}.dump();
             }
         }
         else if (type == "bus_gain") {
@@ -5797,6 +5837,7 @@ void ControlServer::install_routes() {
               Logger::info("WS client #{} disconnected ({}); {} remaining",
                            id, reason, impl_->ws_clients.size());
           }
+          broadcast_client_views();
           // The other half of the union: the last operator wanting loudness
           // leaving is what lets the DSP stop again.
           refresh_user_meter_modes();
@@ -5845,6 +5886,21 @@ void ControlServer::install_routes() {
                   it->second.meter_hz    = (hz == 0) ? 0 : std::min(hz, ceiling);
                   it->second.meter_accum = 0;
                   return it->second.meter_hz == 0 ? ceiling : it->second.meter_hz;
+              };
+              session.set_view = [this, &conn](const std::string& tab,
+                                               const std::string& page) -> std::uint64_t {
+                  std::uint64_t id = 0;
+                  {
+                      std::lock_guard lock{impl_->ws_mutex};
+                      auto it = impl_->ws_clients.find(&conn);
+                      if (it == impl_->ws_clients.end()) return 0;
+                      it->second.has_view          = true;
+                      it->second.view_playlist_tab = tab;
+                      it->second.view_cart_page    = page;
+                      id = it->second.id;
+                  }
+                  broadcast_client_views();
+                  return id;
               };
               direct_reply = handle_ws_message(conn, data, engine_, state_, impl_->server_addr,
                                                [this](const json& p) { broadcast_doc_patch(p); },

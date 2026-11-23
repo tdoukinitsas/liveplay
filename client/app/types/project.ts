@@ -7,6 +7,8 @@ export interface BaseItem {
   displayName: string;
   color: string;
   type: 'audio' | 'group' | 'action'; // Extensible for future item types
+  /** Top-level items only: the playlist tab it's on. Absent = the first tab. */
+  tabId?: string;
   /**
    * Which bus this item plays through. Absent means *inherit* — from the
    * nearest ancestor group, or the master-role bus if nothing along the
@@ -188,8 +190,36 @@ export type PlaybackKeyAction =
   | 'play-next';
 
 // Cart player item
+/** A playlist tab (#74). Which one a window shows is local to that window. */
+export interface PlaylistTab {
+  id: string;
+  name: string;
+  color?: string;
+  /** After the last cue: back to the top, on into the next tab, or stop. */
+  atEnd?: 'wrap' | 'continue' | 'stop';
+}
+
+/** A cart page. Its carts are slots slotBase .. slotBase + size - 1. */
+export interface CartPage {
+  id: string;
+  name: string;
+  color?: string;
+  size: number;
+  slotBase: number;
+}
+
+/** Published by the server, which is the one place they're defined. */
+export interface TabLimits {
+  maxPlaylistTabs: number;
+  maxCartPages: number;
+  minCartsPerPage: number;
+  maxCartsPerPage: number;
+  defaultCartsPerPage: number;
+  cartSlotsPerPage: number;
+}
+
 export interface CartItem {
-  slot: number; // 0-15
+  slot: number; // a page's slotBase + the cart's position on it
   itemUuid: string;
   index: number[]; // [-1, slot] for API triggering
 }
@@ -517,6 +547,14 @@ export interface Project {
   items: (AudioItem | GroupItem)[];
   cartItems: CartItem[];
   cartSlotKeys?: Record<number, CartSlotKeyBinding>;
+  /** Keys that fire one particular cart from any page, by its item uuid. */
+  cartPinnedKeys?: Record<string, CartSlotKeyBinding>;
+  /** Absent in a show with one tab. */
+  playlistTabs?: PlaylistTab[];
+  /** Absent in a show with one default page. */
+  cartPages?: CartPage[];
+  /** From the server's header; not saved. */
+  tabLimits?: TabLimits;
   /**
    * LEGACY as of U4 — the transport keymap belongs to the person, not the
    * show, and lives in their profile (usePreferences). Still typed because a

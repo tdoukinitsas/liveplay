@@ -30,7 +30,8 @@
 //
 // Wired once per renderer from plugins/liveplay-server.client.ts.
 // =====================================================================
-import type { UiMode } from '~/composables/useUiMode';
+import type { UiMode } from '~/composables/useUiMode';
+import { ALWAYS_SHOW_MODE } from '~/composables/useUiMode';
 
 // Renderer-scoped, not per-call: the plugin calls this once, but guard anyway
 // so an accidental second call can't double-subscribe to the WS streams.
@@ -42,7 +43,7 @@ export const useShowControl = () => {
   // The same state keys useProject / useUiMode / useLocalization own.
   const selectedItemUuid = useState<string | null>('selectedItemUuid', () => null);
   const selectedItems    = useState<Set<string>>('selectedItems', () => new Set());
-  const uiMode           = useState<UiMode>('useUiMode.uiMode', () => 'edit');
+  const uiMode           = useState<UiMode>('useUiMode.uiMode', () => (ALWAYS_SHOW_MODE ? 'playback' : 'edit'));
   const currentLocale    = useState<string>('locale', () => 'en');
 
   const showMode = computed(() => uiMode.value === 'playback');
@@ -88,6 +89,8 @@ export const useShowControl = () => {
   };
 
   const applyShowMode = (enabled: boolean) => {
+    // A popped-out playlist tab stays in Show Mode whatever the rig is in.
+    if (ALWAYS_SHOW_MODE) return;
     const next: UiMode = enabled ? 'playback' : 'edit';
     if (uiMode.value === next) return;
     applyFromServer(() => { uiMode.value = next; });

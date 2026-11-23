@@ -175,6 +175,7 @@
 </template>
 
 <script setup lang="ts">
+import { isTabTarget, itemsOnTab, tabIdOfTarget, tabsOf } from '~/utils/tabs';
 import LocationChoiceModal from './LocationChoiceModal.vue';
 import ServerFilePickerModal from './ServerFilePickerModal.vue';
 import {
@@ -778,12 +779,34 @@ const isCartWindowMode = import.meta.client
   ? new URLSearchParams(window.location.search).get('cartWindow') === '1'
   : false;
 
-watch(currentProject, (project) => {
+// Playlist tabs open in their own windows, which need their cues' waveforms.
+const poppedOutPlaylistTabs = ref<string[]>([]);
+if (import.meta.client) {
+  (window as any).electronAPI?.onTabWindowsChanged?.((_e: unknown, keys: string[]) => {
+    poppedOutPlaylistTabs.value = keys
+      .filter(k => k.startsWith('playlist:'))
+      .map(k => k.slice('playlist:'.length));
+  });
+}
+
+watch([currentProject, poppedOutPlaylistTabs], ([project]) => {
   // Only sync from main window, not from detached cart window
   if (!import.meta.client || !window.electronAPI || !project || isCartWindowMode) return;
   const cartReferenced = new Set<string>(
     (project.cartItems || []).map((ci: any) => ci.itemUuid).filter(Boolean)
   );
+  const tabs = tabsOf(project);
+  const keepAll = (list: any[]) => {
+    for (const it of list) {
+      cartReferenced.add(it.uuid);
+      if (it.children) keepAll(it.children);
+    }
+  };
+  for (const tabId of poppedOutPlaylistTabs.value) keepAll(itemsOnTab(project.items || [], tabs, tabId));
+  // Carts bound to a whole tab show its cues too.
+  for (const c of project.cartItems || []) {
+    if (isTabTarget(c.itemUuid)) keepAll(itemsOnTab(project.items || [], tabs, tabIdOfTarget(c.itemUuid)));
+  }
   const data = {
     ...project,
     items: stripWaveformsKeeping(project.items || [], cartReferenced),

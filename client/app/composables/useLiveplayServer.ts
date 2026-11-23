@@ -1099,6 +1099,16 @@ function createClient() {
   }
 
   // Cart slot bindings.
+  // Playlist tabs and cart pages: what exists. Every client is told.
+  async function saveProjectTabs(body: { playlistTabs: unknown[]; cartPages: unknown[] }) {
+    return rest<any>('/api/project/tabs', { method: 'PUT', body: JSON.stringify(body) });
+  }
+
+  // Which tab and page this window shows, so another operator can follow it.
+  function setClientView(view: { playlistTab: string; cartPage: string }) {
+    wsSend({ type: 'set_view', ...view });
+  }
+
   async function setCartSlot(slot: number, itemUuid: string) {
     return rest<any>('/api/project/cart', {
       method: 'POST',
@@ -1998,6 +2008,8 @@ function createClient() {
     saveOutputs,
 
     // cart bindings
+    saveProjectTabs,
+    setClientView,
     setCartSlot,
     clearCartSlot,
 
