@@ -54,6 +54,7 @@
     "Headphone preview and pre-fade listen",
     "Show control events over OSC, MIDI, MIDI Show Control and HTTP",
     "Behringer X Air mixer control and SMPTE timecode output",
+    "Stream Deck control through the official Bitfocus Companion module",
     "Local or remote operation across a network",
     "User accounts, roles, API tokens and a REST and WebSocket API"
   ],
@@ -76,7 +77,11 @@
     },
     {
       "q": "Can LivePlay control lights, mixers and other show equipment?",
-      "a": "Yes. A cue can fire events from its timeline over OSC, MIDI, MIDI Show Control and HTTP, control Behringer X Air mixers and send SMPTE timecode. Tools such as Bitfocus Companion can also control LivePlay through its API."
+      "a": "Yes. A cue can fire events from its timeline over OSC, MIDI, MIDI Show Control and HTTP, control Behringer X Air mixers and send SMPTE timecode. Show-control tools can also control LivePlay through its API."
+    },
+    {
+      "q": "Can I control LivePlay from a Stream Deck?",
+      "a": "Yes. LivePlay has an official module for Bitfocus Companion. Search for LivePlay when you add a connection in Companion, and a Stream Deck or any other Companion surface gets buttons for GO, cues, carts, Stop All, panic and the mixer. Each button shows its cue's name, colour and progress."
     },
     {
       "q": "Can I run LivePlay across a network?",

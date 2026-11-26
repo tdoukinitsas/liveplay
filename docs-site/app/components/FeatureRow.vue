@@ -7,8 +7,10 @@
       <ul v-if="feature.points" class="ticks">
         <li v-for="point in tl(`features.${feature.key}.points`)" :key="point">{{ point }}</li>
       </ul>
+      <CompanionLinks v-if="feature.companion" />
     </div>
-    <ShotFrame :src="shot(feature.shot)" :alt="`LivePlay: ${t(`features.${feature.key}.title`)}`" />
+    <CompanionPad v-if="feature.companion" />
+    <ShotFrame v-else :src="shot(feature.shot)" :alt="`LivePlay: ${t(`features.${feature.key}.title`)}`" />
   </article>
 </template>
 

@@ -271,6 +271,15 @@
         "Én endring oppdaterer alle hendelser",
         "Overstyr ett enkelt felt ved behov"
       ]
+    },
+    "companion": {
+      "title": "Styring fra Stream Deck med Companion",
+      "description": "LivePlay har en offisiell modul for Bitfocus Companion, så et Stream Deck eller en annen kontrollflate i Companion kan kjøre showet ditt. Hver knapp viser navnet og fargen til cuen sin og fylles mens cuen spilles.",
+      "points": [
+        "GO, cuer, carter, Stopp alt og nødstopp",
+        "Mute, PFL og masternivå på mikseren",
+        "Nedtelling og fremdrift direkte på knappene"
+      ]
     }
   },
   "ports": {
@@ -293,6 +302,12 @@
     "subtitle": "Koble LivePlay til showkontrollverktøyene dine.",
     "description": "Styr avspillingen, rediger prosjekter og ruting, og følg sanntidsstatusen over HTTP og WebSocket. Når innlogging er på, gir du Companion, et showkontrollsystem eller et skript et eget API-token under Innstillinger › Kontoer i stedet for å dele noens passord. Utviklerreferansen dekker autentisering, alle endepunkter, kommandoer, hendelser og eksempler på integrasjon.",
     "referenceLabel": "API-referanse for utviklere"
+  },
+  "companion": {
+    "get": "Hent Companion-modulen",
+    "getCompanion": "Last ned Bitfocus Companion",
+    "credit": "Modul av {name}",
+    "padAlt": "Companion-knapper for LivePlay under et show: GO med neste cue, cuen som spilles med nedtelling, Stopp alt, nødstopp, fem carter der én spilles, mute på mikseren, PFL og masternivå"
   },
   "footer": {
     "license": "er lisensiert under",
@@ -452,6 +467,16 @@
             "Du varsles før du trykker Spill",
             "Koble et helt show på nytt fra én mappe",
             "Bytt en fil uten å miste innstillinger"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "Showet ditt på et Stream Deck.",
+          "text": "LivePlay har nå en offisiell modul i Bitfocus Companion. Søk etter LivePlay når du legger til en tilkobling, så får et Stream Deck, nettknapper på et nettbrett eller en annen Companion-flate ferdige knapper som følger showet ditt.",
+          "points": [
+            "Cueknapper i dine farger som fylles mens de spilles",
+            "GO, carter, Stopp alt, nødstopp og mikseren",
+            "Kobler til med et API-token når innlogging er på"
           ]
         }
       },

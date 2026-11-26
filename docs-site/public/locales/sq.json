@@ -271,6 +271,15 @@
         "Një ndryshim përditëson çdo ngjarje",
         "Anashkaloni një fushë të vetme kur duhet"
       ]
+    },
+    "companion": {
+      "title": "Kontroll nga Stream Deck me Companion",
+      "description": "LivePlay ka një modul zyrtar për Bitfocus Companion, kështu që një Stream Deck ose çdo sipërfaqe tjetër kontrolli e Companion mund ta drejtojë shfaqjen tuaj. Çdo tast tregon emrin dhe ngjyrën e cue-së së vet dhe mbushet ndërsa cue luan.",
+      "points": [
+        "GO, cue, cart-e, Ndalo të gjitha dhe ndalim emergjence",
+        "Mute, PFL dhe niveli master i mikserit",
+        "Numërim mbrapsht dhe ecuri live në taste"
+      ]
     }
   },
   "ports": {
@@ -293,6 +302,12 @@
     "subtitle": "Lidheni LivePlay me mjetet tuaja të show control-it.",
     "description": "Kontrolloni luajtjen, përpunoni projekte dhe drejtimin, dhe ndiqni gjendjen live përmes HTTP dhe WebSocket. Kur hyrja me llogari është aktive, jepini Companion-it, një sistemi show control ose një skripti tokenin e vet API te Cilësimet, seksioni Llogaritë, në vend që të ndani fjalëkalimin e dikujt. Dokumentacioni për zhvillues mbulon mirëfilltësimin, çdo endpoint, komandat, ngjarjet dhe shembuj integrimi.",
     "referenceLabel": "Dokumentacioni i API-t për zhvillues"
+  },
+  "companion": {
+    "get": "Merrni modulin Companion",
+    "getCompanion": "Shkarkoni Bitfocus Companion",
+    "credit": "Moduli nga {name}",
+    "padAlt": "Taste Companion për LivePlay gjatë një shfaqjeje: GO me cue-në e radhës, cue-ja që luan me numërim mbrapsht, Ndalo të gjitha, ndalim emergjence, pesë cart-e me njërin duke luajtur, mute i mikserit, PFL dhe niveli master"
   },
   "footer": {
     "license": "licencohet sipas",
@@ -452,6 +467,16 @@
             "Paralajmërim para se të shtypni Luaj",
             "Rilidhni një shfaqje të tërë nga një dosje",
             "Zëvendësoni një skedar pa humbur cilësimet"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "Shfaqja juaj në një Stream Deck.",
+          "text": "LivePlay tani ka një modul zyrtar në Bitfocus Companion. Kërkoni LivePlay kur shtoni një lidhje, dhe një Stream Deck, butonat web në një tablet ose çdo sipërfaqe tjetër Companion merr taste të gatshme që ndjekin shfaqjen tuaj.",
+          "points": [
+            "Taste cue në ngjyrat tuaja, që mbushen ndërsa luajnë",
+            "GO, cart-e, Ndalo të gjitha, ndalim emergjence dhe mikseri",
+            "Lidhet me një token API kur hyrja me llogari është aktive"
           ]
         }
       },

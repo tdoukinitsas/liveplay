@@ -271,6 +271,15 @@
         "改一次，所有事件同步更新",
         "需要时可单独覆盖某个字段"
       ]
+    },
+    "companion": {
+      "title": "通过 Companion 用 Stream Deck 控制",
+      "description": "LivePlay 拥有 Bitfocus Companion 官方模块，您可以用 Stream Deck 或任何其他 Companion 控制面板运行演出。每个按键都会显示对应 Cue 的名称和颜色，并随播放进度逐渐填满。",
+      "points": [
+        "GO、Cue、盒式播放器、全部停止和紧急停止",
+        "调音台静音、PFL 和主输出电平",
+        "按键上实时显示倒计时和进度"
+      ]
     }
   },
   "ports": {
@@ -293,6 +302,12 @@
     "subtitle": "把 LivePlay 接入您的演出控制工具。",
     "description": "通过 HTTP 和 WebSocket 控制播放、编辑项目和路由，并监视实时状态。开启登录后，请在“设置 › 账户”中为 Companion、演出控制系统或脚本单独签发 API 令牌，而不是共用某个人的密码。开发者参考涵盖身份验证、所有端点、命令、事件和集成示例。",
     "referenceLabel": "开发者 API 参考"
+  },
+  "companion": {
+    "get": "获取 Companion 模块",
+    "getCompanion": "下载 Bitfocus Companion",
+    "credit": "模块作者：{name}",
+    "padAlt": "演出中 LivePlay 的 Companion 按键：显示下一个 Cue 的 GO、正在倒计时播放的 Cue、全部停止、紧急停止、五个盒式播放器（其中一个正在播放）、调音台静音、PFL 和主输出电平"
   },
   "footer": {
     "license": "的许可证为",
@@ -452,6 +467,16 @@
             "按下播放之前就有警告",
             "从一个文件夹重新链接整场演出",
             "替换文件，不丢设置"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "把演出装进 Stream Deck。",
+          "text": "LivePlay 现已在 Bitfocus Companion 中推出官方模块。添加连接时搜索 LivePlay，Stream Deck、平板上的网页按键或任何其他 Companion 控制面板都会获得一套跟随演出的现成按键。",
+          "points": [
+            "按您的颜色显示 Cue 按键，随播放逐渐填满",
+            "GO、盒式播放器、全部停止、紧急停止和调音台",
+            "开启登录后使用 API 令牌连接"
           ]
         }
       },

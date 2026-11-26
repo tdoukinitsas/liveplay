@@ -271,6 +271,15 @@
         "Tek değişiklik tüm olayları günceller",
         "Gerektiğinde tek bir alanı geçersiz kılın"
       ]
+    },
+    "companion": {
+      "title": "Companion ile Stream Deck Kontrolü",
+      "description": "LivePlay'in Bitfocus Companion için resmî bir modülü var; böylece bir Stream Deck ya da başka herhangi bir Companion kontrol yüzeyi gösterinizi yönetebilir. Her tuş kendi cue'sunun adını ve rengini gösterir, cue çaldıkça dolar.",
+      "points": [
+        "GO, cue'lar, kartuşlar, Tümünü durdur ve acil durdurma",
+        "Mikser mute, PFL ve master seviyesi",
+        "Tuşlarda canlı geri sayım ve ilerleme"
+      ]
     }
   },
   "ports": {
@@ -293,6 +302,12 @@
     "subtitle": "LivePlay'i gösteri kontrol araçlarınıza bağlayın.",
     "description": "Oynatmayı kontrol edin, projeleri ve yönlendirmeyi düzenleyin, canlı durumu HTTP ve WebSocket üzerinden izleyin. Oturum açma etkinse Companion'a, bir gösteri kontrol sistemine ya da bir betiğe birinin parolasını paylaşmak yerine Ayarlar'daki Hesaplar bölümünden kendi API belirtecini verin. Geliştirici başvurusu kimlik doğrulamayı, tüm uç noktaları, komutları, olayları ve entegrasyon örneklerini kapsar.",
     "referenceLabel": "Geliştirici API Başvurusu"
+  },
+  "companion": {
+    "get": "Companion modülünü edinin",
+    "getCompanion": "Bitfocus Companion'ı indirin",
+    "credit": "Modül: {name}",
+    "padAlt": "Gösteri sırasında LivePlay için Companion tuşları: sıradaki cue ile GO, geri sayan çalan cue, Tümünü durdur, acil durdurma, biri çalan beş kartuş, mikser mute, PFL ve master seviyesi"
   },
   "footer": {
     "license": "şu lisansla dağıtılır:",
@@ -452,6 +467,16 @@
             "Oynat'a basmadan önce uyarı",
             "Tüm gösteriyi tek klasörden yeniden bağlayın",
             "Ayarları kaybetmeden dosya değiştirin"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "Gösteriniz bir Stream Deck'te.",
+          "text": "LivePlay'in artık Bitfocus Companion'da resmî bir modülü var. Bağlantı eklerken LivePlay'i arayın; bir Stream Deck, tabletteki web düğmeleri ya da başka herhangi bir Companion yüzeyi gösterinizi takip eden hazır tuşlara kavuşur.",
+          "points": [
+            "Çaldıkça dolan, sizin renklerinizde cue tuşları",
+            "GO, kartuşlar, Tümünü durdur, acil durdurma ve mikser",
+            "Oturum açma etkinken API belirteciyle bağlanır"
           ]
         }
       },

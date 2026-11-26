@@ -271,6 +271,15 @@
         "Un cambio actualiza todos los eventos",
         "Anule un solo campo cuando lo necesite"
       ]
+    },
+    "companion": {
+      "title": "Control con Stream Deck mediante Companion",
+      "description": "LivePlay tiene un módulo oficial para Bitfocus Companion, así que un Stream Deck o cualquier otra superficie de control de Companion puede llevar su espectáculo. Cada botón muestra el nombre y el color de su cue, y se va llenando mientras suena.",
+      "points": [
+        "GO, cues, cartuchos, Detener todo y parada de emergencia",
+        "Mutes, PFL y nivel master del mezclador",
+        "Cuentas atrás y progreso en directo en los botones"
+      ]
     }
   },
   "ports": {
@@ -293,6 +302,12 @@
     "subtitle": "Conecte LivePlay a sus herramientas de show control.",
     "description": "Controle la reproducción, edite proyectos y enrutamiento y supervise el estado en vivo por HTTP y WebSocket. Cuando el inicio de sesión está activado, dé a Companion, a un sistema de show control o a un script su propio token de API desde Configuración, en Cuentas, en lugar de compartir la contraseña de alguien. La referencia para desarrolladores cubre la autenticación, cada endpoint, los comandos, los eventos y ejemplos de integración.",
     "referenceLabel": "Referencia de la API para desarrolladores"
+  },
+  "companion": {
+    "get": "Obtener el módulo de Companion",
+    "getCompanion": "Descargar Bitfocus Companion",
+    "credit": "Módulo de {name}",
+    "padAlt": "Botones de Companion para LivePlay durante un espectáculo: GO con el siguiente cue, el cue en curso con cuenta atrás, Detener todo, parada de emergencia, cinco cartuchos con uno sonando, mutes del mezclador, PFL y nivel master"
   },
   "footer": {
     "license": "se distribuye bajo la licencia",
@@ -452,6 +467,16 @@
             "Aviso antes de presionar reproducir",
             "Revincule todo un espectáculo desde una carpeta",
             "Reemplace un archivo sin perder los ajustes"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "Su espectáculo en un Stream Deck.",
+          "text": "LivePlay ya tiene un módulo oficial en Bitfocus Companion. Busque LivePlay al añadir una conexión y un Stream Deck, botones web en una tableta o cualquier otra superficie de Companion tendrá botones listos para usar que siguen su espectáculo.",
+          "points": [
+            "Botones de cue en sus colores que se llenan al sonar",
+            "GO, cartuchos, Detener todo, parada de emergencia y el mezclador",
+            "Se conecta con un token de API cuando el inicio de sesión está activado"
           ]
         }
       },

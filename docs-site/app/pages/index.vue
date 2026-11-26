@@ -93,7 +93,7 @@
           <NuxtLink to="/whats-new/2-6/" class="btn btn--ink">{{ t('home.teaser.button') }}</NuxtLink>
         </div>
         <ul class="teaser__list">
-          <li v-for="id in ['events', 'presets', 'tabs', 'pages', 'automation', 'relink']" :key="id">
+          <li v-for="id in ['events', 'presets', 'tabs', 'pages', 'automation', 'relink', 'companion']" :key="id">
             {{ t(`whatsNew.v26.sections.${id}.kicker`) }}
           </li>
         </ul>
@@ -108,7 +108,10 @@
           <p class="eyebrow">{{ t('home.tech.eyebrow') }}</p>
           <h2 class="display display--md">{{ t('api.title') }}</h2>
           <p class="lede">{{ t('api.description') }}</p>
-          <a :href="asset('api/')" class="btn btn--ghost">{{ t('api.referenceLabel') }}</a>
+          <div class="tech__cta">
+            <a :href="asset('api/')" class="btn btn--ghost">{{ t('api.referenceLabel') }}</a>
+            <a :href="MODULE_URL" target="_blank" rel="noopener noreferrer" class="btn btn--ghost">{{ t('companion.get') }}</a>
+          </div>
         </div>
         <div class="ports">
           <h3>{{ t('ports.title') }}</h3>
@@ -163,6 +166,7 @@ import { useI18n } from '../composables/useI18n';
 import { usePageSeo } from '../composables/usePageSeo';
 import { useSiteInfo } from '../composables/useSiteInfo';
 import { chapters } from '../data/tour';
+import { MODULE_URL } from '../data/companion';
 import seo from '../data/seo.json';
 
 const { t, locale } = useI18n();

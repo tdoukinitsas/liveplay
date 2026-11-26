@@ -271,6 +271,15 @@
         "一度の変更で全イベントに反映",
         "必要なときは項目をひとつだけ上書き"
       ]
+    },
+    "companion": {
+      "title": "Companion で Stream Deck から操作",
+      "description": "LivePlay には Bitfocus Companion 用の公式モジュールがあり、Stream Deck やその他の Companion コントロールサーフェスからショーを進行できます。各ボタンにはキューの名前と色が表示され、再生に合わせて塗りつぶされていきます。",
+      "points": [
+        "GO、キュー、カート、「すべて停止」、緊急停止",
+        "ミキサーのミュート、PFL、マスターレベル",
+        "ボタン上でライブのカウントダウンと進行状況"
+      ]
     }
   },
   "ports": {
@@ -293,6 +302,12 @@
     "subtitle": "LivePlay をショーコントロールツールとつなげます。",
     "description": "HTTP と WebSocket で、再生の操作、プロジェクトやルーティングの編集、ライブ状態の監視ができます。ログインがオンの場合は、誰かのパスワードを共有する代わりに、「設定 › アカウント」から Companion、ショーコントロールシステム、スクリプトに専用の API トークンを発行してください。開発者リファレンスでは、認証、すべてのエンドポイント、コマンド、イベント、連携例を解説しています。",
     "referenceLabel": "開発者向け API リファレンス"
+  },
+  "companion": {
+    "get": "Companion モジュールを入手",
+    "getCompanion": "Bitfocus Companion をダウンロード",
+    "credit": "モジュール作者：{name}",
+    "padAlt": "ショー中の LivePlay 用 Companion ボタン：次のキュー付きの GO、カウントダウン中の再生中キュー、「すべて停止」、緊急停止、1 つが再生中の 5 つのカート、ミキサーのミュート、PFL、マスターレベル"
   },
   "footer": {
     "license": "のライセンス：",
@@ -452,6 +467,16 @@
             "再生を押す前に警告",
             "フォルダーひとつでショー全体を再リンク",
             "設定を失わずにファイルを置き換え"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "ショーを Stream Deck に。",
+          "text": "LivePlay の公式モジュールが Bitfocus Companion に登場しました。接続を追加するときに LivePlay を検索すれば、Stream Deck、タブレットの Web ボタン、その他の Companion サーフェスに、ショーに連動するボタンがすぐにそろいます。",
+          "points": [
+            "キューの色で、再生に合わせて塗りつぶされるボタン",
+            "GO、カート、「すべて停止」、緊急停止、ミキサー",
+            "ログインがオンなら API トークンで接続"
           ]
         }
       },

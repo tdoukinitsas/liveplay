@@ -391,6 +391,62 @@ button { font: inherit; color: inherit; }
   p { font-size: 0.97rem; color: var(--text-2); }
 }
 
+// ---- Companion: keypad and module links --------------------------------------
+.pad {
+  width: 100%;
+  max-width: 640px;
+  justify-self: center;
+  padding: clamp(12px, 1.8vw, 22px);
+  background: linear-gradient(180deg, #1d1d22, #0c0c0f);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: clamp(14px, 1.8vw, 22px);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.pad__keys { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(7px, 1.2vw, 14px); }
+// One LCD key. --track is its background (a waiting cue's dimmed colour),
+// --fill the played part of a cue, --ink the label; CompanionPad sets all three.
+.pad__key {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  container-type: inline-size;
+  border-radius: clamp(6px, 0.9vw, 10px);
+  background: var(--track);
+  box-shadow: 0 0 0 2px #050506, inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.pad__fill { position: absolute; inset-block: 0; left: 0; background: var(--fill); }
+// Companion's button face: a plain sans, auto-sized to fit, wrapping on words.
+.pad__text {
+  position: relative;
+  width: 92%;
+  font-family: Arimo, Arial, 'Helvetica Neue', 'Noto Sans', sans-serif;
+  font-weight: 700;
+  font-size: calc(var(--fs) * 100cqw);
+  line-height: 1.1;
+  letter-spacing: 0;
+  text-align: center;
+  white-space: pre-line;
+  overflow-wrap: break-word;
+  color: var(--ink);
+}
+
+.companion-links { margin-block-start: 30px; }
+.companion-links__main { background: var(--panel); color: var(--on-panel); &:hover { filter: brightness(1.15); } }
+.companion-links__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin-block-start: 14px;
+  font-size: 0.9rem;
+  color: var(--text-2);
+  a { color: var(--text); text-underline-offset: 3px; }
+}
+.rel--panel .companion-links__main { background: var(--on-panel); color: var(--panel); }
+.rel--panel .companion-links__meta { color: var(--on-panel-2); a { color: var(--on-panel); } }
+.tech__cta { display: flex; flex-wrap: wrap; gap: 12px; }
+
 // ---- Home: numbers, teaser -------------------------------------------------
 .numbers { border-block: 1px solid var(--line); background: var(--ink-2); }
 .numbers__grid { display: grid; grid-template-columns: repeat(5, 1fr); }
@@ -600,6 +656,12 @@ button { font: inherit; color: inherit; }
 .rel--split:nth-of-type(even) .rel__copy { order: 2; }
 .rel--split:nth-of-type(even) .rel__grid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
 .rel--split .display--lg { font-size: clamp(2.3rem, 4.5vw, 4.4rem); }
+// The keypad is small enough to sit beside the words on a full-colour panel.
+.rel--panel.rel--companion .rel__grid { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); align-items: center; }
+.rel--panel.rel--companion .ticks { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 820px) {
+  .rel--panel.rel--companion .rel__grid { grid-template-columns: minmax(0, 1fr); }
+}
 .more { padding-block: clamp(64px, 9vw, 120px); background: var(--ink-2); border-block: 1px solid var(--line); }
 .more__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin-block-start: clamp(28px, 4vw, 48px); background: var(--line); border: 1px solid var(--line); }
 .more__grid article {

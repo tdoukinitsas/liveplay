@@ -271,6 +271,15 @@
         "One change updates every event",
         "Override a single field when you need to"
       ]
+    },
+    "companion": {
+      "title": "Stream Deck Control with Companion",
+      "description": "LivePlay has an official module for Bitfocus Companion, so a Stream Deck or any other Companion control surface can run your show. Each button shows its cue's name and colour, and fills as the cue plays.",
+      "points": [
+        "GO, cues, carts, Stop All and panic",
+        "Mixer mutes, PFL and master level",
+        "Live countdowns and progress on the buttons"
+      ]
     }
   },
   "ports": {
@@ -293,6 +302,12 @@
     "subtitle": "Connect LivePlay to your show-control tools.",
     "description": "Control playback, edit projects and routing, and monitor live state over HTTP and WebSocket. When login is on, give Companion, a show-control system or a script its own API token from Settings, under Accounts, instead of sharing someone's password. The developer reference covers authentication, every endpoint, commands, events and integration examples.",
     "referenceLabel": "Developer API Reference"
+  },
+  "companion": {
+    "get": "Get the Companion module",
+    "getCompanion": "Get Bitfocus Companion",
+    "credit": "Module by {name}",
+    "padAlt": "Companion buttons for LivePlay during a show: GO with the next cue, the playing cue counting down, Stop All, panic, five carts with one playing, mixer mutes, PFL and master level"
   },
   "footer": {
     "license": "is licensed under the",
@@ -452,6 +467,16 @@
             "Warned before you press play",
             "Relink a whole show from one folder",
             "Replace a file without losing settings"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "Your show on a Stream Deck.",
+          "text": "LivePlay now has an official module in Bitfocus Companion. Search for LivePlay when you add a connection, and a Stream Deck, web buttons on a tablet or any other Companion surface gets ready-made buttons that follow your show.",
+          "points": [
+            "Cue buttons in your colours that fill as they play",
+            "GO, carts, Stop All, panic and the mixer",
+            "Connects with an API token when login is on"
           ]
         }
       },

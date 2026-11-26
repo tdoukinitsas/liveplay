@@ -4,7 +4,10 @@ export type Tone = 'run' | 'mix' | 'room' | 'rely' | 'go' | 'rose';
 
 export interface TourFeature {
   key: string;
-  shot: string;
+  /** Screenshot name. Not needed when `companion` is set. */
+  shot?: string;
+  /** Shows the Companion keypad and module links instead of a screenshot. */
+  companion?: boolean;
   /** Added in the current release: shows a badge linking to What's New. */
   isNew?: boolean;
   /** Has a features.<key>.points list. */
@@ -71,6 +74,7 @@ export const chapters: Chapter[] = [
     lead: { key: 'events', shot: 'events', isNew: true, points: true },
     rows: [
       { key: 'presets', shot: 'event_presets', isNew: true, points: true },
+      { key: 'companion', companion: true, isNew: true, points: true },
     ],
     tiles: [
       { key: 'connections', shot: 'connections', isNew: true },

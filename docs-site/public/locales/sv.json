@@ -271,6 +271,15 @@
         "En ändring uppdaterar alla händelser",
         "Åsidosätt ett enskilt fält vid behov"
       ]
+    },
+    "companion": {
+      "title": "Styr med Stream Deck via Companion",
+      "description": "LivePlay har en officiell modul för Bitfocus Companion, så ett Stream Deck eller någon annan kontrollyta i Companion kan köra din show. Varje knapp visar sin kös namn och färg och fylls på medan kön spelar.",
+      "points": [
+        "GO, köer, carts, Stoppa allt och nödstopp",
+        "Mute, PFL och masternivå på mixern",
+        "Nedräkning och förlopp live på knapparna"
+      ]
     }
   },
   "ports": {
@@ -293,6 +302,12 @@
     "subtitle": "Koppla LivePlay till dina showkontrollverktyg.",
     "description": "Styr uppspelningen, redigera projekt och routing och följ liveläget via HTTP och WebSocket. När inloggning är på ger du Companion, ett showkontrollsystem eller ett skript en egen API-token under Inställningar › Konton i stället för att dela någons lösenord. Utvecklarreferensen går igenom autentisering, alla endpoints, kommandon, händelser och integrationsexempel.",
     "referenceLabel": "API-referens för utvecklare"
+  },
+  "companion": {
+    "get": "Hämta Companion-modulen",
+    "getCompanion": "Ladda ner Bitfocus Companion",
+    "credit": "Modul av {name}",
+    "padAlt": "Companion-knappar för LivePlay under en show: GO med nästa kö, kön som spelar med nedräkning, Stoppa allt, nödstopp, fem carts där en spelar, mute på mixern, PFL och masternivå"
   },
   "footer": {
     "license": "är licensierat under",
@@ -452,6 +467,16 @@
             "Varnas innan du trycker på Spela",
             "Länka om en hel show från en mapp",
             "Byt fil utan att förlora inställningar"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "Din show på ett Stream Deck.",
+          "text": "LivePlay har nu en officiell modul i Bitfocus Companion. Sök efter LivePlay när du lägger till en anslutning, så får ett Stream Deck, webbknappar på en surfplatta eller någon annan Companion-yta färdiga knappar som följer din show.",
+          "points": [
+            "Köknappar i dina färger som fylls medan de spelar",
+            "GO, carts, Stoppa allt, nödstopp och mixern",
+            "Ansluter med en API-token när inloggning är på"
           ]
         }
       },

@@ -38,7 +38,7 @@
       :id="s.id"
       :key="s.id"
       class="rel"
-      :class="[`rel--${s.layout}`, `tone-${s.tone}`]"
+      :class="[`rel--${s.layout}`, `tone-${s.tone}`, { 'rel--companion': s.companion }]"
     >
       <div v-reveal class="container rel__grid">
         <div class="rel__copy">
@@ -48,8 +48,10 @@
           <ul class="ticks">
             <li v-for="point in tl(`${root}.sections.${s.id}.points`)" :key="point">{{ point }}</li>
           </ul>
+          <CompanionLinks v-if="s.companion" />
         </div>
-        <ShotFrame :src="shot(s.shot)" :alt="t(`${root}.sections.${s.id}.title`)" />
+        <CompanionPad v-if="s.companion" />
+        <ShotFrame v-else :src="shot(s.shot)" :alt="t(`${root}.sections.${s.id}.title`)" />
       </div>
     </section>
 

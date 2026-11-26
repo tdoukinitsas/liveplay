@@ -13,6 +13,9 @@ const seo = json('app/data/seo.json');
 const contributors = Object.values(json('public/contributors.json').contributors);
 const { version } = json('public/package.json');
 const { site, pages } = seo;
+// Kept in step with MODULE_URL and REPO_URL in app/data/companion.ts.
+const companion = 'https://bitfocus.io/connections/liveplay-liveplay';
+const companionRepo = 'https://github.com/bitfocus/companion-module-liveplay-liveplay';
 
 const releases = Object.keys(en.whatsNew).filter(k => /^v\d{2,}$/.test(k)).map((key) => {
   const slug = `${key[1]}-${key.slice(2)}`;
@@ -76,6 +79,8 @@ ${releases.map(r => `- [LivePlay ${r.version}](${site.url}${r.page.path}): ${r.p
 
 - [API reference](${site.url}api/): HTTP endpoints, WebSocket commands, events and integration examples
 - [API catalog (JSON)](${site.url}api/reference.json): Machine-readable contract for the API
+- [Bitfocus Companion module](${companion}): Control LivePlay from a Stream Deck or any other Companion surface
+- [Companion module source](${companionRepo}): The module's GitHub repository
 - [Source code](${site.repo}): GitHub repository
 
 ## Optional

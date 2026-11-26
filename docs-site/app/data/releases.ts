@@ -4,9 +4,13 @@ import type { Tone } from './tour';
 
 export interface ReleaseSection {
   id: string;
-  shot: string;
+  /** Screenshot name. Not needed when `companion` is set. */
+  shot?: string;
+  /** Shows the Companion keypad and module links instead of a screenshot. */
+  companion?: boolean;
   tone: Tone;
-  /** panel: full-bleed colour, image below. split: on black, beside the image. */
+  /** panel: full-bleed colour, image below (the keypad sits beside the words).
+   *  split: on black, beside the image. */
   layout: 'panel' | 'split';
 }
 
@@ -41,6 +45,7 @@ export const releases: Release[] = [
       { id: 'pages', shot: 'cart_pages', tone: 'go', layout: 'split' },
       { id: 'automation', shot: 'automation', tone: 'rely', layout: 'panel' },
       { id: 'relink', shot: 'missing_media', tone: 'rose', layout: 'split' },
+      { id: 'companion', companion: true, tone: 'go', layout: 'panel' },
     ],
     more: [
       { id: 'wholePlaylist', icon: 'queue_music' },

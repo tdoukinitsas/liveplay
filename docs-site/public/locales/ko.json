@@ -271,6 +271,15 @@
         "한 번 바꾸면 모든 이벤트에 적용",
         "필요할 때 항목 하나만 덮어쓰기"
       ]
+    },
+    "companion": {
+      "title": "Companion으로 Stream Deck에서 제어",
+      "description": "LivePlay에는 Bitfocus Companion용 공식 모듈이 있어, Stream Deck이나 다른 Companion 컨트롤 서피스로 쇼를 진행할 수 있습니다. 각 버튼에는 큐의 이름과 색이 표시되고, 재생에 따라 채워집니다.",
+      "points": [
+        "GO, 큐, 카트, 모두 정지, 긴급 정지",
+        "믹서 뮤트, PFL, 마스터 레벨",
+        "버튼 위의 실시간 카운트다운과 진행 상황"
+      ]
     }
   },
   "ports": {
@@ -293,6 +302,12 @@
     "subtitle": "LivePlay를 쇼 컨트롤 도구와 연결하세요.",
     "description": "HTTP와 WebSocket으로 재생을 제어하고, 프로젝트와 라우팅을 편집하고, 실시간 상태를 모니터링하세요. 로그인이 켜져 있다면 누군가의 비밀번호를 공유하는 대신 설정 › 계정에서 Companion, 쇼 컨트롤 시스템, 스크립트에 전용 API 토큰을 발급하세요. 개발자 참조 문서에서 인증, 모든 엔드포인트, 명령, 이벤트, 연동 예제를 확인할 수 있습니다.",
     "referenceLabel": "개발자 API 참조"
+  },
+  "companion": {
+    "get": "Companion 모듈 받기",
+    "getCompanion": "Bitfocus Companion 다운로드",
+    "credit": "모듈 제작: {name}",
+    "padAlt": "공연 중 LivePlay용 Companion 버튼: 다음 큐가 표시된 GO, 카운트다운 중인 재생 큐, 모두 정지, 긴급 정지, 하나가 재생 중인 카트 다섯 개, 믹서 뮤트, PFL, 마스터 레벨"
   },
   "footer": {
     "license": "라이선스:",
@@ -452,6 +467,16 @@
             "재생을 누르기 전에 경고",
             "폴더 하나로 쇼 전체 다시 연결",
             "설정을 잃지 않고 파일 교체"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "Stream Deck 위의 내 쇼.",
+          "text": "이제 Bitfocus Companion에 LivePlay 공식 모듈이 있습니다. 연결을 추가할 때 LivePlay를 검색하면 Stream Deck, 태블릿의 웹 버튼 등 모든 Companion 서피스에 쇼를 따라가는 버튼이 바로 준비됩니다.",
+          "points": [
+            "재생에 따라 채워지는, 내 색상의 큐 버튼",
+            "GO, 카트, 모두 정지, 긴급 정지와 믹서",
+            "로그인이 켜져 있으면 API 토큰으로 연결"
           ]
         }
       },

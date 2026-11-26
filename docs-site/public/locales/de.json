@@ -271,6 +271,15 @@
         "Eine Änderung aktualisiert jedes Ereignis",
         "Bei Bedarf ein einzelnes Feld überschreiben"
       ]
+    },
+    "companion": {
+      "title": "Stream-Deck-Steuerung mit Companion",
+      "description": "LivePlay hat ein offizielles Modul für Bitfocus Companion. Damit steuern Sie Ihre Show von einem Stream Deck oder jeder anderen Companion-Bedienoberfläche aus. Jede Taste zeigt Namen und Farbe ihres Cues und füllt sich, während der Cue läuft.",
+      "points": [
+        "GO, Cues, Carts, „Alle stoppen“ und Notstopp",
+        "Mixer-Mutes, PFL und Master-Pegel",
+        "Live-Countdown und Fortschritt auf den Tasten"
+      ]
     }
   },
   "ports": {
@@ -293,6 +302,12 @@
     "subtitle": "Verbinden Sie LivePlay mit Ihren Show-Control-Tools.",
     "description": "Steuern Sie die Wiedergabe, bearbeiten Sie Projekte und Routing und verfolgen Sie den Live-Zustand über HTTP und WebSocket. Ist die Anmeldung eingeschaltet, geben Sie Companion, einem Show-Control-System oder einem Skript unter Einstellungen › Konten ein eigenes API-Token, statt ein Passwort weiterzugeben. Die Entwicklerreferenz beschreibt Authentifizierung, alle Endpunkte, Befehle, Ereignisse und Integrationsbeispiele.",
     "referenceLabel": "API-Referenz für Entwickler"
+  },
+  "companion": {
+    "get": "Zum Companion-Modul",
+    "getCompanion": "Bitfocus Companion herunterladen",
+    "credit": "Modul von {name}",
+    "padAlt": "Companion-Tasten für LivePlay während einer Show: GO mit dem nächsten Cue, der laufende Cue mit Countdown, „Alle stoppen“, Notstopp, fünf Carts, von denen einer läuft, Mixer-Mutes, PFL und Master-Pegel"
   },
   "footer": {
     "license": "steht unter der Lizenz",
@@ -452,6 +467,16 @@
             "Warnung, bevor Sie Play drücken",
             "Ganze Show aus einem Ordner neu verknüpfen",
             "Datei ersetzen, ohne Einstellungen zu verlieren"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "Ihre Show auf dem Stream Deck.",
+          "text": "LivePlay hat jetzt ein offizielles Modul in Bitfocus Companion. Suchen Sie beim Hinzufügen einer Verbindung nach LivePlay, und ein Stream Deck, Web-Tasten auf einem Tablet oder jede andere Companion-Oberfläche erhält fertige Tasten, die Ihrer Show folgen.",
+          "points": [
+            "Cue-Tasten in Ihren Farben, die sich beim Abspielen füllen",
+            "GO, Carts, „Alle stoppen“, Notstopp und der Mixer",
+            "Verbindung per API-Token, wenn die Anmeldung aktiv ist"
           ]
         }
       },
