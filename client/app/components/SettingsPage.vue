@@ -2,7 +2,19 @@
   <!-- Note: NOT inside <Teleport> — Vue scoped styles don't reach teleported
        nodes, which would leave this unstyled in production builds. Same
        constraint the modals it replaces were written under. -->
-  <div v-if="isOpen" class="settings-page" role="dialog" aria-modal="true" :aria-label="t('settings.title')">
+  <!-- data-own-keys: Settings covers the workspace, so its keys are its own.
+       Space or Enter on a button here presses that button, and never also
+       runs GO or Play Selected behind it (utils/hotkeyGuard). -->
+  <div
+    v-if="isOpen"
+    ref="rootEl"
+    class="settings-page"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    data-own-keys
+    :aria-label="t('settings.title')"
+  >
     <header class="settings-page-header">
       <h2>{{ t('settings.title') }}</h2>
       <button class="close-x" :aria-label="t('settings.close')" @click="close">✕</button>
@@ -61,20 +73,47 @@ import SettingsPaneAbout from './SettingsPaneAbout.vue';
 const { t } = useLocalization();
 const { section, isOpen, show, close, sections } = useSettingsPage();
 
+const rootEl = ref<HTMLElement | null>(null);
+
+// Opened from the workspace, focus is still on something behind (a cue, a
+// button): take it, so the keys pressed in here are Settings' own.
+watch(isOpen, (open) => {
+  if (!open || !import.meta.client) return;
+  void nextTick(() => {
+    const root = rootEl.value;
+    if (root && !root.contains(document.activeElement)) root.focus({ preventScroll: true });
+  });
+}, { immediate: true });
+
 // Escape closes, matching every other dismissable surface in the app. Capture
 // phase for the same reason the modals use it: the playback hotkey handler
 // listens on window in the bubble phase, and Escape is the stop-all default —
 // closing Settings must not also panic the show.
+//
+// On document rather than window: this component is mounted with the app, so
+// a window listener here was registered before any pane's. Window capture
+// runs before document capture whatever the order, so a pane's own Escape
+// (cancelling a key capture or a MIDI Learn) is always seen first.
 function onKeydown(e: KeyboardEvent) {
   if (!isOpen.value) return;
   if (e.key === 'Escape') {
     e.preventDefault();
     e.stopPropagation();
     close();
+    return;
   }
+  // Focus that fell to the page (a button here went away or was disabled
+  // under it) comes back to Settings, so the workspace's shortcuts leave this
+  // key alone. Delete and Backspace go no further at all: behind Settings
+  // they would delete the selected cue. A key in a dialog opened over
+  // Settings has focus there, not on the page, and is left alone.
+  const active = document.activeElement;
+  if (active && active !== document.body) return;
+  rootEl.value?.focus({ preventScroll: true });
+  if (e.key === 'Delete' || e.key === 'Backspace') e.stopPropagation();
 }
-onMounted(() => window.addEventListener('keydown', onKeydown, true));
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true));
+onMounted(() => document.addEventListener('keydown', onKeydown, true));
+onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown, true));
 </script>
 
 <style scoped>
@@ -86,6 +125,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true));
   color: var(--color-text-primary);
   display: flex;
   flex-direction: column;
+  /* It takes focus only to hold the keys (see onKeydown), not to be seen. */
+  outline: none;
 }
 
 .settings-page-header {

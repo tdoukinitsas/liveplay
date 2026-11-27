@@ -20,10 +20,13 @@
         <label class="sf-label" :for="inputId(field)">
           {{ field.label }}<span v-if="field.required" class="sf-required" aria-hidden="true">*</span>
           <!-- A list read from the device: refresh after renaming a strip on the desk. -->
+          <!-- aria-disabled, not disabled: a focused button that becomes
+               disabled drops focus to the page, where Delete deletes the cue. -->
           <button v-if="isLive(field)" type="button" class="sf-refresh"
-                  :title="t('events.form.refreshOptions')" :disabled="live[field.id]?.loading"
-                  @click.prevent="loadOptions(field, true)">
-            <span class="material-symbols-rounded" :class="{ spinning: live[field.id]?.loading }">refresh</span>
+                  :title="t('events.form.refreshOptions')" :aria-label="t('events.form.refreshOptions')"
+                  :aria-disabled="live[field.id]?.loading ? 'true' : undefined"
+                  @click.prevent="!live[field.id]?.loading && loadOptions(field, true)">
+            <span class="material-symbols-rounded" aria-hidden="true" :class="{ spinning: live[field.id]?.loading }">refresh</span>
           </button>
         </label>
 
@@ -250,7 +253,14 @@ function onNumber(f: FieldSchema, e: Event) {
 const { fetchOptions } = useEvents();
 const live = reactive<Record<string, { options?: FieldOption[]; error?: string; loading: boolean }>>({});
 const isLive = (f: FieldSchema) => !!f.optionsFrom && !!props.optionsContext?.plugin;
-const optionsOf = (f: FieldSchema): FieldOption[] => live[f.id]?.options ?? f.options ?? [];
+// Only a live field reads the live list: a field with the same id but no
+// optionsFrom (another action's) must not show what was fetched for that one.
+const optionsOf = (f: FieldSchema): FieldOption[] =>
+  (isLive(f) ? live[f.id]?.options : undefined) ?? f.options ?? [];
+
+// Per field, the request whose reply still counts: a slow reply for the old
+// connection or channel must not land over the one asked for since.
+const loadSeq: Record<string, number> = {};
 
 async function loadOptions(f: FieldSchema, fresh = false) {
   const ctx = props.optionsContext;
@@ -259,13 +269,15 @@ async function loadOptions(f: FieldSchema, fresh = false) {
   // changes made to that never re-render.
   if (!live[f.id]) live[f.id] = { loading: false };
   const state = live[f.id]!;
+  const seq = (loadSeq[f.id] = (loadSeq[f.id] ?? 0) + 1);
   state.loading = true;
   try {
     const r = await fetchOptions(ctx, f, values.value, fresh);
+    if (seq !== loadSeq[f.id]) return;
     state.options = r.options;
     state.error = r.error;
   } finally {
-    state.loading = false;
+    if (seq === loadSeq[f.id]) state.loading = false;
   }
 }
 

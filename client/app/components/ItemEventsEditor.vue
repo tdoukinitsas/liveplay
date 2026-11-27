@@ -383,10 +383,10 @@
                 type="text"
                 :aria-label="t('events.connections.presetName')"
                 :placeholder="t('events.connections.presetName')"
-                @keydown.esc.stop.prevent="savingPresetFor = null"
+                @keydown.esc.stop.prevent="cancelSavePreset"
               />
               <Btn icon="check" :text="t('events.presetSaveConfirm')" :disabled="!presetName.trim()" @click="savePreset(selected)" />
-              <Btn icon="close" :text="t('events.connections.cancel')" @click="savingPresetFor = null" />
+              <Btn icon="close" :text="t('events.connections.cancel')" @click="cancelSavePreset" />
               <span v-if="presetError" class="ev-result error">{{ presetError }}</span>
             </form>
 
@@ -411,12 +411,15 @@
                 <template v-if="rowSubtitle(selected)"> · {{ rowSubtitle(selected) }}</template>
               </span>
               <button type="button" class="ev-link-btn" @click="openConnections">{{ t('events.presetEdit') }}</button>
-              <button type="button" class="ev-link-btn" @click="setPreset(selected, '')">{{ t('events.presetDetach') }}</button>
+              <button type="button" class="ev-link-btn" @click="detachFromButton(selected)">{{ t('events.presetDetach') }}</button>
             </div>
             <p v-else-if="selected.presetId" class="ev-help ev-help--warn">{{ t('events.presetMissingHelp') }}</p>
 
+            <!-- Keyed by event and action: a fresh form each, so one action's
+                 live list never shows under another action's field. -->
             <SchemaForm
               v-if="!selected.presetId && selectedAction && selectedAction.fields.length > 0"
+              :key="`${selected.id}:${selected.action}`"
               :fields="selectedAction.fields"
               :model-value="selectedOptions"
               :options-context="{ plugin: selected!.plugin, connectionId: selected!.connectionId ?? null }"
@@ -838,9 +841,26 @@ function deleteEvent(ev: ItemEvent) {
   void nextTick(keepFocusHere);
 }
 
+// Focus that fell to the page (the control that had it went away, or was
+// disabled under it) comes back to the tab. On the page, the next Delete
+// deletes the cue and Space or Enter runs the show.
 function keepFocusHere() {
   const root = rootEl.value;
-  if (root && !root.contains(document.activeElement)) root.focus({ preventScroll: true });
+  if (!root?.isConnected) return;
+  const active = document.activeElement as HTMLButtonElement | null;
+  if (!active || active === document.body || (root.contains(active) && active.disabled)) {
+    root.focus({ preventScroll: true });
+  }
+}
+
+// For a change that takes away (or disables) the control with focus: Save,
+// Cancel and Esc on "Save as preset", Detach, Test. Only when focus was in
+// here to begin with, so a reply landing later never pulls it back from
+// wherever the operator has gone since.
+function keepingFocus(change: () => void) {
+  const had = !!rootEl.value?.contains(document.activeElement);
+  change();
+  if (had) void nextTick(keepFocusHere);
 }
 
 // ---- undo a delete ----------------------------------------------------------
@@ -1081,8 +1101,19 @@ async function savePreset(ev: ItemEvent) {
     presetError.value = t('events.connections.saveFailed', { error: e?.message ?? String(e) });
     return;
   }
-  savingPresetFor.value = null;
-  setPreset(ev, preset.id);
+  keepingFocus(() => {
+    savingPresetFor.value = null;
+    setPreset(ev, preset.id);
+  });
+}
+
+function cancelSavePreset() {
+  keepingFocus(() => { savingPresetFor.value = null; });
+}
+
+// The note holding the button goes with the preset.
+function detachFromButton(ev: ItemEvent) {
+  keepingFocus(() => setPreset(ev, ''));
 }
 
 function setOptions(ev: ItemEvent, options: Record<string, unknown>) {
@@ -1096,7 +1127,8 @@ const testResults = ref<Record<string, { ok: boolean; error?: string }>>({});
 
 async function runTest(ev: ItemEvent) {
   if (testing.value.has(ev.id)) return;
-  testing.value = new Set(testing.value).add(ev.id);
+  // The Test button disables itself while it waits.
+  keepingFocus(() => { testing.value = new Set(testing.value).add(ev.id); });
   const { [ev.id]: _old, ...rest } = testResults.value;
   testResults.value = rest;
   try {

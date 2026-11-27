@@ -1299,7 +1299,10 @@
       "signInMissingHelp": "Showens inloggningsuppgifter krypterades på en annan dator, så den här kan inte använda dem. Ange dem igen under Huvuden.",
       "signInMany": "{count} anslutningar behöver få sina inloggningsuppgifter angivna igen.",
       "signInRejected": "”{name}” nekade sina inloggningsuppgifter. Logga in igen så att dess händelser fortsätter att fungera.",
-      "signInMissing": "”{name}” behöver få sina inloggningsuppgifter angivna på den här datorn."
+      "signInMissing": "”{name}” behöver få sina inloggningsuppgifter angivna på den här datorn.",
+      "signInWaiting": "”{name}” behöver loggas in. Inloggningen öppnas här när du sparar eller avbryter dina ändringar i den här anslutningen.",
+      "signInLater": "Inte nu",
+      "signInDiscard": "Ignorera ändringar och logga in"
     },
     "zoom": "Zoom",
     "zoomIn": "Zooma in",
@@ -1537,6 +1540,9 @@
         "mode": {
           "label": "Stoppade cuer tonar ut med",
           "help": "Inställningar > Uppspelning: vilken toning Stop All och duckningen ”stoppa alla andra” använder. Panik klipper alltid."
+        },
+        "stopFade": {
+          "label": "Stoppade cuer tonar ut med"
         }
       },
       "summaries": {
@@ -1568,6 +1574,10 @@
           "item": "Varje cues egen stoppknappstoning",
           "global": "Stop All-toningen",
           "toggle": "Växla mellan de två"
+        },
+        "stopFade": {
+          "show": "Stop All-toningen",
+          "cue": "Varje cues egen stoppknappstoning, eller direkt"
         }
       }
     },

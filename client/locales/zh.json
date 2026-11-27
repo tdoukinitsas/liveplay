@@ -1299,7 +1299,10 @@
       "signInMissingHelp": "此演出的凭据是在另一台计算机上加密的，因此本机无法使用。请在“请求头”中重新输入。",
       "signInMany": "有 {count} 个连接需要重新输入凭据。",
       "signInRejected": "“{name}”拒绝了其凭据。请重新登录，以便其事件继续正常工作。",
-      "signInMissing": "需要在本机上输入“{name}”的凭据。"
+      "signInMissing": "需要在本机上输入“{name}”的凭据。",
+      "signInWaiting": "“{name}”需要登录。保存或取消对此连接的更改后，登录界面会在这里打开。",
+      "signInLater": "暂不",
+      "signInDiscard": "放弃更改并登录"
     },
     "zoom": "缩放",
     "zoomIn": "放大",
@@ -1537,6 +1540,9 @@
         "mode": {
           "label": "被停止的提示音淡出方式",
           "help": "设置 > 播放：Stop All 和“停止所有其他”闪避使用的淡出。紧急停止总是立即切断。"
+        },
+        "stopFade": {
+          "label": "被停止的提示音淡出方式"
         }
       },
       "summaries": {
@@ -1568,6 +1574,10 @@
           "item": "每个提示音自己的停止按钮淡出",
           "global": "Stop All 淡出",
           "toggle": "在两者之间切换"
+        },
+        "stopFade": {
+          "show": "Stop All 淡出",
+          "cue": "每个提示音自己的停止按钮淡出，或立即停止"
         }
       }
     },

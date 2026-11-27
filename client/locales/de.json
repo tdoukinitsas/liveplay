@@ -1299,7 +1299,10 @@
       "signInMissingHelp": "Die Zugangsdaten dieser Show wurden auf einem anderen Rechner verschlüsselt, daher kann dieser Rechner sie nicht verwenden. Geben Sie sie unter „Header“ erneut ein.",
       "signInMany": "Bei {count} Verbindungen müssen die Zugangsdaten erneut eingegeben werden.",
       "signInRejected": "„{name}“ hat die Zugangsdaten abgelehnt. Melden Sie sich erneut an, damit die zugehörigen Ereignisse weiter funktionieren.",
-      "signInMissing": "Für „{name}“ müssen die Zugangsdaten auf diesem Rechner eingegeben werden."
+      "signInMissing": "Für „{name}“ müssen die Zugangsdaten auf diesem Rechner eingegeben werden.",
+      "signInWaiting": "Für „{name}“ ist eine Anmeldung nötig. Sie öffnet sich hier, sobald Sie Ihre Änderungen an dieser Verbindung speichern oder abbrechen.",
+      "signInLater": "Nicht jetzt",
+      "signInDiscard": "Änderungen verwerfen und anmelden"
     },
     "zoom": "Zoom",
     "zoomIn": "Hineinzoomen",
@@ -1537,6 +1540,9 @@
         "mode": {
           "label": "Gestoppte Cues blenden über",
           "help": "Einstellungen > Wiedergabe: worüber Stop All und das Ducking „Alle anderen stoppen“ ausblenden. Ein Panik-Stopp schneidet immer."
+        },
+        "stopFade": {
+          "label": "Gestoppte Cues blenden über"
         }
       },
       "summaries": {
@@ -1568,6 +1574,10 @@
           "item": "Die eigene Stopp-Button-Blende jedes Cues",
           "global": "Die Stop-All-Blende",
           "toggle": "Zwischen beiden wechseln"
+        },
+        "stopFade": {
+          "show": "Die Stop-All-Blende",
+          "cue": "Die eigene Stopp-Button-Blende jedes Cues oder sofort"
         }
       }
     },

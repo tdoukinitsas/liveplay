@@ -298,8 +298,11 @@ function scrollItemIntoView(uuid: string, block: ScrollLogicalPosition = 'center
 
 // "Follow the playing item" reaches across tabs. Nothing else moves this
 // window's tab on its own: selection is shared between operators, and one of
-// them clicking a cue must not change what another is looking at.
+// them clicking a cue must not change what another is looking at. Nor in a
+// popped-out tab, which is that tab's window: it follows inside its own tab
+// and never turns into whichever tab is playing.
 function showTabOfItem(uuid: string) {
+  if (props.isDetachedWindow) return;
   const topIndex = findItemByUuid(uuid)?.index?.[0];
   if (typeof topIndex !== 'number' || topIndex < 0) return;
   const root = currentProject.value?.items[topIndex];

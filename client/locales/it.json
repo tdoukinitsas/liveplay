@@ -1299,7 +1299,10 @@
       "signInMissingHelp": "Le credenziali di questo spettacolo sono state cifrate su un’altra macchina, quindi questa non può usarle. Reinseriscile in Header.",
       "signInMany": "{count} connessioni richiedono di reinserire le credenziali.",
       "signInRejected": "«{name}» ha rifiutato le sue credenziali. Accedi di nuovo perché i suoi eventi continuino a funzionare.",
-      "signInMissing": "Per «{name}» bisogna inserire le credenziali su questa macchina."
+      "signInMissing": "Per «{name}» bisogna inserire le credenziali su questa macchina.",
+      "signInWaiting": "«{name}» richiede l’accesso. Si aprirà qui quando salvi o annulli le modifiche a questa connessione.",
+      "signInLater": "Non ora",
+      "signInDiscard": "Scarta le modifiche e accedi"
     },
     "zoom": "Zoom",
     "zoomIn": "Zoom avanti",
@@ -1537,6 +1540,9 @@
         "mode": {
           "label": "I cue fermati sfumano con",
           "help": "Impostazioni > Riproduzione: con quale dissolvenza escono Stop All e il ducking «ferma tutti gli altri». Un panico taglia sempre."
+        },
+        "stopFade": {
+          "label": "I cue fermati sfumano con"
         }
       },
       "summaries": {
@@ -1568,6 +1574,10 @@
           "item": "La dissolvenza del pulsante Stop di ogni cue",
           "global": "La dissolvenza di Stop All",
           "toggle": "Alterna tra le due"
+        },
+        "stopFade": {
+          "show": "La dissolvenza di Stop All",
+          "cue": "La dissolvenza del pulsante Stop di ogni cue, o subito"
         }
       }
     },

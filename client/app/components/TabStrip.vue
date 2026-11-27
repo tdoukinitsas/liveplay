@@ -24,16 +24,16 @@
         :style="tab.color ? { '--tab-color': tab.color } : undefined"
         :title="tabTitle(tab)"
         :draggable="!locked"
-        @click="selectTab(kind, tab.id)"
-        @keydown.enter.prevent.stop="selectTab(kind, tab.id)"
-        @keydown.space.prevent.stop="selectTab(kind, tab.id)"
+        @click="onTabClick(tab.id, $event)"
+        @keydown.enter="onTabKey(tab.id, $event)"
+        @keydown.space="onTabKey(tab.id, $event)"
         @contextmenu.prevent="!locked && openEditor(tab.id, $event.currentTarget as HTMLElement)"
         @pointerdown="startLongPress(tab.id, $event)"
         @pointerup="cancelLongPress"
         @pointercancel="cancelLongPress"
         @pointerleave="cancelLongPress"
         @dragstart="onDragStart(tab, $event)"
-        @dragend="clearDrag"
+        @dragend="onDragEnd"
         @dragover="onDragOver(i, tab, $event)"
         @dragleave="onDragLeave(tab)"
         @drop="onDrop(i, tab, $event)"
@@ -280,6 +280,34 @@ function tabTitle(tab: PlaylistTab | CartPage) {
   return upNext !== null ? t('tabs.upNextOn', { name: upNext }) : tab.name;
 }
 
+// ---- Switching ------------------------------------------------------------
+// A tab takes Enter and Space for itself only to switch to it. Left focused
+// after a click, or pressed while already showing, it used to swallow them,
+// and GO and Play Selected did nothing until the operator clicked elsewhere.
+
+// A click switches and lets go of focus. A click from a screen reader
+// (detail 0) keeps it: that user is on the keyboard.
+function onTabClick(id: string, e: MouseEvent) {
+  selectTab(props.kind, id);
+  if (e.detail > 0) (e.currentTarget as HTMLElement).blur();
+}
+
+// Another tab: switch to it, and the key stops here. The tab already showing:
+// the key is GO or Play Selected, as anywhere else. The window's shortcuts
+// leave Enter and Space alone on a focused tab (utils/hotkeyGuard), so let go
+// of focus before the key gets there, and don't stop it. A key on the pencil
+// inside the tab is the pencil's.
+function onTabKey(id: string, e: KeyboardEvent) {
+  if (e.target !== e.currentTarget) return;
+  if (id !== activeId.value) {
+    e.preventDefault();
+    e.stopPropagation();
+    selectTab(props.kind, id);
+    return;
+  }
+  (e.currentTarget as HTMLElement).blur();
+}
+
 // ---- The editor ---------------------------------------------------------
 const editingId = ref<string | null>(null);
 const editing = computed(() => tabs.value.find(x => x.id === editingId.value) ?? null);
@@ -442,6 +470,13 @@ const TAB_TYPE = computed(() => `liveplay-tab-${props.kind}`);
 function clearDrag() {
   dropIndex.value = null;
   dropIntoId.value = null;
+}
+
+// A drag is a pointer too: the tab took focus on the press, and keeping it
+// would hold on to the next Space or Enter.
+function onDragEnd(e: DragEvent) {
+  clearDrag();
+  (e.currentTarget as HTMLElement | null)?.blur();
 }
 
 function onDragStart(tab: PlaylistTab | CartPage, e: DragEvent) {

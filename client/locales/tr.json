@@ -1299,7 +1299,10 @@
       "signInMissingHelp": "Bu gösterinin kimlik bilgileri başka bir makinede şifrelendi, bu yüzden bu makine onları kullanamaz. Bunları Başlıklar altında yeniden girin.",
       "signInMany": "{count} bağlantının kimlik bilgilerinin yeniden girilmesi gerekiyor.",
       "signInRejected": "«{name}» kimlik bilgilerini reddetti. Olaylarının çalışmaya devam etmesi için yeniden oturum açın.",
-      "signInMissing": "«{name}» için kimlik bilgilerinin bu makinede girilmesi gerekiyor."
+      "signInMissing": "«{name}» için kimlik bilgilerinin bu makinede girilmesi gerekiyor.",
+      "signInWaiting": "«{name}» için oturum açılması gerekiyor. Bu bağlantıdaki değişikliklerinizi kaydettiğinizde ya da iptal ettiğinizde burada açılır.",
+      "signInLater": "Şimdi değil",
+      "signInDiscard": "Değişiklikleri at ve oturum aç"
     },
     "zoom": "Yakınlaştırma",
     "zoomIn": "Yakınlaştır",
@@ -1537,6 +1540,9 @@
         "mode": {
           "label": "Durdurulan cue'ların söneceği geçiş",
           "help": "Ayarlar > Oynatma: Stop All ve “diğer tümünü durdur” ducking'inin hangi geçişle söndüğü. Panik her zaman keser."
+        },
+        "stopFade": {
+          "label": "Durdurulan cue'ların söneceği geçiş"
         }
       },
       "summaries": {
@@ -1568,6 +1574,10 @@
           "item": "Her cue'nun kendi Stop düğmesi geçişi",
           "global": "Stop All geçişi",
           "toggle": "İkisi arasında geçiş yap"
+        },
+        "stopFade": {
+          "show": "Stop All geçişi",
+          "cue": "Her cue'nun kendi Stop düğmesi geçişi ya da hemen"
         }
       }
     },

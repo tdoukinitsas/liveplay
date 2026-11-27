@@ -1299,7 +1299,10 @@
       "signInMissingHelp": "Datele de autentificare ale acestui spectacol au fost criptate pe alt calculator, așa că acesta nu le poate folosi. Introduceți-le din nou la Antete.",
       "signInMany": "Pentru {count} conexiuni trebuie introduse din nou datele de autentificare.",
       "signInRejected": "„{name}” a refuzat datele de autentificare. Autentificați-vă din nou ca evenimentele sale să funcționeze în continuare.",
-      "signInMissing": "Pentru „{name}” trebuie introduse datele de autentificare pe acest calculator."
+      "signInMissing": "Pentru „{name}” trebuie introduse datele de autentificare pe acest calculator.",
+      "signInWaiting": "„{name}” necesită autentificare. Se deschide aici după ce salvați sau anulați modificările la această conexiune.",
+      "signInLater": "Nu acum",
+      "signInDiscard": "Renunță la modificări și autentifică-te"
     },
     "zoom": "Zoom",
     "zoomIn": "Mărește",
@@ -1537,6 +1540,9 @@
         "mode": {
           "label": "Cue-urile oprite se sting cu",
           "help": "Setări > Redare: cu ce fade ies Stop All și ducking-ul „oprește toate celelalte”. Panica taie întotdeauna."
+        },
+        "stopFade": {
+          "label": "Cue-urile oprite se sting cu"
         }
       },
       "summaries": {
@@ -1568,6 +1574,10 @@
           "item": "Fade-ul butonului Stop al fiecărui cue",
           "global": "Fade-ul Stop All",
           "toggle": "Comută între cele două"
+        },
+        "stopFade": {
+          "show": "Fade-ul Stop All",
+          "cue": "Fade-ul butonului Stop al fiecărui cue sau imediat"
         }
       }
     },

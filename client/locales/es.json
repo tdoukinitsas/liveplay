@@ -1299,7 +1299,10 @@
       "signInMissingHelp": "Las credenciales de este espectáculo se cifraron en otra máquina, así que esta no puede usarlas. Vuelva a introducirlas en Encabezados.",
       "signInMany": "Hay que volver a introducir las credenciales de {count} conexiones.",
       "signInRejected": "«{name}» rechazó sus credenciales. Vuelva a iniciar sesión para que sus eventos sigan funcionando.",
-      "signInMissing": "Hay que introducir las credenciales de «{name}» en esta máquina."
+      "signInMissing": "Hay que introducir las credenciales de «{name}» en esta máquina.",
+      "signInWaiting": "«{name}» necesita iniciar sesión. Se abrirá aquí cuando guarde o cancele sus cambios en esta conexión.",
+      "signInLater": "Ahora no",
+      "signInDiscard": "Descartar cambios e iniciar sesión"
     },
     "zoom": "Zoom",
     "zoomIn": "Acercar",
@@ -1537,6 +1540,9 @@
         "mode": {
           "label": "Los cues detenidos se desvanecen con",
           "help": "Ajustes > Reproducción: con qué fundido salen Stop All y el ducking «detener todos los demás». Un pánico siempre corta."
+        },
+        "stopFade": {
+          "label": "Los cues detenidos se desvanecen con"
         }
       },
       "summaries": {
@@ -1568,6 +1574,10 @@
           "item": "El fundido del botón Stop de cada cue",
           "global": "El fundido de Stop All",
           "toggle": "Alternar entre ambos"
+        },
+        "stopFade": {
+          "show": "El fundido de Stop All",
+          "cue": "El fundido del botón Stop de cada cue, o al instante"
         }
       }
     },

@@ -1299,7 +1299,10 @@
       "signInMissingHelp": "Kredencialet e kësaj shfaqjeje u enkriptuan në një makinë tjetër, ndaj kjo nuk mund t'i përdorë. Futini sërish te Header-at.",
       "signInMany": "{count} lidhjeve u duhen futur sërish kredencialet.",
       "signInRejected": "„{name}” i refuzoi kredencialet. Hyni sërish që ngjarjet e saj të vazhdojnë të funksionojnë.",
-      "signInMissing": "Për „{name}” duhen futur kredencialet në këtë makinë."
+      "signInMissing": "Për „{name}” duhen futur kredencialet në këtë makinë.",
+      "signInWaiting": "„{name}” kërkon hyrje. Do të hapet këtu sapo të ruani ose të anuloni ndryshimet në këtë lidhje.",
+      "signInLater": "Jo tani",
+      "signInDiscard": "Hidh poshtë ndryshimet dhe hyr"
     },
     "zoom": "Zmadhimi",
     "zoomIn": "Zmadho",
@@ -1537,6 +1540,9 @@
         "mode": {
           "label": "Cue-të e ndaluara zbehen me",
           "help": "Cilësimet > Luajtja: me çfarë zbehjeje dalin Stop All dhe ducking-u “ndalo të gjitha të tjerat”. Paniku pret gjithmonë."
+        },
+        "stopFade": {
+          "label": "Cue-të e ndaluara zbehen me"
         }
       },
       "summaries": {
@@ -1568,6 +1574,10 @@
           "item": "Zbehja e butonit Stop e çdo cue-je",
           "global": "Zbehja e Stop All",
           "toggle": "Ndërro mes të dyjave"
+        },
+        "stopFade": {
+          "show": "Zbehja e Stop All",
+          "cue": "Zbehja e butonit Stop e çdo cue-je, ose menjëherë"
         }
       }
     },

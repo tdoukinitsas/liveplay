@@ -1299,7 +1299,10 @@
       "signInMissingHelp": "Påloggingsdetaljene for dette showet ble kryptert på en annen maskin, så denne kan ikke bruke dem. Skriv dem inn på nytt under Hoder.",
       "signInMany": "{count} tilkoblinger trenger at påloggingsdetaljene skrives inn på nytt.",
       "signInRejected": "«{name}» avviste påloggingsdetaljene. Logg inn på nytt så hendelsene fortsetter å virke.",
-      "signInMissing": "Påloggingsdetaljene for «{name}» må skrives inn på denne maskinen."
+      "signInMissing": "Påloggingsdetaljene for «{name}» må skrives inn på denne maskinen.",
+      "signInWaiting": "«{name}» må logges inn. Påloggingen åpnes her når du lagrer eller avbryter endringene dine i denne tilkoblingen.",
+      "signInLater": "Ikke nå",
+      "signInDiscard": "Forkast endringer og logg inn"
     },
     "zoom": "Zoom",
     "zoomIn": "Zoom inn",
@@ -1537,6 +1540,9 @@
         "mode": {
           "label": "Stoppede cuer toner ut med",
           "help": "Innstillinger > Avspilling: hvilken toning Stop All og duckingen «stopp alle andre» bruker. Panikk kutter alltid."
+        },
+        "stopFade": {
+          "label": "Stoppede cuer toner ut med"
         }
       },
       "summaries": {
@@ -1568,6 +1574,10 @@
           "item": "Hver cues egen stoppknapptoning",
           "global": "Stop All-toningen",
           "toggle": "Bytt mellom de to"
+        },
+        "stopFade": {
+          "show": "Stop All-toningen",
+          "cue": "Hver cues egen stoppknapptoning, eller med en gang"
         }
       }
     },

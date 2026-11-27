@@ -1301,7 +1301,10 @@
       "signInMissingHelp": "This show's credentials were sealed on another machine, so this one can't use them. Enter them again under Headers.",
       "signInMany": "{count} connections need their credentials entered again.",
       "signInRejected": "\"{name}\" refused its credentials. Sign in again to keep its events working.",
-      "signInMissing": "\"{name}\" needs its credentials entered on this machine."
+      "signInMissing": "\"{name}\" needs its credentials entered on this machine.",
+      "signInWaiting": "\"{name}\" needs signing in. It opens here once you save or cancel your changes to this connection.",
+      "signInLater": "Not now",
+      "signInDiscard": "Discard changes and sign in"
     },
     "zoom": "Zoom",
     "zoomIn": "Zoom in",
@@ -1669,6 +1672,9 @@
         "mode": {
           "label": "Stopped cues fade over",
           "help": "Settings > Playback: what Stop All and “stop all others” ducking fade over. A panic always cuts."
+        },
+        "stopFade": {
+          "label": "Stopped cues fade over"
         }
       },
       "options": {
@@ -1694,6 +1700,10 @@
           "item": "Each cue's own Stop Button Fade",
           "global": "The Stop All fade",
           "toggle": "Switch between the two"
+        },
+        "stopFade": {
+          "show": "The Stop All fade",
+          "cue": "Each cue's own Stop fade, or at once"
         }
       }
     }

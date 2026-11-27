@@ -855,10 +855,14 @@ const handleKeydown = (e: KeyboardEvent) => {
   // field, a select or a list of events choosing with its own keys.
   if (shouldIgnoreHotkey(e)) return;
 
+  // Show Mode locks the show: nothing here may delete, duplicate or paste.
+  // Selecting and copying change nothing, so they still work.
+  const locked = uiMode.value === 'playback';
+
   // Delete / Backspace removes the current selection. A multi-selection opens
   // the confirm dialog; a single item is removed outright.
   if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (!currentProject.value) return;
+    if (!currentProject.value || locked) return;
     if (requestDeleteFromKeyboard()) e.preventDefault();
     return;
   }
@@ -875,6 +879,7 @@ const handleKeydown = (e: KeyboardEvent) => {
     selectAllItems();
   } else if (key === 'd') {
     e.preventDefault();
+    if (locked) return;
     const uuids = Array.from(selectedItems.value);
     if (uuids.length > 0) duplicateItems(uuids);
   } else if (key === 'c') {
@@ -885,6 +890,7 @@ const handleKeydown = (e: KeyboardEvent) => {
     }
   } else if (key === 'v') {
     e.preventDefault();
+    if (locked) return;
     void pasteItemsFromClipboard();
   }
 };
@@ -946,8 +952,10 @@ function openOutputMap() {
 // a project is open, which was the real precondition all along.
 //
 // Exactly one owner per window. The detached cart window has no MainWorkspace,
-// so CartPlayer still mounts them there, and only when detached — so the two
-// never both claim the same window.
+// so CartPlayer still mounts the keys there, and only when detached — so the
+// two never both claim the same window. MIDI has one owner for the whole app:
+// this, in the main window. Every window that listens hears every message, so
+// a second listener fired each GO twice.
 const { mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
 const { mount: mountMidi, unmount: unmountMidi } = useMidiController();
 

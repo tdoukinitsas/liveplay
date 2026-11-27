@@ -1299,7 +1299,10 @@
       "signInMissingHelp": "이 쇼의 자격 증명은 다른 컴퓨터에서 암호화되어 이 컴퓨터에서는 사용할 수 없습니다. 헤더에서 다시 입력하세요.",
       "signInMany": "연결 {count}개의 자격 증명을 다시 입력해야 합니다.",
       "signInRejected": "‘{name}’이(가) 자격 증명을 거부했습니다. 이벤트가 계속 작동하도록 다시 로그인하세요.",
-      "signInMissing": "‘{name}’의 자격 증명을 이 컴퓨터에서 입력해야 합니다."
+      "signInMissing": "‘{name}’의 자격 증명을 이 컴퓨터에서 입력해야 합니다.",
+      "signInWaiting": "‘{name}’에 로그인해야 합니다. 이 연결의 변경 사항을 저장하거나 취소하면 여기에 열립니다.",
+      "signInLater": "나중에",
+      "signInDiscard": "변경 사항 버리고 로그인"
     },
     "zoom": "확대/축소",
     "zoomIn": "확대",
@@ -1537,6 +1540,9 @@
         "mode": {
           "label": "정지되는 큐의 페이드",
           "help": "설정 > 재생: Stop All과 '다른 모든 큐 정지' 더킹이 사용하는 페이드. 패닉은 항상 즉시 끊습니다."
+        },
+        "stopFade": {
+          "label": "정지되는 큐의 페이드"
         }
       },
       "summaries": {
@@ -1568,6 +1574,10 @@
           "item": "각 큐의 정지 버튼 페이드",
           "global": "Stop All 페이드",
           "toggle": "둘 사이 전환"
+        },
+        "stopFade": {
+          "show": "Stop All 페이드",
+          "cue": "각 큐의 정지 버튼 페이드 또는 즉시"
         }
       }
     },

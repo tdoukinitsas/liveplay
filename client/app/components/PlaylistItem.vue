@@ -591,6 +591,9 @@ const warningState = computed(() => {
 
 // Helper to convert hex to rgba
 const hexToRgba = (hex: string, alpha: number) => {
+  // A cue made through the API may have no colour, or not a #rrggbb one:
+  // that must not stop the whole list drawing.
+  if (typeof hex !== 'string' || !/^#[0-9a-f]{6}/i.test(hex)) hex = '#808080';
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
@@ -819,9 +822,24 @@ const handleDrop = (e: DragEvent) => {
   const itemObjects = itemsToMove
     .map(uuid => findItemByUuid(uuid))
     .filter(item => item !== null);
-  
+
   if (itemObjects.length === 0) return;
-  
+
+  // A group can't go inside itself. Dropped on one of its own cues, it was
+  // taken out of the playlist and then put into its own child, and it
+  // vanished with everything in it.
+  if (itemObjects.some(item => item?.type === 'group' && groupContains(item as GroupItem, props.item.uuid))) return;
+
+  // Determine insertion point, before anything is removed: removing re-numbers
+  // the playlist, so the target's parent is held as the list itself rather
+  // than looked up by an index that may have moved.
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const y = e.clientY - rect.top;
+  const height = rect.height;
+  const intoGroup = props.item.type === 'group' && y > height * 0.3 && y < height * 0.7;
+  const target = findParentOf(props.item.uuid, currentProject.value.items, null);
+  if (!target) return;
+
   // Remove all items from their current locations (in reverse order to maintain indices)
   for (let i = itemObjects.length - 1; i >= 0; i--) {
     const item = itemObjects[i];
@@ -829,13 +847,8 @@ const handleDrop = (e: DragEvent) => {
       removeItem(item.uuid);
     }
   }
-  
-  // Determine insertion point
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  const y = e.clientY - rect.top;
-  const height = rect.height;
-  
-  if (props.item.type === 'group' && y > height * 0.3 && y < height * 0.7) {
+
+  if (intoGroup) {
     // Drop inside group
     const groupItem = props.item as GroupItem;
     itemObjects.forEach(item => {
@@ -846,25 +859,12 @@ const handleDrop = (e: DragEvent) => {
     const { updateIndices } = useProject();
     updateIndices(groupItem.children, groupItem.index);
   } else {
-    // Find parent array and insert before/after
+    // Insert before/after the target, in the list found above. The group's
+    // index is read now: removing may have re-numbered it.
     const insertAfter = y >= height / 2;
-    const targetIndex = props.item.index;
-    
-    // Find parent array (either root items or group children)
-    let parentArray = currentProject.value.items;
-    let parentIndex: number[] = [];
-    
-    if (targetIndex.length > 1) {
-      // Item is in a group, find the parent group
-      const parentGroupIndex = targetIndex.slice(0, -1);
-      const parentGroup = findItemByIndex(parentGroupIndex);
-      if (parentGroup && parentGroup.type === 'group') {
-        const groupParent = parentGroup as GroupItem;
-        parentArray = groupParent.children;
-        parentIndex = groupParent.index;
-      }
-    }
-    
+    const parentArray = target.list;
+    const parentIndex = target.group ? target.group.index : [];
+
     // Find position in parent array
     const itemPosInArray = parentArray.findIndex(i => i.uuid === props.item.uuid);
     let insertPos = insertAfter ? itemPosInArray + 1 : itemPosInArray;
@@ -898,6 +898,26 @@ const getAllItemsFlattened = (items: (AudioItem | GroupItem)[]): (AudioItem | Gr
     }
   }
   return result;
+};
+
+// Whether `uuid` is anywhere inside `group`, at any depth.
+const groupContains = (group: GroupItem, uuid: string): boolean =>
+  group.children.some(c => c.uuid === uuid || (c.type === 'group' && groupContains(c as GroupItem, uuid)));
+
+// The list an item sits in, and the group that list belongs to (null at the top).
+const findParentOf = (
+  uuid: string,
+  list: (AudioItem | GroupItem)[],
+  group: GroupItem | null,
+): { list: (AudioItem | GroupItem)[]; group: GroupItem | null } | null => {
+  for (const it of list) {
+    if (it.uuid === uuid) return { list, group };
+    if (it.type === 'group') {
+      const hit = findParentOf(uuid, (it as GroupItem).children, it as GroupItem);
+      if (hit) return hit;
+    }
+  }
+  return null;
 };
 
 // Helper to find item by index

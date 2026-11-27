@@ -212,6 +212,9 @@ const warningState = computed(() => {
 
 // Helper to convert hex to rgba
 const hexToRgba = (hex: string, alpha: number): string => {
+  // A cue made through the API may have no colour, or not a #rrggbb one:
+  // that must not stop the whole list drawing.
+  if (typeof hex !== 'string' || !/^#[0-9a-f]{6}/i.test(hex)) hex = '#808080';
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);

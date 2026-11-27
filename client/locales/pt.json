@@ -1299,7 +1299,10 @@
       "signInMissingHelp": "As credenciais deste espetáculo foram cifradas noutra máquina, por isso esta não as pode usar. Introduza-as novamente em Cabeçalhos.",
       "signInMany": "É preciso introduzir novamente as credenciais de {count} ligações.",
       "signInRejected": "«{name}» recusou as suas credenciais. Inicie sessão novamente para que os seus eventos continuem a funcionar.",
-      "signInMissing": "É preciso introduzir as credenciais de «{name}» nesta máquina."
+      "signInMissing": "É preciso introduzir as credenciais de «{name}» nesta máquina.",
+      "signInWaiting": "«{name}» precisa de iniciar sessão. Abre aqui assim que guardar ou cancelar as alterações a esta ligação.",
+      "signInLater": "Agora não",
+      "signInDiscard": "Descartar alterações e iniciar sessão"
     },
     "zoom": "Zoom",
     "zoomIn": "Aumentar zoom",
@@ -1537,6 +1540,9 @@
         "mode": {
           "label": "Cues parados desvanecem com",
           "help": "Definições > Reprodução: com que fade saem o Stop All e o ducking «parar todos os outros». Um pânico corta sempre."
+        },
+        "stopFade": {
+          "label": "Cues parados desvanecem com"
         }
       },
       "summaries": {
@@ -1568,6 +1574,10 @@
           "item": "O fade do botão Stop de cada cue",
           "global": "O fade do Stop All",
           "toggle": "Alternar entre os dois"
+        },
+        "stopFade": {
+          "show": "O fade do Stop All",
+          "cue": "O fade do botão Stop de cada cue, ou de imediato"
         }
       }
     },

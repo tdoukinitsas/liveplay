@@ -547,7 +547,7 @@ export interface Project {
   items: (AudioItem | GroupItem)[];
   cartItems: CartItem[];
   cartSlotKeys?: Record<number, CartSlotKeyBinding>;
-  /** Keys that fire one particular cart from any page, by its item uuid. */
+  /** Keys that fire one particular cart from any page: raw cart slot → key. */
   cartPinnedKeys?: Record<string, CartSlotKeyBinding>;
   /** Absent in a show with one tab. */
   playlistTabs?: PlaylistTab[];

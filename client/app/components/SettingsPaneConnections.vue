@@ -91,6 +91,13 @@
             : t('events.connections.editTitle', { name: originalName }) }}
         </h4>
         <p v-if="draftPlugin?.description" class="settings-help">{{ draftPlugin.description }}</p>
+        <!-- "Sign in" asked for while this draft has changes: it waits rather
+             than throwing them away. Cancel first, as in the app's dialogs. -->
+        <div v-if="pendingSignIn" class="conn-confirm conn-confirm--editor" role="status">
+          <span>{{ t('events.connections.signInWaiting', { name: pendingSignIn.name }) }}</span>
+          <Btn icon="close" :text="t('events.connections.signInLater')" @click="dismissSignIn" />
+          <Btn icon="key" :text="t('events.connections.signInDiscard')" @click="discardForSignIn" />
+        </div>
         <p v-if="draftAuth" class="conn-auth conn-auth--banner" role="status">
           <span class="material-symbols-rounded" aria-hidden="true">lock</span>
           {{ draftAuth === 'rejected' ? t('events.connections.signInRejectedHelp') : t('events.connections.signInMissingHelp') }}
@@ -291,6 +298,8 @@ async function deleteConnection(c: EventConnection) {
 const draft = ref<EventConnection | null>(null);
 const isNew = ref(false);
 const originalName = ref('');
+// The draft as it opened, to tell later whether it has changes (draftChanged).
+let draftBaseline = '';
 const draftPlugin = computed(() => (draft.value ? pluginOf(draft.value.plugin) : null));
 
 function startAdd() {
@@ -304,6 +313,7 @@ function startAdd() {
     enabled: true,
     config: defaultsFor(plugin.connectionFields),
   };
+  draftBaseline = JSON.stringify(draft.value);
   isNew.value = true;
   originalName.value = '';
   presetDraft.value = null;
@@ -350,6 +360,7 @@ function startEdit(c: EventConnection) {
   // defaults rather than blank.
   copy.config = fillDefaults(pluginOf(c.plugin)?.connectionFields, copy.config);
   draft.value = copy;
+  draftBaseline = JSON.stringify(copy);
   isNew.value = false;
   originalName.value = c.name;
   presetDraft.value = null;
@@ -389,16 +400,6 @@ async function saveDraft() {
 // so it clears as soon as the new credentials are accepted).
 const draftAuth = computed(() =>
   draft.value ? connections.value.find(c => c.id === draft.value!.id)?.auth ?? null : null);
-
-// "Sign in" from the notice elsewhere in the app opens that connection here.
-const signInRequest = useState<string | null>('connections.signIn', () => null);
-watch([signInRequest, connections], ([id]) => {
-  if (!id) return;
-  const c = connections.value.find(x => x.id === id);
-  if (!c) return;
-  signInRequest.value = null;
-  startEdit(c);
-}, { immediate: true });
 
 // ---- presets ----------------------------------------------------------------
 // Edited on the draft, so they save, or cancel, with the rest of the connection.
@@ -479,6 +480,48 @@ async function runTest() {
   } finally {
     testing.value = false;
   }
+}
+
+// ---- sign-in requests -----------------------------------------------------------
+// "Sign in" from the notice elsewhere in the app opens that connection here.
+// Last in the file because its watcher runs at once and opens the editor,
+// which needs everything above it to exist already.
+const signInRequest = useState<string | null>('connections.signIn', () => null);
+
+// Whether the draft holds anything to lose: changed since it opened, or a
+// preset half edited inside it.
+const draftChanged = () =>
+  !!draft.value && (!!presetDraft.value || JSON.stringify(draft.value) !== draftBaseline);
+
+watch([signInRequest, connections, draft], ([id]) => {
+  if (!id) return;
+  const c = connections.value.find(x => x.id === id);
+  if (!c) return;
+  // Already open on that connection: this editor is where to sign in.
+  if (draft.value?.id === id) { signInRequest.value = null; return; }
+  // Changes to another connection aren't thrown away unasked: the request
+  // waits (pendingSignIn) until they are saved or cancelled, which comes
+  // back here with no draft.
+  if (draftChanged()) return;
+  signInRequest.value = null;
+  startEdit(c);
+}, { immediate: true });
+
+const pendingSignIn = computed(() => {
+  const id = signInRequest.value;
+  if (!id || !draft.value || draft.value.id === id || !draftChanged()) return null;
+  return connections.value.find(c => c.id === id) ?? null;
+});
+
+// "Not now": the row's own Sign in button is still there for later.
+function dismissSignIn() {
+  signInRequest.value = null;
+}
+
+function discardForSignIn() {
+  const c = pendingSignIn.value;
+  signInRequest.value = null;
+  if (c) startEdit(c);
 }
 </script>
 
@@ -631,6 +674,10 @@ async function runTest() {
   > span {
     flex: 1 1 240px;
   }
+}
+/* In the editor there's no row icon to line up under. */
+.conn-confirm--editor {
+  padding: 8px 0;
 }
 
 .conn-add {

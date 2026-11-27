@@ -49,7 +49,6 @@ const { currentProject, requestDeleteFromKeyboard } = useProject();
 const { getCartItem } = useCartItems();
 const { keyMappings, pinnedKeys, mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
 const { cartPages, activeCartPage } = useShowTabs();
-const { mount: mountMidi, unmount: unmountMidi } = useMidiController();
 const { t } = useLocalization();
 const { uiMode } = useUiMode();
 const showMode = computed(() => uiMode.value === 'playback');
@@ -74,19 +73,19 @@ const updateGridColumns = () => {
 watch(() => activeCartPage.value.size, updateGridColumns);
 
 // A cart's own pinned key if it has one, else its position's key on this page.
+// Pins are kept by slot (a cart moved keeps its key; see useCartHotkeys).
 const keyLabelFor = (slot: number, position: number): string => {
-  const uuid = currentProject.value?.cartItems.find(c => c.slot === slot)?.itemUuid;
-  const binding = (uuid && pinnedKeys.value[uuid]) || keyMappings.value[position];
+  const binding = pinnedKeys.value[String(slot)] || keyMappings.value[position];
   return binding ? formatKeyLabel(binding) : '';
 };
 
 // In the detached cart window there's no MainWorkspace to own the global
 // DEL key, so handle it here. (In the attached layout MainWorkspace already
 // does — adding it there too would double-fire.) Same rule as there for
-// which keys belong to the control with focus.
+// which keys belong to the control with focus, and the same Show Mode lock.
 const handleCartKeydown = (e: KeyboardEvent) => {
   if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-  if (shouldIgnoreHotkey(e) || !currentProject.value) return;
+  if (showMode.value || shouldIgnoreHotkey(e) || !currentProject.value) return;
   if (requestDeleteFromKeyboard()) e.preventDefault();
 };
 
@@ -94,11 +93,13 @@ onMounted(() => {
   if (import.meta.client) {
     // Only in the detached window, which has no MainWorkspace to own them.
     // In the attached layout the workspace mounts these, so the transport keys
-    // and MIDI survive this pane being closed, collapsed or popped out.
-    if (props.isDetachedWindow) {
-      mountHotkeys();
-      mountMidi();
-    }
+    // survive this pane being closed, collapsed or popped out.
+    //
+    // Never MIDI, though. Each window that mounts it hears every message, so
+    // one GO fired twice and a slot trigger fired a different cart in each
+    // window. The main window always exists while this one does, and its
+    // workspace is the one owner.
+    if (props.isDetachedWindow) mountHotkeys();
     // Initial setup
     updateGridColumns();
     if (props.isDetachedWindow) window.addEventListener('keydown', handleCartKeydown);
@@ -115,7 +116,6 @@ onMounted(() => {
     onUnmounted(() => {
       if (props.isDetachedWindow) {
         unmountHotkeys();
-        unmountMidi();
         window.removeEventListener('keydown', handleCartKeydown);
       }
       resizeObserver.disconnect();

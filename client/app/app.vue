@@ -347,7 +347,14 @@ const updateInfo = ref({
 // colours. Without it a detached meter would colour its zones off the EBU
 // defaults and disagree with the same meter in the main window.
 function applyDetachedWindowProjectData(projectData: any) {
-  if (!projectData || !(isCartWindow || isMixerWindow || isPlaylistWindow)) return;
+  if (!(isCartWindow || isMixerWindow || isPlaylistWindow)) return;
+  // The show closed in the main window: nothing of it stays here (the cart
+  // window goes back to its placeholder).
+  if (!projectData) {
+    if (isCartWindow || isPlaylistWindow) clearCartOnlyItems();
+    currentProject.value = null;
+    return;
+  }
   if (isCartWindow || isPlaylistWindow) {
     clearCartOnlyItems();
     if (Array.isArray(projectData.cartOnlyItems)) {
@@ -359,7 +366,14 @@ function applyDetachedWindowProjectData(projectData: any) {
   // In detached windows, only set currentProject without triggering watchers
   // Use Object.assign to preserve reactivity while avoiding deep-watch triggers
   if (currentProject.value) {
-    Object.assign(currentProject.value, projectData);
+    // A key the main window no longer sends is gone, not unchanged: the copy
+    // goes over JSON, which drops what is undefined. Kept, a show with one tab
+    // opened after one with several kept the old show's tabs, pages and keys.
+    const current = currentProject.value as unknown as Record<string, unknown>;
+    for (const key of Object.keys(current)) {
+      if (!(key in projectData)) delete current[key];
+    }
+    Object.assign(current, projectData);
   } else {
     currentProject.value = projectData;
   }
@@ -751,12 +765,21 @@ watch(currentLocale, () => {
 // Chromium requires preventDefault() on EVERY dragover event (including on
 // intermediate elements) for the drop event to fire. Using capture phase
 // ensures this runs before any component handlers.
+//
+// Which means a drop now lands anywhere, and one that no drop target takes
+// (a file or a link let go over the header, a gap, a cart in Show Mode) was
+// opened by the window as a page: the show gone, and a window that could no
+// longer be closed. So no drop is ever the window's own. Cancelling it here
+// only stops that: the drop targets still get the event and its data.
 onMounted(() => {
   if (import.meta.client) {
     document.addEventListener('dragenter', (e) => {
       e.preventDefault();
     }, true);
     document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    }, true);
+    document.addEventListener('drop', (e) => {
       e.preventDefault();
     }, true);
   }

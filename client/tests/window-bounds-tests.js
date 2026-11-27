@@ -128,10 +128,33 @@ r = savedWindowBoundsWith(ONE, { x: 200, y: -900, width: 1000, height: 700 })('w
 ok('a position above the top of the screen is dropped too',
    r.x === undefined && r.y === undefined, JSON.stringify(r));
 
-r = savedWindowBoundsWith(ONE, { x: 1850, y: 900, width: 1000, height: 700 })('win', DEF);
-ok('a window hanging off the edge but still touching is KEPT',
-   r.x === 1850 && r.y === 900,
+r = savedWindowBoundsWith(ONE, { x: 1800, y: 900, width: 1000, height: 700 })('win', DEF);
+ok('a window hanging off the edge with enough left to grab is KEPT',
+   r.x === 1800 && r.y === 900,
    `${JSON.stringify(r)} — partly off screen is a layout, not a fault`);
+
+// Touching is not the same as reachable: what is left on the work area must
+// include the title bar, and enough of the width to get a pointer on.
+r = savedWindowBoundsWith(ONE, { x: 200, y: -20, width: 1000, height: 700 })('win', DEF);
+ok('a title bar above the top of the work area is pulled down onto it',
+   r.x === 200 && r.y === 0,
+   `${JSON.stringify(r)} — it overlaps the display, but nothing above y=0 can be grabbed`);
+
+r = savedWindowBoundsWith(ONE, { x: 200, y: 1030, width: 1000, height: 700 })('win', DEF);
+ok('a title bar barely above the bottom is lifted until it all shows',
+   r.x === 200 && r.y === 1000, JSON.stringify(r));
+
+r = savedWindowBoundsWith(ONE, { x: 1890, y: 100, width: 1000, height: 700 })('win', DEF);
+ok('a 30px sliver at the right edge is pulled in to 100px',
+   r.x === 1820 && r.y === 100, JSON.stringify(r));
+
+r = savedWindowBoundsWith(ONE, { x: -960, y: 100, width: 1000, height: 700 })('win', DEF);
+ok('...and the same at the left edge',
+   r.x === -900 && r.y === 100, JSON.stringify(r));
+
+r = savedWindowBoundsWith(TWO, { x: 2400, y: -50, width: 1000, height: 700 })('win', DEF);
+ok('the title bar is checked against the display the window is on',
+   r.x === 2400 && r.y === 0, JSON.stringify(r));
 
 r = savedWindowBoundsWith(TWO, { x: 2400, y: 100, width: 1000, height: 700 })('win', DEF);
 ok('the same position IS kept when that display is still attached',

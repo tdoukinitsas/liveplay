@@ -304,9 +304,16 @@ const isPositiveInt = (v) => Number.isInteger(v) && v > 0;
  *   * the position must still be ON a display. Unplug the second monitor and
  *     yesterday's x of 2800 is off the edge of the world. Dropping x/y lets
  *     Electron centre it, which is the same thing that happened before any of
- *     this existed.
+ *     this existed. And on it in a way that can be grabbed: overlapping the
+ *     display is not enough if the title bar is above the top of the work area
+ *     or only a sliver of the window is left on it, so the position is pulled
+ *     in until the title bar is inside and enough of the width shows.
  */
 function savedWindowBounds(key, defaults) {
+  // How much of the window has to stay on the work area to be dragged back:
+  // a title bar's height, and a stretch of its width a pointer can find.
+  const GRAB_HEIGHT = 40;
+  const GRAB_WIDTH = 100;
   const saved = readWindowBoundsStore()[key];
   if (!saved || typeof saved !== 'object') return { ...defaults };
   if (!isPositiveInt(saved.width) || !isPositiveInt(saved.height)) return { ...defaults };
@@ -332,8 +339,15 @@ function savedWindowBounds(key, defaults) {
       saved.x < area.x + area.width  && saved.x + saved.width  > area.x &&
       saved.y < area.y + area.height && saved.y + saved.height > area.y;
     if (onScreen) {
-      out.x = saved.x;
-      out.y = saved.y;
+      // The top edge (the title bar) inside the work area, and at least
+      // GRAB_WIDTH of the width on it. Width is already no wider than the area,
+      // so both ranges are well formed.
+      const grab = Math.min(GRAB_WIDTH, out.width);
+      const minX = area.x - out.width + grab;
+      const maxX = area.x + area.width - grab;
+      const maxY = area.y + Math.max(0, area.height - GRAB_HEIGHT);
+      out.x = Math.min(Math.max(saved.x, minX), maxX);
+      out.y = Math.min(Math.max(saved.y, area.y), maxY);
     }
   }
   if (saved.maximized === true) out.maximized = true;
@@ -1869,6 +1883,35 @@ function compareVersions(v1, v2) {
   return 0;
 }
 
+// Every window of ours shows the app's own page and nothing else. A file or a
+// link let go where no drop target took it, or a link followed by accident,
+// used to replace the app with it: the show gone, and a main window whose close
+// veto asked a page that no longer listened (app:request-quit), so it could not
+// be closed. Reloading the same page (Ctrl+R, the connection-lost Reload) still
+// works, and so do mailto: and tel:, which go to the OS rather than replacing
+// the page (the About pane's contact links). No page opens windows of its own:
+// ours are opened here, over IPC.
+function isOwnPageNavigation(current, target) {
+  try {
+    const to = new URL(target);
+    if (to.protocol === 'mailto:' || to.protocol === 'tel:') return true;
+    const from = new URL(current);
+    // The same document, whatever the query or hash: a dev-server reload, or
+    // the packaged index.html loaded again.
+    return to.protocol === from.protocol && to.host === from.host && to.pathname === from.pathname;
+  } catch {
+    return false;
+  }
+}
+
+function guardWindowNavigation(win) {
+  const contents = win.webContents;
+  contents.on('will-navigate', (event, url) => {
+    if (!isOwnPageNavigation(contents.getURL(), event.url || url)) event.preventDefault();
+  });
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+}
+
 function createWindow() {
   // `useContentSize: true` rides in MIN_WINDOW, so these are CONTENT dimensions
   // and the saved size has to be a content size too — see trackWindowBounds.
@@ -1889,6 +1932,7 @@ function createWindow() {
     },
     show: false
   });
+  guardWindowNavigation(mainWindow);
   if (maximized) mainWindow.maximize();
   trackWindowBounds('main', mainWindow, { contentSize: true });
 
@@ -1971,6 +2015,7 @@ function createCartPlayerWindow() {
       webSecurity: false
     }
   });
+  guardWindowNavigation(cartPlayerWindow);
   if (maximized) cartPlayerWindow.maximize();
   trackWindowBounds('cart', cartPlayerWindow);
 
@@ -2036,6 +2081,7 @@ function createTabWindow(kind, id) {
       webSecurity: false,
     },
   });
+  guardWindowNavigation(win);
   if (maximized) win.maximize();
   trackWindowBounds(boundsKey, win);
   const query = kind === 'cart'
@@ -2090,6 +2136,7 @@ function createMixerWindow() {
       webSecurity: false
     }
   });
+  guardWindowNavigation(mixerWindow);
   if (maximized) mixerWindow.maximize();
   trackWindowBounds('mixer', mixerWindow, { contentSize: true });
 
@@ -2140,6 +2187,7 @@ function createStateViewerWindow() {
       preload: path.join(__dirname, 'preload-state-viewer.js')
     }
   });
+  guardWindowNavigation(stateViewerWindow);
   if (maximized) stateViewerWindow.maximize();
   trackWindowBounds('stateViewer', stateViewerWindow);
 
@@ -3258,17 +3306,16 @@ ipcMain.on('sync-project-data', (event, projectData) => {
     }
     // Forward project updates to the detached windows if open. The mixer
     // window takes only the theme and meter levels off this, but it is the
-    // same payload, so it rides the same channel.
-    if (projectData) {
-      for (const win of [cartPlayerWindow, mixerWindow, ...tabWindows.values()]) {
-        if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
-          win.webContents.send('cart-window-project-update', projectData);
-        }
+    // same payload, so it rides the same channel. A closed show (null) goes
+    // too: the detached cart window otherwise kept showing the old show's
+    // carts, and the mixer its meter levels.
+    for (const win of [cartPlayerWindow, mixerWindow, ...tabWindows.values()]) {
+      if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
+        win.webContents.send('cart-window-project-update', projectData);
       }
-    } else {
-      // The show closed: a tab of it has nothing left to show.
-      closeAllTabWindows();
     }
+    // The show closed: a tab of it has nothing left to show.
+    if (!projectData) closeAllTabWindows();
   }
   // Silently ignore syncs from the cart window to prevent feedback loops
 });

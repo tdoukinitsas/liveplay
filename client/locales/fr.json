@@ -1299,7 +1299,10 @@
       "signInMissingHelp": "Les identifiants de ce spectacle ont été chiffrés sur une autre machine, celle-ci ne peut donc pas les utiliser. Saisissez-les à nouveau dans En-têtes.",
       "signInMany": "Les identifiants de {count} connexions doivent être saisis à nouveau.",
       "signInRejected": "« {name} » a refusé ses identifiants. Reconnectez-vous pour que ses événements continuent de fonctionner.",
-      "signInMissing": "Les identifiants de « {name} » doivent être saisis sur cette machine."
+      "signInMissing": "Les identifiants de « {name} » doivent être saisis sur cette machine.",
+      "signInWaiting": "Il faut se connecter à « {name} ». La fenêtre s’ouvrira ici dès que vous aurez enregistré ou annulé vos modifications de cette connexion.",
+      "signInLater": "Pas maintenant",
+      "signInDiscard": "Annuler les modifications et se connecter"
     },
     "zoom": "Zoom",
     "zoomIn": "Zoom avant",
@@ -1537,6 +1540,9 @@
         "mode": {
           "label": "Les cues arrêtés s'estompent sur",
           "help": "Réglages > Lecture : le fondu utilisé par Stop All et le ducking « arrêter tous les autres ». Une panique coupe toujours net."
+        },
+        "stopFade": {
+          "label": "Les cues arrêtés s'estompent sur"
         }
       },
       "summaries": {
@@ -1568,6 +1574,10 @@
           "item": "Le fondu du bouton Stop de chaque cue",
           "global": "Le fondu de Stop All",
           "toggle": "Alterner entre les deux"
+        },
+        "stopFade": {
+          "show": "Le fondu de Stop All",
+          "cue": "Le fondu du bouton Stop de chaque cue, ou immédiatement"
         }
       }
     },
