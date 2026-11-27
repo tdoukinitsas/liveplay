@@ -49,6 +49,7 @@ struct Job {
     std::string action;                        // one of your schema's action ids
     json        options    = json::object();   // values of that action's fields
     json        connection = json::object();   // values of your connectionFields ({} if none)
+    std::string connection_id;                 // which connection that is ("" if none)
     FireContext ctx;
 };
 
@@ -58,7 +59,14 @@ struct Job {
 struct Result {
     bool        ok = true;
     std::string error;
-    static Result fail(std::string why) { return Result{false, std::move(why)}; }
+    // A failure that needs the operator to sign in again: "missing" (no
+    // usable credential to send) or "rejected" (the device refused it, e.g.
+    // HTTP 401/403). The connection is flagged and the clients prompt.
+    std::string auth;
+    static Result fail(std::string why) { return Result{false, std::move(why), {}}; }
+    static Result auth_failed(std::string why, std::string kind) {
+        return Result{false, std::move(why), std::move(kind)};
+    }
 };
 
 // What a plugin may ask of LivePlay itself. Thread-safe; each call may block
@@ -95,11 +103,14 @@ public:
     // "send": { id, levelDb }, heard at once but neither saved nor sent to the
     // clients. Follow with patch_bus at the end.
     virtual bool set_bus_live(const std::string& id, const json& patch) = 0;
-    // A lasting change (any PATCH /api/buses field): saved in the project and
-    // sent to every client. Returns "" or why the mixer refused it.
+    // The change at the end of a fade (any PATCH /api/buses field), sent to
+    // every client. Live only: the project is saved with the operator's own
+    // values, since events move the show's state, not the show. Returns "" or
+    // why the mixer refused it.
     virtual std::string patch_bus(const std::string& id, const json& patch) = 0;
     // Settings > Playback "Stopped cues use their own Stop button fade" (#85):
-    // read it, or change it (saved in the project and sent to every client).
+    // read it, or change it (sent to every client; live only, like patch_bus:
+    // the project keeps the operator's setting).
     virtual bool stops_use_item_fade() = 0;
     virtual void set_stops_use_item_fade(bool on) = 0;
     // Master gain; `final` sends the change to the clients (not every step of a fade).

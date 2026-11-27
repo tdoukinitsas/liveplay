@@ -267,4 +267,27 @@ inline std::optional<int> slot_of(const json& doc, int page, int cart) {
     return p.value("slotBase", 0) + cart;
 }
 
+// True when some page shows `slot`: it lies in a page's block, below that
+// page's current size. A slot outside every page (its page was removed or
+// shrunk) can't be seen, so nothing may fire it.
+inline bool slot_is_shown(const json& doc, int slot) {
+    if (slot < 0 || slot >= kCartSlotCount) return false;
+    for (const auto& p : pages_or_default(doc)) {
+        const int base = p.value("slotBase", 0);
+        if (slot >= base && slot < base + p.value("size", kDefaultCartsPerPage)) return true;
+    }
+    return false;
+}
+
+// True when `slot` lies in some page's reserved block, shown or not. A binding
+// outside every block belongs to a page that no longer exists.
+inline bool slot_in_some_page(const json& doc, int slot) {
+    if (slot < 0 || slot >= kCartSlotCount) return false;
+    for (const auto& p : pages_or_default(doc)) {
+        const int base = p.value("slotBase", 0);
+        if (slot >= base && slot < base + kCartSlotsPerPage) return true;
+    }
+    return false;
+}
+
 }  // namespace liveplay::core::tabs

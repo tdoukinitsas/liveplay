@@ -309,6 +309,11 @@ json bus_sends_to_json(const BusDef& b);
 // migration on load — its "main"/"monitor" buses become the master/preview
 // holders and output.type "master" is rewritten (D25).
 inline constexpr int kBusSchemaVersion = 2;
+// The show-file format a document is at (F-08). 2.6 added playlist tabs, cart
+// pages and events, and a 2.5 LivePlay that saves a 2.6 show drops them, so
+// documents say they are 2.6 and later versions can tell. A pre-2.6 document
+// is upgraded once on its way in (see upgrade_document in project_state.cpp).
+inline constexpr const char* kDocumentVersion = "2.6.0";
 
 // Ids of the buses synthesised when a document brings no role holder of its
 // own. Ids are arbitrary — a loaded document's "main"/"monitor" keep working,
@@ -495,7 +500,12 @@ public:
     // Replace the full project document. The server extracts audio items
     // (uuid → file path) and re-mirrors them onto the engine. Other fields
     // are stored verbatim for the client to read back.
-    bool replace_full_document(const json& doc);
+    //
+    // `keep_live_parts` is an ordinary save of the same show (POST
+    // /api/project/save with a document): the parts with their own endpoints
+    // (tabs, pages, connections, cart keys) stay as the server has them, since
+    // the saving client's copy may predate another client's change.
+    bool replace_full_document(const json& doc, bool keep_live_parts = false);
 
     // Path to the open project file (.liveplay), if any. Empty if the project
     // is in-memory only.
@@ -597,6 +607,12 @@ public:
     // scheduled, jobs queued, fades events started (they stop where they are)
     // — and no stopped cue fires an end event, whatever the settings say.
     void panic() { stop_all_cues(0, true); }
+    // Stop Current Cue (#87, F-36): the cue fired most recently that is still
+    // on air, playlist or cart, with its own stop fade unless `fade_ms` says
+    // otherwise. Returns its uuid, or empty when nothing is playing.
+    std::string stop_current_cue(std::optional<long long> fade_ms = std::nullopt);
+    // On-air item uuids, the one fired most recently first.
+    std::vector<std::string> on_air_by_recency() const;
 
     // Trigger an item by uuid: audio items go through play_item; group items
     // are dispatched per their startBehavior (play-first / play-all),
@@ -658,8 +674,18 @@ public:
     // playlist. When several are playing we take the one furthest down the
     // playlist — a show advances downward, so that's the operator's position.
     // With nothing selected and nothing playing, the step starts from the top.
+    //
+    // In a show with playlist tabs the step keeps to one tab and stops at its
+    // edge (F-05): the tab named by `scope.tab_id` (what the caller is looking
+    // at), else the selected cue's, else the furthest playing cue's, else the
+    // first. `scope.whole_show` walks every tab, as before tabs existed.
+    struct SelectionScope {
+        bool        whole_show = false;
+        std::string tab_id;
+    };
     std::string step_selection(int delta,
-                               const std::vector<std::string>& anchor_candidates = {});
+                               const std::vector<std::string>& anchor_candidates = {},
+                               const SelectionScope& scope = {});
 
     // Show Mode: the simplified, touch-friendly playback view. Server-owned so
     // a Companion button, a tablet and the operator's laptop stay in step.
@@ -744,12 +770,33 @@ public:
     // ---- Playlist tabs and cart pages (#74), see show_tabs.hpp -------------
     // What's bound to `cart` on `page` (both zero-based), or empty.
     std::string cart_item_at(int page, int cart) const;
-    // The pre-pages index API: a position on the first page.
-    std::string cart_item_on_first_page(int position) const;
+    // What's bound to a raw slot number (the `slot` of summary.cart), or empty
+    // when no page shows that slot (F-04: the index API means the raw slot, so
+    // it never changes when pages are reordered).
+    std::string cart_item_at_slot(int slot) const;
     // { playlistTabs, cartPages, limits }
     json project_tabs() const;
+
+    // ---- Credentials (F-01, F-23) -----------------------------------------
+    // Every HTTP header text anywhere in `j` (a document, an item, a frame, a
+    // connection list) with its secret values masked, or every value when
+    // `all_values` (an API token's view). No client is ever sent a secret:
+    // the control server runs every JSON it sends through this.
+    static void mask_secrets(json& j, bool all_values);
+    // Cheap pre-check on a serialised payload: false means nothing to mask.
+    static bool may_hold_secrets(const std::string& serialized);
+    // { cartSlotKeys, cartPinnedKeys }: the position keys (position on a page
+    // → key) and the keys pinned to one cart (raw slot → key), checked.
+    json cart_keys() const;
+    // Replaces whichever of the two `patch` carries; returns what's stored.
+    json set_cart_keys(const json& patch);
+    // Drops pins whose cart is no longer bound (F-13). The new pin map when
+    // anything went, else null.
+    json drop_pins_without_carts();
     // Replaces whichever of playlistTabs / cartPages the patch carries.
-    json set_project_tabs(const json& patch);
+    // Carts no page owns any more are removed with their pins (F-18); their
+    // slots are added to `removed_slots`.
+    json set_project_tabs(const json& patch, std::vector<int>* removed_slots = nullptr);
     // Every page with its carts, for control surfaces.
     json cart_pages() const;
 
@@ -830,8 +877,13 @@ public:
     // object on every edit, so failing the request over one stray key would
     // break every settings change in the app. Pass `dropped_out` to learn
     // which keys did not land, e.g. to report them on the API response.
+    //
+    // `from_event`: an event moved these settings (the liveplay plugin's
+    // stop-fade-mode). Like an event's bus change, that moves the show's
+    // state, not the show: the operator's value is what gets saved (F-22).
     bool patch_settings(const json& patch,
-                        std::vector<std::string>* dropped_out = nullptr);
+                        std::vector<std::string>* dropped_out = nullptr,
+                        bool from_event = false);
 
     // ---- Introspection ---------------------------------------------------
     std::vector<CueMeta> list_cues() const;
@@ -1089,6 +1141,9 @@ private:
     // "/dsp/hpf/freq") -> the operator's value (nullopt: there was none).
     // save() writes these instead of the live value. Under mutex_.
     std::unordered_map<std::string, std::map<std::string, std::optional<json>>> event_bus_overrides_;
+    // The same for settings an event changed (F-22): key → the operator's
+    // value (nullopt = absent), written back by save(). Under mutex_.
+    std::map<std::string, std::optional<json>> event_settings_overrides_;
     // Until when a further Stop All counts as the double tap (a panic): the
     // last one's fade plus kStopAllDoubleTap. Under mutex_.
     std::chrono::steady_clock::time_point stop_all_tap_until_{};
@@ -1535,6 +1590,11 @@ private:
         bool                           stopped_by_stop_all = false;
         // The cues whose events started this one, for its time markers.
         std::vector<std::string>       marker_chain;
+        // The playlist tab whose cart started the run this cue belongs to
+        // (#61): the tab's first cue, and every cue the run advanced into,
+        // into the next tab too when a `continue` tab ran off its end. A stop
+        // of that cart stops the whole run (F-17). Empty otherwise.
+        std::string                    run_tab;
     };
     std::vector<SequencedItem> sequenced_items_;
     std::mutex                 sequencer_mutex_;
@@ -1638,6 +1698,13 @@ public:
     // Called (no lock held, from a dispatcher thread) after every event runs,
     // with { itemUuid, eventId, trigger, plugin, action, ok, error? }.
     void set_event_fired_broadcaster(std::function<void(const json&)> cb);
+    // Called with the connection list whenever a connection's sign-in state
+    // changes on its own (a 401, a success after one).
+    void set_connections_broadcaster(std::function<void(const json&)> cb);
+    // Re-derives which connections need a sign-in after the items changed
+    // (an event's own credentials entered, or the last event that lacked them
+    // gone), and tells every client when that moved.
+    void refresh_connection_auth();
     // A plugin's live option list (events::Plugin::options) for the connection
     // `connection_id`, or `draft_connection` when that is an object. Returns
     // { options: [...], error?: "..." }.
@@ -1681,6 +1748,22 @@ public:
 private:
     std::function<void()> preview_stopped_broadcaster_;
     std::function<void(const json&)> event_fired_broadcaster_;
+    // event_connections_changed, when a connection's sign-in state moves.
+    std::function<void(const json&)> connections_broadcaster_;
+    // Connections that need the operator to sign in again (F-23): id →
+    // "missing" (a secret sealed on another machine, or never given) or
+    // "rejected" (the device answered 401/403). Not saved; shown to clients
+    // as each connection's `auth`. Under mutex_.
+    std::map<std::string, std::string> connection_auth_;
+    // The connections with their `auth` filled in. Under mutex_.
+    json connections_with_auth_locked() const;
+    // Re-derives "missing" from the document, and drops "rejected" for any
+    // connection whose secrets `before` shows were changed. Under mutex_.
+    void refresh_connection_auth_locked(const json& before = json());
+    // Seals every secret in `doc` for disk / opens every sealed one (what
+    // can't be opened stays sealed and its connection asks for a sign-in).
+    static void seal_secrets(json& doc);
+    static void open_secrets(json& doc);
     std::function<void(const std::string&)> next_item_broadcaster_;
     std::function<void(const json&)> ui_state_broadcaster_;
 

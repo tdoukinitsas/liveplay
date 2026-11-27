@@ -295,11 +295,17 @@ private:
     // would hold this lock, and with it every MIDI event and server shutdown,
     // for ever. So it is sent from a thread of its own that we can walk away
     // from; that thread keeps the handle alive until the driver lets go.
+    struct SysExTimedOut : std::runtime_error {
+        std::shared_future<std::string> still_sending;
+        explicit SysExTimedOut(std::shared_future<std::string> f)
+            : std::runtime_error("the MIDI device did not take the SysEx in time"),
+              still_sending(std::move(f)) {}
+    };
     static void send_with_timeout(std::shared_ptr<RtMidiOut> out,
                                   const std::vector<unsigned char>& msg) {
         constexpr auto kSysExTimeout = std::chrono::seconds{2};
         auto done = std::make_shared<std::promise<std::string>>();
-        auto finished = done->get_future();
+        std::shared_future<std::string> finished = done->get_future().share();
         std::thread([out = std::move(out), msg, done]() mutable {
             try {
                 out->sendMessage(&msg);
@@ -311,7 +317,7 @@ private:
             }
         }).detach();
         if (finished.wait_for(kSysExTimeout) != std::future_status::ready) {
-            throw std::runtime_error("the MIDI device stopped accepting SysEx");
+            throw SysExTimedOut{finished};
         }
         const std::string error = finished.get();
         if (!error.empty()) throw std::runtime_error(error);
@@ -319,12 +325,26 @@ private:
 
     Result send(const std::string& port, std::vector<unsigned char>& msg) {
         std::lock_guard lock{mutex_};
+        // A SysEx that timed out may still be on its way: the driver has the
+        // device until it finishes. Sending again now would send it twice
+        // (CoreMIDI, ALSA) or fail to reopen a device WinMM still holds, so the
+        // port is busy until then (F-21).
+        if (auto p = sysex_in_flight_.find(port); p != sysex_in_flight_.end()) {
+            if (p->second.wait_for(std::chrono::seconds{0}) != std::future_status::ready)
+                return Result::fail("the MIDI device is still busy with the last SysEx");
+            sysex_in_flight_.erase(p);
+        }
         for (int attempt = 0; attempt < 2; ++attempt) {
             try {
                 std::shared_ptr<RtMidiOut> out = open(port);
                 if (!msg.empty() && msg.front() == 0xF0) send_with_timeout(std::move(out), msg);
                 else out->sendMessage(&msg);
                 return {};
+            } catch (const SysExTimedOut& e) {
+                // No retry: the first send hasn't failed, it just hasn't
+                // finished. The handle stays open, held by that send.
+                sysex_in_flight_[port] = e.still_sending;
+                return Result::fail(e.what());
             } catch (const RtMidiError& e) {
                 // The interface may have been unplugged: drop the handle and
                 // reopen once by name.
@@ -367,6 +387,7 @@ private:
     std::mutex mutex_;
     std::map<std::string, std::shared_ptr<RtMidiOut>> outputs_;    // device's full name -> open
     std::map<std::string, std::string>                resolved_;   // connection's name -> device
+    std::map<std::string, std::shared_future<std::string>> sysex_in_flight_;   // port -> timed-out send
 };
 
 } // namespace

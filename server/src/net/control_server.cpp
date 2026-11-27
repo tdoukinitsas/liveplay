@@ -940,12 +940,30 @@ static bool api_token_forbidden(std::string_view path) {
     return false;
 }
 
-void AuthGuard::after_handle(crow::request& req, crow::response& res, context&) {
+void AuthGuard::after_handle(crow::request& req, crow::response& res, context& ctx) {
     // Never overrides: json_ok/json_err and the download route already set the
     // origin, and a duplicate header is rejected by browsers.
     const auto set_once = [&res](const char* key, const std::string& value) {
         if (res.get_header_value(key).empty()) res.add_header(key, value);
     };
+    // No client is ever sent a secret (F-01, F-23). Every JSON answer passes
+    // here, so a route added later can't forget: HTTP header values that are
+    // credentials go out masked, and an API token gets every header value
+    // masked. Only answers that mention headers at all are parsed again.
+    if (res.body.size() > 2 && core::ProjectState::may_hold_secrets(res.body) &&
+        res.get_header_value("Content-Type").find("json") != std::string::npos) {
+        try {
+            json body = json::parse(res.body);
+            core::ProjectState::mask_secrets(
+                body, ctx.authenticated && ctx.principal.is_api());
+            res.body = body.dump(-1, ' ', false, json::error_handler_t::replace);
+        } catch (const std::exception& e) {
+            // Never send what couldn't be checked.
+            Logger::error("Masking a response for {} failed: {}", req.url, e.what());
+            res.code = 500;
+            res.body = json({{"error", "internal error"}}).dump();
+        }
+    }
     set_once("Access-Control-Allow-Origin", g_cors_allow_origin);
     if (req.method == crow::HTTPMethod::Options) {
         // Explicit lists, not "*": a wildcard Allow-Headers does not cover
@@ -993,6 +1011,20 @@ void AuthGuard::before_handle(crow::request& req, crow::response& res, context& 
 
     ctx.authenticated = true;
     ctx.principal     = *principal;
+
+    // F-30: an API token may read the show's connections (secrets hidden) and
+    // fire what the operator set up, but not change them. Connections hold
+    // the credentials and decide where the server sends requests, so a token
+    // that could write one could aim the server at any address and test it.
+    if (principal->is_api() && req.method != crow::HTTPMethod::Get) {
+        std::string_view path = req.url;
+        if (const auto q = path.find('?'); q != std::string_view::npos) path = path.substr(0, q);
+        if (path == "/api/events/connections") {
+            res = json_err(403, "API tokens can't change event connections");
+            res.end();
+            return;
+        }
+    }
 
     if (principal->is_api()) {
         // Recorded here rather than in verify_token so that verification stays
@@ -1056,6 +1088,11 @@ bool ControlServer::start() {
         msg["type"] = "doc_patch";
         msg["op"]   = "event_fired";
         broadcast_doc_patch(msg);
+    });
+    // A connection's sign-in state moved (a 401, then a success): every
+    // client's prompt follows (F-23).
+    state_.set_connections_broadcaster([this](const json& connections) {
+        broadcast_event_connections(connections);
     });
 
     // Fan out every "Up Next" change — whether requested by a client or armed
@@ -1444,16 +1481,32 @@ void ControlServer::broadcast_loop() {
 void ControlServer::broadcast_doc_patch(const json& payload) {
     // Shutting down: the sockets are going, and a late report has no audience.
     if (!running_.load(std::memory_order_acquire)) return;
-    std::string serialized;
-    try { serialized = payload.dump(); }
-    catch (const std::exception& e) {
+    std::string serialized, for_tokens;
+    // Invalid UTF-8 from a client (a name cut mid-character) is replaced, not
+    // thrown on: one bad string must not silence the frame for everyone (F-20).
+    try {
+        const auto dump = [](const json& j) {
+            return j.dump(-1, ' ', false, json::error_handler_t::replace);
+        };
+        serialized = dump(payload);
+        // An item patch carries its events, and an HTTP event its headers: no
+        // client is sent a secret, and a token no header value (F-01).
+        if (core::ProjectState::may_hold_secrets(serialized)) {
+            json masked = payload;
+            core::ProjectState::mask_secrets(masked, false);
+            serialized = dump(masked);
+            masked = payload;
+            core::ProjectState::mask_secrets(masked, true);
+            for_tokens = dump(masked);
+        }
+    } catch (const std::exception& e) {
         Logger::error("broadcast_doc_patch: serialization failed: {}", e.what());
         return;
     }
     std::lock_guard lock{impl_->ws_mutex};
-    for (auto& [c, _] : impl_->ws_clients) {
+    for (auto& [c, session] : impl_->ws_clients) {
         if (!impl_->authorize_ws_locked(c, users_)) continue;
-        try { c->send_text(serialized); }
+        try { c->send_text(session.is_api && !for_tokens.empty() ? for_tokens : serialized); }
         catch (...) { /* onclose will clean up dead connections */ }
     }
 }
@@ -1465,9 +1518,12 @@ void ControlServer::broadcast_client_views() {
         std::lock_guard lock{impl_->ws_mutex};
         for (const auto& [conn, s] : impl_->ws_clients) {
             if (!s.has_view) continue;
+            // Who is looking: the signed-in user's name, or a number. Never the
+            // address: every socket gets this frame, API tokens included, and
+            // who is connected from where is the Admin-only /api/clients (F-14).
             views.push_back(json{
                 {"id", s.id},
-                {"label", s.user_name.empty() ? s.remote_ip : s.user_name},
+                {"label", s.user_name.empty() ? "Client " + std::to_string(s.id) : s.user_name},
                 {"playlistTab", s.view_playlist_tab},
                 {"cartPage", s.view_cart_page},
             });
@@ -1480,6 +1536,13 @@ void ControlServer::broadcast_client_views() {
     broadcast_doc_patch(json{{"type", "doc_patch"}, {"op", "client_views"}, {"views", views}});
 }
 
+void ControlServer::broadcast_cart_keys() {
+    json frame = state_.cart_keys();
+    frame["type"] = "doc_patch";
+    frame["op"]   = "cart_keys_changed";
+    broadcast_doc_patch(frame);
+}
+
 void ControlServer::broadcast_event_connections(const json& connections) {
     if (!running_.load(std::memory_order_acquire)) return;
     std::string full, hidden;
@@ -1489,7 +1552,10 @@ void ControlServer::broadcast_event_connections(const json& connections) {
             f["connections"] = list;
             return f.dump();
         };
-        full   = frame(connections);
+        // Secrets masked for everyone; every header value for a token (F-23).
+        json masked = connections;
+        core::ProjectState::mask_secrets(masked, false);
+        full   = frame(masked);
         hidden = frame(core::ProjectState::redact_event_connections(connections));
     } catch (const std::exception& e) {
         Logger::error("broadcast_event_connections: serialization failed: {}", e.what());
@@ -1510,7 +1576,11 @@ void ControlServer::broadcast_to_user(const std::string& user_id, const json& pa
     if (user_id.empty()) return;
 
     std::string serialized;
-    try { serialized = payload.dump(); }
+    try {
+        json masked = payload;
+        core::ProjectState::mask_secrets(masked, false);
+        serialized = masked.dump(-1, ' ', false, json::error_handler_t::replace);
+    }
     catch (const std::exception& e) {
         Logger::error("broadcast_to_user: serialization failed: {}", e.what());
         return;
@@ -1763,6 +1833,17 @@ static std::vector<std::string> selection_anchors(audio::AudioEngine& engine,
     return playing;
 }
 
+// A select step's scope from its request (F-05): `"scope": "show"` walks every
+// playlist tab; anything else keeps to one, `tabId` naming it when given.
+static core::ProjectState::SelectionScope selection_scope_of(const json& j) {
+    core::ProjectState::SelectionScope scope;
+    if (const auto it = j.find("scope"); it != j.end() && it->is_string())
+        scope.whole_show = it->get<std::string>() == "show";
+    if (const auto it = j.find("tabId"); it != j.end() && it->is_string())
+        scope.tab_id = it->get<std::string>();
+    return scope;
+}
+
 // ---------------------------------------------------------------------------
 // Returns a non-empty string if a direct reply to this specific client is
 // needed (pong, error). The caller sends it under ws_mutex so it doesn't
@@ -1903,6 +1984,15 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
                              fade ? std::to_string(*fade) + "ms" : "project default");
             state.stop_all_cues(fade);
         }
+        else if (type == "stop_current") {
+            // Stop Current Cue (#87): the cue fired last that is still on air.
+            // Same as POST /api/transport/stop_current.
+            std::optional<long long> fade;
+            if (j.contains("fade_ms") && j["fade_ms"].is_number())
+                fade = j["fade_ms"].get<long long>();
+            const auto uuid = state.stop_current_cue(fade);
+            Logger::playback("STOP CURRENT: {}", uuid.empty() ? std::string{"nothing playing"} : uuid);
+        }
         else if (type == "go") {
             // Play whatever is armed as "Up Next" (override first, else the
             // playing item's endBehavior target). Same semantics as
@@ -1983,8 +2073,13 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
             // is hearing instead of snapping back to the top of the show. This
             // only applies when there is no selection — an explicit selection
             // always wins.
+            //
+            // `scope: "show"` crosses playlist tabs; otherwise the step keeps
+            // to `tabId` (the tab the sender is showing) or the selected cue's
+            // tab (F-05).
             const int delta = j.value("delta", 0);
-            if (delta != 0) state.step_selection(delta, selection_anchors(engine, state));
+            if (delta != 0) state.step_selection(delta, selection_anchors(engine, state),
+                                                 selection_scope_of(j));
         }
         else if (type == "set_show_mode") {
             // Omit "enabled" to toggle.
@@ -2036,10 +2131,19 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
         }
         else if (type == "set_view") {
             if (session.set_view) {
+                // At most 64 bytes, cut on a character boundary: a byte cut
+                // through a multibyte character made the client_views frame
+                // unserialisable for everyone (F-20).
                 const auto text = [&](const char* key) {
                     const auto it = j.find(key);
-                    return it != j.end() && it->is_string()
-                        ? it->get<std::string>().substr(0, 64) : std::string{};
+                    if (it == j.end() || !it->is_string()) return std::string{};
+                    std::string s = it->get<std::string>();
+                    if (s.size() > 64) {
+                        std::size_t n = 64;
+                        while (n > 0 && (static_cast<unsigned char>(s[n]) & 0xC0) == 0x80) --n;
+                        s.resize(n);
+                    }
+                    return s;
                 };
                 const auto id = session.set_view(text("playlistTab"), text("cartPage"));
                 return json{{"type", "doc_patch"}, {"op", "client_view_id"}, {"id", id}}.dump();
@@ -3312,6 +3416,24 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // Stop Current Cue (#87): the cue fired most recently that is still on air.
+    // The keyboard shortcut and the MIDI action call this too, so every
+    // surface agrees on what "current" means. Optional { "fade_ms": n }.
+    CROW_ROUTE(app, "/api/transport/stop_current").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                auto j = json::parse(req.body.empty() ? std::string{"{}"} : req.body);
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/transport/stop_current",
+                                    req.remote_ip_address, impl_->server_addr);
+                std::optional<long long> fade;
+                if (j.contains("fade_ms") && j["fade_ms"].is_number())
+                    fade = j["fade_ms"].get<long long>();
+                const std::string uuid = state_.stop_current_cue(fade);
+                if (uuid.empty()) return json_err(404, "nothing is playing");
+                return json_ok(json({{"ok", true}, {"uuid", uuid}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
     // The panic (#23): every cue stops at once and every event dies. The same
     // as a second Stop All during the first one's fade, for a control that has
     // one button for it.
@@ -3387,7 +3509,9 @@ void ControlServer::install_routes() {
         });
 
     // Body: { "itemUuid": "..." } to select (empty string clears), or
-    //       { "delta": -1 | 1 }  to step through the flattened playlist.
+    //       { "delta": -1 | 1 }  to step through the flattened playlist,
+    //       keeping to one playlist tab unless "scope": "show" (F-05); an
+    //       optional "tabId" names the tab to keep to.
     CROW_ROUTE(app, "/api/selection").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
@@ -3396,7 +3520,11 @@ void ControlServer::install_routes() {
                 if (j.contains("delta") && j["delta"].is_number_integer()) {
                     const int delta = j["delta"].get<int>();
                     if (delta == 0) return json_err(400, "delta must be non-zero");
-                    uuid = state_.step_selection(delta, selection_anchors(engine_, state_));
+                    if (j.contains("scope") && !(j["scope"].is_string() &&
+                        (j["scope"] == "show" || j["scope"] == "tab")))
+                        return json_err(400, "scope must be \"tab\" or \"show\"");
+                    uuid = state_.step_selection(delta, selection_anchors(engine_, state_),
+                                                 selection_scope_of(j));
                     if (uuid.empty()) return json_err(404, "playlist is empty");
                 } else if (j.contains("itemUuid") && j["itemUuid"].is_string()) {
                     uuid = j["itemUuid"].get<std::string>();
@@ -3546,6 +3674,10 @@ void ControlServer::install_routes() {
         });
 
     // Trigger the item bound to a cart slot. GET accepted for curl/browser.
+    // `slot` is the raw slot number, the `slot` summary.cart reports (F-04).
+    // Each page owns a block of 64 from its slotBase, so slots 0-63 are the
+    // first page ever made, as they were before pages existed, and reordering
+    // pages never changes which cart a number fires.
     CROW_ROUTE(app, "/api/transport/cart/<int>/play")
         .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
         ([this](const crow::request& req, int slot){
@@ -3553,14 +3685,22 @@ void ControlServer::install_routes() {
             Logger::api_request("Client ({}) -> Server ({}) : {} /api/transport/cart/{}/play",
                                 req.remote_ip_address, impl_->server_addr,
                                 crow::method_name(req.method), slot);
-            // A position on the first page, which is what this index has
-            // always meant: a show from before pages has only that one.
-            const std::string uuid = state_.cart_item_on_first_page(slot);
+            const std::string uuid = state_.cart_item_at_slot(slot);
             if (uuid.empty()) return json_err(404, "cart slot is empty");
             Logger::playback("CART {}: {}", slot, item_playback_info(uuid, state_));
             if (!state_.trigger_item(uuid))
                 return json_err(404, "item not loaded into engine");
             return json_ok(json({{"ok", true}, {"slot", slot}, {"uuid", uuid}}));
+        });
+
+    CROW_ROUTE(app, "/api/transport/cart/<int>/stop").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, int slot){
+            Logger::api_request("Client ({}) -> Server ({}) : POST /api/transport/cart/{}/stop",
+                                req.remote_ip_address, impl_->server_addr, slot);
+            const std::string uuid = state_.cart_item_at_slot(slot);
+            if (uuid.empty()) return json_err(404, "cart slot is empty");
+            const bool stopped = state_.stop_item(uuid);
+            return json_ok(json({{"ok", true}, {"slot", slot}, {"uuid", uuid}, {"stopped", stopped}}));
         });
 
     // The same by page,cart, both zero-based (#74).
@@ -3585,8 +3725,11 @@ void ControlServer::install_routes() {
                                 req.remote_ip_address, impl_->server_addr, page, cart);
             const std::string uuid = state_.cart_item_at(page, cart);
             if (uuid.empty()) return json_err(404, "cart is empty or doesn't exist");
-            state_.stop_item(uuid);
-            return json_ok(json({{"ok", true}, {"page", page}, {"cart", cart}, {"uuid", uuid}}));
+            // `stopped` says whether anything was playing (or waiting to
+            // advance) for it to stop.
+            const bool stopped = state_.stop_item(uuid);
+            return json_ok(json({{"ok", true}, {"page", page}, {"cart", cart}, {"uuid", uuid},
+                                 {"stopped", stopped}}));
         });
 
     // Every page with its carts, for control surfaces (#74).
@@ -3607,12 +3750,41 @@ void ControlServer::install_routes() {
                     if (body.contains(key) && !body[key].is_array())
                         return json_err(400, std::string{"'"} + key + "' must be an array");
                 }
-                const json stored = state_.set_project_tabs(body);
+                std::vector<int> removed;
+                const json stored = state_.set_project_tabs(body, &removed);
                 broadcast_doc_patch(json{
                     {"type", "doc_patch"}, {"op", "tabs_changed"},
                     {"playlistTabs", stored["playlistTabs"]},
                     {"cartPages", stored["cartPages"]},
                 });
+                // Carts that went with a removed page.
+                for (const int slot : removed) {
+                    broadcast_doc_patch(json{
+                        {"type", "doc_patch"}, {"op", "cart_slot_cleared"}, {"slot", slot},
+                    });
+                }
+                if (!removed.empty()) broadcast_cart_keys();
+                return json_ok(stored);
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // The cart keys (F-03): the position keys (`cartSlotKeys`, position on a
+    // page → key) and the keys pinned to one cart (`cartPinnedKeys`, raw slot
+    // → key). Their own route, so one operator's change reaches every client
+    // straight away and another client's save can't undo it.
+    CROW_ROUTE(app, "/api/project/cart-keys").methods(crow::HTTPMethod::Get)
+        ([this]{ return json_ok(state_.cart_keys()); });
+    CROW_ROUTE(app, "/api/project/cart-keys").methods(crow::HTTPMethod::Put)
+        ([this](const crow::request& req){
+            try {
+                const auto body = json::parse(req.body);
+                if (!body.is_object()) return json_err(400, "expected an object");
+                for (const char* key : {"cartSlotKeys", "cartPinnedKeys"}) {
+                    if (body.contains(key) && !body[key].is_object())
+                        return json_err(400, std::string{"'"} + key + "' must be an object");
+                }
+                const json stored = state_.set_cart_keys(body);
+                broadcast_cart_keys();
                 return json_ok(stored);
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
@@ -4618,6 +4790,10 @@ void ControlServer::install_routes() {
                         body.value("itemUuid", std::string{}));
                     json out{{"ok", r.ok}};
                     if (!r.ok) out["error"] = r.error;
+                    // "missing" / "rejected": the editor says the credentials
+                    // are the problem. A test never flags the saved
+                    // connection: it may be testing a draft of it.
+                    if (!r.auth.empty()) out["auth"] = r.auth;
                     return out;
                 });
             } catch (const std::exception& e) { return json_err(400, e.what()); }
@@ -5224,7 +5400,9 @@ void ControlServer::install_routes() {
                 // see the save call land while the engine still uses stale
                 // values from the previous play.
                 if (j.contains("document") && j["document"].is_object()) {
-                    if (!state_.replace_full_document(j["document"])) {
+                    // An ordinary save: tabs, pages, connections and cart keys
+                    // stay as the server has them (F-03, F-24).
+                    if (!state_.replace_full_document(j["document"], /*keep_live_parts=*/true)) {
                         Logger::warn("POST /api/project/save — embedded document "
                                      "rejected, continuing with existing state");
                     }
@@ -5336,6 +5514,8 @@ void ControlServer::install_routes() {
                     {"item", j["item"]},
                     {"cueId", cue_id.value},
                 });
+                // Its events may carry (or lack) a connection's credentials.
+                state_.refresh_connection_auth();
                 return json_ok(json({
                     {"ok",    true},
                     {"uuid",  item_uuid},
@@ -5363,6 +5543,7 @@ void ControlServer::install_routes() {
                     {"type", "doc_patch"}, {"op", "item_updated"},
                     {"uuid", uuid}, {"patch", patch},
                 });
+                if (patch.contains("events")) state_.refresh_connection_auth();
                 return json_ok(json({{"ok", true}, {"uuid", uuid}}));
             } catch (const std::exception& e) {
                 Logger::error("PATCH /api/project/items/{} threw: {}", uuid, e.what());
@@ -5383,6 +5564,7 @@ void ControlServer::install_routes() {
             broadcast_doc_patch(json{
                 {"type", "doc_patch"}, {"op", "item_removed"}, {"uuid", uuid},
             });
+            state_.refresh_connection_auth();
             return json_ok(json({{"ok", true}, {"uuid", uuid}}));
         });
 
@@ -5577,7 +5759,10 @@ void ControlServer::install_routes() {
                 }
                 Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/cart slot={} itemUuid='{}'",
                                     req.remote_ip_address, impl_->server_addr, slot, uuid);
-                state_.set_cart_slot(slot, uuid);
+                // A refused slot (out of range) was answered 200 and broadcast
+                // as if it had been bound (F-42).
+                if (!state_.set_cart_slot(slot, uuid))
+                    return json_err(400, "slot out of range");
                 Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/cart OK — slot={} uuid='{}'",
                                      req.remote_ip_address, impl_->server_addr, slot, uuid);
                 broadcast_doc_patch(json{
@@ -5604,6 +5789,8 @@ void ControlServer::install_routes() {
             broadcast_doc_patch(json{
                 {"type", "doc_patch"}, {"op", "cart_slot_cleared"}, {"slot", slot},
             });
+            // A cleared cart takes its pinned key with it (F-13).
+            if (!state_.drop_pins_without_carts().is_null()) broadcast_cart_keys();
             return json_ok(json({{"ok", true}, {"slot", slot}}));
         });
 

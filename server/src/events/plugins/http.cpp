@@ -7,6 +7,7 @@
 // shipping OpenSSL in the server.
 // =============================================================================
 #include "liveplay/events/plugin.hpp"
+#include "liveplay/core/secret_headers.hpp"
 
 #include <httplib.h>
 
@@ -53,9 +54,10 @@ public:
                       {{"default", "http://127.0.0.1:8000"}, {"required", true},
                        {"placeholder", "http://192.168.1.20:8000"},
                        {"help", "http:// only; HTTPS isn't supported yet."}}),
-                field("headers", "Headers", "text",
+                field("headers", "Headers", "headers",
                       {{"default", ""}, {"placeholder", "Authorization: Bearer ..."},
-                       {"help", "One \"Name: value\" per line, sent with every request."}}),
+                       {"help", "Sent with every request. Passwords, tokens and keys are kept "
+                                "sealed and shown as dots."}}),
                 field("timeoutMs", "Timeout (ms)", "integer",
                       {{"default", 2000}, {"min", 100}, {"max", 30000}}),
             })},
@@ -72,8 +74,8 @@ public:
                                                          {"DELETE", "DELETE"}})}}),
                         field("path", "Path", "string",
                               {{"default", "/"}, {"placeholder", "/api/location/1/0/0/press"}}),
-                        field("headers", "Headers", "text",
-                              {{"default", ""}, {"help", "One \"Name: value\" per line."}}),
+                        field("headers", "Headers", "headers",
+                              {{"default", ""}, {"help", "Added to the connection's headers."}}),
                         field("contentType", "Body type", "enum",
                               {{"default", "none"},
                                {"options", options_list({{"none", "None"},
@@ -121,9 +123,17 @@ public:
         cli.set_read_timeout(std::chrono::milliseconds{timeout_ms});
         cli.set_write_timeout(std::chrono::milliseconds{timeout_ms});
 
+        // A credential that can't be sent as it is (sealed with another
+        // machine's key, or never given) is never sent: the connection asks
+        // the operator to sign in again instead (F-23).
+        const std::string conn_headers = opt_string(job.connection, "headers");
+        const std::string own_headers  = opt_string(job.options, "headers");
+        if (core::secrets::has_unusable_secret(conn_headers) ||
+            core::secrets::has_unusable_secret(own_headers))
+            return Result::auth_failed("this connection needs its credentials entered again", "missing");
         httplib::Headers headers;
-        add_header_lines(headers, opt_string(job.connection, "headers"));
-        add_header_lines(headers, opt_string(job.options, "headers"));
+        add_header_lines(headers, conn_headers);
+        add_header_lines(headers, own_headers);
 
         std::string path = trim(opt_string(job.options, "path", "/"));
         if (path.empty() || path[0] != '/') path = "/" + path;
@@ -142,6 +152,10 @@ public:
         else return Result::fail("unsupported method '" + method + "'");
 
         if (!res) return Result::fail(httplib::to_string(res.error()));
+        // The device is there and refused us: the credentials are wrong.
+        if (res->status == 401 || res->status == 403)
+            return Result::auth_failed("HTTP " + std::to_string(res->status) + " from " + base + path +
+                                       ": the credentials were refused", "rejected");
         if (res->status >= 400)
             return Result::fail("HTTP " + std::to_string(res->status) + " from " + base + path);
         return {};

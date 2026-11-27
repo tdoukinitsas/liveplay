@@ -721,7 +721,17 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
     take_incoming_envelope();
 
     const TransportState st = transport_.load(std::memory_order_acquire);
-    if (st == TransportState::Stopped || st == TransportState::Paused) return 0;
+    if (st == TransportState::Stopped) {
+        // A level ramp belongs to the play it started in. One left unfinished
+        // by a stop (a 5 s duck release cut a second in) must not carry on
+        // when the cue is next fired: play() sets the gain to its target, and a
+        // stale ramp would drag it back down and glide up again (F-06). Every
+        // request made up to now is settled; the next play starts clean.
+        ramp_active_   = false;
+        ramp_seen_seq_ = gain_seq_.load(std::memory_order_acquire);
+        return 0;
+    }
+    if (st == TransportState::Paused) return 0;
     if (!decoder_ready_) return 0;
 
     // Try-lock the decoder. If the control thread is currently swapping the
@@ -802,6 +812,10 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
     const float fade_to    = fade_end_linear_.load(std::memory_order_relaxed);
 
     if (fade_active && fade_total > 0) {
+        // A fade owns the gain. A ramp that was running when it began is over
+        // (the fade ends on the target); a level request made during the fade
+        // stays pending in gain_seq_ and ramps with its own length afterwards.
+        ramp_active_ = false;
         const long long advance = static_cast<long long>(frame_count);
         const long long new_elapsed = std::min<long long>(fade_elapsed + advance, fade_total);
         const float t_start = static_cast<float>(fade_elapsed) / static_cast<float>(fade_total);

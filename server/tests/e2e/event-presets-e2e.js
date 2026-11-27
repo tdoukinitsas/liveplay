@@ -6,8 +6,10 @@
 //   * an event's own option overrides that one field only;
 //   * a preset that has gone refuses to fire rather than firing something else;
 //   * malformed presets are dropped, and a show without presets keeps its shape;
-//   * an API token never sees a password in a preset's headers, and saving what
-//     it was shown does not wipe the real one.
+//   * no client sees a password in a preset's headers (an API token sees no
+//     header value at all), saving what you were shown does not wipe the real
+//     one, and a token can't change connections (F-30). credentials-e2e.js
+//     covers the rest of the credential rules.
 //
 // usage: node event-presets-e2e.js <port> [serverExe]
 //        (never 4480: that may be the live app)
@@ -170,11 +172,17 @@ function writeWav(file, seconds) {
     const seen = JSON.stringify(r.body);
     ok("an API token can't read a preset's password", r.status === 200 &&
        !seen.includes('super-secret-value') && seen.includes('Authorization'), seen.slice(0, 200));
-    await req('/api/events/connections', { method: 'PUT', token: apiToken,
-                                           body: { connections: r.body.connections } });
+    const shown = r.body.connections;
+    r = await req('/api/events/connections', { method: 'PUT', token: apiToken, body: { connections: shown } });
+    ok("an API token can't change connections (F-30)", r.status === 403, `HTTP ${r.status}`);
     r = await req('/api/events/connections', { token: admin });
-    const stored = r.body.connections?.[0]?.presets?.[0]?.options?.headers;
-    ok('a token saving what it was shown keeps the real password', stored === secret, String(stored));
+    const adminSees = r.body.connections?.[0]?.presets?.[0]?.options?.headers;
+    ok("an operator can't read it either: dots (F-23)",
+       typeof adminSees === 'string' && adminSees.startsWith('Authorization: ') &&
+       !adminSees.includes('super-secret-value'), String(adminSees));
+    r = await req('/api/events/connections', { method: 'PUT', token: admin,
+                                               body: { connections: r.body.connections } });
+    ok('an operator saving what they were shown is accepted', r.status === 200, `HTTP ${r.status}`);
   } catch (e) {
     ok('the suite ran to the end', false, e?.stack ?? String(e));
   } finally {

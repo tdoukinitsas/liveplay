@@ -12,6 +12,7 @@
 #include "liveplay/core/server_config.hpp"
 #include "liveplay/core/user_prefs.hpp"
 #include "liveplay/core/user_store.hpp"
+#include "liveplay/core/secrets.hpp"
 #include "liveplay/crash_handler.hpp"
 #include "liveplay/logger.hpp"
 #include "liveplay/util/unicode_path.hpp"
@@ -1253,6 +1254,11 @@ int server_main(int argc, char** argv) {
 
     // Who may talk to this server. Machine-owned, beside outputs.json for the
     // same reason: the accounts belong to the rig, not to the show on it.
+    // The key that seals credentials in show files (F-23). Machine-owned like
+    // the accounts: it never travels with a show, so a show opened on another
+    // rig asks for its credentials again instead of revealing them.
+    core::secrets::set_key_path(data_dir / "secret.key");
+
     auto users = std::make_unique<core::UserStore>();
     users->set_path(data_dir / "users.json");
     users->load();   // absent file is the open posture, stated below

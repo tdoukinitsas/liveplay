@@ -195,6 +195,8 @@ private:
     void broadcast_event_connections(const nlohmann::json& connections);
     // Which tab and page each operator's window shows, for following (#74).
     void broadcast_client_views();
+    // cart_keys_changed: the show's position keys and pinned cart keys (F-03).
+    void broadcast_cart_keys();
 
     // ---- User preferences (U4) -------------------------------------------
     // Collect the meter unit every connected session has chosen and hand the

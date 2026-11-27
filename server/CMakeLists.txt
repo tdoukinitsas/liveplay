@@ -183,6 +183,7 @@ add_executable(liveplay-server
     src/core/project_state.cpp
     src/core/output_map.cpp
     src/core/user_store.cpp
+    src/core/secrets.cpp
     src/core/user_prefs.cpp
     src/core/server_config.cpp
     src/core/backup_manager.cpp
@@ -300,6 +301,14 @@ if(LIVEPLAY_BUILD_TESTS)
     )
     target_link_libraries(liveplay-show-tabs-tests PRIVATE nlohmann_json::nlohmann_json)
     add_test(NAME show_tabs COMMAND liveplay-show-tabs-tests)
+
+    # Credentials in HTTP headers: never shown, never lost (F-01, F-23).
+    add_executable(liveplay-secret-headers-tests tests/secret_headers_test.cpp)
+    target_include_directories(liveplay-secret-headers-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    target_link_libraries(liveplay-secret-headers-tests PRIVATE nlohmann_json::nlohmann_json)
+    add_test(NAME secret_headers COMMAND liveplay-secret-headers-tests)
 
     # Mixer strip gain / fade envelope (peek vs. advance).
     # Also covers the PFL monitor taps, which is why limiter.cpp is here: it
