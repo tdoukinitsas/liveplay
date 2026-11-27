@@ -422,6 +422,14 @@ struct BusMigrationSummary {
     }
 };
 
+// Where a selection step may go (ProjectState::step_selection, F-05). At
+// namespace scope: as a nested type with member initializers it could not be
+// a default argument inside the class (GCC and Clang refuse it).
+struct StepScope {
+    bool        whole_show = false;
+    std::string tab_id;
+};
+
 class ProjectState {
 public:
     ProjectState(audio::AudioEngine& engine, OutputMap& outputs);
@@ -687,10 +695,7 @@ public:
     // edge (F-05): the tab named by `scope.tab_id` (what the caller is looking
     // at), else the selected cue's, else the furthest playing cue's, else the
     // first. `scope.whole_show` walks every tab, as before tabs existed.
-    struct SelectionScope {
-        bool        whole_show = false;
-        std::string tab_id;
-    };
+    using SelectionScope = StepScope;
     std::string step_selection(int delta,
                                const std::vector<std::string>& anchor_candidates = {},
                                const SelectionScope& scope = {});

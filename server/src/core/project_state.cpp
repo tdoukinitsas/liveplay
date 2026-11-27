@@ -12,7 +12,9 @@
 #include "liveplay/core/secrets.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
+#include <map>
 #include <mutex>
 #include <random>
 #include <set>
