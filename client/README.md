@@ -15,7 +15,7 @@ The desktop client uses Electron, Nuxt 4 and Vue 3. It sends commands to the aud
 
 The desktop app can start/use a bundled local server or connect to a remote server. Local/remote selection and server address are machine settings. Relative project media paths belong to the server's filesystem.
 
-Detached cart/mixer windows are additional controllers of the same server. Window geometry persists locally; reopening the app does not automatically reopen every detached window.
+Detached cart/mixer windows and playlist-tab or cart-page pop-outs are additional controllers of the same server. Window geometry persists locally (a pop-out's per tab or page); reopening the app does not automatically reopen every detached window, and a pop-out closes when its tab or show goes.
 
 ## Renderer map
 
@@ -29,16 +29,20 @@ Detached cart/mixer windows are additional controllers of the same server. Windo
 | `app/composables/useLiveMeters.ts` | Meter delivery and display state |
 | `app/composables/usePreferences.ts` | User profile retrieval/patching |
 | `app/composables/useProjectSettings.ts` | Show settings |
-| `app/composables/useShowControl.ts` | Show-control actions |
+| `app/composables/useShowControl.ts` | Show-control actions, including the server's tab-scoped selection step |
+| `app/composables/useShowTabs.ts` | Playlist tabs and cart pages: which one this window shows, editing, pop-outs, following |
+| `app/composables/useCartHotkeys.ts` | Transport keys, cart position keys and keys pinned to carts |
+| `app/composables/useEvents.ts` | Event plugins, connections, presets and test fires |
+| `app/composables/useMissingMedia.ts` | Missing-media detection and relinking |
 | `app/composables/useMidiController.ts` | MIDI input and bindings |
 | `app/composables/useWorkspaceLayout.ts`, `useMixerView.ts` | Local workspace arrangement |
 | `app/composables/useUiMode.ts` | Per-machine editing/show view |
 | `app/composables/useLocalization.ts` | Translations and locale |
-| `app/utils/` | Meter geometry, DSP display math and shared UI helpers |
+| `app/utils/` | Meter geometry, DSP display math and shared UI helpers; `hotkeyGuard.ts` decides when a window shortcut stays out of a control's way |
 | `locales/` | Application locale JSON |
-| `tests/` | Window-bounds and settings-placement checks |
+| `tests/` | Window-bounds, settings-placement, mixer, accent-palette, open-file and audio-format checks |
 
-Settings panes are Appearance, Playback, Audio, Mixer, Outputs, Keyboard, Surfaces, Project, Server, Users and About. Keep hardware mapping in Outputs and boot policy in Server; use the ownership guide when adding a field.
+Settings panes are Appearance, Playback, Audio, Mixer, Outputs, Keyboard, Surfaces, Connections, Project, Server, Users and About. Keep hardware mapping in Outputs and boot policy in Server; use the ownership guide when adding a field.
 
 ## Run and package
 
@@ -60,7 +64,8 @@ The renderer is generated into `client/.output/`. electron-builder packages it w
 - Store audio-affecting values in the project/server through their APIs.
 - User profiles contain presentation/workflow preferences. Window placement, connection choices and local MIDI configuration live on the machine.
 - UI changes to pan/DSP use live control while dragging and persisted patches for durable state.
-- Server `custom_action_http` notifications are executed by connected desktop clients. Multiple clients can execute the same request; see [findings](../docs/API_AUDIT.md).
+- Item events, including HTTP requests and 2.5 customActions (migrated to events), are fired by the server; the desktop only edits them.
+- The server never sends a credential: secret HTTP header values arrive masked, and sending the mask back keeps the stored value. Edit headers with the `headers` field type, which types secrets as passwords.
 - Add desktop capabilities through the explicit preload bridge and corresponding IPC handler.
 - Translation keys belong in `locales/en.json`; synchronize missing keys using `node scripts/sync-locale-keys.js` from the repository root.
 - Keep EQ/dynamics visualization math aligned with the C++ DSP implementation.

@@ -78,6 +78,7 @@ public:
 | `action` | One of your schema's action ids. |
 | `options` | The event's values for that action's fields, with `{placeholders}` already filled in. |
 | `connection` | The chosen connection's `config` (values of your `connectionFields`), placeholders filled in. `{}` when `needsConnection` is false. |
+| `connection_id` | Which connection that is (`""` when none). LivePlay uses it to flag a connection whose credentials need entering again. |
 | `ctx` | `FireContext`: `item_uuid`, `item_name`, `event_id`, `trigger` (`time`/`start`/`end`/`pause`/`resume`/`test`), `time`, and `chain`: the cues whose events led straight here, oldest first, ending with `item_uuid`. An event fired because another event played or stopped its cue extends that event's chain; anything else starts a new one. LivePlay refuses to play a cue already in it, which is how A-starts-B-starts-A can't loop. |
 
 You never look anything up in the project. The connection has been resolved, checked as enabled, and checked as belonging to your plugin before `execute()` runs. A missing or disabled connection is reported to the operator without reaching you.
@@ -87,9 +88,16 @@ You never look anything up in the project. The connection has been resolved, che
 ```cpp
 return {};                                                  // success
 return Result::fail("MIDI output 'loopMIDI Port' not found"); // failure
+return Result::auth_failed("HTTP 401 from …: the credentials were refused", "rejected");
 ```
 
 The `error` string is shown to the operator beside the event (a red dot with a tooltip) and logged by the server. Write it for an operator at a show, not a developer: say what is wrong and with what, e.g. *"can't resolve 'desk.local'"*, *"HTTP 404 from http://10.0.0.5/api/go"*.
+
+When the device is there but won't accept the credentials, return `Result::auth_failed(why, "rejected")`; when you have no usable credential to send, `"missing"`. LivePlay flags the connection (`auth` on it, every client sees it), shows the operator a "Sign in" prompt, and clears the flag when new credentials are entered or a later request on that connection succeeds.
+
+### Credentials
+
+The value of a credential-looking header in an HTTP connection's, preset's or event's `headers` (Authorization, Proxy-Authorization, Cookie, or a name containing token, key, secret, pass, auth, session, signature or credential) is a secret. LivePlay seals it on disk with a key that stays on the server machine (`secret.key`), opens it into memory on load, and never sends it to a client: every response and frame carries `••••••` in its place, and `••••••` sent back means "as stored". A plugin sees plain values in `Job`; one it can't use (still sealed, because the show was saved on another machine, or a mask nothing could restore) is detectable with `core::secrets::has_unusable_secret()` in `secret_headers.hpp`, and the HTTP plugin answers it with `auth_failed(…, "missing")` rather than sending it. A new plugin with a password field should keep it in a `headers`-style "Name: value" text or extend `for_each_http_headers` in `project_state.cpp` to cover its field.
 
 ### Option values are untrusted
 
@@ -116,6 +124,7 @@ A factory receives `Host&`, the only way a plugin may affect LivePlay. Every cal
 | `buses()`, `outputs()` | The project's buses as the document holds them, and the logical outputs a bus can go to. |
 | `set_bus_live(id, patch)` | `gainDb`, `pan`, `dsp`, or one send as `"send": { id, levelDb }`, heard at once, **not** saved or broadcast: the steps of a fade. |
 | `patch_bus(id, patch)` | Any `PATCH /api/buses` field, applied and sent to every client (their mixers follow it). It is show *state*, not the show: saving keeps the value the operator had there until they set that field again, as a desk's scene recall does. Returns `""` or the mixer's refusal. |
+| `stops_use_item_fade()`, `set_stops_use_item_fade(on)` | Settings > Playback "Stopped cues use their own Stop button fade" (#85). Changed live and sent to every client; like `patch_bus`, saving keeps the operator's own setting. |
 | `master_gain_db()`, `set_master_gain_db(db, final)` | The master gain; `final` tells the clients. |
 
 A fade on the mixer is `set_bus_live` for the steps, then `patch_bus` when it lands (see `LivePlayPlugin`), so a 10 s fade is one change sent to the clients, not five hundred. Most output plugins ignore `Host`. If yours needs more, add a small verb-shaped method here and implement it in `EventHost` (`project_state.cpp`); never hand a plugin `ProjectState` itself.
@@ -189,6 +198,7 @@ A **Field** (build it with `field(id, label, type, extra)`):
 |---|---|---|
 | `string` | single-line text | string |
 | `text` | multi-line text | string |
+| `headers` | "Name: value" rows; credential values typed and shown as dots | string ("Name: value" lines) |
 | `number` | number input | number |
 | `integer` | number input, whole numbers | number |
 | `boolean` | toggle | bool |
@@ -424,6 +434,6 @@ Saved projects store your plugin's `id`, action ids, field ids and option values
 
 **Presets.** An event with a `presetId` takes its action and options from that preset on its connection when it fires, so a plugin never sees the difference: `job.action` and `job.options` arrive already resolved. If the event has options of its own, they override the preset's single fields. A preset that no longer exists stops the event with an error rather than firing something else.
 
-Before 2.6, items could carry `customActions` (`play-item`, `play-index`, `stop-all`, `http-request`). The server migrates them into `events` on load; an HTTP target becomes a connection per origin. See `migrate_custom_actions` in `project_state.cpp`.
+Before 2.6, items could carry `customActions` (`play-item`, `play-index`, `stop-all`, `http-request`). The server migrates them into `events` on load; an HTTP target becomes a connection per origin. A body is sent as 2.5 sent it (JSON only when it said `json`, otherwise a URL-encoded form), and an action at or before the cue's in-point becomes a `start` event, since 2.5 fired those on the first pass. The upgrade notes targets that now behave differently: HTTPS (not supported) and `localhost` (now the server's machine). See `migrate_custom_actions` in `project_state.cpp`.
 
 REST and WebSocket details: `GET/PUT /api/events/connections`, `GET /api/events/plugins` `POST /api/events/test` and `GET /api/events/jobs/<id>` (a slow test answers with a job to collect), plus the doc_patch ops `event_fired` and `event_connections_changed`, are all in the API reference (`docs-site/public/api/reference.json`, published with the docs site).

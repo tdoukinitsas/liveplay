@@ -1,21 +1,21 @@
 # API documentation audit
 
-Scope: the repository's 2.5.0 implementation. Source is authoritative; these findings describe code paths, not a live penetration test or a guarantee about every malformed input.
+Scope: the repository's 2.6.0 implementation. Source is authoritative; these findings describe code paths, not a live penetration test or a guarantee about every malformed input.
 
 ## Coverage
 
 | Surface | Discovered | Documented |
 |---|---:|---:|
-| Application HTTP method/path combinations | 122 | 122 |
+| Application HTTP method/path combinations | 142 | 142 |
 | Crow implicit static-file GET route | 1 | 1 |
-| Total HTTP method/path combinations | **123** | **123** |
-| WebSocket client command types | **20** | **20** |
+| Total HTTP method/path combinations | **143** | **143** |
+| WebSocket client command types | **22** | **22** |
 | WebSocket server frame types | **8** | **8** |
-| Operations within server `doc_patch` frames | **29** | **29** |
+| Operations within server `doc_patch` frames | **34** | **34** |
 
-Application routes comprise 115 registrations across 91 distinct paths. Including Crow's static route gives 116 registrations and 92 paths. Compatible GET/POST aliases are grouped into one catalog entry. There are 28 distinct directional WebSocket frame types; the 29 patch operations are subtypes of one of the eight server frames.
+Application routes comprise 134 registrations across 107 distinct paths. Including Crow's static route gives 135 registrations and 108 paths. Compatible GET/POST aliases are grouped into one catalog entry. There are 30 distinct directional WebSocket frame types; the 34 patch operations are subtypes of one of the eight server frames.
 
-Crow's automatic HEAD/OPTIONS handling and the `/ws` upgrade are documented separately from the 123 count. No discovered route is intentionally omitted. No duplicate application method/path registration was found.
+Crow's automatic HEAD/OPTIONS handling and the `/ws` upgrade are documented separately from the 143 count. No discovered route is intentionally omitted. No duplicate application method/path registration was found.
 
 ## HTTP categories
 
@@ -24,16 +24,17 @@ Crow's automatic HEAD/OPTIONS handling and the `/ws` upgrade are documented sepa
 | Server and authentication | 10 |
 | Users and API tokens | 10 |
 | Configuration and preferences | 8 |
-| Transport and selection | 15 |
+| Transport and selection | 21 |
 | Projects | 10 |
-| Playlist items and carts | 14 |
+| Playlist items and carts | 19 |
 | Audio devices and engine cues | 12 |
 | Master and preview | 12 |
 | Buses, DSP and outputs | 11 |
 | Low-level mixer and routing | 9 |
-| Filesystem and media | 8 |
+| Filesystem and media | 10 |
 | Project archives | 3 |
 | Framework HTTP behavior | 1 |
+| Events | 7 |
 
 ## Source evidence
 
@@ -45,7 +46,8 @@ Crow's automatic HEAD/OPTIONS handling and the `/ws` upgrade are documented sepa
 | Account/token behavior | [user_store.cpp](../server/src/core/user_store.cpp) |
 | Configuration / profiles | [server_config.cpp](../server/src/core/server_config.cpp), [user_prefs.cpp](../server/src/core/user_prefs.cpp) |
 | Hardware outputs / engine behavior | [output_map.cpp](../server/src/core/output_map.cpp), [engine.cpp](../server/src/audio/engine.cpp) |
-| Client consumption / custom HTTP actions | [useAudioEngine.ts](../client/app/composables/useAudioEngine.ts), [useProject.ts](../client/app/composables/useProject.ts), [useLiveplayServer.ts](../client/app/composables/useLiveplayServer.ts) |
+| Client consumption | [useAudioEngine.ts](../client/app/composables/useAudioEngine.ts), [useProject.ts](../client/app/composables/useProject.ts), [useLiveplayServer.ts](../client/app/composables/useLiveplayServer.ts) |
+| Events and credentials | [events/](../server/src/events/), [secret_headers.hpp](../server/include/liveplay/core/secret_headers.hpp), [secrets.cpp](../server/src/core/secrets.cpp) |
 | Discovery (UDP, outside WS count) | [discovery.cpp](../server/src/net/discovery.cpp) |
 | Framework behavior | Installed Crow headers: `app.h`, `settings.h`, `routing.h`, `http_response.h` |
 
@@ -67,14 +69,15 @@ That script is a pattern-based consistency check, not a C++ parser. It needs rev
 | API tokens are not a filesystem sandbox | Tokens deny selected file/archive/preferences/picture/account-file paths, but other permitted project/cue operations can access disk. |
 | Filesystem-root checks are selective | Direct cue loading and media references embedded in project documents do not all pass through the same path guard. |
 | Item creation can report success without insertion | Missing/duplicate UUID or failed media loading is not reliably an HTTP error; `item_added` echoes submitted content. Re-read state. |
-| Out-of-range cart slot can report success | The route accepts a nonnegative slot, state rejects slots 64+, and the route still sends 200 plus `cart_slot_set`. UUID existence is not checked. |
+| Cart slot UUIDs are not checked | A slot outside the 100 pages of 64 is refused with 400; the bound UUID's existence is not checked. |
 | Cue deletion can retain a project-owned cue | The low-level DELETE handler can return 200 even when ProjectState keeps the cue because an item owns it. |
 | Output-map persistence failure can be hidden | PUT applies the map but does not use the save return value to choose its HTTP result. A 200 does not guarantee persistence. |
 | DSP writes require HTTP | No WebSocket EQ/filter/gate/compressor/stereo-image edit command exists. Use HTTP reads/PATCH and WebSocket buses_patched/meter/analyser feedback. |
 | Live DSP requests do not accumulate as a stored edit | Each request merges against persisted bus DSP. Live pan/DSP changes do not save or broadcast a document patch. |
 | Bus creation ignores some recognized patch fields | Creation reads a subset of bus properties; apply DSP, sends and role changes with PATCH. |
 | Archive upload limit differs from ordinary upload | Multipart project import does not enforce the ordinary upload-size limit. Temporary archive filenames can collide; avoid exporting an archive inside its own source tree. |
-| Custom HTTP actions may execute more than once | The server broadcasts `custom_action_http`; connected desktop consumers execute the HTTP request. There is no single designated executor or acknowledgment. |
+| Event requests leave from the server | HTTP events (and 2.5 customActions, migrated to them) are sent by the server once. A `localhost` target means the server's machine. HTTPS isn't supported. |
+| Credentials are masked, not access-controlled per field | Every JSON response and frame masks credential header values (all header values for API tokens), by header name. A credential under an innocuous header name is not recognised; name it as a key, token or Authorization header. |
 | WS success/error delivery is uneven | Most commands have no success reply; some invalid targets are silent. Invalid top-level JSON type can escape to logging without a reply. |
 | Analyser acknowledgment is not proof of delivery | Subscription acknowledgment does not validate bus existence or the four-distinct-bus engine capacity. |
 | Login error text can misdescribe disabled authentication | Login returns the no-accounts wording when auth is disabled even if accounts exist. |

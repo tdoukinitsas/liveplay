@@ -52,6 +52,8 @@ export const releases: Release[] = [
       { id: 'duckTimes', icon: 'trending_down' },
       { id: 'stopFades', icon: 'motion_photos_paused' },
       { id: 'stopKey', icon: 'keyboard' },
+      { id: 'sealed', icon: 'lock' },
+      { id: 'compat', icon: 'history' },
       { id: 'openFile', icon: 'folder_open' },
       { id: 'waveformPan', icon: 'pan_tool' },
     ],

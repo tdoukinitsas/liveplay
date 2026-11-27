@@ -9,12 +9,15 @@ LivePlay has server, user and project state, plus machine-local storage and tran
 | Server | Boot settings and policy | `liveplay.json`, selected by launch configuration |
 | Server | Hardware output mappings | `outputs.json` in the server data directory |
 | Server | Accounts, authentication posture, API-token records | `users.json` |
+| Server | The key that seals credentials in show files | `secret.key` in the server data directory |
 | User | Theme, meter display, playback keyboard bindings and workflow preferences | `prefs/<id>.json` on the server |
 | Project | Playlist, groups, carts, bus graph, DSP, fades, target levels and LTC output name | `.liveplay` document |
+| Project | Playlist tabs, cart pages, cart keys (position and pinned), item events, volume automation, event connections and presets (credentials sealed) | `.liveplay` document |
 | Machine | Server connection selection, recent paths, window geometry, workspace layout | Electron `userData` and renderer `localStorage` |
 | Machine | MIDI configuration and local input device | `userData/midi-config.json` |
 | Session | Shared selection, armed next item, live PFL, preview and transport | Server memory |
-| Connection | Meter cadence, analyser selection, locale and handshake identity | WebSocket session |
+| Session | What events changed (bus fields, the Stop All fade mode) and each connection's sign-in state | Server memory; saved as the operator left them |
+| Connection | Meter cadence, analyser selection, locale, handshake identity, and the tab and page a window shows | WebSocket session |
 
 Configuration and profile schemas are defined in the [API reference](https://tdoukinitsas.github.io/liveplay/api/#schemas).
 
@@ -25,6 +28,8 @@ Configuration and profile schemas are defined in the [API reference](https://tdo
 - Logical output names travel with projects; physical device/channel mappings remain on the server.
 - Authentication is disabled by default. Creating the first account forces its role to administrator and enables authentication.
 - User accounts and API-token secrets are managed by the server. A token is not project content.
+- Event connections travel with the show, so a show opened elsewhere already knows its devices; addresses, ports and MIDI port names are show content to adjust at the next venue. Credentials in them (HTTP header values such as Authorization or an API key) are sealed on disk with `secret.key`, which never leaves the machine. No client is ever sent one: every response and frame carries a mask in its place, and a mask sent back means "as stored". A show opened on another server can't open them, so its connections ask for a sign-in, as do connections a device refused (401/403).
+- API tokens can read connections (every header value masked) and fire what the operator set up, but can't change connections.
 
 The server data directory and the selected boot-config path are distinct concepts: naming another `liveplay.json` does not relocate every other persistence file.
 
@@ -43,12 +48,19 @@ The server owns the active document. Any permitted show-control client may edit 
 | Persisted | Derived or transient |
 |---|---|
 | Item UUIDs, content and tree structure | Engine cue IDs |
+| Playlist tabs, cart pages and their order | Which tab or page each window shows |
+| Event connections, presets and item events | A connection's sign-in state (`auth`) |
+| Show settings as the operator set them | A setting or bus field an event moved |
 | Bus identity, roles, routes, sends and DSP | Engine mixer IDs, bindings and meter values |
 | Logical output names | Device handles and physical channel assignments |
 | Show settings and cue stop/fade choices | Current playback position, selection, armed-next item |
 | Media references | Actual runtime project folder annotation |
 
 Do not write API runtime annotations into a second configuration store. The server supplies those values on reads and controls which fields are saved.
+
+Parts with their own endpoints (tabs and pages, connections, cart keys) are written through them. An ordinary save that carries a whole document leaves those parts as the server holds them for the same show, since the saving client's copy may be older than another client's change; a wholesale replace (a new show, or a client restoring one the server forgot) takes the document's.
+
+The document's `version` is the show-file format. 2.6 writes "2.6.0". An older show is upgraded once on load (customActions become events; ducks keep their 50 ms timing). LivePlay 2.5 drops tabs, pages, connections and pinned keys when it saves a 2.6 show, so 2.6 shows are one-way.
 
 Supported compatibility fields are accepted/constrained by the current loaders and settings registry. See the reference for exact rules; there is no unrestricted merge of arbitrary project settings.
 
@@ -63,8 +75,11 @@ Supported compatibility fields are accepted/constrained by the current loaders a
 | Show Mode | `localStorage['liveplay-ui-mode']` |
 | Locale fallback | `localStorage['liveplay-locale']` |
 | MIDI configuration | `userData/midi-config.json` |
+| Which operator this window follows, by session (`{id, label}`) | `localStorage['liveplay.followOperator']` |
+| Playlist zoom | `localStorage['liveplay.playlistZoom']` |
+| The playlist tab and cart page this window shows | `sessionStorage['liveplay.playlistTab']`, `sessionStorage['liveplay.cartPage']`; a pop-out names them in its URL |
 
-Detached-window flags are not persisted. Geometry is restored when a window is opened, without forcing that window open at startup.
+Detached-window flags are not persisted. Geometry is restored when a window is opened, without forcing that window open at startup; a tab or page pop-out's is keyed `tab:<kind>:<id>`.
 
 ## Adding a setting
 

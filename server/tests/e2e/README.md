@@ -28,7 +28,7 @@ On Windows, use a path such as `C:/Tests/test-signal.wav`. The ordinary signal h
 
 Unless shown otherwise, arguments are `<port> <wavPath>`.
 
-These take only a port, or start a server of their own: `media-import-e2e.js <port>`, `tabs-e2e.js <port>`, `event-presets-e2e.js <port> [serverExe]` and `stability-e2e.js <port> [serverExe] [soakSeconds]`. The last two own their server, so give them a free port. For `xair-e2e.js`, `XAIR_STRIPS_ONLY=1` writes to the two named strips and nothing else on the desk.
+These take only a port, or start a server of their own: `media-import-e2e.js <port>`, `tabs-e2e.js <port>`, `event-presets-e2e.js <port> [serverExe]`, `stability-e2e.js <port> [serverExe] [soakSeconds]`, `audit-fixes-e2e.js <port> [serverExe]` and `credentials-e2e.js <port> [serverExe]`. The last four own their server, so give them a free port; `credentials-e2e.js` also uses the next port, for a second server that stands in for another machine. None of them needs an audible signal. For `xair-e2e.js`, `XAIR_STRIPS_ONLY=1` writes to the two named strips and nothing else on the desk.
 
 | Script | Coverage / special arguments |
 |---|---|
@@ -52,6 +52,8 @@ These take only a port, or start a server of their own: `media-import-e2e.js <po
 | `settings-registry-e2e.js` | Settings validation; `<port>`, no audio needed |
 | `automation-e2e.js` | Volume automation (incl. live edits and Preview from cursor), #78 duck attack/release, #85 Stop All item fades and the `stop-fade-mode` event; `<port>`, writes its own tone |
 | `events-e2e.js` | Event system (#84): OSC/HTTP delivery, marker timing, pause/resume/end, test fires, connection carry-over, customActions migration; `<port>`, no audio needed |
+| `audit-fixes-e2e.js` | The 2.6.0 RC audit's server fixes: raw-slot cart API and summary.cart, tab-scoped selection, Stop Current Cue, tab-cart runs, cart keys, legacy duck timing and version, customActions migration details, event-only settings, client views; owns its server |
+| `credentials-e2e.js` | Credentials in event connections: masking on every path, keeping what you were shown, sealing on disk, another machine's sign-in prompt, 401 handling, API-token limits, no inheritance by another show; owns two servers |
 | `liveplay-plugin-e2e.js` | LivePlay event plugin: play/pause/resume/stop/Up Next, ducking (measured on the meter), master level, bus fader/mute/sends/routing/processing with fades; `<port>`, plays a quiet tone |
 | `xair-e2e.js` | X Air plugin against a real mixer: crossfades, cap, mute, sends, FX, routing, recorder refusal; `<port> <mixer ip> [strip A] [strip B]`. Restores everything; never above -20 dB on the two strips; never recalls a snapshot |
 | `output-materialise-e2e.js` | Output materialization; `<port>`, skips without a device |

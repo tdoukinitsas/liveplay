@@ -487,15 +487,15 @@
         },
         "duckTimes": {
           "title": "Ducking at your speed",
-          "text": "Set how quickly the music dips and how gently it comes back, cue by cue."
+          "text": "Set how quickly the music dips and how gently it comes back, cue by cue. Shows from earlier versions keep the quick ducks they always had."
         },
         "stopFades": {
           "title": "Stop All, your way",
           "text": "Let Stop All fade each cue over that cue's own Stop fade instead of one fixed time."
         },
         "stopKey": {
-          "title": "Stop Current Cue key",
-          "text": "Bind a key that stops just the current cue and leaves everything else playing."
+          "title": "Stop Current Cue",
+          "text": "Stop just the cue you fired last, from a key, a MIDI note or Companion, and leave everything else playing."
         },
         "openFile": {
           "title": "Open shows from your files",
@@ -504,9 +504,17 @@
         "waveformPan": {
           "title": "Pan with the middle mouse",
           "text": "Middle-drag to move around a zoomed waveform."
+        },
+        "sealed": {
+          "title": "Passwords stay sealed",
+          "text": "Passwords and keys in your connections show as dots and are stored sealed to the server machine. Open the show somewhere else and LivePlay asks you to sign in again."
+        },
+        "compat": {
+          "title": "Opening older shows",
+          "text": "Shows from 2.5 open unchanged. Once a show is saved in 2.6, keep it on 2.6 or later: LivePlay 2.5 would drop its tabs, cart pages and connections."
         }
       },
-      "fixes": "more dependable events and connections, playback that no longer stalls on missing media, imports that never overwrite another cue's file, corrected macOS builds (now macOS 13.3 or later), a window that fits beside other apps, and clearer accent colours."
+      "fixes": "more dependable events and connections, playback that no longer stalls on missing media, imports that never overwrite another cue's file, keyboard shortcuts that stay out of popovers and editors, cart buttons that Companion fires correctly on every page, corrected macOS builds (now macOS 13.3 or later), a window that fits beside other apps, and clearer accent colours."
     },
     "v25": {
       "title": "A real mixer for your show.",

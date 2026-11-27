@@ -27,6 +27,7 @@ Bus routes and auxiliary sends are ordered topologically so a downstream bus con
 - Auxiliary sends target other buses and tap before or after the fader/mute.
 - A bus with no main output can still feed auxiliary sends.
 - Persist routes, DSP and sends in the project. PFL and mono-check are live monitoring state.
+- A bus change made by an event (the LivePlay plugin's fader, mute, send, route and processing actions) is heard and sent to every client, but is show state, not the show: saving keeps the value the operator had there until they set that field again.
 
 See the API schemas for exact route objects, gains, limits, fallback behavior and mutation responses.
 
@@ -64,7 +65,7 @@ The fixed DSP chain has up to 32 EQ bands, high/low-pass filters, gate/expander,
 
 DSP coefficients are calculated on the control side, published through double-buffered parameter slots and read by the render thread. Filter coefficient ramps reduce discontinuities. Bypass/flat chains can avoid unnecessary processing.
 
-Live pan/DSP controls update the engine without persisting the edit. Durable changes use a bus patch. Each live DSP request merges with stored bus DSP, so clients must not assume independent unpersisted partial requests accumulate.
+Live pan/DSP controls update the engine without persisting the edit. Durable changes use a bus patch from a client; an event's bus patch is live only (see above). Each live DSP request merges with stored bus DSP, so clients must not assume independent unpersisted partial requests accumulate.
 
 Meters expose lane and aggregate values, peak/RMS/true-peak data, loudness energy, gain reduction and correlation. The authoritative field units and message layout are in [WebSocket metering](https://tdoukinitsas.github.io/liveplay/api/#event-meters).
 

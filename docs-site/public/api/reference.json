@@ -1246,7 +1246,7 @@
         "cart": [],
         "buses": [],
         "server": {
-          "version": "2.5.0",
+          "version": "2.6.0",
           "meterBroadcastHz": 30,
           "masterChannels": 32,
           "previewMasterL": 30,
@@ -1332,6 +1332,41 @@
       "methods": [
         "POST"
       ],
+      "path": "/api/transport/stop_current",
+      "title": "Stop the current cue",
+      "category": "Transport and selection",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "fade_ms",
+          "integer (ms)",
+          "No",
+          "The cue's own Stop fade",
+          "Explicit fade for this stop; 0 cuts."
+        ]
+      ],
+      "request": {},
+      "response": {
+        "ok": true,
+        "uuid": "item-uuid"
+      },
+      "notes": "Stops the cue fired most recently that is still on air, playlist or cart. The desktop's Stop Current Cue key and MIDI action use this rule.",
+      "errors": [
+        [
+          "404",
+          "nothing is playing"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing); message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "POST"
+      ],
       "path": "/api/transport/panic",
       "title": "Panic: stop every cue now and kill every event",
       "category": "Transport and selection",
@@ -1387,6 +1422,20 @@
           "One of",
           "-",
           "Nonzero step; takes precedence over itemUuid."
+        ],
+        [
+          "scope",
+          "string",
+          "No",
+          "tab",
+          "With delta: \"tab\" keeps the step to one playlist tab and stops at its edge; \"show\" walks every tab."
+        ],
+        [
+          "tabId",
+          "string",
+          "No",
+          "The selection's tab",
+          "With delta: the tab to keep to (what the caller is showing). A selection on another tab starts at this tab's top."
         ]
       ],
       "request": {
@@ -1396,11 +1445,15 @@
         "ok": true,
         "itemUuid": "item-uuid"
       },
-      "notes": "Selection is shared session state. Without a selection, stepping uses active playback as an anchor. UUID is not validated by the setter.",
+      "notes": "Selection is shared session state. Without a selection, stepping uses active playback as an anchor. In a show with playlist tabs a step keeps to one tab unless scope is \"show\": the tab named by tabId, else the selection's, else the furthest playing cue's, else the first. The desktop's arrow keys and MIDI use the same rule. UUID is not validated by the setter.",
       "errors": [
         [
           "400",
           "delta must be non-zero"
+        ],
+        [
+          "400",
+          "scope must be \"tab\" or \"show\""
         ],
         [
           "404",
@@ -1570,7 +1623,7 @@
         "slot": 0,
         "uuid": "item-uuid"
       },
-      "notes": "Path: zero-based position on the first cart page, which is all a show from before pages has. POST and GET both act. Empty slot/unplayable target: 404. For other pages use /api/transport/cart/<page>/<cart>/play.",
+      "notes": "Path: the raw slot number, the slot summary.cart reports (0..6399). Each cart page owns a block of 64 numbers from its slotBase, so 0..63 are the first page ever made (as in a show from before pages) and reordering pages never changes what a number fires. A slot that no page shows (its page was removed or shrunk below it) is 404. POST and GET both act. For a page and position as the cart wall shows them, use /api/transport/cart/<page>/<cart>/play.",
       "errors": [
         [
           "404",
@@ -1582,6 +1635,31 @@
         ]
       ],
       "sourceLine": 3188
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/transport/cart/<int>/stop",
+      "title": "Stop a cart slot",
+      "category": "Transport and selection",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "ok": true,
+        "slot": 0,
+        "uuid": "item-uuid",
+        "stopped": true
+      },
+      "notes": "Path: the raw slot number, as for /api/transport/cart/<slot>/play. `stopped` is false when nothing was playing (or waiting to advance) for it to stop. A cart bound to a playlist tab stops that tab's run: its cues, any cue the run advanced into (a `continue` tab runs into the next), and an advance waiting out \"wait before next\".",
+      "errors": [
+        [
+          "404",
+          "cart slot is empty"
+        ]
+      ]
     },
     {
       "methods": [
@@ -1628,9 +1706,10 @@
         "ok": true,
         "page": 0,
         "cart": 3,
-        "uuid": "item-uuid"
+        "uuid": "item-uuid",
+        "stopped": true
       },
-      "notes": "A cart bound to a playlist tab stops whatever of that tab is on air.",
+      "notes": "`stopped` is false when there was nothing to stop. A cart bound to a playlist tab stops that tab's run: its cues, any cue the run advanced into (a `continue` tab runs into the next), and an advance waiting out \"wait before next\".",
       "errors": [
         [
           "404",
@@ -1651,7 +1730,7 @@
       "request": null,
       "response": {
         "name": "Show",
-        "version": "2.5.0",
+        "version": "2.6.0",
         "items": [],
         "cartItems": [],
         "cartOnlyItems": [],
@@ -1668,7 +1747,7 @@
           "audioTotal": 0
         }
       },
-      "notes": "Document-shaped response, not a fixed whitelist. Example is abbreviated; derived outputTargetLevels and live cueId annotations are included by the server. For an API token, HTTP connections' header values in eventConnections are hidden.",
+      "notes": "Document-shaped response, not a fixed whitelist. Example is abbreviated; derived outputTargetLevels and live cueId annotations are included by the server. No client is sent a credential: in an HTTP connection's, preset's or event's headers, the value of a credential-looking header (Authorization, Proxy-Authorization, Cookie, or a name containing token, key, secret, pass, auth, session, signature or credential) is sent as \"••••••\", and an API token gets \"••••••\" for every header value. This applies to every JSON response and WebSocket frame.",
       "errors": [],
       "sourceLine": 4155,
       "responseSchema": "ProjectDocument"
@@ -2378,7 +2457,7 @@
           "integer",
           "Yes",
           "-",
-          "The raw slot number: a page's slotBase + the cart's position. Route only checks nonnegative."
+          "The raw slot number: a page's slotBase + the cart's position (0..6399)."
         ],
         [
           "itemUuid",
@@ -2397,11 +2476,15 @@
         "slot": 0,
         "itemUuid": "opening"
       },
-      "notes": "State rejects a slot outside the 100 pages of 64 slots but the route still returns 200 and broadcasts cart_slot_set. itemUuid may be \"tab:<tabId>\" to make the cart start a whole playlist tab. UUID existence is not checked. See GET /api/cart/pages for each page's carts.",
+      "notes": "itemUuid may be \"tab:<tabId>\" to make the cart start a whole playlist tab. UUID existence is not checked. Broadcasts cart_slot_set. See GET /api/cart/pages for each page's carts.",
       "errors": [
         [
           "400",
           "slot and itemUuid required"
+        ],
+        [
+          "400",
+          "slot out of range"
         ],
         [
           "400",
@@ -2502,7 +2585,7 @@
           "cartSlotsPerPage": 64
         }
       },
-      "notes": "What exists, shared by all clients; which tab a client is looking at is local to it. A top-level item is on the tab its tabId names, or the first tab. PUT broadcasts tabs_changed. Limits are defined by the server.",
+      "notes": "What exists, shared by all clients; which tab a client is looking at is local to it. A top-level item is on the tab its tabId names, or the first tab. PUT broadcasts tabs_changed. Limits are defined by the server. A page left out of a PUT takes its carts with it: their bindings and pinned keys are removed (each broadcast as cart_slot_cleared, then cart_keys_changed), so a new page given the same block of slot numbers starts empty.",
       "errors": [
         [
           "400",
@@ -2511,6 +2594,69 @@
         [
           "400",
           "a list that is not an array"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing); message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "path": "/api/project/cart-keys",
+      "title": "Read or replace the cart keys",
+      "category": "Playlist items and carts",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "cartSlotKeys",
+          "object",
+          "No",
+          "unchanged",
+          "PUT: position on a page (0..63, as a string key) → {key, ctrlKey, shiftKey, altKey}. Fires that position on whichever page a desktop window shows."
+        ],
+        [
+          "cartPinnedKeys",
+          "object",
+          "No",
+          "unchanged",
+          "PUT: raw slot (as a string key) → binding. Fires that one cart from any page."
+        ]
+      ],
+      "request": {
+        "cartPinnedKeys": {
+          "64": {
+            "key": "F5",
+            "ctrlKey": false,
+            "shiftKey": false,
+            "altKey": false
+          }
+        }
+      },
+      "response": {
+        "cartSlotKeys": {},
+        "cartPinnedKeys": {
+          "64": {
+            "key": "F5",
+            "ctrlKey": false,
+            "shiftKey": false,
+            "altKey": false
+          }
+        }
+      },
+      "notes": "The show's keyboard layout for the cart wall. PUT replaces whichever of the two it carries and answers with what was stored, after checking: a binding needs a non-empty key; a pin needs a bound cart in its slot; a key pinned twice keeps its first cart; anything else is dropped. Broadcasts cart_keys_changed. A cart that is cleared takes its pin with it. An ordinary save (POST /api/project/save with a document) never changes these.",
+      "errors": [
+        [
+          "400",
+          "expected an object"
+        ],
+        [
+          "400",
+          "'cartSlotKeys' must be an object"
         ],
         [
           "400",
@@ -5560,7 +5706,7 @@
           }
         ]
       },
-      "notes": "The project's eventConnections. For an API token, an HTTP connection's header values are hidden as \"••••••\" (the header names stay).",
+      "notes": "No client is sent a credential: in an HTTP connection's, preset's or event's headers, the value of a credential-looking header (Authorization, Proxy-Authorization, Cookie, or a name containing token, key, secret, pass, auth, session, signature or credential) is sent as \"••••••\", and an API token gets \"••••••\" for every header value. This applies to every JSON response and WebSocket frame. A connection whose credentials need entering again carries auth: \"missing\" (sealed on another machine, or never given) or \"rejected\" (the device answered 401 or 403); it is not saved.",
       "errors": []
     },
     {
@@ -5571,7 +5717,7 @@
       "title": "Replace event connections",
       "category": "Events",
       "auth": "Operator",
-      "apiToken": "Yes",
+      "apiToken": "No (403)",
       "fields": [
         [
           "connections",
@@ -5599,8 +5745,12 @@
         "ok": true,
         "connections": []
       },
-      "notes": "Stores the list in the project document and broadcasts event_connections_changed. A full-document PUT that omits eventConnections keeps the current list. API-token sessions receive the response and the broadcast with HTTP header values hidden; a header value sent back exactly as it was hidden keeps the stored one.",
+      "notes": "Stores the list in the project document and broadcasts event_connections_changed. A header value sent back as \"••••••\" keeps the stored one for that header name; a new value replaces it, and clears a \"rejected\" or \"missing\" sign-in once nothing the connection needs is still missing. An ordinary save leaves the list as stored. API tokens can't change connections: they decide where the server sends requests and hold the credentials.",
       "errors": [
+        [
+          "403",
+          "API tokens can't change event connections"
+        ],
         [
           "400",
           "missing 'connections' array"
@@ -5656,9 +5806,10 @@
       },
       "response": {
         "ok": false,
-        "error": "connection not found"
+        "error": "HTTP 401 from http://10.0.0.5/go: the credentials were refused",
+        "auth": "rejected"
       },
-      "notes": "Reports the plugin's result. Always 200 for a well-formed request; failure is ok=false with error. Exception: 403 when an API token tests an unsaved (draft) HTTP connection; a saved connection may be tested. Waits on the network off the I/O threads: a request not finished within 50 ms answers {\"pending\":true,\"jobId\":\"...\"}, and the result comes from GET /api/events/jobs/<id>.",
+      "notes": "Reports the plugin's result. Always 200 for a well-formed request; failure is ok=false with error. Exception: 403 when an API token tests an unsaved (draft) HTTP connection; a saved connection may be tested. Waits on the network off the I/O threads: a request not finished within 50 ms answers {\"pending\":true,\"jobId\":\"...\"}, and the result comes from GET /api/events/jobs/<id>. A failure caused by credentials adds auth: \"missing\" or \"rejected\". A test never changes a saved connection's sign-in state. Masked values (\"••••••\") in the draft connection or event are the stored ones.",
       "errors": [
         [
           "400",
@@ -6180,6 +6331,13 @@
           "No",
           "absent",
           "Reusable {id, name, action, options}. An event pointing at one takes its action and options from it."
+        ],
+        [
+          "auth",
+          "string",
+          "Response only",
+          "absent",
+          "\"missing\" or \"rejected\": the connection's credentials need entering again. Never saved."
         ]
       ]
     },
@@ -6233,7 +6391,7 @@
           "string",
           "No",
           "Empty",
-          "Project label and document version."
+          "Project label and show-file version: \"2.6.0\" (a document from before 2.6 says \"2.0.0\" and is upgraded once on load: ducks keep their 50 ms timing, customActions become events)."
         ],
         [
           "items",
@@ -6254,7 +6412,7 @@
           "object[]",
           "No",
           "[]",
-          "slot integer (0..63), itemUuid string; server stores index [-1, slot]."
+          "slot integer (raw slot: page slotBase + position, 0..6399), itemUuid string; server stores index [-1, slot]."
         ],
         [
           "cartSlotKeys",
@@ -6268,7 +6426,7 @@
           "EventConnection[]",
           "No",
           "[]",
-          "Event destinations; managed through /api/events/connections. A full-document PUT that omits it keeps the current list."
+          "Event destinations; managed through /api/events/connections. On disk, credential header values are sealed with a key kept on the server machine. A full-document PUT that omits it keeps the current list for the same show only."
         ],
         [
           "settings",
@@ -6338,7 +6496,7 @@
           "object",
           "No",
           "{}",
-          "Item uuid to a key binding that fires that cart from any page."
+          "Raw slot → key binding that fires that cart from any page. Managed through /api/project/cart-keys."
         ]
       ]
     },
@@ -7397,7 +7555,7 @@
           "object[]",
           "Yes",
           "-",
-          "slot integer, itemUuid string, playing boolean; optional name/color strings."
+          "One per bound cart a page shows, in page order: slot (the raw slot for /api/transport/cart/<slot>/*), page and cart integers (zero-based, page in strip order, for /api/transport/cart/<page>/<cart>/*), address string \"page,cart\", pageId/pageName strings, itemUuid string, playing boolean; optional name/color/type strings. A cart bound to a playlist tab has type \"tab\", tabId, the tab's name and colour, and plays while any of the tab's cues does."
         ],
         [
           "buses",
@@ -8022,6 +8180,24 @@
         "notes": "Same preview inclusion setting as REST; cancels pending delayed advances. PFL is separate."
       },
       {
+        "type": "stop_current",
+        "purpose": "Stop the current cue",
+        "fields": [
+          [
+            "fade_ms",
+            "integer (ms)",
+            "No",
+            "The cue's own Stop fade",
+            "Explicit fade; 0 cuts."
+          ]
+        ],
+        "example": {
+          "type": "stop_current"
+        },
+        "reply": "No direct success reply; observe state/events.",
+        "notes": "Same as POST /api/transport/stop_current: the cue fired most recently that is still on air."
+      },
+      {
         "type": "go",
         "purpose": "Trigger armed or derived next cue",
         "fields": [],
@@ -8155,6 +8331,20 @@
             "No",
             "0",
             "Nonzero step; 0 does nothing."
+          ],
+          [
+            "scope",
+            "string",
+            "No",
+            "tab",
+            "\"show\" walks every playlist tab."
+          ],
+          [
+            "tabId",
+            "string",
+            "No",
+            "The selection's tab",
+            "The tab to keep to."
           ]
         ],
         "example": {
@@ -8162,7 +8352,7 @@
           "delta": 1
         },
         "reply": "No direct success reply; observe state/events.",
-        "notes": "Uses current selection or active playback anchor; emits selection_changed when state setter is called."
+        "notes": "Same rule as POST /api/selection with delta; emits selection_changed when the selection moves."
       },
       {
         "type": "set_show_mode",
@@ -9450,6 +9640,20 @@
             "No",
             "-",
             "Why not."
+          ],
+          [
+            "auth",
+            "string",
+            "No",
+            "-",
+            "\"missing\" or \"rejected\" when the failure was the credentials."
+          ],
+          [
+            "connectionId",
+            "string",
+            "No",
+            "-",
+            "The connection the event used."
           ]
         ],
         "example": {
@@ -9481,7 +9685,7 @@
           "op": "event_connections_changed",
           "connections": []
         },
-        "notes": "Follows PUT /api/events/connections."
+        "notes": "Follows PUT /api/events/connections, and a connection's sign-in state changing (a 401, a success after one, credentials entered). Credentials are masked as for every frame."
       },
       {
         "op": "tabs_changed",
@@ -9511,6 +9715,33 @@
         "notes": "Follows PUT /api/project/tabs."
       },
       {
+        "op": "cart_keys_changed",
+        "purpose": "The cart keys changed",
+        "fields": [
+          [
+            "cartSlotKeys",
+            "object",
+            "Yes",
+            "-",
+            "Position keys, as stored."
+          ],
+          [
+            "cartPinnedKeys",
+            "object",
+            "Yes",
+            "-",
+            "Keys pinned to carts (raw slot → binding), as stored."
+          ]
+        ],
+        "example": {
+          "type": "doc_patch",
+          "op": "cart_keys_changed",
+          "cartSlotKeys": {},
+          "cartPinnedKeys": {}
+        },
+        "notes": "Follows PUT /api/project/cart-keys, a cleared cart that had a pin, and a removed page."
+      },
+      {
         "op": "client_views",
         "purpose": "Which tab and page each operator shows",
         "fields": [
@@ -9519,7 +9750,7 @@
             "array",
             "Yes",
             "-",
-            "{id, label, playlistTab, cartPage} for each connection that has sent set_view."
+            "{id, label, playlistTab, cartPage} for each connection that has sent set_view. label is the signed-in user's name, or \"Client <id>\"; never an address."
           ]
         ],
         "example": {
@@ -9528,7 +9759,7 @@
           "views": [
             {
               "id": 3,
-              "label": "operator",
+              "label": "Client 3",
               "playlistTab": "default",
               "cartPage": "default"
             }
