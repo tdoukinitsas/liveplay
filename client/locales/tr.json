@@ -174,7 +174,8 @@
     "sectionAboutHelp": "Sürüm, katkıda bulunanlar ve lisans.",
     "sectionConnections": "Bağlantılar",
     "stopAllUsesItemFade": "Durdurulan cue'lar kendi Stop düğmesi geçişini kullanır",
-    "stopAllUsesItemFadeHelp": "Açıkken Stop All ve “Diğer tümünü durdur” ducking modu her cue'yu kendi Stop düğmesi geçişiyle söndürür. Geçişi olmayan cue'lar Stop All geçişini kullanır. Stop All'a iki kez basmak yine her şeyi anında durdurur."
+    "stopAllUsesItemFadeHelp": "Açıkken Stop All ve “Diğer tümünü durdur” ducking modu her cue'yu kendi Stop düğmesi geçişiyle söndürür. Geçişi olmayan cue'lar Stop All geçişini kullanır. Stop All'a iki kez basmak yine her şeyi anında durdurur.",
+    "thisComputer": "Bu bilgisayar"
   },
   "common": {
     "default": "varsayılan",
@@ -241,7 +242,19 @@
     "followSetting": "Başka bir operatörün sekmelerini takip et",
     "followOff": "Kapalı",
     "followOffline": "çevrimdışı",
-    "followHelp": "Bu pencere, seçtiğiniz operatörle aynı çalma listesi sekmesini ve kartuş sayfasını gösterir. Bir sekmeye kendiniz tıklarsanız takip sona erer."
+    "followHelp": "Bu pencere, seçtiğiniz operatörle aynı çalma listesi sekmesini ve kartuş sayfasını gösterir. Bir sekmeye kendiniz tıklarsanız takip sona erer.",
+    "followThisComputer": "Yalnızca bu bilgisayarda kaydedilir.",
+    "followSession": "{name} (oturum {n})",
+    "editPage": "Sayfayı düzenle",
+    "deletePage": "Sayfayı sil",
+    "limitReachedPages": "Azami sayfa sayısına ulaştınız.",
+    "deletePlayingPage": "Bu sayfada çalan bir şey var. Önce onu durdurun.",
+    "deleteConfirmCue": "«{name}» ve içindeki cue silinsin mi?",
+    "deleteConfirmCues": "«{name}» ve içindeki {count} cue silinsin mi?",
+    "deleteConfirmCart": "«{name}» ve içindeki kartuş silinsin mi?",
+    "deleteConfirmCarts": "«{name}» ve içindeki {count} kartuş silinsin mi?",
+    "colourN": "Renk {n}",
+    "pageFull": "«{name}» dolu"
   },
   "cart": {
     "title": "Kartuş Oynatıcı",
@@ -261,7 +274,8 @@
     "conflict": "Zaten {slot} numaralı yuvaya atanmış",
     "reserved": "Bu tuş kombinasyonu ayrılmıştır",
     "resetDefaults": "Varsayılanlara Sıfırla",
-    "groupSlot": "Çalma listesi grubu: tüm grubu bu yuvadan çalar"
+    "groupSlot": "Çalma listesi grubu: tüm grubu bu yuvadan çalar",
+    "choosePlaylist": "Hangi çalma listesi başlatılsın?"
   },
   "behaviors": {
     "startPlayNext": "Başlangıç: Sonrakini Oynat",
@@ -786,7 +800,8 @@
     "volumeMultiplier": "Ses çarpanı",
     "volumeMultiplierHint": "MIDI adımı başına dB. Küçük adımlarla hareket eden enkoderler veya tekerlekler için artırın.",
     "nextIn": "Sonraki: {seconds} sn",
-    "stopCurrentCue": "Geçerli cue'yu durdur"
+    "stopCurrentCue": "Geçerli cue'yu durdur",
+    "conflictPinned": "Zaten şu kartuşa sabitlenmiş: {cart}"
   },
   "selectProject": {
     "title": "Proje Seç",
@@ -1273,14 +1288,38 @@
       "presetAdd": "Ön ayar ekle",
       "presetName": "Ön ayar adı",
       "presetDone": "Tamam",
-      "presetDelete": "Ön ayarı sil (olayları bu ayarları korur)"
+      "presetDelete": "Ön ayarı sil (olayları bu ayarları korur)",
+      "enabledFor": "{name} etkin",
+      "editNamed": "Düzenle: {name}",
+      "deleteNamed": "Sil: {name}",
+      "authRejected": "Kimlik bilgileri reddedildi",
+      "authMissing": "Kimlik bilgileri gerekli",
+      "signIn": "Oturum aç",
+      "signInRejectedHelp": "Cihaz bu kimlik bilgilerini reddetti. Bunları Başlıklar altında yeniden girin; kayıtlı olanlar nokta olarak gösterilir.",
+      "signInMissingHelp": "Bu gösterinin kimlik bilgileri başka bir makinede şifrelendi, bu yüzden bu makine onları kullanamaz. Bunları Başlıklar altında yeniden girin.",
+      "signInMany": "{count} bağlantının kimlik bilgilerinin yeniden girilmesi gerekiyor.",
+      "signInRejected": "«{name}» kimlik bilgilerini reddetti. Olaylarının çalışmaya devam etmesi için yeniden oturum açın.",
+      "signInMissing": "«{name}» için kimlik bilgilerinin bu makinede girilmesi gerekiyor."
     },
     "zoom": "Yakınlaştırma",
     "zoomIn": "Yakınlaştır",
     "zoomOut": "Uzaklaştır",
     "zoomFit": "Dosyanın tamamını göster",
     "scroll": "Zaman çizelgesini kaydır",
-    "navHint": "Yakınlaştırmak için tekerleği çevirin · Yana kaydırmak için Shift+tekerlek veya orta tuşla sürükleyin"
+    "navHint": "Yakınlaştırmak için tekerleği çevirin · Yana kaydırmak için Shift+tekerlek veya orta tuşla sürükleyin",
+    "deleted": "«{name}» silindi.",
+    "undo": "Geri al",
+    "deviceTimeout": "Cihaz zamanında yanıt vermedi.",
+    "headers": {
+      "name": "Ad",
+      "value": "Değer",
+      "valueFor": "{name} değeri",
+      "secret": "Şifreli saklanır, nokta olarak gösterilir",
+      "secretPlaceholder": "Parola, belirteç veya anahtar",
+      "remove": "Başlığı kaldır",
+      "add": "Başlık ekle",
+      "rawLine": "Başlık satırı"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1411,7 +1450,7 @@
         },
         "headers": {
           "label": "Başlıklar",
-          "help": "Her satıra bir «Ad: değer»; her istekle gönderilir."
+          "help": "Her istekle gönderilir. Parolalar, belirteçler ve anahtarlar şifreli saklanır ve nokta olarak gösterilir."
         },
         "timeoutMs": {
           "label": "Zaman aşımı (ms)"
@@ -1426,7 +1465,7 @@
         },
         "headers": {
           "label": "Başlıklar",
-          "help": "Her satıra bir «Ad: değer»."
+          "help": "Bağlantının başlıklarına eklenir."
         },
         "contentType": {
           "label": "Gövde türü"

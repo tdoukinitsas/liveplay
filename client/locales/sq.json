@@ -174,7 +174,8 @@
     "sectionAboutHelp": "Versioni, kontribuesit dhe licenca.",
     "sectionConnections": "Lidhjet",
     "stopAllUsesItemFade": "Cue-të e ndaluara përdorin zbehjen e tyre të butonit Stop",
-    "stopAllUsesItemFadeHelp": "Kur është aktive, Stop All dhe mënyra e ducking-ut “Ndalo të gjitha të tjerat” e zbehin çdo cue me zbehjen e tij të butonit Stop. Cue-të pa një të tillë përdorin zbehjen e Stop All. Shtypja dy herë e Stop All gjithsesi i ndalon të gjitha menjëherë."
+    "stopAllUsesItemFadeHelp": "Kur është aktive, Stop All dhe mënyra e ducking-ut “Ndalo të gjitha të tjerat” e zbehin çdo cue me zbehjen e tij të butonit Stop. Cue-të pa një të tillë përdorin zbehjen e Stop All. Shtypja dy herë e Stop All gjithsesi i ndalon të gjitha menjëherë.",
+    "thisComputer": "Ky kompjuter"
   },
   "common": {
     "default": "parazgjedhje",
@@ -241,7 +242,19 @@
     "followSetting": "Ndiq skedat e një operatori tjetër",
     "followOff": "Joaktiv",
     "followOffline": "jashtë linje",
-    "followHelp": "Kjo dritare shfaq të njëjtën skedë të listës së luajtjes dhe të njëjtën faqe cart-i si operatori që zgjidhni. Nëse klikoni vetë në një skedë, ndjekja ndalet."
+    "followHelp": "Kjo dritare shfaq të njëjtën skedë të listës së luajtjes dhe të njëjtën faqe cart-i si operatori që zgjidhni. Nëse klikoni vetë në një skedë, ndjekja ndalet.",
+    "followThisComputer": "Ruhet vetëm në këtë kompjuter.",
+    "followSession": "{name} (sesioni {n})",
+    "editPage": "Përpuno faqen",
+    "deletePage": "Fshi faqen",
+    "limitReachedPages": "Keni arritur numrin maksimal të faqeve.",
+    "deletePlayingPage": "Diçka po luhet në këtë faqe. Ndaleni më parë.",
+    "deleteConfirmCue": "Të fshihet „{name}” dhe cue-ja e saj?",
+    "deleteConfirmCues": "Të fshihet „{name}” dhe {count} cue-të e saj?",
+    "deleteConfirmCart": "Të fshihet „{name}” dhe cart-i i saj?",
+    "deleteConfirmCarts": "Të fshihet „{name}” dhe {count} cart-et e saj?",
+    "colourN": "Ngjyra {n}",
+    "pageFull": "„{name}” është plot"
   },
   "cart": {
     "title": "Cart player",
@@ -261,7 +274,8 @@
     "conflict": "I caktuar tashmë te vendi {slot}",
     "reserved": "Ky kombinim tastesh është i rezervuar",
     "resetDefaults": "Rikthe parazgjedhjet",
-    "groupSlot": "Grup nga lista e luajtjes: luan të gjithë grupin nga ky vend"
+    "groupSlot": "Grup nga lista e luajtjes: luan të gjithë grupin nga ky vend",
+    "choosePlaylist": "Cila listë luajtjeje të niset?"
   },
   "behaviors": {
     "startPlayNext": "Fillim: luaj pasuesin",
@@ -786,7 +800,8 @@
     "volumeMultiplier": "Shumëzuesi i volumit",
     "volumeMultiplierHint": "dB për çdo hap MIDI. Rriteni për enkoderë ose rrota që lëvizin me hapa të vegjël.",
     "nextIn": "Tjetri pas {seconds} s",
-    "stopCurrentCue": "Ndalo cue-n aktual"
+    "stopCurrentCue": "Ndalo cue-n aktual",
+    "conflictPinned": "I fiksuar tashmë te {cart}"
   },
   "selectProject": {
     "title": "Zgjidhni projektin",
@@ -1273,14 +1288,38 @@
       "presetAdd": "Shto paracaktim",
       "presetName": "Emri i paracaktimit",
       "presetDone": "U krye",
-      "presetDelete": "Fshi paracaktimin (ngjarjet e tij i mbajnë këto cilësime)"
+      "presetDelete": "Fshi paracaktimin (ngjarjet e tij i mbajnë këto cilësime)",
+      "enabledFor": "{name} aktive",
+      "editNamed": "Përpuno {name}",
+      "deleteNamed": "Fshi {name}",
+      "authRejected": "Kredencialet u refuzuan",
+      "authMissing": "I duhen kredencialet",
+      "signIn": "Hyr",
+      "signInRejectedHelp": "Pajisja i refuzoi këto kredenciale. Futini sërish te Header-at; ato të ruajturat shfaqen si pika.",
+      "signInMissingHelp": "Kredencialet e kësaj shfaqjeje u enkriptuan në një makinë tjetër, ndaj kjo nuk mund t'i përdorë. Futini sërish te Header-at.",
+      "signInMany": "{count} lidhjeve u duhen futur sërish kredencialet.",
+      "signInRejected": "„{name}” i refuzoi kredencialet. Hyni sërish që ngjarjet e saj të vazhdojnë të funksionojnë.",
+      "signInMissing": "Për „{name}” duhen futur kredencialet në këtë makinë."
     },
     "zoom": "Zmadhimi",
     "zoomIn": "Zmadho",
     "zoomOut": "Zvogëlo",
     "zoomFit": "Shfaq gjithë skedarin",
     "scroll": "Lëviz vijën kohore",
-    "navHint": "Rrotulloni për zmadhim · Shift + rrotullim ose tërheqje me butonin e mesit për ta lëvizur"
+    "navHint": "Rrotulloni për zmadhim · Shift + rrotullim ose tërheqje me butonin e mesit për ta lëvizur",
+    "deleted": "„{name}” u fshi.",
+    "undo": "Zhbëje",
+    "deviceTimeout": "Pajisja nuk u përgjigj në kohë.",
+    "headers": {
+      "name": "Emri",
+      "value": "Vlera",
+      "valueFor": "Vlera e {name}",
+      "secret": "Ruhet e enkriptuar, shfaqet si pika",
+      "secretPlaceholder": "Fjalëkalim, token ose çelës",
+      "remove": "Hiq header-in",
+      "add": "Shto header",
+      "rawLine": "Rresht header-i"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1411,7 +1450,7 @@
         },
         "headers": {
           "label": "Header-at",
-          "help": "Një „Emri: vlera” për rresht, dërgohet me çdo kërkesë."
+          "help": "Dërgohen me çdo kërkesë. Fjalëkalimet, tokenët dhe çelësat ruhen të enkriptuar dhe shfaqen si pika."
         },
         "timeoutMs": {
           "label": "Afati (ms)"
@@ -1426,7 +1465,7 @@
         },
         "headers": {
           "label": "Header-at",
-          "help": "Një „Emri: vlera” për rresht."
+          "help": "U shtohen header-ave të lidhjes."
         },
         "contentType": {
           "label": "Lloji i trupit"

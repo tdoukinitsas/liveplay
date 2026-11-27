@@ -174,7 +174,8 @@
     "sectionAboutHelp": "Version, medverkande och licens.",
     "sectionConnections": "Anslutningar",
     "stopAllUsesItemFade": "Stoppade cuer använder sin egen stoppknappstoning",
-    "stopAllUsesItemFadeHelp": "När det är på tonar Stop All och duckningsläget ”Stoppa alla andra” ut varje cue med dess egen stoppknappstoning. Cuer utan en använder Stop All-toningen. Två tryck på Stop All stoppar fortfarande allt direkt."
+    "stopAllUsesItemFadeHelp": "När det är på tonar Stop All och duckningsläget ”Stoppa alla andra” ut varje cue med dess egen stoppknappstoning. Cuer utan en använder Stop All-toningen. Två tryck på Stop All stoppar fortfarande allt direkt.",
+    "thisComputer": "Den här datorn"
   },
   "common": {
     "default": "standard",
@@ -241,7 +242,19 @@
     "followSetting": "Följ en annan operatörs flikar",
     "followOff": "Av",
     "followOffline": "offline",
-    "followHelp": "Det här fönstret visar samma spellisteflik och cartsida som operatören du väljer. Klickar du själv på en flik slutar du följa."
+    "followHelp": "Det här fönstret visar samma spellisteflik och cartsida som operatören du väljer. Klickar du själv på en flik slutar du följa.",
+    "followThisComputer": "Sparas bara på den här datorn.",
+    "followSession": "{name} (session {n})",
+    "editPage": "Redigera sida",
+    "deletePage": "Ta bort sida",
+    "limitReachedPages": "Du har nått maximalt antal sidor.",
+    "deletePlayingPage": "Något på den här sidan spelas. Stoppa det först.",
+    "deleteConfirmCue": "Ta bort ”{name}” och dess cue?",
+    "deleteConfirmCues": "Ta bort ”{name}” och dess {count} cues?",
+    "deleteConfirmCart": "Ta bort ”{name}” och dess cart?",
+    "deleteConfirmCarts": "Ta bort ”{name}” och dess {count} carts?",
+    "colourN": "Färg {n}",
+    "pageFull": "”{name}” är full"
   },
   "cart": {
     "title": "Cartspelare",
@@ -261,7 +274,8 @@
     "conflict": "Redan tilldelad plats {slot}",
     "reserved": "Den här tangentkombinationen är reserverad",
     "resetDefaults": "Återställ standard",
-    "groupSlot": "Spellistegrupp: spelar hela gruppen från den här platsen"
+    "groupSlot": "Spellistegrupp: spelar hela gruppen från den här platsen",
+    "choosePlaylist": "Vilken spellista ska starta?"
   },
   "behaviors": {
     "startPlayNext": "Start: spela nästa",
@@ -786,7 +800,8 @@
     "volumeMultiplier": "Volymmultiplikator",
     "volumeMultiplierHint": "dB per MIDI-steg. Öka för encodrar eller hjul som rör sig i små steg.",
     "nextIn": "Nästa om {seconds} s",
-    "stopCurrentCue": "Stoppa aktuell cue"
+    "stopCurrentCue": "Stoppa aktuell cue",
+    "conflictPinned": "Redan fäst vid {cart}"
   },
   "selectProject": {
     "title": "Välj projekt",
@@ -1273,14 +1288,38 @@
       "presetAdd": "Lägg till förinställning",
       "presetName": "Namn på förinställning",
       "presetDone": "Klar",
-      "presetDelete": "Ta bort förinställning (dess händelser behåller de här inställningarna)"
+      "presetDelete": "Ta bort förinställning (dess händelser behåller de här inställningarna)",
+      "enabledFor": "{name} aktiverad",
+      "editNamed": "Redigera {name}",
+      "deleteNamed": "Ta bort {name}",
+      "authRejected": "Inloggningsuppgifter nekade",
+      "authMissing": "Saknar inloggningsuppgifter",
+      "signIn": "Logga in",
+      "signInRejectedHelp": "Enheten nekade de här inloggningsuppgifterna. Ange dem igen under Huvuden; de sparade visas som punkter.",
+      "signInMissingHelp": "Showens inloggningsuppgifter krypterades på en annan dator, så den här kan inte använda dem. Ange dem igen under Huvuden.",
+      "signInMany": "{count} anslutningar behöver få sina inloggningsuppgifter angivna igen.",
+      "signInRejected": "”{name}” nekade sina inloggningsuppgifter. Logga in igen så att dess händelser fortsätter att fungera.",
+      "signInMissing": "”{name}” behöver få sina inloggningsuppgifter angivna på den här datorn."
     },
     "zoom": "Zoom",
     "zoomIn": "Zooma in",
     "zoomOut": "Zooma ut",
     "zoomFit": "Visa hela filen",
     "scroll": "Scrolla tidslinjen",
-    "navHint": "Scrolla för att zooma · Shift-scrolla eller dra med mittenknappen för att panorera"
+    "navHint": "Scrolla för att zooma · Shift-scrolla eller dra med mittenknappen för att panorera",
+    "deleted": "”{name}” togs bort.",
+    "undo": "Ångra",
+    "deviceTimeout": "Enheten svarade inte i tid.",
+    "headers": {
+      "name": "Namn",
+      "value": "Värde",
+      "valueFor": "Värde för {name}",
+      "secret": "Krypterat, visas som punkter",
+      "secretPlaceholder": "Lösenord, token eller nyckel",
+      "remove": "Ta bort huvud",
+      "add": "Lägg till huvud",
+      "rawLine": "Huvudrad"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1411,7 +1450,7 @@
         },
         "headers": {
           "label": "Huvuden",
-          "help": "Ett ”Namn: värde” per rad, skickas med varje förfrågan."
+          "help": "Skickas med varje förfrågan. Lösenord, tokens och nycklar lagras krypterade och visas som punkter."
         },
         "timeoutMs": {
           "label": "Tidsgräns (ms)"
@@ -1426,7 +1465,7 @@
         },
         "headers": {
           "label": "Huvuden",
-          "help": "Ett ”Namn: värde” per rad."
+          "help": "Läggs till anslutningens huvuden."
         },
         "contentType": {
           "label": "Innehållstyp"

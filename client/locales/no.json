@@ -174,7 +174,8 @@
     "sectionAboutHelp": "Versjon, bidragsytere og lisens.",
     "sectionConnections": "Tilkoblinger",
     "stopAllUsesItemFade": "Stoppede cuer bruker sin egen stoppknapptoning",
-    "stopAllUsesItemFadeHelp": "Når dette er på, toner Stop All og duckingmodusen «Stopp alle andre» ut hver cue med dens egen stoppknapptoning. Cuer uten en bruker Stop All-toningen. To trykk på Stop All stopper fortsatt alt med en gang."
+    "stopAllUsesItemFadeHelp": "Når dette er på, toner Stop All og duckingmodusen «Stopp alle andre» ut hver cue med dens egen stoppknapptoning. Cuer uten en bruker Stop All-toningen. To trykk på Stop All stopper fortsatt alt med en gang.",
+    "thisComputer": "Denne datamaskinen"
   },
   "common": {
     "default": "standard",
@@ -241,7 +242,19 @@
     "followSetting": "Følg fanene til en annen operatør",
     "followOff": "Av",
     "followOffline": "frakoblet",
-    "followHelp": "Dette vinduet viser samme spillelistefane og cartside som operatøren du velger. Klikker du på en fane selv, slutter du å følge."
+    "followHelp": "Dette vinduet viser samme spillelistefane og cartside som operatøren du velger. Klikker du på en fane selv, slutter du å følge.",
+    "followThisComputer": "Lagres bare på denne datamaskinen.",
+    "followSession": "{name} (økt {n})",
+    "editPage": "Rediger side",
+    "deletePage": "Slett side",
+    "limitReachedPages": "Du har nådd maksimalt antall sider.",
+    "deletePlayingPage": "Noe på denne siden spilles. Stopp det først.",
+    "deleteConfirmCue": "Slette «{name}» og cuen der?",
+    "deleteConfirmCues": "Slette «{name}» og de {count} cuene der?",
+    "deleteConfirmCart": "Slette «{name}» og carten der?",
+    "deleteConfirmCarts": "Slette «{name}» og de {count} cartene der?",
+    "colourN": "Farge {n}",
+    "pageFull": "«{name}» er full"
   },
   "cart": {
     "title": "Cartspiller",
@@ -261,7 +274,8 @@
     "conflict": "Allerede tilordnet plass {slot}",
     "reserved": "Denne tastekombinasjonen er reservert",
     "resetDefaults": "Tilbakestill til standard",
-    "groupSlot": "Gruppe fra spillelisten: spiller hele gruppen fra denne plassen"
+    "groupSlot": "Gruppe fra spillelisten: spiller hele gruppen fra denne plassen",
+    "choosePlaylist": "Hvilken spilleliste skal starte?"
   },
   "behaviors": {
     "startPlayNext": "Start: spill neste",
@@ -786,7 +800,8 @@
     "volumeMultiplier": "Volummultiplikator",
     "volumeMultiplierHint": "dB per MIDI-trinn. Øk den for enkodere eller hjul som beveger seg i små trinn.",
     "nextIn": "Neste om {seconds} s",
-    "stopCurrentCue": "Stopp gjeldende cue"
+    "stopCurrentCue": "Stopp gjeldende cue",
+    "conflictPinned": "Allerede festet til {cart}"
   },
   "selectProject": {
     "title": "Velg prosjekt",
@@ -1273,14 +1288,38 @@
       "presetAdd": "Legg til forhåndsinnstilling",
       "presetName": "Navn på forhåndsinnstilling",
       "presetDone": "Ferdig",
-      "presetDelete": "Slett forhåndsinnstilling (hendelsene beholder disse innstillingene)"
+      "presetDelete": "Slett forhåndsinnstilling (hendelsene beholder disse innstillingene)",
+      "enabledFor": "{name} aktivert",
+      "editNamed": "Rediger {name}",
+      "deleteNamed": "Slett {name}",
+      "authRejected": "Påloggingsdetaljer avvist",
+      "authMissing": "Mangler påloggingsdetaljer",
+      "signIn": "Logg inn",
+      "signInRejectedHelp": "Enheten avviste disse påloggingsdetaljene. Skriv dem inn på nytt under Hoder; de lagrede vises som prikker.",
+      "signInMissingHelp": "Påloggingsdetaljene for dette showet ble kryptert på en annen maskin, så denne kan ikke bruke dem. Skriv dem inn på nytt under Hoder.",
+      "signInMany": "{count} tilkoblinger trenger at påloggingsdetaljene skrives inn på nytt.",
+      "signInRejected": "«{name}» avviste påloggingsdetaljene. Logg inn på nytt så hendelsene fortsetter å virke.",
+      "signInMissing": "Påloggingsdetaljene for «{name}» må skrives inn på denne maskinen."
     },
     "zoom": "Zoom",
     "zoomIn": "Zoom inn",
     "zoomOut": "Zoom ut",
     "zoomFit": "Vis hele filen",
     "scroll": "Rull tidslinjen",
-    "navHint": "Rull for å zoome · Shift-rull eller dra med midtknappen for å panorere"
+    "navHint": "Rull for å zoome · Shift-rull eller dra med midtknappen for å panorere",
+    "deleted": "Slettet «{name}».",
+    "undo": "Angre",
+    "deviceTimeout": "Enheten svarte ikke i tide.",
+    "headers": {
+      "name": "Navn",
+      "value": "Verdi",
+      "valueFor": "Verdi for {name}",
+      "secret": "Kryptert, vises som prikker",
+      "secretPlaceholder": "Passord, token eller nøkkel",
+      "remove": "Fjern hode",
+      "add": "Legg til hode",
+      "rawLine": "Hodelinje"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1411,7 +1450,7 @@
         },
         "headers": {
           "label": "Hoder",
-          "help": "Én «Navn: verdi» per linje, sendes med hver forespørsel."
+          "help": "Sendes med hver forespørsel. Passord, tokener og nøkler lagres kryptert og vises som prikker."
         },
         "timeoutMs": {
           "label": "Tidsavbrudd (ms)"
@@ -1426,7 +1465,7 @@
         },
         "headers": {
           "label": "Hoder",
-          "help": "Én «Navn: verdi» per linje."
+          "help": "Legges til tilkoblingens hoder."
         },
         "contentType": {
           "label": "Innholdstype"

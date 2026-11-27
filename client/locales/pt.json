@@ -174,7 +174,8 @@
     "sectionAboutHelp": "Versão, créditos e licença.",
     "sectionConnections": "Ligações",
     "stopAllUsesItemFade": "Cues parados usam o seu próprio fade do botão Stop",
-    "stopAllUsesItemFadeHelp": "Ativado, o Stop All e o modo de ducking «Parar todos os outros» fazem cada cue sair com o seu próprio fade do botão Stop. Cues sem um usam o fade do Stop All. Premir Stop All duas vezes continua a parar tudo de imediato."
+    "stopAllUsesItemFadeHelp": "Ativado, o Stop All e o modo de ducking «Parar todos os outros» fazem cada cue sair com o seu próprio fade do botão Stop. Cues sem um usam o fade do Stop All. Premir Stop All duas vezes continua a parar tudo de imediato.",
+    "thisComputer": "Este computador"
   },
   "common": {
     "default": "predefinição",
@@ -241,7 +242,19 @@
     "followSetting": "Acompanhar os separadores de outro operador",
     "followOff": "Desligado",
     "followOffline": "offline",
-    "followHelp": "Esta janela mostra o mesmo separador de lista de reprodução e a mesma página de cartuchos do operador que escolher. Se clicar num separador, deixa de o acompanhar."
+    "followHelp": "Esta janela mostra o mesmo separador de lista de reprodução e a mesma página de cartuchos do operador que escolher. Se clicar num separador, deixa de o acompanhar.",
+    "followThisComputer": "Guardado apenas neste computador.",
+    "followSession": "{name} (sessão {n})",
+    "editPage": "Editar página",
+    "deletePage": "Eliminar página",
+    "limitReachedPages": "Atingiu o número máximo de páginas.",
+    "deletePlayingPage": "Há algo a reproduzir nesta página. Pare-o primeiro.",
+    "deleteConfirmCue": "Eliminar «{name}» e a sua deixa?",
+    "deleteConfirmCues": "Eliminar «{name}» e as suas {count} deixas?",
+    "deleteConfirmCart": "Eliminar «{name}» e o seu cartucho?",
+    "deleteConfirmCarts": "Eliminar «{name}» e os seus {count} cartuchos?",
+    "colourN": "Cor {n}",
+    "pageFull": "«{name}» está cheia"
   },
   "cart": {
     "title": "Leitor de cartuchos",
@@ -261,7 +274,8 @@
     "conflict": "Já atribuído ao slot {slot}",
     "reserved": "Esta combinação de teclas está reservada",
     "resetDefaults": "Repor predefinições",
-    "groupSlot": "Grupo da lista de reprodução: reproduz o grupo inteiro a partir deste slot"
+    "groupSlot": "Grupo da lista de reprodução: reproduz o grupo inteiro a partir deste slot",
+    "choosePlaylist": "Que lista de reprodução iniciar?"
   },
   "behaviors": {
     "startPlayNext": "Início: reproduzir seguinte",
@@ -786,7 +800,8 @@
     "playNext": "Reproduzir seguinte",
     "volumeMultiplier": "Multiplicador de volume",
     "volumeMultiplierHint": "dB por passo MIDI. Aumente-o para encoders ou rodas que avançam em passos pequenos.",
-    "nextIn": "Seguinte em {seconds}s"
+    "nextIn": "Seguinte em {seconds}s",
+    "conflictPinned": "Já fixado a {cart}"
   },
   "selectProject": {
     "title": "Selecionar projeto",
@@ -1273,14 +1288,38 @@
       "presetAdd": "Adicionar predefinição",
       "presetName": "Nome da predefinição",
       "presetDone": "Concluído",
-      "presetDelete": "Eliminar predefinição (os seus eventos mantêm estas definições)"
+      "presetDelete": "Eliminar predefinição (os seus eventos mantêm estas definições)",
+      "enabledFor": "{name} ativada",
+      "editNamed": "Editar {name}",
+      "deleteNamed": "Eliminar {name}",
+      "authRejected": "Credenciais recusadas",
+      "authMissing": "Faltam as credenciais",
+      "signIn": "Iniciar sessão",
+      "signInRejectedHelp": "O dispositivo recusou estas credenciais. Introduza-as novamente em Cabeçalhos; as guardadas aparecem como pontos.",
+      "signInMissingHelp": "As credenciais deste espetáculo foram cifradas noutra máquina, por isso esta não as pode usar. Introduza-as novamente em Cabeçalhos.",
+      "signInMany": "É preciso introduzir novamente as credenciais de {count} ligações.",
+      "signInRejected": "«{name}» recusou as suas credenciais. Inicie sessão novamente para que os seus eventos continuem a funcionar.",
+      "signInMissing": "É preciso introduzir as credenciais de «{name}» nesta máquina."
     },
     "zoom": "Zoom",
     "zoomIn": "Aumentar zoom",
     "zoomOut": "Diminuir zoom",
     "zoomFit": "Mostrar o ficheiro inteiro",
     "scroll": "Deslocar a linha temporal",
-    "navHint": "Roda para fazer zoom · Shift+roda ou arraste com o botão do meio para deslocar"
+    "navHint": "Roda para fazer zoom · Shift+roda ou arraste com o botão do meio para deslocar",
+    "deleted": "«{name}» eliminado.",
+    "undo": "Desfazer",
+    "deviceTimeout": "O dispositivo não respondeu a tempo.",
+    "headers": {
+      "name": "Nome",
+      "value": "Valor",
+      "valueFor": "Valor de {name}",
+      "secret": "Cifrado, apresentado como pontos",
+      "secretPlaceholder": "Palavra-passe, token ou chave",
+      "remove": "Remover cabeçalho",
+      "add": "Adicionar cabeçalho",
+      "rawLine": "Linha de cabeçalho"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1411,7 +1450,7 @@
         },
         "headers": {
           "label": "Cabeçalhos",
-          "help": "Um «Nome: valor» por linha, enviado com cada pedido."
+          "help": "Enviados com cada pedido. Palavras-passe, tokens e chaves são guardados cifrados e apresentados como pontos."
         },
         "timeoutMs": {
           "label": "Tempo limite (ms)"
@@ -1426,7 +1465,7 @@
         },
         "headers": {
           "label": "Cabeçalhos",
-          "help": "Um «Nome: valor» por linha."
+          "help": "Acrescentados aos cabeçalhos da ligação."
         },
         "contentType": {
           "label": "Tipo de corpo"

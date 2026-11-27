@@ -174,7 +174,8 @@
     "sectionAboutHelp": "Version, crédits et licence.",
     "sectionConnections": "Connexions",
     "stopAllUsesItemFade": "Les cues arrêtés utilisent leur propre fondu du bouton Stop",
-    "stopAllUsesItemFadeHelp": "Activé, Stop All et le mode de ducking « Arrêter tous les autres » font sortir chaque cue sur son propre fondu du bouton Stop. Les cues sans fondu utilisent celui de Stop All. Appuyer deux fois sur Stop All arrête toujours tout immédiatement."
+    "stopAllUsesItemFadeHelp": "Activé, Stop All et le mode de ducking « Arrêter tous les autres » font sortir chaque cue sur son propre fondu du bouton Stop. Les cues sans fondu utilisent celui de Stop All. Appuyer deux fois sur Stop All arrête toujours tout immédiatement.",
+    "thisComputer": "Cet ordinateur"
   },
   "common": {
     "default": "par défaut",
@@ -241,7 +242,19 @@
     "followSetting": "Suivre les onglets d’un autre opérateur",
     "followOff": "Désactivé",
     "followOffline": "hors ligne",
-    "followHelp": "Cette fenêtre affiche le même onglet de playlist et la même page de cartouches que l’opérateur choisi. Cliquer vous-même sur un onglet arrête le suivi."
+    "followHelp": "Cette fenêtre affiche le même onglet de playlist et la même page de cartouches que l’opérateur choisi. Cliquer vous-même sur un onglet arrête le suivi.",
+    "followThisComputer": "Enregistré uniquement sur cet ordinateur.",
+    "followSession": "{name} (session {n})",
+    "editPage": "Modifier la page",
+    "deletePage": "Supprimer la page",
+    "limitReachedPages": "Vous avez atteint le nombre maximal de pages.",
+    "deletePlayingPage": "Un élément de cette page est en lecture. Arrêtez-le d’abord.",
+    "deleteConfirmCue": "Supprimer « {name} » et son cue ?",
+    "deleteConfirmCues": "Supprimer « {name} » et ses {count} cues ?",
+    "deleteConfirmCart": "Supprimer « {name} » et sa cartouche ?",
+    "deleteConfirmCarts": "Supprimer « {name} » et ses {count} cartouches ?",
+    "colourN": "Couleur {n}",
+    "pageFull": "« {name} » est pleine"
   },
   "cart": {
     "title": "Lecteur de cartouches",
@@ -261,7 +274,8 @@
     "conflict": "Déjà assigné à l’emplacement {slot}",
     "reserved": "Cette combinaison de touches est réservée",
     "resetDefaults": "Rétablir les valeurs par défaut",
-    "groupSlot": "Groupe de la playlist : lit tout le groupe depuis cet emplacement"
+    "groupSlot": "Groupe de la playlist : lit tout le groupe depuis cet emplacement",
+    "choosePlaylist": "Quelle playlist démarrer ?"
   },
   "behaviors": {
     "startPlayNext": "Début : lire le suivant",
@@ -786,7 +800,8 @@
     "volumeMultiplier": "Multiplicateur de volume",
     "volumeMultiplierHint": "dB par pas MIDI. Augmentez-le pour les encodeurs ou molettes qui avancent par petits pas.",
     "nextIn": "Suivant dans {seconds}s",
-    "stopCurrentCue": "Arrêter le cue en cours"
+    "stopCurrentCue": "Arrêter le cue en cours",
+    "conflictPinned": "Déjà épinglé à {cart}"
   },
   "selectProject": {
     "title": "Sélectionner un projet",
@@ -1273,14 +1288,38 @@
       "presetAdd": "Ajouter un préréglage",
       "presetName": "Nom du préréglage",
       "presetDone": "Terminé",
-      "presetDelete": "Supprimer le préréglage (ses événements gardent ces réglages)"
+      "presetDelete": "Supprimer le préréglage (ses événements gardent ces réglages)",
+      "enabledFor": "{name} activée",
+      "editNamed": "Modifier {name}",
+      "deleteNamed": "Supprimer {name}",
+      "authRejected": "Identifiants refusés",
+      "authMissing": "Identifiants requis",
+      "signIn": "Se connecter",
+      "signInRejectedHelp": "L’appareil a refusé ces identifiants. Saisissez-les à nouveau dans En-têtes ; ceux enregistrés s’affichent sous forme de points.",
+      "signInMissingHelp": "Les identifiants de ce spectacle ont été chiffrés sur une autre machine, celle-ci ne peut donc pas les utiliser. Saisissez-les à nouveau dans En-têtes.",
+      "signInMany": "Les identifiants de {count} connexions doivent être saisis à nouveau.",
+      "signInRejected": "« {name} » a refusé ses identifiants. Reconnectez-vous pour que ses événements continuent de fonctionner.",
+      "signInMissing": "Les identifiants de « {name} » doivent être saisis sur cette machine."
     },
     "zoom": "Zoom",
     "zoomIn": "Zoom avant",
     "zoomOut": "Zoom arrière",
     "zoomFit": "Afficher tout le fichier",
     "scroll": "Faire défiler la timeline",
-    "navHint": "Molette pour zoomer · Maj+molette ou glisser avec le bouton du milieu pour se déplacer"
+    "navHint": "Molette pour zoomer · Maj+molette ou glisser avec le bouton du milieu pour se déplacer",
+    "deleted": "« {name} » supprimé.",
+    "undo": "Annuler",
+    "deviceTimeout": "L’appareil n’a pas répondu à temps.",
+    "headers": {
+      "name": "Nom",
+      "value": "Valeur",
+      "valueFor": "Valeur de {name}",
+      "secret": "Chiffré, affiché sous forme de points",
+      "secretPlaceholder": "Mot de passe, jeton ou clé",
+      "remove": "Retirer l’en-tête",
+      "add": "Ajouter un en-tête",
+      "rawLine": "Ligne d’en-tête"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1411,7 +1450,7 @@
         },
         "headers": {
           "label": "En-têtes",
-          "help": "Un « Nom: valeur » par ligne, envoyé avec chaque requête."
+          "help": "Envoyés avec chaque requête. Les mots de passe, jetons et clés sont chiffrés et affichés sous forme de points."
         },
         "timeoutMs": {
           "label": "Délai d’expiration (ms)"
@@ -1426,7 +1465,7 @@
         },
         "headers": {
           "label": "En-têtes",
-          "help": "Un « Nom: valeur » par ligne."
+          "help": "Ajoutés aux en-têtes de la connexion."
         },
         "contentType": {
           "label": "Type de corps"

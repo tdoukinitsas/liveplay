@@ -174,7 +174,8 @@
     "sectionAboutHelp": "版本、致谢和许可证。",
     "sectionConnections": "连接",
     "stopAllUsesItemFade": "被停止的提示音使用各自的停止按钮淡出",
-    "stopAllUsesItemFadeHelp": "开启后，Stop All 和“停止所有其他”闪避模式会让每个提示音按其自己的停止按钮淡出时间淡出。没有设置的提示音使用 Stop All 淡出。连按两次 Stop All 仍会立即停止一切。"
+    "stopAllUsesItemFadeHelp": "开启后，Stop All 和“停止所有其他”闪避模式会让每个提示音按其自己的停止按钮淡出时间淡出。没有设置的提示音使用 Stop All 淡出。连按两次 Stop All 仍会立即停止一切。",
+    "thisComputer": "本机"
   },
   "common": {
     "default": "默认",
@@ -241,7 +242,19 @@
     "followSetting": "跟随其他操作员的标签页",
     "followOff": "关",
     "followOffline": "离线",
-    "followHelp": "此窗口显示与所选操作员相同的播放列表标签页和盒式播放器页面。自行点击标签页将停止跟随。"
+    "followHelp": "此窗口显示与所选操作员相同的播放列表标签页和盒式播放器页面。自行点击标签页将停止跟随。",
+    "followThisComputer": "仅保存在本机。",
+    "followSession": "{name}（会话 {n}）",
+    "editPage": "编辑页面",
+    "deletePage": "删除页面",
+    "limitReachedPages": "页面数量已达上限。",
+    "deletePlayingPage": "此页面上有内容正在播放。请先停止。",
+    "deleteConfirmCue": "删除“{name}”及其中的 Cue？",
+    "deleteConfirmCues": "删除“{name}”及其中的 {count} 个 Cue？",
+    "deleteConfirmCart": "删除“{name}”及其中的盒式播放器？",
+    "deleteConfirmCarts": "删除“{name}”及其中的 {count} 个盒式播放器？",
+    "colourN": "颜色 {n}",
+    "pageFull": "“{name}”已满"
   },
   "cart": {
     "title": "盒式播放器",
@@ -261,7 +274,8 @@
     "conflict": "已分配给槽位 {slot}",
     "reserved": "此组合键为系统保留",
     "resetDefaults": "重置为默认值",
-    "groupSlot": "播放列表分组：从此槽位播放整个分组"
+    "groupSlot": "播放列表分组：从此槽位播放整个分组",
+    "choosePlaylist": "启动哪个播放列表？"
   },
   "behaviors": {
     "startPlayNext": "开始：播放下一个",
@@ -786,7 +800,8 @@
     "volumeMultiplier": "音量倍数",
     "volumeMultiplierHint": "每个 MIDI 步进对应的 dB 数。对于步进很小的编码器或滚轮，请调高此值。",
     "nextIn": "{seconds} 秒后下一个",
-    "stopCurrentCue": "停止当前 Cue"
+    "stopCurrentCue": "停止当前 Cue",
+    "conflictPinned": "已固定到 {cart}"
   },
   "selectProject": {
     "title": "选择项目",
@@ -1273,14 +1288,38 @@
       "presetAdd": "添加预设",
       "presetName": "预设名称",
       "presetDone": "完成",
-      "presetDelete": "删除预设（其事件会保留这些设置）"
+      "presetDelete": "删除预设（其事件会保留这些设置）",
+      "enabledFor": "启用 {name}",
+      "editNamed": "编辑 {name}",
+      "deleteNamed": "删除 {name}",
+      "authRejected": "凭据被拒绝",
+      "authMissing": "需要凭据",
+      "signIn": "登录",
+      "signInRejectedHelp": "设备拒绝了这些凭据。请在“请求头”中重新输入；已保存的凭据显示为圆点。",
+      "signInMissingHelp": "此演出的凭据是在另一台计算机上加密的，因此本机无法使用。请在“请求头”中重新输入。",
+      "signInMany": "有 {count} 个连接需要重新输入凭据。",
+      "signInRejected": "“{name}”拒绝了其凭据。请重新登录，以便其事件继续正常工作。",
+      "signInMissing": "需要在本机上输入“{name}”的凭据。"
     },
     "zoom": "缩放",
     "zoomIn": "放大",
     "zoomOut": "缩小",
     "zoomFit": "显示整个文件",
     "scroll": "滚动时间线",
-    "navHint": "滚动以缩放 · Shift+滚动或中键拖动以平移"
+    "navHint": "滚动以缩放 · Shift+滚动或中键拖动以平移",
+    "deleted": "已删除“{name}”。",
+    "undo": "撤销",
+    "deviceTimeout": "设备未及时响应。",
+    "headers": {
+      "name": "名称",
+      "value": "值",
+      "valueFor": "{name} 的值",
+      "secret": "加密保存，显示为圆点",
+      "secretPlaceholder": "密码、令牌或密钥",
+      "remove": "移除请求头",
+      "add": "添加请求头",
+      "rawLine": "请求头行"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1411,7 +1450,7 @@
         },
         "headers": {
           "label": "请求头",
-          "help": "每行一个“名称: 值”，随每个请求发送。"
+          "help": "随每个请求发送。密码、令牌和密钥会加密保存并显示为圆点。"
         },
         "timeoutMs": {
           "label": "超时（ms）"
@@ -1426,7 +1465,7 @@
         },
         "headers": {
           "label": "请求头",
-          "help": "每行一个“名称: 值”。"
+          "help": "添加到连接的请求头中。"
         },
         "contentType": {
           "label": "正文类型"

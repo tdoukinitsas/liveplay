@@ -174,7 +174,8 @@
     "sectionAboutHelp": "Versiune, contribuitori și licență.",
     "sectionConnections": "Conexiuni",
     "stopAllUsesItemFade": "Cue-urile oprite folosesc propriul fade al butonului Stop",
-    "stopAllUsesItemFadeHelp": "Când e activ, Stop All și modul de ducking „Oprește toate celelalte” sting fiecare cue cu propriul fade al butonului Stop. Cue-urile fără unul folosesc fade-ul Stop All. Apăsarea de două ori pe Stop All oprește în continuare totul imediat."
+    "stopAllUsesItemFadeHelp": "Când e activ, Stop All și modul de ducking „Oprește toate celelalte” sting fiecare cue cu propriul fade al butonului Stop. Cue-urile fără unul folosesc fade-ul Stop All. Apăsarea de două ori pe Stop All oprește în continuare totul imediat.",
+    "thisComputer": "Acest calculator"
   },
   "common": {
     "default": "implicit",
@@ -241,7 +242,19 @@
     "followSetting": "Urmărește filele altui operator",
     "followOff": "Dezactivat",
     "followOffline": "offline",
-    "followHelp": "Această fereastră afișează aceeași filă de listă de redare și aceeași pagină cart ca operatorul ales. Dacă faceți clic pe o filă, urmărirea se oprește."
+    "followHelp": "Această fereastră afișează aceeași filă de listă de redare și aceeași pagină cart ca operatorul ales. Dacă faceți clic pe o filă, urmărirea se oprește.",
+    "followThisComputer": "Se salvează doar pe acest calculator.",
+    "followSession": "{name} (sesiunea {n})",
+    "editPage": "Editează pagina",
+    "deletePage": "Șterge pagina",
+    "limitReachedPages": "Ați atins numărul maxim de pagini.",
+    "deletePlayingPage": "Ceva se redă în această pagină. Opriți-l mai întâi.",
+    "deleteConfirmCue": "Ștergeți „{name}” și cue-ul său?",
+    "deleteConfirmCues": "Ștergeți „{name}” și cele {count} cue-uri ale sale?",
+    "deleteConfirmCart": "Ștergeți „{name}” și cartul său?",
+    "deleteConfirmCarts": "Ștergeți „{name}” și cele {count} carturi ale sale?",
+    "colourN": "Culoarea {n}",
+    "pageFull": "„{name}” este plină"
   },
   "cart": {
     "title": "Cart player",
@@ -261,7 +274,8 @@
     "conflict": "Deja atribuită slotului {slot}",
     "reserved": "Această combinație de taste este rezervată",
     "resetDefaults": "Revino la valorile implicite",
-    "groupSlot": "Grup din lista de redare: redă tot grupul din acest slot"
+    "groupSlot": "Grup din lista de redare: redă tot grupul din acest slot",
+    "choosePlaylist": "Ce listă de redare să pornească?"
   },
   "behaviors": {
     "startPlayNext": "Start: redă următorul",
@@ -786,7 +800,8 @@
     "volumeMultiplier": "Multiplicator de volum",
     "volumeMultiplierHint": "dB per pas MIDI. Măriți-l pentru encodere sau rotițe care se mișcă în pași mici.",
     "nextIn": "Următorul în {seconds} s",
-    "stopCurrentCue": "Oprește cue-ul curent"
+    "stopCurrentCue": "Oprește cue-ul curent",
+    "conflictPinned": "Deja fixată pe {cart}"
   },
   "selectProject": {
     "title": "Selectați proiectul",
@@ -1273,14 +1288,38 @@
       "presetAdd": "Adaugă presetare",
       "presetName": "Numele presetării",
       "presetDone": "Gata",
-      "presetDelete": "Șterge presetarea (evenimentele ei păstrează aceste setări)"
+      "presetDelete": "Șterge presetarea (evenimentele ei păstrează aceste setări)",
+      "enabledFor": "{name} activată",
+      "editNamed": "Editează {name}",
+      "deleteNamed": "Șterge {name}",
+      "authRejected": "Date de autentificare refuzate",
+      "authMissing": "Lipsesc datele de autentificare",
+      "signIn": "Autentificare",
+      "signInRejectedHelp": "Dispozitivul a refuzat aceste date de autentificare. Introduceți-le din nou la Antete; cele salvate apar ca puncte.",
+      "signInMissingHelp": "Datele de autentificare ale acestui spectacol au fost criptate pe alt calculator, așa că acesta nu le poate folosi. Introduceți-le din nou la Antete.",
+      "signInMany": "Pentru {count} conexiuni trebuie introduse din nou datele de autentificare.",
+      "signInRejected": "„{name}” a refuzat datele de autentificare. Autentificați-vă din nou ca evenimentele sale să funcționeze în continuare.",
+      "signInMissing": "Pentru „{name}” trebuie introduse datele de autentificare pe acest calculator."
     },
     "zoom": "Zoom",
     "zoomIn": "Mărește",
     "zoomOut": "Micșorează",
     "zoomFit": "Afișează tot fișierul",
     "scroll": "Derulează linia timpului",
-    "navHint": "Derulați pentru zoom · Shift-derulare sau tragere cu butonul din mijloc pentru deplasare"
+    "navHint": "Derulați pentru zoom · Shift-derulare sau tragere cu butonul din mijloc pentru deplasare",
+    "deleted": "„{name}” a fost șters.",
+    "undo": "Anulează",
+    "deviceTimeout": "Dispozitivul nu a răspuns la timp.",
+    "headers": {
+      "name": "Nume",
+      "value": "Valoare",
+      "valueFor": "Valoarea pentru {name}",
+      "secret": "Criptat, afișat ca puncte",
+      "secretPlaceholder": "Parolă, token sau cheie",
+      "remove": "Elimină antetul",
+      "add": "Adaugă antet",
+      "rawLine": "Linie de antet"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1411,7 +1450,7 @@
         },
         "headers": {
           "label": "Antete",
-          "help": "Câte un „Nume: valoare” pe linie, trimis cu fiecare cerere."
+          "help": "Trimise cu fiecare cerere. Parolele, tokenurile și cheile sunt păstrate criptat și afișate ca puncte."
         },
         "timeoutMs": {
           "label": "Timeout (ms)"
@@ -1426,7 +1465,7 @@
         },
         "headers": {
           "label": "Antete",
-          "help": "Câte un „Nume: valoare” pe linie."
+          "help": "Se adaugă la antetele conexiunii."
         },
         "contentType": {
           "label": "Tip corp"

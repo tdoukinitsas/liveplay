@@ -174,7 +174,8 @@
     "sectionAboutHelp": "Versión, créditos y licencia.",
     "sectionConnections": "Conexiones",
     "stopAllUsesItemFade": "Los cues detenidos usan su propio fundido del botón Stop",
-    "stopAllUsesItemFadeHelp": "Si está activo, Stop All y el modo de ducking «Detener todos los demás» desvanecen cada cue con su propio fundido del botón Stop. Los cues sin uno usan el fundido de Stop All. Pulsar Stop All dos veces sigue deteniéndolo todo al instante."
+    "stopAllUsesItemFadeHelp": "Si está activo, Stop All y el modo de ducking «Detener todos los demás» desvanecen cada cue con su propio fundido del botón Stop. Los cues sin uno usan el fundido de Stop All. Pulsar Stop All dos veces sigue deteniéndolo todo al instante.",
+    "thisComputer": "Este equipo"
   },
   "common": {
     "default": "predeterminado",
@@ -241,7 +242,19 @@
     "followSetting": "Seguir las pestañas de otro operador",
     "followOff": "Desactivado",
     "followOffline": "sin conexión",
-    "followHelp": "Esta ventana muestra la misma pestaña de lista de reproducción y la misma página de cartuchos que el operador que elija. Si hace clic en una pestaña, deja de seguirlo."
+    "followHelp": "Esta ventana muestra la misma pestaña de lista de reproducción y la misma página de cartuchos que el operador que elija. Si hace clic en una pestaña, deja de seguirlo.",
+    "followThisComputer": "Se guarda solo en este equipo.",
+    "followSession": "{name} (sesión {n})",
+    "editPage": "Editar página",
+    "deletePage": "Eliminar página",
+    "limitReachedPages": "Alcanzó el número máximo de páginas.",
+    "deletePlayingPage": "Hay algo reproduciéndose en esta página. Deténgalo primero.",
+    "deleteConfirmCue": "¿Eliminar «{name}» y su cue?",
+    "deleteConfirmCues": "¿Eliminar «{name}» y sus {count} cues?",
+    "deleteConfirmCart": "¿Eliminar «{name}» y su cartucho?",
+    "deleteConfirmCarts": "¿Eliminar «{name}» y sus {count} cartuchos?",
+    "colourN": "Color {n}",
+    "pageFull": "«{name}» está llena"
   },
   "cart": {
     "title": "Reproductor de cartuchos",
@@ -261,7 +274,8 @@
     "conflict": "Ya asignado a la ranura {slot}",
     "reserved": "Esta combinación de teclas está reservada",
     "resetDefaults": "Restablecer valores predeterminados",
-    "groupSlot": "Grupo de la lista de reproducción: reproduce el grupo entero desde esta ranura"
+    "groupSlot": "Grupo de la lista de reproducción: reproduce el grupo entero desde esta ranura",
+    "choosePlaylist": "¿Qué lista de reproducción iniciar?"
   },
   "behaviors": {
     "startPlayNext": "Inicio: reproducir siguiente",
@@ -786,7 +800,8 @@
     "volumeMultiplier": "Multiplicador de volumen",
     "volumeMultiplierHint": "dB por paso MIDI. Auméntelo para encoders o ruedas que avanzan en pasos pequeños.",
     "nextIn": "Siguiente en {seconds}s",
-    "stopCurrentCue": "Detener el cue actual"
+    "stopCurrentCue": "Detener el cue actual",
+    "conflictPinned": "Ya fijado a {cart}"
   },
   "selectProject": {
     "title": "Seleccionar proyecto",
@@ -1273,14 +1288,38 @@
       "presetAdd": "Agregar preajuste",
       "presetName": "Nombre del preajuste",
       "presetDone": "Listo",
-      "presetDelete": "Eliminar preajuste (sus eventos conservan estos ajustes)"
+      "presetDelete": "Eliminar preajuste (sus eventos conservan estos ajustes)",
+      "enabledFor": "{name} activada",
+      "editNamed": "Editar {name}",
+      "deleteNamed": "Eliminar {name}",
+      "authRejected": "Credenciales rechazadas",
+      "authMissing": "Faltan las credenciales",
+      "signIn": "Iniciar sesión",
+      "signInRejectedHelp": "El dispositivo rechazó estas credenciales. Vuelva a introducirlas en Encabezados; las guardadas se muestran como puntos.",
+      "signInMissingHelp": "Las credenciales de este espectáculo se cifraron en otra máquina, así que esta no puede usarlas. Vuelva a introducirlas en Encabezados.",
+      "signInMany": "Hay que volver a introducir las credenciales de {count} conexiones.",
+      "signInRejected": "«{name}» rechazó sus credenciales. Vuelva a iniciar sesión para que sus eventos sigan funcionando.",
+      "signInMissing": "Hay que introducir las credenciales de «{name}» en esta máquina."
     },
     "zoom": "Zoom",
     "zoomIn": "Acercar",
     "zoomOut": "Alejar",
     "zoomFit": "Mostrar todo el archivo",
     "scroll": "Desplazar la línea de tiempo",
-    "navHint": "Rueda para hacer zoom · Mayús+rueda o arrastrar con el botón central para desplazarse"
+    "navHint": "Rueda para hacer zoom · Mayús+rueda o arrastrar con el botón central para desplazarse",
+    "deleted": "Se eliminó «{name}».",
+    "undo": "Deshacer",
+    "deviceTimeout": "El dispositivo no respondió a tiempo.",
+    "headers": {
+      "name": "Nombre",
+      "value": "Valor",
+      "valueFor": "Valor de {name}",
+      "secret": "Cifrado, se muestra como puntos",
+      "secretPlaceholder": "Contraseña, token o clave",
+      "remove": "Quitar encabezado",
+      "add": "Agregar encabezado",
+      "rawLine": "Línea de encabezado"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1411,7 +1450,7 @@
         },
         "headers": {
           "label": "Encabezados",
-          "help": "Un «Nombre: valor» por línea, enviado con cada petición."
+          "help": "Se envían con cada petición. Las contraseñas, los tokens y las claves se guardan cifrados y se muestran como puntos."
         },
         "timeoutMs": {
           "label": "Tiempo de espera (ms)"
@@ -1426,7 +1465,7 @@
         },
         "headers": {
           "label": "Encabezados",
-          "help": "Un «Nombre: valor» por línea."
+          "help": "Se agregan a los encabezados de la conexión."
         },
         "contentType": {
           "label": "Tipo de cuerpo"

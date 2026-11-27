@@ -174,7 +174,8 @@
     "sectionAboutHelp": "バージョン、クレジット、ライセンスです。",
     "sectionConnections": "接続",
     "stopAllUsesItemFade": "停止するキューはそれぞれのストップボタン・フェードを使う",
-    "stopAllUsesItemFadeHelp": "オンにすると、Stop All と「他のすべてを停止」ダッキングモードで、各キューがそれぞれのストップボタン・フェードでフェードアウトします。フェードのないキューは Stop All のフェードを使います。Stop All を2回押すと、従来どおりすべて即座に停止します。"
+    "stopAllUsesItemFadeHelp": "オンにすると、Stop All と「他のすべてを停止」ダッキングモードで、各キューがそれぞれのストップボタン・フェードでフェードアウトします。フェードのないキューは Stop All のフェードを使います。Stop All を2回押すと、従来どおりすべて即座に停止します。",
+    "thisComputer": "このコンピューター"
   },
   "common": {
     "default": "既定",
@@ -241,7 +242,19 @@
     "followSetting": "別のオペレーターのタブを追従",
     "followOff": "オフ",
     "followOffline": "オフライン",
-    "followHelp": "このウィンドウに、選択したオペレーターと同じプレイリストタブとカートページを表示します。自分でタブをクリックすると追従を停止します。"
+    "followHelp": "このウィンドウに、選択したオペレーターと同じプレイリストタブとカートページを表示します。自分でタブをクリックすると追従を停止します。",
+    "followThisComputer": "このコンピューターにのみ保存されます。",
+    "followSession": "{name}（セッション {n}）",
+    "editPage": "ページを編集",
+    "deletePage": "ページを削除",
+    "limitReachedPages": "ページ数が上限に達しました。",
+    "deletePlayingPage": "このページで再生中のものがあります。先に停止してください。",
+    "deleteConfirmCue": "「{name}」とそのキューを削除しますか？",
+    "deleteConfirmCues": "「{name}」とその {count} 件のキューを削除しますか？",
+    "deleteConfirmCart": "「{name}」とそのカートを削除しますか？",
+    "deleteConfirmCarts": "「{name}」とその {count} 個のカートを削除しますか？",
+    "colourN": "カラー {n}",
+    "pageFull": "「{name}」はいっぱいです"
   },
   "cart": {
     "title": "カートプレーヤー",
@@ -261,7 +274,8 @@
     "conflict": "スロット {slot} に割り当て済みです",
     "reserved": "このキーの組み合わせは予約されています",
     "resetDefaults": "既定値に戻す",
-    "groupSlot": "プレイリストのグループ：このスロットからグループ全体を再生します"
+    "groupSlot": "プレイリストのグループ：このスロットからグループ全体を再生します",
+    "choosePlaylist": "どのプレイリストを開始しますか？"
   },
   "behaviors": {
     "startPlayNext": "開始：次を再生",
@@ -786,7 +800,8 @@
     "volumeMultiplier": "音量倍率",
     "volumeMultiplierHint": "MIDI の 1 ステップあたりの dB 値です。細かいステップで動くエンコーダーやホイールでは値を上げてください。",
     "nextIn": "次まで {seconds} 秒",
-    "stopCurrentCue": "現在のキューを停止"
+    "stopCurrentCue": "現在のキューを停止",
+    "conflictPinned": "{cart} に固定済み"
   },
   "selectProject": {
     "title": "プロジェクトを選択",
@@ -1273,14 +1288,38 @@
       "presetAdd": "プリセットを追加",
       "presetName": "プリセット名",
       "presetDone": "完了",
-      "presetDelete": "プリセットを削除（イベントにはこの設定が残ります）"
+      "presetDelete": "プリセットを削除（イベントにはこの設定が残ります）",
+      "enabledFor": "{name} を有効にする",
+      "editNamed": "{name} を編集",
+      "deleteNamed": "{name} を削除",
+      "authRejected": "認証情報が拒否されました",
+      "authMissing": "認証情報が必要です",
+      "signIn": "サインイン",
+      "signInRejectedHelp": "デバイスがこの認証情報を拒否しました。「ヘッダー」で入力し直してください。保存済みのものは点で表示されます。",
+      "signInMissingHelp": "このショーの認証情報は別のマシンで暗号化されたため、このマシンでは使用できません。「ヘッダー」で入力し直してください。",
+      "signInMany": "{count} 件の接続で認証情報の再入力が必要です。",
+      "signInRejected": "「{name}」が認証情報を拒否しました。イベントが引き続き動作するよう、もう一度サインインしてください。",
+      "signInMissing": "「{name}」の認証情報をこのマシンで入力する必要があります。"
     },
     "zoom": "ズーム",
     "zoomIn": "ズームイン",
     "zoomOut": "ズームアウト",
     "zoomFit": "ファイル全体を表示",
     "scroll": "タイムラインをスクロール",
-    "navHint": "スクロールでズーム · Shift+スクロールまたは中ボタンのドラッグで左右に移動"
+    "navHint": "スクロールでズーム · Shift+スクロールまたは中ボタンのドラッグで左右に移動",
+    "deleted": "「{name}」を削除しました。",
+    "undo": "元に戻す",
+    "deviceTimeout": "デバイスが時間内に応答しませんでした。",
+    "headers": {
+      "name": "名前",
+      "value": "値",
+      "valueFor": "{name} の値",
+      "secret": "暗号化して保存、点で表示",
+      "secretPlaceholder": "パスワード、トークン、またはキー",
+      "remove": "ヘッダーを削除",
+      "add": "ヘッダーを追加",
+      "rawLine": "ヘッダー行"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1411,7 +1450,7 @@
         },
         "headers": {
           "label": "ヘッダー",
-          "help": "1 行に 1 つずつ「名前: 値」の形式で入力します。すべてのリクエストで送信されます。"
+          "help": "すべてのリクエストで送信されます。パスワード、トークン、キーは暗号化して保存され、点で表示されます。"
         },
         "timeoutMs": {
           "label": "タイムアウト（ms）"
@@ -1426,7 +1465,7 @@
         },
         "headers": {
           "label": "ヘッダー",
-          "help": "1 行に 1 つずつ「名前: 値」の形式で入力します。"
+          "help": "接続のヘッダーに追加されます。"
         },
         "contentType": {
           "label": "ボディの種類"

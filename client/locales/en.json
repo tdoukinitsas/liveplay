@@ -800,7 +800,8 @@
     "playNext": "Play Next",
     "volumeMultiplier": "Volume Multiplier",
     "volumeMultiplierHint": "dB per MIDI step. Raise it for encoders or wheels that move in small steps.",
-    "nextIn": "Next in {seconds}s"
+    "nextIn": "Next in {seconds}s",
+    "conflictPinned": "Already pinned to {cart}"
   },
   "selectProject": {
     "title": "Select Project",
@@ -1289,14 +1290,36 @@
       "presetAdd": "Add preset",
       "presetName": "Preset name",
       "presetDone": "Done",
-      "presetDelete": "Delete preset (its events keep these settings)"
+      "presetDelete": "Delete preset (its events keep these settings)",
+      "enabledFor": "{name} enabled",
+      "editNamed": "Edit {name}",
+      "deleteNamed": "Delete {name}",
+      "authRejected": "Credentials refused",
+      "authMissing": "Needs its credentials",
+      "signIn": "Sign in",
+      "signInRejectedHelp": "The device refused these credentials. Enter them again under Headers; the saved ones show as dots.",
+      "signInMissingHelp": "This show's credentials were sealed on another machine, so this one can't use them. Enter them again under Headers.",
+      "signInMany": "{count} connections need their credentials entered again.",
+      "signInRejected": "\"{name}\" refused its credentials. Sign in again to keep its events working.",
+      "signInMissing": "\"{name}\" needs its credentials entered on this machine."
     },
     "zoom": "Zoom",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "zoomFit": "Show the whole file",
     "scroll": "Scroll the timeline",
-    "navHint": "Scroll to zoom · Shift+scroll or middle-drag to pan"
+    "navHint": "Scroll to zoom · Shift+scroll or middle-drag to pan",
+    "deviceTimeout": "The device did not answer in time.",
+    "headers": {
+      "name": "Name",
+      "value": "Value",
+      "valueFor": "Value of {name}",
+      "secret": "Kept sealed, shown as dots",
+      "secretPlaceholder": "Password, token or key",
+      "remove": "Remove header",
+      "add": "Add header",
+      "rawLine": "Header line"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1427,7 +1450,7 @@
         },
         "headers": {
           "label": "Headers",
-          "help": "One \"Name: value\" per line, sent with every request."
+          "help": "Sent with every request. Passwords, tokens and keys are kept sealed and shown as dots."
         },
         "timeoutMs": {
           "label": "Timeout (ms)"
@@ -1442,7 +1465,7 @@
         },
         "headers": {
           "label": "Headers",
-          "help": "One \"Name: value\" per line."
+          "help": "Added to the connection's headers."
         },
         "contentType": {
           "label": "Body type"

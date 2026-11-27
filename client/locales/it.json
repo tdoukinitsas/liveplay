@@ -174,7 +174,8 @@
     "sectionAboutHelp": "Versione, riconoscimenti e licenza.",
     "sectionConnections": "Connessioni",
     "stopAllUsesItemFade": "I cue fermati usano la propria dissolvenza del pulsante Stop",
-    "stopAllUsesItemFadeHelp": "Se attivo, Stop All e la modalità di ducking «Ferma tutti gli altri» sfumano ogni cue con la propria dissolvenza del pulsante Stop. I cue senza usano quella di Stop All. Premere Stop All due volte ferma comunque tutto all'istante."
+    "stopAllUsesItemFadeHelp": "Se attivo, Stop All e la modalità di ducking «Ferma tutti gli altri» sfumano ogni cue con la propria dissolvenza del pulsante Stop. I cue senza usano quella di Stop All. Premere Stop All due volte ferma comunque tutto all'istante.",
+    "thisComputer": "Questo computer"
   },
   "common": {
     "default": "predefinito",
@@ -241,7 +242,19 @@
     "followSetting": "Segui le schede di un altro operatore",
     "followOff": "Disattivo",
     "followOffline": "offline",
-    "followHelp": "Questa finestra mostra la stessa scheda playlist e la stessa pagina di cartucce dell’operatore che scegli. Se fai clic su una scheda, smetti di seguirlo."
+    "followHelp": "Questa finestra mostra la stessa scheda playlist e la stessa pagina di cartucce dell’operatore che scegli. Se fai clic su una scheda, smetti di seguirlo.",
+    "followThisComputer": "Salvato solo su questo computer.",
+    "followSession": "{name} (sessione {n})",
+    "editPage": "Modifica pagina",
+    "deletePage": "Elimina pagina",
+    "limitReachedPages": "Hai raggiunto il numero massimo di pagine.",
+    "deletePlayingPage": "In questa pagina c’è qualcosa in riproduzione. Fermalo prima.",
+    "deleteConfirmCue": "Eliminare «{name}» e il suo cue?",
+    "deleteConfirmCues": "Eliminare «{name}» e i suoi {count} cue?",
+    "deleteConfirmCart": "Eliminare «{name}» e la sua cartuccia?",
+    "deleteConfirmCarts": "Eliminare «{name}» e le sue {count} cartucce?",
+    "colourN": "Colore {n}",
+    "pageFull": "«{name}» è piena"
   },
   "cart": {
     "title": "Lettore cartucce",
@@ -261,7 +274,8 @@
     "conflict": "Già assegnato allo slot {slot}",
     "reserved": "Questa combinazione di tasti è riservata",
     "resetDefaults": "Ripristina predefiniti",
-    "groupSlot": "Gruppo della playlist: riproduce l’intero gruppo da questo slot"
+    "groupSlot": "Gruppo della playlist: riproduce l’intero gruppo da questo slot",
+    "choosePlaylist": "Quale playlist avviare?"
   },
   "behaviors": {
     "startPlayNext": "Inizio: riproduci successivo",
@@ -786,7 +800,8 @@
     "volumeMultiplier": "Moltiplicatore volume",
     "volumeMultiplierHint": "dB per passo MIDI. Aumentalo per encoder o rotelle che si muovono a piccoli passi.",
     "nextIn": "Successivo tra {seconds}s",
-    "stopCurrentCue": "Ferma il cue corrente"
+    "stopCurrentCue": "Ferma il cue corrente",
+    "conflictPinned": "Già fissato a {cart}"
   },
   "selectProject": {
     "title": "Seleziona progetto",
@@ -1273,14 +1288,38 @@
       "presetAdd": "Aggiungi preset",
       "presetName": "Nome del preset",
       "presetDone": "Fatto",
-      "presetDelete": "Elimina preset (i suoi eventi mantengono queste impostazioni)"
+      "presetDelete": "Elimina preset (i suoi eventi mantengono queste impostazioni)",
+      "enabledFor": "{name} attiva",
+      "editNamed": "Modifica {name}",
+      "deleteNamed": "Elimina {name}",
+      "authRejected": "Credenziali rifiutate",
+      "authMissing": "Credenziali mancanti",
+      "signIn": "Accedi",
+      "signInRejectedHelp": "Il dispositivo ha rifiutato queste credenziali. Reinseriscile in Header; quelle salvate appaiono come puntini.",
+      "signInMissingHelp": "Le credenziali di questo spettacolo sono state cifrate su un’altra macchina, quindi questa non può usarle. Reinseriscile in Header.",
+      "signInMany": "{count} connessioni richiedono di reinserire le credenziali.",
+      "signInRejected": "«{name}» ha rifiutato le sue credenziali. Accedi di nuovo perché i suoi eventi continuino a funzionare.",
+      "signInMissing": "Per «{name}» bisogna inserire le credenziali su questa macchina."
     },
     "zoom": "Zoom",
     "zoomIn": "Zoom avanti",
     "zoomOut": "Zoom indietro",
     "zoomFit": "Mostra l’intero file",
     "scroll": "Scorri la timeline",
-    "navHint": "Scorri per lo zoom · Maiusc+scorri o trascina con il tasto centrale per spostarti"
+    "navHint": "Scorri per lo zoom · Maiusc+scorri o trascina con il tasto centrale per spostarti",
+    "deleted": "«{name}» eliminato.",
+    "undo": "Annulla",
+    "deviceTimeout": "Il dispositivo non ha risposto in tempo.",
+    "headers": {
+      "name": "Nome",
+      "value": "Valore",
+      "valueFor": "Valore di {name}",
+      "secret": "Cifrato, mostrato come puntini",
+      "secretPlaceholder": "Password, token o chiave",
+      "remove": "Rimuovi header",
+      "add": "Aggiungi header",
+      "rawLine": "Riga di header"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1411,7 +1450,7 @@
         },
         "headers": {
           "label": "Header",
-          "help": "Un «Nome: valore» per riga, inviato con ogni richiesta."
+          "help": "Inviati con ogni richiesta. Password, token e chiavi vengono cifrati e mostrati come puntini."
         },
         "timeoutMs": {
           "label": "Timeout (ms)"
@@ -1426,7 +1465,7 @@
         },
         "headers": {
           "label": "Header",
-          "help": "Un «Nome: valore» per riga."
+          "help": "Aggiunti agli header della connessione."
         },
         "contentType": {
           "label": "Tipo di body"

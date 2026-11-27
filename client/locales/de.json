@@ -174,7 +174,8 @@
     "sectionAboutHelp": "Version, Mitwirkende und Lizenz.",
     "sectionConnections": "Verbindungen",
     "stopAllUsesItemFade": "Gestoppte Cues nutzen ihre eigene Stopp-Button-Blende",
-    "stopAllUsesItemFadeHelp": "Wenn aktiv, blenden Stop All und der Ducking-Modus „Alle anderen stoppen“ jeden Cue über seine eigene Stopp-Button-Blende aus. Cues ohne eine nutzen die Stop-All-Blende. Zweimal Stop All stoppt weiterhin alles sofort."
+    "stopAllUsesItemFadeHelp": "Wenn aktiv, blenden Stop All und der Ducking-Modus „Alle anderen stoppen“ jeden Cue über seine eigene Stopp-Button-Blende aus. Cues ohne eine nutzen die Stop-All-Blende. Zweimal Stop All stoppt weiterhin alles sofort.",
+    "thisComputer": "Dieser Computer"
   },
   "common": {
     "default": "Standard",
@@ -241,7 +242,19 @@
     "followSetting": "Den Tabs eines anderen Operators folgen",
     "followOff": "Aus",
     "followOffline": "offline",
-    "followHelp": "Dieses Fenster zeigt denselben Playlist-Tab und dieselbe Cart-Seite wie der gewählte Operator. Wenn Sie selbst auf einen Tab klicken, endet das Folgen."
+    "followHelp": "Dieses Fenster zeigt denselben Playlist-Tab und dieselbe Cart-Seite wie der gewählte Operator. Wenn Sie selbst auf einen Tab klicken, endet das Folgen.",
+    "followThisComputer": "Nur auf diesem Computer gespeichert.",
+    "followSession": "{name} (Sitzung {n})",
+    "editPage": "Seite bearbeiten",
+    "deletePage": "Seite löschen",
+    "limitReachedPages": "Die maximale Anzahl an Seiten ist erreicht.",
+    "deletePlayingPage": "Auf dieser Seite läuft gerade etwas. Bitte zuerst stoppen.",
+    "deleteConfirmCue": "„{name}“ und den Cue darauf löschen?",
+    "deleteConfirmCues": "„{name}“ und die {count} Cues darauf löschen?",
+    "deleteConfirmCart": "„{name}“ und das Cart darauf löschen?",
+    "deleteConfirmCarts": "„{name}“ und die {count} Carts darauf löschen?",
+    "colourN": "Farbe {n}",
+    "pageFull": "„{name}“ ist voll"
   },
   "cart": {
     "title": "Cart-Player",
@@ -261,7 +274,8 @@
     "conflict": "Bereits Slot {slot} zugewiesen",
     "reserved": "Diese Tastenkombination ist reserviert",
     "resetDefaults": "Auf Standardwerte zurücksetzen",
-    "groupSlot": "Playlist-Gruppe: spielt die ganze Gruppe von diesem Slot ab"
+    "groupSlot": "Playlist-Gruppe: spielt die ganze Gruppe von diesem Slot ab",
+    "choosePlaylist": "Welche Playlist starten?"
   },
   "behaviors": {
     "startPlayNext": "Start: Nächstes abspielen",
@@ -786,7 +800,8 @@
     "volumeMultiplier": "Lautstärke-Multiplikator",
     "volumeMultiplierHint": "dB pro MIDI-Schritt. Für Encoder oder Räder, die in kleinen Schritten arbeiten, erhöhen.",
     "nextIn": "Nächster in {seconds}s",
-    "stopCurrentCue": "Aktuellen Cue stoppen"
+    "stopCurrentCue": "Aktuellen Cue stoppen",
+    "conflictPinned": "Bereits fest {cart} zugewiesen"
   },
   "selectProject": {
     "title": "Projekt auswählen",
@@ -1273,14 +1288,38 @@
       "presetAdd": "Preset hinzufügen",
       "presetName": "Preset-Name",
       "presetDone": "Fertig",
-      "presetDelete": "Preset löschen (seine Ereignisse behalten diese Einstellungen)"
+      "presetDelete": "Preset löschen (seine Ereignisse behalten diese Einstellungen)",
+      "enabledFor": "{name} aktiviert",
+      "editNamed": "{name} bearbeiten",
+      "deleteNamed": "{name} löschen",
+      "authRejected": "Zugangsdaten abgelehnt",
+      "authMissing": "Zugangsdaten fehlen",
+      "signIn": "Anmelden",
+      "signInRejectedHelp": "Das Gerät hat diese Zugangsdaten abgelehnt. Geben Sie sie unter „Header“ erneut ein; die gespeicherten werden als Punkte angezeigt.",
+      "signInMissingHelp": "Die Zugangsdaten dieser Show wurden auf einem anderen Rechner verschlüsselt, daher kann dieser Rechner sie nicht verwenden. Geben Sie sie unter „Header“ erneut ein.",
+      "signInMany": "Bei {count} Verbindungen müssen die Zugangsdaten erneut eingegeben werden.",
+      "signInRejected": "„{name}“ hat die Zugangsdaten abgelehnt. Melden Sie sich erneut an, damit die zugehörigen Ereignisse weiter funktionieren.",
+      "signInMissing": "Für „{name}“ müssen die Zugangsdaten auf diesem Rechner eingegeben werden."
     },
     "zoom": "Zoom",
     "zoomIn": "Hineinzoomen",
     "zoomOut": "Herauszoomen",
     "zoomFit": "Ganze Datei anzeigen",
     "scroll": "Zeitleiste scrollen",
-    "navHint": "Scrollen zum Zoomen · Umschalt+Scrollen oder mit mittlerer Maustaste ziehen zum Verschieben"
+    "navHint": "Scrollen zum Zoomen · Umschalt+Scrollen oder mit mittlerer Maustaste ziehen zum Verschieben",
+    "deleted": "„{name}“ gelöscht.",
+    "undo": "Rückgängig",
+    "deviceTimeout": "Das Gerät hat nicht rechtzeitig geantwortet.",
+    "headers": {
+      "name": "Name",
+      "value": "Wert",
+      "valueFor": "Wert von {name}",
+      "secret": "Verschlüsselt gespeichert, als Punkte angezeigt",
+      "secretPlaceholder": "Passwort, Token oder Schlüssel",
+      "remove": "Header entfernen",
+      "add": "Header hinzufügen",
+      "rawLine": "Header-Zeile"
+    }
   },
   "eventPlugins": {
     "osc": {
@@ -1411,7 +1450,7 @@
         },
         "headers": {
           "label": "Header",
-          "help": "Ein „Name: Wert“ pro Zeile, wird mit jeder Anfrage gesendet."
+          "help": "Wird mit jeder Anfrage gesendet. Passwörter, Token und Schlüssel werden verschlüsselt gespeichert und als Punkte angezeigt."
         },
         "timeoutMs": {
           "label": "Timeout (ms)"
@@ -1426,7 +1465,7 @@
         },
         "headers": {
           "label": "Header",
-          "help": "Ein „Name: Wert“ pro Zeile."
+          "help": "Wird zu den Headern der Verbindung hinzugefügt."
         },
         "contentType": {
           "label": "Body-Typ"
