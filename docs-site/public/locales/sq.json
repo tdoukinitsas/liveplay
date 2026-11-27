@@ -487,15 +487,15 @@
         },
         "duckTimes": {
           "title": "Ducking me ritmin tuaj",
-          "text": "Caktoni sa shpejt ulet muzika dhe sa butë kthehet, cue pas cue-je."
+          "text": "Caktoni sa shpejt ulet muzika dhe sa butë kthehet, cue pas cue-je. Shfaqjet nga versionet e mëparshme e ruajnë ducking-un e shpejtë që kanë pasur gjithmonë."
         },
         "stopFades": {
           "title": "Ndalo të gjitha, si ju doni",
           "text": "Lëreni Ndalo të gjitha ta zbehë çdo cue me fade-out-in e vet të ndalimit në vend të një kohe fikse."
         },
         "stopKey": {
-          "title": "Tast për Ndalo cue-n aktual",
-          "text": "Caktoni një tast që ndalon vetëm cue-në aktuale dhe i lë të gjitha të tjerat të luajnë."
+          "title": "Ndalo cue-n aktual",
+          "text": "Ndalni vetëm cue-në që nisët të fundit, nga një tast, një notë MIDI ose Companion, dhe lërini të gjitha të tjerat të luajnë."
         },
         "openFile": {
           "title": "Hapni shfaqje nga skedarët tuaj",
@@ -504,9 +504,17 @@
         "waveformPan": {
           "title": "Lëvizni me butonin e mesit",
           "text": "Tërhiqni me butonin e mesit të miut për të lëvizur në një formë vale të zmadhuar."
+        },
+        "sealed": {
+          "title": "Fjalëkalimet mbeten të enkriptuara",
+          "text": "Fjalëkalimet dhe çelësat në lidhjet tuaja shfaqen si pika dhe ruhen të enkriptuar, që t'i lexojë vetëm makina e serverit. Hapeni shfaqjen diku tjetër dhe LivePlay ju kërkon të hyni sërish."
+        },
+        "compat": {
+          "title": "Hapja e shfaqjeve më të vjetra",
+          "text": "Shfaqjet nga 2.5 hapen të pandryshuara. Pasi një shfaqje ruhet në 2.6, mbajeni në 2.6 ose më të re: LivePlay 2.5 do t'i humbiste skedat, faqet e cart-it dhe lidhjet."
         }
       },
-      "fixes": "ngjarje dhe lidhje më të besueshme, luajtje që nuk ngec më te mediat që mungojnë, importe që nuk mbishkruajnë kurrë skedarin e një cue-je tjetër, ndërtime të korrigjuara për macOS (tani macOS 13.3 ose më i ri), një dritare që përshtatet pranë aplikacioneve të tjera dhe ngjyra theksi më të qarta."
+      "fixes": "ngjarje dhe lidhje më të besueshme, luajtje që nuk ngec më te mediat që mungojnë, importe që nuk mbishkruajnë kurrë skedarin e një cue-je tjetër, shkurtore tastiere që nuk ndërhyjnë më në dritaret kërcyese dhe redaktuesit, taste cart-i që Companion i aktivizon saktë në çdo faqe, ndërtime të korrigjuara për macOS (tani macOS 13.3 ose më i ri), një dritare që përshtatet pranë aplikacioneve të tjera dhe ngjyra theksi më të qarta."
     },
     "v25": {
       "title": "Një mikser i vërtetë për shfaqjen tuaj.",

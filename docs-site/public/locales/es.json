@@ -487,15 +487,15 @@
         },
         "duckTimes": {
           "title": "Ducking a su ritmo",
-          "text": "Defina, cue por cue, con qué rapidez baja la música y con qué suavidad vuelve."
+          "text": "Defina, cue por cue, con qué rapidez baja la música y con qué suavidad vuelve. Los espectáculos de versiones anteriores conservan el ducking rápido de siempre."
         },
         "stopFades": {
           "title": "Detener todo, a su manera",
           "text": "Haga que «Detener todo» apague cada cue con su propio fundido del botón Detener en lugar de un tiempo fijo."
         },
         "stopKey": {
-          "title": "Tecla Detener el cue actual",
-          "text": "Asigne una tecla que detenga solo el cue actual y deje sonar todo lo demás."
+          "title": "Detener el cue actual",
+          "text": "Detenga solo el último cue que disparó, con una tecla, una nota MIDI o Companion, y deje sonar todo lo demás."
         },
         "openFile": {
           "title": "Abra espectáculos desde sus archivos",
@@ -504,9 +504,17 @@
         "waveformPan": {
           "title": "Desplazamiento con el botón central",
           "text": "Arrastre con el botón central para moverse por una forma de onda ampliada."
+        },
+        "sealed": {
+          "title": "Contraseñas siempre cifradas",
+          "text": "Las contraseñas y claves de sus conexiones se muestran como puntos y se guardan cifradas para que solo el equipo del servidor pueda leerlas. Si abre el espectáculo en otro lugar, LivePlay le pedirá que vuelva a iniciar sesión."
+        },
+        "compat": {
+          "title": "Abrir espectáculos anteriores",
+          "text": "Los espectáculos de 2.5 se abren sin cambios. Una vez guardado un espectáculo en 2.6, manténgalo en 2.6 o posterior: LivePlay 2.5 perdería sus pestañas, páginas de cartuchos y conexiones."
         }
       },
-      "fixes": "eventos y conexiones más fiables, reproducción que ya no se detiene por medios faltantes, importaciones que nunca sobrescriben el archivo de otro cue, compilaciones de macOS corregidas (ahora macOS 13.3 o posterior), una ventana que cabe junto a otras aplicaciones y colores de acento más claros."
+      "fixes": "eventos y conexiones más fiables, reproducción que ya no se detiene por medios faltantes, importaciones que nunca sobrescriben el archivo de otro cue, atajos de teclado que no interfieren en ventanas emergentes ni editores, botones de cartucho que Companion dispara correctamente en todas las páginas, compilaciones de macOS corregidas (ahora macOS 13.3 o posterior), una ventana que cabe junto a otras aplicaciones y colores de acento más claros."
     },
     "v25": {
       "title": "Un mezclador de verdad para su espectáculo.",

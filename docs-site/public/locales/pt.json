@@ -487,15 +487,15 @@
         },
         "duckTimes": {
           "title": "Ducking ao seu ritmo",
-          "text": "Defina, em cada deixa, a rapidez com que a música baixa e a suavidade com que regressa."
+          "text": "Defina, em cada deixa, a rapidez com que a música baixa e a suavidade com que regressa. Os espetáculos de versões anteriores mantêm o ducking rápido de sempre."
         },
         "stopFades": {
           "title": "Parar tudo, à sua maneira",
           "text": "Faça com que Parar tudo aplique a cada deixa o seu próprio fade de saída em vez de um tempo fixo."
         },
         "stopKey": {
-          "title": "Tecla Parar cue atual",
-          "text": "Atribua uma tecla que para apenas a deixa atual e mantém tudo o resto a tocar."
+          "title": "Parar cue atual",
+          "text": "Pare apenas a última deixa que disparou, com uma tecla, uma nota MIDI ou o Companion, e mantenha tudo o resto a tocar."
         },
         "openFile": {
           "title": "Abra espetáculos dos seus ficheiros",
@@ -504,9 +504,17 @@
         "waveformPan": {
           "title": "Deslocar com o botão do meio",
           "text": "Arraste com o botão do meio do rato para se mover numa forma de onda ampliada."
+        },
+        "sealed": {
+          "title": "Palavras-passe sempre cifradas",
+          "text": "As palavras-passe e chaves das suas ligações aparecem como pontos e são guardadas cifradas, de modo que só a máquina do servidor as consegue ler. Abra o espetáculo noutro sítio e o LivePlay pede-lhe que inicie sessão novamente."
+        },
+        "compat": {
+          "title": "Abrir espetáculos mais antigos",
+          "text": "Os espetáculos da versão 2.5 abrem sem alterações. Depois de guardar um espetáculo na 2.6, mantenha-o na 2.6 ou posterior: o LivePlay 2.5 perderia os seus separadores, páginas de cartuchos e ligações."
         }
       },
-      "fixes": "eventos e ligações mais fiáveis, reprodução que já não bloqueia com ficheiros em falta, importações que nunca substituem o ficheiro de outra deixa, versões para macOS corrigidas (agora macOS 13.3 ou posterior), uma janela que cabe ao lado de outras aplicações e cores de destaque mais nítidas."
+      "fixes": "eventos e ligações mais fiáveis, reprodução que já não bloqueia com ficheiros em falta, importações que nunca substituem o ficheiro de outra deixa, atalhos de teclado que não interferem com janelas pop-up e editores, botões de cartucho que o Companion dispara corretamente em todas as páginas, versões para macOS corrigidas (agora macOS 13.3 ou posterior), uma janela que cabe ao lado de outras aplicações e cores de destaque mais nítidas."
     },
     "v25": {
       "title": "Um misturador a sério.",

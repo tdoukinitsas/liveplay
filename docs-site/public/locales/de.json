@@ -487,15 +487,15 @@
         },
         "duckTimes": {
           "title": "Ducking in Ihrem Tempo",
-          "text": "Legen Sie für jeden Cue fest, wie schnell die Musik absinkt und wie sanft sie zurückkommt."
+          "text": "Legen Sie für jeden Cue fest, wie schnell die Musik absinkt und wie sanft sie zurückkommt. Shows aus früheren Versionen behalten ihr gewohnt schnelles Ducking."
         },
         "stopFades": {
           "title": "„Alle stoppen“ nach Ihren Regeln",
           "text": "Lassen Sie „Alle stoppen“ jeden Cue mit seiner eigenen Ausblendung per Stopp-Taste ausblenden statt mit einer festen Zeit."
         },
         "stopKey": {
-          "title": "Taste für „Aktuellen Cue stoppen“",
-          "text": "Belegen Sie eine Taste, die nur den aktuellen Cue stoppt und alles andere weiterspielen lässt."
+          "title": "Aktuellen Cue stoppen",
+          "text": "Stoppen Sie nur den zuletzt gestarteten Cue, per Taste, MIDI-Note oder Companion, und lassen Sie alles andere weiterlaufen."
         },
         "openFile": {
           "title": "Shows aus Ihren Dateien öffnen",
@@ -504,9 +504,17 @@
         "waveformPan": {
           "title": "Schwenken mit der mittleren Maustaste",
           "text": "Ziehen Sie mit der mittleren Maustaste durch eine gezoomte Wellenform."
+        },
+        "sealed": {
+          "title": "Passwörter bleiben verschlüsselt",
+          "text": "Passwörter und Schlüssel in Ihren Verbindungen erscheinen als Punkte und werden so verschlüsselt gespeichert, dass nur der Server-Rechner sie lesen kann. Öffnen Sie die Show anderswo, bittet LivePlay Sie, sich erneut anzumelden."
+        },
+        "compat": {
+          "title": "Ältere Shows öffnen",
+          "text": "Shows aus 2.5 öffnen sich unverändert. Sobald eine Show in 2.6 gespeichert ist, bleiben Sie bei 2.6 oder neuer: LivePlay 2.5 würde ihre Tabs, Cart-Seiten und Verbindungen verwerfen."
         }
       },
-      "fixes": "zuverlässigere Ereignisse und Verbindungen, Wiedergabe, die bei fehlenden Medien nicht mehr hängen bleibt, Importe, die nie die Datei eines anderen Cues überschreiben, korrigierte macOS-Builds (jetzt macOS 13.3 oder neuer), ein Fenster, das neben andere Apps passt, und klarere Akzentfarben."
+      "fixes": "zuverlässigere Ereignisse und Verbindungen, Wiedergabe, die bei fehlenden Medien nicht mehr hängen bleibt, Importe, die nie die Datei eines anderen Cues überschreiben, Tastenkürzel, die sich aus Popovers und Editoren heraushalten, Cart-Tasten, die Companion auf jeder Seite richtig auslöst, korrigierte macOS-Builds (jetzt macOS 13.3 oder neuer), ein Fenster, das neben andere Apps passt, und klarere Akzentfarben."
     },
     "v25": {
       "title": "Ein echter Mixer für Ihre Show.",

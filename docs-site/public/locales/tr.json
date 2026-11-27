@@ -487,15 +487,15 @@
         },
         "duckTimes": {
           "title": "Kendi hızınızda kısma",
-          "text": "Müziğin ne kadar hızlı kısılacağını ve ne kadar yumuşak geri geleceğini cue bazında ayarlayın."
+          "text": "Müziğin ne kadar hızlı kısılacağını ve ne kadar yumuşak geri geleceğini cue bazında ayarlayın. Önceki sürümlerden gelen gösteriler her zamanki hızlı kısmalarını korur."
         },
         "stopFades": {
           "title": "Tümünü durdur, size göre",
           "text": "Tümünü durdur, tek sabit süre yerine her cue'yu kendi durdurma fade-out süresiyle kapatsın."
         },
         "stopKey": {
-          "title": "Geçerli cue'yu durdur tuşu",
-          "text": "Yalnızca geçerli cue'yu durduran, diğer her şeyi çalmaya devam ettiren bir tuş atayın."
+          "title": "Geçerli cue'yu durdur",
+          "text": "Bir tuş, bir MIDI notası ya da Companion ile yalnızca en son başlattığınız cue'yu durdurun; diğer her şey çalmaya devam etsin."
         },
         "openFile": {
           "title": "Gösterileri dosyalarınızdan açın",
@@ -504,9 +504,17 @@
         "waveformPan": {
           "title": "Orta tuşla kaydırın",
           "text": "Yakınlaştırılmış dalga formunda gezinmek için orta fare tuşuyla sürükleyin."
+        },
+        "sealed": {
+          "title": "Parolalar şifreli kalır",
+          "text": "Bağlantılarınızdaki parolalar ve anahtarlar nokta olarak görünür ve yalnızca sunucu makinesinin okuyabileceği şekilde şifreli saklanır. Gösteriyi başka bir yerde açtığınızda LivePlay yeniden oturum açmanızı ister."
+        },
+        "compat": {
+          "title": "Eski gösterileri açma",
+          "text": "2.5 gösterileri değişmeden açılır. Bir gösteri 2.6'da kaydedildikten sonra onu 2.6 veya üzerinde kullanın: LivePlay 2.5 sekmelerini, kartuş sayfalarını ve bağlantılarını kaybeder."
         }
       },
-      "fixes": "daha güvenilir olaylar ve bağlantılar, eksik medyada artık takılmayan oynatma, başka bir cue'nun dosyasının üzerine asla yazmayan içe aktarmalar, düzeltilmiş macOS derlemeleri (artık macOS 13.3 veya üzeri), diğer uygulamaların yanına sığan bir pencere ve daha net vurgu renkleri."
+      "fixes": "daha güvenilir olaylar ve bağlantılar, eksik medyada artık takılmayan oynatma, başka bir cue'nun dosyasının üzerine asla yazmayan içe aktarmalar, açılır pencerelere ve düzenleyicilere karışmayan klavye kısayolları, Companion'ın her sayfada doğru tetiklediği kartuş tuşları, düzeltilmiş macOS derlemeleri (artık macOS 13.3 veya üzeri), diğer uygulamaların yanına sığan bir pencere ve daha net vurgu renkleri."
     },
     "v25": {
       "title": "Gösteriniz için gerçek bir mikser.",

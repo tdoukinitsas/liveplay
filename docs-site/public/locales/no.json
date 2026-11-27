@@ -487,15 +487,15 @@
         },
         "duckTimes": {
           "title": "Ducking i ditt tempo",
-          "text": "Velg hvor raskt musikken senkes og hvor mykt den kommer tilbake, cue for cue."
+          "text": "Velg hvor raskt musikken senkes og hvor mykt den kommer tilbake, cue for cue. Show fra tidligere versjoner beholder den raske duckingen de alltid har hatt."
         },
         "stopFades": {
           "title": "Stopp alt, på din måte",
           "text": "La Stopp alt tone ut hver cue med dens egen uttoning ved stopp i stedet for én fast tid."
         },
         "stopKey": {
-          "title": "Tast for Stopp gjeldende cue",
-          "text": "Knytt en tast som stopper bare den gjeldende cuen og lar alt annet spille videre."
+          "title": "Stopp gjeldende cue",
+          "text": "Stopp bare cuen du startet sist, fra en tast, en MIDI-note eller Companion, og la alt annet spille videre."
         },
         "openFile": {
           "title": "Åpne show fra filene dine",
@@ -504,9 +504,17 @@
         "waveformPan": {
           "title": "Panorer med midtknappen",
           "text": "Dra med midtre museknapp for å bevege deg rundt i en zoomet bølgeform."
+        },
+        "sealed": {
+          "title": "Passord forblir kryptert",
+          "text": "Passord og nøkler i tilkoblingene dine vises som prikker og lagres kryptert slik at bare servermaskinen kan lese dem. Åpner du showet et annet sted, ber LivePlay deg logge inn på nytt."
+        },
+        "compat": {
+          "title": "Åpne eldre show",
+          "text": "Show fra 2.5 åpnes uendret. Når et show først er lagret i 2.6, bør du holde deg til 2.6 eller nyere: LivePlay 2.5 ville miste fanene, cartsidene og tilkoblingene."
         }
       },
-      "fixes": "mer pålitelige hendelser og tilkoblinger, avspilling som ikke lenger stopper opp ved manglende media, import som aldri overskriver filen til en annen cue, korrigerte macOS-bygg (nå macOS 13.3 eller nyere), et vindu som passer ved siden av andre apper, og tydeligere aksentfarger."
+      "fixes": "mer pålitelige hendelser og tilkoblinger, avspilling som ikke lenger stopper opp ved manglende media, import som aldri overskriver filen til en annen cue, hurtigtaster som holder seg unna popup-vinduer og redigeringsfelt, cartknapper som Companion utløser riktig på hver side, korrigerte macOS-bygg (nå macOS 13.3 eller nyere), et vindu som passer ved siden av andre apper, og tydeligere aksentfarger."
     },
     "v25": {
       "title": "En ekte mikser for showet ditt.",

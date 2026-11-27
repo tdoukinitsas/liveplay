@@ -487,15 +487,15 @@
         },
         "duckTimes": {
           "title": "Ducking în ritmul dorit",
-          "text": "Setați, pentru fiecare cue, cât de repede coboară muzica și cât de lin revine."
+          "text": "Setați, pentru fiecare cue, cât de repede coboară muzica și cât de lin revine. Spectacolele din versiunile anterioare își păstrează ducking-ul rapid de până acum."
         },
         "stopFades": {
           "title": "Oprește tot, cum vreți",
           "text": "Lăsați Oprește tot să stingă fiecare cue cu propriul fade la oprire, în loc de un timp fix."
         },
         "stopKey": {
-          "title": "Tastă Oprește cue-ul curent",
-          "text": "Alocați o tastă care oprește doar cue-ul curent și lasă restul să se redea."
+          "title": "Oprește cue-ul curent",
+          "text": "Opriți doar ultimul cue pornit, dintr-o tastă, o notă MIDI sau din Companion, și lăsați restul să se redea în continuare."
         },
         "openFile": {
           "title": "Deschideți spectacole din fișiere",
@@ -504,9 +504,17 @@
         "waveformPan": {
           "title": "Deplasare cu butonul din mijloc",
           "text": "Trageți cu butonul din mijloc pentru a vă deplasa pe o formă de undă mărită."
+        },
+        "sealed": {
+          "title": "Parolele rămân criptate",
+          "text": "Parolele și cheile din conexiunile dumneavoastră apar ca puncte și sunt păstrate criptat, astfel încât doar calculatorul serverului le poate citi. Deschideți spectacolul în altă parte și LivePlay vă cere să vă autentificați din nou."
+        },
+        "compat": {
+          "title": "Deschiderea spectacolelor mai vechi",
+          "text": "Spectacolele din 2.5 se deschid neschimbate. După ce un spectacol este salvat în 2.6, păstrați-l pe 2.6 sau mai nou: LivePlay 2.5 i-ar pierde filele, paginile cart și conexiunile."
         }
       },
-      "fixes": "evenimente și conexiuni mai fiabile, redare care nu se mai blochează când lipsesc fișiere, importuri care nu suprascriu niciodată fișierul altui cue, build-uri macOS corectate (acum macOS 13.3 sau mai nou), o fereastră care încape lângă alte aplicații și culori de accent mai clare."
+      "fixes": "evenimente și conexiuni mai fiabile, redare care nu se mai blochează când lipsesc fișiere, importuri care nu suprascriu niciodată fișierul altui cue, scurtături de tastatură care nu mai interferează cu ferestrele pop-up și editoarele, taste de cart pe care Companion le declanșează corect pe fiecare pagină, build-uri macOS corectate (acum macOS 13.3 sau mai nou), o fereastră care încape lângă alte aplicații și culori de accent mai clare."
     },
     "v25": {
       "title": "Un mixer adevărat.",

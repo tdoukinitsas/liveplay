@@ -487,15 +487,15 @@
         },
         "duckTimes": {
           "title": "Le ducking à votre rythme",
-          "text": "Réglez, cue par cue, la vitesse à laquelle la musique baisse et la douceur avec laquelle elle revient."
+          "text": "Réglez, cue par cue, la vitesse à laquelle la musique baisse et la douceur avec laquelle elle revient. Les spectacles des versions précédentes gardent le ducking rapide qu’ils ont toujours eu."
         },
         "stopFades": {
           "title": "Tout arrêter, à votre façon",
           "text": "Laissez « Tout arrêter » faire sortir chaque cue avec son propre fondu du bouton Arrêt plutôt qu’avec une durée fixe."
         },
         "stopKey": {
-          "title": "Touche Arrêter le cue en cours",
-          "text": "Assignez une touche qui arrête uniquement le cue en cours et laisse tout le reste jouer."
+          "title": "Arrêter le cue en cours",
+          "text": "Arrêtez uniquement le dernier cue lancé, depuis une touche, une note MIDI ou Companion, et laissez tout le reste jouer."
         },
         "openFile": {
           "title": "Ouvrez vos spectacles depuis vos fichiers",
@@ -504,9 +504,17 @@
         "waveformPan": {
           "title": "Défilement au bouton du milieu",
           "text": "Faites glisser avec le bouton du milieu pour vous déplacer dans une forme d’onde zoomée."
+        },
+        "sealed": {
+          "title": "Les mots de passe restent chiffrés",
+          "text": "Les mots de passe et les clés de vos connexions s’affichent sous forme de points et sont chiffrés de sorte que seule la machine du serveur puisse les lire. Ouvrez le spectacle ailleurs et LivePlay vous demande de vous reconnecter."
+        },
+        "compat": {
+          "title": "Ouvrir des spectacles plus anciens",
+          "text": "Les spectacles de la version 2.5 s’ouvrent sans changement. Une fois un spectacle enregistré en 2.6, gardez-le en 2.6 ou ultérieur : LivePlay 2.5 perdrait ses onglets, ses pages de cartouches et ses connexions."
         }
       },
-      "fixes": "des événements et connexions plus fiables, une lecture qui ne se bloque plus sur les médias manquants, des imports qui n’écrasent jamais le fichier d’un autre cue, des builds macOS corrigés (désormais macOS 13.3 ou ultérieur), une fenêtre qui tient à côté des autres applications et des couleurs d’accent plus nettes."
+      "fixes": "des événements et connexions plus fiables, une lecture qui ne se bloque plus sur les médias manquants, des imports qui n’écrasent jamais le fichier d’un autre cue, des raccourcis clavier qui restent à l’écart des fenêtres contextuelles et des éditeurs, des touches de cartouche que Companion déclenche correctement sur chaque page, des builds macOS corrigés (désormais macOS 13.3 ou ultérieur), une fenêtre qui tient à côté des autres applications et des couleurs d’accent plus nettes."
     },
     "v25": {
       "title": "Une vraie console pour votre spectacle.",

@@ -487,15 +487,15 @@
         },
         "duckTimes": {
           "title": "Ducking i din takt",
-          "text": "Ställ in hur snabbt musiken sänks och hur mjukt den kommer tillbaka, kö för kö."
+          "text": "Ställ in hur snabbt musiken sänks och hur mjukt den kommer tillbaka, kö för kö. Shower från tidigare versioner behåller sin snabba ducking som förut."
         },
         "stopFades": {
           "title": "Stoppa allt, på ditt sätt",
           "text": "Låt Stoppa allt tona ut varje kö med köns egen uttoning vid stopp i stället för en fast tid."
         },
         "stopKey": {
-          "title": "Tangent för Stoppa aktuell cue",
-          "text": "Koppla en tangent som bara stoppar den aktuella kön och låter allt annat spela vidare."
+          "title": "Stoppa aktuell cue",
+          "text": "Stoppa bara den kö du startade senast, med en tangent, en MIDI-not eller Companion, och låt allt annat spela vidare."
         },
         "openFile": {
           "title": "Öppna shower från dina filer",
@@ -504,9 +504,17 @@
         "waveformPan": {
           "title": "Panorera med mittenknappen",
           "text": "Dra med mittenknappen för att flytta runt i en inzoomad vågform."
+        },
+        "sealed": {
+          "title": "Lösenord förblir krypterade",
+          "text": "Lösenord och nycklar i dina anslutningar visas som punkter och lagras krypterade så att bara serverdatorn kan läsa dem. Öppna showen någon annanstans så ber LivePlay dig att logga in igen."
+        },
+        "compat": {
+          "title": "Öppna äldre shower",
+          "text": "Shower från 2.5 öppnas oförändrade. När en show väl har sparats i 2.6 ska du hålla dig till 2.6 eller senare: LivePlay 2.5 skulle tappa dess flikar, cartsidor och anslutningar."
         }
       },
-      "fixes": "pålitligare händelser och anslutningar, uppspelning som inte längre fastnar på saknade mediefiler, importer som aldrig skriver över en annan kös fil, korrigerade macOS-byggen (nu macOS 13.3 eller senare), ett fönster som får plats bredvid andra appar och tydligare accentfärger."
+      "fixes": "pålitligare händelser och anslutningar, uppspelning som inte längre fastnar på saknade mediefiler, importer som aldrig skriver över en annan kös fil, kortkommandon som håller sig borta från popup-fönster och redigerare, cartknappar som Companion utlöser rätt på varje sida, korrigerade macOS-byggen (nu macOS 13.3 eller senare), ett fönster som får plats bredvid andra appar och tydligare accentfärger."
     },
     "v25": {
       "title": "En riktig mixer för din show.",

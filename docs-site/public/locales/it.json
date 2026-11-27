@@ -487,15 +487,15 @@
         },
         "duckTimes": {
           "title": "Ducking alla tua velocità",
-          "text": "Scegli, cue per cue, quanto velocemente si abbassa la musica e con quanta dolcezza torna."
+          "text": "Scegli, cue per cue, quanto velocemente si abbassa la musica e con quanta dolcezza torna. Gli spettacoli delle versioni precedenti mantengono il ducking rapido di sempre."
         },
         "stopFades": {
           "title": "Ferma tutto, a modo tuo",
           "text": "Fai sfumare ogni cue con Ferma tutto usando la sua dissolvenza del tasto Ferma invece di un tempo fisso."
         },
         "stopKey": {
-          "title": "Tasto Ferma il cue corrente",
-          "text": "Assegna un tasto che ferma solo il cue corrente e lascia suonare tutto il resto."
+          "title": "Ferma il cue corrente",
+          "text": "Ferma solo l’ultimo cue che hai lanciato, da un tasto, una nota MIDI o Companion, e lascia suonare tutto il resto."
         },
         "openFile": {
           "title": "Apri gli spettacoli dai tuoi file",
@@ -504,9 +504,17 @@
         "waveformPan": {
           "title": "Scorri con il tasto centrale",
           "text": "Trascina con il tasto centrale per muoverti in una forma d’onda ingrandita."
+        },
+        "sealed": {
+          "title": "Password sempre cifrate",
+          "text": "Password e chiavi delle tue connessioni appaiono come puntini e vengono salvate cifrate, leggibili solo dalla macchina del server. Se apri lo spettacolo altrove, LivePlay ti chiede di accedere di nuovo."
+        },
+        "compat": {
+          "title": "Aprire spettacoli precedenti",
+          "text": "Gli spettacoli della 2.5 si aprono senza modifiche. Una volta salvato uno spettacolo nella 2.6, tienilo sulla 2.6 o successiva: LivePlay 2.5 perderebbe schede, pagine di cartucce e connessioni."
         }
       },
-      "fixes": "eventi e connessioni più affidabili, riproduzione che non si blocca più sui media mancanti, importazioni che non sovrascrivono mai il file di un altro cue, build per macOS corrette (ora macOS 13.3 o successivo), una finestra che si adatta accanto alle altre app e colori d’accento più chiari."
+      "fixes": "eventi e connessioni più affidabili, riproduzione che non si blocca più sui media mancanti, importazioni che non sovrascrivono mai il file di un altro cue, scorciatoie da tastiera che non interferiscono con popover ed editor, tasti delle cartucce che Companion attiva correttamente su ogni pagina, build per macOS corrette (ora macOS 13.3 o successivo), una finestra che si adatta accanto alle altre app e colori d’accento più chiari."
     },
     "v25": {
       "title": "Un vero mixer per il tuo spettacolo.",
