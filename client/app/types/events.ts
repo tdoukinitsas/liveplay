@@ -30,6 +30,12 @@ export interface EventConnection {
   config: Record<string, unknown>;
   /** Named action + options that any event on this connection can reuse. */
   presets?: EventPreset[];
+  /**
+   * From the server, never saved: the connection needs its credentials
+   * entered again. "missing" = sealed on another machine (or never given),
+   * "rejected" = the device refused them (HTTP 401/403).
+   */
+  auth?: 'missing' | 'rejected';
 }
 
 /**
@@ -66,7 +72,9 @@ export interface ItemEvent {
 }
 
 export type FieldType =
-  | 'string' | 'text' | 'number' | 'integer' | 'boolean' | 'enum' | 'item' | 'list';
+  | 'string' | 'text' | 'number' | 'integer' | 'boolean' | 'enum' | 'item' | 'list'
+  /** HTTP headers ("Name: value" lines), edited as rows; credentials as dots. */
+  | 'headers';
 
 export interface FieldOption {
   value: string | number;

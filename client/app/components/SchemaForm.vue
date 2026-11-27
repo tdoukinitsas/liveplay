@@ -49,6 +49,15 @@
           @change="set(field, textOrUndefined(($event.target as HTMLTextAreaElement).value))"
         />
 
+        <!-- HTTP headers: name/value rows, credentials as dots (F-23). -->
+        <HeaderRowsField
+          v-else-if="field.type === 'headers'"
+          :id="inputId(field)"
+          :model-value="(valueOf(field) as string) ?? ''"
+          :disabled="disabled"
+          @update:model-value="(v: string) => set(field, textOrUndefined(v))"
+        />
+
         <div v-else-if="field.type === 'number' || field.type === 'integer'" class="sf-number">
           <input
             :id="inputId(field)"
@@ -167,6 +176,7 @@
 import { reactive, useId, watch } from 'vue';
 import type { EventOptionsContext, FieldOption, FieldSchema } from '~/types/events';
 import { defaultsFor, isFieldVisible } from '~/utils/events';
+import HeaderRowsField from './HeaderRowsField.vue';
 
 const props = withDefaults(defineProps<{
   fields: FieldSchema[];
@@ -203,7 +213,7 @@ const visibleFields = computed(() =>
 
 const valueOf = (f: FieldSchema): any => values.value[f.id];
 
-const isWide = (f: FieldSchema) => f.type === 'text' || f.type === 'list';
+const isWide = (f: FieldSchema) => f.type === 'text' || f.type === 'list' || f.type === 'headers';
 
 const isMissing = (f: FieldSchema) => {
   if (!f.required) return false;
@@ -308,10 +318,19 @@ const itemOptions = computed(() => {
   const onPlaylist = new Set(out.map(o => o.uuid));
   const slots = [...(p.cartItems ?? [])].sort((a, b) => a.slot - b.slot);
   const cartByUuid = new Map((p.cartOnlyItems ?? []).map(i => [i.uuid, i]));
+  // Named by page and position, as the cart wall shows it: slot 65 is page
+  // 2's first cart (F-35).
+  const { cartPages } = useShowTabs();
+  const pages = cartPages.value;
   for (const c of slots) {
     const it = cartByUuid.get(c.itemUuid);
     if (!it || onPlaylist.has(it.uuid)) continue;
-    out.push({ uuid: it.uuid, label: t('events.form.cartItem', { slot: c.slot + 1, name: it.displayName }) });
+    const pageIndex = pages.findIndex(p => c.slot >= p.slotBase && c.slot < p.slotBase + p.size);
+    const page = pages[pageIndex];
+    const where = page
+      ? `${page.name || t('tabs.defaultPage', { n: pageIndex + 1 })} \u00b7 ${c.slot - page.slotBase + 1}`
+      : String(c.slot + 1);
+    out.push({ uuid: it.uuid, label: t('events.form.cartItem', { slot: where, name: it.displayName }) });
   }
   return out;
 });

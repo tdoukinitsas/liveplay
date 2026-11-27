@@ -260,7 +260,7 @@
             type="number"
             min="0"
             max="60"
-            step="0.25"
+            step="0.05"
             :value="shown('duckingBehavior.duckFadeIn', audioItem.duckingBehavior.duckFadeIn ?? 0.05)"
             :placeholder="mixed('duckingBehavior.duckFadeIn') ? t('properties.multipleValues') : ''"
             @change="handleDuckTimeChange('duckFadeIn', $event)"
@@ -272,7 +272,7 @@
             type="number"
             min="0"
             max="60"
-            step="0.25"
+            step="0.05"
             :value="shown('duckingBehavior.duckFadeOut', audioItem.duckingBehavior.duckFadeOut ?? 0.05)"
             :placeholder="mixed('duckingBehavior.duckFadeOut') ? t('properties.multipleValues') : ''"
             @change="handleDuckTimeChange('duckFadeOut', $event)"
@@ -1191,7 +1191,7 @@ const formatTime = (seconds: number): string => {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #ffb020;
+  color: var(--color-warning);
 
   .material-symbols-rounded { font-size: 16px; }
 }

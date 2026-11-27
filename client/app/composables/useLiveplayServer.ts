@@ -572,7 +572,10 @@ function createClient() {
           // itself) just changed something. Hand off to subscribers
           // (useProject installs one that applies the patch under
           // isHydrating so the local diff-watcher doesn't echo it back).
-          for (const cb of docPatchSubscribers) cb(payload);
+          // One subscriber that throws must not keep the frame from the rest.
+          for (const cb of docPatchSubscribers) {
+            try { cb(payload); } catch (err) { console.error('[liveplay] doc_patch subscriber failed', err); }
+          }
           break;
         }
         case 'pong':
@@ -618,6 +621,14 @@ function createClient() {
   // ---- Transport (WS — low-latency) ---------------------------------
   function play(cue: CueId)             { wsSend({ type: 'play',     cue_id: cue }); }
   function stop(cue: CueId)             { wsSend({ type: 'stop',     cue_id: cue }); }
+  // Stop Current Cue (#87): the server decides which cue that is (the one
+  // fired last that is still on air), so a key, a MIDI note and Companion agree.
+  function stopCurrent(fadeMs?: number) {
+    wsSend(fadeMs === undefined
+      ? { type: 'stop_current' }
+      : { type: 'stop_current', fade_ms: fadeMs });
+  }
+
   // Omit fadeMs to let the server apply the project-wide Stop All fade
   // (settings.stopAllFadeMs, default 1000 ms). Pass a number (incl. 0 for an
   // instant panic) to override it for this call.
@@ -1060,8 +1071,12 @@ function createClient() {
   function setSelection(uuid: string | null) {
     wsSend({ type: 'set_selection', item_uuid: uuid ?? '' });
   }
-  function stepSelection(delta: number) {
-    wsSend({ type: 'select_step', delta });
+  // The server keeps a step to one playlist tab (F-05): `tabId` names the tab
+  // the sender is showing, and `scope: 'show'` crosses tabs instead.
+  function stepSelection(delta: number, opts: { tabId?: string; scope?: 'tab' | 'show' } = {}) {
+    wsSend({ type: 'select_step', delta,
+             ...(opts.tabId ? { tabId: opts.tabId } : {}),
+             ...(opts.scope ? { scope: opts.scope } : {}) });
   }
   // Omit `enabled` to toggle.
   function setShowMode(enabled?: boolean) {
@@ -1102,6 +1117,12 @@ function createClient() {
   // Playlist tabs and cart pages: what exists. Every client is told.
   async function saveProjectTabs(body: { playlistTabs: unknown[]; cartPages: unknown[] }) {
     return rest<any>('/api/project/tabs', { method: 'PUT', body: JSON.stringify(body) });
+  }
+
+  // The position keys and the keys pinned to carts (F-03). The server answers
+  // every client with cart_keys_changed.
+  async function saveCartKeys(body: { cartSlotKeys?: Record<string, unknown>; cartPinnedKeys?: Record<string, unknown> }) {
+    return rest<any>('/api/project/cart-keys', { method: 'PUT', body: JSON.stringify(body) });
   }
 
   // Which tab and page this window shows, so another operator can follow it.
@@ -1786,7 +1807,12 @@ function createClient() {
     if (!reply?.pending || !jobId) return reply;
     const giveUpAt = Date.now() + 95_000;
     while (reply?.pending) {
-      if (Date.now() > giveUpAt) throw new Error('The device did not answer in time.');
+      if (Date.now() > giveUpAt) {
+        // Shown to the operator, so in their language (F-49).
+        let message = 'The device did not answer in time.';
+        try { message = useLocalization().t('events.deviceTimeout'); } catch { /* no i18n yet */ }
+        throw new Error(message);
+      }
       await new Promise(resolve => setTimeout(resolve, 150));
       reply = await rest<T & { pending?: boolean; jobId?: string }>(
         `/api/events/jobs/${encodeURIComponent(jobId)}`);
@@ -1893,6 +1919,7 @@ function createClient() {
     play,
     stop,
     stopAll,
+    stopCurrent,
     setGainDb,
     setFade,
     setCueLtc,
@@ -2009,6 +2036,7 @@ function createClient() {
 
     // cart bindings
     saveProjectTabs,
+    saveCartKeys,
     setClientView,
     setCartSlot,
     clearCartSlot,

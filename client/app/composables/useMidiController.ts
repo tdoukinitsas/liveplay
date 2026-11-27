@@ -14,7 +14,7 @@ export type MidiActionId =
   | 'trigger-slot-8' | 'trigger-slot-9' | 'trigger-slot-10' | 'trigger-slot-11'
   | 'trigger-slot-12' | 'trigger-slot-13' | 'trigger-slot-14' | 'trigger-slot-15'
   | 'pause-resume' | 'toggle-loop' | 'cue-to-continue' | 'jump-cue' | 'stop-all' | 'master-volume'
-  | 'select-up' | 'select-down' | 'play-selected' | 'play-next';
+  | 'select-up' | 'select-down' | 'play-selected' | 'play-next' | 'stop-current-cue';
 
 // Config stored in midi-config.json
 export interface MidiConfig {
@@ -42,6 +42,7 @@ export const MIDI_ACTIONS: { id: MidiActionId; labelKey: string; category: strin
   { id: 'cue-to-continue', labelKey: 'controls.cueToContinue', category: 'Playback', continuous: false },
   { id: 'jump-cue',      labelKey: 'controls.jumpCue',      category: 'Playback', continuous: false },
   { id: 'stop-all',      labelKey: 'controls.stopAll',      category: 'Playback', continuous: false },
+  { id: 'stop-current-cue', labelKey: 'controls.stopCurrentCue', category: 'Playback', continuous: false },
   { id: 'select-up',     labelKey: 'controls.selectUp',     category: 'Playback', continuous: false },
   { id: 'select-down',   labelKey: 'controls.selectDown',   category: 'Playback', continuous: false },
   { id: 'play-selected', labelKey: 'controls.playSelected', category: 'Playback', continuous: false },
@@ -242,9 +243,17 @@ export const useMidiController = () => {
       return;
     }
 
+    if (actionId === 'stop-current-cue') {
+      // The server decides which cue is current, as for the keyboard (F-36).
+      useLiveplayServer().stopCurrent();
+      return;
+    }
+
     if (actionId === 'select-up' || actionId === 'select-down') {
       const project = currentProject.value;
       if (!project) return;
+      if (useShowControl().selectStepInView(actionId === 'select-up' ? -1 : 1)) return;
+      // No server to ask: step locally through the visible tab's rows.
       const all = getAllItemsFlat(useShowTabs().itemsOnActiveTab.value);
       if (all.length === 0) return;
       if (!selectedItem.value) {

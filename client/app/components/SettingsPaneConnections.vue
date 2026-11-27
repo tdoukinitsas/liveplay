@@ -25,36 +25,47 @@
               :checked="c.enabled !== false"
               :disabled="saving"
               :title="t('events.connections.enabled')"
+              :aria-label="t('events.connections.enabledFor', { name: c.name })"
               @change="setEnabled(c, ($event.target as HTMLInputElement).checked)"
             />
-            <span class="material-symbols-rounded conn-icon">{{ pluginOf(c.plugin)?.icon || 'extension' }}</span>
+            <span class="material-symbols-rounded conn-icon" aria-hidden="true">{{ pluginOf(c.plugin)?.icon || 'extension' }}</span>
             <span class="conn-text">
               <span class="conn-name">{{ c.name }}</span>
               <span class="conn-meta">
                 {{ pluginOf(c.plugin)?.label ?? t('events.connections.unknownPlugin', { plugin: c.plugin }) }}
                 · {{ usage.get(c.id) ? t('events.connections.usage', { count: usage.get(c.id)! }) : t('events.connections.unused') }}
               </span>
+              <!-- The device is there but won't take the credentials, or this
+                   machine can't open the ones the show brought (F-23). -->
+              <span v-if="c.auth" class="conn-auth" role="status">
+                <span class="material-symbols-rounded" aria-hidden="true">lock</span>
+                {{ c.auth === 'rejected' ? t('events.connections.authRejected') : t('events.connections.authMissing') }}
+              </span>
             </span>
+            <Btn v-if="c.auth" icon="key" :text="t('events.connections.signIn')" :disabled="saving" @click="startEdit(c)" />
             <button type="button" class="conn-icon-btn" :title="t('events.connections.edit')"
+                    :aria-label="t('events.connections.editNamed', { name: c.name })"
                     :disabled="saving" @click="startEdit(c)">
-              <span class="material-symbols-rounded">edit</span>
+              <span class="material-symbols-rounded" aria-hidden="true">edit</span>
             </button>
             <button type="button" class="conn-icon-btn conn-icon-btn--danger" :title="t('events.connections.delete')"
+                    :aria-label="t('events.connections.deleteNamed', { name: c.name })"
                     :disabled="saving" @click="confirmDeleteId = c.id">
-              <span class="material-symbols-rounded">delete</span>
+              <span class="material-symbols-rounded" aria-hidden="true">delete</span>
             </button>
           </div>
 
           <!-- Inline rather than a modal: Settings is already a page over the
-               show, and a dialog on top of it would be a third layer. -->
+               show, and a dialog on top of it would be a third layer. Cancel
+               first, as in the app's dialogs (F-44). -->
           <div v-if="confirmDeleteId === c.id" class="conn-confirm">
             <span>
               {{ usage.get(c.id)
                 ? t('events.connections.deleteInUse', { count: usage.get(c.id)!, name: c.name })
                 : t('events.connections.deleteConfirm', { name: c.name }) }}
             </span>
-            <Btn icon="delete" :text="t('events.connections.delete')" :disabled="saving" @click="deleteConnection(c)" />
             <Btn icon="close" :text="t('events.connections.cancel')" @click="confirmDeleteId = null" />
+            <Btn icon="delete" :text="t('events.connections.delete')" :disabled="saving" @click="deleteConnection(c)" />
           </div>
         </div>
       </section>
@@ -80,6 +91,10 @@
             : t('events.connections.editTitle', { name: originalName }) }}
         </h4>
         <p v-if="draftPlugin?.description" class="settings-help">{{ draftPlugin.description }}</p>
+        <p v-if="draftAuth" class="conn-auth conn-auth--banner" role="status">
+          <span class="material-symbols-rounded" aria-hidden="true">lock</span>
+          {{ draftAuth === 'rejected' ? t('events.connections.signInRejectedHelp') : t('events.connections.signInMissingHelp') }}
+        </p>
 
         <div class="settings-field">
           <label class="settings-label" for="conn-name">{{ t('events.connections.name') }}</label>
@@ -134,12 +149,14 @@
                 </span>
               </span>
               <button type="button" class="conn-icon-btn" :title="t('events.connections.edit')"
+                      :aria-label="t('events.connections.editNamed', { name: p.name })"
                       :disabled="!!presetDraft" @click="startPresetEdit(p)">
-                <span class="material-symbols-rounded">edit</span>
+                <span class="material-symbols-rounded" aria-hidden="true">edit</span>
               </button>
               <button type="button" class="conn-icon-btn conn-icon-btn--danger" :title="t('events.connections.presetDelete')"
+                      :aria-label="t('events.connections.deleteNamed', { name: p.name })"
                       :disabled="!!presetDraft" @click="removePreset(p)">
-                <span class="material-symbols-rounded">delete</span>
+                <span class="material-symbols-rounded" aria-hidden="true">delete</span>
               </button>
             </li>
           </ul>
@@ -163,8 +180,8 @@
               @update:model-value="(v: Record<string, unknown>) => { if (presetDraft) presetDraft.options = v; }"
             />
             <div class="conn-editor-actions">
-              <Btn icon="check" :text="t('events.connections.presetDone')" :disabled="!presetDraft.name.trim()" @click="commitPreset" />
               <Btn icon="close" :text="t('events.connections.cancel')" @click="presetDraft = null" />
+              <Btn icon="check" :text="t('events.connections.presetDone')" :disabled="!presetDraft.name.trim()" @click="commitPreset" />
             </div>
           </div>
         </div>
@@ -199,8 +216,8 @@
         </div>
 
         <div class="conn-editor-actions">
-          <Btn icon="check" :text="t('events.connections.save')" :disabled="saving || !draft.name.trim() || !!presetDraft" @click="saveDraft" />
           <Btn icon="close" :text="t('events.connections.cancel')" :disabled="saving" @click="cancelDraft" />
+          <Btn icon="check" :text="t('events.connections.save')" :disabled="saving || !draft.name.trim() || !!presetDraft" @click="saveDraft" />
         </div>
       </section>
     </template>
@@ -260,10 +277,12 @@ function setEnabled(c: EventConnection, on: boolean) {
 }
 
 async function deleteConnection(c: EventConnection) {
-  // Its events keep their settings, ready for another connection.
-  if (c.presets?.length) detachPresetEvents(c.id, c.presets);
   const ok = await commit(connections.value.filter(x => x.id !== c.id));
   if (!ok) return;
+  // Its events keep their settings, ready for another connection. Only once
+  // the server has taken the delete: a refused one leaves both as they were
+  // (F-34).
+  if (c.presets?.length) detachPresetEvents(c.id, c.presets);
   confirmDeleteId.value = null;
   if (draft.value?.id === c.id) cancelDraft();
 }
@@ -326,6 +345,7 @@ function useDiscovered(d: DiscoveredDevice) {
 
 function startEdit(c: EventConnection) {
   const copy: EventConnection = JSON.parse(JSON.stringify(c));
+  delete copy.auth;
   // Fields a newer schema added since this connection was made show their
   // defaults rather than blank.
   copy.config = fillDefaults(pluginOf(c.plugin)?.connectionFields, copy.config);
@@ -349,17 +369,36 @@ async function saveDraft() {
   const d = draft.value;
   if (!d || !d.name.trim()) return;
   const next: EventConnection = { ...JSON.parse(JSON.stringify(d)), name: d.name.trim() };
-  // Events on a preset removed here keep what it was set to.
+  delete next.auth;   // the server's, never sent back
+  // Events on a preset removed here keep what it was set to, once the
+  // server has taken the save (F-34).
   const removed = (connections.value.find(c => c.id === d.id)?.presets ?? [])
     .filter(p => !(next.presets ?? []).some(n => n.id === p.id));
-  if (removed.length) detachPresetEvents(d.id, removed);
   const list = connections.value.some(c => c.id === d.id)
     ? connections.value.map(c => (c.id === d.id ? next : c))
     // Another client may have deleted the one being edited meanwhile; saving
     // puts it back rather than losing what was typed.
     : [...connections.value, next];
-  if (await commit(list)) cancelDraft();
+  if (await commit(list)) {
+    if (removed.length) detachPresetEvents(d.id, removed);
+    cancelDraft();
+  }
 }
+
+// The connection being edited needs a sign-in (from the server's live list,
+// so it clears as soon as the new credentials are accepted).
+const draftAuth = computed(() =>
+  draft.value ? connections.value.find(c => c.id === draft.value!.id)?.auth ?? null : null);
+
+// "Sign in" from the notice elsewhere in the app opens that connection here.
+const signInRequest = useState<string | null>('connections.signIn', () => null);
+watch([signInRequest, connections], ([id]) => {
+  if (!id) return;
+  const c = connections.value.find(x => x.id === id);
+  if (!c) return;
+  signInRequest.value = null;
+  startEdit(c);
+}, { immediate: true });
 
 // ---- presets ----------------------------------------------------------------
 // Edited on the draft, so they save, or cancel, with the rest of the connection.
@@ -529,6 +568,24 @@ async function runTest() {
 .conn-meta {
   font-size: 12px;
   color: var(--color-text-secondary);
+}
+
+.conn-auth {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-warning);
+}
+.conn-auth .material-symbols-rounded {
+  font-size: 14px;
+}
+.conn-auth--banner {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-warning);
+  border-radius: 6px;
+  font-size: 13px;
 }
 
 .conn-icon-btn {

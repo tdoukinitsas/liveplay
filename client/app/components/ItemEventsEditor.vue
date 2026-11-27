@@ -1,14 +1,17 @@
 <template>
-  <div class="item-events">
+  <!-- tabindex -1 so a click anywhere on the tab (the waveform, a marker, the
+       space between) keeps focus here, where onEditorKeydown can see Delete:
+       on the page it would reach the workspace and delete the whole cue. -->
+  <div ref="rootEl" class="item-events" tabindex="-1" @keydown="onEditorKeydown">
     <!-- The server owns events end to end; with no events route there is
          nothing here to edit, and empty forms would only suggest otherwise. -->
     <div v-if="pluginsStatus === 'unsupported'" class="ev-message">
-      <span class="material-symbols-rounded">extension_off</span>
+      <span class="material-symbols-rounded" aria-hidden="true">extension_off</span>
       <p>{{ t('events.unsupported') }}</p>
     </div>
 
     <div v-else-if="!(duration > 0)" class="ev-message">
-      <span class="material-symbols-rounded">pending</span>
+      <span class="material-symbols-rounded" aria-hidden="true">pending</span>
       <p>{{ t('properties.loadingAudioData') }}</p>
     </div>
 
@@ -33,7 +36,7 @@
         </select>
 
         <label class="ev-cursor" :title="t('events.cursorHint')">
-          <span class="material-symbols-rounded">vertical_align_center</span>
+          <span class="material-symbols-rounded" aria-hidden="true">vertical_align_center</span>
           <span>{{ t('events.cursor') }}</span>
           <input
             class="ev-time-input"
@@ -103,7 +106,7 @@
           <span v-if="m.span > 0" class="ev-marker-span" :style="{ width: spanPx(m.span) }" />
           <span class="ev-marker-line" />
           <span class="ev-marker-flag">
-            <span class="material-symbols-rounded ev-marker-icon">{{ m.end ? 'stop' : 'play_arrow' }}</span>
+            <span class="material-symbols-rounded ev-marker-icon" aria-hidden="true">{{ m.end ? 'stop' : 'play_arrow' }}</span>
             {{ m.label }}
             <span v-if="lastResult[m.ev.id]?.ok === false" class="ev-error-dot" />
           </span>
@@ -141,8 +144,8 @@
            and Fit to see the whole file again. Wheel zooms at the pointer;
            Shift+wheel or a middle-button drag pans. -->
       <div class="ev-nav">
-        <button type="button" class="ev-icon-btn" :title="t('events.zoomOut')" :disabled="zoom <= 1" @click="zoomBy(1 / 1.5)">
-          <span class="material-symbols-rounded">zoom_out</span>
+        <button type="button" class="ev-icon-btn" :title="t('events.zoomOut')" :aria-label="t('events.zoomOut')" :disabled="zoom <= 1" @click="zoomBy(1 / 1.5)">
+          <span class="material-symbols-rounded" aria-hidden="true">zoom_out</span>
         </button>
         <input
           class="ev-zoom-slider"
@@ -154,12 +157,12 @@
           :aria-label="t('events.zoom')"
           @input="onZoomSlider"
         />
-        <button type="button" class="ev-icon-btn" :title="t('events.zoomIn')" :disabled="zoom >= MAX_ZOOM" @click="zoomBy(1.5)">
-          <span class="material-symbols-rounded">zoom_in</span>
+        <button type="button" class="ev-icon-btn" :title="t('events.zoomIn')" :aria-label="t('events.zoomIn')" :disabled="zoom >= MAX_ZOOM" @click="zoomBy(1.5)">
+          <span class="material-symbols-rounded" aria-hidden="true">zoom_in</span>
         </button>
         <span class="ev-zoom-text">{{ Math.round(zoom * 100) }}%</span>
-        <button type="button" class="ev-icon-btn" :title="t('events.zoomFit')" :disabled="zoom <= 1" @click="fitView">
-          <span class="material-symbols-rounded">fit_screen</span>
+        <button type="button" class="ev-icon-btn" :title="t('events.zoomFit')" :aria-label="t('events.zoomFit')" :disabled="zoom <= 1" @click="fitView">
+          <span class="material-symbols-rounded" aria-hidden="true">fit_screen</span>
         </button>
         <input
           v-if="zoom > 1"
@@ -176,60 +179,80 @@
       </div>
 
       <div class="ev-body">
-        <!-- The list -->
-        <div class="ev-list" role="listbox" :aria-label="t('events.tab')">
-          <p v-if="sortedEvents.length === 0" class="ev-empty">{{ t('events.noEvents') }}</p>
-          <div
-            v-for="ev in sortedEvents"
-            :key="ev.id"
-            class="ev-row"
-            role="option"
-            :aria-selected="ev.id === selectedId"
-            :class="{
-              selected: ev.id === selectedId,
-              disabled: ev.enabled === false,
-              flashing: isFlashing(ev.id),
-            }"
-            @click="selectedId = ev.id"
-          >
-            <span class="ev-when" :class="{ 'ev-when--chip': ev.trigger !== 'time' }">
-              {{ ev.trigger === 'time' ? formatEventTime(ev.time) : triggerLabel(ev.trigger) }}
-            </span>
-            <input
-              type="checkbox"
-              class="ev-row-toggle"
-              :checked="ev.enabled !== false"
-              :title="t('events.enabled')"
-              @click.stop
-              @change="setEnabled(ev, ($event.target as HTMLInputElement).checked)"
-            />
-            <span class="material-symbols-rounded ev-plugin-icon" :title="pluginOf(ev)?.label ?? ev.plugin">
-              {{ pluginOf(ev)?.icon || 'extension' }}
-            </span>
-            <span class="ev-row-text">
-              <span class="ev-row-title">{{ rowTitle(ev) }}</span>
-              <span v-if="rowSubtitle(ev)" class="ev-row-sub">{{ rowSubtitle(ev) }}</span>
-            </span>
-            <span v-if="connectionLabel(ev)" class="ev-row-conn">{{ connectionLabel(ev) }}</span>
-            <span
-              class="ev-status"
-              :class="statusClass(ev)"
-              :title="statusTitle(ev)"
-            />
-            <span class="ev-row-actions">
-              <button type="button" class="ev-icon-btn" :title="t('events.test')"
-                      :disabled="testing.has(ev.id)" @click.stop="runTest(ev)">
-                <span class="material-symbols-rounded" :class="{ spinning: testing.has(ev.id) }">
-                  {{ testing.has(ev.id) ? 'progress_activity' : 'send' }}
-                </span>
-              </button>
-              <button type="button" class="ev-icon-btn" :title="t('events.duplicate')" @click.stop="duplicateEvent(ev)">
-                <span class="material-symbols-rounded">content_copy</span>
-              </button>
-              <button type="button" class="ev-icon-btn" :title="t('events.delete')" @click.stop="deleteEvent(ev)">
-                <span class="material-symbols-rounded">delete</span>
-              </button>
-            </span>
+        <!-- The list. One row is in the tab order at a time (the selected
+             one, else the first); the arrows move between them, Delete
+             removes the focused one (with Undo below). -->
+        <div class="ev-list-col">
+          <div ref="listEl" class="ev-list" role="listbox" :aria-label="t('events.tab')">
+            <p v-if="sortedEvents.length === 0" class="ev-empty">{{ t('events.noEvents') }}</p>
+            <div
+              v-for="ev in sortedEvents"
+              :key="ev.id"
+              class="ev-row"
+              role="option"
+              :data-event-id="ev.id"
+              :tabindex="ev.id === tabStopId ? 0 : -1"
+              :aria-selected="ev.id === selectedId"
+              :class="{
+                selected: ev.id === selectedId,
+                disabled: ev.enabled === false,
+                flashing: isFlashing(ev.id),
+              }"
+              @mousedown="onRowMouseDown"
+              @click="selectedId = ev.id"
+              @focus="selectedId = ev.id"
+              @keydown="onRowKeydown($event, ev)"
+            >
+              <span class="ev-when" :class="{ 'ev-when--chip': ev.trigger !== 'time' }">
+                {{ ev.trigger === 'time' ? formatEventTime(ev.time) : triggerLabel(ev.trigger) }}
+              </span>
+              <input
+                type="checkbox"
+                class="ev-row-toggle"
+                :checked="ev.enabled !== false"
+                :title="t('events.enabled')"
+                :aria-label="t('events.enabled')"
+                @click.stop
+                @change="setEnabled(ev, ($event.target as HTMLInputElement).checked)"
+              />
+              <span class="material-symbols-rounded ev-plugin-icon" aria-hidden="true" :title="pluginOf(ev)?.label ?? ev.plugin">
+                {{ pluginOf(ev)?.icon || 'extension' }}
+              </span>
+              <span class="ev-row-text">
+                <span class="ev-row-title">{{ rowTitle(ev) }}</span>
+                <span v-if="rowSubtitle(ev)" class="ev-row-sub">{{ rowSubtitle(ev) }}</span>
+              </span>
+              <span v-if="connectionLabel(ev)" class="ev-row-conn">{{ connectionLabel(ev) }}</span>
+              <span
+                class="ev-status"
+                :class="statusClass(ev)"
+                :title="statusTitle(ev)"
+                :role="statusTitle(ev) ? 'img' : undefined"
+                :aria-label="statusTitle(ev) || undefined"
+              />
+              <span class="ev-row-actions">
+                <button type="button" class="ev-icon-btn" :title="t('events.test')" :aria-label="t('events.test')"
+                        :disabled="testing.has(ev.id)" @click.stop="runTest(ev)">
+                  <span class="material-symbols-rounded" aria-hidden="true" :class="{ spinning: testing.has(ev.id) }">
+                    {{ testing.has(ev.id) ? 'progress_activity' : 'send' }}
+                  </span>
+                </button>
+                <button type="button" class="ev-icon-btn" :title="t('events.duplicate')" :aria-label="t('events.duplicate')" @click.stop="duplicateEvent(ev)">
+                  <span class="material-symbols-rounded" aria-hidden="true">content_copy</span>
+                </button>
+                <button type="button" class="ev-icon-btn" :title="t('events.delete')" :aria-label="t('events.delete')" @click.stop="deleteEvent(ev)">
+                  <span class="material-symbols-rounded" aria-hidden="true">delete</span>
+                </button>
+              </span>
+            </div>
+          </div>
+          <!-- Deleting is one press, so it can be taken back. The live region
+               stays in place so its text is announced when it appears. -->
+          <div role="status">
+            <div v-if="undoable" class="ev-undo">
+              <span class="ev-undo-text">{{ t('events.deleted', { name: undoable.name }) }}</span>
+              <button type="button" class="ev-link-btn" @click="undoDelete">{{ t('events.undo') }}</button>
+            </div>
           </div>
         </div>
 
@@ -268,9 +291,10 @@
                     class="ev-icon-btn ev-icon-btn--boxed"
                     :disabled="cursor === null"
                     :title="t('events.useCursor')"
+                    :aria-label="t('events.useCursor')"
                     @click="setTime(selected, cursor!)"
                   >
-                    <span class="material-symbols-rounded">vertical_align_center</span>
+                    <span class="material-symbols-rounded" aria-hidden="true">vertical_align_center</span>
                   </button>
                 </div>
               </div>
@@ -308,8 +332,8 @@
                       {{ t('events.connectionMissing') }}
                     </option>
                   </select>
-                  <button type="button" class="ev-icon-btn ev-icon-btn--boxed" :title="t('events.manageConnections')" @click="openConnections">
-                    <span class="material-symbols-rounded">cable</span>
+                  <button type="button" class="ev-icon-btn ev-icon-btn--boxed" :title="t('events.manageConnections')" :aria-label="t('events.manageConnections')" @click="openConnections">
+                    <span class="material-symbols-rounded" aria-hidden="true">cable</span>
                   </button>
                 </div>
               </div>
@@ -332,9 +356,10 @@
                     type="button"
                     class="ev-icon-btn ev-icon-btn--boxed"
                     :title="t('events.presetSave')"
+                    :aria-label="t('events.presetSave')"
                     @click="startSavePreset(selected)"
                   >
-                    <span class="material-symbols-rounded">bookmark_add</span>
+                    <span class="material-symbols-rounded" aria-hidden="true">bookmark_add</span>
                   </button>
                 </div>
               </div>
@@ -380,7 +405,7 @@
             </p>
 
             <div v-if="selectedPreset" class="ev-preset-note">
-              <span class="material-symbols-rounded">bookmark</span>
+              <span class="material-symbols-rounded" aria-hidden="true">bookmark</span>
               <span class="ev-preset-note-text">
                 {{ t('events.presetInUse', { name: selectedPreset.name }) }}
                 <template v-if="rowSubtitle(selected)"> · {{ rowSubtitle(selected) }}</template>
@@ -564,12 +589,13 @@ const selectedPluginConnections = computed(() =>
 const selectedOptions = computed(() =>
   fillDefaults(selectedAction.value?.fields, selected.value?.options));
 
-// A different cue is a different timeline: neither the cursor nor the
-// selection means anything on it.
+// A different cue is a different timeline: neither the cursor, the selection
+// nor an Undo for the last cue's events means anything on it.
 watch(() => props.item?.uuid, () => {
   selectedId.value = null;
   cursor.value = null;
   drag.value = null;
+  dropUndo();
 });
 
 onMounted(() => { void refreshPlugins(); });
@@ -804,8 +830,119 @@ function deleteEvent(ev: ItemEvent) {
     const at = order.findIndex(e => e.id === ev.id);
     selectedId.value = (order[at + 1] ?? order[at - 1])?.id ?? null;
   }
-  list.splice(i, 1);
+  const [removed] = list.splice(i, 1);
+  offerUndo(removed!, i);
   commit();
+  // The trash button that had focus goes with its row, and focus would fall
+  // to the page, where the next Delete deletes the cue. Keep it on the tab.
+  void nextTick(keepFocusHere);
+}
+
+function keepFocusHere() {
+  const root = rootEl.value;
+  if (root && !root.contains(document.activeElement)) root.focus({ preventScroll: true });
+}
+
+// ---- undo a delete ----------------------------------------------------------
+// One press deletes (the trash button, or Delete on the list), so the last
+// one can be put back for a few seconds rather than asked about every time.
+const UNDO_MS = 8000;
+const undoable = ref<{ ev: ItemEvent; index: number; itemUuid: string; name: string } | null>(null);
+let undoTimer: ReturnType<typeof setTimeout> | null = null;
+
+function dropUndo() {
+  if (undoTimer) clearTimeout(undoTimer);
+  undoTimer = null;
+  undoable.value = null;
+}
+
+function offerUndo(ev: ItemEvent, index: number) {
+  dropUndo();
+  undoable.value = { ev, index, itemUuid: props.item.uuid, name: ev.name || rowTitle(ev) };
+  undoTimer = setTimeout(dropUndo, UNDO_MS);
+}
+
+function undoDelete() {
+  const u = undoable.value;
+  dropUndo();
+  if (!u || u.itemUuid !== props.item.uuid) return;
+  const list = ensureEvents();
+  if (list.some(e => e.id === u.ev.id)) return;
+  list.splice(Math.min(u.index, list.length), 0, u.ev);
+  selectedId.value = u.ev.id;
+  commit();
+  // The Undo button has gone; stay on the tab rather than fall to the page.
+  void nextTick(keepFocusHere);
+}
+
+onBeforeUnmount(() => { if (undoTimer) clearTimeout(undoTimer); });
+
+// ---- keyboard ---------------------------------------------------------------
+const rootEl = ref<HTMLElement | null>(null);
+const listEl = ref<HTMLElement | null>(null);
+
+// A click selects a row but leaves focus on the tab, not in the list. A
+// focused list keeps its keys (the arrows, Delete), and the workspace leaves
+// a focused list alone, so Space and Escape would stop being GO and Stop All
+// for someone who only clicked. The keyboard gets the list by tabbing to it.
+function onRowMouseDown(e: MouseEvent) {
+  if ((e.target as HTMLElement).closest('button, input, select')) return;
+  e.preventDefault();
+  rootEl.value?.focus({ preventScroll: true });
+}
+
+// The row Tab lands on: the selected one, else the first.
+const tabStopId = computed(() =>
+  (selectedId.value && sortedEvents.value.some(e => e.id === selectedId.value)
+    ? selectedId.value
+    : sortedEvents.value[0]?.id) ?? null);
+
+function focusRow(id: string | null) {
+  if (!id) return;
+  listEl.value?.querySelector<HTMLElement>(`[data-event-id="${CSS.escape(id)}"]`)?.focus();
+}
+
+// Up/Down/Home/End walk the list; Delete or Backspace removes the focused
+// event. All of them stop here: the same keys are select ▲/▼ and "delete the
+// selected cue" for the workspace.
+function onRowKeydown(e: KeyboardEvent, ev: ItemEvent) {
+  // The row's own checkbox keeps its keys.
+  if ((e.target as HTMLElement).closest('input, select, textarea')) return;
+  const order = sortedEvents.value;
+  const at = order.findIndex(x => x.id === ev.id);
+  let next: ItemEvent | undefined;
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    e.stopPropagation();
+    deleteEvent(ev);
+    // On to the next row, so a run of Deletes walks down the list.
+    if (e.target === e.currentTarget) void nextTick(() => focusRow(selectedId.value));
+    return;
+  }
+  if (e.target !== e.currentTarget) return;
+  if (e.key === 'ArrowDown') next = order[at + 1];
+  else if (e.key === 'ArrowUp') next = order[at - 1];
+  else if (e.key === 'Home') next = order[0];
+  else if (e.key === 'End') next = order[order.length - 1];
+  else return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (next) {
+    selectedId.value = next.id;
+    focusRow(next.id);
+  }
+}
+
+// Delete anywhere else on the tab (the waveform after clicking a marker, a
+// button, the space between) acts on the selected event, and is never let
+// through to the workspace, where it would delete the cue being edited. Text
+// fields and selects keep it for themselves.
+function onEditorKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+  if ((e.target as HTMLElement).closest('input, select, textarea, [contenteditable=""], [contenteditable="true"]')) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (selected.value) deleteEvent(selected.value);
 }
 
 function setEnabled(ev: ItemEvent, on: boolean) {
@@ -1244,6 +1381,8 @@ onBeforeUnmount(() => {
   min-height: 0;
   min-width: 640px;
   color: var(--color-text-secondary);
+  /* Focusable only to keep Delete in here (see the template); no ring. */
+  outline: none;
 }
 
 .ev-message {
@@ -1578,9 +1717,19 @@ onBeforeUnmount(() => {
   min-height: 140px;
 }
 
-.ev-list {
+/* The list and, under it, the Undo bar for the last delete. */
+.ev-list-col {
   flex: 0 0 42%;
   min-width: 300px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ev-list {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   border: 1px solid var(--color-border);
   border-radius: 4px;
@@ -1590,6 +1739,25 @@ onBeforeUnmount(() => {
 .ev-empty {
   padding: var(--spacing-md);
   font-size: 12px;
+}
+
+.ev-undo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 4px var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 12px;
+}
+.ev-undo-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ev-row {
@@ -1608,6 +1776,11 @@ onBeforeUnmount(() => {
   &.selected {
     background: var(--color-surface-hover);
     box-shadow: inset 3px 0 0 var(--color-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
   }
 
   &.disabled .ev-row-text,

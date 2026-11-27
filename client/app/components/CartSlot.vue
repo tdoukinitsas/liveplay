@@ -31,15 +31,41 @@
         class="bind-playlist"
         :title="t('cart.startPlaylist')"
         :aria-label="t('cart.startPlaylist')"
+        :aria-expanded="choosingTab"
         @click.stop="onBindPlaylist"
       >
-        <span class="material-symbols-rounded">queue_music</span>
+        <span class="material-symbols-rounded" aria-hidden="true">queue_music</span>
       </button>
-      <div v-if="choosingTab" class="bind-playlist-list" @click.stop>
+      <!-- Covers the whole slot, so no rim of it is left to open Import by
+           mistake; its own ✕ sits where the toggle was. Escape, a click
+           outside or the ✕ put it away without binding anything. -->
+      <div
+        v-if="choosingTab"
+        ref="tabListEl"
+        class="bind-playlist-list"
+        role="dialog"
+        :aria-label="t('cart.choosePlaylist')"
+        data-own-keys
+        @click.stop
+        @keydown.esc.stop.prevent="choosingTab = false"
+      >
+        <div class="bind-playlist-head">
+          <span>{{ t('cart.choosePlaylist') }}</span>
+          <button
+            type="button"
+            class="bind-playlist-cancel"
+            :title="t('common.cancel')"
+            :aria-label="t('common.cancel')"
+            @click="choosingTab = false"
+          >
+            <span class="material-symbols-rounded" aria-hidden="true">close</span>
+          </button>
+        </div>
         <button
           v-for="(tab, i) in playlistTabs"
           :key="tab.id"
           type="button"
+          class="bind-playlist-option"
           @click="bindTab(tab.id)"
         >{{ tab.name || t('tabs.defaultPlaylist', { n: i + 1 }) }}</button>
       </div>
@@ -557,11 +583,41 @@ const handlePlay = () => {
 // ---- A cart that starts a whole playlist tab (discussion #61) ---------------
 const { playlistTabs } = useShowTabs();
 const choosingTab = ref(false);
+const tabListEl = ref<HTMLElement | null>(null);
 
 const onBindPlaylist = () => {
   if (playlistTabs.value.length === 1) bindTab(playlistTabs.value[0]!.id);
   else choosingTab.value = !choosingTab.value;
 };
+
+// While the list is up: a press anywhere outside it puts it away, and so does
+// Escape wherever focus is, caught before the transport keys would take it
+// as Stop All.
+function onOutsidePress(e: PointerEvent) {
+  if (tabListEl.value && !tabListEl.value.contains(e.target as Node)) choosingTab.value = false;
+}
+function onEscapeCapture(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return;
+  e.preventDefault();
+  e.stopPropagation();
+  choosingTab.value = false;
+}
+function unbindChooser() {
+  window.removeEventListener('pointerdown', onOutsidePress, true);
+  window.removeEventListener('keydown', onEscapeCapture, true);
+}
+watch(choosingTab, (open) => {
+  if (!import.meta.client) return;
+  unbindChooser();
+  if (!open) return;
+  window.addEventListener('pointerdown', onOutsidePress, true);
+  window.addEventListener('keydown', onEscapeCapture, true);
+  // Into the list, so the keyboard can choose from it.
+  void nextTick(() => tabListEl.value?.querySelector<HTMLElement>('.bind-playlist-option')?.focus());
+});
+// An edit action: Show Mode, or the slot being filled, puts it away.
+watch([showMode, hasItem], () => { choosingTab.value = false; });
+onBeforeUnmount(() => { if (import.meta.client) unbindChooser(); });
 
 const bindTab = (tabId: string) => {
   const project = currentProject.value;
@@ -1009,31 +1065,64 @@ const handleDrop = async (e: DragEvent) => {
   &:hover { color: var(--color-text-primary); border-color: var(--color-accent); }
 }
 
+/* Edge to edge: a rim left showing was the empty slot, and a click on it
+   opened Import. */
 .bind-playlist-list {
   position: absolute;
-  inset: 4px;
+  inset: 0;
   z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 2px;
   overflow-y: auto;
   padding: 4px;
-  border-radius: 4px;
   background: var(--color-surface);
+  cursor: default;
+}
 
-  button {
-    flex: 0 0 auto;
-    padding: 4px 6px;
-    border: none;
-    border-radius: 4px;
-    background: none;
-    color: var(--color-text-primary);
-    font-size: 12px;
-    text-align: left;
-    cursor: pointer;
+.bind-playlist-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 2px 2px 2px 6px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
 
-    &:hover { background: var(--color-surface-hover); }
-  }
+  > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.bind-playlist-cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+
+  .material-symbols-rounded { font-size: 18px; }
+  &:hover { color: var(--color-text-primary); border-color: var(--color-accent); }
+}
+
+.bind-playlist-option {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover, &:focus-visible { background: var(--color-surface-hover); }
+  &:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 }
 
 .cart-slot {
@@ -1194,7 +1283,7 @@ const handleDrop = async (e: DragEvent) => {
 
   .media-missing-icon {
     font-size: 16px;
-    color: #ffb020;
+    color: var(--color-warning);
     flex-shrink: 0;
     cursor: help;
     line-height: 1;

@@ -1941,9 +1941,7 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
-    for (const win of tabWindows.values()) {
-      if (!win.isDestroyed()) win.close();
-    }
+    closeAllTabWindows();
   });
 
   createMenu('en', isDevMode);
@@ -2019,12 +2017,17 @@ function createTabWindow(kind, id) {
     existing.focus();
     return;
   }
+  // Each tab remembers where its own window was, like the cart and mixer
+  // windows do. Outer bounds: no useContentSize here.
+  const boundsKey = `tab:${key}`;
+  const { maximized, ...geom } = savedWindowBounds(boundsKey, { width: 900, height: 700 });
   const win = new BrowserWindow({
-    width: 900,
-    height: 700,
+    ...geom,
     minWidth: 380,
     minHeight: 400,
-    title: kind === 'cart' ? 'LivePlay - Cart Page' : 'LivePlay - Playlist',
+    // Only until the page loads: the renderer then titles the window with the
+    // tab's name, in the operator's language (useShowTabs).
+    title: 'LivePlay',
     icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -2033,6 +2036,8 @@ function createTabWindow(kind, id) {
       webSecurity: false,
     },
   });
+  if (maximized) win.maximize();
+  trackWindowBounds(boundsKey, win);
   const query = kind === 'cart'
     ? { cartWindow: '1', cartPage: id }
     : { playlistWindow: '1', playlistTab: id };
@@ -2050,6 +2055,12 @@ function createTabWindow(kind, id) {
     notifyTabWindowsChanged();
   });
   notifyTabWindowsChanged();
+}
+
+function closeAllTabWindows() {
+  for (const win of tabWindows.values()) {
+    if (!win.isDestroyed()) win.close();
+  }
 }
 
 // Create detached mixer window.
@@ -3254,6 +3265,9 @@ ipcMain.on('sync-project-data', (event, projectData) => {
           win.webContents.send('cart-window-project-update', projectData);
         }
       }
+    } else {
+      // The show closed: a tab of it has nothing left to show.
+      closeAllTabWindows();
     }
   }
   // Silently ignore syncs from the cart window to prevent feedback loops
@@ -3272,6 +3286,22 @@ ipcMain.on('cart-player-window-attach', () => {
 
 ipcMain.handle('open-tab-window', (_event, kind, id) => {
   createTabWindow(kind, id);
+});
+
+// A different show was opened (MainWorkspace watches for it). Tab ids can
+// repeat between shows (the first tab is always "default"), so a pop-out's own
+// "is my tab still there" check can't be relied on to catch this.
+ipcMain.on('tab-windows-close-all', (event) => {
+  if (event.sender === mainWindow?.webContents) closeAllTabWindows();
+});
+
+// A pop-out whose tab has gone (deleted here or by another operator) asks to
+// close rather than quietly falling back to the first tab (useShowTabs). Only
+// tab windows may: this is not a way to close the main window.
+ipcMain.on('tab-window-close-self', (event) => {
+  for (const win of tabWindows.values()) {
+    if (!win.isDestroyed() && win.webContents === event.sender) win.close();
+  }
 });
 
 // Mixer window IPC handlers

@@ -6,8 +6,11 @@
         <TabStrip v-if="cartPages.length <= 1" kind="cart" />
       </div>
       <!-- Window controls only: the cart's pads are its content. The same
-           component every pane uses, so the moves are the same everywhere. -->
-      <PaneControls pane="cart" :in-window="isDetachedWindow" :divided="false" />
+           component every pane uses, so the moves are the same everywhere.
+           Not in a cart page's own window: that is not the cart pane, and
+           "Dock to main window" would close the detached cart window instead
+           (as PlaylistView leaves them out of a playlist tab's window). -->
+      <PaneControls v-if="!isTabWindow" pane="cart" :in-window="isDetachedWindow" :divided="false" />
     </div>
 
     <TabStrip v-if="cartPages.length > 1" kind="cart" />
@@ -29,12 +32,18 @@
 <script setup lang="ts">
 import type { AudioItem } from '~/types/project';
 import { formatKeyLabel } from '~/composables/useCartHotkeys';
+import { shouldIgnoreHotkey } from '~/utils/hotkeyGuard';
 import PaneControls from './PaneControls.vue';
 import TabStrip from './TabStrip.vue';
 
 const props = defineProps<{
   isDetachedWindow?: boolean;
 }>();
+
+// A cart page popped out on its own (#74) loads as ?cartWindow=1&cartPage=<id>;
+// the detached cart pane is ?cartWindow=1 alone.
+const isTabWindow = import.meta.client
+  && new URLSearchParams(window.location.search).has('cartPage');
 
 const { currentProject, requestDeleteFromKeyboard } = useProject();
 const { getCartItem } = useCartItems();
@@ -73,16 +82,11 @@ const keyLabelFor = (slot: number, position: number): string => {
 
 // In the detached cart window there's no MainWorkspace to own the global
 // DEL key, so handle it here. (In the attached layout MainWorkspace already
-// does — adding it there too would double-fire.)
-const isTextInputFocused = (): boolean => {
-  const el = document.activeElement as HTMLElement | null;
-  if (!el) return false;
-  const tag = el.tagName.toLowerCase();
-  return tag === 'input' || tag === 'textarea' || el.isContentEditable;
-};
+// does — adding it there too would double-fire.) Same rule as there for
+// which keys belong to the control with focus.
 const handleCartKeydown = (e: KeyboardEvent) => {
   if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-  if (isTextInputFocused() || !currentProject.value) return;
+  if (shouldIgnoreHotkey(e) || !currentProject.value) return;
   if (requestDeleteFromKeyboard()) e.preventDefault();
 };
 

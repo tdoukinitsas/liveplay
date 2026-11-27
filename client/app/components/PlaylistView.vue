@@ -322,9 +322,11 @@ watch(
 // Keep the selection reachable.
 // ---------------------------------------------------------------------------
 // The selection can be moved from off-screen — the select-up/select-down key
-// bindings, MIDI, or a Companion surface via the server — and those walk the
-// flattened tree, so the target may be scrolled away or buried in a collapsed
-// group. Hold the group open (see usePlaylistReveal), then scroll.
+// bindings, MIDI, or a Companion surface via the server. This window's keys
+// and MIDI step within the playlist tab it is showing (selectStepInView), but
+// the next cue can still be scrolled away or inside a collapsed group, and a
+// step from elsewhere can land anywhere. Hold the group open (see
+// usePlaylistReveal), then scroll.
 //
 // `block: 'nearest'` rather than 'center': it is a no-op when the row is
 // already fully visible, so ordinary mouse clicks never jerk the list around,
@@ -843,12 +845,13 @@ const handleDrop = async (e: DragEvent) => {
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-xs) var(--spacing-md);
-  background: rgba(255, 176, 32, 0.12);
-  border-bottom: 1px solid rgba(255, 176, 32, 0.4);
+  /* The theme's warning colour, the same as the badge on each missing row. */
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
   color: var(--color-text);
   font-size: 13px;
 
-  > .material-symbols-rounded { color: #ffb020; font-size: 18px; }
+  > .material-symbols-rounded { color: var(--color-warning); font-size: 18px; }
   .missing-media-text { flex: 1; min-width: 0; }
 }
 

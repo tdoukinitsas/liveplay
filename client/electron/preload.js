@@ -160,6 +160,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // A playlist tab or cart page in a window of its own (#74).
   openTabWindow: (kind, id) => ipcRenderer.invoke('open-tab-window', kind, id),
   onTabWindowsChanged: (callback) => replaceIpcListener('tab-windows-changed', callback),
+  // Main window only: a different show is open, so its tabs' windows go.
+  closeTabWindows: () => ipcRenderer.send('tab-windows-close-all'),
+  // A tab window whose tab has been deleted closes itself.
+  closeOwnTabWindow: () => ipcRenderer.send('tab-window-close-self'),
   getCartWindowProjectData: () => ipcRenderer.invoke('get-cart-window-project-data'),
   onCartPlayerWindowOpened: (callback) => replaceIpcListener('cart-player-window-opened', callback),
   onCartPlayerWindowClosed: (callback) => replaceIpcListener('cart-player-window-closed', callback),

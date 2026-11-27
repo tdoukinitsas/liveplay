@@ -139,6 +139,9 @@
          → resume from where we left off, or go back to the welcome screen. -->
     <SessionRecoveryModal />
 
+    <!-- An event connection needs its credentials entered again (F-23). -->
+    <ConnectionSignInNotice />
+
     <!-- App-quit confirmation: unsaved changes, then (in local mode) whether
          to also shut the local audio server down. -->
     <QuitConfirmModal

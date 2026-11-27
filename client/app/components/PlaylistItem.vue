@@ -1115,9 +1115,10 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   }
 }
 
+/* The theme's warning colour, and sized with the row like the icons beside it. */
 .media-missing-icon {
-  font-size: 18px;
-  color: #ffb020;
+  font-size: calc(18px * var(--playlist-item-scale, 1));
+  color: var(--color-warning);
   flex-shrink: 0;
   cursor: help;
   line-height: 1;

@@ -18,7 +18,7 @@
 // =====================================================================
 import { v4 as uuidv4 } from 'uuid';
 import { markRaw, nextTick, toRaw, triggerRef } from 'vue';
-import { insertIndexForTab, tabsOf } from '~/utils/tabs';
+import { insertIndexForTab, keepingGotoTargets, tabsOf } from '~/utils/tabs';
 import type {
   Project,
   AudioItem,
@@ -552,22 +552,28 @@ export const useProject = () => {
     const parsed = parseItemsFromText(text);
     if (parsed.length === 0) return 0;
     const newUuids: string[] = [];
-    for (const it of parsed) {
-      const clone = cloneItemWithNewIds(it);
-      // Onto the tab this window is showing, wherever it was copied from.
-      const tabs = tabsOf(currentProject.value);
-      if (tabs.length > 1) {
-        const shown = useState<string | null>('showTabs.activePlaylistTab').value;
-        const tabId = tabs.some(tab => tab.id === shown) ? shown! : tabs[0]!.id;
-        clone.tabId = tabId;
-        currentProject.value.items.splice(insertIndexForTab(currentProject.value.items, tabs, tabId), 0, clone);
-      } else {
-        delete clone.tabId;
-        currentProject.value.items.push(clone);
+    const project = currentProject.value;
+    // Pasting onto an earlier tab moves every cue after it down one: a "go to
+    // index" pointing at one of them follows it rather than landing on
+    // whatever takes its place (F-10).
+    keepingGotoTargets(project.items, findItemByIndex, () => {
+      for (const it of parsed) {
+        const clone = cloneItemWithNewIds(it);
+        // Onto the tab this window is showing, wherever it was copied from.
+        const tabs = tabsOf(project);
+        if (tabs.length > 1) {
+          const shown = useState<string | null>('showTabs.activePlaylistTab').value;
+          const tabId = tabs.some(tab => tab.id === shown) ? shown! : tabs[0]!.id;
+          clone.tabId = tabId;
+          project.items.splice(insertIndexForTab(project.items, tabs, tabId), 0, clone);
+        } else {
+          delete clone.tabId;
+          project.items.push(clone);
+        }
+        newUuids.push(clone.uuid);
       }
-      newUuids.push(clone.uuid);
-    }
-    updateIndices(currentProject.value.items);
+      updateIndices(project.items);
+    }, findItemByUuid);
     selectionContext.value = 'playlist';
     selectedItems.value.clear();
     for (const u of newUuids) selectedItems.value.add(u);
@@ -609,7 +615,9 @@ export const useProject = () => {
 
       const newProject: Project = {
         name,
-        version: '2.0.0',
+        // The show-file format (F-08): a 2.6 show, so the server doesn't take
+        // it for an older one to upgrade (legacy duck timing, F-07).
+        version: '2.6.0',
         folderPath,
         items: [],
         cartItems: [],
@@ -908,7 +916,7 @@ export const useProject = () => {
     }
     const project: Project = {
       name:           header.name ?? 'Untitled',
-      version:        header.version ?? '2.0.0',
+      version:        header.version ?? '2.6.0',
       folderPath:     header.folderPath ?? '',
       // Passed through, not asserted: whatever the server says the loaded
       // document is at comes back out on the next save.
@@ -1355,11 +1363,16 @@ export const useProject = () => {
         const shown = useState<string | null>('showTabs.activePlaylistTab').value;
         const tabId = tabs.some(tab => tab.id === shown) ? shown! : tabs[0]!.id;
         item.tabId = tabId;
-        project.items.splice(insertIndexForTab(project.items, tabs, tabId), 0, item);
+        // An earlier tab: every cue after it moves down one, and a "go to
+        // index" pointing at one of them follows it (F-10).
+        keepingGotoTargets(project.items, findItemByIndex, () => {
+          project.items.splice(insertIndexForTab(project.items, tabs, tabId), 0, item);
+          updateIndices(project.items);
+        }, findItemByUuid);
       } else {
         project.items.push(item);
+        updateIndices(project.items);
       }
-      updateIndices(project.items);
     }
   };
 
@@ -1615,16 +1628,39 @@ export const useProject = () => {
     let lastCartOnly: any = null;
     let lastSettings: any = null;
 
+    // F-31: an edit in progress (a fader or handle being dragged) holds the
+    // items sync off until it ends. A patch from another client landing in
+    // the meantime re-captures the baselines from what's on screen, which
+    // already includes the drag, so the end of the drag found nothing to send
+    // and the server kept the old value. So, during a batch, an item the
+    // patch didn't touch keeps its old baseline here, for the diff at the end
+    // of the batch to compare against.
+    const remoteTouched = new Set<string>();
+    const batchOverrides = new Map<string, any>();
+    const ownFields = (it: any) => (it && it.type === 'group' ? { ...it, children: undefined } : it);
+
     // After hydrate, capture per-section baselines so the per-section
     // watchers don't fire spuriously on the assignment.
     const captureBaselines = () => {
       const p = currentProject.value;
+      const before = _suppressItemSyncCount.value > 0 && lastItems
+        ? flatten(lastItems, lastCartOnly) : null;
       // Strip waveform peaks from the items baseline — they are large
       // read-only server blobs that must never be included in the diff.
       lastItems    = itemsToJSON(p?.items);
       lastCart     = toJSON(p?.cartItems);
       lastCartOnly = itemsToJSON(p?.cartOnlyItems);
       lastSettings = toJSON((p as any)?.settings);
+      if (before) {
+        for (const [uuid, now] of flatten(lastItems, lastCartOnly)) {
+          const was = before.get(uuid);
+          if (!was || remoteTouched.has(uuid) || batchOverrides.has(uuid)) continue;
+          if (stableJson(ownFields(was.item)) !== stableJson(ownFields(now.item))) {
+            batchOverrides.set(uuid, was.item);
+          }
+        }
+      }
+      remoteTouched.clear();
     };
     watch(isHydrating, (h) => { if (!h) captureBaselines(); });
     // Expose a refresh hook for streamItemPages — after it finishes
@@ -1677,6 +1713,9 @@ export const useProject = () => {
       const op = patch?.op;
       // Not for a new show: what's waiting belongs to the one being replaced.
       if (op !== 'project_changed') flushPendingSync();
+      // During an edit batch, what this patch changes is the other client's,
+      // not ours to send (F-31).
+      if (_suppressItemSyncCount.value > 0 && typeof patch?.uuid === 'string') remoteTouched.add(patch.uuid);
       // All patch application happens under isHydrating so the local
       // diff-watcher doesn't echo these back to the server as fresh edits.
       isHydrating.value = true;
@@ -1784,6 +1823,17 @@ export const useProject = () => {
             const slot = patch.slot;
             if (typeof slot !== 'number') return;
             p.cartItems = (p.cartItems ?? []).filter((c: any) => c.slot !== slot);
+            break;
+          }
+          case 'cart_keys_changed': {
+            // Every client, the one that changed them included, adopts the
+            // server's checked copy (F-03).
+            if (patch.cartSlotKeys && typeof patch.cartSlotKeys === 'object') {
+              (p as any).cartSlotKeys = patch.cartSlotKeys;
+            }
+            if (patch.cartPinnedKeys && typeof patch.cartPinnedKeys === 'object') {
+              p.cartPinnedKeys = patch.cartPinnedKeys;
+            }
             break;
           }
           // `theme_patched` is gone with U4 — see PATCH /api/project/theme.
@@ -1923,9 +1973,11 @@ export const useProject = () => {
             break;
           }
           case 'advance_pending': {
-            const from = typeof msg.fromUuid === 'string' ? msg.fromUuid : '';
+            // `patch`, not `msg`: there is no `msg` here, and the ReferenceError
+            // meant the "Next in" countdown never showed (F-15).
+            const from = typeof patch.fromUuid === 'string' ? patch.fromUuid : '';
             advancePending.value = from
-              ? { fromUuid: from, dueAt: Date.now() + (Number(msg.dueInMs) || 0) }
+              ? { fromUuid: from, dueAt: Date.now() + (Number(patch.dueInMs) || 0) }
               : null;
             break;
           }
@@ -2014,6 +2066,9 @@ export const useProject = () => {
       for (const [slot, uuid] of cartByCurr) {
         if (cartByPrev.get(slot) !== uuid) { try { await server().setCartSlot(slot, uuid); } catch {} }
       }
+      // A cart that moved takes its pinned key along; a cleared one drops it
+      // (F-13). After the bindings, which the server checks pins against.
+      useCartHotkeys().reconcilePinnedKeys(cartByPrev, cartByCurr);
     };
     watch(() => currentProject.value?.cartItems, () => {
       if (isHydrating.value || !currentProject.value) return;
@@ -2096,10 +2151,16 @@ export const useProject = () => {
 
       const items_changed    = stableJson(nextItems)    !== stableJson(lastItems);
       const cartonly_changed = stableJson(nextCartOnly) !== stableJson(lastCartOnly);
-      if (!items_changed && !cartonly_changed) return;
+      if (!items_changed && !cartonly_changed && batchOverrides.size === 0) return;
 
       const prev = flatten(lastItems, lastCartOnly);
       const curr = flatten(nextItems, nextCartOnly);
+      // Edits a patch re-baselined mid-batch still go out (F-31).
+      for (const [uuid, was] of batchOverrides) {
+        const entry = prev.get(uuid);
+        if (entry) entry.item = was;
+      }
+      batchOverrides.clear();
 
       // Rotate baselines BEFORE awaiting any API calls so a subsequent
       // watcher fire while we're mid-sync sees the new baseline.
@@ -2182,8 +2243,13 @@ export const useProject = () => {
         // like a reorder.
         const prevCommon = prevOrder.filter(u => curr.has(u));
         const currCommon = currOrder.filter(u => prev.has(u));
+        // The server appends what was added. An item added anywhere else (onto
+        // an earlier playlist tab, say) needs the order sent too, or the server
+        // and every other client keep it at the end (F-10).
+        const asServerHasIt = [...currCommon, ...currOrder.filter(u => !prev.has(u))];
 
-        if (stableJson(prevCommon) !== stableJson(currCommon)) {
+        if (stableJson(prevCommon) !== stableJson(currCommon) ||
+            stableJson(asServerHasIt) !== stableJson(currOrder)) {
           // Send the full current order for this parent (server ignores unknown uuids).
           try { await srv.reorderProjectItems(currOrder, parentUuid); } catch {}
         }
@@ -2200,9 +2266,13 @@ export const useProject = () => {
     // and goes to their profile. cartSlotKeys STAYS — a cart wall is the
     // show's layout, and the slot that fires the door slam has to be the same
     // slot for whoever is at the desk tonight.
+    //
+    // The cart keys have had their own route since F-03 (useCartHotkeys), so
+    // only the name is left. The document it pushes leaves out every part
+    // with its own route (tabs, pages, connections, cart keys): the server
+    // keeps its copy of those, which may be newer than this client's.
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
     watch([
-      () => (currentProject.value as any)?.cartSlotKeys,
       () => currentProject.value?.name,
     ], () => {
       if (isHydrating.value || !currentProject.value) return;
@@ -2212,7 +2282,11 @@ export const useProject = () => {
         if (!p) return;
         // Only push the whole document for these rare fields. The cost is
         // acceptable here precisely because the trigger fires rarely.
-        try { await server().replaceProjectDocument(toJSON(p)); }
+        const doc: any = toJSON(p);
+        for (const key of ['playlistTabs', 'cartPages', 'eventConnections', 'cartSlotKeys', 'cartPinnedKeys']) {
+          delete doc[key];
+        }
+        try { await server().replaceProjectDocument(doc); }
         catch (e) { console.warn('[useProject] fallback PUT failed:', e); }
       }, 800);
     }, { deep: true });

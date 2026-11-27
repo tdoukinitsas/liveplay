@@ -1,4 +1,5 @@
 import type { CartSlotKeyBinding, PlaybackKeyAction, AudioItem } from '~/types/project';
+import { shouldIgnoreHotkey } from '~/utils/hotkeyGuard';
 import { DEFAULT_CART_SLOT_KEYS, DEFAULT_PLAYBACK_KEYS } from '~/types/project';
 
 const RESERVED_COMBOS: CartSlotKeyBinding[] = [
@@ -55,10 +56,32 @@ export const useCartHotkeys = () => {
   const keyMappings = computed(() =>
     currentProject.value?.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS }
   );
-  // By cart: fires that one cart whatever page is showing.
+  // By cart: fires that one cart whatever page is showing. Keyed by the cart's
+  // raw slot number, so the key belongs to the cart button (two carts on one
+  // cue keep a key each) and goes when the cart is cleared (F-13).
   const pinnedKeys = computed<Record<string, CartSlotKeyBinding>>(() =>
     currentProject.value?.cartPinnedKeys ?? {}
   );
+
+  // The cart keys have their own route (F-03): every client hears a change at
+  // once, and another client's save can't undo it.
+  const persistCartKeys = (body: { cartSlotKeys?: Record<string, CartSlotKeyBinding>; cartPinnedKeys?: Record<string, CartSlotKeyBinding> }) => {
+    void useLiveplayServer().saveCartKeys(body)
+      .catch((e: unknown) => console.warn('[cart keys] could not save:', e));
+  };
+
+  // "Page 2 · 5 · Door slam": a pinned cart, as the Keyboard pane names it.
+  const cartLabel = (slot: number): string => {
+    const { cartPages } = useShowTabs();
+    const pages = cartPages.value;
+    const index = pages.findIndex(p => slot >= p.slotBase && slot < p.slotBase + p.size);
+    const page = pages[index];
+    const name = getCartTarget(currentProject.value?.cartItems.find(c => c.slot === slot)?.itemUuid ?? '')?.displayName ?? '';
+    if (!page) return name;
+    const { t } = useLocalization();
+    return [page.name || t('tabs.defaultPage', { n: index + 1 }), String(slot - page.slotBase + 1), name]
+      .filter(Boolean).join(' \u00b7 ');
+  };
 
   // The transport keymap follows the PERSON as of U4, not the show file.
   //
@@ -119,15 +142,18 @@ export const useCartHotkeys = () => {
     toggleCart(getCartItem(page.slotBase + position));
   };
 
-  const findPinnedForEvent = (e: KeyboardEvent): string | null => {
-    for (const [uuid, binding] of Object.entries(pinnedKeys.value)) {
+  // The slot of the cart pinned to this key, if that cart is still there.
+  const findPinnedForEvent = (e: KeyboardEvent): number | null => {
+    for (const [slotStr, binding] of Object.entries(pinnedKeys.value)) {
       if (
-        e.key.toLowerCase() === binding.key.toLowerCase()
+        binding && typeof binding.key === 'string'
+        && e.key.toLowerCase() === binding.key.toLowerCase()
         && (e.ctrlKey || e.metaKey) === binding.ctrlKey
         && e.shiftKey === binding.shiftKey
         && e.altKey === binding.altKey
       ) {
-        return uuid;
+        const slot = parseInt(slotStr, 10);
+        return Number.isInteger(slot) && getCartItem(slot) ? slot : null;
       }
     }
     return null;
@@ -205,9 +231,9 @@ export const useCartHotkeys = () => {
     }
 
     if (action === 'stop-current-cue') {
-      const item = getTargetItem();
-      if (!item || !activeCues.value.has(item.uuid)) return;
-      stopCue(item.uuid);
+      // The server decides which cue is current (the one fired last that is
+      // still on air), as it does for MIDI and POST /api/transport/stop_current.
+      useLiveplayServer().stopCurrent();
       return;
     }
 
@@ -219,8 +245,9 @@ export const useCartHotkeys = () => {
     if (action === 'select-up' || action === 'select-down') {
       const project = currentProject.value;
       if (!project) return;
-      // The rows on the tab this window is showing: stepping must not move
-      // the selection somewhere the operator can't see it.
+      if (useShowControl().selectStepInView(action === 'select-up' ? -1 : 1)) return;
+      // No server to ask: step locally through the rows on the tab this
+      // window is showing, so the selection never lands out of sight.
       const all = getAllItemsFlat(useShowTabs().itemsOnActiveTab.value);
       if (all.length === 0) return;
       if (!selectedItem.value) {
@@ -260,7 +287,10 @@ export const useCartHotkeys = () => {
   };
 
   const handleKeydown = (e: KeyboardEvent) => {
-    if (isTextInputFocused()) return;
+    // A key a control on the page already handled (Esc closing a popover,
+    // Enter on a tab), or one that belongs to the control with focus (a
+    // select, a list), is not a transport key (F-02, F-09, F-53).
+    if (isTextInputFocused() || shouldIgnoreHotkey(e)) return;
     if (!currentProject.value) return;
 
     // Playback actions
@@ -274,10 +304,10 @@ export const useCartHotkeys = () => {
 
     // A key pinned to one cart beats the position keys.
     const pinned = findPinnedForEvent(e);
-    if (pinned) {
+    if (pinned !== null) {
       e.preventDefault();
       e.stopPropagation();
-      toggleCart(getCartTarget(pinned));
+      toggleCart(getCartItem(pinned));
       return;
     }
 
@@ -300,11 +330,33 @@ export const useCartHotkeys = () => {
         return { conflict: existingSlot };
       }
     }
-    if (!currentProject.value.cartSlotKeys) {
-      currentProject.value.cartSlotKeys = {};
-    }
-    currentProject.value.cartSlotKeys[slotIndex] = binding;
+    currentProject.value.cartSlotKeys = { ...mappings, [slotIndex]: binding };
+    persistCartKeys({ cartSlotKeys: currentProject.value.cartSlotKeys as any });
     return { conflict: -1 };
+  };
+
+  const clearSlotKey = (slotIndex: number) => {
+    const project = currentProject.value;
+    if (!project?.cartSlotKeys) return;
+    const { [slotIndex]: _gone, ...rest } = project.cartSlotKeys as Record<number, CartSlotKeyBinding>;
+    project.cartSlotKeys = rest;
+    persistCartKeys({ cartSlotKeys: rest as any });
+  };
+
+  // Who already has this key, for a message that names them (F-48).
+  type KeyHolder = { kind: 'action'; action: PlaybackKeyAction } | { kind: 'slot'; position: number } | { kind: 'pin'; slot: number };
+  const keyHolder = (binding: CartSlotKeyBinding, except?: { pinSlot?: number }): KeyHolder | null => {
+    for (const [action, b] of Object.entries(playbackMappings.value) as [PlaybackKeyAction, CartSlotKeyBinding | null][]) {
+      if (b && bindingsMatch(b, binding)) return { kind: 'action', action };
+    }
+    for (const [pos, b] of Object.entries(keyMappings.value)) {
+      if (b && bindingsMatch(b, binding)) return { kind: 'slot', position: parseInt(pos, 10) };
+    }
+    for (const [slot, b] of Object.entries(pinnedKeys.value)) {
+      const s = parseInt(slot, 10);
+      if (s !== except?.pinSlot && b && bindingsMatch(b, binding)) return { kind: 'pin', slot: s };
+    }
+    return null;
   };
 
   const updatePlaybackBinding = (
@@ -338,21 +390,59 @@ export const useCartHotkeys = () => {
     return { conflictSlot: -1, conflictAction: null };
   };
 
-  /** Pin a key to one cart, or clear it with null. False if the key is taken. */
-  const setPinnedKey = (uuid: string, binding: CartSlotKeyBinding | null): boolean => {
+  /** Pin a key to the cart in `slot`, or clear it with null. Returns who already has the key, if anyone. */
+  const setPinnedKey = (slot: number, binding: CartSlotKeyBinding | null): KeyHolder | null => {
     const project = currentProject.value;
-    if (!project) return false;
+    if (!project) return null;
+    const pins = { ...(project.cartPinnedKeys ?? {}) };
     if (binding) {
-      const taken = Object.values(playbackMappings.value).some(b => b && bindingsMatch(b, binding))
-        || Object.values(keyMappings.value).some(b => bindingsMatch(b, binding))
-        || Object.entries(pinnedKeys.value).some(([u, b]) => u !== uuid && bindingsMatch(b, binding));
-      if (taken) return false;
-      project.cartPinnedKeys = { ...(project.cartPinnedKeys ?? {}), [uuid]: binding };
-    } else if (project.cartPinnedKeys) {
-      const { [uuid]: _gone, ...rest } = project.cartPinnedKeys;
-      project.cartPinnedKeys = rest;
+      const holder = keyHolder(binding, { pinSlot: slot });
+      if (holder) return holder;
+      pins[String(slot)] = binding;
+    } else {
+      delete pins[String(slot)];
     }
-    return true;
+    project.cartPinnedKeys = pins;
+    persistCartKeys({ cartPinnedKeys: pins });
+    return null;
+  };
+
+  /** A cart moved from one slot to another: its pinned key goes with it. */
+  const movePinnedKey = (from: number, to: number) => {
+    const project = currentProject.value;
+    const pin = project?.cartPinnedKeys?.[String(from)];
+    if (!project || !pin || from === to) return;
+    const pins = { ...project.cartPinnedKeys };
+    delete pins[String(from)];
+    pins[String(to)] = pin;
+    project.cartPinnedKeys = pins;
+    persistCartKeys({ cartPinnedKeys: pins });
+  };
+
+  /**
+   * After the cart bindings changed (prev and next: slot → target): a pin
+   * follows its cart to a new slot, and goes with a cart that was cleared.
+   * Called once the server has the new bindings, which it checks pins against.
+   */
+  const reconcilePinnedKeys = (prev: Map<number, string>, next: Map<number, string>) => {
+    const project = currentProject.value;
+    if (!project?.cartPinnedKeys || Object.keys(project.cartPinnedKeys).length === 0) return;
+    const pins = { ...project.cartPinnedKeys };
+    let changed = false;
+    for (const [slotStr, pin] of Object.entries(project.cartPinnedKeys)) {
+      const slot = parseInt(slotStr, 10);
+      const was = prev.get(slot);
+      if (!was || next.get(slot) === was) continue;
+      delete pins[slotStr];
+      changed = true;
+      // Moved: the same target turned up in a slot that didn't have it.
+      for (const [s, target] of next) {
+        if (target === was && prev.get(s) !== was && !pins[String(s)]) { pins[String(s)] = pin; break; }
+      }
+    }
+    if (!changed) return;
+    project.cartPinnedKeys = pins;
+    persistCartKeys({ cartPinnedKeys: pins });
   };
 
   const isKeyPinned = (binding: CartSlotKeyBinding) =>
@@ -362,6 +452,7 @@ export const useCartHotkeys = () => {
     if (!currentProject.value) return;
     currentProject.value.cartSlotKeys = {};
     currentProject.value.cartPinnedKeys = {};
+    persistCartKeys({ cartSlotKeys: {}, cartPinnedKeys: {} });
   };
 
   // No currentProject guard any more: the keymap is this operator's, and they
@@ -388,6 +479,11 @@ export const useCartHotkeys = () => {
     keyMappings,
     pinnedKeys,
     setPinnedKey,
+    movePinnedKey,
+    reconcilePinnedKeys,
+    clearSlotKey,
+    keyHolder,
+    cartLabel,
     isKeyPinned,
     playbackMappings,
     triggerSlot,

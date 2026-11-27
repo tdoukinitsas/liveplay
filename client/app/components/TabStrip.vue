@@ -25,7 +25,7 @@
         :title="tabTitle(tab)"
         :draggable="!locked"
         @click="selectTab(kind, tab.id)"
-        @keydown.enter.prevent="selectTab(kind, tab.id)"
+        @keydown.enter.prevent.stop="selectTab(kind, tab.id)"
         @keydown.space.prevent.stop="selectTab(kind, tab.id)"
         @contextmenu.prevent="!locked && openEditor(tab.id, $event.currentTarget as HTMLElement)"
         @pointerdown="startLongPress(tab.id, $event)"
@@ -38,23 +38,31 @@
         @dragleave="onDragLeave(tab)"
         @drop="onDrop(i, tab, $event)"
       >
-        <span v-if="indicatorFor(kind, tab.id).playing" class="tab-dot tab-dot--playing" :title="t('status.playing')" />
+        <span
+          v-if="indicatorFor(kind, tab.id).playing"
+          class="tab-dot tab-dot--playing"
+          role="img"
+          :title="t('status.playing')"
+          :aria-label="t('status.playing')"
+        />
         <span
           v-else-if="indicatorFor(kind, tab.id).upNext !== null"
           class="material-symbols-rounded tab-next"
+          role="img"
           :title="t('tabs.upNextOn', { name: indicatorFor(kind, tab.id).upNext ?? '' })"
+          :aria-label="t('tabs.upNextOn', { name: indicatorFor(kind, tab.id).upNext ?? '' })"
         >fast_forward</span>
         <span class="tab-name">{{ tab.name || fallbackName(i) }}</span>
         <button
           v-if="!locked"
           type="button"
           class="tab-edit"
-          :title="t('tabs.edit')"
-          :aria-label="t('tabs.edit')"
+          :title="editLabel"
+          :aria-label="editLabel"
           @click.stop="openEditor(tab.id, ($event.currentTarget as HTMLElement).parentElement as HTMLElement)"
           @pointerdown.stop
         >
-          <span class="material-symbols-rounded">edit</span>
+          <span class="material-symbols-rounded" aria-hidden="true">edit</span>
         </button>
       </div>
     </div>
@@ -68,38 +76,52 @@
       :aria-label="t('tabs.cartCount')"
       @click="openEditor(tabs[0]!.id, singleEditEl!)"
     >
-      <span class="material-symbols-rounded">grid_view</span>
+      <span class="material-symbols-rounded" aria-hidden="true">grid_view</span>
     </button>
     <button
       v-if="!locked"
       type="button"
       class="tab-add"
       :disabled="!canAdd(kind)"
-      :title="canAdd(kind) ? t(`tabs.add_${kind}`) : t('tabs.limitReached')"
+      :title="canAdd(kind) ? t(`tabs.add_${kind}`) : t(kind === 'cart' ? 'tabs.limitReachedPages' : 'tabs.limitReached')"
       :aria-label="t(`tabs.add_${kind}`)"
       @click="onAdd"
     >
-      <span class="material-symbols-rounded">add</span>
+      <span class="material-symbols-rounded" aria-hidden="true">add</span>
     </button>
 
-    <div v-if="followLabel" class="tab-follow" :class="{ lost: followLost }">
-      <span class="material-symbols-rounded">{{ followLost ? 'link_off' : 'visibility' }}</span>
+    <!-- A pop-out never follows (only a main window does), so it says nothing. -->
+    <div v-if="followLabel && !isSecondaryWindow" class="tab-follow" :class="{ lost: followLost }">
+      <span class="material-symbols-rounded" aria-hidden="true">{{ followLost ? 'link_off' : 'visibility' }}</span>
       <span class="tab-follow-text">
         {{ followLost ? t('tabs.followLost', { name: followLabel }) : t('tabs.following', { name: followLabel }) }}
       </span>
-      <button type="button" class="tab-edit tab-edit--shown" :title="t('tabs.followStop')" @click="setFollowing('')">
-        <span class="material-symbols-rounded">close</span>
+      <button
+        type="button"
+        class="tab-edit tab-edit--shown"
+        :title="t('tabs.followStop')"
+        :aria-label="t('tabs.followStop')"
+        @click="setFollowing(null)"
+      >
+        <span class="material-symbols-rounded" aria-hidden="true">close</span>
       </button>
     </div>
 
+    <!-- Dropping a cart on a page with no free place does nothing, so say why. -->
+    <span v-if="dropNote" class="tab-drop-note" role="status">{{ dropNote }}</span>
+
     <Teleport to="#app">
       <div v-if="editing" class="tab-popover-scrim" @pointerdown.self="closeEditor" />
+      <!-- Focus moves in here when it opens, and its keys stay here: Escape
+           closes it (and, see onEscapeCapture, never reaches Stop All). -->
       <div
         v-if="editing"
         ref="popoverEl"
         class="tab-popover"
         role="dialog"
-        :aria-label="t('tabs.edit')"
+        tabindex="-1"
+        data-own-keys
+        :aria-label="multi ? editLabel : t('tabs.cartCount')"
         :style="popoverStyle"
         @keydown.esc.stop.prevent="closeEditor"
         @keydown.stop
@@ -119,16 +141,21 @@
                 :class="{ selected: !editing.color }"
                 :title="t('tabs.noColour')"
                 :aria-label="t('tabs.noColour')"
+                :aria-pressed="!editing.color"
                 @click="updateTab(kind, editing.id, { color: undefined })"
               />
+              <!-- Named by number: a screen reader reading out "#FF6600" is
+                   no help to anyone choosing a colour. -->
               <button
-                v-for="c in PRESET_COLORS"
+                v-for="(c, n) in PRESET_COLORS"
                 :key="c"
                 type="button"
                 class="tab-swatch"
                 :class="{ selected: editing.color === c }"
                 :style="{ background: c }"
-                :aria-label="c"
+                :title="t('tabs.colourN', { n: n + 1 })"
+                :aria-label="t('tabs.colourN', { n: n + 1 })"
+                :aria-pressed="editing.color === c"
                 @click="updateTab(kind, editing.id, { color: c })"
               />
             </div>
@@ -139,7 +166,7 @@
           <span>{{ t('tabs.cartCount') }}</span>
           <div class="tab-stepper">
             <button type="button" :disabled="sizeOf(editing) <= minSize" :aria-label="t('tabs.fewer')" @click="stepSize(-1)">
-              <span class="material-symbols-rounded">remove</span>
+              <span class="material-symbols-rounded" aria-hidden="true">remove</span>
             </button>
             <input
               type="number"
@@ -150,7 +177,7 @@
               @change="onSizeInput"
             />
             <button type="button" :disabled="sizeOf(editing) >= limits.maxCartsPerPage" :aria-label="t('tabs.more')" @click="stepSize(1)">
-              <span class="material-symbols-rounded">add</span>
+              <span class="material-symbols-rounded" aria-hidden="true">add</span>
             </button>
           </div>
           <div class="tab-presets">
@@ -181,7 +208,7 @@
         </label>
 
         <button v-if="multi && canPopOut" type="button" class="tab-action" @click="popOut">
-          <span class="material-symbols-rounded">open_in_new</span>
+          <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span>
           {{ t('tabs.popOut') }}
         </button>
 
@@ -191,26 +218,23 @@
             type="button"
             class="tab-action tab-action--danger"
             :disabled="usage.playing"
-            :title="usage.playing ? t('tabs.deletePlaying') : undefined"
+            :title="usage.playing ? playingLabel : undefined"
             @click="confirmingDelete = true"
           >
-            <span class="material-symbols-rounded">delete</span>
-            {{ t('tabs.delete') }}
+            <span class="material-symbols-rounded" aria-hidden="true">delete</span>
+            {{ t(kind === 'cart' ? 'tabs.deletePage' : 'tabs.delete') }}
           </button>
+          <!-- Cancel first, as in the app's other confirms (DeleteSelectionModal). -->
           <div v-else class="tab-confirm">
-            <p>
-              {{ usage.count
-                ? t(`tabs.deleteConfirm_${kind}`, { name: editing.name, count: usage.count })
-                : t('tabs.deleteEmpty', { name: editing.name }) }}
-            </p>
+            <p>{{ deletePrompt }}</p>
             <div>
+              <button type="button" class="tab-action" @click="confirmingDelete = false">{{ t('common.cancel') }}</button>
               <button type="button" class="tab-action tab-action--danger" :disabled="usage.playing" @click="doDelete">
                 {{ t('tabs.deleteYes') }}
               </button>
-              <button type="button" class="tab-action" @click="confirmingDelete = false">{{ t('common.cancel') }}</button>
             </div>
           </div>
-          <p v-if="usage.playing" class="tab-help">{{ t('tabs.deletePlaying') }}</p>
+          <p v-if="usage.playing" class="tab-help">{{ playingLabel }}</p>
         </template>
       </div>
     </Teleport>
@@ -233,7 +257,7 @@ const { uiMode } = useUiMode();
 const {
   limits, playlistTabs, cartPages, activePlaylistTabId, activeCartPageId,
   selectTab, canAdd, addTab, updateTab, deleteTab, reorderTab, tabUsage, indicatorFor,
-  minCartsFor, moveItemsToTab, moveCartToPage, canPopOut, openTabWindow,
+  minCartsFor, moveItemsToTab, moveCartToPage, pageHasRoom, canPopOut, openTabWindow,
   followLabel, followLost, setFollowing,
 } = useShowTabs();
 
@@ -246,6 +270,10 @@ const locked = computed(() => uiMode.value === 'playback' || isSecondaryWindow);
 
 const fallbackName = (i: number) =>
   t(props.kind === 'playlist' ? 'tabs.defaultPlaylist' : 'tabs.defaultPage', { n: i + 1 });
+
+// A cart page is a page, not a tab, in everything it says.
+const editLabel = computed(() => t(props.kind === 'cart' ? 'tabs.editPage' : 'tabs.edit'));
+const playingLabel = computed(() => t(props.kind === 'cart' ? 'tabs.deletePlayingPage' : 'tabs.deletePlaying'));
 
 function tabTitle(tab: PlaylistTab | CartPage) {
   const upNext = indicatorFor(props.kind, tab.id).upNext;
@@ -265,10 +293,24 @@ const nameEl = ref<HTMLInputElement | null>(null);
 const popoverStyle = ref<Record<string, string>>({});
 const draftName = ref('');
 const confirmingDelete = ref(false);
+let editorAnchor: HTMLElement | null = null;
+
+// What the prompt calls the tab: its name, or the name it shows when it has
+// none, so it never reads 'Delete ""'. And every cue it holds, groups and all.
+const deletePrompt = computed(() => {
+  const tab = editing.value;
+  if (!tab) return '';
+  const name = tab.name || fallbackName(tabs.value.findIndex(x => x.id === tab.id));
+  const n = usage.value.count;
+  if (!n) return t('tabs.deleteEmpty', { name });
+  if (props.kind === 'cart') return t(n === 1 ? 'tabs.deleteConfirmCart' : 'tabs.deleteConfirmCarts', { name, count: n });
+  return t(n === 1 ? 'tabs.deleteConfirmCue' : 'tabs.deleteConfirmCues', { name, count: n });
+});
 
 function openEditor(id: string, anchor: HTMLElement) {
   if (locked.value) return;
   editingId.value = id;
+  editorAnchor = anchor;
   confirmingDelete.value = false;
   // Held here rather than read from the tab: a save coming back from the
   // server must not rewrite the field under someone still typing.
@@ -284,14 +326,43 @@ function openEditor(id: string, anchor: HTMLElement) {
     const fitsBelow = r.bottom + 4 + box.height <= window.innerHeight - margin;
     const top = fitsBelow ? r.bottom + 4 : Math.max(margin, r.top - box.height - 4);
     popoverStyle.value = { left: `${left}px`, top: `${top}px` };
-    nameEl.value?.select();
+    // Focus goes into the popover, so its keys (Escape above all) are its
+    // own: left on the button that opened it, Escape went on to Stop All.
+    if (nameEl.value) { nameEl.value.focus(); nameEl.value.select(); }
+    else (el.querySelector<HTMLElement>('input, select, button:not(:disabled)') ?? el).focus();
   });
 }
 
 function closeEditor() {
+  const hadFocus = !!popoverEl.value?.contains(document.activeElement);
   editingId.value = null;
   confirmingDelete.value = false;
+  // Back to the tab it was opened from, for the keyboard. Not to a button:
+  // Space on a focused button presses it, so the next GO would reopen this.
+  if (hadFocus) {
+    if (editorAnchor?.isConnected && editorAnchor.matches('[role="tab"]')) editorAnchor.focus();
+    else (document.activeElement as HTMLElement | null)?.blur?.();
+  }
+  editorAnchor = null;
 }
+
+// While the popover is open, Escape is its own wherever focus is (the scrim,
+// the page, a tab that kept it): caught on the way down, before the transport
+// keys can read it as Stop All.
+function onEscapeCapture(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || !editingId.value) return;
+  e.preventDefault();
+  e.stopPropagation();
+  closeEditor();
+}
+watch(editingId, (id, was) => {
+  if (!import.meta.client || !!id === !!was) return;
+  if (id) window.addEventListener('keydown', onEscapeCapture, true);
+  else window.removeEventListener('keydown', onEscapeCapture, true);
+});
+onUnmounted(() => {
+  if (import.meta.client) window.removeEventListener('keydown', onEscapeCapture, true);
+});
 
 // A tab removed by another operator closes its own editor.
 watch(editing, (tab) => { if (!tab) closeEditor(); });
@@ -389,6 +460,16 @@ const carriesContent = (e: DragEvent) => {
     : types.includes('item-uuid') && !types.includes('cart-slot');
 };
 
+// A short line beside the tabs: why a drop did nothing.
+const dropNote = ref('');
+let dropNoteTimer: ReturnType<typeof setTimeout> | null = null;
+function showDropNote(text: string) {
+  dropNote.value = text;
+  if (dropNoteTimer) clearTimeout(dropNoteTimer);
+  dropNoteTimer = setTimeout(() => { dropNote.value = ''; }, 2500);
+}
+onUnmounted(() => { if (dropNoteTimer) clearTimeout(dropNoteTimer); });
+
 function onDragOver(i: number, tab: PlaylistTab | CartPage, e: DragEvent) {
   if (locked.value) return;
   if (dragTypes(e).includes(TAB_TYPE.value)) {
@@ -396,6 +477,18 @@ function onDragOver(i: number, tab: PlaylistTab | CartPage, e: DragEvent) {
     dropIndex.value = i;
     dropIntoId.value = null;
   } else if (carriesContent(e)) {
+    if (props.kind === 'cart') {
+      // The carts on screen are the open page's, so that's where this one
+      // already is. Elsewhere, a page with no free place can't take it: no
+      // drop cursor, and the note says why.
+      if (tab.id === activeId.value) return;
+      if (!pageHasRoom(tab.id)) {
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+        dropIntoId.value = null;
+        showDropNote(t('tabs.pageFull', { name: tab.name || fallbackName(i) }));
+        return;
+      }
+    }
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
     dropIntoId.value = tab.id;
@@ -419,7 +512,11 @@ function onDrop(i: number, tab: PlaylistTab | CartPage, e: DragEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (props.kind === 'cart') {
-      moveCartToPage(parseInt(e.dataTransfer.getData('cart-slot'), 10), tab.id);
+      const slot = parseInt(e.dataTransfer.getData('cart-slot'), 10);
+      // Filled up since the drag began (another operator), most likely.
+      if (!moveCartToPage(slot, tab.id) && !pageHasRoom(tab.id)) {
+        showDropNote(t('tabs.pageFull', { name: tab.name || fallbackName(i) }));
+      }
     } else {
       let uuids: string[] = [];
       try { uuids = JSON.parse(e.dataTransfer.getData('selected-items') || '[]'); } catch { /* single item */ }
@@ -433,10 +530,29 @@ function onDrop(i: number, tab: PlaylistTab | CartPage, e: DragEvent) {
 
 <style scoped lang="scss">
 .tab-strip {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
   min-width: 0;
+}
+
+/* Over the strip rather than in its flow: taking room would shrink the tab
+   list under the pointer mid-drag. */
+.tab-drop-note {
+  position: absolute;
+  right: var(--spacing-md);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-warning);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .tab-strip--multi {
@@ -511,7 +627,9 @@ function onDrop(i: number, tab: PlaylistTab | CartPage, e: DragEvent) {
   height: 8px;
   border-radius: 50%;
 }
-.tab-dot--playing { background: var(--color-success); }
+/* The Playing pill's colour (PlaylistItem .status-pill.playing), so "playing"
+   looks the same on a tab as on the cue. */
+.tab-dot--playing { background: var(--color-danger); }
 .tab-next {
   flex: 0 0 auto;
   font-size: 16px;
@@ -592,6 +710,7 @@ function onDrop(i: number, tab: PlaylistTab | CartPage, e: DragEvent) {
 .tab-popover {
   position: fixed;
   z-index: 9000;
+  outline: none;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -650,6 +769,7 @@ function onDrop(i: number, tab: PlaylistTab | CartPage, e: DragEvent) {
   cursor: pointer;
 
   &.selected { border-color: var(--color-text-primary); }
+  &:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 }
 .tab-swatch--none {
   background:

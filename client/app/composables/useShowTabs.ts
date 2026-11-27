@@ -39,6 +39,14 @@ export interface ClientView {
   cartPage: string;
 }
 
+/** Whom this computer follows: a session id, with its label for when it reconnects. */
+interface FollowTarget {
+  id: number | null;
+  label: string;
+}
+
+// This computer's choice, not the show's or the account's: two desks signed in
+// as the same person can follow different operators.
 const FOLLOW_KEY = 'liveplay.followOperator';
 const SAVE_DELAY_MS = 250;
 
@@ -47,6 +55,31 @@ let _saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 const fromUrl = (key: string): string | null =>
   import.meta.client ? new URLSearchParams(window.location.search).get(key) : null;
+
+function readFollow(): FollowTarget | null {
+  if (!import.meta.client) return null;
+  let raw: string | null = null;
+  try { raw = localStorage.getItem(FOLLOW_KEY); } catch { return null; }
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    if (v && typeof v === 'object' && typeof v.label === 'string') {
+      return { id: typeof v.id === 'number' ? v.id : null, label: v.label };
+    }
+  } catch { /* the older form, below */ }
+  // Earlier 2.6 builds stored just the operator's label. Taken once, and
+  // re-saved with the session's id as soon as it is found.
+  return { id: null, label: raw };
+}
+
+/** In a tab's own window (#74), which tab it was opened for. */
+const popOutTab = (): { kind: TabKind; id: string } | null => {
+  if (!import.meta.client) return null;
+  const q = new URLSearchParams(window.location.search);
+  if (q.get('playlistWindow') === '1' && q.get('playlistTab')) return { kind: 'playlist', id: q.get('playlistTab')! };
+  if (q.get('cartWindow') === '1' && q.get('cartPage')) return { kind: 'cart', id: q.get('cartPage')! };
+  return null;
+};
 
 const fromSession = (key: string): string | null => {
   if (!import.meta.client) return null;
@@ -87,23 +120,33 @@ export const useShowTabs = () => {
     itemsOnTab(currentProject.value?.items ?? [], playlistTabs.value, activePlaylistTabId.value));
 
   // ---- Following another operator ---------------------------------------
+  // Keyed by the session's id: one person signed in at two desks has two
+  // sessions with the same label, and following "Tom" has to mean one of them.
   const clientViews = useState<ClientView[]>('showTabs.clientViews', () => []);
   const ownViewId = useState<number | null>('showTabs.ownViewId', () => null);
-  const followLabel = useState<string>('showTabs.followLabel', () => {
-    if (!import.meta.client) return '';
-    try { return localStorage.getItem(FOLLOW_KEY) ?? ''; } catch { return ''; }
-  });
+  const follow = useState<FollowTarget | null>('showTabs.follow', readFollow);
 
   const followOptions = computed(() => clientViews.value.filter(v => v.id !== ownViewId.value));
-  const followedView = computed(() =>
-    followLabel.value ? followOptions.value.find(v => v.label === followLabel.value) ?? null : null);
-  const followLost = computed(() => !!followLabel.value && !followedView.value);
+  const followedView = computed<ClientView | null>(() => {
+    const target = follow.value;
+    if (!target) return null;
+    const byId = target.id !== null ? followOptions.value.find(v => v.id === target.id) : undefined;
+    if (byId) return byId;
+    // No session with that id: it reconnected (a new id), or the setting
+    // predates ids. Its label still finds it, but only if no one else has it.
+    const byLabel = followOptions.value.filter(v => v.label === target.label);
+    return byLabel.length === 1 ? byLabel[0]! : null;
+  });
+  const followLost = computed(() => !!follow.value && !followedView.value);
+  /** Who is being followed, by name; '' when no one is. */
+  const followLabel = computed(() =>
+    follow.value ? followedView.value?.label || follow.value.label || `#${follow.value.id ?? ''}` : '');
 
-  function setFollowing(label: string) {
-    followLabel.value = label;
+  function setFollowing(view: Pick<ClientView, 'id' | 'label'> | null) {
+    follow.value = view ? { id: view.id, label: view.label } : null;
     if (!import.meta.client) return;
     try {
-      if (label) localStorage.setItem(FOLLOW_KEY, label);
+      if (follow.value) localStorage.setItem(FOLLOW_KEY, JSON.stringify(follow.value));
       else localStorage.removeItem(FOLLOW_KEY);
     } catch { /* private window */ }
   }
@@ -120,7 +163,7 @@ export const useShowTabs = () => {
   // Going somewhere by hand ends following: the operator has decided to be
   // somewhere else, and being pulled back would fight them.
   function selectTab(kind: TabKind, id: string) {
-    if (followLabel.value) setFollowing('');
+    if (follow.value) setFollowing(null);
     if (kind === 'playlist') showPlaylistTab(id);
     else showCartPage(id);
   }
@@ -144,9 +187,44 @@ export const useShowTabs = () => {
       );
       watch(followedView, (view) => {
         if (!view) return;
+        // Found by its label (a reconnect, or an older setting): from now on
+        // it is this session, by id.
+        if (follow.value && (follow.value.id !== view.id || follow.value.label !== view.label)) {
+          setFollowing(view);
+        }
         if (playlistTabs.value.some(tab => tab.id === view.playlistTab)) showPlaylistTab(view.playlistTab);
         if (cartPages.value.some(page => page.id === view.cartPage)) showCartPage(view.cartPage);
       }, { deep: true });
+    }
+
+    // A tab's own window is named after the tab it shows, and closes once that
+    // tab is gone (deleted, or another show opened) rather than quietly
+    // showing the first tab under the old name.
+    const popOut = popOutTab();
+    if (popOut) {
+      const shown = () => (popOut.kind === 'playlist' ? playlistTabs.value : cartPages.value);
+      watchEffect(() => {
+        const list: (PlaylistTab | CartPage)[] = shown();
+        const wanted = popOut.kind === 'playlist' ? wantedPlaylistTab.value : wantedCartPage.value;
+        const i = list.findIndex(x => x.id === wanted);
+        if (i < 0) return;
+        const name = list[i]!.name
+          || t(popOut.kind === 'playlist' ? 'tabs.defaultPlaylist' : 'tabs.defaultPage', { n: i + 1 });
+        document.title = `${name} - LivePlay`;
+      });
+      // Only once the show has arrived: until then the list is the implicit
+      // one, which says nothing about this show's tabs.
+      watch(
+        () => [!!currentProject.value, shown().map(x => x.id).join('|'),
+          popOut.kind === 'playlist' ? wantedPlaylistTab.value : wantedCartPage.value] as const,
+        ([open, ids, wanted]) => {
+          if (open && wanted && !ids.split('|').includes(wanted)) {
+            (window as any).electronAPI?.closeOwnTabWindow?.();
+          }
+        },
+        // The window only draws (and so first gets here) once the show is in.
+        { immediate: true },
+      );
     }
   }
 
@@ -255,11 +333,16 @@ export const useShowTabs = () => {
   const uuidsUnder = (item: any): string[] =>
     item.type === 'group' ? item.children.flatMap(uuidsUnder) : [item.uuid];
 
+  /**
+   * What deleting a tab takes with it, and whether any of it is playing. For a
+   * playlist tab `count` is every cue on it, inside groups too: a tab holding
+   * one group of thirty cues is thirty cues to lose, not "1 item".
+   */
   function tabUsage(kind: TabKind, id: string): { count: number; playing: boolean } {
     const onAir = activeCues.value;
     if (kind === 'playlist') {
-      const items = itemsOnTab(currentProject.value?.items ?? [], playlistTabs.value, id);
-      return { count: items.length, playing: items.flatMap(uuidsUnder).some(u => onAir.has(u)) };
+      const cues = itemsOnTab(currentProject.value?.items ?? [], playlistTabs.value, id).flatMap(uuidsUnder);
+      return { count: cues.length, playing: cues.some(u => onAir.has(u)) };
     }
     const page = cartPages.value.find(p => p.id === id);
     if (!page) return { count: 0, playing: false };
@@ -325,7 +408,11 @@ export const useShowTabs = () => {
         if (item.type === 'group') item.children.forEach(collect);
       };
       onTab.forEach(collect);
-      for (const item of [...onTab]) removeItem(item.uuid);
+      // The cues after this tab move up, so a "go to index" pointing at one
+      // of them would otherwise land on whatever takes its old place.
+      keepingGotoTargets(project.items, findItemByIndex, () => {
+        for (const item of [...onTab]) removeItem(item.uuid);
+      }, findItemByUuid);
       project.playlistTabs = list.filter(tab => tab.id !== id);
       project.cartItems = project.cartItems.filter(c => !gone.has(c.itemUuid));
     } else {
@@ -382,6 +469,17 @@ export const useShowTabs = () => {
     scheduleSave();
   }
 
+  /** Whether a page has a free place for one more cart. */
+  function pageHasRoom(pageId: string): boolean {
+    const page = cartPages.value.find(p => p.id === pageId);
+    if (!page) return false;
+    const taken = new Set((currentProject.value?.cartItems ?? []).map(c => c.slot));
+    for (let position = 0; position < page.size; position++) {
+      if (!taken.has(page.slotBase + position)) return true;
+    }
+    return false;
+  }
+
   /** Moves a cart to the first free place on a page. False if it's full. */
   function moveCartToPage(slot: number, pageId: string): boolean {
     const project = currentProject.value;
@@ -398,6 +496,8 @@ export const useShowTabs = () => {
       if (isSecondaryWindow) {
         // A pop-out has no sync watcher: tell the server directly.
         void server.clearCartSlot(slot).then(() => server.setCartSlot(target, cart.itemUuid))
+          // Its pinned key goes with it, once the server has the new slot.
+          .then(() => useCartHotkeys().movePinnedKey(slot, target))
           .catch((e: unknown) => console.warn('[tabs] could not move the cart:', e));
       } else {
         void saveProject();
@@ -434,6 +534,7 @@ export const useShowTabs = () => {
     minCartsFor,
     moveItemsToTab,
     moveCartToPage,
+    pageHasRoom,
     canPopOut,
     openTabWindow,
     followOptions,

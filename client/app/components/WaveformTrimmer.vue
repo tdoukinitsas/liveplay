@@ -1,5 +1,7 @@
 <template>
-  <div class="waveform-trimmer">
+  <!-- tabindex -1: a click on the tab's blank parts lands focus here rather
+       than on the page, so Delete still reaches the keyframe handler below. -->
+  <div class="waveform-trimmer" tabindex="-1" @keydown="handleTrimmerKeydown">
     <!-- Volume Control with dB Display -->
     <div class="volume-control-section">
       <div class="volume-label">
@@ -11,7 +13,7 @@
             type="text"
             inputmode="decimal"
             class="db-input"
-            :value="isMixed('volume') ? '' : (volumeDB <= VOLUME_MIN_DB ? '-inf' : volumeDB.toFixed(1))"
+            :value="isMixed('volume') ? '' : volumeText"
             :placeholder="isMixed('volume') ? t('properties.multipleValues') : ''"
             :title="t('properties.volumeDbInput')"
             @focus="($event.target as HTMLInputElement).select()"
@@ -501,6 +503,7 @@ import { calculateNormalizationGain } from '~/utils/audio';
 import { waveformLanes as lanesOf, drawWaveformLanes, drawPlaybackMarkers } from '~/utils/waveformRender';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
+import { focusTakesKeys } from '~/utils/hotkeyGuard';
 
 const props = defineProps<{
   audioItem: AudioItem;
@@ -700,13 +703,17 @@ const volumeDB = computed({
   }
 });
 
-// Typed dB level. Accepts "-6", "-6.5 dB", "+3", or "-inf" for silence.
+// Silence reads "-∞", as the keyframe readout on the same tab writes it; the
+// "dB" beside the field completes it.
+const volumeText = computed(() => (volumeDB.value <= VOLUME_MIN_DB ? '-∞' : volumeDB.value.toFixed(1)));
+
+// Typed dB level. Accepts "-6", "-6.5 dB", "+3", or "-∞" / "-inf" for silence.
 const handleVolumeTextChange = (event: Event) => {
   const input = event.target as HTMLInputElement;
   const raw = input.value.trim().toLowerCase().replace(/db$/, '').trim();
-  const db = /^-?inf/.test(raw) ? VOLUME_MIN_DB : parseFloat(raw);
+  const db = /^-?(inf|∞)/.test(raw) ? VOLUME_MIN_DB : parseFloat(raw);
   if (Number.isNaN(db)) {
-    input.value = volumeDB.value <= VOLUME_MIN_DB ? '-inf' : volumeDB.value.toFixed(1);
+    input.value = volumeText.value;
     return;
   }
   volumeDB.value = Math.max(VOLUME_MIN_DB, Math.min(VOLUME_MAX_DB, db));
@@ -714,7 +721,7 @@ const handleVolumeTextChange = (event: Event) => {
 };
 const cancelVolumeText = (event: KeyboardEvent) => {
   const input = event.target as HTMLInputElement;
-  input.value = volumeDB.value <= VOLUME_MIN_DB ? '-inf' : volumeDB.value.toFixed(1);
+  input.value = volumeText.value;
   input.blur();
 };
 
@@ -1199,15 +1206,33 @@ const handleCanvasContextMenu = (event: MouseEvent) => {
   if (hit.kind === 'keyframe') removeKeyframeAt(hit.index);
 };
 
+// Delete on the waveform is about the waveform: it removes the selected
+// keyframe, and never falls through to the workspace's "delete this cue".
+// Escape clears a selection; only when there was one does it stop there, so
+// with nothing selected it is still Stop All.
 const handleCanvasKeydown = (event: KeyboardEvent) => {
-  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedKeyframe.value !== null) {
+  if (event.key === 'Delete' || event.key === 'Backspace') {
     event.preventDefault();
     event.stopPropagation();
-    removeKeyframeAt(selectedKeyframe.value);
+    if (selectedKeyframe.value !== null) removeKeyframeAt(selectedKeyframe.value);
   } else if (event.key === 'Escape') {
+    if (selection.value === null && selectedKeyframe.value === null) return;
+    event.preventDefault();
+    event.stopPropagation();
     selection.value = null;
     selectedKeyframe.value = null;
   }
+};
+
+// Anywhere else on the tab (a tool button, the bar around it) the same: a
+// selected keyframe owns Delete, and with none it still doesn't fall through
+// to deleting the cue being edited. Fields keep it for typing.
+const handleTrimmerKeydown = (event: KeyboardEvent) => {
+  if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+  if (focusTakesKeys(event)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (selectedKeyframe.value !== null) removeKeyframeAt(selectedKeyframe.value);
 };
 
 // The envelope's own colour. Not the accent: that is red by default (and any
@@ -1800,6 +1825,7 @@ onUnmounted(() => {
   background: transparent;
   flex: 1;
   min-height: 150px;
+  outline: none;
 }
 
 /* The fader and its scale earn the height — a taller throw is a finer trim —

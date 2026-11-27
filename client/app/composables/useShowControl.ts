@@ -56,10 +56,18 @@ export const useShowControl = () => {
   const selectPrev = () => selectStep(-1);
   const setShowMode    = (enabled: boolean) => server.setShowMode(enabled);
   const toggleShowMode = () => server.setShowMode();
+  // Select ▲/▼ from this window's keys and MIDI: the server's own step rule
+  // (F-05), kept to the playlist tab this window is showing, so a key and a
+  // Companion button can never disagree. False when there is no server to ask.
+  const selectStepInView = (delta: number): boolean => {
+    if (!server.connected) return false;
+    server.stepSelection(delta, { tabId: useShowTabs().activePlaylistTabId.value });
+    return true;
+  };
 
   if (_wired || !import.meta.client) {
     return { selectedItemUuid, showMode, currentLocale,
-             select, selectStep, selectNext, selectPrev, setShowMode, toggleShowMode };
+             select, selectStep, selectStepInView, selectNext, selectPrev, setShowMode, toggleShowMode };
   }
   _wired = true;
 
@@ -170,5 +178,5 @@ export const useShowControl = () => {
   });
 
   return { selectedItemUuid, showMode, currentLocale,
-           select, selectStep, selectNext, selectPrev, setShowMode, toggleShowMode };
+           select, selectStep, selectStepInView, selectNext, selectPrev, setShowMode, toggleShowMode };
 };

@@ -176,6 +176,7 @@
 
 <script setup lang="ts">
 import { isTabTarget, itemsOnTab, tabIdOfTarget, tabsOf } from '~/utils/tabs';
+import { shouldIgnoreHotkey } from '~/utils/hotkeyGuard';
 import LocationChoiceModal from './LocationChoiceModal.vue';
 import ServerFilePickerModal from './ServerFilePickerModal.vue';
 import {
@@ -197,6 +198,7 @@ const {
   copyItemsToClipboard,
   pasteItemsFromClipboard,
   requestDeleteFromKeyboard,
+  projectEpoch,
 } = useProject();
 const { triggerByUuid, triggerByIndex, stopCue, stopAllCues, playCue } = useAudioEngine();
 const { getCartItem, cartOnlyItems, updateCartOnlyItem } = useCartItems();
@@ -789,6 +791,22 @@ if (import.meta.client) {
   });
 }
 
+// Another show loaded while this one was open (from another client, say):
+// the tab windows belonged to the old one. Closing the project is handled in
+// the main process, which sees the sync go to null. The epoch also moves when
+// the same show is re-read (a reconnect, a document re-sent), which must leave
+// the windows alone, hence comparing where the show lives. The folder, as the
+// server reports it every time; a pop-out whose tab isn't in the new show
+// closes itself anyway (useShowTabs).
+let shownFolder = currentProject.value?.folderPath ?? '';
+watch(projectEpoch, () => {
+  const folder = currentProject.value?.folderPath ?? '';
+  if (folder !== shownFolder && import.meta.client && !isCartWindowMode) {
+    (window as any).electronAPI?.closeTabWindows?.();
+  }
+  shownFolder = folder;
+});
+
 watch([currentProject, poppedOutPlaylistTabs], ([project]) => {
   // Only sync from main window, not from detached cart window
   if (!import.meta.client || !window.electronAPI || !project || isCartWindowMode) return;
@@ -817,16 +835,12 @@ watch([currentProject, poppedOutPlaylistTabs], ([project]) => {
   window.electronAPI.syncProjectData(JSON.parse(JSON.stringify(data)));
 }, { deep: true, immediate: true });
 
-// True when the user is typing in a text field — selection/clipboard
-// shortcuts must defer to native editing behaviour there.
-const isTextInputFocused = (): boolean => {
-  const el = document.activeElement as HTMLElement | null;
-  if (!el) return false;
-  const tag = el.tagName.toLowerCase();
-  return tag === 'input' || tag === 'textarea' || el.isContentEditable;
-};
-
+// Which keys are not ours (typing in a field, choosing in a select or a list,
+// a popover's own Esc, a key something already handled) is decided in one
+// place, utils/hotkeyGuard, shared with the transport and cart keys.
 const handleKeydown = (e: KeyboardEvent) => {
+  if (e.defaultPrevented) return;
+
   // Save on F1 key (alternative to big play button)
   if (e.key === 'F1') {
     e.preventDefault();
@@ -837,19 +851,22 @@ const handleKeydown = (e: KeyboardEvent) => {
     return;
   }
 
+  // Everything below defers to the control with focus: native editing in a
+  // field, a select or a list of events choosing with its own keys.
+  if (shouldIgnoreHotkey(e)) return;
+
   // Delete / Backspace removes the current selection. A multi-selection opens
-  // the confirm dialog; a single item is removed outright. Must defer to
-  // native editing inside text fields.
+  // the confirm dialog; a single item is removed outright.
   if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (isTextInputFocused() || !currentProject.value) return;
+    if (!currentProject.value) return;
     if (requestDeleteFromKeyboard()) e.preventDefault();
     return;
   }
 
-  // Selection / clipboard shortcuts. These all require a project and must not
-  // fire while editing text (so native Ctrl+A/C/V keep working in inputs).
+  // Selection / clipboard shortcuts. These all require a project (and, per
+  // the guard above, keep native Ctrl+A/C/V working in inputs).
   const ctrl = e.ctrlKey || e.metaKey;
-  if (!ctrl || e.altKey || !currentProject.value || isTextInputFocused()) return;
+  if (!ctrl || e.altKey || !currentProject.value) return;
 
   const key = e.key.toLowerCase();
 

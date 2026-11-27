@@ -59,23 +59,23 @@
       <p class="settings-help">{{ t('controls.pinnedCartsHelp') }}</p>
       <div
         v-for="cart in pinnableCarts"
-        :key="cart.uuid"
+        :key="cart.slot"
         class="action-row"
-        :class="{ capturing: capturingPin === cart.uuid }"
-        @click="startCapturePin(cart.uuid)"
+        :class="{ capturing: capturingPin === cart.slot }"
+        @click="startCapturePin(cart.slot)"
       >
         <span class="action-label">{{ cart.label }}</span>
         <span class="action-binding">
-          <template v-if="capturingPin === cart.uuid">{{ t('controls.pressAnyKey') }}</template>
-          <template v-else-if="pinnedKeys[cart.uuid]">{{ formatKeyLabel(pinnedKeys[cart.uuid]!) }}</template>
+          <template v-if="capturingPin === cart.slot">{{ t('controls.pressAnyKey') }}</template>
+          <template v-else-if="pinnedKeys[String(cart.slot)]">{{ formatKeyLabel(pinnedKeys[String(cart.slot)]!) }}</template>
           <template v-else>—</template>
         </span>
         <button
-          v-if="pinnedKeys[cart.uuid]"
+          v-if="pinnedKeys[String(cart.slot)]"
           class="clear-key-btn"
-          @click.stop="clearPin(cart.uuid)"
+          @click.stop="clearPin(cart.slot)"
         >{{ t('controls.clear') }}</button>
-        <span v-if="keyErrorMessage && keyErrorPin === cart.uuid" class="error-msg">{{ keyErrorMessage }}</span>
+        <span v-if="keyErrorMessage && keyErrorPin === cart.slot" class="error-msg">{{ keyErrorMessage }}</span>
       </div>
     </div>
 
@@ -110,7 +110,9 @@ const {
   keyMappings,
   pinnedKeys,
   setPinnedKey,
-  isKeyPinned,
+  clearSlotKey,
+  keyHolder,
+  cartLabel,
   playbackMappings,
   updateBinding: updateKeyBinding,
   updatePlaybackBinding,
@@ -118,34 +120,42 @@ const {
   resetPlaybackToDefaults,
 } = useCartHotkeys();
 const { saveProject, currentProject } = useProject();
-const { getCartTarget } = useCartItems();
 const { cartPages } = useShowTabs();
+
+// "That key is already used by …", naming what holds it (F-48).
+const holderMessage = (holder: NonNullable<ReturnType<typeof keyHolder>>): string => {
+  if (holder.kind === 'action') {
+    return t('controls.conflictAction', {
+      action: t(PLAYBACK_ACTIONS.find(a => a.id === holder.action)?.labelKey ?? ''),
+    });
+  }
+  if (holder.kind === 'slot') return t('controls.conflictSlot', { n: holder.position + 1 });
+  return t('controls.conflictPinned', { cart: cartLabel(holder.slot) });
+};
 
 // Position keys apply to whichever page is showing, so there are as many rows
 // as the largest page has carts.
 const slotRowCount = computed(() => Math.max(16, ...cartPages.value.map(p => p.size)));
 
-// Every cart in the show, by page: what a key can be pinned to.
+// Every cart in the show, by page: what a key can be pinned to. A pin is the
+// cart's, by slot, so it goes when the cart is cleared (F-13).
 const pinnableCarts = computed(() => {
   const carts = currentProject.value?.cartItems ?? [];
-  return cartPages.value.flatMap((page, pageIndex) => carts
+  return cartPages.value.flatMap(page => carts
     .filter(c => c.slot >= page.slotBase && c.slot < page.slotBase + page.size)
     .sort((a, b) => a.slot - b.slot)
-    .map(c => ({
-      uuid: c.itemUuid,
-      label: `${page.name || t('tabs.defaultPage', { n: pageIndex + 1 })} · ${c.slot - page.slotBase + 1} · ${getCartTarget(c.itemUuid)?.displayName ?? ''}`,
-    })));
+    .map(c => ({ slot: c.slot, label: cartLabel(c.slot) })));
 });
-const capturingPin = ref<string | null>(null);
-const keyErrorPin = ref<string | null>(null);
-const startCapturePin = (uuid: string) => {
-  capturingPin.value = uuid;
+const capturingPin = ref<number | null>(null);
+const keyErrorPin = ref<number | null>(null);
+const startCapturePin = (slot: number) => {
+  capturingPin.value = slot;
   capturingSlot.value = null;
   capturingKeyAction.value = null;
   resetCaptureState();
 };
-const clearPin = (uuid: string) => {
-  setPinnedKey(uuid, null);
+const clearPin = (slot: number) => {
+  setPinnedKey(slot, null);
   saveProject();
 };
 
@@ -170,8 +180,7 @@ const getPlaybackKeyLabel = (action: PlaybackKeyAction): string => {
 };
 
 const clearSlotBinding = (slotIndex: number) => {
-  if (!currentProject.value?.cartSlotKeys) return;
-  delete currentProject.value.cartSlotKeys[slotIndex];
+  clearSlotKey(slotIndex);
   saveProject();
 };
 const clearPlaybackBinding = (action: PlaybackKeyAction) => {
@@ -239,8 +248,9 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 
   if (capturingPin.value !== null) {
-    if (!setPinnedKey(capturingPin.value, binding)) {
-      keyErrorMessage.value = t('controls.keyInUse');
+    const holder = setPinnedKey(capturingPin.value, binding);
+    if (holder) {
+      keyErrorMessage.value = holderMessage(holder);
       keyErrorPin.value = capturingPin.value;
       return;
     }
@@ -250,10 +260,13 @@ const handleKeydown = (e: KeyboardEvent) => {
     return;
   }
 
-  if (isKeyPinned(binding) && capturingSlot.value !== null) {
-    keyErrorMessage.value = t('controls.keyInUse');
-    keyErrorSlot.value = capturingSlot.value;
-    return;
+  if (capturingSlot.value !== null) {
+    const holder = keyHolder(binding);
+    if (holder?.kind === 'pin') {
+      keyErrorMessage.value = holderMessage(holder);
+      keyErrorSlot.value = capturingSlot.value;
+      return;
+    }
   }
 
   if (capturingSlot.value !== null) {
@@ -305,7 +318,8 @@ const handleKeydown = (e: KeyboardEvent) => {
       return;
     }
     if (result.conflictPinned) {
-      keyErrorMessage.value = t('controls.keyInUse');
+      const holder = keyHolder(binding);
+      keyErrorMessage.value = holder ? holderMessage(holder) : t('controls.keyInUse');
       keyErrorActionId.value = action;
       return;
     }

@@ -92,22 +92,28 @@
       <p class="settings-help">{{ t('settings.scrollToPlayingHelp') }}</p>
     </section>
 
-    <!-- Which tab this desk shows is its own, unless it chooses to follow. -->
+    <!-- Which tab this desk shows is its own, unless it chooses to follow.
+         Kept on this computer, not in the account: one person at two desks
+         can have each follow someone different. The badge says so. -->
     <section class="settings-field">
-      <label class="settings-label" for="follow-operator">{{ t('tabs.followSetting') }}</label>
+      <label class="settings-label" for="follow-operator">
+        <span class="material-symbols-rounded" aria-hidden="true">visibility</span>
+        {{ t('tabs.followSetting') }}
+        <span class="settings-scope">{{ t('settings.thisComputer') }}</span>
+      </label>
       <select
         id="follow-operator"
         class="settings-select"
-        :value="followLabel"
-        @change="setFollowing(($event.target as HTMLSelectElement).value)"
+        :value="followValue"
+        @change="onFollowChange"
       >
         <option value="">{{ t('tabs.followOff') }}</option>
-        <option v-for="v in followOptions" :key="v.id" :value="v.label">{{ v.label }}</option>
-        <option v-if="followLabel && followLost" :value="followLabel">
+        <option v-for="v in followOptions" :key="v.id" :value="String(v.id)">{{ optionLabel(v) }}</option>
+        <option v-if="followLost" :value="LOST">
           {{ followLabel }} ({{ t('tabs.followOffline') }})
         </option>
       </select>
-      <p class="settings-help">{{ t('tabs.followHelp') }}</p>
+      <p class="settings-help">{{ t('tabs.followHelp') }} {{ t('tabs.followThisComputer') }}</p>
     </section>
   </div>
 </template>
@@ -124,6 +130,7 @@
 // connected session asks for. U4 admitted that against R2 because the union can
 // only reach a state one project setting could already reach alone.
 import type { Theme } from '~/types/project';
+import type { ClientView } from '~/composables/useShowTabs';
 import { ACCENT_COLORS, accentForTheme } from '~/utils/accentPalette';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 
@@ -131,7 +138,24 @@ import { useOutputTarget } from '~/composables/useOutputTarget';
 // Electron menu was the only way to change language, which is precisely the
 // split this page exists to end.
 const { t, currentLocale, setLocale, availableLocales } = useLocalization();
-const { followOptions, followLabel, followLost, setFollowing } = useShowTabs();
+const { followOptions, followLabel, followLost, followedView, setFollowing } = useShowTabs();
+
+// The list is by session: one person signed in at two desks is two entries
+// with the same name, told apart by their session number.
+const LOST = '__offline';
+const followValue = computed(() =>
+  followedView.value ? String(followedView.value.id) : followLost.value ? LOST : '');
+const optionLabel = (v: ClientView) =>
+  followOptions.value.filter(o => o.label === v.label).length > 1
+    ? t('tabs.followSession', { name: v.label, n: v.id })
+    : v.label;
+function onFollowChange(e: Event) {
+  const value = (e.target as HTMLSelectElement).value;
+  if (value === LOST) return;
+  if (!value) { setFollowing(null); return; }
+  const view = followOptions.value.find(v => String(v.id) === value);
+  if (view) setFollowing(view);
+}
 const { theme, resolvedThemeMode, setTheme, scrollToPlaying, setScrollToPlaying,
         setMeterMode } = usePreferences();
 // The effective unit, which is "their choice, else the project's output target
@@ -165,6 +189,19 @@ function onScrollToPlayingChange(e: Event) {
 </script>
 
 <style scoped>
+/* "This computer": the one setting here that isn't the person's, but the
+   desk's. Drawn like the badges on the Server pane. */
+.settings-scope {
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+}
+
 .accent-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
