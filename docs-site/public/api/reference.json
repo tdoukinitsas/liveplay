@@ -1956,7 +1956,7 @@
         "ok": true,
         "path": "C:/Shows/Show/show.liveplay"
       },
-      "notes": "JSON body is required (use {}). No configured path: 400. Save does not copy media for Save As. A rejected embedded document is logged and the existing document is still saved. May include migration summary; ordinary save does not emit project_changed.",
+      "notes": "JSON body is required (use {}). No configured path: 400. Save does not copy media for Save As. A rejected embedded document is logged and the existing document is still saved. May include migration summary; ordinary save does not emit project_changed. With an embedded document, the parts with their own routes (tabs, pages, connections, cart keys) stay as the server holds them for the same show.",
       "errors": [
         [
           "400",
@@ -2008,7 +2008,7 @@
         "itemCount": 0,
         "busSchema": 2
       },
-      "notes": "Returns header (example abbreviated), with optional migration. Broadcasts project_changed. Does not write the .liveplay file; use save.",
+      "notes": "Returns header (example abbreviated), with optional migration. Broadcasts project_changed. Does not write the .liveplay file; use save. An API token can't change event connections this way: the show's own are kept, and another show pushed by a token gets none.",
       "errors": [
         [
           "400",
@@ -5809,7 +5809,7 @@
         "error": "HTTP 401 from http://10.0.0.5/go: the credentials were refused",
         "auth": "rejected"
       },
-      "notes": "Reports the plugin's result. Always 200 for a well-formed request; failure is ok=false with error. Exception: 403 when an API token tests an unsaved (draft) HTTP connection; a saved connection may be tested. Waits on the network off the I/O threads: a request not finished within 50 ms answers {\"pending\":true,\"jobId\":\"...\"}, and the result comes from GET /api/events/jobs/<id>. A failure caused by credentials adds auth: \"missing\" or \"rejected\". A test never changes a saved connection's sign-in state. Masked values (\"••••••\") in the draft connection or event are the stored ones.",
+      "notes": "Reports the plugin's result. Always 200 for a well-formed request; failure is ok=false with error. Exception: 403 when an API token sends an unsaved (draft) connection of any plugin; saved connections may be tested. Waits on the network off the I/O threads: a request not finished within 50 ms answers {\"pending\":true,\"jobId\":\"...\"}, and the result comes from GET /api/events/jobs/<id>. A failure caused by credentials adds auth: \"missing\" or \"rejected\". A test never changes a saved connection's sign-in state. Masked values (\"••••••\") in the draft connection or event are the stored ones.",
       "errors": [
         [
           "400",
@@ -5907,8 +5907,12 @@
           }
         ]
       },
-      "notes": "What a field declared with optionsFrom offers, read from the device (strip names, snapshots). When the device cannot be reached, the plugin returns what it can (static options) with error set; the request still succeeds. Waits on the network off the I/O threads: a request not finished within 50 ms answers {\"pending\":true,\"jobId\":\"...\"}, and the result comes from GET /api/events/jobs/<id>.",
+      "notes": "What a field declared with optionsFrom offers, read from the device (strip names, snapshots). When the device cannot be reached, the plugin returns what it can (static options) with error set; the request still succeeds. Waits on the network off the I/O threads: a request not finished within 50 ms answers {\"pending\":true,\"jobId\":\"...\"}, and the result comes from GET /api/events/jobs/<id>. 403 when an API token sends an unsaved connection.",
       "errors": [
+        [
+          "403",
+          "API tokens can't use an unsaved connection"
+        ],
         [
           "400",
           "missing plugin or source"
@@ -6247,7 +6251,14 @@
           "number",
           "time",
           "0",
-          "Seconds on the file timeline, like inPoint/outPoint. Markers before where playback starts, or jumped over by a seek, do not fire; a loop re-arms them."
+          "Seconds on the file timeline, like inPoint/outPoint. Markers before where playback starts, or jumped over by a seek, do not fire; a loop re-arms them (unless once)."
+        ],
+        [
+          "once",
+          "boolean",
+          "No",
+          "false",
+          "time events: fire once per play, not again when the cue loops or is sought back over the marker. Set on events migrated from 2.5 customActions."
         ],
         [
           "plugin",

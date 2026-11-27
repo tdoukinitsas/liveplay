@@ -96,7 +96,7 @@ The path guard applies to selected filesystem operations; it is not a comprehens
 | `core/backup_manager.cpp` | Periodic copies of the saved project |
 | `net/control_server.cpp` | HTTP handlers, WebSocket dispatch, events and meters |
 | `net/discovery.cpp` | LAN announcements |
-| `events/dispatcher.cpp` | Item events: scheduling and one lane per plugin |
+| `events/dispatcher.cpp` | Item events: scheduling, and lanes per plugin and per connection |
 | `events/plugins/` | OSC, MIDI, HTTP, X Air and LivePlay plugins |
 | `meta/` | Metadata and waveform computation |
 
@@ -115,7 +115,7 @@ Dependencies include miniaudio, Crow, TagLib, miniz, libsodium, nlohmann/json, R
 | Project backups | BackupManager worker |
 | Cue sequencing (end behaviour, markers, delayed advances) | ProjectState sequencer thread |
 | Single-item decode after add/update | ProjectState loader thread |
-| Item events | Dispatcher scheduler thread, then one lane thread per plugin; a SysEx send has its own thread it can walk away from |
+| Item events | Dispatcher scheduler thread, then a lane thread per plugin and per connection in use; a SysEx send has its own thread it can walk away from |
 | Event fades on outside gear | `Ramps` threads in the plugins that use them (X Air), plus the X Air plugin's network thread |
 
 Topology changes are constructed on the control side and published as snapshots. DSP parameters publish coefficient sets; filter changes ramp in the render path. Device output callbacks consume buffered samples. Avoid filesystem work, blocking locks and allocation in audio callbacks.
