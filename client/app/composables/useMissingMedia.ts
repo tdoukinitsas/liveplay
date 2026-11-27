@@ -86,8 +86,12 @@ export const useMissingMedia = () => {
     server.onDocPatch((p: any) => {
       if (p && MEDIA_OPS.has(p.op)) scheduleRefresh();
     });
-    watch(() => server.connected, scheduleRefresh);
-    watch(() => currentProject.value?.folderPath, scheduleRefresh);
+    // In a detached scope: watchers made during the first caller's setup
+    // would stop with that component, and never be made again.
+    effectScope(true).run(() => {
+      watch(() => server.connected, scheduleRefresh);
+      watch(() => currentProject.value?.folderPath, scheduleRefresh);
+    });
     setInterval(() => { if (server.connected && currentProject.value) void refresh(); }, POLL_MS);
     scheduleRefresh();
   }

@@ -243,14 +243,26 @@ export const useAudioEngine = () => {
     } else if (advanceTarget.action === 'goto-index' && advanceTarget.targetIndex) {
       nextItem = findItemByIndex(advanceTarget.targetIndex);
     } else if (item) {
-      const nextIndex = [...item.index];
-      nextIndex[nextIndex.length - 1]++;
-      nextItem = findItemByIndex(nextIndex);
+      nextItem = nextInOrder(item);
     }
     if (nextItem) {
       if (nextItem.type === 'audio') playCue(nextItem as AudioItem);
       else if (nextItem.type === 'group') triggerGroup(nextItem);
     }
+  };
+
+  // What follows `item` in running order: inside a group, the next sibling;
+  // at the top level, the next cue on its tab, by the tab's at-end rule (a
+  // `wrap` or `stop` tab never runs into the next tab), as Up Next and the
+  // server's own "next" decide it.
+  const nextInOrder = (item: AudioItem | GroupItem): AudioItem | GroupItem | null => {
+    const project = currentProject.value;
+    if (project && item.index.length === 1) {
+      return nextRootItem(project.items, tabsOf(project), item.uuid) as AudioItem | GroupItem | null;
+    }
+    const nextIndex = [...item.index];
+    nextIndex[nextIndex.length - 1]++;
+    return findItemByIndex(nextIndex);
   };
 
   const removeActiveCue = (uuid: string) => {
@@ -278,9 +290,7 @@ export const useAudioEngine = () => {
       } else if (advanceTarget.action === 'goto-index' && advanceTarget.targetIndex) {
         nextItem = findItemByIndex(advanceTarget.targetIndex);
       } else {
-        const nextIndex = [...item.index];
-        nextIndex[nextIndex.length - 1]++;
-        nextItem = findItemByIndex(nextIndex);
+        nextItem = nextInOrder(item);
       }
       if (nextItem) {
         if (nextItem.type === 'audio') playCue(nextItem as AudioItem);
@@ -314,9 +324,7 @@ export const useAudioEngine = () => {
     } else if (advanceTarget.action === 'goto-index' && advanceTarget.targetIndex) {
       nextItem = findItemByIndex(advanceTarget.targetIndex);
     } else {
-      const nextIndex = [...item.index];
-      nextIndex[nextIndex.length - 1]++;
-      nextItem = findItemByIndex(nextIndex);
+      nextItem = nextInOrder(item);
     }
     stopCue(item.uuid);
     if (nextItem) {

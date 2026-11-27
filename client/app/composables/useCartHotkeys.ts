@@ -407,10 +407,13 @@ export const useCartHotkeys = () => {
     return null;
   };
 
-  /** A cart moved from one slot to another: its pinned key goes with it. */
-  const movePinnedKey = (from: number, to: number) => {
+  /**
+   * A cart moved from one slot to another: its pinned key goes with it.
+   * `pin` is the key as it was before the move started, since the server
+   * drops it from the old slot as soon as that slot is cleared.
+   */
+  const movePinnedKey = (from: number, to: number, pin = currentProject.value?.cartPinnedKeys?.[String(from)]) => {
     const project = currentProject.value;
-    const pin = project?.cartPinnedKeys?.[String(from)];
     if (!project || !pin || from === to) return;
     const pins = { ...project.cartPinnedKeys };
     delete pins[String(from)];
@@ -424,12 +427,13 @@ export const useCartHotkeys = () => {
    * follows its cart to a new slot, and goes with a cart that was cleared.
    * Called once the server has the new bindings, which it checks pins against.
    */
-  const reconcilePinnedKeys = (prev: Map<number, string>, next: Map<number, string>) => {
+  const reconcilePinnedKeys = (prev: Map<number, string>, next: Map<number, string>,
+                               before: Record<string, CartSlotKeyBinding> = currentProject.value?.cartPinnedKeys ?? {}) => {
     const project = currentProject.value;
-    if (!project?.cartPinnedKeys || Object.keys(project.cartPinnedKeys).length === 0) return;
-    const pins = { ...project.cartPinnedKeys };
+    if (!project || Object.keys(before).length === 0) return;
+    const pins = { ...before };
     let changed = false;
-    for (const [slotStr, pin] of Object.entries(project.cartPinnedKeys)) {
+    for (const [slotStr, pin] of Object.entries(before)) {
       const slot = parseInt(slotStr, 10);
       const was = prev.get(slot);
       if (!was || next.get(slot) === was) continue;

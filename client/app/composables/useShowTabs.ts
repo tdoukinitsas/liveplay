@@ -90,7 +90,19 @@ const toSession = (key: string, value: string) => {
   try { sessionStorage.setItem(key, value); } catch { /* private window */ }
 };
 
+// The first call wires the window-wide watchers (see `wire`). They are made in
+// a detached scope, with their own computeds, so they outlive whichever
+// component happened to call first: collapsing the playlist pane or closing a
+// show used to stop this window publishing its view and following anyone.
 export const useShowTabs = () => {
+  if (import.meta.client && !_wired) {
+    _wired = true;
+    return effectScope(true).run(() => buildShowTabs(true))!;
+  }
+  return buildShowTabs(false);
+};
+
+const buildShowTabs = (wire: boolean) => {
   const { currentProject, saveProject, findItemByIndex, findItemByUuid, updateIndices, removeItem } = useProject();
   const server = useLiveplayServer();
   const { t } = useLocalization();
@@ -168,8 +180,7 @@ export const useShowTabs = () => {
     else showCartPage(id);
   }
 
-  if (import.meta.client && !_wired) {
-    _wired = true;
+  if (wire) {
     server.onDocPatch((p: any) => {
       if (p?.op === 'client_view_id' && typeof p.id === 'number') ownViewId.value = p.id;
       if (p?.op === 'client_views' && Array.isArray(p.views)) clientViews.value = p.views;
@@ -249,7 +260,9 @@ export const useShowTabs = () => {
     } catch (e) {
       console.warn('[tabs] could not save:', e);
     } finally {
-      localEditPending.value = false;
+      // Still pending if another edit came in while this one was on its way:
+      // its timer will send it, and an echo meanwhile must not rewind it.
+      if (_saveTimer === null) localEditPending.value = false;
     }
     await saveProject();
   }
@@ -495,9 +508,11 @@ export const useShowTabs = () => {
       cart.index = [-1, target];
       if (isSecondaryWindow) {
         // A pop-out has no sync watcher: tell the server directly.
+        // Its pinned key goes with it, once the server has the new slot. Taken
+        // now: clearing the old slot drops it there.
+        const pin = project.cartPinnedKeys?.[String(slot)];
         void server.clearCartSlot(slot).then(() => server.setCartSlot(target, cart.itemUuid))
-          // Its pinned key goes with it, once the server has the new slot.
-          .then(() => useCartHotkeys().movePinnedKey(slot, target))
+          .then(() => useCartHotkeys().movePinnedKey(slot, target, pin))
           .catch((e: unknown) => console.warn('[tabs] could not move the cart:', e));
       } else {
         void saveProject();

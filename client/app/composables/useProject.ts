@@ -71,6 +71,8 @@ export const isSecondaryWindow = typeof window !== 'undefined'
 let _syncWatchersInstalled = false;
 let _refreshItemsBaselineAfterHydrate: () => void = () => {};
 let _captureBaselinesFn: () => void = () => {};
+// The item stream that is current; see streamItemPages.
+let _itemStreamSeq = 0;
 // Bridges endItemBatch (outer composable scope) to syncItemsDiff (defined
 // inside the one-time sync-watcher init block) — see endItemBatch's comment
 // for why calling this directly, not just captureBaselines, matters.
@@ -404,7 +406,9 @@ export const useProject = () => {
   const selectAllItems = () => {
     if (!currentProject.value) return;
     selectionContext.value = 'playlist';
-    const all = getAllItemsFlat(currentProject.value.items);
+    // The tab this window shows: Ctrl+A then Delete must not take cues the
+    // operator can't see on other tabs.
+    const all = getAllItemsFlat(useShowTabs().itemsOnActiveTab.value);
     selectedItems.value.clear();
     for (const it of all) selectedItems.value.add(it.uuid);
     if (all.length > 0) {
@@ -413,6 +417,9 @@ export const useProject = () => {
       selectionAnchorUuid = last.uuid;
     }
   };
+
+  // Show Mode (useUiMode): the live view, where the show can't be edited.
+  const inShowMode = () => useState<string>('useUiMode.uiMode').value === 'playback';
 
   // Get all items as a flat array (for shift-select)
   const getAllItemsFlat = (items?: (AudioItem | GroupItem)[]): BaseItem[] => {
@@ -476,19 +483,23 @@ export const useProject = () => {
   // Duplicate the given items in place (each clone inserted right after its
   // original, in the same parent). New selection becomes the clones. Ctrl+D.
   const duplicateItems = (uuids: string[]) => {
-    if (!currentProject.value || uuids.length === 0) return;
+    if (!currentProject.value || uuids.length === 0 || inShowMode()) return;
     const newUuids: string[] = [];
-    // Insert after each original independently. Re-resolving the container for
-    // every uuid keeps positions correct even as earlier inserts shift things.
-    for (const uuid of uuids) {
-      const c = findContainer(uuid);
-      if (!c) continue;
-      const clone = cloneItemWithNewIds(c.arr[c.i]);
-      c.arr.splice(c.i + 1, 0, clone);
-      newUuids.push(clone.uuid);
-    }
+    // Every cue after a copy moves down one: a "go to index" pointing at one
+    // of them follows it.
+    keepingGotoTargets(currentProject.value.items, findItemByIndex, () => {
+      // Insert after each original independently. Re-resolving the container for
+      // every uuid keeps positions correct even as earlier inserts shift things.
+      for (const uuid of uuids) {
+        const c = findContainer(uuid);
+        if (!c) continue;
+        const clone = cloneItemWithNewIds(c.arr[c.i]);
+        c.arr.splice(c.i + 1, 0, clone);
+        newUuids.push(clone.uuid);
+      }
+      updateIndices(currentProject.value!.items);
+    }, findItemByUuid);
     if (newUuids.length === 0) return;
-    updateIndices(currentProject.value.items);
     selectionContext.value = 'playlist';
     selectedItems.value.clear();
     for (const u of newUuids) selectedItems.value.add(u);
@@ -543,7 +554,7 @@ export const useProject = () => {
   // pasted item gets fresh UUIDs so it can coexist with the source — even
   // when pasting back into the same project / a different LivePlay instance.
   const pasteItemsFromClipboard = async (): Promise<number> => {
-    if (!import.meta.client || !currentProject.value) return 0;
+    if (!import.meta.client || !currentProject.value || inShowMode()) return 0;
     let text = '';
     try { text = await navigator.clipboard.readText(); } catch (e) {
       console.warn('[useProject] read clipboard failed:', e);
@@ -794,22 +805,24 @@ export const useProject = () => {
   // to the renderer between pages via requestAnimationFrame so the
   // playlist paints incrementally rather than blocking on one giant tick.
   // Safe to call multiple times — bails if currentProject becomes null.
-  let itemStreamSeq = 0;
   async function streamItemPages(server: any, totalHint: number) {
-    const mySeq = ++itemStreamSeq;
+    // Renderer-wide, not per useProject() call: a resume can start one
+    // stream from the project_changed handler and another from the rejoin,
+    // and two streams pushing into one project listed every cue twice.
+    const mySeq = ++_itemStreamSeq;
     const PAGE = 100;
     let offset = 0;
     try {
       while (true) {
         // Abort if another openProject started, or the project was closed.
-        if (mySeq !== itemStreamSeq) return;
+        if (mySeq !== _itemStreamSeq) return;
         if (!currentProject.value) return;
         let page: { offset: number; limit: number; total: number; items: any[] };
         try { page = await server.fetchProjectItemsPage(offset, PAGE); }
         catch (e) { console.warn('[useProject] item page fetch failed:', e); return; }
 
         if (!Array.isArray(page.items) || page.items.length === 0) break;
-        if (mySeq !== itemStreamSeq || !currentProject.value) return;
+        if (mySeq !== _itemStreamSeq || !currentProject.value) return;
 
         // Push under the hydrating flag so the diff-watcher doesn't echo
         // these items right back to the server as "client adds".
@@ -911,8 +924,10 @@ export const useProject = () => {
   // empty for streamItemPages() to populate.
   const applyServerHeader = (header: any) => {
     if (!header || typeof header !== 'object') return;
-    if (header.server?.projectFilePath) {
-      projectFilePathRef.value = header.server.projectFilePath;
+    // The server's path, empty included: keeping the old show's path when it
+    // reports none would make the next save write this show over that file.
+    if (header.server && typeof header.server === 'object') {
+      projectFilePathRef.value = header.server.projectFilePath ?? '';
     }
     const project: Project = {
       name:           header.name ?? 'Untitled',
@@ -1285,11 +1300,30 @@ export const useProject = () => {
     try { await flushPendingSave(); }
     catch (e) { console.warn('[useProject] closeProject flush failed:', e); }
 
+    forgetProjectLocally();
+
+    // Ask the server to drop its in-memory project too. If we don't do this,
+    // tryRejoinExistingProject() on the welcome screen would immediately
+    // pull the user right back into the project we just dismissed.
+    try {
+      const server = useLiveplayServer();
+      if (server.connected) {
+        await server.closeProjectOnServer();
+      }
+    } catch (e) {
+      console.warn('[useProject] closeProjectOnServer failed:', e);
+    }
+  };
+
+  // This window's half of closing a show: what it holds goes, the server's
+  // is left alone. Also what happens when another client closes the show.
+  const forgetProjectLocally = () => {
     // Tear down the items deep-watcher before nulling the project so the
     // null assignment doesn't trigger one last (now meaningless) sync.
     // The watcher is re-installed by streamItemPages when the next
     // project is opened.
     uninstallItemsWatcherFn();
+    _itemStreamSeq++;   // any stream still running belongs to the old show
 
     currentProject.value = null;
     selectedItem.value = null;
@@ -1315,18 +1349,6 @@ export const useProject = () => {
         (window as any).electronAPI.syncProjectData(null);
       }
     } catch { /* noop */ }
-
-    // Ask the server to drop its in-memory project too. If we don't do this,
-    // tryRejoinExistingProject() on the welcome screen would immediately
-    // pull the user right back into the project we just dismissed.
-    try {
-      const server = useLiveplayServer();
-      if (server.connected) {
-        await server.closeProjectOnServer();
-      }
-    } catch (e) {
-      console.warn('[useProject] closeProjectOnServer failed:', e);
-    }
   };
 
   // Update item indices recursively
@@ -1395,6 +1417,14 @@ export const useProject = () => {
   // Remove an item
   const removeItem = (uuid: string) => {
     if (!currentProject.value) return;
+    // The cues after it move up one: a "go to index" pointing at one of them
+    // follows it rather than landing on whatever takes its place.
+    keepingGotoTargets(currentProject.value.items, findItemByIndex,
+                       () => removeItemNow(uuid), findItemByUuid);
+  };
+
+  const removeItemNow = (uuid: string) => {
+    if (!currentProject.value) return;
 
     const removeFromArray = (items: (AudioItem | GroupItem)[]): boolean => {
       const index = items.findIndex(item => item.uuid === uuid);
@@ -1427,8 +1457,19 @@ export const useProject = () => {
   // can be in both); it mirrors CartSlot's single-slot delete for a batch.
   const deleteCartItems = (uuids: string[]) => {
     if (!currentProject.value || uuids.length === 0) return;
-    const { removeCartOnlyItem } = useCartItems();
+    const { removeCartOnlyItem, getCartOnlyItem } = useCartItems();
     const targets = new Set(uuids);
+    // A detached cart window or page pop-out has no sync watcher of its own:
+    // tell the server here, or the delete lives only in this window.
+    if (isSecondaryWindow) {
+      const server = useLiveplayServer();
+      for (const ci of currentProject.value.cartItems) {
+        if (targets.has(ci.itemUuid)) void server.clearCartSlot(ci.slot).catch(() => {});
+      }
+      for (const u of uuids) {
+        if (getCartOnlyItem(u)) void server.removeProjectItem(u).catch(() => {});
+      }
+    }
     for (const u of uuids) {
       removeCartOnlyItem(u);
       selectedItems.value.delete(u);
@@ -1475,6 +1516,8 @@ export const useProject = () => {
   // outright; a multi-selection opens the confirm dialog without the "Delete
   // Only" choice. The active selectionContext decides playlist vs cart.
   const requestDeleteFromKeyboard = (): boolean => {
+    // Show Mode is for running the show: nothing is deleted from it.
+    if (inShowMode()) return false;
     const size = selectedItems.value.size;
     if (size === 0) return false;
     if (size === 1) {
@@ -1637,7 +1680,8 @@ export const useProject = () => {
     // of the batch to compare against.
     const remoteTouched = new Set<string>();
     const batchOverrides = new Map<string, any>();
-    const ownFields = (it: any) => (it && it.type === 'group' ? { ...it, children: undefined } : it);
+    const ownFields = (it: any) =>
+      (it ? { ...it, index: undefined, ...(it.type === 'group' ? { children: undefined } : {}) } : it);
 
     // After hydrate, capture per-section baselines so the per-section
     // watchers don't fire spuriously on the assignment.
@@ -1994,6 +2038,15 @@ export const useProject = () => {
               try {
                 const header = await server().fetchProjectHeader();
                 if (!header) return;
+                // Another client closed the show: close it here too, rather
+                // than sit in an empty "Untitled" that still has the old file
+                // to save over.
+                // (A new show not yet saved has no file and no cues either,
+                // but it names its folder.)
+                if (!header.hasOpenProject && !header.folderPath) {
+                  if (currentProject.value) forgetProjectLocally();
+                  return;
+                }
                 isHydrating.value = true;
                 try {
                   applyServerHeader(header);
@@ -2001,9 +2054,12 @@ export const useProject = () => {
                   await nextTick();
                   isHydrating.value = false;
                 }
-                if (header.hasOpenProject) {
-                  void streamItemPages(server(), header.itemCount ?? 0);
-                }
+                // The new show's cart-only cues, as an open does: the old
+                // show's would otherwise be what the next save sends.
+                const { clearCartOnlyItems, addCartOnlyItem } = useCartItems();
+                clearCartOnlyItems();
+                for (const item of currentProject.value?.cartOnlyItems ?? []) addCartOnlyItem(item);
+                void streamItemPages(server(), header.itemCount ?? 0);
               } catch (e) {
                 console.warn('[useProject] project_changed refetch failed:', e);
               }
@@ -2054,6 +2110,9 @@ export const useProject = () => {
     const syncCart = async () => {
       const next = toJSON(currentProject.value?.cartItems) ?? [];
       if (stableJson(next) === stableJson(lastCart)) return;
+      // The pins as they are now: clearing a cart's old slot on the server
+      // drops its pin there (and tells us), before it can be moved along.
+      const pinsBefore = { ...(currentProject.value?.cartPinnedKeys ?? {}) };
       const prev = lastCart ?? [];
       lastCart = next;
       const cartByPrev = new Map<number, string>();
@@ -2068,7 +2127,7 @@ export const useProject = () => {
       }
       // A cart that moved takes its pinned key along; a cleared one drops it
       // (F-13). After the bindings, which the server checks pins against.
-      useCartHotkeys().reconcilePinnedKeys(cartByPrev, cartByCurr);
+      useCartHotkeys().reconcilePinnedKeys(cartByPrev, cartByCurr, pinsBefore);
     };
     watch(() => currentProject.value?.cartItems, () => {
       if (isHydrating.value || !currentProject.value) return;
@@ -2207,13 +2266,19 @@ export const useProject = () => {
       // should only ever carry the group's own metadata, never children.
       const withoutChildren = (it: any) =>
         it && it.type === 'group' ? { ...it, children: undefined } : it;
+      // An item's `index` is its position, which every client and the server
+      // work out for themselves (updateIndices after every structural patch;
+      // the server walks the tree). A cue added to an early tab moves every
+      // later index, and sending each of those as an item update took seconds
+      // in a long show for nothing: the reorder below says it once.
+      const withoutPosition = (it: any) => (it ? { ...it, index: undefined } : it);
       for (const [uuid, { item, parentUuid, cartOnly }] of curr) {
         const before = prev.get(uuid);
         if (!before) continue;
         if (before.parentUuid !== parentUuid || before.cartOnly !== cartOnly) continue; // handled in step 1
         const beforeCompare = withoutChildren(before.item);
         const nowCompare    = withoutChildren(item);
-        if (stableJson(beforeCompare) === stableJson(nowCompare)) continue;
+        if (stableJson(withoutPosition(beforeCompare)) === stableJson(withoutPosition(nowCompare))) continue;
         try { await srv.updateProjectItem(uuid, nowCompare); } catch {}
       }
 
