@@ -134,7 +134,12 @@ public:
                 json{{"id", "pause-item"},  {"label", "Pause cue"},  {"fields", json::array({item("Cue")})}},
                 json{{"id", "resume-item"}, {"label", "Resume cue"}, {"fields", json::array({item("Cue")})}},
                 json{{"id", "arm-next"},    {"label", "Set Up Next"}, {"fields", json::array({item("Cue")})}},
-                json{{"id", "stop-all"},    {"label", "Stop all"},   {"fields", json::array()}},
+                json{{"id", "stop-all"},    {"label", "Stop all"},
+                     {"fields", json::array({
+                         field("stopFade", "Stopped cues fade over", "enum",
+                               {{"default", "show"},
+                                {"options", options_list({{"show", "The Stop All fade"},
+                                                          {"cue", "Each cue's own Stop fade, or at once"}})}})})}},
                 json{{"id", "stop-fade-mode"}, {"label", "Set Stop All fade mode"}, {"summary", "{mode}"},
                      {"fields", json::array({
                          field("mode", "Stopped cues fade over", "enum",
@@ -185,7 +190,7 @@ public:
                 return Result::fail(std::string{"'"} + key + "' isn't a number");
         }
         if (a == "stop-all") {
-            host_.stop_all();
+            host_.stop_all(opt_string(job.options, "stopFade", "show") == "cue");
             return {};
         }
         if (a == "stop-fade-mode") {

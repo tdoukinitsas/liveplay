@@ -75,6 +75,21 @@ int main() {
     check("only the credential is sealed", sealed == 1, mapped);
     check("...in place", mapped == "Authorization: lpenc:v1:Bearer abc123\nContent-Type: application/json",
           mapped);
+    {
+        const std::string stored = "K: v\n\nBearer abc";
+        const std::string back = mask_headers(stored, false);
+        check("a blank line never takes a masked line's value",
+              restore_headers(back, stored) == "K: v\n\nBearer abc", restore_headers(back, stored));
+        int n = 0;
+        const std::string sealed_raw = map_secret_values(stored, [&](const std::string& v) {
+            ++n;
+            return "lpenc:v1:" + v;
+        });
+        check("a line with no colon is sealed like a secret",
+              sealed_raw.find("lpenc:v1:Bearer abc") != std::string::npos && n == 1, sealed_raw);
+        check("...and never makes a connection ask for a sign-in",
+              !has_unusable_secret("Bearer " + M + "\n" + M));
+    }
     check("a mask is never sealed",
           map_secret_values("Authorization: " + M, [](const std::string&) { return std::string{"x"}; }) ==
               "Authorization: " + M);

@@ -52,6 +52,7 @@ std::vector<ItemEvent> ItemEvent::parse_list(const json& events) {
         if (e.contains("presetId") && e["presetId"].is_string())
             ev.preset_id = e["presetId"].get<std::string>();
         if (e.contains("options") && e["options"].is_object()) ev.options = e["options"];
+        if (e.contains("once") && e["once"].is_boolean()) ev.once = e["once"].get<bool>();
         if (ev.plugin.empty() || (ev.action.empty() && ev.preset_id.empty())) continue;
         if (ev.trigger != "time" && ev.trigger != "start" && ev.trigger != "end" &&
             ev.trigger != "pause" && ev.trigger != "resume") continue;
@@ -247,8 +248,9 @@ bool Dispatcher::plugin_needs_connection(const std::string& id) const {
 }
 
 void Dispatcher::enqueue(Job job, Clock::time_point when, std::function<Due()> check) {
-    if (when == Clock::time_point{} || when <= Clock::now()) {
-        hand_to_lane(std::move(job));
+    const auto now = Clock::now();
+    if (when == Clock::time_point{} || when <= now) {
+        hand_to_lane(std::move(job), when == Clock::time_point{} ? now : when);
         return;
     }
     {
@@ -379,18 +381,33 @@ void Dispatcher::scheduler_loop() {
         Job job = std::move(scheduled_.begin()->second.job);
         scheduled_.erase(scheduled_.begin());
         lock.unlock();
-        hand_to_lane(std::move(job));
+        hand_to_lane(std::move(job), due);
         lock.lock();
     }
 }
 
-void Dispatcher::hand_to_lane(Job job) {
+void Dispatcher::hand_to_lane(Job job, Clock::time_point due) {
     Lane* lane = nullptr;
     {
         std::lock_guard lock{mutex_};
         if (stop_) return;
-        auto it = lanes_.find(job.plugin);
-        if (it != lanes_.end()) lane = it->second.get();
+        const auto plugin = plugins_.find(job.plugin);
+        if (plugin != plugins_.end()) {
+            std::string key = job.plugin;
+            if (needs_connection_[job.plugin] && !job.connection_id.empty())
+                key += std::string{"\x1f"} + job.connection_id;
+            auto it = lanes_.find(key);
+            if (it == lanes_.end()) {
+                // A connection's own lane, the first time it is used. Its
+                // thread waits on mutex_ (held here) before its first look.
+                auto made = std::make_unique<Lane>();
+                Lane& l = *made;
+                Plugin& p = *plugin->second;
+                l.thread = std::thread([this, &l, &p] { lane_loop(l, p); });
+                it = lanes_.emplace(std::move(key), std::move(made)).first;
+            }
+            lane = it->second.get();
+        }
     }
     if (!lane) {
         report(job, Result::fail("unknown plugin '" + job.plugin + "'"));
@@ -398,7 +415,7 @@ void Dispatcher::hand_to_lane(Job job) {
     }
     {
         std::lock_guard lk{lane->mutex};
-        lane->jobs.push_back(std::move(job));
+        lane->jobs.push_back(Queued{std::move(job), due});
     }
     lane->cv.notify_one();
 }
@@ -406,6 +423,7 @@ void Dispatcher::hand_to_lane(Job job) {
 void Dispatcher::lane_loop(Lane& lane, Plugin& plugin) {
     for (;;) {
         Job job;
+        Clock::time_point due;
         {
             std::unique_lock lk{lane.mutex};
             lane.cv.wait(lk, [&] {
@@ -416,8 +434,21 @@ void Dispatcher::lane_loop(Lane& lane, Plugin& plugin) {
                 std::lock_guard g{mutex_};
                 if (stop_) return;
             }
-            job = std::move(lane.jobs.front());
+            Queued next = std::move(lane.jobs.front());
             lane.jobs.pop_front();
+            job = std::move(next.job);
+            due = next.due;
+        }
+        // Held up behind a slow device for too long: say so rather than fire
+        // seconds after its mark.
+        if (const auto late = Clock::now() - due; late > kStaleAfter) {
+            const auto secs = std::chrono::duration_cast<std::chrono::milliseconds>(late).count() / 1000.0;
+            char buf[160];
+            std::snprintf(buf, sizeof buf,
+                          "skipped: it would have gone %.1f s late (the device was busy or not answering)",
+                          secs);
+            report(job, Result::fail(buf));
+            continue;
         }
         Result r;
         const ExecutingJob executing{job};

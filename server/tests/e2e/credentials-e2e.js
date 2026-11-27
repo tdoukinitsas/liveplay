@@ -188,6 +188,41 @@ const watchPatches = (port) => {
     const copy = (copyR.body.project || copyR.body).items.find(i => i.uuid === 'cue-2');
     ok('a pasted copy is accepted', !!copy, `HTTP ${r.status}`);
 
+    // A preset saved from the event ("Save as preset") gets a new id and the
+    // dots its client was shown: the event's value, on the same connection.
+    let conns0 = (await a.req('/api/events/connections')).body.connections;
+    conns0[0].presets = [{ id: 'p-new', name: 'From event', action: 'request',
+                           options: { method: 'GET', path: '/go', headers: `X-Api-Key: ${MASK}`, contentType: 'none' } }];
+    await a.req('/api/events/connections', { method: 'PUT', body: { connections: conns0 } });
+    seen.length = 0;
+    r = await a.req('/api/events/test', { method: 'POST', body: {
+      event: { plugin: 'http', action: '', connectionId: 'h1', presetId: 'p-new', options: {} } } });
+    await sleep(100);
+    ok('a preset saved from an event keeps its credential', r.body.ok === true && seen[0]?.key === 'k123',
+       JSON.stringify({ r: r.body, seen }));
+    conns0 = (await a.req('/api/events/connections')).body.connections;
+    delete conns0[0].presets;
+    await a.req('/api/events/connections', { method: 'PUT', body: { connections: conns0 } });
+
+    // A new address never inherits the stored credential.
+    const elsewhere = http.createServer((rq, rs) => { seen.push({ elsewhere: rq.headers.authorization }); rs.end('ok'); });
+    await new Promise(res => elsewhere.listen(0, '127.0.0.1', res));
+    let moved = (await a.req('/api/events/connections')).body.connections;
+    moved[0].config.baseUrl = `http://127.0.0.1:${elsewhere.address().port}`;
+    await a.req('/api/events/connections', { method: 'PUT', body: { connections: moved } });
+    seen.length = 0;
+    r = await a.req('/api/events/test', { method: 'POST', body: {
+      event: { plugin: 'http', action: 'request', connectionId: 'h1',
+               options: { method: 'GET', path: '/x', headers: '', contentType: 'none' } } } });
+    await sleep(100);
+    ok('moving a connection to a new address drops its credential instead of sending it there',
+       r.body.ok === false && r.body.auth === 'missing' && !seen.some(s => s.elsewhere), JSON.stringify({ r: r.body, seen }));
+    moved = (await a.req('/api/events/connections')).body.connections;
+    moved[0].config.baseUrl = `http://127.0.0.1:${devicePort}`;
+    moved[0].config.headers = 'Authorization: Bearer good\nAccept: text/plain';
+    await a.req('/api/events/connections', { method: 'PUT', body: { connections: moved } });
+    elsewhere.close();
+
     // ---- On disk ------------------------------------------------------------
     r = await a.req('/api/project/save', { method: 'POST', body: { path: showFile } });
     ok('show saved', r.status === 200, `HTTP ${r.status}`);
@@ -288,6 +323,18 @@ const watchPatches = (port) => {
     r = await a.req('/api/events/connections', { method: 'PUT', as: apiToken,
                                                  body: { connections: r.body.connections } });
     ok("an API token can't change connections (F-30)", r.status === 403, `HTTP ${r.status}`);
+    // ...nor through a whole document: the show's own are kept.
+    r = await a.req('/api/project', { as: apiToken });
+    const tokenDoc = r.body.project || r.body;
+    tokenDoc.eventConnections[0].config.baseUrl = 'http://127.0.0.1:9';
+    r = await a.req('/api/project/document', { method: 'PUT', as: apiToken, body: tokenDoc });
+    r = await a.req('/api/events/connections');
+    ok("...nor through a whole-document PUT", r.body.connections?.[0]?.config?.baseUrl === `http://127.0.0.1:${devicePort}`,
+       JSON.stringify(r.body.connections?.[0]?.config));
+    r = await a.req('/api/events/test', { method: 'POST', as: apiToken, body: {
+      event: { plugin: 'osc', action: 'message', options: { address: '/x', args: [] } },
+      connection: { id: 'd', plugin: 'osc', config: { host: '127.0.0.1', port: 9 } } } });
+    ok("...and can't test any unsaved connection", r.status === 403, `HTTP ${r.status}`);
   } catch (e) {
     ok('the suite ran to the end', false, e?.stack ?? String(e));
   } finally {

@@ -505,7 +505,11 @@ public:
     // /api/project/save with a document): the parts with their own endpoints
     // (tabs, pages, connections, cart keys) stay as the server has them, since
     // the saving client's copy may predate another client's change.
-    bool replace_full_document(const json& doc, bool keep_live_parts = false);
+    //
+    // `may_edit_connections` false (an API token, F-30): the document's
+    // eventConnections are ignored, the show's own kept.
+    bool replace_full_document(const json& doc, bool keep_live_parts = false,
+                               bool may_edit_connections = true);
 
     // Path to the open project file (.liveplay), if any. Empty if the project
     // is in-memory only.
@@ -602,7 +606,11 @@ public:
     // start or resume a cue. A Stop All that arrives while the previous one is
     // still fading out, or within kStopAllDoubleTap of an instant one (the
     // operator's double tap, from any source), is a panic instead.
-    void stop_all_cues(std::optional<long long> fade_ms = std::nullopt, bool panic = false);
+    //
+    // `own_fades`: each cue over its own Stop button fade, at once for one
+    // that has none (a 2.5 custom action's Stop All), whatever the settings.
+    void stop_all_cues(std::optional<long long> fade_ms = std::nullopt, bool panic = false,
+                       bool own_fades = false);
     // The panic: every cue stops at once, and every event dies — markers
     // scheduled, jobs queued, fades events started (they stop where they are)
     // — and no stopped cue fires an end event, whatever the settings say.

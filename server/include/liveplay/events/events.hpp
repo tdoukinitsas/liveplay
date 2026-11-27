@@ -62,6 +62,10 @@ struct ItemEvent {
     // action and options, so changing it once changes every event that uses it.
     std::string preset_id;
     json        options = json::object();
+    // "time" events: fire once per play, not again when the cue loops or is
+    // sought back over the marker. What a 2.5 custom action did, so migrated
+    // ones keep it.
+    bool        once = false;
     bool        triggered = false;   // "time" events: fired (or skipped) this pass
 
     // Enabled, well-formed events from an item's "events" array.
@@ -127,21 +131,35 @@ public:
     // Joins every thread. Idempotent; the destructor calls it.
     void stop();
 
+    // A job that reaches the front of its lane this long after it was due is
+    // skipped and reported instead: a device that was slow or gone held its
+    // lane, and a show cue that lands seconds late is worse than one that
+    // says it didn't (an operator can fire it by hand).
+    static constexpr std::chrono::seconds kStaleAfter{5};
+
 private:
+    struct Queued {
+        Job               job;
+        Clock::time_point due;
+    };
     struct Lane {
         std::thread             thread;
         std::mutex              mutex;
         std::condition_variable cv;
-        std::deque<Job>         jobs;
+        std::deque<Queued>      jobs;
     };
     void scheduler_loop();
     void lane_loop(Lane& lane, Plugin& plugin);
-    void hand_to_lane(Job job);
+    void hand_to_lane(Job job, Clock::time_point due);
     void report(const Job& job, const Result& r);
 
     std::map<std::string, std::unique_ptr<Plugin>> plugins_;
     std::vector<std::string>                       order_;   // registration order, for listing
-    std::map<std::string, std::unique_ptr<Lane>>   lanes_;   // one per plugin
+    // One lane per plugin, and for a plugin that uses connections one per
+    // connection too, made when its first job arrives: a device that is slow
+    // to answer (a projector that's switched off) holds up only its own
+    // events, never another device's. Jobs on one lane run in order.
+    std::map<std::string, std::unique_ptr<Lane>>   lanes_;
     std::map<std::string, bool>                    needs_connection_;   // from the schema, at add_plugin
 
     struct Scheduled {

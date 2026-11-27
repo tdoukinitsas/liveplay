@@ -202,6 +202,7 @@ void PlaybackItem::play() {
     // stale previous play on this same item.
     stopped_naturally_.store(false, std::memory_order_release);
     fading_out_naturally_.store(false, std::memory_order_release);
+    fade_out_completed_.store(false, std::memory_order_release);
 
     // Fade in from the CURRENT gain, not a hardcoded 0. Re-triggering a cue that
     // is mid stop-fade (FadingOut) would otherwise dip to silence before fading
@@ -232,6 +233,9 @@ void PlaybackItem::stop() {
 void PlaybackItem::stop(std::chrono::milliseconds fade) {
     const TransportState st = transport_.load(std::memory_order_acquire);
     if (st == TransportState::Stopped) return;
+    // A paused cue is already silent: a fade from there would play it again
+    // for the length of the fade.
+    if (st == TransportState::Paused) { stop_now(); return; }
     if (st == TransportState::FadingOut) {
         // Honour an explicit stop even when the item is already fading naturally
         // (e.g. reached its out-point). Cutting it immediately prevents audible
@@ -258,6 +262,7 @@ void PlaybackItem::stop(std::chrono::milliseconds fade) {
 void PlaybackItem::stop_now() {
     stopped_naturally_.store(false, std::memory_order_release);
     fading_out_naturally_.store(false, std::memory_order_release);
+    fade_out_completed_.store(false, std::memory_order_release);
     transport_.store(TransportState::Stopped, std::memory_order_release);
     gain_current_linear_.store(gain_target_linear_.load(), std::memory_order_release);
     fade_duration_samples_.store(0, std::memory_order_relaxed);
@@ -830,6 +835,7 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
             if (st == TransportState::FadingIn) {
                 transport_.store(TransportState::Playing, std::memory_order_release);
             } else {  // FadingOut
+                fade_out_completed_.store(true, std::memory_order_release);
                 transport_.store(TransportState::Stopped, std::memory_order_release);
                 // If this fade was triggered by natural EOF/out-point,
                 // signal the sequencer so it can auto-advance.
@@ -846,8 +852,10 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
         // over the length the caller asked for (#78), linearly in dB so a long
         // duck sounds like a steady fade rather than one that drops away at the
         // end. The ramp's progress lives on this thread only.
-        const float target = gain_target_linear_.load(std::memory_order_acquire);
+        // The sequence first: set_gain_db() writes the target before it bumps
+        // the sequence, so a sequence seen here comes with its own target.
         const std::uint32_t seq = gain_seq_.load(std::memory_order_acquire);
+        const float target = gain_target_linear_.load(std::memory_order_acquire);
         if (seq != ramp_seen_seq_ || (!ramp_active_ && target != gain_now) ||
             (ramp_active_ && target != ramp_to_lin_)) {
             // A new request uses its own length. A target that moved without

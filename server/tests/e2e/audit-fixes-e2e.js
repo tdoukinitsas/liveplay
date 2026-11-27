@@ -263,6 +263,46 @@ async function waitLoaded() {
     r = await post('/api/transport/cart/0/0/stop');
     ok('...and says when there was nothing to stop', r.body.stopped === false, JSON.stringify(r.body));
 
+    // ---- Stop All during an end stop-fade doesn't advance (stability pass) ----------
+    await put('/api/project/document', {
+      name: 'stopfade', version: '2.6.0', busSchema: 2, folderPath: folder,
+      eventConnections: [connection],
+      settings: { stopAllFadeMs: 0 },
+      items: [cue('sf1', null, { media: long, end: 'next',
+                                 extra: { outPoint: 1.6, stopFade: 1.0, fadeOutDuration: 1.0 } }),
+              cue('sf2')],
+    });
+    await waitLoaded();
+    osc.length = 0;
+    await post('/api/project/items/sf1/play');
+    await sleep(900);   // inside its end fade (from 0.6 s)
+    await post('/api/transport/stop_all', { fade_ms: 0 });
+    await sleep(1600);
+    air = await onAir();
+    ok('Stop All during a cue\'s end fade does not start the next cue', started('sf1') && !started('sf2') &&
+       !air.includes('sf2'), `${osc} / ${air}`);
+    await post('/api/transport/panic');
+    await sleep(300);
+
+    // ---- A 2.5 action fires once per play, not on every loop ------------------------
+    await put('/api/project/document', {
+      name: 'loops', version: '2.0.0', busSchema: 2, folderPath: folder,
+      eventConnections: [connection],
+      items: [
+        { ...cue('lp1', null, { media: short, end: 'loop' }),
+          customActions: [{ timePoint: 0.1, action: { type: 'play-item', uuid: 'lp2' } }] },
+        cue('lp2'),
+      ],
+    });
+    await waitLoaded();
+    osc.length = 0;
+    await post('/api/project/items/lp1/play');
+    await sleep(1400);   // several laps of 0.3 s
+    await post('/api/transport/panic');
+    await sleep(200);
+    ok('a migrated 2.5 action fires once per play, not every loop',
+       osc.filter(a => a === '/start/lp2').length === 1, osc.join(','));
+
     // ---- F-07 / F-08 / F-28 / F-29: a show from before 2.6 -------------------------
     await put('/api/project/document', {
       name: 'legacy', version: '2.0.0', busSchema: 2, folderPath: folder,
@@ -287,6 +327,9 @@ async function waitLoaded() {
     const formEv = (d1.events || []).find(e => e.plugin === 'http');
     ok('an action at or before the in-point fires at the start (F-29)',
        stopEv?.trigger === 'start' && stopEv.time === undefined, JSON.stringify(stopEv));
+    ok("a migrated Stop All fades each cue over its own Stop fade, as 2.5's did",
+       stopEv?.options?.stopFade === 'cue', JSON.stringify(stopEv?.options));
+    ok('...and the later action fires once per play', formEv?.once === true, JSON.stringify(formEv));
     ok('a form body is URL-encoded, as 2.5 sent it (F-28)',
        formEv?.options?.contentType === 'application/x-www-form-urlencoded' &&
        formEv?.options?.body === 'a=x+y%26z&b+c=1', JSON.stringify(formEv?.options));

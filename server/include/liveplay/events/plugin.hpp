@@ -79,8 +79,9 @@ public:
     virtual bool play_item(const std::string& uuid) = 0;
     // Stop an item (or everything in a group) with its own stop fade.
     virtual bool stop_item(const std::string& uuid) = 0;
-    // Stop All, with the project's Stop All fade.
-    virtual void stop_all() = 0;
+    // Stop All, with the project's Stop All fade, or with `cue_fades` each cue
+    // over its own Stop fade (at once for one that has none).
+    virtual void stop_all(bool cue_fades = false) = 0;
     // Pause / resume an item that is loaded. False when it has no cue.
     virtual bool pause_item(const std::string& uuid) = 0;
     virtual bool resume_item(const std::string& uuid) = 0;

@@ -206,6 +206,13 @@ public:
     // fade-out). Returns false if the item was explicitly stopped or
     // hasn't stopped yet. Called by the ProjectState sequencer thread.
     bool take_natural_end() noexcept;
+    // True once (then cleared) when a fade-out this item ran itself reached
+    // silence, as opposed to being cut short by stop_now() (Stop All, a
+    // panic, another cue's stop-all ducking). The sequencer's end stop-fade
+    // only fires the end behaviour on one that finished.
+    bool take_fade_out_completed() noexcept {
+        return fade_out_completed_.exchange(false, std::memory_order_acq_rel);
+    }
 
     // Current target gain in dB. Used by the sequencer to snapshot a
     // cue's gain before ducking so it can be restored afterward.
@@ -379,6 +386,9 @@ private:
     // Set to true when a naturally-initiated fade-out finishes (transport
     // becomes Stopped). Cleared by take_natural_end() or play().
     std::atomic<bool> stopped_naturally_{false};
+    // See take_fade_out_completed(). Set by render_block(), cleared by play()
+    // and stop_now().
+    std::atomic<bool> fade_out_completed_{false};
 
     // LTC generator (optional). Built fresh whenever LTC config changes.
     std::unique_ptr<LTCGenerator> ltc_;

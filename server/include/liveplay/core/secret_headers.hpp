@@ -130,7 +130,8 @@ inline std::string restore_headers(const std::string& incoming, const std::strin
         if (!h.has_colon) {
             if (trim(h.raw) != kMask) continue;
             for (std::size_t i = 0; i < old.size(); ++i) {
-                if (raw_used[i] || old[i].has_colon) continue;
+                // A blank line was never masked, so it can't be what came back.
+                if (raw_used[i] || old[i].has_colon || trim(old[i].raw).empty()) continue;
                 raw_used[i] = true;
                 h.raw = old[i].raw;
                 break;
@@ -150,14 +151,23 @@ inline std::string restore_headers(const std::string& incoming, const std::strin
 }
 
 // Every secret value through `fn` (seal on the way to disk, open on the way
-// in). `fn` returns the new value.
+// in). `fn` returns the new value. A line with no colon is never sent as a
+// header, but it is masked like a secret (it may be a pasted token), so it is
+// sealed like one too.
 template <typename Fn>
 std::string map_secret_values(const std::string& text, Fn&& fn) {
     if (text.empty()) return text;
     auto lines = split_headers(text);
     bool changed = false;
     for (auto& h : lines) {
-        if (!h.has_colon || h.value.empty() || h.value == kMask) continue;
+        if (!h.has_colon) {
+            const std::string raw = trim(h.raw);
+            if (raw.empty() || raw == kMask) continue;
+            std::string next = fn(raw);
+            if (next != raw) { h.raw = std::move(next); changed = true; }
+            continue;
+        }
+        if (h.value.empty() || h.value == kMask) continue;
         if (!is_secret_header(h.name) && !is_sealed(h.value)) continue;
         std::string next = fn(h.value);
         if (next != h.value) { h.value = std::move(next); changed = true; }
@@ -167,10 +177,10 @@ std::string map_secret_values(const std::string& text, Fn&& fn) {
 
 // True when a header can't be sent as it is: a value still sealed (the key
 // that sealed it is on another machine) or a MASK nothing could restore.
+// Lines with no colon are never sent, so they don't count.
 inline bool has_unusable_secret(const std::string& text) {
     for (const auto& h : split_headers(text)) {
         if (h.has_colon && (is_sealed(h.value) || h.value == kMask)) return true;
-        if (!h.has_colon && trim(h.raw) == kMask) return true;
     }
     return false;
 }

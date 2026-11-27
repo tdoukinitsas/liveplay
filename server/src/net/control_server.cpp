@@ -4779,10 +4779,11 @@ void ControlServer::install_routes() {
                 // the server's own place on the network. The connection
                 // editor's Test needs that; an API token does not (#20), and
                 // may still test the show's saved connections.
+                // Any plugin: an OSC or X Air draft aims the server's packets
+                // at any host just the same (F-30).
                 if (impl_->app.get_context<AuthGuard>(req).principal.is_api() &&
-                    body.contains("connection") && body["connection"].is_object() &&
-                    body["event"].value("plugin", std::string{}) == "http")
-                    return json_err(403, "API tokens can't test an unsaved HTTP connection");
+                    body.contains("connection") && body["connection"].is_object())
+                    return json_err(403, "API tokens can't test an unsaved connection");
                 return run_slow([this, body] {
                     const auto r = state_.test_event(
                         body["event"],
@@ -4808,6 +4809,11 @@ void ControlServer::install_routes() {
                 const std::string plugin = body.value("plugin", std::string{});
                 const std::string source = body.value("source", std::string{});
                 if (plugin.empty() || source.empty()) return json_err(400, "missing plugin or source");
+                // Reading options from a draft connection talks to whatever
+                // host it names; a token may only use the show's (F-30).
+                if (impl_->app.get_context<AuthGuard>(req).principal.is_api() &&
+                    body.contains("connection") && body["connection"].is_object())
+                    return json_err(403, "API tokens can't use an unsaved connection");
                 std::string connection_id;
                 if (body.contains("connectionId") && body["connectionId"].is_string())
                     connection_id = body["connectionId"].get<std::string>();
@@ -5402,7 +5408,9 @@ void ControlServer::install_routes() {
                 if (j.contains("document") && j["document"].is_object()) {
                     // An ordinary save: tabs, pages, connections and cart keys
                     // stay as the server has them (F-03, F-24).
-                    if (!state_.replace_full_document(j["document"], /*keep_live_parts=*/true)) {
+                    const bool token = impl_->app.get_context<AuthGuard>(req).principal.is_api();
+                    if (!state_.replace_full_document(j["document"], /*keep_live_parts=*/true,
+                                                      /*may_edit_connections=*/!token)) {
                         Logger::warn("POST /api/project/save — embedded document "
                                      "rejected, continuing with existing state");
                     }
@@ -5454,7 +5462,11 @@ void ControlServer::install_routes() {
                 const std::string proj_name = doc.value("name", "?");
                 Logger::api_request("Client ({}) -> Server ({}) : PUT /api/project/document name='{}'",
                                     req.remote_ip_address, impl_->server_addr, proj_name);
-                if (!state_.replace_full_document(doc)) {
+                // An API token can't change event connections (F-30), here
+                // any more than through PUT /api/events/connections.
+                const bool token = impl_->app.get_context<AuthGuard>(req).principal.is_api();
+                if (!state_.replace_full_document(doc, /*keep_live_parts=*/false,
+                                                  /*may_edit_connections=*/!token)) {
                     Logger::error("PUT /api/project/document — document not accepted");
                     return json_err(400, "document not accepted");
                 }

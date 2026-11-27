@@ -8,9 +8,11 @@
 #include <sodium.h>
 
 #include <array>
+#include <chrono>
 #include <cstring>
 #include <fstream>
 #include <mutex>
+#include <thread>
 #include <vector>
 
 #if !defined(_WIN32)
@@ -22,42 +24,77 @@ namespace {
 
 namespace fs = std::filesystem;
 
-std::mutex             g_mutex;
-fs::path               g_path;
-bool                   g_loaded = false;
-std::optional<std::array<unsigned char, crypto_secretbox_KEYBYTES>> g_key;
+using Key = std::array<unsigned char, crypto_secretbox_KEYBYTES>;
+
+std::mutex         g_mutex;
+fs::path           g_path;
+std::optional<Key> g_key;
+bool               g_warned_unreadable = false;
+
+std::optional<Key> read_key(const fs::path& path) {
+    std::ifstream in{path, std::ios::binary};
+    Key k{};
+    if (in && in.read(reinterpret_cast<char*>(k.data()), static_cast<std::streamsize>(k.size())) &&
+        in.gcount() == static_cast<std::streamsize>(k.size()))
+        return k;
+    return std::nullopt;
+}
 
 // Under g_mutex. Reads the key, or makes one the first time it is needed.
-const std::array<unsigned char, crypto_secretbox_KEYBYTES>* key_locked(bool create) {
+//
+// An existing key file is never replaced: every show sealed on this machine
+// depends on it. One that exists but can't be read right now (a virus
+// scanner's lock, a short read) is tried again on the next call, and until
+// then nothing is sealed or opened with a different key.
+const Key* key_locked(bool create) {
     if (g_key) return &*g_key;
     if (g_path.empty() || sodium_init() < 0) return nullptr;
-    if (!g_loaded) {
-        g_loaded = true;
-        std::ifstream in{g_path, std::ios::binary};
-        std::array<unsigned char, crypto_secretbox_KEYBYTES> k{};
-        if (in && in.read(reinterpret_cast<char*>(k.data()), static_cast<std::streamsize>(k.size())) &&
-            in.gcount() == static_cast<std::streamsize>(k.size())) {
-            g_key = k;
-            return &*g_key;
+    std::error_code ec;
+    if (fs::exists(g_path, ec)) {
+        for (int attempt = 0; attempt < 3 && !g_key; ++attempt) {
+            if (attempt) std::this_thread::sleep_for(std::chrono::milliseconds{30});
+            g_key = read_key(g_path);
         }
+        if (g_key) return &*g_key;
+        if (!g_warned_unreadable) {
+            g_warned_unreadable = true;
+            Logger::error("Secrets: the key file '{}' exists but can't be read; credentials can't "
+                          "be sealed or opened until it can", util::path_to_utf8(g_path));
+        }
+        return nullptr;
     }
     if (!create) return nullptr;
-    std::array<unsigned char, crypto_secretbox_KEYBYTES> k{};
+    Key k{};
     crypto_secretbox_keygen(k.data());
-    std::error_code ec;
     if (g_path.has_parent_path()) fs::create_directories(g_path.parent_path(), ec);
+    // Written beside it, then moved into place, so the key file is never
+    // half-written; the move fails rather than replace one that appeared.
+    fs::path tmp = g_path;
+    tmp += ".new";
     {
-        std::ofstream out{g_path, std::ios::binary | std::ios::trunc};
+        std::ofstream out{tmp, std::ios::binary | std::ios::trunc};
         if (!out || !out.write(reinterpret_cast<const char*>(k.data()),
                                static_cast<std::streamsize>(k.size()))) {
             Logger::error("Secrets: could not write the key file '{}'; credentials will be "
                           "saved unsealed", util::path_to_utf8(g_path));
+            fs::remove(tmp, ec);
             return nullptr;
         }
     }
 #if !defined(_WIN32)
-    ::chmod(g_path.c_str(), S_IRUSR | S_IWUSR);   // the server's own user only
+    ::chmod(tmp.c_str(), S_IRUSR | S_IWUSR);   // the server's own user only
 #endif
+    if (fs::exists(g_path, ec)) {
+        fs::remove(tmp, ec);
+        g_key = read_key(g_path);
+        return g_key ? &*g_key : nullptr;
+    }
+    fs::rename(tmp, g_path, ec);
+    if (ec) {
+        Logger::error("Secrets: could not put the key file in place: {}", ec.message());
+        fs::remove(tmp, ec);
+        return nullptr;
+    }
     Logger::info("Secrets: made a new key for sealing credentials in show files");
     g_key = k;
     return &*g_key;
@@ -74,9 +111,9 @@ std::string b64(const unsigned char* data, std::size_t len) {
 
 void set_key_path(fs::path path) {
     std::lock_guard lock{g_mutex};
-    g_path   = std::move(path);
-    g_loaded = false;
+    g_path = std::move(path);
     g_key.reset();
+    g_warned_unreadable = false;
 }
 
 std::optional<std::string> seal(std::string_view plain) {

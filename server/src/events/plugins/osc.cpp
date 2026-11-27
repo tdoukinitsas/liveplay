@@ -11,6 +11,8 @@
 
 #include <asio.hpp>
 
+#include <chrono>
+#include <map>
 #include <mutex>
 #include <optional>
 
@@ -105,21 +107,24 @@ public:
         if (!message) return Result::fail(error);
         const std::string packet = osc::encode(*message);
 
-        // One socket for the plugin, guarded: execute() is called from this
-        // plugin's lane and from Test requests at the same time.
-        std::lock_guard lock{mutex_};
+        // Resolved outside the socket's lock, and remembered for a while: a
+        // name that doesn't resolve (a desk that isn't on the network yet)
+        // waits out the DNS timeout, and doing that under the lock held every
+        // other OSC connection, and its Tests, behind it.
         asio::error_code ec;
-        asio::ip::udp::resolver resolver{io_};
-        auto endpoints = resolver.resolve(asio::ip::udp::v4(), host, std::to_string(port), ec);
-        if (ec || endpoints.empty())
-            return Result::fail("can't resolve '" + host + "': " + ec.message());
+        const auto target = resolve(host, port, ec);
+        if (!target) return Result::fail("can't resolve '" + host + "': " + ec.message());
+
+        // One socket for the plugin, guarded: execute() is called from the
+        // connections' lanes and from Test requests at the same time.
+        std::lock_guard lock{mutex_};
         if (!socket_.is_open()) {
             socket_.open(asio::ip::udp::v4(), ec);
             if (ec) return Result::fail("can't open UDP socket: " + ec.message());
             // Lets a desk listen on a broadcast address too.
             socket_.set_option(asio::socket_base::broadcast(true), ec);
         }
-        socket_.send_to(asio::buffer(packet), endpoints.begin()->endpoint(), 0, ec);
+        socket_.send_to(asio::buffer(packet), *target, 0, ec);
         if (ec) {
             socket_.close();
             return Result::fail("send failed: " + ec.message());
@@ -128,6 +133,38 @@ public:
     }
 
 private:
+    // host:port → where it resolved, for kResolveFor. A failure isn't kept, so
+    // a desk that comes online is found on the next event.
+    std::optional<asio::ip::udp::endpoint> resolve(const std::string& host, int port,
+                                                   asio::error_code& ec) {
+        constexpr auto kResolveFor = std::chrono::seconds{30};
+        const std::string key = host + ":" + std::to_string(port);
+        const auto now = std::chrono::steady_clock::now();
+        {
+            std::lock_guard lock{resolved_mutex_};
+            if (auto it = resolved_.find(key); it != resolved_.end() && now - it->second.at < kResolveFor)
+                return it->second.endpoint;
+        }
+        asio::io_context ctx;
+        asio::ip::udp::resolver resolver{ctx};
+        auto endpoints = resolver.resolve(asio::ip::udp::v4(), host, std::to_string(port), ec);
+        if (ec || endpoints.empty()) {
+            if (!ec) ec = asio::error::host_not_found;
+            return std::nullopt;
+        }
+        const auto endpoint = endpoints.begin()->endpoint();
+        std::lock_guard lock{resolved_mutex_};
+        resolved_[key] = Resolved{endpoint, now};
+        return endpoint;
+    }
+
+    struct Resolved {
+        asio::ip::udp::endpoint               endpoint;
+        std::chrono::steady_clock::time_point at;
+    };
+    std::mutex                      resolved_mutex_;
+    std::map<std::string, Resolved> resolved_;
+
     std::mutex             mutex_;
     asio::io_context       io_;
     asio::ip::udp::socket  socket_{io_};
