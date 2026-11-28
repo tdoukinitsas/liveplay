@@ -1288,7 +1288,7 @@
         "ok": true,
         "uuid": "item-uuid"
       },
-      "notes": "POST and GET both act. Uses the armed override, then derives the next item from active playback. Does not implicitly start the first cue of an idle playlist.",
+      "notes": "POST and GET both act. Uses the armed override, then derives the next item from active playback: with several cues on air, from the one fired first, or with settings.goContinuesFrom \"latest\" the one fired last (the desktop's Up Next and Space follow the same setting). Pressing a cue that is already playing doesn't change the firing order. Does not implicitly start the first cue of an idle playlist.",
       "errors": [
         [
           "404",
@@ -1351,7 +1351,7 @@
         "ok": true,
         "uuid": "item-uuid"
       },
-      "notes": "Stops the cue fired most recently that is still on air, playlist or cart. The desktop's Stop Current Cue key and MIDI action use this rule.",
+      "notes": "Stops the cue fired most recently that is still sounding, playlist or cart. A cue already in its stop fade is skipped, so a second press stops the one before it rather than cutting it; a paused cue is taken only when nothing is sounding. The desktop's Stop Current Cue key and MIDI action use this rule.",
       "errors": [
         [
           "404",
@@ -1881,8 +1881,12 @@
         "itemCount": 1,
         "needsRepair": false
       },
-      "notes": "Returns ProjectHeader plus needsRepair and optional repairIssues/migration; example is abbreviated. Audio loading can continue after response. Broadcasts project_changed. Loading replaces the active project.",
+      "notes": "Returns ProjectHeader plus needsRepair and optional repairIssues/migration; example is abbreviated. Audio loading can continue after response. Broadcasts project_changed. Loading replaces the active project. A document in the body is never treated as read from disk: its sealed credentials are not opened (those connections ask for a sign-in). An API token may load a show file, not a document.",
       "errors": [
+        [
+          "403",
+          "API tokens can open a show file, not send a show"
+        ],
         [
           "400",
           "load failed"
@@ -1959,6 +1963,10 @@
       "notes": "JSON body is required (use {}). No configured path: 400. Save does not copy media for Save As. A rejected embedded document is logged and the existing document is still saved. May include migration summary; ordinary save does not emit project_changed. With an embedded document, the parts with their own routes (tabs, pages, connections, cart keys) stay as the server holds them for the same show.",
       "errors": [
         [
+          "403",
+          "API tokens can save the open show, not replace it"
+        ],
+        [
           "400",
           "no project file path set"
         ],
@@ -2008,8 +2016,12 @@
         "itemCount": 0,
         "busSchema": 2
       },
-      "notes": "Returns header (example abbreviated), with optional migration. Broadcasts project_changed. Does not write the .liveplay file; use save. An API token can't change event connections this way: the show's own are kept, and another show pushed by a token gets none.",
+      "notes": "Returns header (example abbreviated), with optional migration. Broadcasts project_changed. Does not write the .liveplay file; use save. An API token can't change event connections this way: the show's own are kept, and another show pushed by a token gets none. An API token may only send the open show (the same showId): another show is refused, and the cues' events are kept as stored whatever the document says.",
       "errors": [
+        [
+          "403",
+          "API tokens can update the open show, not replace it"
+        ],
         [
           "400",
           "document not accepted"
@@ -2143,8 +2155,12 @@
         "uuid": "opening",
         "cueId": "cue-id"
       },
-      "notes": "Returned cueId can be empty (groups or failed load). Missing uuid/duplicate uuid/unloadable media is not reliably reported as an HTTP error. Re-read the document. Broadcast item_added echoes the submitted item, not a canonical inserted object.",
+      "notes": "Returned cueId can be empty (groups or failed load). Missing uuid/duplicate uuid/unloadable media is not reliably reported as an HTTP error. Re-read the document. Broadcast item_added echoes the submitted item, not a canonical inserted object. An API token may not add a cue with events.",
       "errors": [
+        [
+          "403",
+          "API tokens can't add a cue's events"
+        ],
         [
           "400",
           "missing 'item' object"
@@ -2181,8 +2197,12 @@
         "ok": true,
         "uuid": "item-uuid"
       },
-      "notes": "Path: project UUID. Broadcasts item_updated with the submitted patch. No strict field whitelist or schema validation; malformed types can fail in state/engine code. Save separately.",
+      "notes": "Path: project UUID. Broadcasts item_updated with the submitted patch. No strict field whitelist or schema validation; malformed types can fail in state/engine code. Save separately. An API token may send back a cue's events exactly as it was shown them, but not change them: they reach saved connections with their credentials.",
       "errors": [
+        [
+          "403",
+          "API tokens can't change a cue's events"
+        ],
         [
           "404",
           "item not found"
@@ -2476,11 +2496,15 @@
         "slot": 0,
         "itemUuid": "opening"
       },
-      "notes": "itemUuid may be \"tab:<tabId>\" to make the cart start a whole playlist tab. UUID existence is not checked. Broadcasts cart_slot_set. See GET /api/cart/pages for each page's carts.",
+      "notes": "itemUuid may be \"tab:<tabId>\" to make the cart start a whole playlist tab. The slot must be one a cart page shows (a show with no pages has one of 16, or more for a show from before 2.6 whose carts used later slots). UUID existence is not checked. Broadcasts cart_slot_set. See GET /api/cart/pages for each page's carts.",
       "errors": [
         [
           "400",
           "slot and itemUuid required"
+        ],
+        [
+          "400",
+          "no cart page shows that slot"
         ],
         [
           "400",
@@ -6702,6 +6726,13 @@
           "crossfade/start-next."
         ],
         [
+          "goContinuesFrom",
+          "string",
+          "No",
+          "earliest",
+          "earliest/latest: with several cues on air and no Up Next armed, which one GO, Up Next and summary.next continue from."
+        ],
+        [
           "autoCueNextWithoutEndBehavior",
           "boolean",
           "No",
@@ -8206,7 +8237,7 @@
           "type": "stop_current"
         },
         "reply": "No direct success reply; observe state/events.",
-        "notes": "Same as POST /api/transport/stop_current: the cue fired most recently that is still on air."
+        "notes": "Same as POST /api/transport/stop_current: the cue fired most recently that is still sounding, skipping one already fading out."
       },
       {
         "type": "go",
