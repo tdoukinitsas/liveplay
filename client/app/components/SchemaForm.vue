@@ -12,13 +12,15 @@
             @change="set(field, ($event.target as HTMLInputElement).checked)"
           />
           <span>{{ field.label }}</span>
+          <FieldHelp v-if="field.help && helpAs === 'icon'" :text="field.help" />
         </label>
-        <p v-if="field.help" class="sf-help">{{ field.help }}</p>
+        <p v-if="field.help && helpAs === 'text'" class="sf-help">{{ field.help }}</p>
       </div>
 
       <div v-else class="sf-field" :class="{ 'sf-field--wide': isWide(field) }">
         <label class="sf-label" :for="inputId(field)">
           {{ field.label }}<span v-if="field.required" class="sf-required" aria-hidden="true">*</span>
+          <FieldHelp v-if="field.help && helpAs === 'icon'" :text="field.help" />
           <!-- A list read from the device: refresh after renaming a strip on the desk. -->
           <!-- aria-disabled, not disabled: a focused button that becomes
                disabled drops focus to the page, where Delete deletes the cue. -->
@@ -133,6 +135,7 @@
               :model-value="row"
               :disabled="disabled"
               :options-context="optionsContext"
+              :help-as="helpAs"
               nested
               @update:model-value="(v: Record<string, unknown>) => setRow(field, i, v)"
             />
@@ -164,7 +167,7 @@
         <p v-if="isLive(field) && live[field.id]?.error" class="sf-warn">
           <span class="material-symbols-rounded">wifi_off</span>{{ live[field.id]!.error }}
         </p>
-        <p v-if="field.help" class="sf-help">{{ field.help }}</p>
+        <p v-if="field.help && helpAs === 'text'" class="sf-help">{{ field.help }}</p>
       </div>
     </template>
   </div>
@@ -180,6 +183,7 @@ import { reactive, useId, watch } from 'vue';
 import type { EventOptionsContext, FieldOption, FieldSchema } from '~/types/events';
 import { defaultsFor, isFieldVisible } from '~/utils/events';
 import HeaderRowsField from './HeaderRowsField.vue';
+import FieldHelp from './FieldHelp.vue';
 
 const props = withDefaults(defineProps<{
   fields: FieldSchema[];
@@ -193,10 +197,16 @@ const props = withDefaults(defineProps<{
    * show the schema's static options.
    */
   optionsContext?: EventOptionsContext | null;
+  /**
+   * How a field's description shows: under it ('text', Settings, where there
+   * is room) or behind an ⓘ beside its label ('icon', the Properties panel).
+   */
+  helpAs?: 'text' | 'icon';
 }>(), {
   disabled: false,
   nested: false,
   optionsContext: null,
+  helpAs: 'text',
 });
 
 const emit = defineEmits<{ 'update:modelValue': [value: Record<string, unknown>] }>();
@@ -430,6 +440,10 @@ function moveRow(f: FieldSchema, i: number, delta: number) {
 }
 
 .sf-label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 18px;
   font-size: 12px;
   font-weight: 500;
 }

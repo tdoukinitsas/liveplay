@@ -1,6 +1,9 @@
 <template>
   <div class="settings-pane conn-pane">
-    <h3 class="settings-pane-title">{{ t('settings.sectionConnections') }}</h3>
+    <h3 class="settings-pane-title">
+      {{ t('settings.sectionConnections') }}
+      <SettingsScope scope="show" />
+    </h3>
     <p class="settings-pane-intro">{{ t('events.connections.intro') }}</p>
 
     <p v-if="!currentProject" class="settings-help">{{ t('events.connections.noProject') }}</p>
@@ -106,12 +109,15 @@
         <div class="settings-field">
           <label class="settings-label" for="conn-name">{{ t('events.connections.name') }}</label>
           <input id="conn-name" v-model="draft.name" class="settings-input" type="text" />
+          <p class="settings-help">{{ t('events.connections.nameHelp') }}</p>
         </div>
-
-        <label class="settings-label settings-label--checkbox">
-          <input type="checkbox" :checked="draft.enabled !== false" @change="draft.enabled = ($event.target as HTMLInputElement).checked" />
-          {{ t('events.connections.enabled') }}
-        </label>
+        <div class="settings-field">
+          <label class="settings-label settings-label--checkbox">
+            <input type="checkbox" :checked="draft.enabled !== false" @change="draft.enabled = ($event.target as HTMLInputElement).checked" />
+            {{ t('events.connections.enabled') }}
+          </label>
+          <p class="settings-help">{{ t('events.connections.enabledHelp') }}</p>
+        </div>
 
         <!-- Discovery: pick a device the server can see instead of typing its address. -->
         <div v-if="draftPlugin?.discoverable" class="conn-discover">
@@ -249,6 +255,7 @@ import { defaultsFor, eventActions, findAction, findPlugin, fillDefaults, format
 import { SECRET_MASK, normaliseBaseUrl } from '~/utils/secretHeaders';
 import Btn from './Btn.vue';
 import SchemaForm from './SchemaForm.vue';
+import SettingsScope from './SettingsScope.vue';
 
 const { t } = useLocalization();
 const { currentProject } = useProject();

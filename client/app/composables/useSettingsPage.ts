@@ -23,17 +23,15 @@ export interface SettingsSection {
 // The rail, in order. Sections are registered as their panes land, so the nav
 // never advertises a pane that does not exist yet.
 export const SETTINGS_SECTIONS: SettingsSection[] = [
-  // First: it is the only pane that belongs to the person rather than to the
-  // show or the machine, and it is the one somebody opens Settings for without
-  // being sent there by a problem.
+  // First: it is the pane about the person and the screen in front of them
+  // rather than the show, and it is the one somebody opens Settings for without
+  // being sent there by a problem. It also holds the mixer view, which had a
+  // one-setting pane of its own until 2.6; its "Layout" group is marked as this
+  // computer's, so the old reason for keeping it apart (Appearance values follow
+  // the operator between desks) is said on the page instead.
   { id: 'appearance', icon: 'palette',      labelKey: 'settings.sectionAppearance' },
   { id: 'playback', icon: 'play_circle',    labelKey: 'settings.sectionPlayback' },
   { id: 'audio',    icon: 'graphic_eq',     labelKey: 'settings.sectionAudio'    },
-  // Next to Audio because that is where somebody goes looking for the word
-  // "mixer", even though what the pane settles is layout rather than sound. Its
-  // one value is the MACHINE's — see SettingsPaneMixer — so it could not go on
-  // Appearance, where everything follows the operator between desks.
-  { id: 'mixer',    icon: 'tune',           labelKey: 'settings.sectionMixer'    },
   // Beside Audio rather than beside Server, though it is the machine's: an
   // operator looking for where the sound physically goes looks under audio,
   // and the map is the other half of what the Audio pane's output target and
@@ -60,6 +58,19 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
 
 export const DEFAULT_SETTINGS_SECTION = 'playback';
 
+// Panes that were folded into another, by their old id. A link, a menu item or
+// a caller that still names one lands where its settings went, not on the
+// default pane, where the setting it was after is nowhere to be seen.
+const SECTION_ALIASES: Record<string, string> = {
+  mixer: 'appearance',
+};
+
+/** The registered section an id means: itself, where it moved to, or null. */
+function resolveSection(id: string): string | null {
+  const real = SECTION_ALIASES[id] ?? id;
+  return SETTINGS_SECTIONS.some(s => s.id === real) ? real : null;
+}
+
 const HASH_PREFIX = '#/settings/';
 
 /** The section named by a hash, or null when the hash is not a settings link. */
@@ -69,7 +80,7 @@ function sectionFromHash(hash: string): string | null {
   if (!id) return DEFAULT_SETTINGS_SECTION;
   // An unknown section opens the page rather than 404ing into a blank pane:
   // a stale link from an older build should still land somewhere useful.
-  return SETTINGS_SECTIONS.some(s => s.id === id) ? id : DEFAULT_SETTINGS_SECTION;
+  return resolveSection(id) ?? DEFAULT_SETTINGS_SECTION;
 }
 
 // Module-level, so the hashchange listener is attached once however many
@@ -95,18 +106,19 @@ export const useSettingsPage = () => {
 
   /** Open Settings, optionally straight to a section. */
   const open = (id: string = DEFAULT_SETTINGS_SECTION) => {
-    const next = SETTINGS_SECTIONS.some(s => s.id === id) ? id : DEFAULT_SETTINGS_SECTION;
+    const next = resolveSection(id) ?? DEFAULT_SETTINGS_SECTION;
     section.value = next;
     if (import.meta.client) window.location.hash = HASH_PREFIX + next;
   };
 
   /** Switch pane without adding a history entry per click. */
   const show = (id: string) => {
-    if (!SETTINGS_SECTIONS.some(s => s.id === id)) return;
-    section.value = id;
+    const next = resolveSection(id);
+    if (!next) return;
+    section.value = next;
     if (import.meta.client) {
       history.replaceState(null, '',
-        window.location.pathname + window.location.search + HASH_PREFIX + id);
+        window.location.pathname + window.location.search + HASH_PREFIX + next);
     }
   };
 

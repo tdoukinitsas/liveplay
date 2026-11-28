@@ -179,13 +179,26 @@
     "sectionConnections": "Verbindungen",
     "stopAllUsesItemFade": "Gestoppte Cues nutzen ihre eigene Stopp-Button-Blende",
     "stopAllUsesItemFadeHelp": "Wenn aktiv, blenden Stop All und der Ducking-Modus „Alle anderen stoppen“ jeden Cue über seine eigene Stopp-Button-Blende aus. Cues ohne eine nutzen die Stop-All-Blende. Zweimal Stop All stoppt weiterhin alles sofort.",
-    "thisComputer": "Dieser Computer"
+    "thisComputer": "Dieser Computer",
+    "scopeYou": "Persönlich",
+    "scopeShow": "Diese Show",
+    "scopeServer": "Server",
+    "groupLanguageLayout": "Sprache und Layout",
+    "groupDisplay": "Anzeige",
+    "groupGoUpNext": "GO und „Als Nächstes“",
+    "groupNewCues": "Neue Cues",
+    "groupLoudness": "Lautheit und Pegelanzeige",
+    "groupRouting": "Routing und Timecode",
+    "groupConnection": "Verbindung",
+    "sectionPlaybackIntro": "Wie Cues starten, stoppen und aneinander übergeben – und womit neue Cues beginnen.",
+    "disableAutoVolumeAndTrimHelp": "Neue Cues behalten Pegel und Länge der Datei. Pegel und Schnitt lassen sich für jeden Cue weiterhin im Tab „Wiedergabe“ anpassen."
   },
   "common": {
     "default": "Standard",
     "loading": "Wird geladen…",
     "error": "Fehler",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "moreInfo": "Weitere Informationen"
   },
   "project": {
     "enterName": "Projektnamen eingeben",
@@ -389,7 +402,18 @@
     "loopCrossfadeNeedsLoop": "Setzen Sie das Endverhalten dieses Cues auf „Schleife“, um eine Schleifen-Überblendung zu nutzen.",
     "advanceDelay": "Wartezeit vor dem Nächsten (Sekunden)",
     "advanceDelayHint": "Nach dem Ende dieses Cues so lange warten, bevor sein Endverhalten den nächsten Cue startet. Wird ignoriert, wenn eine Überblendung oder „Nächsten starten“ eingestellt ist.",
-    "duckTimesHint": "Wie lange die anderen Cues brauchen, um abzusinken, wenn dieser Cue startet, und um zurückzukommen, wenn er endet."
+    "duckTimesHint": "Wie lange die anderen Cues brauchen, um abzusinken, wenn dieser Cue startet, und um zurückzukommen, wenn er endet.",
+    "volumeHelp": "Der Pegel dieses Cues. Ziehen Sie den Fader oder geben Sie einen Pegel in dB ein, z. B. -6.5 (-inf für Stille).",
+    "playFadeHelp": "Blendet den Cue bei jedem Start über so viele Sekunden ein. 0 startet mit vollem Pegel.",
+    "stopFadeHelp": "Blendet den Cue vor seinem Out-Punkt über so viele Sekunden aus. 0 spielt mit vollem Pegel bis zum Ende.",
+    "crossFadeHelp": "In so vielen Sekunden vor dem Out-Punkt blendet dieser Cue aus, während der nächste darüber einblendet. 0 übergibt ohne Überlappung.",
+    "startNextHelp": "Erreicht die Wiedergabe den Marker, startet der nächste Cue, während dieser weiterläuft – ein Übergang wie im Radio.",
+    "duckModeHelp": "Was der Start dieses Cues mit anderen laufenden Cues macht: sie stoppen, sie lassen oder sie bis zu seinem Ende auf den Ducking-Pegel absenken.",
+    "apiTriggerUrlHelp": "Senden Sie eine GET- oder POST-Anfrage an diese Adresse, um den Cue von einem anderen System, einem Skript oder einem Browser aus zu starten.",
+    "groupTrim": "Zuschnitt",
+    "groupFades": "Blenden",
+    "groupStopLoop": "Stopp und Schleife",
+    "groupTransition": "Übergang"
   },
   "playback": {
     "panic": "Alle Cues stoppen",
@@ -527,7 +551,8 @@
     "noDevices": "Keine Ausgabegeräte gefunden",
     "silentServer": "Server unauffällig im Infobereich ausführen",
     "silentServerHelp": "Startet den Server ohne Konsolenfenster. Ein Symbol im Infobereich (in der Menüleiste unter macOS) zeigt, dass er läuft, auch nachdem LivePlay geschlossen wurde. Über sein Menü lassen sich die Konsole anzeigen, die Protokolle öffnen oder der Server beenden. Wirkt beim nächsten Serverstart.",
-    "silentServerForced": "Für diese Sitzung aktiv, weil LivePlay mit --silent gestartet wurde."
+    "silentServerForced": "Für diese Sitzung aktiv, weil LivePlay mit --silent gestartet wurde.",
+    "localPortHelp": "Der Port, auf dem die Audio-Engine dieses Computers lauscht. Nur ändern, wenn ein anderes Programm ihn bereits belegt."
   },
   "serverConfig": {
     "title": "Serverkonfiguration",
@@ -805,7 +830,8 @@
     "volumeMultiplierHint": "dB pro MIDI-Schritt. Für Encoder oder Räder, die in kleinen Schritten arbeiten, erhöhen.",
     "nextIn": "Nächster in {seconds}s",
     "stopCurrentCue": "Aktuellen Cue stoppen",
-    "conflictPinned": "Bereits fest {cart} zugewiesen"
+    "conflictPinned": "Bereits fest {cart} zugewiesen",
+    "midiDeviceHelp": "Auf welchen Controller LivePlay hört. „Alle Geräte“ hört auf jeden angeschlossenen Controller."
   },
   "selectProject": {
     "title": "Projekt auswählen",
@@ -1307,7 +1333,9 @@
       "signInMissing": "Für „{name}“ müssen die Zugangsdaten auf diesem Rechner eingegeben werden.",
       "signInWaiting": "Für „{name}“ ist eine Anmeldung nötig. Sie öffnet sich hier, sobald Sie Ihre Änderungen an dieser Verbindung speichern oder abbrechen.",
       "signInLater": "Nicht jetzt",
-      "signInDiscard": "Änderungen verwerfen und anmelden"
+      "signInDiscard": "Änderungen verwerfen und anmelden",
+      "nameHelp": "Unter diesem Namen erscheint die Verbindung, wenn Sie eine für ein Ereignis auswählen.",
+      "enabledHelp": "Ist sie aus, wird nichts an diese Verbindung gesendet und ihre Ereignisse werden nicht ausgelöst."
     },
     "zoom": "Zoom",
     "zoomIn": "Hineinzoomen",
@@ -1327,7 +1355,10 @@
       "remove": "Header entfernen",
       "add": "Header hinzufügen",
       "rawLine": "Header-Zeile"
-    }
+    },
+    "groupWhen": "Wann",
+    "groupCommand": "Befehl",
+    "triggerHelp": "Wann das Ereignis auslöst: zu einer Zeit in der Datei oder wenn der Cue startet, pausiert, fortgesetzt wird oder endet."
   },
   "eventPlugins": {
     "osc": {

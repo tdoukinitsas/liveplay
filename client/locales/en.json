@@ -68,26 +68,26 @@
   },
   "settings": {
     "title": "Settings",
-    "ltcOutput": "LTC Output",
+    "ltcOutput": "LTC output",
     "ltcOutputHelp": "The output that carries LTC timecode for this show. Map outputs to hardware under Hardware Outputs.",
     "ltcOutputGroupOutputs": "Outputs",
     "ltcOutputGroupDevices": "Devices",
     "ltcOutputGroupUnavailable": "Not on this server",
     "ltcOutputUnavailableHelp": "“{name}” is not available on this server, so no timecode is sent. Map it under Hardware Outputs, or choose another output.",
-    "outputTarget": "Output Target",
+    "outputTarget": "Output target",
     "outputTargetHelp": "The loudness standard for this show. It sets the limiter ceiling, meter and waveform colours, and the Auto-adjust volume target.",
     "outputTargetEbuR128": "EBU R128 (Broadcast / Post)",
     "outputTargetStreaming": "Streaming (Spotify / Apple / YouTube)",
     "outputTargetRadio": "Radio Broadcast",
     "outputTargetNetflix": "Netflix / OTT",
     "outputTargetLive": "Live (Digital Console)",
-    "meterMode": "Meter Display",
+    "meterMode": "Meter display",
     "meterModeHelp": "The scale used on all meters.",
     "meterModeLufs": "LUFS (Integrated Loudness)",
     "meterModeDbfs": "dBFS (Digital Full Scale)",
     "meterModeDbtp": "dBTP (True Peak)",
     "meterModeRms": "RMS",
-    "meterBallistics": "Meter Ballistics",
+    "meterBallistics": "Meter ballistics",
     "meterBallisticsHelp": "How fast the meters rise and fall.",
     "meterBallisticsDigitalPpm": "Digital PPM (default)",
     "meterBallisticsPpmI": "PPM Type I (DIN)",
@@ -106,7 +106,7 @@
     "youtubeBitrate": "MP3 bitrate",
     "disableSilenceWarning": "Disable silence warning",
     "disableSilenceWarningHelp": "Hides the \"Silence in\" countdown in the header.",
-    "transitionMode": "Default Transition Mode",
+    "transitionMode": "Default transition mode",
     "transitionModeHelp": "How newly imported tracks hand over to the next one. You can change it per track in Properties.",
     "goContinuesFrom": "GO with several cues playing",
     "goContinuesFromEarliest": "Continue from the cue started first",
@@ -179,13 +179,26 @@
     "sectionAboutHelp": "Version, credits and licence.",
     "sectionConnections": "Connections",
     "stopAllUsesItemFade": "Stopped cues use their own Stop Button Fade",
-    "stopAllUsesItemFadeHelp": "When on, Stop All and the “Stop all others” ducking mode fade each cue out over its own Stop Button Fade. Cues without one use the Stop All fade. Pressing Stop All twice still stops everything at once."
+    "stopAllUsesItemFadeHelp": "When on, Stop All and the “Stop all others” ducking mode fade each cue out over its own Stop Button Fade. Cues without one use the Stop All fade. Pressing Stop All twice still stops everything at once.",
+    "scopeYou": "You",
+    "scopeShow": "This show",
+    "scopeServer": "Server",
+    "groupLanguageLayout": "Language and layout",
+    "groupDisplay": "Display",
+    "groupGoUpNext": "GO and Up Next",
+    "groupNewCues": "New cues",
+    "groupLoudness": "Loudness and metering",
+    "groupRouting": "Routing and timecode",
+    "groupConnection": "Connection",
+    "sectionPlaybackIntro": "How cues start, stop and hand over to each other, and what new cues start out as.",
+    "disableAutoVolumeAndTrimHelp": "New cues keep the file's own level and length. You can still level or trim any cue on its Playback tab."
   },
   "common": {
     "default": "default",
     "loading": "Loading…",
     "error": "Error",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "moreInfo": "More information"
   },
   "project": {
     "enterName": "Enter Project Name",
@@ -325,8 +338,8 @@
     "noSelection": "Select an item to view properties",
     "displayName": "Display Name",
     "color": "Colour",
-    "inPoint": "In Point",
-    "outPoint": "Out Point",
+    "inPoint": "In point",
+    "outPoint": "Out point",
     "volume": "Volume",
     "endBehavior": "End Behaviour",
     "startBehavior": "Start Behaviour",
@@ -358,18 +371,18 @@
     "busEffective": "Inheriting: {name}",
     "ducking": "Ducking",
     "duckLevel": "Duck Level",
-    "trimSilence": "Trim Silence",
+    "trimSilence": "Trim silence",
     "normalize": "Auto-adjust volume",
     "targetUuid": "Target UUID",
     "targetIndex": "Target Index",
-    "playFade": "Play Fade In",
-    "stopFade": "Stop Fade Out",
+    "playFade": "Play fade in",
+    "stopFade": "Stop fade out",
     "pauseFade": "Pause/Resume Fade",
     "crossFade": "Crossfade",
     "fadeSettings": "Fade Settings",
-    "startNextEnable": "Start Next at Marker",
-    "startNextTime": "Start Next At",
-    "startNextFadeOut": "Fade Out at Marker",
+    "startNextEnable": "Start next at marker",
+    "startNextTime": "Start next at",
+    "startNextFadeOut": "Fade out at marker",
     "ltcOutputTimecode": "Send LTC Timecode",
     "ltcOutputTimecodeHelp": "Sends timecode to the LTC output while this cue plays.",
     "ltcRequiresOutput": "Choose an LTC output in Settings › Audio & Metering to enable timecode.",
@@ -382,14 +395,25 @@
     "noWaveformData": "No waveform data available",
     "multiSelectWaveform": "Multiple items selected. Select a single item to show its waveform.",
     "volumeDbInput": "Type a level in dB, e.g. -6.5 (or -inf for silence)",
-    "manualStopFade": "Stop Button Fade",
+    "manualStopFade": "Stop button fade",
     "manualStopFadeHint": "How long this cue fades out when you press Stop. 0 stops it instantly.",
-    "loopCrossfade": "Loop Crossfade",
+    "loopCrossfade": "Loop crossfade",
     "loopCrossfadeHint": "Crossfades the end of the loop into its start over this many seconds. 0 loops without a crossfade.",
     "loopCrossfadeNeedsLoop": "Set this cue's end behaviour to Loop to use a loop crossfade.",
     "advanceDelay": "Wait Before Next (seconds)",
     "advanceDelayHint": "After this cue ends, wait this long before its end behaviour starts the next cue. Ignored when a crossfade or Start Next is set.",
-    "duckTimesHint": "How long the other cues take to dip when this cue starts, and to come back up when it ends."
+    "duckTimesHint": "How long the other cues take to dip when this cue starts, and to come back up when it ends.",
+    "volumeHelp": "This cue's level. Drag the fader, or type a level in dB such as -6.5 (-inf for silence).",
+    "playFadeHelp": "Fades the cue in over this many seconds each time it starts. 0 starts at full level.",
+    "stopFadeHelp": "Fades the cue out over this many seconds before its out point. 0 plays to the end at full level.",
+    "crossFadeHelp": "Over this many seconds before the out point, this cue fades out while the next cue fades in over it. 0 hands over with no overlap.",
+    "startNextHelp": "When playback reaches the marker, the next cue starts while this one keeps playing: a radio-style segue.",
+    "duckModeHelp": "What starting this cue does to the other cues playing: stop them, leave them alone, or lower them to the duck level until it ends.",
+    "apiTriggerUrlHelp": "Send a GET or POST request to this address to play the cue from another system, a script or a browser.",
+    "groupTrim": "Trim",
+    "groupFades": "Fades",
+    "groupStopLoop": "Stop and loop",
+    "groupTransition": "Transition"
   },
   "playback": {
     "panic": "Stop All Cues",
@@ -527,7 +551,8 @@
     "noDevices": "No output devices found",
     "silentServer": "Run the server silently in the system tray",
     "silentServerHelp": "Starts the server without a console window. An icon in the system tray (the menu bar on macOS) shows it is running, even after LivePlay is closed, and its menu can show the console, open the logs or stop the server. Takes effect the next time the server starts.",
-    "silentServerForced": "On for this session because LivePlay was started with --silent."
+    "silentServerForced": "On for this session because LivePlay was started with --silent.",
+    "localPortHelp": "The port this computer's audio engine listens on. Change it only if another program already uses it."
   },
   "serverConfig": {
     "title": "Server configuration",
@@ -785,7 +810,7 @@
     "selectDown": "Select Down",
     "playSelected": "Play Selected",
     "masterVolume": "Master Volume",
-    "midiDevice": "MIDI Device",
+    "midiDevice": "MIDI device",
     "allDevices": "All Devices",
     "conflictSlot": "Already assigned to Cart Slot {n}",
     "conflictAction": "Already assigned to {action}",
@@ -805,7 +830,8 @@
     "volumeMultiplier": "Volume Multiplier",
     "volumeMultiplierHint": "dB per MIDI step. Raise it for encoders or wheels that move in small steps.",
     "nextIn": "Next in {seconds}s",
-    "conflictPinned": "Already pinned to {cart}"
+    "conflictPinned": "Already pinned to {cart}",
+    "midiDeviceHelp": "Which controller LivePlay listens to. All Devices listens to every connected controller."
   },
   "selectProject": {
     "title": "Select Project",
@@ -1147,7 +1173,7 @@
       "gr": "Reduction",
       "grHint": "How much the limiter is reducing the output right now",
       "ceiling": "Ceiling",
-      "settingsHint": "Turn the limiter on or off in Settings › Audio & Metering. The ceiling comes from the Output Target."
+      "settingsHint": "Turn the limiter on or off in Settings › Audio & Metering. The ceiling comes from the output target."
     }
   },
   "migration": {
@@ -1309,7 +1335,9 @@
       "signInMissing": "\"{name}\" needs its credentials entered on this machine.",
       "signInWaiting": "\"{name}\" needs signing in. It opens here once you save or cancel your changes to this connection.",
       "signInLater": "Not now",
-      "signInDiscard": "Discard changes and sign in"
+      "signInDiscard": "Discard changes and sign in",
+      "nameHelp": "How this connection is named when you choose one for an event.",
+      "enabledHelp": "When off, nothing is sent to this connection and its events don't fire."
     },
     "zoom": "Zoom",
     "zoomIn": "Zoom in",
@@ -1327,7 +1355,10 @@
       "remove": "Remove header",
       "add": "Add header",
       "rawLine": "Header line"
-    }
+    },
+    "groupWhen": "When",
+    "groupCommand": "Command",
+    "triggerHelp": "When the event fires: at a time in the file, or when the cue starts, pauses, resumes or ends."
   },
   "eventPlugins": {
     "osc": {

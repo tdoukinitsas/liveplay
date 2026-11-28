@@ -1,6 +1,9 @@
 <template>
   <div class="settings-pane">
-    <h3 class="settings-pane-title">{{ t('settings.sectionProject') }}</h3>
+    <h3 class="settings-pane-title">
+      {{ t('settings.sectionProject') }}
+      <SettingsScope scope="show" />
+    </h3>
     <p class="settings-pane-intro">{{ t('settings.sectionProjectHelp') }}</p>
 
     <!-- Autosave also has a header toggle, deliberately: it is flipped often
@@ -48,6 +51,7 @@
 <script setup lang="ts">
 import { normalizeIndexDisplayStart } from '~/utils/indexDisplay';
 import { useProjectSettings } from '~/composables/useProjectSettings';
+import SettingsScope from './SettingsScope.vue';
 
 const { t } = useLocalization();
 const { settings, applyPatch } = useProjectSettings();

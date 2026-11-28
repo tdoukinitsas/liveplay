@@ -42,7 +42,6 @@
         <SettingsPaneAppearance v-if="section === 'appearance'" />
         <SettingsPanePlayback v-else-if="section === 'playback'" />
         <SettingsPaneAudio v-else-if="section === 'audio'" />
-    <SettingsPaneMixer v-else-if="section === 'mixer'" />
         <SettingsPaneOutputs v-else-if="section === 'outputs'" />
         <SettingsPaneKeyboard v-else-if="section === 'keyboard'" />
         <SettingsPaneSurfaces v-else-if="section === 'surfaces'" />
@@ -60,7 +59,6 @@
 import SettingsPaneAppearance from './SettingsPaneAppearance.vue';
 import SettingsPanePlayback from './SettingsPanePlayback.vue';
 import SettingsPaneAudio from './SettingsPaneAudio.vue';
-import SettingsPaneMixer from './SettingsPaneMixer.vue';
 import SettingsPaneOutputs from './SettingsPaneOutputs.vue';
 import SettingsPaneKeyboard from './SettingsPaneKeyboard.vue';
 import SettingsPaneSurfaces from './SettingsPaneSurfaces.vue';
@@ -226,6 +224,52 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown, true));
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+  /* Room for the owner badge (.settings-scope) beside the title. */
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* A group of settings inside a pane: one look on every pane, so "Stop All" on
+   Playback and "Accounts" on Accounts read as the same kind of thing. The rule
+   above it is what separates groups; the negative bottom margin pulls the
+   group's first field up under it against the pane's 18px gap. */
+.settings-panes :deep(.settings-group-title) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 -6px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+
+/* Who a setting belongs to: You, This show, This computer or Server. On the
+   pane title when the whole pane has one owner, otherwise on each group's
+   heading — never on a single field. SettingsScope.vue renders it. */
+.settings-panes :deep(.settings-scope) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px 1px 5px;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.settings-panes :deep(.settings-scope .material-symbols-rounded) {
+  font-size: 13px;
+  color: inherit;
 }
 .settings-panes :deep(.settings-pane-intro) {
   margin: -10px 0 0;

@@ -2,7 +2,7 @@
   <!-- tabindex -1 so a click anywhere on the tab (the waveform, a marker, the
        space between) keeps focus here, where onEditorKeydown can see Delete:
        on the page it would reach the workspace and delete the whole cue. -->
-  <div ref="rootEl" class="item-events" tabindex="-1" @keydown="onEditorKeydown">
+  <div ref="rootEl" class="item-events" :class="{ 'tl-frame': ready }" tabindex="-1" @keydown="onEditorKeydown">
     <!-- The server owns events end to end; with no events route there is
          nothing here to edit, and empty forms would only suggest otherwise. -->
     <div v-if="pluginsStatus === 'unsupported'" class="ev-message">
@@ -15,170 +15,133 @@
       <p>{{ t('properties.loadingAudioData') }}</p>
     </div>
 
+    <!-- The frame every timeline tab shares (assets/styles/timeline.scss):
+         toolbar, timeline and zoom row, with this tab's list under them, and
+         the selected event in the inspector on the right. -->
     <template v-else>
-      <div class="ev-toolbar">
-        <Btn
-          icon="add_location_alt"
-          :text="t('events.addEvent')"
-          :title="t('events.addEventHint')"
-          :disabled="plugins.length === 0"
-          @click="addEvent('time')"
-        />
-        <select
-          class="ev-select ev-add-trigger"
-          value=""
-          :disabled="plugins.length === 0"
-          :aria-label="t('events.addTriggerEvent')"
-          @change="onAddTrigger"
-        >
-          <option value="" disabled>{{ t('events.addTriggerEvent') }}</option>
-          <option v-for="trig in NON_TIME_TRIGGERS" :key="trig" :value="trig">{{ triggerLabel(trig) }}</option>
-        </select>
-
-        <label class="ev-cursor" :title="t('events.cursorHint')">
-          <span class="material-symbols-rounded" aria-hidden="true">vertical_align_center</span>
-          <span>{{ t('events.cursor') }}</span>
-          <input
-            class="ev-time-input"
-            type="text"
-            :value="cursor === null ? '' : formatEventTime(cursor)"
-            :placeholder="formatEventTime(inPoint)"
-            @change="onCursorInput"
+      <div class="tl-main">
+        <div class="tl-toolbar">
+          <Btn
+            icon="add_location_alt"
+            :text="t('events.addEvent')"
+            :title="t('events.addEventHint')"
+            :disabled="plugins.length === 0"
+            @click="addEvent('time')"
           />
-        </label>
+          <select
+            class="ev-select ev-add-trigger"
+            value=""
+            :disabled="plugins.length === 0"
+            :aria-label="t('events.addTriggerEvent')"
+            @change="onAddTrigger"
+          >
+            <option value="" disabled>{{ t('events.addTriggerEvent') }}</option>
+            <option v-for="trig in NON_TIME_TRIGGERS" :key="trig" :value="trig">{{ triggerLabel(trig) }}</option>
+          </select>
+          <Btn icon="cable" :text="t('events.manageConnections')" @click="openConnections" />
 
-        <span class="ev-toolbar-spacer" />
-
-        <span v-if="pluginsStatus === 'error' && plugins.length === 0" class="ev-toolbar-note">
-          {{ t('events.loadFailed') }}
-          <button type="button" class="ev-link-btn" @click="refreshPlugins()">{{ t('events.retry') }}</button>
-        </span>
-        <span v-else-if="pluginsStatus === 'unknown'" class="ev-toolbar-note">{{ t('events.loading') }}</span>
-        <span v-else-if="plugins.length === 0" class="ev-toolbar-note">{{ t('events.noPlugins') }}</span>
-
-        <Btn icon="cable" :text="t('events.manageConnections')" @click="openConnections" />
-      </div>
-
-      <!-- Timeline. The canvas paints the Playback tab's waveform, the trim
-           shading and the Playback tab's markers (ghosted: they are set there);
-           event markers, cursor and playhead are elements on top, so dragging
-           one never repaints thousands of peaks. -->
-      <div
-        ref="timelineEl"
-        class="ev-timeline"
-        :class="{ panning: panning }"
-        :style="markerPalette"
-        @pointerdown="onTimelineDown"
-        @pointermove="onTimelineMove"
-        @pointerup="onTimelineUp"
-        @pointercancel="onTimelineUp"
-        @wheel.prevent="onWheel"
-        @auxclick.prevent
-      >
-        <canvas ref="canvasEl" class="ev-canvas" />
-
-        <!-- Where the cue starts and stops playing: the trim points, in the
-             Playback tab's colours, ghosted like its other markers. -->
-        <div v-if="inView(inPoint) && inPoint > 0" class="ev-trim-line ev-trim-line--in" :style="{ left: pct(inPoint) }" />
-        <div v-if="inView(outPoint) && outPoint < duration" class="ev-trim-line ev-trim-line--out" :style="{ left: pct(outPoint) }" />
-
-        <div v-if="cursor !== null && inView(cursor)" class="ev-cursor-line" :style="{ left: pct(cursor) }" />
-
-        <div v-if="playhead !== null && inView(playhead)" class="ev-playhead" :style="{ left: pct(playhead) }" />
-
-        <!-- On start / On end events sit on the trim points they fire at.
-             Not draggable: their time is the cue's, not theirs. -->
-        <div
-          v-for="m in edgeMarkers"
-          v-show="inView(m.time)"
-          :key="m.ev.id"
-          class="ev-marker ev-marker--edge"
-          :class="{
-            selected: m.ev.id === selectedId,
-            disabled: m.ev.enabled === false,
-            flashing: isFlashing(m.ev.id),
-            'ev-marker--end': m.end,
-          }"
-          :style="{ left: pct(m.time), '--stack': m.stack }"
-          :title="markerTitle(m.ev)"
-          @pointerdown.stop="onEdgeMarkerDown($event, m.ev)"
-        >
-          <span v-if="m.span > 0" class="ev-marker-span" :style="{ width: spanPx(m.span) }" />
-          <span class="ev-marker-line" />
-          <span class="ev-marker-flag">
-            <span class="material-symbols-rounded ev-marker-icon" aria-hidden="true">{{ m.end ? 'stop' : 'play_arrow' }}</span>
-            {{ m.label }}
-            <span v-if="lastResult[m.ev.id]?.ok === false" class="ev-error-dot" />
+          <span v-if="pluginsStatus === 'error' && plugins.length === 0" class="tl-toolbar-note">
+            {{ t('events.loadFailed') }}
+            <button type="button" class="ev-link-btn" @click="refreshPlugins()">{{ t('events.retry') }}</button>
           </span>
+          <span v-else-if="pluginsStatus === 'unknown'" class="tl-toolbar-note">{{ t('events.loading') }}</span>
+          <span v-else-if="plugins.length === 0" class="tl-toolbar-note">{{ t('events.noPlugins') }}</span>
+
+          <span class="tl-toolbar-spacer" />
+
+          <TimelineCursorTools
+            :item-uuid="item.uuid"
+            :cursor="cursor"
+            :fallback="inPoint"
+            :duration="duration"
+            @update:cursor="cursor = $event"
+          />
         </div>
 
+        <!-- Timeline. The canvas paints the ruler, the Playback tab's
+             waveform, the trim shading and the Playback tab's markers
+             (ghosted: they are set there); event markers, cursor and playhead
+             are elements on top, so dragging one never repaints thousands of
+             peaks. -->
         <div
-          v-for="m in markers"
-          v-show="inView(m.time)"
-          :key="m.ev.id"
-          class="ev-marker"
-          :class="{
-            selected: m.ev.id === selectedId,
-            disabled: m.ev.enabled === false,
-            outside: m.outside,
-            flashing: isFlashing(m.ev.id),
-            dragging: drag?.id === m.ev.id,
-          }"
-          :style="{ left: pct(m.time), '--lane': m.lane }"
-          :title="markerTitle(m.ev)"
-          @pointerdown.stop="onMarkerDown($event, m.ev)"
-          @pointermove="onMarkerMove"
-          @pointerup="onMarkerUp"
-          @pointercancel="onMarkerCancel"
+          ref="timelineEl"
+          class="ev-timeline tl-timeline"
+          :class="{ panning: panning }"
+          :style="markerPalette"
+          @pointerdown="onTimelineDown"
+          @pointermove="onTimelineMove"
+          @pointerup="onTimelineUp"
+          @pointercancel="onTimelineUp"
+          @wheel.prevent="onWheel"
+          @auxclick.prevent
         >
-          <span v-if="m.span > 0" class="ev-marker-span" :style="{ width: spanPx(m.span) }" />
-          <span class="ev-marker-line" />
-          <span class="ev-marker-flag">
-            {{ m.label }}
-            <span v-if="lastResult[m.ev.id]?.ok === false" class="ev-error-dot" />
-          </span>
+          <canvas ref="canvasEl" class="ev-canvas" />
+
+          <!-- Where the cue starts and stops playing: the trim points, in the
+               Playback tab's colours, ghosted like its other markers. -->
+          <div v-if="view.inView(inPoint) && inPoint > 0" class="ev-trim-line ev-trim-line--in" :style="{ left: pct(inPoint) }" />
+          <div v-if="view.inView(outPoint) && outPoint < duration" class="ev-trim-line ev-trim-line--out" :style="{ left: pct(outPoint) }" />
+
+          <div v-if="cursor !== null && view.inView(cursor)" class="ev-cursor-line" :style="{ left: pct(cursor) }" />
+
+          <div v-if="playhead !== null && view.inView(playhead)" class="ev-playhead" :style="{ left: pct(playhead) }" />
+
+          <!-- On start / On end events sit on the trim points they fire at.
+               Not draggable: their time is the cue's, not theirs. -->
+          <div
+            v-for="m in edgeMarkers"
+            v-show="view.inView(m.time)"
+            :key="m.ev.id"
+            class="ev-marker ev-marker--edge"
+            :class="{
+              selected: m.ev.id === selectedId,
+              disabled: m.ev.enabled === false,
+              flashing: isFlashing(m.ev.id),
+              'ev-marker--end': m.end,
+            }"
+            :style="{ left: pct(m.time), '--stack': m.stack }"
+            :title="markerTitle(m.ev)"
+            @pointerdown.stop="onEdgeMarkerDown($event, m.ev)"
+          >
+            <span v-if="m.span > 0" class="ev-marker-span" :style="{ width: spanPx(m.span) }" />
+            <span class="ev-marker-line" />
+            <span class="ev-marker-flag">
+              <span class="material-symbols-rounded ev-marker-icon" aria-hidden="true">{{ m.end ? 'stop' : 'play_arrow' }}</span>
+              {{ m.label }}
+              <span v-if="lastResult[m.ev.id]?.ok === false" class="ev-error-dot" />
+            </span>
+          </div>
+
+          <div
+            v-for="m in markers"
+            v-show="view.inView(m.time)"
+            :key="m.ev.id"
+            class="ev-marker"
+            :class="{
+              selected: m.ev.id === selectedId,
+              disabled: m.ev.enabled === false,
+              outside: m.outside,
+              flashing: isFlashing(m.ev.id),
+              dragging: drag?.id === m.ev.id,
+            }"
+            :style="{ left: pct(m.time), '--lane': m.lane }"
+            :title="markerTitle(m.ev)"
+            @pointerdown.stop="onMarkerDown($event, m.ev)"
+            @pointermove="onMarkerMove"
+            @pointerup="onMarkerUp"
+            @pointercancel="onMarkerCancel"
+          >
+            <span v-if="m.span > 0" class="ev-marker-span" :style="{ width: spanPx(m.span) }" />
+            <span class="ev-marker-line" />
+            <span class="ev-marker-flag">
+              {{ m.label }}
+              <span v-if="lastResult[m.ev.id]?.ok === false" class="ev-error-dot" />
+            </span>
+          </div>
         </div>
-      </div>
 
-      <!-- Navigation, as on the Playback tab: zoom, a scrollbar while zoomed,
-           and Fit to see the whole file again. Wheel zooms at the pointer;
-           Shift+wheel or a middle-button drag pans. -->
-      <div class="ev-nav">
-        <button type="button" class="ev-icon-btn" :title="t('events.zoomOut')" :aria-label="t('events.zoomOut')" :disabled="zoom <= 1" @click="zoomBy(1 / 1.5)">
-          <span class="material-symbols-rounded" aria-hidden="true">zoom_out</span>
-        </button>
-        <input
-          class="ev-zoom-slider"
-          type="range"
-          min="0"
-          :max="ZOOM_STEPS"
-          step="1"
-          :value="zoomSlider"
-          :aria-label="t('events.zoom')"
-          @input="onZoomSlider"
-        />
-        <button type="button" class="ev-icon-btn" :title="t('events.zoomIn')" :aria-label="t('events.zoomIn')" :disabled="zoom >= MAX_ZOOM" @click="zoomBy(1.5)">
-          <span class="material-symbols-rounded" aria-hidden="true">zoom_in</span>
-        </button>
-        <span class="ev-zoom-text">{{ Math.round(zoom * 100) }}%</span>
-        <button type="button" class="ev-icon-btn" :title="t('events.zoomFit')" :aria-label="t('events.zoomFit')" :disabled="zoom <= 1" @click="fitView">
-          <span class="material-symbols-rounded" aria-hidden="true">fit_screen</span>
-        </button>
-        <input
-          v-if="zoom > 1"
-          class="ev-scroll-slider"
-          type="range"
-          min="0"
-          :max="maxViewStart"
-          step="0.01"
-          :value="viewStart"
-          :aria-label="t('events.scroll')"
-          @input="viewStart = Number(($event.target as HTMLInputElement).value)"
-        />
-        <span v-else class="ev-nav-hint">{{ t('events.navHint') }}</span>
-      </div>
+        <TimelineNav :view="view" />
 
-      <div class="ev-body">
         <!-- The list. One row is in the tab order at a time (the selected
              one, else the first); the arrows move between them, Delete
              removes the focused one (with Undo below). -->
@@ -255,35 +218,64 @@
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- The editor for the selected event -->
-        <div class="ev-editor">
-          <p v-if="!selected" class="ev-empty">{{ t('events.selectEvent') }}</p>
-          <template v-else>
-            <div class="ev-editor-row">
-              <div class="ev-field ev-field--grow">
-                <label>{{ t('events.name') }}</label>
-                <input
-                  type="text"
-                  :value="selected.name ?? ''"
-                  :placeholder="rowTitle({ ...selected, name: '' })"
-                  @change="setName(selected, ($event.target as HTMLInputElement).value)"
-                />
-              </div>
-              <div class="ev-field">
-                <label>{{ t('events.trigger.label') }}</label>
-                <select :value="selected.trigger" @change="setTrigger(selected, ($event.target as HTMLSelectElement).value as EventTrigger)">
+      <!-- The inspector: the selected event. -->
+      <aside class="tl-inspector ev-editor">
+        <p v-if="!selected" class="ev-empty">{{ t('events.selectEvent') }}</p>
+        <template v-else>
+          <div class="insp-row">
+            <div class="insp-field insp-field--grow">
+              <label class="insp-label" for="ev-name">{{ t('events.name') }}</label>
+              <input
+                id="ev-name"
+                class="insp-input"
+                type="text"
+                :value="selected.name ?? ''"
+                :placeholder="rowTitle({ ...selected, name: '' })"
+                @change="setName(selected, ($event.target as HTMLInputElement).value)"
+              />
+            </div>
+            <label class="insp-check">
+              <input
+                type="checkbox"
+                :checked="selected.enabled !== false"
+                @change="setEnabled(selected, ($event.target as HTMLInputElement).checked)"
+              />
+              {{ t('events.enabled') }}
+            </label>
+          </div>
+
+          <section class="insp-group">
+            <h4 class="insp-heading">{{ t('events.groupWhen') }}</h4>
+            <div class="insp-row">
+              <div class="insp-field">
+                <label class="insp-label" for="ev-trigger">
+                  {{ t('events.trigger.label') }}
+                  <FieldHelp :text="t('events.triggerHelp')" />
+                </label>
+                <select
+                  id="ev-trigger"
+                  class="insp-input"
+                  :value="selected.trigger"
+                  @change="setTrigger(selected, ($event.target as HTMLSelectElement).value as EventTrigger)"
+                >
                   <option v-for="trig in EVENT_TRIGGERS" :key="trig" :value="trig">{{ triggerLabel(trig) }}</option>
                 </select>
               </div>
-              <div v-if="selected.trigger === 'time'" class="ev-field">
-                <label>{{ t('events.time') }}</label>
+              <div v-if="selected.trigger === 'time'" class="insp-field">
+                <label class="insp-label" for="ev-time">
+                  {{ t('events.time') }}
+                  <FieldHelp :text="t('events.timeHint')" />
+                </label>
                 <div class="ev-input-with-btn">
                   <input
-                    class="ev-time-input"
+                    id="ev-time"
+                    class="insp-input insp-time ev-time-input"
                     type="text"
                     :value="formatEventTime(selected.time)"
-                    :title="t('events.timeHint')"
+                    @focus="($event.target as HTMLInputElement).select()"
+                    @keydown.enter="($event.target as HTMLInputElement).blur()"
                     @change="onTimeInput(selected, $event)"
                   />
                   <button
@@ -298,28 +290,34 @@
                   </button>
                 </div>
               </div>
-              <label class="ev-check">
-                <input
-                  type="checkbox"
-                  :checked="selected.enabled !== false"
-                  @change="setEnabled(selected, ($event.target as HTMLInputElement).checked)"
-                />
-                {{ t('events.enabled') }}
-              </label>
             </div>
+            <p v-if="selected.trigger === 'time' && isOutside(selected.time)" class="ev-help ev-help--warn">
+              {{ t('events.outsideTrim') }}
+            </p>
+          </section>
 
-            <div class="ev-editor-row">
-              <div class="ev-field">
-                <label>{{ t('events.plugin') }}</label>
-                <select :value="selected.plugin" @change="setPlugin(selected, ($event.target as HTMLSelectElement).value)">
+          <section class="insp-group">
+            <h4 class="insp-heading">
+              {{ t('events.groupCommand') }}
+              <FieldHelp
+                v-if="!selected.presetId && selectedAction && hasTextFields(selectedAction.fields)"
+                :text="t('events.placeholdersHelp')"
+              />
+            </h4>
+            <div class="insp-row">
+              <div class="insp-field">
+                <label class="insp-label" for="ev-plugin">{{ t('events.plugin') }}</label>
+                <select id="ev-plugin" class="insp-input" :value="selected.plugin" @change="setPlugin(selected, ($event.target as HTMLSelectElement).value)">
                   <option v-for="p in plugins" :key="p.id" :value="p.id">{{ p.label }}</option>
                   <option v-if="!selectedPlugin" :value="selected.plugin">{{ selected.plugin }}</option>
                 </select>
               </div>
-              <div v-if="selectedPlugin?.needsConnection" class="ev-field ev-field--grow">
-                <label>{{ t('events.connection') }}</label>
+              <div v-if="selectedPlugin?.needsConnection" class="insp-field insp-field--grow">
+                <label class="insp-label" for="ev-connection">{{ t('events.connection') }}</label>
                 <div class="ev-input-with-btn">
                   <select
+                    id="ev-connection"
+                    class="insp-input"
                     :value="selected.connectionId ?? ''"
                     :class="{ invalid: !selectedConnection }"
                     @change="setConnection(selected, ($event.target as HTMLSelectElement).value)"
@@ -337,10 +335,17 @@
                   </button>
                 </div>
               </div>
-              <div v-if="selectedPlugin?.needsConnection && selectedConnection" class="ev-field ev-field--grow">
-                <label>{{ t('events.preset') }}</label>
+            </div>
+            <div class="insp-row">
+              <div v-if="selectedPlugin?.needsConnection && selectedConnection" class="insp-field insp-field--grow">
+                <label class="insp-label" for="ev-preset">
+                  {{ t('events.preset') }}
+                  <FieldHelp :text="t('events.connections.presetsHelp')" />
+                </label>
                 <div class="ev-input-with-btn">
                   <select
+                    id="ev-preset"
+                    class="insp-input"
                     :value="selected.presetId ?? ''"
                     :class="{ invalid: !!selected.presetId && !selectedPreset }"
                     @change="setPreset(selected, ($event.target as HTMLSelectElement).value)"
@@ -363,9 +368,11 @@
                   </button>
                 </div>
               </div>
-              <div v-if="selectedPlugin" class="ev-field ev-field--grow">
-                <label>{{ t('events.action') }}</label>
+              <div v-if="selectedPlugin" class="insp-field insp-field--grow">
+                <label class="insp-label" for="ev-action">{{ t('events.action') }}</label>
                 <select
+                  id="ev-action"
+                  class="insp-input"
                   :value="selectedPreset?.action ?? selected.action"
                   :disabled="!!selectedPreset"
                   @change="setAction(selected, ($event.target as HTMLSelectElement).value)"
@@ -380,6 +387,7 @@
               <input
                 ref="presetNameInput"
                 v-model="presetName"
+                class="insp-input"
                 type="text"
                 :aria-label="t('events.connections.presetName')"
                 :placeholder="t('events.connections.presetName')"
@@ -401,9 +409,6 @@
             <p v-else-if="selectedConnection?.enabled === false" class="ev-help ev-help--warn">
               {{ t('events.connectionDisabled') }}
             </p>
-            <p v-if="selected.trigger === 'time' && isOutside(selected.time)" class="ev-help ev-help--warn">
-              {{ t('events.outsideTrim') }}
-            </p>
 
             <div v-if="selectedPreset" class="ev-preset-note">
               <span class="material-symbols-rounded" aria-hidden="true">bookmark</span>
@@ -417,18 +422,17 @@
             <p v-else-if="selected.presetId" class="ev-help ev-help--warn">{{ t('events.presetMissingHelp') }}</p>
 
             <!-- Keyed by event and action: a fresh form each, so one action's
-                 live list never shows under another action's field. -->
+                 live list never shows under another action's field. Field
+                 descriptions behind an ⓘ, as everywhere in this panel. -->
             <SchemaForm
               v-if="!selected.presetId && selectedAction && selectedAction.fields.length > 0"
               :key="`${selected.id}:${selected.action}`"
               :fields="selectedAction.fields"
               :model-value="selectedOptions"
               :options-context="{ plugin: selected!.plugin, connectionId: selected!.connectionId ?? null }"
+              help-as="icon"
               @update:model-value="(v: Record<string, unknown>) => setOptions(selected!, v)"
             />
-            <p v-if="!selected.presetId && selectedAction && hasTextFields(selectedAction.fields)" class="ev-help">
-              {{ t('events.placeholdersHelp') }}
-            </p>
 
             <div class="ev-editor-footer">
               <Btn
@@ -444,9 +448,9 @@
                 {{ statusTitle(selected) }}
               </span>
             </div>
-          </template>
-        </div>
-      </div>
+          </section>
+        </template>
+      </aside>
     </template>
   </div>
 </template>
@@ -475,11 +479,17 @@ import {
   sortEvents,
   fillDefaults,
 } from '~/utils/events';
-import { waveformLanes, drawWaveformLanes, drawPlaybackMarkers } from '~/utils/waveformRender';
+import {
+  waveformLanes, drawWaveformLanes, drawPlaybackMarkers, drawTimeRuler, RULER_HEIGHT,
+} from '~/utils/waveformRender';
+import { useTimelineView } from '~/composables/useTimelineView';
 import { makeCompositeGain } from '~/utils/volumeAutomation';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 import Btn from './Btn.vue';
+import FieldHelp from './FieldHelp.vue';
 import SchemaForm from './SchemaForm.vue';
+import TimelineCursorTools from './TimelineCursorTools.vue';
+import TimelineNav from './TimelineNav.vue';
 
 const props = defineProps<{ item: AudioItem }>();
 // The parent's save path (handleSave in PropertiesPanel).
@@ -507,49 +517,19 @@ const clampTime = (s: number) => Math.min(Math.max(0, s), duration.value);
 // the saved file and to every diff.
 const roundTime = (s: number) => Math.round(s * 1000) / 1000;
 // ---- the view window -----------------------------------------------------
-// The timeline shows [viewStart, viewStart + visibleDuration] of the file. At
-// zoom 1 that's all of it; zoomed in, the wheel, the scrollbar or a middle-
-// button drag moves the window. Every time<->pixel conversion goes through it.
-const ZOOM_STEPS = 100;
-const zoom = ref(1);
-const viewStart = ref(0);
-// Down to a quarter of a second across the timeline, and no further.
-const MAX_ZOOM = computed(() => Math.max(1, Math.min(500, duration.value / 0.25)));
-const visibleDuration = computed(() => (duration.value > 0 ? duration.value / zoom.value : 0));
-const maxViewStart = computed(() => Math.max(0, duration.value - visibleDuration.value));
-const viewEnd = computed(() => viewStart.value + visibleDuration.value);
-const inView = (s: number) => s >= viewStart.value - 1e-6 && s <= viewEnd.value + 1e-6;
+// The timeline shows [viewStart, viewStart + visibleDuration] of the file. The
+// model and its controls are the Playback tab's too (composables/
+// useTimelineView, TimelineNav): zoom to a quarter of a second, the wheel at
+// the pointer, Shift+wheel, the scrollbar or a middle-button drag to pan. The
+// buttons zoom around the cursor when it is on screen.
+const view = useTimelineView(duration, () => cursor.value);
 const pct = (s: number) =>
-  `${visibleDuration.value > 0 ? ((s - viewStart.value) / visibleDuration.value) * 100 : 0}%`;
-
-function setView(nextZoom: number, nextStart: number) {
-  zoom.value = Math.min(MAX_ZOOM.value, Math.max(1, nextZoom));
-  const vis = duration.value / zoom.value;
-  viewStart.value = Math.min(Math.max(0, nextStart), Math.max(0, duration.value - vis));
-}
-// Zoom keeping `anchor` (a file time) where it is on screen.
-function zoomAround(factor: number, anchor: number) {
-  if (!(duration.value > 0)) return;
-  const frac = visibleDuration.value > 0 ? (anchor - viewStart.value) / visibleDuration.value : 0.5;
-  const nextZoom = Math.min(MAX_ZOOM.value, Math.max(1, zoom.value * factor));
-  setView(nextZoom, anchor - frac * (duration.value / nextZoom));
-}
-// The buttons zoom around the cursor when it's on screen, else the middle.
-function zoomBy(factor: number) {
-  const anchor = cursor.value !== null && inView(cursor.value)
-    ? cursor.value : viewStart.value + visibleDuration.value / 2;
-  zoomAround(factor, anchor);
-}
-function fitView() { setView(1, 0); }
-const zoomSlider = computed(() =>
-  MAX_ZOOM.value > 1 ? Math.round((Math.log(zoom.value) / Math.log(MAX_ZOOM.value)) * ZOOM_STEPS) : 0);
-function onZoomSlider(e: Event) {
-  const v = Number((e.target as HTMLInputElement).value);
-  zoomBy(Math.pow(MAX_ZOOM.value, v / ZOOM_STEPS) / zoom.value);
-}
-watch([duration, MAX_ZOOM], () => setView(zoom.value, viewStart.value));
+  `${view.visibleDuration > 0 ? ((s - view.viewStart) / view.visibleDuration) * 100 : 0}%`;
 // Another item: start from the whole file.
-watch(() => props.item.uuid, fitView);
+watch(() => props.item.uuid, () => view.fit());
+// The frame only once there is a timeline to put in it; the messages before
+// that are centred on their own.
+const ready = computed(() => pluginsStatus.value !== 'unsupported' && duration.value > 0);
 const isOutside = (s: number | undefined) =>
   typeof s === 'number' && (s < inPoint.value - 0.0005 || s > outPoint.value + 0.0005);
 
@@ -626,7 +606,7 @@ function spanOf(ev: ItemEvent): number {
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
 const spanPx = (seconds: number) =>
-  `${visibleDuration.value > 0 ? (seconds / visibleDuration.value) * timelineWidth.value : 0}px`;
+  `${view.visibleDuration > 0 ? (seconds / view.visibleDuration) * timelineWidth.value : 0}px`;
 
 // On start / On end events, drawn where they fire; several on one edge
 // stack upwards.
@@ -700,10 +680,10 @@ const markers = computed(() => {
     return { ev, time, label, outside: isOutside(time), lane: 0, span: spanOf(ev) };
   });
   const w = timelineWidth.value;
-  if (w > 0 && visibleDuration.value > 0) {
+  if (w > 0 && view.visibleDuration > 0) {
     const laneEnds: number[] = [];
     for (const m of [...list].sort((a, b) => a.time - b.time)) {
-      const x = ((m.time - viewStart.value) / visibleDuration.value) * w + 5;   // flag's left edge
+      const x = ((m.time - view.viewStart) / view.visibleDuration) * w + 5;   // flag's left edge
       const right = x + flagWidth(m.label, lastResult.value[m.ev.id]?.ok === false);
       let lane = laneEnds.findIndex(end => end <= x - 2);
       if (lane < 0 && laneEnds.length < MAX_LANES) lane = laneEnds.length;
@@ -1160,20 +1140,12 @@ const timeAt = (clientX: number): number => {
   if (!el || !(duration.value > 0)) return 0;
   const r = el.getBoundingClientRect();
   const frac = r.width > 0 ? (clientX - r.left) / r.width : 0;
-  return clampTime(viewStart.value + frac * visibleDuration.value);
+  return clampTime(view.viewStart + frac * view.visibleDuration);
 };
 
 // Wheel: zoom at the pointer. Shift+wheel, or a sideways wheel/trackpad: pan.
 function onWheel(e: WheelEvent) {
-  if (!(duration.value > 0)) return;
-  const sideways = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
-  if (sideways) {
-    const w = timelineEl.value?.clientWidth || 1;
-    const px = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-    setView(zoom.value, viewStart.value + (px / w) * visibleDuration.value);
-    return;
-  }
-  zoomAround(e.deltaY < 0 ? 1.25 : 1 / 1.25, timeAt(e.clientX));
+  view.onWheel(e, timeAt(e.clientX), timelineEl.value?.clientWidth || 1);
 }
 
 // Middle-button drag pans, wherever it starts.
@@ -1188,7 +1160,7 @@ function onTimelineDown(e: PointerEvent) {
     e.preventDefault();   // no autoscroll cursor
     panning.value = true;
     panFromX = e.clientX;
-    panFromStart = viewStart.value;
+    panFromStart = view.viewStart;
     timelineEl.value?.setPointerCapture?.(e.pointerId);
     return;
   }
@@ -1200,7 +1172,7 @@ function onTimelineDown(e: PointerEvent) {
 function onTimelineMove(e: PointerEvent) {
   if (panning.value) {
     const w = timelineEl.value?.clientWidth || 1;
-    setView(zoom.value, panFromStart - ((e.clientX - panFromX) / w) * visibleDuration.value);
+    view.scrollTo(panFromStart - ((e.clientX - panFromX) / w) * view.visibleDuration);
     return;
   }
   if (!scrubbing) return;
@@ -1282,18 +1254,24 @@ function draw() {
   ctx.fillRect(0, 0, w, h);
 
   const dur = duration.value;
-  const mid = h / 2;
-  const v0 = viewStart.value;
-  const vis = visibleDuration.value;
+  const v0 = view.viewStart;
+  const vis = view.visibleDuration;
   const xOf = (t: number) => ((t - v0) / vis) * w;
-  const view = { duration: dur, start: v0, end: v0 + vis, width: w, height: h };
+  // The ruler along the top, as on every timeline tab; the rest is drawn in
+  // the box under it.
+  drawTimeRuler(ctx, { duration: dur, start: v0, end: v0 + vis, width: w, height: h });
+  const ch = Math.max(1, h - RULER_HEIGHT);
+  const mid = ch / 2;
+  const area = { duration: dur, start: v0, end: v0 + vis, width: w, height: ch };
+  ctx.save();
+  ctx.translate(0, RULER_HEIGHT);
   const lanes = waveformLanes(props.item.waveform);
   if (lanes.length > 0 && dur > 0 && vis > 0) {
     // The Playback tab's waveform (utils/waveformRender): a stereo file as two
     // lanes, the level after the cue's volume on the same loudness scale. Only
     // the colour is this tab's own: the cue's, desaturated, so the event flags
     // (the cue's colour at full strength) stand out against it.
-    drawWaveformLanes(ctx, lanes, view, {
+    drawWaveformLanes(ctx, lanes, area, {
       volume: props.item.volume ?? 1,
       targetDb: outputTargetLevels.value?.autoVolumeTargetDb ?? -23,
       rgbFor: () => waveformRgb.value,
@@ -1315,8 +1293,9 @@ function draw() {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     const xi = Math.min(w, Math.max(0, xOf(inPoint.value)));
     const xo = Math.min(w, Math.max(0, xOf(outPoint.value)));
-    if (xi > 0) ctx.fillRect(0, 0, xi, h);
-    if (xo < w) ctx.fillRect(xo, 0, w - xo, h);
+    // Over the ruler too, as the Playback tab's trim overlays are.
+    if (xi > 0) ctx.fillRect(0, -RULER_HEIGHT, xi, h);
+    if (xo < w) ctx.fillRect(xo, -RULER_HEIGHT, w - xo, h);
   }
 
   // The Playback tab's markers, ghosted: there to place events against, but
@@ -1334,31 +1313,10 @@ function draw() {
       startNextTime: props.item.startNextTime || 0,
       startNextFadeOut: props.item.startNextFadeOut,
       fadeOutDuration: props.item.fadeOutDuration,
-    }, view);
+    }, area);
     ctx.restore();
   }
-
-  // Time ticks along the bottom, at whichever round step lands ~80px apart.
-  if (dur > 0 && vis > 0) {
-    const steps = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
-    const want = (80 / w) * vis;
-    const step = steps.find(s => s >= want) ?? steps[steps.length - 1]!;
-    const decimals = step < 0.1 ? 2 : step < 1 ? 1 : 0;
-    ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
-    ctx.font = '10px sans-serif';
-    for (let k = Math.ceil(v0 / step); k * step < Math.min(dur, v0 + vis); k++) {
-      const s = k * step;
-      if (s <= 0) continue;
-      const x = xOf(s);
-      ctx.fillRect(x, h - 4, 1, 4);
-      const m = Math.floor(s / 60);
-      const sec = s % 60;
-      const label = decimals > 0
-        ? `${m}:${sec.toFixed(decimals).padStart(3 + decimals, '0')}`
-        : `${m}:${String(Math.floor(sec + 1e-6)).padStart(2, '0')}`;
-      ctx.fillText(label, x + 3, h - 3);
-    }
-  }
+  ctx.restore();
 }
 
 let rafId = 0;
@@ -1369,7 +1327,7 @@ const scheduleDraw = () => {
 
 watch(
   () => [props.item.waveform, props.item.color, props.item.volume, inPoint.value, outPoint.value,
-         duration.value, zoom.value, viewStart.value, props.item.playFade, props.item.stopFade,
+         duration.value, view.zoom, view.viewStart, props.item.playFade, props.item.stopFade,
          props.item.crossFade, props.item.startNextEnabled, props.item.startNextTime,
          props.item.startNextFadeOut, props.item.fadeOutDuration,
          props.item.volumeAutomation, props.item.volumeAutomation?.points,
@@ -1381,10 +1339,10 @@ watch(
 // Selecting an event in the list brings its marker into view.
 watch(selectedId, (id) => {
   const ev = events.value.find(e => e.id === id);
-  if (!ev || zoom.value <= 1) return;
+  if (!ev || view.zoom <= 1) return;
   const at = ev.trigger === 'time' ? ev.time
     : ev.trigger === 'start' ? inPoint.value : ev.trigger === 'end' ? endFireTime.value : undefined;
-  if (typeof at === 'number' && !inView(at)) setView(zoom.value, at - visibleDuration.value * 0.25);
+  if (typeof at === 'number' && !view.inView(at)) view.scrollTo(at - view.visibleDuration * 0.25);
 });
 
 // The timeline only exists once the duration is known; (re)attach the
@@ -1406,16 +1364,27 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* The tab sits in the frame every timeline editor shares
+   (assets/styles/timeline.scss: toolbar, timeline box, inspector, fields);
+   what is here is this tab's own. */
 .item-events {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
   flex: 1;
   min-height: 0;
-  min-width: 640px;
   color: var(--color-text-secondary);
   /* Focusable only to keep Delete in here (see the template); no ring. */
   outline: none;
+}
+
+/* The floor: toolbar, a usable timeline, the zoom row and two list rows.
+   Below it .properties-content scrolls rather than the list collapsing. */
+.item-events.tl-frame {
+  min-height: 250px;
+}
+
+.item-events:not(.tl-frame) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .ev-message {
@@ -1438,28 +1407,8 @@ onBeforeUnmount(() => {
 }
 
 /* ---- Toolbar ----------------------------------------------------------- */
-.ev-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-}
-
-.ev-toolbar-spacer {
-  flex: 1;
-}
-
-.ev-toolbar-note {
-  font-size: 12px;
-}
-
-.ev-select,
-.ev-field input,
-.ev-field select,
-.ev-time-input {
+.ev-select {
   padding: var(--spacing-xs) var(--spacing-sm);
-  min-height: 30px;
   background-color: var(--color-background);
   border: 1px solid var(--color-border);
   border-radius: 4px;
@@ -1470,32 +1419,15 @@ onBeforeUnmount(() => {
     outline: none;
     border-color: var(--color-accent);
   }
-
-  &.invalid {
-    border-color: #e53e3e;
-  }
 }
 
 .ev-add-trigger {
   min-height: 35px;
 }
 
-.ev-cursor {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  font-size: 12px;
-  margin-left: var(--spacing-sm);
-
-  .material-symbols-rounded {
-    font-size: 16px;
-  }
-}
-
 .ev-time-input {
-  width: 96px;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+  width: 100px;
+  flex: 0 0 auto;
 }
 
 .ev-link-btn {
@@ -1510,15 +1442,9 @@ onBeforeUnmount(() => {
 
 /* ---- Timeline ---------------------------------------------------------- */
 .ev-timeline {
-  position: relative;
-  flex: 0 0 auto;
-  height: 120px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  overflow: hidden;
-  cursor: crosshair;
-  touch-action: none;
-  user-select: none;
+  /* The ruler band (RULER_HEIGHT in utils/waveformRender) and a gap under it:
+     where the first lane of flags starts. */
+  --flags-top: 20px;
 }
 
 .ev-canvas {
@@ -1541,6 +1467,16 @@ onBeforeUnmount(() => {
 .ev-cursor-line {
   border-left: 1px dashed var(--color-text-primary);
   opacity: 0.8;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -5.5px;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid var(--color-text-primary);
+  }
 }
 
 .ev-playhead {
@@ -1632,7 +1568,7 @@ onBeforeUnmount(() => {
 .ev-marker-flag {
   position: absolute;
   z-index: 2;
-  top: calc(var(--lane, 0) * 17px);
+  top: calc(var(--flags-top, 0px) + var(--lane, 0) * 17px);
   left: 5px;
   display: flex;
   align-items: center;
@@ -1683,7 +1619,7 @@ onBeforeUnmount(() => {
   border-top: 2px solid var(--marker-color);
   border-top-right-radius: 2px;
   /* The edge runs level with the bottom of this marker's flag. */
-  top: calc(var(--lane, 0) * 17px + 15px);
+  top: calc(var(--flags-top, 0px) + var(--lane, 0) * 17px + 15px);
 }
 
 /* An edge flag sits at the bottom, so its band ends just above the flag. */
@@ -1701,38 +1637,6 @@ onBeforeUnmount(() => {
   line-height: 1;
 }
 
-/* ---- Navigation under the timeline ------------------------------------- */
-.ev-nav {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 26px;
-  margin-top: -2px;
-}
-
-.ev-zoom-slider {
-  width: 140px;
-}
-
-.ev-zoom-text {
-  min-width: 48px;
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.ev-scroll-slider {
-  flex: 1;
-  min-width: 80px;
-}
-
-.ev-nav-hint {
-  flex: 1;
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  text-align: right;
-}
-
 .ev-error-dot {
   flex: 0 0 auto;
   width: 6px;
@@ -1742,19 +1646,12 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 1px #fff;
 }
 
-/* ---- Body: list + editor ------------------------------------------------ */
-.ev-body {
-  display: flex;
-  gap: var(--spacing-md);
-  flex: 1;
-  min-height: 140px;
-}
-
-/* The list and, under it, the Undo bar for the last delete. */
+/* ---- The list, under the zoom row ------------------------------------- */
+/* Shares the column's spare height with the timeline; the Undo bar for the
+   last delete sits under it. */
 .ev-list-col {
-  flex: 0 0 42%;
-  min-width: 300px;
-  min-height: 0;
+  flex: 1 1 0;
+  min-height: 84px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1943,29 +1840,17 @@ onBeforeUnmount(() => {
 }
 
 .ev-icon-btn--boxed {
-  width: 30px;
-  height: 30px;
+  /* The height of the inspector's inputs (.insp-input). */
+  width: 28px;
+  height: 28px;
   flex: 0 0 auto;
   border-color: var(--color-border);
   background: var(--color-surface-hover);
 }
 
-/* ---- Editor ------------------------------------------------------------ */
-.ev-editor {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  padding-right: var(--spacing-xs);
-}
-
-.ev-editor-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-sm) var(--spacing-md);
-  align-items: flex-end;
+/* ---- Inspector --------------------------------------------------------- */
+.ev-editor > .ev-empty {
+  padding: var(--spacing-md) 0;
 }
 
 .ev-preset-save {
@@ -1977,12 +1862,8 @@ onBeforeUnmount(() => {
 
 .ev-preset-save input {
   flex: 1 1 200px;
+  width: auto;
   min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: var(--color-background);
-  color: var(--color-text-primary);
 }
 
 .ev-preset-note {
@@ -2008,23 +1889,6 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.ev-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  min-width: 120px;
-
-  label {
-    font-size: 12px;
-    font-weight: 500;
-  }
-}
-
-.ev-field--grow {
-  flex: 1;
-  min-width: 160px;
-}
-
 .ev-input-with-btn {
   display: flex;
   gap: var(--spacing-xs);
@@ -2033,22 +1897,6 @@ onBeforeUnmount(() => {
   input {
     flex: 1;
     min-width: 0;
-  }
-}
-
-.ev-check {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  min-height: 30px;
-  font-size: 13px;
-  color: var(--color-text-primary);
-  cursor: pointer;
-
-  input {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--color-accent);
   }
 }
 

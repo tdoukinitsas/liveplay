@@ -179,13 +179,26 @@
     "sectionConnections": "Bağlantılar",
     "stopAllUsesItemFade": "Durdurulan cue'lar kendi Stop düğmesi geçişini kullanır",
     "stopAllUsesItemFadeHelp": "Açıkken Stop All ve “Diğer tümünü durdur” ducking modu her cue'yu kendi Stop düğmesi geçişiyle söndürür. Geçişi olmayan cue'lar Stop All geçişini kullanır. Stop All'a iki kez basmak yine her şeyi anında durdurur.",
-    "thisComputer": "Bu bilgisayar"
+    "thisComputer": "Bu bilgisayar",
+    "scopeYou": "Kişisel",
+    "scopeShow": "Bu gösteri",
+    "scopeServer": "Sunucu",
+    "groupLanguageLayout": "Dil ve düzen",
+    "groupDisplay": "Görüntü",
+    "groupGoUpNext": "GO ve Sıradaki",
+    "groupNewCues": "Yeni cue'lar",
+    "groupLoudness": "Ses yüksekliği ve ölçüm",
+    "groupRouting": "Yönlendirme ve zaman kodu",
+    "groupConnection": "Bağlantı",
+    "sectionPlaybackIntro": "Cue'ların nasıl başladığı, durduğu ve birbirine geçtiği; yeni cue'ların hangi ayarlarla başladığı.",
+    "disableAutoVolumeAndTrimHelp": "Yeni cue'lar dosyanın kendi seviyesini ve uzunluğunu korur. Herhangi bir cue'nun seviyesini veya kırpmasını Oynatma sekmesinden yine de ayarlayabilirsiniz."
   },
   "common": {
     "default": "varsayılan",
     "loading": "Yükleniyor…",
     "error": "Hata",
-    "cancel": "İptal"
+    "cancel": "İptal",
+    "moreInfo": "Daha fazla bilgi"
   },
   "project": {
     "enterName": "Proje Adını Girin",
@@ -389,7 +402,18 @@
     "loopCrossfadeNeedsLoop": "Döngü crossfade'i kullanmak için bu cue'nun bitiş davranışını «Döngü» olarak ayarlayın.",
     "advanceDelay": "Sonrakinden Önce Bekle (saniye)",
     "advanceDelayHint": "Bu cue bittikten sonra, bitiş davranışı sonraki cue'yu başlatmadan önce bu kadar bekler. Crossfade veya «İşaretçide Sonrakini Başlat» ayarlıysa yok sayılır.",
-    "duckTimesHint": "Bu cue başladığında diğer cue'ların ne kadar sürede alçalacağı ve bittiğinde ne kadar sürede geri döneceği."
+    "duckTimesHint": "Bu cue başladığında diğer cue'ların ne kadar sürede alçalacağı ve bittiğinde ne kadar sürede geri döneceği.",
+    "volumeHelp": "Bu cue'nun seviyesi. Fader'ı sürükleyin ya da -6.5 gibi dB cinsinden bir seviye yazın (sessizlik için -inf).",
+    "playFadeHelp": "Cue her başladığında bu kadar saniyede fade-in yapar. 0 tam seviyede başlar.",
+    "stopFadeHelp": "Cue'yu çıkış noktasından önce bu kadar saniyede fade-out yapar. 0 sonuna kadar tam seviyede çalar.",
+    "crossFadeHelp": "Çıkış noktasından önceki bu kadar saniyede bu cue sönerken sonraki cue üzerine fade-in yapar. 0 çakışma olmadan geçer.",
+    "startNextHelp": "Oynatma işaretçiye ulaştığında, bu cue çalmaya devam ederken sonraki başlar: radyo tarzı bir geçiş.",
+    "duckModeHelp": "Bu cue'nun başlaması çalan diğer cue'lara ne yapar: onları durdurur, olduğu gibi bırakır ya da bitene kadar kısma seviyesine indirir.",
+    "apiTriggerUrlHelp": "Cue'yu başka bir sistemden, bir betikten ya da tarayıcıdan çalmak için bu adrese GET veya POST isteği gönderin.",
+    "groupTrim": "Kırpma",
+    "groupFades": "Fade'ler",
+    "groupStopLoop": "Durdurma ve döngü",
+    "groupTransition": "Geçiş"
   },
   "playback": {
     "panic": "Tüm Cue'ları Durdur",
@@ -527,7 +551,8 @@
     "noDevices": "Çıkış cihazı bulunamadı",
     "silentServer": "Sunucuyu sistem tepsisinde sessizce çalıştır",
     "silentServerHelp": "Sunucuyu konsol penceresi olmadan başlatır. Sistem tepsisindeki (macOS'ta menü çubuğundaki) bir simge, LivePlay kapatıldıktan sonra bile çalıştığını gösterir; menüsünden konsolu gösterebilir, günlükleri açabilir veya sunucuyu durdurabilirsiniz. Sunucu bir sonraki başlatılışında geçerli olur.",
-    "silentServerForced": "LivePlay --silent ile başlatıldığı için bu oturumda açık."
+    "silentServerForced": "LivePlay --silent ile başlatıldığı için bu oturumda açık.",
+    "localPortHelp": "Bu bilgisayarın ses motorunun dinlediği port. Yalnızca başka bir program zaten kullanıyorsa değiştirin."
   },
   "serverConfig": {
     "title": "Sunucu yapılandırması",
@@ -805,7 +830,8 @@
     "volumeMultiplierHint": "MIDI adımı başına dB. Küçük adımlarla hareket eden enkoderler veya tekerlekler için artırın.",
     "nextIn": "Sonraki: {seconds} sn",
     "stopCurrentCue": "Geçerli cue'yu durdur",
-    "conflictPinned": "Zaten şu kartuşa sabitlenmiş: {cart}"
+    "conflictPinned": "Zaten şu kartuşa sabitlenmiş: {cart}",
+    "midiDeviceHelp": "LivePlay'in dinlediği denetleyici. Tüm cihazlar, bağlı her denetleyiciyi dinler."
   },
   "selectProject": {
     "title": "Proje Seç",
@@ -1307,7 +1333,9 @@
       "signInMissing": "«{name}» için kimlik bilgilerinin bu makinede girilmesi gerekiyor.",
       "signInWaiting": "«{name}» için oturum açılması gerekiyor. Bu bağlantıdaki değişikliklerinizi kaydettiğinizde ya da iptal ettiğinizde burada açılır.",
       "signInLater": "Şimdi değil",
-      "signInDiscard": "Değişiklikleri at ve oturum aç"
+      "signInDiscard": "Değişiklikleri at ve oturum aç",
+      "nameHelp": "Bir olay için bağlantı seçerken bu bağlantının görünen adı.",
+      "enabledHelp": "Kapalıyken bu bağlantıya hiçbir şey gönderilmez ve olayları tetiklenmez."
     },
     "zoom": "Yakınlaştırma",
     "zoomIn": "Yakınlaştır",
@@ -1327,7 +1355,10 @@
       "remove": "Başlığı kaldır",
       "add": "Başlık ekle",
       "rawLine": "Başlık satırı"
-    }
+    },
+    "groupWhen": "Ne zaman",
+    "groupCommand": "Komut",
+    "triggerHelp": "Olay ne zaman tetiklenir: dosyadaki bir anda ya da cue başladığında, duraklatıldığında, devam ettiğinde veya bittiğinde."
   },
   "eventPlugins": {
     "osc": {

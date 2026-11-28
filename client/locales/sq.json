@@ -179,13 +179,26 @@
     "sectionConnections": "Lidhjet",
     "stopAllUsesItemFade": "Cue-të e ndaluara përdorin zbehjen e tyre të butonit Stop",
     "stopAllUsesItemFadeHelp": "Kur është aktive, Stop All dhe mënyra e ducking-ut “Ndalo të gjitha të tjerat” e zbehin çdo cue me zbehjen e tij të butonit Stop. Cue-të pa një të tillë përdorin zbehjen e Stop All. Shtypja dy herë e Stop All gjithsesi i ndalon të gjitha menjëherë.",
-    "thisComputer": "Ky kompjuter"
+    "thisComputer": "Ky kompjuter",
+    "scopeYou": "Personale",
+    "scopeShow": "Kjo shfaqje",
+    "scopeServer": "Serveri",
+    "groupLanguageLayout": "Gjuha dhe struktura",
+    "groupDisplay": "Pamja në ekran",
+    "groupGoUpNext": "GO dhe Në radhë",
+    "groupNewCues": "Cue të reja",
+    "groupLoudness": "Fortësia dhe matja",
+    "groupRouting": "Drejtimi dhe timecode",
+    "groupConnection": "Lidhja",
+    "sectionPlaybackIntro": "Si nisin, ndalojnë dhe ia lënë radhën njëra-tjetrës cue-të, dhe me çfarë cilësimesh nisin cue-të e reja.",
+    "disableAutoVolumeAndTrimHelp": "Cue-të e reja mbajnë nivelin dhe gjatësinë e vetë skedarit. Mund ta nivelizoni ose ta shkurtoni çdo cue te skeda e saj Luajtja."
   },
   "common": {
     "default": "parazgjedhje",
     "loading": "Po ngarkohet…",
     "error": "Gabim",
-    "cancel": "Anulo"
+    "cancel": "Anulo",
+    "moreInfo": "Më shumë informacion"
   },
   "project": {
     "enterName": "Shkruani emrin e projektit",
@@ -389,7 +402,18 @@
     "loopCrossfadeNeedsLoop": "Caktoni sjelljen në fund të këtij cue si Përsërit për të përdorur crossfade-in e përsëritjes.",
     "advanceDelay": "Prit para pasuesit (sekonda)",
     "advanceDelayHint": "Pasi mbaron ky cue, pritet kaq kohë para se sjellja në fund të nisë cue-në pasues. Shpërfillet kur është caktuar crossfade ose Nis tjetrën.",
-    "duckTimesHint": "Sa kohë u duhet cue-ve të tjera të ulen kur nis ky cue dhe të kthehen kur ai mbaron."
+    "duckTimesHint": "Sa kohë u duhet cue-ve të tjera të ulen kur nis ky cue dhe të kthehen kur ai mbaron.",
+    "volumeHelp": "Niveli i këtij cue. Tërhiqni fader-in ose shkruani një nivel në dB, p.sh. -6.5 (-inf për heshtje).",
+    "playFadeHelp": "Bën fade-in për cue-në gjatë kaq sekondave sa herë që nis. 0 nis me nivel të plotë.",
+    "stopFadeHelp": "Bën fade-out për cue-në gjatë kaq sekondave para pikës së daljes. 0 e luan deri në fund me nivel të plotë.",
+    "crossFadeHelp": "Gjatë kaq sekondave para pikës së daljes, ky cue zbehet ndërsa tjetri hyn sipër tij. 0 kalon pa mbivendosje.",
+    "startNextHelp": "Kur luajtja arrin te shënuesi, nis cue-ja tjetër ndërsa kjo vazhdon të luajë: një kalim si në radio.",
+    "duckModeHelp": "Çfarë u bën nisja e këtij cue cue-ve të tjera që po luajnë: i ndal, i lë ashtu, ose i ul në nivelin e ducking-ut derisa të mbarojë.",
+    "apiTriggerUrlHelp": "Dërgoni një kërkesë GET ose POST në këtë adresë për ta luajtur cue-në nga një sistem tjetër, një skript ose një shfletues.",
+    "groupTrim": "Shkurtimi",
+    "groupFades": "Zbehjet",
+    "groupStopLoop": "Ndalimi dhe përsëritja",
+    "groupTransition": "Kalimi"
   },
   "playback": {
     "panic": "Ndalo të gjitha cue-të",
@@ -527,7 +551,8 @@
     "noDevices": "Nuk u gjet asnjë pajisje daljeje",
     "silentServer": "Ekzekuto serverin në heshtje në zonën e njoftimeve",
     "silentServerHelp": "Nis serverin pa dritare konsole. Një ikonë në zonën e njoftimeve (shiriti i menysë në macOS) tregon se po punon, edhe pasi mbyllet LivePlay, dhe menyja e saj mund të shfaqë konsolën, të hapë regjistrat ose të ndalë serverin. Hyn në fuqi herën tjetër që niset serveri.",
-    "silentServerForced": "Aktiv për këtë seancë sepse LivePlay u nis me --silent."
+    "silentServerForced": "Aktiv për këtë seancë sepse LivePlay u nis me --silent.",
+    "localPortHelp": "Porta ku dëgjon motori audio i këtij kompjuteri. Ndryshojeni vetëm nëse e përdor tashmë një program tjetër."
   },
   "serverConfig": {
     "title": "Konfigurimi i serverit",
@@ -805,7 +830,8 @@
     "volumeMultiplierHint": "dB për çdo hap MIDI. Rriteni për enkoderë ose rrota që lëvizin me hapa të vegjël.",
     "nextIn": "Tjetri pas {seconds} s",
     "stopCurrentCue": "Ndalo cue-n aktual",
-    "conflictPinned": "I fiksuar tashmë te {cart}"
+    "conflictPinned": "I fiksuar tashmë te {cart}",
+    "midiDeviceHelp": "Kontrolluesi që dëgjon LivePlay. «Të gjitha pajisjet» dëgjon çdo kontrollues të lidhur."
   },
   "selectProject": {
     "title": "Zgjidhni projektin",
@@ -1307,7 +1333,9 @@
       "signInMissing": "Për „{name}” duhen futur kredencialet në këtë makinë.",
       "signInWaiting": "„{name}” kërkon hyrje. Do të hapet këtu sapo të ruani ose të anuloni ndryshimet në këtë lidhje.",
       "signInLater": "Jo tani",
-      "signInDiscard": "Hidh poshtë ndryshimet dhe hyr"
+      "signInDiscard": "Hidh poshtë ndryshimet dhe hyr",
+      "nameHelp": "Emri me të cilin shfaqet kjo lidhje kur zgjidhni një për një ngjarje.",
+      "enabledHelp": "Kur është e çaktivizuar, asgjë nuk dërgohet te kjo lidhje dhe ngjarjet e saj nuk aktivizohen."
     },
     "zoom": "Zmadhimi",
     "zoomIn": "Zmadho",
@@ -1327,7 +1355,10 @@
       "remove": "Hiq header-in",
       "add": "Shto header",
       "rawLine": "Rresht header-i"
-    }
+    },
+    "groupWhen": "Kur",
+    "groupCommand": "Komanda",
+    "triggerHelp": "Kur aktivizohet ngjarja: në një moment të skedarit, ose kur cue nis, ndalet përkohësisht, rifillon ose mbaron."
   },
   "eventPlugins": {
     "osc": {

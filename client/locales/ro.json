@@ -179,13 +179,26 @@
     "sectionConnections": "Conexiuni",
     "stopAllUsesItemFade": "Cue-urile oprite folosesc propriul fade al butonului Stop",
     "stopAllUsesItemFadeHelp": "Când e activ, Stop All și modul de ducking „Oprește toate celelalte” sting fiecare cue cu propriul fade al butonului Stop. Cue-urile fără unul folosesc fade-ul Stop All. Apăsarea de două ori pe Stop All oprește în continuare totul imediat.",
-    "thisComputer": "Acest calculator"
+    "thisComputer": "Acest calculator",
+    "scopeYou": "Personal",
+    "scopeShow": "Acest spectacol",
+    "scopeServer": "Server",
+    "groupLanguageLayout": "Limbă și aranjare",
+    "groupDisplay": "Afișare",
+    "groupGoUpNext": "GO și Următorul",
+    "groupNewCues": "Cue-uri noi",
+    "groupLoudness": "Loudness și măsurare",
+    "groupRouting": "Rutare și timecode",
+    "groupConnection": "Conexiune",
+    "sectionPlaybackIntro": "Cum pornesc, se opresc și trec cue-urile unul în altul și cu ce setări încep cue-urile noi.",
+    "disableAutoVolumeAndTrimHelp": "Cue-urile noi păstrează nivelul și durata fișierului. Puteți oricând nivela sau tăia orice cue din fila Redare."
   },
   "common": {
     "default": "implicit",
     "loading": "Se încarcă…",
     "error": "Eroare",
-    "cancel": "Anulează"
+    "cancel": "Anulează",
+    "moreInfo": "Mai multe informații"
   },
   "project": {
     "enterName": "Introduceți numele proiectului",
@@ -389,7 +402,18 @@
     "loopCrossfadeNeedsLoop": "Setați comportamentul la final al acestui cue pe Buclă pentru a folosi crossfade la buclă.",
     "advanceDelay": "Pauză înainte de următorul (secunde)",
     "advanceDelayHint": "După ce acest cue se termină, se așteaptă atât înainte ca comportamentul la final să pornească cue-ul următor. Se ignoră când este setat un crossfade sau Pornește următoarea.",
-    "duckTimesHint": "Cât le ia celorlalte cue-uri să coboare când pornește acest cue și să revină când se termină."
+    "duckTimesHint": "Cât le ia celorlalte cue-uri să coboare când pornește acest cue și să revină când se termină.",
+    "volumeHelp": "Nivelul acestui cue. Trageți fader-ul sau scrieți un nivel în dB, de exemplu -6.5 (-inf pentru liniște).",
+    "playFadeHelp": "Face fade-in pentru cue în atâtea secunde de fiecare dată când pornește. 0 pornește la nivel maxim.",
+    "stopFadeHelp": "Face fade-out pentru cue în atâtea secunde înainte de punctul de ieșire. 0 îl redă până la capăt la nivel maxim.",
+    "crossFadeHelp": "În atâtea secunde înainte de punctul de ieșire, acest cue se stinge în timp ce următorul intră peste el. 0 trece fără suprapunere.",
+    "startNextHelp": "Când redarea ajunge la marcaj, următorul cue pornește în timp ce acesta continuă: o tranziție ca la radio.",
+    "duckModeHelp": "Ce face pornirea acestui cue celorlalte cue-uri care rulează: le oprește, le lasă în pace sau le coboară la nivelul de ducking până se termină.",
+    "apiTriggerUrlHelp": "Trimiteți o cerere GET sau POST la această adresă pentru a reda cue-ul dintr-un alt sistem, un script sau un browser.",
+    "groupTrim": "Tăiere",
+    "groupFades": "Fade-uri",
+    "groupStopLoop": "Oprire și buclă",
+    "groupTransition": "Tranziție"
   },
   "playback": {
     "panic": "Oprește toate cue-urile",
@@ -527,7 +551,8 @@
     "noDevices": "Nu s-a găsit niciun dispozitiv de ieșire",
     "silentServer": "Rulează serverul discret în zona de notificare",
     "silentServerHelp": "Pornește serverul fără fereastră de consolă. O pictogramă în zona de notificare (bara de meniu pe macOS) arată că rulează, chiar și după închiderea LivePlay, iar meniul ei poate afișa consola, deschide jurnalele sau opri serverul. Se aplică la următoarea pornire a serverului.",
-    "silentServerForced": "Activ în această sesiune deoarece LivePlay a fost pornit cu --silent."
+    "silentServerForced": "Activ în această sesiune deoarece LivePlay a fost pornit cu --silent.",
+    "localPortHelp": "Portul pe care ascultă motorul audio al acestui calculator. Schimbați-l doar dacă îl folosește deja alt program."
   },
   "serverConfig": {
     "title": "Configurația serverului",
@@ -805,7 +830,8 @@
     "volumeMultiplierHint": "dB per pas MIDI. Măriți-l pentru encodere sau rotițe care se mișcă în pași mici.",
     "nextIn": "Următorul în {seconds} s",
     "stopCurrentCue": "Oprește cue-ul curent",
-    "conflictPinned": "Deja fixată pe {cart}"
+    "conflictPinned": "Deja fixată pe {cart}",
+    "midiDeviceHelp": "Controlerul pe care îl ascultă LivePlay. „Toate dispozitivele” ascultă orice controler conectat."
   },
   "selectProject": {
     "title": "Selectați proiectul",
@@ -1307,7 +1333,9 @@
       "signInMissing": "Pentru „{name}” trebuie introduse datele de autentificare pe acest calculator.",
       "signInWaiting": "„{name}” necesită autentificare. Se deschide aici după ce salvați sau anulați modificările la această conexiune.",
       "signInLater": "Nu acum",
-      "signInDiscard": "Renunță la modificări și autentifică-te"
+      "signInDiscard": "Renunță la modificări și autentifică-te",
+      "nameHelp": "Numele sub care apare această conexiune când alegeți una pentru un eveniment.",
+      "enabledHelp": "Când este dezactivată, nu se trimite nimic acestei conexiuni și evenimentele ei nu se declanșează."
     },
     "zoom": "Zoom",
     "zoomIn": "Mărește",
@@ -1327,7 +1355,10 @@
       "remove": "Elimină antetul",
       "add": "Adaugă antet",
       "rawLine": "Linie de antet"
-    }
+    },
+    "groupWhen": "Când",
+    "groupCommand": "Comandă",
+    "triggerHelp": "Când se declanșează evenimentul: la un moment din fișier sau când cue-ul pornește, se pune pe pauză, se reia sau se termină."
   },
   "eventPlugins": {
     "osc": {

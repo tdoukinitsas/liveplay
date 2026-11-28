@@ -295,3 +295,55 @@ export function drawPlaybackMarkers(
     }
   }
 }
+
+// ---------------------------------------------------------------------
+// The time ruler
+// ---------------------------------------------------------------------
+// Every timeline in the Properties panel (Playback, Events) carries the same
+// ruler along its top: a band with a tick and a label at whichever round step
+// lands about 80px apart, and a faint grid line from each tick down through
+// the timeline. The band is the timeline's own; views draw their content in
+// the area under it (translate by RULER_HEIGHT, height minus RULER_HEIGHT).
+
+/** Height of the ruler band along the top of every timeline (CSS px). */
+export const RULER_HEIGHT = 18;
+
+const RULER_STEPS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+
+/** A ruler label: m:ss, with tenths or hundredths when the step needs them. */
+export function formatRulerTime(seconds: number, decimals: number): string {
+  const m = Math.floor(seconds / 60);
+  const sec = seconds - m * 60;
+  return decimals > 0
+    ? `${m}:${sec.toFixed(decimals).padStart(3 + decimals, '0')}`
+    : `${m}:${String(Math.floor(sec + 1e-6)).padStart(2, '0')}`;
+}
+
+export function drawTimeRuler(ctx: CanvasRenderingContext2D, view: WaveformView): void {
+  const vis = view.end - view.start;
+  if (!(view.duration > 0) || vis <= 0 || view.width <= 0) return;
+  const rh = RULER_HEIGHT;
+  ctx.save();
+  ctx.fillStyle = 'rgba(128, 128, 128, 0.12)';
+  ctx.fillRect(0, 0, view.width, rh);
+  ctx.fillStyle = 'rgba(128, 128, 128, 0.35)';
+  ctx.fillRect(0, rh - 1, view.width, 1);
+
+  const want = (80 / view.width) * vis;
+  const step = RULER_STEPS.find(s => s >= want) ?? RULER_STEPS[RULER_STEPS.length - 1]!;
+  const decimals = step < 0.1 ? 2 : step < 1 ? 1 : 0;
+  ctx.font = '10px sans-serif';
+  ctx.textBaseline = 'alphabetic';
+  const last = Math.min(view.duration, view.end);
+  for (let k = Math.ceil(view.start / step - 1e-9); k * step <= last + 1e-9; k++) {
+    const s = k * step;
+    const x = Math.round(((s - view.start) / vis) * view.width);
+    ctx.fillStyle = 'rgba(128, 128, 128, 0.16)';
+    ctx.fillRect(x, rh, 1, view.height - rh);
+    ctx.fillStyle = 'rgba(128, 128, 128, 0.7)';
+    ctx.fillRect(x, rh - 5, 1, 5);
+    ctx.fillStyle = 'rgba(150, 150, 150, 0.95)';
+    ctx.fillText(formatRulerTime(s, decimals), x + 3, rh - 6);
+  }
+  ctx.restore();
+}

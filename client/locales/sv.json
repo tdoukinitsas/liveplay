@@ -179,13 +179,26 @@
     "sectionConnections": "Anslutningar",
     "stopAllUsesItemFade": "Stoppade cuer använder sin egen stoppknappstoning",
     "stopAllUsesItemFadeHelp": "När det är på tonar Stop All och duckningsläget ”Stoppa alla andra” ut varje cue med dess egen stoppknappstoning. Cuer utan en använder Stop All-toningen. Två tryck på Stop All stoppar fortfarande allt direkt.",
-    "thisComputer": "Den här datorn"
+    "thisComputer": "Den här datorn",
+    "scopeYou": "Personlig",
+    "scopeShow": "Den här showen",
+    "scopeServer": "Server",
+    "groupLanguageLayout": "Språk och layout",
+    "groupDisplay": "Visning",
+    "groupGoUpNext": "GO och Näst på tur",
+    "groupNewCues": "Nya cues",
+    "groupLoudness": "Loudness och mätning",
+    "groupRouting": "Routing och tidkod",
+    "groupConnection": "Anslutning",
+    "sectionPlaybackIntro": "Hur cues startar, stoppar och lämnar över till varandra, och vad nya cues börjar med.",
+    "disableAutoVolumeAndTrimHelp": "Nya cues behåller filens egen nivå och längd. Du kan fortfarande nivåjustera eller trimma vilket cue som helst under dess flik Uppspelning."
   },
   "common": {
     "default": "standard",
     "loading": "Läser in…",
     "error": "Fel",
-    "cancel": "Avbryt"
+    "cancel": "Avbryt",
+    "moreInfo": "Mer information"
   },
   "project": {
     "enterName": "Ange projektnamn",
@@ -389,7 +402,18 @@
     "loopCrossfadeNeedsLoop": "Ställ in slutbeteendet för den här kön på Loop för att använda loop-övertoning.",
     "advanceDelay": "Vänta före nästa (sekunder)",
     "advanceDelayHint": "När den här kön är slut väntar LivePlay så här länge innan slutbeteendet startar nästa kö. Ignoreras när en övertoning eller Starta nästa är inställd.",
-    "duckTimesHint": "Hur lång tid de andra cuerna tar på sig att sänkas när den här cuen startar, och att komma tillbaka när den slutar."
+    "duckTimesHint": "Hur lång tid de andra cuerna tar på sig att sänkas när den här cuen startar, och att komma tillbaka när den slutar.",
+    "volumeHelp": "Nivån för den här kön. Dra fadern eller skriv en nivå i dB, till exempel -6.5 (-inf för tystnad).",
+    "playFadeHelp": "Tonar in kön under så många sekunder varje gång den startar. 0 startar med full nivå.",
+    "stopFadeHelp": "Tonar ut kön under så många sekunder före utpunkten. 0 spelar till slutet med full nivå.",
+    "crossFadeHelp": "Under så många sekunder före utpunkten tonas den här kön ut medan nästa tonas in över den. 0 går över utan överlapp.",
+    "startNextHelp": "När uppspelningen når markören startar nästa kö medan den här fortsätter spela: en övergång som på radio.",
+    "duckModeHelp": "Vad start av den här kön gör med andra köer som spelar: stoppar dem, låter dem vara eller sänker dem till ducking-nivån tills den är klar.",
+    "apiTriggerUrlHelp": "Skicka en GET- eller POST-begäran till den här adressen för att spela kön från ett annat system, ett skript eller en webbläsare.",
+    "groupTrim": "Trimning",
+    "groupFades": "Toningar",
+    "groupStopLoop": "Stopp och loop",
+    "groupTransition": "Övergång"
   },
   "playback": {
     "panic": "Stoppa alla köer",
@@ -527,7 +551,8 @@
     "noDevices": "Inga utgångsenheter hittades",
     "silentServer": "Kör servern tyst i meddelandefältet",
     "silentServerHelp": "Startar servern utan konsolfönster. En ikon i meddelandefältet (menyraden på macOS) visar att den körs, även efter att LivePlay har stängts, och dess meny kan visa konsolen, öppna loggarna eller stoppa servern. Gäller nästa gång servern startar.",
-    "silentServerForced": "På för den här sessionen eftersom LivePlay startades med --silent."
+    "silentServerForced": "På för den här sessionen eftersom LivePlay startades med --silent.",
+    "localPortHelp": "Porten som ljudmotorn på den här datorn lyssnar på. Ändra den bara om ett annat program redan använder den."
   },
   "serverConfig": {
     "title": "Serverkonfiguration",
@@ -805,7 +830,8 @@
     "volumeMultiplierHint": "dB per MIDI-steg. Öka för encodrar eller hjul som rör sig i små steg.",
     "nextIn": "Nästa om {seconds} s",
     "stopCurrentCue": "Stoppa aktuell cue",
-    "conflictPinned": "Redan fäst vid {cart}"
+    "conflictPinned": "Redan fäst vid {cart}",
+    "midiDeviceHelp": "Vilken kontroller LivePlay lyssnar på. Alla enheter lyssnar på alla anslutna kontroller."
   },
   "selectProject": {
     "title": "Välj projekt",
@@ -1307,7 +1333,9 @@
       "signInMissing": "”{name}” behöver få sina inloggningsuppgifter angivna på den här datorn.",
       "signInWaiting": "”{name}” behöver loggas in. Inloggningen öppnas här när du sparar eller avbryter dina ändringar i den här anslutningen.",
       "signInLater": "Inte nu",
-      "signInDiscard": "Ignorera ändringar och logga in"
+      "signInDiscard": "Ignorera ändringar och logga in",
+      "nameHelp": "Namnet anslutningen visas med när du väljer en för en händelse.",
+      "enabledHelp": "När den är av skickas inget till den här anslutningen och dess händelser utlöses inte."
     },
     "zoom": "Zoom",
     "zoomIn": "Zooma in",
@@ -1327,7 +1355,10 @@
       "remove": "Ta bort huvud",
       "add": "Lägg till huvud",
       "rawLine": "Huvudrad"
-    }
+    },
+    "groupWhen": "När",
+    "groupCommand": "Kommando",
+    "triggerHelp": "När händelsen utlöses: vid en tidpunkt i filen, eller när kön startar, pausas, återupptas eller slutar."
   },
   "eventPlugins": {
     "osc": {

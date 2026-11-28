@@ -179,13 +179,26 @@
     "sectionConnections": "连接",
     "stopAllUsesItemFade": "被停止的提示音使用各自的停止按钮淡出",
     "stopAllUsesItemFadeHelp": "开启后，Stop All 和“停止所有其他”闪避模式会让每个提示音按其自己的停止按钮淡出时间淡出。没有设置的提示音使用 Stop All 淡出。连按两次 Stop All 仍会立即停止一切。",
-    "thisComputer": "本机"
+    "thisComputer": "本机",
+    "scopeYou": "个人",
+    "scopeShow": "本演出",
+    "scopeServer": "服务器",
+    "groupLanguageLayout": "语言与布局",
+    "groupDisplay": "显示",
+    "groupGoUpNext": "GO 与待播",
+    "groupNewCues": "新 Cue",
+    "groupLoudness": "响度与电平表",
+    "groupRouting": "路由与时间码",
+    "groupConnection": "连接",
+    "sectionPlaybackIntro": "Cue 如何开始、停止以及相互衔接，以及新 Cue 的初始设置。",
+    "disableAutoVolumeAndTrimHelp": "新 Cue 保留文件本身的电平和长度。您仍可在每个 Cue 的“播放”选项卡中调整电平或修剪。"
   },
   "common": {
     "default": "默认",
     "loading": "加载中…",
     "error": "错误",
-    "cancel": "取消"
+    "cancel": "取消",
+    "moreInfo": "更多信息"
   },
   "project": {
     "enterName": "输入项目名称",
@@ -389,7 +402,18 @@
     "loopCrossfadeNeedsLoop": "将此 Cue 的结束行为设为“循环”即可使用循环交叉淡化。",
     "advanceDelay": "播放下一个前等待（秒）",
     "advanceDelayHint": "此 Cue 结束后，先等待这段时间，再由其结束行为启动下一个 Cue。设置了交叉淡化或“开始下一首”时忽略此项。",
-    "duckTimesHint": "此提示音开始时其他提示音压低所需的时间，以及结束时恢复所需的时间。"
+    "duckTimesHint": "此提示音开始时其他提示音压低所需的时间，以及结束时恢复所需的时间。",
+    "volumeHelp": "此 Cue 的电平。拖动推子，或输入 dB 电平，如 -6.5（静音为 -inf）。",
+    "playFadeHelp": "每次开始时，在这么多秒内淡入。0 表示以满电平开始。",
+    "stopFadeHelp": "在出点之前，用这么多秒淡出。0 表示以满电平播放到结束。",
+    "crossFadeHelp": "在出点之前的这么多秒内，此 Cue 淡出，同时下一个 Cue 在其上淡入。0 表示无重叠地切换。",
+    "startNextHelp": "播放到达标记时，下一个 Cue 开始，而此 Cue 继续播放：电台式的衔接。",
+    "duckModeHelp": "启动此 Cue 时如何处理其他正在播放的 Cue：停止它们、不做处理，或在它结束前将它们降低到闪避电平。",
+    "apiTriggerUrlHelp": "向此地址发送 GET 或 POST 请求，即可从其他系统、脚本或浏览器播放此 Cue。",
+    "groupTrim": "修剪",
+    "groupFades": "淡变",
+    "groupStopLoop": "停止与循环",
+    "groupTransition": "过渡"
   },
   "playback": {
     "panic": "停止所有 Cue",
@@ -527,7 +551,8 @@
     "noDevices": "未找到输出设备",
     "silentServer": "在系统托盘中静默运行服务器",
     "silentServerHelp": "启动服务器时不显示控制台窗口。系统托盘（macOS 上为菜单栏）中的图标会显示服务器正在运行，即使关闭 LivePlay 后也是如此；通过其菜单可以显示控制台、打开日志或停止服务器。下次启动服务器时生效。",
-    "silentServerForced": "由于 LivePlay 以 --silent 启动，本次会话中已开启。"
+    "silentServerForced": "由于 LivePlay 以 --silent 启动，本次会话中已开启。",
+    "localPortHelp": "本机音频引擎监听的端口。仅当其他程序已占用该端口时才需更改。"
   },
   "serverConfig": {
     "title": "服务器配置",
@@ -805,7 +830,8 @@
     "volumeMultiplierHint": "每个 MIDI 步进对应的 dB 数。对于步进很小的编码器或滚轮，请调高此值。",
     "nextIn": "{seconds} 秒后下一个",
     "stopCurrentCue": "停止当前 Cue",
-    "conflictPinned": "已固定到 {cart}"
+    "conflictPinned": "已固定到 {cart}",
+    "midiDeviceHelp": "LivePlay 监听的控制器。“所有设备”会监听每个已连接的控制器。"
   },
   "selectProject": {
     "title": "选择项目",
@@ -1307,7 +1333,9 @@
       "signInMissing": "需要在本机上输入“{name}”的凭据。",
       "signInWaiting": "“{name}”需要登录。保存或取消对此连接的更改后，登录界面会在这里打开。",
       "signInLater": "暂不",
-      "signInDiscard": "放弃更改并登录"
+      "signInDiscard": "放弃更改并登录",
+      "nameHelp": "为事件选择连接时，此连接显示的名称。",
+      "enabledHelp": "关闭后，不会向此连接发送任何内容，其事件也不会触发。"
     },
     "zoom": "缩放",
     "zoomIn": "放大",
@@ -1327,7 +1355,10 @@
       "remove": "移除请求头",
       "add": "添加请求头",
       "rawLine": "请求头行"
-    }
+    },
+    "groupWhen": "时机",
+    "groupCommand": "命令",
+    "triggerHelp": "事件何时触发：文件中的某个时间点，或在 Cue 开始、暂停、继续或结束时。"
   },
   "eventPlugins": {
     "osc": {

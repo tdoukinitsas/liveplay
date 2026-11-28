@@ -179,13 +179,26 @@
     "sectionConnections": "연결",
     "stopAllUsesItemFade": "정지되는 큐는 각자의 정지 버튼 페이드를 사용",
     "stopAllUsesItemFadeHelp": "켜면 Stop All과 '다른 모든 큐 정지' 더킹 모드가 각 큐를 해당 큐의 정지 버튼 페이드로 페이드아웃합니다. 페이드가 없는 큐는 Stop All 페이드를 사용합니다. Stop All을 두 번 누르면 여전히 모든 것이 즉시 정지합니다.",
-    "thisComputer": "이 컴퓨터"
+    "thisComputer": "이 컴퓨터",
+    "scopeYou": "개인",
+    "scopeShow": "이 쇼",
+    "scopeServer": "서버",
+    "groupLanguageLayout": "언어 및 레이아웃",
+    "groupDisplay": "표시",
+    "groupGoUpNext": "GO 및 대기",
+    "groupNewCues": "새 큐",
+    "groupLoudness": "라우드니스 및 미터링",
+    "groupRouting": "라우팅 및 타임코드",
+    "groupConnection": "연결",
+    "sectionPlaybackIntro": "큐가 시작하고 멈추며 다음 큐로 넘어가는 방식과 새 큐의 기본 설정입니다.",
+    "disableAutoVolumeAndTrimHelp": "새 큐는 파일 본래의 레벨과 길이를 유지합니다. 레벨 조정이나 자르기는 각 큐의 재생 탭에서 언제든 할 수 있습니다."
   },
   "common": {
     "default": "기본값",
     "loading": "불러오는 중…",
     "error": "오류",
-    "cancel": "취소"
+    "cancel": "취소",
+    "moreInfo": "자세한 정보"
   },
   "project": {
     "enterName": "프로젝트 이름 입력",
@@ -389,7 +402,18 @@
     "loopCrossfadeNeedsLoop": "루프 크로스페이드를 사용하려면 이 큐의 종료 동작을 ‘반복’으로 설정하세요.",
     "advanceDelay": "다음 전 대기 시간(초)",
     "advanceDelayHint": "이 큐가 끝난 뒤, 종료 동작이 다음 큐를 시작하기 전까지 이 시간만큼 기다립니다. 크로스페이드나 ‘다음 시작’이 설정되어 있으면 무시됩니다.",
-    "duckTimesHint": "이 큐가 시작될 때 다른 큐가 내려가는 데 걸리는 시간과, 끝날 때 다시 올라오는 데 걸리는 시간입니다."
+    "duckTimesHint": "이 큐가 시작될 때 다른 큐가 내려가는 데 걸리는 시간과, 끝날 때 다시 올라오는 데 걸리는 시간입니다.",
+    "volumeHelp": "이 큐의 레벨입니다. 페이더를 드래그하거나 -6.5처럼 dB 값을 입력하세요(무음은 -inf).",
+    "playFadeHelp": "시작할 때마다 이 시간(초) 동안 큐를 페이드 인합니다. 0이면 처음부터 전체 레벨로 시작합니다.",
+    "stopFadeHelp": "아웃 포인트 전에 이 시간(초) 동안 큐를 페이드 아웃합니다. 0이면 끝까지 전체 레벨로 재생합니다.",
+    "crossFadeHelp": "아웃 포인트 전 이 시간(초) 동안 이 큐는 페이드 아웃되고 다음 큐가 겹쳐서 페이드 인됩니다. 0이면 겹치지 않고 넘어갑니다.",
+    "startNextHelp": "재생이 마커에 도달하면 이 큐는 계속 재생되는 동안 다음 큐가 시작됩니다. 라디오 방식의 전환입니다.",
+    "duckModeHelp": "이 큐가 시작될 때 재생 중인 다른 큐에 하는 일: 정지, 그대로 두기, 또는 끝날 때까지 더킹 레벨로 낮추기.",
+    "apiTriggerUrlHelp": "다른 시스템, 스크립트 또는 브라우저에서 큐를 재생하려면 이 주소로 GET 또는 POST 요청을 보내세요.",
+    "groupTrim": "트림",
+    "groupFades": "페이드",
+    "groupStopLoop": "정지 및 루프",
+    "groupTransition": "전환"
   },
   "playback": {
     "panic": "모든 큐 정지",
@@ -527,7 +551,8 @@
     "noDevices": "출력 장치를 찾을 수 없습니다",
     "silentServer": "시스템 트레이에서 서버를 조용히 실행",
     "silentServerHelp": "콘솔 창 없이 서버를 시작합니다. 시스템 트레이(macOS에서는 메뉴 막대)의 아이콘으로 LivePlay를 닫은 후에도 서버가 실행 중임을 알 수 있으며, 아이콘 메뉴에서 콘솔 표시, 로그 열기, 서버 중지를 할 수 있습니다. 다음에 서버가 시작될 때 적용됩니다.",
-    "silentServerForced": "LivePlay가 --silent로 시작되어 이번 세션에서는 켜져 있습니다."
+    "silentServerForced": "LivePlay가 --silent로 시작되어 이번 세션에서는 켜져 있습니다.",
+    "localPortHelp": "이 컴퓨터의 오디오 엔진이 수신 대기하는 포트입니다. 다른 프로그램이 이미 사용 중일 때만 바꾸세요."
   },
   "serverConfig": {
     "title": "서버 구성",
@@ -805,7 +830,8 @@
     "volumeMultiplierHint": "MIDI 한 단계당 dB 값입니다. 작은 단위로 움직이는 인코더나 휠에서는 값을 높이세요.",
     "nextIn": "{seconds}초 후 다음",
     "stopCurrentCue": "현재 큐 정지",
-    "conflictPinned": "이미 {cart}에 고정됨"
+    "conflictPinned": "이미 {cart}에 고정됨",
+    "midiDeviceHelp": "LivePlay가 입력을 받는 컨트롤러입니다. 모든 장치를 선택하면 연결된 모든 컨트롤러에서 받습니다."
   },
   "selectProject": {
     "title": "프로젝트 선택",
@@ -1307,7 +1333,9 @@
       "signInMissing": "‘{name}’의 자격 증명을 이 컴퓨터에서 입력해야 합니다.",
       "signInWaiting": "‘{name}’에 로그인해야 합니다. 이 연결의 변경 사항을 저장하거나 취소하면 여기에 열립니다.",
       "signInLater": "나중에",
-      "signInDiscard": "변경 사항 버리고 로그인"
+      "signInDiscard": "변경 사항 버리고 로그인",
+      "nameHelp": "이벤트에 쓸 연결을 고를 때 이 연결이 표시되는 이름입니다.",
+      "enabledHelp": "끄면 이 연결로 아무것도 보내지 않으며 해당 이벤트도 실행되지 않습니다."
     },
     "zoom": "확대/축소",
     "zoomIn": "확대",
@@ -1327,7 +1355,10 @@
       "remove": "헤더 제거",
       "add": "헤더 추가",
       "rawLine": "헤더 줄"
-    }
+    },
+    "groupWhen": "시점",
+    "groupCommand": "명령",
+    "triggerHelp": "이벤트가 실행되는 시점: 파일의 특정 시간, 또는 큐가 시작, 일시 정지, 재개, 종료될 때."
   },
   "eventPlugins": {
     "osc": {

@@ -1,6 +1,9 @@
 <template>
   <div class="settings-pane outmap-pane">
-      <h3 class="settings-pane-title">{{ t('settings.sectionOutputs') }}</h3>
+      <h3 class="settings-pane-title">
+        {{ t('settings.sectionOutputs') }}
+        <SettingsScope scope="server" />
+      </h3>
 
       <!-- An operator sees the pane but not the map: which sockets this rig
            has is the machine's business, not the show's. Rendered as a
@@ -18,7 +21,7 @@
         <div class="remap-cols">
           <!-- ============ Left: the outputs this show needs ============ -->
           <section class="remap-col">
-            <h3 class="outmap-h3">{{ t('mixer.remap.missingHeading') }}</h3>
+            <h4 class="settings-group-title outmap-h3">{{ t('mixer.remap.missingHeading') }}</h4>
 
             <div v-if="loaded && missingSlots.length === 0" class="remap-allgood">
               <span class="material-symbols-rounded">check_circle</span>
@@ -67,7 +70,7 @@
             </div>
 
             <template v-if="otherSlots.length">
-              <h3 class="outmap-h3 remap-h3--second">{{ t('mixer.remap.otherHeading') }}</h3>
+              <h4 class="settings-group-title outmap-h3 remap-h3--second">{{ t('mixer.remap.otherHeading') }}</h4>
               <div class="remap-slots">
                 <div
                   v-for="slot in otherSlots"
@@ -108,7 +111,7 @@
 
           <!-- ============ Right: what this machine actually has ============ -->
           <section class="remap-col">
-            <h3 class="outmap-h3">{{ t('mixer.remap.availableHeading') }}</h3>
+            <h4 class="settings-group-title outmap-h3">{{ t('mixer.remap.availableHeading') }}</h4>
             <p v-if="selectedCard" class="remap-pickhint">{{ t('mixer.remap.pickSlot') }}</p>
 
             <p v-if="!loaded" class="outmap-none">{{ t('mixer.remap.loading') }}</p>
@@ -277,7 +280,7 @@
              the server to hold the device open — useful when an interface only
              appears to the system once something has claimed it. -->
         <section class="outmap-devices">
-          <h3 class="outmap-h3">{{ t('serverSettings.outputDevices') }}</h3>
+          <h4 class="settings-group-title outmap-h3">{{ t('serverSettings.outputDevices') }}</h4>
           <!-- No `.value`: useLiveplayServer returns reactive({...}), which
                unwraps its refs, so server.devices IS the array. Reaching for
                .value on it yields undefined, and `.length` on that throws
@@ -327,6 +330,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { Bus } from '~/types/project';
 import type { OutputMapChannel } from '~/composables/useLiveplayServer';
+import SettingsScope from './SettingsScope.vue';
 
 // "Remap Hardware Outputs": missing outputs on the left, this machine's
 // physical outputs on the right, drag (or click, click) one onto the other.
@@ -954,14 +958,17 @@ onBeforeUnmount(() => {
   border-radius: 6px;
 }
 
-.outmap-h3 {
+/* The headings take the shared group look (.settings-group-title, styled in
+   SettingsPage.vue). Inside a column the pane's 18px gap doesn't apply, so the
+   spacing is the column's own: none above the first heading, the column gap
+   below every one. */
+.remap-col .settings-group-title.outmap-h3,
+.outmap-devices .settings-group-title.outmap-h3 {
   margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
 }
-.remap-h3--second { margin-top: var(--spacing-sm, 8px); }
+.remap-col .settings-group-title.outmap-h3.remap-h3--second {
+  margin-top: var(--spacing-sm, 8px);
+}
 .outmap-empty, .outmap-none {
   margin: 0;
   font-size: 12px;

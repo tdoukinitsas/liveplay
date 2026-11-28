@@ -179,13 +179,26 @@
     "sectionConnections": "接続",
     "stopAllUsesItemFade": "停止するキューはそれぞれのストップボタン・フェードを使う",
     "stopAllUsesItemFadeHelp": "オンにすると、Stop All と「他のすべてを停止」ダッキングモードで、各キューがそれぞれのストップボタン・フェードでフェードアウトします。フェードのないキューは Stop All のフェードを使います。Stop All を2回押すと、従来どおりすべて即座に停止します。",
-    "thisComputer": "このコンピューター"
+    "thisComputer": "このコンピューター",
+    "scopeYou": "個人",
+    "scopeShow": "このショー",
+    "scopeServer": "サーバー",
+    "groupLanguageLayout": "言語とレイアウト",
+    "groupDisplay": "表示",
+    "groupGoUpNext": "GO とスタンバイ",
+    "groupNewCues": "新しいキュー",
+    "groupLoudness": "ラウドネスとメーター",
+    "groupRouting": "ルーティングとタイムコード",
+    "groupConnection": "接続",
+    "sectionPlaybackIntro": "キューの開始・停止と次のキューへの受け渡し、そして新しいキューの初期設定です。",
+    "disableAutoVolumeAndTrimHelp": "新しいキューはファイル本来のレベルと長さのままになります。レベル調整やトリミングは、各キューの「再生」タブでいつでも行えます。"
   },
   "common": {
     "default": "既定",
     "loading": "読み込み中…",
     "error": "エラー",
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "moreInfo": "詳細情報"
   },
   "project": {
     "enterName": "プロジェクト名を入力",
@@ -389,7 +402,18 @@
     "loopCrossfadeNeedsLoop": "ループクロスフェードを使うには、このキューの終了時の動作を「ループ」に設定してください。",
     "advanceDelay": "次までの待ち時間（秒）",
     "advanceDelayHint": "このキューが終わってから、終了時の動作で次のキューが始まるまで、この時間だけ待ちます。クロスフェードまたは「次を開始」が設定されている場合は無視されます。",
-    "duckTimesHint": "このキューの開始時に他のキューが下がるまでの時間と、終了時に戻るまでの時間です。"
+    "duckTimesHint": "このキューの開始時に他のキューが下がるまでの時間と、終了時に戻るまでの時間です。",
+    "volumeHelp": "このキューのレベルです。フェーダーをドラッグするか、-6.5 のように dB で入力します（無音は -inf）。",
+    "playFadeHelp": "開始するたびに、この秒数でキューをフェードインします。0 なら最初からフルレベルです。",
+    "stopFadeHelp": "アウトポイントの前に、この秒数でキューをフェードアウトします。0 なら最後までフルレベルで再生します。",
+    "crossFadeHelp": "アウトポイントまでのこの秒数の間、このキューがフェードアウトし、次のキューが重なってフェードインします。0 なら重ならずに切り替わります。",
+    "startNextHelp": "再生がマーカーに達すると、このキューを鳴らしたまま次のキューが始まります（ラジオ風のつなぎ）。",
+    "duckModeHelp": "このキューの開始時に、再生中の他のキューをどうするか：停止する、そのままにする、または終わるまでダッキングレベルに下げる。",
+    "apiTriggerUrlHelp": "このアドレスに GET または POST リクエストを送ると、別のシステム、スクリプト、ブラウザーからキューを再生できます。",
+    "groupTrim": "トリム",
+    "groupFades": "フェード",
+    "groupStopLoop": "停止とループ",
+    "groupTransition": "トランジション"
   },
   "playback": {
     "panic": "すべてのキューを停止",
@@ -527,7 +551,8 @@
     "noDevices": "出力デバイスが見つかりません",
     "silentServer": "サーバーをシステムトレイでサイレント実行する",
     "silentServerHelp": "コンソールウィンドウを開かずにサーバーを起動します。LivePlay を閉じた後も、システムトレイ（macOS ではメニューバー）のアイコンでサーバーの稼働がわかり、そのメニューからコンソールの表示、ログの表示、サーバーの停止ができます。次回サーバーを起動したときに反映されます。",
-    "silentServerForced": "LivePlay が --silent 付きで起動されたため、このセッションでは有効です。"
+    "silentServerForced": "LivePlay が --silent 付きで起動されたため、このセッションでは有効です。",
+    "localPortHelp": "このコンピューターのオーディオエンジンが待ち受けるポートです。他のプログラムがすでに使用している場合にのみ変更してください。"
   },
   "serverConfig": {
     "title": "サーバー設定",
@@ -805,7 +830,8 @@
     "volumeMultiplierHint": "MIDI の 1 ステップあたりの dB 値です。細かいステップで動くエンコーダーやホイールでは値を上げてください。",
     "nextIn": "次まで {seconds} 秒",
     "stopCurrentCue": "現在のキューを停止",
-    "conflictPinned": "{cart} に固定済み"
+    "conflictPinned": "{cart} に固定済み",
+    "midiDeviceHelp": "LivePlay が受け付けるコントローラーです。「すべてのデバイス」では接続中のすべてのコントローラーを受け付けます。"
   },
   "selectProject": {
     "title": "プロジェクトを選択",
@@ -1307,7 +1333,9 @@
       "signInMissing": "「{name}」の認証情報をこのマシンで入力する必要があります。",
       "signInWaiting": "「{name}」へのサインインが必要です。この接続への変更を保存またはキャンセルすると、ここに表示されます。",
       "signInLater": "後で",
-      "signInDiscard": "変更を破棄してサインイン"
+      "signInDiscard": "変更を破棄してサインイン",
+      "nameHelp": "イベントに接続を選ぶときに表示される、この接続の名前です。",
+      "enabledHelp": "オフにすると、この接続には何も送信されず、そのイベントも実行されません。"
     },
     "zoom": "ズーム",
     "zoomIn": "ズームイン",
@@ -1327,7 +1355,10 @@
       "remove": "ヘッダーを削除",
       "add": "ヘッダーを追加",
       "rawLine": "ヘッダー行"
-    }
+    },
+    "groupWhen": "タイミング",
+    "groupCommand": "コマンド",
+    "triggerHelp": "イベントが発生するタイミング：ファイル内の時刻、またはキューの開始・一時停止・再開・終了時。"
   },
   "eventPlugins": {
     "osc": {

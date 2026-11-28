@@ -1,11 +1,17 @@
 <template>
-  <!-- tabindex -1: a click on the tab's blank parts lands focus here rather
-       than on the page, so Delete still reaches the keyframe handler below. -->
-  <div class="waveform-trimmer" tabindex="-1" @keydown="handleTrimmerKeydown">
+  <!-- The Playback tab, in the frame every timeline editor here shares
+       (assets/styles/timeline.scss): fader | toolbar, timeline, zoom row |
+       inspector. tabindex -1: a click on the tab's blank parts lands focus
+       here rather than on the page, so Delete still reaches the keyframe
+       handler below. -->
+  <div class="waveform-trimmer tl-frame" tabindex="-1" @keydown="handleTrimmerKeydown">
     <!-- Volume Control with dB Display -->
     <div class="volume-control-section">
       <div class="volume-label">
-        <span>{{ t('properties.volume') }}</span>
+        <span class="volume-label-text">
+          {{ t('properties.volume') }}
+          <FieldHelp :text="t('properties.volumeHelp')" />
+        </span>
         <!-- Typed level (#56): the slider is small, and a precise trim is a
              number, not a drag. Commits on Enter/blur, Escape reverts. -->
         <span class="db-entry">
@@ -15,7 +21,7 @@
             class="db-input"
             :value="isMixed('volume') ? '' : volumeText"
             :placeholder="isMixed('volume') ? t('properties.multipleValues') : ''"
-            :title="t('properties.volumeDbInput')"
+            :aria-label="t('properties.volumeDbInput')"
             @focus="($event.target as HTMLInputElement).select()"
             @keydown.enter="($event.target as HTMLInputElement).blur()"
             @keydown.esc="cancelVolumeText"
@@ -33,6 +39,7 @@
           :max="VOLUME_MAX_DB"
           step="0.1"
           :value="volumeDB"
+          :aria-label="t('properties.volume')"
           @input="handleVolumeInput"
           @change="handleVolumeDragEnd"
           :style="{ '--volume-handle-color': volumeHandleColor }"
@@ -47,98 +54,74 @@
       </div>
     </div>
 
+    <div class="tl-main">
+      <!-- Toolbar: this tab's tools on the left, the cursor and Preview from
+           cursor on the right, as on every timeline tab. -->
+      <div class="tl-toolbar">
+        <Btn icon="content_cut" :text="t('properties.trimSilence')" @click="trimSilence" />
+        <Btn icon="tune" :text="t('properties.normalize')" @click="normalizeAudio" />
 
-
-    <!-- Waveform Display -->
-    <div class="waveform-section">
-      <!-- Zoom Controls -->
-      <div class="waveform-controls">
-        <div class="zoom-control" v-if="!multiSelect">
-          <span class="material-symbols-rounded">zoom_out</span>
-          <input
-            type="range"
-            class="zoom-slider"
-            min="1"
-            max="20"
-            step="0.5"
-            v-model.number="zoomLevel"
-          />
-          <span class="material-symbols-rounded">zoom_in</span>
-        </div>
-        <span class="zoom-level-text" v-if="!multiSelect">{{ Math.round(zoomLevel * 100) }}%</span>
-
-        <!-- Audio Tools -->
-        <div class="audio-tools">
-          <!-- Trim Silence Button -->
-          <button class="trim-silence-btn" @click="trimSilence" :title="t('properties.trimSilence')">
-            <span class="material-symbols-rounded">content_cut</span>
-            <span>{{ t('properties.trimSilence') }}</span>
-          </button>
-
-          <!-- Normalize Button -->
-          <button class="normalize-btn" @click="normalizeAudio" :title="t('properties.normalize')">
-            <span class="material-symbols-rounded">tune</span>
-            <span>{{ t('properties.normalize') }}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Volume automation (2.6) and the edit cursor. One item at a time:
-           keyframes are positions in that item's own file. -->
-      <div class="automation-bar" v-if="!multiSelect">
-        <label class="automation-toggle" :title="t('automation.enableHint')">
-          <input type="checkbox" :checked="automationEnabled" @change="handleAutomationToggle" />
-          <span class="material-symbols-rounded">timeline</span>
-          <span>{{ t('automation.enable') }}</span>
-        </label>
-        <template v-if="automationEnabled">
-          <button
-            class="tool-btn"
-            :disabled="!canAddKeyframe"
-            :title="t('automation.addKeyframeHint')"
-            @click="addKeyframeAtCursor"
-          >
-            <span class="material-symbols-rounded">add_circle</span>
-            <span>{{ t('automation.addKeyframe') }}</span>
-          </button>
-          <button
-            class="tool-btn"
-            :disabled="removableIndex === null"
-            :title="t('automation.removeKeyframeHint')"
-            @click="removeKeyframe"
-          >
-            <span class="material-symbols-rounded">remove_circle</span>
-            <span>{{ t('automation.removeKeyframe') }}</span>
-          </button>
-          <button
-            class="tool-btn"
-            :disabled="automationPoints.length === 0"
-            :title="t('automation.clearHint')"
-            @click="clearAutomation"
-          >
-            <span class="material-symbols-rounded">delete_sweep</span>
-            <span>{{ t('automation.clear') }}</span>
-          </button>
+        <!-- Volume automation (2.6). One item at a time: keyframes are
+             positions in that item's own file. -->
+        <template v-if="!multiSelect">
+          <span class="tl-toolbar-sep" aria-hidden="true" />
+          <label class="insp-check automation-toggle">
+            <input type="checkbox" :checked="automationEnabled" @change="handleAutomationToggle" />
+            <span class="material-symbols-rounded" aria-hidden="true">timeline</span>
+            <span>{{ t('automation.enable') }}</span>
+            <FieldHelp :text="t('automation.enableHint')" />
+          </label>
+          <template v-if="automationEnabled">
+            <button
+              type="button"
+              class="tl-icon-btn"
+              :disabled="!canAddKeyframe"
+              :title="t('automation.addKeyframeHint')"
+              :aria-label="t('automation.addKeyframe')"
+              @click="addKeyframeAtCursor"
+            >
+              <span class="material-symbols-rounded" aria-hidden="true">add_circle</span>
+            </button>
+            <button
+              type="button"
+              class="tl-icon-btn"
+              :disabled="removableIndex === null"
+              :title="t('automation.removeKeyframeHint')"
+              :aria-label="t('automation.removeKeyframe')"
+              @click="removeKeyframe"
+            >
+              <span class="material-symbols-rounded" aria-hidden="true">remove_circle</span>
+            </button>
+            <button
+              type="button"
+              class="tl-icon-btn"
+              :disabled="automationPoints.length === 0"
+              :title="t('automation.clearHint')"
+              :aria-label="t('automation.clear')"
+              @click="clearAutomation"
+            >
+              <span class="material-symbols-rounded" aria-hidden="true">delete_sweep</span>
+            </button>
+          </template>
         </template>
-        <span class="automation-readout" v-if="editReadout">{{ editReadout }}</span>
-        <span class="automation-spacer"></span>
-        <button
-          class="tool-btn"
-          :class="{ active: previewingThis }"
-          :disabled="!previewingThis && !previewAvailable"
-          :title="previewButtonTitle"
-          @click="togglePreviewFromCursor"
-        >
-          <span class="material-symbols-rounded">{{ previewingThis ? 'stop_circle' : 'headphones' }}</span>
-          <span>{{ previewingThis ? t('automation.stopPreview') : t('automation.previewFromCursor') }}</span>
-        </button>
+
+        <span class="tl-toolbar-spacer" />
+
+        <TimelineCursorTools
+          v-if="!multiSelect"
+          :item-uuid="audioItem.uuid"
+          :cursor="cursorTime"
+          :fallback="inPoint"
+          :duration="duration"
+          @update:cursor="cursorTime = $event"
+        />
       </div>
 
       <!-- Waveform Canvas Container. Kept mounted in ALL modes so the
            ResizeObserver target is stable; only its contents swap between the
            single-item canvas and the multi-selection message. -->
       <div
-        class="waveform-container"
+        class="waveform-container tl-timeline"
         :class="{ 'automation-on': automationEnabled && !multiSelect }"
         ref="waveformContainer"
         tabindex="0"
@@ -163,6 +146,8 @@
           @mouseleave="hoverTarget = 'none'"
           @contextmenu.prevent="handleCanvasContextMenu"
         ></canvas>
+
+        <span v-if="editReadout" class="tl-readout">{{ editReadout }}</span>
 
         <!-- Trim Handles -->
         <div
@@ -190,7 +175,7 @@
         <!-- Trim Region Overlay -->
         <div
           class="trim-overlay trim-overlay-left"
-          :style="{ width: inPointPosition + 'px' }"
+          :style="{ width: Math.max(0, inPointPosition) + 'px' }"
         ></div>
         <div
           class="trim-overlay trim-overlay-right"
@@ -258,237 +243,141 @@
         </template>
       </div>
 
-      <!-- Horizontal Scrollbar -->
-      <div class="waveform-scrollbar" v-if="!multiSelect">
-        <input
-          type="range"
-          class="scroll-slider"
-          min="0"
-          :max="maxScroll"
-          step="0.1"
-          v-model.number="scrollPosition"
-        />
-      </div>
+      <TimelineNav v-if="!multiSelect" :view="view" />
     </div>
 
-    <!-- Time Display (moved to right side) -->
-    <div class="time-display-section">
-      <div class="time-field">
-        <label>{{ t('properties.inPoint') }}</label>
-        <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustInPoint(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">remove</span>
-          </button>
-          <input
-            type="text"
-            class="time-input"
-            :value="isMixed('inPoint') ? '' : formatTimeDetailed(inPoint)" :placeholder="isMixed('inPoint') ? t('properties.multipleValues') : ''"
-            @change="handleInPointTextChange"
-            @focus="($event.target as HTMLInputElement).select()"
+    <!-- The inspector: this cue's playback times, in sections. A cart item
+         has no segue or pre-end fades, only the fade its Stop button uses. -->
+    <aside class="tl-inspector">
+      <!-- Two times to a section, so the whole inspector fits beside the
+           waveform at the panel's 300px default with nothing scrolling. -->
+      <div class="insp-groups">
+        <section class="insp-group">
+          <h4 class="insp-heading">{{ t('properties.groupTrim') }}</h4>
+          <InspectorTimeField
+            :label="t('properties.inPoint')"
+            :value="inPoint"
+            :mixed="isMixed('inPoint')"
+            @set="setInPoint"
+            @nudge="adjustInPoint"
           />
-          <button class="time-increment" @click="adjustInPoint(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">add</span>
-          </button>
-        </div>
-      </div>
-      <div class="time-field">
-        <label>{{ t('properties.outPoint') }}</label>
-        <div class="time-input-with-buttons">
-          <button class="time-decrement" @click="adjustOutPoint(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">remove</span>
-          </button>
-          <input
-            type="text"
-            class="time-input"
-            :value="isMixed('outPoint') ? '' : formatTimeDetailed(outPoint)"
-            :placeholder="isMixed('outPoint') ? t('properties.multipleValues') : ''"
-            @change="handleOutPointTextChange"
-            @focus="($event.target as HTMLInputElement).select()"
+          <InspectorTimeField
+            :label="t('properties.outPoint')"
+            :value="outPoint"
+            :mixed="isMixed('outPoint')"
+            @set="setOutPoint"
+            @nudge="adjustOutPoint"
           />
-          <button class="time-increment" @click="adjustOutPoint(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-            <span class="material-symbols-rounded">add</span>
-          </button>
-        </div>
-      </div>
-      <div class="time-field">
-        <label>{{ t('properties.duration') }}</label>
-        <input
-          type="text"
-          class="time-input"
-          :value="multiSelect ? '' : formatTimeDetailed(duration)"
-          :placeholder="multiSelect ? t('properties.multipleValues') : ''"
-          readonly
-        />
-      </div>
-    </div>
+          <p class="insp-readout">
+            {{ t('properties.duration') }}
+            <span class="insp-readout-value">{{ multiSelect ? t('properties.multipleValues') : formatTimeDetailed(duration) }}</span>
+          </p>
+        </section>
 
-    <!-- Fade & Transition Controls. A cart item has no segue or pre-end
-         fades, only the fade its Stop button uses. -->
-    <div v-if="isCartItem" class="fade-controls-section">
-      <div class="fade-column">
-        <div class="fade-control-group" :title="t('properties.manualStopFadeHint')">
-          <label>{{ t('properties.manualStopFade') }}</label>
-          <div class="time-input-with-buttons">
-            <button class="time-decrement" @click="adjustManualStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">remove</span>
-            </button>
-            <input
-              type="text"
-              class="time-input fade-input"
-              :value="isMixed('manualStopFade') ? '' : formatTimeDetailed(manualStopFade)" :placeholder="isMixed('manualStopFade') ? t('properties.multipleValues') : ''"
-              @change="handleManualStopFadeTextChange"
-              @focus="($event.target as HTMLInputElement).select()"
-            />
-            <button class="time-increment" @click="adjustManualStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">add</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div v-else class="fade-controls-section" style="--fade-columns: 3">
-      <div class="fade-column">
-        <div class="fade-control-group">
-          <label>{{ t('properties.playFade') }}</label>
-          <div class="time-input-with-buttons">
-            <button class="time-decrement" @click="adjustPlayFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">remove</span>
-            </button>
-            <input
-              type="text"
-              class="time-input fade-input"
-              :value="isMixed('playFade') ? '' : formatTimeDetailed(playFade)" :placeholder="isMixed('playFade') ? t('properties.multipleValues') : ''"
-              @change="handlePlayFadeTextChange"
-              @focus="($event.target as HTMLInputElement).select()"
-            />
-            <button class="time-increment" @click="adjustPlayFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">add</span>
-            </button>
-          </div>
-        </div>
-        <div class="fade-control-group">
-          <label>{{ t('properties.crossFade') }}</label>
-          <div class="time-input-with-buttons">
-            <button class="time-decrement" @click="adjustCrossFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">remove</span>
-            </button>
-            <input
-              type="text"
-              class="time-input fade-input"
-              :value="isMixed('crossFade') ? '' : formatTimeDetailed(crossFade)" :placeholder="isMixed('crossFade') ? t('properties.multipleValues') : ''"
-              @change="handleCrossFadeTextChange"
-              @focus="($event.target as HTMLInputElement).select()"
-            />
-            <button class="time-increment" @click="adjustCrossFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">add</span>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="fade-column">
-        <div class="fade-control-group">
-          <label>{{ t('properties.stopFade') }}</label>
-          <div class="time-input-with-buttons">
-            <button class="time-decrement" @click="adjustStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">remove</span>
-            </button>
-            <input
-              type="text"
-              class="time-input fade-input"
-              :value="isMixed('stopFade') ? '' : formatTimeDetailed(stopFade)" :placeholder="isMixed('stopFade') ? t('properties.multipleValues') : ''"
-              @change="handleStopFadeTextChange"
-              @focus="($event.target as HTMLInputElement).select()"
-            />
-            <button class="time-increment" @click="adjustStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">add</span>
-            </button>
-          </div>
-        </div>
-        <label class="start-next-toggle">
-          <input
-            type="checkbox"
-            :checked="!isMixed('startNextEnabled') && startNextEnabled"
-              :indeterminate="isMixed('startNextEnabled')"
-            @change="handleStartNextEnabledChange"
+        <section v-if="isCartItem" class="insp-group">
+          <h4 class="insp-heading">{{ t('properties.groupStopLoop') }}</h4>
+          <InspectorTimeField
+            :label="t('properties.manualStopFade')"
+            :help="t('properties.manualStopFadeHint')"
+            :value="manualStopFade"
+            :mixed="isMixed('manualStopFade')"
+            @set="setManualStopFade"
+            @nudge="adjustManualStopFade"
           />
-          <span>{{ t('properties.startNextEnable') }}</span>
-        </label>
-        <div class="fade-control-group" :class="{ 'start-next-disabled': !startNextEnabled }">
-          <label>{{ t('properties.startNextTime') }}</label>
-          <div class="time-input-with-buttons">
-            <button class="time-decrement" :disabled="!startNextEnabled" @click="adjustStartNextTime(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">remove</span>
-            </button>
-            <input
-              type="text"
-              class="time-input fade-input"
-              :value="isMixed('startNextTime') ? '' : formatTimeDetailed(startNextTime)" :placeholder="isMixed('startNextTime') ? t('properties.multipleValues') : ''"
+        </section>
+
+        <template v-else>
+          <section class="insp-group">
+            <h4 class="insp-heading">{{ t('properties.groupFades') }}</h4>
+            <InspectorTimeField
+              :label="t('properties.playFade')"
+              :help="t('properties.playFadeHelp')"
+              :value="playFade"
+              :mixed="isMixed('playFade')"
+              @set="setPlayFade"
+              @nudge="adjustPlayFade"
+            />
+            <InspectorTimeField
+              :label="t('properties.stopFade')"
+              :help="t('properties.stopFadeHelp')"
+              :value="stopFade"
+              :mixed="isMixed('stopFade')"
+              @set="setStopFade"
+              @nudge="adjustStopFade"
+            />
+          </section>
+
+          <!-- The two ways this cue hands over to the next: a crossfade, or
+               Start Next at a marker (Settings' "default transition mode"
+               chooses between the same two for new cues). -->
+          <section class="insp-group">
+            <h4 class="insp-heading">{{ t('properties.groupTransition') }}</h4>
+            <InspectorTimeField
+              :label="t('properties.crossFade')"
+              :help="t('properties.crossFadeHelp')"
+              :value="crossFade"
+              :mixed="isMixed('crossFade')"
+              @set="setCrossFade"
+              @nudge="adjustCrossFade"
+            />
+            <InspectorTimeField
+              :help="t('properties.startNextHelp')"
+              :value="startNextTime"
+              :mixed="isMixed('startNextTime')"
               :disabled="!startNextEnabled"
-              @change="handleStartNextTimeTextChange"
-              @focus="($event.target as HTMLInputElement).select()"
-            />
-            <button class="time-increment" :disabled="!startNextEnabled" @click="adjustStartNextTime(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">add</span>
-            </button>
-          </div>
-        </div>
-        <label class="start-next-toggle" :class="{ 'start-next-disabled': !startNextEnabled }">
-          <input
-            type="checkbox"
-            :checked="!isMixed('startNextFadeOut') && startNextFadeOut"
-              :indeterminate="isMixed('startNextFadeOut')"
-            :disabled="!startNextEnabled"
-            @change="handleStartNextFadeOutChange"
-          />
-          <span>{{ t('properties.startNextFadeOut') }}</span>
-        </label>
-      </div>
-      <!-- The operator's own fades: the Stop button, and a loop turning round. -->
-      <div class="fade-column">
-        <div class="fade-control-group" :title="t('properties.manualStopFadeHint')">
-          <label>{{ t('properties.manualStopFade') }}</label>
-          <div class="time-input-with-buttons">
-            <button class="time-decrement" @click="adjustManualStopFade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">remove</span>
-            </button>
-            <input
-              type="text"
-              class="time-input fade-input"
-              :value="isMixed('manualStopFade') ? '' : formatTimeDetailed(manualStopFade)" :placeholder="isMixed('manualStopFade') ? t('properties.multipleValues') : ''"
-              @change="handleManualStopFadeTextChange"
-              @focus="($event.target as HTMLInputElement).select()"
-            />
-            <button class="time-increment" @click="adjustManualStopFade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">add</span>
-            </button>
-          </div>
-        </div>
-        <div
-          class="fade-control-group"
-          :class="{ 'start-next-disabled': !isLooping }"
-          :title="isLooping ? t('properties.loopCrossfadeHint') : t('properties.loopCrossfadeNeedsLoop')"
-        >
-          <label>{{ t('properties.loopCrossfade') }}</label>
-          <div class="time-input-with-buttons">
-            <button class="time-decrement" :disabled="!isLooping" @click="adjustLoopCrossfade(-0.5)" :title="t('waveform.decreaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">remove</span>
-            </button>
-            <input
-              type="text"
-              class="time-input fade-input"
-              :value="isMixed('loopCrossfade') ? '' : formatTimeDetailed(loopCrossfade)" :placeholder="isMixed('loopCrossfade') ? t('properties.multipleValues') : ''"
-              :disabled="!isLooping"
-              @change="handleLoopCrossfadeTextChange"
-              @focus="($event.target as HTMLInputElement).select()"
-            />
-            <button class="time-increment" :disabled="!isLooping" @click="adjustLoopCrossfade(0.5)" :title="t('waveform.increaseBy', { seconds: '0.5' })">
-              <span class="material-symbols-rounded">add</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+              @set="setStartNextTime"
+              @nudge="adjustStartNextTime"
+            >
+              <template #label>
+                <span class="start-next-toggle">
+                  <input
+                    type="checkbox"
+                    :checked="!isMixed('startNextEnabled') && startNextEnabled"
+                    :indeterminate="isMixed('startNextEnabled')"
+                    :aria-label="t('properties.startNextEnable')"
+                    @change="handleStartNextEnabledChange"
+                  />
+                  <!-- "Start next at" + the time beside it reads as the setting. -->
+                  <span class="insp-label-text">{{ t('properties.startNextTime') }}</span>
+                </span>
+              </template>
+            </InspectorTimeField>
+            <label class="insp-check insp-check--sub" :class="{ 'insp-disabled': !startNextEnabled }">
+              <input
+                type="checkbox"
+                :checked="!isMixed('startNextFadeOut') && startNextFadeOut"
+                :indeterminate="isMixed('startNextFadeOut')"
+                :disabled="!startNextEnabled"
+                @change="handleStartNextFadeOutChange"
+              />
+              <span>{{ t('properties.startNextFadeOut') }}</span>
+            </label>
+          </section>
 
+          <!-- The operator's own fades: the Stop button, and a loop turning round. -->
+          <section class="insp-group">
+            <h4 class="insp-heading">{{ t('properties.groupStopLoop') }}</h4>
+            <InspectorTimeField
+              :label="t('properties.manualStopFade')"
+              :help="t('properties.manualStopFadeHint')"
+              :value="manualStopFade"
+              :mixed="isMixed('manualStopFade')"
+              @set="setManualStopFade"
+              @nudge="adjustManualStopFade"
+            />
+            <InspectorTimeField
+              :label="t('properties.loopCrossfade')"
+              :help="loopCrossfadeHelp"
+              :value="loopCrossfade"
+              :mixed="isMixed('loopCrossfade')"
+              :disabled="!isLooping"
+              @set="setLoopCrossfade"
+              @nudge="adjustLoopCrossfade"
+            />
+          </section>
+        </template>
+      </div>
+    </aside>
   </div>
 </template>
 
@@ -500,7 +389,16 @@ import {
 } from '~/utils/volumeAutomation';
 import { manualStopFadeOf } from '~/types/project';
 import { calculateNormalizationGain } from '~/utils/audio';
-import { waveformLanes as lanesOf, drawWaveformLanes, drawPlaybackMarkers } from '~/utils/waveformRender';
+import {
+  waveformLanes as lanesOf, drawWaveformLanes, drawPlaybackMarkers, drawTimeRuler, RULER_HEIGHT,
+} from '~/utils/waveformRender';
+import { formatEventTime } from '~/utils/events';
+import { useTimelineView } from '~/composables/useTimelineView';
+import Btn from './Btn.vue';
+import FieldHelp from './FieldHelp.vue';
+import InspectorTimeField from './InspectorTimeField.vue';
+import TimelineCursorTools from './TimelineCursorTools.vue';
+import TimelineNav from './TimelineNav.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
 import { focusTakesKeys } from '~/utils/hotkeyGuard';
@@ -582,9 +480,6 @@ const waveformCanvas = ref<HTMLCanvasElement | null>(null);
 const waveformContainer = ref<HTMLDivElement | null>(null);
 const isDrawing = ref(false);
 
-// Zoom and scroll
-const zoomLevel = ref(1);
-const scrollPosition = ref(0);
 
 // Get playback position for playhead
 const playbackPosition = computed(() => {
@@ -736,6 +631,11 @@ const volumeHandleColor = computed(() => {
   return '#1a4d2e';                  // Darker green below -36dB
 });
 
+// The edit cursor: where Add Keyframe and Preview from Cursor act, set by a
+// click on the waveform or typed in the toolbar. Only drawn while the cue is
+// stopped; a playing cue has its playhead instead.
+const cursorTime = ref<number | null>(null);
+
 // Time values
 const inPoint = computed(() => props.audioItem?.inPoint ?? 0);
 const outPoint = computed(() => props.audioItem?.outPoint ?? props.audioItem?.duration ?? 0);
@@ -757,16 +657,16 @@ const canvasWidth = computed(() => containerWidth.value);
 // sane rather than zero-height.
 const containerHeight = ref(120);
 
-// Calculate visible range based on zoom and scroll
-const visibleDuration = computed(() => duration.value / zoomLevel.value);
-const visibleStart = computed(() => {
-  const maxStart = Math.max(0, duration.value - visibleDuration.value);
-  return (scrollPosition.value / 100) * maxStart;
-});
-const visibleEnd = computed(() => Math.min(duration.value, visibleStart.value + visibleDuration.value));
-
-// Max scroll value
-const maxScroll = computed(() => (zoomLevel.value > 1 ? 100 : 0));
+// The visible window (composables/useTimelineView), the same model and
+// controls as the Events tab: zoom to a quarter of a second, a log slider,
+// the wheel zooming at the pointer and Shift+wheel or a middle drag panning.
+// The buttons zoom around the edit cursor when it is on screen.
+const view = useTimelineView(duration, () => cursorTime.value);
+const visibleDuration = computed(() => view.visibleDuration || duration.value || 1);
+const visibleStart = computed(() => view.viewStart);
+const visibleEnd = computed(() => Math.min(duration.value, view.viewEnd));
+// Another cue: start from the whole file.
+watch(() => props.audioItem?.uuid, () => view.fit());
 
 // Position calculations for trim handles
 const inPointPosition = computed(() => {
@@ -924,9 +824,6 @@ const automationEnabled = computed(() => !!props.audioItem?.volumeAutomation?.en
 const automationPoints = computed<VolumeAutomationPoint[]>(() =>
   sortPoints(props.audioItem?.volumeAutomation?.points ?? []));
 
-// The edit cursor: where Add Keyframe and Preview from Cursor act. Only shown
-// while the cue is stopped; a playing cue has its playhead instead.
-const cursorTime = ref<number | null>(null);
 const selection = ref<{ a: number; b: number } | null>(null);
 const selectedKeyframe = ref<number | null>(null);   // index into automationPoints
 type HoverKind = 'none' | 'keyframe' | 'line' | 'selection-line' | 'background';
@@ -1006,41 +903,21 @@ const editReadout = computed(() => {
   if (p) return `${formatTimeDetailed(p.t)} · ${formatDb(p.db)}`;
   if (selection.value && automationEnabled.value)
     return `${formatTimeDetailed(selection.value.a)} – ${formatTimeDetailed(selection.value.b)}`;
-  if (!isPlaying.value && cursorTime.value !== null) return formatTimeDetailed(cursorTime.value);
   return '';
 });
 
-// ---- Preview from cursor ----------------------------------------------------
-// The audition goes to the preview-role bus. Without a preview bus that reaches
-// hardware there is nothing to hear, so the button stays off and says why.
-const { previewItemUuid, startPreview, stopPreview } = useProject();
-const liveServer = useLiveplayServer();
-const previewingThis = computed(() =>
-  !!props.audioItem?.uuid && previewItemUuid.value === props.audioItem.uuid);
-const previewAvailable = computed(() => {
-  if (!liveServer.connected) return false;
-  const bus = liveServer.buses.find(b => b.preview);
-  return !!bus && bus.bound !== false;
-});
-const previewButtonTitle = computed(() => {
-  if (previewingThis.value) return t('automation.stopPreview');
-  return previewAvailable.value ? t('automation.previewFromCursorHint') : t('automation.previewUnavailable');
-});
-const togglePreviewFromCursor = () => {
-  if (previewingThis.value) { stopPreview(); return; }
-  if (!previewAvailable.value) return;
-  startPreview(props.audioItem.uuid, cursorTime.value ?? inPoint.value);
-};
-
 // ---- Geometry ---------------------------------------------------------------
 const ENV_PAD = 8;   // px kept clear above +10 dB and below -inf
+// The ruler band along the top (utils/waveformRender) is not drawing area: the
+// waveform, fades and envelope all live in the box under it.
+const CONTENT_TOP = RULER_HEIGHT;
 const timeAtX = (x: number) => visibleStart.value + (x / Math.max(1, canvasWidth.value)) * visibleDuration.value;
 const xAtTime = (time: number) => ((time - visibleStart.value) / visibleDuration.value) * canvasWidth.value;
 const yAtDb = (db: number, h = containerHeight.value) => {
   const f = (clampEnvelopeDb(db) - ENVELOPE_MIN_DB) / (ENVELOPE_MAX_DB - ENVELOPE_MIN_DB);
-  return ENV_PAD + (1 - f) * Math.max(1, h - 2 * ENV_PAD);
+  return CONTENT_TOP + ENV_PAD + (1 - f) * Math.max(1, h - CONTENT_TOP - 2 * ENV_PAD);
 };
-const dbPerPixel = () => (ENVELOPE_MAX_DB - ENVELOPE_MIN_DB) / Math.max(1, containerHeight.value - 2 * ENV_PAD);
+const dbPerPixel = () => (ENVELOPE_MAX_DB - ENVELOPE_MIN_DB) / Math.max(1, containerHeight.value - CONTENT_TOP - 2 * ENV_PAD);
 const clampTime = (time: number) => Math.max(0, Math.min(duration.value, time));
 
 type Hit =
@@ -1075,15 +952,13 @@ const handleMiddlePan = (event: MouseEvent) => {
   if (event.button !== 1 || props.multiSelect) return;
   event.preventDefault();      // no browser autoscroll
   event.stopPropagation();
-  const maxStart = Math.max(0, duration.value - visibleDuration.value);
-  if (maxStart <= 0) return;   // not zoomed in: nothing to pan
+  if (view.maxViewStart <= 0) return;   // not zoomed in: nothing to pan
   const fromX = event.clientX;
-  const fromStart = visibleStart.value;
+  const fromStart = view.viewStart;
   panning.value = true;
   const onMove = (e: MouseEvent) => {
     const dt = ((e.clientX - fromX) / Math.max(1, canvasWidth.value)) * visibleDuration.value;
-    const start = Math.max(0, Math.min(maxStart, fromStart - dt));
-    scrollPosition.value = (start / maxStart) * 100;
+    view.scrollTo(fromStart - dt);
   };
   const onUp = () => {
     panning.value = false;
@@ -1258,10 +1133,10 @@ const drawAutomationLayer = (ctx: CanvasRenderingContext2D, h: number) => {
       ctx.save();
       ctx.globalAlpha = 0.14;
       ctx.fillStyle = accent;
-      ctx.fillRect(xa, 0, xb - xa, h);
+      ctx.fillRect(xa, CONTENT_TOP, xb - xa, h - CONTENT_TOP);
       ctx.globalAlpha = 0.6;
-      ctx.fillRect(xa, 0, 1, h);
-      ctx.fillRect(xb - 1, 0, 1, h);
+      ctx.fillRect(xa, CONTENT_TOP, 1, h - CONTENT_TOP);
+      ctx.fillRect(xb - 1, CONTENT_TOP, 1, h - CONTENT_TOP);
       ctx.restore();
     }
   }
@@ -1321,11 +1196,12 @@ const drawAutomationLayer = (ctx: CanvasRenderingContext2D, h: number) => {
   ctx.restore();
 };
 
-// Handle wheel zoom
+// Wheel: zoom at the pointer; Shift+wheel or a sideways wheel pans.
 const handleWheel = (event: WheelEvent) => {
   if (props.multiSelect) return; // no canvas to zoom in multi-selection
-  const delta = event.deltaY > 0 ? -0.5 : 0.5;
-  zoomLevel.value = Math.max(1, Math.min(20, zoomLevel.value + delta));
+  const rect = waveformContainer.value?.getBoundingClientRect();
+  if (!rect) return;
+  view.onWheel(event, clampTime(timeAtX(event.clientX - rect.left)), canvasWidth.value);
 };
 
 // Real-time volume preview during drag — updates the value but does NOT save.
@@ -1339,73 +1215,18 @@ const handleVolumeDragEnd = () => {
   emit('change');
 };
 
-// Fade change handlers
-const handlePlayFadeChange = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const value = parseFloat(target.value);
-  emit('update:playFade', value);
+// Times read m:ss.mmm, as on the Events tab and everywhere else in the frame
+// (InspectorTimeField parses what is typed).
+const formatTimeDetailed = (seconds: number): string => formatEventTime(seconds);
+
+// Typed times (InspectorTimeField has parsed them), clamped as a drag is.
+const setInPoint = (s: number) => {
+  emit('update:inPoint', Math.max(0, Math.min(s, outPoint.value - 0.01)));
   emit('change');
 };
 
-const handleStopFadeChange = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const value = parseFloat(target.value);
-  emit('update:stopFade', value);
-  emit('change');
-};
-
-const handlePauseFadeChange = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const value = parseFloat(target.value);
-  emit('update:pauseFade', value);
-  emit('change');
-};
-
-const handleCrossFadeChange = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const value = parseFloat(target.value);
-  emit('update:crossFade', value);
-  emit('change');
-};
-
-// Format time as HH:MM:SS.mmm
-const formatTimeDetailed = (seconds: number): string => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  const milliseconds = Math.floor((seconds % 1) * 1000);
-
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
-};
-
-// Parse a typed time. Accepts the displayed HH:MM:SS.mmm, and the shorter
-// forms people actually type: "90" or "90.5" (seconds), "1:30" (MM:SS),
-// "1:02:30" (HH:MM:SS). Anything else (the old parser's only answer for
-// everything but the full form) is 0.
-const parseTimeDetailed = (timeStr: string): number => {
-  const parts = timeStr.trim().split(':');
-  if (parts.length === 0 || parts.length > 3) return 0;
-  let total = 0;
-  for (const part of parts) {
-    const n = parseFloat(part);
-    if (Number.isNaN(n) || n < 0) return 0;
-    total = total * 60 + n;
-  }
-  return total;
-};
-
-// Handle time input changes
-const handleInPointTextChange = (event: Event) => {
-  const value = (event.target as HTMLInputElement).value;
-  const parsed = parseTimeDetailed(value);
-  emit('update:inPoint', Math.max(0, Math.min(parsed, outPoint.value - 0.01)));
-  emit('change');
-};
-
-const handleOutPointTextChange = (event: Event) => {
-  const value = (event.target as HTMLInputElement).value;
-  const parsed = parseTimeDetailed(value);
-  emit('update:outPoint', Math.min(props.audioItem.duration, Math.max(parsed, inPoint.value + 0.01)));
+const setOutPoint = (s: number) => {
+  emit('update:outPoint', Math.min(props.audioItem.duration, Math.max(s, inPoint.value + 0.01)));
   emit('change');
 };
 
@@ -1437,27 +1258,9 @@ const adjustCrossFade = (delta: number) => {
   emit('change');
 };
 
-// Text change handlers for fade inputs
-const handlePlayFadeTextChange = (event: Event) => {
-  const value = (event.target as HTMLInputElement).value;
-  const parsed = parseTimeDetailed(value);
-  emit('update:playFade', clampFade(parsed));
-  emit('change');
-};
-
-const handleStopFadeTextChange = (event: Event) => {
-  const value = (event.target as HTMLInputElement).value;
-  const parsed = parseTimeDetailed(value);
-  emit('update:stopFade', clampFade(parsed));
-  emit('change');
-};
-
-const handleCrossFadeTextChange = (event: Event) => {
-  const value = (event.target as HTMLInputElement).value;
-  const parsed = parseTimeDetailed(value);
-  emit('update:crossFade', clampFade(parsed));
-  emit('change');
-};
+const setPlayFade = (s: number) => { emit('update:playFade', clampFade(s)); emit('change'); };
+const setStopFade = (s: number) => { emit('update:stopFade', clampFade(s)); emit('change'); };
+const setCrossFade = (s: number) => { emit('update:crossFade', clampFade(s)); emit('change'); };
 
 // The Stop button's fade is not bounded by the trim: stopping a cue that is
 // halfway through a long bed can reasonably take longer than what is left.
@@ -1471,14 +1274,13 @@ const adjustLoopCrossfade = (delta: number) => {
   emit('update:loopCrossfade', clampLoopCrossfade(loopCrossfade.value + delta));
   emit('change');
 };
-const handleLoopCrossfadeTextChange = (event: Event) => {
-  emit('update:loopCrossfade', clampLoopCrossfade(parseTimeDetailed((event.target as HTMLInputElement).value)));
-  emit('change');
-};
-const handleManualStopFadeTextChange = (event: Event) => {
-  emit('update:manualStopFade', Math.max(0, parseTimeDetailed((event.target as HTMLInputElement).value)));
-  emit('change');
-};
+const setLoopCrossfade = (s: number) => { emit('update:loopCrossfade', clampLoopCrossfade(s)); emit('change'); };
+const setManualStopFade = (s: number) => { emit('update:manualStopFade', Math.max(0, s)); emit('change'); };
+// Disabled until the cue loops: the description says so, rather than a
+// tooltip only a mouse can find.
+const loopCrossfadeHelp = computed(() => (isLooping.value
+  ? t('properties.loopCrossfadeHint')
+  : `${t('properties.loopCrossfadeHint')} ${t('properties.loopCrossfadeNeedsLoop')}`));
 
 // Start Next marker handlers
 const handleStartNextEnabledChange = (event: Event) => {
@@ -1503,10 +1305,8 @@ const adjustStartNextTime = (delta: number) => {
   emit('change');
 };
 
-const handleStartNextTimeTextChange = (event: Event) => {
-  const value = (event.target as HTMLInputElement).value;
-  const parsed = parseTimeDetailed(value);
-  emit('update:startNextTime', Math.max(inPoint.value, Math.min(parsed, outPoint.value)));
+const setStartNextTime = (s: number) => {
+  emit('update:startNextTime', Math.max(inPoint.value, Math.min(s, outPoint.value)));
   emit('change');
 };
 
@@ -1572,66 +1372,26 @@ const drawWaveform = () => {
   ctx.fillStyle = bgColor || '#000';
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight);
 
-  const middleY = canvasHeight / 2;
-
-  // Draw time grid (always shown, behind waveform if present)
-  ctx.strokeStyle = 'rgba(128, 128, 128, 0.3)';
-  ctx.lineWidth = 1;
-  ctx.font = '10px sans-serif';
-  ctx.fillStyle = 'rgba(128, 128, 128, 0.6)';
-
-  // Calculate dynamic time step based on visible duration and zoom level
-  // Goal: Show grid lines every ~50-100 pixels
-  const pixelsPerSecond = canvasWidth.value / visibleDuration.value;
-  const targetPixelsPerGrid = 75; // Ideal spacing between grid lines
-
-  // Calculate initial time step
-  let timeStep = targetPixelsPerGrid / pixelsPerSecond;
-
-  // Round to nice intervals: 0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600 seconds
-  const niceIntervals = [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600];
-  timeStep = niceIntervals.reduce((prev, curr) =>
-    Math.abs(curr - timeStep) < Math.abs(prev - timeStep) ? curr : prev
-  );
-
-  for (let time = Math.ceil(visibleStart.value / timeStep) * timeStep; time <= visibleEnd.value; time += timeStep) {
-    const x = (time - visibleStart.value) * pixelsPerSecond;
-
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, canvasHeight);
-    ctx.stroke();
-
-    // Draw time label - format depends on scale
-    let label: string;
-    if (timeStep < 1) {
-      // Show with decimal for sub-second intervals
-      label = time.toFixed(1) + 's';
-    } else if (timeStep < 60) {
-      // Show seconds
-      const minutes = Math.floor(time / 60);
-      const seconds = Math.floor(time % 60);
-      label = minutes > 0 ? `${minutes}:${seconds.toString().padStart(2, '0')}` : `${seconds}s`;
-    } else {
-      // Show minutes:seconds
-      const minutes = Math.floor(time / 60);
-      const seconds = Math.floor(time % 60);
-      label = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    }
-    ctx.fillText(label, x + 4, 12);
-  }
-
-  const view = {
+  // The ruler along the top, as on every timeline tab; everything else is
+  // drawn in the box under it.
+  drawTimeRuler(ctx, {
     duration: duration.value, start: visibleStart.value, end: visibleEnd.value,
     width: canvasWidth.value, height: canvasHeight,
+  });
+  const contentHeight = Math.max(1, canvasHeight - CONTENT_TOP);
+  const contentView = {
+    duration: duration.value, start: visibleStart.value, end: visibleEnd.value,
+    width: canvasWidth.value, height: contentHeight,
   };
+  ctx.save();
+  ctx.translate(0, CONTENT_TOP);
 
   if (hasWaveform.value && waveformLanes.value.length > 0 && duration.value > 0) {
     // One lane per source channel (#47): a stereo file draws L above R, mono
     // (and legacy single-array waveforms) fills the full height as before.
     // Bars in the output target's zone colours (the stereo meter's palette),
     // so the waveform and meter always agree visually.
-    drawWaveformLanes(ctx, waveformLanes.value, view, {
+    drawWaveformLanes(ctx, waveformLanes.value, contentView, {
       volume: props.audioItem?.volume ?? 1,
       targetDb: outputTargetLevels.value?.autoVolumeTargetDb ?? -23,
       rgbFor: db => hexToRgb(colorForLevel(db)),
@@ -1643,7 +1403,7 @@ const drawWaveform = () => {
     ctx.font = '14px sans-serif';
     ctx.fillStyle = 'rgba(128, 128, 128, 0.5)';
     ctx.textAlign = 'center';
-    ctx.fillText(t('properties.noWaveformData'), canvasWidth.value / 2, middleY);
+    ctx.fillText(t('properties.noWaveformData'), canvasWidth.value / 2, contentHeight / 2);
     ctx.textAlign = 'left';
   }
 
@@ -1651,8 +1411,8 @@ const drawWaveform = () => {
   ctx.strokeStyle = 'rgba(128, 128, 128, 0.3)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(0, middleY);
-  ctx.lineTo(canvasWidth.value, middleY);
+  ctx.moveTo(0, contentHeight / 2);
+  ctx.lineTo(canvasWidth.value, contentHeight / 2);
   ctx.stroke();
 
   // Draw fade visualizations (always, regardless of playback state)
@@ -1666,9 +1426,11 @@ const drawWaveform = () => {
     startNextTime: startNextTime.value,
     startNextFadeOut: props.audioItem.startNextFadeOut,
     fadeOutDuration: props.audioItem.fadeOutDuration,
-  }, view);
+  }, contentView);
+  ctx.restore();
 
-  // Selection, edit cursor and the automation envelope.
+  // Selection, edit cursor and the automation envelope (full-height
+  // coordinates: yAtDb already keeps clear of the ruler).
   if (duration.value > 0) drawAutomationLayer(ctx, canvasHeight);
 
   // Draw playhead if item is currently playing
@@ -1711,8 +1473,8 @@ const throttledDraw = () => {
 
 // Watch for changes and redraw
 watch([
-  zoomLevel,
-  scrollPosition,
+  () => view.zoom,
+  () => view.viewStart,
   () => props.audioItem?.volume,
   () => props.audioItem?.inPoint,
   () => props.audioItem?.outPoint,
@@ -1807,32 +1569,15 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Fills the tab panel rather than being capped at a constant. The old
-   `max-height: 149px` with `overflow: hidden` predates the panel being
-   resizable: it clipped the horizontal scrollbar outright, and squeezed the
-   120px canvas box to ~97px while the bitmap was still drawn at 120 — so the
-   waveform was scaled by CSS and read as blurred.
+/* The Playback tab in the shared timeline frame (assets/styles/timeline.scss
+   has the toolbar, timeline box, inspector and field styles). What is left
+   here is this tab's own: the fader, the canvas, and the handles on it.
 
    The floor is what fits in the panel at its 300px default (~152px of content
    after the header, tabs and padding), so nothing scrolls at the height the
    panel has always had; below that .properties-content takes over. */
 .waveform-trimmer {
-  display: flex;
-  gap: var(--spacing-sm);
-  padding: 0;
-  background: transparent;
-  flex: 1;
   min-height: 150px;
-  outline: none;
-}
-
-/* The fader and its scale earn the height — a taller throw is a finer trim —
-   so these stretch with the row. The time and fade columns do not: they hold a
-   fixed number of fields, and stretching them would leave a tall empty slab of
-   --color-surface beside the waveform. */
-.time-display-section,
-.fade-controls-section {
-  align-self: flex-start;
 }
 
 /* Volume Control */
@@ -1841,6 +1586,8 @@ onUnmounted(() => {
   flex-direction: column;
   gap: var(--spacing-xs);
   min-width: 70px;
+  /* Never squeezed: its scale would spill over the toolbar beside it. */
+  flex: 0 0 auto;
 }
 
 .volume-label {
@@ -1987,279 +1734,39 @@ onUnmounted(() => {
   color: var(--color-text-secondary);
 }
 
-/* Fade & Transition Controls Section */
-.fade-controls-section {
-  display: grid;
-  grid-template-columns: repeat(var(--fade-columns, 2), minmax(0, 1fr));
-  align-items: start;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs);
-  background: var(--color-surface);
-  border-radius: var(--border-radius-sm);
-  /* 150px per column: two for a cart item's single one, three for a cue. */
-  width: calc(150px * var(--fade-columns, 2));
-}
 
-.fade-column {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  min-width: 0;
-}
-
-.fade-control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.start-next-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  font-weight: 500;
-  cursor: pointer;
-  text-wrap: wrap;
-}
-
-.start-next-toggle input[type='checkbox'] {
-  accent-color: rgb(22, 163, 74);
-  cursor: pointer;
-}
-
-.start-next-disabled {
-  opacity: 0.45;
-  pointer-events: auto;
-}
-
-.fade-control-group label {
-  font-size: 10px;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.fade-input {
-  width: 100%;
-  padding: 4px var(--spacing-xs);
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  color: var(--color-text-primary);
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-  text-align: center;
-}
-
-.fade-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-.fade-unit {
-  display: inline-block;
-  font-size: 9px;
-  color: var(--color-text-secondary);
-  margin-top: 2px;
-}
-
-/* Waveform Section */
-.waveform-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  min-width: 0;
-  /* Lets the canvas container shrink to the column rather than overflowing it,
-     which is what used to push the zoom row and scrollbar out of the clip. */
-  min-height: 0;
-}
-
-.waveform-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--spacing-xs) var(--spacing-sm);
-  background: var(--color-surface);
-  border-radius: var(--border-radius-sm);
-  gap: var(--spacing-md);
-  /* Fixed furniture: the height goes to the canvas, not to these. */
-  flex: 0 0 auto;
-}
-
-.zoom-control {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-}
-
-.zoom-control .material-symbols-rounded {
-  font-size: 18px;
-  color: var(--color-text-secondary);
-}
-
-.zoom-slider {
-  width: 120px;
-  cursor: pointer;
-}
-
-.zoom-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  background: var(--color-accent-custom, var(--color-accent));
-  cursor: pointer;
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.audio-tools {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.trim-silence-btn,
-.normalize-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover {
-    background: var(--color-surface-hover);
-    border-color: var(--color-accent);
-  }
-
-  .material-symbols-rounded {
-    font-size: 18px;
-  }
-}
-
-
-
-.zoom-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  background: var(--color-accent-custom, var(--color-accent));
-  cursor: pointer;
-  border-radius: 50%;
-  border: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.zoom-slider::-webkit-slider-track {
-  background: var(--color-border);
-  height: 4px;
-  border-radius: 2px;
-}
-
-.zoom-slider::-moz-range-track {
-  background: var(--color-border);
-  height: 4px;
-  border-radius: 2px;
-}
-
-.zoom-level-text {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  min-width: 45px;
-  text-align: right;
-}
-
-/* Volume automation + edit-cursor bar. Wraps on a narrow panel rather than
-   pushing the canvas out; fixed furniture, like the zoom row. */
-.automation-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 4px var(--spacing-sm);
-  background: var(--color-surface);
-  border-radius: var(--border-radius-sm);
-  flex: 0 0 auto;
-}
-
+/* The automation switch, its icon and its description read as one control. */
 .automation-toggle {
-  display: flex;
-  align-items: center;
   gap: 6px;
-  font-size: 13px;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  margin-right: 6px;
   user-select: none;
 
   .material-symbols-rounded { font-size: 18px; color: var(--color-text-secondary); }
 }
 
-.tool-btn {
+/* Start Next's switch, in its time's label, in the marker's own green. */
+.start-next-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-text-primary);
+  cursor: pointer;
+
+  input[type='checkbox'] {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0;
+    accent-color: rgb(22, 163, 74);
+    cursor: pointer;
+  }
+}
+
+.volume-label-text {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-
-  .material-symbols-rounded { font-size: 16px; }
-
-  &:hover:not(:disabled) {
-    background: var(--color-surface-hover);
-    border-color: var(--color-accent);
-  }
-  &:disabled { opacity: 0.45; cursor: not-allowed; }
-  &.active {
-    border-color: var(--color-accent);
-    color: var(--color-text-primary);
-  }
-}
-
-.automation-readout {
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-secondary);
-  padding: 0 4px;
-}
-
-.automation-spacer { flex: 1; }
-
-/* Waveform Container — the one thing in the column that takes the slack. Its
-   measured height drives the canvas backing store (see containerHeight), so
-   the drawing surface and the box always agree. */
-.waveform-container {
-  position: relative;
-  width: 100%;
-  flex: 1;
-  min-height: 72px;
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  overflow: hidden;
-  cursor: crosshair;
-  outline: none;
-}
-.waveform-container:focus-visible {
-  border-color: var(--color-accent);
+  gap: 2px;
 }
 
 .waveform-canvas {
@@ -2291,10 +1798,6 @@ onUnmounted(() => {
 .waveform-multi-message p {
   font-size: 12px;
   max-width: 320px;
-}
-
-.time-field-disabled {
-  opacity: 0.55;
 }
 
 /* Trim Handles */
@@ -2334,7 +1837,8 @@ onUnmounted(() => {
 
 .trim-grip {
   position: absolute;
-  top: 50%;
+  /* The middle of the waveform, which sits under the ruler band. */
+  top: calc(50% + 9px);
   transform: translateY(-50%);
   width: 20px;
   height: 32px;
@@ -2394,7 +1898,8 @@ onUnmounted(() => {
 
 .fade-grip {
   position: absolute;
-  top: 50%;
+  /* The middle of the waveform, which sits under the ruler band. */
+  top: calc(50% + 9px);
   transform: translateY(-50%);
   width: 24px;
   height: 24px;
@@ -2473,134 +1978,4 @@ onUnmounted(() => {
   left: auto;
 }
 
-/* Scrollbar */
-.waveform-scrollbar {
-  width: 100%;
-  flex: 0 0 auto;
-}
-
-.scroll-slider {
-  width: 100%;
-  cursor: pointer;
-}
-
-.scroll-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  background: var(--color-accent-custom, var(--color-accent));
-  cursor: pointer;
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.scroll-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  background: var(--color-accent-custom, var(--color-accent));
-  cursor: pointer;
-  border-radius: 50%;
-  border: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.scroll-slider::-webkit-slider-track {
-  background: var(--color-border);
-  height: 4px;
-  border-radius: 2px;
-}
-
-.scroll-slider::-moz-range-track {
-  background: var(--color-border);
-  height: 4px;
-  border-radius: 2px;
-}
-
-/* Time Display Section (right side) */
-.time-display-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  width: 150px;
-  padding: var(--spacing-xs);
-  background: var(--color-surface);
-  border-radius: var(--border-radius-sm);
-}
-
-.time-field {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.time-field label {
-  font-size: 10px;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  font-weight: 500;
-}
-
-.time-input-with-buttons {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.time-decrement,
-.time-increment {
-  padding: 2px;
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 22px;
-  transition: all 0.15s ease;
-}
-
-.time-decrement:hover,
-.time-increment:hover {
-  background: var(--color-background-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-}
-
-.time-decrement:active,
-.time-increment:active {
-  transform: scale(0.95);
-}
-
-.time-decrement .material-symbols-rounded,
-.time-increment .material-symbols-rounded {
-  font-size: 16px;
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
-}
-
-.time-input {
-  padding: 4px var(--spacing-xs);
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  color: var(--color-text-primary);
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-  text-align: center;
-  flex: 1;
-  min-width: 0;
-}
-
-.time-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-.time-input:read-only {
-  opacity: 0.6;
-  cursor: default;
-}
 </style>

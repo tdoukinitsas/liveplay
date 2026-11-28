@@ -179,13 +179,26 @@
     "sectionConnections": "Connessioni",
     "stopAllUsesItemFade": "I cue fermati usano la propria dissolvenza del pulsante Stop",
     "stopAllUsesItemFadeHelp": "Se attivo, Stop All e la modalità di ducking «Ferma tutti gli altri» sfumano ogni cue con la propria dissolvenza del pulsante Stop. I cue senza usano quella di Stop All. Premere Stop All due volte ferma comunque tutto all'istante.",
-    "thisComputer": "Questo computer"
+    "thisComputer": "Questo computer",
+    "scopeYou": "Personale",
+    "scopeShow": "Questo spettacolo",
+    "scopeServer": "Server",
+    "groupLanguageLayout": "Lingua e layout",
+    "groupDisplay": "Visualizzazione",
+    "groupGoUpNext": "GO e «Prossimo»",
+    "groupNewCues": "Nuovi cue",
+    "groupLoudness": "Loudness e misurazione",
+    "groupRouting": "Routing e timecode",
+    "groupConnection": "Connessione",
+    "sectionPlaybackIntro": "Come i cue partono, si fermano e si passano il testimone, e con quali impostazioni nascono i nuovi cue.",
+    "disableAutoVolumeAndTrimHelp": "I nuovi cue mantengono il livello e la durata del file. Puoi sempre livellare o rifilare qualsiasi cue nella sua scheda Riproduzione."
   },
   "common": {
     "default": "predefinito",
     "loading": "Caricamento…",
     "error": "Errore",
-    "cancel": "Annulla"
+    "cancel": "Annulla",
+    "moreInfo": "Ulteriori informazioni"
   },
   "project": {
     "enterName": "Nome del progetto",
@@ -389,7 +402,18 @@
     "loopCrossfadeNeedsLoop": "Imposta il comportamento di fine di questo cue su «Loop» per usare la dissolvenza del loop.",
     "advanceDelay": "Attesa prima del successivo (secondi)",
     "advanceDelayHint": "Al termine di questo cue, attendi questo tempo prima che il suo comportamento di fine avvii il cue successivo. Ignorato se è impostata una dissolvenza incrociata o «Avvia successivo».",
-    "duckTimesHint": "Quanto impiegano gli altri cue ad abbassarsi quando parte questo cue, e a tornare su quando finisce."
+    "duckTimesHint": "Quanto impiegano gli altri cue ad abbassarsi quando parte questo cue, e a tornare su quando finisce.",
+    "volumeHelp": "Il livello di questo cue. Trascina il fader o digita un livello in dB, ad esempio -6.5 (-inf per il silenzio).",
+    "playFadeHelp": "Fa entrare il cue in dissolvenza in questi secondi ogni volta che parte. 0 parte a livello pieno.",
+    "stopFadeHelp": "Fa uscire il cue in dissolvenza in questi secondi prima del punto di uscita. 0 suona fino alla fine a livello pieno.",
+    "crossFadeHelp": "Nei secondi prima del punto di uscita, questo cue sfuma mentre il successivo entra sopra. 0 passa senza sovrapposizione.",
+    "startNextHelp": "Quando la riproduzione raggiunge il marcatore, parte il cue successivo mentre questo continua: un passaggio in stile radio.",
+    "duckModeHelp": "Cosa fa l’avvio di questo cue agli altri in riproduzione: li ferma, li lascia stare o li abbassa al livello di ducking finché non finisce.",
+    "apiTriggerUrlHelp": "Invia una richiesta GET o POST a questo indirizzo per avviare il cue da un altro sistema, uno script o un browser.",
+    "groupTrim": "Rifilatura",
+    "groupFades": "Dissolvenze",
+    "groupStopLoop": "Arresto e loop",
+    "groupTransition": "Transizione"
   },
   "playback": {
     "panic": "Ferma tutti i cue",
@@ -527,7 +551,8 @@
     "noDevices": "Nessun dispositivo di uscita trovato",
     "silentServer": "Esegui il server in modo silenzioso nell'area di notifica",
     "silentServerHelp": "Avvia il server senza finestra della console. Un'icona nell'area di notifica (la barra dei menu su macOS) indica che è in esecuzione, anche dopo la chiusura di LivePlay, e il suo menu permette di mostrare la console, aprire i log o arrestare il server. Ha effetto al prossimo avvio del server.",
-    "silentServerForced": "Attivo per questa sessione perché LivePlay è stato avviato con --silent."
+    "silentServerForced": "Attivo per questa sessione perché LivePlay è stato avviato con --silent.",
+    "localPortHelp": "La porta su cui è in ascolto il motore audio di questo computer. Cambiala solo se un altro programma la sta già usando."
   },
   "serverConfig": {
     "title": "Configurazione del server",
@@ -805,7 +830,8 @@
     "volumeMultiplierHint": "dB per passo MIDI. Aumentalo per encoder o rotelle che si muovono a piccoli passi.",
     "nextIn": "Successivo tra {seconds}s",
     "stopCurrentCue": "Ferma il cue corrente",
-    "conflictPinned": "Già fissato a {cart}"
+    "conflictPinned": "Già fissato a {cart}",
+    "midiDeviceHelp": "Il controller che LivePlay ascolta. «Tutti i dispositivi» ascolta ogni controller collegato."
   },
   "selectProject": {
     "title": "Seleziona progetto",
@@ -1307,7 +1333,9 @@
       "signInMissing": "Per «{name}» bisogna inserire le credenziali su questa macchina.",
       "signInWaiting": "«{name}» richiede l’accesso. Si aprirà qui quando salvi o annulli le modifiche a questa connessione.",
       "signInLater": "Non ora",
-      "signInDiscard": "Scarta le modifiche e accedi"
+      "signInDiscard": "Scarta le modifiche e accedi",
+      "nameHelp": "Il nome con cui appare questa connessione quando ne scegli una per un evento.",
+      "enabledHelp": "Se disattivata, a questa connessione non viene inviato nulla e i suoi eventi non si attivano."
     },
     "zoom": "Zoom",
     "zoomIn": "Zoom avanti",
@@ -1327,7 +1355,10 @@
       "remove": "Rimuovi header",
       "add": "Aggiungi header",
       "rawLine": "Riga di header"
-    }
+    },
+    "groupWhen": "Quando",
+    "groupCommand": "Comando",
+    "triggerHelp": "Quando scatta l’evento: a un istante del file, oppure quando il cue parte, va in pausa, riprende o finisce."
   },
   "eventPlugins": {
     "osc": {

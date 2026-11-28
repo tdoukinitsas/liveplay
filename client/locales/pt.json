@@ -179,13 +179,26 @@
     "sectionConnections": "Ligações",
     "stopAllUsesItemFade": "Cues parados usam o seu próprio fade do botão Stop",
     "stopAllUsesItemFadeHelp": "Ativado, o Stop All e o modo de ducking «Parar todos os outros» fazem cada cue sair com o seu próprio fade do botão Stop. Cues sem um usam o fade do Stop All. Premir Stop All duas vezes continua a parar tudo de imediato.",
-    "thisComputer": "Este computador"
+    "thisComputer": "Este computador",
+    "scopeYou": "Pessoal",
+    "scopeShow": "Este espetáculo",
+    "scopeServer": "Servidor",
+    "groupLanguageLayout": "Idioma e disposição",
+    "groupDisplay": "Visualização",
+    "groupGoUpNext": "GO e «A seguir»",
+    "groupNewCues": "Novas deixas",
+    "groupLoudness": "Loudness e medição",
+    "groupRouting": "Encaminhamento e timecode",
+    "groupConnection": "Ligação",
+    "sectionPlaybackIntro": "Como as deixas começam, param e passam de uma para a outra, e com que definições começam as novas deixas.",
+    "disableAutoVolumeAndTrimHelp": "As novas deixas mantêm o nível e a duração do ficheiro. Pode sempre nivelar ou aparar qualquer deixa no separador Reprodução."
   },
   "common": {
     "default": "predefinição",
     "loading": "A carregar…",
     "error": "Erro",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "moreInfo": "Mais informações"
   },
   "project": {
     "enterName": "Nome do projeto",
@@ -389,7 +402,18 @@
     "loopCrossfadeNeedsLoop": "Defina o comportamento no fim desta deixa como «Loop» para usar um crossfade do loop.",
     "advanceDelay": "Esperar antes da seguinte (segundos)",
     "advanceDelayHint": "Depois de esta deixa terminar, esperar este tempo antes de o comportamento no fim iniciar a deixa seguinte. Ignorado quando há um crossfade ou «Iniciar seguinte» definido.",
-    "duckTimesHint": "Quanto tempo os outros cues levam a baixar quando este cue começa, e a voltar quando termina."
+    "duckTimesHint": "Quanto tempo os outros cues levam a baixar quando este cue começa, e a voltar quando termina.",
+    "volumeHelp": "O nível desta deixa. Arraste o fader ou escreva um nível em dB, como -6.5 (-inf para silêncio).",
+    "playFadeHelp": "Faz o fade de entrada da deixa durante estes segundos sempre que ela começa. 0 começa no nível total.",
+    "stopFadeHelp": "Faz o fade de saída da deixa durante estes segundos antes do ponto de saída. 0 toca até ao fim no nível total.",
+    "crossFadeHelp": "Nestes segundos antes do ponto de saída, esta deixa sai em fade enquanto a seguinte entra por cima. 0 passa sem sobreposição.",
+    "startNextHelp": "Quando a reprodução chega ao marcador, a deixa seguinte começa enquanto esta continua a tocar: uma transição ao estilo do rádio.",
+    "duckModeHelp": "O que o início desta deixa faz às outras que estão a tocar: pará-las, deixá-las como estão ou baixá-las ao nível de ducking até ela terminar.",
+    "apiTriggerUrlHelp": "Envie um pedido GET ou POST para este endereço para tocar a deixa a partir de outro sistema, de um script ou de um navegador.",
+    "groupTrim": "Corte",
+    "groupFades": "Fades",
+    "groupStopLoop": "Parar e loop",
+    "groupTransition": "Transição"
   },
   "playback": {
     "panic": "Parar todas as deixas",
@@ -527,7 +551,8 @@
     "noDevices": "Nenhum dispositivo de saída encontrado",
     "silentServer": "Executar o servidor discretamente na bandeja do sistema",
     "silentServerHelp": "Inicia o servidor sem janela de console. Um ícone na bandeja do sistema (a barra de menus no macOS) mostra que ele está em execução, mesmo depois de fechar o LivePlay, e seu menu pode mostrar o console, abrir os logs ou parar o servidor. Vale a partir da próxima vez que o servidor iniciar.",
-    "silentServerForced": "Ativado nesta sessão porque o LivePlay foi iniciado com --silent."
+    "silentServerForced": "Ativado nesta sessão porque o LivePlay foi iniciado com --silent.",
+    "localPortHelp": "A porta em que o motor de áudio deste computador escuta. Altere-a apenas se outro programa já a estiver a usar."
   },
   "serverConfig": {
     "title": "Configuração do servidor",
@@ -805,7 +830,8 @@
     "volumeMultiplier": "Multiplicador de volume",
     "volumeMultiplierHint": "dB por passo MIDI. Aumente-o para encoders ou rodas que avançam em passos pequenos.",
     "nextIn": "Seguinte em {seconds}s",
-    "conflictPinned": "Já fixado a {cart}"
+    "conflictPinned": "Já fixado a {cart}",
+    "midiDeviceHelp": "O controlador que o LivePlay escuta. «Todos os dispositivos» escuta todos os controladores ligados."
   },
   "selectProject": {
     "title": "Selecionar projeto",
@@ -1307,7 +1333,9 @@
       "signInMissing": "É preciso introduzir as credenciais de «{name}» nesta máquina.",
       "signInWaiting": "«{name}» precisa de iniciar sessão. Abre aqui assim que guardar ou cancelar as alterações a esta ligação.",
       "signInLater": "Agora não",
-      "signInDiscard": "Descartar alterações e iniciar sessão"
+      "signInDiscard": "Descartar alterações e iniciar sessão",
+      "nameHelp": "O nome com que esta ligação aparece quando escolhe uma para um evento.",
+      "enabledHelp": "Desativada, nada é enviado para esta ligação e os seus eventos não são disparados."
     },
     "zoom": "Zoom",
     "zoomIn": "Aumentar zoom",
@@ -1327,7 +1355,10 @@
       "remove": "Remover cabeçalho",
       "add": "Adicionar cabeçalho",
       "rawLine": "Linha de cabeçalho"
-    }
+    },
+    "groupWhen": "Quando",
+    "groupCommand": "Comando",
+    "triggerHelp": "Quando o evento dispara: num instante do ficheiro, ou quando a deixa começa, pausa, retoma ou termina."
   },
   "eventPlugins": {
     "osc": {

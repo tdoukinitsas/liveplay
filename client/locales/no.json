@@ -179,13 +179,26 @@
     "sectionConnections": "Tilkoblinger",
     "stopAllUsesItemFade": "Stoppede cuer bruker sin egen stoppknapptoning",
     "stopAllUsesItemFadeHelp": "Når dette er på, toner Stop All og duckingmodusen «Stopp alle andre» ut hver cue med dens egen stoppknapptoning. Cuer uten en bruker Stop All-toningen. To trykk på Stop All stopper fortsatt alt med en gang.",
-    "thisComputer": "Denne datamaskinen"
+    "thisComputer": "Denne datamaskinen",
+    "scopeYou": "Personlig",
+    "scopeShow": "Dette showet",
+    "scopeServer": "Server",
+    "groupLanguageLayout": "Språk og oppsett",
+    "groupDisplay": "Visning",
+    "groupGoUpNext": "GO og Står for tur",
+    "groupNewCues": "Nye cuer",
+    "groupLoudness": "Loudness og måling",
+    "groupRouting": "Ruting og tidskode",
+    "groupConnection": "Tilkobling",
+    "sectionPlaybackIntro": "Hvordan cuer starter, stopper og går over i hverandre, og hva nye cuer starter med.",
+    "disableAutoVolumeAndTrimHelp": "Nye cuer beholder filens eget nivå og lengde. Du kan fortsatt justere nivået eller trimme et cue under fanen Avspilling."
   },
   "common": {
     "default": "standard",
     "loading": "Laster inn…",
     "error": "Feil",
-    "cancel": "Avbryt"
+    "cancel": "Avbryt",
+    "moreInfo": "Mer informasjon"
   },
   "project": {
     "enterName": "Skriv inn prosjektnavn",
@@ -389,7 +402,18 @@
     "loopCrossfadeNeedsLoop": "Sett sluttatferden for denne cuen til Loop for å bruke loop-crossfade.",
     "advanceDelay": "Vent før neste (sekunder)",
     "advanceDelayHint": "Når denne cuen er ferdig, ventes det så lenge før sluttatferden starter neste cue. Ignoreres når en crossfade eller Start neste er stilt inn.",
-    "duckTimesHint": "Hvor lang tid de andre cuene bruker på å senkes når denne cuen starter, og på å komme tilbake når den slutter."
+    "duckTimesHint": "Hvor lang tid de andre cuene bruker på å senkes når denne cuen starter, og på å komme tilbake når den slutter.",
+    "volumeHelp": "Nivået på denne cuen. Dra faderen, eller skriv et nivå i dB, for eksempel -6.5 (-inf for stillhet).",
+    "playFadeHelp": "Toner cuen inn over så mange sekunder hver gang den starter. 0 starter med fullt nivå.",
+    "stopFadeHelp": "Toner cuen ut over så mange sekunder før utpunktet. 0 spiller til slutten med fullt nivå.",
+    "crossFadeHelp": "De siste så mange sekundene før utpunktet tones denne cuen ut mens den neste tones inn over den. 0 går over uten overlapp.",
+    "startNextHelp": "Når avspillingen når markøren, starter neste cue mens denne fortsetter å spille: en overgang som på radio.",
+    "duckModeHelp": "Hva start av denne cuen gjør med andre cuer som spiller: stopper dem, lar dem være, eller senker dem til ducking-nivået til den er ferdig.",
+    "apiTriggerUrlHelp": "Send en GET- eller POST-forespørsel til denne adressen for å spille cuen fra et annet system, et skript eller en nettleser.",
+    "groupTrim": "Trim",
+    "groupFades": "Toninger",
+    "groupStopLoop": "Stopp og loop",
+    "groupTransition": "Overgang"
   },
   "playback": {
     "panic": "Stopp alle cuer",
@@ -527,7 +551,8 @@
     "noDevices": "Fant ingen utgangsenheter",
     "silentServer": "Kjør serveren stille i systemstatusfeltet",
     "silentServerHelp": "Starter serveren uten konsollvindu. Et ikon i systemstatusfeltet (menylinjen på macOS) viser at den kjører, også etter at LivePlay er lukket, og menyen kan vise konsollen, åpne loggene eller stoppe serveren. Gjelder neste gang serveren starter.",
-    "silentServerForced": "På for denne økten fordi LivePlay ble startet med --silent."
+    "silentServerForced": "På for denne økten fordi LivePlay ble startet med --silent.",
+    "localPortHelp": "Porten lydmotoren på denne datamaskinen lytter på. Endre den bare hvis et annet program allerede bruker den."
   },
   "serverConfig": {
     "title": "Serverkonfigurasjon",
@@ -805,7 +830,8 @@
     "volumeMultiplierHint": "dB per MIDI-trinn. Øk den for enkodere eller hjul som beveger seg i små trinn.",
     "nextIn": "Neste om {seconds} s",
     "stopCurrentCue": "Stopp gjeldende cue",
-    "conflictPinned": "Allerede festet til {cart}"
+    "conflictPinned": "Allerede festet til {cart}",
+    "midiDeviceHelp": "Hvilken kontroller LivePlay lytter til. Alle enheter lytter til alle tilkoblede kontrollere."
   },
   "selectProject": {
     "title": "Velg prosjekt",
@@ -1307,7 +1333,9 @@
       "signInMissing": "Påloggingsdetaljene for «{name}» må skrives inn på denne maskinen.",
       "signInWaiting": "«{name}» må logges inn. Påloggingen åpnes her når du lagrer eller avbryter endringene dine i denne tilkoblingen.",
       "signInLater": "Ikke nå",
-      "signInDiscard": "Forkast endringer og logg inn"
+      "signInDiscard": "Forkast endringer og logg inn",
+      "nameHelp": "Navnet tilkoblingen vises med når du velger en for en hendelse.",
+      "enabledHelp": "Når den er av, sendes ingenting til denne tilkoblingen, og hendelsene utløses ikke."
     },
     "zoom": "Zoom",
     "zoomIn": "Zoom inn",
@@ -1327,7 +1355,10 @@
       "remove": "Fjern hode",
       "add": "Legg til hode",
       "rawLine": "Hodelinje"
-    }
+    },
+    "groupWhen": "Når",
+    "groupCommand": "Kommando",
+    "triggerHelp": "Når hendelsen utløses: på et tidspunkt i filen, eller når cuen starter, pauser, fortsetter eller slutter."
   },
   "eventPlugins": {
     "osc": {

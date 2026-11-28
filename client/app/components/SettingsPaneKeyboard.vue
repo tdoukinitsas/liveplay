@@ -4,7 +4,10 @@
     <p class="settings-pane-intro">{{ t('settings.sectionKeyboardHelp') }}</p>
 
     <div class="binding-group">
-      <div class="category-header">{{ t('controls.sectionPlayback') }}</div>
+      <h4 class="settings-group-title">
+        {{ t('controls.sectionPlayback') }}
+        <SettingsScope scope="you" />
+      </h4>
       <div
         v-for="action in PLAYBACK_ACTIONS"
         :key="action.id"
@@ -31,7 +34,10 @@
     </div>
 
     <div class="binding-group">
-      <div class="category-header">{{ t('controls.sectionCartSlots') }}</div>
+      <h4 class="settings-group-title">
+        {{ t('controls.sectionCartSlots') }}
+        <SettingsScope scope="show" />
+      </h4>
       <div
         v-for="slot in slotRowCount"
         :key="slot"
@@ -55,7 +61,10 @@
     </div>
 
     <div v-if="pinnableCarts.length" class="binding-group">
-      <div class="category-header">{{ t('controls.sectionPinnedCarts') }}</div>
+      <h4 class="settings-group-title">
+        {{ t('controls.sectionPinnedCarts') }}
+        <SettingsScope scope="show" />
+      </h4>
       <p class="settings-help">{{ t('controls.pinnedCartsHelp') }}</p>
       <div
         v-for="cart in pinnableCarts"
@@ -88,6 +97,7 @@
 <script setup lang="ts">
 import { formatKeyLabel, eventToBinding, isReservedCombo } from '~/composables/useCartHotkeys';
 import type { PlaybackKeyAction, CartSlotKeyBinding } from '~/types/project';
+import SettingsScope from './SettingsScope.vue';
 
 const { t } = useLocalization();
 
@@ -345,13 +355,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown, true));
   flex-direction: column;
   gap: 2px;
 }
-.category-header {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-  margin: 8px 0 6px;
+/* Group headings take the shared look from SettingsPage.vue; only the spacing
+   is this list's, whose rows sit 2px apart rather than the pane's 18px. */
+.binding-group > h4.settings-group-title {
+  margin: 10px 0 6px;
 }
 .action-row {
   display: flex;

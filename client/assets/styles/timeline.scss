@@ -1,0 +1,313 @@
+// =====================================================================
+// timeline.scss — the frame every timeline editor in the Properties panel
+// shares: the Playback tab, the Events tab, and any later one.
+// ---------------------------------------------------------------------
+// The two tabs grew up apart: Playback put its fields beside the waveform,
+// Events stacked toolbar, waveform, zoom row, list and editor on top of one
+// another (and so needed far more height); zoom sat above the waveform on one
+// and below it on the other, the ruler at the top on one and the bottom on the
+// other, and the labels were styled differently. One frame now:
+//
+//   .tl-frame       [leading column] [.tl-main] [.tl-inspector]
+//   .tl-main        .tl-toolbar, .tl-timeline, <TimelineNav>, then anything
+//                   the tab adds under it (the Events list)
+//   .tl-toolbar     the tab's own tools, .tl-toolbar-spacer, then
+//                   <TimelineCursorTools> (cursor time, Preview from cursor)
+//   .tl-timeline    the canvas box; RULER_HEIGHT (utils/waveformRender) of
+//                   ruler along its top, the tab's content under it
+//   .tl-inspector   the fields for what is selected, in .insp-group sections
+//                   with an .insp-heading each; descriptions behind <FieldHelp>
+//
+// Global rather than scoped because it is one design shared across
+// components, which scoped CSS cannot express.
+// =====================================================================
+
+.tl-frame {
+  display: flex;
+  gap: var(--spacing-md);
+  flex: 1;
+  min-height: 0;
+  // Narrower than this, .properties-content scrolls sideways rather than the
+  // inspector squeezing the timeline to nothing.
+  min-width: 760px;
+  outline: none;
+}
+
+.tl-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.tl-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  flex: 0 0 auto;
+  min-height: 35px;
+}
+
+.tl-toolbar-spacer {
+  flex: 1 1 0;
+  min-width: var(--spacing-sm);
+}
+
+.tl-toolbar-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 2px;
+  background: var(--color-border);
+}
+
+.tl-toolbar-note {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+// A square toolbar button the height of a Btn, for tools whose icon says it
+// and whose tooltip explains it.
+.tl-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 35px;
+  height: 35px;
+  flex: 0 0 auto;
+  padding: 0;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-primary);
+
+  .material-symbols-rounded { font-size: 18px; }
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-surface-hover);
+    border-color: var(--color-accent);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.tl-timeline {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 80px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--color-background);
+  cursor: crosshair;
+  outline: none;
+  user-select: none;
+  touch-action: none;
+
+  &:focus-visible { border-color: var(--color-accent); }
+}
+
+// What is selected on the timeline, in its top-right corner under the ruler.
+.tl-readout {
+  position: absolute;
+  top: 22px;
+  right: 6px;
+  z-index: 12;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+// ---- The inspector -------------------------------------------------------
+.tl-inspector {
+  flex: 0 0 clamp(300px, 34%, 600px);
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: 0 var(--spacing-xs) 0 var(--spacing-md);
+  border-left: 1px solid var(--color-border);
+}
+
+// Sections side by side while they fit, then wrapping (the Playback tab's).
+.insp-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: var(--spacing-md);
+  align-items: start;
+}
+
+// Compact on purpose: the Playback tab's two times per section have to fit
+// beside the waveform at the panel's 300px default (~153px of content).
+.insp-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.insp-heading {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.insp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.insp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.insp-field--grow {
+  flex: 1 1 160px;
+}
+
+.insp-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.insp-check {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 28px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+
+  input[type='checkbox'] {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    padding: 0;
+    accent-color: var(--color-accent);
+    cursor: pointer;
+  }
+}
+
+.insp-input {
+  width: 100%;
+  min-height: 28px;
+  padding: 4px 8px;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-primary);
+  font-size: 13px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent);
+  }
+
+  &.invalid { border-color: #e53e3e; }
+
+  &[readonly] {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+// Times everywhere in the frame: m:ss.mmm in the mono face.
+.insp-time {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+// [−][time][+]
+.insp-stepper {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+
+  .insp-input {
+    flex: 1;
+    min-width: 0;
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+}
+
+.insp-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  flex: 0 0 auto;
+  padding: 0;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+
+  .material-symbols-rounded { font-size: 16px; }
+
+  &:hover:not(:disabled) {
+    color: var(--color-text-primary);
+    border-color: var(--color-accent);
+  }
+}
+
+.insp-disabled {
+  opacity: 0.45;
+}
+
+// A switch that belongs to the field above it.
+.insp-check--sub {
+  min-height: 20px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+// A read-only value in a line rather than a field.
+.insp-readout {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.insp-readout-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
